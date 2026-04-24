@@ -251,7 +251,7 @@ export async function requireAuth(requiredRole = null) {
     if (user.banned) return { banned: true };
 
     const role = user.profile?.role || 'customer';
-    const isAdmin = role === 'admin' || role === 'support';
+    const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
 
     // impersonation
     const params = new URLSearchParams(window.location.search);
@@ -298,7 +298,8 @@ export async function adminImpersonateUser(userId) {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (profile?.role !== 'admin') return false;
+    const isAdmin = profile?.role === 'admin' || profile?.role === 'support' || profile?.role === 'super_user';
+    if (!isAdmin) return false;
 
     window.location.replace(
         `/customer-dashboard.html?impersonate=${userId}`
@@ -426,7 +427,7 @@ export async function autoRedirect() {
                 .maybeSingle();
             
             const role = profile?.role || 'customer';
-            const isAdmin = role === 'admin' || role === 'support';
+            const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
             const target = isAdmin ? 'admin-dashboard.html' : 'customer-dashboard.html';
             window.location.replace(target);
         }

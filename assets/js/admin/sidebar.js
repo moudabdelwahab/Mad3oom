@@ -118,6 +118,8 @@ function setupSidebarLogic() {
     loadNotifications();
     setupNotificationRealtime();
     checkAdminForErrorTracker();
+    checkMainAdminForSuperUser();
+    checkSuperUserForMyUsers();
 
     const toggleSidebar = () => {
         sidebar.classList.toggle('active');
@@ -273,6 +275,25 @@ async function checkAdminForErrorTracker() {
         if (profile && profile.role === 'admin') {
             const errorLink = document.getElementById('errorTrackerLink');
             if (errorLink) errorLink.style.display = 'flex';
+        }
+    }
+}
+
+async function checkMainAdminForSuperUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.email === 'support@mad3oom.online') {
+        const superUserLink = document.getElementById('superUserLink');
+        if (superUserLink) superUserLink.style.display = 'flex';
+    }
+}
+
+async function checkSuperUserForMyUsers() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile && (profile.role === 'super_user' || profile.role === 'admin')) {
+            const myUsersLink = document.getElementById('myUsersLink');
+            if (myUsersLink) myUsersLink.style.display = 'flex';
         }
     }
 }

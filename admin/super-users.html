@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الـ Super Users - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .hierarchy-row { background-color: var(--color-muted); }
+        .sub-user-row { padding-right: 2rem !important; font-size: 0.9rem; border-right: 3px solid var(--color-accent); }
+        .badge-super { background: #6f42c1; color: white; }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>نظام الـ Super User Hierarchy</h1>
+            <p>إدارة كبار المستخدمين والمستخدمين التابعين لهم</p>
+        </header>
+
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">التسلسل الهرمي للمستخدمين</h2>
+                <div class="header-actions">
+                    <button id="addSuperUserBtn" class="btn btn-primary">إضافة Super User جديد</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>المستخدم / التابعين</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>الرتبة</th>
+                            <th>تاريخ الانضمام</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hierarchyBody">
+                        <tr><td colspan="5" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal لإضافة Super User -->
+    <div id="superUserModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--color-surface); padding:2rem; border-radius:12px; width:400px; max-width:90%;">
+            <h3>تعيين Super User</h3>
+            <p>أدخل البريد الإلكتروني للمستخدم لترقيته إلى Super User</p>
+            <input type="email" id="superUserEmail" placeholder="البريد الإلكتروني" class="form-control" style="width:100%; margin:1rem 0; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="cancelBtn" class="btn btn-secondary">إلغاء</button>
+                <button id="confirmSuperUserBtn" class="btn btn-primary">تأكيد الترقية</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/assets/js/admin/super-users.js"></script>
+</body>
+</html>

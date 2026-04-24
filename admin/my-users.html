@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة مستخدميني - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>إدارة مستخدميني</h1>
+            <p>إدارة الحسابات التي قمت بإنشائها أو المرتبطة بك</p>
+        </header>
+
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">قائمة المستخدمين التابعين</h2>
+                <div class="header-actions">
+                    <button id="addSubUserBtn" class="btn btn-primary">إضافة مستخدم جديد</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم الكامل</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>تاريخ الانضمام</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subUsersBody">
+                        <tr><td colspan="4" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal لإضافة مستخدم تابع -->
+    <div id="subUserModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--color-surface); padding:2rem; border-radius:12px; width:450px; max-width:90%;">
+            <h3>إضافة مستخدم تابع جديد</h3>
+            <div style="margin:1rem 0;">
+                <label>الاسم الكامل</label>
+                <input type="text" id="subFullName" class="form-control" style="width:100%; margin-bottom:1rem; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+                
+                <label>البريد الإلكتروني</label>
+                <input type="email" id="subEmail" class="form-control" style="width:100%; margin-bottom:1rem; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+                
+                <label>كلمة المرور</label>
+                <input type="password" id="subPassword" class="form-control" style="width:100%; margin-bottom:1rem; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="cancelSubBtn" class="btn btn-secondary">إلغاء</button>
+                <button id="confirmAddSubBtn" class="btn btn-primary">إنشاء الحساب</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/assets/js/admin/my-users.js"></script>
+</body>
+</html>
