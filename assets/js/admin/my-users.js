@@ -66,32 +66,55 @@ function setupEventListeners() {
 
         if (!fullName || !email || !password) return alert('يرجى ملء جميع الحقول');
 
-        // إنشاء الحساب عبر Supabase Auth
-        // ملاحظة: في بيئة الإنتاج، يفضل استخدام Edge Function لإنشاء المستخدمين لتجنب تسجيل خروج الأدمن الحالي
-        // لكن هنا سنستخدم signUp مع metadata
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    full_name: fullName,
-                    super_user_id: currentUser.id,
-                    role: 'customer'
-                }
+        // عرض رسالة التحميل
+        const originalText = confirmBtn.textContent;
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'جاري الإنشاء...';
+
+        try {
+            // استدعاء Edge Function لإنشاء المستخدم بدون تسجيل خروج الأدمن
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert('جلسة منتهية، يرجى تسجيل الدخول مجدداً');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = originalText;
+                return;
             }
-        });
 
-        if (error) alert('خطأ في إنشاء الحساب: ' + error.message);
-        else {
-            // تحديث البروفايل لربطه بالـ Super User يدوياً لضمان الدقة
-            await supabase.from('profiles').update({ 
-                full_name: fullName,
-                super_user_id: currentUser.id 
-            }).eq('id', data.user.id);
+            const response = await fetch(
+                `${supabase.supabaseUrl}/functions/v1/create-sub-user`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        full_name: fullName
+                    })
+                }
+            );
 
-            alert('تم إنشاء حساب المستخدم بنجاح');
-            modal.style.display = 'none';
-            renderSubUsers();
+            const result = await response.json();
+
+            if (!response.ok) {
+                alert('خطأ في إنشاء الحساب: ' + (result.error || 'خطأ غير معروف'));
+            } else {
+                alert('تم إنشاء حساب المستخدم بنجاح');
+                document.getElementById('subFullName').value = '';
+                document.getElementById('subEmail').value = '';
+                document.getElementById('subPassword').value = '';
+                modal.style.display = 'none';
+                renderSubUsers();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('خطأ: ' + error.message);
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText;
         }
     });
 }
