@@ -155,11 +155,7 @@
 
     <script type="module">
 import { supabase } from './api-config.js';
-import { signIn, signInAsGuest, getCurrentUser, autoRedirect, onAuthStateChange } from './auth-client.js';
-import { signInWithUserType } from './auth-user-types.js';
-
-// التوجيه التلقائي إذا كان مسجل دخول بالفعل
-autoRedirect();
+import { signIn, signInAsGuest, onAuthStateChange } from './auth-client.js';
 
 const form = document.getElementById('signInForm');
 const submitBtn = document.getElementById('loginBtn');
@@ -174,6 +170,52 @@ const resendBtn = document.getElementById('resendEmailBtn');
 const guestLoginBtn = document.getElementById('guestLoginBtn');
 
 let isLoggingIn = false;
+let isRedirecting = false;
+
+function redirectOnce(targetPage) {
+    if (isRedirecting) return;
+    isRedirecting = true;
+    window.location.replace(targetPage);
+}
+
+async function redirectByProfileRole(session) {
+    if (!session?.user?.id) {
+        throw new Error('Profile role lookup failed');
+    }
+
+    console.log('Auth User ID:', session.user.id);
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+    console.log('Profile Role:', profile?.role);
+
+    if (error || !profile) {
+        throw new Error('Profile role lookup failed');
+    }
+
+    const role = profile.role;
+    const targetPage = (role === 'admin' || role === 'support' || role === 'super_user')
+        ? 'admin-dashboard.html'
+        : 'customer-dashboard.html';
+
+    redirectOnce(targetPage);
+}
+
+// توجيه المستخدم المسجل مسبقاً مرة واحدة فقط
+(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+        await redirectByProfileRole(session);
+    }
+})();
+
+// حماية إضافية ضد تعارض signIn مع مستمع المصادقة
+onAuthStateChange(async (event, session) => {
+    if (event !== 'SIGNED_IN' || !session?.user || isLoggingIn || isRedirecting) return;
+    await redirectByProfileRole(session);
+});
 
 // إظهار / إخفاء كلمة المرور
 togglePassword.addEventListener('click', () => {
@@ -219,16 +261,8 @@ form.addEventListener('submit', async (e) => {
         console.log('[AuthDebug] Sign in successful, redirecting based on role...');
         successMessage.style.display = 'block';
 
-        // استخدام البروفايل العائد مباشرة من دالة signIn لضمان المزامنة
-        const userRole = result.profile?.role || 'customer';
-        const targetPage = (userRole === 'admin' || userRole === 'support' || userRole === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
-        
-        console.log('[AuthDebug] Role detected:', userRole, 'Target:', targetPage);
-        
-        // تأخير صغير لضمان أن الجلسة محفوظة بشكل صحيح
-        setTimeout(() => {
-            window.location.replace(targetPage);
-        }, 500);
+        const { data: { session } } = await supabase.auth.getSession();
+        await redirectByProfileRole(session);
 
     } catch (err) {
         isLoggingIn = false;
@@ -284,8 +318,8 @@ guestLoginBtn.addEventListener('click', async () => {
     }
 });
 
-// ملاحظة: تم إزالة مستمع onAuthStateChange لتجنب حلقة إعادة التوجيه
-// الآن يتم التوجيه من كود signIn فقط بعد التحقق من البروفايل من قاعدة البيانات
+// ملاحظة: التوجيه الآن موحّد عبر redirectByProfileRole + redirectOnce
+// لمنع أي Redirect Loop أو تنفيذ مزدوج للتوجيه
 </script>
 
 </body>
