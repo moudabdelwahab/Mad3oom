@@ -158,17 +158,6 @@ import { supabase } from './api-config.js';
 import { signIn, signInAsGuest, getCurrentUser, autoRedirect, onAuthStateChange } from './auth-client.js';
 import { signInWithUserType } from './auth-user-types.js';
 
-// مراقبة حالة المصادقة لحظياً للتوجيه الفوري
-onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-        console.log('[RealtimeAuth] User signed in, redirecting...');
-        // توجيه سريع بناءً على البيانات المتوفرة في الجلسة
-        const userRole = session.user.user_metadata?.role || 'customer';
-        const target = (userRole === 'admin' || userRole === 'support') ? 'admin-dashboard.html' : 'customer-dashboard.html';
-        window.location.replace(target);
-    }
-});
-
 // التوجيه التلقائي إذا كان مسجل دخول بالفعل
 autoRedirect();
 
@@ -232,10 +221,14 @@ form.addEventListener('submit', async (e) => {
 
         // استخدام البروفايل العائد مباشرة من دالة signIn لضمان المزامنة
         const userRole = result.profile?.role || 'customer';
-        const targetPage = (userRole === 'admin' || userRole === 'support') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+        const targetPage = (userRole === 'admin' || userRole === 'support' || userRole === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
         
         console.log('[AuthDebug] Role detected:', userRole, 'Target:', targetPage);
-        window.location.replace(targetPage);
+        
+        // تأخير صغير لضمان أن الجلسة محفوظة بشكل صحيح
+        setTimeout(() => {
+            window.location.replace(targetPage);
+        }, 500);
 
     } catch (err) {
         isLoggingIn = false;
@@ -291,7 +284,8 @@ guestLoginBtn.addEventListener('click', async () => {
     }
 });
 
-// التوجيه التلقائي يتم الآن عبر الـ script في الـ head
+// ملاحظة: تم إزالة مستمع onAuthStateChange لتجنب حلقة إعادة التوجيه
+// الآن يتم التوجيه من كود signIn فقط بعد التحقق من البروفايل من قاعدة البيانات
 </script>
 
 </body>

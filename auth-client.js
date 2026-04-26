@@ -86,14 +86,14 @@ export async function signIn(identifier, password) {
         return { data: null, error: { message: 'تم حظر هذا الحساب. يرجى التواصل مع الإدارة.' } };
     }
 
+    // تسجيل النشاط في الخلفية
+    logActivity('login', { email }).catch(() => {});
+
     // التحقق من 2FA أو Telegram (إذا لم تكن مفعلة، نوجه فوراً)
     if (!profile?.two_factor_enabled && !(profile?.telegram_otp_enabled && profile?.telegram_chat_id)) {
-        // تسجيل النشاط في الخلفية لعدم تعطيل المستخدم
-        logActivity('login', { email }).catch(() => {});
-        
         return {
             ...result,
-            profile: profile || { id: user.id, role: 'customer' }
+            profile: profile || { id: user.id, role: 'customer', email: user.email }
         };
     }
 
@@ -111,7 +111,7 @@ export async function signIn(identifier, password) {
             if (trustedDevice) {
                 supabase.from('trusted_devices').update({ last_used_at: new Date().toISOString() }).eq('id', trustedDevice.id).then();
                 logActivity('login', { email, method: 'trusted_device' }).catch(() => {});
-                return { ...result, profile: profile || { id: user.id, role: 'customer' } };
+                return { ...result, profile: profile || { id: user.id, role: 'customer', email: user.email } };
             }
         }
         return { data: result.data, requires2FA: true, profile };
@@ -122,10 +122,10 @@ export async function signIn(identifier, password) {
         supabase.functions.invoke('telegram-webhook', {
             body: { internal_trigger: true, user_id: user.id, action: 'send_otp' }
         }).catch(() => {});
-        return { data: result.data, requiresTelegramOTP: true, profile };
+        return { data: result.data, requiresTelegramOTP: true, profile: profile || { id: user.id, role: 'customer', email: user.email } };
     }
 
-    return { ...result, profile };
+    return { ...result, profile: profile || { id: user.id, role: 'customer', email: user.email } };
 }
 
 /**
