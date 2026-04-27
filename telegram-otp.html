@@ -165,7 +165,7 @@
                     .single();
 
                 const role = profile?.role || 'customer';
-                const target = (role === 'admin' || role === 'support') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+                const target = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
                 
                 window.location.replace(target);
 

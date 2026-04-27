@@ -66,7 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         currentUser = user;
-        isAdmin = user.email.includes('admin') || user.user_metadata?.role === 'admin';
+        
+        // التحقق من الدور من البروفايل لضمان الدقة
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        const role = profile?.role || user.user_metadata?.role || 'customer';
+        isAdmin = role === 'admin' || role === 'support' || role === 'super_user' || user.email.includes('admin');
 
         // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
         if (!isAdmin) {
