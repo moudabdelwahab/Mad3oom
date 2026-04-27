@@ -1,6 +1,4 @@
-# auth-service.js — نسخة مصححة بالكامل
 
-```js
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
 
