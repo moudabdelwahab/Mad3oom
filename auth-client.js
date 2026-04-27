@@ -350,4 +350,3 @@ export async function autoRedirect() {
         window.location.replace(target);
     }
 }
-```
