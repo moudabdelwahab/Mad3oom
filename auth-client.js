@@ -5,7 +5,28 @@ import { logActivity } from './activity-service.js';
 /* =========================================================
    Helpers
 ========================================================= */
+export async function signInAsGuest() {
+    const guestId = 'guest_' + Math.random().toString(36).substring(2, 11);
 
+    const guestUser = {
+        id: guestId,
+        email: `${guestId}@mad3oom.guest`,
+        isGuest: true,
+        profile: {
+            id: guestId,
+            role: 'customer',
+            full_name: 'زائر',
+            is_guest: true
+        }
+    };
+
+    localStorage.setItem(
+        'mad3oom-guest-session',
+        JSON.stringify(guestUser)
+    );
+
+    return guestUser;
+}
 export function isUserBanned(profile) {
     if (!profile) return false;
 
