@@ -33,7 +33,8 @@ export function updateAdminUI(user) {
             adminInitial.textContent = nameForInitial.charAt(0).toUpperCase();
         }
 
-        if (profile.role === 'admin' && adminBadgeContainer) {
+        const isAdmin = profile.role === 'admin' || profile.role === 'support' || profile.role === 'super_user';
+        if (isAdmin && adminBadgeContainer) {
             adminBadgeContainer.style.display = 'block';
         }
 
