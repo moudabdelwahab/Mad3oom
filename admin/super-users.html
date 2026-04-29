@@ -52,6 +52,14 @@
         
         .points-control { display: flex; align-items: center; gap: 10px; margin-top: 1rem; }
         .points-input { flex: 1; padding: 0.8rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); }
+        
+        /* تحسينات جدول المستخدمين */
+        .sub-users-table { width: 100%; border-collapse: collapse; }
+        .sub-users-table td { padding: 0.75rem; border-bottom: 1px solid var(--color-border); }
+        .sub-users-table tr:hover { background-color: var(--color-muted); }
+        .sub-users-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+        .sub-users-actions .btn { padding: 4px 8px; font-size: 0.75rem; }
+        .form-control { padding: 0.8rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); font-family: inherit; }
     </style>
 </head>
 <body>
@@ -156,6 +164,50 @@
             <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 1.5rem;">
                 <button onclick="closeModal('pointsModal')" class="btn btn-secondary">إلغاء</button>
                 <button id="confirmPointsBtn" class="btn btn-primary">تنفيذ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal المستخدمين التابعين -->
+    <div id="usersModal" class="modal">
+        <div class="modal-content" style="width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 class="modal-title">المستخدمين التابعين</h3>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <button id="addSubUserBtn" class="btn btn-primary" style="width: 100%;">إضافة مستخدم جديد</button>
+            </div>
+            <div class="table-container" style="margin-bottom: 1.5rem;">
+                <table class="admin-table" style="font-size: 0.9rem;">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>تاريخ الانضمام</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subUsersTableBody">
+                        <tr><td colspan="4" style="text-align: center; padding: 2rem;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="closeModal('usersModal')" class="btn btn-secondary">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal إضافة مستخدم تابع -->
+    <div id="addSubUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">إضافة مستخدم جديد</h3></div>
+            <input type="text" id="subUserFullName" placeholder="الاسم الكامل" class="form-control" style="width:100%; margin:0.5rem 0; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+            <input type="email" id="subUserEmail" placeholder="البريد الإلكتروني" class="form-control" style="width:100%; margin:0.5rem 0; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+            <input type="password" id="subUserPassword" placeholder="كلمة المرور" class="form-control" style="width:100%; margin:0.5rem 0; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 1rem;">
+                <button onclick="closeModal('addSubUserModal')" class="btn btn-secondary">إلغاء</button>
+                <button id="confirmAddSubUserBtn" class="btn btn-primary">إضافة</button>
             </div>
         </div>
     </div>

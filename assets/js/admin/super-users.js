@@ -4,6 +4,7 @@ import { initSidebar } from './sidebar.js';
 
 let currentUser = null;
 let selectedUserId = null;
+let selectedAdminId = null;
 
 async function init() {
     initSidebar();
@@ -119,6 +120,7 @@ function setupEventListeners() {
         else {
             alert('تمت الترقية بنجاح');
             document.getElementById('superUserModal').style.display = 'none';
+            document.getElementById('superUserEmail').value = '';
             renderHierarchy();
         }
     });
@@ -168,12 +170,10 @@ function setupEventListeners() {
         else if (action === 'deduct') newPoints = Math.max(0, newPoints - amount);
         else if (action === 'set') newPoints = amount;
 
-        // محاولة استخدام RPC إذا كان متاحاً، وإلا التحديث المباشر
         const { error } = await supabase.from('profiles').update({ points: newPoints }).eq('id', selectedUserId);
         
         if (error) alert('خطأ في تحديث النقاط: ' + error.message);
         else {
-            // تحديث المحفظة أيضاً
             await supabase.from('user_wallets').update({ 
                 total_points: newPoints, 
                 available_points: newPoints 
@@ -182,6 +182,66 @@ function setupEventListeners() {
             alert('تم تحديث النقاط بنجاح');
             document.getElementById('pointsModal').style.display = 'none';
             renderHierarchy();
+        }
+    });
+
+    // إضافة مستخدم تابع
+    document.getElementById('confirmAddSubUserBtn').addEventListener('click', async () => {
+        const fullName = document.getElementById('subUserFullName').value.trim();
+        const email = document.getElementById('subUserEmail').value.trim();
+        const password = document.getElementById('subUserPassword').value.trim();
+
+        if (!fullName || !email || !password) return alert('يرجى ملء جميع الحقول');
+
+        const btn = document.getElementById('confirmAddSubUserBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'جاري الإنشاء...';
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert('جلسة منتهية، يرجى تسجيل الدخول مجدداً');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+
+            const response = await fetch(
+                `${supabase.supabaseUrl}/functions/v1/create-sub-user`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        full_name: fullName,
+                        super_user_id: selectedAdminId
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                alert('خطأ في إنشاء الحساب: ' + (result.error || 'خطأ غير معروف'));
+            } else {
+                alert('تم إنشاء حساب المستخدم بنجاح');
+                document.getElementById('subUserFullName').value = '';
+                document.getElementById('subUserEmail').value = '';
+                document.getElementById('subUserPassword').value = '';
+                document.getElementById('addSubUserModal').style.display = 'none';
+                renderSubUsersInModal();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('خطأ: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
         }
     });
 
@@ -198,6 +258,13 @@ function setupEventListeners() {
     
     document.getElementById('cancelBtn').addEventListener('click', () => {
         document.getElementById('superUserModal').style.display = 'none';
+    });
+
+    // فتح نافذة إضافة مستخدم تابع
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'addSubUserBtn') {
+            document.getElementById('addSubUserModal').style.display = 'flex';
+        }
     });
 }
 
@@ -226,9 +293,16 @@ function bindActionButtons() {
 
     // المستخدمين التابعين
     document.querySelectorAll('.users-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            // التوجيه لصفحة المستخدمين مع فلتر للمسؤول
-            window.location.href = `/admin/my-users.html?admin_id=${btn.dataset.id}`;
+        btn.addEventListener('click', async () => {
+            selectedAdminId = btn.dataset.id;
+            const { data: adminProfile } = await supabase.from('profiles').select('full_name').eq('id', selectedAdminId).single();
+            
+            // تحديث عنوان النافذة
+            const modalTitle = document.querySelector('#usersModal .modal-title');
+            if (modalTitle) modalTitle.textContent = `المستخدمين التابعين - ${adminProfile.full_name}`;
+            
+            document.getElementById('usersModal').style.display = 'flex';
+            renderSubUsersInModal();
         });
     });
 
@@ -270,6 +344,78 @@ function bindActionButtons() {
                 const { error } = await supabase.from('profiles').update({ super_user_id: null }).eq('id', btn.dataset.id);
                 if (error) alert(error.message);
                 else renderHierarchy();
+            }
+        });
+    });
+}
+
+async function renderSubUsersInModal() {
+    const body = document.getElementById('subUsersTableBody');
+    if (!body) return;
+
+    const { data: users, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('super_user_id', selectedAdminId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        body.innerHTML = `<tr><td colspan="4">خطأ: ${error.message}</td></tr>`;
+        return;
+    }
+
+    body.innerHTML = users?.map(u => `
+        <tr>
+            <td>${u.full_name || u.username || 'بدون اسم'}</td>
+            <td>${u.email}</td>
+            <td>${new Date(u.created_at).toLocaleDateString('ar-EG')}</td>
+            <td>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-primary btn-xs sub-view-btn" data-id="${u.id}">عرض</button>
+                    <button class="btn btn-warning btn-xs sub-points-btn" data-id="${u.id}">النقاط</button>
+                    <button class="btn btn-danger btn-xs sub-delete-btn" data-id="${u.id}">حذف</button>
+                </div>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 2rem;">لا يوجد مستخدمين تابعين</td></tr>';
+
+    bindSubUserActions();
+}
+
+function bindSubUserActions() {
+    // عرض المستخدم
+    document.querySelectorAll('.sub-view-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const userId = btn.dataset.id;
+            const { adminImpersonateUser } = await import('/auth-client.js');
+            await adminImpersonateUser(userId);
+            window.location.href = '/customer-dashboard.html';
+        });
+    });
+
+    // إدارة النقاط
+    document.querySelectorAll('.sub-points-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            selectedUserId = btn.dataset.id;
+            const { data: u } = await supabase.from('profiles').select('points, full_name').eq('id', selectedUserId).single();
+            
+            // فتح نافذة النقاط مع تحديث العنوان
+            const modalTitle = document.querySelector('#pointsModal .modal-title');
+            if (modalTitle) modalTitle.textContent = `إدارة النقاط - ${u.full_name}`;
+            
+            document.getElementById('currentPointsDisplay').textContent = `${u.points || 0} نقطة`;
+            document.getElementById('pointsAmountInput').value = '';
+            document.getElementById('pointsModal').style.display = 'flex';
+        });
+    });
+
+    // حذف المستخدم
+    document.querySelectorAll('.sub-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (confirm('هل أنت متأكد من حذف هذا المستخدم؟ لا يمكن التراجع عن هذا الإجراء.')) {
+                const { error } = await supabase.from('profiles').delete().eq('id', btn.dataset.id);
+                if (error) alert('خطأ في الحذف: ' + error.message);
+                else renderSubUsersInModal();
             }
         });
     });
