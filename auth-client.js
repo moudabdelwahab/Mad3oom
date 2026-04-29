@@ -40,6 +40,64 @@ export function isUserBanned(profile) {
     return false;
 }
 
+/**
+ * دالة لضمان وجود ملف شخصي للمستخدم
+ * تحل مشكلة "تعذر تحميل بيانات الحساب" عبر إنشاء ملف شخصي افتراضي إذا كان مفقوداً
+ */
+async function ensureUserProfile(user) {
+    try {
+        // 1. محاولة جلب الملف الشخصي
+        let { data: profile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error('Error fetching profile:', fetchError);
+            return { profile: null, error: fetchError };
+        }
+
+        // 2. إذا كان الملف الشخصي موجوداً، قم بإرجاعه
+        if (profile) {
+            return { profile, error: null };
+        }
+
+        // 3. إذا كان مفقوداً، قم بإنشائه (هذا يحدث عادةً إذا فشلت عملية الإدخال أثناء التسجيل)
+        console.warn('Profile missing for user, creating default profile:', user.id);
+        
+        const defaultUsername = user.email.split('@')[0] + Math.floor(Math.random() * 1000);
+        const userMetadata = user.user_metadata || {};
+        
+        const newProfile = {
+            id: user.id,
+            email: user.email,
+            username: userMetadata.username || defaultUsername,
+            full_name: userMetadata.full_name || userMetadata.first_name || 'مستخدم جديد',
+            user_type: userMetadata.user_type || 'individual',
+            role: 'customer',
+            is_verified: false,
+            created_at: new Date().toISOString()
+        };
+
+        const { data: createdProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert([newProfile])
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error('Failed to create missing profile:', insertError);
+            return { profile: null, error: insertError };
+        }
+
+        return { profile: createdProfile, error: null };
+    } catch (err) {
+        console.error('Unexpected error in ensureUserProfile:', err);
+        return { profile: null, error: err };
+    }
+}
+
 /* =========================================================
    Auth Core
 ========================================================= */
@@ -111,18 +169,15 @@ export async function signIn(identifier, password) {
         };
     }
 
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+    // إصلاح: استخدام ensureUserProfile لضمان وجود بيانات الحساب
+    const { profile, error: profileError } = await ensureUserProfile(user);
 
     if (profileError || !profile) {
         await supabase.auth.signOut();
         return {
             data: null,
             error: {
-                message: 'تعذر تحميل بيانات الحساب.'
+                message: 'تعذر تحميل بيانات الحساب. يرجى التواصل مع الدعم الفني.'
             }
         };
     }
@@ -158,7 +213,6 @@ export async function signIn(identifier, password) {
                 .maybeSingle();
 
             if (trustedDevice) {
-                // إصلاح: إضافة await للتأكد من تنفيذ العملية بشكل صحيح
                 await supabase
                     .from('trusted_devices')
                     .update({ last_used_at: new Date().toISOString() })
@@ -266,7 +320,6 @@ async function checkUsernameExists(username) {
  * @returns {Object} - نتيجة التسجيل
  */
 export async function signUp(email, password, metadata = {}) {
-    // إصلاح 1: التحقق من صحة البريد الإلكتروني
     if (!email || !validateEmail(email)) {
         return {
             data: null,
@@ -276,7 +329,6 @@ export async function signUp(email, password, metadata = {}) {
         };
     }
 
-    // إصلاح 2: التحقق من صحة كلمة المرور
     if (!password || !validatePasswordStrength(password)) {
         return {
             data: null,
@@ -286,7 +338,6 @@ export async function signUp(email, password, metadata = {}) {
         };
     }
 
-    // إصلاح 3: التحقق من عدم وجود بريد إلكتروني مسجل
     const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
         .select('id')
@@ -312,7 +363,6 @@ export async function signUp(email, password, metadata = {}) {
         };
     }
 
-    // إصلاح 4: التحقق من عدم وجود اسم مستخدم مكرر (إن وجد في البيانات الإضافية)
     if (metadata.username) {
         const usernameExists = await checkUsernameExists(metadata.username);
         if (usernameExists) {
@@ -325,7 +375,6 @@ export async function signUp(email, password, metadata = {}) {
         }
     }
 
-    // إصلاح 5: استخدام عنوان إعادة التوجيه الصحيح
     const emailRedirectTo = `${window.location.origin}/sign-in.html`;
 
     const result = await supabase.auth.signUp({
@@ -373,11 +422,8 @@ export async function getCurrentUser() {
         return null;
     }
 
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+    // استخدام ensureUserProfile لضمان وجود الملف الشخصي حتى عند جلب المستخدم الحالي
+    const { profile, error: profileError } = await ensureUserProfile(user);
 
     if (profileError || !profile) {
         console.error('Profile missing for user:', user.id);
@@ -474,11 +520,8 @@ export async function autoRedirect() {
     }
 
     if (session?.user) {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
+        // استخدام ensureUserProfile لضمان وجود الملف الشخصي قبل التوجيه
+        const { profile, error } = await ensureUserProfile(session.user);
 
         if (error || !profile) {
             console.error('Missing profile during redirect');
