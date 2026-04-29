@@ -150,10 +150,21 @@ class LanguageManager {
      */
     updatePageLanguage(lang) {
         const html = document.documentElement;
-        html.lang = lang;
-        html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        if (html) {
+            html.lang = lang;
+            html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        }
+        
+        // التأكد من أن body متاح قبل محاولة الوصول إلى style
         if (document.body) {
             document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+        } else {
+            // إذا لم يكن body متاحاً بعد، ننتظر تحميل DOM
+            document.addEventListener('DOMContentLoaded', () => {
+                if (document.body) {
+                    document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+                }
+            });
         }
     }
 

@@ -25,6 +25,9 @@ export async function signInAsGuest() {
         JSON.stringify(guestUser)
     );
 
+    // مسح علامة الخروج عند الدخول كضيف
+    sessionStorage.removeItem('just_logged_out');
+
     return guestUser;
 }
 
@@ -222,6 +225,9 @@ export async function signIn(identifier, password) {
     }
 
     logActivity('login', { email }).catch(() => {});
+    
+    // مسح علامة الخروج عند تسجيل الدخول بنجاح
+    sessionStorage.removeItem('just_logged_out');
 
     if (!profile.two_factor_enabled && !(profile.telegram_otp_enabled && profile.telegram_chat_id)) {
         return {
@@ -428,7 +434,21 @@ export async function logout() {
         await logActivity('logout');
     } catch (e) {}
 
+    // تعيين علامة لمنع إعادة التوجيه التلقائي فوراً بعد الخروج
+    sessionStorage.setItem('just_logged_out', 'true');
+
+    // مسح جميع بيانات الجلسات المحلية فوراً
     localStorage.removeItem('mad3oom-guest-session');
+    
+    // مسح أي بيانات أخرى قد تكون متعلقة بالجلسة (Supabase tokens)
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
 
     const { error } = await supabase.auth.signOut();
 
@@ -524,6 +544,11 @@ export async function requireAuth(requiredRole = null) {
 ========================================================= */
 
 export async function autoRedirect() {
+    // إذا كان المستخدم قد سجل خروجه للتو، لا تقم بإعادة التوجيه التلقائي
+    if (sessionStorage.getItem('just_logged_out')) {
+        return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     const guestSession = localStorage.getItem('mad3oom-guest-session');
 
@@ -537,6 +562,7 @@ export async function autoRedirect() {
 
     if (!isAuthPage) return;
 
+    // إذا كان المستخدم في صفحة تسجيل الدخول ولديه جلسة نشطة، قم بتوجيهه للوحة التحكم
     if (guestSession) {
         window.location.replace('customer-dashboard.html');
         return;
@@ -551,15 +577,8 @@ export async function autoRedirect() {
         }
 
         const role = profile.role;
-
-        const isAdmin =
-            role === 'admin' ||
-            role === 'support' ||
-            role === 'super_user';
-
-        const target = isAdmin
-            ? 'admin-dashboard.html'
-            : 'customer-dashboard.html';
+        const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
+        const target = isAdmin ? 'admin-dashboard.html' : 'customer-dashboard.html';
 
         window.location.replace(target);
     }
