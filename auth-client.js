@@ -27,6 +27,7 @@ export async function signInAsGuest() {
 
     return guestUser;
 }
+
 export function isUserBanned(profile) {
     if (!profile) return false;
 
@@ -157,11 +158,15 @@ export async function signIn(identifier, password) {
                 .maybeSingle();
 
             if (trustedDevice) {
-                supabase
+                // إصلاح: إضافة await للتأكد من تنفيذ العملية بشكل صحيح
+                await supabase
                     .from('trusted_devices')
                     .update({ last_used_at: new Date().toISOString() })
                     .eq('id', trustedDevice.id)
-                    .then();
+                    .then(() => {})
+                    .catch((err) => {
+                        console.warn('Failed to update trusted device:', err);
+                    });
 
                 return {
                     ...result,
@@ -205,18 +210,141 @@ export function onAuthStateChange(callback) {
     });
 }
 
+/**
+ * التحقق من صحة البريد الإلكتروني
+ * @param {string} email - البريد الإلكتروني
+ * @returns {boolean} - true إذا كان البريد صحيحاً
+ */
+function validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+}
+
+/**
+ * التحقق من صحة كلمة المرور
+ * @param {string} password - كلمة المرور
+ * @returns {boolean} - true إذا كانت كلمة المرور قوية
+ */
+function validatePasswordStrength(password) {
+    if (password.length < 8) return false;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/[0-9]/.test(password)) return false;
+    return true;
+}
+
+/**
+ * التحقق من وجود اسم مستخدم مكرر
+ * @param {string} username - اسم المستخدم
+ * @returns {Promise<boolean>} - true إذا كان اسم المستخدم موجود
+ */
+async function checkUsernameExists(username) {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', username.toLowerCase())
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error checking username:', error);
+            return false;
+        }
+
+        return !!data;
+    } catch (err) {
+        console.error('Unexpected error checking username:', err);
+        return false;
+    }
+}
+
+/**
+ * دالة تسجيل حساب جديد محسّنة مع التحقق من البيانات
+ * @param {string} email - البريد الإلكتروني
+ * @param {string} password - كلمة المرور
+ * @param {Object} metadata - بيانات إضافية (اختياري)
+ * @returns {Object} - نتيجة التسجيل
+ */
 export async function signUp(email, password, metadata = {}) {
+    // إصلاح 1: التحقق من صحة البريد الإلكتروني
+    if (!email || !validateEmail(email)) {
+        return {
+            data: null,
+            error: {
+                message: 'البريد الإلكتروني غير صحيح.'
+            }
+        };
+    }
+
+    // إصلاح 2: التحقق من صحة كلمة المرور
+    if (!password || !validatePasswordStrength(password)) {
+        return {
+            data: null,
+            error: {
+                message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف كبير وحرف صغير ورقم.'
+            }
+        };
+    }
+
+    // إصلاح 3: التحقق من عدم وجود بريد إلكتروني مسجل
+    const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+    if (checkError) {
+        debugAuthError(checkError);
+        return {
+            data: null,
+            error: {
+                message: 'تعذر التحقق من البريد الإلكتروني. حاول مرة أخرى.'
+            }
+        };
+    }
+
+    if (existingUser) {
+        return {
+            data: null,
+            error: {
+                message: 'هذا البريد الإلكتروني مسجل بالفعل.'
+            }
+        };
+    }
+
+    // إصلاح 4: التحقق من عدم وجود اسم مستخدم مكرر (إن وجد في البيانات الإضافية)
+    if (metadata.username) {
+        const usernameExists = await checkUsernameExists(metadata.username);
+        if (usernameExists) {
+            return {
+                data: null,
+                error: {
+                    message: 'اسم المستخدم مسجل بالفعل.'
+                }
+            };
+        }
+    }
+
+    // إصلاح 5: استخدام عنوان إعادة التوجيه الصحيح
+    const emailRedirectTo = `${window.location.origin}/sign-in.html`;
+
     const result = await supabase.auth.signUp({
-        email,
+        email: email.toLowerCase(),
         password,
         options: {
             data: metadata,
-            emailRedirectTo: `${window.location.origin}/sign-in.html`
+            emailRedirectTo
         }
     });
 
     if (result.error) {
         debugAuthError(result.error);
+        return {
+            data: null,
+            error: {
+                message: result.error.message || 'فشل في إنشاء الحساب. حاول مرة أخرى.'
+            }
+        };
     }
 
     return result;
