@@ -630,3 +630,16 @@ export async function updatePassword(newPassword) {
 
     return { data };
 }
+
+/**
+ * دالة للأدمن لتقمص شخصية مستخدم آخر
+ * @param {string} userId - معرف المستخدم المراد تقمص شخصيته
+ */
+export async function adminImpersonateUser(userId) {
+    if (!userId) return;
+    
+    // نقوم بتخزين معرف المستخدم في sessionStorage أو استخدامه مباشرة في الرابط
+    // الطريقة المتبعة في المشروع تعتمد على وجود ?impersonate=ID في الرابط
+    // لذا سنقوم بتوجيه المستخدم للوحة التحكم مع هذا المعامل
+    window.location.href = `/customer-dashboard.html?impersonate=${userId}`;
+}
