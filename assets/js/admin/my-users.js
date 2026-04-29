@@ -19,10 +19,25 @@ async function renderSubUsers() {
     const body = document.getElementById('subUsersBody');
     if (!body) return;
 
-    // جلب المستخدمين التابعين لهذا الـ Super User (أو كل المستخدمين إذا كان أدمن رئيسي)
+    // التحقق من وجود admin_id في الرابط (للفلترة عند القدوم من صفحة إدارة المسؤولين)
+    const urlParams = new URLSearchParams(window.location.search);
+    const filterAdminId = urlParams.get('admin_id');
+
+    // جلب المستخدمين التابعين
     let query = supabase.from('profiles').select('*');
     
-    if (currentUser.profile.role !== 'admin') {
+    if (filterAdminId) {
+        // إذا كان هناك فلتر، نجلب المستخدمين التابعين لهذا المسؤول المحدد
+        query = query.eq('super_user_id', filterAdminId);
+        
+        // تحديث عنوان الصفحة الفرعي ليوضح الفلتر
+        const { data: adminProfile } = await supabase.from('profiles').select('full_name').eq('id', filterAdminId).single();
+        if (adminProfile) {
+            const headerP = document.querySelector('.page-header p');
+            if (headerP) headerP.textContent = `عرض المستخدمين التابعين للمسؤول: ${adminProfile.full_name}`;
+        }
+    } else if (currentUser.profile.role !== 'admin') {
+        // إذا لم يكن هناك فلتر وكان المستخدم الحالي ليس أدمن رئيسي، يرى مستخدميه فقط
         query = query.eq('super_user_id', currentUser.id);
     }
 
@@ -56,67 +71,67 @@ function setupEventListeners() {
     const cancelBtn = document.getElementById('cancelSubBtn');
     const confirmBtn = document.getElementById('confirmAddSubBtn');
 
-    addBtn.addEventListener('click', () => modal.style.display = 'flex');
-    cancelBtn.addEventListener('click', () => modal.style.display = 'none');
+    if (addBtn) addBtn.addEventListener('click', () => modal.style.display = 'flex');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => modal.style.display = 'none');
 
-    confirmBtn.addEventListener('click', async () => {
-        const fullName = document.getElementById('subFullName').value.trim();
-        const email = document.getElementById('subEmail').value.trim();
-        const password = document.getElementById('subPassword').value.trim();
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            const fullName = document.getElementById('subFullName').value.trim();
+            const email = document.getElementById('subEmail').value.trim();
+            const password = document.getElementById('subPassword').value.trim();
 
-        if (!fullName || !email || !password) return alert('يرجى ملء جميع الحقول');
+            if (!fullName || !email || !password) return alert('يرجى ملء جميع الحقول');
 
-        // عرض رسالة التحميل
-        const originalText = confirmBtn.textContent;
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'جاري الإنشاء...';
+            const originalText = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'جاري الإنشاء...';
 
-        try {
-            // استدعاء Edge Function لإنشاء المستخدم بدون تسجيل خروج الأدمن
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                alert('جلسة منتهية، يرجى تسجيل الدخول مجدداً');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    alert('جلسة منتهية، يرجى تسجيل الدخول مجدداً');
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = originalText;
+                    return;
+                }
+
+                const response = await fetch(
+                    `${supabase.supabaseUrl}/functions/v1/create-sub-user`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email,
+                            password,
+                            full_name: fullName
+                        })
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert('خطأ في إنشاء الحساب: ' + (result.error || 'خطأ غير معروف'));
+                } else {
+                    alert('تم إنشاء حساب المستخدم بنجاح');
+                    document.getElementById('subFullName').value = '';
+                    document.getElementById('subEmail').value = '';
+                    document.getElementById('subPassword').value = '';
+                    modal.style.display = 'none';
+                    renderSubUsers();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('خطأ: ' + error.message);
+            } finally {
                 confirmBtn.disabled = false;
                 confirmBtn.textContent = originalText;
-                return;
             }
-
-            const response = await fetch(
-                `${supabase.supabaseUrl}/functions/v1/create-sub-user`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email,
-                        password,
-                        full_name: fullName
-                    })
-                }
-            );
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                alert('خطأ في إنشاء الحساب: ' + (result.error || 'خطأ غير معروف'));
-            } else {
-                alert('تم إنشاء حساب المستخدم بنجاح');
-                document.getElementById('subFullName').value = '';
-                document.getElementById('subEmail').value = '';
-                document.getElementById('subPassword').value = '';
-                modal.style.display = 'none';
-                renderSubUsers();
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('خطأ: ' + error.message);
-        } finally {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = originalText;
-        }
-    });
+        });
+    }
 }
 
 function bindActionButtons() {
@@ -130,8 +145,6 @@ function bindActionButtons() {
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (confirm('هل أنت متأكد من حذف هذا المستخدم؟ لا يمكن التراجع عن هذا الإجراء.')) {
-                // في Supabase، حذف المستخدم من Auth يتطلب Admin API
-                // هنا سنقوم فقط بتعطيله أو حذفه من جدول profiles إذا سمحت الـ RLS
                 const { error } = await supabase.from('profiles').delete().eq('id', btn.dataset.id);
                 if (error) alert('خطأ في الحذف: ' + error.message);
                 else renderSubUsers();

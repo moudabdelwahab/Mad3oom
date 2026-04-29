@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة الـ Super Users - لوحة الإدارة</title>
+    <title>إدارة المسؤولين - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
@@ -13,6 +13,45 @@
         .hierarchy-row { background-color: var(--color-muted); }
         .sub-user-row { padding-right: 2rem !important; font-size: 0.9rem; border-right: 3px solid var(--color-accent); }
         .badge-super { background: #6f42c1; color: white; }
+        .badge-admin { background: #dc3545; color: white; }
+        .badge-member { background: #28a745; color: white; }
+        
+        /* تحسينات الأزرار */
+        .btn-group { display: flex; gap: 5px; flex-wrap: wrap; }
+        .btn-xs { padding: 2px 8px; font-size: 0.75rem; }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background: var(--color-surface);
+            padding: 2rem;
+            border-radius: 16px;
+            width: 500px;
+            max-width: 95%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--color-border);
+        }
+        .modal-header { margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem; }
+        .modal-title { font-size: 1.25rem; font-weight: 700; color: var(--color-text); }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+        .info-item { background: var(--color-muted); padding: 0.75rem; border-radius: 8px; }
+        .info-label { font-size: 0.75rem; color: var(--color-text-secondary); display: block; margin-bottom: 4px; }
+        .info-value { font-weight: 600; color: var(--color-text); }
+        
+        .points-control { display: flex; align-items: center; gap: 10px; margin-top: 1rem; }
+        .points-input { flex: 1; padding: 0.8rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); }
     </style>
 </head>
 <body>
@@ -20,26 +59,26 @@
 
     <main class="admin-main">
         <header class="page-header">
-            <h1>نظام الـ Super User Hierarchy</h1>
-            <p>إدارة كبار المستخدمين والمستخدمين التابعين لهم</p>
+            <h1>إدارة المسؤولين</h1>
+            <p>إدارة المسؤولين، الرتب، النقاط، والمستخدمين التابعين</p>
         </header>
 
         <div class="section-card">
             <div class="section-header">
-                <h2 class="section-title">التسلسل الهرمي للمستخدمين</h2>
+                <h2 class="section-title">قائمة المسؤولين</h2>
                 <div class="header-actions">
-                    <button id="addSuperUserBtn" class="btn btn-primary">إضافة Super User جديد</button>
+                    <button id="addSuperUserBtn" class="btn btn-primary">إضافة مسؤول جديد</button>
                 </div>
             </div>
             <div class="table-container">
                 <table class="admin-table">
                     <thead>
                         <tr>
-                            <th>المستخدم / التابعين</th>
+                            <th>المسؤول / التابعين</th>
                             <th>البريد الإلكتروني</th>
                             <th>الرتبة</th>
                             <th>تاريخ الانضمام</th>
-                            <th>الإجراء</th>
+                            <th>الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="hierarchyBody">
@@ -50,11 +89,11 @@
         </div>
     </main>
 
-    <!-- Modal لإضافة Super User -->
-    <div id="superUserModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
-        <div class="modal-content" style="background:var(--color-surface); padding:2rem; border-radius:12px; width:400px; max-width:90%;">
-            <h3>تعيين Super User</h3>
-            <p>أدخل البريد الإلكتروني للمستخدم لترقيته إلى Super User</p>
+    <!-- Modal لإضافة مسؤول -->
+    <div id="superUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">تعيين مسؤول جديد</h3></div>
+            <p>أدخل البريد الإلكتروني للمستخدم لترقيته إلى رتبة مسؤول</p>
             <input type="email" id="superUserEmail" placeholder="البريد الإلكتروني" class="form-control" style="width:100%; margin:1rem 0; padding:0.8rem; border:1px solid var(--color-border); border-radius:8px;">
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button id="cancelBtn" class="btn btn-secondary">إلغاء</button>
@@ -63,6 +102,69 @@
         </div>
     </div>
 
+    <!-- Modal التفاصيل -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">تفاصيل المسؤول</h3></div>
+            <div id="detailsContent">
+                <!-- سيتم ملؤه بالجافا سكريبت -->
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <label class="info-label">عنوان IP المسموح به (اتركه فارغاً للسماح للجميع)</label>
+                <input type="text" id="allowedIpInput" placeholder="مثال: 192.168.1.1" class="form-control" style="width:100%; margin-top:0.5rem;">
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 1.5rem;">
+                <button onclick="closeModal('detailsModal')" class="btn btn-secondary">إغلاق</button>
+                <button id="saveIpBtn" class="btn btn-primary">حفظ الـ IP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal الرتبة -->
+    <div id="roleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">تغيير الرتبة</h3></div>
+            <p>اختر الرتبة الجديدة للمستخدم:</p>
+            <select id="roleSelect" class="form-control" style="width:100%; margin:1rem 0; padding:0.8rem;">
+                <option value="super_user">مسؤول (Super User)</option>
+                <option value="admin">إدارة (Admin)</option>
+                <option value="customer">عضو (Member)</option>
+            </select>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="closeModal('roleModal')" class="btn btn-secondary">إلغاء</button>
+                <button id="confirmRoleBtn" class="btn btn-primary">تحديث الرتبة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal النقاط -->
+    <div id="pointsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">إدارة النقاط</h3></div>
+            <div class="info-item" style="margin-bottom: 1rem;">
+                <span class="info-label">الرصيد الحالي</span>
+                <div id="currentPointsDisplay" class="info-value" style="font-size: 1.5rem; color: var(--color-accent);">0 نقطة</div>
+            </div>
+            <div class="points-control">
+                <input type="number" id="pointsAmountInput" placeholder="عدد النقاط" class="points-input">
+                <select id="pointsActionSelect" class="form-control" style="width: 120px;">
+                    <option value="add">إضافة</option>
+                    <option value="deduct">خصم</option>
+                    <option value="set">تعيين</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 1.5rem;">
+                <button onclick="closeModal('pointsModal')" class="btn btn-secondary">إلغاء</button>
+                <button id="confirmPointsBtn" class="btn btn-primary">تنفيذ</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/assets/js/admin/super-users.js"></script>
+    <script>
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+    </script>
 </body>
 </html>
