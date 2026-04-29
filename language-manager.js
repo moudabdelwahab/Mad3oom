@@ -152,7 +152,9 @@ class LanguageManager {
         const html = document.documentElement;
         html.lang = lang;
         html.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+        if (document.body) {
+            document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+        }
     }
 
     /**

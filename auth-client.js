@@ -564,3 +564,45 @@ export async function autoRedirect() {
         window.location.replace(target);
     }
 }
+
+/**
+ * تحديث بيانات الملف الشخصي
+ * @param {Object} updates - البيانات المراد تحديثها
+ * @returns {Object} - نتيجة التحديث
+ */
+export async function updateProfile(updates) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: { message: 'يجب تسجيل الدخول أولاً' } };
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating profile:', error);
+        return { error };
+    }
+
+    return { data };
+}
+
+/**
+ * تحديث كلمة المرور
+ * @param {string} newPassword - كلمة المرور الجديدة
+ * @returns {Object} - نتيجة التحديث
+ */
+export async function updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+    });
+
+    if (error) {
+        console.error('Error updating password:', error);
+        return { error };
+    }
+
+    return { data };
+}
