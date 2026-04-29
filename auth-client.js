@@ -502,9 +502,12 @@ export async function requireAuth(requiredRole = null) {
     if (!user) return null;
     if (user.banned) return { banned: true };
 
+    // التحقق من البريد الإلكتروني للأدمن الرئيسي كإجراء احتياطي (Fallback)
+    const isMainAdminEmail = user.email === 'support@mad3oom.online';
     const role = user.profile?.role;
 
     const isAdmin =
+        isMainAdminEmail ||
         role === 'admin' ||
         role === 'support' ||
         role === 'super_user';
@@ -571,15 +574,17 @@ export async function autoRedirect() {
     if (session?.user) {
         const { profile, error } = await ensureUserProfile(session.user);
 
-        if (error || !profile) {
-            console.error('Missing profile during redirect');
-            return;
+        // التحقق من البريد الإلكتروني للأدمن الرئيسي كإجراء احتياطي
+        const isMainAdminEmail = session.user.email === 'support@mad3oom.online';
+        
+        let isAdmin = isMainAdminEmail;
+        
+        if (profile) {
+            const role = profile.role;
+            isAdmin = isAdmin || role === 'admin' || role === 'support' || role === 'super_user';
         }
 
-        const role = profile.role;
-        const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
         const target = isAdmin ? 'admin-dashboard.html' : 'customer-dashboard.html';
-
         window.location.replace(target);
     }
 }
