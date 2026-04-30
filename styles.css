@@ -804,3 +804,47 @@ footer {
 footer p {
     margin: 0;
 }
+
+/* ==================== News Ticker (Ads) ==================== */
+.news-ticker-container {
+    width: 100%;
+    background: var(--color-primary-variant);
+    color: white;
+    padding: 0.5rem 0;
+    overflow: hidden;
+    position: relative;
+    z-index: 99;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: none; /* Hidden by default, shown via JS if enabled */
+}
+
+.news-ticker-content {
+    display: flex;
+    white-space: nowrap;
+    animation: ticker 30s linear infinite;
+}
+
+.news-ticker-item {
+    padding: 0 2rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.news-ticker-item a {
+    color: #60a5fa;
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+@keyframes ticker {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+/* Pause animation on hover */
+.news-ticker-container:hover .news-ticker-content {
+    animation-play-state: paused;
+}
