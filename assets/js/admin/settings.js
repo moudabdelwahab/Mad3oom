@@ -313,23 +313,53 @@ async function loadUsers() {
 }
 
 function setupEventListeners() {
-    // Navigation
+    // Navigation Logic
+    const handleNavigation = (targetId) => {
+        if (!targetId) targetId = 'profile';
+        
+        // Update Nav Links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            const href = link.getAttribute('href').substring(1);
+            if (href === targetId) {
+                link.classList.add('active');
+            } else {
+                link.classList.remove('active');
+            }
+        });
+        
+        // Update Sections Visibility
+        document.querySelectorAll('.settings-card').forEach(card => {
+            if (card.id === targetId) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Load section specific data if needed
+        if (targetId === 'device-management') {
+            loadActiveDevices();
+        }
+    };
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', () => {
+        const targetId = window.location.hash.substring(1);
+        handleNavigation(targetId);
+    });
+
+    // Initial navigation based on current hash
+    if (window.location.hash) {
+        handleNavigation(window.location.hash.substring(1));
+    }
+
+    // Navigation Click Handler
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
-            e.preventDefault();
+            // Let the hashchange event handle the visibility
+            // but we can also call it directly for smoother feel
             const targetId = link.getAttribute('href').substring(1);
-            
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            link.classList.add('active');
-            
-            document.querySelectorAll('.settings-card').forEach(card => {
-                card.style.display = card.id === targetId ? 'block' : 'none';
-            });
-
-            // Load section specific data if needed
-            if (targetId === 'device-management') {
-                loadActiveDevices();
-            }
+            handleNavigation(targetId);
         });
     });
 
