@@ -136,6 +136,7 @@
         })();
     </script>
     <script src="theme-manager.js" defer></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body class="auth-wrapper">
     <nav class="navbar">
@@ -243,6 +244,18 @@
                     <div id="passwordStrength" class="password-strength"></div>
                 </div>
 
+                <!-- Cloudflare Turnstile CAPTCHA -->
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <div class="cf-turnstile" 
+                         data-sitekey="1x00000000000000000000AA"
+                         data-theme="light"
+                         data-size="normal"
+                         id="turnstile-individual"></div>
+                    <div id="turnstileErrorIndividual" class="message-box message-error" style="display:none; margin-top: 0.5rem;">
+                        <p>يرجى إكمال التحقق من CAPTCHA</p>
+                    </div>
+                </div>
+
                 <div class="auth-actions">
                     <button type="submit" class="btn btn-primary" id="individualSubmitBtn">
                         <span id="individualSubmitText">إنشاء الحساب</span>
@@ -323,6 +336,18 @@
                     <div id="companyPasswordStrength" class="password-strength"></div>
                 </div>
 
+                <!-- Cloudflare Turnstile CAPTCHA -->
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <div class="cf-turnstile" 
+                         data-sitekey="1x00000000000000000000AA"
+                         data-theme="light"
+                         data-size="normal"
+                         id="turnstile-company"></div>
+                    <div id="turnstileErrorCompany" class="message-box message-error" style="display:none; margin-top: 0.5rem;">
+                        <p>يرجى إكمال التحقق من CAPTCHA</p>
+                    </div>
+                </div>
+
                 <div class="auth-actions">
                     <button type="submit" class="btn btn-primary" id="companySubmitBtn">
                         <span id="companySubmitText">إنشاء حساب الشركة</span>
@@ -338,6 +363,7 @@
     <script type="module">
         import { signUpIndividual, signUpCompany } from './auth-user-types.js';
         import { validatePassword } from './auth-validation.js';
+        import { getTurnstileToken, resetTurnstile } from './turnstile-config.js';
 
         let currentUserType = 'individual';
 
@@ -444,6 +470,15 @@
             e.preventDefault();
             hideErrors();
 
+            // التحقق من Turnstile Token
+            const turnstileToken = await getTurnstileToken();
+            if (!turnstileToken) {
+                document.getElementById('turnstileErrorIndividual').style.display = 'block';
+                resetTurnstile();
+                return;
+            }
+            document.getElementById('turnstileErrorIndividual').style.display = 'none';
+
             const submitBtn = document.getElementById('individualSubmitBtn');
             const submitText = document.getElementById('individualSubmitText');
             const submitLoader = document.getElementById('individualSubmitLoader');
@@ -462,11 +497,12 @@
                 gender: document.getElementById('gender').value || null
             };
 
-            const result = await signUpIndividual(data);
+            const result = await signUpIndividual(data, { turnstileToken });
 
             if (result.success) {
                 successMessage.style.display = 'block';
                 individualForm.reset();
+                resetTurnstile();
                 setTimeout(() => {
                     window.location.href = 'sign-in.html';
                 }, 2000);
@@ -476,6 +512,7 @@
                 submitBtn.disabled = false;
                 submitText.style.display = 'inline';
                 submitLoader.style.display = 'none';
+                resetTurnstile();
             }
         });
 
@@ -483,6 +520,15 @@
         companyForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideErrors();
+
+            // التحقق من Turnstile Token
+            const turnstileToken = await getTurnstileToken();
+            if (!turnstileToken) {
+                document.getElementById('turnstileErrorCompany').style.display = 'block';
+                resetTurnstile();
+                return;
+            }
+            document.getElementById('turnstileErrorCompany').style.display = 'none';
 
             const submitBtn = document.getElementById('companySubmitBtn');
             const submitText = document.getElementById('companySubmitText');
@@ -507,11 +553,12 @@
                 employeeCount: document.getElementById('employeeCount').value || null
             };
 
-            const result = await signUpCompany(data);
+            const result = await signUpCompany(data, { turnstileToken });
 
             if (result.success) {
                 successMessage.style.display = 'block';
                 companyForm.reset();
+                resetTurnstile();
                 setTimeout(() => {
                     window.location.href = 'sign-in.html';
                 }, 2000);
@@ -521,6 +568,7 @@
                 submitBtn.disabled = false;
                 submitText.style.display = 'inline';
                 submitLoader.style.display = 'none';
+                resetTurnstile();
             }
         });
     </script>

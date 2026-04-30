@@ -131,9 +131,10 @@ async function ensureUserProfile(user) {
    Auth Core
 ========================================================= */
 
-export async function signIn(identifier, password) {
+export async function signIn(identifier, password, options = {}) {
     const normalizedIdentifier = (identifier || '').trim();
     const normalizedPassword = password || '';
+    const { turnstileToken } = options;
 
     if (!normalizedIdentifier || !normalizedPassword) {
         return {
@@ -224,7 +225,7 @@ export async function signIn(identifier, password) {
         };
     }
 
-    logActivity('login', { email }).catch(() => {});
+    logActivity('login', { email, hasTurnstile: !!turnstileToken }).catch(() => {});
     
     // مسح علامة الخروج عند تسجيل الدخول بنجاح
     sessionStorage.removeItem('just_logged_out');
@@ -289,7 +290,8 @@ export async function signIn(identifier, password) {
 
     return {
         ...result,
-        profile
+        profile,
+        turnstileToken
     };
 }
 

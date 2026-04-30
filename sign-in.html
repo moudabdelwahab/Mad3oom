@@ -52,6 +52,7 @@
 
     
     <script src="theme-manager.js" defer></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body class="auth-wrapper">
 
@@ -136,6 +137,18 @@
                 </div>
             </div>
 
+            <!-- Cloudflare Turnstile CAPTCHA -->
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <div class="cf-turnstile" 
+                     data-sitekey="1x00000000000000000000AA"
+                     data-theme="light"
+                     data-size="normal"
+                     id="turnstile-login"></div>
+                <div id="turnstileError" class="message-box message-error" style="display:none; margin-top: 0.5rem;">
+                    <p>يرجى إكمال التحقق من CAPTCHA</p>
+                </div>
+            </div>
+
             <div class="auth-actions">
                 <button type="submit" class="btn btn-primary" id="loginBtn">
                     <span id="loginBtnText">تسجيل الدخول</span>
@@ -156,6 +169,7 @@
     <script type="module">
 import { supabase } from './api-config.js';
 import { signIn, signInAsGuest, onAuthStateChange } from './auth-client.js';
+import { getTurnstileToken, resetTurnstile } from './turnstile-config.js';
 
 const form = document.getElementById('signInForm');
 const submitBtn = document.getElementById('loginBtn');
@@ -227,13 +241,24 @@ form.addEventListener('submit', async (e) => {
     setLoading(true);
     errorMessage.style.display = 'none';
     resendBtn.style.display = 'none';
+    document.getElementById('turnstileError').style.display = 'none';
+
+    // التحقق من Turnstile Token
+    const turnstileToken = await getTurnstileToken();
+    if (!turnstileToken) {
+        isLoggingIn = false;
+        setLoading(false);
+        document.getElementById('turnstileError').style.display = 'block';
+        resetTurnstile();
+        return;
+    }
 
     const identifier = document.getElementById('identifier').value;
     const password = passwordInput.value;
 
     try {
         console.log('[AuthDebug] Attempting sign in for:', identifier);
-        const result = await signIn(identifier, password);
+        const result = await signIn(identifier, password, { turnstileToken });
         if (result.error) throw result.error;
 
         if (result.requires2FA) {
@@ -259,6 +284,7 @@ form.addEventListener('submit', async (e) => {
         isLoggingIn = false;
         setLoading(false);
         errorMessage.style.display = 'block';
+        resetTurnstile();
 
         if (
             err.message === 'Email not confirmed' ||

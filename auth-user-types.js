@@ -12,8 +12,10 @@ import { validateIndividualData, validateCompanyData } from './auth-validation.j
  * @param {Object} data - بيانات الفرد
  * @returns {Object} - { success: boolean, user: Object, error: string }
  */
-export async function signUpIndividual(data) {
+export async function signUpIndividual(data, options = {}) {
     try {
+        const { turnstileToken } = options;
+        
         // التحقق من صحة البيانات
         const validation = validateIndividualData(data);
         if (!validation.isValid) {
@@ -106,7 +108,7 @@ export async function signUpIndividual(data) {
         }
 
         // تسجيل النشاط
-        await logActivity('signup_individual', { email: data.email }).catch(() => {});
+        await logActivity('signup_individual', { email: data.email, hasTurnstile: !!turnstileToken }).catch(() => {});
 
         return {
             success: true,
@@ -128,8 +130,10 @@ export async function signUpIndividual(data) {
  * @param {Object} data - بيانات الشركة
  * @returns {Object} - { success: boolean, user: Object, error: string }
  */
-export async function signUpCompany(data) {
+export async function signUpCompany(data, options = {}) {
     try {
+        const { turnstileToken } = options;
+        
         // التحقق من صحة البيانات
         const validation = validateCompanyData(data);
         if (!validation.isValid) {
@@ -240,7 +244,7 @@ export async function signUpCompany(data) {
         }
 
         // تسجيل النشاط
-        await logActivity('signup_company', { email: data.email, company: data.companyName }).catch(() => {});
+        await logActivity('signup_company', { email: data.email, company: data.companyName, hasTurnstile: !!turnstileToken }).catch(() => {});
 
         return {
             success: true,
