@@ -366,6 +366,25 @@ function setupEventListeners() {
     // Save Buttons
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveProfile);
     
+    document.getElementById('changeAvatarBtn')?.addEventListener('click', () => {
+        document.getElementById('avatarInput').click();
+    });
+
+    document.getElementById('avatarInput')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Preview local image
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const preview = document.getElementById('avatarPreview');
+            if (preview) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+    
     document.getElementById('savePlatformBtn')?.addEventListener('click', () => {
         const settings = {
             session_timeout: document.getElementById('sessionTimeout').value,
@@ -511,19 +530,65 @@ function setupEventListeners() {
 
 async function saveProfile() {
     const btn = document.getElementById('saveProfileBtn');
+    const avatarInput = document.getElementById('avatarInput');
     setLoading(btn, true);
+    
     try {
+        let avatarUrl = null;
+
+        // 1. Handle Avatar Upload if a new file is selected
+        if (avatarInput.files && avatarInput.files[0]) {
+            const file = avatarInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+            
+            avatarUrl = publicUrl;
+        }
+
+        // 2. Prepare Updates
         const updates = {
             full_name: document.getElementById('fullName').value,
             bio: document.getElementById('bio').value,
             updated_at: new Date()
         };
 
+        if (avatarUrl) {
+            updates.avatar_url = avatarUrl;
+        }
+
+        // 3. Save to Profiles
         const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
         if (error) throw error;
+
+        // 4. Update UI
         showAlert('تم تحديث الملف الشخصي بنجاح', 'success');
-        updateAdminUI({ ...user, profile: updates });
+        
+        // Fetch fresh profile to ensure updateAdminUI has all data
+        const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        updateAdminUI({ ...user, profile: updatedProfile });
+        updateAvatarUI(updatedProfile.full_name, updatedProfile.avatar_url);
+        
+        // Clear file input
+        avatarInput.value = '';
+        
     } catch (error) {
+        console.error('Update error:', error);
         showAlert('خطأ في التحديث: ' + error.message, 'error');
     } finally {
         setLoading(btn, false);
