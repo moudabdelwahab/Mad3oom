@@ -171,6 +171,7 @@ async function loadAllSettings() {
         await loadRules();
         await loadCustomRoles();
         await loadUsers();
+        await loadActiveDevices();
 
     } catch (error) {
         console.error('Error loading settings:', error);
@@ -828,38 +829,53 @@ async function loadActiveDevices() {
     if (!container) return;
 
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-            container.innerHTML = '<p style="text-align: center; padding: 1rem;">لا توجد جلسات نشطة حالياً.</p>';
+        const { data: devices, error } = await supabase
+            .from('trusted_devices')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('last_login', { ascending: false });
+
+        if (error) throw error;
+
+        if (!devices || devices.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 1rem;">لا توجد أجهزة موثوقة مسجلة حالياً.</p>';
             return;
         }
 
-        const userAgent = navigator.userAgent;
-        const isMobile = /Mobile|Android|iPhone/i.test(userAgent);
-        const deviceType = isMobile ? 'هاتف محمول' : 'جهاز كمبيوتر';
-        const browser = getBrowserName(userAgent);
-
-        container.innerHTML = `
-            <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.75rem; margin-bottom: 1rem;">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <div style="width: 40px; height: 40px; background: var(--color-surface); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); border: 1px solid var(--color-border);">
-                        ${isMobile ? '📱' : '💻'}
+        container.innerHTML = devices.map(device => {
+            const isMobile = /Mobile|Android|iPhone/i.test(device.device_name || '');
+            return `
+                <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.75rem; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="width: 40px; height: 40px; background: var(--color-surface); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); border: 1px solid var(--color-border);">
+                            ${isMobile ? '📱' : '💻'}
+                        </div>
+                        <div>
+                            <h4 style="margin: 0; font-size: 1rem;">${device.device_name || 'جهاز غير معروف'}</h4>
+                            <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر ظهور: ${new Date(device.last_login).toLocaleString('ar-EG')} • IP: ${device.ip_address || 'غير معروف'}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 style="margin: 0; font-size: 1rem;">هذا الجهاز (${browser})</h4>
-                        <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">نشط الآن • ${deviceType}</p>
-                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="removeDevice('${device.id}')">حذف</button>
                 </div>
-                <span class="badge badge-success">الجلسة الحالية</span>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--color-text-secondary); text-align: center; margin-top: 1rem;">يتم عرض الجلسة الحالية فقط. لتفعيل عرض جميع الأجهزة، يجب إعداد Edge Functions في Supabase.</p>
-        `;
+            `;
+        }).join('');
     } catch (err) {
         console.error('Error loading devices:', err);
         container.innerHTML = '<p style="text-align: center; padding: 1rem; color: var(--color-danger);">فشل تحميل قائمة الأجهزة.</p>';
     }
 }
+
+window.removeDevice = async (deviceId) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الجهاز؟')) return;
+    try {
+        const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
+        if (error) throw error;
+        showAlert('تم حذف الجهاز بنجاح', 'success');
+        loadActiveDevices();
+    } catch (error) {
+        showAlert('خطأ في الحذف: ' + error.message, 'error');
+    }
+};
 
 function getBrowserName(ua) {
     if (ua.includes("Firefox")) return "Firefox";
