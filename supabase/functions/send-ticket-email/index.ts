@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const ZOHO_MAIL_API_URL = "https://mail.zoho.com/api/accounts";
-const ZOHO_TOKEN_URL = "https://accounts.zoho.com/oauth/v2/token";
-const FROM_EMAIL = "tickets@mad3oom.online";
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,34 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, content-type",
 };
 
-async function getAccessToken() {
-  const refreshToken = Deno.env.get("ZOHO_REFRESH_TOKEN");
-  const clientId = Deno.env.get("ZOHO_CLIENT_ID");
-  const clientSecret = Deno.env.get("ZOHO_CLIENT_SECRET");
-
-  if (!refreshToken || !clientId || !clientSecret) {
-    throw new Error("Zoho OAuth credentials missing");
-  }
-
-  const params = new URLSearchParams();
-  params.append("refresh_token", refreshToken);
-  params.append("client_id", clientId);
-  params.append("client_secret", clientSecret);
-  params.append("grant_type", "refresh_token");
-
-  const response = await fetch(ZOHO_TOKEN_URL, {
-    method: "POST",
-    body: params,
-  });
-
-  const data = await response.json();
-  if (!data.access_token) {
-    throw new Error("Failed to refresh Zoho access token: " + JSON.stringify(data));
-  }
-  return data.access_token;
-}
-
 Deno.serve(async (req: Request) => {
+  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -50,8 +22,15 @@ Deno.serve(async (req: Request) => {
       throw new Error("Customer email is missing");
     }
 
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const emailFrom = Deno.env.get("EMAIL_FROM") || "tickets@mad3oom.online";
+
+    if (!resendApiKey) {
+      throw new Error("RESEND_API_KEY is not configured");
+    }
+
     let subject = "";
-    let content = "";
+    let htmlContent = "";
 
     const statusMap: Record<string, string> = {
       'open': 'مفتوحة',
@@ -59,39 +38,67 @@ Deno.serve(async (req: Request) => {
       'resolved': 'محلولة'
     };
 
+    const greeting = `مرحباً ${customer_name || 'عميلنا العزيز'}،`;
+
     if (event === 'INSERT') {
       subject = `تم إنشاء تذكرة جديدة #${ticket_number}: ${title}`;
-      content = `مرحباً ${customer_name || 'عميلنا العزيز'}،\n\nتم استلام تذكرتك بنجاح.\nرقم التذكرة: #${ticket_number}\nالعنوان: ${title}\nالحالة: مفتوحة\n\nسنقوم بالرد عليك في أقرب وقت ممكن.`;
+      htmlContent = `
+        <div dir="rtl" style="font-family: sans-serif;">
+          <h2>${greeting}</h2>
+          <p>تم استلام تذكرتك بنجاح في منصة مدعوم.</p>
+          <hr/>
+          <p><strong>رقم التذكرة:</strong> #${ticket_number}</p>
+          <p><strong>العنوان:</strong> ${title}</p>
+          <p><strong>الحالة:</strong> مفتوحة</p>
+          <hr/>
+          <p>سنقوم بالرد عليك في أقرب وقت ممكن. يمكنك متابعة التذكرة عبر حسابك في المنصة.</p>
+        </div>
+      `;
     } else if (event === 'UPDATE') {
       subject = `تحديث حالة التذكرة #${ticket_number}`;
-      content = `مرحباً ${customer_name || 'عميلنا العزيز'}،\n\nتم تحديث حالة تذكرتك #${ticket_number} إلى: ${statusMap[status] || status}.\n\nشكراً لتواصلك معنا.`;
+      htmlContent = `
+        <div dir="rtl" style="font-family: sans-serif;">
+          <h2>${greeting}</h2>
+          <p>نود إعلامك بأنه تم تحديث حالة تذكرتك #${ticket_number}.</p>
+          <hr/>
+          <p><strong>الحالة الجديدة:</strong> ${statusMap[status] || status}</p>
+          <hr/>
+          <p>شكراً لتواصلك معنا.</p>
+        </div>
+      `;
     } else if (event === 'REPLY') {
       subject = `رد جديد على التذكرة #${ticket_number}`;
-      content = `مرحباً ${customer_name || 'عميلنا العزيز'}،\n\nهناك رد جديد من فريق الدعم على تذكرتك #${ticket_number}:\n\n"${message}"\n\nيمكنك متابعة التذكرة عبر المنصة.`;
+      htmlContent = `
+        <div dir="rtl" style="font-family: sans-serif;">
+          <h2>${greeting}</h2>
+          <p>هناك رد جديد من فريق الدعم على تذكرتك #${ticket_number}:</p>
+          <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; margin: 10px 0;">
+            ${message}
+          </div>
+          <p>يمكنك الرد ومتابعة المحادثة عبر المنصة.</p>
+        </div>
+      `;
     }
 
-    const accessToken = await getAccessToken();
-    const accountId = Deno.env.get("ZOHO_ACCOUNT_ID");
-
-    if (!accountId) {
-      throw new Error("Zoho Account ID missing");
-    }
-
-    const response = await fetch(`${ZOHO_MAIL_API_URL}/${accountId}/messages`, {
+    const response = await fetch(RESEND_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Zoho-oauthtoken ${accessToken}`,
+        "Authorization": `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        fromAddress: FROM_EMAIL,
-        toAddress: customer_email,
+        from: emailFrom,
+        to: customer_email,
         subject: subject,
-        content: content,
+        html: htmlContent,
       }),
     });
 
     const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Resend API error: ${JSON.stringify(result)}`);
+    }
 
     return new Response(JSON.stringify({ success: true, data: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
