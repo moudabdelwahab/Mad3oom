@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const ZOHO_MAIL_API_URL = "https://mail.zoho.com/api/accounts";
+const ZOHO_TOKEN_URL = "https://accounts.zoho.com/oauth/v2/token";
 const FROM_EMAIL = "tickets@mad3oom.online";
 
 const corsHeaders = {
@@ -8,6 +9,33 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, content-type",
 };
+
+async function getAccessToken() {
+  const refreshToken = Deno.env.get("ZOHO_REFRESH_TOKEN");
+  const clientId = Deno.env.get("ZOHO_CLIENT_ID");
+  const clientSecret = Deno.env.get("ZOHO_CLIENT_SECRET");
+
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error("Zoho OAuth credentials missing");
+  }
+
+  const params = new URLSearchParams();
+  params.append("refresh_token", refreshToken);
+  params.append("client_id", clientId);
+  params.append("client_secret", clientSecret);
+  params.append("grant_type", "refresh_token");
+
+  const response = await fetch(ZOHO_TOKEN_URL, {
+    method: "POST",
+    body: params,
+  });
+
+  const data = await response.json();
+  if (!data.access_token) {
+    throw new Error("Failed to refresh Zoho access token: " + JSON.stringify(data));
+  }
+  return data.access_token;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -42,25 +70,17 @@ Deno.serve(async (req: Request) => {
       content = `مرحباً ${customer_name || 'عميلنا العزيز'}،\n\nهناك رد جديد من فريق الدعم على تذكرتك #${ticket_number}:\n\n"${message}"\n\nيمكنك متابعة التذكرة عبر المنصة.`;
     }
 
-    // ملاحظة: يتطلب Zoho Mail استخدام OAuth2 Access Token
-    // سنفترض وجود ZOHO_ACCESS_TOKEN في متغيرات البيئة أو استخدامه عبر API Key إذا كان متاحاً
-    // في Zoho Mail API، نحتاج أولاً لـ Account ID
-    const ZOHO_TOKEN = Deno.env.get("ZOHO_ACCESS_TOKEN");
-    const ZOHO_ACCOUNT_ID = Deno.env.get("ZOHO_ACCOUNT_ID");
+    const accessToken = await getAccessToken();
+    const accountId = Deno.env.get("ZOHO_ACCOUNT_ID");
 
-    if (!ZOHO_TOKEN || !ZOHO_ACCOUNT_ID) {
-      console.error("Zoho configuration missing");
-      // سنقوم بتسجيل الخطأ ولكن سنرجع استجابة ناجحة للـ Trigger لتجنب التعليق
-      return new Response(JSON.stringify({ success: false, error: "Zoho config missing" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+    if (!accountId) {
+      throw new Error("Zoho Account ID missing");
     }
 
-    const response = await fetch(`${ZOHO_MAIL_API_URL}/${ZOHO_ACCOUNT_ID}/messages`, {
+    const response = await fetch(`${ZOHO_MAIL_API_URL}/${accountId}/messages`, {
       method: "POST",
       headers: {
-        "Authorization": `Zoho-oauthtoken ${ZOHO_TOKEN}`,
+        "Authorization": `Zoho-oauthtoken ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
