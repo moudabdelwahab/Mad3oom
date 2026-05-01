@@ -32,6 +32,36 @@ BEGIN
         RAISE NOTICE 'Could not grant execute on functions: %', SQLERRM;
     END;
 
+    -- 5.1 Create a compatibility wrapper for old calls that use:
+    --     net.http_post(url => ..., headers => ..., body => ...)
+    -- Some pg_net versions expose a different signature (body TEXT, params JSONB, ...),
+    -- which causes: function net.http_post(url => unknown, headers => jsonb, body => jsonb) does not exist
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'net'
+          AND p.proname = 'http_post'
+          AND pg_get_function_identity_arguments(p.oid) = 'url text, headers jsonb, body jsonb'
+    ) THEN
+        EXECUTE $create_wrapper$
+            CREATE OR REPLACE FUNCTION net.http_post(url text, headers jsonb, body jsonb)
+            RETURNS bigint
+            LANGUAGE sql
+            AS $$
+                SELECT net.http_post(
+                    url,
+                    body::text,
+                    '{}'::jsonb,
+                    COALESCE(headers, '{}'::jsonb),
+                    10000
+                );
+            $$;
+        $create_wrapper$;
+
+        RAISE NOTICE 'Created compatibility wrapper: net.http_post(url text, headers jsonb, body jsonb).';
+    END IF;
+
     -- 6. Update search path for all relevant roles to include 'net'
     -- This allows calling http_post instead of net.http_post
     EXECUTE 'ALTER ROLE authenticated SET search_path TO "$user", public, net, extensions';
