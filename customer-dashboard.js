@@ -15,6 +15,7 @@ import {
     markAllAsRead,
     subscribeToNotifications
 } from './notifications-service.js';
+import { ui } from './ui-service.js';
 
 (async function () {
 
@@ -378,8 +379,9 @@ import {
                 await addTicketReply(currentTicketId, message);
                 msgInput.value = '';
                 await loadReplies(currentTicketId);
+                ui.showToast('تم إرسال الرد بنجاح', 'success');
             } catch (err) {
-                alert('فشل إرسال الرد: ' + err.message);
+                ui.showAlert('خطأ في الإرسال', err.message, 'error');
             } finally {
                 sendReplyBtn.disabled = false;
                 sendReplyBtn.textContent = 'إرسال الرد';
@@ -405,8 +407,9 @@ import {
                 await addTicketReply(currentTicketId, message);
                 msgInput.value = '';
                 await loadReplies(currentTicketId);
+                ui.showToast('تم إرسال الرد بنجاح', 'success');
             } catch (err) {
-                alert('فشل إرسال الرد: ' + err.message);
+                ui.showAlert('خطأ في الإرسال', err.message, 'error');
             } finally {
                 const submitBtn = detailReplyForm.querySelector('button[type="submit"]');
                 if (submitBtn) {
@@ -436,8 +439,9 @@ import {
                 document.getElementById('createTicketModal')?.classList.remove('active');
                 await renderStats();
                 await renderTickets();
+                ui.showAlert('تم بنجاح', 'تم إنشاء التذكرة بنجاح، سيقوم فريقنا بالرد عليك في أقرب وقت.', 'success');
             } catch (err) {
-                alert('خطأ في إنشاء التذكرة: ' + err.message);
+                ui.showAlert('خطأ في إنشاء التذكرة', err.message, 'error');
             } finally {
                 const submitBtn = createTicketForm.querySelector('button[type="submit"]');
                 submitBtn.disabled = false;
