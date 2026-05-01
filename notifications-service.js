@@ -133,13 +133,27 @@ export async function broadcastNotification({ title, message, type = 'info', lin
 /**
  * الاشتراك في الإشعارات اللحظية للمستخدم الحالي
  */
+// Store active notification channels to prevent duplicate subscriptions
+const activeNotificationChannels = new Map();
+
+/**
+ * الاشتراك في الإشعارات اللحظية للمستخدم الحالي
+ */
 export function subscribeToNotifications(userId, callback) {
     if (!userId) return null;
+    
+    const channelName = `user-notifications-${userId}`;
+    
+    // If already subscribed to this channel, just return the existing one
+    if (activeNotificationChannels.has(channelName)) {
+        console.log('[Notifications] Already subscribed to notifications for user:', userId);
+        return activeNotificationChannels.get(channelName);
+    }
     
     console.log('[Notifications] Subscribing to notifications for user:', userId);
     
     const channel = supabase
-        .channel(`user-notifications-${userId}`)
+        .channel(channelName)
         .on('postgres_changes', { 
             event: 'INSERT', 
             schema: 'public', 
@@ -151,8 +165,12 @@ export function subscribeToNotifications(userId, callback) {
         })
         .subscribe((status) => {
             console.log('[Notifications] Subscription status:', status);
+            if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                activeNotificationChannels.delete(channelName);
+            }
         });
     
+    activeNotificationChannels.set(channelName, channel);
     return channel;
 }
 

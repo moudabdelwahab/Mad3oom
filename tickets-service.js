@@ -158,14 +158,31 @@ export async function closeTicketWithComment(ticketId, comment) {
     await updateTicketStatus(ticketId, 'resolved');
 }
 
+// Store active ticket channels to prevent duplicate subscriptions
+const activeTicketChannels = new Map();
+
 /**
  * الاشتراك في تحديثات التذاكر (Realtime)
  */
 export function subscribeToTickets(callback) {
-    return supabase
-        .channel('public:tickets')
+    const channelName = 'public:tickets';
+    
+    if (activeTicketChannels.has(channelName)) {
+        console.log('[Tickets] Already subscribed to tickets channel');
+        return activeTicketChannels.get(channelName);
+    }
+
+    const channel = supabase
+        .channel(channelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, callback)
-        .subscribe();
+        .subscribe((status) => {
+            if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                activeTicketChannels.delete(channelName);
+            }
+        });
+    
+    activeTicketChannels.set(channelName, channel);
+    return channel;
 }
 
 /**
