@@ -3,6 +3,19 @@
  * يحتوي على جميع دوال التحقق من البريد والهاتف وكلمة المرور
  */
 
+import { VALIDATION } from './constants.js';
+
+/**
+ * التحقق من أن البريد الإلكتروني ليس من دومين شائع
+ * @param {string} email - البريد الإلكتروني
+ * @returns {boolean} - true إذا كان الدومين خاصاً (ليس شائعاً)
+ */
+export function isCorporateEmail(email) {
+    if (!email || !email.includes('@')) return false;
+    const domain = email.split('@')[1].toLowerCase();
+    return !VALIDATION.COMMON_DOMAINS.includes(domain);
+}
+
 /**
  * التحقق من صحة البريد الإلكتروني
  * @param {string} email - البريد الإلكتروني
@@ -124,6 +137,8 @@ export function validateCompanyData(data) {
     // التحقق من البريد الإلكتروني للشركة
     if (!validateEmail(data.companyEmail)) {
         errors.push('البريد الإلكتروني للشركة غير صحيح');
+    } else if (!isCorporateEmail(data.companyEmail)) {
+        errors.push('يجب استخدام بريد إلكتروني رسمي للشركة (لا يقبل gmail, yahoo, إلخ)');
     }
     
     // التحقق من رقم هاتف الشركة

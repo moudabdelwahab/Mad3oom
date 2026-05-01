@@ -6,6 +6,7 @@
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
 import { validateIndividualData, validateCompanyData } from './auth-validation.js';
+import { USER_ROLES } from './constants.js';
 
 /**
  * إنشاء حساب فرد جديد
@@ -206,7 +207,7 @@ export async function signUpCompany(data, options = {}) {
                 city: data.city || null,
                 country: data.country || null,
                 is_verified: false,
-                role: 'customer'
+                role: USER_ROLES.SUPER_USER
             }]);
 
         if (profileError) {

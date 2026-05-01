@@ -39,6 +39,7 @@ export const TICKET_PRIORITY_CLASSES = {
 export const USER_ROLES = {
     ADMIN: 'admin',
     SUPPORT: 'support',
+    SUPER_USER: 'super_user',
     CUSTOMER: 'customer',
     GUEST: 'guest'
 };
@@ -46,6 +47,7 @@ export const USER_ROLES = {
 export const USER_ROLE_LABELS = {
     [USER_ROLES.ADMIN]: 'مدير',
     [USER_ROLES.SUPPORT]: 'دعم فني',
+    [USER_ROLES.SUPER_USER]: 'مسؤول شركة',
     [USER_ROLES.CUSTOMER]: 'مستخدم',
     [USER_ROLES.GUEST]: 'زائر'
 };
@@ -128,6 +130,11 @@ export const DATE_FORMATS = {
 
 // ==================== Validation ====================
 export const VALIDATION = {
+    COMMON_DOMAINS: [
+        'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 
+        'aol.com', 'zoho.com', 'mail.com', 'protonmail.com', 'yandex.com',
+        'live.com', 'msn.com', 'me.com'
+    ],
     MIN_PASSWORD_LENGTH: 6,
     MAX_TICKET_TITLE_LENGTH: 200,
     MAX_TICKET_DESCRIPTION_LENGTH: 2000,
