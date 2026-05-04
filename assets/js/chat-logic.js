@@ -260,8 +260,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('خطأ في إرسال الرسالة:', error);
             alert('فشل في إرسال الرسالة');
         }
-    }
-
     // ===== END CUSTOMER CHAT =====
     async function endCustomerChat() {
         if (!confirm('هل تريد إنهاء المحادثة؟')) return;
