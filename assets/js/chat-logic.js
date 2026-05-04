@@ -201,10 +201,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== SEND CUSTOMER MESSAGE =====
-    async function sendCustomerMessage() {
-        const chatInput = document.getElementById('chatInput');
-        const text = chatInput.value.trim();
+  async function sendCustomerMessage() {
+    const chatInput = document.getElementById('chatInput');
+    const text = chatInput.value.trim();
 
+    if (!text || !currentSessionId) return;
+
+    chatInput.value = '';
+
+    // 1️⃣ ابعت رسالة المستخدم للداتابيز
+    await supabase.from('chat_messages').insert({
+        session_id: currentSessionId,
+        sender_id: currentUser.id,
+        message_text: text,
+        is_admin_reply: false
+    });
+
+    try {
+        // 2️⃣ كلم البوت
+        const res = await fetch("https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/Hugging_Face_Token", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: text,
+                context: ""
+            })
+        });
+
+        const data = await res.json();
+        const reply = data.reply || "مفيش رد";
+
+        // 3️⃣ احفظ رد البوت في الداتابيز
+        await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            sender_id: null,
+            message_text: reply,
+            is_admin_reply: true
+        });
+
+    } catch (err) {
+        console.error("خطأ في البوت:", err);
+    }
+}
         if (!text || !currentSessionId) return;
 
         chatInput.value = '';
