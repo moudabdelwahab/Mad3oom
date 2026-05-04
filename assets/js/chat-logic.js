@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             .from('chat_sessions')
             .select('*')
             .eq('user_id', currentUser.id)
-            .eq('status', 'active')
+            .eq('status', 'open')
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .from('chat_sessions')
                 .insert({
                     user_id: currentUser.id,
-                    status: 'active'
+                    status: 'open'
                 })
                 .select()
                 .single();
