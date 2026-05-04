@@ -15,119 +15,234 @@
     
     <link rel="icon" type="image/svg+xml" href="logo.svg">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="legal-pages.css">
+    
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <script src="theme-manager.js" defer></script>
 </head>
-<body>
+<body class="legal-page">
+    <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-                <img src="logo.svg" alt="Logo" class="logo-image">
+                <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
                 <span>منصة مدعوم</span>
             </div>
-            <ul class="nav-menu">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="theme-toggle" aria-label="Toggle theme" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+                <button class="hamburger" aria-label="Toggle menu" id="hamburgerBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">الرئيسية</a></li>
+                <li><a href="about.html">حول</a></li>
+                <li><a href="rewards.html">المكافآت</a></li>
+                <li><a href="subscriptions.html">الخطط والأسعار</a></li>
                 <li><a href="sign-in.html">تسجيل الدخول</a></li>
             </ul>
         </div>
     </nav>
 
-    <main style="max-width: 900px; margin: 2rem auto; padding: 2rem; min-height: 60vh;">
-        <div class="page-header">
+    <!-- Main Content -->
+    <main class="legal-content">
+        <!-- Page Header -->
+        <div class="legal-header">
             <h1>شروط الاستخدام</h1>
-            <p style="color: var(--text-tertiary); margin-top: 0.5rem;">آخر تحديث: 2025</p>
+            <div class="last-updated">آخر تحديث: مايو 2026</div>
         </div>
 
-        <div class="about-container" style="text-align: right;">
-            <div class="about-section">
-                <h2>1. القبول</h2>
-                <p>باستخدامك لمنصة مدعوم، أنت توافق على الالتزام بهذه الشروط والأحكام. إذا كنت لا توافق على أي جزء من هذه الشروط، يرجى عدم استخدام الخدمة.</p>
-            </div>
+        <!-- Table of Contents -->
+        <div class="table-of-contents">
+            <h2>جدول المحتويات</h2>
+            <ol>
+                <li><a href="#acceptance">القبول والموافقة</a></li>
+                <li><a href="#usage">استخدام الخدمة</a></li>
+                <li><a href="#accounts">إدارة الحسابات</a></li>
+                <li><a href="#content">المحتوى والملكية الفكرية</a></li>
+                <li><a href="#restrictions">القيود والمحظورات</a></li>
+                <li><a href="#suspension">إيقاف الخدمة</a></li>
+                <li><a href="#disclaimer">إخلاء المسؤولية</a></li>
+                <li><a href="#modifications">تعديل الشروط</a></li>
+                <li><a href="#governing">القانون الحاكم</a></li>
+                <li><a href="#contact">التواصل معنا</a></li>
+            </ol>
+        </div>
 
-            <div class="about-section">
-                <h2>2. استخدام الخدمة</h2>
-                <p>يجب عليك:</p>
-                <ul class="values-list">
-                    <li>استخدام الخدمة للأغراض القانونية فقط</li>
-                    <li>عدم محاولة الوصول غير المصرح به إلى النظام</li>
-                    <li>عدم إرسال محتوى ضار أو غير قانوني</li>
-                    <li>احترام حقوق الملكية الفكرية</li>
-                </ul>
+        <!-- Content Sections -->
+        <section class="legal-section" id="acceptance">
+            <h2>1. القبول والموافقة</h2>
+            <p>بمجرد دخولك واستخدامك لمنصة مدعوم، فإنك توافق على الالتزام الكامل بهذه الشروط والأحكام. إذا كنت لا توافق على أي جزء من هذه الشروط، يرجى عدم استخدام الخدمة فوراً.</p>
+            <div class="highlight-box">
+                <p><strong>ملاحظة مهمة:</strong> هذه الشروط تنطبق على جميع المستخدمين بما في ذلك الزوار والعملاء والموظفين.</p>
             </div>
+        </section>
 
-            <div class="about-section">
-                <h2>3. الحسابات</h2>
-                <p>أنت مسؤول عن:</p>
-                <ul class="values-list">
-                    <li>الحفاظ على سرية معلومات حسابك</li>
-                    <li>جميع الأنشطة التي تحدث تحت حسابك</li>
-                    <li>إبلاغنا فوراً عن أي استخدام غير مصرح به</li>
-                </ul>
+        <section class="legal-section" id="usage">
+            <h2>2. استخدام الخدمة</h2>
+            <p>يجب عليك استخدام منصة مدعوم بطريقة قانونية وأخلاقية. يتعهد المستخدم بـ:</p>
+            <ul>
+                <li>استخدام الخدمة للأغراض القانونية والمشروعة فقط</li>
+                <li>عدم محاولة الوصول غير المصرح به إلى النظام أو قواعد البيانات</li>
+                <li>عدم إرسال أو نشر محتوى ضار أو غير قانوني أو مسيء</li>
+                <li>احترام حقوق الملكية الفكرية والحقوق المدنية للآخرين</li>
+                <li>عدم استخدام الخدمة بطريقة تؤثر على أداء النظام أو توفره</li>
+            </ul>
+            <div class="important-notice">
+                أي انتهاك لهذه الشروط قد يؤدي إلى إيقاف حسابك فوراً دون إشعار مسبق.
             </div>
+        </section>
 
-            <div class="about-section">
-                <h2>4. المحتوى</h2>
-                <p>أنت تحتفظ بحقوق الملكية للمحتوى الذي تنشره. بإنشائك للمحتوى، تمنحنا ترخيصاً لاستخدامه وتوزيعه وعرضه ضمن الخدمة.</p>
-            </div>
+        <section class="legal-section" id="accounts">
+            <h2>3. إدارة الحسابات</h2>
+            <h3>مسؤوليات المستخدم</h3>
+            <p>أنت مسؤول بالكامل عن:</p>
+            <ul>
+                <li>الحفاظ على سرية بيانات حسابك وكلمة المرور</li>
+                <li>جميع الأنشطة والعمليات التي تتم تحت حسابك</li>
+                <li>إبلاغنا فوراً عن أي استخدام غير مصرح به أو انتهاك أمني</li>
+                <li>تحديث معلومات حسابك بشكل دوري والحفاظ على دقتها</li>
+            </ul>
+            <h3>سياسة كلمات المرور</h3>
+            <p>يجب أن تكون كلمة المرور قوية وآمنة. لا تشارك كلمة المرور مع أي شخص آخر، وتأكد من تسجيل الخروج من حسابك عند استخدام أجهزة عامة.</p>
+        </section>
 
-            <div class="about-section">
-                <h2>5. القيود</h2>
-                <p>يُحظر عليك:</p>
-                <ul class="values-list">
-                    <li>استخدام الخدمة لأي غرض غير قانوني</li>
-                    <li>إرسال فيروسات أو كود ضار</li>
-                    <li>محاولة اختراق أو تعطيل الخدمة</li>
-                    <li>انتحال هوية أشخاص آخرين</li>
-                </ul>
-            </div>
+        <section class="legal-section" id="content">
+            <h2>4. المحتوى والملكية الفكرية</h2>
+            <h3>حقوق المستخدم</h3>
+            <p>أنت تحتفظ بجميع حقوق الملكية الفكرية للمحتوى الذي تنشره على المنصة. بإنشاؤك للمحتوى، تمنح منصة مدعوم ترخيصاً غير حصري وقابل للنقل لاستخدام وتوزيع وعرض هذا المحتوى ضمن الخدمة.</p>
+            <h3>حقوق منصة مدعوم</h3>
+            <p>جميع المحتوى والمواد المتعلقة بمنصة مدعوم، بما في ذلك التصميم والشعار والنصوص والرسومات والصور والفيديو، محمية بحقوق الملكية الفكرية. لا يُسمح بنسخ أو توزيع أو استخدام هذه المواد دون إذن كتابي صريح.</p>
+        </section>
 
-            <div class="about-section">
-                <h2>6. إيقاف الخدمة</h2>
-                <p>نحتفظ بالحق في إيقاف أو تعليق حسابك في أي وقت بسبب انتهاك هذه الشروط أو لأي سبب آخر نراه مناسباً.</p>
-            </div>
+        <section class="legal-section" id="restrictions">
+            <h2>5. القيود والمحظورات</h2>
+            <p>يُحظر عليك بشكل قاطع:</p>
+            <ul>
+                <li>استخدام الخدمة لأي غرض غير قانوني أو غير أخلاقي</li>
+                <li>إرسال أو نشر فيروسات أو برامج ضارة أو كود خطير</li>
+                <li>محاولة اختراق أو تعطيل أو إساءة استخدام الخدمة</li>
+                <li>انتحال هوية أشخاص آخرين أو تقديم معلومات مزيفة</li>
+                <li>التحرش أو الإساءة أو التهديد أو الإزعاج لمستخدمين آخرين</li>
+                <li>جمع أو استخراج البيانات الشخصية للآخرين دون موافقة</li>
+                <li>نشر محتوى ينتهك حقوق الآخرين أو يتضمن معلومات خاصة</li>
+                <li>استخدام الخدمة لأغراض تجارية دون ترخيص</li>
+            </ul>
+        </section>
 
-            <div class="about-section">
-                <h2>7. إخلاء المسؤولية</h2>
-                <p>الخدمة مقدمة "كما هي" دون أي ضمانات صريحة أو ضمنية. لا نضمن أن الخدمة ستكون خالية من الأخطاء أو الانقطاعات.</p>
-            </div>
+        <section class="legal-section" id="suspension">
+            <h2>6. إيقاف الخدمة</h2>
+            <p>نحتفظ بالحق في إيقاف أو تعليق أو حذف حسابك في أي وقت، بما في ذلك:</p>
+            <ul>
+                <li>انتهاك هذه الشروط والأحكام</li>
+                <li>نشاط مريب أو احتيالي</li>
+                <li>عدم الامتثال للقوانين والأنظمة المعمول بها</li>
+                <li>أسباب أمنية أو تشغيلية</li>
+            </ul>
+            <p>في حالة الإيقاف، سيتم إرسال إشعار لك يوضح السبب، ما لم يكن هناك سبب أمني يمنع ذلك.</p>
+        </section>
 
-            <div class="about-section">
-                <h2>8. التعديلات</h2>
-                <p>نحتفظ بالحق في تعديل هذه الشروط في أي وقت. سيتم إشعارك بأي تغييرات جوهرية.</p>
+        <section class="legal-section" id="disclaimer">
+            <h2>7. إخلاء المسؤولية</h2>
+            <p>الخدمة مقدمة "كما هي" و"كما تتوفر" دون أي ضمانات صريحة أو ضمنية. لا نضمن:</p>
+            <ul>
+                <li>أن الخدمة ستكون خالية من الأخطاء أو الانقطاعات</li>
+                <li>أن جميع الأخطاء سيتم إصلاحها</li>
+                <li>أن الخدمة ستلبي احتياجاتك أو توقعاتك</li>
+                <li>عدم فقدان البيانات أو الملفات</li>
+            </ul>
+            <div class="important-notice">
+                منصة مدعوم غير مسؤولة عن أي أضرار مباشرة أو غير مباشرة ناتجة عن استخدام أو عدم القدرة على استخدام الخدمة.
             </div>
+        </section>
 
-            <div class="about-section">
-                <h2>9. القانون الحاكم</h2>
-                <p>تخضع هذه الشروط وتفسر وفقاً لقوانين المملكة العربية السعودية.</p>
-            </div>
+        <section class="legal-section" id="modifications">
+            <h2>8. تعديل الشروط</h2>
+            <p>نحتفظ بالحق في تعديل هذه الشروط والأحكام في أي وقت. سيتم إشعارك بأي تغييرات جوهرية عبر:</p>
+            <ul>
+                <li>البريد الإلكتروني المسجل في حسابك</li>
+                <li>إشعار بارز على الموقع</li>
+                <li>رسالة مباشرة في لوحة التحكم</li>
+            </ul>
+            <p>استمرارك في استخدام الخدمة بعد التعديلات يعني قبولك للشروط الجديدة.</p>
+        </section>
 
-            <div class="about-section">
-                <h2>10. التواصل</h2>
-                <p>إذا كان لديك أي أسئلة حول هذه الشروط، يرجى التواصل معنا.</p>
+        <section class="legal-section" id="governing">
+            <h2>9. القانون الحاكم</h2>
+            <p>تخضع هذه الشروط والأحكام وتفسر وفقاً لقوانين المملكة العربية السعودية، دون الإخلال بأي نزاع قانوني قد ينشأ.</p>
+            <p>يوافق جميع المستخدمين على الخضوع للاختصاص الحصري للمحاكم السعودية المختصة.</p>
+        </section>
+
+        <section class="legal-section" id="contact">
+            <h2>10. التواصل معنا</h2>
+            <p>إذا كان لديك أي أسئلة أو استفسارات حول هذه الشروط والأحكام، يرجى التواصل معنا:</p>
+            <div class="contact-section">
+                <h3>معلومات التواصل</h3>
+                <div class="contact-info">
+                    <p><strong>البريد الإلكتروني:</strong> <a href="mailto:support@mad3oom.online">support@mad3oom.online</a></p>
+                    <p><strong>الموقع:</strong> <a href="https://mad3oom.online" target="_blank">mad3oom.online</a></p>
+                    <p><strong>ساعات الدعم:</strong> من الأحد إلى الخميس، من 9 صباحاً إلى 6 مساءً (بتوقيت مكة المكرمة)</p>
+                </div>
             </div>
+        </section>
+
+        <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--color-border); text-align: center; color: var(--color-text-secondary);">
+            <p>© 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">آخر تحديث: مايو 2026</p>
         </div>
     </main>
 
+    <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-container">
             <div class="footer-grid">
                 <div class="footer-section">
                     <h3>منصة مدعوم</h3>
-                    <p>نظام دعم فني متكامل لتقديم أفضل خدمة عملاء</p>
+                    <p>نظام دعم فني متكامل لتقديم أفضل خدمة عملاء بكفاءة واحترافية عالية.</p>
                 </div>
                 
                 <div class="footer-section">
                     <h4>روابط سريعة</h4>
                     <ul class="footer-links">
                         <li><a href="index.html">الرئيسية</a></li>
-                        <li><a href="sign-in.html">تسجيل الدخول</a></li>
+                        <li><a href="about.html">حول الخدمة</a></li>
                         <li><a href="subscriptions.html">الخطط والأسعار</a></li>
+                        <li><a href="sign-in.html">تسجيل الدخول</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
-                    <h4>معلومات</h4>
+                    <h4>المزيد</h4>
                     <ul class="footer-links">
                         <li><a href="rewards.html">نظام المكافآت</a></li>
-                        <li><a href="index.html#about">حول الخدمة</a></li>
+                        <li><a href="index.html#about">عن المنصة</a></li>
+                        <li><a href="index.html#features">المميزات</a></li>
                     </ul>
                 </div>
                 
@@ -146,6 +261,36 @@
             </div>
         </div>
     </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Hamburger Menu Toggle
+        const hamburger = document.getElementById('hamburgerBtn');
+        const navMenu = document.getElementById('navMenu');
+        
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+
+        // Smooth scroll for table of contents
+        document.querySelectorAll('.table-of-contents a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
-

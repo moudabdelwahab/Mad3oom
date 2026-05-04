@@ -15,119 +15,325 @@
     
     <link rel="icon" type="image/svg+xml" href="logo.svg">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="legal-pages.css">
+    
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <script src="theme-manager.js" defer></script>
 </head>
-<body>
+<body class="legal-page">
+    <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-                <img src="logo.svg" alt="Logo" class="logo-image">
+                <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
                 <span>منصة مدعوم</span>
             </div>
-            <ul class="nav-menu">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="theme-toggle" aria-label="Toggle theme" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+                <button class="hamburger" aria-label="Toggle menu" id="hamburgerBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">الرئيسية</a></li>
+                <li><a href="about.html">حول</a></li>
+                <li><a href="rewards.html">المكافآت</a></li>
+                <li><a href="subscriptions.html">الخطط والأسعار</a></li>
                 <li><a href="sign-in.html">تسجيل الدخول</a></li>
             </ul>
         </div>
     </nav>
 
-    <main style="max-width: 900px; margin: 2rem auto; padding: 2rem; min-height: 60vh;">
-        <div class="page-header">
+    <!-- Main Content -->
+    <main class="legal-content">
+        <!-- Page Header -->
+        <div class="legal-header">
             <h1>سياسة الخصوصية</h1>
-            <p style="color: var(--text-tertiary); margin-top: 0.5rem;">آخر تحديث: 2025</p>
+            <div class="last-updated">آخر تحديث: مايو 2026</div>
         </div>
 
-        <div class="about-container" style="text-align: right;">
-            <div class="about-section">
-                <h2>1. مقدمة</h2>
-                <p>نحن في منصة مدعوم نلتزم بحماية خصوصيتك. توضح هذه السياسة كيفية جمعنا واستخدامنا وحمايتنا لمعلوماتك الشخصية عند استخدامك لخدماتنا.</p>
-            </div>
+        <!-- Table of Contents -->
+        <div class="table-of-contents">
+            <h2>جدول المحتويات</h2>
+            <ol>
+                <li><a href="#introduction">مقدمة</a></li>
+                <li><a href="#information-we-collect">المعلومات التي نجمعها</a></li>
+                <li><a href="#how-we-use">كيفية استخدام المعلومات</a></li>
+                <li><a href="#data-protection">حماية البيانات</a></li>
+                <li><a href="#data-sharing">مشاركة المعلومات</a></li>
+                <li><a href="#your-rights">حقوقك</a></li>
+                <li><a href="#cookies">ملفات تعريف الارتباط</a></li>
+                <li><a href="#third-party">الروابط الخارجية</a></li>
+                <li><a href="#policy-changes">تغييرات السياسة</a></li>
+                <li><a href="#contact-us">التواصل معنا</a></li>
+            </ol>
+        </div>
 
-            <div class="about-section">
-                <h2>2. المعلومات التي نجمعها</h2>
-                <p>نجمع المعلومات التالية:</p>
-                <ul class="values-list">
-                    <li>معلومات الحساب: البريد الإلكتروني وكلمة المرور</li>
-                    <li>معلومات الاستخدام: التذاكر والرسائل والتفاعلات مع الخدمة</li>
-                    <li>معلومات تقنية: عنوان IP ونوع المتصفح ومعلومات الجهاز</li>
-                </ul>
+        <!-- Content Sections -->
+        <section class="legal-section" id="introduction">
+            <h2>1. مقدمة</h2>
+            <p>نحن في منصة مدعوم نلتزم بشكل تام بحماية خصوصيتك وأمان معلوماتك الشخصية. توضح هذه السياسة كيفية جمعنا واستخدامنا وحمايتنا وحفظنا لمعلوماتك الشخصية عند استخدامك لخدماتنا.</p>
+            <p>يرجى قراءة هذه السياسة بعناية. إذا كان لديك أي استفسارات، يرجى التواصل معنا مباشرة.</p>
+            <div class="highlight-box">
+                <p><strong>التزامنا:</strong> نعتقد أن الخصوصية حق أساسي، ونعمل بجد لحماية بيانات جميع مستخدمينا.</p>
             </div>
+        </section>
 
-            <div class="about-section">
-                <h2>3. كيفية استخدام المعلومات</h2>
-                <p>نستخدم معلوماتك لـ:</p>
-                <ul class="values-list">
-                    <li>توفير وتحسين خدماتنا</li>
-                    <li>معالجة التذاكر والاستفسارات</li>
-                    <li>إرسال الإشعارات المهمة</li>
-                    <li>ضمان أمان الخدمة</li>
-                </ul>
-            </div>
+        <section class="legal-section" id="information-we-collect">
+            <h2>2. المعلومات التي نجمعها</h2>
+            <p>نجمع أنواع مختلفة من المعلومات لتقديم وتحسين خدماتنا:</p>
+            
+            <h3>أ) معلومات الحساب</h3>
+            <ul>
+                <li>الاسم الكامل والبريد الإلكتروني</li>
+                <li>رقم الهاتف (اختياري)</li>
+                <li>كلمة المرور (مشفرة)</li>
+                <li>صورة الملف الشخصي (اختياري)</li>
+            </ul>
 
-            <div class="about-section">
-                <h2>4. حماية المعلومات</h2>
-                <p>نتخذ إجراءات أمنية مناسبة لحماية معلوماتك الشخصية من الوصول غير المصرح به أو التغيير أو الكشف أو التدمير.</p>
-            </div>
+            <h3>ب) معلومات الاستخدام</h3>
+            <ul>
+                <li>التذاكر والرسائل والاستفسارات التي تنشئها</li>
+                <li>تاريخ وتوقيت الوصول إلى الخدمة</li>
+                <li>الصفحات والميزات التي تستخدمها</li>
+                <li>تفاعلاتك مع المحادثات والمحتوى</li>
+            </ul>
 
-            <div class="about-section">
-                <h2>5. مشاركة المعلومات</h2>
-                <p>لا نبيع أو نؤجر معلوماتك الشخصية لأطراف ثالثة. قد نشارك المعلومات فقط في الحالات التالية:</p>
-                <ul class="values-list">
-                    <li>عند الحاجة القانونية</li>
-                    <li>لحماية حقوقنا وسلامة المستخدمين</li>
-                    <li>مع موفري الخدمات الموثوقين الذين يساعدوننا في تشغيل الخدمة</li>
-                </ul>
-            </div>
+            <h3>ج) معلومات تقنية</h3>
+            <ul>
+                <li>عنوان IP الخاص بك</li>
+                <li>نوع المتصفح ونسخته</li>
+                <li>نوع الجهاز ونظام التشغيل</li>
+                <li>معرف الجهاز الفريد</li>
+                <li>بيانات الموقع الجغرافي (إن أمكن)</li>
+            </ul>
 
-            <div class="about-section">
-                <h2>6. حقوقك</h2>
-                <p>لديك الحق في:</p>
-                <ul class="values-list">
-                    <li>الوصول إلى معلوماتك الشخصية</li>
-                    <li>تصحيح المعلومات غير الدقيقة</li>
-                    <li>طلب حذف معلوماتك</li>
-                    <li>الاعتراض على معالجة معلوماتك</li>
-                </ul>
-            </div>
+            <h3>د) معلومات الدفع (إن وجدت)</h3>
+            <ul>
+                <li>تفاصيل الفواتير والعناوين</li>
+                <li>معلومات الدفع (معالجة من قبل معالجات دفع آمنة)</li>
+                <li>سجل المشتريات والاشتراكات</li>
+            </ul>
 
-            <div class="about-section">
-                <h2>7. الكوكيز</h2>
-                <p>نستخدم ملفات تعريف الارتباط (الكوكيز) لتحسين تجربتك. يمكنك إدارة تفضيلات الكوكيز من خلال إعدادات المتصفح.</p>
+            <div class="important-notice">
+                لا نجمع أبداً كلمات مرور كاملة أو تفاصيل بطاقات ائتمان بشكل مباشر. يتم معالجة جميع المعلومات المالية من قبل معالجات دفع موثوقة وآمنة.
             </div>
+        </section>
 
-            <div class="about-section">
-                <h2>8. التغييرات على السياسة</h2>
-                <p>قد نحدث هذه السياسة من وقت لآخر. سنقوم بإشعارك بأي تغييرات جوهرية عبر البريد الإلكتروني أو إشعار على الموقع.</p>
-            </div>
+        <section class="legal-section" id="how-we-use">
+            <h2>3. كيفية استخدام المعلومات</h2>
+            <p>نستخدم المعلومات التي نجمعها للأغراض التالية:</p>
+            
+            <h3>توفير وتحسين الخدمة</h3>
+            <ul>
+                <li>إنشاء وإدارة حسابك</li>
+                <li>تقديم الدعم الفني والمساعدة</li>
+                <li>معالجة التذاكر والاستفسارات</li>
+                <li>تحسين تجربة المستخدم</li>
+            </ul>
 
-            <div class="about-section">
-                <h2>9. التواصل معنا</h2>
-                <p>إذا كان لديك أي أسئلة حول سياسة الخصوصية هذه، يرجى التواصل معنا.</p>
+            <h3>التواصل</h3>
+            <ul>
+                <li>إرسال إشعارات مهمة عن حسابك</li>
+                <li>إرسال رسائل تحديثات الخدمة</li>
+                <li>الرد على استفساراتك</li>
+                <li>إرسال رسائل تسويقية (مع موافقتك)</li>
+            </ul>
+
+            <h3>الأمان والامتثال</h3>
+            <ul>
+                <li>منع الاحتيال والنشاط غير القانوني</li>
+                <li>الامتثال للقوانين واللوائح</li>
+                <li>حماية حقوق المستخدمين والمنصة</li>
+                <li>تحليل الأمان والأداء</li>
+            </ul>
+
+            <h3>التحليل والإحصائيات</h3>
+            <ul>
+                <li>فهم كيفية استخدام المستخدمين للخدمة</li>
+                <li>تحديد الاتجاهات والأنماط</li>
+                <li>تطوير ميزات جديدة</li>
+            </ul>
+        </section>
+
+        <section class="legal-section" id="data-protection">
+            <h2>4. حماية البيانات</h2>
+            <p>نتخذ إجراءات أمنية مناسبة وشاملة لحماية معلوماتك الشخصية من الوصول غير المصرح به والتغيير والكشف والتدمير:</p>
+            <ul>
+                <li><strong>التشفير:</strong> جميع البيانات الحساسة مشفرة أثناء النقل والتخزين</li>
+                <li><strong>المصادقة:</strong> استخدام كلمات مرور قوية والمصادقة متعددة العوامل</li>
+                <li><strong>الوصول المحدود:</strong> فقط الموظفون المصرح لهم يمكنهم الوصول للبيانات</li>
+                <li><strong>المراقبة:</strong> مراقبة مستمرة للنشاط المريب</li>
+                <li><strong>النسخ الاحتياطية:</strong> نسخ احتياطية منتظمة لمنع فقدان البيانات</li>
+            </ul>
+            <div class="highlight-box">
+                <p><strong>ملاحظة:</strong> بالرغم من جهودنا، لا يمكن ضمان أمان كامل 100%. استخدم كلمة مرور قوية وحافظ على سرية معلومات حسابك.</p>
             </div>
+        </section>
+
+        <section class="legal-section" id="data-sharing">
+            <h2>5. مشاركة المعلومات</h2>
+            <p>نحن لا نبيع أو نؤجر أو نشارك معلوماتك الشخصية مع أطراف ثالثة للأغراض التسويقية. قد نشارك المعلومات فقط في الحالات التالية:</p>
+            
+            <h3>موفرو الخدمات</h3>
+            <p>قد نشارك البيانات مع شركاء موثوقين يساعدوننا في تشغيل الخدمة، مثل:</p>
+            <ul>
+                <li>معالجات الدفع</li>
+                <li>مزودو خدمات البريد الإلكتروني</li>
+                <li>موفرو التخزين السحابي</li>
+                <li>شركات التحليل</li>
+            </ul>
+
+            <h3>المتطلبات القانونية</h3>
+            <p>قد نفصح عن معلوماتك عند الضرورة القانونية، مثل:</p>
+            <ul>
+                <li>الامتثال لأوامر المحكمة</li>
+                <li>طلبات السلطات الحكومية</li>
+                <li>حماية حقوقنا القانونية</li>
+                <li>منع الاحتيال أو النشاط الإجرامي</li>
+            </ul>
+
+            <h3>موافقتك</h3>
+            <p>قد نشارك معلوماتك مع أطراف ثالثة أخرى بموافقتك الصريحة.</p>
+        </section>
+
+        <section class="legal-section" id="your-rights">
+            <h2>6. حقوقك</h2>
+            <p>لديك الحقوق التالية فيما يتعلق بمعلوماتك الشخصية:</p>
+            
+            <h3>الوصول</h3>
+            <p>لديك الحق في طلب نسخة من المعلومات الشخصية التي نحتفظ بها عنك.</p>
+
+            <h3>التصحيح</h3>
+            <p>لديك الحق في تصحيح أي معلومات غير دقيقة أو غير كاملة.</p>
+
+            <h3>الحذف</h3>
+            <p>لديك الحق في طلب حذف معلوماتك الشخصية، مع بعض الاستثناءات القانونية.</p>
+
+            <h3>الاعتراض</h3>
+            <p>لديك الحق في الاعتراض على معالجة معلوماتك لأغراض معينة.</p>
+
+            <h3>تقييد المعالجة</h3>
+            <p>لديك الحق في طلب تقييد معالجة معلوماتك في ظروف معينة.</p>
+
+            <h3>نقل البيانات</h3>
+            <p>لديك الحق في الحصول على معلوماتك بصيغة منظمة وقابلة للنقل.</p>
+
+            <div class="important-notice">
+                لممارسة أي من هذه الحقوق، يرجى التواصل معنا على البريد الإلكتروني المذكور أدناه مع تقديم معلومات تحقق من هويتك.
+            </div>
+        </section>
+
+        <section class="legal-section" id="cookies">
+            <h2>7. ملفات تعريف الارتباط (الكوكيز)</h2>
+            <p>نستخدم ملفات تعريف الارتباط وتقنيات تتبع مشابهة لتحسين تجربتك على منصتنا.</p>
+            
+            <h3>أنواع الكوكيز</h3>
+            <ul>
+                <li><strong>ضروري:</strong> لتشغيل الخدمة بشكل صحيح</li>
+                <li><strong>الأداء:</strong> لتحليل كيفية استخدام الخدمة</li>
+                <li><strong>الوظيفية:</strong> لتذكر تفضيلاتك</li>
+                <li><strong>التسويق:</strong> لعرض إعلانات ذات صلة</li>
+            </ul>
+
+            <h3>إدارة الكوكيز</h3>
+            <p>يمكنك إدارة تفضيلات الكوكيز من خلال:</p>
+            <ul>
+                <li>إعدادات متصفحك</li>
+                <li>لوحة تحكم الخصوصية على موقعنا</li>
+                <li>أدوات إلغاء الاشتراك</li>
+            </ul>
+
+            <p>لمزيد من المعلومات، يرجى مراجعة <a href="cookies.html">سياسة الكوكيز</a> الخاصة بنا.</p>
+        </section>
+
+        <section class="legal-section" id="third-party">
+            <h2>8. الروابط الخارجية</h2>
+            <p>قد تحتوي منصتنا على روابط لمواقع خارجية. نحن غير مسؤولين عن سياسات الخصوصية أو محتوى هذه المواقع. ننصحك بقراءة سياسات الخصوصية الخاصة بأي موقع خارجي قبل تقديم معلوماتك الشخصية.</p>
+        </section>
+
+        <section class="legal-section" id="policy-changes">
+            <h2>9. تغييرات السياسة</h2>
+            <p>قد نحدث هذه السياسة من وقت لآخر لعكس التغييرات في ممارساتنا أو لأسباب قانونية أخرى. سنقوم بـ:</p>
+            <ul>
+                <li>إشعارك بأي تغييرات جوهرية عبر البريد الإلكتروني</li>
+                <li>نشر الإشعار على الموقع</li>
+                <li>طلب موافقتك إذا لزم الأمر</li>
+            </ul>
+            <p>استمرارك في استخدام الخدمة بعد التغييرات يعني قبولك للسياسة الجديدة.</p>
+        </section>
+
+        <section class="legal-section" id="contact-us">
+            <h2>10. التواصل معنا</h2>
+            <p>إذا كان لديك أي أسئلة أو استفسارات حول هذه السياسة أو ممارسات الخصوصية الخاصة بنا، يرجى التواصل معنا:</p>
+            <div class="contact-section">
+                <h3>معلومات التواصل</h3>
+                <div class="contact-info">
+                    <p><strong>البريد الإلكتروني:</strong> <a href="mailto:privacy@mad3oom.online">privacy@mad3oom.online</a></p>
+                    <p><strong>بريد الدعم:</strong> <a href="mailto:support@mad3oom.online">support@mad3oom.online</a></p>
+                    <p><strong>الموقع:</strong> <a href="https://mad3oom.online" target="_blank">mad3oom.online</a></p>
+                    <p><strong>ساعات الدعم:</strong> من الأحد إلى الخميس، من 9 صباحاً إلى 6 مساءً (بتوقيت مكة المكرمة)</p>
+                </div>
+            </div>
+        </section>
+
+        <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--color-border); text-align: center; color: var(--color-text-secondary);">
+            <p>© 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">آخر تحديث: مايو 2026</p>
         </div>
     </main>
 
+    <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-container">
             <div class="footer-grid">
                 <div class="footer-section">
                     <h3>منصة مدعوم</h3>
-                    <p>نظام دعم فني متكامل لتقديم أفضل خدمة عملاء</p>
+                    <p>نظام دعم فني متكامل لتقديم أفضل خدمة عملاء بكفاءة واحترافية عالية.</p>
                 </div>
                 
                 <div class="footer-section">
                     <h4>روابط سريعة</h4>
                     <ul class="footer-links">
                         <li><a href="index.html">الرئيسية</a></li>
-                        <li><a href="sign-in.html">تسجيل الدخول</a></li>
+                        <li><a href="about.html">حول الخدمة</a></li>
                         <li><a href="subscriptions.html">الخطط والأسعار</a></li>
+                        <li><a href="sign-in.html">تسجيل الدخول</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
-                    <h4>معلومات</h4>
+                    <h4>المزيد</h4>
                     <ul class="footer-links">
                         <li><a href="rewards.html">نظام المكافآت</a></li>
-                        <li><a href="index.html#about">حول الخدمة</a></li>
+                        <li><a href="index.html#about">عن المنصة</a></li>
+                        <li><a href="index.html#features">المميزات</a></li>
                     </ul>
                 </div>
                 
@@ -146,6 +352,36 @@
             </div>
         </div>
     </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Hamburger Menu Toggle
+        const hamburger = document.getElementById('hamburgerBtn');
+        const navMenu = document.getElementById('navMenu');
+        
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+
+        // Smooth scroll for table of contents
+        document.querySelectorAll('.table-of-contents a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
-
