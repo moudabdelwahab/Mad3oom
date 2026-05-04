@@ -329,7 +329,12 @@ function validatePasswordStrength(password) {
  * @param {string} username - اسم المستخدم
  * @returns {Promise<boolean>} - true إذا كان اسم المستخدم موجود
  */
-async function checkUsernameExists(username) {
+/**
+ * التحقق من توفر اسم المستخدم
+ * @param {string} username - اسم المستخدم
+ * @returns {Promise<{available: boolean, error: any}>}
+ */
+export async function checkUsernameAvailability(username) {
     try {
         const { data, error } = await supabase
             .from('profiles')
@@ -338,15 +343,20 @@ async function checkUsernameExists(username) {
             .maybeSingle();
 
         if (error) {
-            console.error('Error checking username:', error);
-            return false;
+            console.error('Error checking username availability:', error);
+            return { available: false, error };
         }
 
-        return !!data;
+        return { available: !data, error: null };
     } catch (err) {
-        console.error('Unexpected error checking username:', err);
-        return false;
+        console.error('Unexpected error checking username availability:', err);
+        return { available: false, error: err };
     }
+}
+
+async function checkUsernameExists(username) {
+    const { available } = await checkUsernameAvailability(username);
+    return !available;
 }
 
 /**
