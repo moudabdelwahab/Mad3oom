@@ -232,35 +232,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             if (typingIndicator) typingIndicator.style.display = 'block';
             
+            // جلب السياق من قاعدة البيانات (معلومات عن المنتج أو الخدمة)
+            const context = await fetchBotContext(text);
+            
             const res = await fetch("https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/huggingface-chatbot", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
                 },
                 body: JSON.stringify({
                     message: text,
-                    context: ""
+                    context: context,
+                    session_id: currentSessionId
                 })
             });
 
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+            }
 
             const data = await res.json();
-            const reply = data.reply || "عذراً، لم أتمكن من فهم ذلك.";
+            const reply = data.reply || data.generated_text || "عذراً، لم أتمكن من فهم ذلك.";
 
             // 3. حفظ رد البوت في قاعدة البيانات
             await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
                 sender_id: null,
                 message_text: reply,
-                is_admin_reply: true
+                is_admin_reply: false,
+                is_bot_reply: true
             });
 
         } catch (err) {
             console.error("خطأ في البوت:", err);
-            // اختياري: إرسال رسالة خطأ للمستخدم في الدردشة
+            
+            // إرسال رسالة خطأ للمستخدم في الدردشة
+            await supabase.from('chat_messages').insert({
+                session_id: currentSessionId,
+                sender_id: null,
+                message_text: `عذراً، حدث خطأ في معالجة طلبك. الرجاء محاولة لاحقاً أو التواصل مع فريق الدعم. (${err.message})`,
+                is_admin_reply: false,
+                is_bot_reply: true
+            });
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
+        }
+    }
+
+    // ===== FETCH BOT CONTEXT =====
+    async function fetchBotContext(userMessage) {
+        try {
+            // يمكن تطوير هذه الدالة لجلب معلومات ذات صلة من قاعدة البيانات
+            // على سبيل المثال: معلومات عن المنتجات، الأسعار، إلخ
+            
+            // للآن، سنرجع رسالة ترحيب أساسية
+            const { data: settings } = await supabase
+                .from('bot_settings')
+                .select('*')
+                .single();
+            
+            return settings?.welcome_message || 'أنت تتحدث مع بوت مساعد من منصة مدعوم';
+        } catch (err) {
+            console.error('خطأ في جلب السياق:', err);
+            return '';
         }
     }
 
@@ -288,9 +324,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== LOAD BOT SETTINGS =====
     async function loadBotSettings() {
         const { data, error } = await supabase.from('bot_settings').select('*').single();
-        if (!error && data) {
-            botSettings = data;
+        
+        if (error) {
+            console.error('Error loading bot settings:', error);
+            botSettings = {};
+            return;
         }
+        
+        botSettings = data;
     }
 
     // ===== LOAD ALL CHATS (ADMIN) =====
