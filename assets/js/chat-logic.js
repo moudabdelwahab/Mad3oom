@@ -245,6 +245,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("خطأ في البوت:", err);
     }
 }
+    const chatInput = document.getElementById('chatInput');
+const text = chatInput.value.trim();
         if (!text || !currentSessionId) return;
 
         chatInput.value = '';
