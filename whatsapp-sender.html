@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WhatsApp Sender</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #21262d;
+      --green: #25D366;
+      --green-dim: #1a9e4a;
+      --green-glow: rgba(37, 211, 102, 0.15);
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --error: #f85149;
+      --mono: 'DM Mono', monospace;
+      --display: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* Green glow orb */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,211,102,0.08) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 520px;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 0 1px rgba(37,211,102,0.05), 0 24px 64px rgba(0,0,0,0.6);
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .icon {
+      width: 48px;
+      height: 48px;
+      background: var(--green-glow);
+      border: 1px solid rgba(37,211,102,0.3);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .icon svg { width: 26px; height: 26px; fill: var(--green); }
+
+    .title {
+      font-family: var(--display);
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 2px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      background: rgba(37,211,102,0.1);
+      color: var(--green);
+      border: 1px solid rgba(37,211,102,0.25);
+      border-radius: 6px;
+      padding: 2px 8px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .field {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+
+    label span {
+      color: var(--green);
+      margin-right: 4px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      resize: none;
+    }
+
+    input::placeholder { color: var(--muted); }
+
+    input:focus {
+      border-color: rgba(37,211,102,0.5);
+      box-shadow: 0 0 0 3px rgba(37,211,102,0.08);
+    }
+
+    .hint {
+      font-size: 0.67rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      opacity: 0.7;
+    }
+
+    .template-info {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(37,211,102,0.05);
+      border: 1px dashed rgba(37,211,102,0.25);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 0.25rem;
+    }
+
+    .template-info svg {
+      width: 15px;
+      height: 15px;
+      stroke: var(--green);
+      flex-shrink: 0;
+    }
+
+    .template-info strong {
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.95rem;
+      background: var(--green);
+      color: #000;
+      font-family: var(--display);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      margin-top: 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #2eec74;
+      box-shadow: 0 0 24px rgba(37,211,102,0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn:active:not(:disabled) { transform: translateY(0); }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn svg { width: 18px; height: 18px; fill: #000; flex-shrink: 0; }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Status */
+    .status {
+      margin-top: 1.25rem;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      line-height: 1.4;
+    }
+
+    .status.sending {
+      display: flex;
+      background: rgba(37,211,102,0.06);
+      border: 1px solid rgba(37,211,102,0.2);
+      color: var(--green);
+    }
+
+    .status.success {
+      display: flex;
+      background: rgba(37,211,102,0.08);
+      border: 1px solid rgba(37,211,102,0.3);
+      color: #4ade80;
+    }
+
+    .status.error {
+      display: flex;
+      background: rgba(248,81,73,0.08);
+      border: 1px solid rgba(248,81,73,0.25);
+      color: var(--error);
+    }
+
+    .status svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75rem 0 1.25rem;
+    }
+
+    .footer-note {
+      font-size: 0.67rem;
+      color: var(--muted);
+      text-align: center;
+      opacity: 0.6;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="icon">
+      <!-- WhatsApp icon -->
+      <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2C8.268 2 2 8.268 2 16c0 2.49.655 4.824 1.8 6.84L2 30l7.36-1.776A13.926 13.926 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.4a11.9 11.9 0 01-6.08-1.664l-.436-.26-4.368 1.056 1.092-4.24-.284-.448A11.924 11.924 0 014.6 16C4.6 9.7 9.7 4.6 16 4.6S27.4 9.7 27.4 16 22.3 27.4 16 27.4zm6.52-8.924c-.356-.18-2.108-1.04-2.436-1.16-.328-.12-.564-.18-.8.18-.236.356-.916 1.16-1.124 1.396-.208.236-.412.264-.768.088-.356-.18-1.504-.552-2.864-1.764-1.056-.944-1.772-2.108-1.98-2.464-.208-.356-.024-.548.156-.724.16-.16.356-.416.536-.624.18-.208.236-.356.356-.596.12-.236.06-.444-.028-.624-.088-.18-.8-1.932-1.096-2.644-.288-.692-.58-.596-.8-.608-.208-.012-.444-.016-.68-.016s-.62.088-.944.444c-.324.356-1.236 1.208-1.236 2.944 0 1.736 1.264 3.416 1.44 3.652.176.236 2.488 3.8 6.032 5.328.844.364 1.504.58 2.016.744.848.268 1.62.232 2.228.14.68-.1 2.108-.86 2.404-1.692.296-.832.296-1.544.208-1.692-.088-.148-.324-.236-.68-.416z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="title">WhatsApp Sender</div>
+      <div class="subtitle">Cloud API · via Supabase</div>
+    </div>
+  </div>
+
+  <div class="badge">⬡ Template: hello_world · Test Mode</div>
+
+  <div class="field">
+    <label><span>#</span>Phone Number</label>
+    <input type="tel" id="phone" placeholder="201025998920" maxlength="20" />
+    <div class="hint">International format, no + prefix (e.g. 201025998920)</div>
+  </div>
+
+  <div class="template-info">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span>A predefined <strong>hello_world</strong> template message will be sent automatically.</span>
+  </div>
+
+  <button class="btn" id="sendBtn" onclick="sendWhatsApp()">
+    <div class="spinner" id="spinner"></div>
+    <svg id="btnIcon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 2C8.268 2 2 8.268 2 16c0 2.49.655 4.824 1.8 6.84L2 30l7.36-1.776A13.926 13.926 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.4a11.9 11.9 0 01-6.08-1.664l-.436-.26-4.368 1.056 1.092-4.24-.284-.448A11.924 11.924 0 014.6 16C4.6 9.7 9.7 4.6 16 4.6S27.4 9.7 27.4 16 22.3 27.4 16 27.4zm6.52-8.924c-.356-.18-2.108-1.04-2.436-1.16-.328-.12-.564-.18-.8.18-.236.356-.916 1.16-1.124 1.396-.208.236-.412.264-.768.088-.356-.18-1.504-.552-2.864-1.764-1.056-.944-1.772-2.108-1.98-2.464-.208-.356-.024-.548.156-.724.16-.16.356-.416.536-.624.18-.208.236-.356.356-.596.12-.236.06-.444-.028-.624-.088-.18-.8-1.932-1.096-2.644-.288-.692-.58-.596-.8-.608-.208-.012-.444-.016-.68-.016s-.62.088-.944.444c-.324.356-1.236 1.208-1.236 2.944 0 1.736 1.264 3.416 1.44 3.652.176.236 2.488 3.8 6.032 5.328.844.364 1.504.58 2.016.744.848.268 1.62.232 2.228.14.68-.1 2.108-.86 2.404-1.692.296-.832.296-1.544.208-1.692-.088-.148-.324-.236-.68-.416z"/>
+    </svg>
+    <span id="btnLabel">Send WhatsApp Message</span>
+  </button>
+
+  <div class="status" id="status">
+    <svg id="statusIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    <span id="statusText"></span>
+  </div>
+
+  <hr class="divider"/>
+  <div class="footer-note">Messages are routed via your Supabase Edge Function.<br/>The WhatsApp token is securely stored server-side.</div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/send-whatsapp";
+
+  async function sendWhatsApp() {
+    const phone   = document.getElementById("phone").value.trim();
+    const btn     = document.getElementById("sendBtn");
+    const statusText = document.getElementById("statusText");
+    const statusIcon = document.getElementById("statusIcon");
+    const spinner = document.getElementById("spinner");
+    const btnIcon = document.getElementById("btnIcon");
+    const btnLabel = document.getElementById("btnLabel");
+
+    // Validate phone only
+    if (!phone) {
+      setStatus("error", "Please enter a phone number.", iconX());
+      return;
+    }
+
+    if (!/^\d{7,15}$/.test(phone)) {
+      setStatus("error", "Phone number must be digits only, 7–15 characters (no + or spaces).", iconX());
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    spinner.style.display = "block";
+    btnIcon.style.display = "none";
+    btnLabel.textContent  = "Sending…";
+    setStatus("sending", "Connecting to Supabase and dispatching message…", iconClock());
+
+    try {
+      const res = await fetch(SUPABASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: phone })
+      });
+
+      const data = await res.json();
+      console.log("[WhatsApp Sender] Response:", data);
+
+      if (res.ok) {
+        setStatus("success", `Message sent successfully! ✓  (Status: ${res.status})`, iconCheck());
+      } else {
+        const errMsg = data?.error || data?.message || JSON.stringify(data);
+        setStatus("error", `Error ${res.status}: ${errMsg}`, iconX());
+      }
+
+    } catch (err) {
+      console.error("[WhatsApp Sender] Fetch error:", err);
+      setStatus("error", `Network error: ${err.message}`, iconX());
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = "none";
+      btnIcon.style.display = "block";
+      btnLabel.textContent  = "Send WhatsApp Message";
+    }
+  }
+
+  function setStatus(type, text, iconSvg) {
+    const status     = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    const statusIcon = document.getElementById("statusIcon");
+
+    status.className   = "status " + type;
+    statusText.textContent = text;
+    statusIcon.innerHTML   = iconSvg;
+  }
+
+  function iconCheck() { return '<polyline points="20 6 9 17 4 12"/>'; }
+  function iconX()     { return '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'; }
+  function iconClock() { return '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'; }
+</script>
+</body>
+</html>
