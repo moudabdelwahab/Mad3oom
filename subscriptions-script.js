@@ -1,5 +1,11 @@
 // ==================== Subscriptions Page Script ====================
 
+// Stripe Price IDs (Created via MCP)
+const STRIPE_PRICES = {
+    monthly: 'price_1TUBXnLNI3gg0lWpD8Gx5MV8', // $15
+    yearly: 'price_1TUBXrLNI3gg0lWpd7XWuYiF'   // $150
+};
+
 // Toggle billing period (monthly/yearly)
 function toggleBilling() {
     const toggleBtn = document.getElementById('billingToggle');
@@ -20,17 +26,27 @@ function updatePrices(period) {
     const premiumOldPrice = document.getElementById('premiumOldPrice');
     const premiumDiscount = document.getElementById('premiumDiscount');
     const limitedTimeOffer = document.getElementById('limitedTimeOffer');
+    const currencyElements = document.querySelectorAll('.currency');
+
+    // Update currency to USD
+    currencyElements.forEach(el => {
+        if (el.closest('.pricing-card').classList.contains('premium-plan')) {
+            el.textContent = '$';
+        }
+    });
 
     if (period === 'yearly') {
-        // السعر السنوي 1500 جنيه (بدلاً من 3000)
-        premiumAmount.textContent = '1500';
+        // السعر السنوي 150 دولار (بدلاً من 180)
+        premiumAmount.textContent = '150';
         premiumPeriod.textContent = '/سنوياً';
+        premiumOldPrice.textContent = '180';
         premiumOldPrice.style.display = 'inline';
+        premiumDiscount.textContent = 'خصم 17%';
         premiumDiscount.style.display = 'inline';
         limitedTimeOffer.style.display = 'block';
     } else {
-        // السعر الشهري 250 جنيه
-        premiumAmount.textContent = '250';
+        // السعر الشهري 15 dollars
+        premiumAmount.textContent = '15';
         premiumPeriod.textContent = '/شهرياً';
         premiumOldPrice.style.display = 'none';
         premiumDiscount.style.display = 'none';
@@ -83,10 +99,13 @@ document.addEventListener('DOMContentLoaded', function() {
         subscribeBtn.addEventListener('click', function() {
             const options = document.querySelectorAll('#billingToggle .toggle-option');
             const isYearly = options[1].classList.contains('active');
-            const amount = isYearly ? '1500' : '250';
             const period = isYearly ? 'yearly' : 'monthly';
+            const priceId = STRIPE_PRICES[period];
             
-            window.location.href = `payment.html?plan=premium&period=${period}&amount=${amount}`;
+            // Since we can't create payment links directly due to missing business name,
+            // we'll redirect to a checkout session or a custom payment page.
+            // For now, we'll use a placeholder or the payment.html if it supports Stripe.
+            window.location.href = `payment.html?plan=premium&period=${period}&priceId=${priceId}`;
         });
     }
 });

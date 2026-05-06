@@ -168,13 +168,26 @@
                 </div>
                 <div class="summary-total">
                     <span>الإجمالي:</span>
-                    <span id="totalAmount">250 EGP</span>
+                    <span id="totalAmount">$15</span>
                 </div>
             </div>
 
             <div class="payment-methods">
-                <!-- Visa/Mastercard -->
-                <div class="method-card" onclick="selectMethod(this)">
+                <!-- Stripe (Credit Card) -->
+                <div class="method-card active" onclick="selectMethod(this)" data-method="stripe">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13.911 9.714c0-.763-.64-1.144-1.714-1.144-1.577 0-2.994.549-4.137 1.211l-.617-2.331c1.257-.617 3.017-1.074 4.937-1.074 3.291 0 5.44 1.623 5.44 4.411 0 4.343-5.966 4.891-5.966 6.514 0 .549.503.891 1.509.891 1.783 0 3.451-.709 4.617-1.44l.64 2.331c-1.349.869-3.497 1.371-5.417 1.371-3.451 0-5.349-1.783-5.349-4.411 0-4.411 6.057-4.983 6.057-6.331z" fill="#635BFF"/>
+                        </svg>
+                    </div>
+                    <div class="method-info">
+                        <h4>Stripe (بطاقة بنكية)</h4>
+                        <p>دفع آمن عبر فيزا أو ماستر كارد</p>
+                    </div>
+                </div>
+
+                <!-- Visa/Mastercard (Legacy) -->
+                <div class="method-card" onclick="selectMethod(this)" data-method="card">
                     <div class="method-icon">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="5" width="20" height="14" rx="2" fill="#1A1F71"/>
@@ -183,13 +196,13 @@
                         </svg>
                     </div>
                     <div class="method-info">
-                        <h4>بطاقة بنكية</h4>
+                        <h4>بطاقة بنكية أخرى</h4>
                         <p>فيزا، ماستر كارد، أو ميزة</p>
                     </div>
                 </div>
 
                 <!-- Vodafone Cash -->
-                <div class="method-card" onclick="selectMethod(this)">
+                <div class="method-card" onclick="selectMethod(this)" data-method="vodafone">
                     <div class="method-icon">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="12" cy="12" r="12" fill="#E60000"/>
@@ -200,21 +213,6 @@
                     <div class="method-info">
                         <h4>فودافون كاش</h4>
                         <p>الدفع عبر رقم المحفظة</p>
-                    </div>
-                </div>
-
-                <!-- InstaPay -->
-                <div class="method-card" onclick="selectMethod(this)">
-                    <div class="method-icon">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="24" height="24" rx="12" fill="#4B2C85"/>
-                            <path d="M7 12L10 15L17 8" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
-                        </svg>
-                    </div>
-                    <div class="method-info">
-                        <h4>إنستا باي (InstaPay)</h4>
-                        <p>تحويل لحظي عبر العنوان اللحظي (IPA)</p>
                     </div>
                 </div>
             </div>
@@ -244,19 +242,34 @@
                 alert('يرجى اختيار وسيلة دفع أولاً');
                 return;
             }
+            const method = activeMethod.getAttribute('data-method');
             const methodName = activeMethod.querySelector('h4').textContent;
-            alert(`سيتم تحويلك إلى بوابة دفع ${methodName} الفعلية قريباً. شكراً لثقتك بمنصة مدعوم!`);
+            
+            if (method === 'stripe') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const priceId = urlParams.get('priceId');
+                alert(`سيتم توجيهك الآن إلى Stripe لإتمام الدفع الآمن. (Price ID: ${priceId})`);
+                // في بيئة حقيقية، هنا يتم استدعاء Stripe Checkout
+                // window.location.href = `/api/create-checkout-session?priceId=${priceId}`;
+            } else {
+                alert(`سيتم تحويلك إلى بوابة دفع ${methodName} الفعلية قريباً. شكراً لثقتك بمنصة مدعوم!`);
+            }
         }
 
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const plan = urlParams.get('plan');
             const period = urlParams.get('period');
-            const amount = urlParams.get('amount');
+            const priceId = urlParams.get('priceId');
 
             if (plan) document.getElementById('selectedPlan').textContent = plan === 'premium' ? 'الخطة المدفوعة' : plan;
             if (period) document.getElementById('selectedPeriod').textContent = period === 'yearly' ? 'سنوي' : 'شهري';
-            if (amount) document.getElementById('totalAmount').textContent = amount + ' EGP';
+            
+            if (period === 'yearly') {
+                document.getElementById('totalAmount').textContent = '$150';
+            } else {
+                document.getElementById('totalAmount').textContent = '$15';
+            }
         };
     </script>
 </body>
