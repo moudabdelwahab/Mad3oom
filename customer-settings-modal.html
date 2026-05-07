@@ -1,0 +1,283 @@
+<!-- Customer Settings Modal -->
+<div id="customerSettingsModal" class="modal">
+    <div class="modal-content" style="max-width: 700px; max-height: 85vh; overflow-y: auto;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">الإعدادات</h2>
+            <button class="close-modal" id="closeSettingsModal" style="font-size: 2rem; cursor: pointer; background: none; border: none; color: var(--color-text); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
+        </div>
+
+        <!-- Settings Tabs Navigation -->
+        <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--color-border); overflow-x: auto;">
+            <button class="settings-tab-btn active" data-tab="general" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">عام</button>
+            <button class="settings-tab-btn" data-tab="account" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">الحساب</button>
+            <button class="settings-tab-btn" data-tab="security" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">الأمان</button>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="settingsAlert" style="display: none; padding: 1rem; border-radius: 0.75rem; margin-bottom: 1.5rem; font-weight: 600;"></div>
+
+        <!-- TAB 1: General Settings -->
+        <div class="settings-tab-content active" data-tab="general">
+            <!-- Language Setting -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--color-text);">اللغة</label>
+                <select id="languageSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1rem; cursor: pointer;">
+                    <option value="ar">العربية</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+            <!-- Theme Setting -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--color-text);">السمة</label>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="theme-option-btn" data-theme="light" style="flex: 1; padding: 1rem; border: 2px solid var(--color-border); border-radius: 0.75rem; background: var(--color-background); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                        <span style="font-size: 0.85rem; font-weight: 600;">فاتح</span>
+                    </button>
+                    <button class="theme-option-btn" data-theme="dark" style="flex: 1; padding: 1rem; border: 2px solid var(--color-border); border-radius: 0.75rem; background: var(--color-background); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        <span style="font-size: 0.85rem; font-weight: 600;">داكن</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Account Settings -->
+        <div class="settings-tab-content" data-tab="account" style="display: none;">
+            <!-- Profile Section -->
+            <div style="margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--color-text);">بيانات الحساب</h3>
+                
+                <!-- Full Name -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">الاسم الكامل</label>
+                    <input type="text" id="fullNameInput" placeholder="أدخل اسمك الكامل" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1rem;">
+                </div>
+
+                <!-- Email (Read-only) -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">البريد الإلكتروني</label>
+                    <input type="email" id="emailInput" readonly style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-muted); color: var(--color-text-secondary); font-size: 1rem; cursor: not-allowed;">
+                </div>
+
+                <!-- Bio -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">السيرة الذاتية</label>
+                    <textarea id="bioInput" placeholder="أخبرنا عن نفسك..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1rem; resize: vertical; min-height: 100px;"></textarea>
+                </div>
+
+                <!-- Save Profile Button -->
+                <button id="saveProfileBtn" style="width: 100%; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">حفظ التغييرات</button>
+            </div>
+
+            <!-- Change Password Section -->
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border);">
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--color-text);">تغيير كلمة المرور</h3>
+                
+                <!-- New Password -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">كلمة المرور الجديدة</label>
+                    <input type="password" id="newPasswordInput" placeholder="أدخل كلمة مرور جديدة" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1rem;">
+                </div>
+
+                <!-- Confirm Password -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">تأكيد كلمة المرور</label>
+                    <input type="password" id="confirmPasswordInput" placeholder="أعد إدخال كلمة المرور" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1rem;">
+                </div>
+
+                <!-- Change Password Button -->
+                <button id="changePasswordBtn" style="width: 100%; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">تحديث كلمة المرور</button>
+            </div>
+        </div>
+
+        <!-- TAB 3: Security Settings -->
+        <div class="settings-tab-content" data-tab="security" style="display: none;">
+            <!-- 2FA Status Banner -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-radius: 1rem; margin-bottom: 2rem; background: var(--color-muted); border: 1px solid var(--color-border);">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="status-icon-wrapper disabled" id="twoFaStatusIcon" style="width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(217, 83, 79, 0.1); color: var(--color-danger);">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 id="twoFaStatusTitle" style="margin: 0; font-size: 1rem; font-weight: 700;">التحقق بخطوتين غير مفعل</h3>
+                        <p id="twoFaStatusDesc" style="margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--color-text-secondary);">أضف طبقة أمان إضافية لحسابك</p>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="setupTwoFaBtn" style="padding: 0.75rem 1.5rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; white-space: nowrap;">تفعيل الآن</button>
+            </div>
+
+            <!-- 2FA Management Section (Hidden by default) -->
+            <div id="twoFaManagementSection" style="display: none; margin-bottom: 2rem; padding: 1.5rem; background: var(--color-muted); border-radius: 0.75rem; border: 1px solid var(--color-border);">
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-text);">إدارة التحقق بخطوتين</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">يمكنك إعادة ضبط إعدادات التحقق أو عرض رموز الاستعادة الخاصة بك.</p>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" id="viewRecoveryCodesBtn" style="padding: 0.75rem 1.5rem; background: var(--color-background); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">رموز الاستعادة</button>
+                    <button class="btn btn-danger" id="disableTwoFaBtn" style="padding: 0.75rem 1.5rem; background: rgba(217, 83, 79, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تعطيل التحقق</button>
+                </div>
+            </div>
+
+            <!-- Trusted Devices Section -->
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border);">
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--color-text);">الأجهزة الموثوقة</h3>
+                <div id="trustedDevicesList" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">جاري تحميل الأجهزة...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: 1rem;">
+            <button id="closeSettingsBtn" style="padding: 0.75rem 1.5rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">إغلاق</button>
+        </div>
+    </div>
+</div>
+
+<!-- 2FA Setup Modal (Nested) -->
+<div id="setupModal" class="modal" style="z-index: 10000;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+            <h2 style="margin: 0;">تفعيل التحقق بخطوتين</h2>
+            <button class="close-modal" id="closeSetupModal" style="font-size: 2rem; cursor: pointer; background: none; border: none; color: var(--color-text); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
+        </div>
+
+        <!-- Step 1: Scan QR Code -->
+        <div id="setupStep1" style="display: block;">
+            <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">استخدم تطبيق المصادقة (مثل Google Authenticator) لمسح رمز QR أدناه:</p>
+            <div id="qrCodeContainer" style="text-align: center; padding: 1.5rem; background: var(--color-muted); border-radius: 0.75rem; margin-bottom: 1.5rem;"></div>
+            <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 1rem;">أو أدخل المفتاح يدويًا:</p>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+                <input type="text" id="secretKeyDisplay" readonly style="flex: 1; padding: 0.75rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: monospace; color: var(--color-text);">
+                <button id="copySecretBtn" style="padding: 0.75rem 1rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; white-space: nowrap;">نسخ</button>
+            </div>
+            <button id="goToStep2" style="width: 100%; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">التالي</button>
+        </div>
+
+        <!-- Step 2: Verify Code -->
+        <div id="setupStep2" style="display: none;">
+            <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">أدخل رمز التحقق من تطبيق المصادقة الخاص بك:</p>
+            <input type="text" id="verificationCode" placeholder="000000" maxlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 1rem;">
+                <button id="backToStep1" style="flex: 1; padding: 0.75rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">رجوع</button>
+                <button id="verifyAndEnableBtn" style="flex: 1; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تفعيل</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recovery Codes Modal (Nested) -->
+<div id="recoveryModal" class="modal" style="z-index: 10000;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+            <h2 style="margin: 0;">رموز الاستعادة</h2>
+            <button class="close-modal" id="closeRecoveryModal" style="font-size: 2rem; cursor: pointer; background: none; border: none; color: var(--color-text); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
+        </div>
+        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">احفظ هذه الرموز في مكان آمن. يمكنك استخدام أحد هذه الرموز للوصول إلى حسابك إذا فقدت جهازك:</p>
+        <div id="recoveryCodesGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;"></div>
+        <div style="display: flex; gap: 1rem;">
+            <button id="printCodesBtn" style="flex: 1; padding: 0.75rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">طباعة</button>
+            <button id="closeRecoveryBtn" style="flex: 1; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تم</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--modal-overlay);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--color-surface);
+        padding: 2.5rem;
+        border-radius: 1.25rem;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+    }
+
+    .settings-tab-btn.active {
+        color: var(--color-accent);
+        border-bottom-color: var(--color-accent);
+    }
+
+    .settings-tab-btn:hover {
+        color: var(--color-accent);
+    }
+
+    .settings-tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .theme-option-btn.active {
+        border-color: var(--color-accent);
+        background: rgba(0, 119, 204, 0.05);
+    }
+
+    .alert-success {
+        background: rgba(46, 138, 58, 0.1);
+        color: var(--color-success);
+        border: 1px solid var(--color-success);
+    }
+
+    .alert-error {
+        background: rgba(217, 83, 79, 0.1);
+        color: var(--color-danger);
+        border: 1px solid var(--color-danger);
+    }
+
+    .recovery-code {
+        background: var(--color-muted);
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        font-family: monospace;
+        font-weight: 600;
+        border: 1px solid var(--color-border);
+        word-break: break-all;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .modal-content {
+            padding: 1.5rem;
+            max-width: 100%;
+        }
+
+        .settings-tab-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+    }
+</style>

@@ -237,10 +237,12 @@ function setupSidebarLogic(onTabChange) {
     }
 
     if (customerAccountSettings) {
-        customerAccountSettings.addEventListener('click', (e) => {
+        customerAccountSettings.addEventListener('click', async (e) => {
             e.preventDefault();
-            // Navigate to account settings
-            window.location.href = '/customer-security-settings.html';
+            // Open settings modal instead of navigating
+            if (window.openSettingsModal) {
+                window.openSettingsModal();
+            }
             customerAvatarMenu.style.display = 'none';
         });
     }
@@ -248,8 +250,15 @@ function setupSidebarLogic(onTabChange) {
     if (customerSecuritySettings) {
         customerSecuritySettings.addEventListener('click', (e) => {
             e.preventDefault();
-            // Navigate to security settings
-            window.location.href = '/customer-security-settings.html';
+            // Open settings modal with security tab
+            if (window.openSettingsModal) {
+                window.openSettingsModal();
+                // Switch to security tab
+                setTimeout(() => {
+                    const securityTab = document.querySelector('[data-tab="security"]');
+                    if (securityTab) securityTab.click();
+                }, 100);
+            }
             customerAvatarMenu.style.display = 'none';
         });
     }

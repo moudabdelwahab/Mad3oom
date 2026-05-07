@@ -2,6 +2,7 @@
 import { requireAuth, logout, updateProfile, updatePassword } from './auth-client.js';
 import { initCustomerSidebar } from './assets/js/customer-sidebar.js';
 import { initRewardsDashboard } from './rewards-dashboard.js';
+import { initCustomerSettingsModal, openSettingsModal } from './customer-settings-modal.js';
 import {
     fetchUserTickets,
     createTicket,
@@ -45,6 +46,24 @@ import { ui } from './ui-service.js';
         const tabEl = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
         if (tabEl) tabEl.click();
     });
+
+    // Initialize Settings Modal
+    if (!isGuest) {
+        initCustomerSettingsModal();
+        
+        // Setup settings button click handlers
+        setTimeout(() => {
+            const customerAccountSettings = document.getElementById('customerAccountSettings');
+            if (customerAccountSettings) {
+                customerAccountSettings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openSettingsModal();
+                    const customerAvatarMenu = document.getElementById('customerAvatarMenu');
+                    if (customerAvatarMenu) customerAvatarMenu.style.display = 'none';
+                });
+            }
+        }, 500);
+    }
 
     // Initialize Rewards Dashboard
     if (!isGuest) {
