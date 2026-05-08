@@ -120,6 +120,7 @@ function setupSidebarLogic() {
     checkAdminForErrorTracker();
     checkMainAdminForSuperUser();
     checkSuperUserForMyUsers();
+    checkSupportForWhatsApp();
 
     const toggleSidebar = () => {
         sidebar.classList.toggle('active');
@@ -295,6 +296,14 @@ async function checkSuperUserForMyUsers() {
             const myUsersLink = document.getElementById('myUsersLink');
             if (myUsersLink) myUsersLink.style.display = 'flex';
         }
+    }
+}
+
+async function checkSupportForWhatsApp() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.email === 'support@mad3oom.online') {
+        const whatsappLink = document.getElementById('whatsappLink');
+        if (whatsappLink) whatsappLink.style.display = 'flex';
     }
 }
 
