@@ -37,7 +37,7 @@ function startOAuthFlow() {
   _setStatus('loading');
 
   FB.login(
-    async function(response) {
+  function(response) {
 
       console.log('Embedded Signup Response:', response);
 
@@ -49,7 +49,17 @@ function startOAuthFlow() {
 
         try {
 
-          await _exchangeCode(code);
+_exchangeCode(code)
+  .catch(error => {
+
+    console.error(error);
+
+    _setStatus('error', {
+      errorMsg: error.message
+    });
+
+  });
+
 
         } catch (error) {
 
