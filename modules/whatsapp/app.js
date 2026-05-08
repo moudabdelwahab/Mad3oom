@@ -7,6 +7,7 @@
  */
 
 import { SupabaseIntegration } from './supabase-integration.js';
+import { OAuthService } from './oauth.js';
 
 // ─── Page Navigation ─────────────────────────────────
 

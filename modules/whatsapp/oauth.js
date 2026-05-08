@@ -14,7 +14,7 @@
 
 import { SupabaseIntegration } from './supabase-integration.js';
 
-const OAuthService = (() => {
+export const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
@@ -262,6 +262,8 @@ const OAuthService = (() => {
 })();
 
 // Auto-handle callback on load
-window.addEventListener('DOMContentLoaded', () => {
-  OAuthService.handleCallback();
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    OAuthService.handleCallback();
+  });
+}
