@@ -18,8 +18,8 @@ export const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
-    META_APP_ID:      'YOUR_META_APP_ID',           // App ID من Meta for Developers
-    REDIRECT_URI:     window.location.origin + '/', // Redirect URI مسجّل في Meta App
+    META_APP_ID:      '1510313544014876',           // App ID من Meta for Developers
+    REDIRECT_URI:     window.location.origin + './modules/whatsapp/index.html', // Redirect URI مسجّل في Meta App
     SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
     RESPONSE_TYPE:    'code',
 
