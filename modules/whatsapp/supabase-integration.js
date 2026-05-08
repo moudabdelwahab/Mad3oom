@@ -159,6 +159,12 @@ async function getIntegration() {
       .maybeSingle();
 
     if (error) {
+      // إذا كان الخطأ 404، فهذا يعني غالباً أن الجدول غير موجود أو هناك مشكلة في الـ API
+      // سنقوم بإرجاع null بهدوء لتجنب إزعاج المستخدم
+      if (error.code === 'PGRST116' || error.status === 404) {
+        console.warn('[WhatsApp Integration] Integration table not found or empty');
+        return null;
+      }
       console.error('[WhatsApp Integration] Fetch error:', error);
       return null;
     }

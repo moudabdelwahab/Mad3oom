@@ -77,9 +77,73 @@ async function updateConnectionStatus() {
       document.getElementById('dash-status-val').textContent = '✗ غير متصل';
       document.getElementById('dash-status-change').textContent = '← اضغط للربط';
       document.getElementById('connect-badge').style.display = 'inline-block';
+
+      // تصفير الإحصائيات الوهمية في حالة عدم وجود اتصال
+      resetStatsToZero();
     }
   } catch (error) {
     console.error('[App] Failed to update connection status:', error);
+  }
+}
+
+function resetStatsToZero() {
+  // تصفير القيم في الواجهة
+  const statValues = document.querySelectorAll('.stat-value');
+  statValues.forEach(el => {
+    if (el.id !== 'dash-status-val') {
+      el.textContent = '0';
+    }
+  });
+
+  const statChanges = document.querySelectorAll('.stat-change');
+  statChanges.forEach(el => {
+    if (el.id !== 'dash-status-change') {
+      el.textContent = '— لا توجد بيانات';
+      el.className = 'stat-change';
+    }
+  });
+
+  // إخفاء الأنشطة الوهمية
+  const activityFeed = document.querySelector('.activity-feed');
+  if (activityFeed) {
+    activityFeed.innerHTML = '<div class="text-center py-8 text-muted">لا توجد أنشطة بعد. قم بربط رقمك للبدء.</div>';
+  }
+
+  // تصفير أشرطة التقدم
+  const progressFills = document.querySelectorAll('.progress-bar-fill');
+  progressFills.forEach(el => el.style.width = '0%');
+
+  const progressLabels = document.querySelectorAll('.progress-label span:last-child');
+  progressLabels.forEach(el => el.textContent = '0 / 0');
+}
+
+async function updateUserInfo() {
+  try {
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // جلب الملف الشخصي
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const fullName = profile?.full_name || user.user_metadata?.full_name || user.email.split('@')[0];
+      const role = profile?.role === 'admin' ? 'مدير النظام' : 'عميل';
+      const avatarChar = fullName.charAt(0).toUpperCase();
+
+      // تحديث الواجهة
+      document.getElementById('user-name').textContent = fullName;
+      document.getElementById('welcome-name').textContent = fullName + '!';
+      document.getElementById('user-role').textContent = role;
+      
+      const avatars = document.querySelectorAll('.user-avatar');
+      avatars.forEach(el => el.textContent = avatarChar);
+    }
+  } catch (error) {
+    console.error('[App] Failed to update user info:', error);
   }
 }
 
@@ -179,6 +243,9 @@ async function initializeApp() {
 
     // مراقبة حالة OAuth
     monitorOAuthState();
+
+    // تحديث بيانات المستخدم
+    await updateUserInfo();
 
     // تحديث حالة الاتصال
     await updateConnectionStatus();
