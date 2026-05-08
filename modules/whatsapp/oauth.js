@@ -1,6 +1,6 @@
 /**
  * =====================================================
- * services/oauth.js
+ * modules/whatsapp/oauth.js
  * Meta WhatsApp OAuth Service
  * منصة مدعوم - خدمة التفويض
  * =====================================================
@@ -9,17 +9,14 @@
  * 1. بناء رابط OAuth لـ Meta
  * 2. استخراج authorization code من URL
  * 3. إرسال الـ code إلى Supabase Edge Function
- * 4. تخزين النتائج مؤقتًا في localStorage
- *
- * ⚠️ Supabase Integration Points:
- * - استبدل EXCHANGE_ENDPOINT بالـ URL الحقيقي لـ Edge Function
- * - أضف Supabase Auth headers إذا لزم (Authorization: Bearer <token>)
+ * 4. تخزين النتائج في Supabase وlocalStorage
  */
+
+import { SupabaseIntegration } from './supabase-integration.js';
 
 const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
-  // TODO: استبدل هذه القيم بالقيم الحقيقية من Meta App Dashboard
   const CONFIG = {
     META_APP_ID:      'YOUR_META_APP_ID',           // App ID من Meta for Developers
     REDIRECT_URI:     window.location.origin + '/', // Redirect URI مسجّل في Meta App
@@ -27,8 +24,7 @@ const OAuthService = (() => {
     RESPONSE_TYPE:    'code',
 
     // ─── Supabase Edge Function Endpoint ───
-    // TODO: استبدل بـ URL الحقيقي بعد نشر Edge Function
-    // مثال: https://your-project.supabase.co/functions/v1/exchange-token
+    // يجب أن يكون الـ endpoint جاهزاً بالفعل
     EXCHANGE_ENDPOINT: '/functions/v1/exchange-token',
 
     // localStorage keys
@@ -70,12 +66,6 @@ const OAuthService = (() => {
     });
 
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
-
-    // ─── Supabase Auth Note ───
-    // إذا كنت تستخدم Supabase Auth للمستخدمين، أضف هنا:
-    // const supabaseUser = supabase.auth.getUser();
-    // sessionStorage.setItem('supabase_user_id', supabaseUser.id);
-
     window.location.href = authUrl;
   }
 
@@ -124,23 +114,20 @@ const OAuthService = (() => {
    */
   async function _exchangeCode(code) {
     try {
-      // ─── Supabase Integration Point ───────────────
-      // عند الربط الفعلي مع Supabase، أضف:
-      // const { data: { session } } = await supabase.auth.getSession();
-      // const authHeader = `Bearer ${session.access_token}`;
-      //
-      // ثم أضف الـ headers أدناه:
-      // headers: {
-      //   'Content-Type': 'application/json',
-      //   'Authorization': authHeader,  // ← Supabase Auth
-      // }
-      // ───────────────────────────────────────────────
+      // الحصول على جلسة المستخدم
+      const session = await SupabaseIntegration.getCurrentSession();
+      const authHeader = session?.access_token 
+        ? `Bearer ${session.access_token}` 
+        : undefined;
 
-      const response = await fetch(CONFIG.EXCHANGE_ENDPOINT, {
+      // إنشاء رابط Edge Function الكامل
+      const baseUrl = new URL(CONFIG.EXCHANGE_ENDPOINT, window.location.origin).toString();
+
+      const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${supabaseAccessToken}`, // TODO: Supabase auth
+          ...(authHeader && { 'Authorization': authHeader }),
         },
         body: JSON.stringify({
           code:         code,
@@ -155,23 +142,29 @@ const OAuthService = (() => {
 
       const data = await response.json();
 
-      // ─── Supabase DB Persistence Point ──────────
-      // بعد استلام الـ token، احفظه في Supabase DB:
-      // await supabase.from('whatsapp_connections').upsert({
-      //   user_id: supabaseUserId,
-      //   access_token: data.access_token,
-      //   phone_number_id: data.phone_number_id,
-      //   waba_id: data.waba_account_id,
-      //   connected_at: new Date().toISOString(),
-      // });
-      // ────────────────────────────────────────────
+      // حفظ البيانات في Supabase
+      if (session?.user?.id) {
+        const saveResult = await SupabaseIntegration.saveIntegration({
+          access_token: data.access_token,
+          token_type: data.token_type || 'Bearer',
+          expires_in: data.expires_in,
+          refresh_token: data.refresh_token,
+          phone_number_id: data.phone_number_id,
+          waba_account_id: data.waba_account_id,
+          business_account_id: data.business_account_id,
+        });
+
+        if (!saveResult.success) {
+          console.warn('[OAuthService] Failed to save to Supabase:', saveResult.error);
+        }
+      }
 
       // تخزين مؤقت في localStorage
-      localStorage.setItem(CONFIG.STORAGE_KEY_TOKEN,    data.access_token);
-      localStorage.setItem(CONFIG.STORAGE_KEY_PHONE_ID, data.phone_number_id || '');
-      localStorage.setItem(CONFIG.STORAGE_KEY_WABA_ID,  data.waba_account_id || '');
-      localStorage.setItem(CONFIG.STORAGE_KEY_STATUS,   'connected');
-      localStorage.setItem(CONFIG.STORAGE_KEY_TS,       new Date().toISOString());
+      SupabaseIntegration.saveLocalIntegration({
+        access_token: data.access_token,
+        phone_number_id: data.phone_number_id,
+        waba_account_id: data.waba_account_id,
+      });
 
       _setStatus('success', {
         accessToken: data.access_token,
@@ -187,31 +180,49 @@ const OAuthService = (() => {
   }
 
   /**
-   * قراءة حالة الاتصال الحالية من localStorage
+   * قراءة حالة الاتصال الحالية من localStorage و Supabase
    */
-  function getConnectionStatus() {
+  async function getConnectionStatus() {
+    // محاولة جلب البيانات من Supabase أولاً
+    const supabaseData = await SupabaseIntegration.getIntegration();
+    
+    if (supabaseData) {
+      return {
+        isConnected:  true,
+        accessToken:  supabaseData.access_token,
+        phoneId:      supabaseData.metadata?.phone_number_id,
+        wabaId:       supabaseData.metadata?.waba_account_id,
+        connectedAt:  supabaseData.metadata?.connected_at,
+        source:       'supabase',
+      };
+    }
+
+    // الرجوع إلى localStorage كبديل
+    const localData = SupabaseIntegration.getLocalIntegration();
     return {
-      isConnected:  localStorage.getItem(CONFIG.STORAGE_KEY_STATUS) === 'connected',
-      accessToken:  localStorage.getItem(CONFIG.STORAGE_KEY_TOKEN),
-      phoneId:      localStorage.getItem(CONFIG.STORAGE_KEY_PHONE_ID),
-      wabaId:       localStorage.getItem(CONFIG.STORAGE_KEY_WABA_ID),
-      connectedAt:  localStorage.getItem(CONFIG.STORAGE_KEY_TS),
+      isConnected:  !!localData,
+      accessToken:  localData?.access_token,
+      phoneId:      localData?.phone_number_id,
+      wabaId:       localData?.waba_account_id,
+      connectedAt:  localData?.connected_at,
+      source:       'localStorage',
     };
   }
 
   /**
    * قطع الاتصال ومسح البيانات
    */
-  function disconnect() {
-    localStorage.removeItem(CONFIG.STORAGE_KEY_TOKEN);
-    localStorage.removeItem(CONFIG.STORAGE_KEY_PHONE_ID);
-    localStorage.removeItem(CONFIG.STORAGE_KEY_WABA_ID);
-    localStorage.removeItem(CONFIG.STORAGE_KEY_STATUS);
-    localStorage.removeItem(CONFIG.STORAGE_KEY_TS);
-    _setStatus('idle');
+  async function disconnect() {
+    // حذف من Supabase
+    const deleteResult = await SupabaseIntegration.deleteIntegration();
+    if (!deleteResult.success) {
+      console.warn('[OAuthService] Failed to delete from Supabase:', deleteResult.error);
+    }
 
-    // ─── Supabase Cleanup Point ───
-    // await supabase.from('whatsapp_connections').delete().eq('user_id', userId);
+    // مسح localStorage
+    SupabaseIntegration.clearLocalIntegration();
+    
+    _setStatus('idle');
   }
 
   function getState() { return { ..._state }; }
