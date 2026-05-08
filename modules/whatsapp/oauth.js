@@ -203,6 +203,7 @@ const OAuthService = (() => {
 
 })();
 
+
 // Export for global access
 if (typeof window !== 'undefined') {
   window.OAuthService = OAuthService;
@@ -215,5 +216,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Make service globally available
+window.OAuthService = OAuthService;
 // ES6 Export
 export { OAuthService };
