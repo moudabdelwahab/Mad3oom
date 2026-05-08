@@ -8,7 +8,7 @@
 
 import { SupabaseIntegration } from './supabase-integration.js';
 
-export const OAuthService = (() => {
+const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
