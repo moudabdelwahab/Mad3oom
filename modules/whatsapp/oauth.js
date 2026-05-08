@@ -47,8 +47,6 @@ function startOAuthFlow() {
 
         console.log('Authorization Code:', code);
 
-        try {
-
 _exchangeCode(code)
   .catch(error => {
 
@@ -60,16 +58,6 @@ _exchangeCode(code)
 
   });
 
-
-        } catch (error) {
-
-          console.error(error);
-
-          _setStatus('error', {
-            errorMsg: error.message
-          });
-
-        }
 
       } else {
 
