@@ -19,13 +19,13 @@ export const OAuthService = (() => {
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
     META_APP_ID:      '1510313544014876',           // App ID من Meta for Developers
-    REDIRECT_URI:     window.location.origin + './modules/whatsapp/index.html', // Redirect URI مسجّل في Meta App
+    REDIRECT_URI:     window.location.origin + '/modules/whatsapp/index.html', // Redirect URI مسجّل في Meta App
     SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
     RESPONSE_TYPE:    'code',
 
     // ─── Supabase Edge Function Endpoint ───
     // يجب أن يكون الـ endpoint جاهزاً بالفعل
-    EXCHANGE_ENDPOINT: '/functions/v1/exchange-token',
+    EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
 
     // localStorage keys
     STORAGE_KEY_TOKEN:    'mad3oom_wa_access_token',
@@ -104,7 +104,11 @@ export const OAuthService = (() => {
 
     // إرسال الـ code للـ Edge Function
     _setStatus('loading');
-    await _exchangeCode(code);
+    try {
+      await _exchangeCode(code);
+    } catch (error) {
+      console.error('[OAuthService] Error during code exchange:', error);
+    }
     return true;
   }
 
@@ -120,10 +124,8 @@ export const OAuthService = (() => {
         ? `Bearer ${session.access_token}` 
         : undefined;
 
-      // إنشاء رابط Edge Function الكامل
-      const baseUrl = new URL(CONFIG.EXCHANGE_ENDPOINT, window.location.origin).toString();
-
-      const response = await fetch(baseUrl, {
+      // استخدام الرابط الكامل مباشرة
+      const response = await fetch(CONFIG.EXCHANGE_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

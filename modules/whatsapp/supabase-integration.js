@@ -17,29 +17,40 @@ import { SUPABASE_CONFIG, validateSupabaseConfig } from '../../supabase-config.j
 
 // ─── Supabase Client Initialization ───────────────────
 let supabaseClient = null;
+let initPromise = null;
 
 async function initializeSupabase() {
+  // إذا كان العميل موجوداً بالفعل، أرجعه
   if (supabaseClient) return supabaseClient;
 
-  try {
-    // التحقق من صحة الإعدادات
-    validateSupabaseConfig(SUPABASE_CONFIG);
+  // إذا كانت عملية التهيئة جارية، انتظر النتيجة
+  if (initPromise) return initPromise;
 
-    // استيراد Supabase من CDN
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
+  // بدء عملية التهيئة
+  initPromise = (async () => {
+    try {
+      // التحقق من صحة الإعدادات
+      validateSupabaseConfig(SUPABASE_CONFIG);
 
-    // إنشاء العميل
-    supabaseClient = createClient(
-      SUPABASE_CONFIG.url,
-      SUPABASE_CONFIG.anonKey
-    );
+      // استيراد Supabase من CDN
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
 
-    console.log('[WhatsApp Integration] Supabase client initialized');
-    return supabaseClient;
-  } catch (error) {
-    console.error('[WhatsApp Integration] Failed to initialize Supabase:', error);
-    throw error;
-  }
+      // إنشاء العميل
+      supabaseClient = createClient(
+        SUPABASE_CONFIG.url,
+        SUPABASE_CONFIG.anonKey
+      );
+
+      console.log('[WhatsApp Integration] Supabase client initialized');
+      return supabaseClient;
+    } catch (error) {
+      console.error('[WhatsApp Integration] Failed to initialize Supabase:', error);
+      initPromise = null; // إعادة تعيين في حالة الفشل
+      throw error;
+    }
+  })();
+
+  return initPromise;
 }
 
 // ─── Authentication Helpers ──────────────────────────
