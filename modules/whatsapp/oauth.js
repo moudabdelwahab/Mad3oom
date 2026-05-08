@@ -32,23 +32,60 @@ const OAuthService = (() => {
   let _listeners = [];
 
   // ─── Public API ──────────────────────────────────────
+function startOAuthFlow() {
 
-  function startOAuthFlow() {
-    const state = _generateState();
-    sessionStorage.setItem('oauth_state', state);
+  _setStatus('loading');
 
-    const params = new URLSearchParams({
-      client_id:     CONFIG.META_APP_ID,
-      redirect_uri:  CONFIG.REDIRECT_URI,
-      scope:         CONFIG.SCOPE,
-      response_type: CONFIG.RESPONSE_TYPE,
-      state:         state,
-    });
+  FB.login(
+    async function(response) {
 
-    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
-    window.location.href = authUrl;
-  }
+      console.log('Embedded Signup Response:', response);
 
+      if (response.authResponse) {
+
+        const code = response.authResponse.code;
+
+        console.log('Authorization Code:', code);
+
+        try {
+
+          await _exchangeCode(code);
+
+        } catch (error) {
+
+          console.error(error);
+
+          _setStatus('error', {
+            errorMsg: error.message
+          });
+
+        }
+
+      } else {
+
+        _setStatus('error', {
+          errorMsg: 'تم إلغاء عملية الربط'
+        });
+
+      }
+
+    },
+    {
+      config_id: '2268694463535485',
+
+      response_type: 'code',
+
+      override_default_response_type: true,
+
+      extras: {
+        version: 'v4'
+      }
+    }
+  );
+
+}
+
+  
   async function handleCallback() {
     const params    = new URLSearchParams(window.location.search);
     const code      = params.get('code');
