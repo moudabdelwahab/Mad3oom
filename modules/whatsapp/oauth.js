@@ -1,186 +1,219 @@
-```js id="jlwm4v"
-// ============================================
-// WhatsApp Embedded Signup
-// ============================================
+/**
+ * =====================================================
+ * modules/whatsapp/oauth.js
+ * Meta WhatsApp OAuth Service
+ * منصة مدعوم - خدمة التفويض
+ * =====================================================
+ */
 
-// بيانات الجلسة المؤقتة
-let sessionInfo = {
-  phoneNumberId: null,
-  wabaId: null,
-};
+import { SupabaseIntegration } from './supabase-integration.js';
 
-// ============================================
-// Facebook SDK Init
-// ============================================
+export const OAuthService = (() => {
 
-window.fbAsyncInit = function () {
+  // ─── Configuration ───────────────────────────────────
+  const CONFIG = {
+    META_APP_ID:      '1510313544014876',
+    REDIRECT_URI:     window.location.origin + '/modules/whatsapp/index.html',
+    SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
+    RESPONSE_TYPE:    'code',
+    EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
+  };
 
-  FB.init({
-    appId: '1510313544014876',
-    cookie: true,
-    xfbml: true,
-    version: 'v21.0'
-  });
+  // ─── State ───────────────────────────────────────────
+  let _state = {
+    status:      'idle',
+    accessToken: null,
+    phoneId:     null,
+    wabaId:      null,
+    errorMsg:    null,
+    connectedAt: null,
+  };
 
-  console.log('Facebook SDK Initialized');
+  let _listeners = [];
 
-};
+  // ─── Public API ──────────────────────────────────────
 
-// ============================================
-// Session Info Listener
-// ============================================
+  function startOAuthFlow() {
+    const state = _generateState();
+    sessionStorage.setItem('oauth_state', state);
 
-window.addEventListener('message', (event) => {
+    const params = new URLSearchParams({
+      client_id:     CONFIG.META_APP_ID,
+      redirect_uri:  CONFIG.REDIRECT_URI,
+      scope:         CONFIG.SCOPE,
+      response_type: CONFIG.RESPONSE_TYPE,
+      state:         state,
+    });
 
-  console.log('Embedded Signup Event:', event);
-
-  try {
-
-    const data =
-      typeof event.data === 'string'
-        ? JSON.parse(event.data)
-        : event.data;
-
-    // حفظ بيانات الواتساب
-    if (data?.type === 'WA_EMBEDDED_SIGNUP') {
-
-      sessionInfo.phoneNumberId =
-        data.data?.phone_number_id || null;
-
-      sessionInfo.wabaId =
-        data.data?.waba_id || null;
-
-      console.log('Session Info Saved:', sessionInfo);
-
-    }
-
-  } catch (err) {
-    console.log('Message parse skipped');
+    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
+    window.location.href = authUrl;
   }
 
-});
+  async function handleCallback() {
+    const params    = new URLSearchParams(window.location.search);
+    const code      = params.get('code');
+    const stateBack = params.get('state');
+    const error     = params.get('error');
 
-// ============================================
-// Exchange Code
-// ============================================
+    if (!code && !error) return false;
 
-async function exchangeCode(code) {
+    if (error) {
+      const desc = params.get('error_description') || 'رفض المستخدم الأذونات';
+      _setStatus('error', { errorMsg: desc });
+      _cleanUrl();
+      return true;
+    }
 
-  try {
+    const savedState = sessionStorage.getItem('oauth_state');
+    if (stateBack && savedState && stateBack !== savedState) {
+      _setStatus('error', { errorMsg: 'خطأ في التحقق من الأمان (state mismatch)' });
+      _cleanUrl();
+      return true;
+    }
 
-    const response = await fetch(
-      'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
-      {
+    _cleanUrl();
+    sessionStorage.removeItem('oauth_state');
+
+    _setStatus('loading');
+    try {
+      await _exchangeCode(code);
+    } catch (error) {
+      console.error('[OAuthService] Error during code exchange:', error);
+    }
+    return true;
+  }
+
+  async function _exchangeCode(code) {
+    try {
+      const session = await SupabaseIntegration.getCurrentSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+
+      const response = await fetch(CONFIG.EXCHANGE_ENDPOINT, {
         method: 'POST',
-
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader }),
         },
-
         body: JSON.stringify({
-          code
-        })
+          code:         code,
+          redirect_uri: CONFIG.REDIRECT_URI,
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.message || `HTTP ${response.status}`);
       }
-    );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    console.log('Exchange Response:', data);
+      if (session?.user?.id) {
+        await SupabaseIntegration.saveIntegration({
+          access_token: data.access_token,
+          token_type: data.token_type || 'Bearer',
+          expires_in: data.expires_in,
+          refresh_token: data.refresh_token,
+          phone_number_id: data.phone_number_id,
+          waba_account_id: data.waba_account_id,
+          business_account_id: data.business_account_id,
+        });
+      }
 
-    if (data.access_token) {
+      SupabaseIntegration.saveLocalIntegration({
+        access_token: data.access_token,
+        phone_number_id: data.phone_number_id,
+        waba_account_id: data.waba_account_id,
+      });
 
-      // حفظ مؤقت للتجربة
-      localStorage.setItem(
-        'wa_access_token',
-        data.access_token
-      );
+      _setStatus('success', {
+        accessToken: data.access_token,
+        phoneId:     data.phone_number_id,
+        wabaId:      data.waba_account_id,
+        connectedAt: new Date().toISOString(),
+      });
 
-      localStorage.setItem(
-        'wa_phone_number_id',
-        sessionInfo.phoneNumberId || ''
-      );
-
-      localStorage.setItem(
-        'wa_waba_id',
-        sessionInfo.wabaId || ''
-      );
-
-      alert('تم ربط واتساب بنجاح 🔥');
-
-    } else {
-
-      console.error(data);
-
-      alert('فشل في جلب Access Token');
-
+    } catch (err) {
+      console.error('[OAuthService] Exchange failed:', err);
+      _setStatus('error', { errorMsg: err.message || 'فشل في الاتصال مع الخادم' });
     }
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert('حدث خطأ أثناء الربط');
-
   }
 
-}
+  async function getConnectionStatus() {
+    const supabaseData = await SupabaseIntegration.getIntegration();
+    if (supabaseData) {
+      return {
+        isConnected:  true,
+        accessToken:  supabaseData.access_token,
+        phoneId:      supabaseData.metadata?.phone_number_id,
+        wabaId:       supabaseData.metadata?.waba_account_id,
+        connectedAt:  supabaseData.metadata?.connected_at,
+        source:       'supabase',
+      };
+    }
 
-// ============================================
-// Facebook Login Callback
-// ============================================
-
-function fbLoginCallback(response) {
-
-  console.log('FB Login Response:', response);
-
-  if (response.authResponse) {
-
-    const code = response.authResponse.code;
-
-    console.log('Authorization Code:', code);
-
-    // إرسال code للـ backend
-    exchangeCode(code);
-
-  } else {
-
-    console.log('User cancelled login');
-
+    const localData = SupabaseIntegration.getLocalIntegration();
+    return {
+      isConnected:  !!localData,
+      accessToken:  localData?.access_token,
+      phoneId:      localData?.phone_number_id,
+      wabaId:       localData?.waba_account_id,
+      connectedAt:  localData?.connected_at,
+      source:       'localStorage',
+    };
   }
 
+  async function disconnect() {
+    await SupabaseIntegration.deleteIntegration();
+    SupabaseIntegration.clearLocalIntegration();
+    _setStatus('idle');
+  }
+
+  function getState() { return { ..._state }; }
+
+  function subscribe(fn) {
+    _listeners.push(fn);
+    return () => { _listeners = _listeners.filter(l => l !== fn); };
+  }
+
+  // ─── Private Helpers ─────────────────────────────────
+
+  function _setStatus(status, extra = {}) {
+    _state = { ..._state, status, ...extra };
+    _listeners.forEach(fn => fn(_state));
+  }
+
+  function _generateState() {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  function _cleanUrl() {
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+
+  return {
+    startOAuthFlow,
+    handleCallback,
+    getConnectionStatus,
+    disconnect,
+    getState,
+    subscribe,
+    CONFIG,
+  };
+
+})();
+
+// Export for global access
+if (typeof window !== 'undefined') {
+  window.OAuthService = OAuthService;
 }
 
-// ============================================
-// Launch Embedded Signup
-// ============================================
-
-function launchWhatsAppSignup() {
-
-  FB.login(
-    fbLoginCallback,
-    {
-      config_id: '2268694463535485',
-
-      response_type: 'code',
-
-      override_default_response_type: true,
-
-      extras: {
-        version: 'v4'
-      }
-    }
-  );
-
+// Auto-handle callback on load
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    OAuthService.handleCallback();
+  });
 }
 
-// ============================================
-// Button Event
-// ============================================
-
-document
-  .getElementById('wa-connect-btn')
-  .addEventListener(
-    'click',
-    launchWhatsAppSignup
-  );
-```
+// ES6 Export
+export { OAuthService };

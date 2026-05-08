@@ -7,48 +7,48 @@
 
 /* ─── CSS Variables ─── */
 :root {
-  /* Brand Colors - inspired by mad3oom.online */
-  --brand-primary: #00C853;
-  --brand-secondary: #00897B;
-  --brand-accent: #1DE9B6;
+  /* Brand Colors - من منصة مدعوم الرئيسية */
+  --brand-primary: #0077CC;
+  --brand-secondary: #003366;
+  --brand-accent: #0055AA;
   --brand-whatsapp: #25D366;
   --brand-whatsapp-dark: #128C7E;
 
   /* Dark Theme */
-  --bg-base: #0A0E1A;
-  --bg-surface: #0F1628;
-  --bg-card: #131929;
-  --bg-card-hover: #1A2235;
-  --bg-sidebar: #0C1120;
-  --bg-elevated: #1E2840;
-  --bg-glass: rgba(19, 25, 41, 0.8);
+  --bg-base: #0E0E10;
+  --bg-surface: #1A1A1A;
+  --bg-card: #242424;
+  --bg-card-hover: #2A2A2A;
+  --bg-sidebar: #121212;
+  --bg-elevated: #2A2A2A;
+  --bg-glass: rgba(26, 26, 26, 0.8);
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-default: rgba(255, 255, 255, 0.10);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --border-brand: rgba(0, 200, 83, 0.35);
+  --border-brand: rgba(0, 119, 204, 0.35);
 
   /* Text */
-  --text-primary: #F0F4FF;
-  --text-secondary: #8B9BB4;
-  --text-muted: #4A5568;
-  --text-brand: #00C853;
-  --text-accent: #1DE9B6;
+  --text-primary: #E0E0E0;
+  --text-secondary: #B0B0B0;
+  --text-muted: #808080;
+  --text-brand: #0077CC;
+  --text-accent: #0088DD;
 
   /* Status Colors */
-  --status-success: #00C853;
+  --status-success: #4CAF50;
   --status-warning: #FFB300;
-  --status-error: #FF4757;
-  --status-info: #2196F3;
+  --status-error: #F44336;
+  --status-info: #0088DD;
   --status-pending: #9C27B0;
 
   /* Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-  --shadow-brand: 0 4px 20px rgba(0, 200, 83, 0.2);
-  --shadow-glow: 0 0 30px rgba(0, 200, 83, 0.15);
+  --shadow-brand: 0 4px 20px rgba(0, 119, 204, 0.2);
+  --shadow-glow: 0 0 30px rgba(0, 119, 204, 0.15);
 
   /* Radius */
   --radius-sm: 8px;
@@ -168,7 +168,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   box-shadow: var(--shadow-brand);
   font-size: 18px;
   font-weight: 900;
-  color: #0A0E1A;
+  color: #FFFFFF;
 }
 
 .sidebar-brand {
@@ -322,7 +322,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   justify-content: center;
   font-size: 15px;
   font-weight: 700;
-  color: #0A0E1A;
+  color: #FFFFFF;
   flex-shrink: 0;
 }
 
