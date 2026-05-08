@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="./main.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  
+  <!-- Facebook SDK -->
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v21.0&appId=1510313544014876" nonce="FACEBOOK_NONCE"></script>
   <style>
     /* ─── Inline micro-styles ─── */
     .activity-feed { display: flex; flex-direction: column; gap: 0; }
@@ -578,6 +581,18 @@
 </div>
 
 <!-- Scripts -->
+<script>
+  window.fbAsyncInit = function () {
+    FB.init({
+      appId: '1510313544014876',
+      cookie: true,
+      xfbml: true,
+      version: 'v21.0'
+    });
+
+    console.log('Facebook SDK Initialized');
+  };
+</script>
 <script src="./toast.js"></script>
 <script src="./supabase-integration.js" type="module"></script>
 <script src="./oauth.js" type="module"></script>
