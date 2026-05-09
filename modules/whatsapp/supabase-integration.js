@@ -21,7 +21,19 @@ async function initializeSupabase() {
     try {
       validateSupabaseConfig(SUPABASE_CONFIG);
       const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
-      supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+      supabaseClient = createClient(
+  SUPABASE_CONFIG.url,
+  SUPABASE_CONFIG.anonKey,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storage: window.localStorage
+    }
+  }
+);
       console.log('[WhatsApp Integration] Supabase client initialized');
       return supabaseClient;
     } catch (error) {
