@@ -184,30 +184,30 @@ throw new Error(
     }
   }
 
-  async function getConnectionStatus() {
-    const supabaseData = await SupabaseIntegration.getIntegration();
-    if (supabaseData) {
-      return {
-        isConnected:  true,
-        accessToken:  supabaseData.access_token,
-        phoneId:      supabaseData.metadata?.phone_number_id,
-        wabaId:       supabaseData.metadata?.waba_account_id,
-        connectedAt:  supabaseData.metadata?.connected_at,
-        source:       'supabase',
-      };
-    }
-
-    const localData = SupabaseIntegration.getLocalIntegration();
+ async function getConnectionStatus() {
+  const supabaseData = await SupabaseIntegration.getIntegration();
+  if (supabaseData) {
     return {
-      isConnected:  !!localData,
-      accessToken:  localData?.access_token,
-      phoneId:      localData?.phone_number_id,
-      wabaId:       localData?.waba_account_id,
-      connectedAt:  localData?.connected_at,
-      source:       'localStorage',
+      isConnected:  true,
+      accessToken:  supabaseData.access_token,
+      phoneId:      supabaseData.metadata?.phone_number || supabaseData.metadata?.phone_number_id, // ✅ من supabaseData
+      wabaId:       supabaseData.metadata?.waba_account_id,
+      connectedAt:  supabaseData.metadata?.connected_at,
+      source:       'supabase',
     };
   }
 
+  const localData = SupabaseIntegration.getLocalIntegration();
+  return {
+    isConnected:  !!localData,
+    accessToken:  localData?.access_token,
+    phoneId:      localData?.phone_number || localData?.phone_number_id, // ✅ من localData
+    wabaId:       localData?.waba_account_id,
+    connectedAt:  localData?.connected_at,
+    source:       'localStorage',
+  };
+}
+  
   async function disconnect() {
     await SupabaseIntegration.deleteIntegration();
     SupabaseIntegration.clearLocalIntegration();
