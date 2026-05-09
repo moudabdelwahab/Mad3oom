@@ -76,7 +76,6 @@ async function saveIntegration(integrationData) {
           access_token: integrationData.access_token,
           token_type:   integrationData.token_type || 'Bearer',
           expires_in:   integrationData.expires_in,
-          scope:        integrationData.scope || 'whatsapp_business_management,whatsapp_business_messaging',
           metadata: {
             phone_number_id:     integrationData.phone_number_id,
             waba_account_id:     integrationData.waba_account_id,
