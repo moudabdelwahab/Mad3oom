@@ -64,6 +64,71 @@ async function loadUserProfile() {
   }
 }
 
+
+// ─── Messages ─────────────────────────────────────────
+
+async function loadMessages() {
+  const container = document.getElementById('messages-list');
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">جاري التحميل...</p>';
+
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    const userId   = await SupabaseIntegration.getCurrentUserId();
+
+    if (!userId) {
+      container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">يرجى تسجيل الدخول أولاً</p>';
+      return;
+    }
+
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error || !messages?.length) {
+      container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">لا توجد رسائل حالياً</p>';
+      return;
+    }
+
+    container.innerHTML = messages.map(msg => `
+      <div style="
+        display: flex; gap: 12px; padding: 14px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        align-items: flex-start;
+      ">
+        <div style="
+          width: 40px; height: 40px; border-radius: 50%;
+          background: var(--bg-elevated); display: flex;
+          align-items: center; justify-content: center;
+          font-size: 16px; flex-shrink: 0;
+        ">💬</div>
+        <div style="flex: 1;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <strong style="color: var(--text-primary);">+${msg.from_number}</strong>
+            <span style="font-size: 11px; color: var(--text-muted);">
+              ${new Date(msg.timestamp).toLocaleString('ar-SA')}
+            </span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary);">${msg.message_text}</div>
+        </div>
+        <div style="
+          padding: 2px 8px; border-radius: 99px; font-size: 11px;
+          background: rgba(0,200,83,0.1); color: var(--status-success);
+        ">وارد</div>
+      </div>
+    `).join('');
+
+  } catch (error) {
+    console.error('[App] loadMessages error:', error);
+    container.innerHTML = '<p style="text-align:center; color: var(--status-error);">حدث خطأ أثناء تحميل الرسائل</p>';
+  }
+}
+
+window.loadMessages = loadMessages;
 // ─── Connection Status ────────────────────────────────
 
 async function updateConnectionStatus() {
