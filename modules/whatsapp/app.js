@@ -299,8 +299,11 @@ function navigateTo(page, element) {
     titleMap[page] || 'الرئيسية';
   document.getElementById('page-subtitle').textContent =
     'منصة مدعوم - إدارة WhatsApp Business API';
-}
 
+  // تحميل الرسائل تلقائياً 
+  if (page === 'messages') { loadMessages(); }
+}
+}
 window.navigateTo = navigateTo;
 
 // ─── Disconnect Handler ───────────────────────────────
