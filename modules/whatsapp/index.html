@@ -554,25 +554,11 @@
 
       <!-- ════════ PAGE: Messages ════════ -->
       <div class="page" id="page-messages">
-  <div class="section-card">
-    <div class="section-card-header">
-      <div class="section-card-title">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        الرسائل الواردة
+        <div id="whatsapp-inbox-root" class="whatsapp-inbox-root">
+          <div class="wa-inbox-loading">جاري تجهيز Inbox...</div>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="loadMessages()">🔄 تحديث</button>
-    </div>
-    <div class="section-card-body">
-      <div id="messages-list">
-        <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
-          جاري تحميل الرسائل...
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
+
       <!-- ════════ PAGE: Settings ════════ -->
       <div class="page" id="page-settings">
         <div class="section-card">
@@ -614,12 +600,7 @@
 <script src="./supabase-integration.js" type="module"></script>
 <script src="./oauth.js" type="module"></script>
 <script src="./app.js" type="module"></script>
-```html id="4jlwm3"
 <div id="fb-root"></div>
-
-<script async defer crossorigin="anonymous"
-src="https://connect.facebook.net/en_US/sdk.js"></script>
-```
 
 </body>
 </html>
