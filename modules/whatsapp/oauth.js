@@ -13,7 +13,7 @@ const OAuthService = (() => {
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
     META_APP_ID:      '1510313544014876',
-    REDIRECT_URI:     window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html',
+    REDIRECT_URI:     window.location.origin + '/modules/whatsapp/index.html',
     SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
     RESPONSE_TYPE:    'code',
     EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
