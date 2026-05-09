@@ -74,4 +74,31 @@ export class WhatsAppAPI {
       }),
     });
   }
+
+  static async getTemplates() {
+    const integration = await SupabaseIntegration.getIntegration();
+    const wabaId = integration?.metadata?.waba_account_id;
+    if (!wabaId) throw new Error('WABA Account ID not found.');
+    return graphFetch(`/${wabaId}/message_templates`);
+  }
+
+  static async createTemplate(templateData) {
+    const integration = await SupabaseIntegration.getIntegration();
+    const wabaId = integration?.metadata?.waba_account_id;
+    if (!wabaId) throw new Error('WABA Account ID not found.');
+    return graphFetch(`/${wabaId}/message_templates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(templateData),
+    });
+  }
+
+  static async deleteTemplate(templateName) {
+    const integration = await SupabaseIntegration.getIntegration();
+    const wabaId = integration?.metadata?.waba_account_id;
+    if (!wabaId) throw new Error('WABA Account ID not found.');
+    return graphFetch(`/${wabaId}/message_templates?name=${templateName}`, {
+      method: 'DELETE',
+    });
+  }
 }

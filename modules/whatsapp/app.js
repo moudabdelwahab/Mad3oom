@@ -10,12 +10,17 @@ import { SupabaseIntegration } from './supabase-integration.js';
 import { OAuthService } from './oauth.js';
 import ProvisioningStatus from './ProvisioningStatus.js';
 import { InboxPage } from './pages/InboxPage.js';
+import { TemplatesPage } from './pages/TemplatesPage.js';
+import { AutoReplyPage } from './pages/AutoReplyPage.js';
+import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── State ───────────────────────────────────────────
 let provisioningStatus  = null;
 let currentChannelId    = null;
 let channelSubscription = null;
 let inboxPage = null;
+let templatesPage = null;
+let autoReplyPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -86,6 +91,91 @@ async function loadMessages() {
 }
 
 window.loadMessages = loadMessages;
+
+async function loadTemplates() {
+  const container = document.getElementById('whatsapp-templates-root');
+  if (!container) return;
+
+  if (!templatesPage) {
+    templatesPage = new TemplatesPage(container);
+  }
+
+  await templatesPage.load();
+}
+
+window.loadTemplates = loadTemplates;
+
+window.deleteTemplate = async function(name) {
+  if (!confirm(`هل أنت متأكد من حذف القالب "${name}"؟`)) return;
+  try {
+    await WhatsAppAPI.deleteTemplate(name);
+    showToast('تم حذف القالب بنجاح', 'success');
+    loadTemplates();
+  } catch (error) {
+    showToast(`خطأ في حذف القالب: ${error.message}`, 'error');
+  }
+};
+
+async function loadAutoReply() {
+  const container = document.getElementById('whatsapp-autoreply-root');
+  if (!container) return;
+
+  if (!autoReplyPage) {
+    autoReplyPage = new AutoReplyPage(container);
+  }
+
+  await autoReplyPage.load();
+}
+
+window.loadAutoReply = loadAutoReply;
+
+window.openNewAutoReplyModal = () => {
+  const modal = document.getElementById('autoreply-modal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.saveNewAutoReply = async function() {
+  const keywords = document.getElementById('ar-keywords').value;
+  const message = document.getElementById('ar-message').value;
+
+  if (!keywords || !message) {
+    showToast('يرجى ملء جميع الحقول', 'warning');
+    return;
+  }
+
+  try {
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    const userId = await SupabaseIntegration.getCurrentUserId();
+    const { error } = await supabase.from('bot_settings').insert({
+      user_id: userId,
+      keywords: keywords,
+      welcome_message: message,
+      is_enabled: true,
+      bot_enabled: true
+    });
+
+    if (error) throw error;
+
+    showToast('تم حفظ قاعدة الرد بنجاح', 'success');
+    document.getElementById('autoreply-modal').style.display = 'none';
+    loadAutoReply();
+  } catch (error) {
+    showToast(`خطأ في الحفظ: ${error.message}`, 'error');
+  }
+};
+
+window.deleteAutoReply = async function(id) {
+  if (!confirm('هل أنت متأكد من حذف هذه القاعدة؟')) return;
+  try {
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    const { error } = await supabase.from('bot_settings').delete().eq('id', id);
+    if (error) throw error;
+    showToast('تم حذف القاعدة بنجاح', 'success');
+    loadAutoReply();
+  } catch (error) {
+    showToast(`خطأ في الحذف: ${error.message}`, 'error');
+  }
+};
 // ─── Connection Status ────────────────────────────────
 
 async function updateConnectionStatus() {
@@ -141,11 +231,15 @@ async function updateDashboard() {
       document.getElementById('dash-status-val').textContent    = 'غير متصل';
       document.getElementById('dash-status-change').textContent = '! اضغط للربط';
       document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
+      const welcomeSub = document.getElementById('welcome-sub');
+      if (welcomeSub) {
+        welcomeSub.textContent = 'لوحة تحكم WhatsApp Business API جاهزة. ابدأ بربط رقمك الآن.';
+      }
       return;
     }
 
     document.getElementById('dash-status-val').textContent    = 'متصل';
-    document.getElementById('dash-status-change').textContent = '✓ ' + stats.verifiedName;
+    document.getElementById('dash-status-change').textContent = '✓ تم الربط';
     document.getElementById('dash-status-change').style.color = 'var(--status-success)';
 
     const statusPhone = document.getElementById('status-phone');
@@ -153,8 +247,31 @@ async function updateDashboard() {
     businessPhoneNumber = stats.phoneNumber || businessPhoneNumber;
 
     const welcomeName = document.getElementById('welcome-name');
-    if (welcomeName && welcomeName.textContent === 'صديقي!') {
-      welcomeName.textContent = stats.verifiedName + '!';
+    if (welcomeName) {
+      welcomeName.textContent = (stats.verifiedName || 'صديقي') + '!';
+    }
+    
+    const welcomeSub = document.getElementById('welcome-sub');
+    if (welcomeSub) {
+      welcomeSub.textContent = 'لوحة تحكم WhatsApp Business API جاهزة ونشطة الآن.';
+    }
+
+    // Update Real Stats
+    document.getElementById('stat-sent-count').textContent = '—';
+    document.getElementById('stat-sent-change').textContent = 'جاري التحديث...';
+    
+    document.getElementById('stat-delivery-rate').textContent = (stats.qualityRating || '—');
+    document.getElementById('stat-delivery-change').textContent = 'جودة الحساب';
+
+    // Fetch Templates Count
+    try {
+      const { WhatsAppAPI } = await import('./services/whatsapp-api.js');
+      const templates = await WhatsAppAPI.getTemplates();
+      const activeCount = templates.data?.filter(t => t.status === 'APPROVED').length || 0;
+      document.getElementById('stat-templates-count').textContent = activeCount;
+      document.getElementById('stat-templates-change').textContent = `من إجمالي ${templates.data?.length || 0}`;
+    } catch (e) {
+      console.error('Failed to fetch templates for dashboard', e);
     }
 
   } catch (error) {
@@ -261,8 +378,10 @@ function navigateTo(page, element) {
   document.getElementById('page-subtitle').textContent =
     'منصة مدعوم - إدارة WhatsApp Business API';
 
-  // تحميل الرسائل تلقائياً 
+  // تحميل البيانات تلقائياً 
   if (page === 'messages') { loadMessages(); }
+  if (page === 'templates') { loadTemplates(); }
+  if (page === 'autoreply') { loadAutoReply(); }
 }
 
 window.navigateTo = navigateTo;

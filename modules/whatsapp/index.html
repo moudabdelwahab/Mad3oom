@@ -144,6 +144,15 @@
         <span class="nav-badge">3</span>
       </div>
 
+      <div class="nav-item" data-page="autoreply" onclick="navigateTo('autoreply', this)">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path>
+          </svg>
+        </div>
+        <span class="nav-label">الرد الآلي</span>
+      </div>
+
       <div class="nav-section-label">النظام</div>
 
       <div class="nav-item" data-page="settings" onclick="navigateTo('settings', this)">
@@ -209,8 +218,8 @@
 
         <div class="welcome-banner" style="align-items: center;">
           <div>
-            <div class="welcome-title">مرحبًا، <span id="welcome-name">أحمد!</span> 👋</div>
-            <div class="welcome-sub">لوحة تحكم WhatsApp Business API جاهزة. ابدأ بربط رقمك الآن.</div>
+            <div class="welcome-title">مرحبًا، <span id="welcome-name">صديقي!</span> 👋</div>
+            <div class="welcome-sub" id="welcome-sub">جاري التحميل...</div>
             <div style="display:flex; gap: 12px; margin-top: 20px;">
               <button class="btn btn-primary" onclick="navigateTo('connect', document.querySelector('[data-page=connect]'))">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 6px;">
@@ -244,9 +253,9 @@
               </svg>
             </div>
             <div class="stat-info">
-              <div class="stat-value">1,284</div>
+              <div class="stat-value" id="stat-sent-count">0</div>
               <div class="stat-label">رسائل مُرسلة اليوم</div>
-              <div class="stat-change up">↑ 12% من أمس</div>
+              <div class="stat-change up" id="stat-sent-change">جاري التحميل...</div>
             </div>
           </div>
           <div class="stat-card">
@@ -256,22 +265,22 @@
               </svg>
             </div>
             <div class="stat-info">
-              <div class="stat-value">98.2%</div>
+              <div class="stat-value" id="stat-delivery-rate">0%</div>
               <div class="stat-label">معدل التسليم</div>
-              <div class="stat-change up">↑ 0.4%</div>
+              <div class="stat-change up" id="stat-delivery-change">جاري التحميل...</div>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon blue">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </div>
             <div class="stat-info">
-              <div class="stat-value">7</div>
+              <div class="stat-value" id="stat-templates-count">0</div>
               <div class="stat-label">قوالب نشطة</div>
-              <div class="stat-change up">↑ 2 جديدة</div>
+              <div class="stat-change up" id="stat-templates-change">جاري التحميل...</div>
             </div>
           </div>
           <div class="stat-card">
@@ -524,9 +533,9 @@
               قالب جديد
             </button>
           </div>
-          <div class="section-card-body">
+          <div class="section-card-body" id="whatsapp-templates-root" style="padding: 0;">
             <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
-              لا توجد قوالب حالياً. قم بإنشاء قالب جديد للبدء.
+              جاري تحميل القوالب...
             </p>
           </div>
         </div>
@@ -556,6 +565,32 @@
       <div class="page" id="page-messages">
         <div id="whatsapp-inbox-root" class="whatsapp-inbox-root">
           <div class="wa-inbox-loading">جاري تجهيز Inbox...</div>
+        </div>
+      </div>
+
+      <!-- ════════ PAGE: Auto Reply ════════ -->
+      <div class="page" id="page-autoreply">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-card-title">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path>
+              </svg>
+              الرد الآلي
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="window.openNewAutoReplyModal()">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px; margin-left: 4px;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              إضافة رد
+            </button>
+          </div>
+          <div class="section-card-body" id="whatsapp-autoreply-root" style="padding: 0;">
+            <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
+              جاري تحميل قواعد الرد الآلي...
+            </p>
+          </div>
         </div>
       </div>
 
