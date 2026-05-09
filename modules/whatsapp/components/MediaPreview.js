@@ -6,9 +6,9 @@ export function MediaPreview({ type, media = {}, text = '' }) {
   const name = media.name || 'ملف';
   if (type === 'image' || type === 'sticker') {
     return `
-      <a class="wa-media-preview wa-image-preview" href="${escapeHtml(url || '#')}" target="_blank" rel="noopener">
+      <button class="wa-media-preview wa-image-preview" type="button" data-lightbox-src="${escapeHtml(url || '')}" data-lightbox-alt="${escapeHtml(text || name)}">
         <img src="${escapeHtml(url || '')}" alt="${escapeHtml(text || name)}" loading="lazy" />
-      </a>
+      </button>
     `;
   }
   if (type === 'video') {

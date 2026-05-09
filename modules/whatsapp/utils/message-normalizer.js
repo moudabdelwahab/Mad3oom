@@ -1,7 +1,7 @@
 const MEDIA_TYPES = new Set(['image', 'video', 'audio', 'document', 'sticker']);
 
 export function normalizePhone(value = '') {
-  return String(value || '').replace(/^whatsapp:/, '').replace(/[^\d+]/g, '');
+  return String(value || '').replace(/^whatsapp:/, '').replace(/\D/g, '');
 }
 
 export function getMessageTimestamp(message) {
@@ -61,11 +61,19 @@ export function normalizeMessage(message, businessPhone = '') {
   };
 }
 
+export function isBusinessConversation(message, businessPhone = '') {
+  const business = normalizePhone(businessPhone);
+  if (!business) return false;
+  const from = normalizePhone(message.from_number || message.from || message.sender_phone);
+  const conversationPhone = normalizePhone(message.conversationPhone || getConversationPhone(message, businessPhone));
+  return conversationPhone === business || (from === business && !normalizePhone(message.to_number || message.to || message.recipient_phone));
+}
+
 export function groupConversations(messages, businessPhone = '') {
   const map = new Map();
   messages.forEach((raw) => {
     const message = normalizeMessage(raw, businessPhone);
-    if (!message.conversationPhone) return;
+    if (!message.conversationPhone || isBusinessConversation(message, businessPhone)) return;
     const existing = map.get(message.conversationPhone) || {
       phone: message.conversationPhone,
       messages: [],
@@ -92,6 +100,7 @@ export function mergeMessages(existingMessages, incomingMessages, businessPhone 
   const map = new Map();
   [...existingMessages, ...incomingMessages].forEach((message) => {
     const normalized = normalizeMessage(message, businessPhone);
+    if (isBusinessConversation(normalized, businessPhone)) return;
     const key = normalized.client_id || normalized.local_id || normalized.clientId || normalized.wa_message_id || normalized.message_id || normalized.id;
     map.set(key, { ...(map.get(key) || {}), ...normalized });
   });

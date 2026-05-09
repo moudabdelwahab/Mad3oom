@@ -5,6 +5,7 @@ import { MessageBubble } from '../components/MessageBubble.js';
 import { MessageStore } from '../services/message-store.js';
 import { WhatsAppAPI } from '../services/whatsapp-api.js';
 import { MessageRealtime } from '../realtime/message-realtime.js';
+import { escapeHtml } from '../utils/dom.js';
 import { groupConversations, mergeMessages, normalizeMessage } from '../utils/message-normalizer.js';
 
 function inferMediaType(file) {
@@ -24,6 +25,7 @@ export class InboxPage {
     this.activePhone = null;
     this.loadingRequestId = 0;
     this.realtimeStatus = 'CLOSED';
+    this.composerDisabled = null;
     this.realtime = new MessageRealtime({
       onMessage: (message) => this.handleRealtimeMessage(message),
       onStatus: (status) => { this.realtimeStatus = status; this.renderHeader(); },
@@ -59,13 +61,20 @@ export class InboxPage {
     });
     this.root.querySelectorAll('[data-refresh]').forEach((button) => button.addEventListener('click', () => this.load()));
     this.root.querySelector('[data-search]').addEventListener('input', (event) => this.renderList(event.target.value));
-    this.input.render({ disabled: true });
+    this.root.querySelector('[data-messages]').addEventListener('click', (event) => {
+      const trigger = event.target.closest('[data-lightbox-src]');
+      if (trigger) this.openLightbox(trigger.dataset.lightboxSrc, trigger.dataset.lightboxAlt || 'صورة');
+    });
+    this.renderComposer(true);
     this.renderHeader();
     this.load();
     this.realtime.subscribe();
   }
 
-  destroy() { this.realtime.unsubscribe(); }
+  destroy() {
+    this.realtime.unsubscribe();
+    this.input?.destroy?.();
+  }
 
   async load() {
     const requestId = ++this.loadingRequestId;
@@ -91,7 +100,7 @@ export class InboxPage {
     this.renderList();
     this.renderHeader();
     this.renderMessages();
-    this.input.render({ disabled: !this.activePhone });
+    this.renderComposer(!this.activePhone);
   }
 
   renderList(filter = '') {
@@ -105,6 +114,12 @@ export class InboxPage {
   renderHeader() {
     this.header?.render(this.getActiveConversation(), { realtimeStatus: this.realtimeStatus });
     this.root?.querySelector('[data-header] [data-refresh]')?.addEventListener('click', () => this.load());
+  }
+
+  renderComposer(disabled) {
+    if (this.composerDisabled === disabled) return;
+    this.composerDisabled = disabled;
+    this.input.render({ disabled });
   }
 
   renderMessages() {
@@ -214,6 +229,20 @@ export class InboxPage {
       metadata: { media_url: media.url, file_name: media.name, mime_type: media.mimeType, file_size: media.size },
       ...rest,
     };
+  }
+
+  openLightbox(src, alt = 'صورة') {
+    if (!src) return;
+    const lightbox = document.createElement('div');
+    lightbox.className = 'wa-lightbox';
+    lightbox.innerHTML = `
+      <button class="wa-lightbox-close" type="button" aria-label="إغلاق">×</button>
+      <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" />
+    `;
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox || event.target.closest('.wa-lightbox-close')) lightbox.remove();
+    });
+    document.body.appendChild(lightbox);
   }
 
   setTyping(active) {
