@@ -4,13 +4,6 @@
  * Supabase Integration Service for WhatsApp Module
  * منصة مدعوم - خدمة التكامل مع Supabase
  * =====================================================
- *
- * هذا الملف يتعامل مع:
- * 1. إنشاء اتصال Supabase آمن
- * 2. حفظ بيانات التكامل في جدول integrations
- * 3. جلب بيانات التكامل المحفوظة
- * 4. تحديث وحذف التكاملات
- * 5. إدارة الأخطاء والمصادقة
  */
 
 import { SUPABASE_CONFIG, validateSupabaseConfig } from '../../supabase-config.js';
@@ -19,33 +12,21 @@ import { SUPABASE_CONFIG, validateSupabaseConfig } from '../../supabase-config.j
 let supabaseClient = null;
 let initPromise = null;
 
+// ─── 1. initializeSupabase ────────────────────────────
 async function initializeSupabase() {
-  // إذا كان العميل موجوداً بالفعل، أرجعه
   if (supabaseClient) return supabaseClient;
-
-  // إذا كانت عملية التهيئة جارية، انتظر النتيجة
   if (initPromise) return initPromise;
 
-  // بدء عملية التهيئة
   initPromise = (async () => {
     try {
-      // التحقق من صحة الإعدادات
       validateSupabaseConfig(SUPABASE_CONFIG);
-
-      // استيراد Supabase من CDN
       const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
-
-      // إنشاء العميل
-      supabaseClient = createClient(
-        SUPABASE_CONFIG.url,
-        SUPABASE_CONFIG.anonKey
-      );
-
+      supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
       console.log('[WhatsApp Integration] Supabase client initialized');
       return supabaseClient;
     } catch (error) {
       console.error('[WhatsApp Integration] Failed to initialize Supabase:', error);
-      initPromise = null; // إعادة تعيين في حالة الفشل
+      initPromise = null;
       throw error;
     }
   })();
@@ -53,21 +34,16 @@ async function initializeSupabase() {
   return initPromise;
 }
 
-// ─── Authentication Helpers ──────────────────────────
+// ─── 2. Authentication Helpers ────────────────────────
 
-/**
- * الحصول على جلسة المستخدم الحالية
- */
 async function getCurrentSession() {
   try {
     const supabase = await initializeSupabase();
     const { data: { session }, error } = await supabase.auth.getSession();
-
     if (error) {
       console.error('[WhatsApp Integration] Failed to get session:', error);
       return null;
     }
-
     return session;
   } catch (error) {
     console.error('[WhatsApp Integration] Session error:', error);
@@ -75,21 +51,13 @@ async function getCurrentSession() {
   }
 }
 
-/**
- * الحصول على معرف المستخدم الحالي
- */
 async function getCurrentUserId() {
   const session = await getCurrentSession();
   return session?.user?.id || null;
 }
 
-// ─── Database Operations ─────────────────────────────
+// ─── 3. Database Operations ───────────────────────────
 
-/**
- * حفظ بيانات التكامل في Supabase
- * @param {Object} integrationData - بيانات التكامل
- * @returns {Promise<Object>} - البيانات المحفوظة أو الخطأ
- */
 async function saveIntegration(integrationData) {
   try {
     const supabase = await initializeSupabase();
@@ -103,23 +71,20 @@ async function saveIntegration(integrationData) {
       .from('integrations')
       .upsert(
         {
-          user_id: userId,
-          provider: 'whatsapp',
+          user_id:      userId,
+          provider:     'whatsapp',
           access_token: integrationData.access_token,
-          token_type: integrationData.token_type || 'Bearer',
-          expires_in: integrationData.expires_in,
-          refresh_token: integrationData.refresh_token || null,
-          scope: integrationData.scope || 'whatsapp_business_management,whatsapp_business_messaging',
+          token_type:   integrationData.token_type || 'Bearer',
+          expires_in:   integrationData.expires_in,
+          scope:        integrationData.scope || 'whatsapp_business_management,whatsapp_business_messaging',
           metadata: {
-            phone_number_id: integrationData.phone_number_id,
-            waba_account_id: integrationData.waba_account_id,
+            phone_number_id:     integrationData.phone_number_id,
+            waba_account_id:     integrationData.waba_account_id,
             business_account_id: integrationData.business_account_id,
-            connected_at: new Date().toISOString(),
+            connected_at:        new Date().toISOString(),
           },
         },
-        {
-          onConflict: 'user_id,provider', // تحديث إذا كان موجوداً
-        }
+        { onConflict: 'user_id,provider' }
       )
       .select()
       .single();
@@ -137,10 +102,6 @@ async function saveIntegration(integrationData) {
   }
 }
 
-/**
- * جلب بيانات التكامل المحفوظة
- * @returns {Promise<Object>} - بيانات التكامل أو null
- */
 async function getIntegration() {
   try {
     const supabase = await initializeSupabase();
@@ -159,8 +120,6 @@ async function getIntegration() {
       .maybeSingle();
 
     if (error) {
-      // إذا كان الخطأ 404، فهذا يعني غالباً أن الجدول غير موجود أو هناك مشكلة في الـ API
-      // سنقوم بإرجاع null بهدوء لتجنب إزعاج المستخدم
       if (error.code === 'PGRST116' || error.status === 404) {
         console.warn('[WhatsApp Integration] Integration table not found or empty');
         return null;
@@ -176,34 +135,22 @@ async function getIntegration() {
   }
 }
 
-/**
- * تحديث بيانات التكامل
- * @param {Object} updates - البيانات المراد تحديثها
- * @returns {Promise<Object>} - النتيجة
- */
 async function updateIntegration(updates) {
   try {
     const supabase = await initializeSupabase();
     const userId = await getCurrentUserId();
 
-    if (!userId) {
-      throw new Error('المستخدم غير مصرح.');
-    }
+    if (!userId) throw new Error('المستخدم غير مصرح.');
 
     const { data, error } = await supabase
       .from('integrations')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('provider', 'whatsapp')
       .select()
       .single();
 
-    if (error) {
-      throw new Error(`فشل التحديث: ${error.message}`);
-    }
+    if (error) throw new Error(`فشل التحديث: ${error.message}`);
 
     return { success: true, data };
   } catch (error) {
@@ -212,18 +159,12 @@ async function updateIntegration(updates) {
   }
 }
 
-/**
- * حذف بيانات التكامل
- * @returns {Promise<Object>} - النتيجة
- */
 async function deleteIntegration() {
   try {
     const supabase = await initializeSupabase();
     const userId = await getCurrentUserId();
 
-    if (!userId) {
-      throw new Error('المستخدم غير مصرح.');
-    }
+    if (!userId) throw new Error('المستخدم غير مصرح.');
 
     const { error } = await supabase
       .from('integrations')
@@ -231,9 +172,7 @@ async function deleteIntegration() {
       .eq('user_id', userId)
       .eq('provider', 'whatsapp');
 
-    if (error) {
-      throw new Error(`فشل الحذف: ${error.message}`);
-    }
+    if (error) throw new Error(`فشل الحذف: ${error.message}`);
 
     console.log('[WhatsApp Integration] Integration deleted successfully');
     return { success: true };
@@ -243,23 +182,17 @@ async function deleteIntegration() {
   }
 }
 
-/**
- * جلب بيانات التكامل من localStorage (للاستخدام المؤقت)
- */
+// ─── 4. LocalStorage Helpers ─────────────────────────
+
 function getLocalIntegration() {
   try {
     const token = localStorage.getItem('mad3oom_wa_access_token');
-    const phoneId = localStorage.getItem('mad3oom_wa_phone_id');
-    const wabaId = localStorage.getItem('mad3oom_wa_waba_id');
-    const connectedAt = localStorage.getItem('mad3oom_wa_connected_at');
-
     if (!token) return null;
-
     return {
-      access_token: token,
-      phone_number_id: phoneId,
-      waba_account_id: wabaId,
-      connected_at: connectedAt,
+      access_token:    token,
+      phone_number_id: localStorage.getItem('mad3oom_wa_phone_id'),
+      waba_account_id: localStorage.getItem('mad3oom_wa_waba_id'),
+      connected_at:    localStorage.getItem('mad3oom_wa_connected_at'),
     };
   } catch (error) {
     console.error('[WhatsApp Integration] Local storage error:', error);
@@ -267,36 +200,86 @@ function getLocalIntegration() {
   }
 }
 
-/**
- * حفظ بيانات التكامل في localStorage (للاستخدام المؤقت)
- */
 function saveLocalIntegration(data) {
   try {
-    localStorage.setItem('mad3oom_wa_access_token', data.access_token || '');
-    localStorage.setItem('mad3oom_wa_phone_id', data.phone_number_id || '');
-    localStorage.setItem('mad3oom_wa_waba_id', data.waba_account_id || '');
+    localStorage.setItem('mad3oom_wa_access_token', data.access_token    || '');
+    localStorage.setItem('mad3oom_wa_phone_id',     data.phone_number_id || '');
+    localStorage.setItem('mad3oom_wa_waba_id',      data.waba_account_id || '');
     localStorage.setItem('mad3oom_wa_connected_at', new Date().toISOString());
   } catch (error) {
     console.error('[WhatsApp Integration] Failed to save to local storage:', error);
   }
 }
 
-/**
- * مسح بيانات التكامل من localStorage
- */
 function clearLocalIntegration() {
   try {
-    localStorage.removeItem('mad3oom_wa_access_token');
-    localStorage.removeItem('mad3oom_wa_phone_id');
-    localStorage.removeItem('mad3oom_wa_waba_id');
-    localStorage.removeItem('mad3oom_wa_connected_at');
-    localStorage.removeItem('mad3oom_wa_status');
+    ['mad3oom_wa_access_token', 'mad3oom_wa_phone_id',
+     'mad3oom_wa_waba_id', 'mad3oom_wa_connected_at',
+     'mad3oom_wa_status'].forEach(k => localStorage.removeItem(k));
   } catch (error) {
     console.error('[WhatsApp Integration] Failed to clear local storage:', error);
   }
 }
 
-// ─── Export ──────────────────────────────────────────
+// ─── 5. Dashboard & Channels ─────────────────────────
+
+async function getDashboardStats() {
+  try {
+    const integration = await getIntegration();
+    if (!integration) return null;
+
+    const accessToken = integration.access_token;
+    const phoneId     = integration.metadata?.phone_number_id;
+
+    if (!accessToken || !phoneId) return null;
+
+    const phoneResponse = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneId}?fields=display_phone_number,verified_name,quality_rating,account_mode&access_token=${accessToken}`
+    );
+    const phoneData = await phoneResponse.json();
+
+    if (phoneData.error) {
+      console.error('[WhatsApp Integration] Meta API error:', phoneData.error);
+      return null;
+    }
+
+    return {
+      phoneNumber:   phoneData.display_phone_number || '—',
+      verifiedName:  phoneData.verified_name        || '—',
+      qualityRating: phoneData.quality_rating       || '—',
+      accountMode:   phoneData.account_mode         || '—',
+    };
+  } catch (error) {
+    console.error('[WhatsApp Integration] getDashboardStats failed:', error);
+    return null;
+  }
+}
+
+async function getWhatsAppChannels() {
+  try {
+    const supabase = await initializeSupabase();
+    const userId   = await getCurrentUserId();
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'whatsapp');
+
+    if (error) {
+      console.error('[WhatsApp Integration] getWhatsAppChannels error:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('[WhatsApp Integration] getWhatsAppChannels failed:', error);
+    return [];
+  }
+}
+
+// ─── Export ───────────────────────────────────────────
 
 export const SupabaseIntegration = {
   initializeSupabase,
@@ -309,4 +292,6 @@ export const SupabaseIntegration = {
   getLocalIntegration,
   saveLocalIntegration,
   clearLocalIntegration,
+  getDashboardStats,
+  getWhatsAppChannels,
 };
