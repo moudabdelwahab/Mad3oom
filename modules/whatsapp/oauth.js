@@ -129,10 +129,12 @@ _exchangeCode(code)
           'Content-Type': 'application/json',
           ...(authHeader && { 'Authorization': authHeader }),
         },
-        body: JSON.stringify({
-          code:         code,
-          redirect_uri: CONFIG.REDIRECT_URI,
-        }),
+body: JSON.stringify({
+  code,
+  redirect_uri: window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html'
+})
+
+,
       });
 
       if (!response.ok) {
