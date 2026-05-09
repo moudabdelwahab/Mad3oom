@@ -147,10 +147,13 @@ async function handleOAuthStateChange(state) {
       break;
 
     case 'success':
-      showToast('تم الربط بنجاح! جاري تفعيل القناة...', 'success');
+      showToast('تم الربط بنجاح!', 'success');
       await updateConnectionStatus();
       await updateDashboard();
-      await startProvisioningUI(state);
+      // ✅ انتقل للـ dashboard مباشرة بعد الربط
+      setTimeout(() => {
+        navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
+      }, 2000);
       break;
 
     case 'error':
@@ -163,50 +166,8 @@ async function handleOAuthStateChange(state) {
       break;
 
     case 'provisioning':
-      await startProvisioningUI(state);
+      // لا نحتاج provisioning في هذا الـ flow
       break;
-  }
-}
-
-// ─── Provisioning UI ──────────────────────────────────
-
-async function startProvisioningUI(oauthState) {
-  try {
-    // ✅ مش محتاج provisioning لو الربط نجح مباشرة
-    showToast('تم الربط بنجاح!', 'success');
-    setTimeout(() => {
-      navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
-    }, 2000);
-
-  } catch (error) {
-    console.error('[App] Error starting provisioning UI:', error);
-  }
-}
-    const channel = channels.find(c =>
-      c.status === 'provisioning'      ||
-      c.status === 'installing_server' ||
-      c.status === 'connecting_webhook'
-    );
-
-    if (!channel) {
-      console.warn('[App] No provisioning channel found');
-      return;
-    }
-
-    currentChannelId = channel.id;
-
-    if (!provisioningStatus) {
-      const container = document.createElement('div');
-      container.id = 'provisioning-status-container';
-      document.body.appendChild(container);
-      provisioningStatus = new ProvisioningStatus('provisioning-status-container');
-    }
-
-    provisioningStatus.updateStatus(channel.status, channel.error_message);
-    subscribeToChannelUpdates(channel.id);
-
-  } catch (error) {
-    console.error('[App] Error starting provisioning UI:', error);
   }
 }
 
@@ -228,13 +189,6 @@ function subscribeToChannelUpdates(channelId) {
       channelId,
       (updatedChannel) => {
         console.log('[App] Channel updated:', updatedChannel);
-
-        if (provisioningStatus) {
-          provisioningStatus.updateStatus(
-            updatedChannel.status,
-            updatedChannel.error_message
-          );
-        }
 
         if (updatedChannel.status === 'active') {
           setTimeout(() => {
@@ -333,4 +287,4 @@ window.addEventListener('beforeunload', () => {
 
 // ─── Exports ──────────────────────────────────────────
 
-export { loadUserProfile, updateDashboard, startProvisioningUI };
+export { loadUserProfile, updateDashboard };
