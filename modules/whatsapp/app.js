@@ -9,7 +9,7 @@
 
 import { SupabaseIntegration } from './supabase-integration.js';
 import { OAuthService } from './oauth.js';
-//import ProvisioningStatus from './ProvisioningStatus.js';
+import ProvisioningStatus from './ProvisioningStatus.js';
 
 // ─── State ───────────────────────────────────────────
 let provisioningStatus = null;
