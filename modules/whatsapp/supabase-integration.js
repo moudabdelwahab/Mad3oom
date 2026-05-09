@@ -78,6 +78,8 @@ async function saveIntegration(integrationData) {
           expires_in:   integrationData.expires_in,
           metadata: {
             phone_number_id:     integrationData.phone_number_id,
+            phone_number:    integrationData.phone_number,  
+
             waba_account_id:     integrationData.waba_account_id,
             business_account_id: integrationData.business_account_id,
             connected_at:        new Date().toISOString(),
