@@ -9,11 +9,14 @@
 import { SupabaseIntegration } from './supabase-integration.js';
 import { OAuthService } from './oauth.js';
 import ProvisioningStatus from './ProvisioningStatus.js';
+import { InboxPage } from './pages/InboxPage.js';
 
 // ─── State ───────────────────────────────────────────
 let provisioningStatus  = null;
 let currentChannelId    = null;
 let channelSubscription = null;
+let inboxPage = null;
+let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -65,67 +68,21 @@ async function loadUserProfile() {
 }
 
 
-// ─── Messages ─────────────────────────────────────────
+// ─── Messages / Inbox ─────────────────────────────────
 
 async function loadMessages() {
-  const container = document.getElementById('messages-list');
+  const container = document.getElementById('whatsapp-inbox-root');
   if (!container) return;
 
-  try {
-    container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">جاري التحميل...</p>';
-
-    const supabase = await SupabaseIntegration.initializeSupabase();
-    const userId   = await SupabaseIntegration.getCurrentUserId();
-
-    if (!userId) {
-      container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">يرجى تسجيل الدخول أولاً</p>';
-      return;
-    }
-
-    const { data: messages, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error || !messages?.length) {
-      container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">لا توجد رسائل حالياً</p>';
-      return;
-    }
-
-    container.innerHTML = messages.map(msg => `
-      <div style="
-        display: flex; gap: 12px; padding: 14px 0;
-        border-bottom: 1px solid var(--border-subtle);
-        align-items: flex-start;
-      ">
-        <div style="
-          width: 40px; height: 40px; border-radius: 50%;
-          background: var(--bg-elevated); display: flex;
-          align-items: center; justify-content: center;
-          font-size: 16px; flex-shrink: 0;
-        ">💬</div>
-        <div style="flex: 1;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <strong style="color: var(--text-primary);">+${msg.from_number}</strong>
-            <span style="font-size: 11px; color: var(--text-muted);">
-              ${new Date(msg.timestamp).toLocaleString('ar-SA')}
-            </span>
-          </div>
-          <div style="font-size: 13px; color: var(--text-secondary);">${msg.message_text}</div>
-        </div>
-        <div style="
-          padding: 2px 8px; border-radius: 99px; font-size: 11px;
-          background: rgba(0,200,83,0.1); color: var(--status-success);
-        ">وارد</div>
-      </div>
-    `).join('');
-
-  } catch (error) {
-    console.error('[App] loadMessages error:', error);
-    container.innerHTML = '<p style="text-align:center; color: var(--status-error);">حدث خطأ أثناء تحميل الرسائل</p>';
+  if (!inboxPage) {
+    inboxPage = new InboxPage(container, {
+      getBusinessPhone: () => businessPhoneNumber,
+    });
+    inboxPage.mount();
+    return;
   }
+
+  await inboxPage.load();
 }
 
 window.loadMessages = loadMessages;
@@ -139,6 +96,8 @@ async function updateConnectionStatus() {
       document.getElementById('connection-status').style.display = 'block';
       document.getElementById('status-phone').textContent =
         status.phoneId || '—';
+      businessPhoneNumber = status.phoneId || businessPhoneNumber;
+
       document.getElementById('status-date').textContent =
         status.connectedAt
           ? new Date(status.connectedAt).toLocaleDateString('ar-SA')
@@ -155,6 +114,7 @@ async function updateConnectionStatus() {
       if (badge) badge.style.display = 'none';
 
     } else {
+      businessPhoneNumber = '';
       document.getElementById('connect-btn').style.display       = 'inline-flex';
       document.getElementById('disconnect-btn').style.display    = 'none';
       document.getElementById('connection-status').style.display = 'none';
@@ -190,6 +150,7 @@ async function updateDashboard() {
 
     const statusPhone = document.getElementById('status-phone');
     if (statusPhone) statusPhone.textContent = stats.phoneNumber;
+    businessPhoneNumber = stats.phoneNumber || businessPhoneNumber;
 
     const welcomeName = document.getElementById('welcome-name');
     if (welcomeName && welcomeName.textContent === 'صديقي!') {
@@ -351,6 +312,7 @@ function showToast(message, type = 'info') {
 
 window.addEventListener('beforeunload', () => {
   if (channelSubscription) channelSubscription.unsubscribe();
+  if (inboxPage) inboxPage.destroy();
 });
 
 // ─── Exports ──────────────────────────────────────────
