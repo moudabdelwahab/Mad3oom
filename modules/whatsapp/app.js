@@ -110,7 +110,13 @@ window.deleteTemplate = async function(name) {
   try {
     await WhatsAppAPI.deleteTemplate(name);
     showToast('تم حذف القالب بنجاح', 'success');
-    loadTemplates();
+const session = await supabase.auth.getSession();
+
+if (session?.data?.session) {
+   await loadTemplates();
+} else {
+   console.error('No active session');
+}
   } catch (error) {
     showToast(`خطأ في حذف القالب: ${error.message}`, 'error');
   }
