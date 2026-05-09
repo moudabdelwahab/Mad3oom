@@ -1,29 +1,71 @@
 import { SupabaseIntegration } from '../supabase-integration.js';
 
 export class AutoReplyPage {
+
     constructor(container) {
         this.container = container;
     }
-const {
-   data: { session }
-} = await supabase.auth.getSession();
 
-if (!session || !session.user) {
+    async load() {
 
-   console.error('No authenticated session');
+        this.container.innerHTML = `
+            <div style="padding: 40px; text-align: center;">
+                جاري تحميل القواعد...
+            </div>
+        `;
 
-   document.getElementById('auto-reply-root').innerHTML = `
-      <div style="
-         padding:20px;
-         color:#ff4444;
-         text-align:center;
-      ">
-         يجب تسجيل الدخول أولاً
-      </div>
-   `;
+        try {
 
-   return;
-}
+            const supabase =
+                await SupabaseIntegration.initializeSupabase();
+
+            // التحقق من الجلسة
+            const {
+                data: { session }
+            } = await supabase.auth.getSession();
+
+            if (!session || !session.user) {
+
+                this.container.innerHTML = `
+                    <div style="
+                        padding:40px;
+                        text-align:center;
+                        color:var(--status-error);
+                    ">
+                        يجب تسجيل الدخول أولاً
+                    </div>
+                `;
+
+                return;
+            }
+
+            const userId = session.user.id;
+
+            const { data, error } = await supabase
+                .from('bot_settings')
+                .select('*')
+                .eq('user_id', userId);
+
+            if (error) throw error;
+
+            this.render(data || []);
+
+        } catch (error) {
+
+            console.error(error);
+
+            this.container.innerHTML = `
+                <div style="
+                    padding:40px;
+                    text-align:center;
+                    color:var(--status-error);
+                ">
+                    خطأ في تحميل البيانات:
+                    ${error.message}
+                </div>
+            `;
+        }
+    }
     async load() {
         this.container.innerHTML = '<div style="padding: 40px; text-align: center;">جاري تحميل القواعد...</div>';
         try {
