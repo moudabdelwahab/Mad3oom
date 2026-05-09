@@ -139,10 +139,15 @@ async function handleOAuthStateChange(state) {
       showToast(`خطأ في الربط: ${state.errorMsg}`, 'error');
       break;
 
-    case 'idle':
-      // تم قطع الاتصال
-      await updateConnectionStatus();
-      break;
+case 'idle':
+  // تم قطع الاتصال
+  await updateConnectionStatus();
+  break;
+
+case 'provisioning':
+  await startProvisioningUI(state);
+  break;
+
   }
 }
 
@@ -158,7 +163,22 @@ async function startProvisioningUI(oauthState) {
       return;
     }
 
-    const channel = channels[0];
+const channel = channels.find(
+  c =>
+    c.status === 'provisioning' ||
+    c.status === 'installing_server' ||
+    c.status === 'connecting_webhook'
+);
+if (!channel) {
+
+  console.error(
+    '[App] No provisioning channel found'
+  );
+
+  return;
+}
+
+
     currentChannelId = channel.id;
 
     // إنشاء مكون عرض الحالة
@@ -185,53 +205,85 @@ async function startProvisioningUI(oauthState) {
  * الاستماع إلى تحديثات القناة
  */
 function subscribeToChannelUpdates(channelId) {
+
   try {
-    SupabaseIntegration.subscribeToChannelUpdates(channelId, (updatedChannel) => {
-      console.log('[App] Channel updated:', updatedChannel);
 
-      if (provisioningStatus) {
-        provisioningStatus.updateStatus(updatedChannel.status, updatedChannel.error_message);
-      }
+    // تنظيف الاشتراك القديم
+    if (channelSubscription) {
 
-      // إذا اكتملت عملية التفعيل بنجاح
-      if (updatedChannel.status === 'active') {
-        setTimeout(() => {
-          showToast('تم تفعيل القناة بنجاح!', 'success');
-          // إعادة التوجيه إلى الرئيسية بعد 2 ثانية
-          setTimeout(() => {
-            navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
-          }, 2000);
-        }, 500);
-      }
+      channelSubscription.unsubscribe();
 
-      // إذا حدث خطأ
-      if (updatedChannel.status === 'error') {
-        showToast(`خطأ في التفعيل: ${updatedChannel.error_message}`, 'error');
-      }
-    });
+      channelSubscription = null;
+    }
+
+    // إنشاء اشتراك جديد
+    channelSubscription =
+      SupabaseIntegration.subscribeToChannelUpdates(
+        channelId,
+        (updatedChannel) => {
+
+          console.log(
+            '[App] Channel updated:',
+            updatedChannel
+          );
+
+          if (provisioningStatus) {
+
+            provisioningStatus.updateStatus(
+              updatedChannel.status,
+              updatedChannel.error_message
+            );
+
+          }
+
+          // نجاح التفعيل
+          if (updatedChannel.status === 'active') {
+
+            setTimeout(() => {
+
+              showToast(
+                'تم تفعيل القناة بنجاح!',
+                'success'
+              );
+
+              setTimeout(() => {
+
+                navigateTo(
+                  'dashboard',
+                  document.querySelector(
+                    '[data-page=dashboard]'
+                  )
+                );
+
+              }, 2000);
+
+            }, 500);
+
+          }
+
+          // حالة الخطأ
+          if (updatedChannel.status === 'error') {
+
+            showToast(
+              `خطأ في التفعيل: ${updatedChannel.error_message}`,
+              'error'
+            );
+
+          }
+
+        }
+      );
+
   } catch (error) {
-    console.error('[App] Error subscribing to channel updates:', error);
+
+    console.error(
+      '[App] Error subscribing to channel updates:',
+      error
+    );
+
   }
+
 }
-
-/**
- * معالج قطع الاتصال
- */
-window.handleDisconnect = async function() {
-  if (!confirm('هل أنت متأكد من رغبتك في قطع الاتصال؟')) {
-    return;
-  }
-
-  try {
-    await OAuthService.disconnect();
-    await SupabaseIntegration.deleteIntegration();
-    await updateConnectionStatus();
-    showToast('تم قطع الاتصال بنجاح', 'success');
-  } catch (error) {
-    console.error('[App] Error disconnecting:', error);
-    showToast('خطأ في قطع الاتصال', 'error');
-  }
-};
 
 /**
  * دالة التنقل بين الصفحات
@@ -320,3 +372,17 @@ function showToast(message, type = 'info') {
 
 // Export
 export { loadUserProfile, updateConnectionStatus, startProvisioningUI };
+
+window.handleConnectClick = function() {
+  OAuthService.startOAuthFlow();
+};
+window.addEventListener('beforeunload', () => {
+
+  if (channelSubscription) {
+
+    channelSubscription.unsubscribe();
+
+  }
+
+});
+
