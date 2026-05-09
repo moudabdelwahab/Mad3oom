@@ -191,6 +191,7 @@ function getLocalIntegration() {
       access_token:    token,
       phone_number_id: localStorage.getItem('mad3oom_wa_phone_id'),
       waba_account_id: localStorage.getItem('mad3oom_wa_waba_id'),
+      phone_number:    localStorage.getItem('mad3oom_wa_phone_number'), 
       connected_at:    localStorage.getItem('mad3oom_wa_connected_at'),
     };
   } catch (error) {
@@ -204,6 +205,8 @@ function saveLocalIntegration(data) {
     localStorage.setItem('mad3oom_wa_access_token', data.access_token    || '');
     localStorage.setItem('mad3oom_wa_phone_id',     data.phone_number_id || '');
     localStorage.setItem('mad3oom_wa_waba_id',      data.waba_account_id || '');
+    localStorage.setItem('mad3oom_wa_phone_number', data.phone_number    || '');
+
     localStorage.setItem('mad3oom_wa_connected_at', new Date().toISOString());
   } catch (error) {
     console.error('[WhatsApp Integration] Failed to save to local storage:', error);
