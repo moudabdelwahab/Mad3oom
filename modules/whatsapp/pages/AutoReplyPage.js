@@ -4,7 +4,26 @@ export class AutoReplyPage {
     constructor(container) {
         this.container = container;
     }
+const {
+   data: { session }
+} = await supabase.auth.getSession();
 
+if (!session || !session.user) {
+
+   console.error('No authenticated session');
+
+   document.getElementById('auto-reply-root').innerHTML = `
+      <div style="
+         padding:20px;
+         color:#ff4444;
+         text-align:center;
+      ">
+         يجب تسجيل الدخول أولاً
+      </div>
+   `;
+
+   return;
+}
     async load() {
         this.container.innerHTML = '<div style="padding: 40px; text-align: center;">جاري تحميل القواعد...</div>';
         try {
