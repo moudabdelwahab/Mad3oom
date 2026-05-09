@@ -12,13 +12,12 @@ const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
-    META_APP_ID:      '1510313544014876',
-    REDIRECT_URI:     window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html',
-    SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
-    RESPONSE_TYPE:    'code',
-    EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
-  };
-
+  META_APP_ID:      '1510313544014876',
+  REDIRECT_URI:     'https://mad3oom.online/modules/whatsapp/index.html', // ✅ ثابتة
+  SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
+  RESPONSE_TYPE:    'code',
+  EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
+};
   // ─── State ───────────────────────────────────────────
   let _state = {
     status:      'idle',
@@ -131,7 +130,7 @@ redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
         },
 body: JSON.stringify({
   code,
-  redirect_uri: 'https://mad3oom.online/modules/whatsapp/index.html'
+  redirect_uri: 'https://mad3oom.online/modules/whatsapp/index.html' // ✅ نفس القيمة بالضبط
 })
 
 ,
