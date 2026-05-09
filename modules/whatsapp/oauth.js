@@ -74,7 +74,7 @@ _exchangeCode(code)
       response_type: 'code',
 
       override_default_response_type: true,
-redirect_uri: window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html',
+redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
       extras: {
         version: 'v4'
       }
@@ -131,7 +131,7 @@ redirect_uri: window.location.origin + 'https://mad3oom.online/modules/whatsapp/
         },
 body: JSON.stringify({
   code,
-  redirect_uri: window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html'
+  redirect_uri: 'https://mad3oom.online/modules/whatsapp/index.html'
 })
 
 ,
