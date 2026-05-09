@@ -291,19 +291,27 @@ function subscribeToChannelUpdates(channelId) {
 function navigateTo(page, element) {
 
   // إخفاء جميع الصفحات
-  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+  document.querySelectorAll('.page')
+    .forEach((p) => p.classList.remove('active'));
+
+  document.querySelectorAll('.nav-item')
+    .forEach((n) => n.classList.remove('active'));
 
   // إظهار الصفحة المطلوبة
-  const pageElement = document.getElementById(`page-${page}`);
+  const pageElement =
+    document.getElementById(`page-${page}`);
+
   if (pageElement) {
+
     pageElement.classList.add('active');
+
   }
 
-window.navigateTo = navigateTo;
-  // تحديث العنصر النشط في القائمة الجانبية
+  // تحديث العنصر النشط
   if (element) {
+
     element.classList.add('active');
+
   }
 
   // تحديث العنوان
@@ -316,9 +324,18 @@ window.navigateTo = navigateTo;
     settings: 'الإعدادات',
   };
 
-  document.getElementById('page-title').textContent = titleMap[page] || 'الرئيسية';
-  document.getElementById('page-subtitle').textContent = 'منصة مدعوم - إدارة WhatsApp Business API';
-};
+  document.getElementById('page-title')
+    .textContent =
+      titleMap[page] || 'الرئيسية';
+
+  document.getElementById('page-subtitle')
+    .textContent =
+      'منصة مدعوم - إدارة WhatsApp Business API';
+}
+
+// ✅ خارج الدالة
+window.navigateTo = navigateTo;
+
 
 /**
  * معالج المزامنة
