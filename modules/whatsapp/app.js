@@ -26,9 +26,30 @@ let businessPhoneNumber = '';
 // ─── Initialization ──────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('[App] Initializing WhatsApp module...');
+try {
 
-  try {
-    await SupabaseIntegration.initializeSupabase();
+    const supabase =
+        await SupabaseIntegration.initializeSupabase();
+
+    // ✅ التحقق من وجود Session
+    const {
+        data: { session },
+        error
+    } = await supabase.auth.getSession();
+
+    if (error || !session) {
+
+        console.warn('[App] No active session');
+
+        // إعادة التوجيه لتسجيل الدخول
+        window.location.href = '/login.html';
+
+        return;
+    }
+
+    console.log('[App] Authenticated user:',
+        session.user.id);
+
     await loadUserProfile();
     await updateConnectionStatus();
     await updateDashboard();
