@@ -158,7 +158,6 @@ throw new Error(
           access_token: data.access_token,
           token_type: data.token_type || 'Bearer',
           expires_in: data.expires_in,
-          refresh_token: data.refresh_token,
           phone_number_id: data.phone_number_id,
           waba_account_id: data.waba_account_id,
           business_account_id: data.business_account_id,
