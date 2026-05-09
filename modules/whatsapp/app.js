@@ -288,7 +288,8 @@ function subscribeToChannelUpdates(channelId) {
 /**
  * دالة التنقل بين الصفحات
  */
-window.navigateTo = function(page, element) {
+function navigateTo(page, element) {
+
   // إخفاء جميع الصفحات
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
@@ -299,6 +300,7 @@ window.navigateTo = function(page, element) {
     pageElement.classList.add('active');
   }
 
+window.navigateTo = navigateTo;
   // تحديث العنصر النشط في القائمة الجانبية
   if (element) {
     element.classList.add('active');
