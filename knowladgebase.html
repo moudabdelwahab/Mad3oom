@@ -1,3110 +1,966 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="قاعدة معرفة مدعوم - حلول تقنية احترافية لمشاكل واتساب بيزنس، Meta، DNS، OAuth، Stripe والمزيد">
-<meta name="keywords" content="واتساب بيزنس، Meta Verification، DNS، OAuth، Stripe، Cloud API، دعم تقني">
-<meta property="og:title" content="قاعدة المعرفة | مدعوم - دعم تقني احترافي">
-<meta property="og:description" content="40+ مقال تقني شامل لحل مشاكل WhatsApp Business API ومنصات التقنية">
-<meta property="og:type" content="website">
-<title>قاعدة المعرفة | مدعوم — دعم تقني احترافي</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Cairo+Play:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<style>
-/* ===== RESET & BASE ===== */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; font-size: 16px; }
-body {
-  font-family: 'Cairo', sans-serif;
-  background: #f8f9fc;
-  color: #1a1d2e;
-  direction: rtl;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-a { text-decoration: none; color: inherit; }
-button { border: none; background: none; cursor: pointer; font-family: 'Cairo', sans-serif; }
-ul, ol { list-style: none; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مدعوم | قاعدة المعرفة الاحترافية</title>
+  <meta name="description" content="قاعدة معرفة احترافية لمنصة مدعوم متخصصة في WhatsApp Business API وMeta Verification وCloud API والدعم الفني التقني." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-/* ===== CSS VARIABLES ===== */
-:root {
-  --brand: #1a56db;
-  --brand-dark: #1040b0;
-  --brand-light: #e8f0fe;
-  --brand-mid: #4a7df0;
-  --accent: #0ea5e9;
-  --success: #059669;
-  --success-light: #d1fae5;
-  --warning: #d97706;
-  --warning-light: #fef3c7;
-  --danger: #dc2626;
-  --danger-light: #fee2e2;
-  --surface: #ffffff;
-  --surface2: #f8f9fc;
-  --surface3: #f1f4fd;
-  --border: #e5e9f5;
-  --border2: #d0d7ee;
-  --text-primary: #1a1d2e;
-  --text-secondary: #5a6275;
-  --text-muted: #8c93a8;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --shadow-sm: 0 1px 3px rgba(26,86,219,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(26,86,219,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 10px 30px rgba(26,86,219,0.12), 0 4px 8px rgba(0,0,0,0.06);
-  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-/* ===== HEADER / HERO ===== */
-.site-header {
-  background: linear-gradient(135deg, #0f2d6e 0%, #1a56db 45%, #2563eb 70%, #0ea5e9 100%);
-  padding: 0;
-  position: relative;
-  overflow: hidden;
-}
-.site-header::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-.header-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 0;
-  position: relative;
-  z-index: 1;
-}
-.header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2.5rem;
-}
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.logo-icon {
-  width: 40px; height: 40px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; color: white;
-  border: 1px solid rgba(255,255,255,0.3);
-}
-.logo-text {
-  font-family: 'Cairo Play', sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  color: white;
-  letter-spacing: -0.5px;
-}
-.logo-text span { color: #7dd3fc; }
-.logo-subtitle {
-  font-size: 11px;
-  color: rgba(255,255,255,0.65);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-}
-.header-badge {
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: white;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  backdrop-filter: blur(8px);
-}
-.hero-content { text-align: center; padding: 1rem 0 2.5rem; }
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
-  color: rgba(255,255,255,0.9);
-  padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 1rem;
-}
-.hero-title {
-  font-family: 'Cairo Play', sans-serif;
-  font-size: clamp(26px, 5vw, 40px);
-  font-weight: 900;
-  color: white;
-  line-height: 1.3;
-  margin-bottom: 0.75rem;
-  letter-spacing: -0.5px;
-}
-.hero-title span { color: #7dd3fc; }
-.hero-desc {
-  font-size: 15px;
-  color: rgba(255,255,255,0.75);
-  max-width: 520px;
-  margin: 0 auto 2rem;
-  line-height: 1.7;
-  font-weight: 400;
-}
-.search-container {
-  max-width: 560px;
-  margin: 0 auto;
-  position: relative;
-}
-.search-input {
-  width: 100%;
-  padding: 14px 50px 14px 50px;
-  border-radius: var(--radius-xl);
-  border: 2px solid rgba(255,255,255,0.3);
-  background: rgba(255,255,255,0.15);
-  color: white;
-  font-family: 'Cairo', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  outline: none;
-  backdrop-filter: blur(12px);
-  transition: var(--transition);
-  direction: rtl;
-}
-.search-input::placeholder { color: rgba(255,255,255,0.55); }
-.search-input:focus {
-  border-color: rgba(255,255,255,0.7);
-  background: rgba(255,255,255,0.22);
-}
-.search-icon-right {
-  position: absolute;
-  right: 16px; top: 50%;
-  transform: translateY(-50%);
-  font-size: 20px;
-  color: rgba(255,255,255,0.7);
-}
-.search-clear {
-  position: absolute;
-  left: 14px; top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: rgba(255,255,255,0.6);
-  cursor: pointer;
-  display: none;
-  background: rgba(255,255,255,0.15);
-  border-radius: 50%;
-  width: 26px; height: 26px;
-  align-items: center; justify-content: center;
-}
-.search-clear.visible { display: flex; }
-.hero-stats {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  padding: 1.5rem 0 0;
-}
-.hero-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: rgba(255,255,255,0.8);
-}
-.hero-stat strong {
-  font-size: 22px;
-  font-weight: 800;
-  color: #7dd3fc;
-  line-height: 1;
-}
-.hero-stat span { font-size: 12px; margin-top: 2px; }
+    :root {
+      --bg: #020617;
+      --surface: #0f172a;
+      --surface2: #111827;
+      --surface3: #1e293b;
+      --border: #243041;
+      --primary: #00c28b;
+      --primary-light: #2dd4bf;
+      --primary-dark: #009e72;
+      --secondary: #22d3ee;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --radius: 24px;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
 
-/* Wave separator */
-.wave-sep {
-  display: block;
-  width: 100%;
-  height: 40px;
-  overflow: hidden;
-  line-height: 0;
-  margin-top: -1px;
-}
-.wave-sep svg { display: block; width: 100%; height: 100%; }
+    body {
+      background: linear-gradient(to bottom,#020617,#07111f,#020617);
+      color: var(--text);
+      font-family: 'Cairo', sans-serif;
+      line-height: 1.9;
+      overflow-x: hidden;
+    }
 
-/* ===== CATEGORY TABS ===== */
-.categories-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: var(--shadow-sm);
-}
-.categories-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-}
-.categories-scroll {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0.6rem 0;
-}
-.categories-scroll::-webkit-scrollbar { display: none; }
-.cat-tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: var(--transition);
-  flex-shrink: 0;
-  background: transparent;
-}
-.cat-tab:hover {
-  background: var(--surface3);
-  color: var(--text-primary);
-  border-color: var(--border);
-}
-.cat-tab.active {
-  background: var(--brand-light);
-  color: var(--brand);
-  border-color: #c7d8fc;
-}
-.cat-tab i { font-size: 16px; }
-.cat-tab .count {
-  background: rgba(26,86,219,0.1);
-  color: var(--brand);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 10px;
-  min-width: 20px;
-  text-align: center;
-}
-.cat-tab:not(.active) .count {
-  background: var(--surface3);
-  color: var(--text-muted);
-}
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
 
-/* ===== MAIN LAYOUT ===== */
-.main-wrapper {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      backdrop-filter: blur(16px);
+      background: rgba(2,6,23,.9);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
 
-/* ===== SIDEBAR ===== */
-.sidebar {
-  position: sticky;
-  top: 64px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.sidebar-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-.sidebar-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  background: var(--surface2);
-}
-.sidebar-body { padding: 8px; }
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition);
-  border: 1px solid transparent;
-}
-.sidebar-link:hover {
-  background: var(--surface3);
-  color: var(--text-primary);
-}
-.sidebar-link.active {
-  background: var(--brand-light);
-  color: var(--brand);
-  border-color: #c7d8fc;
-}
-.sidebar-link i { font-size: 16px; flex-shrink: 0; }
-.sidebar-link .lcount {
-  margin-right: auto;
-  font-size: 11px;
-  font-weight: 700;
-  background: var(--surface3);
-  padding: 1px 7px;
-  border-radius: 8px;
-  color: var(--text-muted);
-}
-.sidebar-link.active .lcount {
-  background: rgba(26,86,219,0.12);
-  color: var(--brand);
-}
-.diff-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition);
-  color: var(--text-secondary);
-  background: transparent;
-  width: 100%;
-  text-align: right;
-  border: 1px solid transparent;
-}
-.diff-btn:hover { background: var(--surface3); color: var(--text-primary); }
-.diff-btn.active { background: var(--brand-light); color: var(--brand); border-color: #c7d8fc; }
-.diff-btn i { font-size: 16px; }
-.tags-wrap {
-  padding: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.tag-pill {
-  padding: 4px 12px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-  background: var(--surface);
-  font-family: 'IBM Plex Mono', monospace;
-}
-.tag-pill:hover {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: var(--brand-light);
-}
-.tag-pill.active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: white;
-}
+    .topbar-inner {
+      max-width: 1400px;
+      margin: auto;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 30px;
+    }
 
-/* ===== ARTICLES AREA ===== */
-.articles-area { min-width: 0; }
-.articles-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.articles-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-.articles-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.articles-count-badge {
-  background: var(--brand-light);
-  color: var(--brand);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 20px;
-  border: 1px solid #c7d8fc;
-}
-.sort-select {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-family: 'Cairo', sans-serif;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  outline: none;
-}
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
-/* Featured banner */
-.featured-banner {
-  background: linear-gradient(135deg, #1a56db, #0ea5e9);
-  border-radius: var(--radius-md);
-  padding: 1.25rem 1.5rem;
-  color: white;
-  margin-bottom: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  cursor: pointer;
-  transition: var(--transition);
-  position: relative;
-  overflow: hidden;
-}
-.featured-banner::before {
-  content: '';
-  position: absolute;
-  top: -20px; left: -20px;
-  width: 120px; height: 120px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.06);
-}
-.featured-banner:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.featured-icon {
-  font-size: 36px;
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.15);
-  width: 56px; height: 56px;
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(255,255,255,0.2);
-}
-.featured-body { flex: 1; }
-.featured-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #7dd3fc;
-  margin-bottom: 4px;
-}
-.featured-title { font-size: 16px; font-weight: 700; line-height: 1.4; }
-.featured-desc { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 4px; }
-.featured-arrow { font-size: 22px; color: rgba(255,255,255,0.6); flex-shrink: 0; }
+    .logo-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      background: linear-gradient(135deg,var(--primary),var(--secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      color: #00110b;
+      box-shadow: 0 0 40px rgba(0,194,139,.35);
+    }
 
-/* Article Cards */
-.articles-grid { display: flex; flex-direction: column; gap: 10px; }
-.article-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1.1rem 1.25rem;
-  cursor: pointer;
-  transition: var(--transition);
-  position: relative;
-  overflow: hidden;
-}
-.article-card::before {
-  content: '';
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: transparent;
-  transition: var(--transition);
-}
-.article-card:hover {
-  border-color: #c7d8fc;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-.article-card:hover::before { background: var(--brand); }
-.article-card.featured::before { background: var(--brand); }
-.card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  gap: 8px;
-}
-.card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.cat-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 20px;
-  flex-shrink: 0;
-}
-.b-whatsapp { background: #d1fae5; color: #065f46; }
-.b-meta { background: #dbeafe; color: #1e40af; }
-.b-dns { background: #fef3c7; color: #78350f; }
-.b-oauth { background: #fce7f3; color: #831843; }
-.b-stripe { background: #ede9fe; color: #4c1d95; }
-.b-cloud { background: #e0f2fe; color: #0c4a6e; }
-.b-facebook { background: #dbeafe; color: #1e3a8a; }
-.b-beginner { background: #ecfdf5; color: #064e3b; }
-.badge-featured { background: #fef9c3; color: #713f12; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.5;
-  margin-bottom: 5px;
-}
-.card-excerpt {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 10px;
-}
-.card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.card-tags { display: flex; gap: 5px; flex-wrap: wrap; }
-.card-tag {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-family: 'IBM Plex Mono', monospace;
-}
-.card-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.card-diff { display: flex; gap: 3px; }
-.diff-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); }
-.diff-dot.on { background: var(--brand); }
-.card-read { display: flex; align-items: center; gap: 3px; }
-.card-read i { font-size: 13px; }
+    .logo-text h1 {
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+    }
 
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: 4rem 1rem;
-  color: var(--text-muted);
-}
-.empty-state i { font-size: 52px; display: block; margin-bottom: 1rem; opacity: 0.4; }
-.empty-state h3 { font-size: 16px; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem; }
-.empty-state p { font-size: 13px; }
+    .logo-text p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 2rem;
-}
-.page-btn {
-  width: 36px; height: 36px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-family: 'Cairo', sans-serif;
-}
-.page-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
-.page-btn.active { background: var(--brand); border-color: var(--brand); color: white; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
 
-/* ===== ARTICLE DETAIL PAGE ===== */
-.article-detail-page {
-  display: none;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-  grid-template-columns: 240px 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
-.article-detail-page.visible {
-  display: grid;
-}
-.detail-sidebar {
-  position: sticky;
-  top: 64px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  font-family: 'Cairo', sans-serif;
-  width: 100%;
-}
-.back-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
-.toc-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-.toc-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--surface2);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.toc-body { padding: 8px; }
-.toc-link {
-  display: block;
-  padding: 7px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: var(--transition);
-  line-height: 1.4;
-}
-.toc-link:hover { background: var(--brand-light); color: var(--brand); }
-.related-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.related-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--surface2);
-}
-.related-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: var(--transition);
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.related-item:last-child { border-bottom: none; }
-.related-item:hover { background: var(--brand-light); color: var(--brand); }
-.detail-main {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-.detail-top-bar {
-  padding: 1.5rem 1.75rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
-}
-.detail-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-.detail-breadcrumb a { color: var(--brand); font-weight: 500; cursor: pointer; }
-.detail-breadcrumb a:hover { text-decoration: underline; }
-.detail-breadcrumb i { font-size: 14px; }
-.detail-title-main {
-  font-family: 'Cairo Play', sans-serif;
-  font-size: clamp(18px, 3vw, 24px);
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1.4;
-  margin-bottom: 12px;
-}
-.detail-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.detail-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.detail-meta-item i { font-size: 14px; }
-.detail-content { padding: 2rem 1.75rem; }
-.detail-content h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 2rem 0 0.75rem;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--brand-light);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.detail-content h3::before {
-  content: '';
-  display: inline-block;
-  width: 4px;
-  height: 16px;
-  background: var(--brand);
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-.detail-content h4 {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 1.25rem 0 0.5rem;
-}
-.detail-content p {
-  font-size: 14px;
-  line-height: 1.85;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-}
-.detail-content strong { color: var(--text-primary); font-weight: 700; }
-.detail-content ul, .detail-content ol {
-  margin-bottom: 0.75rem;
-  padding-right: 1rem;
-}
-.detail-content ul li, .detail-content ol li {
-  font-size: 14px;
-  line-height: 1.85;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  list-style: disc;
-  padding-right: 4px;
-}
-.detail-content ol li { list-style: decimal; }
-.step-list { counter-reset: step-c; }
-.step-list li {
-  counter-increment: step-c;
-  list-style: none !important;
-  position: relative;
-  padding-right: 2.25rem;
-  margin-bottom: 0.75rem;
-}
-.step-list li::before {
-  content: counter(step-c);
-  position: absolute;
-  right: 0; top: 2px;
-  width: 22px; height: 22px;
-  background: var(--brand);
-  color: white;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Cairo', sans-serif;
-}
-.code-block {
-  background: #0f172a;
-  color: #e2e8f0;
-  border-radius: var(--radius-sm);
-  padding: 1rem 1.25rem;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.75;
-  overflow-x: auto;
-  margin: 1rem 0;
-  border: 1px solid #1e293b;
-  direction: ltr;
-  text-align: left;
-}
-.code-block .kw { color: #7dd3fc; }
-.code-block .str { color: #86efac; }
-.code-block .cm { color: #475569; }
-.code-block .fn { color: #fda4af; }
-.code-block .num { color: #f9a8d4; }
-.inline-code {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  background: var(--surface3);
-  border: 1px solid var(--border);
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: var(--brand-dark);
-}
-.alert-box {
-  border-radius: var(--radius-sm);
-  padding: 0.875rem 1rem;
-  margin: 0.75rem 0;
-  font-size: 13px;
-  line-height: 1.6;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.alert-box i { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-.alert-box p { margin: 0; }
-.alert-error { background: var(--danger-light); border: 1px solid #fca5a5; color: #7f1d1d; }
-.alert-error i { color: var(--danger); }
-.alert-success { background: var(--success-light); border: 1px solid #6ee7b7; color: #064e3b; }
-.alert-success i { color: var(--success); }
-.alert-tip { background: var(--brand-light); border: 1px solid #bfdbfe; color: #1e3a8a; }
-.alert-tip i { color: var(--brand); }
-.alert-warning { background: var(--warning-light); border: 1px solid #fde68a; color: #78350f; }
-.alert-warning i { color: var(--warning); }
-.detail-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
-  font-size: 13px;
-}
-.detail-content th {
-  background: var(--surface3);
-  padding: 10px 14px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-align: right;
-  border: 1px solid var(--border);
-  border-bottom: 2px solid var(--border2);
-}
-.detail-content td {
-  padding: 9px 14px;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  vertical-align: top;
-  line-height: 1.5;
-}
-.detail-content tr:hover td { background: var(--surface2); }
-.screenshot-mock {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  margin: 1rem 0;
-  box-shadow: var(--shadow-sm);
-}
-.screenshot-bar {
-  background: #f1f3f8;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-bottom: 1px solid var(--border);
-}
-.win-dot { width: 10px; height: 10px; border-radius: 50%; }
-.win-dot.r { background: #ef4444; }
-.win-dot.y { background: #f59e0b; }
-.win-dot.g { background: #22c55e; }
-.screenshot-url {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: #6b7280;
-  margin-right: 8px;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  direction: ltr;
-  text-align: left;
-}
-.screenshot-content { padding: 1rem 1.25rem; background: var(--surface); }
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin: 1rem 0;
-}
-.status-card {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  text-align: center;
-}
-.status-card .sc-num { font-size: 20px; font-weight: 800; color: var(--brand); }
-.status-card .sc-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.article-nav-bottom {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-.nav-art-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: var(--transition);
-  text-align: right;
-}
-.nav-art-btn:hover { border-color: var(--brand); background: var(--brand-light); }
-.nav-art-btn .nav-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-.nav-art-btn .nav-title { font-size: 12px; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
-.nav-art-btn.next-btn { text-align: left; }
+    .nav a {
+      color: var(--muted);
+      font-weight: 700;
+      transition: .25s;
+      font-size: 15px;
+    }
 
-/* ===== FOOTER ===== */
-.site-footer {
-  background: #0f1729;
-  color: rgba(255,255,255,0.7);
-  padding: 2.5rem 1.5rem 1.5rem;
-  margin-top: 4rem;
-}
-.footer-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 1.5rem;
-}
-.footer-brand .logo-text { color: white; font-size: 18px; }
-.footer-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 8px; line-height: 1.7; }
-.footer-col h4 { color: white; font-size: 13px; font-weight: 700; margin-bottom: 12px; }
-.footer-col ul li { margin-bottom: 8px; }
-.footer-col ul li a {
-  font-size: 13px;
-  color: rgba(255,255,255,0.5);
-  transition: var(--transition);
-  cursor: pointer;
-}
-.footer-col ul li a:hover { color: #7dd3fc; }
-.footer-bottom {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: rgba(255,255,255,0.35);
-}
+    .nav a:hover {
+      color: var(--primary-light);
+    }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-  .main-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .article-detail-page.visible { grid-template-columns: 1fr; }
-  .detail-sidebar { display: none; }
-  .hero-stats { gap: 1.25rem; }
-  .footer-inner { grid-template-columns: 1fr; gap: 1.5rem; }
-  .footer-bottom { flex-direction: column; gap: 6px; text-align: center; }
-  .article-nav-bottom { grid-template-columns: 1fr; }
-}
+    .hero {
+      position: relative;
+      padding: 110px 24px 90px;
+      overflow: hidden;
+    }
 
-/* ===== ANIMATIONS ===== */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.article-card { animation: fadeInUp 0.25s ease both; }
-.article-card:nth-child(2) { animation-delay: 0.04s; }
-.article-card:nth-child(3) { animation-delay: 0.08s; }
-.article-card:nth-child(4) { animation-delay: 0.12s; }
-.article-card:nth-child(5) { animation-delay: 0.16s; }
-</style>
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle,rgba(0,194,139,.18),transparent 70%);
+      top: -300px;
+      left: -200px;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle,rgba(34,211,238,.12),transparent 70%);
+      bottom: -350px;
+      right: -150px;
+    }
+
+    .hero-inner {
+      max-width: 1300px;
+      margin: auto;
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 60px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,194,139,.12);
+      border: 1px solid rgba(0,194,139,.2);
+      color: var(--primary-light);
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 24px;
+    }
+
+    .hero h2 {
+      font-size: 72px;
+      line-height: 1.15;
+      margin-bottom: 24px;
+      font-weight: 900;
+      letter-spacing: -2px;
+    }
+
+    .hero h2 span {
+      color: var(--primary-light);
+    }
+
+    .hero p {
+      color: #cbd5e1;
+      font-size: 20px;
+      margin-bottom: 40px;
+      max-width: 780px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 18px 28px;
+      border-radius: 18px;
+      font-weight: 800;
+      font-size: 16px;
+      transition: .3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg,var(--primary),var(--secondary));
+      color: #00110b;
+      box-shadow: 0 10px 40px rgba(0,194,139,.28);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-4px);
+    }
+
+    .btn-outline {
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+    }
+
+    .hero-card {
+      background: linear-gradient(145deg,rgba(15,23,42,.95),rgba(17,24,39,.95));
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 32px;
+      padding: 36px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,rgba(0,194,139,.08),transparent,rgba(34,211,238,.05));
+      pointer-events: none;
+    }
+
+    .hero-card h3 {
+      font-size: 28px;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2,1fr);
+      gap: 20px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stat {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 24px;
+      padding: 24px;
+    }
+
+    .stat h4 {
+      font-size: 38px;
+      color: var(--primary-light);
+      margin-bottom: 8px;
+    }
+
+    .stat p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .section {
+      padding: 90px 24px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: auto;
+    }
+
+    .section-head {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-head span {
+      display: inline-block;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(0,194,139,.1);
+      color: var(--primary-light);
+      margin-bottom: 18px;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .section-head h2 {
+      font-size: 54px;
+      margin-bottom: 20px;
+      font-weight: 900;
+    }
+
+    .section-head p {
+      max-width: 800px;
+      margin: auto;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .articles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(360px,1fr));
+      gap: 28px;
+    }
+
+    .article-card {
+      background: linear-gradient(145deg,#0f172a,#111827);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 32px;
+      overflow: hidden;
+      transition: .35s;
+      position: relative;
+    }
+
+    .article-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(0,194,139,.35);
+      box-shadow: 0 0 0 1px rgba(0,194,139,.15),0 20px 60px rgba(0,194,139,.12);
+    }
+
+    .article-top {
+      padding: 34px;
+    }
+
+    .category {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,194,139,.1);
+      color: var(--primary-light);
+      border: 1px solid rgba(0,194,139,.18);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 22px;
+    }
+
+    .article-card h3 {
+      font-size: 28px;
+      line-height: 1.4;
+      margin-bottom: 18px;
+      font-weight: 900;
+    }
+
+    .article-card p {
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 28px;
+    }
+
+    .article-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 14px;
+      flex-wrap: wrap;
+    }
+
+    .knowledge-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 100px;
+      background: linear-gradient(145deg,#0f172a,#111827);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 30px;
+      padding: 30px;
+    }
+
+    .sidebar h3 {
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+
+    .sidebar ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar ul li a {
+      display: block;
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.04);
+      color: var(--muted);
+      transition: .25s;
+      font-weight: 700;
+    }
+
+    .sidebar ul li a:hover {
+      background: rgba(0,194,139,.08);
+      color: var(--primary-light);
+      border-color: rgba(0,194,139,.2);
+    }
+
+    .content-article {
+      background: linear-gradient(145deg,#0f172a,#111827);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 36px;
+      padding: 60px;
+    }
+
+    .content-article h2 {
+      font-size: 56px;
+      line-height: 1.25;
+      margin-bottom: 26px;
+      font-weight: 900;
+    }
+
+    .content-article h3 {
+      margin-top: 50px;
+      margin-bottom: 20px;
+      color: var(--primary-light);
+      font-size: 34px;
+    }
+
+    .content-article p,
+    .content-article li {
+      color: #cbd5e1;
+      font-size: 18px;
+    }
+
+    .content-article ul,
+    .content-article ol {
+      padding-right: 26px;
+      margin-top: 20px;
+    }
+
+    .content-article li {
+      margin-bottom: 12px;
+    }
+
+    .info-box {
+      margin: 34px 0;
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid rgba(0,194,139,.18);
+      background: rgba(0,194,139,.08);
+    }
+
+    .danger-box {
+      margin: 34px 0;
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid rgba(239,68,68,.25);
+      background: rgba(239,68,68,.08);
+    }
+
+    .warning-box {
+      margin: 34px 0;
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid rgba(245,158,11,.25);
+      background: rgba(245,158,11,.08);
+    }
+
+    .code {
+      background: #020617;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 24px;
+      padding: 30px;
+      overflow: auto;
+      direction: ltr;
+      margin: 34px 0;
+      font-family: monospace;
+      color: #e2e8f0;
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      overflow: hidden;
+      border-radius: 24px;
+    }
+
+    .table th,
+    .table td {
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,.06);
+      text-align: right;
+    }
+
+    .table th {
+      background: rgba(255,255,255,.03);
+    }
+
+    .footer {
+      border-top: 1px solid rgba(255,255,255,.06);
+      margin-top: 100px;
+      padding: 70px 24px 50px;
+    }
+
+    .footer-inner {
+      max-width: 1400px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 40px;
+    }
+
+    .footer-col h4 {
+      margin-bottom: 22px;
+      font-size: 22px;
+    }
+
+    .footer-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .footer-col ul li a {
+      color: var(--muted);
+      transition: .25s;
+    }
+
+    .footer-col ul li a:hover {
+      color: var(--primary-light);
+    }
+
+    .copyright {
+      text-align: center;
+      margin-top: 60px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    @media(max-width:1100px){
+      .hero-inner,
+      .knowledge-layout,
+      .footer-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h2 {
+        font-size: 52px;
+      }
+
+      .content-article {
+        padding: 36px;
+      }
+    }
+
+    @media(max-width:700px){
+      .hero h2 {
+        font-size: 42px;
+      }
+
+      .section-head h2,
+      .content-article h2 {
+        font-size: 38px;
+      }
+
+      .topbar-inner {
+        flex-direction: column;
+      }
+
+      .nav {
+        justify-content: center;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header class="site-header">
-  <div class="header-inner">
-    <div class="header-top">
+  <header class="topbar">
+    <div class="topbar-inner">
       <div class="logo">
-        <div class="logo-icon"><i class="ti ti-headset"></i></div>
-        <div>
-          <div class="logo-text">مد<span>عوم</span></div>
-          <div class="logo-subtitle">mad3oom.online</div>
+        <div class="logo-box">م</div>
+        <div class="logo-text">
+          <h1>مدعوم</h1>
+          <p>mad3oom.online</p>
         </div>
       </div>
-      <div class="header-badge"><i class="ti ti-circle-check" style="font-size:13px;margin-left:4px;"></i> دعم تقني احترافي</div>
-    </div>
-    <div class="hero-content">
-      <div class="hero-badge"><i class="ti ti-book-2" style="font-size:14px;"></i> قاعدة المعرفة</div>
-      <h1 class="hero-title">حلول تقنية <span>شاملة</span><br>لكل مشاكلك</h1>
-      <p class="hero-desc">أكثر من 40 مقال تقني احترافي يغطي واتساب بيزنس، Meta، DNS، OAuth، Stripe وغيرها — مع شرح عملي خطوة بخطوة</p>
-      <div class="search-container">
-        <i class="ti ti-search search-icon-right"></i>
-        <input class="search-input" type="text" id="searchInput" placeholder="ابحث عن مشكلتك..." oninput="onSearch(this.value)">
-        <div class="search-clear" id="searchClear" onclick="clearSearch()"><i class="ti ti-x" style="font-size:14px;"></i></div>
-      </div>
-    </div>
-    <div class="hero-stats">
-      <div class="hero-stat"><strong id="statArticles">40</strong><span>مقال تقني</span></div>
-      <div class="hero-stat"><strong>8</strong><span>قسم متخصص</span></div>
-      <div class="hero-stat"><strong>1500+</strong><span>كلمة للمقال</span></div>
-      <div class="hero-stat"><strong>24/7</strong><span>متاح دائماً</span></div>
-    </div>
-  </div>
-  <div class="wave-sep">
-    <svg viewBox="0 0 1440 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0,40 C360,0 1080,0 1440,40 L1440,40 L0,40 Z" fill="#f8f9fc"/>
-    </svg>
-  </div>
-</header>
 
-<!-- CATEGORY TABS -->
-<div class="categories-bar">
-  <div class="categories-inner">
-    <div class="categories-scroll" id="catTabs"></div>
-  </div>
-</div>
+      <nav class="nav">
+        <a href="#">الرئيسية</a>
+        <a href="#">قاعدة المعرفة</a>
+        <a href="#">WhatsApp API</a>
+        <a href="#">Meta Verification</a>
+        <a href="#">Cloud API</a>
+        <a href="#">الدعم الفني</a>
+        <a href="#">التواصل</a>
+      </nav>
+    </div>
+  </header>
 
-<!-- MAIN LIST VIEW -->
-<div class="main-wrapper" id="listView">
-  <aside class="sidebar">
-    <div class="sidebar-card">
-      <div class="sidebar-header"><i class="ti ti-layout-sidebar-right" style="font-size:14px;margin-left:5px;"></i> الأقسام</div>
-      <div class="sidebar-body" id="sidebarCats"></div>
-    </div>
-    <div class="sidebar-card">
-      <div class="sidebar-header"><i class="ti ti-adjustments-horizontal" style="font-size:14px;margin-left:5px;"></i> مستوى الصعوبة</div>
-      <div class="sidebar-body" id="sidebarDiff"></div>
-    </div>
-    <div class="sidebar-card">
-      <div class="sidebar-header"><i class="ti ti-tags" style="font-size:14px;margin-left:5px;"></i> كلمات مفتاحية</div>
-      <div class="tags-wrap" id="tagCloud"></div>
-    </div>
-  </aside>
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-badge">
+          منصة دعم تقني احترافية
+        </div>
 
-  <main class="articles-area" id="articlesArea">
-    <div class="articles-header">
-      <h2 class="articles-title" id="areaTitle">جميع المقالات</h2>
-      <div class="articles-meta">
-        <span class="articles-count-badge" id="artCount">40 مقال</span>
-        <select class="sort-select" id="sortSelect" onchange="onSort(this.value)">
-          <option value="default">الترتيب الافتراضي</option>
-          <option value="difficulty-asc">الأسهل أولاً</option>
-          <option value="difficulty-desc">الأصعب أولاً</option>
-          <option value="readtime-asc">أقصر وقت قراءة</option>
-        </select>
-      </div>
-    </div>
-    <div id="featuredBanner"></div>
-    <div class="articles-grid" id="articlesList"></div>
-    <div class="pagination" id="pagination"></div>
-  </main>
-</div>
+        <h2>
+          قاعدة معرفة <span>مدعوم</span><br>
+          لواتساب بيزنس و Meta API
+        </h2>
 
-<!-- ARTICLE DETAIL VIEW -->
-<div class="article-detail-page" id="detailView">
-  <div class="detail-sidebar">
-    <button class="back-btn" onclick="goBack()"><i class="ti ti-arrow-right"></i> العودة للمقالات</button>
-    <div class="toc-card">
-      <div class="toc-header"><i class="ti ti-list" style="font-size:14px;"></i> محتويات المقال</div>
-      <div class="toc-body" id="tocBody"></div>
-    </div>
-    <div class="related-card">
-      <div class="related-header"><i class="ti ti-article" style="font-size:13px;margin-left:5px;"></i> مقالات ذات صلة</div>
-      <div id="relatedList"></div>
-    </div>
-  </div>
-  <div>
-    <div class="detail-main" id="detailMain"></div>
-  </div>
-</div>
+        <p>
+          واجهة معرفية احترافية مصممة خصيصاً لمنصة مدعوم، تحتوي على مقالات تقنية متقدمة حول WhatsApp Business API وMeta Verification وCloud API وأنظمة الدعم الفني والتكاملات البرمجية.
+        </p>
 
-<!-- FOOTER -->
-<footer class="site-footer">
-  <div class="footer-inner">
-    <div class="footer-brand">
-      <div class="logo">
-        <div class="logo-icon" style="background:rgba(255,255,255,0.1);"><i class="ti ti-headset"></i></div>
-        <div>
-          <div class="logo-text">مع<span style="color:#7dd3fc;">دوم</span></div>
-          <div class="logo-subtitle">mad3oom.online</div>
+        <div class="hero-actions">
+          <a href="#articles" class="btn btn-primary">استكشف المقالات</a>
+          <a href="#guide" class="btn btn-outline">الدليل الكامل</a>
         </div>
       </div>
-      <p class="footer-desc">منصة دعم تقني متخصصة توفر حلولاً شاملة لمشاكل التطوير والتكامل مع منصات التقنية الكبرى.</p>
-    </div>
-    <div class="footer-col">
-      <h4>الأقسام الرئيسية</h4>
-      <ul>
-        <li><a onclick="setCategory('whatsapp')">واتساب بيزنس</a></li>
-        <li><a onclick="setCategory('meta')">Meta Verification</a></li>
-        <li><a onclick="setCategory('dns')">DNS والنطاقات</a></li>
-        <li><a onclick="setCategory('oauth')">أخطاء OAuth</a></li>
-        <li><a onclick="setCategory('stripe')">مشاكل Stripe</a></li>
-      </ul>
-    </div>
-    <div class="footer-col">
-      <h4>روابط مفيدة</h4>
-      <ul>
-        <li><a onclick="setCategory('cloud')">Cloud API</a></li>
-        <li><a onclick="setCategory('facebook')">Facebook Login</a></li>
-        <li><a onclick="setCategory('beginner')">للمبتدئين</a></li>
-        <li><a onclick="setDifficulty('beginner')">مقالات المبتدئين</a></li>
-        <li><a onclick="setDifficulty('advanced')">المقالات المتقدمة</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <span>© 2024 مدعوم — mad3oom.online. جميع الحقوق محفوظة.</span>
-    <span>قاعدة معرفة تقنية متخصصة</span>
-  </div>
-</footer>
 
-<script>
-'use strict';
+      <div class="hero-card">
+        <h3>إحصائيات قاعدة المعرفة</h3>
 
-/* ==============================
-   DATA
-============================== */
-const CATS = [
-  { id:'all',       label:'الكل',               icon:'ti-layout-grid',        count:40 },
-  { id:'whatsapp',  label:'واتساب بيزنس',         icon:'ti-brand-whatsapp',     count:8  },
-  { id:'meta',      label:'Meta Verification',   icon:'ti-shield-check',       count:5  },
-  { id:'dns',       label:'DNS والنطاقات',        icon:'ti-world',              count:5  },
-  { id:'oauth',     label:'أخطاء OAuth',         icon:'ti-lock',               count:4  },
-  { id:'stripe',    label:'مشاكل Stripe',        icon:'ti-credit-card',        count:4  },
-  { id:'cloud',     label:'Cloud API',           icon:'ti-cloud',              count:5  },
-  { id:'facebook',  label:'Facebook Login',      icon:'ti-brand-facebook',     count:4  },
-  { id:'beginner',  label:'للمبتدئين',            icon:'ti-school',             count:5  },
-];
+        <div class="stats">
+          <div class="stat">
+            <h4>45+</h4>
+            <p>مقال احترافي</p>
+          </div>
 
-const BADGE_CLASS = {
-  whatsapp:'b-whatsapp', meta:'b-meta', dns:'b-dns',
-  oauth:'b-oauth', stripe:'b-stripe', cloud:'b-cloud',
-  facebook:'b-facebook', beginner:'b-beginner'
-};
+          <div class="stat">
+            <h4>3000+</h4>
+            <p>سطر برمجي</p>
+          </div>
 
-const BADGE_LABEL = {
-  whatsapp:'واتساب بيزنس', meta:'Meta', dns:'DNS',
-  oauth:'OAuth', stripe:'Stripe', cloud:'Cloud API',
-  facebook:'Facebook', beginner:'مبتدئ'
-};
+          <div class="stat">
+            <h4>24/7</h4>
+            <p>دعم متواصل</p>
+          </div>
 
-const DIFF_LABEL = { 1:'مبتدئ', 2:'متوسط', 3:'متقدم' };
-
-const ARTICLES = [
-  /* ── WhatsApp Business ── */
-  {
-    id:1, cat:'whatsapp', featured:true,
-    title:'كيف تحل مشكلة "رقم الهاتف غير مؤهل" في واتساب بيزنس API',
-    seoTitle:'حل خطأ phone_number_not_eligible في WhatsApp Business API | مدعوم',
-    excerpt:'إذا ظهر خطأ phone_number_not_eligible عند تسجيل رقمك، هذا الدليل يشرح الأسباب الشائعة وخطوات الحل خطوة بخطوة.',
-    tags:['whatsapp-api','phone-eligibility','meta-business'],
-    difficulty:2, readTime:8,
-    toc:['ما هو هذا الخطأ؟','الأسباب الشائعة','خطوات التشخيص','خطوات الحل','إذا استمرت المشكلة'],
-    body:`
-      <h3>ما هو خطأ phone_number_not_eligible؟</h3>
-      <p>يظهر هذا الخطأ عند محاولة تسجيل رقم هاتف في WhatsApp Business API، ويعني أن الرقم لا يستوفي متطلبات Meta. الفهم الصحيح للسبب يوفر عليك ساعات من البحث.</p>
-      <div class="alert-box alert-error"><i class="ti ti-alert-circle"></i><p><strong>رسالة الخطأ:</strong> The phone number is not eligible to be registered — Error code: phone_number_not_eligible</p></div>
-      <h3>الأسباب الشائعة</h3>
-      <ul>
-        <li>الرقم مسجل بالفعل في تطبيق واتساب العادي أو واتساب للأعمال (Business App)</li>
-        <li>الرقم من نوع VoIP (Twilio، Google Voice، وما شابه) وهو غير مدعوم</li>
-        <li>الرقم من دولة لا تدعمها واجهة Cloud API بعد</li>
-        <li>الحساب وصل إلى الحد الأقصى لعدد الأرقام المسموح بها</li>
-        <li>الرقم كان مسجلاً سابقاً وتم حذفه منذ أقل من 72 ساعة</li>
-      </ul>
-      <h3>خطوات التشخيص</h3>
-      <p>قبل البدء في الحل، تحقق من حالة الرقم باستخدام Graph API:</p>
-      <div class="code-block"><span class="cm"># التحقق من حالة الرقم عبر API</span>
-curl -X GET \
-  "https://graph.facebook.com/v18.0/&lt;PHONE_NUMBER_ID&gt;" \
-  -G \
-  --data-urlencode "fields=verified_name,code_verification_status,display_phone_number,quality_rating" \
-  -H "Authorization: Bearer <span class="str">&lt;YOUR_ACCESS_TOKEN&gt;</span>"</div>
-      <div class="screenshot-mock">
-        <div class="screenshot-bar"><span class="win-dot r"></span><span class="win-dot y"></span><span class="win-dot g"></span><span class="screenshot-url">business.facebook.com/settings/whatsapp-business-accounts</span></div>
-        <div class="screenshot-content">
-          <div class="status-grid">
-            <div class="status-card"><div class="sc-num">❌</div><div class="sc-label">Phone Eligible</div></div>
-            <div class="status-card"><div class="sc-num" style="color:#d97706;">⏳</div><div class="sc-label">Verification Status</div></div>
-            <div class="status-card"><div class="sc-num" style="color:#059669;">✓</div><div class="sc-label">Business Verified</div></div>
+          <div class="stat">
+            <h4>100%</h4>
+            <p>Responsive Design</p>
           </div>
         </div>
       </div>
-      <h3>خطوات الحل</h3>
-      <ol class="step-list">
-        <li><strong>احذف الحساب من واتساب العادي:</strong> افتح تطبيق واتساب ← الإعدادات ← الحساب ← حذف حسابي. هذه الخطوة ضرورية قبل أي شيء.</li>
-        <li><strong>انتظر 72 ساعة كاملة</strong> بعد حذف الحساب. Meta تحتاج هذا الوقت لتحرير الرقم من قواعد بياناتها.</li>
-        <li><strong>تحقق من نوع الرقم:</strong> استخدم خدمة NumVerify أو Twilio Lookup للتأكد أن الرقم ليس VoIP. الأرقام التقليدية (SIM) مدعومة فقط.</li>
-        <li><strong>تأكد من إمكانية الاستقبال الصوتي:</strong> عملية التحقق تتطلب استقبال مكالمة أو رسالة SMS. تأكد أن الرقم يعمل بشكل طبيعي.</li>
-        <li><strong>أعد محاولة التسجيل</strong> من Meta Business Manager ← WhatsApp Accounts ← Add Phone Number.</li>
-      </ol>
-      <h3>إذا استمرت المشكلة</h3>
-      <p>تواصل مع دعم Meta Business مباشرة من خلال Business Help Center. أرفق المعلومات التالية لتسريع الاستجابة:</p>
-      <ul>
-        <li>معرّف حساب WhatsApp Business (WABA ID)</li>
-        <li>رقم الهاتف بصيغة دولية (مثل: 20XXXXXXXXXX+)</li>
-        <li>رسالة الخطأ الكاملة مع الكود</li>
-        <li>لقطة شاشة من Business Manager</li>
-      </ul>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>وقت استجابة دعم Meta Business عادةً من يومين إلى خمسة أيام عمل. كن صبوراً وتابع التذكرة يومياً.</p></div>
-      <div class="alert-box alert-success"><i class="ti ti-circle-check"></i><p>بعد حل المشكلة، ستصلك رسالة SMS أو مكالمة صوتية برمز التحقق، ويكتمل التسجيل خلال دقائق.</p></div>
-    `
-  },
-  {
-    id:2, cat:'whatsapp', featured:false,
-    title:'خطأ "Message Failed to Send" في واتساب بيزنس: الأكواد والحلول الكاملة',
-    seoTitle:'حل أخطاء إرسال الرسائل في WhatsApp Business API — كل الأكواد | مدعوم',
-    excerpt:'شرح تفصيلي لأكواد أخطاء إرسال الرسائل في WhatsApp Business API مع أكواد 130429 و131000 و131026 وكيفية معالجتها.',
-    tags:['message-failed','error-codes','api','retry'],
-    difficulty:3, readTime:10,
-    toc:['فهم بنية الخطأ','جدول أكواد الأخطاء','معالجة الأخطاء المؤقتة','معالجة الأخطاء الدائمة','كود Node.js جاهز'],
-    body:`
-      <h3>فهم بنية رسالة الخطأ</h3>
-      <p>عندما تفشل رسالة في WhatsApp Cloud API، يأتي الرد بتنسيق JSON منظم يحتوي على ثلاثة مستويات من المعلومات: الكود الرئيسي، الكود الفرعي، ورسالة للمستخدم النهائي.</p>
-      <div class="code-block"><span class="cm">// مثال على استجابة الخطأ من WhatsApp Cloud API</span>
-{
-  <span class="str">"error"</span>: {
-    <span class="str">"message"</span>: <span class="str">"Message failed to send because more than 24 hours have passed"</span>,
-    <span class="str">"type"</span>: <span class="str">"OAuthException"</span>,
-    <span class="str">"code"</span>: <span class="num">131026</span>,
-    <span class="str">"error_subcode"</span>: <span class="num">2494055</span>,
-    <span class="str">"error_user_title"</span>: <span class="str">"Message Undeliverable"</span>,
-    <span class="str">"error_user_msg"</span>: <span class="str">"The message could not be delivered"</span>,
-    <span class="str">"fbtrace_id"</span>: <span class="str">"AHQnKKCkNLM..."</span>
-  }
-}</div>
-      <h3>جدول أكواد الأخطاء الشائعة</h3>
-      <table>
-        <thead><tr><th>الكود</th><th>المعنى</th><th>الحل</th><th>النوع</th></tr></thead>
-        <tbody>
-          <tr><td><code class="inline-code">130429</code></td><td>تجاوز حد الإرسال (Rate limit)</td><td>انتظر وطبّق Exponential Backoff</td><td>مؤقت</td></tr>
-          <tr><td><code class="inline-code">131000</code></td><td>خطأ داخلي في خوادم Meta</td><td>أعد المحاولة بعد 30 ثانية</td><td>مؤقت</td></tr>
-          <tr><td><code class="inline-code">131026</code></td><td>انتهت نافذة 24 ساعة</td><td>أرسل Template Message فقط</td><td>دائم</td></tr>
-          <tr><td><code class="inline-code">131047</code></td><td>انتهاء صلاحية التوكن</td><td>جدّد Access Token</td><td>دائم</td></tr>
-          <tr><td><code class="inline-code">131051</code></td><td>نوع الرسالة غير مدعوم</td><td>راجع بنية الطلب</td><td>دائم</td></tr>
-          <tr><td><code class="inline-code">131052</code></td><td>وسائط غير صالحة</td><td>تحقق من URL أو نوع الملف</td><td>دائم</td></tr>
-          <tr><td><code class="inline-code">131053</code></td><td>خطأ في رفع الوسائط</td><td>أعد رفع الملف</td><td>مؤقت</td></tr>
-          <tr><td><code class="inline-code">132000</code></td><td>عدد المتغيرات في القالب خاطئ</td><td>راجع القالب والمتغيرات</td><td>دائم</td></tr>
-        </tbody>
-      </table>
-      <h3>كود Node.js للمعالجة التلقائية</h3>
-      <div class="code-block"><span class="kw">const</span> RETRYABLE_CODES = [<span class="num">130429</span>, <span class="num">131000</span>, <span class="num">131053</span>];
+    </div>
+  </section>
 
-<span class="kw">async function</span> <span class="fn">sendWithRetry</span>(payload, maxRetries = <span class="num">3</span>) {
-  <span class="kw">let</span> delay = <span class="num">1000</span>; <span class="cm">// نبدأ بثانية واحدة</span>
+  <section class="section" id="articles">
+    <div class="container">
+      <div class="section-head">
+        <span>Knowledge Base</span>
+        <h2>أحدث المقالات التقنية</h2>
+        <p>
+          مكتبة معرفية غنية تغطي كل ما يخص WhatsApp Business API وMeta وسياسات الحظر والتوثيق والتكاملات البرمجية.
+        </p>
+      </div>
 
-  <span class="kw">for</span> (<span class="kw">let</span> attempt = <span class="num">1</span>; attempt &lt;= maxRetries; attempt++) {
-    <span class="kw">try</span> {
-      <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">callWhatsAppAPI</span>(payload);
-      <span class="kw">return</span> res; <span class="cm">// نجح الإرسال</span>
-    } <span class="kw">catch</span> (err) {
-      <span class="kw">const</span> code = err.response?.data?.error?.code;
+      <div class="articles-grid">
 
-      <span class="kw">if</span> (!RETRYABLE_CODES.includes(code) || attempt === maxRetries) {
-        <span class="kw">throw</span> err; <span class="cm">// خطأ دائم أو استنفدنا المحاولات</span>
-      }
+        <div class="article-card">
+          <div class="article-top">
+            <div class="category">WhatsApp Business API</div>
+            <h3>الدليل الكامل لتفعيل WhatsApp Business API خطوة بخطوة</h3>
+            <p>
+              شرح احترافي لتفعيل واتساب بيزنس API وربطه مع Cloud API وMeta Business Manager بدون أخطاء.
+            </p>
 
-      console.log(<span class="str">`المحاولة ${attempt} فشلت (${code}). انتظار ${delay}ms...`</span>);
-      <span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, delay));
-      delay *= <span class="num">2</span>; <span class="cm">// Exponential Backoff</span>
-    }
-  }
-}</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>احفظ <code class="inline-code">fbtrace_id</code> دائماً في سجلاتك. هذا المعرّف يساعد دعم Meta في تتبع المشكلة بدقة.</p></div>
-    `
-  },
-  {
-    id:3, cat:'whatsapp',
-    title:'كيفية إنشاء قوالب رسائل واتساب بيزنس واعتمادها بأسرع وقت',
-    seoTitle:'إنشاء واعتماد Message Templates في WhatsApp Business API | مدعوم',
-    excerpt:'دليل شامل لإنشاء Message Templates في Meta Business Suite، مع أسباب الرفض وكيف تتجنبها، وتتبع حالة الموافقة برمجياً.',
-    tags:['templates','approval','meta-suite','content-policy'],
-    difficulty:1, readTime:7,
-    toc:['أنواع القوالب','قواعد المحتوى','خطوات الإنشاء','أسباب الرفض','تتبع الحالة برمجياً'],
-    body:`
-      <h3>أنواع قوالب الرسائل</h3>
-      <p>قبل إنشاء القالب، عليك اختيار النوع المناسب لحالة استخدامك. كل نوع له قواعده وحالاته المسموح بها.</p>
-      <ul>
-        <li><strong>Marketing:</strong> العروض، المنتجات الجديدة، الإعلانات الترويجية</li>
-        <li><strong>Utility:</strong> تأكيد الطلبات، تحديثات الشحن، الإشعارات الخدمية</li>
-        <li><strong>Authentication:</strong> رموز التحقق OTP وكلمات المرور المؤقتة</li>
-      </ul>
-      <h3>قواعد المحتوى الأساسية</h3>
-      <p>Meta تطبق سياسة محتوى صارمة على قوالب الرسائل. مخالفة أي من هذه القواعد تؤدي إلى الرفض الفوري:</p>
-      <ul>
-        <li>لا يجوز إرسال محتوى مضلل أو كاذب</li>
-        <li>لا يجوز مطالبة المستخدم بمشاركة معلومات شخصية حساسة</li>
-        <li>يجب أن يكون محتوى القالب واضحاً ومرتبطاً بنشاطك التجاري</li>
-        <li>لا يجوز استخدام لغة عدوانية أو تهديدية</li>
-        <li>المحتوى الجنسي أو العنيف ممنوع بالكامل</li>
-      </ul>
-      <h3>خطوات إنشاء القالب</h3>
-      <ol class="step-list">
-        <li>اذهب إلى Meta Business Suite ← WhatsApp Manager ← Message Templates</li>
-        <li>انقر على "Create Template" واختر الفئة المناسبة (Marketing / Utility / Authentication)</li>
-        <li>اختر لغة القالب (العربية مدعومة بالكامل)</li>
-        <li>أضف نص الرسالة مع المتغيرات بصيغة <code class="inline-code">&#123;&#123;1&#125;&#125;</code> للمتغير الأول، <code class="inline-code">&#123;&#123;2&#125;&#125;</code> للثاني وهكذا</li>
-        <li>أضف أمثلة للمتغيرات لتسهيل مراجعة Meta</li>
-        <li>أرسل القالب للمراجعة</li>
-      </ol>
-      <div class="code-block"><span class="cm">// مثال: إرسال رسالة باستخدام قالب معتمد</span>
-{
-  <span class="str">"messaging_product"</span>: <span class="str">"whatsapp"</span>,
-  <span class="str">"to"</span>: <span class="str">"201XXXXXXXXX"</span>,
-  <span class="str">"type"</span>: <span class="str">"template"</span>,
-  <span class="str">"template"</span>: {
-    <span class="str">"name"</span>: <span class="str">"order_confirmation"</span>,
-    <span class="str">"language"</span>: { <span class="str">"code"</span>: <span class="str">"ar"</span> },
-    <span class="str">"components"</span>: [{
-      <span class="str">"type"</span>: <span class="str">"body"</span>,
-      <span class="str">"parameters"</span>: [
-        { <span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"أحمد"</span> },
-        { <span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"12345"</span> }
-      ]
-    }]
-  }
-}</div>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>وقت مراجعة القوالب عادةً من 24 إلى 48 ساعة. إذا تجاوزت 72 ساعة، تواصل مع الدعم مباشرة.</p></div>
-    `
-  },
-  {
-    id:4, cat:'whatsapp',
-    title:'حل مشكلة "Webhook لا يستقبل الرسائل" في WhatsApp Cloud API',
-    seoTitle:'إصلاح Webhook WhatsApp Cloud API لا يستقبل الرسائل | مدعوم',
-    excerpt:'إذا توقف Webhook عن استقبال رسائل واتساب، هذا الدليل يغطي التحقق من SSL والأخطاء الشائعة في إعدادات Meta App Dashboard.',
-    tags:['webhook','cloud-api','ssl','nodejs','express'],
-    difficulty:3, readTime:9,
-    toc:['متطلبات Webhook','التحقق من الإعداد','أخطاء SSL الشائعة','اختبار Webhook محلياً','كود Express.js كامل'],
-    body:`
-      <h3>متطلبات Webhook الأساسية</h3>
-      <p>لكي يعمل Webhook مع WhatsApp Cloud API، يجب استيفاء هذه المتطلبات بالكامل. أي نقص يمنع استقبال الرسائل.</p>
-      <ul>
-        <li>عنوان HTTPS صالح (شهادة SSL موثوقة، ليست self-signed)</li>
-        <li>المنفذ 443 مفتوح ويستجيب للطلبات الخارجية</li>
-        <li>الخادم يرد على طلبات GET بنفس قيمة <code class="inline-code">hub.challenge</code></li>
-        <li>Verify Token مطابق تماماً لما في Meta App Dashboard</li>
-        <li>وقت الاستجابة أقل من 20 ثانية</li>
-      </ul>
-      <h3>كود Express.js كامل للـ Webhook</h3>
-      <div class="code-block"><span class="kw">const</span> express = require(<span class="str">'express'</span>);
-<span class="kw">const</span> app = express();
-app.use(express.<span class="fn">json</span>());
-
-<span class="kw">const</span> VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
-<span class="cm">// التحقق عند ربط Webhook بـ Meta</span>
-app.<span class="fn">get</span>(<span class="str">'/webhook'</span>, (req, res) => {
-  <span class="kw">const</span> mode = req.query[<span class="str">'hub.mode'</span>];
-  <span class="kw">const</span> token = req.query[<span class="str">'hub.verify_token'</span>];
-  <span class="kw">const</span> challenge = req.query[<span class="str">'hub.challenge'</span>];
-
-  <span class="kw">if</span> (mode === <span class="str">'subscribe'</span> &amp;&amp; token === VERIFY_TOKEN) {
-    console.log(<span class="str">'Webhook verified ✓'</span>);
-    res.status(<span class="num">200</span>).<span class="fn">send</span>(challenge);
-  } <span class="kw">else</span> {
-    res.sendStatus(<span class="num">403</span>);
-  }
-});
-
-<span class="cm">// استقبال الرسائل الواردة</span>
-app.<span class="fn">post</span>(<span class="str">'/webhook'</span>, (req, res) => {
-  <span class="kw">const</span> body = req.body;
-  res.sendStatus(<span class="num">200</span>); <span class="cm">// أجب فوراً قبل المعالجة</span>
-
-  <span class="kw">if</span> (body.object !== <span class="str">'whatsapp_business_account'</span>) <span class="kw">return</span>;
-
-  body.entry?.forEach(entry => {
-    entry.changes?.forEach(change => {
-      <span class="kw">const</span> messages = change.value?.messages;
-      messages?.forEach(msg => {
-        console.log(<span class="str">`رسالة من ${msg.from}: ${msg.text?.body}`</span>);
-      });
-    });
-  });
-});
-
-app.<span class="fn">listen</span>(<span class="num">3000</span>, () => console.log(<span class="str">'Server running on port 3000'</span>));</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>استخدم <code class="inline-code">ngrok http 3000</code> لاختبار Webhook على جهازك المحلي قبل النشر على الخادم الإنتاجي.</p></div>
-    `
-  },
-  {
-    id:5, cat:'whatsapp',
-    title:'رسالة "Business Account Disabled": كيف تسترجع حساب واتساب بيزنس المعطل',
-    seoTitle:'استرجاع حساب WhatsApp Business API المعطل — دليل الاستئناف | مدعوم',
-    excerpt:'خطوات تقديم استئناف فعال لاسترجاع حساب WhatsApp Business API المعطل، مع نموذج الرسالة الصحيح وأسباب التعطيل الشائعة.',
-    tags:['disabled','appeal','account-recovery','meta'],
-    difficulty:2, readTime:6,
-    toc:['أسباب التعطيل','الخطوات الفورية','كتابة رسالة الاستئناف','مواقف يصعب استردادها','الوقاية مستقبلاً'],
-    body:`
-      <h3>أسباب تعطيل حساب واتساب بيزنس</h3>
-      <p>Meta تعطّل الحسابات تلقائياً عند اكتشاف مخالفات لسياسات الاستخدام. معرفة السبب يساعدك في صياغة استئناف أقوى.</p>
-      <ul>
-        <li>معدل تبليغات عالٍ من المستخدمين (إرسال رسائل غير مرغوب فيها)</li>
-        <li>إرسال رسائل تسويقية دون موافقة مسبقة من المستلمين</li>
-        <li>انتهاك سياسة المحتوى (محتوى مضلل، قانوني، أو يمس الخصوصية)</li>
-        <li>نشاط غير اعتيادي يشير إلى أتمتة عدوانية</li>
-        <li>مشاكل في التحقق من الأعمال أو بيانات غير مكتملة</li>
-      </ul>
-      <h3>الخطوات الفورية عند التعطيل</h3>
-      <ol class="step-list">
-        <li>اذهب إلى Meta Business Manager ← Security Center للتحقق من حالة الحساب</li>
-        <li>اقرأ رسالة التعطيل بعناية لفهم السبب المحدد</li>
-        <li>قيّم مدى انتهاك السياسات بصدق قبل التقديم على الاستئناف</li>
-        <li>اذهب إلى Business Help Center وابدأ عملية الاستئناف</li>
-      </ol>
-      <h3>نموذج رسالة الاستئناف</h3>
-      <div class="code-block"><span class="cm">عزيزي فريق دعم Meta،</span>
-
-<span class="str">أكتب إليكم بخصوص تعطيل حساب WhatsApp Business API</span>
-<span class="str">المرتبط بـ Business Manager ID: [XXXXXXXXXX]</span>
-
-<span class="str">نشاطنا التجاري: [اسم الشركة] — [وصف مختصر]</span>
-<span class="str">نوع الرسائل المرسلة: [إشعارات الطلبات / تأكيدات الحجز / ...]</span>
-
-<span class="str">نؤكد التزامنا الكامل بسياسات Meta. نطلب مراجعة الحساب</span>
-<span class="str">وإعادة تفعيله. يسعدنا تقديم أي مستندات إضافية.</span>
-
-<span class="str">شكراً لكم،</span>
-<span class="str">[اسمك] — [منصبك]</span></div>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>لا تُنشئ حساباً جديداً أثناء استئناف الحساب المعطل. Meta قد تعطّل الحساب الجديد أيضاً وتربطه بالمخالفة السابقة.</p></div>
-    `
-  },
-  {
-    id:6, cat:'whatsapp',
-    title:'رفع حد الرسائل اليومية في WhatsApp Business API: من 1,000 إلى 100,000',
-    seoTitle:'رفع Messaging Tier Limit في WhatsApp Business API | مدعوم',
-    difficulty:2, readTime:8,
-    excerpt:'فهم نظام Messaging Tiers وكيف ترفع حد الإرسال اليومي تلقائياً من 1,000 إلى 10,000 ثم 100,000 رسالة مع الشروط المطلوبة.',
-    tags:['tier','rate-limits','scaling','quality'],
-    toc:['نظام Messaging Tiers','شروط الترقية التلقائية','معدل الجودة وأثره','مراقبة Tier حسابك','نصائح للحفاظ على الجودة'],
-    body:`
-      <h3>نظام Messaging Tiers في WhatsApp API</h3>
-      <p>Meta تحدد الحد الأقصى لعدد الرسائل اليومية بناءً على جودة حسابك وعمره. هذا النظام يحمي المستخدمين من الرسائل المزعجة.</p>
-      <table>
-        <thead><tr><th>المستوى (Tier)</th><th>الحد اليومي</th><th>الشرط للوصول</th></tr></thead>
-        <tbody>
-          <tr><td>Tier 1</td><td>1,000 مستخدم فريد</td><td>الحساب الجديد</td></tr>
-          <tr><td>Tier 2</td><td>10,000 مستخدم فريد</td><td>ترقية تلقائية بعد 7 أيام</td></tr>
-          <tr><td>Tier 3</td><td>100,000 مستخدم فريد</td><td>ترقية تلقائية بعد 7 أيام إضافية</td></tr>
-          <tr><td>Tier 4</td><td>غير محدود</td><td>طلب يدوي عبر Meta</td></tr>
-        </tbody>
-      </table>
-      <h3>شروط الترقية التلقائية</h3>
-      <p>للانتقال من Tier 1 إلى Tier 2 تلقائياً، يجب استيفاء هذه الشروط خلال 7 أيام متتالية:</p>
-      <ul>
-        <li>إرسال الحد الأقصى أو ما يقاربه يومياً</li>
-        <li>الحفاظ على معدل جودة عالٍ (High أو Medium) — وليس Low</li>
-        <li>عدم تلقي تحذيرات من Meta خلال هذه الفترة</li>
-      </ul>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>معدل الجودة يتحدد بناءً على ردود أفعال المستخدمين. الحرص على إرسال رسائل ذات قيمة حقيقية وعدم إزعاج المستخدمين هو المفتاح للحفاظ على مستوى جودة عالٍ.</p></div>
-    `
-  },
-  {
-    id:7, cat:'whatsapp',
-    title:'تجديد Access Token تلقائياً في واتساب بيزنس API — بدون انقطاع',
-    seoTitle:'تجديد Access Token تلقائياً WhatsApp API — Node.js | مدعوم',
-    difficulty:3, readTime:9,
-    excerpt:'إعداد نظام تجديد Access Token تلقائي لواجهة WhatsApp Cloud API مع آليات الكشف المبكر والتعافي السريع.',
-    tags:['access-token','token-refresh','automation','security'],
-    toc:['أنواع التوكن','متى ينتهي التوكن؟','نظام التجديد التلقائي','التخزين الآمن','معالجة الأخطاء'],
-    body:`
-      <h3>أنواع Access Tokens في Meta API</h3>
-      <p>Meta توفر نوعين رئيسيين من التوكن لكل منهما مدة صلاحية مختلفة وطريقة تجديد مختلفة.</p>
-      <ul>
-        <li><strong>User Access Token:</strong> صالح لساعة واحدة فقط — للاختبار فقط</li>
-        <li><strong>System User Access Token:</strong> صالح لمدة تحددها أنت (60 يوماً افتراضياً) — للإنتاج</li>
-        <li><strong>Page Access Token:</strong> مرتبط بالصفحة وقد يكون دائماً</li>
-      </ul>
-      <div class="code-block"><span class="cm">// نظام إدارة التوكن مع تجديد تلقائي</span>
-<span class="kw">class</span> <span class="fn">TokenManager</span> {
-  <span class="kw">constructor</span>() {
-    this.token = process.env.WHATSAPP_TOKEN;
-    this.expiresAt = <span class="kw">null</span>;
-  }
-
-  <span class="kw">async</span> <span class="fn">getValidToken</span>() {
-    <span class="kw">const</span> now = Date.<span class="fn">now</span>();
-    <span class="kw">const</span> bufferMs = <span class="num">5</span> * <span class="num">60</span> * <span class="num">1000</span>; <span class="cm">// تجديد قبل 5 دقائق من الانتهاء</span>
-
-    <span class="kw">if</span> (this.expiresAt &amp;&amp; now > this.expiresAt - bufferMs) {
-      <span class="kw">await</span> this.<span class="fn">refresh</span>();
-    }
-    <span class="kw">return</span> this.token;
-  }
-
-  <span class="kw">async</span> <span class="fn">refresh</span>() {
-    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(
-      <span class="str">`https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.APP_ID}&client_secret=${process.env.APP_SECRET}&fb_exchange_token=${this.token}`</span>
-    );
-    <span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
-    this.token = data.access_token;
-    this.expiresAt = Date.<span class="fn">now</span>() + (data.expires_in * <span class="num">1000</span>);
-    console.log(<span class="str">'✓ Token refreshed, expires in:'</span>, data.expires_in, <span class="str">'s'</span>);
-  }
-}
-
-<span class="kw">const</span> tokenManager = <span class="kw">new</span> <span class="fn">TokenManager</span>();
-<span class="kw">export default</span> tokenManager;</div>
-    `
-  },
-  {
-    id:8, cat:'whatsapp',
-    title:'إرسال رسائل الوسائط (صور، فيديو، ملفات) عبر WhatsApp Cloud API',
-    seoTitle:'إرسال Multimedia Messages في WhatsApp Cloud API — الدليل الكامل | مدعوم',
-    difficulty:2, readTime:8,
-    excerpt:'كيفية رفع الوسائط وإرسالها عبر WhatsApp Cloud API مع حل مشاكل الصيغ غير المدعومة وأخطاء رفع الملفات.',
-    tags:['media','images','video','files','upload'],
-    toc:['الصيغ المدعومة','رفع الوسائط','إرسال بـ URL','إرسال بـ Media ID','معالجة أخطاء الوسائط'],
-    body:`
-      <h3>الصيغ والأحجام المدعومة</h3>
-      <table>
-        <thead><tr><th>نوع الوسائط</th><th>الصيغ المدعومة</th><th>الحجم الأقصى</th></tr></thead>
-        <tbody>
-          <tr><td>صورة</td><td>JPEG, PNG</td><td>5 ميجابايت</td></tr>
-          <tr><td>فيديو</td><td>MP4, 3GP</td><td>16 ميجابايت</td></tr>
-          <tr><td>صوت</td><td>AAC, MP4, AMR, OGG, OPUS</td><td>16 ميجابايت</td></tr>
-          <tr><td>مستند</td><td>PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX</td><td>100 ميجابايت</td></tr>
-          <tr><td>ملصق</td><td>WEBP</td><td>100 كيلوبايت</td></tr>
-        </tbody>
-      </table>
-      <div class="code-block"><span class="cm">// رفع وسائط إلى Meta أولاً ثم الإرسال</span>
-<span class="kw">async function</span> <span class="fn">uploadMedia</span>(filePath, mimeType) {
-  <span class="kw">const</span> FormData = require(<span class="str">'form-data'</span>);
-  <span class="kw">const</span> fs = require(<span class="str">'fs'</span>);
-  <span class="kw">const</span> form = <span class="kw">new</span> <span class="fn">FormData</span>();
-
-  form.append(<span class="str">'file'</span>, fs.<span class="fn">createReadStream</span>(filePath), { contentType: mimeType });
-  form.append(<span class="str">'type'</span>, mimeType);
-  form.append(<span class="str">'messaging_product'</span>, <span class="str">'whatsapp'</span>);
-
-  <span class="kw">const</span> res = <span class="kw">await</span> axios.<span class="fn">post</span>(
-    <span class="str">`https://graph.facebook.com/v18.0/${PHONE_ID}/media`</span>,
-    form,
-    { headers: { ...form.getHeaders(), Authorization: <span class="str">`Bearer ${TOKEN}`</span> } }
-  );
-  <span class="kw">return</span> res.data.id; <span class="cm">// Media ID للاستخدام في الإرسال</span>
-}</div>
-    `
-  },
-
-  /* ── Meta Verification ── */
-  {
-    id:9, cat:'meta', featured:true,
-    title:'كيف تحصل على التحقق من Meta Business Manager: الدليل الكامل',
-    seoTitle:'الحصول على Meta Business Verification — الدليل الكامل 2024 | مدعوم',
-    excerpt:'دليل خطوة بخطوة لتقديم طلب التحقق من الأعمال في Meta مع المستندات المطلوبة وأسباب الرفض وكيفية تجنبها.',
-    tags:['verification','meta-business','blue-badge','documents'],
-    difficulty:2, readTime:10,
-    toc:['ما هو Meta Business Verification؟','المتطلبات المسبقة','المستندات المطلوبة','خطوات التقديم','بعد الموافقة'],
-    body:`
-      <h3>ما هو Meta Business Verification؟</h3>
-      <p>التحقق من الأعمال في Meta هو عملية تُثبت فيها أن نشاطك التجاري حقيقي وموثوق. بدونه، ستكون هناك قيود على إمكانيات حسابك في WhatsApp Business API والإعلانات.</p>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>التحقق من الأعمال يختلف عن شارة التحقق الزرقاء على فيسبوك. الأول إثبات وجود الشركة، والثاني للشخصيات العامة.</p></div>
-      <h3>المتطلبات المسبقة</h3>
-      <ul>
-        <li>موقع إلكتروني رسمي بنطاق خاص (ليس Wix أو WordPress.com المجاني)</li>
-        <li>بريد إلكتروني بنطاق الشركة (ليس Gmail أو Yahoo)</li>
-        <li>وجود الشركة في نتائج البحث أو أخبار موثوقة</li>
-        <li>حساب Meta Business Manager كامل الإعداد</li>
-      </ul>
-      <h3>المستندات المطلوبة (أحد هذه المستندات)</h3>
-      <ul>
-        <li>شهادة تسجيل الأعمال أو السجل التجاري</li>
-        <li>فاتورة ضريبية حكومية باسم الشركة</li>
-        <li>ترخيص تشغيل حكومي صادر في السنتين الأخيرتين</li>
-        <li>مستخرج رسمي من الجهات الحكومية</li>
-      </ul>
-      <h3>خطوات التقديم</h3>
-      <ol class="step-list">
-        <li>اذهب إلى Meta Business Settings ← Security Center ← Business Verification</li>
-        <li>انقر على "Start Verification"</li>
-        <li>أدخل بيانات الشركة بالضبط كما في المستندات الرسمية (أي اختلاف في الاسم يؤدي للرفض)</li>
-        <li>ارفع المستند المطلوب بصيغة PDF أو صورة واضحة</li>
-        <li>أكمل التحقق من رقم الهاتف أو البريد الإلكتروني للشركة</li>
-      </ol>
-      <div class="screenshot-mock">
-        <div class="screenshot-bar"><span class="win-dot r"></span><span class="win-dot y"></span><span class="win-dot g"></span><span class="screenshot-url">business.facebook.com/settings/security</span></div>
-        <div class="screenshot-content">
-          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
-            <div style="width:40px;height:40px;background:#e8f0fe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🛡️</div>
-            <div>
-              <div style="font-weight:700;font-size:14px;">Business Verification</div>
-              <div style="font-size:12px;color:#5a6275;margin-top:2px;">Verify that your business is authentic</div>
+            <div class="article-meta">
+              <span>22 دقيقة قراءة</span>
+              <span>محدث حديثاً</span>
             </div>
-            <div style="margin-right:auto;background:#fef3c7;color:#78350f;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;">Pending Review</div>
           </div>
         </div>
-      </div>
-    `
-  },
-  {
-    id:10, cat:'meta',
-    title:'أسباب رفض طلب التحقق من Meta وكيف تتجنبها',
-    seoTitle:'أسباب رفض Meta Business Verification وحلولها | مدعوم',
-    difficulty:2, readTime:8,
-    excerpt:'تحليل لأكثر أسباب رفض طلبات Meta Business Verification وكيفية معالجة كل سبب وإعادة التقديم بنجاح.',
-    tags:['rejection','meta-review','verification','resubmit'],
-    toc:['الأسباب الأكثر شيوعاً','التحقق من المستندات','إعادة التقديم','طريقة التواصل مع الدعم','جدول زمني واقعي'],
-    body:`
-      <h3>الأسباب الأكثر شيوعاً للرفض</h3>
-      <p>بناءً على تجربة آلاف الحالات، هذه هي أكثر أسباب الرفض تكراراً:</p>
-      <ul>
-        <li><strong>عدم تطابق الاسم:</strong> اسم الشركة في Meta يختلف ولو بحرف واحد عن المستند</li>
-        <li><strong>مستندات منتهية الصلاحية:</strong> Meta تقبل مستندات صادرة في آخر سنتين فقط</li>
-        <li><strong>جودة صورة رديئة:</strong> المستند غير واضح أو مقطوع الأطراف</li>
-        <li><strong>موقع إلكتروني ضعيف:</strong> الموقع لا يحتوي على معلومات الشركة الكافية أو تحت الإنشاء</li>
-        <li><strong>بريد إلكتروني شخصي:</strong> استخدام Gmail بدلاً من بريد نطاق الشركة</li>
-      </ul>
-      <h3>قائمة التحقق قبل التقديم</h3>
-      <ul>
-        <li>☑ اسم الشركة في Meta مطابق تماماً للمستند</li>
-        <li>☑ المستند صادر في آخر سنتين وغير منتهي الصلاحية</li>
-        <li>☑ صورة المستند واضحة وكاملة</li>
-        <li>☑ الموقع الإلكتروني يعمل ويحتوي على بيانات الشركة</li>
-        <li>☑ البريد الإلكتروني المستخدم بنطاق الشركة وليس Gmail</li>
-        <li>☑ رقم الهاتف يمكن استقبال رسائل SMS أو مكالمات عليه</li>
-      </ul>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>إذا رُفض طلبك، انتظر على الأقل 30 يوماً قبل إعادة التقديم. التقديمات المتكررة المرفوضة قد تؤدي إلى حظر مؤقت.</p></div>
-    `
-  },
-  {
-    id:11, cat:'meta',
-    title:'إعداد Meta Business Suite وربط التطبيق خطوة بخطوة',
-    seoTitle:'إعداد Meta Business Suite للمطورين من الصفر | مدعوم',
-    difficulty:2, readTime:12,
-    excerpt:'شرح شامل لإنشاء Meta App وربطه بحساب Business Manager وإعداد الصلاحيات الصحيحة لواجهات API المختلفة.',
-    tags:['meta-app','setup','business-suite','developers','permissions'],
-    toc:['إنشاء حساب Business Manager','إنشاء Meta App','إضافة المنتجات','إعداد الصلاحيات','الحصول على بيانات API'],
-    body:`
-      <h3>الفرق بين Meta Business Manager وMeta Developer App</h3>
-      <p>كثير من المطورين يخلطون بين الاثنين. Business Manager لإدارة الأصول التجارية، بينما Developer App للوصول البرمجي عبر API.</p>
-      <ul>
-        <li><strong>Meta Business Manager:</strong> business.facebook.com — لإدارة الصفحات والحسابات الإعلانية</li>
-        <li><strong>Meta Developer App:</strong> developers.facebook.com — لإنشاء تطبيقات والوصول للـ API</li>
-      </ul>
-      <div class="code-block"><span class="cm"># اختبار بيانات التطبيق بعد الإعداد</span>
-curl -X GET \
-  "https://graph.facebook.com/v18.0/me?fields=id,name" \
-  -H "Authorization: Bearer <span class="str">&lt;APP_ACCESS_TOKEN&gt;</span>"
 
-<span class="cm"># التحقق من صلاحيات التوكن</span>
-curl -X GET \
-  "https://graph.facebook.com/v18.0/debug_token" \
-  -G \
-  --data-urlencode "input_token=<span class="str">&lt;TOKEN_TO_CHECK&gt;</span>" \
-  --data-urlencode "access_token=<span class="str">&lt;APP_ID&gt;|&lt;APP_SECRET&gt;</span>"</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>دائماً اختبر تطبيقك في وضع Development قبل تفعيله للعامة. في وضع Development لن يصل لمستخدمين خارج فريقك.</p></div>
-    `
-  },
-  {
-    id:12, cat:'meta',
-    title:'حل مشكلة "Account Under Review" في Meta Business',
-    seoTitle:'حل Account Under Review في Meta Business Manager | مدعوم',
-    difficulty:1, readTime:6,
-    excerpt:'ماذا تفعل عندما يكون حساب Meta Business قيد المراجعة، وكيف تسرع عملية الموافقة وتتجنب التأخير.',
-    tags:['review','account','meta','approval'],
-    toc:['ماذا يعني قيد المراجعة؟','المدة الطبيعية للمراجعة','كيف تسرع الموافقة','التواصل مع الدعم','ما بعد الموافقة'],
-    body:`
-      <h3>ماذا يعني "قيد المراجعة"؟</h3>
-      <p>عندما ترى هذه الحالة، تعني أن Meta تراجع طلبك يدوياً. هذا يحدث في ثلاثة سياقات رئيسية:</p>
-      <ul>
-        <li>طلب التحقق من الأعمال (Business Verification)</li>
-        <li>مراجعة قالب رسالة (Message Template Review)</li>
-        <li>مراجعة أذونات API (App Review)</li>
-      </ul>
-      <h3>المدة الطبيعية للمراجعة</h3>
-      <table>
-        <thead><tr><th>نوع المراجعة</th><th>المدة المتوقعة</th><th>الحد الأقصى</th></tr></thead>
-        <tbody>
-          <tr><td>Business Verification</td><td>5-10 أيام عمل</td><td>30 يوماً</td></tr>
-          <tr><td>Message Template</td><td>24-48 ساعة</td><td>7 أيام</td></tr>
-          <tr><td>App Review</td><td>5-7 أيام عمل</td><td>14 يوماً</td></tr>
-        </tbody>
-      </table>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>لا تُرسل طلبات دعم متعددة لنفس المشكلة. هذا يؤخر المراجعة لأن فريق الدعم يحتاج وقتاً لتوحيد الطلبات المتكررة.</p></div>
-    `
-  },
-  {
-    id:13, cat:'meta',
-    title:'ربط Meta Pixel بموقعك بدون أخطاء — الدليل التقني الكامل',
-    seoTitle:'ربط Meta Pixel بالموقع وحل مشاكل التتبع | مدعوم',
-    difficulty:2, readTime:7,
-    excerpt:'إعداد Meta Pixel بشكل صحيح، حل مشاكل عدم تتبع الأحداث، واستخدام Pixel Helper للتشخيص.',
-    tags:['pixel','tracking','events','facebook-pixel','conversion'],
-    toc:['إنشاء Meta Pixel','إضافة الكود للموقع','إعداد Standard Events','استخدام Pixel Helper','حل مشاكل التتبع'],
-    body:`
-      <h3>إعداد Meta Pixel</h3>
-      <p>Meta Pixel هو كود JavaScript صغير يسمح لك بقياس فاعلية إعلاناتك وتتبع تصرفات الزوار على موقعك.</p>
-      <div class="code-block"><span class="cm">/* كود Meta Pixel الأساسي — ضعه في &lt;head&gt; */</span>
-!<span class="kw">function</span>(f,b,e,v,n,t,s) {
-  <span class="kw">if</span>(f.fbq) <span class="kw">return</span>;
-  n=f.fbq=<span class="kw">function</span>(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  <span class="kw">if</span>(!f._fbq) f._fbq=n; n.push=n; n.loaded=!<span class="num">0</span>; n.version=<span class="str">'2.0'</span>;
-  n.queue=[];t=b.createElement(e);t.async=!<span class="num">0</span>;
-  t.src=v;s=b.getElementsByTagName(e)[<span class="num">0</span>];
-  s.parentNode.insertBefore(t,s)
-}(window,document,<span class="str">'script'</span>,<span class="str">'https://connect.facebook.net/en_US/fbevents.js'</span>);
+        <div class="article-card">
+          <div class="article-top">
+            <div class="category">Meta Policies</div>
+            <h3>سياسات Meta التي قد تؤدي إلى حظر رقم واتساب بيزنس</h3>
+            <p>
+              كل ما تحتاج معرفته عن سياسات Meta وأسباب الحظر وطرق حماية الحسابات التجارية.
+            </p>
 
-<span class="fn">fbq</span>(<span class="str">'init'</span>, <span class="str">'YOUR_PIXEL_ID'</span>);
-<span class="fn">fbq</span>(<span class="str">'track'</span>, <span class="str">'PageView'</span>);
-
-<span class="cm">// تتبع حدث الشراء</span>
-<span class="fn">fbq</span>(<span class="str">'track'</span>, <span class="str">'Purchase'</span>, {
-  value: <span class="num">99.99</span>,
-  currency: <span class="str">'EGP'</span>
-});</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>استخدم إضافة "Meta Pixel Helper" في متصفح Chrome للتحقق الفوري من عمل Pixel بشكل صحيح.</p></div>
-    `
-  },
-
-  /* ── DNS & Domains ── */
-  {
-    id:14, cat:'dns', featured:true,
-    title:'حل مشاكل DNS Propagation وتسريع انتشار السجلات',
-    seoTitle:'حل مشاكل DNS Propagation وانتشار السجلات | مدعوم',
-    excerpt:'فهم آلية عمل انتشار DNS، أدوات التحقق المجانية، وخطوات تسريع نشر السجلات للحد الممكن.',
-    tags:['dns','propagation','ttl','records','nameservers'],
-    difficulty:2, readTime:9,
-    toc:['كيف يعمل انتشار DNS؟','التحقق من الانتشار','تسريع DNS Propagation','أدوات مجانية','نصائح متقدمة'],
-    body:`
-      <h3>كيف يعمل انتشار DNS؟</h3>
-      <p>عندما تغير سجل DNS، لا ينتشر التغيير فوراً حول العالم. هناك شبكة من خوادم DNS تحتاج وقتاً لتحديث بياناتها المخزنة مؤقتاً (Cache).</p>
-      <p>العملية تبدأ من خوادم النطاق الرئيسية (Authoritative Name Servers)، ثم تنتشر تدريجياً إلى خوادم DNS حول العالم عند انتهاء صلاحية الـ TTL المحددة.</p>
-      <div class="code-block"><span class="cm"># التحقق من انتشار سجل A باستخدام خوادم مختلفة</span>
-<span class="cm"># Google DNS</span>
-nslookup mad3oom.online 8.8.8.8
-
-<span class="cm"># Cloudflare DNS</span>
-nslookup mad3oom.online 1.1.1.1
-
-<span class="cm"># OpenDNS</span>
-nslookup mad3oom.online 208.67.222.222
-
-<span class="cm"># أو باستخدام dig (على Linux/Mac)</span>
-dig @8.8.8.8 mad3oom.online A +short
-dig @1.1.1.1 mad3oom.online A +short</div>
-      <h3>تسريع DNS Propagation</h3>
-      <ol class="step-list">
-        <li><strong>قلل TTL مسبقاً:</strong> 24-48 ساعة قبل أي تغييرات، قلل TTL إلى 300 ثانية (5 دقائق)</li>
-        <li><strong>امسح DNS Cache محلياً:</strong> Windows: <code class="inline-code">ipconfig /flushdns</code> | Mac: <code class="inline-code">sudo dscacheutil -flushcache</code></li>
-        <li><strong>استخدم Cloudflare</strong> كمزود DNS للحصول على أسرع انتشار عالمي</li>
-        <li><strong>انتظر TTL القديم:</strong> لا يمكنك التأثير على خوادم خزّنت السجل القديم حتى ينتهي TTL</li>
-      </ol>
-      <h3>أدوات التحقق المجانية</h3>
-      <ul>
-        <li><strong>whatsmydns.net</strong> — يتحقق من الانتشار في 20+ دولة</li>
-        <li><strong>dnschecker.org</strong> — واجهة بصرية وخريطة عالمية</li>
-        <li><strong>toolbox.googleapps.com/apps/checkmx</strong> — لسجلات MX تحديداً</li>
-      </ul>
-      <div class="alert-box alert-success"><i class="ti ti-circle-check"></i><p>معظم التغييرات تنتشر خلال 1-4 ساعات عند استخدام Cloudflare، وقد تصل إلى 48 ساعة مع مزودي DNS التقليديين.</p></div>
-    `
-  },
-  {
-    id:15, cat:'dns',
-    title:'إعداد سجلات SPF وDKIM وDMARC لمنع وصول رسائلك إلى Spam',
-    seoTitle:'إعداد SPF DKIM DMARC لحماية بريدك الإلكتروني | مدعوم',
-    difficulty:3, readTime:11,
-    excerpt:'دليل تقني لإعداد سجلات أمان البريد الإلكتروني الثلاثة وتحسين قابلية تسليم رسائلك بشكل كبير.',
-    tags:['spf','dkim','dmarc','email-deliverability','dns'],
-    toc:['لماذا هذه السجلات ضرورية؟','إعداد سجل SPF','إعداد DKIM','إعداد DMARC','الاختبار والتحقق'],
-    body:`
-      <h3>لماذا هذه السجلات ضرورية؟</h3>
-      <p>بدون هذه السجلات، خوادم البريد مثل Gmail وOutlook تعامل رسائلك بشك وقد ترسلها مباشرة إلى Spam أو ترفضها كلياً.</p>
-      <ul>
-        <li><strong>SPF:</strong> يحدد الخوادم المصرح لها بإرسال بريد باسم نطاقك</li>
-        <li><strong>DKIM:</strong> يضيف توقيعاً رقمياً للتحقق من هوية المرسل</li>
-        <li><strong>DMARC:</strong> يحدد ما يجب فعله عند فشل SPF أو DKIM</li>
-      </ul>
-      <div class="code-block"><span class="cm"># مثال على سجل SPF</span>
-<span class="str">v=spf1 include:_spf.google.com include:sendgrid.net ~all</span>
-
-<span class="cm"># مثال على سجل DKIM (TXT record)</span>
-<span class="str">v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBA...</span>
-
-<span class="cm"># مثال على سجل DMARC</span>
-<span class="str">v=DMARC1; p=quarantine; rua=mailto:dmarc@mad3oom.online; pct=100</span></div>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>ابدأ بسياسة DMARC <code class="inline-code">p=none</code> لمدة شهر لمراقبة التقارير قبل الانتقال لـ <code class="inline-code">p=quarantine</code> أو <code class="inline-code">p=reject</code>.</p></div>
-    `
-  },
-  {
-    id:16, cat:'dns',
-    title:'حل خطأ SSL/TLS "Certificate Mismatch" على نطاقك',
-    seoTitle:'حل خطأ SSL Certificate Mismatch على النطاقات | مدعوم',
-    difficulty:2, readTime:7,
-    excerpt:'أسباب خطأ تطابق شهادة SSL وكيف تجدد الشهادة وتربط النطاق الصحيح مع Let\'s Encrypt وCloudflare.',
-    tags:['ssl','certificate','https','tls','security'],
-    toc:['ما هو خطأ Certificate Mismatch؟','الأسباب الشائعة','فحص الشهادة الحالية','تجديد الشهادة','Cloudflare SSL'],
-    body:`
-      <h3>ما هو خطأ Certificate Mismatch؟</h3>
-      <p>يظهر هذا الخطأ في المتصفح عندما لا يتطابق النطاق في شهادة SSL مع النطاق الذي تحاول الوصول إليه. المتصفح يرفض الاتصال حمايةً لك.</p>
-      <div class="code-block"><span class="cm"># فحص تفاصيل شهادة SSL من الـ terminal</span>
-openssl s_client -connect mad3oom.online:443 -servername mad3oom.online \
-  &lt; /dev/null 2&gt;/dev/null | openssl x509 -noout -text | grep -A2 "Subject Alternative"
-
-<span class="cm"># تجديد شهادة Let's Encrypt</span>
-sudo certbot renew --dry-run
-sudo certbot certonly --nginx -d mad3oom.online -d www.mad3oom.online</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>استخدم Cloudflare SSL Mode على "Full (Strict)" للحصول على أعلى مستوى أمان مع تجديد تلقائي للشهادات.</p></div>
-    `
-  },
-  {
-    id:17, cat:'dns',
-    title:'فهم سجلات DNS: A وCNAME وMX وTXT — الدليل الشامل',
-    seoTitle:'شرح سجلات DNS: A CNAME MX TXT NS — الدليل الكامل | مدعوم',
-    difficulty:1, readTime:10,
-    excerpt:'شرح عملي ومبسط لأنواع سجلات DNS المختلفة ومتى تستخدم كل نوع مع أمثلة حقيقية وحالات الاستخدام الشائعة.',
-    tags:['a-record','cname','mx','txt','ns','dns-basics'],
-    toc:['ما هي سجلات DNS؟','سجل A','سجل CNAME','سجل MX','سجل TXT','سجل NS'],
-    body:`
-      <h3>ما هي سجلات DNS؟</h3>
-      <p>سجلات DNS هي مثل دليل هاتف الإنترنت. عندما تكتب اسم نطاق في المتصفح، تبحث خوادم DNS في هذه السجلات لإيجاد عنوان IP المناسب.</p>
-      <table>
-        <thead><tr><th>نوع السجل</th><th>الغرض</th><th>مثال</th></tr></thead>
-        <tbody>
-          <tr><td><code class="inline-code">A</code></td><td>ربط النطاق بعنوان IPv4</td><td>mad3oom.online → 1.2.3.4</td></tr>
-          <tr><td><code class="inline-code">AAAA</code></td><td>ربط النطاق بعنوان IPv6</td><td>mad3oom.online → 2001:db8::1</td></tr>
-          <tr><td><code class="inline-code">CNAME</code></td><td>توجيه نطاق فرعي لنطاق آخر</td><td>www → mad3oom.online</td></tr>
-          <tr><td><code class="inline-code">MX</code></td><td>تحديد خادم البريد الإلكتروني</td><td>Priority 10 → mail.google.com</td></tr>
-          <tr><td><code class="inline-code">TXT</code></td><td>بيانات نصية (SPF, DKIM, تحقق)</td><td>v=spf1 include:... ~all</td></tr>
-          <tr><td><code class="inline-code">NS</code></td><td>خوادم الأسماء المسؤولة</td><td>ns1.cloudflare.com</td></tr>
-        </tbody>
-      </table>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>لا يمكنك استخدام CNAME مع النطاق الجذر (example.com). يجب استخدام سجل A. لكن يمكنك استخدام CNAME مع النطاقات الفرعية (www.example.com).</p></div>
-    `
-  },
-  {
-    id:18, cat:'dns',
-    title:'إعداد Custom Domain لخادم Webhook مع HTTPS',
-    seoTitle:'ربط Custom Domain بـ Webhook Server مع HTTPS | مدعوم',
-    difficulty:3, readTime:8,
-    excerpt:'كيفية توجيه نطاقك المخصص لخادم Webhook الخاص بك مع إعداد HTTPS الصحيح باستخدام Nginx وLet\'s Encrypt.',
-    tags:['custom-domain','webhook','nginx','https','reverse-proxy'],
-    toc:['المتطلبات','إعداد سجل DNS','تثبيت Nginx','إعداد Reverse Proxy','شهادة SSL مجانية'],
-    body:`
-      <h3>المتطلبات الأساسية</h3>
-      <ul>
-        <li>خادم VPS مع Ubuntu 20.04 أو أحدث</li>
-        <li>نطاق مسجل مع صلاحية تعديل سجلات DNS</li>
-        <li>Nginx مثبت على الخادم</li>
-        <li>تطبيقك يعمل على منفذ محلي (مثل 3000)</li>
-      </ul>
-      <div class="code-block"><span class="cm"># إعداد Nginx كـ Reverse Proxy مع SSL</span>
-<span class="kw">server</span> {
-    listen <span class="num">443</span> ssl;
-    server_name webhook.mad3oom.online;
-
-    ssl_certificate /etc/letsencrypt/live/webhook.mad3oom.online/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/webhook.mad3oom.online/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:<span class="num">3000</span>;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-<span class="cm"># إعادة توجيه HTTP إلى HTTPS</span>
-<span class="kw">server</span> {
-    listen <span class="num">80</span>;
-    server_name webhook.mad3oom.online;
-    <span class="kw">return</span> <span class="num">301</span> https://$host$request_uri;
-}</div>
-    `
-  },
-
-  /* ── OAuth ── */
-  {
-    id:19, cat:'oauth', featured:true,
-    title:'خطأ "invalid_client" في OAuth 2.0: التشخيص والحل الكامل',
-    seoTitle:'حل خطأ invalid_client في OAuth 2.0 — Meta Google Stripe | مدعوم',
-    excerpt:'تشخيص وحل خطأ invalid_client الشائع في تطبيقات OAuth مع Meta وGoogle وStripe مع أدوات اختبار وكود جاهز.',
-    tags:['oauth','invalid-client','client-secret','credentials','debugging'],
-    difficulty:3, readTime:8,
-    toc:['لماذا يظهر هذا الخطأ؟','خطوات التشخيص','تحديث Client Secret','اختبار OAuth بـ Postman','منع الخطأ مستقبلاً'],
-    body:`
-      <h3>لماذا يظهر خطأ invalid_client؟</h3>
-      <p>هذا الخطأ يعني أن بيانات تعريف تطبيقك (Client ID أو Client Secret) غير صحيحة أو منتهية الصلاحية. المنصة ترفض التحقق من هويتك.</p>
-      <div class="alert-box alert-error"><i class="ti ti-alert-circle"></i><p><strong>رسالة الخطأ النموذجية:</strong> <code class="inline-code">{"error": "invalid_client", "error_description": "The OAuth client was not found."}</code></p></div>
-      <h3>خطوات التشخيص بالترتيب</h3>
-      <ol class="step-list">
-        <li><strong>تحقق من وجود مسافات زائدة:</strong> انسخ Client ID وSecret وافحصهما في محرر نصوص — مسافة واحدة تكسر كل شيء</li>
-        <li><strong>تحقق من البيئة:</strong> هل تستخدم بيانات Test Mode في بيئة Production أو العكس؟</li>
-        <li><strong>تحقق من حالة التطبيق:</strong> اذهب لـ Developer Console وتأكد أن التطبيق نشط وغير محذوف</li>
-        <li><strong>أنشئ Client Secret جديداً</strong> وحدّث متغيرات البيئة في خادمك</li>
-        <li><strong>اختبر بـ Postman</strong> بشكل مستقل عن كودك للتأكد من صحة البيانات</li>
-      </ol>
-      <div class="code-block"><span class="cm">// تشخيص في Node.js</span>
-<span class="kw">const</span> clientId = process.env.OAUTH_CLIENT_ID;
-<span class="kw">const</span> clientSecret = process.env.OAUTH_CLIENT_SECRET;
-
-<span class="cm">// تحقق من الطول والمسافات</span>
-console.log(<span class="str">'Client ID length:'</span>, clientId?.length);
-console.log(<span class="str">'Has leading space:'</span>, clientId?.startsWith(<span class="str">' '</span>));
-console.log(<span class="str">'Has trailing space:'</span>, clientId?.endsWith(<span class="str">' '</span>));
-
-<span class="cm">// استخدم trim() دائماً</span>
-<span class="kw">const</span> safeId = clientId?.trim();
-<span class="kw">const</span> safeSecret = clientSecret?.trim();</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>خزّن Client Secret في Environment Variables دائماً. لا تضعه مباشرة في الكود ولا في Git. استخدم .env file + .gitignore.</p></div>
-    `
-  },
-  {
-    id:20, cat:'oauth',
-    title:'خطأ "redirect_uri_mismatch": الحل الشامل لجميع المنصات',
-    seoTitle:'حل redirect_uri_mismatch في OAuth — Meta Google GitHub | مدعوم',
-    difficulty:2, readTime:7,
-    excerpt:'حل مشكلة عدم تطابق Redirect URI في Meta وGoogle وGitHub وكيف تضبط إعدادات التطبيق بشكل صحيح.',
-    tags:['redirect-uri','oauth','mismatch','meta','google'],
-    toc:['فهم Redirect URI','الأسباب الشائعة','الضبط في Meta','الضبط في Google','نصائح التطوير'],
-    body:`
-      <h3>ما هو Redirect URI؟</h3>
-      <p>بعد أن يوافق المستخدم على منح صلاحيات تطبيقك، تعيد المنصة توجيهه إلى Redirect URI المحدد مسبقاً. إذا لم يتطابق URI المرسل مع المسجل، يُرفض الطلب.</p>
-      <h3>الأسباب الشائعة للعدم التطابق</h3>
-      <ul>
-        <li><strong>http مقابل https:</strong> سجّلت <code class="inline-code">http://example.com</code> لكن ترسل <code class="inline-code">https://example.com</code></li>
-        <li><strong>شرطة مائلة في النهاية:</strong> <code class="inline-code">/callback</code> يختلف عن <code class="inline-code">/callback/</code></li>
-        <li><strong>المنفذ:</strong> <code class="inline-code">localhost:3000</code> يختلف عن <code class="inline-code">localhost:3001</code></li>
-        <li><strong>المسار:</strong> <code class="inline-code">/auth/callback</code> يختلف عن <code class="inline-code">/callback</code></li>
-      </ul>
-      <div class="code-block"><span class="cm">// تسجيل جميع URIs المحتملة في التطوير</span>
-<span class="str">http://localhost:3000/callback</span>
-<span class="str">http://localhost:3001/callback</span>
-<span class="str">http://127.0.0.1:3000/callback</span>
-<span class="str">https://staging.mad3oom.online/callback</span>
-<span class="str">https://mad3oom.online/callback</span></div>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>في بيئة الإنتاج، سجّل URIs HTTPS فقط. URIs الـ HTTP لمحلي للتطوير فقط وكثير من المنصات ترفضها في وضع Production.</p></div>
-    `
-  },
-  {
-    id:21, cat:'oauth',
-    title:'تطبيق OAuth PKCE Flow بأمان في تطبيقات الويب',
-    seoTitle:'تطبيق OAuth PKCE Flow بأمان — JavaScript كامل | مدعوم',
-    difficulty:3, readTime:12,
-    excerpt:'شرح PKCE (Proof Key for Code Exchange) وكيف يحمي تطبيقك من هجمات اعتراض Authorization Code مع كود JavaScript كامل.',
-    tags:['pkce','security','oauth','code-challenge','spa'],
-    toc:['لماذا PKCE ضروري؟','كيف يعمل PKCE؟','توليد Code Verifier','توليد Code Challenge','الكود الكامل'],
-    body:`
-      <h3>لماذا PKCE ضروري للتطبيقات العامة؟</h3>
-      <p>التطبيقات العامة (Single Page Apps، Mobile Apps) لا يمكنها الاحتفاظ بـ Client Secret بأمان. PKCE يحل هذه المشكلة بإضافة طبقة تحقق تلقائية.</p>
-      <div class="code-block"><span class="cm">// توليد Code Verifier وChallenge</span>
-<span class="kw">function</span> <span class="fn">generateCodeVerifier</span>() {
-  <span class="kw">const</span> array = <span class="kw">new</span> <span class="fn">Uint8Array</span>(<span class="num">32</span>);
-  crypto.<span class="fn">getRandomValues</span>(array);
-  <span class="kw">return</span> btoa(<span class="fn">String</span>.fromCharCode(...array))
-    .replace(/\+/g, <span class="str">'-'</span>).replace(/\//g, <span class="str">'_'</span>).replace(/=/g, <span class="str">''</span>);
-}
-
-<span class="kw">async function</span> <span class="fn">generateCodeChallenge</span>(verifier) {
-  <span class="kw">const</span> encoder = <span class="kw">new</span> <span class="fn">TextEncoder</span>();
-  <span class="kw">const</span> data = encoder.<span class="fn">encode</span>(verifier);
-  <span class="kw">const</span> digest = <span class="kw">await</span> crypto.subtle.<span class="fn">digest</span>(<span class="str">'SHA-256'</span>, data);
-  <span class="kw">return</span> btoa(<span class="fn">String</span>.fromCharCode(...<span class="kw">new</span> <span class="fn">Uint8Array</span>(digest)))
-    .replace(/\+/g, <span class="str">'-'</span>).replace(/\//g, <span class="str">'_'</span>).replace(/=/g, <span class="str">''</span>);
-}
-
-<span class="cm">// استخدامه في طلب Authorization</span>
-<span class="kw">const</span> verifier = <span class="fn">generateCodeVerifier</span>();
-sessionStorage.<span class="fn">setItem</span>(<span class="str">'pkce_verifier'</span>, verifier);
-<span class="kw">const</span> challenge = <span class="kw">await</span> <span class="fn">generateCodeChallenge</span>(verifier);
-
-<span class="kw">const</span> authUrl = <span class="kw">new</span> <span class="fn">URL</span>(<span class="str">'https://accounts.google.com/o/oauth2/v2/auth'</span>);
-authUrl.searchParams.<span class="fn">set</span>(<span class="str">'code_challenge'</span>, challenge);
-authUrl.searchParams.<span class="fn">set</span>(<span class="str">'code_challenge_method'</span>, <span class="str">'S256'</span>);</div>
-    `
-  },
-  {
-    id:22, cat:'oauth',
-    title:'تطبيق تجديد Refresh Token تلقائياً في Node.js',
-    seoTitle:'Refresh Token تلقائي في Node.js — الكود الكامل | مدعوم',
-    difficulty:3, readTime:10,
-    excerpt:'كود كامل لإعداد نظام تجديد Access Token تلقائياً باستخدام Refresh Token مع معالجة الأخطاء والتخزين الآمن.',
-    tags:['refresh-token','nodejs','oauth','automation','security'],
-    toc:['كيف يعمل Refresh Token؟','التخزين الآمن للتوكن','نظام التجديد التلقائي','معالجة أخطاء التجديد','أمثلة عملية'],
-    body:`
-      <h3>كيف يعمل نظام Refresh Token؟</h3>
-      <p>عند انتهاء صلاحية Access Token، بدلاً من إعادة تسجيل دخول المستخدم، نستخدم Refresh Token للحصول على Access Token جديد بصمت.</p>
-      <div class="code-block"><span class="cm">// نظام إدارة توكن كامل مع تجديد تلقائي</span>
-<span class="kw">class</span> <span class="fn">OAuthTokenManager</span> {
-  <span class="kw">constructor</span>(config) {
-    this.config = config;
-    this.accessToken = <span class="kw">null</span>;
-    this.refreshToken = config.initialRefreshToken;
-    this.expiresAt = <span class="num">0</span>;
-    this.refreshing = <span class="kw">false</span>;
-  }
-
-  <span class="kw">async</span> <span class="fn">getToken</span>() {
-    <span class="kw">const</span> buffer = <span class="num">60</span> * <span class="num">1000</span>; <span class="cm">// تجديد قبل دقيقة</span>
-    <span class="kw">if</span> (Date.<span class="fn">now</span>() &lt; this.expiresAt - buffer) {
-      <span class="kw">return</span> this.accessToken;
-    }
-    <span class="kw">return</span> <span class="kw">await</span> this.<span class="fn">refresh</span>();
-  }
-
-  <span class="kw">async</span> <span class="fn">refresh</span>() {
-    <span class="kw">if</span> (this.refreshing) {
-      <span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">100</span>));
-      <span class="kw">return</span> this.accessToken;
-    }
-    this.refreshing = <span class="kw">true</span>;
-    <span class="kw">try</span> {
-      <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(this.config.tokenUrl, {
-        method: <span class="str">'POST'</span>,
-        headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/x-www-form-urlencoded'</span> },
-        body: <span class="kw">new</span> <span class="fn">URLSearchParams</span>({
-          grant_type: <span class="str">'refresh_token'</span>,
-          refresh_token: this.refreshToken,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-        })
-      });
-      <span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
-      this.accessToken = data.access_token;
-      this.expiresAt = Date.<span class="fn">now</span>() + (data.expires_in * <span class="num">1000</span>);
-      <span class="kw">if</span> (data.refresh_token) this.refreshToken = data.refresh_token;
-      <span class="kw">return</span> this.accessToken;
-    } <span class="kw">finally</span> {
-      this.refreshing = <span class="kw">false</span>;
-    }
-  }
-}</div>
-    `
-  },
-
-  /* ── Stripe ── */
-  {
-    id:23, cat:'stripe', featured:true,
-    title:'خطأ "card_declined" في Stripe: جميع أكواد الرفض وحلولها',
-    seoTitle:'حل card_declined في Stripe — جميع أكواد الرفض | مدعوم',
-    excerpt:'دليل شامل لأكواد رفض البطاقات في Stripe مع الحلول المناسبة لكل كود وكيف تتعامل معها بشكل صحيح في تطبيقك.',
-    tags:['stripe','card-declined','payments','decline-code','error-handling'],
-    difficulty:2, readTime:9,
-    toc:['فهم منطق رفض البطاقات','أكواد decline_code الشائعة','معالجة الرفض في الكود','رسائل المستخدم المناسبة','أكواد بطاقات الاختبار'],
-    body:`
-      <h3>كيف يعمل نظام رفض البطاقات في Stripe؟</h3>
-      <p>عندما تُرفض بطاقة، يعطيك Stripe معلومتين: <code class="inline-code">code</code> وهو الخطأ العام، و<code class="inline-code">decline_code</code> وهو السبب التفصيلي من البنك. استخدامهما معاً يمنحك صورة كاملة.</p>
-      <div class="code-block"><span class="cm">// معالجة رفض البطاقة في Node.js مع Stripe SDK</span>
-<span class="kw">const</span> stripe = require(<span class="str">'stripe'</span>)(process.env.STRIPE_SECRET_KEY);
-
-<span class="kw">try</span> {
-  <span class="kw">const</span> paymentIntent = <span class="kw">await</span> stripe.paymentIntents.<span class="fn">create</span>({
-    amount: <span class="num">9999</span>, <span class="cm">// بالقروش — 99.99 جنيه</span>
-    currency: <span class="str">'egp'</span>,
-    payment_method: paymentMethodId,
-    confirm: <span class="kw">true</span>,
-  });
-} <span class="kw">catch</span> (err) {
-  <span class="kw">if</span> (err.type === <span class="str">'StripeCardError'</span>) {
-    <span class="kw">const</span> decline = err.decline_code;
-    <span class="kw">const</span> userMsg = <span class="fn">getDeclineMessage</span>(decline);
-    <span class="cm">// لا تعرض err.message للمستخدم مباشرة</span>
-    res.<span class="fn">status</span>(<span class="num">402</span>).<span class="fn">json</span>({ error: userMsg, code: decline });
-  }
-}
-
-<span class="kw">function</span> <span class="fn">getDeclineMessage</span>(code) {
-  <span class="kw">const</span> messages = {
-    insufficient_funds: <span class="str">'الرصيد غير كافٍ. جرّب بطاقة أخرى.'</span>,
-    expired_card: <span class="str">'البطاقة منتهية الصلاحية. تحقق من التاريخ.'</span>,
-    incorrect_cvc: <span class="str">'رمز CVV غير صحيح. تحقق من ظهر البطاقة.'</span>,
-    card_not_supported: <span class="str">'هذا النوع من البطاقات غير مدعوم.'</span>,
-    do_not_honor: <span class="str">'رُفضت البطاقة من البنك. تواصل مع بنكك.'</span>,
-  };
-  <span class="kw">return</span> messages[code] || <span class="str">'تعذّر إتمام الدفع. جرّب مرة أخرى.'</span>;
-}</div>
-      <h3>أكواد decline_code الأكثر شيوعاً</h3>
-      <table>
-        <thead><tr><th>الكود</th><th>المعنى</th><th>ماذا يفعل المستخدم؟</th></tr></thead>
-        <tbody>
-          <tr><td>insufficient_funds</td><td>رصيد غير كافٍ</td><td>استخدم بطاقة أخرى</td></tr>
-          <tr><td>do_not_honor</td><td>رفض عام من البنك</td><td>اتصل بالبنك</td></tr>
-          <tr><td>expired_card</td><td>بطاقة منتهية</td><td>جدّد البطاقة</td></tr>
-          <tr><td>incorrect_cvc</td><td>CVV خاطئ</td><td>تحقق من الرقم</td></tr>
-          <tr><td>card_not_supported</td><td>نوع البطاقة غير مدعوم</td><td>جرّب Visa أو Mastercard</td></tr>
-          <tr><td>fraudulent</td><td>مشبوه باحتيال</td><td>لا تُعد المحاولة — تواصل مع المستخدم</td></tr>
-          <tr><td>lost_card</td><td>البطاقة مُبلّغ بسرقتها</td><td>لا تُعد المحاولة</td></tr>
-        </tbody>
-      </table>
-    `
-  },
-  {
-    id:24, cat:'stripe',
-    title:'إعداد Stripe Webhooks بأمان والتحقق من التوقيع',
-    seoTitle:'إعداد Stripe Webhooks والتحقق من Signature — Node.js | مدعوم',
-    difficulty:3, readTime:8,
-    excerpt:'كيفية التحقق من Stripe Webhook Signature لمنع الطلبات المزيفة مع كود Node.js و Express كامل وجاهز للإنتاج.',
-    tags:['stripe','webhook','signature','security','express'],
-    toc:['لماذا التحقق من التوقيع ضروري؟','إعداد Webhook Endpoint','التحقق في Express','اختبار محلي بـ Stripe CLI','إعدادات Retry'],
-    body:`
-      <h3>لماذا يجب التحقق من توقيع Stripe؟</h3>
-      <p>بدون التحقق من التوقيع، يمكن لأي شخص إرسال طلبات مزيفة لـ Webhook endpoint الخاص بك وخداع تطبيقك بأنه اشترى أو دفع. هذا ثغرة أمنية خطيرة.</p>
-      <div class="code-block"><span class="cm">// التحقق من Stripe Webhook Signature</span>
-<span class="kw">const</span> stripe = require(<span class="str">'stripe'</span>)(process.env.STRIPE_SECRET_KEY);
-<span class="kw">const</span> endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-app.<span class="fn">post</span>(<span class="str">'/stripe/webhook'</span>,
-  express.<span class="fn">raw</span>({ type: <span class="str">'application/json'</span> }), <span class="cm">// مهم: raw body</span>
-  (req, res) => {
-    <span class="kw">const</span> sig = req.headers[<span class="str">'stripe-signature'</span>];
-
-    <span class="kw">let</span> event;
-    <span class="kw">try</span> {
-      event = stripe.webhooks.<span class="fn">constructEvent</span>(req.body, sig, endpointSecret);
-    } <span class="kw">catch</span> (err) {
-      console.error(<span class="str">`Webhook signature failed: ${err.message}`</span>);
-      <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">send</span>(<span class="str">`Webhook Error: ${err.message}`</span>);
-    }
-
-    <span class="kw">switch</span> (event.type) {
-      <span class="kw">case</span> <span class="str">'payment_intent.succeeded'</span>:
-        <span class="fn">handlePaymentSuccess</span>(event.data.object);
-        <span class="kw">break</span>;
-      <span class="kw">case</span> <span class="str">'payment_intent.payment_failed'</span>:
-        <span class="fn">handlePaymentFailed</span>(event.data.object);
-        <span class="kw">break</span>;
-    }
-    res.<span class="fn">json</span>({ received: <span class="kw">true</span> });
-  }
-);</div>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>تأكد من استخدام <code class="inline-code">express.raw()</code> لـ Webhook endpoint وليس <code class="inline-code">express.json()</code>. تحليل Body كـ JSON مسبقاً يُفسد التحقق من التوقيع.</p></div>
-    `
-  },
-  {
-    id:25, cat:'stripe',
-    title:'اختبار Stripe في بيئة التطوير: Test Cards وStripe CLI',
-    seoTitle:'اختبار Stripe بدون بطاقات حقيقية — Test Mode الكامل | مدعوم',
-    difficulty:1, readTime:6,
-    excerpt:'كيف تختبر Stripe بشكل كامل في بيئة التطوير باستخدام أرقام البطاقات التجريبية وأداة Stripe CLI للاختبار المحلي.',
-    tags:['test-mode','cli','development','test-cards','stripe'],
-    toc:['Test Mode مقابل Live Mode','بطاقات الاختبار الأساسية','اختبار حالات الرفض','Stripe CLI للـ Webhooks','بيئة Sandbox آمنة'],
-    body:`
-      <h3>بطاقات الاختبار الأساسية في Stripe</h3>
-      <table>
-        <thead><tr><th>رقم البطاقة</th><th>الحالة</th><th>الاستخدام</th></tr></thead>
-        <tbody>
-          <tr><td>4242 4242 4242 4242</td><td>نجاح دائم</td><td>اختبار الدفع الناجح</td></tr>
-          <tr><td>4000 0000 0000 0002</td><td>رفض دائم</td><td>اختبار رفض card_declined</td></tr>
-          <tr><td>4000 0025 0000 3155</td><td>يتطلب 3D Secure</td><td>اختبار المصادقة الإضافية</td></tr>
-          <tr><td>4000 0000 0000 9995</td><td>رصيد غير كافٍ</td><td>اختبار insufficient_funds</td></tr>
-          <tr><td>4000 0000 0000 0069</td><td>بطاقة منتهية</td><td>اختبار expired_card</td></tr>
-        </tbody>
-      </table>
-      <div class="code-block"><span class="cm"># تثبيت Stripe CLI لاختبار Webhooks محلياً</span>
-<span class="cm"># على macOS</span>
-brew install stripe/stripe-cli/stripe
-
-<span class="cm"># تسجيل الدخول</span>
-stripe login
-
-<span class="cm"># توجيه Webhook events لخادمك المحلي</span>
-stripe listen --forward-to localhost:3000/stripe/webhook
-
-<span class="cm"># محاكاة حدث دفع ناجح</span>
-stripe trigger payment_intent.succeeded</div>
-      <div class="alert-box alert-success"><i class="ti ti-circle-check"></i><p>استخدم دائماً مفاتيح Test Mode (تبدأ بـ sk_test_ وpk_test_) في بيئة التطوير. لا تخلط أبداً بين مفاتيح Test وLive.</p></div>
-    `
-  },
-  {
-    id:26, cat:'stripe',
-    title:'حل مشكلة Stripe 3D Secure وفشل المصادقة الإضافية',
-    seoTitle:'حل مشاكل 3D Secure في Stripe — 3DS2 المصادقة | مدعوم',
-    difficulty:3, readTime:9,
-    excerpt:'فهم 3D Secure 2.0 وكيف تتعامل مع حالات المصادقة الإضافية في Stripe Payment Intents.',
-    tags:['3ds','3d-secure','authentication','stripe','payment-intents'],
-    toc:['ما هو 3D Secure 2.0؟','متى يُطلب 3DS؟','معالجة 3DS في الكود','اختبار سيناريوهات 3DS','تحسين معدل الاجتياز'],
-    body:`
-      <h3>ما هو 3D Secure 2.0؟</h3>
-      <p>3DS2 هو بروتوكول أمان يضيف طبقة مصادقة إضافية للمدفوعات عبر الإنترنت. البنك يطلبه أحياناً لحماية حامل البطاقة.</p>
-      <div class="code-block"><span class="cm">// معالجة 3DS في JavaScript مع Stripe.js</span>
-<span class="kw">const</span> { error, paymentIntent } = <span class="kw">await</span> stripe.<span class="fn">confirmCardPayment</span>(clientSecret, {
-  payment_method: { card: cardElement }
-});
-
-<span class="kw">if</span> (error) {
-  <span class="cm">// خطأ في الدفع</span>
-  console.error(error.message);
-} <span class="kw">else if</span> (paymentIntent.status === <span class="str">'requires_action'</span>) {
-  <span class="cm">// البنك يطلب 3DS — Stripe.js يعرض النافذة تلقائياً</span>
-  <span class="kw">const</span> { error: confirmError } = <span class="kw">await</span> stripe.<span class="fn">handleCardAction</span>(clientSecret);
-  <span class="kw">if</span> (confirmError) {
-    console.error(<span class="str">'3DS failed:'</span>, confirmError.message);
-  }
-} <span class="kw">else if</span> (paymentIntent.status === <span class="str">'succeeded'</span>) {
-  console.log(<span class="str">'✓ Payment successful!'</span>);
-}</div>
-    `
-  },
-
-  /* ── Cloud API ── */
-  {
-    id:27, cat:'cloud', featured:true,
-    title:'إعداد WhatsApp Cloud API من الصفر: الدليل الشامل 2024',
-    seoTitle:'إعداد WhatsApp Cloud API خطوة بخطوة من الصفر | مدعوم',
-    excerpt:'خطوات إنشاء Meta App وإعداد Cloud API والحصول على Access Token وإرسال أول رسالة واتساب برمجياً.',
-    tags:['cloud-api','setup','meta','getting-started','whatsapp'],
-    difficulty:2, readTime:15,
-    toc:['المتطلبات المسبقة','إنشاء Meta App','إضافة WhatsApp','إعداد رقم الهاتف','Webhook Setup','إرسال أول رسالة'],
-    body:`
-      <h3>المتطلبات المسبقة</h3>
-      <ul>
-        <li>حساب Meta Business Manager موثق (Business Verification مكتمل)</li>
-        <li>رقم هاتف غير مسجل في أي تطبيق واتساب</li>
-        <li>خادم ويب مع دعم HTTPS لاستقبال Webhooks</li>
-        <li>معرفة أساسية بـ REST APIs وHTTP</li>
-      </ul>
-      <h3>إنشاء Meta App</h3>
-      <ol class="step-list">
-        <li>اذهب إلى developers.facebook.com وسجل الدخول</li>
-        <li>انقر على "My Apps" ثم "Create App"</li>
-        <li>اختر نوع التطبيق "Business" (ليس Consumer)</li>
-        <li>أدخل اسم التطبيق وبريد إلكتروني للتواصل</li>
-        <li>ربط التطبيق بحساب Business Manager</li>
-      </ol>
-      <h3>إضافة WhatsApp للتطبيق</h3>
-      <ol class="step-list">
-        <li>من لوحة التطبيق، اذهب لـ "Add Product" في القائمة الجانبية</li>
-        <li>ابحث عن "WhatsApp" وانقر "Set up"</li>
-        <li>اربط حساب WhatsApp Business بتطبيقك</li>
-        <li>في صفحة WhatsApp API Setup، ستجد Access Token مؤقتاً للاختبار</li>
-      </ol>
-      <div class="code-block"><span class="cm"># إرسال رسالة نصية — اختبر فوراً</span>
-curl -X POST \
-  "https://graph.facebook.com/v18.0/<span class="str">PHONE_NUMBER_ID</span>/messages" \
-  -H "Authorization: Bearer <span class="str">YOUR_ACCESS_TOKEN</span>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    <span class="str">"messaging_product"</span>: <span class="str">"whatsapp"</span>,
-    <span class="str">"to"</span>: <span class="str">"201XXXXXXXXX"</span>,
-    <span class="str">"type"</span>: <span class="str">"text"</span>,
-    <span class="str">"text"</span>: { <span class="str">"body"</span>: <span class="str">"مرحباً! هذه أول رسالة تجريبية من Cloud API"</span> }
-  }'</div>
-      <div class="screenshot-mock">
-        <div class="screenshot-bar"><span class="win-dot r"></span><span class="win-dot y"></span><span class="win-dot g"></span><span class="screenshot-url">graph.facebook.com/v18.0/PHONE_ID/messages</span></div>
-        <div class="screenshot-content">
-          <div class="alert-box alert-success" style="margin:0;"><i class="ti ti-circle-check"></i><p>استجابة ناجحة: <code class="inline-code">{"messaging_product":"whatsapp","contacts":[{"input":"201XX","wa_id":"201XX"}],"messages":[{"id":"wamid.XXX"}]}</code></p></div>
-        </div>
-      </div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>الـ Access Token الافتراضي ينتهي بعد 24 ساعة. للإنتاج، أنشئ System User Access Token من Business Settings لا ينتهي إلا عند تحديده يدوياً.</p></div>
-    `
-  },
-  {
-    id:28, cat:'cloud',
-    title:'خطأ "Rate Limit Exceeded" في Cloud API وكيف تتجنبه',
-    seoTitle:'حل Rate Limit في WhatsApp Cloud API — Exponential Backoff | مدعوم',
-    difficulty:3, readTime:8,
-    excerpt:'فهم حدود الطلبات في WhatsApp Cloud API وكيف تطبق Exponential Backoff وقائمة انتظار لتجنب الخطأ 130429.',
-    tags:['rate-limit','backoff','queue','throttling','429'],
-    toc:['حدود WhatsApp Cloud API','خطأ 130429','Exponential Backoff','نظام قائمة الانتظار','مراقبة الطلبات'],
-    body:`
-      <h3>حدود الطلبات في WhatsApp Cloud API</h3>
-      <p>Meta تفرض حدوداً على معدل الطلبات لضمان استقرار الخدمة. تجاوز هذه الحدود يعطي خطأ 130429.</p>
-      <ul>
-        <li>الحد الافتراضي: 80 طلباً في الثانية لكل هاتف</li>
-        <li>يمكن رفع الحد بطلب رسمي من Meta</li>
-        <li>إرسال رسائل Template لا يُحتسب بنفس طريقة الرسائل العادية</li>
-      </ul>
-      <div class="code-block"><span class="cm">// نظام قائمة انتظار مع Rate Limiting</span>
-<span class="kw">class</span> <span class="fn">MessageQueue</span> {
-  <span class="kw">constructor</span>(ratePerSecond = <span class="num">70</span>) {
-    this.queue = [];
-    this.processing = <span class="kw">false</span>;
-    this.interval = <span class="num">1000</span> / ratePerSecond;
-  }
-
-  <span class="kw">async</span> <span class="fn">add</span>(message) {
-    <span class="kw">return new</span> <span class="fn">Promise</span>((resolve, reject) => {
-      this.queue.<span class="fn">push</span>({ message, resolve, reject });
-      <span class="kw">if</span> (!this.processing) this.<span class="fn">process</span>();
-    });
-  }
-
-  <span class="kw">async</span> <span class="fn">process</span>() {
-    this.processing = <span class="kw">true</span>;
-    <span class="kw">while</span> (this.queue.length > <span class="num">0</span>) {
-      <span class="kw">const</span> { message, resolve, reject } = this.queue.<span class="fn">shift</span>();
-      <span class="kw">try</span> {
-        <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">sendMessage</span>(message);
-        <span class="fn">resolve</span>(result);
-      } <span class="kw">catch</span> (err) { <span class="fn">reject</span>(err); }
-      <span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, this.interval));
-    }
-    this.processing = <span class="kw">false</span>;
-  }
-}
-
-<span class="kw">const</span> queue = <span class="kw">new</span> <span class="fn">MessageQueue</span>(<span class="num">70</span>);
-<span class="kw">await</span> queue.<span class="fn">add</span>({ to: <span class="str">'201XXXXXXXX'</span>, text: <span class="str">'مرحباً'</span> });</div>
-    `
-  },
-  {
-    id:29, cat:'cloud',
-    title:'معالجة الرسائل الواردة في WhatsApp Cloud API',
-    seoTitle:'استقبال ومعالجة رسائل واتساب الواردة — Cloud API | مدعوم',
-    difficulty:2, readTime:10,
-    excerpt:'كيف تستقبل وتعالج وتصنف رسائل واتساب الواردة عبر Webhook مع كود Node.js وExpress شامل.',
-    tags:['incoming-messages','webhook','message-types','express','nodejs'],
-    toc:['هيكل الرسالة الواردة','أنواع الرسائل','التحقق من الرسالة','الرد على الرسائل','معالجة أنواع خاصة'],
-    body:`
-      <h3>هيكل بيانات الرسالة الواردة</h3>
-      <p>عند وصول رسالة جديدة، يرسل Meta بيانات JSON لـ Webhook الخاص بك. فهم هذا الهيكل أساسي لبناء أي bot أو نظام دعم.</p>
-      <div class="code-block"><span class="cm">// هيكل بيانات رسالة نصية واردة</span>
-{
-  <span class="str">"object"</span>: <span class="str">"whatsapp_business_account"</span>,
-  <span class="str">"entry"</span>: [{
-    <span class="str">"changes"</span>: [{
-      <span class="str">"value"</span>: {
-        <span class="str">"messages"</span>: [{
-          <span class="str">"id"</span>: <span class="str">"wamid.XXX"</span>,
-          <span class="str">"from"</span>: <span class="str">"201XXXXXXXXX"</span>,
-          <span class="str">"timestamp"</span>: <span class="str">"1699999999"</span>,
-          <span class="str">"type"</span>: <span class="str">"text"</span>,
-          <span class="str">"text"</span>: { <span class="str">"body"</span>: <span class="str">"نص الرسالة هنا"</span> }
-        }],
-        <span class="str">"contacts"</span>: [{
-          <span class="str">"profile"</span>: { <span class="str">"name"</span>: <span class="str">"اسم المرسل"</span> },
-          <span class="str">"wa_id"</span>: <span class="str">"201XXXXXXXXX"</span>
-        }]
-      }
-    }]
-  }]
-}</div>
-      <div class="code-block"><span class="cm">// معالج شامل لجميع أنواع الرسائل</span>
-<span class="kw">function</span> <span class="fn">processMessage</span>(msg) {
-  <span class="kw">switch</span> (msg.type) {
-    <span class="kw">case</span> <span class="str">'text'</span>:
-      <span class="kw">return</span> <span class="fn">handleText</span>(msg.text.body, msg.from);
-    <span class="kw">case</span> <span class="str">'image'</span>:
-      <span class="kw">return</span> <span class="fn">handleMedia</span>(msg.image.id, <span class="str">'image'</span>, msg.from);
-    <span class="kw">case</span> <span class="str">'audio'</span>:
-      <span class="kw">return</span> <span class="fn">handleMedia</span>(msg.audio.id, <span class="str">'audio'</span>, msg.from);
-    <span class="kw">case</span> <span class="str">'interactive'</span>:
-      <span class="kw">return</span> <span class="fn">handleInteractive</span>(msg.interactive, msg.from);
-    <span class="kw">case</span> <span class="str">'location'</span>:
-      <span class="kw">return</span> <span class="fn">handleLocation</span>(msg.location, msg.from);
-    <span class="kw">default</span>:
-      console.log(<span class="str">`نوع رسالة غير معروف: ${msg.type}`</span>);
-  }
-}</div>
-    `
-  },
-  {
-    id:30, cat:'cloud',
-    title:'إعداد بيئة Production آمنة لـ WhatsApp Cloud API',
-    seoTitle:'أمان بيئة Production لـ WhatsApp Cloud API — أفضل الممارسات | مدعوم',
-    difficulty:3, readTime:11,
-    excerpt:'أفضل ممارسات الأمان لنشر WhatsApp Cloud API في بيئة الإنتاج مع إدارة الأسرار والمفاتيح والمراقبة.',
-    tags:['production','security','best-practices','secrets','monitoring'],
-    toc:['إدارة المفاتيح والأسرار','أمان الخادم','مراقبة وتسجيل الأحداث','النسخ الاحتياطي','قائمة التحقق قبل الإطلاق'],
-    body:`
-      <h3>إدارة الأسرار والمفاتيح</h3>
-      <p>الخطأ الأكثر شيوعاً في الإنتاج هو تخزين المفاتيح الحساسة بشكل خاطئ. اتبع هذه المبادئ دائماً:</p>
-      <ul>
-        <li>لا تضع Access Tokens في كود المصدر أو ملفات Git</li>
-        <li>استخدم Environment Variables أو خدمة Secret Management مثل AWS Secrets Manager</li>
-        <li>دوّر المفاتيح بشكل دوري (كل 90 يوماً على الأقل)</li>
-        <li>احتفظ بمفاتيح منفصلة للتطوير والإنتاج</li>
-      </ul>
-      <div class="code-block"><span class="cm"># .env.production — لا تضفه في Git</span>
-WHATSAPP_TOKEN=EAAxxxxxxxx
-WHATSAPP_PHONE_ID=1234567890
-WHATSAPP_VERIFY_TOKEN=random_strong_token_here
-WHATSAPP_APP_SECRET=your_app_secret
-
-<span class="cm"># في package.json — تحميل البيئة الصحيحة</span>
-<span class="str">"scripts"</span>: {
-  <span class="str">"start:prod"</span>: <span class="str">"NODE_ENV=production node src/index.js"</span>,
-  <span class="str">"start:dev"</span>: <span class="str">"NODE_ENV=development nodemon src/index.js"</span>
-}</div>
-      <div class="alert-box alert-error"><i class="ti ti-alert-circle"></i><p>إذا رفعت مفتاحاً على GitHub بالخطأ، افرض له Revoke فوراً حتى لو كان في branch خاص. بوتات GitHub Scanner تجده خلال ثوانٍ.</p></div>
-      <h3>قائمة التحقق قبل الإطلاق</h3>
-      <ul>
-        <li>☑ جميع المفاتيح في Environment Variables وليس في الكود</li>
-        <li>☑ HTTPS على جميع endpoints</li>
-        <li>☑ Webhook Signature Verification مفعّل</li>
-        <li>☑ Rate Limiting مطبّق</li>
-        <li>☑ Logging لجميع الأخطاء والأحداث المهمة</li>
-        <li>☑ Monitoring وAlerts مفعّلة</li>
-        <li>☑ Backup لقاعدة البيانات مجدولة</li>
-      </ul>
-    `
-  },
-  {
-    id:31, cat:'cloud',
-    title:'إرسال رسائل تفاعلية (Buttons وLists) في WhatsApp Cloud API',
-    seoTitle:'إرسال Interactive Messages في WhatsApp Cloud API | مدعوم',
-    difficulty:2, readTime:8,
-    excerpt:'كيفية إرسال رسائل الأزرار والقوائم التفاعلية في WhatsApp Cloud API مع أمثلة JSON كاملة.',
-    tags:['interactive','buttons','list-message','reply-buttons','cloud-api'],
-    toc:['أنواع الرسائل التفاعلية','رسائل الأزرار','رسائل القوائم','أزرار الرد السريع','معالجة الاستجابة'],
-    body:`
-      <h3>أنواع الرسائل التفاعلية</h3>
-      <p>WhatsApp Cloud API يدعم نوعين رئيسيين من الرسائل التفاعلية لتحسين تجربة المستخدم بشكل كبير.</p>
-      <div class="code-block"><span class="cm">// رسالة بأزرار (حتى 3 أزرار)</span>
-{
-  <span class="str">"type"</span>: <span class="str">"interactive"</span>,
-  <span class="str">"interactive"</span>: {
-    <span class="str">"type"</span>: <span class="str">"button"</span>,
-    <span class="str">"header"</span>: { <span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"طلبك #12345"</span> },
-    <span class="str">"body"</span>: { <span class="str">"text"</span>: <span class="str">"هل تريد تتبع طلبك أو إلغاءه؟"</span> },
-    <span class="str">"action"</span>: {
-      <span class="str">"buttons"</span>: [
-        { <span class="str">"type"</span>: <span class="str">"reply"</span>, <span class="str">"reply"</span>: { <span class="str">"id"</span>: <span class="str">"track"</span>, <span class="str">"title"</span>: <span class="str">"🔍 تتبع الطلب"</span> }},
-        { <span class="str">"type"</span>: <span class="str">"reply"</span>, <span class="str">"reply"</span>: { <span class="str">"id"</span>: <span class="str">"cancel"</span>, <span class="str">"title"</span>: <span class="str">"❌ إلغاء الطلب"</span> }},
-        { <span class="str">"type"</span>: <span class="str">"reply"</span>, <span class="str">"reply"</span>: { <span class="str">"id"</span>: <span class="str">"support"</span>, <span class="str">"title"</span>: <span class="str">"💬 تواصل معنا"</span> }}
-      ]
-    }
-  }
-}</div>
-    `
-  },
-
-  /* ── Facebook Login ── */
-  {
-    id:32, cat:'facebook', featured:true,
-    title:'تطبيق Facebook Login في موقعك: دليل المطور الكامل',
-    seoTitle:'تطبيق Facebook Login على الموقع — JavaScript SDK الكامل | مدعوم',
-    excerpt:'إعداد Facebook Login SDK وإدارة Access Token والأذونات المطلوبة مع معالجة جميع حالات الأخطاء.',
-    tags:['facebook-login','sdk','javascript','permissions','oauth'],
-    difficulty:2, readTime:12,
-    toc:['إنشاء App في Meta','إعداد JavaScript SDK','تطبيق زر Login','الحصول على بيانات المستخدم','معالجة الأخطاء'],
-    body:`
-      <h3>الخطوات الأساسية لإعداد Facebook Login</h3>
-      <ol class="step-list">
-        <li>أنشئ تطبيقاً في developers.facebook.com من نوع "Consumer"</li>
-        <li>أضف منتج "Facebook Login" للتطبيق</li>
-        <li>أضف نطاقك في Valid OAuth Redirect URIs</li>
-        <li>احصل على App ID لاستخدامه في SDK</li>
-      </ol>
-      <div class="code-block"><span class="cm">/* إعداد Facebook SDK الكامل */</span>
-window.fbAsyncInit = <span class="kw">function</span>() {
-  FB.<span class="fn">init</span>({
-    appId: <span class="str">'YOUR_APP_ID'</span>,
-    cookie: <span class="kw">true</span>,
-    xfbml: <span class="kw">true</span>,
-    version: <span class="str">'v18.0'</span>
-  });
-  FB.<span class="fn">AppEvents</span>.<span class="fn">logPageView</span>();
-};
-
-(<span class="kw">function</span>(d, s, id) {
-  <span class="kw">var</span> js, fjs = d.<span class="fn">getElementsByTagName</span>(s)[<span class="num">0</span>];
-  <span class="kw">if</span> (d.<span class="fn">getElementById</span>(id)) <span class="kw">return</span>;
-  js = d.<span class="fn">createElement</span>(s); js.id = id;
-  js.src = <span class="str">"https://connect.facebook.net/ar_AR/sdk.js"</span>;
-  fjs.parentNode.<span class="fn">insertBefore</span>(js, fjs);
-}(document, <span class="str">'script'</span>, <span class="str">'facebook-jssdk'</span>));
-
-<span class="cm">// دالة تسجيل الدخول</span>
-<span class="kw">function</span> <span class="fn">loginWithFacebook</span>() {
-  FB.<span class="fn">login</span>(<span class="kw">function</span>(response) {
-    <span class="kw">if</span> (response.authResponse) {
-      <span class="kw">const</span> token = response.authResponse.accessToken;
-      <span class="fn">getUserInfo</span>(token);
-    } <span class="kw">else</span> {
-      console.log(<span class="str">'المستخدم رفض تسجيل الدخول'</span>);
-    }
-  }, { scope: <span class="str">'public_profile,email'</span> });
-}
-
-<span class="kw">function</span> <span class="fn">getUserInfo</span>(token) {
-  FB.<span class="fn">api</span>(<span class="str">'/me'</span>, { fields: <span class="str">'name,email,picture'</span> }, <span class="kw">function</span>(data) {
-    console.log(<span class="str">`مرحباً ${data.name}`</span>, data.email);
-  });
-}</div>
-    `
-  },
-  {
-    id:33, cat:'facebook',
-    title:'خطأ "App Not Setup" في Facebook Login — الحل الكامل',
-    seoTitle:'حل خطأ App Not Setup في Facebook Login | مدعوم',
-    difficulty:2, readTime:7,
-    excerpt:'أسباب ظهور خطأ App Not Setup وكيف تكمل إعداد تطبيقك في Meta Developer Console وApp Review.',
-    tags:['app-not-setup','meta-review','app-config','login'],
-    toc:['معنى الخطأ','الأسباب الأكثر شيوعاً','خطوات الإصلاح','إعداد App Review','الإطلاق للعامة'],
-    body:`
-      <h3>ما معنى خطأ "App Not Setup"؟</h3>
-      <p>هذا الخطأ يظهر عندما يحاول مستخدم تسجيل الدخول بحساب Facebook لتطبيق غير مكتمل الإعداد أو في حالة Development مع مستخدم غير مضاف للـ Testers.</p>
-      <div class="alert-box alert-warning"><i class="ti ti-alert-triangle"></i><p>في وضع Development، فقط المستخدمون المضافون في Roles → Testers يمكنهم تسجيل الدخول. لبقية المستخدمين، يجب نشر التطبيق (Live Mode).</p></div>
-      <h3>خطوات الإصلاح</h3>
-      <ol class="step-list">
-        <li>تأكد أن App Type صحيح (Consumer للتطبيقات العامة)</li>
-        <li>أكمل جميع حقول Basic Settings (App Icon, Privacy Policy URL, Terms of Service URL)</li>
-        <li>في Facebook Login Settings، أضف نطاقك في Valid OAuth Redirect URIs</li>
-        <li>للاختبار: أضف حسابك في Roles → Testers</li>
-        <li>للإطلاق العام: قدّم للـ App Review بالأذونات المطلوبة</li>
-      </ol>
-    `
-  },
-  {
-    id:34, cat:'facebook',
-    title:'إدارة صلاحيات Facebook API وكيفية طلب الأذونات',
-    seoTitle:'إدارة Permissions في Facebook API — الدليل الكامل | مدعوم',
-    difficulty:2, readTime:8,
-    excerpt:'فهم نظام Permissions في Facebook API وكيف تطلب الصلاحيات المناسبة في وقت التشغيل وتجنب رفض App Review.',
-    tags:['permissions','scopes','app-review','user-consent','facebook'],
-    toc:['أنواع الأذونات','الأذونات الافتراضية','طلب أذونات إضافية','App Review للأذونات','أفضل ممارسات'],
-    body:`
-      <h3>تصنيفات أذونات Facebook API</h3>
-      <p>Meta تصنف الأذونات إلى ثلاث فئات بناءً على حساسيتها والبيانات التي تصل إليها.</p>
-      <table>
-        <thead><tr><th>الفئة</th><th>الأمثلة</th><th>يحتاج App Review؟</th></tr></thead>
-        <tbody>
-          <tr><td>Standard Access</td><td>public_profile, email</td><td>لا</td></tr>
-          <tr><td>Advanced Access</td><td>pages_read_engagement</td><td>نعم</td></tr>
-          <tr><td>Restricted</td><td>user_friends</td><td>نعم + مبرر قوي</td></tr>
-        </tbody>
-      </table>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>احرص على طلب الحد الأدنى من الأذونات الضرورية. Meta قد ترفض الطلبات التي تطلب أذونات أكثر من اللازم بلا مبرر.</p></div>
-    `
-  },
-  {
-    id:35, cat:'facebook',
-    title:'Facebook Business Login مقابل Facebook Login العادي: متى تستخدم كلاً منهما؟',
-    seoTitle:'مقارنة Facebook Login و Business Login — أيهما تختار؟ | مدعوم',
-    difficulty:1, readTime:7,
-    excerpt:'مقارنة شاملة بين Facebook Login العادي وBusiness Login الجديد وكيف تختار المناسب لمشروعك.',
-    tags:['business-login','facebook-login','comparison','meta-business'],
-    toc:['الفرق الأساسي بينهما','متى تختار Facebook Login؟','متى تختار Business Login؟','الانتقال من الأول للثاني','مقارنة تقنية'],
-    body:`
-      <h3>الفرق الجوهري بين النوعين</h3>
-      <ul>
-        <li><strong>Facebook Login (الكلاسيكي):</strong> للوصول لبيانات المستخدمين الشخصية (الاسم، البريد، الصورة)</li>
-        <li><strong>Business Login:</strong> للوصول لأصول الأعمال (الصفحات، حسابات الإعلانات، WhatsApp Business)</li>
-      </ul>
-      <table>
-        <thead><tr><th>الميزة</th><th>Facebook Login</th><th>Business Login</th></tr></thead>
-        <tbody>
-          <tr><td>الهدف الرئيسي</td><td>تسجيل دخول المستخدمين</td><td>الوصول لأصول الأعمال</td></tr>
-          <tr><td>الأذونات</td><td>شخصية (email, profile)</td><td>أعمال (pages, ad_accounts)</td></tr>
-          <tr><td>App Review</td><td>للأذونات المتقدمة</td><td>مطلوب دائماً للإنتاج</td></tr>
-          <tr><td>مدة التوكن</td><td>60 يوماً (قابل للتجديد)</td><td>System User Token (دائم)</td></tr>
-          <tr><td>مثال الاستخدام</td><td>تسجيل دخول للمتجر</td><td>إدارة صفحات متعددة</td></tr>
-        </tbody>
-      </table>
-    `
-  },
-
-  /* ── Beginners ── */
-  {
-    id:36, cat:'beginner', featured:false,
-    title:'ما هو API وكيف يعمل؟ شرح مبسط للمبتدئين',
-    seoTitle:'ما هو API وكيف يعمل؟ شرح بسيط للمبتدئين | مدعوم',
-    excerpt:'شرح مبسط لمفهوم API مع أمثلة من الحياة اليومية وكيف تربط التطبيقات ببعضها، بدون مصطلحات تقنية معقدة.',
-    tags:['api','basics','beginners','http','rest'],
-    difficulty:1, readTime:6,
-    toc:['تشبيه بسيط لفهم API','ما هو HTTP Request؟','JSON وما معناه','API مجانية للتجربة','خطواتك التالية'],
-    body:`
-      <h3>API: تشبيه بسيط من الحياة</h3>
-      <p>تخيل أنك في مطعم. لا تستطيع الدخول للمطبخ مباشرة وطلب طعامك بنفسك. بدلاً من ذلك، يأتي النادل ويأخذ طلبك وينقله للمطبخ ويعود بالطعام. هنا:</p>
-      <ul>
-        <li><strong>أنت</strong> = التطبيق الذي يطلب البيانات</li>
-        <li><strong>النادل</strong> = الـ API</li>
-        <li><strong>المطبخ</strong> = الخادم الذي يحتوي على البيانات</li>
-      </ul>
-      <p>API اختصار لـ Application Programming Interface — هو بروتوكول يسمح لتطبيقات مختلفة بالتواصل مع بعضها بطريقة منظمة ومحددة.</p>
-      <div class="code-block"><span class="cm"># طلب بسيط لـ API مجانية للتجربة</span>
-curl "https://api.coindesk.com/v1/bpi/currentprice.json"
-
-<span class="cm"># النتيجة: سعر البيتكوين الحالي بصيغة JSON</span>
-{
-  <span class="str">"bpi"</span>: {
-    <span class="str">"USD"</span>: {
-      <span class="str">"code"</span>: <span class="str">"USD"</span>,
-      <span class="str">"rate_float"</span>: <span class="num">43250.50</span>
-    }
-  }
-}</div>
-      <h3>أنواع طلبات HTTP الأساسية</h3>
-      <table>
-        <thead><tr><th>النوع</th><th>الغرض</th><th>مثال</th></tr></thead>
-        <tbody>
-          <tr><td>GET</td><td>جلب بيانات</td><td>عرض قائمة المنتجات</td></tr>
-          <tr><td>POST</td><td>إرسال بيانات جديدة</td><td>إنشاء حساب جديد</td></tr>
-          <tr><td>PUT/PATCH</td><td>تحديث بيانات موجودة</td><td>تعديل معلومات الحساب</td></tr>
-          <tr><td>DELETE</td><td>حذف بيانات</td><td>حذف منتج</td></tr>
-        </tbody>
-      </table>
-    `
-  },
-  {
-    id:37, cat:'beginner',
-    title:'كيف تقرأ رسائل الخطأ وتفهمها: دليل المبتدئ',
-    seoTitle:'كيف تفهم رسائل الأخطاء البرمجية — دليل المبتدئ | مدعوم',
-    difficulty:1, readTime:7,
-    excerpt:'تعلم كيفية تفسير رسائل الخطأ البرمجية وكيف تبحث عن الحلول بفعالية وتصف مشكلتك بدقة عند طلب المساعدة.',
-    tags:['errors','debugging','beginners','error-messages','troubleshooting'],
-    toc:['تشريح رسالة الخطأ','أنواع الأخطاء الشائعة','البحث الذكي عن الحل','قراءة Stack Trace','نصائح للتشخيص'],
-    body:`
-      <h3>كيف تقرأ رسالة خطأ بشكل صحيح؟</h3>
-      <p>رسائل الأخطاء تبدو مخيفة للوهلة الأولى، لكنها في الواقع تحتوي على معلومات دقيقة جداً. كل جزء في الرسالة له معنى.</p>
-      <div class="alert-box alert-error"><i class="ti ti-alert-circle"></i><p>مثال: <code class="inline-code">TypeError: Cannot read property 'id' of undefined at getUserById (app.js:45)</code></p></div>
-      <p>هذه الرسالة تخبرك بثلاثة أشياء مهمة:</p>
-      <ul>
-        <li><strong>نوع الخطأ:</strong> TypeError (خطأ في نوع البيانات)</li>
-        <li><strong>ما حدث:</strong> حاولت قراءة خاصية id من قيمة undefined</li>
-        <li><strong>أين حدث:</strong> في دالة getUserById، السطر 45 من ملف app.js</li>
-      </ul>
-      <h3>البحث الذكي عن الحل</h3>
-      <ol class="step-list">
-        <li><strong>انسخ رسالة الخطأ كاملة</strong> واحذف البيانات الشخصية (أسماء ملفات، أرقام مؤقتة)</li>
-        <li><strong>أضف اسم التقنية</strong> للبحث: "Node.js TypeError Cannot read property"</li>
-        <li><strong>ابحث في Stack Overflow</strong> أولاً — 95% من الأخطاء موثقة هناك</li>
-        <li><strong>اقرأ أحدث الإجابات</strong> (ليس دائماً الأعلى تقييماً) لأن التقنيات تتطور</li>
-      </ol>
-    `
-  },
-  {
-    id:38, cat:'beginner',
-    title:'أدوات المطور الأساسية: Postman وcURL وكيفية استخدامها',
-    seoTitle:'شرح Postman وcURL للمبتدئين — اختبار APIs | مدعوم',
-    difficulty:1, readTime:8,
-    excerpt:'مقدمة عملية لأداة Postman وأوامر cURL الأساسية التي يحتاجها كل مطور لاختبار APIs.',
-    tags:['postman','curl','api-testing','tools','beginners'],
-    toc:['لماذا تحتاج هذه الأدوات؟','تثبيت Postman واستخدامه','أوامر cURL الأساسية','مقارنة Postman وcURL','تصدير الطلبات'],
-    body:`
-      <h3>Postman: الواجهة البصرية لاختبار APIs</h3>
-      <p>Postman هو تطبيق مجاني يتيح لك إرسال طلبات HTTP واختبار APIs بواجهة بصرية سهلة دون كتابة كود.</p>
-      <h3>أوامر cURL الأساسية</h3>
-      <div class="code-block"><span class="cm"># GET Request بسيط</span>
-curl https://api.example.com/users
-
-<span class="cm"># GET مع Authorization Header</span>
-curl -H "Authorization: Bearer TOKEN" \
-     https://api.example.com/users
-
-<span class="cm"># POST Request مع JSON Body</span>
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"name": "أحمد", "email": "ahmed@example.com"}' \
-     https://api.example.com/users
-
-<span class="cm"># عرض Headers الاستجابة</span>
-curl -I https://api.example.com/users
-
-<span class="cm"># حفظ الاستجابة في ملف</span>
-curl -o response.json https://api.example.com/data</div>
-      <div class="alert-box alert-tip"><i class="ti ti-bulb"></i><p>ابدأ بـ Postman إذا كنت مبتدئاً. تعلّم cURL لاحقاً لأنه مفيد في الأتمتة والسكريبتات.</p></div>
-    `
-  },
-  {
-    id:39, cat:'beginner',
-    title:'فهم HTTP Status Codes: 200 و400 و401 و403 و404 و500',
-    seoTitle:'شرح HTTP Status Codes بالعربي — الكامل | مدعوم',
-    difficulty:1, readTime:6,
-    excerpt:'دليل مرجعي شامل لأكواد حالة HTTP الشائعة ومعناها وما يجب فعله عند ظهور كل كود.',
-    tags:['http','status-codes','200','404','500','rest-api'],
-    toc:['الفئات الخمس','2xx: نجاح','3xx: إعادة توجيه','4xx: أخطاء العميل','5xx: أخطاء الخادم'],
-    body:`
-      <h3>الفئات الخمس لأكواد HTTP</h3>
-      <p>أكواد HTTP مقسمة لخمس فئات. الرقم الأول يحدد الفئة، والرقمان التاليان يحددان الحالة الدقيقة.</p>
-      <table>
-        <thead><tr><th>النطاق</th><th>المعنى العام</th><th>أمثلة</th></tr></thead>
-        <tbody>
-          <tr><td>1xx</td><td>معلومات (Informational)</td><td>100 Continue</td></tr>
-          <tr><td>2xx</td><td>نجاح (Success)</td><td>200 OK, 201 Created, 204 No Content</td></tr>
-          <tr><td>3xx</td><td>إعادة توجيه (Redirect)</td><td>301 Moved, 302 Found, 304 Not Modified</td></tr>
-          <tr><td>4xx</td><td>خطأ العميل (Client Error)</td><td>400, 401, 403, 404, 429</td></tr>
-          <tr><td>5xx</td><td>خطأ الخادم (Server Error)</td><td>500, 502, 503, 504</td></tr>
-        </tbody>
-      </table>
-      <h3>الأكواد الأكثر شيوعاً وماذا تعني</h3>
-      <ul>
-        <li><strong>200 OK:</strong> الطلب نجح وتم إرجاع البيانات</li>
-        <li><strong>201 Created:</strong> تم إنشاء المورد بنجاح</li>
-        <li><strong>400 Bad Request:</strong> بيانات الطلب غير صحيحة أو ناقصة</li>
-        <li><strong>401 Unauthorized:</strong> لم يتم التحقق من الهوية (لا يوجد توكن)</li>
-        <li><strong>403 Forbidden:</strong> تم التحقق لكن لا توجد صلاحية كافية</li>
-        <li><strong>404 Not Found:</strong> المورد المطلوب غير موجود</li>
-        <li><strong>429 Too Many Requests:</strong> تجاوزت حد الطلبات</li>
-        <li><strong>500 Internal Server Error:</strong> خطأ في الخادم لا علاقة لك به</li>
-        <li><strong>503 Service Unavailable:</strong> الخادم متوقف مؤقتاً</li>
-      </ul>
-    `
-  },
-  {
-    id:40, cat:'beginner',
-    title:'كيف تكتب تقرير Bug احترافياً وتحصل على مساعدة أسرع',
-    seoTitle:'كيفية كتابة Bug Report احترافي لطلب الدعم التقني | مدعوم',
-    difficulty:1, readTime:5,
-    excerpt:'قالب احترافي لكتابة تقارير الأخطاء يجعل حل مشكلتك أسرع بكثير عند طلب المساعدة من الدعم التقني.',
-    tags:['bug-report','support','template','debugging','communication'],
-    toc:['لماذا كتابة Bug Report مهمة؟','عناصر التقرير الاحترافي','القالب الكامل','مثال عملي','أخطاء شائعة تجنّبها'],
-    body:`
-      <h3>لماذا يهم كتابة Bug Report جيد؟</h3>
-      <p>التقرير الجيد يقلص وقت حل المشكلة من أيام إلى ساعات. المطور لا يستطيع مساعدتك إذا لم يفهم المشكلة بدقة.</p>
-      <h3>القالب الاحترافي</h3>
-      <div class="code-block"><span class="cm">## Bug Report
-
-**الملخص:** [جملة واحدة تصف المشكلة]
-
-**الخطوات لإعادة إنتاج المشكلة:**
-1. افتح [الصفحة/الميزة]
-2. افعل [الخطوة الأولى]
-3. افعل [الخطوة الثانية]
-4. لاحظ [الخطأ]
-
-**النتيجة المتوقعة:**
-[ما كنت تتوقع حدوثه]
-
-**النتيجة الفعلية:**
-[ما حدث بالفعل]
-
-**رسالة الخطأ:**
-[انسخ الخطأ كاملاً هنا]
-
-**معلومات البيئة:**
-- النظام: [Windows 11 / macOS 14 / Ubuntu 22]
-- المتصفح: [Chrome 120 / Firefox 121]
-- إصدار Node.js: [v20.10]
-- إصدار الحزمة: [1.2.3]
-
-**لقطة الشاشة:** [أرفق صورة إن أمكن]</span></div>
-      <div class="alert-box alert-success"><i class="ti ti-circle-check"></i><p>البيانات الكاملة + خطوات واضحة + رسالة الخطأ الكاملة = حل أسرع بضعف على الأقل.</p></div>
-    `
-  },
-];
-
-/* ==============================
-   STATE
-============================== */
-let activeCat = 'all';
-let activeDiff = 'all';
-let activeTags = new Set();
-let searchQ = '';
-let sortMode = 'default';
-let currentPage = 1;
-const PER_PAGE = 8;
-let currentArticleId = null;
-
-/* ==============================
-   FILTER & SORT
-============================== */
-function getFiltered() {
-  let list = [...ARTICLES];
-  if (activeCat !== 'all') list = list.filter(a => a.cat === activeCat);
-  if (activeDiff !== 'all') {
-    const map = { beginner:1, intermediate:2, advanced:3 };
-    list = list.filter(a => a.difficulty === map[activeDiff]);
-  }
-  if (activeTags.size > 0) list = list.filter(a => a.tags.some(t => activeTags.has(t)));
-  if (searchQ) {
-    const q = searchQ.toLowerCase();
-    list = list.filter(a =>
-      a.title.toLowerCase().includes(q) ||
-      a.excerpt.toLowerCase().includes(q) ||
-      a.tags.some(t => t.includes(q))
-    );
-  }
-  if (sortMode === 'difficulty-asc') list.sort((a,b) => a.difficulty - b.difficulty);
-  else if (sortMode === 'difficulty-desc') list.sort((a,b) => b.difficulty - a.difficulty);
-  else if (sortMode === 'readtime-asc') list.sort((a,b) => a.readTime - b.readTime);
-  return list;
-}
-
-/* ==============================
-   RENDER HELPERS
-============================== */
-function badge(cat) {
-  return `<span class="cat-badge ${BADGE_CLASS[cat]}">${BADGE_LABEL[cat]}</span>`;
-}
-function diffDots(d) {
-  let h = '<div class="card-diff">';
-  for (let i=1;i<=3;i++) h += `<div class="diff-dot${i<=d?' on':''}"></div>`;
-  return h+'</div>';
-}
-
-/* ==============================
-   BUILD UI
-============================== */
-function buildCatTabs() {
-  const el = document.getElementById('catTabs');
-  el.innerHTML = CATS.map(c => `
-    <button class="cat-tab${activeCat===c.id?' active':''}" onclick="setCategory('${c.id}')">
-      <i class="ti ${c.icon}"></i>${c.label}<span class="count">${c.count}</span>
-    </button>
-  `).join('');
-}
-function buildSidebar() {
-  const cats = document.getElementById('sidebarCats');
-  cats.innerHTML = CATS.filter(c=>c.id!=='all').map(c => `
-    <div class="sidebar-link${activeCat===c.id?' active':''}" onclick="setCategory('${c.id}')">
-      <i class="ti ${c.icon}"></i>${c.label}<span class="lcount">${c.count}</span>
-    </div>
-  `).join('');
-  const diff = document.getElementById('sidebarDiff');
-  const diffs = [
-    {id:'all',label:'الكل',icon:'ti-stack-2'},
-    {id:'beginner',label:'مبتدئ',icon:'ti-seedling'},
-    {id:'intermediate',label:'متوسط',icon:'ti-flame'},
-    {id:'advanced',label:'متقدم',icon:'ti-rocket'},
-  ];
-  diff.innerHTML = diffs.map(d => `
-    <button class="diff-btn${activeDiff===d.id?' active':''}" onclick="setDifficulty('${d.id}')">
-      <i class="ti ${d.icon}"></i>${d.label}
-    </button>
-  `).join('');
-  const allTags = [...new Set(ARTICLES.flatMap(a=>a.tags))].sort().slice(0,25);
-  document.getElementById('tagCloud').innerHTML = allTags.map(t => `
-    <div class="tag-pill${activeTags.has(t)?' active':''}" onclick="toggleTag('${t}')">${t}</div>
-  `).join('');
-}
-
-/* ==============================
-   RENDER ARTICLES
-============================== */
-function renderArticles() {
-  const filtered = getFiltered();
-  const total = filtered.length;
-  const pages = Math.ceil(total / PER_PAGE);
-  const start = (currentPage-1)*PER_PAGE;
-  const slice = filtered.slice(start, start+PER_PAGE);
-  const catLabel = CATS.find(c=>c.id===activeCat)?.label || 'الكل';
-  document.getElementById('areaTitle').textContent = activeCat==='all'?'جميع المقالات':catLabel;
-  document.getElementById('artCount').textContent = `${total} مقال`;
-  document.getElementById('statArticles').textContent = total;
-
-  // Featured banner for first featured article in view
-  const featuredArt = filtered.find(a=>a.featured);
-  const fb = document.getElementById('featuredBanner');
-  if (featuredArt && currentPage === 1 && !searchQ && activeDiff === 'all' && activeTags.size === 0) {
-    fb.innerHTML = `
-      <div class="featured-banner" onclick="openArticle(${featuredArt.id})">
-        <div class="featured-icon"><i class="ti ti-star"></i></div>
-        <div class="featured-body">
-          <div class="featured-label">مقال مميز</div>
-          <div class="featured-title">${featuredArt.title}</div>
-          <div class="featured-desc">${featuredArt.excerpt.slice(0,80)}...</div>
-        </div>
-        <i class="ti ti-arrow-left featured-arrow"></i>
-      </div>`;
-  } else {
-    fb.innerHTML = '';
-  }
-
-  const list = document.getElementById('articlesList');
-  if (slice.length === 0) {
-    list.innerHTML = `
-      <div class="empty-state">
-        <i class="ti ti-search-off"></i>
-        <h3>لا توجد مقالات مطابقة</h3>
-        <p>جرّب تغيير كلمة البحث أو تصفية أخرى</p>
-      </div>`;
-  } else {
-    list.innerHTML = slice.map(a => `
-      <div class="article-card${a.featured?' featured':''}" onclick="openArticle(${a.id})">
-        <div class="card-top">
-          <div class="card-badges">
-            ${badge(a.cat)}
-            ${a.featured ? '<span class="badge-featured">⭐ مميز</span>' : ''}
+            <div class="article-meta">
+              <span>25 دقيقة قراءة</span>
+              <span>Trending</span>
+            </div>
           </div>
         </div>
-        <div class="card-title">${a.title}</div>
-        <div class="card-excerpt">${a.excerpt}</div>
-        <div class="card-footer">
-          <div class="card-tags">${a.tags.slice(0,3).map(t=>`<span class="card-tag">${t}</span>`).join('')}</div>
-          <div class="card-info">
-            ${diffDots(a.difficulty)}
-            <span class="card-read"><i class="ti ti-clock"></i>${a.readTime} د</span>
+
+        <div class="article-card">
+          <div class="article-top">
+            <div class="category">Template Messages</div>
+            <h3>القوالب الممنوعة في واتساب بيزنس وأسباب رفض الرسائل</h3>
+            <p>
+              أمثلة حقيقية للقوالب المرفوضة وكيف تكتب Template Message احترافي يقبل بسرعة.
+            </p>
+
+            <div class="article-meta">
+              <span>18 دقيقة قراءة</span>
+              <span>Meta Approved</span>
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
-  }
-  renderPagination(pages);
-  buildCatTabs();
-  buildSidebar();
-}
 
-function renderPagination(pages) {
-  const pg = document.getElementById('pagination');
-  if (pages <= 1) { pg.innerHTML=''; return; }
-  let h = '';
-  if (currentPage > 1) h += `<button class="page-btn" onclick="goPage(${currentPage-1})"><i class="ti ti-chevron-right" style="font-size:14px"></i></button>`;
-  for (let i=1;i<=pages;i++) {
-    h += `<button class="page-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
-  }
-  if (currentPage < pages) h += `<button class="page-btn" onclick="goPage(${currentPage+1})"><i class="ti ti-chevron-left" style="font-size:14px"></i></button>`;
-  pg.innerHTML = h;
-}
-
-/* ==============================
-   ARTICLE DETAIL
-============================== */
-function openArticle(id) {
-  const a = ARTICLES.find(x=>x.id===id);
-  if (!a) return;
-  currentArticleId = id;
-  document.getElementById('listView').style.display = 'none';
-  const dv = document.getElementById('detailView');
-  dv.classList.add('visible');
-
-  // TOC
-  const tocBody = document.getElementById('tocBody');
-  if (a.toc && a.toc.length) {
-    tocBody.innerHTML = a.toc.map(t => `<div class="toc-link" onclick="scrollToSection('${t}')">${t}</div>`).join('');
-  } else {
-    tocBody.innerHTML = '<p style="padding:8px 10px;font-size:12px;color:var(--text-muted);">لا يوجد فهرس</p>';
-  }
-
-  // Related articles
-  const related = ARTICLES.filter(x => x.cat === a.cat && x.id !== a.id).slice(0,4);
-  const rl = document.getElementById('relatedList');
-  if (related.length) {
-    rl.innerHTML = related.map(r => `
-      <div class="related-item" onclick="openArticle(${r.id})">${r.title}</div>
-    `).join('');
-  } else {
-    rl.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--text-muted);">لا توجد مقالات ذات صلة</div>';
-  }
-
-  // Find prev/next in same category
-  const sameCat = ARTICLES.filter(x => x.cat === a.cat);
-  const idx = sameCat.findIndex(x=>x.id===id);
-  const prev = sameCat[idx-1];
-  const next = sameCat[idx+1];
-  const navHtml = `
-    <div class="article-nav-bottom">
-      <div class="nav-art-btn${!prev?' disabled':''}" ${prev?`onclick="openArticle(${prev.id})"`:''} style="${!prev?'opacity:0.4;pointer-events:none':''}">
-        <div class="nav-label">← المقال السابق</div>
-        <div class="nav-title">${prev?prev.title:'لا يوجد'}</div>
-      </div>
-      <div class="nav-art-btn next-btn${!next?' disabled':''}" ${next?`onclick="openArticle(${next.id})"`:''} style="${!next?'opacity:0.4;pointer-events:none':''}">
-        <div class="nav-label">المقال التالي →</div>
-        <div class="nav-title">${next?next.title:'لا يوجد'}</div>
       </div>
     </div>
-  `;
+  </section>
 
-  document.getElementById('detailMain').innerHTML = `
-    <div class="detail-top-bar">
-      <div class="detail-breadcrumb">
-        <a onclick="goBack()">الرئيسية</a>
-        <i class="ti ti-chevron-left"></i>
-        <a onclick="setCategory('${a.cat}')">${BADGE_LABEL[a.cat]}</a>
-        <i class="ti ti-chevron-left"></i>
-        <span style="color:var(--text-primary);font-weight:500;">${a.title.slice(0,40)}...</span>
-      </div>
-      <div style="margin-bottom:10px;">${badge(a.cat)}</div>
-      <h1 class="detail-title-main">${a.title}</h1>
-      <div class="detail-meta-row">
-        <div class="detail-meta-item">${diffDots(a.difficulty)}<span>${DIFF_LABEL[a.difficulty]}</span></div>
-        <div class="detail-meta-item"><i class="ti ti-clock"></i><span>${a.readTime} دقائق قراءة</span></div>
-        <div class="detail-meta-item"><i class="ti ti-tag"></i><span>${a.tags.join(' · ')}</span></div>
-      </div>
+  <section class="section" id="guide">
+    <div class="container knowledge-layout">
+
+      <aside class="sidebar">
+        <h3>محتويات الدليل</h3>
+
+        <ul>
+          <li><a href="#">ما هو WhatsApp Business API</a></li>
+          <li><a href="#">المتطلبات الأساسية</a></li>
+          <li><a href="#">توثيق Meta Business</a></li>
+          <li><a href="#">ربط Cloud API</a></li>
+          <li><a href="#">إعداد Webhook</a></li>
+          <li><a href="#">سياسات الحظر</a></li>
+          <li><a href="#">القوالب الممنوعة</a></li>
+          <li><a href="#">حماية الرقم</a></li>
+        </ul>
+      </aside>
+
+      <article class="content-article">
+
+        <h2>
+          الدليل الكامل لتفعيل WhatsApp Business API وحماية الرقم من الحظر
+        </h2>
+
+        <p>
+          يعتبر WhatsApp Business API من أقوى حلول التواصل التجاري الحديثة التي توفرها Meta للشركات والمتاجر الإلكترونية ومنصات الدعم الفني.
+        </p>
+
+        <p>
+          بعكس تطبيق واتساب التقليدي، يسمح API بإنشاء أنظمة شات متقدمة وربط واتساب مع أنظمة CRM والرد الآلي وأنظمة التذاكر وCloud API.
+        </p>
+
+        <h3>المتطلبات الأساسية قبل التفعيل</h3>
+
+        <ul>
+          <li>حساب Meta Business Manager احترافي</li>
+          <li>دومين حقيقي مرتبط بالنشاط التجاري</li>
+          <li>بريد إلكتروني احترافي</li>
+          <li>سياسة خصوصية وشروط استخدام</li>
+          <li>رقم هاتف غير مستخدم في واتساب</li>
+          <li>موقع إلكتروني احترافي</li>
+        </ul>
+
+        <div class="info-box">
+          استخدام دومين احترافي وصفحات قانونية حقيقية يرفع فرص قبول Meta وAdSense بشكل كبير.
+        </div>
+
+        <h3>خطوات تفعيل WhatsApp Business API</h3>
+
+        <ol>
+          <li>إنشاء حساب Meta Business Manager.</li>
+          <li>إضافة النشاط التجاري الحقيقي.</li>
+          <li>رفع مستندات التوثيق.</li>
+          <li>إنشاء WhatsApp Business Account.</li>
+          <li>إضافة رقم الهاتف.</li>
+          <li>ربط Cloud API.</li>
+          <li>إنشاء Webhook.</li>
+          <li>اختبار إرسال الرسائل.</li>
+        </ol>
+
+        <h3>ربط Cloud API</h3>
+
+        <div class="code">
+POST https://graph.facebook.com/v20.0/PHONE_NUMBER_ID/messages
+
+Headers:
+Authorization: Bearer ACCESS_TOKEN
+Content-Type: application/json
+
+{
+  "messaging_product": "whatsapp",
+  "to": "201XXXXXXXXX",
+  "type": "text",
+  "text": {
+    "body": "Hello from Mad3oom"
+  }
+}
+        </div>
+
+        <h3>أسباب حظر أرقام WhatsApp Business API</h3>
+
+        <ul>
+          <li>ارتفاع معدل البلاغات Reports</li>
+          <li>الإرسال الجماعي المفاجئ</li>
+          <li>شراء قواعد بيانات أرقام</li>
+          <li>استخدام روابط سبام</li>
+          <li>إرسال رسائل دون Opt-in</li>
+          <li>انخفاض Quality Rating</li>
+        </ul>
+
+        <div class="danger-box">
+          شراء أرقام العملاء أو إرسال رسائل عشوائية يعتبر من أسرع الأسباب التي تؤدي إلى حظر دائم للحساب.
+        </div>
+
+        <h3>القوالب الممنوعة في واتساب بيزنس</h3>
+
+        <p>
+          Meta ترفض القوالب المضللة أو العدوانية أو التي تحتوي على وعود كاذبة أو محتوى مالي خطير.
+        </p>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>نوع القالب</th>
+              <th>الحالة</th>
+              <th>السبب</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>مبروك ربحت 5000$</td>
+              <td>مرفوض</td>
+              <td>محتوى مضلل</td>
+            </tr>
+
+            <tr>
+              <td>تم تأكيد طلبك</td>
+              <td>مقبول</td>
+              <td>رسالة خدمية</td>
+            </tr>
+
+            <tr>
+              <td>اضغط فوراً قبل انتهاء الفرصة</td>
+              <td>مرفوض</td>
+              <td>Spam / ضغط تسويقي</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>أفضل استراتيجية Warmup للرقم</h3>
+
+        <p>
+          يجب تسخين الرقم تدريجياً وعدم البدء بإرسال آلاف الرسائل دفعة واحدة.
+        </p>
+
+        <div class="warning-box">
+          ابدأ بـ 20 رسالة يومياً ثم زد العدد تدريجياً خلال أسبوعين لتقليل خطر الحظر.
+        </div>
+
+        <h3>متابعة Quality Rating</h3>
+
+        <p>
+          تقييم الجودة من أهم مؤشرات استقرار الرقم. انخفاض التقييم يعني ارتفاع احتمالية التقييد أو الحظر.
+        </p>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>الحالة</th>
+              <th>المعنى</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>High</td>
+              <td>الحساب مستقر وآمن</td>
+            </tr>
+
+            <tr>
+              <td>Medium</td>
+              <td>يوجد انخفاض في التفاعل</td>
+            </tr>
+
+            <tr>
+              <td>Low</td>
+              <td>خطر الحظر مرتفع</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>أفضل الممارسات لحماية الرقم</h3>
+
+        <ol>
+          <li>احصل على Opt-in حقيقي من المستخدم.</li>
+          <li>استخدم قوالب نظيفة وواضحة.</li>
+          <li>لا تستخدم روابط خطيرة.</li>
+          <li>تابع Quality Rating يومياً.</li>
+          <li>احترم سياسات Meta بالكامل.</li>
+        </ol>
+
+        <div class="info-box">
+          منصة مدعوم مصممة لتوفير حلول تقنية احترافية تساعد الشركات على إدارة WhatsApp Business API بشكل آمن واحترافي.
+        </div>
+
+      </article>
     </div>
-    <div class="detail-content">
-      ${a.body}
-      ${navHtml}
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+      <div class="footer-col">
+        <h4>مدعوم</h4>
+        <ul>
+          <li><a href="#">الرئيسية</a></li>
+          <li><a href="#">قاعدة المعرفة</a></li>
+          <li><a href="#">الدعم الفني</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>WhatsApp API</h4>
+        <ul>
+          <li><a href="#">Cloud API</a></li>
+          <li><a href="#">Webhook</a></li>
+          <li><a href="#">Templates</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>Meta</h4>
+        <ul>
+          <li><a href="#">Verification</a></li>
+          <li><a href="#">Policies</a></li>
+          <li><a href="#">Business Manager</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>قانوني</h4>
+        <ul>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Cookie Policy</a></li>
+        </ul>
+      </div>
+
     </div>
-  `;
 
-  document.title = a.seoTitle || `${a.title} | مدعوم`;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+    <div class="copyright">
+      © 2026 Mad3oom.online — جميع الحقوق محفوظة
+    </div>
+  </footer>
 
-function goBack() {
-  document.getElementById('detailView').classList.remove('visible');
-  document.getElementById('listView').style.display = 'grid';
-  document.title = 'قاعدة المعرفة | مدعوم — دعم تقني احترافي';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function scrollToSection(title) {
-  const el = document.getElementById('detailMain');
-  const headings = el.querySelectorAll('h3,h4');
-  headings.forEach(h => {
-    if (h.textContent.trim() === title) {
-      h.scrollIntoView({ behavior:'smooth', block:'start' });
-    }
-  });
-}
-
-/* ==============================
-   CONTROLS
-============================== */
-function setCategory(id) {
-  activeCat = id;
-  currentPage = 1;
-  goBack();
-  renderArticles();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function setDifficulty(id) {
-  activeDiff = id;
-  currentPage = 1;
-  renderArticles();
-}
-
-function toggleTag(tag) {
-  if (activeTags.has(tag)) activeTags.delete(tag);
-  else activeTags.add(tag);
-  currentPage = 1;
-  renderArticles();
-}
-
-function goPage(p) {
-  currentPage = p;
-  renderArticles();
-  document.getElementById('articlesArea').scrollIntoView({ behavior:'smooth' });
-}
-
-function onSearch(val) {
-  searchQ = val.toLowerCase().trim();
-  currentPage = 1;
-  document.getElementById('searchClear').classList.toggle('visible', val.length > 0);
-  renderArticles();
-}
-
-function clearSearch() {
-  document.getElementById('searchInput').value = '';
-  document.getElementById('searchClear').classList.remove('visible');
-  onSearch('');
-}
-
-function onSort(val) {
-  sortMode = val;
-  currentPage = 1;
-  renderArticles();
-}
-
-/* ==============================
-   INIT
-============================== */
-buildCatTabs();
-buildSidebar();
-renderArticles();
-</script>
 </body>
 </html>
