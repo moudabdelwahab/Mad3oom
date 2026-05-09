@@ -303,7 +303,7 @@ function navigateTo(page, element) {
   // تحميل الرسائل تلقائياً 
   if (page === 'messages') { loadMessages(); }
 }
-}
+
 window.navigateTo = navigateTo;
 
 // ─── Disconnect Handler ───────────────────────────────
