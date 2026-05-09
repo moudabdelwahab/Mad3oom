@@ -11,8 +11,8 @@ import { OAuthService } from './oauth.js';
 import ProvisioningStatus from './ProvisioningStatus.js';
 
 // ─── State ───────────────────────────────────────────
-let provisioningStatus = null;
-let currentChannelId = null;
+let provisioningStatus  = null;
+let currentChannelId    = null;
 let channelSubscription = null;
 
 // ─── Initialization ──────────────────────────────────
@@ -23,7 +23,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await SupabaseIntegration.initializeSupabase();
     await loadUserProfile();
     await updateConnectionStatus();
-    await updateDashboard(); // ✅ تحديث البيانات الحقيقية
+    await updateDashboard();
 
     OAuthService.subscribe((state) => {
       console.log('[App] OAuth state changed:', state);
@@ -31,9 +31,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 
     const handled = await OAuthService.handleCallback();
-    if (handled) {
-      console.log('[App] OAuth callback handled');
-    }
+    if (handled) console.log('[App] OAuth callback handled');
+
   } catch (error) {
     console.error('[App] Initialization error:', error);
     showToast('حدث خطأ أثناء تهيئة التطبيق', 'error');
@@ -46,7 +45,6 @@ async function loadUserProfile() {
   try {
     const supabase = await SupabaseIntegration.initializeSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) return;
 
     const { data: profile } = await supabase
@@ -66,6 +64,48 @@ async function loadUserProfile() {
   }
 }
 
+// ─── Connection Status ────────────────────────────────
+
+async function updateConnectionStatus() {
+  try {
+    const status = await OAuthService.getConnectionStatus();
+
+    if (status.isConnected) {
+      document.getElementById('connection-status').style.display = 'block';
+      document.getElementById('status-phone').textContent =
+        status.phoneId || '—';
+      document.getElementById('status-date').textContent =
+        status.connectedAt
+          ? new Date(status.connectedAt).toLocaleDateString('ar-SA')
+          : '—';
+
+      document.getElementById('connect-btn').style.display    = 'none';
+      document.getElementById('disconnect-btn').style.display = 'inline-flex';
+
+      document.getElementById('dash-status-val').textContent    = 'متصل';
+      document.getElementById('dash-status-change').textContent = '✓ متصل بنجاح';
+      document.getElementById('dash-status-change').style.color = 'var(--status-success)';
+
+      const badge = document.getElementById('connect-badge');
+      if (badge) badge.style.display = 'none';
+
+    } else {
+      document.getElementById('connect-btn').style.display       = 'inline-flex';
+      document.getElementById('disconnect-btn').style.display    = 'none';
+      document.getElementById('connection-status').style.display = 'none';
+
+      document.getElementById('dash-status-val').textContent    = 'غير متصل';
+      document.getElementById('dash-status-change').textContent = '! اضغط للربط';
+      document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
+
+      const badge = document.getElementById('connect-badge');
+      if (badge) badge.style.display = 'inline-block';
+    }
+  } catch (error) {
+    console.error('[App] Error updating connection status:', error);
+  }
+}
+
 // ─── Dashboard Stats ──────────────────────────────────
 
 async function updateDashboard() {
@@ -73,23 +113,19 @@ async function updateDashboard() {
     const stats = await SupabaseIntegration.getDashboardStats();
 
     if (!stats) {
-      // غير متصل - أظهر قيم افتراضية
       document.getElementById('dash-status-val').textContent    = 'غير متصل';
       document.getElementById('dash-status-change').textContent = '! اضغط للربط';
       document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
       return;
     }
 
-    // ✅ تحديث حالة الاتصال بالبيانات الحقيقية
     document.getElementById('dash-status-val').textContent    = 'متصل';
     document.getElementById('dash-status-change').textContent = '✓ ' + stats.verifiedName;
     document.getElementById('dash-status-change').style.color = 'var(--status-success)';
 
-    // ✅ تحديث رقم الهاتف في صفحة الربط
     const statusPhone = document.getElementById('status-phone');
     if (statusPhone) statusPhone.textContent = stats.phoneNumber;
 
-    // ✅ تحديث الاسم في الترحيب إذا لم يوجد profile
     const welcomeName = document.getElementById('welcome-name');
     if (welcomeName && welcomeName.textContent === 'صديقي!') {
       welcomeName.textContent = stats.verifiedName + '!';
@@ -99,85 +135,6 @@ async function updateDashboard() {
     console.error('[App] updateDashboard error:', error);
   }
 }
-
-// ─── Connection Status ────────────────────────────────
-
-
-async function updateConnectionStatus() {
-
-  // ...
-
-}
-
-/**
- * تحديث بيانات الـ Dashboard
- */
-async function updateDashboard() {
-
-  try {
-
-    const stats =
-      await SupabaseIntegration.getDashboardStats();
-
-    if (!stats) {
-
-      document.getElementById(
-        'dash-status-val'
-      ).textContent = 'غير متصل';
-
-      document.getElementById(
-        'dash-status-change'
-      ).textContent = '! اضغط للربط';
-
-      return;
-
-    }
-
-    // تحديث حالة الاتصال
-    document.getElementById(
-      'dash-status-val'
-    ).textContent = 'متصل';
-
-    document.getElementById(
-      'dash-status-change'
-    ).textContent =
-      '✓ ' + stats.verifiedName;
-
-    document.getElementById(
-      'dash-status-change'
-    ).style.color =
-      'var(--status-success)';
-
-    // تحديث رقم الهاتف
-    document.getElementById(
-      'status-phone'
-    ).textContent =
-      stats.phoneNumber;
-
-    // تحديث اسم الترحيب
-    const profile =
-      await SupabaseIntegration.getIntegration();
-
-    if (profile?.metadata?.phone_number_id) {
-
-      document.getElementById(
-        'welcome-name'
-      ).textContent =
-        stats.verifiedName + '!';
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      '[App] updateDashboard error:',
-      error
-    );
-
-  }
-
-}
-
 
 // ─── OAuth State Handler ──────────────────────────────
 
@@ -192,7 +149,7 @@ async function handleOAuthStateChange(state) {
     case 'success':
       showToast('تم الربط بنجاح! جاري تفعيل القناة...', 'success');
       await updateConnectionStatus();
-      await updateDashboard(); // ✅ تحديث البيانات بعد الربط مباشرة
+      await updateDashboard();
       await startProvisioningUI(state);
       break;
 
@@ -202,7 +159,7 @@ async function handleOAuthStateChange(state) {
 
     case 'idle':
       await updateConnectionStatus();
-      await updateDashboard(); // ✅ تحديث البيانات بعد قطع الاتصال
+      await updateDashboard();
       break;
 
     case 'provisioning':
@@ -223,8 +180,8 @@ async function startProvisioningUI(oauthState) {
     }
 
     const channel = channels.find(c =>
-      c.status === 'provisioning'       ||
-      c.status === 'installing_server'  ||
+      c.status === 'provisioning'      ||
+      c.status === 'installing_server' ||
       c.status === 'connecting_webhook'
     );
 
@@ -254,13 +211,11 @@ async function startProvisioningUI(oauthState) {
 
 function subscribeToChannelUpdates(channelId) {
   try {
-    // تنظيف الاشتراك القديم
     if (channelSubscription) {
       channelSubscription.unsubscribe();
       channelSubscription = null;
     }
 
-    // ✅ التحقق من وجود الدالة قبل استدعائها
     if (typeof SupabaseIntegration.subscribeToChannelUpdates !== 'function') {
       console.warn('[App] subscribeToChannelUpdates not available');
       return;
@@ -281,7 +236,7 @@ function subscribeToChannelUpdates(channelId) {
         if (updatedChannel.status === 'active') {
           setTimeout(() => {
             showToast('تم تفعيل القناة بنجاح!', 'success');
-            updateDashboard(); // ✅ تحديث البيانات بعد التفعيل
+            updateDashboard();
             setTimeout(() => {
               navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
             }, 2000);
@@ -324,7 +279,6 @@ function navigateTo(page, element) {
     'منصة مدعوم - إدارة WhatsApp Business API';
 }
 
-// ✅ خارج الدالة مباشرة
 window.navigateTo = navigateTo;
 
 // ─── Disconnect Handler ───────────────────────────────
@@ -352,25 +306,11 @@ window.handleSync = function() {
   }, 2000);
 };
 
-window.handleNotifications = function() {
-  showToast('لا توجد إشعارات جديدة', 'info');
-};
-
-window.handleReports = function() {
-  showToast('التقارير قيد التطوير', 'info');
-};
-
-window.handleUserMenu = function() {
-  showToast('قائمة المستخدم قيد التطوير', 'info');
-};
-
-window.openNewTemplateModal = function() {
-  showToast('إنشاء قالب جديد قيد التطوير', 'info');
-};
-
-window.handleConnectClick = function() {
-  OAuthService.startOAuthFlow();
-};
+window.handleNotifications  = () => showToast('لا توجد إشعارات جديدة', 'info');
+window.handleReports        = () => showToast('التقارير قيد التطوير', 'info');
+window.handleUserMenu       = () => showToast('قائمة المستخدم قيد التطوير', 'info');
+window.openNewTemplateModal = () => showToast('إنشاء قالب جديد قيد التطوير', 'info');
+window.handleConnectClick   = () => OAuthService.startOAuthFlow();
 
 // ─── Toast Helper ─────────────────────────────────────
 
@@ -385,11 +325,9 @@ function showToast(message, type = 'info') {
 // ─── Cleanup ──────────────────────────────────────────
 
 window.addEventListener('beforeunload', () => {
-  if (channelSubscription) {
-    channelSubscription.unsubscribe();
-  }
+  if (channelSubscription) channelSubscription.unsubscribe();
 });
 
 // ─── Exports ──────────────────────────────────────────
 
-export { loadUserProfile, updateConnectionStatus, updateDashboard, startProvisioningUI };
+export { loadUserProfile, updateDashboard, startProvisioningUI };
