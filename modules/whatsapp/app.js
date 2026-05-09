@@ -141,6 +141,81 @@ async function updateConnectionStatus() {
     console.error('[App] Error updating connection status:', error);
   }
 }
+async function updateConnectionStatus() {
+
+  // ...
+
+}
+
+/**
+ * تحديث بيانات الـ Dashboard
+ */
+async function updateDashboard() {
+
+  try {
+
+    const stats =
+      await SupabaseIntegration.getDashboardStats();
+
+    if (!stats) {
+
+      document.getElementById(
+        'dash-status-val'
+      ).textContent = 'غير متصل';
+
+      document.getElementById(
+        'dash-status-change'
+      ).textContent = '! اضغط للربط';
+
+      return;
+
+    }
+
+    // تحديث حالة الاتصال
+    document.getElementById(
+      'dash-status-val'
+    ).textContent = 'متصل';
+
+    document.getElementById(
+      'dash-status-change'
+    ).textContent =
+      '✓ ' + stats.verifiedName;
+
+    document.getElementById(
+      'dash-status-change'
+    ).style.color =
+      'var(--status-success)';
+
+    // تحديث رقم الهاتف
+    document.getElementById(
+      'status-phone'
+    ).textContent =
+      stats.phoneNumber;
+
+    // تحديث اسم الترحيب
+    const profile =
+      await SupabaseIntegration.getIntegration();
+
+    if (profile?.metadata?.phone_number_id) {
+
+      document.getElementById(
+        'welcome-name'
+      ).textContent =
+        stats.verifiedName + '!';
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      '[App] updateDashboard error:',
+      error
+    );
+
+  }
+
+}
+
 
 // ─── OAuth State Handler ──────────────────────────────
 
