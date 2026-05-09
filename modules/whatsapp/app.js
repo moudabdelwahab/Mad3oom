@@ -172,13 +172,16 @@ async function handleOAuthStateChange(state) {
 
 async function startProvisioningUI(oauthState) {
   try {
-    const channels = await SupabaseIntegration.getWhatsAppChannels();
+    // ✅ مش محتاج provisioning لو الربط نجح مباشرة
+    showToast('تم الربط بنجاح!', 'success');
+    setTimeout(() => {
+      navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
+    }, 2000);
 
-    if (channels.length === 0) {
-      console.warn('[App] No channels found');
-      return;
-    }
-
+  } catch (error) {
+    console.error('[App] Error starting provisioning UI:', error);
+  }
+}
     const channel = channels.find(c =>
       c.status === 'provisioning'      ||
       c.status === 'installing_server' ||
