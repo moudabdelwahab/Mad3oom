@@ -160,6 +160,7 @@ throw new Error(
           expires_in: data.expires_in,
           phone_number_id: data.phone_number_id,
           waba_account_id: data.waba_account_id,
+            phone_number:    data.phone_number,
           business_account_id: data.business_account_id,
         });
       }
@@ -172,7 +173,7 @@ throw new Error(
 
       _setStatus('success', {
         accessToken: data.access_token,
-        phoneId:     data.phone_number_id,
+         phoneId:     data.phone_number,
         wabaId:      data.waba_account_id,
         connectedAt: new Date().toISOString(),
       });
