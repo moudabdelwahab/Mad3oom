@@ -102,45 +102,7 @@ async function updateDashboard() {
 
 // ─── Connection Status ────────────────────────────────
 
-async function updateConnectionStatus() {
-  try {
-    const status = await OAuthService.getConnectionStatus();
 
-    if (status.isConnected) {
-      document.getElementById('connection-status').style.display = 'block';
-      document.getElementById('status-phone').textContent =
-        status.phoneId || '—';
-      document.getElementById('status-date').textContent =
-        status.connectedAt
-          ? new Date(status.connectedAt).toLocaleDateString('ar-SA')
-          : '—';
-
-      document.getElementById('connect-btn').style.display    = 'none';
-      document.getElementById('disconnect-btn').style.display = 'inline-flex';
-
-      document.getElementById('dash-status-val').textContent    = 'متصل';
-      document.getElementById('dash-status-change').textContent = '✓ متصل بنجاح';
-      document.getElementById('dash-status-change').style.color = 'var(--status-success)';
-
-      const badge = document.getElementById('connect-badge');
-      if (badge) badge.style.display = 'none';
-
-    } else {
-      document.getElementById('connect-btn').style.display    = 'inline-flex';
-      document.getElementById('disconnect-btn').style.display = 'none';
-      document.getElementById('connection-status').style.display = 'none';
-
-      document.getElementById('dash-status-val').textContent    = 'غير متصل';
-      document.getElementById('dash-status-change').textContent = '! اضغط للربط';
-      document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
-
-      const badge = document.getElementById('connect-badge');
-      if (badge) badge.style.display = 'inline-block';
-    }
-  } catch (error) {
-    console.error('[App] Error updating connection status:', error);
-  }
-}
 async function updateConnectionStatus() {
 
   // ...
