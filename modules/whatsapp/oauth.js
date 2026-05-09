@@ -131,7 +131,7 @@ redirect_uri: window.location.origin + '/modules/whatsapp/index.html',
         },
 body: JSON.stringify({
   code,
-  redirect_uri: window.location.origin + 'https://mad3oom.online/modules/whatsapp/index.html'
+  redirect_uri: window.location.origin + '/modules/whatsapp/index.html'
 })
 
 ,
