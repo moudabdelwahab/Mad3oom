@@ -137,7 +137,17 @@ _exchangeCode(code)
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
-        throw new Error(errBody.message || `HTTP ${response.status}`);
+console.error(
+  'Exchange Error Body:',
+  errBody
+);
+
+throw new Error(
+  errBody.error?.message ||
+  errBody.message ||
+  `HTTP ${response.status}`
+);
+
       }
 
       const data = await response.json();
