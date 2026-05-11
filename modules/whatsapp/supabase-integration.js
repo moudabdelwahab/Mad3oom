@@ -89,21 +89,23 @@ async function saveIntegration(integrationData) {
       .eq('provider', 'whatsapp');
 
     const existingIntegration = existing?.find(i => i.metadata?.phone_number_id === integrationData.phone_number_id);
+const payload = {
+  user_id:      userId,
+  provider:     'whatsapp',
+  phone:        integrationData.phone_number,
 
-    const payload = {
-      user_id:      userId,
-      provider:     'whatsapp',
-      access_token: integrationData.access_token,
-      token_type:   integrationData.token_type || 'Bearer',
-      expires_in:   integrationData.expires_in,
-      metadata: {
-        phone_number_id:     integrationData.phone_number_id,
-        phone_number:    integrationData.phone_number,  
-        waba_account_id:     integrationData.waba_account_id,
-        business_account_id: integrationData.business_account_id,
-        connected_at:        new Date().toISOString(),
-      },
-    };
+  access_token: integrationData.access_token,
+  token_type:   integrationData.token_type || 'Bearer',
+  expires_in:   integrationData.expires_in,
+
+  metadata: {
+    phone_number_id:     integrationData.phone_number_id,
+    phone_number:        integrationData.phone_number,
+    waba_account_id:     integrationData.waba_account_id,
+    business_account_id: integrationData.business_account_id,
+    connected_at:        new Date().toISOString(),
+  },
+};
 
     let result;
     if (existingIntegration) {
