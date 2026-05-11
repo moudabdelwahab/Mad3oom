@@ -80,7 +80,17 @@ export class AutoReplyPage {
 
     initEditor() {
         const id = document.getElementById("drawflow");
+    id.style.direction = "ltr";
+
         this.editor = new Drawflow(id);
+            // مهم جدًا لحل مشاكل RTL
+
+    // إعدادات مهمة
+    this.editor.reroute = true;
+    this.editor.editor_mode = 'edit';
+    this.editor.draggable_inputs = false;
+    this.editor.force_first_input = false;
+
         this.editor.start();
         
         // Export to window for global access from HTML attributes
