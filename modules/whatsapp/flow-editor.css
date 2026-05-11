@@ -1,0 +1,173 @@
+/* 
+   Flow Editor Styles for Mad3oom WhatsApp Module
+   Visual Flow Editor (Drawflow Customization)
+*/
+
+.flow-editor-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 160px);
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border-subtle);
+}
+
+.flow-toolbar {
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    z-index: 10;
+}
+
+.flow-main {
+    flex: 1;
+    display: flex;
+    position: relative;
+}
+
+.flow-sidebar {
+    width: 220px;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border-subtle);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 5;
+}
+
+.flow-canvas {
+    flex: 1;
+    background-color: var(--bg-surface);
+    background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* Node Styles */
+.drawflow .drawflow-node {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 0;
+    width: 200px !important;
+}
+
+.drawflow .drawflow-node.selected {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.2);
+}
+
+.drawflow .drawflow-node .title {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.drawflow .drawflow-node .content {
+    padding: 12px;
+    font-size: 13px;
+}
+
+.node-input, .node-textarea {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-top: 4px;
+}
+
+/* Sidebar Draggable Items */
+.drag-item {
+    padding: 10px 14px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: grab;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.drag-item:hover {
+    border-color: var(--brand-primary);
+    background: var(--bg-card);
+}
+
+.drag-item svg {
+    width: 18px;
+    height: 18px;
+    color: var(--brand-primary);
+}
+
+/* Connection Lines */
+.drawflow .connection .main-path {
+    stroke: var(--brand-primary);
+    stroke-width: 3px;
+}
+
+.drawflow .point {
+    stroke: var(--border-subtle);
+    stroke-width: 2px;
+    fill: var(--bg-card);
+}
+
+.drawflow .point:hover {
+    fill: var(--brand-primary);
+}
+
+/* Flow Controls */
+.flow-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+
+.control-btn:hover {
+    background: var(--bg-elevated);
+}
+
+.save-status {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.save-status.saved {
+    color: var(--status-success);
+}

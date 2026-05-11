@@ -1,159 +1,242 @@
 import { SupabaseIntegration } from '../supabase-integration.js';
 
 export class AutoReplyPage {
-
     constructor(container) {
         this.container = container;
+        this.editor = null;
+        this.saveTimeout = null;
     }
 
     async load() {
+        this.renderBase();
+        this.initEditor();
+        await this.loadFlowData();
+    }
 
+    renderBase() {
         this.container.innerHTML = `
-            <div style="padding: 40px; text-align: center;">
-                جاري تحميل القواعد...
+            <div class="flow-editor-container">
+                <div class="flow-toolbar">
+                    <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
+                        <h3 style="margin:0; font-size: 16px;">محرر الرد الآلي البصري</h3>
+                        <div class="save-status" id="flow-save-status">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            <span>تم حفظ جميع التغييرات</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm" onclick="window.flowEditor.clear()">مسح الكل</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.flowEditor.save()">حفظ الآن</button>
+                    </div>
+                </div>
+                
+                <div class="flow-main">
+                    <div class="flow-sidebar">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">العناصر المتاحة</div>
+                        
+                        <div class="drag-item" draggable="true" ondragstart="window.flowEditor.drag(event)" data-node="start">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8l4 4-4 4M8 12h7"/></svg>
+                            <span>نقطة البداية</span>
+                        </div>
+                        
+                        <div class="drag-item" draggable="true" ondragstart="window.flowEditor.drag(event)" data-node="message">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>إرسال رسالة</span>
+                        </div>
+                        
+                        <div class="drag-item" draggable="true" ondragstart="window.flowEditor.drag(event)" data-node="condition">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            <span>شرط (Branches)</span>
+                        </div>
+                        
+                        <div class="drag-item" draggable="true" ondragstart="window.flowEditor.drag(event)" data-node="random">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12l-9-4-9 4 9 4 9-4z"/><path d="M3 12v6l9 4 9-4v-6"/></svg>
+                            <span>عشوائي (Random)</span>
+                        </div>
+                        
+                        <div class="drag-item" draggable="true" ondragstart="window.flowEditor.drag(event)" data-node="http">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span>طلب HTTP</span>
+                        </div>
+                    </div>
+                    
+                    <div id="drawflow" class="flow-canvas" ondrop="window.flowEditor.drop(event)" ondragover="event.preventDefault()"></div>
+                    
+                    <div class="flow-controls">
+                        <div class="control-btn" onclick="window.flowEditor.zoomIn()">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </div>
+                        <div class="control-btn" onclick="window.flowEditor.zoomOut()">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </div>
+                        <div class="control-btn" onclick="window.flowEditor.resetZoom()">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
+    }
 
-        try {
+    initEditor() {
+        const id = document.getElementById("drawflow");
+        this.editor = new Drawflow(id);
+        this.editor.start();
+        
+        // Export to window for global access from HTML attributes
+        window.flowEditor = {
+            drag: (ev) => {
+                ev.dataTransfer.setData("node", ev.target.closest('.drag-item').getAttribute('data-node'));
+            },
+            drop: (ev) => {
+                ev.preventDefault();
+                const data = ev.dataTransfer.getData("node");
+                this.addNodeToEditor(data, ev.clientX, ev.clientY);
+            },
+            zoomIn: () => this.editor.zoom_in(),
+            zoomOut: () => this.editor.zoom_out(),
+            resetZoom: () => this.editor.zoom_reset(),
+            clear: () => {
+                if(confirm('هل أنت متأكد من مسح جميع العقد؟')) this.editor.clearModuleSelected();
+            },
+            save: () => this.saveFlowData()
+        };
 
-            const supabase =
-                await SupabaseIntegration.initializeSupabase();
+        // Listen for changes for autosave
+        this.editor.on('nodeCreated', () => this.triggerAutosave());
+        this.editor.on('nodeRemoved', () => this.triggerAutosave());
+        this.editor.on('connectionCreated', () => this.triggerAutosave());
+        this.editor.on('connectionRemoved', () => this.triggerAutosave());
+        this.editor.on('nodeMoved', () => this.triggerAutosave());
+    }
 
-            // التحقق من الجلسة
-            const {
-                data: { session }
-            } = await supabase.auth.getSession();
+    addNodeToEditor(name, pos_x, pos_y) {
+        if(this.editor.editor_mode === 'fixed') return false;
+        
+        pos_x = pos_x * ( this.editor.precanvas.clientWidth / (this.editor.precanvas.clientWidth * this.editor.zoom)) - (this.editor.precanvas.getBoundingClientRect().x * ( this.editor.precanvas.clientWidth / (this.editor.precanvas.clientWidth * this.editor.zoom)));
+        pos_y = pos_y * ( this.editor.precanvas.clientHeight / (this.editor.precanvas.clientHeight * this.editor.zoom)) - (this.editor.precanvas.getBoundingClientRect().y * ( this.editor.precanvas.clientHeight / (this.editor.precanvas.clientHeight * this.editor.zoom)));
 
-            if (!session || !session.user) {
-
-                this.container.innerHTML = `
-                    <div style="
-                        padding:40px;
-                        text-align:center;
-                        color:var(--status-error);
-                    ">
-                        يجب تسجيل الدخول أولاً
+        switch (name) {
+            case 'start':
+                this.editor.addNode('start', 0, 1, pos_x, pos_y, 'start-node', {}, `
+                    <div class="title">🏁 نقطة البداية</div>
+                    <div class="content">عند استلام أي رسالة جديدة</div>
+                `);
+                break;
+            case 'message':
+                this.editor.addNode('message', 1, 1, pos_x, pos_y, 'message-node', { message: '' }, `
+                    <div class="title">💬 إرسال رسالة</div>
+                    <div class="content">
+                        <textarea class="node-textarea" df-message placeholder="اكتب نص الرسالة هنا..."></textarea>
                     </div>
-                `;
+                `);
+                break;
+            case 'condition':
+                this.editor.addNode('condition', 1, 2, pos_x, pos_y, 'condition-node', { keyword: '' }, `
+                    <div class="title">⚖️ شرط (Branch)</div>
+                    <div class="content">
+                        <div style="font-size:10px">إذا كانت الرسالة تحتوي:</div>
+                        <input type="text" class="node-input" df-keyword placeholder="الكلمة المفتاحية">
+                        <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; color:var(--text-muted);">
+                            <span>نعم (1)</span>
+                            <span>لا (2)</span>
+                        </div>
+                    </div>
+                `);
+                break;
+            case 'random':
+                this.editor.addNode('random', 1, 2, pos_x, pos_y, 'random-node', {}, `
+                    <div class="title">🎲 مسار عشوائي</div>
+                    <div class="content">
+                        توزيع عشوائي للرسائل (A/B)
+                        <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; color:var(--text-muted);">
+                            <span>مسار A</span>
+                            <span>مسار B</span>
+                        </div>
+                    </div>
+                `);
+                break;
+            case 'http':
+                this.editor.addNode('http', 1, 1, pos_x, pos_y, 'http-node', { url: '', method: 'POST' }, `
+                    <div class="title">🌐 طلب HTTP</div>
+                    <div class="content">
+                        <select class="node-input" df-method>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                        </select>
+                        <input type="text" class="node-input" df-url placeholder="https://api.example.com">
+                    </div>
+                `);
+                break;
+        }
+    }
 
-                return;
-            }
+    triggerAutosave() {
+        const statusEl = document.getElementById('flow-save-status');
+        if(statusEl) {
+            statusEl.classList.remove('saved');
+            statusEl.querySelector('span').textContent = 'جاري الحفظ...';
+        }
 
-            const userId = session.user.id;
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveFlowData();
+        }, 2000);
+    }
 
-            const { data, error } = await supabase
+    async saveFlowData() {
+        try {
+            const data = this.editor.export();
+            const supabase = await SupabaseIntegration.initializeSupabase();
+            const userId = await SupabaseIntegration.getCurrentUserId();
+            
+            // Save to bot_settings (using custom_replies to store the JSON flow)
+            const { error } = await supabase
                 .from('bot_settings')
-                .select('*')
-                .eq('user_id', userId);
+                .upsert({
+                    user_id: userId,
+                    custom_replies: data,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
 
             if (error) throw error;
 
-            this.render(data || []);
-
+            const statusEl = document.getElementById('flow-save-status');
+            if(statusEl) {
+                statusEl.classList.add('saved');
+                statusEl.querySelector('span').textContent = 'تم حفظ جميع التغييرات';
+            }
         } catch (error) {
-
-            console.error(error);
-
-            this.container.innerHTML = `
-                <div style="
-                    padding:40px;
-                    text-align:center;
-                    color:var(--status-error);
-                ">
-                    خطأ في تحميل البيانات:
-                    ${error.message}
-                </div>
-            `;
+            console.error('Flow save failed:', error);
+            const statusEl = document.getElementById('flow-save-status');
+            if(statusEl) {
+                statusEl.style.color = 'var(--status-error)';
+                statusEl.querySelector('span').textContent = 'فشل الحفظ التلقائي';
+            }
         }
     }
-    async load() {
-        this.container.innerHTML = '<div style="padding: 40px; text-align: center;">جاري تحميل القواعد...</div>';
+
+    async loadFlowData() {
         try {
             const supabase = await SupabaseIntegration.initializeSupabase();
             const userId = await SupabaseIntegration.getCurrentUserId();
+            
             const { data, error } = await supabase
                 .from('bot_settings')
-                .select('*')
-                .eq('user_id', userId);
-            
+                .select('custom_replies')
+                .eq('user_id', userId)
+                .maybeSingle();
+
             if (error) throw error;
-            this.render(data || []);
+            
+            if (data && data.custom_replies && typeof data.custom_replies === 'object') {
+                this.editor.import(data.custom_replies);
+            } else {
+                // Add default start node if empty
+                this.addNodeToEditor('start', 100, 100);
+            }
         } catch (error) {
-            this.container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--status-error);">خطأ في تحميل البيانات: ${error.message}</div>`;
+            console.error('Flow load failed:', error);
         }
-    }
-
-    render(rules) {
-        let html = '';
-        
-        // Modal for adding new rule (hidden by default)
-        html += `
-            <div id="autoreply-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(5px);">
-                <div class="section-card" style="width:100%; max-width:500px; background:var(--bg-card);">
-                    <div class="section-card-header">
-                        <div class="section-card-title">إضافة قاعدة رد آلي</div>
-                        <button onclick="document.getElementById('autoreply-modal').style.display='none'" class="btn btn-ghost btn-sm">إغلاق</button>
-                    </div>
-                    <div class="section-card-body">
-                        <div class="form-group">
-                            <label class="form-label">الكلمات المفتاحية (مثال: ترحيب, سعر, حجز)</label>
-                            <input type="text" id="ar-keywords" class="form-input" placeholder="ادخل الكلمات مفصولة بفاصلة">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">نص الرد التلقائي</label>
-                            <textarea id="ar-message" class="form-textarea" placeholder="اكتب الرد الذي سيتم إرساله للعميل"></textarea>
-                        </div>
-                        <button onclick="window.saveNewAutoReply()" class="btn btn-primary btn-full">حفظ القاعدة</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        if (rules.length === 0) {
-            html += `
-                <div style="text-align: center; padding: 60px 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
-                    <h3 style="margin-bottom: 10px;">لا توجد قواعد رد آلي</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 24px;">قم ببرمجة أول رد تلقائي لمساعدة عملائك بشكل أسرع.</p>
-                    <button class="btn btn-primary" onclick="window.openNewAutoReplyModal()">إضافة قاعدة جديدة</button>
-                </div>
-            `;
-            this.container.innerHTML = html;
-            return;
-        }
-
-        html += `
-            <div style="padding: 20px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                    <thead>
-                        <tr style="text-align: right; border-bottom: 2px solid var(--border-subtle);">
-                            <th style="padding: 12px;">الكلمة المفتاحية</th>
-                            <th style="padding: 12px;">الرد</th>
-                            <th style="padding: 12px;">الحالة</th>
-                            <th style="padding: 12px;">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        rules.forEach(rule => {
-            html += `
-                <tr style="border-bottom: 1px solid var(--border-subtle);">
-                    <td style="padding: 12px;">${rule.keywords || 'ترحيب'}</td>
-                    <td style="padding: 12px; color: var(--text-secondary);">${rule.welcome_message || '—'}</td>
-                    <td style="padding: 12px;">
-                        <span class="tag" style="background: ${rule.is_enabled ? 'var(--status-success-bg)' : 'var(--bg-elevated)'}; color: ${rule.is_enabled ? 'var(--status-success)' : 'var(--text-muted)'};">
-                            ${rule.is_enabled ? 'نشط' : 'معطل'}
-                        </span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <button class="btn btn-ghost btn-sm" onclick="window.deleteAutoReply('${rule.id}')" style="color: var(--status-error);">حذف</button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table></div>`;
-        this.container.innerHTML = html;
     }
 }
