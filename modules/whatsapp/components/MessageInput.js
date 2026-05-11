@@ -87,7 +87,7 @@ export class MessageInput {
 
     textarea.addEventListener('input', () => {
       textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 130)}px`;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     });
 
     fileInput.addEventListener('change', () => {

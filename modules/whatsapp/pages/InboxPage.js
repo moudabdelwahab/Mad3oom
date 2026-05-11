@@ -136,7 +136,9 @@ export class InboxPage {
       return;
     }
     container.innerHTML = conversation.messages.map((message) => MessageBubble(message)).join('');
-    requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    requestAnimationFrame(() => { 
+      container.scrollTop = container.scrollHeight; 
+    });
   }
 
   async selectConversation(phone) {

@@ -77,13 +77,14 @@ body {
 .wa-inbox-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-min-height: 0;
-   height: 100dvh;
-  overflow: visible;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   background: var(--wa-bg-primary);
-  border: 1px solid var(--wa-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
@@ -92,14 +93,17 @@ min-height: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
   background: var(--wa-sidebar-bg);
   border-left: 1px solid var(--wa-border);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  overflow: hidden;
 }
 
 .wa-inbox-sidebar-head {
-  min-height: 74px;
-  padding: 14px 18px;
+  min-height: 60px;
+  height: 60px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -107,24 +111,33 @@ min-height: 0;
   background: var(--wa-header-bg);
   border-bottom: 1px solid var(--wa-border);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  flex-shrink: 0;
 }
 
 .wa-inbox-sidebar-head h2 {
-  font-size: 19px;
+  font-size: 18px;
   color: var(--wa-text-primary);
   margin: 0;
   font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .wa-inbox-sidebar-head p {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--wa-text-muted);
   margin: 2px 0 0;
 }
 
+.wa-sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .wa-icon-action {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   color: var(--wa-text-secondary);
   background: transparent;
@@ -149,11 +162,12 @@ min-height: 0;
   background: var(--wa-bg-secondary);
   border-bottom: 1px solid var(--wa-border);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  flex-shrink: 0;
 }
 
 .wa-search input {
   width: 100%;
-  height: 40px;
+  height: 36px;
   border: 1px solid var(--wa-border);
   border-radius: 20px;
   background: var(--wa-bg-tertiary);
@@ -161,7 +175,7 @@ min-height: 0;
   padding: 0 16px;
   outline: none;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
@@ -178,7 +192,9 @@ min-height: 0;
 .wa-conversations {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   transition: background-color 0.3s ease;
+  min-height: 0;
 }
 
 .wa-conversation {
@@ -186,7 +202,7 @@ min-height: 0;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 14px;
+  padding: 10px 12px;
   color: inherit;
   text-align: right;
   border-bottom: 1px solid var(--wa-border);
@@ -208,7 +224,7 @@ min-height: 0;
 .wa-conversation.active::before {
   content: '';
   position: absolute;
-  inset-block: 10px;
+  inset-block: 8px;
   right: 0;
   width: 3px;
   border-radius: 0 3px 3px 0;
@@ -216,8 +232,8 @@ min-height: 0;
 }
 
 .wa-conversation-avatar {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   flex: 0 0 auto;
   display: inline-flex;
@@ -226,7 +242,7 @@ min-height: 0;
   background: linear-gradient(135deg, var(--wa-accent-green), var(--wa-accent-blue));
   color: white;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 15px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -247,7 +263,7 @@ min-height: 0;
 
 .wa-conversation-top strong {
   color: var(--wa-text-primary);
-  font-size: 14px;
+  font-size: 13px;
   direction: ltr;
   unicode-bidi: plaintext;
   font-weight: 600;
@@ -275,13 +291,13 @@ min-height: 0;
 }
 
 .wa-unread {
-  min-width: 21px;
-  height: 21px;
-  padding: 0 7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   border-radius: 50%;
   background: var(--wa-accent-green);
   color: white;
-  font-size: 11px;
+  font-size: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -294,17 +310,17 @@ min-height: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
   background: var(--wa-bg-primary);
   position: relative;
   transition: background-color 0.3s ease;
-min-height: 0;
-overflow: hidden;
+  overflow: hidden;
 }
 
 .wa-chat-window::before {
   content: '';
   position: absolute;
-  inset: 74px 0 70px;
+  inset: 60px 0 70px;
   opacity: 0.03;
   pointer-events: none;
   background-image: radial-gradient(circle at 1px 1px, var(--wa-text-primary) 1px, transparent 0);
@@ -313,8 +329,9 @@ overflow: hidden;
 
 /* ─── Chat Header ─── */
 .wa-chat-header {
-  min-height: 74px;
-  padding: 14px 18px;
+  min-height: 60px;
+  height: 60px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -323,11 +340,12 @@ overflow: hidden;
   position: relative;
   z-index: 1;
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  flex-shrink: 0;
 }
 
 .wa-chat-avatar {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   flex: 0 0 auto;
   display: inline-flex;
@@ -336,7 +354,7 @@ overflow: hidden;
   background: linear-gradient(135deg, var(--wa-accent-green), var(--wa-accent-blue));
   color: white;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 15px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -351,11 +369,11 @@ overflow: hidden;
   direction: ltr;
   unicode-bidi: plaintext;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .wa-chat-title span {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--wa-text-muted);
   margin-top: 2px;
   display: block;
@@ -364,7 +382,7 @@ overflow: hidden;
 .wa-chat-placeholder-title {
   color: var(--wa-text-secondary);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .wa-chat-actions {
@@ -377,7 +395,8 @@ overflow: hidden;
 .wa-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 24px clamp(14px, 3vw, 42px);
+  overflow-x: hidden;
+  padding: 16px clamp(12px, 3vw, 32px);
   position: relative;
   z-index: 1;
   display: flex;
@@ -385,10 +404,8 @@ overflow: hidden;
   gap: 8px;
   background: var(--wa-bg-primary);
   transition: background-color 0.3s ease;
-min-height: 0;
-padding-bottom: 90px;
+  min-height: 0;
 }
-
 
 /* ─── Message Bubbles ─── */
 .wa-bubble {
@@ -397,7 +414,7 @@ padding-bottom: 90px;
   padding: 8px 10px 5px;
   border-radius: 14px;
   color: var(--wa-text-primary);
-  box-shadow:0 4px 12px rgba(0,0,0,.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
   position: relative;
   overflow: hidden;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
@@ -440,7 +457,7 @@ padding-bottom: 90px;
 }
 
 .wa-bubble.outbound .wa-bubble-meta {
-color: rgba(255,255,255,.72);
+  color: rgba(255, 255, 255, .72);
 }
 
 .wa-delivery {
@@ -561,11 +578,12 @@ color: rgba(255,255,255,.72);
 
 /* ─── Typing Indicator ─── */
 .wa-typing {
-  padding: 7px 18px;
+  padding: 6px 16px;
   color: var(--wa-accent-green);
   font-size: 12px;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 /* ─── Composer (Message Input) ─── */
@@ -577,7 +595,8 @@ color: rgba(255,255,255,.72);
   padding: 10px 12px 12px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
   flex-shrink: 0;
-
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .wa-composer-form {
@@ -589,14 +608,14 @@ color: rgba(255,255,255,.72);
 .wa-composer-form textarea {
   flex: 1;
   resize: none;
-  min-height: 43px;
-  max-height: 130px;
+  min-height: 40px;
+  max-height: 120px;
   border: 1px solid var(--wa-border);
   outline: none;
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--wa-bg-secondary);
   color: var(--wa-text-primary);
-  padding: 11px 16px;
+  padding: 10px 16px;
   font-family: inherit;
   line-height: 1.5;
   font-size: 14px;
@@ -614,8 +633,8 @@ color: rgba(255,255,255,.72);
 }
 
 .wa-composer-btn {
-  min-width: 43px;
-  height: 43px;
+  min-width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -652,17 +671,18 @@ color: rgba(255,255,255,.72);
 }
 
 .wa-send-btn {
-  min-width: 43px;
-  height: 43px;
-  border-radius: 22px;
-  padding: 0 18px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  padding: 0 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   background: var(--wa-accent-green);
   color: #ffffff;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   cursor: pointer;
   border: none;
@@ -678,31 +698,44 @@ color: rgba(255,255,255,.72);
   cursor: not-allowed;
 }
 
+.wa-send-btn span {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .wa-send-btn span {
+    display: inline;
+  }
+}
+
 /* ─── Attachment Previews ─── */
 .wa-composer-previews {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 8px;
-  padding: 0 54px 8px 54px;
+  padding: 0 50px 8px 50px;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .wa-attachment-preview {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 220px;
-  max-width: 360px;
+  min-width: 200px;
+  max-width: 320px;
   padding: 8px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--wa-bg-secondary);
   border: 1px solid var(--wa-border);
+  flex-shrink: 0;
 }
 
 .wa-attachment-thumb {
-  width: 54px;
-  height: 54px;
-  border-radius: 11px;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--wa-bg-tertiary);
   display: flex;
@@ -740,15 +773,16 @@ color: rgba(255,255,255,.72);
 }
 
 .wa-attachment-preview > button {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   color: #ff8a80;
   background: rgba(255, 255, 255, 0.06);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   border: none;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+  flex-shrink: 0;
 }
 
 .wa-attachment-preview > button:hover {
@@ -756,14 +790,14 @@ color: rgba(255,255,255,.72);
 }
 
 .wa-file-preview-icon {
-  font-size: 26px;
+  font-size: 24px;
 }
 
 /* ─── Emoji Panel ─── */
 .wa-emoji-panel {
-  position: absolute;
- right: clamp(8px, 2vw, 14px);
-bottom: 72px;
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
   display: grid;
   grid-template-columns: repeat(6, 36px);
   gap: 6px;
@@ -772,14 +806,14 @@ bottom: 72px;
   background: var(--wa-bg-secondary);
   border: 1px solid var(--wa-border);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  z-index: 20;
+  z-index: 30;
   max-width: min(320px, calc(100vw - 32px));
 }
 
 .wa-emoji-panel button {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 20px;
   cursor: pointer;
   border: none;
@@ -832,8 +866,8 @@ bottom: 72px;
 
 /* ─── Skeleton Loading ─── */
 .wa-skeleton {
-  height: 74px;
-  margin: 12px;
+  height: 60px;
+  margin: 10px;
   border-radius: 8px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
   animation: waPulse 1.4s infinite;
@@ -860,14 +894,15 @@ bottom: 72px;
 
 /* ─── Chat State ─── */
 .wa-chat-state {
-  padding: 12px 18px;
+  padding: 10px 16px;
   color: var(--wa-text-secondary);
-  font-size: 13px;
+  font-size: 12px;
   text-align: center;
   background: rgba(0, 168, 132, 0.08);
   border: 1px solid rgba(0, 168, 132, 0.2);
-  border-radius: 8px;
-  margin: 12px 18px 0;
+  border-radius: 6px;
+  margin: 8px 16px 0;
+  flex-shrink: 0;
 }
 
 .wa-chat-state.error {
@@ -882,18 +917,18 @@ bottom: 72px;
   .wa-inbox-shell {
     grid-template-columns: 1fr;
     height: 100dvh;
-    min-height: 0;
+    min-height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
   }
 
   .wa-inbox-sidebar {
-    max-height: 280px;
+    max-height: 240px;
     min-height: 0;
     overflow-y: auto;
     border-left: none;
     border-bottom: 1px solid var(--wa-border);
     flex-shrink: 0;
-
   }
 
   .wa-chat-window {
@@ -906,20 +941,80 @@ bottom: 72px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: 90px;
+    padding: 12px clamp(8px, 2vw, 20px);
   }
 
   .wa-composer {
     flex-shrink: 0;
+    max-height: 160px;
   }
 
   .wa-bubble {
     max-width: 88%;
   }
 }
+
 @media (max-width: 640px) {
+  .wa-inbox-sidebar {
+    max-height: 200px;
+  }
+
+  .wa-inbox-sidebar-head {
+    min-height: 52px;
+    height: 52px;
+    padding: 10px 12px;
+  }
+
+  .wa-inbox-sidebar-head h2 {
+    font-size: 16px;
+  }
+
+  .wa-search {
+    padding: 8px 10px;
+  }
+
+  .wa-search input {
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .wa-conversation {
+    padding: 8px 10px;
+  }
+
+  .wa-conversation-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 13px;
+  }
+
+  .wa-chat-header {
+    min-height: 52px;
+    height: 52px;
+    padding: 10px 12px;
+  }
+
+  .wa-chat-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 13px;
+  }
+
+  .wa-chat-title strong {
+    font-size: 13px;
+  }
+
+  .wa-chat-title span {
+    font-size: 10px;
+  }
+
+  .wa-messages {
+    padding: 8px clamp(6px, 2vw, 12px);
+  }
+
   .wa-composer-previews {
-    padding-inline: 0;
+    padding: 0 40px 6px 40px;
+    max-height: 100px;
   }
 
   .wa-attachment-preview {
@@ -927,11 +1022,29 @@ bottom: 72px;
   }
 
   .wa-audio-player {
-    min-width: 220px;
+    min-width: 200px;
   }
 
   .wa-bubble {
     max-width: 95%;
+  }
+
+  .wa-composer-form textarea {
+    min-height: 36px;
+    max-height: 100px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .wa-composer-btn {
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .wa-send-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
   }
 }
 
@@ -955,4 +1068,22 @@ bottom: 72px;
 .wa-conversations::-webkit-scrollbar-thumb:hover,
 .wa-messages::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 168, 132, 0.5);
+}
+
+/* ─── Composer Scrollbar ─── */
+.wa-composer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wa-composer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wa-composer::-webkit-scrollbar-thumb {
+  background: rgba(0, 168, 132, 0.2);
+  border-radius: 2px;
+}
+
+.wa-composer::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 168, 132, 0.4);
 }
