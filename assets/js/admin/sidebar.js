@@ -301,9 +301,12 @@ async function checkSuperUserForMyUsers() {
 
 async function checkSupportForWhatsApp() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.email === 'support@mad3oom.online') {
-        const whatsappLink = document.getElementById('whatsappLink');
-        if (whatsappLink) whatsappLink.style.display = 'flex';
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('email, role, whatsapp_enabled').eq('id', user.id).maybeSingle();
+        if (profile && (profile.email === 'support@mad3oom.online' || profile.role === 'admin' || profile.whatsapp_enabled)) {
+            const whatsappLink = document.getElementById('whatsappLink');
+            if (whatsappLink) whatsappLink.style.display = 'flex';
+        }
     }
 }
 

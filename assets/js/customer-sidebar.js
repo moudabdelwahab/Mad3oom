@@ -116,6 +116,7 @@ function setupSidebarLogic(onTabChange) {
     // Initial load
     loadNotifications();
     setupNotificationRealtime();
+    checkWhatsAppPermission();
 
     const toggleSidebar = () => {
         sidebar.classList.toggle('active');
@@ -295,4 +296,20 @@ function setupSidebarLogic(onTabChange) {
 
     // Initialize language checkmarks on load
     updateLanguageCheckmarks();
+}
+
+async function checkWhatsAppPermission() {
+    try {
+        const { supabase } = await import('/api-config.js');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase.from('profiles').select('whatsapp_enabled, role, email').eq('id', user.id).maybeSingle();
+            if (profile && (profile.whatsapp_enabled || profile.role === 'admin' || profile.email === 'support@mad3oom.online')) {
+                const whatsappLink = document.getElementById('whatsappLink');
+                if (whatsappLink) whatsappLink.style.display = 'flex';
+            }
+        }
+    } catch (err) {
+        console.error('[CustomerSidebar] Error checking WhatsApp permission:', err);
+    }
 }

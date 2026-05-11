@@ -55,6 +55,7 @@ function navigateTo(page, element) {
   if (page === 'templates') { loadTemplates(); }
   if (page === 'autoreply') { loadAutoReply(); }
   if (page === 'users') { loadUsers(); }
+  if (page === 'connect') { updateConnectionStatus(); }
 }
 
 window.navigateTo = navigateTo;
@@ -204,13 +205,13 @@ window.deleteTemplate = async function(name) {
   try {
     await WhatsAppAPI.deleteTemplate(name);
     showToast('تم حذف القالب بنجاح', 'success');
-const session = await supabase.auth.getSession();
+    const session = await supabase.auth.getSession();
 
-if (session?.data?.session) {
-   await loadTemplates();
-} else {
-   console.error('No active session');
-}
+    if (session?.data?.session) {
+       await loadTemplates();
+    } else {
+       console.error('No active session');
+    }
   } catch (error) {
     showToast(`خطأ في حذف القالب: ${error.message}`, 'error');
   }
@@ -311,46 +312,77 @@ window.cleanupUsersPage = async function() {
 
 async function updateConnectionStatus() {
   try {
-    const status = await OAuthService.getConnectionStatus();
+    const integrations = await SupabaseIntegration.getWhatsAppChannels();
+    const container = document.getElementById('connection-status-list');
+    if (!container) return;
 
-    if (status.isConnected) {
-      document.getElementById('connection-status').style.display = 'block';
-      document.getElementById('status-phone').textContent =
-        status.phoneId || '—';
-      businessPhoneNumber = status.phoneId || businessPhoneNumber;
-
-      document.getElementById('status-date').textContent =
-        status.connectedAt
-          ? new Date(status.connectedAt).toLocaleDateString('ar-SA')
-          : '—';
-
-      document.getElementById('connect-btn').style.display    = 'none';
-      document.getElementById('disconnect-btn').style.display = 'inline-flex';
-
-      document.getElementById('dash-status-val').textContent    = 'متصل';
-      document.getElementById('dash-status-change').textContent = '✓ متصل بنجاح';
-      document.getElementById('dash-status-change').style.color = 'var(--status-success)';
-
-      const badge = document.getElementById('connect-badge');
-      if (badge) badge.style.display = 'none';
-
-    } else {
-      businessPhoneNumber = '';
-      document.getElementById('connect-btn').style.display       = 'inline-flex';
-      document.getElementById('disconnect-btn').style.display    = 'none';
-      document.getElementById('connection-status').style.display = 'none';
-
+    if (integrations.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 20px; text-align: center; background: rgba(255, 179, 0, 0.05); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); color: var(--text-secondary);">
+          لا يوجد أرقام مرتبطة حالياً.
+        </div>
+      `;
+      
       document.getElementById('dash-status-val').textContent    = 'غير متصل';
       document.getElementById('dash-status-change').textContent = '! اضغط للربط';
       document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
-
+      
       const badge = document.getElementById('connect-badge');
       if (badge) badge.style.display = 'inline-block';
+      return;
     }
+
+    const currentPhoneId = localStorage.getItem('mad3oom_wa_phone_id');
+
+    container.innerHTML = integrations.map(int => {
+      const isSelected = int.metadata?.phone_number_id === currentPhoneId;
+      return `
+        <div class="connection-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: ${isSelected ? 'rgba(0, 200, 83, 0.05)' : 'var(--bg-elevated)'}; border: 1px solid ${isSelected ? 'var(--border-brand)' : 'var(--border-subtle)'}; border-radius: var(--radius-md); margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--brand-primary); display: flex; align-items: center; justify-content: center; color: white;">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px;">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" stroke="currentColor" stroke-width="2"></path>
+              </svg>
+            </div>
+            <div>
+              <div style="font-weight: 600; color: var(--text-primary);">${int.metadata?.phone_number || 'رقم غير معروف'}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">ID: ${int.metadata?.phone_number_id}</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            ${isSelected 
+              ? '<span style="font-size: 11px; font-weight: 700; color: var(--status-success); background: rgba(0, 200, 83, 0.1); padding: 4px 8px; border-radius: 4px;">نشط حالياً</span>'
+              : `<button class="btn btn-sm btn-ghost" onclick="window.switchActivePhone('${int.metadata?.phone_number_id}')">تفعيل</button>`
+            }
+            <button class="btn btn-sm btn-ghost" style="color: var(--status-error);" onclick="window.handleDisconnect('${int.metadata?.phone_number_id}')">حذف</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Update Dashboard Summary
+    document.getElementById('dash-status-val').textContent    = 'متصل';
+    document.getElementById('dash-status-change').textContent = `✓ ${integrations.length} أرقام مرتبطة`;
+    document.getElementById('dash-status-change').style.color = 'var(--status-success)';
+    
+    const badge = document.getElementById('connect-badge');
+    if (badge) badge.style.display = 'none';
+
   } catch (error) {
     console.error('[App] Error updating connection status:', error);
   }
 }
+
+window.switchActivePhone = async function(phoneId) {
+  const integrations = await SupabaseIntegration.getWhatsAppChannels();
+  const target = integrations.find(i => i.metadata?.phone_number_id === phoneId);
+  if (target) {
+    SupabaseIntegration.saveLocalIntegration(target.metadata, target.access_token);
+    showToast('تم تبديل الرقم النشط', 'success');
+    updateConnectionStatus();
+    updateDashboard();
+  }
+};
 
 // ─── Dashboard Stats ──────────────────────────────
 
@@ -359,9 +391,18 @@ async function updateDashboard() {
     const stats = await SupabaseIntegration.getDashboardStats();
 
     if (!stats) {
-      document.getElementById('dash-status-val').textContent    = 'غير متصل';
-      document.getElementById('dash-status-change').textContent = '! اضغط للربط';
-      document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
+      const integrations = await SupabaseIntegration.getWhatsAppChannels();
+      if (integrations.length > 0) {
+        // We have integrations but none selected or token expired
+        document.getElementById('dash-status-val').textContent    = 'متصل';
+        document.getElementById('dash-status-change').textContent = '! اختر رقم نشط';
+        document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
+      } else {
+        document.getElementById('dash-status-val').textContent    = 'غير متصل';
+        document.getElementById('dash-status-change').textContent = '! اضغط للربط';
+        document.getElementById('dash-status-change').style.color = 'var(--status-warning)';
+      }
+      
       const welcomeSub = document.getElementById('welcome-sub');
       if (welcomeSub) {
         welcomeSub.textContent = 'لوحة تحكم WhatsApp Business API جاهزة. ابدأ بربط رقمك الآن.';
@@ -373,8 +414,6 @@ async function updateDashboard() {
     document.getElementById('dash-status-change').textContent = '✓ تم الربط';
     document.getElementById('dash-status-change').style.color = 'var(--status-success)';
 
-    const statusPhone = document.getElementById('status-phone');
-    if (statusPhone) statusPhone.textContent = stats.phoneNumber;
     businessPhoneNumber = stats.phoneNumber || businessPhoneNumber;
 
     const welcomeName = document.getElementById('welcome-name');
@@ -420,12 +459,12 @@ function handleOAuthStateChange(state) {
 
 // ─── Disconnect Handler ──────────────────────────
 
-window.handleDisconnect = async function() {
-  if (!confirm('هل أنت متأكد من رغبتك في قطع الاتصال؟')) return;
+window.handleDisconnect = async function(phoneId = null) {
+  if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الربط؟')) return;
   
   try {
-    await OAuthService.disconnect();
-    showToast('تم قطع الاتصال بنجاح', 'success');
+    await SupabaseIntegration.deleteIntegration(phoneId);
+    showToast('تم حذف الربط بنجاح', 'success');
     updateConnectionStatus();
     updateDashboard();
   } catch (error) {
