@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!session) {
       console.warn('[App] No active session, redirecting to login...');
       // Redirect to login page if no session
-      window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+      window.location.href = '/sign-in.html?redirect=' + encodeURIComponent(window.location.pathname);
       return;
     }
 
