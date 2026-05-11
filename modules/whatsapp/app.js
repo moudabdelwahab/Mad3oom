@@ -14,6 +14,39 @@ import { TemplatesPage } from './pages/TemplatesPage.js';
 import { AutoReplyPage } from './pages/AutoReplyPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
+// ─── Navigation ───────────────────────────────────────
+
+function navigateTo(page, element) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pageElement = document.getElementById(`page-${page}`);
+  if (pageElement) pageElement.classList.add('active');
+  if (element) element.classList.add('active');
+
+  const titleMap = {
+    dashboard: 'الرئيسية',
+    connect:   'ربط رقم واتساب',
+    templates: 'إدارة القوالب',
+    status:    'حالة الرقم',
+    messages:  'الرسائل',
+    settings:  'الإعدادات',
+    autoreply: 'الرد الآلي',
+  };
+
+  document.getElementById('page-title').textContent =
+    titleMap[page] || 'الرئيسية';
+  document.getElementById('page-subtitle').textContent =
+    'منصة مدعوم - إدارة WhatsApp Business API';
+
+  // تحميل البيانات تلقائياً 
+  if (page === 'messages') { loadMessages(); }
+  if (page === 'templates') { loadTemplates(); }
+  if (page === 'autoreply') { loadAutoReply(); }
+}
+
+window.navigateTo = navigateTo;
+
 // ─── State ───────────────────────────────────────────
 let provisioningStatus  = null;
 let currentChannelId    = null;
@@ -373,37 +406,7 @@ function subscribeToChannelUpdates(channelId) {
   }
 }
 
-// ─── Navigation ───────────────────────────────────────
 
-function navigateTo(page, element) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-  const pageElement = document.getElementById(`page-${page}`);
-  if (pageElement) pageElement.classList.add('active');
-  if (element) element.classList.add('active');
-
-  const titleMap = {
-    dashboard: 'الرئيسية',
-    connect:   'ربط رقم واتساب',
-    templates: 'إدارة القوالب',
-    status:    'حالة الرقم',
-    messages:  'الرسائل',
-    settings:  'الإعدادات',
-  };
-
-  document.getElementById('page-title').textContent =
-    titleMap[page] || 'الرئيسية';
-  document.getElementById('page-subtitle').textContent =
-    'منصة مدعوم - إدارة WhatsApp Business API';
-
-  // تحميل البيانات تلقائياً 
-  if (page === 'messages') { loadMessages(); }
-  if (page === 'templates') { loadTemplates(); }
-  if (page === 'autoreply') { loadAutoReply(); }
-}
-
-window.navigateTo = navigateTo;
 
 // ─── Disconnect Handler ───────────────────────────────
 

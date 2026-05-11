@@ -263,7 +263,6 @@ export class InboxPage {
     state.textContent = message;
     state.classList.toggle('error', error);
   }
-}
 
   toggleTheme() {
     if (window.waThemeManager) {
