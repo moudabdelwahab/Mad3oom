@@ -12,6 +12,7 @@ import ProvisioningStatus from './ProvisioningStatus.js';
 import { InboxPage } from './pages/InboxPage.js';
 import { TemplatesPage } from './pages/TemplatesPage.js';
 import { AutoReplyPage } from './pages/AutoReplyPage.js';
+import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -43,6 +44,7 @@ function navigateTo(page, element) {
   if (page === 'messages') { loadMessages(); }
   if (page === 'templates') { loadTemplates(); }
   if (page === 'autoreply') { loadAutoReply(); }
+  if (page === 'users') { loadUsers(); }
 }
 
 window.navigateTo = navigateTo;
@@ -54,6 +56,7 @@ let channelSubscription = null;
 let inboxPage = null;
 let templatesPage = null;
 let autoReplyPage = null;
+let usersPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -72,7 +75,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    await loadUserProfile();
+    const profile = await loadUserProfile();
+    
+    // Check if WhatsApp is enabled for this user
+    if (profile && profile.email !== 'support@mad3oom.online' && profile.role !== 'admin' && !profile.whatsapp_enabled) {
+      showNoPermissionMessage();
+      return;
+    }
+
     await updateConnectionStatus();
     await updateDashboard();
 
@@ -99,7 +109,7 @@ async function loadUserProfile() {
   try {
     const supabase = await SupabaseIntegration.initializeSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return null;
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -112,9 +122,37 @@ async function loadUserProfile() {
         profile.full_name || 'المستخدم';
       document.getElementById('welcome-name').textContent =
         (profile.full_name || 'صديقي').split(' ')[0] + '!';
+      
+      // Hide users tab if not support/admin
+      const usersTab = document.querySelector('[data-page="users"]');
+      if (usersTab && profile.email !== 'support@mad3oom.online' && profile.role !== 'admin') {
+        usersTab.style.display = 'none';
+      }
     }
+    return profile;
   } catch (error) {
     console.error('[App] Error loading user profile:', error);
+    return null;
+  }
+}
+
+function showNoPermissionMessage() {
+  const mainContent = document.querySelector('.page-content');
+  if (mainContent) {
+    mainContent.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; text-align: center; padding: 20px;">
+        <div style="background: rgba(255, 179, 0, 0.1); padding: 30px; border-radius: 20px; border: 1px solid rgba(255, 179, 0, 0.2); max-width: 500px;">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 64px; height: 64px; color: var(--status-warning); margin-bottom: 20px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <h2 style="margin-bottom: 10px; color: var(--text-primary);">صلاحية الواتساب غير مفعلة</h2>
+          <p style="color: var(--text-secondary); line-height: 1.6;">عذراً، حسابك لا يملك صلاحية الوصول إلى خدمات الواتساب حالياً. يرجى التواصل مع الدعم الفني لتفعيل الخدمة لك.</p>
+          <a href="mailto:support@mad3oom.online" class="btn btn-primary" style="margin-top: 20px; display: inline-flex;">تواصل مع الدعم</a>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -228,6 +266,30 @@ window.deleteAutoReply = async function(id) {
     showToast(`خطأ في الحذف: ${error.message}`, 'error');
   }
 };
+
+// ─── Users Management ────────────────────────────
+
+async function loadUsers() {
+  const container = document.getElementById('whatsapp-users-root');
+  if (!container) return;
+
+  if (!usersPage) {
+    usersPage = new UsersManagementPage(container);
+    await usersPage.mount();
+    return;
+  }
+
+  await usersPage.load();
+}
+
+window.loadUsers = loadUsers;
+
+window.toggleUserWhatsAppPermission = async function(userId, currentState) {
+  if (usersPage) {
+    await usersPage.toggleWhatsAppPermission(userId, currentState);
+  }
+};
+
 // ─── Connection Status ────────────────────────────────
 
 async function updateConnectionStatus() {
