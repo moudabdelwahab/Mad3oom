@@ -46,6 +46,21 @@
     background-color: var(--bg-surface);
     background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
     background-size: 20px 20px;
+    /* Force LTR for Drawflow engine to calculate connections correctly */
+    direction: ltr !important;
+}
+
+.drawflow .drawflow-node .title, 
+.drawflow .drawflow-node .content {
+    /* Keep content RTL for Arabic users */
+    direction: rtl !important;
+    text-align: right;
+}
+
+/* Fix for connection points alignment in RTL environment */
+.drawflow .drawflow-node .inputs, 
+.drawflow .drawflow-node .outputs {
+    direction: ltr !important;
 }
 
 /* Node Styles */
