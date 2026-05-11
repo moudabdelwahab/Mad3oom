@@ -505,3 +505,23 @@ window.handleNotifications = function() {
 window.handleUserMenu = function() {
   showToast('قائمة المستخدم قيد التطوير', 'info');
 };
+// ─── Toast Notifications ──────────────────────────────
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    padding: 12px 24px; border-radius: 8px; color: white; font-weight: 600;
+    z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    background: ${type === 'success' ? '#00c853' : type === 'error' ? '#f44336' : type === 'warning' ? '#ffb300' : '#2196f3'};
+  `;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.style.opacity = '1');
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+window.showToast = showToast;
