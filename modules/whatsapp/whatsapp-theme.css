@@ -73,9 +73,9 @@
 .wa-inbox-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  min-height: calc(100vh - 150px);
-  height: calc(100vh - 150px);
-  overflow: hidden;
+min-height: 100dvh;
+   height: 100%;
+  overflow: visible;
   background: var(--wa-bg-primary);
   border: 1px solid var(--wa-border);
   border-radius: 12px;
@@ -388,7 +388,7 @@
   padding: 8px 10px 5px;
   border-radius: 14px;
   color: var(--wa-text-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow:0 4px 12px rgba(0,0,0,.18);
   position: relative;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -405,7 +405,7 @@
   align-self: flex-end;
   background: var(--wa-bubble-outgoing);
   border-top-right-radius: 4px;
-  color: #000000;
+  color: #E9EDEF;
 }
 
 .wa-bubble-text {
