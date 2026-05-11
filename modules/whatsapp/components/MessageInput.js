@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils/dom.js';
+import Icons from '../icons.js';
 
 const EMOJIS = ['😀','😂','😍','🙏','👍','🔥','🎉','❤️','✅','📌','🚀','💬','🤝','👏','😎','😭','🙌','💡'];
 
@@ -38,19 +39,24 @@ export class MessageInput {
 
   render({ disabled = false } = {}) {
     document.removeEventListener('click', this.handleOutsideClick);
+    const emojiIcon = Icons.render('emoji', 'wa-composer-icon');
+    const attachIcon = Icons.render('attach', 'wa-composer-icon');
+    const micIcon = Icons.render('microphone', 'wa-composer-icon');
+    const sendIcon = Icons.render('send', 'wa-composer-icon');
+    
     this.root.innerHTML = `
       <div class="wa-composer-previews" data-previews hidden></div>
       <div class="wa-emoji-panel" data-emojis hidden role="dialog" aria-label="Emoji picker">
         ${EMOJIS.map((emoji) => `<button type="button" aria-label="${emoji}">${emoji}</button>`).join('')}
       </div>
       <form class="wa-composer-form">
-        <button type="button" class="wa-composer-btn" data-emoji ${disabled ? 'disabled' : ''} aria-label="إيموجي">😊</button>
+        <button type="button" class="wa-composer-btn" data-emoji ${disabled ? 'disabled' : ''} aria-label="إيموجي" title="إيموجي">${emojiIcon}</button>
         <label class="wa-composer-btn ${disabled ? 'disabled' : ''}" title="إرفاق ملفات">
-          📎<input type="file" data-file multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" hidden ${disabled ? 'disabled' : ''} />
+          ${attachIcon}<input type="file" data-file multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" hidden ${disabled ? 'disabled' : ''} />
         </label>
         <textarea data-text rows="1" placeholder="اكتب رسالة" ${disabled ? 'disabled' : ''}></textarea>
-        <button type="button" class="wa-composer-btn" data-voice ${disabled ? 'disabled' : ''} aria-label="تسجيل صوت">🎙️</button>
-        <button type="submit" class="wa-send-btn" ${disabled ? 'disabled' : ''}>إرسال</button>
+        <button type="button" class="wa-composer-btn" data-voice ${disabled ? 'disabled' : ''} aria-label="تسجيل صوت" title="تسجيل صوت">${micIcon}</button>
+        <button type="submit" class="wa-send-btn" ${disabled ? 'disabled' : ''} title="إرسال الرسالة">${sendIcon}<span>إرسال</span></button>
       </form>
     `;
     this.bind();
@@ -139,7 +145,7 @@ export class MessageInput {
     if (this.recorder?.state === 'recording') {
       this.recorder.stop();
       button.classList.remove('recording');
-      button.textContent = '🎙️';
+      button.innerHTML = Icons.render('microphone', 'wa-composer-icon');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -163,7 +169,7 @@ export class MessageInput {
     };
     this.recorder.start();
     button.classList.add('recording');
-    button.textContent = '⏹️';
+    button.innerHTML = Icons.render('microphone', 'wa-composer-icon');
     window.Toast?.show?.('جاري التسجيل... اضغط إيقاف للمعاينة قبل الإرسال', 'info');
   }
 

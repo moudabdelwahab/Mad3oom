@@ -7,6 +7,7 @@ import { WhatsAppAPI } from '../services/whatsapp-api.js';
 import { MessageRealtime } from '../realtime/message-realtime.js';
 import { escapeHtml } from '../utils/dom.js';
 import { groupConversations, mergeMessages, normalizeMessage } from '../utils/message-normalizer.js';
+import Icons from '../icons.js';
 
 function inferMediaType(file) {
   if (file.type === 'image/webp' && file.name.toLowerCase().endsWith('.webp')) return 'sticker';
@@ -34,12 +35,16 @@ export class InboxPage {
   }
 
   mount() {
+    const themeToggleIcon = Icons.render('sun', 'wa-theme-toggle-icon');
     this.root.innerHTML = `
       <section class="wa-inbox-shell">
         <aside class="wa-inbox-sidebar">
           <div class="wa-inbox-sidebar-head">
             <div><h2>Inbox</h2><p>كل المحادثات حسب رقم الهاتف</p></div>
-            <button class="wa-icon-action" data-refresh>↻</button>
+            <div class="wa-sidebar-actions">
+              <button class="wa-icon-action" data-theme-toggle title="تبديل الوضع" aria-label="تبديل الوضع">${themeToggleIcon}</button>
+              <button class="wa-icon-action" data-refresh title="تحديث">↻</button>
+            </div>
           </div>
           <div class="wa-search"><input data-search placeholder="بحث بالرقم أو نص الرسالة" /></div>
           <div class="wa-conversations" data-conversations><div class="wa-skeleton"></div></div>
@@ -61,6 +66,7 @@ export class InboxPage {
     });
     this.root.querySelectorAll('[data-refresh]').forEach((button) => button.addEventListener('click', () => this.load()));
     this.root.querySelector('[data-search]').addEventListener('input', (event) => this.renderList(event.target.value));
+    this.root.querySelector('[data-theme-toggle]')?.addEventListener('click', () => this.toggleTheme());
     this.root.querySelector('[data-messages]').addEventListener('click', (event) => {
       const trigger = event.target.closest('[data-lightbox-src]');
       if (trigger) this.openLightbox(trigger.dataset.lightboxSrc, trigger.dataset.lightboxAlt || 'صورة');
@@ -256,5 +262,20 @@ export class InboxPage {
     state.hidden = hidden;
     state.textContent = message;
     state.classList.toggle('error', error);
+  }
+}
+
+  toggleTheme() {
+    if (window.waThemeManager) {
+      const newTheme = window.waThemeManager.toggleTheme();
+      this.updateThemeIcon(newTheme);
+    }
+  }
+
+  updateThemeIcon(theme) {
+    const themeBtn = this.root.querySelector('[data-theme-toggle]');
+    if (!themeBtn) return;
+    const iconName = theme === 'light' ? 'moon' : 'sun';
+    themeBtn.innerHTML = Icons.render(iconName, 'wa-theme-toggle-icon');
   }
 }
