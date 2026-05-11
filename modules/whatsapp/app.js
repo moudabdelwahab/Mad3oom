@@ -26,8 +26,19 @@ let businessPhoneNumber = '';
 // ─── Initialization ──────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('[App] Initializing WhatsApp module...');
-try {
-    await SupabaseIntegration.initializeSupabase();
+  try {
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    
+    // Check for session first
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.warn('[App] No active session, redirecting to login...');
+      // Redirect to login page if no session
+      window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+
     await loadUserProfile();
     await updateConnectionStatus();
     await updateDashboard();
@@ -42,7 +53,10 @@ try {
 
   } catch (error) {
     console.error('[App] Initialization error:', error);
-    showToast('حدث خطأ أثناء تهيئة التطبيق', 'error');
+    // Don't show toast if it's just a 401 we're already handling
+    if (error.status !== 401) {
+      showToast('حدث خطأ أثناء تهيئة التطبيق', 'error');
+    }
   }
 });
 

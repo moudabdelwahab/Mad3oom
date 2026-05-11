@@ -51,14 +51,21 @@ async function initializeSupabase() {
 async function getCurrentSession() {
   try {
     const supabase = await initializeSupabase();
+    // Use getUser() instead of getSession() for more reliable auth check
+    // or at least handle the null case gracefully
     const { data: { session }, error } = await supabase.auth.getSession();
+    
     if (error) {
-      console.error('[WhatsApp Integration] Failed to get session:', error);
+      // Only log real errors, not just "no session"
+      if (error.status !== 401 && error.status !== 403) {
+        console.error('[WhatsApp Integration] Session error:', error);
+      }
       return null;
     }
+    
+    // If no session, try to wait a bit or just return null quietly
     return session;
   } catch (error) {
-    console.error('[WhatsApp Integration] Session error:', error);
     return null;
   }
 }
@@ -121,7 +128,7 @@ async function getIntegration() {
     const userId = await getCurrentUserId();
 
     if (!userId) {
-      console.warn('[WhatsApp Integration] No user session found');
+      // Silent return if no user, app.js will handle redirect/UI
       return null;
     }
 
