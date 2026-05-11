@@ -186,3 +186,61 @@
 .save-status.saved {
     color: var(--status-success);
 }
+/* =========================================
+   Fix Drawflow Connections
+========================================= */
+
+.drawflow .input,
+.drawflow .output {
+    width: 16px !important;
+    height: 16px !important;
+    background: var(--brand-primary) !important;
+    border: 2px solid var(--bg-card) !important;
+    border-radius: 50%;
+    z-index: 9999 !important;
+    pointer-events: all !important;
+    cursor: crosshair;
+}
+
+/* Make handles easier to hit */
+.drawflow .input:hover,
+.drawflow .output:hover {
+    transform: scale(1.15);
+}
+
+/* Prevent node content from blocking handles */
+.drawflow-node .content,
+.drawflow-node .title {
+    position: relative;
+    z-index: 1;
+}
+
+.drawflow .inputs,
+.drawflow .outputs {
+    z-index: 9999 !important;
+    pointer-events: none;
+}
+
+.drawflow .input,
+.drawflow .output {
+    pointer-events: all !important;
+}
+
+/* Better connection visibility */
+.drawflow .connection .main-path {
+    stroke-width: 4px;
+    stroke-linecap: round;
+}
+
+/* Prevent textareas from hijacking drag behavior */
+.node-textarea,
+.node-input,
+.node-input * {
+    pointer-events: auto;
+}
+
+/* Ensure canvas works correctly */
+#drawflow {
+    position: relative;
+    overflow: hidden;
+}
