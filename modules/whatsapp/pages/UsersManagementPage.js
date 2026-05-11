@@ -13,10 +13,87 @@ export class UsersManagementPage {
     this.container = container;
     this.users = [];
     this.currentUserId = null;
+    this.realtimeSubscription = null;
   }
 
   async mount() {
     await this.load();
+    this.subscribeToRealtimeUpdates();
+  }
+
+  subscribeToRealtimeUpdates() {
+    try {
+      const supabase = SupabaseIntegration.initializeSupabase();
+      
+      // Subscribe to profile changes
+      supabase.then(client => {
+        this.realtimeSubscription = client
+          .channel('public:profiles')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'profiles',
+              filter: 'email=neq.support@mad3oom.online'
+            },
+            (payload) => {
+              console.log('[UsersManagementPage] Realtime update:', payload);
+              this.handleRealtimeUpdate(payload);
+            }
+          )
+          .subscribe((status) => {
+            console.log('[UsersManagementPage] Realtime subscription status:', status);
+          });
+      });
+    } catch (error) {
+      console.error('[UsersManagementPage] Error subscribing to realtime:', error);
+    }
+  }
+
+  handleRealtimeUpdate(payload) {
+    const { eventType, new: newData, old: oldData } = payload;
+    const event = eventType.toUpperCase();
+
+    switch (event) {
+      case 'INSERT':
+        // New user registered
+        if (newData && newData.email !== 'support@mad3oom.online') {
+          this.users.unshift({
+            ...newData,
+            hasIntegration: false,
+            whatsapp_enabled: newData.whatsapp_enabled || false,
+          });
+          this.render();
+          window.showToast(`مستخدم جديد: ${newData.email}`, 'success');
+        }
+        break;
+
+      case 'UPDATE':
+        // User profile updated
+        const userIndex = this.users.findIndex(u => u.id === newData.id);
+        if (userIndex !== -1) {
+          this.users[userIndex] = {
+            ...this.users[userIndex],
+            ...newData,
+          };
+          this.render();
+        }
+        break;
+
+      case 'DELETE':
+        // User deleted (rare)
+        this.users = this.users.filter(u => u.id !== oldData.id);
+        this.render();
+        break;
+    }
+  }
+
+  async unmount() {
+    if (this.realtimeSubscription) {
+      await this.realtimeSubscription.unsubscribe();
+      this.realtimeSubscription = null;
+    }
   }
 
   async load() {

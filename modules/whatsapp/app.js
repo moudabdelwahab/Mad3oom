@@ -18,6 +18,11 @@ import { WhatsAppAPI } from './services/whatsapp-api.js';
 // ─── Navigation ───────────────────────────────────────
 
 function navigateTo(page, element) {
+  // Cleanup previous page if needed
+  if (page !== 'users' && usersPage) {
+    window.cleanupUsersPage();
+  }
+  
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -31,14 +36,19 @@ function navigateTo(page, element) {
     templates: 'إدارة القوالب',
     status:    'حالة الرقم',
     messages:  'الرسائل',
+    users:     'إدارة المستخدمين',
     settings:  'الإعدادات',
     autoreply: 'الرد الآلي',
   };
+  
+  // Update subtitle for users page
+  const subtitle = page === 'users' 
+    ? 'إدارة مستخدمي منصة mad3oom.online وتفعيل الصلاحيات' 
+    : 'منصة مدعوم - إدارة WhatsApp Business API';
 
   document.getElementById('page-title').textContent =
     titleMap[page] || 'الرئيسية';
-  document.getElementById('page-subtitle').textContent =
-    'منصة مدعوم - إدارة WhatsApp Business API';
+  document.getElementById('page-subtitle').textContent = subtitle;
 
   // تحميل البيانات تلقائياً 
   if (page === 'messages') { loadMessages(); }
@@ -290,6 +300,13 @@ window.toggleUserWhatsAppPermission = async function(userId, currentState) {
   }
 };
 
+window.cleanupUsersPage = async function() {
+  if (usersPage) {
+    await usersPage.unmount();
+    usersPage = null;
+  }
+};
+
 // ─── Connection Status ────────────────────────────────
 
 async function updateConnectionStatus() {
@@ -335,7 +352,7 @@ async function updateConnectionStatus() {
   }
 }
 
-// ─── Dashboard Stats ──────────────────────────────────
+// ─── Dashboard Stats ──────────────────────────────
 
 async function updateDashboard() {
   try {
@@ -375,149 +392,77 @@ async function updateDashboard() {
     document.getElementById('stat-sent-change').textContent = 'جاري التحديث...';
     
     document.getElementById('stat-delivery-rate').textContent = (stats.qualityRating || '—');
-    document.getElementById('stat-delivery-change').textContent = 'جودة الحساب';
+    document.getElementById('stat-delivery-change').textContent = 'من Meta';
 
-    // Fetch Templates Count
-    try {
-      const { WhatsAppAPI } = await import('./services/whatsapp-api.js');
-      const templates = await WhatsAppAPI.getTemplates();
-      const activeCount = templates.data?.filter(t => t.status === 'APPROVED').length || 0;
-      document.getElementById('stat-templates-count').textContent = activeCount;
-      document.getElementById('stat-templates-change').textContent = `من إجمالي ${templates.data?.length || 0}`;
-    } catch (e) {
-      console.error('Failed to fetch templates for dashboard', e);
-    }
+    document.getElementById('stat-templates-count').textContent = '—';
+    document.getElementById('stat-templates-change').textContent = 'جاري التحديث...';
 
   } catch (error) {
-    console.error('[App] updateDashboard error:', error);
+    console.error('[App] Error updating dashboard:', error);
   }
 }
 
-// ─── OAuth State Handler ──────────────────────────────
+// ─── OAuth State Change Handler ──────────────────
 
-async function handleOAuthStateChange(state) {
-  console.log('[App] Handling OAuth state change:', state.status);
-
-  switch (state.status) {
-    case 'loading':
-      showToast('جاري الربط...', 'info');
-      break;
-
-    case 'success':
-      showToast('تم الربط بنجاح!', 'success');
-      await updateConnectionStatus();
-      await updateDashboard();
-      // ✅ انتقل للـ dashboard مباشرة بعد الربط
-      setTimeout(() => {
-        navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
-      }, 2000);
-      break;
-
-    case 'error':
-      showToast(`خطأ في الربط: ${state.errorMsg}`, 'error');
-      break;
-
-    case 'idle':
-      await updateConnectionStatus();
-      await updateDashboard();
-      break;
-
-    case 'provisioning':
-      // لا نحتاج provisioning في هذا الـ flow
-      break;
+function handleOAuthStateChange(state) {
+  console.log('[App] Handling OAuth state change:', state);
+  
+  if (state.status === 'success') {
+    showToast('تم الربط بنجاح! 🎉', 'success');
+    setTimeout(() => {
+      updateConnectionStatus();
+      updateDashboard();
+    }, 1000);
+  } else if (state.status === 'error') {
+    showToast(`خطأ: ${state.errorMsg}`, 'error');
   }
 }
 
-// ─── Channel Subscription ─────────────────────────────
-
-function subscribeToChannelUpdates(channelId) {
-  try {
-    if (channelSubscription) {
-      channelSubscription.unsubscribe();
-      channelSubscription = null;
-    }
-
-    if (typeof SupabaseIntegration.subscribeToChannelUpdates !== 'function') {
-      console.warn('[App] subscribeToChannelUpdates not available');
-      return;
-    }
-
-    channelSubscription = SupabaseIntegration.subscribeToChannelUpdates(
-      channelId,
-      (updatedChannel) => {
-        console.log('[App] Channel updated:', updatedChannel);
-
-        if (updatedChannel.status === 'active') {
-          setTimeout(() => {
-            showToast('تم تفعيل القناة بنجاح!', 'success');
-            updateDashboard();
-            setTimeout(() => {
-              navigateTo('dashboard', document.querySelector('[data-page=dashboard]'));
-            }, 2000);
-          }, 500);
-        }
-
-        if (updatedChannel.status === 'error') {
-          showToast(`خطأ في التفعيل: ${updatedChannel.error_message}`, 'error');
-        }
-      }
-    );
-
-  } catch (error) {
-    console.error('[App] Error subscribing to channel updates:', error);
-  }
-}
-
-
-
-// ─── Disconnect Handler ───────────────────────────────
+// ─── Disconnect Handler ──────────────────────────
 
 window.handleDisconnect = async function() {
+  if (!confirm('هل أنت متأكد من رغبتك في قطع الاتصال؟')) return;
+  
   try {
     await OAuthService.disconnect();
     showToast('تم قطع الاتصال بنجاح', 'success');
-    await updateConnectionStatus();
-    await updateDashboard();
+    updateConnectionStatus();
+    updateDashboard();
   } catch (error) {
-    console.error('[App] Disconnect error:', error);
-    showToast('حدث خطأ أثناء قطع الاتصال', 'error');
+    showToast(`خطأ: ${error.message}`, 'error');
   }
 };
 
-// ─── Global Handlers ──────────────────────────────────
+// ─── Sync Handler ────────────────────────────────
 
-window.handleSync = function() {
+window.handleSync = async function() {
   const btn = document.getElementById('sync-btn');
-  btn.classList.add('spinning');
-  setTimeout(() => {
-    btn.classList.remove('spinning');
+  if (btn) btn.style.opacity = '0.5';
+  
+  try {
+    await updateDashboard();
     showToast('تم المزامنة بنجاح', 'success');
-  }, 2000);
+  } catch (error) {
+    showToast('خطأ في المزامنة', 'error');
+  } finally {
+    if (btn) btn.style.opacity = '1';
+  }
 };
 
-window.handleNotifications  = () => showToast('لا توجد إشعارات جديدة', 'info');
-window.handleReports        = () => showToast('التقارير قيد التطوير', 'info');
-window.handleUserMenu       = () => showToast('قائمة المستخدم قيد التطوير', 'info');
-window.openNewTemplateModal = () => showToast('إنشاء قالب جديد قيد التطوير', 'info');
-window.handleConnectClick   = () => OAuthService.startOAuthFlow();
+// ─── Reports Handler ────────────────────────────
 
-// ─── Toast Helper ─────────────────────────────────────
+window.handleReports = function() {
+  showToast('التقارير قيد التطوير', 'info');
+};
 
-function showToast(message, type = 'info') {
-  if (typeof Toast !== 'undefined' && Toast.show) {
-    Toast.show(message, type);
-  } else {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-  }
-}
+// ─── Notifications Handler ──────────────────────
 
-// ─── Cleanup ──────────────────────────────────────────
+window.handleNotifications = function() {
+  showToast('لا توجد إشعارات جديدة', 'info');
+};
 
-window.addEventListener('beforeunload', () => {
-  if (channelSubscription) channelSubscription.unsubscribe();
-  if (inboxPage) inboxPage.destroy();
-});
+// ─── User Menu Handler ──────────────────────────
 
-// ─── Exports ──────────────────────────────────────────
-
-export { loadUserProfile, updateDashboard };
+window.handleUserMenu = function() {
+  showToast('قائمة المستخدم قيد التطوير', 'info');
+};
