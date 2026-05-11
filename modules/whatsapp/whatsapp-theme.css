@@ -2,7 +2,11 @@
    WhatsApp Web Theme System
    Dark & Light Mode Support with Modern Design
    ===================================================== */
-
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
 :root {
   /* Light Theme Colors */
   --wa-light-bg-primary: #FFFFFF;
@@ -73,8 +77,8 @@
 .wa-inbox-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-min-height: 100dvh;
-   height: 100%;
+min-height: 0;
+   height: 100dvh;
   overflow: visible;
   background: var(--wa-bg-primary);
   border: 1px solid var(--wa-border);
@@ -127,7 +131,7 @@ min-height: 100dvh;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   font-size: 18px;
   cursor: pointer;
   border: none;
@@ -158,7 +162,7 @@ min-height: 100dvh;
   outline: none;
   font-family: inherit;
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
 .wa-search input::placeholder {
@@ -186,7 +190,7 @@ min-height: 100dvh;
   color: inherit;
   text-align: right;
   border-bottom: 1px solid var(--wa-border);
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   position: relative;
   background: var(--wa-bg-primary);
   cursor: pointer;
@@ -293,6 +297,8 @@ min-height: 100dvh;
   background: var(--wa-bg-primary);
   position: relative;
   transition: background-color 0.3s ease;
+min-height: 0;
+overflow: hidden;
 }
 
 .wa-chat-window::before {
@@ -379,7 +385,10 @@ min-height: 100dvh;
   gap: 8px;
   background: var(--wa-bg-primary);
   transition: background-color 0.3s ease;
+min-height: 0;
+padding-bottom: 90px;
 }
+
 
 /* ─── Message Bubbles ─── */
 .wa-bubble {
@@ -391,7 +400,7 @@ min-height: 100dvh;
   box-shadow:0 4px 12px rgba(0,0,0,.18);
   position: relative;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
 .wa-bubble.inbound {
@@ -431,7 +440,7 @@ min-height: 100dvh;
 }
 
 .wa-bubble.outbound .wa-bubble-meta {
-  color: rgba(0, 0, 0, 0.6);
+color: rgba(255,255,255,.72);
 }
 
 .wa-delivery {
@@ -567,6 +576,8 @@ min-height: 100dvh;
   border-top: 1px solid var(--wa-border);
   padding: 10px 12px 12px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  flex-shrink: 0;
+
 }
 
 .wa-composer-form {
@@ -589,7 +600,7 @@ min-height: 100dvh;
   font-family: inherit;
   line-height: 1.5;
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
@@ -611,7 +622,7 @@ min-height: 100dvh;
   justify-content: center;
   color: var(--wa-text-secondary);
   background: transparent;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   font-size: 18px;
   cursor: pointer;
   border: none;
@@ -652,7 +663,7 @@ min-height: 100dvh;
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   cursor: pointer;
   border: none;
 }
@@ -737,7 +748,7 @@ min-height: 100dvh;
   font-size: 18px;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
 .wa-attachment-preview > button:hover {
@@ -751,8 +762,8 @@ min-height: 100dvh;
 /* ─── Emoji Panel ─── */
 .wa-emoji-panel {
   position: absolute;
-  bottom: 66px;
-  right: 14px;
+ right: clamp(8px, 2vw, 14px);
+bottom: 72px;
   display: grid;
   grid-template-columns: repeat(6, 36px);
   gap: 6px;
@@ -773,7 +784,7 @@ min-height: 100dvh;
   cursor: pointer;
   border: none;
   background: transparent;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
 .wa-emoji-panel button:hover {
@@ -812,7 +823,7 @@ min-height: 100dvh;
   font-size: 28px;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
 }
 
 .wa-lightbox-close:hover {
@@ -867,27 +878,45 @@ min-height: 100dvh;
 
 /* ─── Responsive ─── */
 @media (max-width: 980px) {
+
   .wa-inbox-shell {
     grid-template-columns: 1fr;
-    height: auto;
-    min-height: 76vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .wa-inbox-sidebar {
-    max-height: 330px;
+    max-height: 280px;
+    min-height: 0;
+    overflow-y: auto;
     border-left: none;
     border-bottom: 1px solid var(--wa-border);
+    flex-shrink: 0;
+
   }
 
   .wa-chat-window {
-    min-height: 620px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .wa-messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 90px;
+  }
+
+  .wa-composer {
+    flex-shrink: 0;
   }
 
   .wa-bubble {
     max-width: 88%;
   }
 }
-
 @media (max-width: 640px) {
   .wa-composer-previews {
     padding-inline: 0;
