@@ -190,7 +190,8 @@ throw new Error(
     return {
       isConnected:  true,
       accessToken:  supabaseData.access_token,
-      phoneId:      supabaseData.metadata?.phone_number || supabaseData.metadata?.phone_number_id, // ✅ من supabaseData
+phoneId: supabaseData.metadata?.phone_number_id,
+phoneNumber: supabaseData.metadata?.phone_number,
       wabaId:       supabaseData.metadata?.waba_account_id,
       connectedAt:  supabaseData.metadata?.connected_at,
       source:       'supabase',
@@ -201,7 +202,8 @@ throw new Error(
   return {
     isConnected:  !!localData,
     accessToken:  localData?.access_token,
-    phoneId:      localData?.phone_number || localData?.phone_number_id, // ✅ من localData
+phoneId: localData?.phone_number_id,
+phoneNumber: localData?.phone_number,
     wabaId:       localData?.waba_account_id,
     connectedAt:  localData?.connected_at,
     source:       'localStorage',
