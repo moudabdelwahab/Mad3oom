@@ -476,34 +476,37 @@ async function registerWhatsAppNumber(phoneNumberId, accessToken) {
 
 }
 function handleOAuthStateChange(state) {
+
   console.log('[App] Handling OAuth state change:', state);
-  
-if (state.status === 'success') {
 
-  showToast('تم الربط بنجاح! 🎉', 'success');
+  if (state.status === 'success') {
 
-  // تسجيل الرقم تلقائياً في Meta
-  if (
-    state.phoneId &&
-    state.accessToken
-  ) {
+    showToast('تم الربط بنجاح! 🎉', 'success');
 
-    registerWhatsAppNumber(
-      state.phoneId,
+    // تسجيل الرقم تلقائياً
+    if (
+      state.phoneId &&
       state.accessToken
-    );
+    ) {
 
-  }
+      registerWhatsAppNumber(
+        state.phoneId,
+        state.accessToken
+      );
 
-  setTimeout(() => {
-    updateConnectionStatus();
-    updateDashboard();
-  }, 1000);
+    }
 
-}
+    setTimeout(() => {
+      updateConnectionStatus();
+      updateDashboard();
+    }, 1000);
+
   } else if (state.status === 'error') {
+
     showToast(`خطأ: ${state.errorMsg}`, 'error');
+
   }
+
 }
 
 // ─── Disconnect Handler ──────────────────────────
