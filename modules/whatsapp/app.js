@@ -442,16 +442,65 @@ async function updateDashboard() {
 }
 
 // ─── OAuth State Change Handler ──────────────────
+async function registerWhatsAppNumber(phoneNumberId, accessToken) {
 
+  try {
+
+    console.log('[Register] Registering WhatsApp number...');
+
+    const response = await fetch(
+      'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/register-whatsapp',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phoneNumberId,
+          accessToken
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    console.log('[Register] Response:', data);
+
+    return data;
+
+  } catch (error) {
+
+    console.error('[Register] Error:', error);
+
+  }
+
+}
 function handleOAuthStateChange(state) {
   console.log('[App] Handling OAuth state change:', state);
   
-  if (state.status === 'success') {
-    showToast('تم الربط بنجاح! 🎉', 'success');
-    setTimeout(() => {
-      updateConnectionStatus();
-      updateDashboard();
-    }, 1000);
+if (state.status === 'success') {
+
+  showToast('تم الربط بنجاح! 🎉', 'success');
+
+  // تسجيل الرقم تلقائياً في Meta
+  if (
+    state.phoneId &&
+    state.accessToken
+  ) {
+
+    registerWhatsAppNumber(
+      state.phoneId,
+      state.accessToken
+    );
+
+  }
+
+  setTimeout(() => {
+    updateConnectionStatus();
+    updateDashboard();
+  }, 1000);
+
+}
   } else if (state.status === 'error') {
     showToast(`خطأ: ${state.errorMsg}`, 'error');
   }
