@@ -173,7 +173,7 @@ throw new Error(
 
       _setStatus('success', {
         accessToken: data.access_token,
-         phoneId:     data.phone_number,
+         phoneId:     data.phone_number_id,
         wabaId:      data.waba_account_id,
         connectedAt: new Date().toISOString(),
       });
