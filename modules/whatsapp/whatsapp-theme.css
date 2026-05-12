@@ -1,11 +1,17 @@
 /* =====================================================
    WhatsApp Web Theme System
    Dark & Light Mode Support with Modern Design
+   - الخط والألوان موحدة مع admin-dashboard
    ===================================================== */
+
+/* توحيد الخط مع لوحة الإدارة */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+
 html,
 body {
   height: 100%;
   overflow: hidden;
+  font-family: 'Cairo', sans-serif;
 }
 :root {
   /* Light Theme Colors */
@@ -38,23 +44,23 @@ body {
 
   /* Accent Colors */
   --wa-accent-green: #00A884;
-  --wa-accent-blue: #0088CC;
+  --wa-accent-blue: #0077CC;
   --wa-accent-red: #FF6B6B;
   --wa-accent-yellow: #FFB300;
 
-  /* Current Theme (default: dark) */
-  --wa-bg-primary: var(--wa-dark-bg-primary);
-  --wa-bg-secondary: var(--wa-dark-bg-secondary);
-  --wa-bg-tertiary: var(--wa-dark-bg-tertiary);
-  --wa-text-primary: var(--wa-dark-text-primary);
-  --wa-text-secondary: var(--wa-dark-text-secondary);
-  --wa-text-muted: var(--wa-dark-text-muted);
-  --wa-border: var(--wa-dark-border);
-  --wa-bubble-incoming: var(--wa-dark-bubble-incoming);
-  --wa-bubble-outgoing: var(--wa-dark-bubble-outgoing);
-  --wa-header-bg: var(--wa-dark-header-bg);
-  --wa-sidebar-bg: var(--wa-dark-sidebar-bg);
-  --wa-composer-bg: var(--wa-dark-composer-bg);
+  /* Current Theme (default: dark) - ألوان متطابقة مع لوحة الإدارة */
+  --wa-bg-primary: #0E0E10;
+  --wa-bg-secondary: #1e2a3a;
+  --wa-bg-tertiary: #162236;
+  --wa-text-primary: #E0E0E0;
+  --wa-text-secondary: #B0B0B0;
+  --wa-text-muted: #808080;
+  --wa-border: rgba(0, 119, 204, 0.18);
+  --wa-bubble-incoming: #1e2a3a;
+  --wa-bubble-outgoing: #0a3a6e;
+  --wa-header-bg: #0a1628;
+  --wa-sidebar-bg: #0a1628;
+  --wa-composer-bg: #0a1628;
 }
 
 /* Light Theme */
@@ -152,8 +158,8 @@ body {
 }
 
 .wa-icon-action:hover {
-  color: var(--wa-accent-green);
-  background: rgba(0, 168, 132, 0.1);
+  color: var(--wa-accent-blue);
+  background: rgba(0, 119, 204, 0.10);
 }
 
 /* ─── Search ─── */
@@ -184,8 +190,8 @@ body {
 }
 
 .wa-search input:focus {
-  border-color: var(--wa-accent-green);
-  box-shadow: 0 0 0 3px rgba(0, 168, 132, 0.1);
+  border-color: var(--wa-accent-blue);
+  box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.12);
 }
 
 /* ─── Conversations List ─── */
@@ -228,7 +234,7 @@ body {
   right: 0;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--wa-accent-green);
+  background: var(--wa-accent-blue);
 }
 
 .wa-conversation-avatar {
@@ -239,7 +245,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--wa-accent-green), var(--wa-accent-blue));
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
   font-weight: 800;
   font-size: 15px;
@@ -295,7 +301,7 @@ body {
   height: 20px;
   padding: 0 6px;
   border-radius: 50%;
-  background: var(--wa-accent-green);
+  background: var(--wa-accent-blue);
   color: white;
   font-size: 10px;
   display: inline-flex;
@@ -351,7 +357,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--wa-accent-green), var(--wa-accent-blue));
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
   font-weight: 800;
   font-size: 15px;
@@ -429,7 +435,7 @@ body {
 
 .wa-bubble.outbound {
   align-self: flex-end;
-  background: var(--wa-bubble-outgoing);
+  background: #0a3a6e;
   border-top-right-radius: 4px;
   color: #E9EDEF;
 }
@@ -508,7 +514,7 @@ body {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--wa-accent-green), var(--wa-accent-blue));
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -579,7 +585,7 @@ body {
 /* ─── Typing Indicator ─── */
 .wa-typing {
   padding: 6px 16px;
-  color: var(--wa-accent-green);
+  color: var(--wa-accent-blue);
   font-size: 12px;
   position: relative;
   z-index: 1;
@@ -624,8 +630,8 @@ body {
 }
 
 .wa-composer-form textarea:focus {
-  border-color: var(--wa-accent-green);
-  box-shadow: inset 0 0 0 1px var(--wa-accent-green);
+  border-color: var(--wa-accent-blue);
+  box-shadow: inset 0 0 0 1px var(--wa-accent-blue);
 }
 
 .wa-composer-form textarea::placeholder {
@@ -649,8 +655,8 @@ body {
 }
 
 .wa-composer-btn:hover {
-  background: rgba(0, 168, 132, 0.1);
-  color: var(--wa-accent-green);
+  background: rgba(0, 119, 204, 0.10);
+  color: var(--wa-accent-blue);
 }
 
 .wa-composer-btn.disabled {
@@ -679,7 +685,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: var(--wa-accent-green);
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
@@ -689,8 +695,8 @@ body {
 }
 
 .wa-send-btn:hover {
-  background: #06A375;
-  box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3);
+  background: linear-gradient(135deg, #2a5298, #1e3c72);
+  box-shadow: 0 2px 8px rgba(30, 60, 114, 0.40);
 }
 
 .wa-send-btn:disabled {
@@ -898,8 +904,8 @@ body {
   color: var(--wa-text-secondary);
   font-size: 12px;
   text-align: center;
-  background: rgba(0, 168, 132, 0.08);
-  border: 1px solid rgba(0, 168, 132, 0.2);
+  background: rgba(0, 119, 204, 0.08);
+  border: 1px solid rgba(0, 119, 204, 0.20);
   border-radius: 6px;
   margin: 8px 16px 0;
   flex-shrink: 0;
@@ -1061,13 +1067,13 @@ body {
 
 .wa-conversations::-webkit-scrollbar-thumb,
 .wa-messages::-webkit-scrollbar-thumb {
-  background: rgba(0, 168, 132, 0.3);
+  background: rgba(0, 119, 204, 0.30);
   border-radius: 3px;
 }
 
 .wa-conversations::-webkit-scrollbar-thumb:hover,
 .wa-messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 168, 132, 0.5);
+  background: rgba(0, 119, 204, 0.50);
 }
 
 /* ─── Composer Scrollbar ─── */
@@ -1080,10 +1086,10 @@ body {
 }
 
 .wa-composer::-webkit-scrollbar-thumb {
-  background: rgba(0, 168, 132, 0.2);
+  background: rgba(0, 119, 204, 0.20);
   border-radius: 2px;
 }
 
 .wa-composer::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 168, 132, 0.4);
+  background: rgba(0, 119, 204, 0.40);
 }
