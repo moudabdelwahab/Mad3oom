@@ -86,6 +86,38 @@
   --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Light Theme ─── */
+[data-wa-theme="light"] {
+  /* Light Background Colors */
+  --bg-base: #FFFFFF;
+  --bg-surface: #F5F5F5;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F9F9F9;
+  --bg-sidebar: #F8F8F8;
+  --bg-elevated: #F0F0F0;
+  --bg-glass: rgba(255, 255, 255, 0.95);
+
+  /* Light Borders */
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --border-brand: rgba(0, 119, 204, 0.2);
+
+  /* Light Text */
+  --text-primary: #1A1A1A;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+  --text-brand: #0077CC;
+  --text-accent: #0055AA;
+
+  /* Light Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --shadow-brand: 0 4px 20px rgba(0, 119, 204, 0.1);
+  --shadow-glow: 0 0 30px rgba(0, 119, 204, 0.08);
+}
+
 /* ─── Reset & Base ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
