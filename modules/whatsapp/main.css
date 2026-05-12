@@ -374,6 +374,12 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   transition: margin-right var(--transition);
 }
 
+/* عند صفحة الرسائل - منع الـ scroll وإخفاء الـ overflow */
+.main-content:has(#page-messages.active) {
+  overflow: hidden;
+  height: 100vh;
+}
+
 /* ─── Top Header ─── */
 .top-header {
   height: var(--header-height);
@@ -427,8 +433,28 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   margin: 0 auto;
 }
 
+/* صفحة الرسائل - إزالة الـ padding وتمرير الارتفاع */
+.page-content:has(#page-messages.active) {
+  padding: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .page { display: none; animation: pageFadeIn 0.3s ease; }
 .page.active { display: block; }
+
+/* صفحة الرسائل تحتاج display: flex لتمرير الارتفاع للأبناء */
+#page-messages.page.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
 
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -1247,21 +1273,27 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .toggle.on::after { transform: translateX(-20px); }
 
 /* Professional WhatsApp-style Inbox */
-.whatsapp-inbox-root { min-height: calc(100vh - 140px); }
-.wa-inbox-loading, .wa-chat-state, .wa-empty-chat, .wa-empty-list {
+.whatsapp-inbox-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+.wa-inbox-loading {
   color: var(--text-secondary); text-align: center; padding: 32px 18px;
 }
 .wa-chat-state.error { color: var(--status-error); }
 .wa-inbox-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  min-height: calc(100vh - 150px);
-  height: calc(100vh - 150px);
+  flex: 1;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(18, 140, 126, 0.12), rgba(0, 119, 204, 0.08)), var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  background: var(--bg-card);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  height: 100%;
 }
 .wa-inbox-sidebar {
   display: flex; flex-direction: column; min-width: 0;
@@ -1371,14 +1403,14 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-skeleton { height: 74px; margin: 12px; border-radius: var(--radius-md); background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.08), rgba(255,255,255,.04)); animation: waPulse 1.4s infinite; }
 @keyframes waPulse { 0% { opacity: .5; } 50% { opacity: 1; } 100% { opacity: .5; } }
 @media (max-width: 980px) {
-  .wa-inbox-shell { grid-template-columns: 1fr; height: auto; min-height: 76vh; }
-  .wa-inbox-sidebar { max-height: 330px; border-left: none; border-bottom: 1px solid var(--border-subtle); }
-  .wa-chat-window { min-height: 620px; }
+  .wa-inbox-shell { grid-template-columns: 1fr; }
+  .wa-inbox-sidebar { max-height: 240px; border-left: none; border-bottom: 1px solid var(--border-subtle); }
+  .wa-chat-window { flex: 1; min-height: 0; }
   .wa-bubble { max-width: 88%; }
 }
 
 /* WhatsApp Inbox refinements - ألوان موحدة مع admin-dashboard */
-.wa-inbox-shell { border-radius: 18px; border-color: rgba(0, 119, 204, 0.22); }
+.wa-inbox-shell { border-radius: 0; border: none; }
 .wa-inbox-sidebar { background: #0a1628; }
 .wa-inbox-sidebar-head, .wa-chat-header { background: #0d1f3c; }
 .wa-conversation { min-height: 72px; padding: 12px 16px; }

@@ -10,7 +10,6 @@
 html,
 body {
   height: 100%;
-  overflow: hidden;
   font-family: 'Cairo', sans-serif;
 }
 :root {
@@ -79,13 +78,85 @@ body {
   --wa-composer-bg: var(--wa-light-composer-bg);
 }
 
+/* Light Theme - إصلاح ألوان النصوص */
+[data-wa-theme="light"] .wa-bubble.inbound {
+  background: #E5E5EA;
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-bubble.outbound {
+  background: #DCF8C6;
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-bubble-text {
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-bubble-meta {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-wa-theme="light"] .wa-bubble.outbound .wa-bubble-meta {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-wa-theme="light"] .wa-conversation-top strong {
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-conversation-bottom span {
+  color: #54656F;
+}
+
+[data-wa-theme="light"] .wa-inbox-sidebar-head h2 {
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-chat-title strong {
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-search input {
+  background: #F0F0F0;
+  color: #000000;
+  border-color: #E5E5EA;
+}
+
+[data-wa-theme="light"] .wa-composer-form textarea {
+  background: #F0F0F0;
+  color: #000000;
+  border-color: #E5E5EA;
+}
+
+[data-wa-theme="light"] .wa-composer-form textarea::placeholder {
+  color: #8A8A8E;
+}
+
+[data-wa-theme="light"] .wa-attachment-meta strong {
+  color: #000000;
+}
+
+[data-wa-theme="light"] .wa-empty-chat,
+[data-wa-theme="light"] .wa-empty-list {
+  color: #54656F;
+}
+
+[data-wa-theme="light"] .wa-chat-state {
+  color: #54656F;
+  background: rgba(0, 119, 204, 0.06);
+}
+
+[data-wa-theme="light"] .wa-typing {
+  color: #0077CC;
+}
+
 /* ─── WhatsApp Inbox Shell ─── */
 .wa-inbox-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   background: var(--wa-bg-primary);
   border: none;
@@ -100,6 +171,7 @@ body {
   flex-direction: column;
   min-width: 0;
   height: 100%;
+  min-height: 0;
   background: var(--wa-sidebar-bg);
   border-left: 1px solid var(--wa-border);
   transition: background-color 0.3s ease, border-color 0.3s ease;
@@ -316,6 +388,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   height: 100%;
   background: var(--wa-bg-primary);
   position: relative;
@@ -446,6 +519,7 @@ body {
   font-size: 14px;
   line-height: 1.7;
   margin: 0;
+  color: inherit;
 }
 
 .wa-bubble-meta {
@@ -956,9 +1030,7 @@ body {
 
   .wa-inbox-shell {
     grid-template-columns: 1fr;
-    height: 100dvh;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    height: 100%;
     overflow: hidden;
   }
 
