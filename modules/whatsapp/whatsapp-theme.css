@@ -598,14 +598,16 @@ body {
   z-index: 1;
   background: var(--wa-composer-bg);
   border-top: 1px solid var(--wa-border);
-  padding: 10px 12px 12px;
+  padding: 12px 16px 14px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
   flex-shrink: 0;
   max-height: 200px;
   overflow-y: auto;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .wa-composer-form {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -626,7 +628,7 @@ body {
   line-height: 1.5;
   font-size: 14px;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .wa-composer-form textarea:focus {
@@ -652,11 +654,13 @@ body {
   cursor: pointer;
   border: none;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .wa-composer-btn:hover {
   background: rgba(0, 119, 204, 0.10);
   color: var(--wa-accent-blue);
+  transform: scale(1.05);
 }
 
 .wa-composer-btn.disabled {
@@ -689,14 +693,17 @@ body {
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
-  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
   cursor: pointer;
   border: none;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(30, 60, 114, 0.30);
 }
 
 .wa-send-btn:hover {
   background: linear-gradient(135deg, #2a5298, #1e3c72);
-  box-shadow: 0 2px 8px rgba(30, 60, 114, 0.40);
+  box-shadow: 0 4px 12px rgba(30, 60, 114, 0.45);
+  transform: translateY(-1px);
 }
 
 .wa-send-btn:disabled {
@@ -719,8 +726,8 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
-  padding: 0 50px 8px 50px;
+  margin-bottom: 10px;
+  padding: 0 50px 10px 50px;
   max-height: 120px;
   overflow-y: auto;
 }
@@ -731,11 +738,18 @@ body {
   gap: 10px;
   min-width: 200px;
   max-width: 320px;
-  padding: 8px;
+  padding: 10px;
   border-radius: 12px;
   background: var(--wa-bg-secondary);
   border: 1px solid var(--wa-border);
   flex-shrink: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wa-attachment-preview:hover {
+  border-color: rgba(0, 119, 204, 0.3);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
 }
 
 .wa-attachment-thumb {
@@ -789,10 +803,14 @@ body {
   border: none;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .wa-attachment-preview > button:hover {
-  background: rgba(255, 136, 128, 0.15);
+  background: rgba(255, 136, 128, 0.20);
+  transform: scale(1.1);
 }
 
 .wa-file-preview-icon {
@@ -801,19 +819,31 @@ body {
 
 /* ─── Emoji Panel ─── */
 .wa-emoji-panel {
-  position: fixed;
-  bottom: 70px;
-  right: 20px;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 50px;
   display: grid;
   grid-template-columns: repeat(6, 36px);
   gap: 6px;
-  padding: 10px;
+  padding: 12px;
   border-radius: 12px;
   background: var(--wa-bg-secondary);
   border: 1px solid var(--wa-border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 119, 204, 0.1);
   z-index: 30;
   max-width: min(320px, calc(100vw - 32px));
+  animation: emojiPanelIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes emojiPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .wa-emoji-panel button {
@@ -825,10 +855,14 @@ body {
   border: none;
   background: transparent;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .wa-emoji-panel button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 119, 204, 0.12);
+  transform: scale(1.15);
 }
 
 /* ─── Lightbox ─── */
@@ -1019,12 +1053,19 @@ body {
   }
 
   .wa-composer-previews {
-    padding: 0 40px 6px 40px;
+    padding: 0 40px 8px 40px;
     max-height: 100px;
   }
 
   .wa-attachment-preview {
     min-width: 100%;
+  }
+
+  .wa-emoji-panel {
+    right: 10px;
+    left: 10px;
+    max-width: calc(100vw - 20px);
+    grid-template-columns: repeat(auto-fill, 36px);
   }
 
   .wa-audio-player {
