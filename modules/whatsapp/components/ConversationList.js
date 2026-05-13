@@ -3,6 +3,17 @@ import { escapeHtml, formatConversationTime, phoneInitial } from '../utils/dom.j
 function preview(message) {
   if (!message) return 'لا توجد رسائل';
   if (message.text) return message.text;
+  if (message.type === 'interactive' || message.interactive) {
+    const iv = message.interactive;
+    if (!iv) return '💬 رسالة تفاعلية';
+    if (iv.kind === 'button_reply') return `↩️ ${iv.text || 'رد على زر'}`;
+    if (iv.kind === 'reaction') return `${iv.emoji} تفاعل`;
+    if (iv.kind === 'location') return `📍 موقع`;
+    if (iv.kind === 'contacts') return `👤 جهة اتصال`;
+    if (iv.kind === 'template') return `📋 قالب: ${iv.name || ''}`;
+    if (iv.body) return iv.body;
+    return '💬 رسالة تفاعلية';
+  }
   return { image: '📷 صورة', video: '🎬 فيديو', audio: '🎙️ رسالة صوتية', document: '📎 ملف', sticker: '💟 ملصق' }[message.type] || 'رسالة';
 }
 

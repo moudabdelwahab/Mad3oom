@@ -1465,3 +1465,146 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   .wa-attachment-preview { min-width: 100%; }
   .wa-audio-player { min-width: 220px; }
 }
+
+/* ─── Interactive / OTP Message Styles ─── */
+
+/* Card wrapper for interactive messages */
+.wa-interactive-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+/* Header text */
+.wa-interactive-header {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e9edef;
+  line-height: 1.4;
+}
+
+/* Header image */
+.wa-interactive-header-img {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+
+/* Footer text */
+.wa-interactive-footer {
+  font-size: 11px;
+  color: rgba(233, 237, 239, 0.55);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Template name label */
+.wa-interactive-template-name {
+  font-size: 11px;
+  color: rgba(233, 237, 239, 0.45);
+  font-style: italic;
+}
+
+/* Tag label (e.g. "📋 قالب") */
+.wa-interactive-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-whatsapp);
+  margin-bottom: 2px;
+}
+
+/* Buttons row */
+.wa-interactive-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}
+
+/* Individual button chip */
+.wa-interactive-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(0, 119, 204, 0.15);
+  border: 1px solid rgba(0, 119, 204, 0.25);
+  color: #53bdeb;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: default;
+  transition: background 0.2s;
+}
+
+/* "More items" indicator */
+.wa-interactive-more {
+  font-size: 11px;
+  color: rgba(233, 237, 239, 0.45);
+  text-align: center;
+  padding: 3px 0;
+}
+
+/* Button reply (inbound — user tapped a button) */
+.wa-interactive-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e9edef;
+}
+
+.wa-interactive-reply-icon {
+  font-size: 14px;
+}
+
+/* Reaction bubble */
+.wa-reaction-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wa-reaction-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.wa-reaction-label {
+  font-size: 12px;
+  color: rgba(233, 237, 239, 0.65);
+}
+
+/* Location bubble */
+.wa-location-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wa-location-link {
+  color: #53bdeb;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Contacts bubble */
+.wa-contacts-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Unsupported fallback */
+.wa-unsupported {
+  color: rgba(233, 237, 239, 0.5);
+  font-style: italic;
+  font-size: 13px;
+}
