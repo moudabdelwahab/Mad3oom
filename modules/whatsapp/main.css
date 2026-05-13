@@ -1354,13 +1354,14 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-chat-placeholder-title { color: var(--text-secondary); font-weight: 700; }
 .wa-messages { flex: 1; overflow-y: auto; padding: 24px clamp(14px, 3vw, 42px); position: relative; z-index: 1; display: flex; flex-direction: column; gap: 8px; }
 .wa-bubble {
-  width: fit-content; max-width: min(68%, 620px); padding: 8px 10px 5px; border-radius: 14px;
+  width: fit-content; max-width: min(68%, 620px); padding: 10px 12px 8px; border-radius: 14px;
   color: #e9edef; box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 4px;
 }
 .wa-bubble.inbound { align-self: flex-start; background: #202c33; border-top-left-radius: 4px; }
-.wa-bubble.outbound { align-self: flex-end; background: #005c4b; border-top-right-radius: 4px; }
-.wa-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; }
-.wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 2px; color: rgba(233,237,239,0.62); font-size: 10px; }
+.wa-bubble.outbound { align-self: flex-end; background: #0a3a6e; border-top-right-radius: 4px; }
+.wa-bubble-text { white-space: pre-wrap; overflow-wrap: break-word; font-size: 15px; line-height: 1.6; color: inherit; margin: 0; }
+.wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; color: rgba(233,237,239,0.7); font-size: 11px; }
 .wa-delivery.read { color: #53bdeb; }
 .wa-media-preview { display: block; margin: -2px -4px 7px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.16); }
 .wa-image-preview img { max-height: 340px; min-width: 180px; object-fit: cover; }
@@ -1417,7 +1418,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-conversation.active { background: #162236; }
 .wa-conversation-avatar, .wa-chat-avatar { background: linear-gradient(135deg, #1e3c72, #2a5298); }
 .wa-messages { scroll-behavior: smooth; scrollbar-color: rgba(0, 119, 204, 0.35) transparent; }
-.wa-bubble { padding: 7px 9px 4px; border-radius: 12px; }
+.wa-bubble { padding: 10px 12px 8px; border-radius: 12px; }
 .wa-bubble.inbound { border-top-left-radius: 3px; }
 .wa-bubble.outbound { border-top-right-radius: 3px; background: #0a3a6e; }
 .wa-bubble[data-message-id] { animation: waMessageIn .16s ease-out; }

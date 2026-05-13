@@ -490,13 +490,16 @@ body {
 .wa-bubble {
   width: fit-content;
   max-width: min(68%, 620px);
-  padding: 8px 10px 5px;
+  padding: 10px 12px 8px;
   border-radius: 14px;
   color: var(--wa-text-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
   position: relative;
   overflow: hidden;
   transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .wa-bubble.inbound {
@@ -515,9 +518,9 @@ body {
 
 .wa-bubble-text {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 1.7;
+  overflow-wrap: break-word;
+  font-size: 15px;
+  line-height: 1.6;
   margin: 0;
   color: inherit;
 }
@@ -526,10 +529,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
-  margin-top: 2px;
-  font-size: 10px;
-  opacity: 0.7;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.8;
 }
 
 .wa-bubble.inbound .wa-bubble-meta {
