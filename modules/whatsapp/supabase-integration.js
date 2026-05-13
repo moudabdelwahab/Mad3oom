@@ -296,7 +296,7 @@ async function getDashboardStats(phoneId = null) {
     if (!accessToken || !targetPhoneId) return null;
 
     const phoneResponse = await fetch(
-      `https://graph.facebook.com/v25.0/${targetPhoneId}?fields=display_phone_number,verified_name,quality_rating,account_mode&access_token=${accessToken}`
+      `https://graph.facebook.com/v25.0/${targetPhoneId}?fields=display_phone_number,verified_name,quality_rating,account_mode,messaging_limit_tier,status,code_verification_status&access_token=${accessToken}`
     );
     const phoneData = await phoneResponse.json();
 
@@ -310,6 +310,10 @@ async function getDashboardStats(phoneId = null) {
       verifiedName:  phoneData.verified_name        || '—',
       qualityRating: phoneData.quality_rating       || '—',
       accountMode:   phoneData.account_mode         || '—',
+      limitTier:     phoneData.messaging_limit_tier || '—',
+      status:        phoneData.status               || '—',
+      verification:  phoneData.code_verification_status || '—',
+      wabaId:        integration.metadata?.waba_account_id || '—'
     };
   } catch (error) {
     console.error('[WhatsApp Integration] getDashboardStats failed:', error);
