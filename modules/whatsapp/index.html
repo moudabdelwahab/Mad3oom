@@ -74,6 +74,44 @@
     .stat-icon svg { width: 32px; height: 32px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .quick-action-icon svg { width: 28px; height: 28px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Light / dark root theme support */
+    :root[data-wa-theme="light"] {
+      --bg-base: #F7F9FC;
+      --bg-surface: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-card-hover: #F2F4F7;
+      --bg-sidebar: #F8F9FB;
+      --bg-elevated: #FFFFFF;
+      --bg-glass: rgba(255, 255, 255, 0.85);
+      --border-subtle: rgba(15, 23, 42, 0.08);
+      --border-default: rgba(15, 23, 42, 0.12);
+      --border-strong: rgba(15, 23, 42, 0.18);
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #667085;
+      --text-brand: #0077CC;
+      --text-accent: #005BB5;
+      --shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.08);
+      --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.12);
+      --shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.14);
+      --shadow-glow: 0 0 30px rgba(0, 119, 204, 0.08);
+    }
+
+    :root[data-wa-theme="light"] body {
+      background: #F7F9FC;
+      background-image: radial-gradient(ellipse at 20% 0%, rgba(0, 119, 204, 0.05) 0%, transparent 45%), radial-gradient(ellipse at 80% 100%, rgba(29, 233, 182, 0.03) 0%, transparent 45%);
+    }
+
+    :root[data-wa-theme="light"] .top-header {
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom-color: rgba(15, 23, 42, 0.08);
+    }
+
+    :root[data-wa-theme="light"] .top-header .header-title,
+    :root[data-wa-theme="light"] .top-header .header-subtitle {
+      color: var(--text-primary);
+    }
   </style>
 </head>
 <body>
@@ -217,6 +255,7 @@
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path>
           </svg>
         </div>
+        <button class="icon-btn" type="button" id="theme-toggle-btn" title="تبديل الوضع" aria-label="تبديل الوضع"></button>
         <div class="plan-badge">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
             <polygon points="12 2 15.09 10.26 24 10.26 17.55 15.74 19.64 24 12 19.52 4.36 24 6.45 15.74 0 10.26 8.91 10.26 12 2"></polygon>
@@ -634,6 +673,30 @@
 <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
 <script src="./toast.js"></script>
 <script src="./theme-manager.js" type="module"></script>
+<script type="module">
+  import Icons from './icons.js';
+
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const getCurrentTheme = () => window.waThemeManager?.getCurrentTheme?.() || 'dark';
+  const setToggleIcon = (theme) => {
+    if (!themeToggleBtn) return;
+    const iconName = theme === 'light' ? 'sun' : 'moon';
+    themeToggleBtn.innerHTML = Icons.render(iconName, 'wa-theme-toggle-icon');
+  };
+
+  const refreshThemeButton = () => setToggleIcon(getCurrentTheme());
+
+  themeToggleBtn?.addEventListener('click', () => {
+    const nextTheme = window.waThemeManager?.toggleTheme?.();
+    if (nextTheme) setToggleIcon(nextTheme);
+  });
+
+  window.addEventListener('wa-theme-changed', (event) => {
+    setToggleIcon(event.detail?.theme || getCurrentTheme());
+  });
+
+  refreshThemeButton();
+</script>
 <script src="./supabase-integration.js" type="module"></script>
 <script src="./oauth.js" type="module"></script>
 <script src="./app.js" type="module"></script>
