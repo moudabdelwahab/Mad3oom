@@ -392,7 +392,10 @@
     </main>
 
     <script type="module">
-        import { supabase } from './supabase-config.js';
+        import { SUPABASE_CONFIG } from './supabase-config.js';
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        
+        const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
 
         // Load sidebar
         fetch('/assets/components/customer-sidebar.html')
@@ -504,8 +507,7 @@ ${additionalDetails}` : ''}
                         title: `طلب اشتراك واتساب أعمال - ${planArabic}`,
                         description: ticketDescription,
                         status: 'open',
-                        priority: 'high',
-                        category: 'subscription'
+                        priority: 'high'
                     }])
                     .select()
                     .single();
