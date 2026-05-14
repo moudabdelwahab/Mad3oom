@@ -21,6 +21,16 @@
     <script src="theme-manager.js" defer></script>
     <script src="language-manager.js"></script>
     <style>
+        .admin-main {
+            margin-right: 280px;
+            padding: 2rem;
+            transition: margin-right 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            .admin-main {
+                margin-right: 0;
+            }
+        }
         .subscription-card {
             background: var(--color-surface);
             border-radius: 1.5rem;
@@ -135,10 +145,201 @@
                 padding: 2rem 1.5rem;
             }
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--color-surface);
+            padding: 2.5rem;
+            border-radius: 1.25rem;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--color-border);
+        }
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        .close-modal {
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            background: none;
+            border: none;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        .close-modal:hover {
+            background: var(--color-muted);
+            color: var(--color-text);
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.5rem;
+            background: var(--color-muted);
+            color: var(--color-text);
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .payment-options {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--color-muted);
+            border-radius: 0.5rem;
+        }
+        .payment-options.active {
+            display: block;
+        }
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        .btn-primary {
+            background: var(--color-accent);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 119, 204, 0.3);
+        }
+        .btn-secondary {
+            background: var(--color-muted);
+            color: var(--color-text);
+        }
+        .btn-secondary:hover {
+            background: var(--color-border);
+        }
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--color-border);
+        }
     </style>
 </head>
 <body>
     <div id="sidebar-container"></div>
+    
+    <!-- Subscription Modal -->
+    <div id="subscriptionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>تفاصيل الاشتراك</h2>
+                <button class="close-modal" onclick="closeSubscriptionModal()">&times;</button>
+            </div>
+            
+            <form id="subscriptionForm">
+                <input type="hidden" id="subscriptionPlan" value="">
+                
+                <div class="form-group">
+                    <label>اسم المشروع على واتساب <span style="color: red;">*</span></label>
+                    <input type="text" id="projectName" required placeholder="مثال: شركة التقنية المتقدمة">
+                </div>
+                
+                <div class="form-group">
+                    <label>رقم الجوال <span style="color: red;">*</span></label>
+                    <input type="tel" id="phoneNumber" required placeholder="مثال: +201234567890">
+                </div>
+                
+                <div class="form-group">
+                    <label>العملة <span style="color: red;">*</span></label>
+                    <select id="currency" required onchange="updatePaymentOptions()">
+                        <option value="">اختر العملة</option>
+                        <option value="usd">دولار أمريكي (USD)</option>
+                        <option value="egp">جنيه مصري (EGP)</option>
+                    </select>
+                </div>
+                
+                <div id="usdPaymentOptions" class="payment-options">
+                    <div class="form-group">
+                        <label>طريقة الدفع <span style="color: red;">*</span></label>
+                        <select id="usdPaymentMethod">
+                            <option value="digital_wallet">محفظة رقمية</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="egpPaymentOptions" class="payment-options">
+                    <div class="form-group">
+                        <label>طريقة الدفع <span style="color: red;">*</span></label>
+                        <select id="egpPaymentMethod">
+                            <option value="instapay">انستاباي (InstaPay)</option>
+                            <option value="cash_wallet">محفظة كاش</option>
+                            <option value="bank_transfer">تحويل بنكي</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>تفاصيل إضافية</label>
+                    <textarea id="additionalDetails" placeholder="أي معلومات إضافية تود إضافتها..."></textarea>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSubscriptionModal()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">إتمام الطلب</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <main class="admin-main">
         <header class="page-header">
@@ -214,10 +415,142 @@
                 return;
             }
 
-            alert(`جاري تفعيل الاشتراك ${plan === 'monthly' ? 'الشهري' : 'السنوي'}...\nسيتم التواصل معك قريباً لإتمام العملية.`);
-            
-            // يمكن إضافة منطق الدفع هنا لاحقاً
+            // Open modal with plan details
+            document.getElementById('subscriptionPlan').value = plan;
+            document.getElementById('subscriptionModal').classList.add('active');
         }
+
+        // Close modal
+        window.closeSubscriptionModal = function() {
+            document.getElementById('subscriptionModal').classList.remove('active');
+            document.getElementById('subscriptionForm').reset();
+            document.getElementById('usdPaymentOptions').classList.remove('active');
+            document.getElementById('egpPaymentOptions').classList.remove('active');
+        }
+
+        // Update payment options based on currency
+        window.updatePaymentOptions = function() {
+            const currency = document.getElementById('currency').value;
+            const usdOptions = document.getElementById('usdPaymentOptions');
+            const egpOptions = document.getElementById('egpPaymentOptions');
+            
+            usdOptions.classList.remove('active');
+            egpOptions.classList.remove('active');
+            
+            if (currency === 'usd') {
+                usdOptions.classList.add('active');
+            } else if (currency === 'egp') {
+                egpOptions.classList.add('active');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('subscriptionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('يرجى تسجيل الدخول أولاً');
+                return;
+            }
+
+            const plan = document.getElementById('subscriptionPlan').value;
+            const projectName = document.getElementById('projectName').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const currency = document.getElementById('currency').value;
+            const additionalDetails = document.getElementById('additionalDetails').value;
+            
+            let paymentMethod = '';
+            if (currency === 'usd') {
+                paymentMethod = document.getElementById('usdPaymentMethod').value;
+            } else if (currency === 'egp') {
+                paymentMethod = document.getElementById('egpPaymentMethod').value;
+            }
+
+            // Get payment method in Arabic
+            const paymentMethodArabic = {
+                'digital_wallet': 'محفظة رقمية',
+                'instapay': 'انستاباي (InstaPay)',
+                'cash_wallet': 'محفظة كاش',
+                'bank_transfer': 'تحويل بنكي'
+            }[paymentMethod];
+
+            const planArabic = plan === 'monthly' ? 'شهري ($15)' : 'سنوي ($150)';
+            const currencyArabic = currency === 'usd' ? 'دولار أمريكي' : 'جنيه مصري';
+
+            // Create ticket description
+            const ticketDescription = `طلب اشتراك في خدمة واتساب أعمال
+
+📋 تفاصيل الاشتراك:
+━━━━━━━━━━━━━━━━━━━━
+🔹 نوع الاشتراك: ${planArabic}
+🔹 اسم المشروع: ${projectName}
+🔹 رقم الجوال: ${phoneNumber}
+🔹 العملة: ${currencyArabic}
+🔹 طريقة الدفع: ${paymentMethodArabic}
+
+${additionalDetails ? `📝 تفاصيل إضافية:
+${additionalDetails}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━
+⏰ تاريخ الطلب: ${new Date().toLocaleString('ar-EG')}`;
+
+            try {
+                // Create ticket
+                const { data: ticket, error: ticketError } = await supabase
+                    .from('tickets')
+                    .insert([{
+                        user_id: user.id,
+                        title: `طلب اشتراك واتساب أعمال - ${planArabic}`,
+                        description: ticketDescription,
+                        status: 'open',
+                        priority: 'high',
+                        category: 'subscription'
+                    }])
+                    .select()
+                    .single();
+
+                if (ticketError) throw ticketError;
+
+                // Create notification for admins
+                const { data: admins } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('user_type', 'admin');
+
+                if (admins && admins.length > 0) {
+                    const notifications = admins.map(admin => ({
+                        user_id: admin.id,
+                        title: 'طلب اشتراك جديد',
+                        message: `تم استلام طلب اشتراك جديد في واتساب أعمال من ${projectName}`,
+                        type: 'subscription',
+                        link: `/admin/tickets.html?ticket=${ticket.id}`,
+                        is_read: false
+                    }));
+
+                    await supabase.from('notifications').insert(notifications);
+                }
+
+                alert('✅ تم إرسال طلب الاشتراك بنجاح!\nسيتم التواصل معك قريباً من فريق الدعم.');
+                closeSubscriptionModal();
+                
+                // Redirect to tickets page
+                setTimeout(() => {
+                    window.location.href = '/customer-dashboard.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error creating subscription ticket:', error);
+                alert('حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.');
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('subscriptionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSubscriptionModal();
+            }
+        });
     </script>
 </body>
 </html>
