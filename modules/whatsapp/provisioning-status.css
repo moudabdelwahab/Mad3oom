@@ -3,19 +3,23 @@
  * modules/whatsapp/components/provisioning-status.css
  * Provisioning Status Component Styles
  * منصة مدعوم - أنماط مكون حالة التفعيل
+ * - الخط موحد مع admin-dashboard (Cairo)
  * =====================================================
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+
 :root {
-  --provisioning-bg: #f8f9fa;
-  --provisioning-border: #e0e0e0;
-  --provisioning-text: #333;
-  --provisioning-text-secondary: #666;
+  --provisioning-bg: #1e2a3a;
+  --provisioning-border: rgba(0, 119, 204, 0.20);
+  --provisioning-text: #E0E0E0;
+  --provisioning-text-secondary: #B0B0B0;
   --provisioning-blue: #0077cc;
-  --provisioning-green: #00c853;
-  --provisioning-red: #d32f2f;
+  --provisioning-green: #4CAF50;
+  --provisioning-red: #F44336;
   --provisioning-radius: 12px;
-  --provisioning-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --provisioning-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --provisioning-font: 'Cairo', sans-serif;
 }
 
 /* Container */
@@ -25,18 +29,21 @@
   align-items: center;
   min-height: 400px;
   padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(135deg, #0a1628 0%, #162236 100%);
   border-radius: var(--provisioning-radius);
+  font-family: var(--provisioning-font);
 }
 
 .provisioning-card {
-  background: white;
+  background: #1e2a3a;
+  border: 1px solid var(--provisioning-border);
   border-radius: var(--provisioning-radius);
   box-shadow: var(--provisioning-shadow);
   padding: 40px;
   max-width: 600px;
   width: 100%;
   animation: slideIn 0.3s ease-out;
+  font-family: var(--provisioning-font);
 }
 
 @keyframes slideIn {
@@ -113,6 +120,7 @@
   font-weight: 700;
   color: var(--provisioning-text);
   margin: 0 0 8px 0;
+  font-family: var(--provisioning-font);
 }
 
 .provisioning-description {
@@ -120,6 +128,7 @@
   color: var(--provisioning-text-secondary);
   margin: 0;
   line-height: 1.5;
+  font-family: var(--provisioning-font);
 }
 
 /* Progress */
@@ -130,7 +139,7 @@
 .progress-bar-container {
   width: 100%;
   height: 8px;
-  background: #e0e0e0;
+  background: rgba(0, 119, 204, 0.15);
   border-radius: 99px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -138,7 +147,7 @@
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--provisioning-blue), #00d4ff);
+  background: linear-gradient(90deg, #1e3c72, #2a5298);
   border-radius: 99px;
   transition: width 0.5s ease;
 }
@@ -156,7 +165,8 @@
   gap: 12px;
   margin-bottom: 30px;
   padding: 20px;
-  background: #f8f9fa;
+  background: rgba(0, 119, 204, 0.06);
+  border: 1px solid rgba(0, 119, 204, 0.12);
   border-radius: 8px;
 }
 
@@ -186,9 +196,10 @@
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid rgba(0, 119, 204, 0.25);
   color: var(--provisioning-text-secondary);
   transition: all 0.3s ease;
+  font-family: var(--provisioning-font);
 }
 
 .step.active .step-indicator {
@@ -253,17 +264,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--provisioning-font);
 }
 
 .btn-primary {
-  background: var(--provisioning-blue);
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #0056a3;
+  background: linear-gradient(135deg, #2a5298, #1e3c72);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 119, 204, 0.3);
+  box-shadow: 0 4px 12px rgba(30, 60, 114, 0.40);
 }
 
 .btn-primary:active {

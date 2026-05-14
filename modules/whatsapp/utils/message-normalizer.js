@@ -1,4 +1,5 @@
 const MEDIA_TYPES = new Set(['image', 'video', 'audio', 'document', 'sticker']);
+const INTERACTIVE_TYPES = new Set(['interactive', 'button', 'template', 'reaction', 'contacts', 'location', 'order', 'system']);
 
 export function normalizePhone(value = '') {
   return String(value || '').replace(/^whatsapp:/, '').replace(/\D/g, '');
@@ -29,7 +30,116 @@ export function getConversationPhone(message, businessPhone = '') {
 }
 
 export function getMessageText(message) {
-  return message.message_text || message.text || message.body || message.caption || message.content || '';
+  // Direct text fields
+  const direct = message.message_text || message.text || message.body || message.caption || message.content || '';
+  if (direct) return direct;
+
+  // Extract from metadata (webhook payload stored as JSON)
+  const meta = message.metadata || {};
+
+  // Interactive messages (buttons, lists, OTP)
+  if (meta.interactive) {
+    const interactive = meta.interactive;
+    const bodyText = interactive.body?.text || '';
+    const headerText = interactive.header?.text || '';
+    const footerText = interactive.footer?.text || '';
+    const type = interactive.type || '';
+
+    if (type === 'button_reply') return interactive.button_reply?.title || bodyText || 'رد على زر';
+    if (type === 'list_reply') return interactive.list_reply?.title || bodyText || 'رد على قائمة';
+
+    // Outbound interactive (button/list message)
+    const parts = [];
+    if (headerText) parts.push(headerText);
+    if (bodyText) parts.push(bodyText);
+    if (footerText) parts.push(footerText);
+    return parts.join('\n') || 'رسالة تفاعلية';
+  }
+
+  // Button messages (reply buttons)
+  if (meta.button) {
+    return meta.button.text || meta.button.payload || 'رد على زر';
+  }
+
+  // Template messages
+  if (meta.template) {
+    const name = meta.template.name || '';
+    const components = meta.template.components || [];
+    const bodyComp = components.find(c => c.type === 'body' || c.type === 'BODY');
+    const bodyText = bodyComp?.text || bodyComp?.parameters?.map(p => p.text || p.payload || '').join(' ') || '';
+    return bodyText || (name ? `قالب: ${name}` : 'رسالة قالب');
+  }
+
+  // Reaction messages
+  if (meta.reaction) {
+    return `${meta.reaction.emoji || '👍'} تفاعل على رسالة`;
+  }
+
+  // Location messages
+  if (meta.location) {
+    return `📍 موقع: ${meta.location.name || meta.location.address || ''}`.trim();
+  }
+
+  // Contacts messages
+  if (meta.contacts && Array.isArray(meta.contacts)) {
+    const names = meta.contacts.map(c => c.name?.formatted_name || '').filter(Boolean);
+    return `👤 جهة اتصال: ${names.join(', ')}` || 'جهة اتصال';
+  }
+
+  // System messages
+  if (meta.system) {
+    return meta.system.body || 'رسالة نظام';
+  }
+
+  // Order messages
+  if (meta.order) {
+    return `🛒 طلب شراء`;
+  }
+
+  return '';
+}
+
+export function getInteractivePayload(message) {
+  const meta = message.metadata || {};
+  if (!meta.interactive && !meta.button && !meta.template && !meta.reaction && !meta.location && !meta.contacts) return null;
+
+  if (meta.interactive) {
+    const interactive = meta.interactive;
+    const itype = interactive.type || '';
+    return {
+      kind: 'interactive',
+      subtype: itype,
+      header: interactive.header || null,
+      body: interactive.body?.text || '',
+      footer: interactive.footer?.text || '',
+      buttons: interactive.action?.buttons || [],
+      sections: interactive.action?.sections || [],
+      buttonReply: interactive.button_reply || null,
+      listReply: interactive.list_reply || null,
+    };
+  }
+
+  if (meta.button) {
+    return { kind: 'button_reply', text: meta.button.text || '', payload: meta.button.payload || '' };
+  }
+
+  if (meta.template) {
+    return { kind: 'template', name: meta.template.name || '', components: meta.template.components || [] };
+  }
+
+  if (meta.reaction) {
+    return { kind: 'reaction', emoji: meta.reaction.emoji || '👍', messageId: meta.reaction.message_id || '' };
+  }
+
+  if (meta.location) {
+    return { kind: 'location', ...meta.location };
+  }
+
+  if (meta.contacts) {
+    return { kind: 'contacts', contacts: meta.contacts };
+  }
+
+  return null;
 }
 
 export function getMediaPayload(message) {
@@ -48,14 +158,28 @@ export function normalizeMessage(message, businessPhone = '') {
   const timestamp = getMessageTimestamp(message);
   const direction = getMessageDirection(message, businessPhone);
   const conversationPhone = getConversationPhone(message, businessPhone);
+  const text = getMessageText(message);
+  const interactive = getInteractivePayload(message);
+
+  // Determine normalized type
+  let normalizedType;
+  if (MEDIA_TYPES.has(type)) {
+    normalizedType = type;
+  } else if (INTERACTIVE_TYPES.has(type) || interactive) {
+    normalizedType = 'interactive';
+  } else {
+    normalizedType = 'text';
+  }
+
   return {
     ...message,
     clientId: message.client_id || message.local_id || message.id || crypto.randomUUID(),
     direction,
     conversationPhone,
     timestamp,
-    type: MEDIA_TYPES.has(type) ? type : 'text',
-    text: getMessageText(message),
+    type: normalizedType,
+    text,
+    interactive,
     media: getMediaPayload(message),
     deliveryStatus: message.delivery_status || message.status || (direction === 'outbound' ? 'sent' : 'received'),
   };

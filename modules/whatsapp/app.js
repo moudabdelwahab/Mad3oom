@@ -13,6 +13,7 @@ import { InboxPage } from './pages/InboxPage.js';
 import { TemplatesPage } from './pages/TemplatesPage.js';
 import { AutoReplyPage } from './pages/AutoReplyPage.js';
 import { UsersManagementPage } from './pages/UsersManagementPage.js';
+import { StatusPage } from './pages/StatusPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -54,6 +55,7 @@ function navigateTo(page, element) {
   if (page === 'messages') { loadMessages(); }
   if (page === 'templates') { loadTemplates(); }
   if (page === 'autoreply') { loadAutoReply(); }
+  if (page === 'status') { loadStatus(); }
   if (page === 'users') { loadUsers(); }
   if (page === 'connect') { updateConnectionStatus(); }
 }
@@ -68,6 +70,7 @@ let inboxPage = null;
 let templatesPage = null;
 let autoReplyPage = null;
 let usersPage = null;
+let statusPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -229,6 +232,19 @@ async function loadAutoReply() {
 }
 
 window.loadAutoReply = loadAutoReply;
+
+async function loadStatus() {
+  const container = document.getElementById('whatsapp-status-root');
+  if (!container) return;
+
+  if (!statusPage) {
+    statusPage = new StatusPage(container);
+  }
+
+  await statusPage.load();
+}
+
+window.loadStatus = loadStatus;
 
 window.openNewAutoReplyModal = () => {
   const modal = document.getElementById('autoreply-modal');
