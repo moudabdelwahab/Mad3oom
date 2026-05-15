@@ -1354,13 +1354,33 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-chat-placeholder-title { color: var(--text-secondary); font-weight: 700; }
 .wa-messages { flex: 1; overflow-y: auto; padding: 24px clamp(14px, 3vw, 42px); position: relative; z-index: 1; display: flex; flex-direction: column; gap: 8px; }
 .wa-bubble {
-  width: fit-content; max-width: min(68%, 620px); padding: 10px 12px 8px; border-radius: 14px;
-  color: #e9edef; box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: relative; overflow: hidden;
-  display: flex; flex-direction: column; gap: 4px;
+  width: fit-content; 
+  max-width: min(68%, 620px); 
+  padding: 10px 12px 8px; 
+  border-radius: 14px;
+  color: #e9edef; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18); 
+  position: relative; 
+  overflow: visible;
+  display: flex; 
+  flex-direction: column; 
+  gap: 4px;
+  min-width: 80px;
 }
 .wa-bubble.inbound { align-self: flex-start; background: #202c33; border-top-left-radius: 4px; }
 .wa-bubble.outbound { align-self: flex-end; background: #0a3a6e; border-top-right-radius: 4px; }
-.wa-bubble-text { white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; font-size: 15px; line-height: 1.6; color: inherit; margin: 0; }
+.wa-bubble-text { 
+  white-space: pre-wrap; 
+  word-wrap: break-word; 
+  word-break: break-word; 
+  overflow-wrap: break-word; 
+  font-size: 15px; 
+  line-height: 1.6; 
+  color: #e9edef !important; 
+  margin: 0; 
+  display: block;
+  min-height: 1.6em;
+}
 .wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; color: rgba(233,237,239,0.7); font-size: 11px; }
 .wa-delivery.read { color: #53bdeb; }
 .wa-media-preview { display: block; margin: -2px -4px 7px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.16); }
