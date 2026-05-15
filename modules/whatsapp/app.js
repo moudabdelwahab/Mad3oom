@@ -227,15 +227,166 @@ window.deleteTemplate = async function(name) {
   try {
     await WhatsAppAPI.deleteTemplate(name);
     showToast('تم حذف القالب بنجاح', 'success');
-    const session = await supabase.auth.getSession();
-
-    if (session?.data?.session) {
-       await loadTemplates();
-    } else {
-       console.error('No active session');
-    }
+    await loadTemplates();
   } catch (error) {
     showToast(`خطأ في حذف القالب: ${error.message}`, 'error');
+  }
+};
+
+window.openNewTemplateModal = () => {
+  const modal = document.getElementById('template-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    // Reset form
+    document.getElementById('template-form').reset();
+    document.getElementById('buttons-container').innerHTML = '';
+    updateTemplatePreview();
+  }
+};
+
+window.closeTemplateModal = () => {
+  const modal = document.getElementById('template-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.addTemplateButton = () => {
+  const container = document.getElementById('buttons-container');
+  const btnCount = container.children.length;
+  if (btnCount >= 3) {
+    showToast('الحد الأقصى 3 أزرار', 'warning');
+    return;
+  }
+
+  const btnHtml = `
+    <div class="button-row" style="display: flex; gap: 10px; margin-bottom: 10px; background: var(--bg-elevated); padding: 10px; border-radius: 8px;">
+      <select class="form-input btn-type" style="flex: 1;" onchange="updateTemplatePreview()">
+        <option value="QUICK_REPLY">رد سريع</option>
+        <option value="URL">رابط موقع</option>
+        <option value="PHONE_NUMBER">رقم هاتف</option>
+      </select>
+      <input type="text" class="form-input btn-text" placeholder="نص الزر" style="flex: 1;" oninput="updateTemplatePreview()">
+      <input type="text" class="form-input btn-value" placeholder="الرابط/الرقم" style="flex: 1; display: none;" oninput="updateTemplatePreview()">
+      <button class="btn btn-ghost" onclick="this.parentElement.remove(); updateTemplatePreview()" style="color: var(--status-error); padding: 0 5px;">✕</button>
+    </div>
+  `;
+  const div = document.createElement('div');
+  div.innerHTML = btnHtml;
+  container.appendChild(div.firstElementChild);
+  
+  // Toggle value input visibility based on type
+  const lastRow = container.lastElementChild;
+  const typeSelect = lastRow.querySelector('.btn-type');
+  const valueInput = lastRow.querySelector('.btn-value');
+  typeSelect.addEventListener('change', (e) => {
+    valueInput.style.display = (e.target.value === 'QUICK_REPLY') ? 'none' : 'block';
+  });
+};
+
+window.updateTemplatePreview = () => {
+  const name = document.getElementById('tpl-name').value || 'اسم القالب';
+  const header = document.getElementById('tpl-header').value;
+  const body = document.getElementById('tpl-body').value || 'محتوى الرسالة سيظهر هنا...';
+  const footer = document.getElementById('tpl-footer').value;
+  
+  const preview = document.getElementById('template-preview-content');
+  if (!preview) return;
+
+  let html = '';
+  if (header) html += `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px;">${header}</div>`;
+  html += `<div style="white-space: pre-wrap;">${body}</div>`;
+  if (footer) html += `<div style="margin-top: 10px; font-size: 11px; color: #888; border-top: 1px dashed #eee; padding-top: 5px;">${footer}</div>`;
+  
+  preview.innerHTML = html;
+
+  // Preview Buttons
+  const btnContainer = document.getElementById('buttons-container');
+  const previewBtns = document.getElementById('template-preview-buttons');
+  previewBtns.innerHTML = '';
+  
+  Array.from(btnContainer.querySelectorAll('.button-row')).forEach(row => {
+    const text = row.querySelector('.btn-text').value || 'زر';
+    const btn = document.createElement('div');
+    btn.style.cssText = 'background: white; color: #00a884; border: 1px solid #e9edef; padding: 8px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 600; margin-top: 8px;';
+    btn.textContent = text;
+    previewBtns.appendChild(btn);
+  });
+};
+
+window.saveTemplate = async () => {
+  const submitBtn = document.querySelector('#template-modal .btn-primary');
+  const originalText = submitBtn.textContent;
+  
+  try {
+    const name = document.getElementById('tpl-name').value.toLowerCase().replace(/\s+/g, '_');
+    const category = document.getElementById('tpl-category').value;
+    const language = document.getElementById('tpl-lang').value;
+    const headerText = document.getElementById('tpl-header').value;
+    const bodyText = document.getElementById('tpl-body').value;
+    const footerText = document.getElementById('tpl-footer').value;
+    
+    if (!name || !bodyText) {
+      showToast('يرجى إدخال اسم القالب ومحتوى الرسالة', 'warning');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جاري الحفظ...';
+
+    const components = [
+      {
+        type: 'BODY',
+        text: bodyText
+      }
+    ];
+
+    if (headerText) {
+      components.push({
+        type: 'HEADER',
+        format: 'TEXT',
+        text: headerText
+      });
+    }
+
+    if (footerText) {
+      components.push({
+        type: 'FOOTER',
+        text: footerText
+      });
+    }
+
+    const btnRows = Array.from(document.querySelectorAll('#buttons-container .button-row'));
+    if (btnRows.length > 0) {
+      const buttons = btnRows.map(row => {
+        const type = row.querySelector('.btn-type').value;
+        const text = row.querySelector('.btn-text').value;
+        const value = row.querySelector('.btn-value').value;
+        
+        const btn = { type, text };
+        if (type === 'URL') btn.url = value;
+        if (type === 'PHONE_NUMBER') btn.phone_number = value;
+        return btn;
+      });
+      components.push({
+        type: 'BUTTONS',
+        buttons: buttons
+      });
+    }
+
+    await WhatsAppAPI.createTemplate({
+      name,
+      category,
+      language,
+      components
+    });
+
+    showToast('تم إرسال القالب للمراجعة بنجاح', 'success');
+    window.closeTemplateModal();
+    loadTemplates();
+  } catch (error) {
+    showToast(`خطأ: ${error.message}`, 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 };
 

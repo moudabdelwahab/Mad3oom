@@ -226,7 +226,7 @@
           </svg>
           <div class="notif-dot"></div>
         </div>
-        <div class="icon-btn" title="المزامنة" id="sync-btn" onclick="handleSync()">
+        <div class="icon-btn" title="المزامنة" id="sync-btn" onclick="window.loadTemplates ? window.loadTemplates() : handleSync()">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <polyline points="23 4 23 10 17 10"></polyline>
             <polyline points="1 20 1 14 7 14"></polyline>
@@ -720,6 +720,82 @@
   
   window.handleLogout = handleLogout;
 </script>
+<!-- WhatsApp Template Modal -->
+<div id="template-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div class="modal-content" style="background: var(--bg-card); width: 90%; max-width: 900px; max-height: 90vh; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-xl);">
+    <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 18px;">إنشاء قالب واتساب جديد</h3>
+      <button class="btn btn-ghost" onclick="closeTemplateModal()" style="font-size: 24px; padding: 0; width: 32px; height: 32px; line-height: 1;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 24px; overflow-y: auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px;">
+      <!-- Form Side -->
+      <form id="template-form" onsubmit="event.preventDefault()">
+        <div style="margin-bottom: 20px;">
+          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">اسم القالب (أحرف إنجليزية وأرقام فقط)</label>
+          <input type="text" id="tpl-name" class="form-input" placeholder="مثال: welcome_message" oninput="updateTemplatePreview()" required>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div>
+            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">الفئة</label>
+            <select id="tpl-category" class="form-input">
+              <option value="MARKETING">تسويق (Marketing)</option>
+              <option value="UTILITY">خدمي (Utility)</option>
+              <option value="AUTHENTICATION">تحقق (Authentication)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">اللغة</label>
+            <select id="tpl-lang" class="form-input">
+              <option value="ar">العربية (ar)</option>
+              <option value="en">الإنجليزية (en)</option>
+              <option value="en_US">الإنجليزية - أمريكا (en_US)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">الرأس (اختياري)</label>
+          <input type="text" id="tpl-header" class="form-input" placeholder="نص يظهر في أعلى الرسالة" oninput="updateTemplatePreview()">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">محتوى الرسالة (إلزامي)</label>
+          <textarea id="tpl-body" class="form-input" style="height: 120px; resize: none;" placeholder="اكتب محتوى الرسالة هنا... يمكنك استخدام {{1}} للمتغيرات" oninput="updateTemplatePreview()" required></textarea>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">التذييل (اختياري)</label>
+          <input type="text" id="tpl-footer" class="form-input" placeholder="نص صغير يظهر في أسفل الرسالة" oninput="updateTemplatePreview()">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label class="form-label" style="font-weight: 600; margin: 0;">الأزرار (بحد أقصى 3)</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addTemplateButton()">+ إضافة زر</button>
+          </div>
+          <div id="buttons-container"></div>
+        </div>
+      </form>
+
+      <!-- Preview Side -->
+      <div style="background: #e5ddd5; border-radius: 15px; padding: 20px; position: relative; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');">
+        <div style="font-weight: 700; color: #075e54; margin-bottom: 15px; text-align: center;">معاينة القالب</div>
+        <div style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); max-width: 90%; margin: 0 auto;">
+          <div id="template-preview-content" style="font-size: 14px; color: #111; line-height: 1.4;">
+            محتوى الرسالة سيظهر هنا...
+          </div>
+        </div>
+        <div id="template-preview-buttons" style="max-width: 90%; margin: 5px auto 0;"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-surface);">
+      <button class="btn btn-secondary" onclick="closeTemplateModal()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">حفظ وإرسال للمراجعة</button>
+    </div>
+  </div>
+</div>
+
 <div id="fb-root"></div>
 
 </body>

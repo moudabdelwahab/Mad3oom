@@ -3,15 +3,27 @@ import { WhatsAppAPI } from '../services/whatsapp-api.js';
 export class TemplatesPage {
     constructor(container) {
         this.container = container;
+        this.templates = [];
     }
 
     async load() {
-        this.container.innerHTML = '<div style="padding: 40px; text-align: center;">جاري تحميل القوالب...</div>';
+        this.container.innerHTML = `
+            <div style="padding: 40px; text-align: center;">
+                <div class="spinner" style="margin: 0 auto 15px;"></div>
+                جاري تحميل القوالب من ميتا...
+            </div>
+        `;
         try {
             const response = await WhatsAppAPI.getTemplates();
-            this.render(response.data || []);
+            this.templates = response.data || [];
+            this.render(this.templates);
         } catch (error) {
-            this.container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--status-error);">خطأ في تحميل القوالب: ${error.message}</div>`;
+            this.container.innerHTML = `
+                <div style="padding: 40px; text-align: center;">
+                    <div style="color: var(--status-error); margin-bottom: 15px;">❌ خطأ في تحميل القوالب: ${error.message}</div>
+                    <button class="btn btn-secondary btn-sm" onclick="window.loadTemplates()">إعادة المحاولة</button>
+                </div>
+            `;
         }
     }
 
@@ -21,7 +33,7 @@ export class TemplatesPage {
                 <div style="text-align: center; padding: 60px 20px;">
                     <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
                     <h3 style="margin-bottom: 10px;">لا توجد قوالب حالياً</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 24px;">قم بإنشاء أول قالب لك للبدء في إرسال الرسائل.</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px;">قم بإنشاء أول قالب لك للبدء في إرسال الرسائل عبر واتساب.</p>
                     <button class="btn btn-primary" onclick="window.openNewTemplateModal()">إنشاء قالب جديد</button>
                 </div>
             `;
@@ -29,31 +41,79 @@ export class TemplatesPage {
         }
 
         let html = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px;">
+            <div style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="font-size: 14px; color: var(--text-secondary);">إجمالي القوالب: <strong>${templates.length}</strong></div>
+                    <button class="btn btn-ghost btn-sm" onclick="window.loadTemplates()" style="display: flex; align-items: center; gap: 6px;">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+                            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        مزامنة مع ميتا
+                    </button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
         `;
 
         templates.forEach(tpl => {
-            const statusClass = tpl.status === 'APPROVED' ? 'success' : (tpl.status === 'REJECTED' ? 'error' : 'warning');
-            const statusText = tpl.status === 'APPROVED' ? 'مقبول' : (tpl.status === 'REJECTED' ? 'مرفوض' : 'قيد المراجعة');
+            const statusMap = {
+                'APPROVED': { text: 'مقبول', class: 'success' },
+                'REJECTED': { text: 'مرفوض', class: 'error' },
+                'PENDING': { text: 'قيد المراجعة', class: 'warning' },
+                'PAUSED': { text: 'متوقف مؤقتاً', class: 'warning' },
+                'DISABLED': { text: 'معطل', class: 'error' }
+            };
             
+            const status = statusMap[tpl.status] || { text: tpl.status, class: 'info' };
+            const categoryMap = {
+                'MARKETING': 'تسويق',
+                'UTILITY': 'خدمي',
+                'AUTHENTICATION': 'تحقق'
+            };
+            
+            const body = tpl.components.find(c => c.type === 'BODY')?.text || '';
+            const header = tpl.components.find(c => c.type === 'HEADER');
+            const footer = tpl.components.find(c => c.type === 'FOOTER')?.text || '';
+            const buttons = tpl.components.find(c => c.type === 'BUTTONS')?.buttons || [];
+
             html += `
-                <div class="section-card" style="display: flex; flex-direction: column;">
-                    <div class="section-card-header" style="padding: 15px 20px;">
-                        <div style="font-weight: 700; font-size: 14px;">${tpl.name}</div>
-                        <span class="tag" style="background: var(--status-${statusClass}-bg); color: var(--status-${statusClass}); border: none;">${statusText}</span>
+                <div class="section-card" style="display: flex; flex-direction: column; transition: transform 0.2s; height: 100%;">
+                    <div class="section-card-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-subtle);">
+                        <div style="overflow: hidden;">
+                            <div style="font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${tpl.name}">${tpl.name}</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${categoryMap[tpl.category] || tpl.category} • ${tpl.language}</div>
+                        </div>
+                        <span class="tag" style="background: var(--status-${status.class}-bg); color: var(--status-${status.class}); border: none; flex-shrink: 0;">${status.text}</span>
                     </div>
-                    <div class="section-card-body" style="flex: 1; padding: 15px 20px;">
-                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">اللغة: ${tpl.language} | الفئة: ${tpl.category}</div>
-                        <div style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${tpl.components.find(c => c.type === 'BODY')?.text || ''}</div>
+                    <div class="section-card-body" style="flex: 1; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="background: var(--bg-elevated); padding: 15px; border-radius: 12px; font-size: 13px; border: 1px solid var(--border-subtle); position: relative; flex: 1;">
+                            ${header ? `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 5px; font-size: 12px; color: var(--text-primary);">${header.format === 'TEXT' ? header.text : '📷 وسائط'}</div>` : ''}
+                            <div style="white-space: pre-wrap; color: var(--text-primary); line-height: 1.5;">${body}</div>
+                            ${footer ? `<div style="margin-top: 10px; font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 5px;">${footer}</div>` : ''}
+                        </div>
+                        
+                        ${buttons.length > 0 ? `
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                ${buttons.map(btn => `
+                                    <div style="background: white; color: #00a884; border: 1px solid #e9edef; padding: 8px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 600;">
+                                        ${btn.type === 'URL' ? '🔗 ' : (btn.type === 'PHONE_NUMBER' ? '📞 ' : '💬 ')}${btn.text}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                     </div>
-                    <div style="padding: 12px 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 10px;">
-                        <button class="btn btn-ghost btn-sm" onclick="window.deleteTemplate('${tpl.name}')" style="color: var(--status-error);">حذف</button>
+                    <div style="padding: 12px 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-surface);">
+                        <button class="btn btn-ghost btn-sm" onclick="window.deleteTemplate('${tpl.name}')" style="color: var(--status-error); padding: 5px 10px;">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px; margin-left: 4px;">
+                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            حذف
+                        </button>
                     </div>
                 </div>
             `;
         });
 
-        html += `</div>`;
+        html += `</div></div>`;
         this.container.innerHTML = html;
     }
 }

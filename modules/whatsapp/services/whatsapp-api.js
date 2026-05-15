@@ -85,11 +85,20 @@ export class WhatsAppAPI {
   static async createTemplate(templateData) {
     const integration = await SupabaseIntegration.getIntegration();
     const wabaId = integration?.metadata?.waba_account_id;
-    if (!wabaId) throw new Error('WABA Account ID not found.');
+    if (!wabaId) throw new Error('WABA Account ID not found. يرجى التأكد من ربط حساب WhatsApp Business بشكل صحيح.');
+    
+    // Ensure data format is correct for Meta API
+    const payload = {
+      name: templateData.name,
+      category: templateData.category,
+      language: templateData.language,
+      components: templateData.components
+    };
+
     return graphFetch(`/${wabaId}/message_templates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(templateData),
+      body: JSON.stringify(payload),
     });
   }
 
