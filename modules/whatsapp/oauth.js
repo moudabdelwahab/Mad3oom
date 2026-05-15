@@ -75,9 +75,7 @@ _exchangeCode(code)
       override_default_response_type: true,
 redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
       extras: {
-        setup: {
-          solutionID: "2268694463535485"
-        },
+        setup: {},
         version: "v4",
         featureType: "whatsapp_business_app_onboarding",
         sessionInfoVersion: "3"
