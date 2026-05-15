@@ -165,13 +165,31 @@ export class InboxPage {
     if (!this.activePhone) return;
     const clientId = crypto.randomUUID();
     const optimistic = this.makeOutgoing({ clientId, text, type: 'text', status: 'sending' });
+    
+    // 1. Show optimistically
     this.handleRealtimeMessage(optimistic);
     this.setTyping(true);
+
     try {
+      // 2. Send to API
       const response = await WhatsAppAPI.sendText({ to: this.activePhone, text });
       const waId = response.messages?.[0]?.id;
-      await MessageStore.saveOutgoing({ ...optimistic, status: 'sent', delivery_status: 'sent', wa_message_id: waId });
-      this.handleRealtimeMessage({ ...optimistic, status: 'sent', delivery_status: 'sent', wa_message_id: waId });
+      
+      // 3. Save to DB with wa_message_id linked to clientId
+      await MessageStore.saveOutgoing({ 
+        ...optimistic, 
+        wa_message_id: waId, 
+        status: 'sent', 
+        delivery_status: 'sent' 
+      });
+
+      // 4. Update UI with sent status (handleRealtimeMessage will merge by clientId)
+      this.handleRealtimeMessage({ 
+        ...optimistic, 
+        wa_message_id: waId, 
+        status: 'sent', 
+        delivery_status: 'sent' 
+      });
     } catch (error) {
       this.handleRealtimeMessage({ ...optimistic, status: 'failed', delivery_status: 'failed' });
       window.Toast?.show?.(error.message || 'تعذر إرسال الرسالة', 'error');
@@ -200,14 +218,34 @@ export class InboxPage {
       file_size: file.size,
       media_url: objectUrl,
     });
+
+    // 1. Show optimistically
     this.handleRealtimeMessage(optimistic);
     this.setTyping(true);
+
     try {
+      // 2. Upload and Send
       const upload = await WhatsAppAPI.uploadMedia(file);
       const response = await WhatsAppAPI.sendMedia({ to: this.activePhone, type, mediaId: upload.id, caption, fileName: file.name });
       const waId = response.messages?.[0]?.id;
-      await MessageStore.saveOutgoing({ ...optimistic, media_id: upload.id, wa_message_id: waId, status: 'sent', delivery_status: 'sent' });
-      this.handleRealtimeMessage({ ...optimistic, media_id: upload.id, wa_message_id: waId, status: 'sent', delivery_status: 'sent' });
+      
+      // 3. Save to DB
+      await MessageStore.saveOutgoing({ 
+        ...optimistic, 
+        media_id: upload.id, 
+        wa_message_id: waId, 
+        status: 'sent', 
+        delivery_status: 'sent' 
+      });
+
+      // 4. Update UI
+      this.handleRealtimeMessage({ 
+        ...optimistic, 
+        media_id: upload.id, 
+        wa_message_id: waId, 
+        status: 'sent', 
+        delivery_status: 'sent' 
+      });
     } catch (error) {
       this.handleRealtimeMessage({ ...optimistic, status: 'failed', delivery_status: 'failed' });
       window.Toast?.show?.(error.message || 'تعذر إرسال الملف', 'error');

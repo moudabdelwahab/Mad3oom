@@ -222,11 +222,40 @@ export function groupConversations(messages, businessPhone = '') {
 
 export function mergeMessages(existingMessages, incomingMessages, businessPhone = '') {
   const map = new Map();
-  [...existingMessages, ...incomingMessages].forEach((message) => {
-    const normalized = normalizeMessage(message, businessPhone);
+  const waIdMap = new Map(); // To link wa_message_id to clientId
+
+  // First pass: Build a map of all messages using clientId as the primary key
+  [...existingMessages, ...incomingMessages].forEach((raw) => {
+    const normalized = normalizeMessage(raw, businessPhone);
     if (isBusinessConversation(normalized, businessPhone)) return;
-    const key = normalized.client_id || normalized.local_id || normalized.clientId || normalized.wa_message_id || normalized.message_id || normalized.id;
-    map.set(key, { ...(map.get(key) || {}), ...normalized });
+
+    const clientId = normalized.client_id || normalized.local_id || normalized.clientId;
+    const waId = normalized.wa_message_id || normalized.message_id || (normalized.id && String(normalized.id).startsWith('wamid.') ? normalized.id : null);
+
+    let key = clientId;
+
+    // If we have a WhatsApp ID, try to find if we already have a clientId for it
+    if (waId) {
+      if (waIdMap.has(waId)) {
+        key = waIdMap.get(waId);
+      } else if (clientId) {
+        waIdMap.set(waId, clientId);
+      } else {
+        key = waId; // Fallback to waId if no clientId is available
+      }
+    }
+
+    const existing = map.get(key) || {};
+    
+    // Merge logic: prefer newer data or specific fields
+    const merged = { ...existing, ...normalized };
+    
+    // Ensure we don't lose the original clientId if it was already set
+    if (clientId) merged.clientId = clientId;
+    if (waId) merged.wa_message_id = waId;
+
+    map.set(key, merged);
   });
+
   return [...map.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }

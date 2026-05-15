@@ -129,7 +129,7 @@ export function MessageBubble(message) {
   }
 
   return `
-    <article class="wa-bubble ${outbound ? 'outbound' : 'inbound'}" data-message-id="${escapeHtml(message.id || message.clientId)}">
+    <article class="wa-bubble ${outbound ? 'outbound' : 'inbound'}" data-message-id="${escapeHtml(message.clientId || message.client_id || message.id)}">
       ${content}
       <footer class="wa-bubble-meta">
         <span>${formatTime(message.timestamp)}</span>
