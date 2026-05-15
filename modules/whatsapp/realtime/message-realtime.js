@@ -17,13 +17,28 @@ export class MessageRealtime {
     this.channel = supabase
       .channel(`wa-messages-${userId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'messages',
         filter: `user_id=eq.${userId}`,
       }, (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') this.onMessage?.(payload.new, payload);
-        if (payload.eventType === 'DELETE') this.onMessage?.(payload.old, payload);
+        this.onMessage?.(payload.new, payload);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        this.onMessage?.(payload.new, payload);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'messages',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        this.onMessage?.(payload.old, payload);
       })
       .subscribe((status, error) => {
         this.onStatus?.(status);

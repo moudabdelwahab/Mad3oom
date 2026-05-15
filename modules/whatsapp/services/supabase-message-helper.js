@@ -55,6 +55,31 @@ export class SupabaseMessageHelper {
     if (!userId) return { ...message, id: message.client_id };
 
     const row = { user_id: userId, ...message };
+    
+    // Try to update existing message first (by client_id or wa_message_id)
+    if (message.client_id || message.wa_message_id) {
+      const { data: existing } = await supabase
+        .from(TABLE)
+        .select('id')
+        .eq('user_id', userId)
+        .or(`client_id.eq.${message.client_id || 'null'},wa_message_id.eq.${message.wa_message_id || 'null'}`)
+        .maybeSingle();
+      
+      if (existing) {
+        // Update existing message
+        const payload = pick(row, FULL_INSERT_COLUMNS);
+        const { data, error } = await supabase
+          .from(TABLE)
+          .update(payload)
+          .eq('id', existing.id)
+          .select()
+          .single();
+        
+        if (!error) return data;
+      }
+    }
+
+    // Insert new message if not found
     const attempts = [FULL_INSERT_COLUMNS, REQUIRED_OUTBOUND_COLUMNS, LEGACY_COLUMNS];
     let lastError = null;
 
