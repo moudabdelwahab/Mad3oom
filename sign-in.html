@@ -229,6 +229,12 @@ async function redirectByProfileRole(userId) {
 
 // توجيه المستخدم المسجل مسبقاً مرة واحدة فقط
 (async () => {
+    // عدم إعادة التوجيه إذا كان المستخدم قد سجل خروجه للتو
+    if (sessionStorage.getItem('just_logged_out')) {
+        sessionStorage.removeItem('just_logged_out');
+        return;
+    }
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
         await redirectByProfileRole(session.user.id);
@@ -237,6 +243,8 @@ async function redirectByProfileRole(userId) {
 
 // حماية إضافية ضد تعارض signIn مع مستمع المصادقة
 onAuthStateChange(async (event, session) => {
+    // تجاهل إذا كان المستخدم قد سجل خروجه للتو
+    if (sessionStorage.getItem('just_logged_out')) return;
     if (event !== 'SIGNED_IN' || !session?.user || isLoggingIn || isRedirecting) return;
     await redirectByProfileRole(session.user.id);
 });
