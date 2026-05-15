@@ -14,6 +14,7 @@ import { TemplatesPage } from './pages/TemplatesPage.js';
 import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
 import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { StatusPage } from './pages/StatusPage.js';
+import { SettingsPage } from './pages/SettingsPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -57,6 +58,7 @@ function navigateTo(page, element) {
   if (page === 'autoreply') { loadAutoReply(); }
   if (page === 'status') { loadStatus(); }
   if (page === 'users') { loadUsers(); }
+  if (page === 'settings') { loadSettings(); }
   if (page === 'connect') { updateConnectionStatus(); }
 }
 
@@ -71,6 +73,7 @@ let templatesPage = null;
 let autoReplyPage = null;
 let usersPage = null;
 let statusPage = null;
+let settingsPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -415,6 +418,19 @@ async function loadStatus() {
 }
 
 window.loadStatus = loadStatus;
+
+async function loadSettings() {
+  const container = document.getElementById('whatsapp-settings-root');
+  if (!container) return;
+
+  if (!settingsPage) {
+    settingsPage = new SettingsPage(container);
+  }
+
+  await settingsPage.load();
+}
+
+window.loadSettings = loadSettings;
 
 window.openNewAutoReplyModal = () => {
   const modal = document.getElementById('autoreply-modal');

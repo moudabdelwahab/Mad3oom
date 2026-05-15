@@ -110,4 +110,16 @@ export class WhatsAppAPI {
       method: 'DELETE',
     });
   }
+
+  static async updateBusinessProfile(profileData) {
+    const { phoneNumberId } = await getConnection();
+    return graphFetch(`/${phoneNumberId}/whatsapp_business_profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        ...profileData
+      }),
+    });
+  }
 }
