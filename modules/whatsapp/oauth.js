@@ -75,7 +75,9 @@ _exchangeCode(code)
       override_default_response_type: true,
 redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
       extras: {
-        version: 'v4'
+        setup: {},
+        featureType: "",
+        sessionInfoVersion: "3"
       }
     }
   );
