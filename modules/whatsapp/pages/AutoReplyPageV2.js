@@ -294,10 +294,14 @@ export class AutoReplyPageV2 {
                 break;
 
             case 'message':
-                this.editor.addNode(nodeId, 1, 1, adjustedX, adjustedY, 'message-node-v2', { message: '', delay: 0 }, `
+                this.editor.addNode(nodeId, 1, 1, adjustedX, adjustedY, 'message-node-v2', { message: '', delay: 0, waitForInput: false }, `
                     <div class="title">💬 إرسال رسالة نصية</div>
                     <div class="content">
                         <textarea class="node-textarea" df-message placeholder="اكتب نص الرسالة..."></textarea>
+                        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" df-waitForInput id="wait-${nodeId}">
+                            <label for="wait-${nodeId}" style="font-size: 11px;">انتظار رد المستخدم</label>
+                        </div>
                         <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">تأخير (ثانية):</div>
                         <input type="number" class="node-input" df-delay placeholder="0" min="0" max="300">
                     </div>
@@ -389,7 +393,7 @@ export class AutoReplyPageV2 {
                 break;
 
             case 'ai':
-                this.editor.addNode(nodeId, 1, 1, adjustedX, adjustedY, 'ai-node-v2', { prompt: '', model: 'gpt-3.5-turbo', temperature: 0.7 }, `
+                this.editor.addNode(nodeId, 1, 1, adjustedX, adjustedY, 'ai-node-v2', { prompt: '', model: 'gpt-3.5-turbo', temperature: 0.7, saveToContext: true, contextVar: 'ai_reply' }, `
                     <div class="title">🤖 رد ذكي (AI)</div>
                     <div class="content">
                         <select class="node-input" df-model>
@@ -397,8 +401,11 @@ export class AutoReplyPageV2 {
                             <option value="gpt-4">GPT-4</option>
                         </select>
                         <textarea class="node-textarea" df-prompt placeholder="أدخل التعليمات للذكاء الاصطناعي..."></textarea>
-                        <div style="font-size: 11px; margin-top: 4px;">درجة الإبداع: <span df-temperature-display>0.7</span></div>
-                        <input type="range" class="node-input" df-temperature min="0" max="1" step="0.1" value="0.7">
+                        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" df-saveToContext id="save-ai-${nodeId}">
+                            <label for="save-ai-${nodeId}" style="font-size: 11px;">حفظ الرد في متغير</label>
+                        </div>
+                        <input type="text" class="node-input" df-contextVar placeholder="اسم المتغير (مثلاً: user_name)">
                     </div>
                 `);
                 break;
