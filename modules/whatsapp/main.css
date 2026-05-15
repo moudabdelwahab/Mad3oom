@@ -1360,7 +1360,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 }
 .wa-bubble.inbound { align-self: flex-start; background: #202c33; border-top-left-radius: 4px; }
 .wa-bubble.outbound { align-self: flex-end; background: #0a3a6e; border-top-right-radius: 4px; }
-.wa-bubble-text { white-space: pre-wrap; overflow-wrap: break-word; font-size: 15px; line-height: 1.6; color: inherit; margin: 0; }
+.wa-bubble-text { white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; font-size: 15px; line-height: 1.6; color: inherit; margin: 0; }
 .wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; color: rgba(233,237,239,0.7); font-size: 11px; }
 .wa-delivery.read { color: #53bdeb; }
 .wa-media-preview { display: block; margin: -2px -4px 7px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.16); }
