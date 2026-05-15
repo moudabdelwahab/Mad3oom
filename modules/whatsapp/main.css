@@ -1376,10 +1376,11 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   overflow-wrap: break-word; 
   font-size: 15px; 
   line-height: 1.6; 
-  color: #e9edef !important; 
+  color: inherit !important; 
   margin: 0; 
   display: block;
   min-height: 1.6em;
+  width: 100%;
 }
 .wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; color: rgba(233,237,239,0.7); font-size: 11px; }
 .wa-delivery.read { color: #53bdeb; }
@@ -1440,7 +1441,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-messages { scroll-behavior: smooth; scrollbar-color: rgba(0, 119, 204, 0.35) transparent; }
 .wa-bubble { padding: 10px 12px 8px; border-radius: 12px; }
 .wa-bubble.inbound { border-top-left-radius: 3px; }
-.wa-bubble.outbound { border-top-right-radius: 3px; background: #0a3a6e; }
+.wa-bubble.outbound { border-top-right-radius: 3px; background: var(--wa-bubble-outgoing); }
 .wa-bubble[data-message-id] { animation: waMessageIn .16s ease-out; }
 @keyframes waMessageIn { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .wa-delivery { letter-spacing: -2px; font-weight: 800; }
@@ -1501,7 +1502,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .wa-interactive-header {
   font-size: 14px;
   font-weight: 700;
-  color: #e9edef;
+  color: inherit;
   line-height: 1.4;
 }
 
@@ -1516,7 +1517,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 /* Footer text */
 .wa-interactive-footer {
   font-size: 11px;
-  color: rgba(233, 237, 239, 0.55);
+  color: inherit;
+  opacity: 0.7;
   line-height: 1.4;
   margin-top: 2px;
 }
@@ -1524,7 +1526,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 /* Template name label */
 .wa-interactive-template-name {
   font-size: 11px;
-  color: rgba(233, 237, 239, 0.45);
+  color: inherit;
+  opacity: 0.6;
   font-style: italic;
 }
 
@@ -1576,7 +1579,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #e9edef;
+  color: inherit;
 }
 
 .wa-interactive-reply-icon {
@@ -1597,7 +1600,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 
 .wa-reaction-label {
   font-size: 12px;
-  color: rgba(233, 237, 239, 0.65);
+  color: inherit;
+  opacity: 0.8;
 }
 
 /* Location bubble */
@@ -1625,7 +1629,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 
 /* Unsupported fallback */
 .wa-unsupported {
-  color: rgba(233, 237, 239, 0.5);
+  color: inherit;
+  opacity: 0.6;
   font-style: italic;
   font-size: 13px;
 }
