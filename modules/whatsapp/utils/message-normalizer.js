@@ -222,9 +222,10 @@ export function groupConversations(messages, businessPhone = '') {
 
 export function mergeMessages(existingMessages, incomingMessages, businessPhone = '') {
   const map = new Map();
-  const waIdMap = new Map(); // To link wa_message_id to clientId
+  const waIdToClientId = new Map(); // Map wa_message_id to client_id
+  const clientIdToWaId = new Map(); // Map client_id to wa_message_id
 
-  // First pass: Build a map of all messages using clientId as the primary key
+  // First pass: Build maps and identify relationships
   [...existingMessages, ...incomingMessages].forEach((raw) => {
     const normalized = normalizeMessage(raw, businessPhone);
     if (isBusinessConversation(normalized, businessPhone)) return;
@@ -232,29 +233,57 @@ export function mergeMessages(existingMessages, incomingMessages, businessPhone 
     const clientId = normalized.client_id || normalized.local_id || normalized.clientId;
     const waId = normalized.wa_message_id || normalized.message_id || (normalized.id && String(normalized.id).startsWith('wamid.') ? normalized.id : null);
 
-    let key = clientId;
+    // Build relationship maps
+    if (clientId && waId) {
+      waIdToClientId.set(waId, clientId);
+      clientIdToWaId.set(clientId, waId);
+    }
+  });
 
-    // If we have a WhatsApp ID, try to find if we already have a clientId for it
-    if (waId) {
-      if (waIdMap.has(waId)) {
-        key = waIdMap.get(waId);
-      } else if (clientId) {
-        waIdMap.set(waId, clientId);
-      } else {
-        key = waId; // Fallback to waId if no clientId is available
-      }
+  // Second pass: Merge messages using clientId as primary key
+  [...existingMessages, ...incomingMessages].forEach((raw) => {
+    const normalized = normalizeMessage(raw, businessPhone);
+    if (isBusinessConversation(normalized, businessPhone)) return;
+
+    const clientId = normalized.client_id || normalized.local_id || normalized.clientId;
+    const waId = normalized.wa_message_id || normalized.message_id || (normalized.id && String(normalized.id).startsWith('wamid.') ? normalized.id : null);
+
+    // Determine the unique key for this message
+    let key;
+    if (clientId) {
+      key = clientId;
+    } else if (waId && waIdToClientId.has(waId)) {
+      // This message has a waId that's linked to a clientId
+      key = waIdToClientId.get(waId);
+    } else if (waId) {
+      // Use waId as key if no clientId is available
+      key = waId;
+    } else {
+      // Fallback to database id
+      key = normalized.id || crypto.randomUUID();
     }
 
-    const existing = map.get(key) || {};
+    const existing = map.get(key);
     
-    // Merge logic: prefer newer data or specific fields
-    const merged = { ...existing, ...normalized };
-    
-    // Ensure we don't lose the original clientId if it was already set
-    if (clientId) merged.clientId = clientId;
-    if (waId) merged.wa_message_id = waId;
-
-    map.set(key, merged);
+    if (existing) {
+      // Merge: prefer newer data but keep important fields
+      const merged = { 
+        ...existing, 
+        ...normalized,
+        // Preserve clientId if it exists
+        clientId: existing.clientId || normalized.clientId,
+        client_id: existing.client_id || normalized.client_id,
+        // Update status if newer
+        status: normalized.status || existing.status,
+        delivery_status: normalized.delivery_status || existing.delivery_status,
+        deliveryStatus: normalized.deliveryStatus || existing.deliveryStatus,
+        // Keep wa_message_id if available
+        wa_message_id: normalized.wa_message_id || existing.wa_message_id,
+      };
+      map.set(key, merged);
+    } else {
+      map.set(key, normalized);
+    }
   });
 
   return [...map.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));

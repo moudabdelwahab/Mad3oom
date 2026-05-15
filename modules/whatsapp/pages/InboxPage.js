@@ -176,6 +176,7 @@ export class InboxPage {
       const waId = response.messages?.[0]?.id;
       
       // 3. Save to DB with wa_message_id linked to clientId
+      // Realtime will handle the update automatically
       await MessageStore.saveOutgoing({ 
         ...optimistic, 
         wa_message_id: waId, 
@@ -183,13 +184,7 @@ export class InboxPage {
         delivery_status: 'sent' 
       });
 
-      // 4. Update UI with sent status (handleRealtimeMessage will merge by clientId)
-      this.handleRealtimeMessage({ 
-        ...optimistic, 
-        wa_message_id: waId, 
-        status: 'sent', 
-        delivery_status: 'sent' 
-      });
+      // No need to call handleRealtimeMessage here - Realtime subscription will handle it
     } catch (error) {
       this.handleRealtimeMessage({ ...optimistic, status: 'failed', delivery_status: 'failed' });
       window.Toast?.show?.(error.message || 'تعذر إرسال الرسالة', 'error');
@@ -229,7 +224,7 @@ export class InboxPage {
       const response = await WhatsAppAPI.sendMedia({ to: this.activePhone, type, mediaId: upload.id, caption, fileName: file.name });
       const waId = response.messages?.[0]?.id;
       
-      // 3. Save to DB
+      // 3. Save to DB - Realtime will handle the update
       await MessageStore.saveOutgoing({ 
         ...optimistic, 
         media_id: upload.id, 
@@ -238,14 +233,7 @@ export class InboxPage {
         delivery_status: 'sent' 
       });
 
-      // 4. Update UI
-      this.handleRealtimeMessage({ 
-        ...optimistic, 
-        media_id: upload.id, 
-        wa_message_id: waId, 
-        status: 'sent', 
-        delivery_status: 'sent' 
-      });
+      // No need to call handleRealtimeMessage here - Realtime subscription will handle it
     } catch (error) {
       this.handleRealtimeMessage({ ...optimistic, status: 'failed', delivery_status: 'failed' });
       window.Toast?.show?.(error.message || 'تعذر إرسال الملف', 'error');
