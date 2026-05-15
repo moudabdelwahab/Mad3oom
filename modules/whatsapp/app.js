@@ -132,10 +132,29 @@ async function loadUserProfile() {
       .single();
 
     if (profile) {
-      document.getElementById('user-name').textContent =
-        profile.full_name || 'المستخدم';
-      document.getElementById('welcome-name').textContent =
-        (profile.full_name || 'صديقي').split(' ')[0] + '!';
+      const fullName = profile.full_name || 'المستخدم';
+      const firstName = fullName.split(' ')[0];
+      const initial = firstName.charAt(0).toUpperCase();
+      
+      // Update user name
+      document.getElementById('user-name').textContent = fullName;
+      
+      // Update user role
+      const roleMap = {
+        'admin': 'مدير النظام',
+        'support': 'الدعم الفني',
+        'customer': 'عميل'
+      };
+      document.getElementById('user-role').textContent = roleMap[profile.role] || 'مستخدم';
+      
+      // Update user avatar
+      const avatarEl = document.getElementById('user-avatar');
+      if (avatarEl) {
+        avatarEl.textContent = initial;
+      }
+      
+      // Update welcome name
+      document.getElementById('welcome-name').textContent = firstName + '!';
       
       // Hide users tab if not support/admin
       const usersTab = document.querySelector('[data-page="users"]');
