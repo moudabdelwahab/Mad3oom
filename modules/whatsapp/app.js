@@ -11,7 +11,7 @@ import { OAuthService } from './oauth.js';
 import ProvisioningStatus from './ProvisioningStatus.js';
 import { InboxPage } from './pages/InboxPage.js';
 import { TemplatesPage } from './pages/TemplatesPage.js';
-import { AutoReplyPage } from './pages/AutoReplyPage.js';
+import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
 import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { StatusPage } from './pages/StatusPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
@@ -244,7 +244,7 @@ async function loadAutoReply() {
   if (!container) return;
 
   if (!autoReplyPage) {
-    autoReplyPage = new AutoReplyPage(container);
+    autoReplyPage = new AutoReplyPageV2(container);
   }
 
   await autoReplyPage.load();
