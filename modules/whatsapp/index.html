@@ -191,6 +191,20 @@
           <div class="user-role" id="user-role">مدير النظام</div>
         </div>
       </div>
+      <div style="display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-subtle);">
+        <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 8px;" onclick="window.location.href='/customer-dashboard.html'" title="العودة إلى نظام التذاكر">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 4px;">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          التذاكر
+        </button>
+        <button class="btn btn-ghost" style="flex: 1; font-size: 13px; padding: 8px;" onclick="handleLogout()" title="تسجيل الخروج">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 4px;">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path>
+          </svg>
+          خروج
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -676,6 +690,35 @@
 <script src="./supabase-integration.js" type="module"></script>
 <script src="./oauth.js" type="module"></script>
 <script src="./app.js" type="module"></script>
+<script type="module">
+  import { supabase } from '/api-config.js';
+  
+  async function handleLogout() {
+    if (!confirm('هل أنت متأكد من تسجيل الخروج؟')) return;
+    
+    try {
+      sessionStorage.setItem('just_logged_out', 'true');
+      localStorage.removeItem('mad3oom-guest-session');
+      
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      await supabase.auth.signOut();
+      window.location.replace('/sign-in.html');
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('حدث خطأ أثناء تسجيل الخروج');
+    }
+  }
+  
+  window.handleLogout = handleLogout;
+</script>
 <div id="fb-root"></div>
 
 </body>
