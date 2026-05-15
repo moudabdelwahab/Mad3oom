@@ -721,13 +721,25 @@
   window.handleLogout = handleLogout;
 </script>
 <!-- WhatsApp Template Modal -->
-<div id="template-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-  <div class="modal-content" style="background: var(--bg-card); width: 90%; max-width: 900px; max-height: 90vh; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-xl);">
-    <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; font-size: 18px;">إنشاء قالب واتساب جديد</h3>
-      <button class="btn btn-ghost" onclick="closeTemplateModal()" style="font-size: 24px; padding: 0; width: 32px; height: 32px; line-height: 1;">&times;</button>
+<div id="template-modal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;">
+  <div class="modal-content" style="background: var(--bg-card); width: 100%; max-width: 1000px; max-height: 95vh; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); animation: modalAppear 0.3s ease-out;">
+    <style>
+      @keyframes modalAppear {
+        from { opacity: 0; transform: scale(0.95) translateY(20px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .template-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; }
+      @media (max-width: 850px) { .template-grid { grid-template-columns: 1fr; } .preview-sticky { display: none; } }
+    </style>
+    <div class="modal-header" style="padding: 24px 32px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
+      <div>
+        <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-primary);">إنشاء قالب واتساب جديد</h3>
+        <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">صمم قالبك الخاص وارسله للمراجعة من قبل ميتا</p>
+      </div>
+      <button class="btn btn-ghost" onclick="closeTemplateModal()" style="font-size: 28px; padding: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">&times;</button>
     </div>
-    <div class="modal-body" style="padding: 24px; overflow-y: auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px;">
+    <div class="modal-body" style="padding: 32px; overflow-y: auto;">
+      <div class="template-grid">
       <!-- Form Side -->
       <form id="template-form" onsubmit="event.preventDefault()">
         <div style="margin-bottom: 20px;">
@@ -779,16 +791,27 @@
       </form>
 
       <!-- Preview Side -->
-      <div style="background: #e5ddd5; border-radius: 15px; padding: 20px; position: relative; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');">
-        <div style="font-weight: 700; color: #075e54; margin-bottom: 15px; text-align: center;">معاينة القالب</div>
-        <div style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); max-width: 90%; margin: 0 auto;">
-          <div id="template-preview-content" style="font-size: 14px; color: #111; line-height: 1.4;">
-            محتوى الرسالة سيظهر هنا...
+      <div class="preview-sticky" style="position: sticky; top: 0;">
+        <div style="background: #e5ddd5; border-radius: 20px; padding: 30px 20px; position: relative; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); min-height: 400px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(0,0,0,0.05);">
+          <div style="background: rgba(255,255,255,0.9); padding: 6px 16px; border-radius: 99px; font-size: 12px; font-weight: 700; color: #075e54; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">معاينة الرسالة</div>
+          
+          <div style="width: 100%; max-width: 280px; position: relative;">
+            <!-- WhatsApp Bubble -->
+            <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; z-index: 1;">
+              <div id="template-preview-content" style="font-size: 14px; color: #111; line-height: 1.5; word-wrap: break-word;">
+                محتوى الرسالة سيظهر هنا...
+              </div>
+            </div>
+            <!-- Triangle -->
+            <div style="position: absolute; right: -8px; top: 0; width: 20px; height: 20px; background: white; clip-path: polygon(0 0, 0% 100%, 100% 0); z-index: 0;"></div>
+            
+            <!-- Preview Buttons -->
+            <div id="template-preview-buttons" style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
           </div>
         </div>
-        <div id="template-preview-buttons" style="max-width: 90%; margin: 5px auto 0;"></div>
       </div>
     </div>
+  </div>
     <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-surface);">
       <button class="btn btn-secondary" onclick="closeTemplateModal()">إلغاء</button>
       <button class="btn btn-primary" onclick="saveTemplate()">حفظ وإرسال للمراجعة</button>

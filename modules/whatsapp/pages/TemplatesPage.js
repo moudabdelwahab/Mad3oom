@@ -30,11 +30,25 @@ export class TemplatesPage {
     render(templates) {
         if (templates.length === 0) {
             this.container.innerHTML = `
-                <div style="text-align: center; padding: 60px 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
-                    <h3 style="margin-bottom: 10px;">لا توجد قوالب حالياً</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 24px;">قم بإنشاء أول قالب لك للبدء في إرسال الرسائل عبر واتساب.</p>
-                    <button class="btn btn-primary" onclick="window.openNewTemplateModal()">إنشاء قالب جديد</button>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 20px; text-align: center;">
+                    <div style="width: 120px; height: 120px; background: var(--bg-elevated); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px; border: 4px solid var(--border-subtle); position: relative;">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 60px; height: 60px; color: var(--text-muted);">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="14 2 14 8 20 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="10 9 9 9 8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <div style="position: absolute; bottom: 5px; right: 5px; background: var(--brand-primary); width: 32px; height: 32px; border-radius: 50%; border: 4px solid var(--bg-card); display: flex; align-items: center; justify-content: center; color: white;">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
+                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 style="margin: 0 0 12px; font-size: 22px; font-weight: 800; color: var(--text-primary);">لا توجد قوالب حالياً</h3>
+                    <p style="color: var(--text-secondary); margin: 0 0 32px; max-width: 400px; line-height: 1.6; font-size: 15px;">ابدأ الآن بإنشاء أول قالب رسالة لك ليتم مراجعته واستخدامه في حملاتك عبر واتساب.</p>
+                    <button class="btn btn-primary" onclick="window.openNewTemplateModal()" style="padding: 12px 32px; font-size: 15px; font-weight: 700; border-radius: 12px; box-shadow: 0 10px 20px -5px var(--brand-primary-alpha);">إنشاء قالب جديد</button>
                 </div>
             `;
             return;
