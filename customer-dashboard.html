@@ -24,6 +24,7 @@
     <script type="module" src="/ads-ticker.js"></script>
     <link rel="stylesheet" href="robot.css">
     <link rel="stylesheet" href="chat-widget.css">
+    <link rel="stylesheet" href="chat-widget-enhanced.css">
     <style>
         .profile-section { background: var(--color-surface); padding: 2rem; border-radius: 1rem; box-shadow: var(--shadow-sm); margin-top: 2rem; border: 1px solid var(--color-border); }
         .nav-tabs { display: none; }
@@ -478,30 +479,8 @@
     <!-- Not implemented yet - This modal structure duplicates the one above and is not fully wired -->
     <!-- The functional modal is defined at the top of the body with id="ticketDetailModal" -->
 
+    <script src="chat-service.js"></script>
+    <script src="chat-widget.js"></script>
     <script type="module" src="customer-dashboard.js"></script>
-    <script>
-        // Floating Chat Widget Logic
-        const chatBubbleBtn = document.getElementById('chatBubbleBtn');
-        const chatWidgetPanel = document.getElementById('chatWidgetPanel');
-        const chatWidgetClose = document.getElementById('chatWidgetClose');
-
-        if (chatBubbleBtn && chatWidgetPanel && chatWidgetClose) {
-            chatBubbleBtn.addEventListener('click', () => {
-                chatWidgetPanel.classList.toggle('active');
-            });
-
-            chatWidgetClose.addEventListener('click', () => {
-                chatWidgetPanel.classList.remove('active');
-            });
-
-            // Close widget when clicking outside
-            document.addEventListener('click', (e) => {
-                const widget = document.getElementById('floatingChatWidget');
-                if (widget && !widget.contains(e.target)) {
-                    chatWidgetPanel.classList.remove('active');
-                }
-            });
-        }
-    </script>
 </body>
 </html>
