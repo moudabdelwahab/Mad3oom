@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مدعوم | WhatsApp API</title>
+  <link rel="stylesheet" href="./main.css" />
+  <link rel="stylesheet" href="./whatsapp-theme.css" />
+  <link rel="stylesheet" href="./icons.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    .nav-icon svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .plan-badge { display: flex; align-items: center; gap: 6px; background: rgba(0,119,204,0.10); border: 1px solid var(--border-brand); border-radius: 99px; padding: 4px 14px; font-size: 12px; font-weight: 700; color: var(--brand-primary); }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">م</div>
+      <div class="sidebar-brand">
+        <span class="sidebar-brand-name">مدعوم</span>
+        <span class="sidebar-brand-tag">WhatsApp API</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">القائمة الرئيسية</div>
+      <a href="index.html" class="nav-item" data-page="dashboard">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
+        <span class="nav-label">الرئيسية</span>
+      </a>
+      <a href="connect.html" class="nav-item" data-page="connect">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+        <span class="nav-label">ربط رقم واتساب</span>
+      </a>
+      <div class="nav-section-label">الإدارة</div>
+      <a href="templates.html" class="nav-item" data-page="templates">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+        <span class="nav-label">القوالب</span>
+      </a>
+      <a href="status.html" class="nav-item" data-page="status">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+        <span class="nav-label">حالة الرقم</span>
+      </a>
+      <a href="messages.html" class="nav-item" data-page="messages">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
+        <span class="nav-label">الرسائل</span>
+      </a>
+      <a href="autoreply.html" class="nav-item" data-page="autoreply">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path></svg></div>
+        <span class="nav-label">الرد الآلي</span>
+      </a>
+      <div class="nav-section-label">النظام</div>
+      <a href="users.html" class="nav-item" data-page="users">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+        <span class="nav-label">المستخدمين</span>
+      </a>
+      <a href="settings.html" class="nav-item" data-page="settings">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"></path></svg></div>
+        <span class="nav-label">الإعدادات</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="user-avatar"></div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">جاري التحميل...</div>
+          <div class="user-role" id="user-role">...</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-subtle);">
+        <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 8px;" onclick="window.location.href='/customer-dashboard.html'">التذاكر</button>
+        <button class="btn btn-ghost" style="flex: 1; font-size: 13px; padding: 8px;" onclick="handleLogout()">خروج</button>
+      </div>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="top-header">
+      <div>
+        <div class="header-title" id="page-title">العنوان</div>
+        <div class="header-subtitle" id="page-subtitle">الوصف</div>
+      </div>
+      <div class="header-actions">
+        <div class="icon-btn" title="الإشعارات" onclick="handleNotifications()"><svg viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><div class="notif-dot"></div></div>
+        <div class="icon-btn" title="تبديل الوضع" id="theme-toggle-btn" onclick="handleThemeToggle()"><svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div>
+        <div class="plan-badge">الخطة الاحترافية</div>
+      </div>
+    </header>
+    <div class="page-content" id="page-content-root">
+      <!-- المحتوى المتغير هنا -->
+    </div>
+  </div>
+</div>
+<script type="module" src="./shared.js"></script>
+</body>
+</html>

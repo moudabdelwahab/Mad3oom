@@ -13,7 +13,7 @@ const OAuthService = (() => {
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
   META_APP_ID:      '1510313544014876',
-  REDIRECT_URI:     'https://mad3oom.online/modules/whatsapp/index.html', // ✅ ثابتة
+  REDIRECT_URI:     'https://mad3oom.online/modules/whatsapp/connect.html', // ✅ تم التحديث لصفحة الربط الجديدة
   SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
   RESPONSE_TYPE:    'code',
   EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
@@ -73,7 +73,7 @@ _exchangeCode(code)
       response_type: 'code',
 
       override_default_response_type: true,
-redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
+redirect_uri:'https://mad3oom.online/modules/whatsapp/connect.html',
       extras: {
         setup: {},
         version: "v4",
@@ -133,7 +133,7 @@ redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
         },
 body: JSON.stringify({
   code,
-  redirect_uri: 'https://mad3oom.online/modules/whatsapp/index.html' // ✅ نفس القيمة بالضبط
+  redirect_uri: 'https://mad3oom.online/modules/whatsapp/connect.html' // ✅ تم التحديث لصفحة الربط الجديدة
 })
 
 ,

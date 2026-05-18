@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مدعوم | الرسائل</title>
+  <link rel="stylesheet" href="./main.css" />
+  <link rel="stylesheet" href="./whatsapp-theme.css" />
+  <link rel="stylesheet" href="./icons.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="app-shell">
+  <!-- Sidebar (Same as index.html but with active class on messages) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">م</div>
+      <div class="sidebar-brand"><span class="sidebar-brand-name">مدعوم</span><span class="sidebar-brand-tag">WhatsApp API</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">القائمة الرئيسية</div>
+      <a href="index.html" class="nav-item" data-page="dashboard"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div><span class="nav-label">الرئيسية</span></a>
+      <a href="connect.html" class="nav-item" data-page="connect"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div><span class="nav-label">ربط رقم واتساب</span></a>
+      <div class="nav-section-label">الإدارة</div>
+      <a href="templates.html" class="nav-item" data-page="templates"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div><span class="nav-label">القوالب</span></a>
+      <a href="status.html" class="nav-item" data-page="status"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div><span class="nav-label">حالة الرقم</span></a>
+      <a href="messages.html" class="nav-item active" data-page="messages"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div><span class="nav-label">الرسائل</span></a>
+      <a href="autoreply.html" class="nav-item" data-page="autoreply"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path></svg></div><span class="nav-label">الرد الآلي</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="user-avatar"></div><div class="user-info"><div class="user-name" id="user-name">جاري التحميل...</div><div class="user-role" id="user-role">...</div></div></div>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="top-header">
+      <div><div class="header-title" id="page-title">الرسائل</div><div class="header-subtitle" id="page-subtitle">إدارة المحادثات والرسائل الواردة</div></div>
+    </header>
+    <div class="page-content" style="padding: 0; height: calc(100vh - 70px); overflow: hidden;">
+      <div id="whatsapp-inbox-root" style="height: 100%;"></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="./shared.js"></script>
+<script type="module">
+  import { InboxPage } from './pages/InboxPage.js';
+  import { SupabaseIntegration } from './supabase-integration.js';
+
+  async function initMessages() {
+    const container = document.getElementById('whatsapp-inbox-root');
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    
+    // Get business phone from integration
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('provider', 'whatsapp')
+      .single();
+      
+    const businessPhone = integration?.metadata?.phone_number || '';
+
+    const inbox = new InboxPage(container, {
+      getBusinessPhone: () => businessPhone
+    });
+    inbox.mount();
+  }
+
+  document.addEventListener('DOMContentLoaded', initMessages);
+</script>
+</body>
+</html>

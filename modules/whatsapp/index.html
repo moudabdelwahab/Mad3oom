@@ -3,89 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>مدعوم | لوحة تحكم WhatsApp Business</title>
-  <meta name="description" content="منصة مدعوم - إدارة WhatsApp Business API" />
+  <title>مدعوم | لوحة التحكم</title>
   <link rel="stylesheet" href="./main.css" />
   <link rel="stylesheet" href="./whatsapp-theme.css" />
   <link rel="stylesheet" href="./icons.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
-  <link rel="stylesheet" href="./flow-editor.css">
-    <link rel="stylesheet" href="./flow-editor-v2.css">
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  
-  <!-- Facebook SDK -->
-  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v24.0&appId=1510313544014876" nonce="FACEBOOK_NONCE"></script>
   <style>
-    /* ─── Inline micro-styles ─── */
-    .activity-feed { display: flex; flex-direction: column; gap: 0; }
-    .activity-item {
-      display: flex; gap: 16px; padding: 14px 0;
-      border-bottom: 1px solid var(--border-subtle);
-      align-items: flex-start;
-    }
-    .activity-item:last-child { border-bottom: none; }
-    .activity-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      margin-top: 5px; flex-shrink: 0;
-    }
-    .activity-dot.green { background: var(--status-success); box-shadow: 0 0 8px var(--status-success); }
-    .activity-dot.blue { background: var(--status-info); }
-    .activity-dot.orange { background: var(--status-warning); }
-    .activity-dot.red { background: var(--status-error); }
-    .activity-text { flex: 1; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-    .activity-text strong { color: var(--text-primary); }
-    .activity-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; margin-top: 2px; }
-
-    .segment-tabs { display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: var(--radius-md); }
-    .seg-tab { padding: 7px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: all var(--transition); }
-    .seg-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
-
-    .plan-badge { display: flex; align-items: center; gap: 6px; background: rgba(0,119,204,0.10); border: 1px solid var(--border-brand); border-radius: 99px; padding: 4px 14px; font-size: 12px; font-weight: 700; color: var(--brand-primary); }
-
-    .input-icon-wrap { position: relative; }
-    .input-icon-wrap .form-input { padding-right: 40px; }
-    .input-icon-wrap .inp-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--text-muted); pointer-events: none; }
-
-    .section-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); }
-    .section-card-header { padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; }
-    .section-card-title { font-size: 15px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-    .section-card-title svg { width: 20px; height: 20px; flex-shrink: 0; }
-    .section-card-body { padding: 24px; }
-
-    .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); font-size: 11px; color: var(--text-secondary); font-weight: 600; }
-
-    .progress-bar-wrap { background: var(--bg-elevated); border-radius: 99px; height: 6px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); transition: width 1s ease; }
-
-    .connect-warning {
-      background: rgba(255, 179, 0, 0.08);
-      border: 1px solid rgba(255, 179, 0, 0.2);
-      border-radius: var(--radius-md);
-      padding: 14px 18px;
-      font-size: 13px;
-      color: var(--status-warning);
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 24px;
-    }
-
     .nav-icon svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .plan-badge { display: flex; align-items: center; gap: 6px; background: rgba(0,119,204,0.10); border: 1px solid var(--border-brand); border-radius: 99px; padding: 4px 14px; font-size: 12px; font-weight: 700; color: var(--brand-primary); }
     .stat-icon svg { width: 32px; height: 32px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .quick-action-icon svg { width: 28px; height: 28px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-    .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   </style>
 </head>
 <body>
-
-<!-- ════════════════════════════════════════════
-     App Shell
-     ════════════════════════════════════════════ -->
 <div class="app-shell">
-
-  <!-- ─── Sidebar ─── -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">م</div>
@@ -94,98 +28,45 @@
         <span class="sidebar-brand-tag">WhatsApp API</span>
       </div>
     </div>
-
     <nav class="sidebar-nav">
       <div class="nav-section-label">القائمة الرئيسية</div>
-
-      <div class="nav-item active" data-page="dashboard" onclick="window.navigateTo && window.navigateTo('dashboard', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-        </div>
+      <a href="index.html" class="nav-item active" data-page="dashboard">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
         <span class="nav-label">الرئيسية</span>
-      </div>
-
-      <div class="nav-item" data-page="connect" onclick="navigateTo('connect', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-          </svg>
-        </div>
+      </a>
+      <a href="connect.html" class="nav-item" data-page="connect">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
         <span class="nav-label">ربط رقم واتساب</span>
-        <span class="nav-badge" id="connect-badge">!</span>
-      </div>
-
+      </a>
       <div class="nav-section-label">الإدارة</div>
-
-      <div class="nav-item" data-page="templates" onclick="navigateTo('templates', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </div>
+      <a href="templates.html" class="nav-item" data-page="templates">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
         <span class="nav-label">القوالب</span>
-      </div>
-
-      <div class="nav-item" data-page="status" onclick="navigateTo('status', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <line x1="12" y1="2" x2="12" y2="22"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-        </div>
+      </a>
+      <a href="status.html" class="nav-item" data-page="status">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
         <span class="nav-label">حالة الرقم</span>
-      </div>
-
-      <div class="nav-item" data-page="messages" onclick="navigateTo('messages', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </div>
+      </a>
+      <a href="messages.html" class="nav-item" data-page="messages">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
         <span class="nav-label">الرسائل</span>
-        <span class="nav-badge">3</span>
-      </div>
-
-      <div class="nav-item" data-page="autoreply" onclick="navigateTo('autoreply', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path>
-          </svg>
-        </div>
+      </a>
+      <a href="autoreply.html" class="nav-item" data-page="autoreply">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path></svg></div>
         <span class="nav-label">الرد الآلي</span>
-      </div>
-
+      </a>
       <div class="nav-section-label">النظام</div>
-
-      <div class="nav-item" data-page="users" onclick="navigateTo('users', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-        </div>
+      <a href="users.html" class="nav-item" data-page="users">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
         <span class="nav-label">المستخدمين</span>
-      </div>
-
-      <div class="nav-item" data-page="settings" onclick="navigateTo('settings', this)">
-        <div class="nav-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"></path>
-          </svg>
-        </div>
+      </a>
+      <a href="settings.html" class="nav-item" data-page="settings">
+        <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"></path></svg></div>
         <span class="nav-label">الإعدادات</span>
-      </div>
+      </a>
     </nav>
-
     <div class="sidebar-footer">
-      <div class="user-card" onclick="handleUserMenu()">
+      <div class="user-card">
         <div class="user-avatar" id="user-avatar"></div>
         <div class="user-info">
           <div class="user-name" id="user-name">جاري التحميل...</div>
@@ -193,622 +74,118 @@
         </div>
       </div>
       <div style="display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-subtle);">
-        <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 8px;" onclick="window.location.href='/customer-dashboard.html'" title="العودة إلى نظام التذاكر">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 4px;">
-            <path d="M19 12H5M12 19l-7-7 7-7"></path>
-          </svg>
-          التذاكر
-        </button>
-        <button class="btn btn-ghost" style="flex: 1; font-size: 13px; padding: 8px;" onclick="handleLogout()" title="تسجيل الخروج">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 4px;">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path>
-          </svg>
-          خروج
-        </button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 8px;" onclick="window.location.href='/customer-dashboard.html'">التذاكر</button>
+        <button class="btn btn-ghost" style="flex: 1; font-size: 13px; padding: 8px;" onclick="handleLogout()">خروج</button>
       </div>
     </div>
   </aside>
-
-  <!-- ─── Main Content ─── -->
   <div class="main-content">
-
-    <!-- Top Header -->
     <header class="top-header">
       <div>
         <div class="header-title" id="page-title">الرئيسية</div>
         <div class="header-subtitle" id="page-subtitle">مرحبًا بك في لوحة تحكم مدعوم</div>
       </div>
       <div class="header-actions">
-        <div class="icon-btn" title="الإشعارات" onclick="handleNotifications()">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          <div class="notif-dot"></div>
-        </div>
-        <div class="icon-btn" title="المزامنة" id="sync-btn" onclick="window.loadTemplates ? window.loadTemplates() : handleSync()">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path>
-          </svg>
-        </div>
-        <div class="icon-btn" title="تبديل الوضع" id="theme-toggle-btn" onclick="handleThemeToggle()">
-          <svg id="theme-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </div>
-        <div class="plan-badge">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
-            <polygon points="12 2 15.09 10.26 24 10.26 17.55 15.74 19.64 24 12 19.52 4.36 24 6.45 15.74 0 10.26 8.91 10.26 12 2"></polygon>
-          </svg>
-          الخطة الاحترافية
-        </div>
+        <div class="icon-btn" title="الإشعارات" onclick="handleNotifications()"><svg viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><div class="notif-dot"></div></div>
+        <div class="icon-btn" title="تبديل الوضع" id="theme-toggle-btn" onclick="handleThemeToggle()"><svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div>
+        <div class="plan-badge">الخطة الاحترافية</div>
       </div>
     </header>
-
-    <!-- Page Content -->
     <div class="page-content">
-
-      <!-- ════════ PAGE: Dashboard ════════ -->
-      <div class="page active" id="page-dashboard">
-
-        <div class="welcome-banner" style="align-items: center;">
-          <div>
-            <div class="welcome-title">مرحبًا، <span id="welcome-name">صديقي!</span> 👋</div>
-            <div class="welcome-sub" id="welcome-sub">جاري التحميل...</div>
-            <div style="display:flex; gap: 12px; margin-top: 20px;">
-              <button class="btn btn-primary" onclick="navigateTo('connect', document.querySelector('[data-page=connect]'))">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 6px;">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                </svg>
-                ربط رقم واتساب
-              </button>
-              <button class="btn btn-secondary" onclick="navigateTo('templates', document.querySelector('[data-page=templates]'))">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 6px;">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                إدارة القوالب
-              </button>
-            </div>
-          </div>
-          <div class="welcome-graphic" style="display: flex; align-items: center; justify-content: center;">
-            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="width: 120px; height: 120px; color: #25D366;">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004c-1.052 0-2.082.398-2.847 1.12-.735.71-1.14 1.656-1.14 2.655 0 1.859 1.514 3.418 3.641 3.418 1.013 0 1.967-.358 2.71-.981l.195-.153c.745-.623 1.159-1.569 1.159-2.584 0-2.126-1.516-3.475-3.714-3.475M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0m0 23.384c-6.288 0-11.384-5.096-11.384-11.384S5.712.616 12 .616s11.384 5.096 11.384 11.384-5.096 11.384-11.384 11.384"/>
-            </svg>
+      <div class="welcome-banner" style="align-items: center;">
+        <div>
+          <div class="welcome-title">مرحبًا، <span id="welcome-name">صديقي!</span> 👋</div>
+          <div class="welcome-sub" id="welcome-sub">جاري التحميل...</div>
+          <div style="display:flex; gap: 12px; margin-top: 20px;">
+            <a href="connect.html" class="btn btn-primary">ربط رقم واتساب</a>
+            <a href="templates.html" class="btn btn-secondary">إدارة القوالب</a>
           </div>
         </div>
-
-        <!-- Stats -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon green">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 4h16v16H4z"></path>
-                <path d="M9 9h6v6H9z"></path>
-              </svg>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value" id="stat-sent-count">0</div>
-              <div class="stat-label">رسائل مُرسلة اليوم</div>
-              <div class="stat-change up" id="stat-sent-change">جاري التحميل...</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon teal">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value" id="stat-delivery-rate">0%</div>
-              <div class="stat-label">معدل التسليم</div>
-              <div class="stat-change up" id="stat-delivery-change">جاري التحميل...</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon blue">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value" id="stat-templates-count">0</div>
-              <div class="stat-label">قوالب نشطة</div>
-              <div class="stat-change up" id="stat-templates-change">جاري التحميل...</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon orange">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="1"></circle>
-                <path d="M12 1v6m0 6v6"></path>
-              </svg>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value" id="dash-status-val">—</div>
-              <div class="stat-label">حالة الاتصال</div>
-              <div class="stat-change" id="dash-status-change">— اضغط للربط</div>
-            </div>
+        <div class="welcome-graphic">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 120px; height: 120px; color: #25D366;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004c-1.052 0-2.082.398-2.847 1.12-.735.71-1.14 1.656-1.14 2.655 0 1.859 1.514 3.418 3.641 3.418 1.013 0 1.967-.358 2.71-.981l.195-.153c.745-.623 1.159-1.569 1.159-2.584 0-2.126-1.516-3.475-3.714-3.475M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0m0 23.384c-6.288 0-11.384-5.096-11.384-11.384S5.712.616 12 .616s11.384 5.096 11.384 11.384-5.096 11.384-11.384 11.384"/></svg>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z"></path><path d="M9 9h6v6H9z"></path></svg></div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-sent-count">0</div>
+            <div class="stat-label">رسائل مُرسلة اليوم</div>
+            <div class="stat-change up" id="stat-sent-change">جاري التحميل...</div>
           </div>
         </div>
-
-        <!-- Quick Actions -->
-        <div style="margin-bottom: 8px;" class="text-sm text-secondary font-semibold">إجراءات سريعة</div>
-        <div class="quick-actions" style="margin-bottom: 32px;">
-          <div class="quick-action" onclick="navigateTo('connect', document.querySelector('[data-page=connect]'))">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-              </svg>
-            </div>
-            <div class="quick-action-label">ربط رقم جديد</div>
-          </div>
-          <div class="quick-action" onclick="openNewTemplateModal()">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </div>
-            <div class="quick-action-label">إنشاء قالب</div>
-          </div>
-          <div class="quick-action" onclick="navigateTo('messages', document.querySelector('[data-page=messages]'))">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </div>
-            <div class="quick-action-label">عرض الرسائل</div>
-          </div>
-          <div class="quick-action" onclick="navigateTo('status', document.querySelector('[data-page=status]'))">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="12" y1="2" x2="12" y2="22"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-            </div>
-            <div class="quick-action-label">حالة الرقم</div>
-          </div>
-          <div class="quick-action" onclick="handleReports()">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <polyline points="19 12 12 19 5 12"></polyline>
-              </svg>
-            </div>
-            <div class="quick-action-label">تقارير الأداء</div>
+        <div class="stat-card">
+          <div class="stat-icon teal"><svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-delivery-rate">0%</div>
+            <div class="stat-label">معدل التسليم</div>
+            <div class="stat-change up" id="stat-delivery-change">جاري التحميل...</div>
           </div>
         </div>
-
-        <!-- Two-column layout -->
-        <div class="grid-2">
-          <!-- Activity Feed -->
-          <div class="section-card">
-            <div class="section-card-header">
-              <div class="section-card-title">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                آخر الأنشطة
-              </div>
-              <button class="btn btn-ghost btn-sm">عرض الكل</button>
-            </div>
-            <div class="section-card-body">
-              <div class="activity-feed">
-                <div class="activity-item">
-                  <div class="activity-dot green"></div>
-                  <div class="activity-text"><strong>رسالة ترحيب</strong> تم إرسالها إلى +966 5x xxx xxxx</div>
-                  <div class="activity-time">منذ 2 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot blue"></div>
-                  <div class="activity-text">قالب <strong>تأكيد الطلب</strong> تمت الموافقة عليه من Meta</div>
-                  <div class="activity-time">منذ 15 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot green"></div>
-                  <div class="activity-text">Webhook استقبل <strong>8 رسائل واردة</strong> جديدة</div>
-                  <div class="activity-time">منذ 32 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot orange"></div>
-                  <div class="activity-text">تحذير: اقتربت من حد الإرسال اليومي <strong>(80%)</strong></div>
-                  <div class="activity-time">منذ 1 س</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot blue"></div>
-                  <div class="activity-text">تم تجديد <strong>Access Token</strong> بنجاح</div>
-                  <div class="activity-time">منذ 3 س</div>
-                </div>
-              </div>
-            </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-templates-count">0</div>
+            <div class="stat-label">قوالب نشطة</div>
+            <div class="stat-change up" id="stat-templates-change">جاري التحميل...</div>
           </div>
-
-          <!-- Usage & Limits -->
-          <div class="section-card">
-            <div class="section-card-header">
-              <div class="section-card-title">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <line x1="12" y1="2" x2="12" y2="22"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                استخدام الخطة
-              </div>
-              <span class="badge success">نشط</span>
-            </div>
-            <div class="section-card-body">
-              <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">رسائل اليوم</span>
-                    <span class="text-sm font-semibold">1,284 / 5,000</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 25.6%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">قوالب مُعتمدة</span>
-                    <span class="text-sm font-semibold">7 / 10</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 70%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">حد الـ API الشهري</span>
-                    <span class="text-sm font-semibold">45,320 / 100,000</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 45.32%"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="1"></circle><path d="M12 1v6m0 6v6"></path></svg></div>
+          <div class="stat-info">
+            <div class="stat-value" id="dash-status-val">—</div>
+            <div class="stat-label">حالة الاتصال</div>
+            <div class="stat-change" id="dash-status-change">— اضغط للربط</div>
           </div>
         </div>
       </div>
-
-      <!-- ════════ PAGE: Connect ════════ -->
-      <div class="page" id="page-connect">
-
-        <div class="section-card">
-          <div class="section-card-header">
-            <div class="section-card-title">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-              </svg>
-              ربط حسابات WhatsApp Business
-            </div>
-          </div>
-          <div class="section-card-body">
-            <div style="max-width: 700px;">
-              <p style="color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;">
-                يمكنك ربط عدة أرقام واتساب بيزنس واستخدامها جميعاً في نفس الوقت. كل رقم يعمل بشكل مستقل مع إمكانية التبديل بينهم بسهولة.
-              </p>
-
-              <div id="connection-status-list" style="margin-bottom: 24px;">
-                <!-- Multiple connections will be listed here -->
-              </div>
-
-              <div style="display: flex; gap: 12px;">
-                <button
-                  class="btn btn-primary"
-                  id="connect-btn"
-                  onclick="OAuthService.startOAuthFlow()"
-                  style="display: inline-flex; align-items: center; gap: 6px;"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                  إضافة رقم واتساب جديد
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div style="margin-bottom: 8px;" class="text-sm text-secondary font-semibold">إجراءات سريعة</div>
+      <div class="quick-actions" style="margin-bottom: 32px;">
+        <a href="connect.html" class="quick-action">
+          <div class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+          <div class="quick-action-label">ربط رقم جديد</div>
+        </a>
+        <a href="templates.html" class="quick-action">
+          <div class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
+          <div class="quick-action-label">إدارة القوالب</div>
+        </a>
+        <a href="messages.html" class="quick-action">
+          <div class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
+          <div class="quick-action-label">عرض الرسائل</div>
+        </a>
       </div>
-
-      <!-- ════════ PAGE: Templates ════════ -->
-      <div class="page" id="page-templates">
-        <div class="section-card">
-          <div class="section-card-header">
-            <div class="section-card-title">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-              إدارة القوالب
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="openNewTemplateModal()">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px; margin-left: 4px;">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              قالب جديد
-            </button>
-          </div>
-          <div class="section-card-body" id="whatsapp-templates-root" style="padding: 0;">
-            <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
-              جاري تحميل القوالب...
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ════════ PAGE: Status ════════ -->
-      <div class="page" id="page-status">
-        <div class="section-card">
-          <div class="section-card-header">
-            <div class="section-card-title">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="12" y1="2" x2="12" y2="22"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-              حالة الرقم والخدمة
-            </div>
-          </div>
-          <div class="section-card-body" id="whatsapp-status-root" style="padding: 0;">
-            <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
-              جاري تحميل حالة الخدمة...
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ════════ PAGE: Messages ════════ -->
-      <div class="page" id="page-messages">
-        <div id="whatsapp-inbox-root" class="whatsapp-inbox-root">
-          <div class="wa-inbox-loading">جاري تجهيز Inbox...</div>
-        </div>
-      </div>
-
-      <!-- ════════ PAGE: Auto Reply ════════ -->
-      <div class="page" id="page-autoreply">
-        <div class="section-card">
-          <div class="section-card-header">
-            <div class="section-card-title">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 2z"></path>
-              </svg>
-              الرد الآلي
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="window.openNewAutoReplyModal()">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px; margin-left: 4px;">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              إضافة رد
-            </button>
-          </div>
-          <div class="section-card-body" id="whatsapp-autoreply-root" style="padding: 0;">
-            <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
-              جاري تحميل قواعد الرد الآلي...
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- مممممممم PAGE: Users Management مممممممم -->
-      <div class="page" id="page-users">
-        <div id="whatsapp-users-root" class="whatsapp-users-root">
-          <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-            جاري تحميل بيانات المستخدمين...
-          </div>
-        </div>
-      </div>
-
-      <!-- مممممممم PAGE: Settings مممممممم -->
-      <div class="page" id="page-settings">
-        <div id="whatsapp-settings-root">
-          <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-            جاري تحميل الإعدادات...
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
-
-<!-- Scripts -->
-<script>
-  window.fbAsyncInit = function () {
-    FB.init({
-      appId: '1510313544014876',
-      cookie: true,
-      xfbml: true,
-      version: 'v24.0'
-    });
-
-    console.log('Facebook SDK Initialized');
-  };
-</script>
-<script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
-<script src="./toast.js"></script>
-<script src="./theme-manager.js" type="module"></script>
-<script>
-  /**
-   * Theme Toggle Handler
-   * Manages light/dark mode switching with icon updates
-   */
-  function handleThemeToggle() {
-    if (!window.waThemeManager) {
-      console.warn('Theme manager not initialized yet');
-      return;
-    }
-    
-    const newTheme = window.waThemeManager.toggleTheme();
-    updateThemeIcon(newTheme);
-  }
-  
-  function updateThemeIcon(theme) {
-    const themeIcon = document.getElementById('theme-icon');
-    if (!themeIcon) return;
-    
-    if (theme === 'light') {
-      // Show sun icon in light mode
-      themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-    } else {
-      // Show moon icon in dark mode
-      themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-    }
-  }
-  
-  // Initialize theme icon on page load
-  window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-      if (window.waThemeManager) {
-        const currentTheme = window.waThemeManager.getCurrentTheme();
-        updateThemeIcon(currentTheme);
-      }
-    }, 100);
-  });
-  
-  // Listen for theme changes from other sources
-  window.addEventListener('wa-theme-changed', (event) => {
-    updateThemeIcon(event.detail.theme);
-  });
-</script>
-<script src="./supabase-integration.js" type="module"></script>
-<script src="./oauth.js" type="module"></script>
-<script src="./app.js" type="module"></script>
+<script type="module" src="./shared.js"></script>
 <script type="module">
-  import { supabase } from '/api-config.js';
+  import { SupabaseIntegration } from './supabase-integration.js';
   
-  async function handleLogout() {
-    if (!confirm('هل أنت متأكد من تسجيل الخروج؟')) return;
-    
+  async function updateDashboard() {
     try {
-      sessionStorage.setItem('just_logged_out', 'true');
-      localStorage.removeItem('mad3oom-guest-session');
-      
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
-          keysToRemove.push(key);
-        }
+      const supabase = await SupabaseIntegration.initializeSupabase();
+      const { data: stats } = await supabase.rpc('get_whatsapp_dashboard_stats');
+      if (stats) {
+        document.getElementById('stat-sent-count').textContent = stats.sent_today || 0;
+        document.getElementById('stat-delivery-rate').textContent = (stats.delivery_rate || 0) + '%';
+        document.getElementById('stat-templates-count').textContent = stats.active_templates || 0;
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
       
-      await supabase.auth.signOut();
-      window.location.replace('/sign-in.html');
-    } catch (error) {
-      console.error('Logout error:', error);
-      alert('حدث خطأ أثناء تسجيل الخروج');
-    }
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('provider', 'whatsapp')
+        .eq('user_id', (await supabase.auth.getUser()).data.user.id)
+        .single();
+        
+      if (integration) {
+        document.getElementById('dash-status-val').textContent = 'متصل';
+        document.getElementById('dash-status-change').textContent = integration.metadata.phone_number;
+      }
+    } catch (e) { console.error(e); }
   }
   
-  window.handleLogout = handleLogout;
+  document.addEventListener('DOMContentLoaded', updateDashboard);
 </script>
-<!-- WhatsApp Template Modal -->
-<div id="template-modal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;">
-  <div class="modal-content" style="background: var(--bg-card); width: 100%; max-width: 1000px; max-height: 95vh; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); animation: modalAppear 0.3s ease-out;">
-    <style>
-      @keyframes modalAppear {
-        from { opacity: 0; transform: scale(0.95) translateY(20px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-      }
-      .template-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; }
-      @media (max-width: 850px) { .template-grid { grid-template-columns: 1fr; } .preview-sticky { display: none; } }
-    </style>
-    <div class="modal-header" style="padding: 24px 32px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
-      <div>
-        <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-primary);">إنشاء قالب واتساب جديد</h3>
-        <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">صمم قالبك الخاص وارسله للمراجعة من قبل ميتا</p>
-      </div>
-      <button class="btn btn-ghost" onclick="closeTemplateModal()" style="font-size: 28px; padding: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">&times;</button>
-    </div>
-    <div class="modal-body" style="padding: 32px; overflow-y: auto;">
-      <div class="template-grid">
-      <!-- Form Side -->
-      <form id="template-form" onsubmit="event.preventDefault()">
-        <div style="margin-bottom: 20px;">
-          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">اسم القالب (أحرف إنجليزية وأرقام فقط)</label>
-          <input type="text" id="tpl-name" class="form-input" placeholder="مثال: welcome_message" oninput="updateTemplatePreview()" required>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-          <div>
-            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">الفئة</label>
-            <select id="tpl-category" class="form-input">
-              <option value="MARKETING">تسويق (Marketing)</option>
-              <option value="UTILITY">خدمي (Utility)</option>
-              <option value="AUTHENTICATION">تحقق (Authentication)</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">اللغة</label>
-            <select id="tpl-lang" class="form-input">
-              <option value="ar">العربية (ar)</option>
-              <option value="en">الإنجليزية (en)</option>
-              <option value="en_US">الإنجليزية - أمريكا (en_US)</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">الرأس (اختياري)</label>
-          <input type="text" id="tpl-header" class="form-input" placeholder="نص يظهر في أعلى الرسالة" oninput="updateTemplatePreview()">
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">محتوى الرسالة (إلزامي)</label>
-          <textarea id="tpl-body" class="form-input" style="height: 120px; resize: none;" placeholder="اكتب محتوى الرسالة هنا... يمكنك استخدام {{1}} للمتغيرات" oninput="updateTemplatePreview()" required></textarea>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 600;">التذييل (اختياري)</label>
-          <input type="text" id="tpl-footer" class="form-input" placeholder="نص صغير يظهر في أسفل الرسالة" oninput="updateTemplatePreview()">
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <label class="form-label" style="font-weight: 600; margin: 0;">الأزرار (بحد أقصى 3)</label>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="addTemplateButton()">+ إضافة زر</button>
-          </div>
-          <div id="buttons-container"></div>
-        </div>
-      </form>
-
-      <!-- Preview Side -->
-      <div class="preview-sticky" style="position: sticky; top: 0;">
-        <div style="background: #e5ddd5; border-radius: 20px; padding: 30px 20px; position: relative; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); min-height: 400px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(0,0,0,0.05);">
-          <div style="background: rgba(255,255,255,0.9); padding: 6px 16px; border-radius: 99px; font-size: 12px; font-weight: 700; color: #075e54; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">معاينة الرسالة</div>
-          
-          <div style="width: 100%; max-width: 280px; position: relative;">
-            <!-- WhatsApp Bubble -->
-            <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; z-index: 1;">
-              <div id="template-preview-content" style="font-size: 14px; color: #111; line-height: 1.5; word-wrap: break-word;">
-                محتوى الرسالة سيظهر هنا...
-              </div>
-            </div>
-            <!-- Triangle -->
-            <div style="position: absolute; right: -8px; top: 0; width: 20px; height: 20px; background: white; clip-path: polygon(0 0, 0% 100%, 100% 0); z-index: 0;"></div>
-            
-            <!-- Preview Buttons -->
-            <div id="template-preview-buttons" style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-    <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-surface);">
-      <button class="btn btn-secondary" onclick="closeTemplateModal()">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveTemplate()">حفظ وإرسال للمراجعة</button>
-    </div>
-  </div>
-</div>
-
-<div id="fb-root"></div>
-
 </body>
 </html>

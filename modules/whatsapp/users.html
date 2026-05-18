@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مدعوم | المستخدمين</title>
+  <link rel="stylesheet" href="./main.css" />
+  <link rel="stylesheet" href="./whatsapp-theme.css" />
+  <link rel="stylesheet" href="./icons.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">م</div>
+      <div class="sidebar-brand"><span class="sidebar-brand-name">مدعوم</span><span class="sidebar-brand-tag">WhatsApp API</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">النظام</div>
+      <a href="users.html" class="nav-item active" data-page="users"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><span class="nav-label">المستخدمين</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="user-avatar"></div><div class="user-info"><div class="user-name" id="user-name">جاري التحميل...</div><div class="user-role" id="user-role">...</div></div></div>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="top-header">
+      <div><div class="header-title">إدارة المستخدمين</div><div class="header-subtitle">التحكم في صلاحيات الوصول لمنصة الواتساب</div></div>
+    </header>
+    <div class="page-content">
+      <div id="whatsapp-users-root"></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="./shared.js"></script>
+<script type="module">
+  import { UsersManagementPage } from './pages/UsersManagementPage.js';
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('whatsapp-users-root');
+    const page = new UsersManagementPage(container);
+    page.mount();
+  });
+</script>
+</body>
+</html>
