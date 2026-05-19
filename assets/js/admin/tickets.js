@@ -432,29 +432,57 @@ function setupModalEvents() {
     // Send Public Reply
     document.getElementById('sendPublicReply').onclick = async () => {
         const text = document.getElementById('replyText').value.trim();
-        if (!text) return;
+        if (!text) {
+            alert('الرجاء كتابة رد قبل الإرسال');
+            return;
+        }
         
         try {
+            const btn = document.getElementById('sendPublicReply');
+            btn.disabled = true;
+            btn.textContent = 'جاري الإرسال...';
+            
             await addTicketReply(currentTicketId, text, false);
             document.getElementById('replyText').value = '';
-            loadReplies(currentTicketId);
+            await loadReplies(currentTicketId);
             await loadTickets();
+            
+            btn.disabled = false;
+            btn.textContent = 'إرسال رد للعميل';
         } catch (err) {
-            alert('فشل إرسال الرد');
+            console.error('Error sending reply:', err);
+            alert('فشل إرسال الرد: ' + (err.message || 'حدث خطأ غير متوقع'));
+            const btn = document.getElementById('sendPublicReply');
+            btn.disabled = false;
+            btn.textContent = 'إرسال رد للعميل';
         }
     };
 
     // Send Internal Note
     document.getElementById('sendInternalNote').onclick = async () => {
         const text = document.getElementById('replyText').value.trim();
-        if (!text) return;
+        if (!text) {
+            alert('الرجاء كتابة ملاحظة قبل الإضافة');
+            return;
+        }
         
         try {
+            const btn = document.getElementById('sendInternalNote');
+            btn.disabled = true;
+            btn.textContent = 'جاري الإضافة...';
+            
             await addTicketReply(currentTicketId, text, true);
             document.getElementById('replyText').value = '';
-            loadReplies(currentTicketId);
+            await loadReplies(currentTicketId);
+            
+            btn.disabled = false;
+            btn.textContent = 'إضافة ملاحظة داخلية';
         } catch (err) {
-            alert('فشل إضافة الملاحظة');
+            console.error('Error adding internal note:', err);
+            alert('فشل إضافة الملاحظة: ' + (err.message || 'حدث خطأ غير متوقع'));
+            const btn = document.getElementById('sendInternalNote');
+            btn.disabled = false;
+            btn.textContent = 'إضافة ملاحظة داخلية';
         }
     };
 
@@ -592,7 +620,10 @@ async function showAdminTicketInPanel(ticketId) {
     if (sendBtn && replyInput) {
         sendBtn.onclick = async () => {
             const message = replyInput.value.trim();
-            if (!message) return;
+            if (!message) {
+                alert('الرجاء كتابة رد قبل الإرسال');
+                return;
+            }
             
             try {
                 sendBtn.disabled = true;
@@ -600,8 +631,10 @@ async function showAdminTicketInPanel(ticketId) {
                 await addTicketReply(ticket.id, message, false);
                 replyInput.value = '';
                 await loadAdminRepliesInPanel(ticket.id);
+                await loadTickets();
             } catch (err) {
-                alert('فشل إرسال الرد: ' + err.message);
+                console.error('Error sending reply:', err);
+                alert('فشل إرسال الرد: ' + (err.message || 'حدث خطأ غير متوقع'));
             } finally {
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'إرسال الرد';

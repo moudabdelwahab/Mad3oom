@@ -279,40 +279,171 @@ export async function activateSubscription(subscriptionId) {
         throw error;
     }
 }
+/**
+ * Confirm a purchase ticket and activate subscription
+ * @param {string} ticketId - Ticket ID to confirm
+ * @returns {Promise<Object>} - Confirmation result
+ */
 export async function confirmPurchaseTicket(ticketId) {
     try {
-        console.log('Confirming purchase ticket:', ticketId)
+        console.log('Confirming purchase ticket:', ticketId);
 
-        // منطق تأكيد الاشتراك هنا
+        // جلب بيانات التذكرة
+        const { data: ticket, error: ticketError } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('id', ticketId)
+            .single();
+
+        if (ticketError || !ticket) {
+            throw new Error('Failed to fetch ticket');
+        }
+
+        // تحديث حالة التذكرة إلى confirmed
+        const { error: updateTicketError } = await supabase
+            .from('tickets')
+            .update({ status: 'confirmed' })
+            .eq('id', ticketId);
+
+        if (updateTicketError) {
+            throw updateTicketError;
+        }
+
+        // جلب الاشتراك المرتبط بهذه التذكرة
+        const { data: subscription, error: subError } = await supabase
+            .from('whatsapp_subscriptions')
+            .select('*')
+            .eq('ticket_id', ticketId)
+            .single();
+
+        if (subError) {
+            console.warn('No subscription found for this ticket');
+        }
+
+        // تفعيل الاشتراك
+        if (subscription) {
+            const { error: activateError } = await supabase
+                .from('whatsapp_subscriptions')
+                .update({ status: 'active' })
+                .eq('id', subscription.id);
+
+            if (activateError) {
+                throw activateError;
+            }
+
+            // تحديث بروفايل المستخدم ليشير إلى أنه مشترك
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ whatsapp_enabled: true })
+                .eq('id', ticket.user_id);
+
+            if (profileError) {
+                console.warn('Failed to update profile:', profileError);
+            }
+        }
+
+        // إنشاء إشعار للعميل
+        const { data: adminNotif } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'admin')
+            .limit(1)
+            .single();
+
+        if (adminNotif) {
+            const { createNotification } = await import('./notifications-service.js');
+            await createNotification({
+                userId: ticket.user_id,
+                title: 'تم تأكيد اشتراكك',
+                message: 'تم تأكيد اشتراكك في مشروع الواتساب بنجاح! يمكنك الآن الوصول إلى الخدمة.',
+                type: 'success',
+                link: '/customer-dashboard.html'
+            });
+        }
 
         return {
-            success: true
-        }
+            success: true,
+            message: 'تم تأكيد الشراء وتفعيل الاشتراك بنجاح'
+        };
 
     } catch (error) {
-        console.error(error)
-
+        console.error('Error confirming purchase ticket:', error);
         return {
             success: false,
-            error
-        }
+            error: error.message || 'حدث خطأ في تأكيد الشراء'
+        };
     }
 }
 
-
-export async function rejectPurchaseTicket(ticketId) {
+/**
+ * Reject a purchase ticket
+ * @param {string} ticketId - Ticket ID to reject
+ * @param {string} reason - Rejection reason
+ * @returns {Promise<Object>} - Rejection result
+ */
+export async function rejectPurchaseTicket(ticketId, reason = '') {
     try {
+        console.log('Rejecting purchase ticket:', ticketId);
 
-        console.log('Reject ticket:', ticketId)
+        // جلب بيانات التذكرة
+        const { data: ticket, error: ticketError } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('id', ticketId)
+            .single();
+
+        if (ticketError || !ticket) {
+            throw new Error('Failed to fetch ticket');
+        }
+
+        // تحديث حالة التذكرة إلى rejected
+        const { error: updateTicketError } = await supabase
+            .from('tickets')
+            .update({ status: 'rejected' })
+            .eq('id', ticketId);
+
+        if (updateTicketError) {
+            throw updateTicketError;
+        }
+
+        // تحديث حالة الاشتراك المرتبط إلى rejected
+        const { data: subscription } = await supabase
+            .from('whatsapp_subscriptions')
+            .select('*')
+            .eq('ticket_id', ticketId)
+            .single();
+
+        if (subscription) {
+            const { error: rejectSubError } = await supabase
+                .from('whatsapp_subscriptions')
+                .update({ status: 'rejected' })
+                .eq('id', subscription.id);
+
+            if (rejectSubError) {
+                console.warn('Failed to update subscription status:', rejectSubError);
+            }
+        }
+
+        // إنشاء إشعار للعميل برفض الشراء
+        const { createNotification } = await import('./notifications-service.js');
+        await createNotification({
+            userId: ticket.user_id,
+            title: 'تم رفض طلب الاشتراك',
+            message: `تم رفض طلب اشتراكك في مشروع الواتساب.${reason ? ` السبب: ${reason}` : ''}`,
+            type: 'warning',
+            link: '/customer-dashboard.html'
+        });
 
         return {
-            success: true
-        }
+            success: true,
+            message: 'تم رفض الشراء بنجاح'
+        };
 
     } catch (error) {
+        console.error('Error rejecting purchase ticket:', error);
         return {
             success: false,
-            error
-        }
+            error: error.message || 'حدث خطأ في رفض الشراء'
+        };
     }
 }
