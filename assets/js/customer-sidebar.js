@@ -300,15 +300,11 @@ function setupSidebarLogic(onTabChange) {
 
 async function checkWhatsAppPermission() {
     try {
-        const { supabase } = await import('/api-config.js');
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile } = await supabase.from('profiles').select('whatsapp_enabled, role, email').eq('id', user.id).maybeSingle();
-            if (profile && (profile.whatsapp_enabled || profile.role === 'admin' || profile.email === 'support@mad3oom.online')) {
-                const whatsappLink = document.getElementById('whatsappLink');
-                if (whatsappLink) whatsappLink.style.display = 'flex';
-            }
-        }
+        // Import subscription handler
+        const { initSubscriptionHandler } = await import('/assets/js/sidebar-subscription-handler.js');
+        
+        // Initialize subscription handler (this will manage WhatsApp link visibility based on subscription status)
+        await initSubscriptionHandler();
     } catch (err) {
         console.error('[CustomerSidebar] Error checking WhatsApp permission:', err);
     }

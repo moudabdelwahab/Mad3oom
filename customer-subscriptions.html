@@ -372,30 +372,42 @@
                 <li><strong>ذكاء صناعي للردود:</strong> ردود آلية متقدمة + تخصيص كامل للرسائل.</li>
                 <li><strong>إدارة العملاء بفعالية:</strong> تصنيف وجمع بيانات العملاء مع تقارير تفصيلية.</li>
                 <li><strong>ربط الخدمة API:</strong> ربط سلس مع أنظمة المبيعات والدعم الفني والصفحات والتطبيقات وتكامل مع الـCRM.</li>
-            </ul>
-
+                        </ul>
+            <!-- Subscription Status Container -->
+            <div id="subscriptionStatusContainer" style="margin: 2rem 0;"></div>
             <div class="pricing-section">
                 <div class="pricing-card">
                     <div class="pricing-label">الاشتراك الشهري</div>
                     <div class="pricing-amount">$15</div>
                     <div class="pricing-period">شهرياً</div>
-                    <button class="subscribe-btn" onclick="subscribe('monthly')">اشترك شهرياً</button>
+                    <button class="subscribe-btn" id="subscribeBtn">اشترك الآن</button>
                 </div>
                 <div class="pricing-card">
                     <div class="pricing-label">الاشتراك السنوي</div>
                     <div class="pricing-amount">$150</div>
                     <div class="pricing-period">سنوياً (وفر $30)</div>
-                    <button class="subscribe-btn" onclick="subscribe('yearly')">اشترك سنوياً</button>
+                    <button class="subscribe-btn" id="renewSubscriptionBtn" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">تجديد الاشتراك</button>
                 </div>
             </div>
         </div>
     </main>
 
-    <script type="module">
+        <script type="module">
         import { SUPABASE_CONFIG } from './supabase-config.js';
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-        
         const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Import subscriptions script
+        import './subscriptions-script.js';
+        
+        // Initialize billing toggle
+        const toggleBtn = document.getElementById('billingToggle');
+        if (toggleBtn) {
+            const options = toggleBtn.querySelectorAll('.toggle-option');
+            if (options.length >= 2) {
+                options[0].classList.add('active');
+            }
+        }
 
         // Load sidebar
         fetch('/assets/components/customer-sidebar.html')

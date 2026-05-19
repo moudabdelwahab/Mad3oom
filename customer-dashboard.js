@@ -1,6 +1,7 @@
 // customer-dashboard.js
 import { requireAuth, logout, updateProfile, updatePassword } from './auth-client.js';
 import { initCustomerSidebar } from './assets/js/customer-sidebar.js';
+import { initExpiryModalHandler } from './assets/js/subscription-expiry-modal.js';
 import { initRewardsDashboard } from './rewards-dashboard.js';
 import { initCustomerSettingsModal, openSettingsModal } from './customer-settings-modal.js';
 import {
@@ -46,6 +47,11 @@ import { ui } from './ui-service.js';
         const tabEl = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
         if (tabEl) tabEl.click();
     });
+
+    // Initialize Subscription Expiry Modal Handler
+    if (!isGuest) {
+        initExpiryModalHandler();
+    }
 
     // Initialize Settings Modal
     if (!isGuest) {
