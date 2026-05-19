@@ -279,3 +279,24 @@ export async function activateSubscription(subscriptionId) {
         throw error;
     }
 }
+export async function confirmPurchaseTicket(ticketId) {
+    try {
+        console.log('Confirming purchase ticket:', ticketId)
+
+        // منطق تأكيد الاشتراك هنا
+
+        return {
+            success: true
+        }
+
+    } catch (error) {
+        console.error(error)
+
+        return {
+            success: false,
+            error
+        }
+    }
+}
+
+
