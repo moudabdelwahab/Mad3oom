@@ -3,6 +3,7 @@ import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, addTicketReply, fetchTicketReplies, closeTicketWithComment } from '/tickets-service.js';
 import { adminImpersonateUser } from '/auth-client.js';
+import { confirmPurchaseTicket, rejectPurchaseTicket } from '/whatsapp-subscription-service.js';
 
 let user = null;
 let currentTicketId = null;
@@ -42,13 +43,21 @@ function updateStats() {
         total: allTickets.length,
         open: allTickets.filter(t => t.status === 'open').length,
         inProgress: allTickets.filter(t => t.status === 'in-progress').length,
-        resolved: allTickets.filter(t => t.status === 'resolved').length
+        resolved: allTickets.filter(t => t.status === 'resolved').length,
+        confirmed: allTickets.filter(t => t.status === 'confirmed').length,
+        rejected: allTickets.filter(t => t.status === 'rejected').length
     };
 
     document.getElementById('statTotal').textContent = stats.total;
     document.getElementById('statOpen').textContent = stats.open;
     document.getElementById('statInProgress').textContent = stats.inProgress;
     document.getElementById('statResolved').textContent = stats.resolved;
+    
+    // تحديث إحصائيات الشراء إذا كانت موجودة
+    const confirmedStat = document.getElementById('statConfirmed');
+    const rejectedStat = document.getElementById('statRejected');
+    if (confirmedStat) confirmedStat.textContent = stats.confirmed;
+    if (rejectedStat) rejectedStat.textContent = stats.rejected;
 }
 
 function setupFilters() {
@@ -107,7 +116,9 @@ function renderTickets(tickets) {
     const statusMap = {
         'open': 'مفتوحة',
         'in-progress': 'قيد المعالجة',
-        'resolved': 'محلولة'
+        'resolved': 'محلولة',
+        'confirmed': 'مؤكدة',
+        'rejected': 'مرفوضة'
     };
 
     const priorityMap = {
@@ -204,14 +215,60 @@ async function openTicketModal(ticketId) {
     // Impersonate Button
     document.getElementById('impersonateUserBtn').onclick = () => impersonateUser(ticket.user_id);
     
-    // Resolve Button
+    // التحقق من نوع التذكرة (شراء أم دعم عادي)
+    const isPurchaseTicket = ticket.title.toLowerCase().includes('شراء') || 
+                              ticket.title.toLowerCase().includes('اشتراك') ||
+                              ticket.title.toLowerCase().includes('واتساب');
+
+    // الأزرار حسب نوع التذكرة
     const resolveBtn = document.getElementById('resolveTicketBtn');
-    if (ticket.status === 'resolved') {
-        resolveBtn.innerText = 'إعادة فتح التذكرة';
-        resolveBtn.onclick = () => changeStatus('open');
+    
+    if (isPurchaseTicket) {
+        // لتذاكر الشراء: عرض أزرار التأكيد والرفض
+        if (ticket.status === 'open' || ticket.status === 'in-progress') {
+            resolveBtn.style.display = 'none';
+            
+            // إنشاء أزرار التأكيد والرفض إذا لم تكن موجودة
+            if (!document.getElementById('confirmPurchaseBtn')) {
+                const confirmBtn = document.createElement('button');
+                confirmBtn.id = 'confirmPurchaseBtn';
+                confirmBtn.className = 'btn btn-success';
+                confirmBtn.innerText = '✓ تأكيد الشراء';
+                confirmBtn.style.cssText = 'background: #2E8A3A; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-family: Cairo; margin-right: 0.5rem;';
+                confirmBtn.onclick = () => showConfirmPurchaseModal();
+                
+                const rejectBtn = document.createElement('button');
+                rejectBtn.id = 'rejectPurchaseBtn';
+                rejectBtn.className = 'btn btn-danger';
+                rejectBtn.innerText = '✗ رفض الشراء';
+                rejectBtn.style.cssText = 'background: #D9534F; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-family: Cairo;';
+                rejectBtn.onclick = () => showRejectPurchaseModal();
+                
+                resolveBtn.parentElement.insertBefore(confirmBtn, resolveBtn);
+                resolveBtn.parentElement.insertBefore(rejectBtn, resolveBtn);
+            }
+        } else if (ticket.status === 'confirmed') {
+            resolveBtn.style.display = 'none';
+            const statusSpan = document.createElement('span');
+            statusSpan.style.cssText = 'color: #2E8A3A; font-weight: 700; padding: 0.75rem 1.5rem;';
+            statusSpan.innerText = '✓ تم تأكيد الشراء';
+            resolveBtn.parentElement.insertBefore(statusSpan, resolveBtn);
+        } else if (ticket.status === 'rejected') {
+            resolveBtn.style.display = 'none';
+            const statusSpan = document.createElement('span');
+            statusSpan.style.cssText = 'color: #D9534F; font-weight: 700; padding: 0.75rem 1.5rem;';
+            statusSpan.innerText = '✗ تم رفض الشراء';
+            resolveBtn.parentElement.insertBefore(statusSpan, resolveBtn);
+        }
     } else {
-        resolveBtn.innerText = 'إغلاق التذكرة (تم الحل)';
-        resolveBtn.onclick = () => showCloseModal();
+        // لتذاكر الدعم العادية: الزر العادي
+        if (ticket.status === 'resolved') {
+            resolveBtn.innerText = 'إعادة فتح التذكرة';
+            resolveBtn.onclick = () => changeStatus('open');
+        } else {
+            resolveBtn.innerText = 'إغلاق التذكرة (تم الحل)';
+            resolveBtn.onclick = () => showCloseModal();
+        }
     }
 
     // Load Replies
@@ -302,6 +359,64 @@ function setupModalEvents() {
         modal.style.display = 'none';
         if (repliesSubscription) {
             repliesSubscription.unsubscribe();
+
+    // Confirm Purchase Modal
+    const confirmPurchaseModal = document.getElementById('confirmPurchaseModal');
+    if (confirmPurchaseModal) {
+        const confirmBtn = document.getElementById('confirmPurchaseConfirmBtn');
+        const cancelBtn = document.getElementById('confirmPurchaseCancelBtn');
+        
+        if (confirmBtn) {
+            confirmBtn.onclick = async () => {
+                try {
+                    await confirmPurchaseTicket(currentTicketId);
+                    confirmPurchaseModal.style.display = 'none';
+                    await loadTickets();
+                    openTicketModal(currentTicketId);
+                    alert('تم تأكيد الشراء بنجاح!');
+                } catch (err) {
+                    alert('فشل تأكيد الشراء: ' + err.message);
+                }
+            };
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                confirmPurchaseModal.style.display = 'none';
+            };
+        }
+    }
+
+    // Reject Purchase Modal
+    const rejectPurchaseModal = document.getElementById('rejectPurchaseModal');
+    if (rejectPurchaseModal) {
+        const rejectBtn = document.getElementById('rejectPurchaseConfirmBtn');
+        const cancelBtn = document.getElementById('rejectPurchaseCancelBtn');
+        
+        if (rejectBtn) {
+            rejectBtn.onclick = async () => {
+                try {
+                    const reason = document.getElementById('rejectReason').value.trim();
+                    await rejectPurchaseTicket(currentTicketId, reason);
+                    rejectPurchaseModal.style.display = 'none';
+                    document.getElementById('rejectReason').value = '';
+                    await loadTickets();
+                    openTicketModal(currentTicketId);
+                    alert('تم رفض الشراء بنجاح!');
+                } catch (err) {
+                    alert('فشل رفض الشراء: ' + err.message);
+                }
+            };
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                rejectPurchaseModal.style.display = 'none';
+                document.getElementById('rejectReason').value = '';
+            };
+        }
+    }
+
         }
     };
     
@@ -381,7 +496,9 @@ async function showAdminTicketInPanel(ticketId) {
     const statusMap = {
         'open': 'مفتوحة',
         'in-progress': 'قيد المعالجة',
-        'resolved': 'محلولة'
+        'resolved': 'محلولة',
+        'confirmed': 'مؤكدة',
+        'rejected': 'مرفوضة'
     };
     
     const priorityMap = {
@@ -529,5 +646,60 @@ async function impersonateUser(id) {
     await adminImpersonateUser(id);
     location.href = '/customer-dashboard.html';
 }
+
+
+// دوال عرض النوافذ المنبثقة
+function showConfirmPurchaseModal() {
+    const modal = document.getElementById('confirmPurchaseModal');
+    if (!modal) {
+        // إنشاء النافذة إذا لم تكن موجودة
+        const newModal = document.createElement('div');
+        newModal.id = 'confirmPurchaseModal';
+        newModal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
+        newModal.innerHTML = `
+            <div style="background-color: #fefefe; margin: 15% auto; padding: 2rem; border: 1px solid #888; border-radius: 0.5rem; width: 80%; max-width: 400px; font-family: Cairo;">
+                <h2 style="margin-top: 0; color: #003366;">تأكيد الشراء</h2>
+                <p>هل أنت متأكد من تأكيد هذا الشراء؟ سيتم تفعيل خدمة واتساب للعميل لمدة شهر واحد.</p>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button id="confirmPurchaseCancelBtn" style="padding: 0.5rem 1rem; background: #999; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">إلغاء</button>
+                    <button id="confirmPurchaseConfirmBtn" style="padding: 0.5rem 1rem; background: #2E8A3A; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">تأكيد</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(newModal);
+        setupModalEvents();
+    } else {
+        modal.style.display = 'block';
+    }
+}
+
+function showRejectPurchaseModal() {
+    const modal = document.getElementById('rejectPurchaseModal');
+    if (!modal) {
+        // إنشاء النافذة إذا لم تكن موجودة
+        const newModal = document.createElement('div');
+        newModal.id = 'rejectPurchaseModal';
+        newModal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
+        newModal.innerHTML = `
+            <div style="background-color: #fefefe; margin: 15% auto; padding: 2rem; border: 1px solid #888; border-radius: 0.5rem; width: 80%; max-width: 400px; font-family: Cairo;">
+                <h2 style="margin-top: 0; color: #D9534F;">رفض الشراء</h2>
+                <p>هل أنت متأكد من رفض هذا الشراء؟</p>
+                <label style="display: block; margin-bottom: 1rem;">
+                    <span style="display: block; margin-bottom: 0.5rem; font-weight: 600;">السبب (اختياري):</span>
+                    <textarea id="rejectReason" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem; font-family: Cairo; resize: vertical; min-height: 80px;"></textarea>
+                </label>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button id="rejectPurchaseCancelBtn" style="padding: 0.5rem 1rem; background: #999; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">إلغاء</button>
+                    <button id="rejectPurchaseConfirmBtn" style="padding: 0.5rem 1rem; background: #D9534F; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">رفض</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(newModal);
+        setupModalEvents();
+    } else {
+        modal.style.display = 'block';
+    }
+}
+
 
 init();
