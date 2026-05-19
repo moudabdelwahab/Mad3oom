@@ -331,6 +331,13 @@
                 link.addEventListener('mouseout', () => {
                     link.style.background = 'transparent';
                 });
+                link.addEventListener('click', () => {
+                    // Close menu on mobile after selection
+                    if (window.innerWidth <= 768) {
+                        navMenu.classList.remove('active');
+                        hamburger.classList.remove('active');
+                    }
+                });
             });
         }
 

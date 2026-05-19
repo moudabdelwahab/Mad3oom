@@ -654,7 +654,8 @@ body:has(.admin-main) {
     }
 
     .nav-menu.active {
-        max-height: 400px;
+        max-height: 100vh;
+        overflow: visible;
     }
 
     .nav-menu li {
@@ -667,6 +668,20 @@ body:has(.admin-main) {
         padding: 1rem var(--container-padding);
         border-bottom: 1px solid var(--color-nav-border);
         border-right: none;
+    }
+
+    #accountDropdown {
+        position: static !important;
+        width: 100%;
+        box-shadow: none !important;
+        border: none !important;
+        border-bottom: 1px solid var(--color-nav-border) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        margin-top: 0 !important;
+    }
+
+    #accountDropdown a {
+        padding-right: 2.5rem !important;
     }
 
     .nav-container {
