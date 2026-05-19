@@ -300,3 +300,19 @@ export async function confirmPurchaseTicket(ticketId) {
 }
 
 
+export async function rejectPurchaseTicket(ticketId) {
+    try {
+
+        console.log('Reject ticket:', ticketId)
+
+        return {
+            success: true
+        }
+
+    } catch (error) {
+        return {
+            success: false,
+            error
+        }
+    }
+}
