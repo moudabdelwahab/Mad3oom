@@ -39,40 +39,46 @@ class ChatWidget {
    * إنشاء HTML الويدجت
    */
   createWidgetHTML() {
+    // التحقق من عدم وجود ويدجت سابق
+    if (document.getElementById('chatBubbleBtn')) {
+      console.log('[ChatWidget] Widget already exists, skipping creation');
+      return;
+    }
+
     const widgetHTML = `
-      <div class="floating-chat-widget">
-        <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة">
-          <div class="chat-bubble-icon">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8l-2 2V4h14v12z"/>
+      <div class="floating-chat-widget" id="floatingChatWidget" style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; font-family: 'Cairo', sans-serif;">
+        <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة" style="position: fixed; bottom: 20px; left: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #003366 0%, #0055AA 100%); color: white; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+          <div class="chat-bubble-icon" style="width: 30px; height: 30px;">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
           </div>
         </button>
 
-        <div class="chat-widget-panel" id="chatWidgetPanel">
+        <div class="chat-widget-panel" id="chatWidgetPanel" style="position: fixed; bottom: 90px; left: 20px; width: 380px; height: 500px; background: white; border-radius: 12px; box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16); display: none; flex-direction: column; z-index: 9999;">
           <!-- Header -->
-          <div class="chat-widget-header">
-            <div class="chat-widget-header-title">
-              <div class="chat-widget-header-icon">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8l-2 2V4h14v12z"/>
+          <div class="chat-widget-header" style="padding: 1.5rem; background: linear-gradient(135deg, #003366 0%, #0055AA 100%); color: white; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <div class="chat-widget-header-title" style="display: flex; gap: 1rem; align-items: center;">
+              <div class="chat-widget-header-icon" style="width: 40px; height: 40px;">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
               </div>
               <div>
-                <h3>الدردشة المباشرة</h3>
-                <p id="headerStatus">كيف يمكننا مساعدتك؟</p>
+                <h3 style="margin: 0; font-size: 1.1rem;">الدردشة المباشرة</h3>
+                <p id="headerStatus" style="margin: 0.25rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">كيف يمكننا مساعدتك؟</p>
               </div>
             </div>
-            <button class="chat-widget-close" id="chatWidgetClose">×</button>
+            <button class="chat-widget-close" id="chatWidgetClose" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
           </div>
 
           <!-- Body -->
-          <div class="chat-widget-body" id="chatWidgetBody">
+          <div class="chat-widget-body" id="chatWidgetBody" style="flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
             <!-- سيتم ملؤه ديناميكياً -->
           </div>
 
           <!-- Footer -->
-          <div class="chat-widget-footer" id="chatWidgetFooter">
+          <div class="chat-widget-footer" id="chatWidgetFooter" style="padding: 1.5rem; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 0.75rem;">
             <!-- سيتم ملؤه ديناميكياً -->
           </div>
         </div>
@@ -89,6 +95,11 @@ class ChatWidget {
     const bubbleBtn = document.getElementById('chatBubbleBtn');
     const closeBtn = document.getElementById('chatWidgetClose');
 
+    if (!bubbleBtn || !closeBtn) {
+      console.error('[ChatWidget] Failed to find chat elements');
+      return;
+    }
+
     bubbleBtn.addEventListener('click', () => this.openWidget());
     closeBtn.addEventListener('click', () => this.closeWidget());
   }
@@ -98,7 +109,11 @@ class ChatWidget {
    */
   openWidget() {
     const panel = document.getElementById('chatWidgetPanel');
-    panel.classList.add('active');
+    if (!panel) {
+      console.error('[ChatWidget] Panel not found');
+      return;
+    }
+    panel.style.display = 'flex';
     this.currentStep = 'questions';
     this.renderStep();
   }
@@ -108,7 +123,8 @@ class ChatWidget {
    */
   closeWidget() {
     const panel = document.getElementById('chatWidgetPanel');
-    panel.classList.remove('active');
+    if (!panel) return;
+    panel.style.display = 'none';
     this.currentStep = 'closed';
     this.currentConversation = null;
     this.messages = [];
@@ -551,6 +567,10 @@ class ChatWidget {
 }
 
 // تهيئة الويدجت عند تحميل الصفحة
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    window.chatWidget = new ChatWidget();
+  });
+} else {
   window.chatWidget = new ChatWidget();
-});
+}
