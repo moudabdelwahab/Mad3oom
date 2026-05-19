@@ -730,11 +730,18 @@ export class SendMessagePage {
             let totalCost = 0;
             const validNumbers = this.verificationResults.valid;
             const campaignId = 'camp_' + Date.now();
+            const reports = [];
 
             try {
                 for (let i = 0; i < validNumbers.length; i++) {
                     const recipient = validNumbers[i];
                     const progress = Math.round(((i + 1) / validNumbers.length) * 100);
+                    const reportItem = {
+                        recipient,
+                        time: new Date().toLocaleTimeString('ar-SA'),
+                        template: this.selectedTemplate.name,
+                        language: this.selectedTemplate.language || 'ar'
+                    };
                     
                     try {
                         // محاولة إرسال الرسالة عبر Meta API
@@ -748,14 +755,20 @@ export class SendMessagePage {
                             successCount++;
                             totalCost += this.getTemplateCost();
                             this.logSending(`✓ ${recipient} - تم الإرسال`);
+                            reportItem.status = 'success';
                         } else {
                             errorCount++;
                             this.logSending(`✗ ${recipient} - فشل الإرسال`);
+                            reportItem.status = 'failed';
+                            reportItem.error = 'فشل الإرسال من خادم ميتا';
                         }
                     } catch (error) {
                         errorCount++;
                         this.logSending(`✗ ${recipient} - ${error.message}`);
+                        reportItem.status = 'failed';
+                        reportItem.error = error.message;
                     }
+                    reports.push(reportItem);
 
                     // تحديث شريط التقدم
                     document.getElementById('sending-progress-bar').style.width = progress + '%';
@@ -768,14 +781,19 @@ export class SendMessagePage {
                 }
 
                 // حفظ سجل الحملة
-                this.campaignHistory.push({
+                const campaignObj = {
                     id: campaignId,
+                    name: `حملة ${new Date().toLocaleDateString('ar-SA')}`,
                     template: this.selectedTemplate.name,
                     totalSent: successCount,
                     totalFailed: errorCount,
                     cost: totalCost,
-                    timestamp: new Date().toLocaleString('ar-SA')
-                });
+                    timestamp: new Date().toLocaleString('ar-SA'),
+                    reports: reports
+                };
+                
+                this.campaignHistory.push(campaignObj);
+                localStorage.setItem('mad3oom_last_campaign', JSON.stringify(campaignObj));
 
                 // إظهار نتيجة النجاح
                 document.getElementById('success-count').textContent = successCount;
@@ -783,6 +801,22 @@ export class SendMessagePage {
                 document.getElementById('success-cost').textContent = '$' + totalCost.toFixed(2);
                 document.getElementById('success-campaign-id').textContent = campaignId;
                 
+                // إضافة زر الانتقال للتقرير في مودال النجاح
+                const successModalBody = document.querySelector('#success-modal div');
+                if (successModalBody && !document.getElementById('view-report-btn')) {
+                    const reportBtn = document.createElement('button');
+                    reportBtn.id = 'view-report-btn';
+                    reportBtn.className = 'btn btn-secondary';
+                    reportBtn.style.width = '100%';
+                    reportBtn.style.marginTop = '8px';
+                    reportBtn.textContent = 'عرض تقرير الإرسال المفصل';
+                    reportBtn.onclick = () => {
+                        document.getElementById('success-modal').style.display = 'none';
+                        window.navigateTo('reports', document.querySelector('[data-page=reports]'));
+                    };
+                    successModalBody.appendChild(reportBtn);
+                }
+
                 this.updateCampaignHistory();
                 sendingModal.style.display = 'none';
                 document.getElementById('success-modal').style.display = 'flex';

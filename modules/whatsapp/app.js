@@ -16,6 +16,7 @@ import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { StatusPage } from './pages/StatusPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { SendMessagePage } from './pages/SendMessagePage.js';
+import { CampaignReportPage } from './pages/CampaignReportPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -43,6 +44,7 @@ function navigateTo(page, element) {
     settings:  'الإعدادات',
     autoreply: 'الرد الآلي',
     send:      'إرسال رسالة',
+    reports:   'تقارير الحملات',
   };
   
   // Update subtitle for users page
@@ -62,6 +64,7 @@ function navigateTo(page, element) {
   if (page === 'users') { loadUsers(); }
   if (page === 'settings') { loadSettings(); }
   if (page === 'send') { loadSendMessage(); }
+  if (page === 'reports') { loadReports(); }
   if (page === 'connect') { updateConnectionStatus(); }
 }
 
@@ -78,6 +81,7 @@ let usersPage = null;
 let statusPage = null;
 let settingsPage = null;
 let sendMessagePage = null;
+let campaignReportPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -448,6 +452,19 @@ async function loadSendMessage() {
 }
 
 window.loadSendMessage = loadSendMessage;
+
+async function loadReports(campaignData = null) {
+  const container = document.getElementById('whatsapp-reports-root');
+  if (!container) return;
+
+  if (!campaignReportPage) {
+    campaignReportPage = new CampaignReportPage(container);
+  }
+
+  await campaignReportPage.load(campaignData);
+}
+
+window.loadReports = loadReports;
 
 window.openNewAutoReplyModal = () => {
   const modal = document.getElementById('autoreply-modal');
