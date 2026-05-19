@@ -49,13 +49,22 @@ export async function fetchUserTickets(filters = {}) {
 export async function createTicket({ title, description, priority, image_url = null }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
+    
+    // التحقق من صحة المدخلات
+    if (!title || !title.trim()) throw new Error('عنوان التذكرة مطلوب');
+    if (!description || !description.trim()) throw new Error('وصف المشكلة مطلوب');
+    if (!priority) throw new Error('الأولوية مطلوبة');
+    
+    // التحقق من أن الأولوية قيمة صحيحة
+    const validPriorities = ['low', 'medium', 'high'];
+    if (!validPriorities.includes(priority)) throw new Error('أولوية غير صحيحة');
 
     const { data, error } = await supabase
         .from('tickets')
         .insert({
             user_id: user.id,
-            title,
-            description,
+            title: title.trim(),
+            description: description.trim(),
             priority,
             image_url,
             status: 'open'
@@ -63,7 +72,10 @@ export async function createTicket({ title, description, priority, image_url = n
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('Error creating ticket:', error);
+        throw new Error(error.message || 'فشل إنشاء التذكرة');
+    }
 
     // إشعار للأدمن فقط عند إنشاء تذكرة جديدة من قبل العميل
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
@@ -80,6 +92,8 @@ export async function createTicket({ title, description, priority, image_url = n
     }
 
     await logActivity('ticket_create', { ticket_id: data.id });
+    
+    console.log('Ticket created successfully:', data.id);
     return data;
 }
 
@@ -131,7 +145,38 @@ export async function updateTicketStatus(ticketId, status) {
     // جلب بيانات التذكرة لإرسال إشعار للعميل فقط
     const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
     if (ticket) {
-        const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة' };
+        const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
+        
+        // إذا تم وضع علامة "تم الحل" على تذكرة شراء، قم بتفعيل الاشتراك
+        if (status === 'resolved') {
+            const isPurchaseTicket = ticket.title.toLowerCase().includes('شراء') || 
+                                      ticket.title.toLowerCase().includes('اشتراك') ||
+                                      ticket.title.toLowerCase().includes('واتساب');
+            
+            if (isPurchaseTicket) {
+                // جلب الاشتراك المرتبط بهذه التذكرة
+                const { data: subscription } = await supabase
+                    .from('whatsapp_subscriptions')
+                    .select('*')
+                    .eq('ticket_id', ticketId)
+                    .maybeSingle();
+
+                if (subscription && subscription.status === 'pending') {
+                    // تفعيل الاشتراك
+                    await supabase
+                        .from('whatsapp_subscriptions')
+                        .update({ status: 'active' })
+                        .eq('id', subscription.id);
+
+                    // تحديث بروفايل المستخدم
+                    await supabase
+                        .from('profiles')
+                        .update({ whatsapp_enabled: true })
+                        .eq('id', ticket.user_id);
+                }
+            }
+        }
+        
         // إشعار للعميل فقط عند تغيير حالة تذكرته من قبل الإدارة
         await createNotification({
             userId: ticket.user_id,
