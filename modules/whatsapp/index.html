@@ -164,21 +164,22 @@
   async function updateDashboard() {
     try {
       const supabase = await SupabaseIntegration.initializeSupabase();
-      const { data: stats } = await supabase.rpc('get_whatsapp_dashboard_stats');
+      const { data: stats, error: rpcError } = await supabase.rpc('get_whatsapp_dashboard_stats');
+      if (rpcError) console.warn('RPC Error:', rpcError);
       if (stats) {
         document.getElementById('stat-sent-count').textContent = stats.sent_today || 0;
         document.getElementById('stat-delivery-rate').textContent = (stats.delivery_rate || 0) + '%';
         document.getElementById('stat-templates-count').textContent = stats.active_templates || 0;
       }
       
-      const { data: integration } = await supabase
+      const { data: integration, error: intError } = await supabase
         .from('integrations')
         .select('*')
         .eq('provider', 'whatsapp')
         .eq('user_id', (await supabase.auth.getUser()).data.user.id)
         .single();
         
-      if (integration) {
+      if (integration && !intError) {
         document.getElementById('dash-status-val').textContent = 'متصل';
         document.getElementById('dash-status-change').textContent = integration.metadata.phone_number;
       }
