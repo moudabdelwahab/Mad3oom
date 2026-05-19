@@ -105,11 +105,11 @@ export class CampaignReportPage {
                                         <td style="padding: 16px; font-size: 13px; color: var(--text-secondary);">${report.time}</td>
                                         <td style="padding: 16px;">
                                             <span class="tag" style="background: var(--status-${report.status === 'success' ? 'success' : 'error'}-bg); color: var(--status-${report.status === 'success' ? 'success' : 'error'}); border: none;">
-                                                ${report.status === 'success' ? 'تم الإرسال' : 'فشل'}
+                                                ${report.status === 'success' ? (this.currentCampaign.noBilling ? 'مقبول (بانتظار الدفع)' : 'تم الإرسال') : 'فشل'}
                                             </span>
                                         </td>
-                                        <td style="padding: 16px; font-size: 13px; color: ${report.status === 'success' ? 'var(--text-muted)' : 'var(--status-error)'};">
-                                            ${report.status === 'success' ? '✓ مكتمل' : (report.error || 'خطأ غير معروف')}
+                                        <td style="padding: 16px; font-size: 13px; color: ${report.status === 'success' ? (this.currentCampaign.noBilling ? 'var(--status-warning)' : 'var(--text-muted)') : 'var(--status-error)'};">
+                                            ${report.status === 'success' ? (this.currentCampaign.noBilling ? '⚠️ لم تصل للهاتف لعدم وجود وسيلة دفع' : '✓ مكتمل') : (report.error || 'خطأ غير معروف')}
                                         </td>
                                         <td style="padding: 16px;">
                                             ${report.status === 'failed' ? `

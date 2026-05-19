@@ -13,6 +13,7 @@ export class SendMessagePage {
             verified: false
         };
         this.sendingInProgress = false;
+        this.billingStatus = null;
         this.metaPrices = [
             { category: 'رسائل التسويق', price: '0.140', categoryEn: 'MARKETING' },
             { category: 'رسائل المرافق', price: '0.032', categoryEn: 'UTILITY' },
@@ -45,9 +46,21 @@ export class SendMessagePage {
             }
 
             this.businessPhone = stats.phoneNumber;
-            const response = await WhatsAppAPI.getTemplates();
-            this.templates = response.data || [];
+            
+            // جلب حالة الدفع والقوالب بالتوازي لسرعة التحميل
+            const [tplResponse, billingInfo] = await Promise.all([
+                WhatsAppAPI.getTemplates(),
+                WhatsAppAPI.getBillingStatus().catch(e => {
+                    console.warn('Could not fetch billing status:', e);
+                    return null;
+                })
+            ]);
+
+            this.templates = tplResponse.data || [];
+            this.billingStatus = billingInfo;
+            
             this.render();
+            this.checkBillingAlert();
         } catch (error) {
             this.container.innerHTML = `
                 <div style="padding: 40px; text-align: center;">
@@ -55,6 +68,15 @@ export class SendMessagePage {
                     <button class="btn btn-secondary btn-sm" onclick="window.loadSendMessage ? window.loadSendMessage() : location.reload()">إعادة المحاولة</button>
                 </div>
             `;
+        }
+    }
+
+    checkBillingAlert() {
+        if (this.billingStatus && !this.billingStatus.currency) {
+            const alertDiv = document.getElementById('billing-alert');
+            if (alertDiv) {
+                alertDiv.style.display = 'flex';
+            }
         }
     }
 
@@ -68,6 +90,18 @@ export class SendMessagePage {
                 <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px;">
                     <!-- Main Content -->
                     <div class="send-message-main">
+                        <!-- Billing Warning Alert -->
+                        <div id="billing-alert" class="section-card" style="display: none; border: 1px solid var(--status-error); background: rgba(239, 68, 68, 0.05); margin-bottom: 24px;">
+                            <div class="section-card-body" style="display: flex; align-items: center; gap: 16px; padding: 16px;">
+                                <div style="font-size: 24px;">⚠️</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 700; color: var(--status-error); margin-bottom: 4px;">تنبيه: لم يتم ربط وسيلة دفع</div>
+                                    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">حساب WhatsApp Business الخاص بك لا يحتوي على وسيلة دفع مرتبطة. قد يتم قبول طلبات الإرسال من قبل ميتا ولكن لن يتم تسليمها فعلياً للهواتف.</div>
+                                </div>
+                                <a href="https://business.facebook.com/billing_hub" target="_blank" class="btn btn-primary btn-sm" style="white-space: nowrap;">ربط وسيلة دفع</a>
+                            </div>
+                        </div>
+
                         <!-- Section 1: Select Template -->
                         <div class="section-card" style="margin-bottom: 24px;">
                             <div class="section-card-header">
@@ -699,6 +733,12 @@ export class SendMessagePage {
         };
 
         window.sendMessages = async () => {
+            if (this.billingStatus && !this.billingStatus.currency) {
+                if (!confirm('تنبيه: حسابك لا يحتوي على وسيلة دفع مرتبطة. قد لا تصل الرسائل للمستلمين. هل تريد الاستمرار على أي حال؟')) {
+                    return;
+                }
+            }
+
             if (!this.selectedTemplate) {
                 showToast('يرجى اختيار قالب رسالة', 'warning');
                 return;
@@ -795,7 +835,8 @@ export class SendMessagePage {
                     totalFailed: errorCount,
                     cost: totalCost,
                     timestamp: new Date().toLocaleString('ar-SA'),
-                    reports: reports
+                    reports: reports,
+                    noBilling: (this.billingStatus && !this.billingStatus.currency) // حفظ حالة الدفع
                 };
                 
                 this.campaignHistory.push(campaignObj);

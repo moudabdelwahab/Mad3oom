@@ -111,6 +111,14 @@ export class WhatsAppAPI {
     });
   }
 
+  static async getBillingStatus() {
+    const integration = await SupabaseIntegration.getIntegration();
+    const wabaId = integration?.metadata?.waba_account_id;
+    if (!wabaId) throw new Error('WABA Account ID not found.');
+    // Check billing info from Meta Business API
+    return graphFetch(`/${wabaId}?fields=billing_event_type,currency,message_template_namespace`);
+  }
+
   static async updateBusinessProfile(profileData) {
     const { phoneNumberId } = await getConnection();
     return graphFetch(`/${phoneNumberId}/whatsapp_business_profile`, {
