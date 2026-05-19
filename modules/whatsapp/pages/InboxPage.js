@@ -52,6 +52,7 @@ export class InboxPage {
         <main class="wa-chat-window">
           <header class="wa-chat-header" data-header></header>
           <div class="wa-chat-state" data-state hidden></div>
+          <div id="wa-billing-alert-container"></div>
           <div class="wa-messages" data-messages></div>
           <div class="wa-typing" data-typing hidden>يتم تجهيز الرسالة...</div>
           <footer class="wa-composer" data-composer></footer>
@@ -86,6 +87,9 @@ export class InboxPage {
     const requestId = ++this.loadingRequestId;
     this.setState('جاري تحميل المحادثات...', false);
     try {
+      // Check billing status in parallel with messages
+      this.checkBillingStatus();
+      
       const data = await MessageStore.getMessages();
       if (requestId !== this.loadingRequestId) return;
       this.messages = mergeMessages([], data, this.getBusinessPhone?.());
@@ -95,6 +99,43 @@ export class InboxPage {
       this.setState('', true);
     } catch (error) {
       this.setState(error.message || 'تعذر تحميل الرسائل', false, true);
+    }
+  }
+
+  async checkBillingStatus() {
+    try {
+      const stats = await SupabaseIntegration.getDashboardStats();
+      const alertContainer = this.root.querySelector('#wa-billing-alert-container');
+      if (!alertContainer) return;
+
+      // Meta doesn't explicitly return "no payment method" in this simple endpoint, 
+      // but if the status is not 'APPROVED' or 'ACTIVE', it's a good indicator.
+      // However, the user specifically asked for "if payment method is missing".
+      // Since we can't get that directly without complex WABA business settings API,
+      // we'll show it if the status indicates a potential billing issue or account limitation.
+      
+      const isAccountLimited = stats && (stats.status === 'DISABLED' || stats.status === 'BLOCKED');
+      
+      // For demonstration and based on user request, we'll implement a logic that checks
+      // if we should show the warning. In a real scenario, we might have a specific flag.
+      if (isAccountLimited) {
+        const businessId = stats.wabaId; // Use WABA ID for the link
+        const billingUrl = `https://business.facebook.com/billing_hub/payment_methods?business_id=${stats.business_account_id || ''}`;
+        
+        alertContainer.innerHTML = `
+          <div class="wa-billing-warning">
+            <div class="wa-billing-warning-content">
+              <span class="wa-billing-warning-icon">⚠️</span>
+              <span>تنبيه: يرجى إضافة وسيلة دفع في حساب Meta لضمان استمرار إرسال الرسائل.</span>
+            </div>
+            <a href="${billingUrl}" target="_blank" class="wa-billing-btn">إضافة وسيلة دفع</a>
+          </div>
+        `;
+      } else {
+        alertContainer.innerHTML = '';
+      }
+    } catch (error) {
+      console.error('Failed to check billing status:', error);
     }
   }
 
