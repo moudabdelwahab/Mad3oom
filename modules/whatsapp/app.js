@@ -15,6 +15,7 @@ import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
 import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { StatusPage } from './pages/StatusPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { SendMessagePage } from './pages/SendMessagePage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -41,6 +42,7 @@ function navigateTo(page, element) {
     users:     'إدارة المستخدمين',
     settings:  'الإعدادات',
     autoreply: 'الرد الآلي',
+    send:      'إرسال رسالة',
   };
   
   // Update subtitle for users page
@@ -59,6 +61,7 @@ function navigateTo(page, element) {
   if (page === 'status') { loadStatus(); }
   if (page === 'users') { loadUsers(); }
   if (page === 'settings') { loadSettings(); }
+  if (page === 'send') { loadSendMessage(); }
   if (page === 'connect') { updateConnectionStatus(); }
 }
 
@@ -74,6 +77,7 @@ let autoReplyPage = null;
 let usersPage = null;
 let statusPage = null;
 let settingsPage = null;
+let sendMessagePage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -431,6 +435,19 @@ async function loadSettings() {
 }
 
 window.loadSettings = loadSettings;
+
+async function loadSendMessage() {
+  const container = document.getElementById('whatsapp-send-root');
+  if (!container) return;
+
+  if (!sendMessagePage) {
+    sendMessagePage = new SendMessagePage(container);
+  }
+
+  await sendMessagePage.load();
+}
+
+window.loadSendMessage = loadSendMessage;
 
 window.openNewAutoReplyModal = () => {
   const modal = document.getElementById('autoreply-modal');
