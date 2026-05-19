@@ -122,4 +122,36 @@ export class WhatsAppAPI {
       }),
     });
   }
+
+  static async sendTemplate({ to, templateName, languageCode, components = [] }) {
+    const { phoneNumberId } = await getConnection();
+    return graphFetch(`/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: languageCode },
+          components
+        }
+      }),
+    });
+  }
+
+  static async verifyContacts(contacts) {
+    const { phoneNumberId } = await getConnection();
+    // Meta API for contact verification
+    return graphFetch(`/${phoneNumberId}/contacts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blocking: 'wait',
+        contacts,
+        force_check: true
+      }),
+    });
+  }
 }

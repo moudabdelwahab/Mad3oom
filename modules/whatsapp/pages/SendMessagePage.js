@@ -7,6 +7,12 @@ export class SendMessagePage {
         this.templates = [];
         this.selectedTemplate = null;
         this.recipients = [];
+        this.verificationResults = {
+            valid: [],
+            invalid: [],
+            verified: false
+        };
+        this.sendingInProgress = false;
         this.metaPrices = [
             { category: 'رسائل التسويق', price: '0.140', categoryEn: 'MARKETING' },
             { category: 'رسائل المرافق', price: '0.032', categoryEn: 'UTILITY' },
@@ -14,6 +20,7 @@ export class SendMessagePage {
             { category: 'رسائل الخدمة', price: '0.034', categoryEn: 'SERVICE' }
         ];
         this.businessPhone = '';
+        this.campaignHistory = [];
     }
 
     async load() {
@@ -58,9 +65,8 @@ export class SendMessagePage {
 
         this.container.innerHTML = `
             <div class="send-message-page">
-                <!-- Main Content -->
-                <div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px;">
-                    <!-- Left Panel -->
+                <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px;">
+                    <!-- Main Content -->
                     <div class="send-message-main">
                         <!-- Section 1: Select Template -->
                         <div class="section-card" style="margin-bottom: 24px;">
@@ -96,7 +102,7 @@ export class SendMessagePage {
                             </div>
                         </div>
 
-                        <!-- Section 3: Number Verification -->
+                        <!-- Section 3: Bulk Verification -->
                         <div class="section-card" style="margin-bottom: 24px;">
                             <div class="section-card-header">
                                 <div class="section-card-title">
@@ -139,6 +145,41 @@ export class SendMessagePage {
                             </div>
                         </div>
 
+                        <!-- Campaign Stats -->
+                        <div class="section-card" style="margin-bottom: 24px;">
+                            <div class="section-card-header">
+                                <div class="section-card-title" style="font-size: 14px;">إحصائيات الحملة</div>
+                            </div>
+                            <div class="section-card-body" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
+                                    <span style="font-size: 13px; color: var(--text-secondary);">إجمالي الأرقام</span>
+                                    <span style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="stats-total">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
+                                    <span style="font-size: 13px; color: var(--status-success);">أرقام صحيحة</span>
+                                    <span style="font-size: 16px; font-weight: 700; color: var(--status-success);" id="stats-valid">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
+                                    <span style="font-size: 13px; color: var(--status-error);">أرقام خاطئة</span>
+                                    <span style="font-size: 16px; font-weight: 700; color: var(--status-error);" id="stats-invalid">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
+                                    <span style="font-size: 13px; color: var(--text-secondary);">التكلفة المتوقعة</span>
+                                    <span style="font-size: 16px; font-weight: 700; color: var(--brand-primary);" id="stats-cost">\$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campaign History -->
+                        <div class="section-card" style="margin-bottom: 24px;">
+                            <div class="section-card-header">
+                                <div class="section-card-title" style="font-size: 14px;">سجل الحملات الأخيرة</div>
+                            </div>
+                            <div class="section-card-body" id="campaign-history-list" style="padding: 0; max-height: 300px; overflow-y: auto;">
+                                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">لا توجد حملات سابقة</div>
+                            </div>
+                        </div>
+
                         <!-- Meta Prices -->
                         <div class="section-card">
                             <div class="section-card-header" style="background: var(--brand-primary); color: white; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
@@ -171,7 +212,6 @@ export class SendMessagePage {
             ${this.renderModals()}
         `;
 
-        // Setup event listeners
         this.setupEventListeners();
     }
 
@@ -347,17 +387,21 @@ export class SendMessagePage {
     renderVerificationSection() {
         return `
             <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div style="display: flex; gap: 12px;">
-                    <input type="text" id="verify-number-input" placeholder="أدخل رقماً للفحص" style="
-                        flex: 1;
-                        padding: 10px 12px;
-                        border: 1px solid var(--border-subtle);
-                        border-radius: var(--radius-md);
-                        background: var(--bg-elevated);
-                        color: var(--text-primary);
-                        font-size: 13px;
-                    ">
-                    <button class="btn btn-secondary" onclick="window.verifyNumber()" style="padding: 10px 20px;">فحص</button>
+                <button class="btn btn-secondary" onclick="window.verifyAllNumbers()" id="verify-all-btn" style="width: 100%; padding: 10px;">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; margin-left: 6px;">
+                        <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M20.49 15a9 9 0 1 1-14.85-3.36" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    فحص جميع الأرقام
+                </button>
+                <div id="verify-progress" style="display: none; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                        <span style="color: var(--text-secondary);">جاري الفحص...</span>
+                        <span id="verify-progress-text" style="color: var(--brand-primary); font-weight: 700;">0%</span>
+                    </div>
+                    <div style="background: var(--bg-elevated); border-radius: 99px; height: 6px; overflow: hidden;">
+                        <div id="verify-progress-bar" style="height: 100%; background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); width: 0%; border-radius: 99px; transition: width 0.3s ease;"></div>
+                    </div>
                 </div>
                 <div id="verify-result" style="display: none; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); font-size: 13px;"></div>
             </div>
@@ -366,8 +410,8 @@ export class SendMessagePage {
 
     renderModals() {
         return `
-            <!-- Payment Setup Modal -->
-            <div id="payment-modal" style="
+            <!-- Sending Progress Modal -->
+            <div id="sending-modal" style="
                 display: none;
                 position: fixed;
                 top: 0;
@@ -386,41 +430,36 @@ export class SendMessagePage {
                     padding: 32px;
                     max-width: 500px;
                     width: 90%;
-                    max-height: 80vh;
-                    overflow-y: auto;
                 ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;">ربط وسيلة دفع</h3>
-                        <button onclick="document.getElementById('payment-modal').style.display = 'none'" style="
-                            background: none;
-                            border: none;
-                            font-size: 24px;
-                            cursor: pointer;
-                            color: var(--text-muted);
-                        ">✕</button>
-                    </div>
+                    <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; text-align: center;">جاري إرسال الرسائل...</h3>
                     
                     <div style="margin-bottom: 24px;">
-                        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">اختر طريقة الدفع</label>
-                        <select id="payment-method" style="
-                            width: 100%;
-                            padding: 10px 12px;
-                            border: 1px solid var(--border-subtle);
-                            border-radius: var(--radius-md);
-                            background: var(--bg-elevated);
-                            color: var(--text-primary);
-                            font-size: 13px;
-                        ">
-                            <option value="">-- اختر --</option>
-                            <option value="stripe">Stripe</option>
-                            <option value="paypal">PayPal</option>
-                            <option value="bank">تحويل بنكي</option>
-                        </select>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">التقدم</span>
+                            <span id="sending-progress-text" style="font-size: 13px; font-weight: 700; color: var(--brand-primary);">0/0</span>
+                        </div>
+                        <div style="background: var(--bg-elevated); border-radius: 99px; height: 8px; overflow: hidden;">
+                            <div id="sending-progress-bar" style="height: 100%; background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); width: 0%; border-radius: 99px; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg-elevated); border-radius: var(--radius-md); padding: 12px; margin-bottom: 24px; max-height: 150px; overflow-y: auto;">
+                        <div id="sending-log" style="font-size: 12px; color: var(--text-secondary); font-family: monospace; line-height: 1.6;"></div>
                     </div>
 
                     <div style="display: flex; gap: 12px;">
-                        <button class="btn btn-primary" onclick="window.setupPayment()" style="flex: 1;">ربط الآن</button>
-                        <button class="btn btn-secondary" onclick="document.getElementById('payment-modal').style.display = 'none'" style="flex: 1;">إلغاء</button>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <div style="font-size: 12px; color: var(--text-muted);">نجح</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--status-success);" id="sending-success-count">0</div>
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <div style="font-size: 12px; color: var(--text-muted);">فشل</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--status-error);" id="sending-error-count">0</div>
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <div style="font-size: 12px; color: var(--text-muted);">التكلفة</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--brand-primary);" id="sending-cost">\$0.00</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -449,7 +488,17 @@ export class SendMessagePage {
                 ">
                     <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
                     <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">تم الإرسال بنجاح!</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;">تم إرسال <span id="success-count" style="font-weight: 700; color: var(--status-success);">0</span> رسالة بنجاح.</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;">تم إرسال <span id="success-count" style="font-weight: 700; color: var(--status-success);">0</span> رسالة بنجاح من <span id="success-total" style="font-weight: 700;">0</span> رسالة.</p>
+                    <div style="background: var(--bg-elevated); padding: 16px; border-radius: var(--radius-md); margin-bottom: 24px; text-align: left;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">التكلفة الإجمالية:</span>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);" id="success-cost">\$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">معرف الحملة:</span>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--brand-primary);" id="success-campaign-id">-</span>
+                        </div>
+                    </div>
                     <button class="btn btn-primary" onclick="document.getElementById('success-modal').style.display = 'none'; window.resetSendForm();" style="width: 100%;">حسناً</button>
                 </div>
             </div>
@@ -490,7 +539,6 @@ export class SendMessagePage {
             this.selectedTemplate = this.templates.find(t => t.name === templateName);
             if (this.selectedTemplate) {
                 this.updateTemplatePreview();
-                // Highlight selected template
                 document.querySelectorAll('.template-card').forEach(card => {
                     card.style.borderColor = 'var(--border-subtle)';
                     card.style.background = 'var(--bg-elevated)';
@@ -536,6 +584,7 @@ export class SendMessagePage {
 
             this.recipients = [...new Set([...this.recipients, ...numbers])];
             this.updateRecipientsList();
+            this.updateStats();
             textarea.value = '';
             showToast(`تم إضافة ${numbers.length} رقم`, 'success');
         };
@@ -549,7 +598,6 @@ export class SendMessagePage {
                 const lines = text.split('\n');
                 const numbers = lines
                     .map(line => {
-                        // Handle CSV format
                         const parts = line.split(',');
                         return parts[0].trim();
                     })
@@ -562,6 +610,7 @@ export class SendMessagePage {
 
                 this.recipients = [...new Set([...this.recipients, ...numbers])];
                 this.updateRecipientsList();
+                this.updateStats();
                 showToast(`تم استيراد ${numbers.length} رقم من الملف`, 'success');
             } catch (error) {
                 showToast('خطأ في قراءة الملف: ' + error.message, 'error');
@@ -571,46 +620,81 @@ export class SendMessagePage {
         window.clearRecipients = () => {
             if (confirm('هل أنت متأكد من حذف جميع الأرقام؟')) {
                 this.recipients = [];
+                this.verificationResults = { valid: [], invalid: [], verified: false };
                 this.updateRecipientsList();
+                this.updateStats();
                 showToast('تم حذف جميع الأرقام', 'info');
             }
         };
 
-        window.verifyNumber = async () => {
-            const input = document.getElementById('verify-number-input');
-            const number = input.value.trim();
-            const resultDiv = document.getElementById('verify-result');
-
-            if (!number || !/^\d+$/.test(number)) {
-                showToast('يرجى إدخال رقم صحيح', 'warning');
+        window.verifyAllNumbers = async () => {
+            if (this.recipients.length === 0) {
+                showToast('يرجى إضافة أرقام أولاً', 'warning');
                 return;
             }
 
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div style="text-align: center;">جاري الفحص...</div>';
+            const verifyBtn = document.getElementById('verify-all-btn');
+            const progressDiv = document.getElementById('verify-progress');
+            const resultDiv = document.getElementById('verify-result');
+            const progressBar = document.getElementById('verify-progress-bar');
+            const progressText = document.getElementById('verify-progress-text');
+
+            verifyBtn.disabled = true;
+            progressDiv.style.display = 'flex';
+            resultDiv.style.display = 'none';
 
             try {
-                // Simulate number verification
-                const isValid = number.length >= 10 && number.length <= 15;
-                if (isValid) {
-                    resultDiv.innerHTML = `
-                        <div style="background: rgba(76, 175, 80, 0.1); border: 1px solid var(--status-success); color: var(--status-success); padding: 12px; border-radius: var(--radius-md);">
-                            ✓ الرقم صحيح ويمكن إرساله
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--status-error); color: var(--status-error); padding: 12px; border-radius: var(--radius-md);">
-                            ✗ الرقم غير صحيح
-                        </div>
-                    `;
+                this.verificationResults = { valid: [], invalid: [], verified: false };
+                const total = this.recipients.length;
+
+                for (let i = 0; i < this.recipients.length; i++) {
+                    const number = this.recipients[i];
+                    const isValid = this.validatePhoneNumber(number);
+                    
+                    if (isValid) {
+                        this.verificationResults.valid.push(number);
+                    } else {
+                        this.verificationResults.invalid.push(number);
+                    }
+
+                    const progress = Math.round(((i + 1) / total) * 100);
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = progress + '%';
+
+                    await new Promise(resolve => setTimeout(resolve, 50));
                 }
-            } catch (error) {
+
+                this.verificationResults.verified = true;
+
                 resultDiv.innerHTML = `
-                    <div style="background: rgba(244, 67, 54, 0.1); border: 1px solid var(--status-error); color: var(--status-error); padding: 12px; border-radius: var(--radius-md);">
-                        خطأ: ${error.message}
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: var(--status-success);">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
+                                <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span>تم فحص <strong>${this.verificationResults.valid.length}</strong> رقم صحيح</span>
+                        </div>
+                        ${this.verificationResults.invalid.length > 0 ? `
+                            <div style="display: flex; align-items: center; gap: 8px; color: var(--status-error);">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span><strong>${this.verificationResults.invalid.length}</strong> رقم خاطئ (سيتم تخطيهم)</span>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
+                resultDiv.style.display = 'block';
+                this.updateStats();
+                showToast('تم فحص جميع الأرقام بنجاح', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `<div style="color: var(--status-error);">خطأ في الفحص: ${error.message}</div>`;
+                resultDiv.style.display = 'block';
+            } finally {
+                verifyBtn.disabled = false;
+                progressDiv.style.display = 'none';
             }
         };
 
@@ -625,64 +709,135 @@ export class SendMessagePage {
                 return;
             }
 
+            if (!this.verificationResults.verified) {
+                showToast('يرجى فحص الأرقام أولاً', 'warning');
+                return;
+            }
+
+            if (this.verificationResults.valid.length === 0) {
+                showToast('لا توجد أرقام صحيحة للإرسال', 'error');
+                return;
+            }
+
+            this.sendingInProgress = true;
+            const sendingModal = document.getElementById('sending-modal');
             const sendBtn = document.getElementById('send-btn');
             sendBtn.disabled = true;
-            sendBtn.textContent = 'جاري الإرسال...';
+            sendingModal.style.display = 'flex';
+
+            let successCount = 0;
+            let errorCount = 0;
+            let totalCost = 0;
+            const validNumbers = this.verificationResults.valid;
+            const campaignId = 'camp_' + Date.now();
 
             try {
-                let successCount = 0;
-                let failCount = 0;
-
-                for (const recipient of this.recipients) {
+                for (let i = 0; i < validNumbers.length; i++) {
+                    const recipient = validNumbers[i];
+                    const progress = Math.round(((i + 1) / validNumbers.length) * 100);
+                    
                     try {
-                        // Simulate sending message
-                        // In production, this would call WhatsAppAPI.sendTemplate()
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        successCount++;
+                        // محاولة إرسال الرسالة عبر Meta API
+                        const result = await WhatsAppAPI.sendTemplate({
+                            to: recipient,
+                            templateName: this.selectedTemplate.name,
+                            languageCode: this.selectedTemplate.language || 'ar'
+                        });
+
+                        if (result && result.messages) {
+                            successCount++;
+                            totalCost += this.getTemplateCost();
+                            this.logSending(`✓ ${recipient} - تم الإرسال`);
+                        } else {
+                            errorCount++;
+                            this.logSending(`✗ ${recipient} - فشل الإرسال`);
+                        }
                     } catch (error) {
-                        failCount++;
+                        errorCount++;
+                        this.logSending(`✗ ${recipient} - ${error.message}`);
                     }
+
+                    // تحديث شريط التقدم
+                    document.getElementById('sending-progress-bar').style.width = progress + '%';
+                    document.getElementById('sending-progress-text').textContent = `${i + 1}/${validNumbers.length}`;
+                    document.getElementById('sending-success-count').textContent = successCount;
+                    document.getElementById('sending-error-count').textContent = errorCount;
+                    document.getElementById('sending-cost').textContent = '$' + totalCost.toFixed(2);
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
-                if (successCount > 0) {
-                    document.getElementById('success-count').textContent = successCount;
-                    document.getElementById('success-modal').style.display = 'flex';
-                } else {
-                    document.getElementById('error-message').textContent = 'فشل إرسال جميع الرسائل';
-                    document.getElementById('error-modal').style.display = 'flex';
-                }
+                // حفظ سجل الحملة
+                this.campaignHistory.push({
+                    id: campaignId,
+                    template: this.selectedTemplate.name,
+                    totalSent: successCount,
+                    totalFailed: errorCount,
+                    cost: totalCost,
+                    timestamp: new Date().toLocaleString('ar-SA')
+                });
+
+                // إظهار نتيجة النجاح
+                document.getElementById('success-count').textContent = successCount;
+                document.getElementById('success-total').textContent = validNumbers.length;
+                document.getElementById('success-cost').textContent = '$' + totalCost.toFixed(2);
+                document.getElementById('success-campaign-id').textContent = campaignId;
+                
+                this.updateCampaignHistory();
+                sendingModal.style.display = 'none';
+                document.getElementById('success-modal').style.display = 'flex';
+                showToast(`تم إرسال ${successCount} رسالة بنجاح`, 'success');
             } catch (error) {
                 document.getElementById('error-message').textContent = error.message;
+                sendingModal.style.display = 'none';
                 document.getElementById('error-modal').style.display = 'flex';
+                showToast('خطأ في الإرسال: ' + error.message, 'error');
             } finally {
+                this.sendingInProgress = false;
                 sendBtn.disabled = false;
-                sendBtn.textContent = 'إرسال الرسائل';
             }
         };
 
         window.resetSendForm = () => {
             this.selectedTemplate = null;
             this.recipients = [];
+            this.verificationResults = { valid: [], invalid: [], verified: false };
             document.getElementById('recipients-textarea').value = '';
-            document.getElementById('verify-number-input').value = '';
             document.getElementById('verify-result').style.display = 'none';
             this.updateRecipientsList();
+            this.updateStats();
             this.updateTemplatePreview();
             document.querySelectorAll('.template-card').forEach(card => {
                 card.style.borderColor = 'var(--border-subtle)';
                 card.style.background = 'var(--bg-elevated)';
             });
         };
+    }
 
-        window.setupPayment = () => {
-            const method = document.getElementById('payment-method').value;
-            if (!method) {
-                showToast('يرجى اختيار طريقة دفع', 'warning');
-                return;
-            }
-            showToast(`تم اختيار ${method} - سيتم إعادة التوجيه لإكمال العملية`, 'success');
-            document.getElementById('payment-modal').style.display = 'none';
+    validatePhoneNumber(number) {
+        // فحص أساسي للرقم (يجب أن يكون بين 10 و 15 رقم)
+        return /^\d{10,15}$/.test(number);
+    }
+
+    getTemplateCost() {
+        // حساب التكلفة بناءً على فئة القالب
+        if (!this.selectedTemplate) return 0;
+        
+        const categoryMap = {
+            'MARKETING': 0.140,
+            'UTILITY': 0.032,
+            'AUTHENTICATION': 0.040,
+            'SERVICE': 0.034
         };
+
+        return categoryMap[this.selectedTemplate.category] || 0.032;
+    }
+
+    logSending(message) {
+        const logDiv = document.getElementById('sending-log');
+        const timestamp = new Date().toLocaleTimeString('ar-SA');
+        logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+        logDiv.scrollTop = logDiv.scrollHeight;
     }
 
     updateTemplatePreview() {
@@ -743,32 +898,83 @@ export class SendMessagePage {
         container.style.display = 'flex';
         count.textContent = this.recipients.length;
 
-        list.innerHTML = this.recipients.map((num, idx) => `
-            <div style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 12px;
-                background: var(--bg-elevated);
-                border-radius: var(--radius-sm);
-                font-size: 13px;
-                color: var(--text-primary);
-            ">
-                <span style="font-family: monospace; direction: ltr;">${num}</span>
-                <button onclick="window.removeRecipient(${idx})" style="
-                    background: none;
-                    border: none;
-                    color: var(--status-error);
-                    cursor: pointer;
-                    font-size: 16px;
-                    padding: 0;
-                ">✕</button>
-            </div>
-        `).join('');
+        list.innerHTML = this.recipients.map((num, idx) => {
+            const isValid = this.verificationResults.valid.includes(num);
+            const isInvalid = this.verificationResults.invalid.includes(num);
+            
+            return `
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 8px 12px;
+                    background: var(--bg-elevated);
+                    border-radius: var(--radius-sm);
+                    font-size: 13px;
+                    color: var(--text-primary);
+                    border-left: 3px solid ${isValid ? 'var(--status-success)' : (isInvalid ? 'var(--status-error)' : 'var(--border-subtle)')};
+                ">
+                    <span style="font-family: monospace; direction: ltr;">${num}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${isValid ? '<span style="color: var(--status-success); font-size: 12px;">✓</span>' : ''}
+                        ${isInvalid ? '<span style="color: var(--status-error); font-size: 12px;">✗</span>' : ''}
+                        <button onclick="window.removeRecipient(${idx})" style="
+                            background: none;
+                            border: none;
+                            color: var(--status-error);
+                            cursor: pointer;
+                            font-size: 16px;
+                            padding: 0;
+                        ">✕</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
         window.removeRecipient = (idx) => {
             this.recipients.splice(idx, 1);
             this.updateRecipientsList();
+            this.updateStats();
         };
+    }
+
+    updateStats() {
+        const validCount = this.verificationResults.valid.length;
+        const invalidCount = this.verificationResults.invalid.length;
+        const totalCount = this.recipients.length;
+        const cost = validCount * this.getTemplateCost();
+
+        const totalEl = document.getElementById('stats-total');
+        const validEl = document.getElementById('stats-valid');
+        const invalidEl = document.getElementById('stats-invalid');
+        const costEl = document.getElementById('stats-cost');
+
+        if (totalEl) totalEl.textContent = totalCount;
+        if (validEl) validEl.textContent = validCount;
+        if (invalidEl) invalidEl.textContent = invalidCount;
+        if (costEl) costEl.textContent = '$' + cost.toFixed(2);
+    }
+
+    updateCampaignHistory() {
+        const container = document.getElementById('campaign-history-list');
+        if (!container) return;
+
+        if (this.campaignHistory.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">لا توجد حملات سابقة</div>';
+            return;
+        }
+
+        container.innerHTML = this.campaignHistory.slice().reverse().map(camp => `
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-card);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${camp.template}</span>
+                    <span style="font-size: 11px; color: var(--status-success); font-weight: 700;">${camp.totalSent} نجح</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: var(--text-muted);">${camp.timestamp}</span>
+                    <span style="font-size: 11px; font-weight: 700; color: var(--brand-primary);">$${camp.cost.toFixed(2)}</span>
+                </div>
+            </div>
+        `).join('');
     }
 }
