@@ -1,3 +1,4 @@
+import { SupabaseIntegration } from '../supabase-integration.js';
 import { ConversationList } from '../components/ConversationList.js';
 import { ChatHeader } from '../components/ChatHeader.js';
 import { MessageInput } from '../components/MessageInput.js';
