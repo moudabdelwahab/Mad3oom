@@ -8,6 +8,8 @@ export class CampaignReportPage {
     }
 
     async load(campaignData = null) {
+        console.log('[CampaignReport] Loading data...', campaignData);
+        
         if (campaignData) {
             this.currentCampaign = campaignData;
             this.reports = campaignData.reports || [];
@@ -15,8 +17,13 @@ export class CampaignReportPage {
             // Try to load last campaign from localStorage if no data provided
             const saved = localStorage.getItem('mad3oom_last_campaign');
             if (saved) {
-                this.currentCampaign = JSON.parse(saved);
-                this.reports = this.currentCampaign.reports || [];
+                try {
+                    this.currentCampaign = JSON.parse(saved);
+                    this.reports = this.currentCampaign.reports || [];
+                    console.log('[CampaignReport] Loaded from localStorage:', this.currentCampaign);
+                } catch (e) {
+                    console.error('[CampaignReport] Error parsing saved campaign:', e);
+                }
             }
         }
 

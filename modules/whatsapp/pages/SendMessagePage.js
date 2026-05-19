@@ -574,8 +574,8 @@ export class SendMessagePage {
             const textarea = document.getElementById('recipients-textarea');
             const numbers = textarea.value
                 .split('\n')
-                .map(n => n.trim())
-                .filter(n => n && /^\d+$/.test(n));
+                .map(n => n.trim().replace(/\+/g, '').replace(/\s/g, '')) // تنظيف الأرقام من + والمسافات
+                .filter(n => n && /^\d{10,15}$/.test(n)); // التأكد من طول الرقم وصحته
             
             if (numbers.length === 0) {
                 showToast('يرجى إدخال أرقام صحيحة', 'warning');
@@ -736,35 +736,41 @@ export class SendMessagePage {
                 for (let i = 0; i < validNumbers.length; i++) {
                     const recipient = validNumbers[i];
                     const progress = Math.round(((i + 1) / validNumbers.length) * 100);
+                    
+                    // تحديد اللغة بشكل صحيح من القالب أو الافتراضي
+                    const langCode = this.selectedTemplate.language || 'ar';
+                    
                     const reportItem = {
                         recipient,
                         time: new Date().toLocaleTimeString('ar-SA'),
                         template: this.selectedTemplate.name,
-                        language: this.selectedTemplate.language || 'ar'
+                        language: langCode
                     };
                     
                     try {
+                        console.log(`[SendMessage] Sending to ${recipient} using template ${this.selectedTemplate.name}`);
+                        
                         // محاولة إرسال الرسالة عبر Meta API
                         const result = await WhatsAppAPI.sendTemplate({
                             to: recipient,
                             templateName: this.selectedTemplate.name,
-                            languageCode: this.selectedTemplate.language || 'ar'
+                            languageCode: langCode
                         });
 
-                        if (result && result.messages) {
+                        console.log(`[SendMessage] API Response for ${recipient}:`, result);
+
+                        if (result && (result.messages || result.id)) {
                             successCount++;
                             totalCost += this.getTemplateCost();
-                            this.logSending(`✓ ${recipient} - تم الإرسال`);
+                            this.logSending(`✓ ${recipient} - تم الإرسال بنجاح`);
                             reportItem.status = 'success';
                         } else {
-                            errorCount++;
-                            this.logSending(`✗ ${recipient} - فشل الإرسال`);
-                            reportItem.status = 'failed';
-                            reportItem.error = 'فشل الإرسال من خادم ميتا';
+                            throw new Error('استجابة غير متوقعة من ميتا');
                         }
                     } catch (error) {
+                        console.error(`[SendMessage] Error sending to ${recipient}:`, error);
                         errorCount++;
-                        this.logSending(`✗ ${recipient} - ${error.message}`);
+                        this.logSending(`✗ ${recipient} - خطأ: ${error.message}`);
                         reportItem.status = 'failed';
                         reportItem.error = error.message;
                     }
@@ -869,8 +875,12 @@ export class SendMessagePage {
 
     logSending(message) {
         const logDiv = document.getElementById('sending-log');
+        if (!logDiv) return;
         const timestamp = new Date().toLocaleTimeString('ar-SA');
-        logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+        const isError = message.includes('✗') || message.includes('خطأ');
+        const color = isError ? 'var(--status-error)' : 'var(--status-success)';
+        
+        logDiv.innerHTML += `<div style="margin-bottom: 4px; color: ${color}; border-right: 2px solid ${color}; padding-right: 8px;">[${timestamp}] ${message}</div>`;
         logDiv.scrollTop = logDiv.scrollHeight;
     }
 
