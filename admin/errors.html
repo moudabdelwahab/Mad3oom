@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة أخطاء الموقع - مدعوم</title>
@@ -43,6 +44,11 @@
             transition: all 0.3s ease;
             border: 1px solid var(--color-border);
             border-right-width: 5px;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
         .error-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
         .error-card.resolved { border-right-color: var(--color-success); opacity: 0.8; }
@@ -93,10 +99,20 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            transition: all 0.3s ease;
         }
         .pulse-dot { width: 8px; height: 8px; background: white; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
         .error-badge-new { background: var(--color-danger); color: white; padding: 0.1rem 0.5rem; border-radius: 0.25rem; font-size: 0.7rem; margin-right: 0.5rem; }
+        
+        /* New Error Highlight */
+        .new-error-highlight {
+            animation: highlight 2s ease-out;
+        }
+        @keyframes highlight {
+            0% { background: rgba(239, 68, 68, 0.2); }
+            100% { background: var(--color-surface); }
+        }
     </style>
 </head>
 <body>
@@ -120,7 +136,7 @@
                     <label>نوع الخطأ</label>
                     <select id="filterType">
                         <option value="all">الكل</option>
-                        <option value="js">JavaScript</option>
+                        <option value="js">JavaScript / Console</option>
                         <option value="promise">Promises</option>
                         <option value="network">Network / API</option>
                     </select>
@@ -156,6 +172,8 @@
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { errorService } from '/error-service.js';
 
+        let currentErrors = [];
+
         document.addEventListener('DOMContentLoaded', () => {
             initSidebar();
             loadErrors();
@@ -175,6 +193,7 @@
 
             try {
                 const { data, count } = await errorService.fetchErrors(filters);
+                currentErrors = data;
                 renderErrors(data);
             } catch (err) {
                 console.error('Failed to load errors:', err);
@@ -187,7 +206,7 @@
             }
         }
 
-        function renderErrors(errors) {
+        function renderErrors(errors, isNew = false) {
             const container = document.getElementById('errorsList');
             if (!errors || errors.length === 0) {
                 container.innerHTML = `
@@ -198,8 +217,8 @@
                 return;
             }
 
-            container.innerHTML = errors.map(err => `
-                <div class="error-card ${err.status}" id="error-${err.id}">
+            const html = errors.map(err => `
+                <div class="error-card ${err.status} ${isNew && err.id === errors[0].id ? 'new-error-highlight' : ''}" id="error-${err.id}">
                     <div class="error-header">
                         <div style="display: flex; align-items: center;">
                             <span class="error-type type-${err.type}">${err.type}</span>
@@ -225,6 +244,8 @@
                     </div>
                 </div>
             `).join('');
+
+            container.innerHTML = html;
         }
 
         function setupRealtime() {
@@ -232,16 +253,26 @@
                 const statusBadge = document.getElementById('realtimeStatus');
                 const statusText = statusBadge.querySelector('span');
                 
+                // Visual feedback for new error
                 statusBadge.style.background = 'var(--color-danger)';
                 statusText.textContent = 'خطأ جديد تم رصده!';
                 
+                // Add to list if it matches current filters
+                const currentType = document.getElementById('filterType').value;
+                const currentStatus = document.getElementById('filterStatus').value;
+                
+                if ((currentType === 'all' || currentType === newError.type) && 
+                    (currentStatus === 'all' || currentStatus === newError.status)) {
+                    
+                    currentErrors.unshift(newError);
+                    if (currentErrors.length > 50) currentErrors.pop();
+                    renderErrors(currentErrors, true);
+                }
+
                 setTimeout(() => {
                     statusBadge.style.background = 'var(--color-success)';
                     statusText.textContent = 'متصل بالبث المباشر';
                 }, 5000);
-
-                // Auto refresh if on first page
-                loadErrors();
             });
         }
 
@@ -253,7 +284,17 @@
         window.updateStatus = async (id, status) => {
             try {
                 await errorService.updateStatus(id, status);
-                loadErrors();
+                // Update local state
+                const errorIndex = currentErrors.findIndex(e => e.id === id);
+                if (errorIndex !== -1) {
+                    const filterStatus = document.getElementById('filterStatus').value;
+                    if (filterStatus !== 'all' && status !== filterStatus) {
+                        currentErrors.splice(errorIndex, 1);
+                    } else {
+                        currentErrors[errorIndex].status = status;
+                    }
+                    renderErrors(currentErrors);
+                }
             } catch (err) {
                 alert('فشل تحديث الحالة: ' + err.message);
             }
