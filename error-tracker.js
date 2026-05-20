@@ -5,17 +5,17 @@
  */
 
 (function() {
-    // Updated to match supabase-config.js
-    const EXPECTED_PROJECT_REF = 'srnelrdpqkcntbgudyto';
-    const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co";
+    // Verified Project Config from Supabase MCP
+    const PROJECT_REF = 'srnelrdpqkcntbgudyto';
+    const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
     const SUPABASE_ANON_KEY = "sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W";
 
     const CONFIG = {
-        PROJECT_ID: EXPECTED_PROJECT_REF,
+        PROJECT_ID: PROJECT_REF,
         API_URL: `${SUPABASE_URL}/rest/v1/site_errors`,
         API_KEY: SUPABASE_ANON_KEY,
-        DEBOUNCE_MS: 300,
-        MAX_ERRORS_PER_SESSION: 200,
+        DEBOUNCE_MS: 500,
+        MAX_ERRORS_PER_SESSION: 100,
         IGNORE_PATTERNS: [
             /extensions\//i,
             /chrome-extension:/i,
@@ -23,7 +23,8 @@
             /safari-extension:/i,
             /top\.GLOBALS/i,
             /originalPrompt/i,
-            /site_errors/i // Prevent logging errors from the error tracker itself
+            /site_errors/i,
+            /supabase\.co/i // Prevent logging errors from Supabase calls themselves
         ]
     };
 
@@ -47,15 +48,24 @@
         try {
             let userId = null;
             try {
-                const supabaseAuth = localStorage.getItem(`sb-${CONFIG.PROJECT_ID}-auth-token`);
-                if (supabaseAuth) {
-                    const authData = JSON.parse(supabaseAuth);
-                    userId = authData.user?.id;
+                // Try to get user ID from Supabase auth in localStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.includes('auth-token')) {
+                        const authData = JSON.parse(localStorage.getItem(key));
+                        userId = authData.user?.id;
+                        break;
+                    }
                 }
             } catch (e) {}
 
             const payload = {
-                ...errorData,
+                type: errorData.type || 'js',
+                message: errorData.message || 'Unknown Error',
+                file_name: errorData.file_name || window.location.pathname,
+                line_number: errorData.line_number || null,
+                column_number: errorData.column_number || null,
+                stack_trace: errorData.stack_trace || null,
                 user_id: userId,
                 user_agent: navigator.userAgent,
                 page_url: window.location.href,
@@ -63,26 +73,27 @@
                 status: 'new'
             };
 
-            await fetch(CONFIG.API_URL, {
+            const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    apikey: CONFIG.API_KEY,
-                    Authorization: `Bearer ${CONFIG.API_KEY}`,
-                    Prefer: 'return=minimal'
+                    'apikey': CONFIG.API_KEY,
+                    'Authorization': `Bearer ${CONFIG.API_KEY}`,
+                    'Prefer': 'return=minimal'
                 },
                 body: JSON.stringify(payload),
                 keepalive: true
             });
-        } catch (err) {
-            // Silent fail in production to avoid infinite loops
-            if (window.location.hostname === 'localhost') {
-                console.warn('[Error Tracker] Failed to report:', err);
+
+            if (!response.ok && window.location.hostname === 'localhost') {
+                console.warn('[Error Tracker] Failed to report:', response.status, response.statusText);
             }
+        } catch (err) {
+            // Silent fail to avoid infinite loops
         }
     }
 
-    // 1. Capture Global JS Errors
+    // 1. Global JS Errors
     window.addEventListener('error', function(event) {
         if (event.error) {
             reportError({
@@ -96,61 +107,61 @@
         } else {
             const target = event.target || event.srcElement;
             if (target instanceof HTMLElement && (target.src || target.href)) {
-                const url = target.src || target.href;
                 reportError({
                     type: 'network',
-                    message: `Failed to load resource: ${target.tagName} (${url})`,
-                    file_name: url,
-                    stack_trace: `Element: ${target.outerHTML.substring(0, 200)}`
+                    message: `Failed to load resource: ${target.tagName} (${target.src || target.href})`,
+                    file_name: target.src || target.href
                 });
             }
         }
     }, true);
 
-    // 2. Capture Unhandled Promise Rejections
+    // 2. Unhandled Promises
     window.addEventListener('unhandledrejection', function(event) {
         const reason = event.reason;
         reportError({
             type: 'promise',
             message: reason instanceof Error ? reason.message : String(reason),
-            stack_trace: reason instanceof Error ? reason.stack : new Error().stack,
-            file_name: window.location.pathname
+            stack_trace: reason instanceof Error ? reason.stack : new Error().stack
         });
     });
 
-    // 3. Capture Console Errors
+    // 3. Console Errors
     const originalConsoleError = console.error;
     console.error = function(...args) {
         originalConsoleError.apply(console, args);
         
         const message = args.map(arg => {
             if (arg instanceof Error) return arg.message;
-            if (typeof arg === 'object') return JSON.stringify(arg);
+            if (typeof arg === 'object') {
+                try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+            }
             return String(arg);
         }).join(' ');
+
+        // Don't log if it's related to the tracker itself or Supabase
+        if (message.includes('site_errors') || message.includes('supabase.co')) return;
 
         const stack = args.find(arg => arg instanceof Error)?.stack || new Error().stack;
 
         reportError({
             type: 'js',
-            message: `[Console Error] ${message}`,
-            stack_trace: stack,
-            file_name: window.location.pathname
+            message: `[Console] ${message}`,
+            stack_trace: stack
         });
     };
 
-    // 4. Capture Fetch Errors
+    // 4. Fetch/XHR Errors
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         try {
             const response = await originalFetch.apply(this, args);
             const url = typeof args[0] === 'string' ? args[0] : args[0].url;
             
-            // Log non-ok responses except for the error tracker itself
-            if (!response.ok && !url.includes('site_errors')) {
+            if (!response.ok && !url.includes('site_errors') && !url.includes('supabase.co')) {
                 reportError({
                     type: 'network',
-                    message: `HTTP Error ${response.status}: ${response.statusText}`,
+                    message: `HTTP ${response.status}: ${response.statusText}`,
                     file_name: url,
                     stack_trace: `Method: ${args[1]?.method || 'GET'}`
                 });
@@ -171,6 +182,6 @@
     };
 
     if (window.location.hostname === 'localhost') {
-        console.log('🚀 Error Tracker v2 initialized');
+        console.log('🚀 Error Tracker v2.1 Active');
     }
 })();
