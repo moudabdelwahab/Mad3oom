@@ -4,406 +4,270 @@
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة التذاكر - لوحة الإدارة</title>
+    <title>إدارة التذاكر الاحترافية - مدعوم</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/robot.css">
-    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="../robot.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* تصميم البطاقات */
-        .tickets-grid {
-            /* Grid removed - now using flex column */
+        :root {
+            --color-primary: #003366;
+            --color-accent: #0077CC;
+            --color-background: #F8FAFC;
+            --color-surface: #FFFFFF;
+            --color-border: #E2E8F0;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
         }
-
-        .ticket-card {
-            background: var(--color-muted);
-            padding: 1rem;
-            border-radius: 0.75rem;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 0.5rem;
-        }
-
-        .ticket-card:hover {
-            background: var(--color-surface);
-            border-color: var(--color-accent);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--color-background); margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
         
-        .ticket-card.selected {
-            background: var(--color-surface);
-            border-color: var(--color-accent);
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-        }
+        .admin-nav { background: var(--color-primary); padding: 0.75rem 1.5rem; color: white; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
+        
+        .admin-main { flex: 1; display: grid; grid-template-columns: 350px 1fr; height: calc(100vh - 60px); overflow: hidden; }
+        
+        /* Sidebar List */
+        .tickets-list-side { background: white; border-left: 1px solid var(--color-border); display: flex; flex-direction: column; }
+        .list-header { padding: 1.5rem; border-bottom: 1px solid var(--color-border); }
+        .search-box { width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; margin-top: 1rem; box-sizing: border-box; }
+        .tickets-scroll { flex: 1; overflow-y: auto; padding: 1rem; }
+        
+        .ticket-item { padding: 1rem; border-radius: 0.75rem; border: 1px solid transparent; margin-bottom: 0.75rem; cursor: pointer; transition: all 0.2s; background: #F1F5F9; }
+        .ticket-item:hover { background: #E2E8F0; }
+        .ticket-item.active { border-color: var(--color-accent); background: white; box-shadow: var(--shadow-sm); }
+        
+        /* Details Panel */
+        .ticket-details-panel { flex: 1; overflow-y: auto; background: white; display: flex; flex-direction: column; }
+        .details-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: start; }
+        .details-content { padding: 2rem; flex: 1; }
+        
+        /* Components */
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; }
+        .status-open { background: #FEF3C7; color: #92400E; }
+        .status-in-progress { background: #DBEAFE; color: #1E40AF; }
+        .status-resolved { background: #D1FAE5; color: #065F46; }
+        
+        .priority-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; }
+        .priority-high { background: #EF4444; }
+        .priority-medium { background: #F59E0B; }
+        .priority-low { background: #10B981; }
 
-        .ticket-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--color-border);
-        }
+        .chat-container { display: flex; flex-direction: column; gap: 1rem; margin-top: 2rem; }
+        .msg { max-width: 80%; padding: 1rem; border-radius: 1rem; position: relative; }
+        .msg-user { align-self: flex-start; background: #F1F5F9; }
+        .msg-admin { align-self: flex-end; background: var(--color-primary); color: white; }
+        .msg-internal { align-self: center; background: #FEF3C7; border: 1px dashed #D97706; width: 90%; font-size: 0.85rem; }
 
-        .ticket-number {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            font-weight: 700;
-        }
-
-        .ticket-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: var(--color-text);
-            line-height: 1.4;
-        }
-
-        .ticket-description {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .ticket-user-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: var(--color-muted);
-            border-radius: 0.5rem;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--color-accent);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .user-details {
-            flex: 1;
-        }
-
-        .user-name {
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: var(--color-text);
-        }
-
-        .user-email {
-            font-size: 0.75rem;
-            color: var(--color-text-secondary);
-        }
-
-        .ticket-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--color-border);
-        }
-
-        .ticket-date {
-            font-size: 0.75rem;
-            color: var(--color-text-secondary);
-        }
-
-        .priority-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-
-        .priority-high {
-            background: #fee;
-            color: #c33;
-        }
-
-        .priority-medium {
-            background: #ffeaa7;
-            color: #d63031;
-        }
-
-        .priority-low {
-            background: #dfe6e9;
-            color: #636e72;
-        }
-
-        /* فلاتر البحث */
-        .filters-section {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .filter-select {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
-            background: var(--color-surface);
-            color: var(--color-text);
-            font-family: 'Cairo', sans-serif;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-
-        .search-input {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
-            background: var(--color-surface);
-            color: var(--color-text);
-            font-family: 'Cairo', sans-serif;
-            font-size: 0.9rem;
-            min-width: 250px;
-        }
-
-        /* إحصائيات */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--color-surface);
-            padding: 1.5rem;
-            border-radius: 1rem;
-            border: 1px solid var(--color-border);
-            text-align: center;
-        }
-
-        .stat-label {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--color-accent);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--color-text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        @media (max-width: 768px) {
-            .tickets-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .filters-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-input {
-                min-width: 100%;
-            }
-        }
+        .reply-box { padding: 1.5rem 2rem; border-top: 1px solid var(--color-border); background: #F8FAFC; }
+        .reply-textarea { width: 100%; min-height: 100px; padding: 1rem; border: 1px solid var(--color-border); border-radius: 0.5rem; resize: vertical; margin-bottom: 1rem; font-family: inherit; }
+        
+        .btn { padding: 0.6rem 1.2rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-family: 'Cairo'; }
+        .btn-primary { background: var(--color-accent); color: white; }
+        .btn-success { background: #10B981; color: white; }
+        .btn-outline { border: 1px solid var(--color-border); background: white; }
+        
+        .stats-bar { display: flex; gap: 1rem; padding: 1rem 1.5rem; background: #F1F5F9; border-bottom: 1px solid var(--color-border); }
+        .stat-pill { background: white; padding: 0.4rem 1rem; border-radius: 2rem; font-size: 0.85rem; border: 1px solid var(--color-border); }
     </style>
 </head>
 <body>
-    <div id="sidebar-container"></div>
+    <nav class="admin-nav">
+        <div class="nav-right">
+            <img src="/assets/images/logo.png" height="30" alt="مدعوم">
+            <span style="font-weight: 800; font-size: 1.2rem;">مركز إدارة التذاكر</span>
+        </div>
+        <div>
+            <a href="dashboard.html" style="color: white; text-decoration: none; font-size: 0.9rem;">العودة للرئيسية</a>
+        </div>
+    </nav>
+
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-pill">الكل: <span id="statTotal">0</span></div>
+        <div class="stat-pill">مفتوحة: <span id="statOpen" style="color: #B45309;">0</span></div>
+        <div class="stat-pill">قيد المعالجة: <span id="statInProgress" style="color: #1D4ED8;">0</span></div>
+        <div class="stat-pill">محلولة: <span id="statResolved" style="color: #047857;">0</span></div>
+    </div>
 
     <main class="admin-main">
-        <header class="page-header">
-            <h1>إدارة التذاكر</h1>
-            <p>عرض ومتابعة جميع تذاكر الدعم الفني في النظام</p>
-        </header>
-
-        <!-- الإحصائيات -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">إجمالي التذاكر</div>
-                <div id="statTotal" class="stat-value">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">المفتوحة</div>
-                <div id="statOpen" class="stat-value" style="color: #f39c12;">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">قيد المعالجة</div>
-                <div id="statInProgress" class="stat-value" style="color: #3498db;">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">المحلولة</div>
-                <div id="statResolved" class="stat-value" style="color: #27ae60;">0</div>
-            </div>
-        </div>
-
-        <!-- الفلاتر -->
-        <div class="filters-section">
-            <div class="filter-group">
-                <label style="font-weight: 600; font-size: 0.9rem;">الحالة:</label>
-                <select id="filterStatus" class="filter-select">
-                    <option value="all">الكل</option>
+        <aside class="tickets-list-side">
+            <div class="list-header">
+                <select id="filterStatus" class="search-box" style="margin-top: 0;">
+                    <option value="all">كل الحالات</option>
                     <option value="open">مفتوحة</option>
                     <option value="in-progress">قيد المعالجة</option>
                     <option value="resolved">محلولة</option>
                 </select>
+                <input type="text" id="searchInput" class="search-box" placeholder="بحث برقم التذكرة أو العميل...">
             </div>
-            <div class="filter-group">
-                <label style="font-weight: 600; font-size: 0.9rem;">الأولوية:</label>
-                <select id="filterPriority" class="filter-select">
-                    <option value="all">الكل</option>
-                    <option value="high">عالية</option>
-                    <option value="medium">متوسطة</option>
-                    <option value="low">منخفضة</option>
-                </select>
+            <div class="tickets-scroll" id="ticketsList">
+                <!-- التذاكر ستظهر هنا -->
             </div>
-            <input type="text" id="searchInput" class="search-input" placeholder="ابحث في التذاكر...">
-        </div>
+        </aside>
 
-        <!-- Tickets Layout: Vertical List + Details Panel -->
-        <div style="display: grid; grid-template-columns: 450px 1fr; gap: 1.5rem; height: 650px; margin-top: 2rem;">
-            <!-- Tickets List (Right Side) -->
-            <div style="background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; display: flex; flex-direction: column;">
-                <div style="padding: 1rem; border-bottom: 1px solid var(--color-border); background: var(--color-muted);">
-                    <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">قائمة التذاكر</h3>
-                </div>
-                <div id="ticketsGrid" style="overflow-y: auto; flex: 1; padding: 0.5rem;">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
-                        <p>جاري تحميل التذاكر...</p>
-                    </div>
-                </div>
+        <section class="ticket-details-panel" id="detailsPanel">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #94A3B8;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M15 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <p style="margin-top: 1rem; font-weight: 600;">اختر تذكرة لعرض تفاصيلها</p>
             </div>
-            
-            <!-- Ticket Details Panel (Left Side) -->
-            <div id="adminTicketDetailsPanel" style="background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; display: flex; flex-direction: column;">
-                <div id="adminTicketDetailsContent" style="flex: 1; overflow-y: auto; padding: 2rem; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);">
-                    <div style="text-align: center;">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
-                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        </svg>
-                        <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
-                        <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </section>
     </main>
 
-    <!-- Ticket View Modal -->
-    <div id="ticketModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTicketTitle">تفاصيل التذكرة</h2>
-                <span class="close-modal" id="closeModal">&times;</span>
-            </div>
-            <div class="ticket-details-grid">
-                <div class="ticket-info-section">
-                    <div class="detail-item">
-                        <div class="detail-label">وصف المشكلة</div>
-                        <div id="modalTicketDesc" class="detail-value" style="white-space: pre-wrap; font-weight: 400; line-height: 1.6;"></div>
-                    </div>
-                    
-                    <div id="modalTicketImageContainer" class="detail-item" style="display:none;">
-                        <div class="detail-label">المرفقات</div>
-                        <a id="modalTicketImageLink" target="_blank">
-                            <img id="modalTicketImage" style="max-width: 100%; border-radius: 8px; border: 1px solid #eee; margin-top: 0.5rem;">
-                        </a>
-                    </div>
+    <script type="module">
+        import { supabase } from '../api-config.js';
+        import { fetchUserTickets, fetchTicketReplies, addTicketReply, updateTicketStatus, fetchTicketStats, subscribeToTickets } from '../tickets-service.js';
 
-                    <div class="replies-container">
-                        <h3 style="font-size: 1rem; margin-bottom: 1rem;">المحادثة والردود</h3>
-                        <div id="ticketRepliesList">
-                            <!-- Replies will be loaded here -->
+        let currentTicketId = null;
+
+        async function init() {
+            await loadStats();
+            await loadTickets();
+            
+            subscribeToTickets(() => {
+                loadStats();
+                loadTickets();
+            });
+
+            document.getElementById('filterStatus').onchange = loadTickets;
+            document.getElementById('searchInput').oninput = debounce(loadTickets, 500);
+        }
+
+        async function loadStats() {
+            const stats = await fetchTicketStats();
+            document.getElementById('statTotal').textContent = stats.total;
+            document.getElementById('statOpen').textContent = stats.open;
+            document.getElementById('statInProgress').textContent = stats.inProgress;
+            document.getElementById('statResolved').textContent = stats.resolved;
+        }
+
+        async function loadTickets() {
+            const status = document.getElementById('filterStatus').value;
+            const search = document.getElementById('searchInput').value;
+            
+            const tickets = await fetchUserTickets({ status, search });
+            const list = document.getElementById('ticketsList');
+            
+            list.innerHTML = tickets.map(t => `
+                <div class="ticket-item ${currentTicketId === t.id ? 'active' : ''}" onclick="window.selectTicket('${t.id}')">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-weight: 800; font-size: 0.8rem; color: #64748B;">#${t.ticket_number}</span>
+                        <span class="status-badge status-${t.status}">${getStatusLabel(t.status)}</span>
+                    </div>
+                    <div style="font-weight: 700; margin-bottom: 0.25rem;">${t.title}</div>
+                    <div style="font-size: 0.8rem; color: #64748B;">${t.profiles?.full_name || 'عميل'}</div>
+                    <div style="display: flex; align-items: center; margin-top: 0.5rem; font-size: 0.75rem;">
+                        <span class="priority-dot priority-${t.priority}"></span>
+                        <span>${getPriorityLabel(t.priority)}</span>
+                        <span style="margin-right: auto;">${new Date(t.created_at).toLocaleDateString('ar-EG')}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.selectTicket = async (id) => {
+            currentTicketId = id;
+            loadTickets(); // لتحديث الحالة النشطة في القائمة
+            
+            const { data: ticket } = await supabase.from('tickets').select('*, profiles(*)').eq('id', id).single();
+            const replies = await fetchTicketReplies(id);
+            
+            const panel = document.getElementById('detailsPanel');
+            panel.innerHTML = `
+                <div class="details-header">
+                    <div>
+                        <h1 style="margin: 0 0 0.5rem 0; font-size: 1.5rem;">${ticket.title}</h1>
+                        <div style="display: flex; gap: 1rem; color: #64748B; font-size: 0.9rem;">
+                            <span>بواسطة: <strong>${ticket.profiles?.full_name}</strong></span>
+                            <span>التصنيف: <strong>${ticket.category || 'عام'}</strong></span>
+                            <span>تاريخ: <strong>${new Date(ticket.created_at).toLocaleString('ar-EG')}</strong></span>
                         </div>
                     </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        ${ticket.status !== 'resolved' ? 
+                            `<button class="btn btn-success" onclick="window.resolveTicket('${ticket.id}')">إغلاق كمحلولة</button>` :
+                            `<button class="btn btn-outline" onclick="window.reopenTicket('${ticket.id}')">إعادة فتح</button>`
+                        }
+                    </div>
+                </div>
+                <div class="details-content">
+                    <div style="background: #F8FAFC; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--color-border); margin-bottom: 2rem;">
+                        <h3 style="margin-top: 0; font-size: 1rem; color: #475569;">وصف المشكلة:</h3>
+                        <p style="white-space: pre-wrap; line-height: 1.6;">${ticket.description}</p>
+                        ${ticket.image_url ? `<img src="${ticket.image_url}" style="max-width: 100%; border-radius: 0.5rem; margin-top: 1rem; border: 1px solid var(--color-border);">` : ''}
+                    </div>
 
-                    <div class="reply-form">
-                        <textarea id="replyText" class="reply-textarea" placeholder="اكتب ردك هنا..."></textarea>
-                        <div class="reply-actions">
-                            <div class="reply-btns">
-                                <button id="sendPublicReply" class="btn btn-success">إرسال رد للعميل</button>
-                                <button id="sendInternalNote" class="btn btn-warning">إضافة ملاحظة داخلية</button>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #F1F5F9; padding-bottom: 0.5rem;">المحادثة والردود</h3>
+                    <div class="chat-container">
+                        ${replies.map(r => `
+                            <div class="msg ${r.is_internal ? 'msg-internal' : (r.profiles?.role === 'admin' ? 'msg-admin' : 'msg-user')}">
+                                <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 0.25rem;">
+                                    ${r.profiles?.full_name} • ${new Date(r.created_at).toLocaleTimeString('ar-EG')}
+                                </div>
+                                <div>${r.message}</div>
                             </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="reply-box">
+                    <textarea id="replyText" class="reply-textarea" placeholder="اكتب ردك للعميل هنا..."></textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; gap: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; cursor: pointer;">
+                                <input type="checkbox" id="isInternal"> ملاحظة داخلية (مخفية عن العميل)
+                            </label>
                         </div>
+                        <button class="btn btn-primary" onclick="window.sendReply()">إرسال الرد</button>
                     </div>
                 </div>
+            `;
+        };
 
-                <div class="ticket-meta-section">
-                    <div class="detail-item">
-                        <div class="detail-label">رقم التذكرة</div>
-                        <div id="modalTicketNumber" class="detail-value">#0</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">الحالة الحالية</div>
-                        <div id="modalTicketStatus" class="detail-value"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">صاحب التذكرة</div>
-                        <div id="modalTicketUser" class="detail-value"></div>
-                        <div id="modalTicketEmail" style="font-size: 0.75rem; color: #666;"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">تاريخ الإنشاء</div>
-                        <div id="modalTicketDate" class="detail-value"></div>
-                    </div>
-                    
-                    <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                        <button id="resolveTicketBtn" class="btn btn-primary" style="width: 100%;">إغلاق التذكرة (تم الحل)</button>
-                        <button id="impersonateUserBtn" class="btn btn-outline" style="width: 100%;">دخول لحساب العميل</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        window.sendReply = async () => {
+            const text = document.getElementById('replyText').value.trim();
+            const isInternal = document.getElementById('isInternal').checked;
+            if (!text) return;
 
-    <!-- Close Ticket Modal -->
-    <div id="closeTicketModal" class="close-ticket-modal">
-        <div class="close-ticket-modal-content">
-            <div class="close-ticket-modal-header">إغلاق التذكرة</div>
-            <div class="close-ticket-modal-body">
-                <p>هل أنت متأكد من رغبتك في إغلاق هذه التذكرة؟ يمكنك إضافة تعليق ختامي للعميل قبل الإغلاق.</p>
-                <textarea id="closeTicketComment" class="close-ticket-modal-textarea" placeholder="أضف تعليقاً ختامياً للعميل (اختياري)..."></textarea>
-            </div>
-            <div class="close-ticket-modal-footer">
-                <button id="closeCloseTicketModal" class="btn-cancel">إلغاء</button>
-                <button id="confirmCloseTicket" class="btn-confirm">تأكيد الإغلاق</button>
-            </div>
-        </div>
-    </div>
+            try {
+                await addTicketReply(currentTicketId, text, isInternal);
+                window.selectTicket(currentTicketId);
+            } catch (err) {
+                alert('فشل إرسال الرد');
+            }
+        };
 
-    <script type="module" src="/assets/js/admin/tickets.js"></script>
+        window.resolveTicket = async (id) => {
+            if (!confirm('هل أنت متأكد من إغلاق هذه التذكرة؟')) return;
+            await updateTicketStatus(id, 'resolved');
+            window.selectTicket(id);
+            loadStats();
+        };
+
+        window.reopenTicket = async (id) => {
+            await updateTicketStatus(id, 'open');
+            window.selectTicket(id);
+            loadStats();
+        };
+
+        function getStatusLabel(s) {
+            const map = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة' };
+            return map[s] || s;
+        }
+
+        function getPriorityLabel(p) {
+            const map = { 'high': 'عالية', 'medium': 'متوسطة', 'low': 'منخفضة' };
+            return map[p] || p;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        init();
+    </script>
 </body>
 </html>
