@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة الاشتراكات</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:Arial;background:#f5f7fb;padding:20px}
+.header{background:#0d47a1;color:#fff;padding:20px;border-radius:16px;margin-bottom:20px}
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:15px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.item{display:flex;justify-content:space-between;align-items:center}
+.btn{background:#0d47a1;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>إدارة اشتراكات واتساب</h1>
+<p>عرض جميع الاشتراكات المرتبطة بالتذاكر المقبولة</p>
+</div>
+<div id="subscriptions"></div>
+<script>
+const supabaseUrl='https://srnelrdpqkcntbgudyto.supabase.co';
+const supabaseKey='';
+const supabase=supabase.createClient(supabaseUrl,supabaseKey);
+async function loadSubscriptions(){
+const container=document.getElementById('subscriptions');
+container.innerHTML='<div class="card">جاري التحميل...</div>';
+const {data,error}=await supabase.from('whatsapp_subscriptions').select(`*,tickets(ticket_number,title),profiles(full_name,username,phone)`).order('created_at',{ascending:false});
+if(error){container.innerHTML=`<div class="card">${error.message}</div>`;return;}
+container.innerHTML=data.map(sub=>`
+<div class="card">
+<div class="item">
+<div>
+<h3>${sub.profiles?.full_name || 'بدون اسم'}</h3>
+<p>التذكرة #${sub.tickets?.ticket_number || '-'}</p>
+<p>الحالة: ${sub.status}</p>
+</div>
+<a class="btn" href="/admin/subscription-details.html?id=${sub.id}">عرض التفاصيل</a>
+</div>
+</div>`).join('');
+}
+loadSubscriptions();
+</script>
+</body>
+</html>
