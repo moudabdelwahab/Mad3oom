@@ -279,6 +279,7 @@ export async function activateSubscription(subscriptionId) {
         throw error;
     }
 }
+
 /**
  * Confirm a purchase ticket and activate subscription
  * @param {string} ticketId - Ticket ID to confirm
@@ -288,90 +289,47 @@ export async function confirmPurchaseTicket(ticketId) {
     try {
         console.log('Confirming purchase ticket:', ticketId);
 
-        // جلب بيانات التذكرة
-        const { data: ticket, error: ticketError } = await supabase
-            .from('tickets')
+        // 1. جلب بيانات التذكرة والاشتراك المرتبط بها
+        const { data: subscription, error: fetchError } = await supabase
+            .from('whatsapp_subscriptions')
             .select('*')
-            .eq('id', ticketId)
-            .single();
+            .eq('ticket_id', ticketId)
+            .maybeSingle();
 
-        if (ticketError || !ticket) {
-            throw new Error('Failed to fetch ticket');
+        if (fetchError) throw fetchError;
+        
+        if (subscription) {
+            // 2. تحديث حالة الاشتراك إلى نشط
+            const { error: subUpdateError } = await supabase
+                .from('whatsapp_subscriptions')
+                .update({ 
+                    status: 'active',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', subscription.id);
+
+            if (subUpdateError) throw subUpdateError;
+
+            // 3. تحديث بروفايل المستخدم لتفعيل الواتساب (اختياري كدعم إضافي)
+            await supabase
+                .from('profiles')
+                .update({ whatsapp_enabled: true })
+                .eq('id', subscription.user_id);
         }
 
-        // تحديث حالة التذكرة إلى confirmed
-        const { error: updateTicketError } = await supabase
+        // 4. تحديث حالة التذكرة إلى مؤكدة
+        const { error: ticketUpdateError } = await supabase
             .from('tickets')
             .update({ status: 'confirmed' })
             .eq('id', ticketId);
 
-        if (updateTicketError) {
-            throw updateTicketError;
-        }
+        if (ticketUpdateError) throw ticketUpdateError;
 
-        // جلب الاشتراك المرتبط بهذه التذكرة
-        const { data: subscription, error: subError } = await supabase
-            .from('whatsapp_subscriptions')
-            .select('*')
-            .eq('ticket_id', ticketId)
-            .single();
-
-        if (subError) {
-            console.warn('No subscription found for this ticket');
-        }
-
-        // تفعيل الاشتراك
-        if (subscription) {
-            const { error: activateError } = await supabase
-                .from('whatsapp_subscriptions')
-                .update({ status: 'active' })
-                .eq('id', subscription.id);
-
-            if (activateError) {
-                throw activateError;
-            }
-
-            // تحديث بروفايل المستخدم ليشير إلى أنه مشترك
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({ whatsapp_enabled: true })
-                .eq('id', ticket.user_id);
-
-            if (profileError) {
-                console.warn('Failed to update profile:', profileError);
-            }
-        }
-
-        // إنشاء إشعار للعميل
-        const { data: adminNotif } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('role', 'admin')
-            .limit(1)
-            .single();
-
-        if (adminNotif) {
-            const { createNotification } = await import('./notifications-service.js');
-            await createNotification({
-                userId: ticket.user_id,
-                title: 'تم تأكيد اشتراكك',
-                message: 'تم تأكيد اشتراكك في مشروع الواتساب بنجاح! يمكنك الآن الوصول إلى الخدمة.',
-                type: 'success',
-                link: '/customer-dashboard.html'
-            });
-        }
-
-        return {
-            success: true,
-            message: 'تم تأكيد الشراء وتفعيل الاشتراك بنجاح'
-        };
+        return { success: true };
 
     } catch (error) {
         console.error('Error confirming purchase ticket:', error);
-        return {
-            success: false,
-            error: error.message || 'حدث خطأ في تأكيد الشراء'
-        };
+        return { success: false, error: error.message };
     }
 }
 
@@ -385,65 +343,23 @@ export async function rejectPurchaseTicket(ticketId, reason = '') {
     try {
         console.log('Rejecting purchase ticket:', ticketId);
 
-        // جلب بيانات التذكرة
-        const { data: ticket, error: ticketError } = await supabase
-            .from('tickets')
-            .select('*')
-            .eq('id', ticketId)
-            .single();
-
-        if (ticketError || !ticket) {
-            throw new Error('Failed to fetch ticket');
-        }
-
         // تحديث حالة التذكرة إلى rejected
         const { error: updateTicketError } = await supabase
             .from('tickets')
             .update({ status: 'rejected' })
             .eq('id', ticketId);
 
-        if (updateTicketError) {
-            throw updateTicketError;
-        }
+        if (updateTicketError) throw updateTicketError;
 
-        // تحديث حالة الاشتراك المرتبط إلى rejected
-        const { data: subscription } = await supabase
+        // تحديث حالة الاشتراك إلى rejected
+        await supabase
             .from('whatsapp_subscriptions')
-            .select('*')
-            .eq('ticket_id', ticketId)
-            .single();
+            .update({ status: 'rejected' })
+            .eq('ticket_id', ticketId);
 
-        if (subscription) {
-            const { error: rejectSubError } = await supabase
-                .from('whatsapp_subscriptions')
-                .update({ status: 'rejected' })
-                .eq('id', subscription.id);
-
-            if (rejectSubError) {
-                console.warn('Failed to update subscription status:', rejectSubError);
-            }
-        }
-
-        // إنشاء إشعار للعميل برفض الشراء
-        const { createNotification } = await import('./notifications-service.js');
-        await createNotification({
-            userId: ticket.user_id,
-            title: 'تم رفض طلب الاشتراك',
-            message: `تم رفض طلب اشتراكك في مشروع الواتساب.${reason ? ` السبب: ${reason}` : ''}`,
-            type: 'warning',
-            link: '/customer-dashboard.html'
-        });
-
-        return {
-            success: true,
-            message: 'تم رفض الشراء بنجاح'
-        };
-
+        return { success: true };
     } catch (error) {
         console.error('Error rejecting purchase ticket:', error);
-        return {
-            success: false,
-            error: error.message || 'حدث خطأ في رفض الشراء'
-        };
+        return { success: false, error: error.message };
     }
 }

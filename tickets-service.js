@@ -142,46 +142,31 @@ export async function updateTicketStatus(ticketId, status) {
 
     if (error) throw error;
 
-    // جلب بيانات التذكرة لإرسال إشعار للعميل فقط
+    // جلب بيانات التذكرة لإرسال إشعار للعميل ومعالجة الاشتراكات
     const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
     if (ticket) {
-        const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
-        
-        // إذا تم وضع علامة "تم الحل" على تذكرة شراء، قم بتفعيل الاشتراك
+        // إذا كانت التذكرة محلولة (resolved) وهي تذكرة شراء، نقوم بتأكيد الاشتراك تلقائياً
         if (status === 'resolved') {
             const isPurchaseTicket = ticket.title.toLowerCase().includes('شراء') || 
-                                      ticket.title.toLowerCase().includes('اشتراك') ||
-                                      ticket.title.toLowerCase().includes('واتساب');
+                                     ticket.title.toLowerCase().includes('اشتراك') ||
+                                     ticket.title.toLowerCase().includes('واتساب');
             
             if (isPurchaseTicket) {
-                // جلب الاشتراك المرتبط بهذه التذكرة
-                const { data: subscription } = await supabase
-                    .from('whatsapp_subscriptions')
-                    .select('*')
-                    .eq('ticket_id', ticketId)
-                    .maybeSingle();
-
-                if (subscription && subscription.status === 'pending') {
-                    // تفعيل الاشتراك
-                    await supabase
-                        .from('whatsapp_subscriptions')
-                        .update({ status: 'active' })
-                        .eq('id', subscription.id);
-
-                    // تحديث بروفايل المستخدم
-                    await supabase
-                        .from('profiles')
-                        .update({ whatsapp_enabled: true })
-                        .eq('id', ticket.user_id);
+                try {
+                    const { confirmPurchaseTicket } = await import('./whatsapp-subscription-service.js');
+                    await confirmPurchaseTicket(ticketId);
+                } catch (subErr) {
+                    console.error('Failed to auto-activate subscription:', subErr);
                 }
             }
         }
-        
+
+        const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
         // إشعار للعميل فقط عند تغيير حالة تذكرته من قبل الإدارة
         await createNotification({
             userId: ticket.user_id,
             title: 'تحديث حالة التذكرة',
-            message: `تم تغيير حالة تذكرتك #${ticket.ticket_number} إلى ${statusMap[status]}`,
+            message: `تم تغيير حالة تذكرتك #${ticket.ticket_number} إلى ${statusMap[status] || status}`,
             type: 'info',
             link: `customer-dashboard.html?ticket=${ticket.id}`
         });
