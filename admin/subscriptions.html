@@ -21,12 +21,12 @@ body{font-family:Arial;background:#f5f7fb;padding:20px}
 <div id="subscriptions"></div>
 <script>
 const supabaseUrl='https://srnelrdpqkcntbgudyto.supabase.co';
-const supabaseKey='';
-const supabase=supabase.createClient(supabaseUrl,supabaseKey);
+const supabaseKey='sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
+const client=supabase.createClient(supabaseUrl,supabaseKey);
 async function loadSubscriptions(){
 const container=document.getElementById('subscriptions');
 container.innerHTML='<div class="card">جاري التحميل...</div>';
-const {data,error}=await supabase.from('whatsapp_subscriptions').select(`*,tickets(ticket_number,title),profiles(full_name,username,phone)`).order('created_at',{ascending:false});
+const {data,error}=await client.from('whatsapp_subscriptions').select(`*,tickets(ticket_number,title),profiles(full_name,username,phone)`).order('created_at',{ascending:false});
 if(error){container.innerHTML=`<div class="card">${error.message}</div>`;return;}
 container.innerHTML=data.map(sub=>`
 <div class="card">
