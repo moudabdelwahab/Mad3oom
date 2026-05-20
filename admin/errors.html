@@ -144,10 +144,10 @@
                 <div class="filter-group">
                     <label>الحالة</label>
                     <select id="filterStatus">
+                        <option value="all">الكل</option>
                         <option value="new">جديد</option>
                         <option value="resolved">تم الحل</option>
                         <option value="archived">مؤرشف</option>
-                        <option value="all">الكل</option>
                     </select>
                 </div>
                 <div class="filter-group" style="flex-grow: 1;">
@@ -155,7 +155,7 @@
                     <input type="text" id="searchInput" placeholder="بحث في الرسالة، الرابط، أو الـ Stack Trace...">
                 </div>
                 <div class="filter-group" style="justify-content: flex-end;">
-                    <button class="btn-sm btn-toggle-stack" onclick="loadErrors()" style="height: 42px;">تحديث القائمة</button>
+                    <button class="btn-sm btn-toggle-stack" id="refreshBtn" style="height: 42px;">تحديث القائمة</button>
                 </div>
             </div>
 
@@ -174,16 +174,7 @@
 
         let currentErrors = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initSidebar();
-            loadErrors();
-            setupRealtime();
-            
-            document.getElementById('filterType').addEventListener('change', loadErrors);
-            document.getElementById('filterStatus').addEventListener('change', loadErrors);
-            document.getElementById('searchInput').addEventListener('input', debounce(loadErrors, 500));
-        });
-
+        // Define functions in module scope and attach to window for HTML onclick access
         async function loadErrors() {
             const filters = {
                 type: document.getElementById('filterType').value,
@@ -201,8 +192,12 @@
                     <div style="color: var(--color-danger); text-align: center; padding: 3rem; background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border);">
                         <h3>فشل تحميل البيانات</h3>
                         <p>${err.message}</p>
-                        <button class="btn-sm btn-toggle-stack" onclick="location.reload()" style="margin-top: 1rem;">إعادة المحاولة</button>
+                        <button class="btn-sm btn-toggle-stack" id="retryBtn" style="margin-top: 1rem;">إعادة المحاولة</button>
                     </div>`;
+                
+                // Add event listener to retry button if it exists
+                const retryBtn = document.getElementById('retryBtn');
+                if (retryBtn) retryBtn.onclick = () => location.reload();
             }
         }
 
@@ -234,12 +229,12 @@
                     </div>
                     <div class="stack-trace" id="stack-${err.id}">${err.stack_trace || 'لا توجد تفاصيل إضافية (Stack Trace)'}</div>
                     <div class="actions">
-                        <button class="btn-sm btn-toggle-stack" onclick="toggleStack('${err.id}')">عرض التفاصيل / Stack</button>
+                        <button class="btn-sm btn-toggle-stack" onclick="window.toggleStack('${err.id}')">عرض التفاصيل / Stack</button>
                         ${err.status === 'new' ? `
-                            <button class="btn-sm btn-resolve" onclick="updateStatus('${err.id}', 'resolved')">تم الحل</button>
-                            <button class="btn-sm btn-archive" onclick="updateStatus('${err.id}', 'archived')">أرشفة</button>
+                            <button class="btn-sm btn-resolve" onclick="window.updateStatus('${err.id}', 'resolved')">تم الحل</button>
+                            <button class="btn-sm btn-archive" onclick="window.updateStatus('${err.id}', 'archived')">أرشفة</button>
                         ` : `
-                            <button class="btn-sm btn-archive" onclick="updateStatus('${err.id}', 'new')">إعادة فتح</button>
+                            <button class="btn-sm btn-archive" onclick="window.updateStatus('${err.id}', 'new')">إعادة فتح</button>
                         `}
                     </div>
                 </div>
@@ -276,9 +271,10 @@
             });
         }
 
+        // Global window functions for HTML access
         window.toggleStack = (id) => {
             const el = document.getElementById(`stack-${id}`);
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
+            if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
         };
 
         window.updateStatus = async (id, status) => {
@@ -311,6 +307,18 @@
                 timeout = setTimeout(later, wait);
             };
         }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar();
+            loadErrors();
+            setupRealtime();
+            
+            document.getElementById('filterType').addEventListener('change', loadErrors);
+            document.getElementById('filterStatus').addEventListener('change', loadErrors);
+            document.getElementById('searchInput').addEventListener('input', debounce(loadErrors, 500));
+            document.getElementById('refreshBtn').addEventListener('click', loadErrors);
+        });
     </script>
 </body>
 </html>
