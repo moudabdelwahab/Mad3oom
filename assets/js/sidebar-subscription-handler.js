@@ -17,12 +17,21 @@ export async function checkAndUpdateWhatsAppLink() {
             return;
         }
 
-        // Check for active subscription
+        // Check for active subscription or admin-enabled status
         const subscription = await getActiveSubscription();
+        
+        // Check profile for manual activation
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('whatsapp_enabled')
+            .eq('id', user.id)
+            .single();
+
+        const isEnabled = subscription || (profile && profile.whatsapp_enabled);
         const whatsappLink = document.getElementById('whatsappLink');
 
         if (whatsappLink) {
-            if (subscription) {
+            if (isEnabled) {
                 // Show WhatsApp link
                 whatsappLink.style.display = 'flex';
                 // Add active indicator

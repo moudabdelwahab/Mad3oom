@@ -360,6 +360,18 @@
             <h2 class="service-title">واتساب أعمال</h2>
             <p class="service-subtitle">خدمة واتساب أعمال من ميتا</p>
 
+            <!-- Billing Toggle -->
+            <div id="billingToggle" class="billing-toggle" style="display: flex; justify-content: center; gap: 1rem; margin: 1.5rem 0; background: var(--color-muted); padding: 0.5rem; border-radius: 2rem; width: fit-content; margin-left: auto; margin-right: auto; cursor: pointer;">
+                <div class="toggle-option active" data-period="monthly" style="padding: 0.5rem 1.5rem; border-radius: 1.5rem; font-weight: 700; transition: all 0.3s;">شهري</div>
+                <div class="toggle-option" data-period="yearly" style="padding: 0.5rem 1.5rem; border-radius: 1.5rem; font-weight: 700; transition: all 0.3s;">سنوي</div>
+            </div>
+            <style>
+                .toggle-option.active {
+                    background: var(--color-accent);
+                    color: white;
+                }
+            </style>
+
             <ul class="features-list">
                 <li><strong>حل رسمي من ميتا:</strong> موثوق وآمن بنسبة وصول عالية.</li>
                 <li><strong>إظهار اسم الشركة:</strong> بعد قبول تحقق الحساب من ميتا يظهر اسم شركتك بدلاً من الرقم، مما يعزز الثقة عند العملاء.</li>
@@ -410,16 +422,9 @@
             }
         }
 
-        // Load sidebar
-        fetch('/assets/components/customer-sidebar.html')
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('sidebar-container').innerHTML = html;
-                const script = document.createElement('script');
-                script.src = '/assets/js/customer-sidebar.js';
-                script.type = 'module';
-                document.body.appendChild(script);
-            });
+        // Load sidebar and initialize it
+        import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
+        initCustomerSidebar();
 
         // Subscribe function
         window.subscribe = async function(plan) {
