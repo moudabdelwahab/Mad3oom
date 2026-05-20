@@ -516,27 +516,52 @@ ${additionalDetails}` : ''}
 ━━━━━━━━━━━━━━━━━━━━
 ⏰ تاريخ الطلب: ${new Date().toLocaleString('ar-EG')}`;
 
-            try {
-                // Create ticket
-                const { data: ticket, error: ticketError } = await supabase
-                    .from('tickets')
-                    .insert([{
-                        user_id: user.id,
-                        title: `طلب اشتراك واتساب أعمال - ${planArabic}`,
-                        description: ticketDescription,
-                        status: 'open',
-                        priority: 'high'
-                    }])
-                    .select()
-                    .single();
+	            try {
+	                // Calculate dates for the subscription record
+	                const startDate = new Date();
+	                const endDate = new Date();
+	                if (plan === 'monthly') {
+	                    endDate.setMonth(endDate.getMonth() + 1);
+	                } else {
+	                    endDate.setFullYear(endDate.getFullYear() + 1);
+	                }
 
-                if (ticketError) throw ticketError;
+	                // Create ticket
+	                const { data: ticket, error: ticketError } = await supabase
+	                    .from('tickets')
+	                    .insert([{
+	                        user_id: user.id,
+	                        title: `طلب اشتراك واتساب أعمال - ${planArabic}`,
+	                        description: ticketDescription,
+	                        status: 'open',
+	                        priority: 'high'
+	                    }])
+	                    .select()
+	                    .single();
 
-                // Create notification for admins
-                const { data: admins } = await supabase
-                    .from('profiles')
-                    .select('id')
-                    .eq('user_type', 'admin');
+	                if (ticketError) throw ticketError;
+
+	                // Create a pending subscription record to link with the ticket
+	                const { error: subError } = await supabase
+	                    .from('whatsapp_subscriptions')
+	                    .insert([{
+	                        user_id: user.id,
+	                        ticket_id: ticket.id,
+	                        plan_type: plan,
+	                        start_date: startDate.toISOString(),
+	                        end_date: endDate.toISOString(),
+	                        status: 'pending'
+	                    }]);
+
+	                if (subError) {
+	                    console.warn('Could not create subscription record, but ticket was created:', subError);
+	                }
+
+	                // Create notification for admins
+	                const { data: admins } = await supabase
+	                    .from('profiles')
+	                    .select('id')
+	                    .eq('role', 'admin');
 
                 if (admins && admins.length > 0) {
                     const notifications = admins.map(admin => ({

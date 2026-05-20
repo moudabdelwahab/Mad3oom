@@ -70,17 +70,26 @@ export function setupSubscriptionMonitoring() {
         checkAndUpdateWhatsAppLink();
 
         // Setup real-time listener for subscription changes
-        const subscription = supabase
-            .from(`whatsapp_subscriptions:user_id=eq.${user.id}`)
-            .on('*', payload => {
-                console.log('[Sidebar Subscription] Subscription changed:', payload);
-                checkAndUpdateWhatsAppLink();
-            })
+        const channel = supabase
+            .channel(`whatsapp_subscriptions_changes_${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'whatsapp_subscriptions',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload) => {
+                    console.log('[Sidebar Subscription] Subscription changed:', payload);
+                    checkAndUpdateWhatsAppLink();
+                }
+            )
             .subscribe();
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
-            supabase.removeSubscription(subscription);
+            supabase.removeChannel(channel);
         });
 
         // Also check periodically (every 5 minutes)

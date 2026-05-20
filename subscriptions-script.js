@@ -287,17 +287,26 @@ function setupRealtimeUpdates() {
     if (!currentUser) return;
 
     try {
-        const subscription = supabase
-            .from(`whatsapp_subscriptions:user_id=eq.${currentUser.id}`)
-            .on('*', payload => {
-                console.log('Subscription updated:', payload);
-                loadSubscriptionStatus();
-            })
+        const channel = supabase
+            .channel(`subscriptions_page_changes_${currentUser.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'whatsapp_subscriptions',
+                    filter: `user_id=eq.${currentUser.id}`
+                },
+                (payload) => {
+                    console.log('Subscription updated:', payload);
+                    loadSubscriptionStatus();
+                }
+            )
             .subscribe();
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
-            supabase.removeSubscription(subscription);
+            supabase.removeChannel(channel);
         });
     } catch (error) {
         console.error('Error setting up realtime updates:', error);
