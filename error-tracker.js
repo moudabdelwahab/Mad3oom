@@ -1,11 +1,10 @@
 /**
- * Centralized Error Logging System - Frontend Tracker
+ * Centralized Error Logging System - Frontend Tracker v2.2
  * Project: mad3oom.online
  * Author: Senior Full-Stack Engineer (Manus)
  */
 
 (function() {
-    // Verified Project Config from Supabase MCP
     const PROJECT_REF = 'srnelrdpqkcntbgudyto';
     const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
     const SUPABASE_ANON_KEY = "sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W";
@@ -24,16 +23,13 @@
             /top\.GLOBALS/i,
             /originalPrompt/i,
             /site_errors/i,
-            /supabase\.co/i // Prevent logging errors from Supabase calls themselves
+            /supabase\.co/i
         ]
     };
 
     let errorCount = 0;
     let lastErrorTime = 0;
 
-    /**
-     * Send error to Supabase
-     */
     async function reportError(errorData) {
         const now = Date.now();
         if (now - lastErrorTime < CONFIG.DEBOUNCE_MS) return;
@@ -48,13 +44,13 @@
         try {
             let userId = null;
             try {
-                // Try to get user ID from Supabase auth in localStorage
+                // Improved User ID detection from Supabase Auth
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (key.includes('auth-token')) {
+                    if (key && key.includes('auth-token')) {
                         const authData = JSON.parse(localStorage.getItem(key));
-                        userId = authData.user?.id;
-                        break;
+                        userId = authData.user?.id || authData.id;
+                        if (userId) break;
                     }
                 }
             } catch (e) {}
@@ -73,7 +69,7 @@
                 status: 'new'
             };
 
-            const response = await fetch(CONFIG.API_URL, {
+            await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -84,12 +80,8 @@
                 body: JSON.stringify(payload),
                 keepalive: true
             });
-
-            if (!response.ok && window.location.hostname === 'localhost') {
-                console.warn('[Error Tracker] Failed to report:', response.status, response.statusText);
-            }
         } catch (err) {
-            // Silent fail to avoid infinite loops
+            // Silent fail
         }
     }
 
@@ -139,7 +131,6 @@
             return String(arg);
         }).join(' ');
 
-        // Don't log if it's related to the tracker itself or Supabase
         if (message.includes('site_errors') || message.includes('supabase.co')) return;
 
         const stack = args.find(arg => arg instanceof Error)?.stack || new Error().stack;
@@ -182,6 +173,6 @@
     };
 
     if (window.location.hostname === 'localhost') {
-        console.log('🚀 Error Tracker v2.1 Active');
+        console.log('🚀 Error Tracker v2.2 Active');
     }
 })();
