@@ -743,11 +743,25 @@
 </script>
 <!-- WhatsApp Template Modal -->
 <div id="template-modal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;">
-    <div class="modal-content" style="background: var(--bg-card); width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); animation: modalAppear 0.3s ease-out; position: relative;">
+      <div class="modal-content" style="background: var(--bg-card); width: 95%; max-width: 1000px; max-height: 90vh; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); animation: modalAppear 0.3s ease-out; position: relative; margin: auto;">
     <style>
       @keyframes modalAppear {
         from { opacity: 0; transform: scale(0.95) translateY(20px); }
         to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      #template-modal {
+        display: none;
+        position: fixed;
+        z-index: 9999 !important;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.75) !important;
+        align-items: center !important;
+        justify-content: center !important;
+        backdrop-filter: blur(10px);
+        padding: 20px;
       }
       .template-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; }
       @media (max-width: 850px) { .template-grid { grid-template-columns: 1fr; } .preview-sticky { display: none; } }

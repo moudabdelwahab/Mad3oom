@@ -312,6 +312,20 @@ window.closeTemplateModal = () => {
   if (modal) modal.style.display = 'none';
 };
 
+window.editRejectedTemplate = async (tpl) => {
+    if (confirm(`لتعديل القالب "${tpl.name}"، يجب حذفه أولاً من ميتا ثم إعادة إرساله. هل تريد المتابعة؟`)) {
+        try {
+            showToast('جاري حذف القالب القديم...', 'info');
+            await WhatsAppAPI.deleteTemplate(tpl.name);
+            window.openNewTemplateModal(tpl);
+        } catch (error) {
+            showToast('خطأ أثناء الحذف: ' + error.message, 'error');
+            // Even if delete fails (maybe already deleted), try to open modal
+            window.openNewTemplateModal(tpl);
+        }
+    }
+};
+
 window.handleHeaderTypeChange = () => {
     const type = document.getElementById('tpl-header-type').value;
     const textWrap = document.getElementById('header-text-wrap');
@@ -555,11 +569,25 @@ window.saveTemplate = async () => {
       });
     }
 
+    // If we are editing a rejected template, we might need to delete the old one first 
+    // or Meta might reject it because the name already exists.
+    // However, the safest way is to ask the user to change the name slightly or handle it via API.
+    // For now, let's ensure the payload is perfectly clean.
+
+    const cleanComponents = components.map(c => {
+        const clean = { type: c.type };
+        if (c.text) clean.text = c.text;
+        if (c.format) clean.format = c.format;
+        if (c.example) clean.example = c.example;
+        if (c.buttons) clean.buttons = c.buttons;
+        return clean;
+    });
+
     await WhatsAppAPI.createTemplate({
-      name,
+      name: name.trim(),
       category,
       language,
-      components
+      components: cleanComponents
     });
 
     showToast('تم إرسال القالب للمراجعة بنجاح', 'success');

@@ -103,9 +103,13 @@ export class TemplatesPage {
                     </div>
                     <div class="section-card-body" style="flex: 1; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px;">
                         ${tpl.status === 'REJECTED' ? `
-                            <div style="background: rgba(255, 82, 82, 0.1); border: 1px solid rgba(255, 82, 82, 0.2); padding: 10px; border-radius: 8px; font-size: 12px; color: #ff5252; margin-bottom: 5px;">
-                                <strong>سبب الرفض:</strong> ${rejectionReason || 'لم يتم تحديد سبب من ميتا. غالباً ما يكون بسبب مخالفة سياسات المحتوى أو نقص الأمثلة.'}
-                                <div style="margin-top: 5px; font-weight: 700; cursor: pointer; text-decoration: underline;" onclick='window.openNewTemplateModal(${JSON.stringify(tpl).replace(/'/g, "&apos;")})'>إعادة تعديل القالب ✍️</div>
+                            <div style="background: rgba(255, 82, 82, 0.1); border: 1px solid rgba(255, 82, 82, 0.2); padding: 12px; border-radius: 12px; font-size: 12px; color: #ff5252; margin-bottom: 10px; line-height: 1.4;">
+                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/></svg>
+                                    <strong>تم رفض القالب من ميتا</strong>
+                                </div>
+                                <div style="margin-bottom: 8px; opacity: 0.9;">${rejectionReason || 'السبب: مخالفة سياسات ميتا أو نقص في الأمثلة (Examples) للمتغيرات.'}</div>
+                                <button class="btn btn-primary btn-sm" style="width: 100%; background: #ff5252; border: none; font-size: 11px; height: 28px;" onclick='window.editRejectedTemplate(${JSON.stringify(tpl).replace(/'/g, "&apos;")})'>تعديل وإعادة إرسال ✍️</button>
                             </div>
                         ` : ''}
                         
