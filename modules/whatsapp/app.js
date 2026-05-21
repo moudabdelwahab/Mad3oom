@@ -244,13 +244,65 @@ window.deleteTemplate = async function(name) {
   }
 };
 
-window.openNewTemplateModal = () => {
+window.openNewTemplateModal = (editTemplate = null) => {
   const modal = document.getElementById('template-modal');
   if (modal) {
     modal.style.display = 'flex';
     // Reset form
     document.getElementById('template-form').reset();
     document.getElementById('buttons-container').innerHTML = '';
+    document.getElementById('variables-list').innerHTML = '';
+    document.getElementById('variables-examples-container').style.display = 'none';
+    
+    // Reset Header UI
+    document.getElementById('tpl-header-type').value = 'NONE';
+    document.getElementById('header-text-wrap').style.display = 'none';
+    document.getElementById('header-media-wrap').style.display = 'none';
+    document.getElementById('header-file-status').textContent = '';
+    window.headerMediaId = null;
+
+    if (editTemplate) {
+        // Fill form for editing (rejected templates)
+        document.getElementById('tpl-name').value = editTemplate.name;
+        document.getElementById('tpl-category').value = editTemplate.category;
+        document.getElementById('tpl-lang').value = editTemplate.language;
+        
+        const bodyComp = editTemplate.components.find(c => c.type === 'BODY');
+        if (bodyComp) {
+            document.getElementById('tpl-body').value = bodyComp.text;
+            handleBodyInput();
+            // Fill examples if they exist
+            if (bodyComp.example?.body_text?.[0]) {
+                const examples = bodyComp.example.body_text[0];
+                examples.forEach((ex, idx) => {
+                    const input = document.querySelector(`input[data-var="${idx + 1}"]`);
+                    if (input) input.value = ex;
+                });
+            }
+        }
+
+        const headerComp = editTemplate.components.find(c => c.type === 'HEADER');
+        if (headerComp) {
+            document.getElementById('tpl-header-type').value = headerComp.format;
+            handleHeaderTypeChange();
+            if (headerComp.format === 'TEXT') {
+                document.getElementById('tpl-header-text').value = headerComp.text;
+            }
+        }
+
+        const footerComp = editTemplate.components.find(c => c.type === 'FOOTER');
+        if (footerComp) {
+            document.getElementById('tpl-footer').value = footerComp.text;
+        }
+
+        const btnComp = editTemplate.components.find(c => c.type === 'BUTTONS');
+        if (btnComp) {
+            btnComp.buttons.forEach(btn => {
+                addTemplateButton(btn);
+            });
+        }
+    }
+    
     updateTemplatePreview();
   }
 };
@@ -260,7 +312,74 @@ window.closeTemplateModal = () => {
   if (modal) modal.style.display = 'none';
 };
 
-window.addTemplateButton = () => {
+window.handleHeaderTypeChange = () => {
+    const type = document.getElementById('tpl-header-type').value;
+    const textWrap = document.getElementById('header-text-wrap');
+    const mediaWrap = document.getElementById('header-media-wrap');
+    
+    textWrap.style.display = (type === 'TEXT') ? 'block' : 'none';
+    mediaWrap.style.display = (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type)) ? 'block' : 'none';
+    
+    updateTemplatePreview();
+};
+
+window.handleHeaderFileChange = async () => {
+    const fileInput = document.getElementById('tpl-header-file');
+    const status = document.getElementById('header-file-status');
+    const file = fileInput.files[0];
+    
+    if (!file) return;
+    
+    status.textContent = 'جاري الرفع...';
+    try {
+        const upload = await WhatsAppAPI.uploadMedia(file);
+        window.headerMediaId = upload.id;
+        status.textContent = '✅ تم الرفع';
+        updateTemplatePreview();
+    } catch (error) {
+        status.textContent = '❌ فشل الرفع';
+        showToast('فشل رفع الوسائط: ' + error.message, 'error');
+    }
+};
+
+window.handleBodyInput = () => {
+    const body = document.getElementById('tpl-body').value;
+    const container = document.getElementById('variables-examples-container');
+    const list = document.getElementById('variables-list');
+    
+    // Find variables like {{1}}, {{2}}
+    const matches = body.match(/\{\{(\d+)\}\}/g);
+    
+    if (matches && matches.length > 0) {
+        container.style.display = 'block';
+        const uniqueVars = [...new Set(matches)].sort((a, b) => {
+            return parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]);
+        });
+        
+        // Keep existing values if possible
+        const currentValues = {};
+        list.querySelectorAll('input').forEach(inp => {
+            currentValues[inp.dataset.var] = inp.value;
+        });
+        
+        list.innerHTML = uniqueVars.map(v => {
+            const num = v.match(/\d+/)[0];
+            return `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); width: 30px;">{{${num}}}</span>
+                    <input type="text" class="form-input var-example" data-var="${num}" placeholder="مثال للمتغير ${num}" value="${currentValues[num] || ''}" oninput="updateTemplatePreview()" style="flex: 1; padding: 6px 12px; font-size: 13px;">
+                </div>
+            `;
+        }).join('');
+    } else {
+        container.style.display = 'none';
+        list.innerHTML = '';
+    }
+    
+    updateTemplatePreview();
+};
+
+window.addTemplateButton = (data = null) => {
   const container = document.getElementById('buttons-container');
   const btnCount = container.children.length;
   if (btnCount >= 3) {
@@ -271,12 +390,12 @@ window.addTemplateButton = () => {
   const btnHtml = `
     <div class="button-row" style="display: flex; gap: 10px; margin-bottom: 10px; background: var(--bg-elevated); padding: 10px; border-radius: 8px;">
       <select class="form-input btn-type" style="flex: 1;" onchange="updateTemplatePreview()">
-        <option value="QUICK_REPLY">رد سريع</option>
-        <option value="URL">رابط موقع</option>
-        <option value="PHONE_NUMBER">رقم هاتف</option>
+        <option value="QUICK_REPLY" ${data?.type === 'QUICK_REPLY' ? 'selected' : ''}>رد سريع</option>
+        <option value="URL" ${data?.type === 'URL' ? 'selected' : ''}>رابط موقع</option>
+        <option value="PHONE_NUMBER" ${data?.type === 'PHONE_NUMBER' ? 'selected' : ''}>رقم هاتف</option>
       </select>
-      <input type="text" class="form-input btn-text" placeholder="نص الزر" style="flex: 1;" oninput="updateTemplatePreview()">
-      <input type="text" class="form-input btn-value" placeholder="الرابط/الرقم" style="flex: 1; display: none;" oninput="updateTemplatePreview()">
+      <input type="text" class="form-input btn-text" placeholder="نص الزر" style="flex: 1;" value="${data?.text || ''}" oninput="updateTemplatePreview()">
+      <input type="text" class="form-input btn-value" placeholder="الرابط/الرقم" style="flex: 1; display: ${data?.type && data.type !== 'QUICK_REPLY' ? 'block' : 'none'};" value="${data?.url || data?.phone_number || ''}" oninput="updateTemplatePreview()">
       <button class="btn btn-ghost" onclick="this.parentElement.remove(); updateTemplatePreview()" style="color: var(--status-error); padding: 0 5px;">✕</button>
     </div>
   `;
@@ -284,7 +403,6 @@ window.addTemplateButton = () => {
   div.innerHTML = btnHtml;
   container.appendChild(div.firstElementChild);
   
-  // Toggle value input visibility based on type
   const lastRow = container.lastElementChild;
   const typeSelect = lastRow.querySelector('.btn-type');
   const valueInput = lastRow.querySelector('.btn-value');
@@ -294,8 +412,8 @@ window.addTemplateButton = () => {
 };
 
 window.updateTemplatePreview = () => {
-  const name = document.getElementById('tpl-name').value || 'اسم القالب';
-  const header = document.getElementById('tpl-header').value;
+  const headerType = document.getElementById('tpl-header-type').value;
+  const headerText = document.getElementById('tpl-header-text').value;
   const body = document.getElementById('tpl-body').value || 'محتوى الرسالة سيظهر هنا...';
   const footer = document.getElementById('tpl-footer').value;
   
@@ -303,9 +421,28 @@ window.updateTemplatePreview = () => {
   if (!preview) return;
 
   let html = '';
-  if (header) html += `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px;">${header}</div>`;
-  html += `<div style="white-space: pre-wrap;">${body}</div>`;
-  if (footer) html += `<div style="margin-top: 10px; font-size: 11px; color: #888; border-top: 1px dashed #eee; padding-top: 5px;">${footer}</div>`;
+  
+  // Header Preview
+  if (headerType === 'TEXT' && headerText) {
+      html += `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 5px; color: var(--text-primary);">${headerText}</div>`;
+  } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
+      const icon = headerType === 'IMAGE' ? '🖼️' : (headerType === 'VIDEO' ? '🎥' : '📄');
+      html += `<div style="background: var(--bg-surface); height: 100px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; border: 1px dashed var(--border-subtle); font-size: 24px;">${icon}</div>`;
+  }
+
+  // Body Preview with variables replaced by examples
+  let previewBody = body;
+  document.querySelectorAll('.var-example').forEach(inp => {
+      const num = inp.dataset.var;
+      const val = inp.value || `[متغير ${num}]`;
+      previewBody = previewBody.replace(new RegExp(`\\{\\{${num}\\}\\}`, 'g'), `<span style="color: var(--brand-primary); font-weight: 700;">${val}</span>`);
+  });
+  
+  html += `<div style="white-space: pre-wrap; color: var(--text-primary); line-height: 1.5;">${previewBody}</div>`;
+  
+  if (footer) {
+      html += `<div style="margin-top: 10px; font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 5px;">${footer}</div>`;
+  }
   
   preview.innerHTML = html;
 
@@ -331,7 +468,8 @@ window.saveTemplate = async () => {
     const name = document.getElementById('tpl-name').value.toLowerCase().replace(/\s+/g, '_');
     const category = document.getElementById('tpl-category').value;
     const language = document.getElementById('tpl-lang').value;
-    const headerText = document.getElementById('tpl-header').value;
+    const headerType = document.getElementById('tpl-header-type').value;
+    const headerText = document.getElementById('tpl-header-text').value;
     const bodyText = document.getElementById('tpl-body').value;
     const footerText = document.getElementById('tpl-footer').value;
     
@@ -340,24 +478,57 @@ window.saveTemplate = async () => {
       return;
     }
 
+    // Validate variables examples
+    const varInputs = document.querySelectorAll('.var-example');
+    const examples = [];
+    let allExamplesFilled = true;
+    varInputs.forEach(inp => {
+        if (!inp.value) allExamplesFilled = false;
+        examples.push(inp.value);
+    });
+
+    if (varInputs.length > 0 && !allExamplesFilled) {
+        showToast('يرجى إدخال أمثلة لجميع المتغيرات', 'warning');
+        return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = 'جاري الحفظ...';
 
-    const components = [
-      {
-        type: 'BODY',
-        text: bodyText
-      }
-    ];
+    const components = [];
 
-    if (headerText) {
-      components.push({
-        type: 'HEADER',
-        format: 'TEXT',
-        text: headerText
-      });
+    // Header Component
+    if (headerType !== 'NONE') {
+        const headerComp = {
+            type: 'HEADER',
+            format: headerType
+        };
+        if (headerType === 'TEXT') {
+            headerComp.text = headerText;
+        } else {
+            if (!window.headerMediaId) {
+                throw new Error('يرجى رفع ملف الوسائط للرأس');
+            }
+            headerComp.example = {
+                header_handle: [window.headerMediaId]
+            };
+        }
+        components.push(headerComp);
     }
 
+    // Body Component
+    const bodyComp = {
+        type: 'BODY',
+        text: bodyText
+    };
+    if (examples.length > 0) {
+        bodyComp.example = {
+            body_text: [examples]
+        };
+    }
+    components.push(bodyComp);
+
+    // Footer Component
     if (footerText) {
       components.push({
         type: 'FOOTER',
@@ -365,6 +536,7 @@ window.saveTemplate = async () => {
       });
     }
 
+    // Buttons Component
     const btnRows = Array.from(document.querySelectorAll('#buttons-container .button-row'));
     if (btnRows.length > 0) {
       const buttons = btnRows.map(row => {
@@ -800,14 +972,19 @@ function showToast(message, type = 'info') {
   toast.textContent = message;
   toast.style.cssText = `
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    padding: 12px 24px; border-radius: 8px; color: white; font-weight: 600;
-    z-index: 9999; opacity: 0; transition: opacity 0.3s;
-    background: ${type === 'success' ? '#00c853' : type === 'error' ? '#f44336' : type === 'warning' ? '#ffb300' : '#2196f3'};
+    padding: 12px 24px; border-radius: 12px; color: white; font-weight: 600;
+    z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    animation: toastIn 0.3s ease-out;
   `;
+  
+  if (type === 'success') toast.style.background = '#00c853';
+  else if (type === 'error') toast.style.background = '#ff5252';
+  else if (type === 'warning') toast.style.background = '#ffab00';
+  else toast.style.background = '#2196f3';
+
   document.body.appendChild(toast);
-  requestAnimationFrame(() => toast.style.opacity = '1');
   setTimeout(() => {
-    toast.style.opacity = '0';
+    toast.style.animation = 'toastOut 0.3s ease-in forwards';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }

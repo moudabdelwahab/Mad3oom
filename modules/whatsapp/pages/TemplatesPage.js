@@ -89,8 +89,11 @@ export class TemplatesPage {
             const footer = tpl.components.find(c => c.type === 'FOOTER')?.text || '';
             const buttons = tpl.components.find(c => c.type === 'BUTTONS')?.buttons || [];
 
+            // Find rejection reason if exists
+            const rejectionReason = tpl.rejected_reason || '';
+
             html += `
-                <div class="section-card" style="display: flex; flex-direction: column; transition: transform 0.2s; height: 100%;">
+                <div class="section-card" style="display: flex; flex-direction: column; transition: transform 0.2s; height: 100%; position: relative;">
                     <div class="section-card-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-subtle);">
                         <div style="overflow: hidden;">
                             <div style="font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${tpl.name}">${tpl.name}</div>
@@ -99,8 +102,15 @@ export class TemplatesPage {
                         <span class="tag" style="background: var(--status-${status.class}-bg); color: var(--status-${status.class}); border: none; flex-shrink: 0;">${status.text}</span>
                     </div>
                     <div class="section-card-body" style="flex: 1; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px;">
+                        ${tpl.status === 'REJECTED' ? `
+                            <div style="background: rgba(255, 82, 82, 0.1); border: 1px solid rgba(255, 82, 82, 0.2); padding: 10px; border-radius: 8px; font-size: 12px; color: #ff5252; margin-bottom: 5px;">
+                                <strong>سبب الرفض:</strong> ${rejectionReason || 'لم يتم تحديد سبب من ميتا. غالباً ما يكون بسبب مخالفة سياسات المحتوى أو نقص الأمثلة.'}
+                                <div style="margin-top: 5px; font-weight: 700; cursor: pointer; text-decoration: underline;" onclick='window.openNewTemplateModal(${JSON.stringify(tpl).replace(/'/g, "&apos;")})'>إعادة تعديل القالب ✍️</div>
+                            </div>
+                        ` : ''}
+                        
                         <div style="background: var(--bg-elevated); padding: 15px; border-radius: 12px; font-size: 13px; border: 1px solid var(--border-subtle); position: relative; flex: 1;">
-                            ${header ? `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 5px; font-size: 12px; color: var(--text-primary);">${header.format === 'TEXT' ? header.text : '📷 وسائط'}</div>` : ''}
+                            ${header ? `<div style="font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 5px; font-size: 12px; color: var(--text-primary);">${header.format === 'TEXT' ? header.text : '📷 وسائط (' + header.format + ')'}</div>` : ''}
                             <div style="white-space: pre-wrap; color: var(--text-primary); line-height: 1.5;">${body}</div>
                             ${footer ? `<div style="margin-top: 10px; font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 5px;">${footer}</div>` : ''}
                         </div>
@@ -120,7 +130,7 @@ export class TemplatesPage {
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px; margin-left: 4px;">
                                 <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            حذف
+                            حذف من ميتا
                         </button>
                     </div>
                 </div>
