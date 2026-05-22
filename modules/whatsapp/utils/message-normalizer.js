@@ -35,7 +35,7 @@ export function getMessageText(message) {
   if (direct) return direct;
 
   // Extract from metadata (webhook payload stored as JSON)
-  const meta = message.metadata || {};
+  const meta = message.metadata || message.raw_data || {};
 
   // Interactive messages (buttons, lists, OTP)
   if (meta.interactive) {
@@ -56,12 +56,12 @@ export function getMessageText(message) {
     return parts.join('\n') || 'رسالة تفاعلية';
   }
 
-  // Button messages (reply buttons)
+  // Button messages (reply buttons or quick replies)
   if (meta.button) {
     return meta.button.text || meta.button.payload || 'رد على زر';
   }
 
-  // Template messages
+  // Template messages (including OTP)
   if (meta.template) {
     const name = meta.template.name || '';
     const components = meta.template.components || [];
@@ -100,7 +100,7 @@ export function getMessageText(message) {
 }
 
 export function getInteractivePayload(message) {
-  const meta = message.metadata || {};
+  const meta = message.metadata || message.raw_data || {};
   if (!meta.interactive && !meta.button && !meta.template && !meta.reaction && !meta.location && !meta.contacts) return null;
 
   if (meta.interactive) {
@@ -143,7 +143,7 @@ export function getInteractivePayload(message) {
 }
 
 export function getMediaPayload(message) {
-  const metadata = message.metadata || {};
+  const metadata = message.metadata || message.raw_data || {};
   return {
     id: message.media_id || metadata.media_id || message.whatsapp_media_id || null,
     url: message.media_url || metadata.media_url || message.file_url || null,
