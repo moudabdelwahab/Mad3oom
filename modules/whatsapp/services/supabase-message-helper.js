@@ -40,12 +40,13 @@ export class SupabaseMessageHelper {
       .from(TABLE)
       .select('*')
       .eq('user_id', userId)
-      .order('timestamp', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true, nullsFirst: false })
+      .order('timestamp', { ascending: false })
       .limit(limit);
 
     if (error) throw new Error(error.message || 'تعذر جلب الرسائل من Supabase.');
-    return data || [];
+    
+    // Return messages sorted ascending for the UI
+    return (data || []).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   }
 
   static async saveMessage(message) {
@@ -98,12 +99,16 @@ export class SupabaseMessageHelper {
     const userId = await this.currentUserId();
     if (!userId || !phone) return;
 
-    await supabase
+    const { error } = await supabase
       .from(TABLE)
       .update({ read_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('from_number', phone)
       .is('read_at', null);
+      
+    if (error) {
+      console.error('[SupabaseMessageHelper] Error marking conversation as read:', error);
+    }
   }
 
   static async uploadFilePlaceholder() {

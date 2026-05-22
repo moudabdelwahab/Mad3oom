@@ -226,7 +226,15 @@ export class InboxPage {
     const message = normalizeMessage(raw, this.getBusinessPhone?.());
     this.messages = mergeMessages(this.messages, [message], this.getBusinessPhone?.());
     this.rebuildConversations();
+    
+    // Auto-select conversation if none active
     if (!this.activePhone) this.activePhone = message.conversationPhone;
+    
+    // If message is for active conversation, mark as read
+    if (this.activePhone === message.conversationPhone && message.direction === 'inbound' && !message.read_at) {
+      MessageStore.markConversationRead(this.activePhone).catch(() => {});
+    }
+    
     this.render();
   }
 
