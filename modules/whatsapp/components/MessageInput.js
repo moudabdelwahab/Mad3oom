@@ -37,13 +37,26 @@ export class MessageInput {
     };
   }
 
-  render({ disabled = false } = {}) {
+  render({ disabled = false, showTemplateOnly = false } = {}) {
     document.removeEventListener('click', this.handleOutsideClick);
     const emojiIcon = Icons.render('emoji', 'wa-composer-icon');
     const attachIcon = Icons.render('attach', 'wa-composer-icon');
     const micIcon = Icons.render('microphone', 'wa-composer-icon');
     const sendIcon = Icons.render('send', 'wa-composer-icon');
+    const templateIcon = Icons.render('template', 'wa-composer-icon') || '📋';
     
+    if (showTemplateOnly) {
+      this.root.innerHTML = `
+        <div class="wa-session-closed-notice">
+          <p>لقد مرت أكثر من 24 ساعة على آخر رسالة من العميل. يجب إرسال قالب لإعادة فتح المحادثة.</p>
+          <button type="button" class="wa-send-template-btn" onclick="window.location.hash = '#/send'">
+            ${templateIcon} <span>إرسال قالب</span>
+          </button>
+        </div>
+      `;
+      return;
+    }
+
     this.root.innerHTML = `
       <div class="wa-composer-previews" data-previews hidden></div>
       <div class="wa-emoji-panel" data-emojis hidden role="dialog" aria-label="Emoji picker">

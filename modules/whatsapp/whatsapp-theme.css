@@ -1286,3 +1286,64 @@ body {
 .wa-composer::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 119, 204, 0.40);
 }
+
+/* ─── Session Closed & Template Button Styles ─── */
+.wa-session-closed-notice {
+  padding: 20px;
+  background: var(--wa-bg-secondary);
+  border-top: 1px solid var(--wa-border);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.wa-session-closed-notice p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--wa-text-secondary);
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.wa-send-template-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--wa-accent-blue);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 119, 204, 0.25);
+}
+
+.wa-send-template-btn:hover {
+  background: #0066b3;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 119, 204, 0.35);
+}
+
+.wa-send-template-btn svg, 
+.wa-send-template-btn .wa-composer-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+/* Light Theme Overrides for Session Notice */
+[data-wa-theme="light"] .wa-session-closed-notice {
+  background: #f8f9fa;
+  border-top-color: #e9ecef;
+}
+
+[data-wa-theme="light"] .wa-session-closed-notice p {
+  color: #495057;
+}

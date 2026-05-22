@@ -148,7 +148,35 @@ export class InboxPage {
     this.renderList();
     this.renderHeader();
     this.renderMessages();
-    this.renderComposer(!this.activePhone);
+    this.checkSessionAndRenderComposer();
+  }
+
+  checkSessionAndRenderComposer() {
+    const conversation = this.getActiveConversation();
+    if (!this.activePhone || !conversation) {
+      this.renderComposer(true);
+      return;
+    }
+
+    const lastInbound = conversation.messages
+      .filter(m => m.direction === 'inbound')
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+    if (!lastInbound) {
+      // No inbound messages yet, session is technically not open for standard replies
+      this.renderComposer(false, true); // Show template button
+      return;
+    }
+
+    const lastInboundTime = new Date(lastInbound.timestamp);
+    const now = new Date();
+    const diffHours = (now - lastInboundTime) / (1000 * 60 * 60);
+
+    if (diffHours >= 24) {
+      this.renderComposer(false, true); // Session closed, show template button
+    } else {
+      this.renderComposer(false, false); // Session open
+    }
   }
 
   renderList(filter = '') {
@@ -164,10 +192,9 @@ export class InboxPage {
     this.root?.querySelector('[data-header] [data-refresh]')?.addEventListener('click', () => this.load());
   }
 
-  renderComposer(disabled) {
-    if (this.composerDisabled === disabled) return;
+  renderComposer(disabled, showTemplateOnly = false) {
     this.composerDisabled = disabled;
-    this.input.render({ disabled });
+    this.input.render({ disabled, showTemplateOnly });
   }
 
   renderMessages() {

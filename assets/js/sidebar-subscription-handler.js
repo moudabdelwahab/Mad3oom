@@ -61,7 +61,7 @@ function hideWhatsAppLink() {
 /**
  * Setup real-time subscription monitoring
  */
-export function setupSubscriptionMonitoring() {
+export async function setupSubscriptionMonitoring() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
