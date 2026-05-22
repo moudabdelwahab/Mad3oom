@@ -841,6 +841,19 @@ export class SendMessagePage {
                 
                 this.campaignHistory.push(campaignObj);
                 localStorage.setItem('mad3oom_last_campaign', JSON.stringify(campaignObj));
+                
+                // حفظ الحملة في قاعدة البيانات Supabase للتقارير الدائمة
+                try {
+                    const { WhatsAppReports } = await import('../services/whatsapp-reports.js');
+                    await WhatsAppReports.saveCampaign({
+                        name: campaignObj.name,
+                        templateName: campaignObj.template,
+                        languageCode: this.selectedTemplate.language || 'ar'
+                    }, reports);
+                    console.log('[SendMessage] Campaign saved to Supabase');
+                } catch (dbError) {
+                    console.error('[SendMessage] Failed to save campaign to Supabase:', dbError);
+                }
 
                 // إظهار نتيجة النجاح
                 document.getElementById('success-count').textContent = successCount;
