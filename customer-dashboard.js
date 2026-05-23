@@ -10,7 +10,8 @@ import {
     fetchTicketStats,
     fetchTicketReplies,
     addTicketReply,
-    subscribeToTickets
+    subscribeToTickets,
+    deleteTicket
 } from './tickets-service.js';
 import {
     fetchNotifications,
@@ -272,7 +273,7 @@ import { ui } from './ui-service.js';
                         <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${ticket.title}</h2>
                         <span class="status-badge status-${ticket.status}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${statusLabels[ticket.status]}</span>
                     </div>
-                    <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary);">
+                    <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary); flex-wrap: wrap;">
                         <span>رقم التذكرة: <strong>#${ticket.ticket_number || '---'}</strong></span>
                         <span>الأولوية: <strong style="color: var(--color-accent);">${priorityLabels[ticket.priority]}</strong></span>
                         <span>${new Date(ticket.created_at).toLocaleDateString('ar-EG')}</span>
@@ -304,11 +305,104 @@ import { ui } from './ui-service.js';
                         <button id="panelSendReply" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">إرسال الرد</button>
                     </div>
                 </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; border-top: 2px solid var(--color-border); padding-top: 1.5rem;">
+                    <button id="followUpWhatsApp" class="btn" style="flex: 1; background: #25D366; color: white; border: none; padding: 0.75rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004c-1.052 0-2.082.398-2.847 1.12-.735.71-1.14 1.656-1.14 2.66 0 1.04.424 2.044 1.163 2.802l.03.03c.692.713 1.651 1.173 2.694 1.173h.004c1.044 0 2.04-.46 2.73-1.175.39-.377.707-.821.922-1.315.215-.494.328-1.026.328-1.56 0-1.04-.424-2.044-1.161-2.802-.694-.718-1.651-1.173-2.694-1.173M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0z"/></svg>
+                        متابعة على الواتساب
+                    </button>
+                    <button id="deleteTicket" class="btn" style="flex: 1; background: #EF4444; color: white; border: none; padding: 0.75rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        حذف التذكرة
+                    </button>
+                </div>
             </div>
         `;
         
         // Load replies
         await loadRepliesInPanel(ticket.id);
+        
+        // Setup WhatsApp follow-up button
+        const whatsappBtn = document.getElementById('followUpWhatsApp');
+        if (whatsappBtn) {
+            whatsappBtn.onclick = async () => {
+                try {
+                    // تجميع تفاصيل التذكرة
+                    const ticketDetails = `
+*تفاصيل التذكرة #${ticket.ticket_number}*
+
+*العنوان:* ${ticket.title}
+*الحالة:* ${statusLabels[ticket.status]}
+*الأولوية:* ${priorityLabels[ticket.priority]}
+*تاريخ الإنشاء:* ${new Date(ticket.created_at).toLocaleDateString('ar-EG')}
+
+*الوصف:*
+${ticket.description}
+
+---
+تم إرسال هذه الرسالة من منصة مدعوم
+                    `.trim();
+                    
+                    // ترميز الرسالة للواتساب
+                    const encodedMessage = encodeURIComponent(ticketDetails);
+                    const whatsappUrl = `https://wa.me/201274000741?text=${encodedMessage}`;
+                    
+                    // فتح الواتساب
+                    window.open(whatsappUrl, '_blank');
+                } catch (err) {
+                    console.error('Error opening WhatsApp:', err);
+                    alert('حدث خطأ في فتح الواتساب');
+                }
+            };
+        }
+        
+        // Setup delete button with confirmation
+        const deleteBtn = document.getElementById('deleteTicket');
+        if (deleteBtn) {
+            deleteBtn.onclick = async () => {
+                // إنشاء نافذة تأكيد
+                const confirmed = confirm(
+                    `هل أنت متأكد من رغبتك في حذف التذكرة #${ticket.ticket_number}?\n\nهذا الإجراء لا يمكن التراجع عنه.`
+                );
+                
+                if (!confirmed) return;
+                
+                try {
+                    deleteBtn.disabled = true;
+                    deleteBtn.textContent = 'جاري الحذف...';
+                    
+                    // حذف التذكرة
+                    await deleteTicket(ticket.id);
+                    
+                    // إعادة تحميل قائمة التذاكر
+                    await renderStats();
+                    await renderTickets();
+                    
+                    // إظهار رسالة نجاح
+                    alert('تم حذف التذكرة بنجاح');
+                    
+                    // مسح لوحة التفاصيل
+                    if (panel) {
+                        panel.innerHTML = `
+                            <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
+                                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
+                                <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
+                            </div>
+                        `;
+                    }
+                    currentTicketId = null;
+                } catch (err) {
+                    console.error('Error deleting ticket:', err);
+                    alert('فشل حذف التذكرة: ' + (err.message || 'حدث خطأ غير متوقع'));
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = 'حذف التذكرة';
+                }
+            };
+        }
         
         // Setup reply button
         const sendBtn = document.getElementById('panelSendReply');
@@ -348,25 +442,24 @@ import { ui } from './ui-service.js';
             }
             
             list.innerHTML = replies.map(r => `
-                <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.75rem;">
-                        <strong style="color: var(--color-accent);">${r.profiles?.role === 'admin' ? 'الدعم الفني' : (r.profiles?.full_name || 'أنت')}</strong>
-                        <span style="color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day: 'numeric', month: 'short'})}</span>
+                <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: var(--color-muted); border-right: 4px solid ${r.profiles?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-success)'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong style="font-size: 0.9rem;">${r.profiles?.full_name || 'مستخدم'}</strong>
+                        <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG')}</span>
                     </div>
-                    <div style="font-size: 0.85rem; line-height: 1.5;">${r.message}</div>
+                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${r.message}</p>
                 </div>
             `).join('');
-            list.scrollTop = list.scrollHeight;
         } catch (err) {
-            list.innerHTML = '<p style="text-align:center; color:red;">فشل تحميل الردود</p>';
+            list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">فشل تحميل الردود</p>';
         }
     }
 
     async function loadReplies(ticketId) {
         const list = document.getElementById('detailRepliesList');
         if (!list) return;
-
-        list.innerHTML = '<div style="text-align:center; padding:1rem; color:#999;">جاري تحميل الردود...</div>';
+        
+        list.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--color-text-secondary);">جاري تحميل الردود...</div>';
         
         try {
             const replies = await fetchTicketReplies(ticketId);
@@ -374,134 +467,65 @@ import { ui } from './ui-service.js';
                 list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">لا توجد ردود بعد</p>';
                 return;
             }
-
+            
             list.innerHTML = replies.map(r => `
-                <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 1rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.75rem;">
-                        <strong style="color: var(--color-accent);">${r.profiles?.role === 'admin' ? 'الدعم الفني' : (r.profiles?.full_name || 'أنت')}</strong>
-                        <span style="color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit'})}</span>
+                <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: var(--color-muted); border-right: 4px solid ${r.profiles?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-success)'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong style="font-size: 0.9rem;">${r.profiles?.full_name || 'مستخدم'}</strong>
+                        <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG')}</span>
                     </div>
-                    <div style="font-size: 0.85rem; line-height: 1.5;">${r.message}</div>
+                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${r.message}</p>
                 </div>
             `).join('');
-            list.scrollTop = list.scrollHeight;
         } catch (err) {
-            list.innerHTML = '<p style="text-align:center; color:red;">فشل تحميل الردود</p>';
+            list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">فشل تحميل الردود</p>';
         }
     }
 
-    // Send Reply
-    const sendReplyBtn = document.getElementById('sendDetailReply');
-    if (sendReplyBtn) {
-        sendReplyBtn.onclick = async () => {
-            const msgInput = document.getElementById('detailReplyText');
-            const message = msgInput?.value.trim();
-            if (!message || !currentTicketId) return;
-
-            try {
-                sendReplyBtn.disabled = true;
-                sendReplyBtn.textContent = 'جاري الإرسال...';
-                await addTicketReply(currentTicketId, message);
-                msgInput.value = '';
-                await loadReplies(currentTicketId);
-                ui.showToast('تم إرسال الرد بنجاح', 'success');
-            } catch (err) {
-                ui.showAlert('خطأ في الإرسال', err.message, 'error');
-            } finally {
-                sendReplyBtn.disabled = false;
-                sendReplyBtn.textContent = 'إرسال الرد';
-            }
-        };
-    }
-
-    // Handle reply form submission (for the second modal structure)
-    const detailReplyForm = document.getElementById('detailReplyForm');
-    if (detailReplyForm) {
-        detailReplyForm.addEventListener('submit', async (e) => {
+    // Create Ticket Form Handler
+    const userCreateTicketForm = document.getElementById('userCreateTicketForm');
+    if (userCreateTicketForm) {
+        userCreateTicketForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const msgInput = document.getElementById('detailReplyMessage');
-            const message = msgInput?.value.trim();
-            if (!message || !currentTicketId) return;
-
+            
+            const title = document.getElementById('userTicketTitle').value;
+            const description = document.getElementById('userTicketDescription').value;
+            const priority = document.getElementById('userTicketPriority').value;
+            
             try {
-                const submitBtn = detailReplyForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'جاري الإرسال...';
-                }
-                await addTicketReply(currentTicketId, message);
-                msgInput.value = '';
-                await loadReplies(currentTicketId);
-                ui.showToast('تم إرسال الرد بنجاح', 'success');
-            } catch (err) {
-                ui.showAlert('خطأ في الإرسال', err.message, 'error');
-            } finally {
-                const submitBtn = detailReplyForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'إرسال الرد';
-                }
-            }
-        });
-    }
-
-    // Create Ticket Form
-    const createTicketForm = document.getElementById('userCreateTicketForm');
-    if (createTicketForm) {
-        createTicketForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = document.getElementById('userTicketTitle')?.value;
-            const description = document.getElementById('userTicketDescription')?.value;
-            const priority = document.getElementById('userTicketPriority')?.value;
-
-            try {
-                const submitBtn = createTicketForm.querySelector('button[type="submit"]');
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'جاري الإنشاء...';
-                
                 await createTicket({ title, description, priority });
-                createTicketForm.reset();
-                document.getElementById('createTicketModal')?.classList.remove('active');
+                alert('تم إنشاء التذكرة بنجاح');
+                userCreateTicketForm.reset();
+                createTicketModal.classList.remove('active');
                 await renderStats();
                 await renderTickets();
-                ui.showAlert('تم بنجاح', 'تم إنشاء التذكرة بنجاح، سيقوم فريقنا بالرد عليك في أقرب وقت.', 'success');
             } catch (err) {
-                ui.showAlert('خطأ في إنشاء التذكرة', err.message, 'error');
-            } finally {
-                const submitBtn = createTicketForm.querySelector('button[type="submit"]');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'إرسال التذكرة';
+                alert('فشل إنشاء التذكرة: ' + err.message);
             }
         });
     }
 
-    /* ================= NOTIFICATIONS ================= */
-
     async function renderNotifications() {
-        const list = document.getElementById('notificationsList');
-        const badge = document.getElementById('notificationBadge');
-        if (!list) return;
-
-        const notifications = await fetchNotifications();
-        const unreadCount = notifications.filter(n => !n.is_read).length;
-
-        if (badge) {
-            badge.textContent = unreadCount;
-            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+        const container = document.getElementById('notificationsList');
+        if (!container) return;
+        
+        try {
+            const notifications = await fetchNotifications();
+            if (!notifications.length) {
+                container.innerHTML = '<p style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">لا توجد إشعارات</p>';
+                return;
+            }
+            
+            container.innerHTML = notifications.map(n => `
+                <div class="notification-item ${!n.is_read ? 'unread' : ''}" style="border-bottom: 1px solid var(--color-border); padding: 12px 16px; cursor: pointer; transition: background 0.2s;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">${n.title}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${n.message}</div>
+                    <div style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 0.4rem; opacity: 0.7;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error('Error rendering notifications:', err);
         }
-
-        if (notifications.length === 0) {
-            list.innerHTML = '<p style="padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--color-text-secondary);">لا توجد إشعارات</p>';
-            return;
-        }
-
-        list.innerHTML = notifications.map(n => `
-            <div class="notification-item ${n.is_read ? '' : 'unread'}" style="padding: 0.75rem; border-bottom: 1px solid var(--color-border); cursor: pointer; ${n.is_read ? '' : 'background: var(--hover-bg);'}">
-                <div style="font-weight: 700; font-size: 0.85rem;">${n.title}</div>
-                <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${n.message}</div>
-                <div style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 0.4rem; opacity: 0.7;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
-            </div>
-        `).join('');
     }
 
     /* ================= INIT ================= */
