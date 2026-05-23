@@ -357,50 +357,83 @@ ${ticket.description}
             };
         }
         
-        // Setup delete button with confirmation
+        // Setup delete button with confirmation modal
         const deleteBtn = document.getElementById('deleteTicket');
         if (deleteBtn) {
             deleteBtn.onclick = async () => {
-                // إنشاء نافذة تأكيد
-                const confirmed = confirm(
-                    `هل أنت متأكد من رغبتك في حذف التذكرة #${ticket.ticket_number}?\n\nهذا الإجراء لا يمكن التراجع عنه.`
-                );
+                // الحصول على عناصر النافذة المنبثقة
+                const deleteModal = document.getElementById('deleteConfirmModal');
+                const deleteConfirmText = document.getElementById('deleteConfirmText');
+                const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+                const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
                 
-                if (!confirmed) return;
+                if (!deleteModal) return;
                 
-                try {
-                    deleteBtn.disabled = true;
-                    deleteBtn.textContent = 'جاري الحذف...';
-                    
-                    // حذف التذكرة
-                    await deleteTicket(ticket.id);
-                    
-                    // إعادة تحميل قائمة التذاكر
-                    await renderStats();
-                    await renderTickets();
-                    
-                    // إظهار رسالة نجاح
-                    alert('تم حذف التذكرة بنجاح');
-                    
-                    // مسح لوحة التفاصيل
-                    if (panel) {
-                        panel.innerHTML = `
-                            <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
-                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
-                                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                                </svg>
-                                <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
-                                <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
-                            </div>
-                        `;
+                // تحديث نص التأكيد برقم التذكرة
+                deleteConfirmText.textContent = `هل أنت متأكد من رغبتك في حذف التذكرة #${ticket.ticket_number}؟ هذا الإجراء لا يمكن التراجع عنه.`;
+                
+                // عرض النافذة
+                deleteModal.classList.add('active');
+                
+                // إعادة تعيين حالة الأزرار
+                confirmDeleteBtn.disabled = false;
+                confirmDeleteBtn.textContent = 'حذف الآن';
+                
+                // إعداد معالج الحذف
+                const performDelete = async () => {
+                    try {
+                        confirmDeleteBtn.disabled = true;
+                        confirmDeleteBtn.textContent = 'جاري الحذف...';
+                        
+                        // حذف التذكرة
+                        await deleteTicket(ticket.id);
+                        
+                        // إعادة تحميل قائمة التذاكر
+                        await renderStats();
+                        await renderTickets();
+                        
+                        // إغلاق النافذة
+                        deleteModal.classList.remove('active');
+                        
+                        // إظهار رسالة نجاح
+                        alert('تم حذف التذكرة بنجاح');
+                        
+                        // مسح لوحة التفاصيل
+                        if (panel) {
+                            panel.innerHTML = `
+                                <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
+                                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                    </svg>
+                                    <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
+                                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
+                                </div>
+                            `;
+                        }
+                        currentTicketId = null;
+                        
+                        // إزالة معالجات الأحداث
+                        confirmDeleteBtn.removeEventListener('click', performDelete);
+                        cancelDeleteBtn.removeEventListener('click', closeModal);
+                    } catch (err) {
+                        console.error('Error deleting ticket:', err);
+                        alert('فشل حذف التذكرة: ' + (err.message || 'حدث خطأ غير متوقع'));
+                        confirmDeleteBtn.disabled = false;
+                        confirmDeleteBtn.textContent = 'حذف الآن';
                     }
-                    currentTicketId = null;
-                } catch (err) {
-                    console.error('Error deleting ticket:', err);
-                    alert('فشل حذف التذكرة: ' + (err.message || 'حدث خطأ غير متوقع'));
-                    deleteBtn.disabled = false;
-                    deleteBtn.textContent = 'حذف التذكرة';
-                }
+                };
+                
+                const closeModal = () => {
+                    deleteModal.classList.remove('active');
+                    confirmDeleteBtn.removeEventListener('click', performDelete);
+                    cancelDeleteBtn.removeEventListener('click', closeModal);
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.textContent = 'حذف الآن';
+                };
+                
+                // إضافة معالجات الأحداث
+                confirmDeleteBtn.addEventListener('click', performDelete);
+                cancelDeleteBtn.addEventListener('click', closeModal);
             };
         }
         

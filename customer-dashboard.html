@@ -34,6 +34,13 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 1rem; }
         .modal.active { display: flex; }
         .modal-content { background: var(--color-surface); padding: 2.5rem; border-radius: 1.25rem; width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: var(--shadow); border: 1px solid var(--color-border); color: var(--color-text); }
+        .confirm-modal-content { max-width: 450px; text-align: center; padding: 2rem; }
+        .confirm-modal-icon { font-size: 3.5rem; color: #EF4444; margin-bottom: 1rem; }
+        .confirm-modal-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.75rem; color: var(--color-text); }
+        .confirm-modal-text { color: var(--color-text-secondary); line-height: 1.6; margin-bottom: 2rem; }
+        .confirm-modal-actions { display: flex; gap: 1rem; justify-content: center; }
+        .btn-danger { background: #EF4444; color: white; border: none; }
+        .btn-danger:hover { background: #DC2626; }
         .wallet-info { position: relative; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: var(--color-muted); border-radius: 2rem; cursor: pointer; }
         .wallet-tooltip { display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); color: var(--color-text); padding: 0.75rem 1rem; border-radius: 0.5rem; box-shadow: var(--shadow); border: 1px solid var(--color-border); margin-top: 0.5rem; white-space: nowrap; z-index: 100; }
         .wallet-info:hover .wallet-tooltip { display: block; }
@@ -385,6 +392,19 @@
             </div>
         </div>
     </main>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content confirm-modal-content">
+            <div class="confirm-modal-icon">⚠️</div>
+            <h2 class="confirm-modal-title">تأكيد الحذف</h2>
+            <p class="confirm-modal-text" id="deleteConfirmText">هل أنت متأكد من رغبتك في حذف هذه التذكرة؟ هذا الإجراء لا يمكن التراجع عنه.</p>
+            <div class="confirm-modal-actions">
+                <button id="cancelDeleteBtn" class="btn btn-secondary close-modal" style="flex: 1;">إلغاء</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger" style="flex: 1;">حذف الآن</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Create Ticket Modal -->
     <div id="createTicketModal" class="modal">
