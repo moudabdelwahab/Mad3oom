@@ -2,19 +2,45 @@ import { supabase } from './api-config.js';
 import { logActivity } from './activity-service.js';
 import { createNotification } from './notifications-service.js';
 
+// ─── Auth/Profile cache ───────────────────────────────────────────────────────
+// Avoids repeating getUser() + profiles query on every service call.
+let _cachedUser = null;
+let _cachedProfile = null;
+
+async function getCurrentUser() {
+    if (_cachedUser) return _cachedUser;
+    const { data: { user } } = await supabase.auth.getUser();
+    _cachedUser = user;
+    return user;
+}
+
+async function getCurrentProfile(userId) {
+    if (_cachedProfile) return _cachedProfile;
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+    _cachedProfile = profile;
+    return profile;
+}
+
+// Invalidate cache on auth state changes (login / logout)
+supabase.auth.onAuthStateChange(() => {
+    _cachedUser = null;
+    _cachedProfile = null;
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * جلب التذاكر
  */
 export async function fetchUserTickets(filters = {}) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // جلب البروفايل لمعرفة الدور
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    const profile = await getCurrentProfile(user.id);
 
     let query = supabase
         .from('tickets')
@@ -47,7 +73,7 @@ export async function fetchUserTickets(filters = {}) {
  * إنشاء تذكرة جديدة
  */
 export async function createTicket({ title, description, priority, image_url = null }) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
     
     // التحقق من صحة المدخلات
@@ -101,15 +127,11 @@ export async function createTicket({ title, description, priority, image_url = n
  * جلب إحصائيات التذاكر
  */
 export async function fetchTicketStats() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // جلب البروفايل لمعرفة الدور
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    const profile = await getCurrentProfile(user.id);
 
     let query = supabase.from('tickets').select('status', { count: 'exact' });
 
@@ -246,7 +268,7 @@ export async function deleteTicket(ticketId) {
  * إضافة رد على تذكرة
  */
 export async function addTicketReply(ticketId, message, isInternal = false) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
@@ -306,15 +328,11 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
  * جلب ردود التذكرة
  */
 export async function fetchTicketReplies(ticketId) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // جلب البروفايل لمعرفة الدور
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    const profile = await getCurrentProfile(user.id);
 
     let query = supabase
         .from('ticket_replies')

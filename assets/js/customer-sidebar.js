@@ -215,11 +215,15 @@ function setupSidebarLogic(onTabChange) {
             customerAvatarMenu.style.display = isVisible ? 'none' : 'block';
         });
 
-        document.addEventListener('click', () => {
+        // Use a named handler so it can be replaced without stacking
+        const closeAllMenus = () => {
             customerAvatarMenu.style.display = 'none';
             if (notificationMenu) notificationMenu.style.display = 'none';
             if (languageMenu) languageMenu.style.display = 'none';
-        });
+        };
+        document.removeEventListener('click', document._sidebarCloseMenus);
+        document._sidebarCloseMenus = closeAllMenus;
+        document.addEventListener('click', closeAllMenus);
     }
 
     // Handle menu item clicks

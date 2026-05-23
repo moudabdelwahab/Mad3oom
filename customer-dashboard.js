@@ -43,10 +43,11 @@ import { ui } from './ui-service.js';
     };
     updateWelcomeText();
 
-    // Initialize Sidebar
+    // Initialize Sidebar — callback runs after sidebar HTML is injected
     initCustomerSidebar((tabName) => {
         const tabEl = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
         if (tabEl) tabEl.click();
+        updateSidebarUserInfo();
     });
 
     // Initialize Subscription Expiry Modal Handler
@@ -57,19 +58,6 @@ import { ui } from './ui-service.js';
     // Initialize Settings Modal
     if (!isGuest) {
         initCustomerSettingsModal();
-        
-        // Setup settings button click handlers
-        setTimeout(() => {
-            const customerAccountSettings = document.getElementById('customerAccountSettings');
-            if (customerAccountSettings) {
-                customerAccountSettings.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    openSettingsModal();
-                    const customerAvatarMenu = document.getElementById('customerAvatarMenu');
-                    if (customerAvatarMenu) customerAvatarMenu.style.display = 'none';
-                });
-            }
-        }, 500);
     }
 
     // Initialize Rewards Dashboard
@@ -77,14 +65,13 @@ import { ui } from './ui-service.js';
         initRewardsDashboard(user);
     }
 
-    // Update Sidebar User Info
+    // Update Sidebar User Info — runs after sidebar HTML is injected
     const updateSidebarUserInfo = () => {
         const customerInitial = document.getElementById('customerInitial');
         if (customerInitial) {
             customerInitial.textContent = (user.profile?.full_name || user.email || 'U')[0].toUpperCase();
         }
     };
-    setTimeout(updateSidebarUserInfo, 500);
 
     /* ================= TABS LOGIC ================= */
 
@@ -563,18 +550,16 @@ ${ticket.description}
 
     /* ================= INIT ================= */
 
-    await renderStats();
-    await renderTickets();
-    await renderNotifications();
+    await Promise.all([renderStats(), renderTickets(), renderNotifications()]);
 
     // اشتراكات لحظية
     if (!isGuest) {
         console.log('[Customer Dashboard] Setting up realtime subscriptions for user:', user.id);
         subscribeToTickets(() => {
             console.log('[Customer Dashboard] Tickets callback triggered');
-            renderStats();
-            renderTickets();
-            if (currentTicketId) loadReplies(currentTicketId);
+            // Run stats and tickets fetch in parallel
+            Promise.all([renderStats(), renderTickets()]);
+            if (currentTicketId) loadRepliesInPanel(currentTicketId);
         });
         subscribeToNotifications(user.id, (newNotification) => {
             console.log('[Customer Dashboard] Notification callback triggered:', newNotification);
