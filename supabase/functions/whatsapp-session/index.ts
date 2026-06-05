@@ -14,6 +14,7 @@ type WhatsAppSessionRequest = {
 
 const GRAPH_VERSION = 'v25.0';
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const SESSION_WINDOW_HOURS = 24;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
     // 1. Validate API Key
     const { data: keyRow, error: keyError } = await adminClient
       .from('bot_api_keys')
-      .select('created_by, status')
+      .select('id, created_by, status')
       .eq('key_value', apiKey)
       .eq('status', 'active')
       .single();
@@ -67,6 +68,7 @@ Deno.serve(async (req) => {
     }
 
     const userId = keyRow.created_by;
+    const apiKeyId = keyRow.id;
     const body = (await req.json()) as WhatsAppSessionRequest;
     const { to, message, phone_number_id } = body;
 
@@ -77,18 +79,64 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Get WhatsApp Integration
+    // 2. Check 24-hour window from last inbound message
+    // We check bot_user_states table for last_inbound_message_at
+    const { data: userState, error: stateError } = await adminClient
+      .from('bot_user_states')
+      .select('last_inbound_message_at')
+      .eq('user_id', userId)
+      .eq('phone_number', to)
+      .maybeSingle();
+
+    let lastInbound = userState?.last_inbound_message_at;
+
+    // Fallback: If not in bot_user_states, check the messages table for the last inbound message
+    if (!lastInbound) {
+      const { data: lastMsg } = await adminClient
+        .from('messages')
+        .select('timestamp')
+        .eq('user_id', userId)
+        .eq('from_number', to)
+        .eq('direction', 'inbound')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (lastMsg) {
+        lastInbound = lastMsg.timestamp;
+      }
+    }
+
+    if (!lastInbound) {
+      return new Response(JSON.stringify({ 
+        error: 'No inbound message found from this customer. Cannot send session message without an active 24h window.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const lastInboundDate = new Date(lastInbound);
+    const now = new Date();
+    const diffHours = (now.getTime() - lastInboundDate.getTime()) / (1000 * 60 * 60);
+
+    if (diffHours > SESSION_WINDOW_HOURS) {
+      return new Response(JSON.stringify({ 
+        error: `24-hour window has expired. Last inbound message was at ${lastInboundDate.toISOString()} (${diffHours.toFixed(1)} hours ago).`,
+        last_inbound_at: lastInboundDate.toISOString(),
+        expired_hours: parseFloat(diffHours.toFixed(1))
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 3. Get WhatsApp Integration
     let query = adminClient
       .from('integrations')
       .select('access_token, metadata')
       .eq('user_id', userId)
       .eq('provider', 'whatsapp');
-
-    if (phone_number_id) {
-      // If specific phone_number_id is provided, we need to filter it from metadata
-      // Since it's in a JSONB column, we might need to fetch all and filter or use JSON query
-      // For simplicity, let's fetch all and find
-    }
 
     const { data: integrations, error: intError } = await query;
 
@@ -122,7 +170,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Send Message via Meta Graph API
+    // 4. Send Message via Meta Graph API
     const whatsappResponse = await fetch(`${GRAPH_BASE}/${activePhoneNumberId}/messages`, {
       method: 'POST',
       headers: {
@@ -150,7 +198,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Save to message history
+    // 5. Save to message history
     try {
       await adminClient.from('messages').insert({
         user_id: userId,
@@ -161,11 +209,14 @@ Deno.serve(async (req) => {
         direction: 'outbound',
         status: 'sent',
         wa_message_id: waData.messages?.[0]?.id,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        sent_via_api: true,
+        api_key_id: apiKeyId,
+        session_message_type: 'session',
+        within_24h_window: true
       });
     } catch (saveError) {
       console.error('Failed to save message to history:', saveError);
-      // We don't fail the request if saving to history fails, as the message was sent
     }
 
     return new Response(JSON.stringify({ 

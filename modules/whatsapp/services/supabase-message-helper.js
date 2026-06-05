@@ -83,12 +83,35 @@ export class SupabaseMessageHelper {
     // Insert new message if not found
     const attempts = [FULL_INSERT_COLUMNS, REQUIRED_OUTBOUND_COLUMNS, LEGACY_COLUMNS];
     let lastError = null;
+    let savedData = null;
 
     for (const columns of attempts) {
       const payload = pick(row, columns);
       const { data, error } = await supabase.from(TABLE).insert(payload).select().single();
-      if (!error) return data;
+      if (!error) {
+        savedData = data;
+        break;
+      }
       lastError = error;
+    }
+
+    if (savedData) {
+      // إذا كانت الرسالة واردة، نحدث last_inbound_message_at في bot_user_states
+      if (savedData.direction === 'inbound') {
+        try {
+          await supabase
+            .from('bot_user_states')
+            .upsert({
+              user_id: userId,
+              phone_number: savedData.from_number,
+              last_inbound_message_at: savedData.timestamp,
+              last_interaction: savedData.timestamp
+            }, { onConflict: 'user_id, phone_number' });
+        } catch (updateError) {
+          console.error('[SupabaseMessageHelper] Failed to update last_inbound_message_at:', updateError);
+        }
+      }
+      return savedData;
     }
 
     throw new Error(lastError?.message || 'تعذر حفظ الرسالة داخل Supabase.');

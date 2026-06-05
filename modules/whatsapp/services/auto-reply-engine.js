@@ -222,6 +222,7 @@ export class AutoReplyEngine {
     async updateUserState(userId, phone_number, nextNodeId, context) {
         try {
             const supabase = await SupabaseIntegration.initializeSupabase();
+            const now = new Date().toISOString();
             const { error } = await supabase
                 .from('bot_user_states')
                 .upsert({
@@ -229,7 +230,8 @@ export class AutoReplyEngine {
                     phone_number: phone_number,
                     current_node_id: nextNodeId,
                     context: context,
-                    last_interaction: new Date().toISOString()
+                    last_interaction: now,
+                    last_inbound_message_at: now // تحديث وقت آخر رسالة واردة
                 }, { onConflict: 'user_id, phone_number' });
             
             if (error) throw error;
