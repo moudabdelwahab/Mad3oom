@@ -164,6 +164,17 @@
                 <tr><td>message</td><td>string</td><td>نص الرسالة المرسلة</td></tr>
                 <tr><td>session_id</td><td>string</td><td>معرف الجلسة للحفاظ على سياق المحادثة</td></tr>
             </table>
+
+            <h3>2. إرسال رسائل الجلسة (WhatsApp Session Messages)</h3>
+            <p>إرسال رسالة حرة عبر واتساب للعميل ضمن نافذة الـ 24 ساعة من آخر رسالة استلمتها منه.</p>
+            <div class="endpoint"><span class="method-badge">POST</span> /whatsapp/session/send</div>
+            
+            <table>
+                <tr><th>المعلمة (Parameter)</th><th>النوع</th><th>الوصف</th></tr>
+                <tr><td>to</td><td>string</td><td>رقم هاتف المستلم بالصيغة الدولية (بدون +)</td></tr>
+                <tr><td>message</td><td>string</td><td>نص الرسالة المراد إرسالها</td></tr>
+                <tr><td>phone_number_id</td><td>string</td><td>(اختياري) معرف رقم الهاتف في حال وجود أكثر من رقم مربوط</td></tr>
+            </table>
         </section>
 
         <section id="examples" class="doc-section">
@@ -227,6 +238,26 @@ curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
 ]));
 $response = curl_exec($ch);
 echo json_decode($response)->reply;
+</pre>
+            </div>
+
+            <h3>مثال إرسال رسالة واتساب (JavaScript)</h3>
+            <div class="code-block">
+                <div class="lang-badge">JS</div>
+<pre>
+fetch('https://api.mad3oom.online/v1/whatsapp/session/send', {
+    method: 'POST',
+    headers: {
+        'Authorization': 'Bearer YOUR_API_KEY',
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        to: '201025998920',
+        message: 'مرحباً بك، كيف يمكنني مساعدتك اليوم؟'
+    })
+})
+.then(res => res.json())
+.then(data => console.log(data));
 </pre>
             </div>
         </section>
