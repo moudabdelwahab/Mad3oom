@@ -15,6 +15,7 @@ import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
 import { UsersManagementPage } from './pages/UsersManagementPage.js';
 import { StatusPage } from './pages/StatusPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { DeveloperSettingsPage } from './pages/DeveloperSettingsPage.js';
 import { SendMessagePage } from './pages/SendMessagePage.js';
 import { CampaignReportPage } from './pages/CampaignReportPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
@@ -42,6 +43,7 @@ function navigateTo(page, element) {
     messages:  'الرسائل',
     users:     'إدارة المستخدمين',
     settings:  'الإعدادات',
+    developer: 'إعدادات المطور',
     autoreply: 'الرد الآلي',
     send:      'إرسال رسالة',
     reports:   'تقارير الحملات',
@@ -63,6 +65,7 @@ function navigateTo(page, element) {
   if (page === 'status') { loadStatus(); }
   if (page === 'users') { loadUsers(); }
   if (page === 'settings') { loadSettings(); }
+  if (page === 'developer') { loadDeveloperSettings(); }
   if (page === 'send') { loadSendMessage(); }
   if (page === 'reports') { loadReports(); }
   if (page === 'connect') { updateConnectionStatus(); }
@@ -80,6 +83,7 @@ let autoReplyPage = null;
 let usersPage = null;
 let statusPage = null;
 let settingsPage = null;
+let developerSettingsPage = null;
 let sendMessagePage = null;
 let campaignReportPage = null;
 let businessPhoneNumber = '';
@@ -639,6 +643,19 @@ async function loadSettings() {
 }
 
 window.loadSettings = loadSettings;
+
+async function loadDeveloperSettings() {
+  const container = document.getElementById('whatsapp-developer-root');
+  if (!container) return;
+
+  if (!developerSettingsPage) {
+    developerSettingsPage = new DeveloperSettingsPage(container);
+  }
+
+  await developerSettingsPage.mount();
+}
+
+window.loadDeveloperSettings = loadDeveloperSettings;
 
 async function loadSendMessage() {
   const container = document.getElementById('whatsapp-send-root');
