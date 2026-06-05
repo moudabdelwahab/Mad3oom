@@ -2,427 +2,213 @@
 <html lang="ar" dir="rtl">
 <head>
     <script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "v6843vp0vi");
-</script>
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "v6843vp0vi");
+    </script>
     <link rel="icon" href="favicon.ico">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- SEO Meta Tags -->
-    <title>منصة مدعوم | نظام دعم فني احترافي </title>
-    <meta name="description" content="نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية لتقديم أفضل خدمة عملاء. ابدأ الآن واحصل على الدعم الذي تحتاجه.">
-    <meta name="keywords" content="دعم فني, تذاكر, محادثة فورية, خدمة عملاء, منصة مدعوم">
-    <meta name="author" content="منصة مدعوم">
-    
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="منصة مدعوم - نظام الدعم الفني الاحترافي">
-    <meta property="og:description" content="نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية لتقديم أفضل خدمة عملاء">
-    <meta property="og:image" content="https://mad3oom.online/logo.svg">
-    <meta property="og:url" content="https://mad3oom.online/">
-    <meta property="og:type" content="website">
-    <meta property="og:locale" content="ar_SA">
-    
-    <!-- Twitter Card Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="منصة مدعوم - نظام الدعم الفني الاحترافي">
-    <meta name="twitter:description" content="نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية">
-    <meta name="twitter:image" content="https://mad3oom.online/logo.svg">
+    <title>منصة مدعوم | Tech Provider Official لدي Meta | WhatsApp Cloud API</title>
+    <meta name="description" content="منصة مدعوم هي شريك تقني رسمي (Tech Provider) لشركة Meta، نقدم حلول WhatsApp Business Cloud API المتقدمة، دعم فني احترافي، واجتماعات تقنية لنمو شركتك.">
+    <meta name="keywords" content="WhatsApp Cloud API, Meta Tech Provider, دعم فني, واتساب بزنس, أتمتة المحادثات, منصة مدعوم">
     
     <link rel="icon" type="image/svg+xml" href="logo.svg">
-    <link rel="alternate icon" href="logo.svg">
-    <!-- Theme script must load BEFORE CSS to prevent FOUC -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="robot.css">
+    
     <script>
         (function() {
             try {
-                var theme = 'light';
-                if (typeof Storage !== 'undefined' && window.localStorage) {
-                    var stored = localStorage.getItem('theme-preference');
-                    if (stored === 'light' || stored === 'dark') {
-                        theme = stored;
-                    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                        theme = 'dark';
-                    }
-                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                }
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-theme', theme);
             } catch(e) {
                 document.documentElement.setAttribute('data-theme', 'light');
             }
         })();
     </script>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="robot.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
-    <style>
-        /* انسيابية إضافية للصفحة الرئيسية */
-        .hero {
-            animation: slideUp 1s ease-out;
-        }
-        .feature-card {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.6s ease-out;
-        }
-        .feature-card.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .gradient-text {
-            background: linear-gradient(90deg, var(--color-accent), #60a5fa, var(--color-accent));
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shine 3s linear infinite;
-        }
-        @keyframes shine {
-            to { background-position: 200% center; }
-        }
-        .scroll-reveal {
-            opacity: 0;
-            transform: scale(0.95);
-            transition: all 0.8s ease-out;
-        }
-        .scroll-reveal.active {
-            opacity: 1;
-            transform: scale(1);
-        }
-    </style>
-    <script type="module">
-        import { autoRedirect, signInAsGuest } from './auth-client.js';
-        autoRedirect();
-        window.handleGuestLogin = async function() {
-            try {
-                await signInAsGuest();
-                window.location.replace('customer-dashboard.html');
-            } catch (err) {
-                console.error('Guest login failed:', err);
-                window.location.href = 'sign-in.html';
-            }
-        };
-    </script>
-    <script src="theme-manager.js" defer></script>
-    <script src="language-manager.js"></script>
-    <script src="/error-tracker.js"></script>
-    <script type="module" src="/ads-ticker.js"></script>
 </head>
 
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="nav-logo">
+            <a href="index.html" class="nav-logo">
                 <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
-                <span>منصة مدعوم</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <button class="theme-toggle" aria-label="Toggle theme" title="تبديل الوضع الليلي/النهاري">
-                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                </button>
-                <button class="hamburger" aria-label="Toggle menu" id="hamburgerBtn">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </div>
+                <span>مدعوم</span>
+            </a>
+            
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html" class="active">الرئيسية</a></li>
-                <li><a href="about.html">حول</a></li>
-                <li><a href="rewards.html">المكافآت</a></li>
-                <li><a href="subscriptions.html">الخطط والأسعار</a></li>
-                <li><a href="terms.html">شروط الاستخدام</a></li>
-                <li><a href="privacy.html">سياسة الخصوصية</a></li>
-                <!-- <li><a href="knowladgebase.html"> قاعدة المعرفة </a></li> -->
-                
-                <li style="position: relative;">
-                    <button id="accountMenuBtn" style="background: none; border: none; color: var(--color-nav-text); cursor: pointer; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.3s; display: flex; align-items: center; gap: 0.5rem;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        <span>حسابي</span>
-                    </button>
-                    <div id="accountDropdown" style="display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.5rem; box-shadow: var(--shadow); min-width: 200px; z-index: 1000; margin-top: 0.5rem;">
-                        <a href="sign-in.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
-                            تسجيل الدخول
-                        </a>
-                        <a href="sign-up.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
-                            إنشاء حساب
-                        </a>
-                        <a href="javascript:void(0)" onclick="handleGuestLogin()" id="guestLoginLink" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; transition: all 0.3s;">
-                            الدخول كضيف
-                        </a>
-                    </div>
-                </li>
+                <li><a href="about.html">عن المنصة</a></li>
+                <li><a href="subscriptions.html">الخطط</a></li>
+                <li><a href="sign-in.html" class="btn btn-primary" style="padding: 0.5rem 1.25rem; color: white;">دخول</a></li>
             </ul>
         </div>
     </nav>
 
-    <!-- Home Page -->
-    <div id="home" class="page active">
-        <!-- Hero Section -->
-        <section class="hero">
-            <div class="hero-content">
-                <h1>مساعد الدعم الفني <span class="gradient-text">الاحترافي</span></h1>
-                <p>نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية لتقديم أفضل خدمة عملاء</p>
-                <div class="hero-buttons">
-                    <a href="sign-in.html" class="btn btn-primary">ابدأ الآن</a>
-                    <a href="about.html" class="btn btn-secondary">تعرف أكثر</a>
-                </div>
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="hero-content animate-up">
+            <div class="badge-meta">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                Tech Provider Official لدي Meta
             </div>
-        </section>
-
-        <!-- Features Section -->
-        <section class="features">
-            <h2 class="scroll-reveal">المميزات الرئيسية</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <path d="M9 11l3 3L22 4"></path>
-                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-                        </svg>
-                    </div>
-                    <h3>نظام التذاكر</h3>
-                    <p>إنشاء وإدارة تذاكر الدعم بسهولة مع تتبع الحالة والأولويات المختلفة</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
-                        </svg>
-                    </div>
-                    <h3>المحادثة الفورية</h3>
-                    <p>تواصل مباشر وفوري مع فريق الدعم للحصول على الإجابات بسرعة</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #a855f7, #9333ea);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <line x1="12" y1="2" x2="12" y2="22"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 000 7H6"></path>
-                        </svg>
-                    </div>
-                    <h3>لوحة التحكم</h3>
-                    <p>عرض شامل لجميع التذاكر والإحصائيات والمقاييس الهامة</p>
-                </div>
+            <h1>مستقبل تواصل الشركات عبر <br><span class="gradient-text">WhatsApp Cloud API</span></h1>
+            <p>نحن لا نقدم مجرد نظام دعم، نحن شريكك التقني المعتمد لربط علامتك التجارية بأقوى واجهة برمجة تطبيقات من Meta، لضمان تواصل آمن، سريع، وقابل للتوسع.</p>
+            <div class="hero-buttons">
+                <a href="sign-up.html" class="btn btn-primary">ابدأ مجاناً الآن</a>
+                <a href="#whatsapp-features" class="btn btn-outline" style="color: var(--color-primary);">اكتشف المميزات</a>
             </div>
-        </section>
+        </div>
+    </header>
 
-        <!-- Technical Support Section -->
-        <section class="image-section scroll-reveal">
-            <div class="image-section-content">
-                <div class="image-wrapper">
-                    <img 
-                        src="assets/images/technical-support.svg" 
-                        alt="اكتشاف الأعطال لحظياً ومعالجتها بدقة" 
-                        class="section-image"
-                        loading="lazy"
-                    >
-                    <div class="image-caption">
-                        <p>اكتشاف الأعطال لحظياً ومعالجتها بدقة داخل بيئة تشغيل مستقرة.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- System Operations Section -->
-        <section class="image-section scroll-reveal">
-            <div class="image-section-content">
-                <div class="image-wrapper">
-                    <img 
-                        src="assets/images/system-operations.svg" 
-                        alt="تشغيل يعتمد على دمج الأتمتة بالمتابعة البشرية" 
-                        class="section-image"
-                        loading="lazy"
-                    >
-                    <div class="image-caption">
-                        <p>تشغيل يعتمد على دمج الأتمتة بالمتابعة البشرية لضمان استقرار الخدمة.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- CTA Section -->
-        <section class="cta scroll-reveal">
-            <h2>هل تحتاج إلى مساعدة؟</h2>
-            <p>تواصل معنا الآن واحصل على دعم فني متخصص وسريع الاستجابة</p>
-            <div class="cta-buttons">
-                <a href="chat-customer.html" class="btn btn-primary">ابدأ المحادثة</a>
-                <a href="sign-in.html" class="btn btn-accent">أنشئ تذكرة</a>
-            </div>
-        </section>
-    </div>
-
-    <footer style="text-align: center; padding: 4rem 2rem; background: var(--color-surface); border-top: 1px solid var(--color-border);">
-        <p>&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
-    </footer>
-
-    <!-- Robot Assistant "Mad3oom" -->
-    <div class="robot-container" id="robotContainer">
-        <div class="speech-bubble" id="robotBubble">
-            <div class="robot-header">
-                <span class="robot-status"></span>
-                <span class="robot-name">مدعوم</span>
-            </div>
-            <p class="robot-text" id="robotText"></p>
-            <button class="tour-btn" onclick="startTour()">ابدأ الجولة التعريفية</button>
+    <!-- WhatsApp API Section -->
+    <section id="whatsapp-features" class="features" style="background: white;">
+        <div class="section-title">
+            <h2>لماذا WhatsApp Business Cloud API؟</h2>
+            <p>الحل الأمثل للشركات التي تسعى للنمو والاحترافية في التواصل</p>
         </div>
         
-        <!-- الروبوت الجديد (يظهر عند الضغط) -->
-        <div class="robot-avatar" id="robotAvatar">
-            <img src="assets/images/mad3oom-robot.png" alt="مدعوم">
-        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon" style="background: #E8F5E9; color: #2E7D32;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path></svg>
+                </div>
+                <h3>ربط رسمي ومباشر</h3>
+                <p>بصفتنا Tech Provider، نضمن لك ربطاً رسمياً مع خوادم Meta مباشرة دون وسائط، مما يضمن استقرار الخدمة بنسبة 99.9%.</p>
+            </div>
 
-        <!-- الأيقونة القديمة (المحفز) -->
-        <div class="chat-trigger" id="chatTrigger">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v8H3v-8a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-1-1-1.73a2 2 0 0 1 2-2M9 13a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2 2 2 0 0 0-2-2m6 0a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2 2 2 0 0 0-2-2M7.5 18a1.5 1.5 0 0 0 0 3h9a1.5 1.5 0 0 0 0-3h-9z"/>
-            </svg>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: #E3F2FD; color: #1565C0;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <h3>أمان وتوثيق العلامة</h3>
+                <p>احصل على العلامة الخضراء (Green Tick) لشركتك وزد من ثقة عملائك من خلال توثيق حسابك الرسمي عبر API.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon" style="background: #FFF3E0; color: #EF6C00;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <h3>أتمتة ذكية 24/7</h3>
+                <p>قم ببناء ردود آلية ذكية (Chatbots) تتعامل مع استفسارات العملاء في أي وقت، مما يقلل الضغط على فريق الدعم.</p>
+            </div>
         </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="comparison-section">
+        <div class="section-title">
+            <h2>الفرق بين الواتساب العادي و Cloud API</h2>
+            <p>لماذا تحتاج الشركات الكبرى إلى الانتقال للحل الاحترافي؟</p>
+        </div>
+        
+        <div class="comparison-container">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>الميزة</th>
+                        <th>واتساب العادي / الأعمال</th>
+                        <th>WhatsApp Cloud API (مدعوم)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>عدد المستخدمين</td>
+                        <td>محدود (جهاز واحد + 4 ويب)</td>
+                        <td>غير محدود (فريق عمل كامل)</td>
+                    </tr>
+                    <tr>
+                        <td>الأتمتة والرد الآلي</td>
+                        <td>أساسي (رسائل ترحيب فقط)</td>
+                        <td>متقدم (بوتات ذكية وتكامل مع الأنظمة)</td>
+                    </tr>
+                    <tr>
+                        <td>العلامة الخضراء</td>
+                        <td>غير متوفرة غالباً</td>
+                        <td>متاحة للتقديم والتوثيق الرسمي</td>
+                    </tr>
+                    <tr>
+                        <td>إرسال جماعي (Broadcast)</td>
+                        <td>مخاطرة بحظر الرقم</td>
+                        <td>رسمي وآمن تماماً عبر Meta</td>
+                    </tr>
+                    <tr>
+                        <td>التقارير والإحصائيات</td>
+                        <td>لا يوجد</td>
+                        <td>لوحة تحكم كاملة وتحليلات دقيقة</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Support Excellence Section -->
+    <section class="support-methods">
+        <div class="support-grid">
+            <div class="support-content animate-up">
+                <div class="badge-meta" style="background: rgba(168, 85, 247, 0.1); color: #9333ea; border-color: rgba(168, 85, 247, 0.2);">
+                    دعم فني من نوع آخر
+                </div>
+                <h3>تجاوزنا حدود الدردشة التقليدية</h3>
+                <p>نحن نؤمن أن بعض المشاكل التقنية تتطلب تواصلاً أعمق، لذلك وفرنا لك طرق دعم متقدمة تضمن حل مشكلتك من المرة الأولى:</p>
+                
+                <div class="support-item">
+                    <div class="support-item-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l5 5-5 5"/><path d="M4 4v7a4 4 0 004 4h12"/></svg>
+                    </div>
+                    <div>
+                        <h4>اجتماعات تقنية مباشرة</h4>
+                        <p>يمكنك طلب اجتماع فيديو (Meeting) مع مهندسينا لشرح المشكلة أو الحصول على استشارة تقنية مباشرة.</p>
+                    </div>
+                </div>
+
+                <div class="support-item">
+                    <div class="support-item-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div>
+                        <h4>الدعم عبر التحكم عن بعد</h4>
+                        <p>إذا تطلب الأمر، يمكن لفريقنا الدخول عبر Remote Desktop (بموافقتك) لحل المشاكل المعقدة في بيئتك البرمجية مباشرة.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="support-image">
+                <img src="assets/images/technical-support.svg" alt="دعم فني متطور" style="width: 100%; max-width: 500px;">
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="animate-up">
+            <h2>جاهز لرفع كفاءة تواصل شركتك؟</h2>
+            <p>انضم إلى مئات الشركات التي تثق في منصة مدعوم كشريك تقني رسمي.</p>
+            <div style="margin-top: 2.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="sign-up.html" class="btn btn-primary">ابدأ تجربتك المجانية</a>
+                <a href="https://wa.me/your-number" class="btn btn-outline">تحدث مع مبيعاتنا</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2026 منصة مدعوم - شريك Meta التقني الرسمي. جميع الحقوق محفوظة.</p>
+        <div style="margin-top: 1rem; font-size: 0.8rem;">
+            <a href="terms.html" style="color: inherit; text-decoration: none; margin: 0 10px;">الشروط</a>
+            <a href="privacy.html" style="color: inherit; text-decoration: none; margin: 0 10px;">الخصوصية</a>
+        </div>
+    </footer>
+
+    <!-- Robot Assistant -->
+    <div class="robot-container" id="robotContainer">
+        <img src="/assets/images/mad3oom-robot.png" alt="مدعوم" style="width: 80px; cursor: pointer;">
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
-
-    <script>
-        // قائمة حسابي المنسدلة
-        const accountMenuBtn = document.getElementById('accountMenuBtn');
-        const accountDropdown = document.getElementById('accountDropdown');
-        const guestLoginLink = document.getElementById('guestLoginLink');
-
-        if (accountMenuBtn && accountDropdown) {
-            accountMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isVisible = accountDropdown.style.display === 'block';
-                accountDropdown.style.display = isVisible ? 'none' : 'block';
-            });
-
-            document.addEventListener('click', () => {
-                accountDropdown.style.display = 'none';
-            });
-
-            const dropdownLinks = accountDropdown.querySelectorAll('a');
-            dropdownLinks.forEach(link => {
-                link.addEventListener('mouseover', () => {
-                    link.style.background = 'var(--hover-bg)';
-                });
-                link.addEventListener('mouseout', () => {
-                    link.style.background = 'transparent';
-                });
-                link.addEventListener('click', () => {
-                    // Close menu on mobile after selection
-                    if (window.innerWidth <= 768) {
-                        navMenu.classList.remove('active');
-                        hamburger.classList.remove('active');
-                    }
-                });
-            });
-        }
-
-        // انسيابية الظهور عند التمرير
-        const observerOptions = {
-            threshold: 0.1
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    entry.target.classList.add('active');
-                }
-            });
-        }, observerOptions);
-
-        document.querySelectorAll('.feature-card, .scroll-reveal').forEach(el => {
-            observer.observe(el);
-        });
-
-        // قائمة الموبايل
-        const hamburger = document.getElementById('hamburgerBtn');
-        const navMenu = document.getElementById('navMenu');
-
-        hamburger.addEventListener('click', () => {
-            hamburger.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        });
-
-        // Robot "Mad3oom" Logic
-        const chatTrigger = document.getElementById('chatTrigger');
-        const robotAvatar = document.getElementById('robotAvatar');
-        const robotBubble = document.getElementById('robotBubble');
-        const robotText = document.getElementById('robotText');
-        const driver = window.driver.js.driver;
-
-        const tourDriver = driver({
-            showProgress: true,
-            nextBtnText: 'التالي',
-            prevBtnText: 'السابق',
-            doneBtnText: 'تم',
-            steps: [
-                { element: '.hero-content', popover: { title: 'أهلاً بك!', description: 'أنا مدعوم، مساعدك الذكي. دعني آخذك في جولة سريعة.', side: "bottom", align: 'start' }},
-                { element: '#accountMenuBtn', popover: { title: 'حسابك الشخصي', description: 'من هنا يمكنك تسجيل الدخول أو إنشاء حساب جديد للبدء.', side: "bottom", align: 'start' }},
-                { element: '.features-grid', popover: { title: 'مميزاتنا', description: 'نقدم لك نظام تذاكر متطور، محادثات فورية، ولوحة تحكم شاملة.', side: "top", align: 'start' }},
-                { element: '.cta', popover: { title: 'ابدأ الآن', description: 'لا تتردد في التواصل معنا إذا كنت بحاجة لأي مساعدة.', side: "top", align: 'start' }}
-            ]
-        });
-
-        function toggleRobot(show) {
-            if (show) {
-                chatTrigger.style.display = 'none';
-                robotAvatar.classList.add('active');
-                setTimeout(() => {
-                    robotBubble.classList.add('visible');
-                }, 500);
-            } else {
-                robotBubble.classList.remove('visible');
-                setTimeout(() => {
-                    robotAvatar.classList.remove('active');
-                    chatTrigger.style.display = 'flex';
-                }, 500);
-            }
-        }
-
-        chatTrigger.addEventListener('click', () => {
-            robotText.textContent = "أهلاً بك! أنا مدعوم، مساعدك الذكي. هل تود أن آخذك في جولة سريعة للتعرف على المنصة؟";
-            toggleRobot(true);
-        });
-
-        window.startTour = function() {
-            robotBubble.classList.remove('visible');
-            tourDriver.drive();
-        };
-
-        // إغلاق الروبوت عند الضغط عليه مرة أخرى
-        robotAvatar.addEventListener('click', () => {
-            toggleRobot(false);
-        });
-
-        // ترحيب بسيط عند التحميل (اختياري - يظهر فقط الأيقونة مع نبض)
-        window.addEventListener('load', () => {
-            console.log("Mad3oom Robot Ready");
-        });
-    </script>
+    <script src="theme-manager.js" defer></script>
+    <script src="language-manager.js"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حول منصة مدعوم | رؤيتنا وأهدافنا</title>
+    <title>عن مدعوم | Tech Provider Official لدي Meta</title>
     <link rel="icon" type="image/svg+xml" href="logo.svg">
     <link rel="stylesheet" href="styles.css">
     <script>
@@ -17,19 +17,19 @@
             }
         })();
     </script>
-    <script src="theme-manager.js" defer></script>
     <style>
         .about-hero {
-            padding: 6rem 2rem;
+            padding: 8rem 2rem 6rem;
             text-align: center;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-variant));
+            background: linear-gradient(135deg, #003366, #0055AA);
             color: white;
-            border-radius: 0 0 3rem 3rem;
+            border-radius: 0 0 4rem 4rem;
             margin-bottom: 4rem;
         }
         .about-hero h1 {
             font-size: clamp(2.5rem, 8vw, 4rem);
             margin-bottom: 1.5rem;
+            font-weight: 800;
         }
         .about-hero p {
             font-size: 1.25rem;
@@ -37,141 +37,136 @@
             margin: 0 auto;
             opacity: 0.9;
         }
+        .meta-badge-large {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: white;
+            color: #003366;
+            padding: 0.75rem 1.5rem;
+            border-radius: 3rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
         .about-section {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto 6rem;
             padding: 0 2rem;
         }
-        .about-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 3rem;
-            margin-top: 3rem;
-        }
-        .about-card {
+        .content-block {
             background: var(--color-surface);
-            padding: 2.5rem;
-            border-radius: 1.5rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--color-border);
-            transition: transform 0.3s ease;
-        }
-        .about-card:hover {
-            transform: translateY(-10px);
-        }
-        .about-card h3 {
-            color: var(--color-accent);
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-        .vision-mission {
-            display: flex;
-            flex-direction: column;
-            gap: 4rem;
-        }
-        .vision-item {
-            display: flex;
-            align-items: center;
-            gap: 3rem;
-            flex-wrap: wrap;
-        }
-        .vision-item:nth-child(even) {
-            flex-direction: row-reverse;
-        }
-        .vision-text {
-            flex: 1;
-            min-width: 300px;
-        }
-        .vision-text h2 {
-            font-size: 2.5rem;
-            margin-bottom: 1.5rem;
-            color: var(--color-primary);
-        }
-        .vision-image {
-            flex: 1;
-            min-width: 300px;
+            padding: 3rem;
             border-radius: 2rem;
-            overflow: hidden;
-            box-shadow: var(--shadow);
+            border: 1px solid var(--color-border);
+            margin-bottom: 3rem;
+            box-shadow: var(--shadow-sm);
         }
-        .vision-image img {
-            width: 100%;
-            height: auto;
-            display: block;
+        .content-block h2 {
+            color: var(--color-primary);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            font-weight: 800;
+        }
+        .content-block p {
+            font-size: 1.1rem;
+            color: var(--color-text-secondary);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .feature-item {
+            padding: 1.5rem;
+            background: var(--color-muted);
+            border-radius: 1rem;
+        }
+        .feature-item h4 {
+            color: var(--color-primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
         }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <div class="nav-logo">
+            <a href="index.html" class="nav-logo">
                 <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
-                <span>منصة مدعوم</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <button class="theme-toggle" aria-label="Toggle theme">
-                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                </button>
-                <ul class="nav-menu">
-                    <li><a href="index.html">الرئيسية</a></li>
-                    <li><a href="about.html" class="active">حول</a></li>
-                    <li><a href="rewards.html">المكافآت</a></li>
-                    <li><a href="subscriptions.html">الخطط والأسعار</a></li>
-                <li><a href="terms.html">شروط الاستخدام</a></li>
-                <li><a href="privacy.html">سياسة الخصوصية</a></li>
-                    <li><a href="sign-in.html">تسجيل الدخول</a></li>
-                </ul>
-            </div>
+                <span>مدعوم</span>
+            </a>
+            <ul class="nav-menu">
+                <li><a href="index.html">الرئيسية</a></li>
+                <li><a href="about.html" class="active">عن المنصة</a></li>
+                <li><a href="subscriptions.html">الخطط</a></li>
+                <li><a href="sign-in.html" class="btn btn-primary" style="padding: 0.5rem 1.25rem; color: white;">دخول</a></li>
+            </ul>
         </div>
     </nav>
 
     <header class="about-hero">
-        <h1>عن منصة مدعوم</h1>
-        <p>نحن نسعى لإعادة تعريف مفهوم الدعم الفني من خلال حلول ذكية، سريعة، وسهلة الاستخدام تضع العميل في المقدمة.</p>
+        <div class="meta-badge-large">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+            Official Meta Tech Provider
+        </div>
+        <h1>من نحن؟</h1>
+        <p>منصة مدعوم هي شريكك التقني المعتمد للتحول الرقمي وتطوير تواصل الشركات عبر حلول Meta الرسمية.</p>
     </header>
 
     <main class="about-section">
-        <div class="vision-mission">
-            <div class="vision-item">
-                <div class="vision-text">
-                    <h2>رؤيتنا</h2>
-                    <p>أن نكون المنصة الرائدة في العالم العربي لتقديم خدمات الدعم الفني المتكاملة، حيث يلتقي الابتكار بالاحترافية لخدمة الشركات والأفراد على حد سواء.</p>
-                </div>
-                <div class="vision-image">
-                    <img src="assets/images/technical-support.svg" alt="رؤيتنا">
-                </div>
-            </div>
+        <div class="content-block">
+            <h2>شريك Meta التقني الرسمي</h2>
+            <p>منصة مدعوم ليست مجرد واجهة برمجية، بل هي <strong>Tech Provider</strong> رسمي معتمد من شركة Meta. هذا يعني أننا نمتلك الصلاحيات التقنية لربط الشركات مباشرة بـ WhatsApp Business Platform، وتوفير الدعم الفني المباشر، وضمان أعلى مستويات الأمان والموثوقية.</p>
+            <p>نحن نساعد الشركات في الحصول على <strong>العلامة الخضراء</strong> وتفعيل قنوات التواصل الرسمية التي تضمن وصول الرسائل بنسبة 100% دون التعرض لمخاطر الحظر.</p>
+        </div>
 
-            <div class="vision-item">
-                <div class="vision-text">
-                    <h2>رسالتنا</h2>
-                    <p>توفير بيئة دعم فني مستقرة وآمنة تعتمد على أحدث تقنيات الأتمتة مع الحفاظ على اللمسة البشرية الضرورية لحل المشكلات المعقدة بدقة وسرعة.</p>
+        <div class="content-block">
+            <h2>ما هو WhatsApp Cloud API؟</h2>
+            <p>هو النسخة المتطورة والمستضافة سحابياً من واجهة برمجة تطبيقات واتساب للأعمال. يتيح للشركات المتوسطة والكبيرة التواصل مع آلاف العملاء في وقت واحد عبر نظام مركزي موحد.</p>
+            <div class="features-list">
+                <div class="feature-item">
+                    <h4>توسعية لا محدودة</h4>
+                    <p>إرسال آلاف الرسائل واستقبالها دون القلق من قدرة الأجهزة.</p>
                 </div>
-                <div class="vision-image">
-                    <img src="assets/images/system-operations.svg" alt="رسالتنا">
+                <div class="feature-item">
+                    <h4>أتمتة ذكية</h4>
+                    <p>بناء تدفقات عمل (Workflows) وردود آلية معقدة توفر الوقت.</p>
+                </div>
+                <div class="feature-item">
+                    <h4>تكامل شامل</h4>
+                    <p>ربط الواتساب مع نظام CRM الخاص بك أو أي برنامج محاسبة.</p>
                 </div>
             </div>
         </div>
 
-        <div class="about-grid">
-            <div class="about-card">
-                <h3>السرعة</h3>
-                <p>نظامنا مصمم للاستجابة الفورية، مما يقلل من وقت انتظار العميل ويزيد من كفاءة العمل.</p>
-            </div>
-            <div class="about-card">
-                <h3>الاحترافية</h3>
-                <p>فريقنا وأدواتنا تعمل وفق أعلى المعايير العالمية لضمان جودة الخدمة المقدمة.</p>
-            </div>
-            <div class="about-card">
-                <h3>الابتكار</h3>
-                <p>نطور أدواتنا باستمرار لدمج الذكاء الاصطناعي والأتمتة في تحسين تجربة المستخدم.</p>
-            </div>
+        <div class="content-block">
+            <h2>فلسفتنا في الدعم الفني</h2>
+            <p>نحن نؤمن أن التكنولوجيا وجدت لتسهيل حياة البشر، وليس لتعقيدها. لذلك، لا نكتفي بتقديم الأدوات البرمجية، بل نسير معك خطوة بخطوة:</p>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                    <span style="color: var(--color-accent); font-weight: bold;">✓</span>
+                    <span><strong>الاجتماعات المباشرة:</strong> نوفر جلسات استشارية وتقنية عبر الفيديو لفهم احتياجاتك بدقة.</span>
+                </li>
+                <li style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                    <span style="color: var(--color-accent); font-weight: bold;">✓</span>
+                    <span><strong>التحكم عن بعد:</strong> فريقنا جاهز للتدخل التقني المباشر عبر Remote Desktop لحل أي عوائق في الإعدادات.</span>
+                </li>
+                <li style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                    <span style="color: var(--color-accent); font-weight: bold;">✓</span>
+                    <span><strong>الشفافية المطلقة:</strong> جميع عمليات الدعم المتقدمة تتم بموافقة العميل وتحت إشرافه الكامل.</span>
+                </li>
+            </ul>
         </div>
     </main>
 
-    <footer style="text-align: center; padding: 4rem 2rem; background: var(--color-surface); border-top: 1px solid var(--color-border);">
+    <footer style="text-align: center; padding: 4rem 2rem; background: var(--color-primary); color: white;">
         <p>&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
     </footer>
+
+    <script src="theme-manager.js" defer></script>
 </body>
 </html>
