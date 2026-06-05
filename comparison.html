@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مقارنة حلول الواتساب | منصة مدعوم</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <style>
+        .comparison-hero {
+            padding: 6rem 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-variant));
+            color: white;
+            border-radius: 0 0 3rem 3rem;
+            margin-bottom: 4rem;
+        }
+        .comparison-hero h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); margin-bottom: 1rem; }
+        .comparison-hero p { font-size: 1.2rem; opacity: 0.9; max-width: 700px; margin: 0 auto; }
+        
+        .comparison-wrapper {
+            max-width: 1100px;
+            margin: 0 auto 6rem;
+            padding: 0 2rem;
+        }
+        
+        .comparison-table-container {
+            background: var(--color-surface);
+            border-radius: 2rem;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--color-border);
+        }
+        
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: right;
+        }
+        
+        .comp-table th, .comp-table td {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .comp-table th {
+            background: var(--color-muted);
+            color: var(--color-primary);
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+        
+        .comp-table tr:hover td {
+            background: rgba(0, 119, 204, 0.02);
+        }
+        
+        .feature-col { width: 30%; font-weight: 700; color: var(--color-text); }
+        .standard-col { width: 35%; color: var(--color-text-secondary); }
+        .api-col { width: 35%; color: var(--color-primary); font-weight: 600; background: rgba(37, 211, 102, 0.05); }
+        
+        .check-icon { color: #25D366; font-weight: bold; margin-left: 5px; }
+        .cross-icon { color: #D9534F; font-weight: bold; margin-left: 5px; }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--color-accent);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
+                <span>منصة مدعوم</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">الرئيسية</a></li>
+                <li><a href="about.html">حول</a></li>
+                <li><a href="subscriptions.html">الخطط والأسعار</a></li>
+                <li><a href="sign-in.html">دخول</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="comparison-hero">
+        <h1>لماذا WhatsApp Cloud API؟</h1>
+        <p>اكتشف الفرق الشاسع بين استخدام التطبيق التقليدي والحل البرمجي الرسمي المخصص للشركات الكبرى.</p>
+    </header>
+
+    <main class="comparison-wrapper">
+        <a href="index.html" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            العودة للرئيسية
+        </a>
+
+        <div class="comparison-table-container">
+            <table class="comp-table">
+                <thead>
+                    <tr>
+                        <th class="feature-col">الميزة</th>
+                        <th class="standard-col">واتساب العادي / الأعمال</th>
+                        <th class="api-col">WhatsApp Cloud API (مدعوم)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-col">تعدد المستخدمين</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> محدود (جهاز واحد + 4 ويب)</td>
+                        <td class="api-col"><span class="check-icon">✔</span> غير محدود (فريق عمل كامل)</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">الأتمتة والذكاء الاصطناعي</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> رسائل ترحيب بسيطة فقط</td>
+                        <td class="api-col"><span class="check-icon">✔</span> بناء بوتات ذكية وتكامل كامل</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">العلامة الخضراء (التوثيق)</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> صعبة المنال غالباً</td>
+                        <td class="api-col"><span class="check-icon">✔</span> متاحة للتقديم والتوثيق الرسمي</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">الرسائل الجماعية (Broadcast)</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> مخاطرة عالية بحظر الرقم</td>
+                        <td class="api-col"><span class="check-icon">✔</span> رسمية وآمنة 100% عبر Meta</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">التكامل مع الأنظمة (CRM)</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> غير متوفر</td>
+                        <td class="api-col"><span class="check-icon">✔</span> ربط مباشر مع أي نظام خارجي</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">إحصائيات الأداء</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> لا توجد تحليلات</td>
+                        <td class="api-col"><span class="check-icon">✔</span> تقارير مفصلة لكل رسالة وموظف</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">أمان البيانات</td>
+                        <td class="standard-col"><span class="cross-icon">✘</span> مرتبطة بجهاز الموظف</td>
+                        <td class="api-col"><span class="check-icon">✔</span> تشفير سحابي مركزي وآمن</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer style="text-align: center; padding: 4rem 2rem; background: var(--color-surface); border-top: 1px solid var(--color-border);">
+        <p>&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
+    </footer>
+</body>
+</html>
