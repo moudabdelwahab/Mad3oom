@@ -41,11 +41,27 @@ export class InboxPage {
       <section class="wa-inbox-shell">
         <aside class="wa-inbox-sidebar">
           <div class="wa-inbox-sidebar-head">
-            <div><h2>Inbox</h2><p>كل المحادثات حسب رقم الهاتف</p></div>
+            <div>
+              <div class="wa-user-section">
+                <div class="wa-user-avatar">M</div>
+                <div class="wa-user-info">
+                  <strong>Mahmoud Abdelwahab Saber Abdelrahman</strong>
+                  <span>+20 259 47</span>
+                </div>
+              </div>
+              <div class="wa-user-actions">
+                <button class="wa-action-btn" title="تحرير الملف الشخصي">✏️</button>
+                <button class="wa-action-btn" title="الإحصائيات">📊</button>
+              </div>
+            </div>
             <div class="wa-sidebar-actions">
               <button class="wa-icon-action" data-theme-toggle title="تبديل الوضع" aria-label="تبديل الوضع">${themeToggleIcon}</button>
               <button class="wa-icon-action" data-refresh title="تحديث">↻</button>
             </div>
+          </div>
+          <div class="wa-inbox-header">
+            <h2>Inbox</h2>
+            <p>صندوق الوارد</p>
           </div>
           <div class="wa-search"><input data-search placeholder="بحث بالرقم أو نص الرسالة" /></div>
           <div class="wa-conversations" data-conversations><div class="wa-skeleton"></div></div>
