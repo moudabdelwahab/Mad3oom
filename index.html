@@ -12,7 +12,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>منصة مدعوم | نظام دعم فني احترافي | Tech Provider Official لدي Meta</title>
+    <!-- SEO Meta Tags -->
+    <title>منصة مدعوم | نظام دعم فني احترافي | Tech Provider لدي Meta</title>
     <meta name="description" content="نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية وحلول WhatsApp Cloud API المتقدمة لتقديم أفضل خدمة عملاء.">
     <meta name="keywords" content="دعم فني, تذاكر, محادثة فورية, خدمة عملاء, منصة مدعوم, WhatsApp Cloud API">
     
@@ -28,9 +29,18 @@
         .scroll-reveal { opacity: 0; transform: scale(0.95); transition: all 0.8s ease-out; }
         .scroll-reveal.active { opacity: 1; transform: scale(1); }
         
-        /* SaaS Enhancements */
-        .saas-section { padding: 4rem 2rem; background: var(--color-surface); border-radius: 2rem; margin: 2rem auto; max-width: 1100px; border: 1px solid var(--color-border); }
-        .meta-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(0, 51, 102, 0.05); color: var(--color-primary); padding: 0.5rem 1rem; border-radius: 2rem; font-weight: 700; font-size: 0.85rem; margin-bottom: 1rem; }
+        /* Meta Badge */
+        .meta-badge {
+            display: inline-block;
+            background: rgba(0, 119, 204, 0.1);
+            color: var(--color-accent);
+            padding: 0.5rem 1.25rem;
+            border-radius: 2rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(0, 119, 204, 0.2);
+        }
     </style>
 
     <script type="module">
@@ -48,10 +58,12 @@
     </script>
     <script src="theme-manager.js" defer></script>
     <script src="language-manager.js"></script>
+    <script src="/error-tracker.js"></script>
+    <script type="module" src="/ads-ticker.js"></script>
 </head>
 
 <body>
-    <!-- Navigation Bar (Original Content Restored) -->
+    <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -59,24 +71,55 @@
                 <span>منصة مدعوم</span>
             </div>
             <div style="display: flex; align-items: center; gap: 1rem;">
-                <button class="theme-toggle" aria-label="Toggle theme">
-                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle></svg>
+                <button class="theme-toggle" aria-label="Toggle theme" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
                 </button>
-                <button class="hamburger" id="hamburgerBtn"><span></span><span></span><span></span></button>
+                <button class="hamburger" aria-label="Toggle menu" id="hamburgerBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
             </div>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html" class="active">الرئيسية</a></li>
                 <li><a href="about.html">حول</a></li>
                 <li><a href="rewards.html">المكافآت</a></li>
                 <li><a href="subscriptions.html">الخطط والأسعار</a></li>
-                <li><a href="terms.html">الشروط</a></li>
-                <li><a href="privacy.html">الخصوصية</a></li>
+                <li><a href="terms.html">شروط الاستخدام</a></li>
+                <li><a href="privacy.html">سياسة الخصوصية</a></li>
+                
                 <li style="position: relative;">
-                    <button id="accountMenuBtn" style="background: none; border: none; color: var(--color-nav-text); cursor: pointer; font-weight: 600; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <button id="accountMenuBtn" style="background: none; border: none; color: var(--color-nav-text); cursor: pointer; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.3s; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
                         <span>حسابي</span>
                     </button>
+                    <div id="accountDropdown" style="display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.5rem; box-shadow: var(--shadow); min-width: 200px; z-index: 1000; margin-top: 0.5rem;">
+                        <a href="sign-in.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
+                            تسجيل الدخول
+                        </a>
+                        <a href="sign-up.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
+                            إنشاء حساب
+                        </a>
+                        <a href="javascript:void(0)" onclick="handleGuestLogin()" id="guestLoginLink" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; transition: all 0.3s;">
+                            الدخول كضيف
+                        </a>
+                    </div>
                 </li>
             </ul>
         </div>
@@ -92,29 +135,65 @@
                 <p>نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية وحلول WhatsApp Cloud API لنمو شركتك.</p>
                 <div class="hero-buttons">
                     <a href="sign-in.html" class="btn btn-primary">ابدأ الآن</a>
-                    <a href="comparison.html" class="btn btn-secondary">لماذا Cloud API؟</a>
+                    <a href="comparison.html" class="btn btn-secondary">اكتشف الفرق</a>
                 </div>
             </div>
         </section>
 
-        <!-- New SaaS Section: WhatsApp API & Meta Provider -->
-        <section class="saas-section scroll-reveal">
-            <div style="text-align: center; margin-bottom: 3rem;">
-                <h2 style="color: var(--color-primary); font-size: 2rem; margin-bottom: 1rem;">نحن شريكك التقني الرسمي</h2>
-                <p style="color: var(--color-text-secondary); max-width: 800px; margin: 0 auto;">بصفتنا **Tech Provider** معتمد من Meta، نوفر لك الربط المباشر بـ WhatsApp Business Cloud API لضمان تواصل آمن واحترافي.</p>
-            </div>
+        <!-- Features Section (Original) -->
+        <section class="features">
+            <h2 class="scroll-reveal">المميزات الرئيسية</h2>
             <div class="features-grid">
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M9 11l3 3L22 4"></path>
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+                        </svg>
+                    </div>
+                    <h3>نظام التذاكر</h3>
+                    <p>إنشاء وإدارة تذاكر الدعم بسهولة مع تتبع الحالة والأولويات المختلفة</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
+                        </svg>
+                    </div>
+                    <h3>المحادثة الفورية</h3>
+                    <p>تواصل مباشر وفوري مع فريق الدعم للحصول على الإجابات بسرعة</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #a855f7, #9333ea);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <line x1="12" y1="2" x2="12" y2="22"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 000 7H6"></path>
+                        </svg>
+                    </div>
+                    <h3>لوحة التحكم</h3>
+                    <p>عرض شامل لجميع التذاكر والإحصائيات والمقاييس الهامة</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- WhatsApp Cloud API Section (New SaaS) -->
+        <section class="saas-section scroll-reveal">
+            <h2>حلول WhatsApp Cloud API</h2>
+            <p>بصفتنا Tech Provider معتمد من Meta، نوفر لك الربط المباشر بـ WhatsApp Business Cloud API لضمان تواصل آمن واحترافي مع عملائك.</p>
+            <div class="features-grid">
+                <div class="feature-card">
                     <h3>توسعية بلا حدود</h3>
                     <p>أرسل آلاف الرسائل لعملائك عبر قناة رسمية موثقة بالعلامة الخضراء.</p>
                 </div>
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
+                <div class="feature-card">
                     <h3>أتمتة ذكية</h3>
                     <p>قم ببناء بوتات رد آلي (Chatbots) تتعامل مع استفسارات عملائك على مدار الساعة.</p>
                 </div>
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
+                <div class="feature-card">
                     <h3>تكامل CRM</h3>
-                    <p>اربط الواتساب بنظام إدارة علاقات العملاء الخاص بك لمتابعة دقيقة لكل محادثة.</p>
+                    <p>اربط الواتساب بنظام إدارة علاقات العملاء الخاص بك لمتابعة دقيقة.</p>
                 </div>
             </div>
             <div style="text-align: center; margin-top: 2rem;">
@@ -122,81 +201,124 @@
             </div>
         </section>
 
-        <!-- Original Features Section (Tickets & Live Chat) -->
-        <section class="features">
-            <h2 class="scroll-reveal">حلول الدعم الفني المتكاملة</h2>
-            <div class="features-grid">
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>
-                    </div>
-                    <h3>نظام التذاكر</h3>
-                    <p>إدارة تذاكر الدعم بسهولة مع تتبع دقيق للحالات والأولويات.</p>
-                </div>
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
-                    </div>
-                    <h3>المحادثة الفورية</h3>
-                    <p>تواصل مباشر وفوري مع فريق الدعم لضمان رضا عملائك.</p>
-                </div>
-                <div class="feature-card visible" style="opacity: 1; transform: none;">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #a855f7, #9333ea);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 000 7H6"></path></svg>
-                    </div>
-                    <h3>لوحة التحكم</h3>
-                    <p>عرض شامل للإحصائيات والمقاييس لتقييم جودة الدعم الفني.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Advanced Support Section (Meetings & Remote) -->
+        <!-- Advanced Support Section -->
         <section class="saas-section scroll-reveal" style="background: var(--color-muted);">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <h2 style="color: var(--color-primary);">دعم فني يتجاوز التوقعات</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                <div style="padding: 1.5rem; background: var(--color-surface); border-radius: 1rem;">
-                    <h4 style="color: var(--color-accent); margin-bottom: 0.5rem;">اجتماعات تقنية مباشرة</h4>
-                    <p>نوفر إمكانية جدولة اجتماعات فيديو لشرح المشاكل التقنية المعقدة والحصول على حلول فورية.</p>
+            <h2>دعم فني يتجاوز التوقعات</h2>
+            <p style="margin-bottom: 2rem;">نحن نقدم خدمات دعم متقدمة تتجاوز المحادثة النصية التقليدية.</p>
+            <div class="features-grid">
+                <div class="feature-card" style="background: var(--color-surface);">
+                    <h3>اجتماعات تقنية مباشرة</h3>
+                    <p>جدولة اجتماعات فيديو لشرح المشاكل التقنية المعقدة والحصول على حلول فورية من فريقنا المتخصص.</p>
                 </div>
-                <div style="padding: 1.5rem; background: var(--color-surface); border-radius: 1rem;">
-                    <h4 style="color: var(--color-accent); margin-bottom: 0.5rem;">الدعم عبر التحكم عن بعد</h4>
+                <div class="feature-card" style="background: var(--color-surface);">
+                    <h3>التحكم عن بعد (Remote Desktop)</h3>
                     <p>بموافقتك، يمكن لفريقنا الدخول عبر Remote Desktop لحل المشاكل البرمجية في بيئتك مباشرة.</p>
                 </div>
             </div>
         </section>
 
-        <!-- Original Image Sections -->
-        <section class="image-section scroll-reveal active">
+        <!-- Technical Support Section -->
+        <section class="image-section scroll-reveal">
             <div class="image-section-content">
                 <div class="image-wrapper">
-                    <img src="assets/images/technical-support.svg" alt="دعم فني" class="section-image" loading="lazy">
-                    <div class="image-caption"><p>اكتشاف الأعطال لحظياً ومعالجتها بدقة داخل بيئة تشغيل مستقرة.</p></div>
+                    <img 
+                        src="assets/images/technical-support.svg" 
+                        alt="اكتشاف الأعطال لحظياً ومعالجتها بدقة" 
+                        class="section-image"
+                        loading="lazy"
+                    >
+                    <div class="image-caption">
+                        <p>اكتشاف الأعطال لحظياً ومعالجتها بدقة داخل بيئة تشغيل مستقرة.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Operations Section -->
+        <section class="image-section scroll-reveal">
+            <div class="image-section-content">
+                <div class="image-wrapper">
+                    <img 
+                        src="assets/images/system-operations.svg" 
+                        alt="تشغيل يعتمد على دمج الأتمتة بالمتابعة البشرية" 
+                        class="section-image"
+                        loading="lazy"
+                    >
+                    <div class="image-caption">
+                        <p>تشغيل يعتمد على دمج الأتمتة بالمتابعة البشرية لضمان استقرار الخدمة.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- CTA Section -->
-        <section class="cta scroll-reveal active">
-            <h2>هل أنت جاهز للتحول الرقمي؟</h2>
-            <p>انضم إلينا الآن واستفد من حلول الدعم الفني والواتساب الرسمية.</p>
+        <section class="cta scroll-reveal">
+            <h2>هل تحتاج إلى مساعدة؟</h2>
+            <p>تواصل معنا الآن واحصل على دعم فني متخصص وسريع الاستجابة</p>
             <div class="cta-buttons">
-                <a href="sign-up.html" class="btn btn-primary">ابدأ مجاناً</a>
-                <a href="chat-customer.html" class="btn btn-accent">تحدث معنا</a>
+                <a href="chat-customer.html" class="btn btn-primary">ابدأ المحادثة</a>
+                <a href="sign-in.html" class="btn btn-accent">أنشئ تذكرة</a>
             </div>
         </section>
     </div>
 
     <footer style="text-align: center; padding: 4rem 2rem; background: var(--color-surface); border-top: 1px solid var(--color-border);">
-        <p>&copy; 2026 منصة مدعوم - شريك Meta التقني. جميع الحقوق محفوظة.</p>
+        <p>&copy; 2026 منصة مدعوم - شريك Meta التقني الرسمي. جميع الحقوق محفوظة.</p>
     </footer>
 
-    <!-- Robot Assistant -->
+    <!-- Robot Assistant "Mad3oom" -->
     <div class="robot-container" id="robotContainer">
         <img src="/assets/images/mad3oom-robot.png" alt="مدعوم" style="width: 80px; cursor: pointer;">
     </div>
 
-    <script src="theme-manager.js" defer></script>
+    <script>
+        // Theme Toggle
+        const themeToggle = document.querySelector('.theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme') || 'light';
+                const next = current === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('theme-preference', next);
+            });
+        }
+
+        // Hamburger Menu
+        const hamburger = document.getElementById('hamburgerBtn');
+        const navMenu = document.getElementById('navMenu');
+        if (hamburger && navMenu) {
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                navMenu.classList.toggle('active');
+            });
+        }
+
+        // Account Menu
+        const accountBtn = document.getElementById('accountMenuBtn');
+        const accountDropdown = document.getElementById('accountDropdown');
+        if (accountBtn && accountDropdown) {
+            accountBtn.addEventListener('click', () => {
+                accountDropdown.style.display = accountDropdown.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', (e) => {
+                if (!accountBtn.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    accountDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        // Scroll Reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.scroll-reveal, .feature-card').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
 </body>
 </html>

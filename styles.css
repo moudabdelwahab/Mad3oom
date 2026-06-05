@@ -45,7 +45,7 @@
     
     /* Responsive spacing */
     --container-padding: clamp(1rem, 4vw, 2rem);
-    --section-padding: clamp(2rem, 6vw, 4rem);
+    --section-padding: clamp(3rem, 8vw, 5rem);
 }
 
 /* ==================== Dark Theme ==================== */
@@ -145,7 +145,9 @@ body {
     align-items: center;
 }
 
-.nav-menu li { margin: 0; }
+.nav-menu li {
+    margin: 0;
+}
 
 .nav-menu a {
     color: var(--color-nav-text);
@@ -160,6 +162,58 @@ body {
 .nav-menu a.active {
     color: #60a5fa;
     border-bottom-color: #60a5fa;
+}
+
+/* ==================== Theme Toggle ==================== */
+.theme-toggle {
+    background: none;
+    border: 1px solid var(--color-nav-border);
+    color: var(--color-nav-text);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.sun-icon { display: none; width: 20px; height: 20px; }
+.moon-icon { display: block; width: 20px; height: 20px; }
+
+[data-theme='dark'] .sun-icon { display: block; }
+[data-theme='dark'] .moon-icon { display: none; }
+
+/* ==================== Hamburger Menu ==================== */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    gap: 0.35rem;
+}
+
+.hamburger span {
+    width: 25px;
+    height: 3px;
+    background: var(--color-nav-text);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(10px, 10px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
 }
 
 /* ==================== Hero Section ==================== */
@@ -195,51 +249,191 @@ body {
     margin-right: auto;
 }
 
-/* ==================== SaaS Section Styles ==================== */
-.saas-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(0, 119, 204, 0.1);
-    color: var(--color-accent);
-    padding: 0.5rem 1.25rem;
-    border-radius: 2rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+.hero-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-.saas-section {
-    padding: var(--section-padding) var(--container-padding);
+/* ==================== Features Section ==================== */
+.features {
     max-width: 1200px;
     margin: 0 auto;
+    padding: var(--section-padding) var(--container-padding);
 }
 
-.saas-grid {
+.features h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 3rem;
+    color: var(--color-text);
+}
+
+.features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
-    margin-top: 3rem;
+    margin-top: 2rem;
 }
 
-.saas-card {
+.feature-card {
     background: var(--color-surface);
-    padding: 2.5rem;
-    border-radius: 1.5rem;
-    border: 1px solid var(--color-border);
-    transition: all 0.3s ease;
+    border-radius: 1rem;
+    padding: 2rem;
     box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    text-align: center;
+    transition: all 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
 }
 
-.saas-card:hover {
+.feature-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow);
     border-color: var(--color-accent);
 }
 
-.saas-card h3 {
+.feature-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+}
+
+.feature-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-text);
+}
+
+.feature-card p {
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+/* ==================== SaaS Section ==================== */
+.saas-section {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: var(--section-padding) var(--container-padding);
+    background: var(--color-surface);
+    border-radius: 2rem;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.saas-section h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
     margin-bottom: 1rem;
     color: var(--color-primary);
+}
+
+.saas-section > p {
+    text-align: center;
+    color: var(--color-text-secondary);
+    margin-bottom: 2rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ==================== Image Sections ==================== */
+.image-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--section-padding) var(--container-padding);
+    opacity: 1;
+    transform: scale(1);
+}
+
+.image-section.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.image-section-content {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: center;
+}
+
+.image-wrapper {
+    position: relative;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.section-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 1rem;
+}
+
+.image-caption {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+}
+
+.image-caption p {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* ==================== CTA Section ==================== */
+.cta {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--section-padding) var(--container-padding);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-primary-variant));
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.cta.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.cta h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.cta p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    opacity: 0.95;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 /* ==================== Buttons ==================== */
@@ -262,14 +456,18 @@ body {
     color: white;
 }
 
-.btn-primary:hover { background: var(--color-accent-hover); }
+.btn-primary:hover {
+    background: var(--color-accent-hover);
+}
 
 .btn-secondary {
     background: var(--color-muted);
     color: var(--color-text);
 }
 
-.btn-secondary:hover { background: var(--color-border); }
+.btn-secondary:hover {
+    background: var(--color-border);
+}
 
 .btn-outline {
     background: transparent;
@@ -282,72 +480,217 @@ body {
     color: white;
 }
 
-/* Utilities */
+.btn-accent {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid white;
+}
+
+.btn-accent:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* ==================== Forms ==================== */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--input-bg);
+    color: var(--color-text);
+    font-family: inherit;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.1);
+}
+
+/* ==================== Utility Classes ==================== */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
 .gradient-text {
     background: linear-gradient(90deg, var(--color-accent), #60a5fa, var(--color-accent));
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
     animation: shine 3s linear infinite;
 }
 
-@keyframes shine { to { background-position: 200% center; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-
-/* Features */
-.features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-top: 2rem;
+/* ==================== Scroll Reveal ==================== */
+.scroll-reveal {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: all 0.8s ease-out;
 }
 
-.feature-card {
+.scroll-reveal.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* ==================== Animations ==================== */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shine {
+    to {
+        background-position: 200% center;
+    }
+}
+
+/* ==================== Footer ==================== */
+footer {
     background: var(--color-surface);
-    border-radius: 1rem;
+    border-top: 1px solid var(--color-border);
     padding: 2rem;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-border);
+    text-align: center;
+    color: var(--color-text-secondary);
 }
 
-/* Robot Assistant */
-.robot-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 999;
+footer p {
+    margin: 0;
 }
 
-/* Hamburger */
-.hamburger {
-    display: none;
-    flex-direction: column;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0.5rem;
-    gap: 0.35rem;
-}
-
-.hamburger span {
-    width: 25px;
-    height: 3px;
-    background: var(--color-nav-text);
-    border-radius: 2px;
-}
-
+/* ==================== Responsive Design ==================== */
 @media (max-width: 768px) {
-    .hamburger { display: flex; }
+    .hamburger {
+        display: flex;
+    }
+
     .nav-menu {
-        display: none;
         position: absolute;
         top: 100%;
         left: 0;
         right: 0;
         background: var(--color-primary);
         flex-direction: column;
-        padding: 1rem;
-        gap: 1rem;
+        gap: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        border-bottom: 1px solid var(--color-nav-border);
     }
-    .nav-menu.active { display: flex; }
+
+    .nav-menu.active {
+        max-height: 100vh;
+        overflow: visible;
+    }
+
+    .nav-menu li {
+        width: 100%;
+        margin: 0;
+    }
+
+    .nav-menu a {
+        display: block;
+        padding: 1rem var(--container-padding);
+        border-bottom: 1px solid var(--color-nav-border);
+        border-right: none;
+    }
+
+    .nav-container {
+        flex-wrap: wrap;
+    }
+
+    .hero {
+        min-height: 50vh;
+        padding: 2rem var(--container-padding);
+    }
+
+    .hero h1 {
+        font-size: 2rem;
+    }
+
+    .hero-buttons {
+        flex-direction: column;
+    }
+
+    .hero-buttons a {
+        width: 100%;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .image-section-content {
+        grid-template-columns: 1fr;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+    }
+
+    .cta-buttons a {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-logo {
+        font-size: 1.125rem;
+    }
+
+    .logo-image {
+        width: 32px;
+        height: 32px;
+    }
+
+    .hero h1 {
+        font-size: 1.5rem;
+    }
+
+    .hero p {
+        font-size: 0.95rem;
+    }
+
+    .features h2 {
+        font-size: 1.5rem;
+    }
+
+    .feature-card {
+        padding: 1.5rem;
+    }
+
+    .cta h2 {
+        font-size: 1.5rem;
+    }
+
+    .cta p {
+        font-size: 0.95rem;
+    }
 }
