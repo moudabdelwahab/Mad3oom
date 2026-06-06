@@ -385,35 +385,135 @@ export class CampaignReportPage {
     setupEventListeners() {
         window.exportReport = async (format, lang) => {
             showToast(`جاري تحضير ملف ${format.toUpperCase()}...`, 'info');
-            
             const headers = lang === 'ar' 
-                ? ['الرقم', 'التوقيت', 'الحالة', 'التفاصيل']
-                : ['Recipient', 'Time', 'Status', 'Details'];
-            
+                ? ['الرقم', 'التوقيت', 'الحالة', 'التفاصيل'] 
+                : ['Phone Number', 'Time', 'Status', 'Details'];
             const data = this.reports.map(r => [
                 r.recipient,
                 new Date(r.sent_at || Date.now()).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US'),
-                r.status === 'success' ? (lang === 'ar' ? 'تم الإرسال' : 'Sent') : (lang === 'ar' ? 'فشل' : 'Failed'),
-                r.error_message || (lang === 'ar' ? 'مكتمل' : 'Completed')
+                r.status === 'success' ? (lang === 'ar' ? 'نجاح' : 'Success') : (lang === 'ar' ? 'فشل' : 'Failed'),
+                r.status === 'success' ? (lang === 'ar' ? 'مكتمل' : 'Completed') : (r.error_message || (lang === 'ar' ? 'خطأ' : 'Error'))
             ]);
-
-            // Simulation of export functionality
-            setTimeout(() => {
-                showToast('تم تصدير التقرير بنجاح', 'success');
-                document.querySelector('.dropdown-menu').classList.remove('show');
-            }, 1500);
+            if (format === 'excel') {
+                this.exportToExcel(headers, data, lang);
+            } else {
+                this.exportToPDF(headers, data, lang);
+            }
+            document.querySelector('.dropdown-menu')?.classList.remove('show');
         };
 
-        window.retryFailedMessages = () => {
+        window.retryFailedMessages = async () => {
             const failed = this.reports.filter(r => r.status === 'failed');
+            if (failed.length === 0) return;
+            
             showToast(`جاري إعادة إرسال ${failed.length} رسالة...`, 'info');
-            // Logic to retry messages
+            for (const report of failed) {
+                try {
+                    await WhatsAppAPI.sendTemplate({
+                        to: report.recipient,
+                        templateName: this.currentCampaign.template_name,
+                        languageCode: this.currentCampaign.language_code || 'ar'
+                    });
+                } catch (e) { console.error(e); }
+            }
+            showToast('اكتملت محاولة إعادة الإرسال', 'success');
+            this.viewCampaign(this.currentCampaign.id);
         };
 
-        window.retrySingleMessage = (index) => {
+        window.retrySingleMessage = async (index) => {
             const report = this.reports[index];
             showToast(`جاري إعادة الإرسال إلى ${report.recipient}...`, 'info');
-            // Logic to retry single message
+            try {
+                const result = await WhatsAppAPI.sendTemplate({
+                    to: report.recipient,
+                    templateName: this.currentCampaign.template_name,
+                    languageCode: this.currentCampaign.language_code || 'ar'
+                });
+                if (result && (result.messages || result.id)) {
+                    showToast('تمت إعادة الإرسال بنجاح', 'success');
+                    this.viewCampaign(this.currentCampaign.id);
+                }
+            } catch (error) {
+                showToast(`فشل الإرسال: ${error.message}`, 'error');
+            }
         };
+    }
+
+    exportToExcel(headers, data, lang) {
+        let csvContent = "\uFEFF"; // BOM for Excel UTF-8
+        csvContent += headers.join(",") + "\n";
+        data.forEach(row => {
+            csvContent += row.join(",") + "\n";
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `report_${this.currentCampaign.name}_${lang}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    exportToPDF(headers, data, lang) {
+        const printWindow = window.open('', '_blank');
+        const html = `
+            <html dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
+            <head>
+                <title>Report - ${this.currentCampaign.name}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+                    body { font-family: 'Cairo', sans-serif; padding: 40px; background: #fff; color: #333; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0077CC; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo { font-size: 24px; font-weight: 800; color: #0077CC; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #eee; padding: 12px; text-align: center; font-size: 13px; }
+                    th { background-color: #f8f9fa; color: #0077CC; font-weight: 700; }
+                    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+                    .stat-box { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+                    .stat-label { font-size: 11px; color: #666; display: block; margin-bottom: 5px; }
+                    .stat-value { font-size: 18px; font-weight: 700; color: #333; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="logo">مدعوم | WhatsApp API</div>
+                    <div style="text-align: left;">
+                        <h1 style="margin: 0; font-size: 20px;">${lang === 'ar' ? 'تقرير حملة إرسال' : 'Campaign Report'}</h1>
+                        <span style="font-size: 12px; color: #666;">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <p><strong>${lang === 'ar' ? 'اسم الحملة' : 'Campaign Name'}:</strong> ${this.currentCampaign.name}</p>
+                    <p><strong>${lang === 'ar' ? 'القالب المستخدم' : 'Template'}:</strong> ${this.currentCampaign.template_name}</p>
+                </div>
+                <div class="stats">
+                    <div class="stat-box">
+                        <span class="stat-label">${lang === 'ar' ? 'إجمالي المستلمين' : 'Total Recipients'}</span>
+                        <span class="stat-value">${this.reports.length}</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">${lang === 'ar' ? 'ناجح' : 'Success'}</span>
+                        <span class="stat-value" style="color: #4CAF50;">${this.reports.filter(r => r.status === 'success').length}</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">${lang === 'ar' ? 'فشل' : 'Failed'}</span>
+                        <span class="stat-value" style="color: #F44336;">${this.reports.filter(r => r.status === 'failed').length}</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">${lang === 'ar' ? 'نسبة النجاح' : 'Success Rate'}</span>
+                        <span class="stat-value">${Math.round((this.reports.filter(r => r.status === 'success').length / this.reports.length) * 100)}%</span>
+                    </div>
+                </div>
+                <table>
+                    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${data.map(row => `<tr>${row.map(d => `<td>${d}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+                <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
+            </body>
+            </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
     }
 }
