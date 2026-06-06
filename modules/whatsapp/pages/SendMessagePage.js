@@ -221,7 +221,7 @@ export class SendMessagePage {
                     </div>
                 </div>
 
-                <div id="sending-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                <div id="sending-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
                     <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%;">
                         <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">جاري إرسال الرسائل...</h3>
                         <div class="progress-bar-wrap" style="margin-bottom: 16px;">
@@ -234,7 +234,7 @@ export class SendMessagePage {
                     </div>
                 </div>
 
-                <div id="success-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                <div id="success-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
                     <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%; text-align: center;">
                         <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
                         <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">تم إرسال الرسائل</h3>
@@ -534,6 +534,10 @@ export class SendMessagePage {
         window.updateTemplatePreviewWithVars = () => {
             this.updateTemplatePreview();
         };
+
+        window.resetSendForm = () => {
+            this.resetSendForm();
+        };
     }
 
     renderVariableInputs() {
@@ -647,5 +651,17 @@ export class SendMessagePage {
     updateStats() {
         document.getElementById('stats-total').textContent = this.recipients.length;
         document.getElementById('stats-valid').textContent = this.verificationResults.valid.length;
+    }
+
+    resetSendForm() {
+        this.selectedTemplate = null;
+        this.recipients = [];
+        this.contactsData = [];
+        this.verificationResults = {
+            valid: [],
+            invalid: [],
+            verified: false
+        };
+        this.render();
     }
 }
