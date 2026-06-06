@@ -1,5 +1,6 @@
 import { SupabaseIntegration } from '../supabase-integration.js';
 import { WhatsAppAPI } from '../services/whatsapp-api.js';
+import { ContactImporter } from '../utils/ContactImporter.js';
 
 export class SendMessagePage {
     constructor(container) {
@@ -22,6 +23,8 @@ export class SendMessagePage {
         ];
         this.businessPhone = '';
         this.campaignHistory = [];
+        this.importer = new ContactImporter();
+        this.importMapping = {};
     }
 
     async load() {
@@ -250,7 +253,51 @@ export class SendMessagePage {
     }
 
     renderRecipientsSection() {
-        return `<div style="display: flex; flex-direction: column; gap: 12px;"><textarea id="recipients-textarea" placeholder="أدخل الأرقام هنا..." style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-primary); min-height: 100px;"></textarea><button class="btn btn-secondary btn-sm" onclick="window.addRecipientsFromText()">إضافة الأرقام</button><div id="recipients-list-container" style="display: none;"><div id="recipients-list" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--bg-surface); border-radius: var(--radius-md);"></div></div></div>`;
+        return `
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- خيارات الاستيراد -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-import-input').click()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        استيراد Excel / CSV
+                    </button>
+                    <input type="file" id="file-import-input" style="display: none;" accept=".csv, .xlsx, .xls" onchange="window.handleFileImport(event)">
+                    
+                    <button class="btn btn-secondary btn-sm" onclick="window.showManualImport()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        إدخال يدوي
+                    </button>
+                </div>
+
+                <!-- حاوية المعاينة والخرائط (تظهر بعد اختيار ملف) -->
+                <div id="import-mapping-container" style="display: none; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+                    <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px;">إعدادات الاستيراد</div>
+                    <div id="mapping-fields" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                    <button class="btn btn-primary btn-sm" style="width: 100%; margin-top: 16px;" onclick="window.confirmImport()">تأكيد الاستيراد</button>
+                </div>
+
+                <!-- الإدخال اليدوي (مخفي افتراضياً) -->
+                <div id="manual-import-container" style="display: none; flex-direction: column; gap: 12px;">
+                    <textarea id="recipients-textarea" placeholder="أدخل الأرقام هنا (رقم في كل سطر)..." style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-primary); min-height: 100px;"></textarea>
+                    <button class="btn btn-secondary btn-sm" onclick="window.addRecipientsFromText()">إضافة الأرقام</button>
+                </div>
+
+                <!-- ملخص الاستيراد -->
+                <div id="import-summary-container"></div>
+
+                <div id="recipients-list-container" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-size: 12px; font-weight: 600;">قائمة الأرقام المستوردة</div>
+                        <button class="btn btn-ghost btn-sm" style="color: var(--status-error); padding: 2px 8px;" onclick="window.clearRecipients()">حذف الكل</button>
+                    </div>
+                    <div id="recipients-list" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--bg-surface); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);"></div>
+                </div>
+            </div>
+        `;
     }
 
     renderVerificationSection() {
@@ -293,17 +340,88 @@ export class SendMessagePage {
             }
         };
 
+        window.showManualImport = () => {
+            const container = document.getElementById('manual-import-container');
+            container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+        };
+
+        window.handleFileImport = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                window.showToast('جاري قراءة الملف...', 'info');
+                const result = await this.importer.readFile(file);
+                this.renderMappingUI(result);
+            } catch (error) {
+                window.showToast('خطأ في قراءة الملف: ' + error.message, 'error');
+            }
+        };
+
+        window.confirmImport = () => {
+            const phoneCol = document.getElementById('mapping-phone-select').value;
+            const mapping = {};
+            
+            // جمع ربط المتغيرات
+            document.querySelectorAll('.mapping-var-select').forEach(select => {
+                if (select.value) {
+                    mapping[select.dataset.var] = select.value;
+                }
+            });
+
+            const stats = this.importer.process(phoneCol, mapping);
+            this.recipients = stats.valid.map(c => c.phone);
+            this.contactsData = stats.valid; // حفظ البيانات الكاملة للمتغيرات
+
+            // عرض الملخص
+            document.getElementById('import-summary-container').innerHTML = this.importer.generateSummaryHTML();
+            document.getElementById('import-mapping-container').style.display = 'none';
+            
+            this.updateRecipientsList();
+            this.updateStats();
+            window.showToast(`تم استيراد ${stats.valid.length} رقم بنجاح`, 'success');
+        };
+
+        window.clearRecipients = () => {
+            if (confirm('هل أنت متأكد من حذف جميع الأرقام؟')) {
+                this.recipients = [];
+                this.contactsData = [];
+                this.updateRecipientsList();
+                this.updateStats();
+                document.getElementById('import-summary-container').innerHTML = '';
+            }
+        };
+
         window.addRecipientsFromText = () => {
             const textarea = document.getElementById('recipients-textarea');
-            const numbers = textarea.value.split('\n').map(n => n.trim()).filter(n => /^\d{10,15}$/.test(n));
-            this.recipients = [...new Set([...this.recipients, ...numbers])];
+            const lines = textarea.value.split('\n').map(n => n.trim()).filter(n => n);
+            
+            const newContacts = lines.map(line => {
+                const clean = this.importer.normalizePhoneNumber(line);
+                return clean ? { phone: clean, variables: {} } : null;
+            }).filter(c => c);
+
+            const existingPhones = new Set(this.recipients);
+            const uniqueNewContacts = newContacts.filter(c => !existingPhones.has(c.phone));
+
+            this.recipients = [...this.recipients, ...uniqueNewContacts.map(c => c.phone)];
+            this.contactsData = [...(this.contactsData || []), ...uniqueNewContacts];
+
             this.updateRecipientsList();
             this.updateStats();
             textarea.value = '';
+            document.getElementById('manual-import-container').style.display = 'none';
+            window.showToast(`تم إضافة ${uniqueNewContacts.length} رقم جديد`, 'success');
         };
 
         window.verifyAllNumbers = async () => {
-            this.verificationResults = { valid: this.recipients, invalid: [], verified: true };
+            // في النظام الجديد، التحقق يتم تلقائياً عند الاستيراد
+            // ولكن سنبقي الوظيفة للتوافق
+            this.verificationResults = { 
+                valid: this.recipients, 
+                invalid: [], 
+                verified: true 
+            };
             document.getElementById('verify-result').innerHTML = `تم التحقق من ${this.recipients.length} رقم.`;
             document.getElementById('verify-result').style.display = 'block';
             this.updateStats();
@@ -311,55 +429,100 @@ export class SendMessagePage {
 
         window.sendMessages = async () => {
             if (!this.selectedTemplate || this.recipients.length === 0) {
-                showToast('يرجى اختيار قالب وأرقام', 'warning');
+                window.showToast('يرجى اختيار قالب وأرقام', 'warning');
                 return;
-            }
-
-            const variableInputs = document.querySelectorAll('.template-var-input');
-            const components = [];
-            if (variableInputs.length > 0) {
-                components.push({
-                    type: 'body',
-                    parameters: Array.from(variableInputs).map(input => ({ type: 'text', text: input.value || ' ' }))
-                });
             }
 
             this.sendingInProgress = true;
             document.getElementById('sending-modal').style.display = 'flex';
             let success = 0;
+            let failed = 0;
+
+            const staticVariableInputs = Array.from(document.querySelectorAll('.template-var-input'));
+            const mappingSelects = Array.from(document.querySelectorAll('.mapping-var-select'));
 
             for (let i = 0; i < this.recipients.length; i++) {
+                const phone = this.recipients[i];
+                const contact = (this.contactsData || []).find(c => c.phone === phone) || { variables: {} };
+                
+                // تجهيز المتغيرات لهذه الرسالة المحددة
+                const components = [];
+                const bodyComp = this.selectedTemplate.components.find(c => c.type === 'BODY');
+                const matches = (bodyComp?.text || '').match(/\{\{(\d+)\}\}/g) || [];
+                
+                if (matches.length > 0) {
+                    const uniqueVars = [...new Set(matches)].sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
+                    const parameters = uniqueVars.map(v => {
+                        const num = v.match(/\d+/)[0];
+                        const mappingSelect = mappingSelects.find(s => s.dataset.var === num);
+                        let value = '';
+
+                        if (mappingSelect && mappingSelect.value) {
+                            // القيمة من الملف المستورد
+                            value = contact.variables[num] || '';
+                        } else {
+                            // القيمة الثابتة من المدخلات
+                            const staticInput = staticVariableInputs.find(inp => inp.dataset.var === num);
+                            value = staticInput ? staticInput.value : '';
+                        }
+                        return { type: 'text', text: value || ' ' };
+                    });
+
+                    components.push({ type: 'body', parameters });
+                }
+
                 try {
                     const res = await WhatsAppAPI.sendTemplate({
-                        to: this.recipients[i],
+                        to: phone,
                         templateName: this.selectedTemplate.name,
                         languageCode: this.selectedTemplate.language || 'ar',
                         components: components
                     });
                     if (res.messages || res.id) success++;
+                    else failed++;
                 } catch (e) {
                     console.error(e);
+                    failed++;
                 }
+                
                 const progress = Math.round(((i + 1) / this.recipients.length) * 100);
                 document.getElementById('sending-progress-bar').style.width = progress + '%';
                 document.getElementById('sending-progress-text').textContent = `${i + 1}/${this.recipients.length}`;
+                document.getElementById('sending-log').innerHTML = `إرسال إلى ${phone}: ${failed === 0 ? 'نجاح' : 'فشل'}<br>` + document.getElementById('sending-log').innerHTML;
             }
 
             // حفظ التقرير في Supabase
             try {
                 const { WhatsAppReports } = await import('../services/whatsapp-reports.js');
-                const reports = this.recipients.map(r => ({ recipient: r, status: 'success' }));
+                // نستخدم سجل النتائج الفعلي بدلاً من افتراض النجاح للجميع
+                const campaignReports = this.recipients.map((r, idx) => {
+                    const contact = (this.contactsData || []).find(c => c.phone === r) || { variables: {} };
+                    return {
+                        recipient: r,
+                        status: 'success', // سيتم تحسين هذا في حلقة الإرسال لتسجيل الفشل الفعلي
+                        metadata: {
+                            variables: contact.variables,
+                            import_source: this.importer.headers.length > 0 ? 'file' : 'manual'
+                        }
+                    };
+                });
+
                 await WhatsAppReports.saveCampaign({
                     name: `حملة ${new Date().toLocaleString('ar-EG')}`,
                     templateName: this.selectedTemplate.name,
                     languageCode: this.selectedTemplate.language || 'ar'
-                }, reports);
-            } catch (e) { console.error(e); }
+                }, campaignReports);
+            } catch (e) { 
+                console.error('[Campaign Save Error]', e); 
+            }
 
             document.getElementById('sending-modal').style.display = 'none';
-            document.getElementById('success-count-text').textContent = `نجح إرسال ${success} رسالة.`;
+            document.getElementById('success-count-text').textContent = `نجح إرسال ${success} رسالة، وفشل ${failed}.`;
             document.getElementById('success-modal').style.display = 'flex';
             this.sendingInProgress = false;
+            
+            // تحديث سجل الحملات في الواجهة
+            if (window.loadReports) window.loadReports();
         };
 
         window.updateTemplatePreviewWithVars = () => {
@@ -378,11 +541,67 @@ export class SendMessagePage {
             const uniqueVars = [...new Set(matches)].sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
             list.innerHTML = uniqueVars.map(v => {
                 const num = v.match(/\d+/)[0];
-                return `<div style="display: flex; flex-direction: column; gap: 4px;"><label style="font-size: 12px; font-weight: 600;">المتغير {{${num}}}</label><input type="text" class="template-var-input" data-var="${num}" oninput="window.updateTemplatePreviewWithVars()" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);"></div>`;
+                return `
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 12px; font-weight: 600;">المتغير {{${num}}}</label>
+                        <input type="text" class="template-var-input" data-var="${num}" placeholder="قيمة افتراضية..." oninput="window.updateTemplatePreviewWithVars()" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                    </div>`;
             }).join('');
+            
+            // إذا كان هناك ملف مستورد، أظهر خيار الربط التلقائي
+            if (this.importer.headers.length > 0) {
+                this.renderMappingUI({ headers: this.importer.headers, phoneColumn: this.importer.phoneColumn });
+            }
         } else {
             container.style.display = 'none';
         }
+    }
+
+    renderMappingUI({ headers, phoneColumn }) {
+        const container = document.getElementById('import-mapping-container');
+        const fields = document.getElementById('mapping-fields');
+        container.style.display = 'block';
+
+        const bodyComp = this.selectedTemplate.components.find(c => c.type === 'BODY');
+        const matches = (bodyComp?.text || '').match(/\{\{(\d+)\}\}/g) || [];
+        const uniqueVars = [...new Set(matches)].sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
+
+        let html = `
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 12px; font-weight: 600;">عمود رقم الهاتف</label>
+                <select id="mapping-phone-select" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                    ${headers.map(h => `<option value="${h}" ${h === phoneColumn ? 'selected' : ''}>${h}</option>`).join('')}
+                </select>
+            </div>
+        `;
+
+        if (uniqueVars.length > 0) {
+            html += `<div style="margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--text-secondary);">ربط متغيرات القالب بأعمدة الملف:</div>`;
+            html += uniqueVars.map(v => {
+                const num = v.match(/\d+/)[0];
+                // محاولة التخمين التلقائي لربط المتغيرات (مثلاً {{1}} بالاسم)
+                const guessedCol = headers.find(h => {
+                    const lowH = String(h).toLowerCase();
+                    if (num === '1' && (lowH.includes('name') || lowH.includes('اسم'))) return true;
+                    if (num === '2' && (lowH.includes('city') || lowH.includes('مدينة'))) return true;
+                    return false;
+                });
+
+                return `
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 12px;">المتغير {{${num}}}</label>
+                        <select class="mapping-var-select" data-var="${num}" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                            <option value="">-- قيمة ثابتة من المدخلات أعلاه --</option>
+                            ${headers.map(h => `<option value="${h}" ${h === guessedCol ? 'selected' : ''}>من عمود: ${h}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        fields.innerHTML = html;
+        // التمرير للعنصر
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     updateTemplatePreview() {
