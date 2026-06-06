@@ -60,6 +60,46 @@
     .progress-bar-wrap { background: var(--bg-elevated); border-radius: 99px; height: 6px; overflow: hidden; }
     .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); transition: width 1s ease; }
 
+    .activity-item-expanded {
+      display: flex; gap: 16px; padding: 14px; margin-bottom: 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      align-items: flex-start;
+      transition: all var(--transition);
+    }
+    .activity-item-expanded:hover {
+      border-color: var(--brand-primary);
+      background: var(--bg-elevated);
+    }
+    .activity-item-expanded .activity-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      margin-top: 3px; flex-shrink: 0;
+    }
+    .activity-item-expanded .activity-content {
+      flex: 1;
+    }
+    .activity-item-expanded .activity-header {
+      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;
+    }
+    .activity-item-expanded .activity-title {
+      font-weight: 600; color: var(--text-primary); font-size: 14px;
+    }
+    .activity-item-expanded .activity-time {
+      font-size: 11px; color: var(--text-muted);
+    }
+    .activity-item-expanded .activity-description {
+      font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 6px;
+    }
+    .activity-item-expanded .activity-meta {
+      display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted);
+    }
+    .activity-meta-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px; background: rgba(0, 119, 204, 0.08);
+      color: var(--brand-primary); font-weight: 500;
+    }
+
     .connect-warning {
       background: rgba(255, 179, 0, 0.08);
       border: 1px solid rgba(255, 179, 0, 0.2);
@@ -424,92 +464,22 @@
           </div>
         </div>
 
-        <!-- Two-column layout -->
-        <div class="grid-2">
-          <!-- Activity Feed -->
-          <div class="section-card">
-            <div class="section-card-header">
-              <div class="section-card-title">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                آخر الأنشطة
-              </div>
-              <button class="btn btn-ghost btn-sm">عرض الكل</button>
+        <!-- Activity Feed Section -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-card-title">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              آخر الأنشطة
             </div>
-            <div class="section-card-body">
-              <div class="activity-feed">
-                <div class="activity-item">
-                  <div class="activity-dot green"></div>
-                  <div class="activity-text"><strong>رسالة ترحيب</strong> تم إرسالها إلى +966 5x xxx xxxx</div>
-                  <div class="activity-time">منذ 2 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot blue"></div>
-                  <div class="activity-text">قالب <strong>تأكيد الطلب</strong> تمت الموافقة عليه من Meta</div>
-                  <div class="activity-time">منذ 15 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot green"></div>
-                  <div class="activity-text">Webhook استقبل <strong>8 رسائل واردة</strong> جديدة</div>
-                  <div class="activity-time">منذ 32 د</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot orange"></div>
-                  <div class="activity-text">تحذير: اقتربت من حد الإرسال اليومي <strong>(80%)</strong></div>
-                  <div class="activity-time">منذ 1 س</div>
-                </div>
-                <div class="activity-item">
-                  <div class="activity-dot blue"></div>
-                  <div class="activity-text">تم تجديد <strong>Access Token</strong> بنجاح</div>
-                  <div class="activity-time">منذ 3 س</div>
-                </div>
-              </div>
-            </div>
+            <button class="btn btn-ghost btn-sm" onclick="window.loadActivityFeed && window.loadActivityFeed()">تحديث</button>
           </div>
-
-          <!-- Usage & Limits -->
-          <div class="section-card">
-            <div class="section-card-header">
-              <div class="section-card-title">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <line x1="12" y1="2" x2="12" y2="22"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                استخدام الخطة
-              </div>
-              <span class="badge success">نشط</span>
-            </div>
-            <div class="section-card-body">
-              <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">رسائل اليوم</span>
-                    <span class="text-sm font-semibold">1,284 / 5,000</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 25.6%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">قوالب مُعتمدة</span>
-                    <span class="text-sm font-semibold">7 / 10</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 70%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-secondary">حد الـ API الشهري</span>
-                    <span class="text-sm font-semibold">45,320 / 100,000</span>
-                  </div>
-                  <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill" style="width: 45.32%"></div>
-                  </div>
-                </div>
+          <div class="section-card-body">
+            <div class="activity-feed" id="activity-feed-container">
+              <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                جاري تحميل الأنشطة...
               </div>
             </div>
           </div>

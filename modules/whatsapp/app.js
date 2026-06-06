@@ -18,6 +18,7 @@ import { SettingsPage } from './pages/SettingsPage.js';
 import { DeveloperSettingsPage } from './pages/DeveloperSettingsPage.js';
 import { SendMessagePage } from './pages/SendMessagePage.js';
 import { CampaignReportPage } from './pages/CampaignReportPage.js';
+import { ActivityFeedPage } from './pages/ActivityFeedPage.js';
 import { WhatsAppAPI } from './services/whatsapp-api.js';
 
 // ─── Navigation ───────────────────────────────────────
@@ -86,6 +87,7 @@ let settingsPage = null;
 let developerSettingsPage = null;
 let sendMessagePage = null;
 let campaignReportPage = null;
+let activityFeedPage = null;
 let businessPhoneNumber = '';
 
 // ─── Initialization ──────────────────────────────────
@@ -114,6 +116,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     await updateConnectionStatus();
     await updateDashboard();
+    await loadActivityFeed();
 
     OAuthService.subscribe((state) => {
       console.log('[App] OAuth state changed:', state);
@@ -998,6 +1001,21 @@ window.handleSync = async function() {
 window.handleReports = function() {
   showToast('التقارير قيد التطوير', 'info');
 };
+
+// ─── Activity Feed Handler ──────────────────────
+
+async function loadActivityFeed() {
+  const container = document.getElementById('activity-feed-container');
+  if (!container) return;
+
+  if (!activityFeedPage) {
+    activityFeedPage = new ActivityFeedPage(container);
+  }
+
+  await activityFeedPage.load();
+}
+
+window.loadActivityFeed = loadActivityFeed;
 
 // ─── Notifications Handler ──────────────────────
 
