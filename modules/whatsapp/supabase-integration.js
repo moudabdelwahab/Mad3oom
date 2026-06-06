@@ -371,9 +371,11 @@ export const SupabaseIntegration = {
       const cleanPhone = String(phone).replace(/\D/g, '');
       if (!cleanPhone) return { isOpen: false };
 
+      // In the database, the column is 'last_interaction' based on ActivityFeedPage.js
+      // We'll also check for 'last_inbound_message_at' just in case, but using last_interaction for 24h window
       const { data, error } = await supabase
         .from('bot_user_states')
-        .select('last_inbound_message_at')
+        .select('*')
         .eq('user_id', userId)
         .eq('phone_number', cleanPhone)
         .maybeSingle();
@@ -383,9 +385,11 @@ export const SupabaseIntegration = {
         return null;
       }
 
-      if (!data?.last_inbound_message_at) return { isOpen: false };
+      // Use last_inbound_message_at if available, otherwise last_interaction
+      const lastInteractionTime = data?.last_inbound_message_at || data?.last_interaction;
+      if (!lastInteractionTime) return { isOpen: false };
 
-      const lastInbound = new Date(data.last_inbound_message_at);
+      const lastInbound = new Date(lastInteractionTime);
       const now = new Date();
       const diffHours = (now - lastInbound) / (1000 * 60 * 60);
 

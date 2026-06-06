@@ -165,28 +165,23 @@ export class WhatsAppAPI {
   }
 
   static async checkTemplateEligibility(phoneNumbers) {
-    const integration = await SupabaseIntegration.getIntegration();
-    if (!integration?.access_token) {
-      throw new Error('يرجى ربط حساب WhatsApp أولاً');
-    }
+    try {
+      const supabase = await SupabaseIntegration.initializeSupabase();
+      
+      // Call the Supabase Edge Function using the client to handle CORS and Auth automatically
+      const { data, error } = await supabase.functions.invoke('check-template-eligibility', {
+        body: { phone_numbers: phoneNumbers }
+      });
 
-    // Call the Supabase Edge Function
-    const supabaseUrl = 'https://srnelrdpqkcntbgudyto.supabase.co';
-    const response = await fetch(`${supabaseUrl}/functions/v1/check-template-eligibility`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${integration.access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        phone_numbers: phoneNumbers
-      })
-    });
+      if (error) {
+        console.error('[WhatsAppAPI] Eligibility check error:', error);
+        throw new Error(error.message || 'فشل التحقق من الأهلية');
+      }
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'فشل التحقق من الأهلية');
+      return data;
+    } catch (error) {
+      console.error('[WhatsAppAPI] Eligibility check failed:', error);
+      throw error;
     }
-    return data;
   }
 }
