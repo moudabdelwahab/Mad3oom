@@ -162,4 +162,30 @@ export class WhatsAppAPI {
       }),
     });
   }
+
+  static async checkTemplateEligibility(phoneNumbers) {
+    const integration = await SupabaseIntegration.getIntegration();
+    if (!integration?.access_token) {
+      throw new Error('يرجى ربط حساب WhatsApp أولاً');
+    }
+
+    // Call the Supabase Edge Function
+    const supabaseUrl = localStorage.getItem('mad3oom_supabase_url') || 'https://your-project.supabase.co';
+    const response = await fetch(`${supabaseUrl}/functions/v1/check-template-eligibility`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${integration.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        phone_numbers: phoneNumbers
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'فشل التحقق من الأهلية');
+    }
+    return data;
+  }
 }

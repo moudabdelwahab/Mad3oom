@@ -63,6 +63,7 @@ export class SendMessagePage {
             
             this.render();
             this.checkBillingAlert();
+            this.setupWindowChecks();
         } catch (error) {
             this.container.innerHTML = `
                 <div style="padding: 40px; text-align: center;">
@@ -213,210 +214,168 @@ export class SendMessagePage {
                             <div class="section-card-header">
                                 <div class="section-card-title" style="font-size: 14px;">سجل الحملات الأخيرة</div>
                             </div>
-                            <div class="section-card-body" id="campaign-history-list" style="padding: 0; max-height: 300px; overflow-y: auto;">
-                                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">لا توجد حملات سابقة</div>
+                            <div class="section-card-body" id="campaign-history-list" style="font-size: 12px; color: var(--text-secondary); max-height: 200px; overflow-y: auto;">
+                                لا توجد حملات سابقة
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <div id="sending-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                    <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%;">
+                        <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">جاري إرسال الرسائل...</h3>
+                        <div class="progress-bar-wrap" style="margin-bottom: 16px;">
+                            <div class="progress-bar-fill" id="sending-progress-bar" style="width: 0%;"></div>
+                        </div>
+                        <div style="text-align: center; margin-bottom: 16px; font-size: 14px;">
+                            <span id="sending-progress-text">0/0</span>
+                        </div>
+                        <div id="sending-log" style="background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); max-height: 150px; overflow-y: auto; font-family: monospace;"></div>
+                    </div>
+                </div>
+
+                <div id="success-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                    <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%; text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                        <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">تم إرسال الرسائل</h3>
+                        <p id="success-count-text" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
+                        <button class="btn btn-primary" onclick="document.getElementById('success-modal').style.display = 'none'; window.resetSendForm ? window.resetSendForm() : location.reload();" style="width: 100%;">حسناً</button>
+                    </div>
+                </div>
             </div>
-            ${this.renderModals()}
         `;
-        this.setupEventListeners();
+
+        this.attachEventListeners();
     }
 
     renderTemplateSelector(approved, pending, rejected) {
-        let html = '<div style="display: flex; flex-direction: column; gap: 16px;">';
+        let html = '';
+        
         if (approved.length > 0) {
-            html += `<div><div style="font-size: 13px; font-weight: 700; color: var(--status-success); margin-bottom: 12px;">القوالب المقبولة (${approved.length})</div><div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">${approved.map(tpl => this.renderTemplateCard(tpl, 'approved')).join('')}</div></div>`;
+            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">✅ قوالب موافق عليها</div>`;
+            html += approved.map(t => `
+                <div style="padding: 12px; margin-bottom: 8px; border: 2px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition);" 
+                     onmouseover="this.style.borderColor='var(--brand-primary)'; this.style.background='var(--bg-elevated)'"
+                     onmouseout="this.style.borderColor='var(--border-subtle)'; this.style.background='transparent'"
+                     onclick="window.selectTemplate && window.selectTemplate('${t.name}')">
+                    <div style="font-weight: 600; margin-bottom: 4px;">${t.name}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">${t.category}</div>
+                </div>
+            `).join('');
+            html += '</div>';
         }
-        if (pending.length > 0) {
-            html += `<div><div style="font-size: 13px; font-weight: 700; color: var(--status-warning); margin-bottom: 12px;">قيد المراجعة (${pending.length})</div><div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">${pending.map(tpl => this.renderTemplateCard(tpl, 'pending')).join('')}</div></div>`;
-        }
-        if (rejected.length > 0) {
-            html += `<div><div style="font-size: 13px; font-weight: 700; color: var(--status-error); margin-bottom: 12px;">المرفوضة (${rejected.length})</div><div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">${rejected.map(tpl => this.renderTemplateCard(tpl, 'rejected')).join('')}</div></div>`;
-        }
-        html += '</div>';
-        return html;
-    }
 
-    renderTemplateCard(template, status) {
-        const body = template.components.find(c => c.type === 'BODY')?.text || '';
-        const isDisabled = status !== 'approved';
-        return `
-            <div class="template-card" onclick="${isDisabled ? '' : `window.selectTemplate('${template.name}')`}" 
-                 style="padding: 12px; border: 2px solid var(--border-subtle); border-radius: var(--radius-md); cursor: ${isDisabled ? 'not-allowed' : 'pointer'}; transition: all 0.2s; background: var(--bg-elevated); opacity: ${isDisabled ? '0.6' : '1'};">
-                <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 4px;">${template.name}</div>
-                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${body}</div>
-            </div>
-        `;
+        if (pending.length > 0) {
+            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--status-warning); margin-bottom: 8px;">⏳ قيد المراجعة</div>`;
+            html += pending.map(t => `<div style="padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); opacity: 0.6;">${t.name}</div>`).join('');
+            html += '</div>';
+        }
+
+        if (rejected.length > 0) {
+            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--status-error); margin-bottom: 8px;">❌ مرفوضة</div>`;
+            html += rejected.map(t => `<div style="padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); opacity: 0.6;">${t.name}</div>`).join('');
+            html += '</div>';
+        }
+
+        return html || '<div style="color: var(--text-muted);">لا توجد قوالب متاحة</div>';
     }
 
     renderRecipientsSection() {
         return `
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- خيارات الاستيراد -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-import-input').click()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        استيراد Excel / CSV
-                    </button>
-                    <input type="file" id="file-import-input" style="display: none;" accept=".csv, .xlsx, .xls" onchange="window.handleFileImport(event)">
-                    
-                    <button class="btn btn-secondary btn-sm" onclick="window.showManualImport()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        إدخال يدوي
-                    </button>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="manual-phone-input" placeholder="أدخل رقم هاتف..." style="flex: 1; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary);">
+                    <button class="btn btn-secondary" onclick="window.addManualPhone && window.addManualPhone()" style="padding: 10px 16px;">إضافة</button>
                 </div>
-
-                <!-- حاوية المعاينة والخرائط (تظهر بعد اختيار ملف) -->
-                <div id="import-mapping-container" style="display: none; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-                    <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px;">إعدادات الاستيراد</div>
-                    <div id="mapping-fields" style="display: flex; flex-direction: column; gap: 12px;"></div>
-                    <button class="btn btn-primary btn-sm" style="width: 100%; margin-top: 16px;" onclick="window.confirmImport()">تأكيد الاستيراد</button>
+                <button class="btn btn-secondary" style="width: 100%; padding: 10px;" onclick="document.getElementById('manual-import-container').style.display = document.getElementById('manual-import-container').style.display === 'none' ? 'block' : 'none';">استيراد من ملف</button>
+                <div id="manual-import-container" style="display: none; padding: 12px; background: var(--bg-surface); border-radius: var(--radius-md);">
+                    <input type="file" id="import-file" accept=".csv,.xlsx,.xls" style="width: 100%; margin-bottom: 8px;">
+                    <button class="btn btn-secondary" style="width: 100%; padding: 8px;" onclick="window.importContacts && window.importContacts();">استيراد</button>
                 </div>
-
-                <!-- الإدخال اليدوي (مخفي افتراضياً) -->
-                <div id="manual-import-container" style="display: none; flex-direction: column; gap: 12px;">
-                    <textarea id="recipients-textarea" placeholder="أدخل الأرقام هنا (رقم في كل سطر)..." style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-primary); min-height: 100px;"></textarea>
-                    <button class="btn btn-secondary btn-sm" onclick="window.addRecipientsFromText()">إضافة الأرقام</button>
-                </div>
-
-                <!-- ملخص الاستيراد -->
-                <div id="import-summary-container"></div>
-
                 <div id="recipients-list-container" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="font-size: 12px; font-weight: 600;">قائمة الأرقام المستوردة</div>
-                        <button class="btn btn-ghost btn-sm" style="color: var(--status-error); padding: 2px 8px;" onclick="window.clearRecipients()">حذف الكل</button>
-                    </div>
-                    <div id="recipients-list" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--bg-surface); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);"></div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">الأرقام المضافة:</div>
+                    <div id="recipients-list" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 8px;"></div>
                 </div>
             </div>
         `;
     }
 
     renderVerificationSection() {
-        return `<button class="btn btn-secondary" onclick="window.verifyAllNumbers()" id="verify-all-btn" style="width: 100%;">فحص الأرقام</button><div id="verify-result" style="display: none; margin-top: 12px; font-size: 13px;"></div>`;
-    }
-
-    renderModals() {
         return `
-            <div id="sending-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
-                <div style="background: var(--bg-card); padding: 32px; border-radius: var(--radius-lg); width: 90%; max-width: 400px; text-align: center;">
-                    <h3 style="margin-bottom: 20px;">جاري الإرسال...</h3>
-                    <div style="background: var(--bg-elevated); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
-                        <div id="sending-progress-bar" style="background: var(--brand-primary); height: 100%; width: 0%;"></div>
-                    </div>
-                    <div id="sending-progress-text" style="font-size: 14px;">0/0</div>
-                    <div id="sending-log" style="font-size: 12px; color: var(--text-muted); margin-top: 15px; max-height: 100px; overflow-y: auto;"></div>
-                </div>
-            </div>
-            <div id="success-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
-                <div style="background: var(--bg-card); padding: 32px; border-radius: var(--radius-lg); width: 90%; max-width: 400px; text-align: center;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
-                    <h3>تم الإرسال بنجاح</h3>
-                    <p id="success-count-text" style="margin: 15px 0;"></p>
-                    <button class="btn btn-primary" onclick="document.getElementById('success-modal').style.display = 'none'" style="width: 100%;">إغلاق</button>
-                </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-secondary" style="width: 100%; padding: 10px;" onclick="window.verifyAllNumbers && window.verifyAllNumbers();">فحص الأرقام</button>
+                <div id="verify-result" style="display: none; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary);"></div>
             </div>
         `;
     }
 
-    setupEventListeners() {
+    attachEventListeners() {
         window.selectTemplate = (templateName) => {
             this.selectedTemplate = this.templates.find(t => t.name === templateName);
             if (this.selectedTemplate) {
-                this.updateTemplatePreview();
                 this.renderVariableInputs();
-                document.querySelectorAll('.template-card').forEach(card => {
-                    card.style.borderColor = 'var(--border-subtle)';
-                    card.style.background = 'var(--bg-elevated)';
-                });
+                this.updateTemplatePreview();
+                window.showToast(`تم اختيار القالب: ${templateName}`, 'success');
             }
         };
 
-        window.showManualImport = () => {
-            const container = document.getElementById('manual-import-container');
-            container.style.display = container.style.display === 'none' ? 'flex' : 'none';
-        };
-
-        window.handleFileImport = async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            try {
-                window.showToast('جاري قراءة الملف...', 'info');
-                const result = await this.importer.readFile(file);
-                this.renderMappingUI(result);
-            } catch (error) {
-                window.showToast('خطأ في قراءة الملف: ' + error.message, 'error');
+        window.addManualPhone = () => {
+            const input = document.getElementById('manual-phone-input');
+            const phone = input.value.trim();
+            if (!phone) {
+                window.showToast('يرجى إدخال رقم هاتف', 'warning');
+                return;
             }
-        };
-
-        window.confirmImport = () => {
-            const phoneCol = document.getElementById('mapping-phone-select').value;
-            const mapping = {};
-            
-            // جمع ربط المتغيرات
-            document.querySelectorAll('.mapping-var-select').forEach(select => {
-                if (select.value) {
-                    mapping[select.dataset.var] = select.value;
-                }
-            });
-
-            const stats = this.importer.process(phoneCol, mapping);
-            this.recipients = stats.valid.map(c => c.phone);
-            this.contactsData = stats.valid; // حفظ البيانات الكاملة للمتغيرات
-
-            // عرض الملخص
-            document.getElementById('import-summary-container').innerHTML = this.importer.generateSummaryHTML();
-            document.getElementById('import-mapping-container').style.display = 'none';
-            
-            this.updateRecipientsList();
-            this.updateStats();
-            window.showToast(`تم استيراد ${stats.valid.length} رقم بنجاح`, 'success');
-        };
-
-        window.clearRecipients = () => {
-            if (confirm('هل أنت متأكد من حذف جميع الأرقام؟')) {
-                this.recipients = [];
-                this.contactsData = [];
+            const clean = phone.replace(/\D/g, '');
+            if (clean.length < 10) {
+                window.showToast('رقم الهاتف قصير جداً', 'error');
+                return;
+            }
+            if (!this.recipients.includes(clean)) {
+                this.recipients.push(clean);
+                this.contactsData = this.contactsData || [];
+                this.contactsData.push({ phone: clean, variables: {} });
                 this.updateRecipientsList();
                 this.updateStats();
-                document.getElementById('import-summary-container').innerHTML = '';
+                input.value = '';
+                window.showToast('تم إضافة الرقم بنجاح', 'success');
+            } else {
+                window.showToast('الرقم موجود بالفعل', 'warning');
             }
         };
 
-        window.addRecipientsFromText = () => {
-            const textarea = document.getElementById('recipients-textarea');
-            const lines = textarea.value.split('\n').map(n => n.trim()).filter(n => n);
-            
-            const newContacts = lines.map(line => {
-                const clean = this.importer.normalizePhoneNumber(line);
-                return clean ? { phone: clean, variables: {} } : null;
-            }).filter(c => c);
+        window.importContacts = async () => {
+            const file = document.getElementById('import-file').files[0];
+            if (!file) {
+                window.showToast('يرجى اختيار ملف', 'warning');
+                return;
+            }
 
-            const existingPhones = new Set(this.recipients);
-            const uniqueNewContacts = newContacts.filter(c => !existingPhones.has(c.phone));
+            try {
+                const newContacts = await this.importer.parseFile(file);
+                const textarea = document.getElementById('manual-import-container')?.querySelector('input') || { value: '' };
+                const clean = newContacts.map(c => {
+                    const phone = (c.phone || '').replace(/\D/g, '');
+                    return clean ? { phone: clean, variables: {} } : null;
+                }).filter(c => c);
 
-            this.recipients = [...this.recipients, ...uniqueNewContacts.map(c => c.phone)];
-            this.contactsData = [...(this.contactsData || []), ...uniqueNewContacts];
+                const existingPhones = new Set(this.recipients);
+                const uniqueNewContacts = newContacts.filter(c => !existingPhones.has(c.phone));
 
-            this.updateRecipientsList();
-            this.updateStats();
-            textarea.value = '';
-            document.getElementById('manual-import-container').style.display = 'none';
-            window.showToast(`تم إضافة ${uniqueNewContacts.length} رقم جديد`, 'success');
+                this.recipients = [...this.recipients, ...uniqueNewContacts.map(c => c.phone)];
+                this.contactsData = [...(this.contactsData || []), ...uniqueNewContacts];
+
+                this.updateRecipientsList();
+                this.updateStats();
+                textarea.value = '';
+                document.getElementById('manual-import-container').style.display = 'none';
+                window.showToast(`تم إضافة ${uniqueNewContacts.length} رقم جديد`, 'success');
+            } catch (error) {
+                window.showToast('خطأ في استيراد الملف: ' + error.message, 'error');
+            }
         };
 
         window.verifyAllNumbers = async () => {
-            // في النظام الجديد، التحقق يتم تلقائياً عند الاستيراد
-            // ولكن سنبقي الوظيفة للتوافق
             this.verificationResults = { 
                 valid: this.recipients, 
                 invalid: [], 
@@ -427,9 +386,62 @@ export class SendMessagePage {
             this.updateStats();
         };
 
+        this.setupWindowChecks = () => {
+            const list = document.getElementById('recipients-list');
+            if (!list) return;
+            
+            const observer = new MutationObserver(() => this.updateWindowBadges());
+            observer.observe(list, { childList: true });
+        };
+
+        this.updateWindowBadges = async () => {
+            const items = document.querySelectorAll('.recipient-item');
+            for (const item of items) {
+                const phone = item.dataset.phone;
+                if (!phone) continue;
+                
+                const badge = item.querySelector('.window-badge');
+                if (badge && badge.dataset.checked === 'true') continue;
+
+                const windowInfo = await SupabaseIntegration.checkConversationWindow(phone);
+                if (windowInfo) {
+                    const badgeEl = item.querySelector('.window-badge');
+                    if (badgeEl) {
+                        badgeEl.dataset.checked = 'true';
+                        if (windowInfo.isOpen) {
+                            badgeEl.innerHTML = '✅ نافذة مفتوحة (مجاني)';
+                            badgeEl.style.color = 'var(--status-success)';
+                        } else {
+                            badgeEl.innerHTML = '🔒 نافذة مغلقة (مدفوع)';
+                            badgeEl.style.color = 'var(--status-error)';
+                        }
+                    }
+                }
+            }
+        };
+
         window.sendMessages = async () => {
             if (!this.selectedTemplate || this.recipients.length === 0) {
                 window.showToast('يرجى اختيار قالب وأرقام', 'warning');
+                return;
+            }
+
+            try {
+                // التحقق من حالة الدفع والنوافذ عبر Backend
+                const eligibilityCheck = await WhatsAppAPI.checkTemplateEligibility(this.recipients);
+                
+                if (eligibilityCheck.eligibility_status === 'requires_billing') {
+                    window.showToast('❌ ' + eligibilityCheck.message, 'error');
+                    const confirm = window.confirm('تنبيه: ' + eligibilityCheck.message + '\n\nلا يوجد وسيلة دفع مرتبطة بحسابك. الرسائل لهذه الأرقام لن تصل. هل تريد الاستمرار على أي حال؟');
+                    if (!confirm) return;
+                } else if (eligibilityCheck.eligibility_status === 'free') {
+                    window.showToast('✅ ' + eligibilityCheck.message, 'success');
+                } else if (eligibilityCheck.eligibility_status === 'will_charge') {
+                    window.showToast('💳 ' + eligibilityCheck.message, 'info');
+                }
+            } catch (error) {
+                console.error('Eligibility check error:', error);
+                window.showToast('خطأ في التحقق من الأهلية: ' + error.message, 'error');
                 return;
             }
 
@@ -445,7 +457,6 @@ export class SendMessagePage {
                 const phone = this.recipients[i];
                 const contact = (this.contactsData || []).find(c => c.phone === phone) || { variables: {} };
                 
-                // تجهيز المتغيرات لهذه الرسالة المحددة
                 const components = [];
                 const bodyComp = this.selectedTemplate.components.find(c => c.type === 'BODY');
                 const matches = (bodyComp?.text || '').match(/\{\{(\d+)\}\}/g) || [];
@@ -458,10 +469,8 @@ export class SendMessagePage {
                         let value = '';
 
                         if (mappingSelect && mappingSelect.value) {
-                            // القيمة من الملف المستورد
                             value = contact.variables[num] || '';
                         } else {
-                            // القيمة الثابتة من المدخلات
                             const staticInput = staticVariableInputs.find(inp => inp.dataset.var === num);
                             value = staticInput ? staticInput.value : '';
                         }
@@ -491,15 +500,13 @@ export class SendMessagePage {
                 document.getElementById('sending-log').innerHTML = `إرسال إلى ${phone}: ${failed === 0 ? 'نجاح' : 'فشل'}<br>` + document.getElementById('sending-log').innerHTML;
             }
 
-            // حفظ التقرير في Supabase
             try {
                 const { WhatsAppReports } = await import('../services/whatsapp-reports.js');
-                // نستخدم سجل النتائج الفعلي بدلاً من افتراض النجاح للجميع
                 const campaignReports = this.recipients.map((r, idx) => {
                     const contact = (this.contactsData || []).find(c => c.phone === r) || { variables: {} };
                     return {
                         recipient: r,
-                        status: 'success', // سيتم تحسين هذا في حلقة الإرسال لتسجيل الفشل الفعلي
+                        status: 'success',
                         metadata: {
                             variables: contact.variables,
                             import_source: this.importer.headers.length > 0 ? 'file' : 'manual'
@@ -521,7 +528,6 @@ export class SendMessagePage {
             document.getElementById('success-modal').style.display = 'flex';
             this.sendingInProgress = false;
             
-            // تحديث سجل الحملات في الواجهة
             if (window.loadReports) window.loadReports();
         };
 
@@ -548,7 +554,6 @@ export class SendMessagePage {
                     </div>`;
             }).join('');
             
-            // إذا كان هناك ملف مستورد، أظهر خيار الربط التلقائي
             if (this.importer.headers.length > 0) {
                 this.renderMappingUI({ headers: this.importer.headers, phoneColumn: this.importer.phoneColumn });
             }
@@ -579,7 +584,6 @@ export class SendMessagePage {
             html += `<div style="margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--text-secondary);">ربط متغيرات القالب بأعمدة الملف:</div>`;
             html += uniqueVars.map(v => {
                 const num = v.match(/\d+/)[0];
-                // محاولة التخمين التلقائي لربط المتغيرات (مثلاً {{1}} بالاسم)
                 const guessedCol = headers.find(h => {
                     const lowH = String(h).toLowerCase();
                     if (num === '1' && (lowH.includes('name') || lowH.includes('اسم'))) return true;
@@ -600,7 +604,6 @@ export class SendMessagePage {
         }
 
         fields.innerHTML = html;
-        // التمرير للعنصر
         container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
@@ -631,7 +634,14 @@ export class SendMessagePage {
             return;
         }
         container.style.display = 'block';
-        list.innerHTML = this.recipients.map(n => `<div style="font-size: 12px; padding: 4px; border-bottom: 1px solid var(--border-subtle);">${n}</div>`).join('');
+        list.innerHTML = this.recipients.map(n => `
+            <div class="recipient-item" data-phone="${n}" style="font-size: 12px; padding: 8px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                <span>${n}</span>
+                <span class="window-badge" style="font-size: 10px; font-weight: 600; color: var(--text-muted);">جاري فحص النافذة...</span>
+            </div>
+        `).join('');
+        
+        if (this.updateWindowBadges) this.updateWindowBadges();
     }
 
     updateStats() {

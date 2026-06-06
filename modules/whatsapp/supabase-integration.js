@@ -361,4 +361,38 @@ export const SupabaseIntegration = {
   clearLocalIntegration,
   getDashboardStats,
   getWhatsAppChannels,
+  async checkConversationWindow(phone) {
+    try {
+      const supabase = await initializeSupabase();
+      const userId = await getCurrentUserId();
+      if (!userId) return null;
+
+      const { data, error } = await supabase
+        .from('bot_user_states')
+        .select('last_inbound_message_at')
+        .eq('user_id', userId)
+        .eq('phone_number', phone)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[WhatsApp Integration] Window check error:', error);
+        return null;
+      }
+
+      if (!data?.last_inbound_message_at) return { isOpen: false };
+
+      const lastInbound = new Date(data.last_inbound_message_at);
+      const now = new Date();
+      const diffHours = (now - lastInbound) / (1000 * 60 * 60);
+
+      return {
+        isOpen: diffHours < 24,
+        lastInboundAt: data.last_inbound_message_at,
+        hoursRemaining: Math.max(0, 24 - diffHours)
+      };
+    } catch (error) {
+      console.error('[WhatsApp Integration] Window check failed:', error);
+      return null;
+    }
+  }
 };
