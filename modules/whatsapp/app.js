@@ -883,14 +883,10 @@ async function updateDashboard() {
     }
 
     // Update Real Stats
-    document.getElementById('stat-sent-count').textContent = '—';
-    document.getElementById('stat-sent-change').textContent = 'جاري التحديث...';
+    updateStatsCounters();
     
     document.getElementById('stat-delivery-rate').textContent = (stats.qualityRating || '—');
     document.getElementById('stat-delivery-change').textContent = 'من Meta';
-
-    document.getElementById('stat-templates-count').textContent = '—';
-    document.getElementById('stat-templates-change').textContent = 'جاري التحديث...';
 
   } catch (error) {
     console.error('[App] Error updating dashboard:', error);
@@ -1053,3 +1049,48 @@ function showToast(message, type = 'info') {
 }
 
 window.showToast = showToast;
+
+async function updateStatsCounters() {
+  try {
+    const supabase = await SupabaseIntegration.initializeSupabase();
+    const userId = await SupabaseIntegration.getCurrentUserId();
+    if (!userId) return;
+
+    // 1. Get Today's Sent Messages Count
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { count: sentToday, error: msgError } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('direction', 'outbound')
+      .gte('timestamp', today.toISOString());
+
+    if (!msgError) {
+      document.getElementById('stat-sent-count').textContent = sentToday || 0;
+      document.getElementById('stat-sent-change').textContent = 'اليوم';
+      document.getElementById('stat-sent-change').style.color = 'var(--status-success)';
+    }
+
+    // 2. Get Active Templates Count from Meta API
+    try {
+      const templatesResponse = await WhatsAppAPI.getTemplates();
+      if (templatesResponse && templatesResponse.data) {
+        const activeTemplates = templatesResponse.data.filter(t => t.status === 'APPROVED').length;
+        document.getElementById('stat-templates-count').textContent = activeTemplates;
+        document.getElementById('stat-templates-change').textContent = 'قوالب معتمدة';
+        document.getElementById('stat-templates-change').style.color = 'var(--status-success)';
+      }
+    } catch (tplError) {
+      console.error('[App] Error fetching templates count:', tplError);
+      document.getElementById('stat-templates-count').textContent = '0';
+      document.getElementById('stat-templates-change').textContent = 'تحقق من الربط';
+    }
+
+  } catch (error) {
+    console.error('[App] Error updating stats counters:', error);
+  }
+}
+
+window.updateStatsCounters = updateStatsCounters;
