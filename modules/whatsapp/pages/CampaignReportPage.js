@@ -223,7 +223,7 @@ export class CampaignReportPage {
                 </div>
 
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
-                    <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border-radius: var(--radius-lg);">
+                    <div class="report-stat-card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">إجمالي المستلمين</span>
                             <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 119, 204, 0.1); color: var(--brand-primary); display: flex; align-items: center; justify-content: center;">
@@ -234,7 +234,7 @@ export class CampaignReportPage {
                         </div>
                         <span style="font-size: 28px; font-weight: 800; color: var(--text-primary);">${totalCount}</span>
                     </div>
-                    <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border-radius: var(--radius-lg); border-right: 4px solid var(--status-success);">
+                    <div class="report-stat-card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); border-right: 4px solid var(--status-success);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">تم التسليم بنجاح</span>
                             <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(76, 175, 80, 0.1); color: var(--status-success); display: flex; align-items: center; justify-content: center;">
@@ -245,7 +245,7 @@ export class CampaignReportPage {
                         </div>
                         <span style="font-size: 28px; font-weight: 800; color: var(--status-success);">${successCount}</span>
                     </div>
-                    <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border-radius: var(--radius-lg); border-right: 4px solid var(--status-error);">
+                    <div class="report-stat-card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); border-right: 4px solid var(--status-error);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">فشل الإرسال</span>
                             <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(244, 67, 54, 0.1); color: var(--status-error); display: flex; align-items: center; justify-content: center;">
@@ -258,7 +258,7 @@ export class CampaignReportPage {
                         </div>
                         <span style="font-size: 28px; font-weight: 800; color: var(--status-error);">${failCount}</span>
                     </div>
-                    <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border-radius: var(--radius-lg);">
+                    <div class="report-stat-card" style="padding: 24px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">معدل النجاح</span>
                             <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 136, 221, 0.1); color: var(--status-info); display: flex; align-items: center; justify-content: center;">
@@ -353,9 +353,12 @@ export class CampaignReportPage {
                 </div>
             </div>
             <style>
-                .dropdown-menu.show { display: block !important; }
-                .seg-tab.active { background: var(--brand-primary) !important; color: white !important; }
-                .seg-tab:not(.active):hover { background: rgba(255,255,255,0.05); }
+                .campaign-report-page .dropdown-menu.show { display: block !important; }
+                .campaign-report-page .seg-tab.active { background: var(--brand-primary) !important; color: white !important; }
+                .campaign-report-page .seg-tab:not(.active):hover { background: rgba(255,255,255,0.05); }
+                /* منع التداخل مع بطاقات الصفحات الأخرى */
+                .campaign-report-page .report-stat-card { transition: all 0.3s ease; }
+                .campaign-report-page .report-stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
             </style>
         `;
 
