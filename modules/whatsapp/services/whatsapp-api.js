@@ -116,7 +116,8 @@ export class WhatsAppAPI {
     const wabaId = integration?.metadata?.waba_account_id;
     if (!wabaId) throw new Error('WABA Account ID not found.');
     // Check billing info from Meta Business API
-    return graphFetch(`/${wabaId}?fields=billing_event_type,currency,message_template_namespace`);
+    // Updated fields for Meta Graph API v25.0 - billing_event_type is removed/deprecated in some contexts
+    return graphFetch(`/${wabaId}?fields=currency,message_template_namespace`);
   }
 
   static async updateBusinessProfile(profileData) {
