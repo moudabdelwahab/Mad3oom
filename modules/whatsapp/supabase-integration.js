@@ -367,11 +367,15 @@ export const SupabaseIntegration = {
       const userId = await getCurrentUserId();
       if (!userId) return null;
 
+      // Ensure phone number is clean (digits only)
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      if (!cleanPhone) return { isOpen: false };
+
       const { data, error } = await supabase
         .from('bot_user_states')
         .select('last_inbound_message_at')
         .eq('user_id', userId)
-        .eq('phone_number', phone)
+        .eq('phone_number', cleanPhone)
         .maybeSingle();
 
       if (error) {

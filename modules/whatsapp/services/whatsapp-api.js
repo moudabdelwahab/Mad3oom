@@ -171,7 +171,7 @@ export class WhatsAppAPI {
     }
 
     // Call the Supabase Edge Function
-    const supabaseUrl = localStorage.getItem('mad3oom_supabase_url') || 'https://your-project.supabase.co';
+    const supabaseUrl = 'https://srnelrdpqkcntbgudyto.supabase.co';
     const response = await fetch(`${supabaseUrl}/functions/v1/check-template-eligibility`, {
       method: 'POST',
       headers: {
