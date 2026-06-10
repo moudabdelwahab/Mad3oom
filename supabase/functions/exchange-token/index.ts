@@ -4,12 +4,6 @@
  * Meta OAuth Token Exchange Function
  * منصة مدعوم - وظيفة تبادل رموز Meta
  * =====================================================
- *
- * هذه الوظيفة تتعامل مع:
- * 1. استقبال authorization code من Meta
- * 2. تبديل الـ code برمز الوصول (access token)
- * 3. حفظ البيانات في Supabase
- * 4. إرجاع النتيجة للعميل
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
@@ -18,19 +12,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 const META_APP_ID = Deno.env.get("META_APP_ID") || "1510313544014876";
 const META_APP_SECRET = Deno.env.get("META_APP_SECRET");
 
-if (!META_APP_SECRET) {
-  throw new Error("META_APP_SECRET is not set in environment variables");
-}
-
 // ─── Supabase Client ─────────────────────────────────
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Supabase configuration is missing");
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+const supabase = createClient(supabaseUrl!, supabaseServiceRoleKey!);
 
 // ─── Main Handler ───────────────────────────────────
 
@@ -47,63 +33,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Only accept POST requests
     if (req.method !== "POST") {
-      return new Response(
-        JSON.stringify({ error: "Method not allowed" }),
-        {
-          status: 405,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Get the request body
     const body = await req.json();
     const { code, redirect_uri } = body;
 
-    if (!code || !redirect_uri) {
-      return new Response(
-        JSON.stringify({ error: "Missing code or redirect_uri" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+    if (!code) {
+      return new Response(JSON.stringify({ error: "Missing code" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Get the user from the Authorization header
-    const authHeader = req.headers.get("Authorization");
-    let userId: string | null = null;
-
-    if (authHeader) {
-      try {
-        const token = authHeader.replace("Bearer ", "");
-        const {
-          data: { user },
-        } = await supabase.auth.getUser(token);
-        userId = user?.id || null;
-      } catch (error) {
-        console.error("Failed to get user from token:", error);
-      }
-    }
-
-    // Exchange code for access token with Meta
+    // 1. Exchange code for access token with Meta
+    // Use graph.facebook.com for WhatsApp Business API
     const tokenResponse = await fetch(
-      "https://graph.instagram.com/v21.0/oauth/access_token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: META_APP_ID,
-          client_secret: META_APP_SECRET,
-          grant_type: "authorization_code",
-          redirect_uri: redirect_uri,
-          code: code,
-        }).toString(),
-      }
+      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&code=${code}&redirect_uri=${redirect_uri}`,
+      { method: "GET" }
     );
 
     if (!tokenResponse.ok) {
@@ -116,43 +67,70 @@ Deno.serve(async (req) => {
         }),
         {
           status: tokenResponse.status,
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         }
       );
     }
 
     const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
 
-    // Get WhatsApp Business Account info
-    let wabaInfo = {};
-    try {
-      const meResponse = await fetch(
-        `https://graph.instagram.com/me/accounts?access_token=${tokenData.access_token}`
+    // 2. Get Debug Token Info to get WABA and Phone Number ID
+    // In Embedded Signup, the token contains the shared WABA info
+    const debugResponse = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
+    );
+
+    let wabaInfo = {
+      phone_number_id: null,
+      waba_account_id: null,
+      business_account_id: null,
+      phone_number: null
+    };
+
+    if (debugResponse.ok) {
+      const debugData = await debugResponse.json();
+      const metadata = debugData.data?.metadata;
+      
+      if (metadata) {
+        // For WhatsApp Embedded Signup, metadata often contains these
+        wabaInfo.waba_account_id = metadata.waba_id || null;
+        wabaInfo.phone_number_id = metadata.phone_number_id || null;
+      }
+    }
+
+    // 3. Fallback: If not in debug_token, try to fetch from shared_waba_accounts
+    if (!wabaInfo.waba_account_id) {
+      const sharedWabaResponse = await fetch(
+        `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
       );
-
-      if (meResponse.ok) {
-        const meData = await meResponse.json();
-        if (meData.data && meData.data.length > 0) {
-          const account = meData.data[0];
-          wabaInfo = {
-            phone_number_id: account.phone_number_id,
-            waba_account_id: account.id,
-            business_account_id: account.business_account_id,
-          };
+      if (sharedWabaResponse.ok) {
+        const sharedData = await sharedWabaResponse.json();
+        if (sharedData.data && sharedData.data.length > 0) {
+          wabaInfo.waba_account_id = sharedData.data[0].id;
+          
+          // Now get phone numbers for this WABA
+          const phonesResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${wabaInfo.waba_account_id}/phone_numbers?access_token=${accessToken}`
+          );
+          if (phonesResponse.ok) {
+            const phonesData = await phonesResponse.json();
+            if (phonesData.data && phonesData.data.length > 0) {
+              wabaInfo.phone_number_id = phonesData.data[0].id;
+              wabaInfo.phone_number = phonesData.data[0].display_phone_number;
+            }
+          }
         }
       }
-    } catch (error) {
-      console.error("Failed to get WhatsApp Business Account info:", error);
     }
 
     // Return success response
     return new Response(
       JSON.stringify({
         success: true,
-        access_token: tokenData.access_token,
+        access_token: accessToken,
         token_type: tokenData.token_type || "Bearer",
         expires_in: tokenData.expires_in,
-        refresh_token: tokenData.refresh_token || null,
         ...wabaInfo,
       }),
       {
@@ -172,7 +150,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       }
     );
   }
