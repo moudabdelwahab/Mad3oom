@@ -1,8 +1,8 @@
 /**
  * =====================================================
  * supabase/functions/exchange-token/index.ts
- * Meta OAuth Token Exchange Function - Enhanced Version
- * منصة مدعوم - نسخة محسنة لجلب بيانات الواتساب
+ * Meta OAuth Token Exchange Function
+ * منصة مدعوم - وظيفة تبادل رموز Meta
  * =====================================================
  */
 
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { code, redirect_uri } = body;
+    const { code, redirect_uri, phone_number_id, waba_account_id } = body;
 
     if (!code) {
       return new Response(JSON.stringify({ error: "Missing code" }), {
@@ -74,87 +74,67 @@ Deno.serve(async (req) => {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    let wabaInfo = {
-      phone_number_id: null,
-      waba_account_id: null,
-      business_account_id: null,
-      phone_number: null
-    };
+    // 2. Determine WABA and Phone IDs
+    let finalWabaId = waba_account_id;
+    let finalPhoneId = phone_number_id;
+    let finalPhoneNumber = null;
 
-    // 2. Try Multiple Methods to get IDs
-    
-    // Method A: Debug Token (Fastest)
-    try {
-        const debugResponse = await fetch(
-            `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
-        );
-        if (debugResponse.ok) {
-            const debugData = await debugResponse.json();
-            const metadata = debugData.data?.metadata;
-            if (metadata) {
-                wabaInfo.waba_account_id = metadata.waba_id || null;
-                wabaInfo.phone_number_id = metadata.phone_number_id || null;
-            }
+    // 3. Fallback: If IDs are missing, fetch from Graph API
+    if (!finalWabaId || !finalPhoneId) {
+      console.log("[Exchange] IDs missing in request, fetching from Graph API Fallback...");
+      
+      const debugResponse = await fetch(
+        `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
+      );
+      
+      if (debugResponse.ok) {
+        const debugData = await debugResponse.json();
+        const metadata = debugData.data?.metadata;
+        if (metadata) {
+          if (!finalWabaId) finalWabaId = metadata.waba_id;
+          if (!finalPhoneId) finalPhoneId = metadata.phone_number_id;
         }
-    } catch (e) { console.error("Debug token failed", e); }
+      }
 
-    // Method B: Shared WABA Accounts (Reliable for embedded signup)
-    if (!wabaInfo.waba_account_id) {
-        try {
-            const sharedWabaResponse = await fetch(
-                `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
-            );
-            if (sharedWabaResponse.ok) {
-                const sharedData = await sharedWabaResponse.json();
-                if (sharedData.data && sharedData.data.length > 0) {
-                    wabaInfo.waba_account_id = sharedData.data[0].id;
-                }
-            }
-        } catch (e) { console.error("Shared WABA failed", e); }
+      if (!finalWabaId) {
+        const sharedWabaResponse = await fetch(
+          `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
+        );
+        if (sharedWabaResponse.ok) {
+          const sharedData = await sharedWabaResponse.json();
+          if (sharedData.data && sharedData.data.length > 0) {
+            finalWabaId = sharedData.data[0].id;
+          }
+        }
+      }
+
+      if (finalWabaId && !finalPhoneId) {
+        const phonesResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${finalWabaId}/phone_numbers?access_token=${accessToken}`
+        );
+        if (phonesResponse.ok) {
+          const phonesData = await phonesResponse.json();
+          if (phonesData.data && phonesData.data.length > 0) {
+            finalPhoneId = phonesData.data[0].id;
+            finalPhoneNumber = phonesData.data[0].display_phone_number;
+          }
+        }
+      }
     }
 
-    // Method C: Client Business Accounts (Last resort)
-    if (!wabaInfo.waba_account_id) {
-        try {
-            const bizResponse = await fetch(
-                `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`
-            );
-            if (bizResponse.ok) {
-                const bizData = await bizResponse.json();
-                if (bizData.data && bizData.data.length > 0) {
-                    wabaInfo.business_account_id = bizData.data[0].id;
-                }
-            }
-        } catch (e) { console.error("Biz accounts failed", e); }
-    }
-
-    // 3. Get Phone Number Details if we have WABA ID
-    if (wabaInfo.waba_account_id && !wabaInfo.phone_number_id) {
-        try {
-            const phonesResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${wabaInfo.waba_account_id}/phone_numbers?access_token=${accessToken}`
-            );
-            if (phonesResponse.ok) {
-                const phonesData = await phonesResponse.json();
-                if (phonesData.data && phonesData.data.length > 0) {
-                    wabaInfo.phone_number_id = phonesData.data[0].id;
-                    wabaInfo.phone_number = phonesData.data[0].display_phone_number;
-                }
-            }
-        } catch (e) { console.error("Fetching phones from WABA failed", e); }
-    }
-
-    // 4. Final attempt to get display name/number if we only have phone_number_id
-    if (wabaInfo.phone_number_id && !wabaInfo.phone_number) {
-        try {
-            const phoneDetailResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${wabaInfo.phone_number_id}?access_token=${accessToken}`
-            );
-            if (phoneDetailResponse.ok) {
-                const phoneDetailData = await phoneDetailResponse.json();
-                wabaInfo.phone_number = phoneDetailData.display_phone_number || null;
-            }
-        } catch (e) { console.error("Final phone detail fetch failed", e); }
+    // 4. Final verification/fetch display number if missing
+    if (finalPhoneId && !finalPhoneNumber) {
+      try {
+        const phoneDetailResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${finalPhoneId}?fields=display_phone_number&access_token=${accessToken}`
+        );
+        if (phoneDetailResponse.ok) {
+          const phoneDetailData = await phoneDetailResponse.json();
+          finalPhoneNumber = phoneDetailData.display_phone_number;
+        }
+      } catch (e) {
+        console.warn("[Exchange] Failed to fetch display phone number:", e);
+      }
     }
 
     // Return success response
@@ -164,7 +144,9 @@ Deno.serve(async (req) => {
         access_token: accessToken,
         token_type: tokenData.token_type || "Bearer",
         expires_in: tokenData.expires_in,
-        ...wabaInfo,
+        phone_number_id: finalPhoneId,
+        waba_account_id: finalWabaId,
+        phone_number: finalPhoneNumber,
       }),
       {
         status: 200,

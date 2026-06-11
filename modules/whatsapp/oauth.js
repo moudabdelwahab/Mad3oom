@@ -12,12 +12,13 @@ const OAuthService = (() => {
 
   // ─── Configuration ───────────────────────────────────
   const CONFIG = {
-  META_APP_ID:      '1510313544014876',
-  REDIRECT_URI:     'https://mad3oom.online/modules/whatsapp/index.html', // ✅ ثابتة
-  SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
-  RESPONSE_TYPE:    'code',
-  EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
-};
+    META_APP_ID:      '1510313544014876',
+    REDIRECT_URI:     'https://mad3oom.online/modules/whatsapp/index.html',
+    SCOPE:            'whatsapp_business_management,whatsapp_business_messaging',
+    RESPONSE_TYPE:    'code',
+    EXCHANGE_ENDPOINT: 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/exchange-token',
+  };
+
   // ─── State ───────────────────────────────────────────
   let _state = {
     status:      'idle',
@@ -31,66 +32,61 @@ const OAuthService = (() => {
   let _listeners = [];
 
   // ─── Public API ──────────────────────────────────────
-function startOAuthFlow() {
+  function startOAuthFlow() {
+    _setStatus('loading');
 
-  _setStatus('loading');
+    FB.login(
+      function(response) {
+        console.log('[OAuth] FB.login response:', response);
 
-  FB.login(
-  function(response) {
+        if (response.authResponse) {
+          const code = response.authResponse.code;
+          
+          // استخراج المعرفات من sessionInfo إذا توفرت (Embedded Signup v3)
+          let phoneId = null;
+          let wabaId = null;
 
-      console.log('Embedded Signup Response:', response);
+          try {
+            const sessionInfo = response.authResponse.sessionInfo;
+            if (sessionInfo) {
+              if (sessionInfo.waba_id) wabaId = sessionInfo.waba_id;
+              if (sessionInfo.phone_number_id) phoneId = sessionInfo.phone_number_id;
+              
+              console.log('[OAuth] Extracted IDs from sessionInfo:', { phoneId, wabaId });
+            }
+          } catch (e) {
+            console.warn('[OAuth] Failed to parse sessionInfo:', e);
+          }
 
-      if (response.authResponse) {
+          _exchangeCode(code, { phoneId, wabaId })
+            .catch(error => {
+              console.error('[OAuth] Exchange failed:', error);
+              _setStatus('error', { errorMsg: error.message });
+            });
 
-        const code = response.authResponse.code;
-
-        console.log('Authorization Code:', code);
-
-_exchangeCode(code)
-  .catch(error => {
-
-    console.error(error);
-
-    _setStatus('error', {
-      errorMsg: error.message
-    });
-
-  });
-
-
-      } else {
-
-        _setStatus('error', {
-          errorMsg: 'تم إلغاء عملية الربط'
-        });
-
+        } else {
+          _setStatus('error', { errorMsg: 'تم إلغاء عملية الربط أو فشل التفويض' });
+        }
+      },
+      {
+        config_id: '2268694463535485',
+        response_type: 'code',
+        override_default_response_type: true,
+        redirect_uri: CONFIG.REDIRECT_URI,
+        extras: {
+          setup: {},
+          version: "v4",
+          featureType: "whatsapp_business_app_onboarding",
+          sessionInfoVersion: "3"
+        }
       }
+    );
+  }
 
-    },
-    {
-      config_id: '2268694463535485',
-
-      response_type: 'code',
-
-      override_default_response_type: true,
-redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
-      extras: {
-        setup: {},
-        version: "v4",
-        featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: "3"
-      }
-    }
-  );
-
-}
-
-  
   async function handleCallback() {
-    const params    = new URLSearchParams(window.location.search);
-    const code      = params.get('code');
-    const stateBack = params.get('state');
-    const error     = params.get('error');
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
 
     if (!code && !error) return false;
 
@@ -101,17 +97,9 @@ redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
       return true;
     }
 
-    const savedState = sessionStorage.getItem('oauth_state');
-    if (stateBack && savedState && stateBack !== savedState) {
-      _setStatus('error', { errorMsg: 'خطأ في التحقق من الأمان (state mismatch)' });
-      _cleanUrl();
-      return true;
-    }
-
     _cleanUrl();
-    sessionStorage.removeItem('oauth_state');
-
     _setStatus('loading');
+    
     try {
       await _exchangeCode(code);
     } catch (error) {
@@ -120,7 +108,7 @@ redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
     return true;
   }
 
-  async function _exchangeCode(code) {
+  async function _exchangeCode(code, providedIds = {}) {
     try {
       const session = await SupabaseIntegration.getCurrentSession();
       const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
@@ -131,27 +119,17 @@ redirect_uri:'https://mad3oom.online/modules/whatsapp/index.html',
           'Content-Type': 'application/json',
           ...(authHeader && { 'Authorization': authHeader }),
         },
-body: JSON.stringify({
-  code,
-  redirect_uri: 'https://mad3oom.online/modules/whatsapp/index.html' // ✅ نفس القيمة بالضبط
-})
-
-,
+        body: JSON.stringify({
+          code,
+          redirect_uri: CONFIG.REDIRECT_URI,
+          phone_number_id: providedIds.phoneId,
+          waba_account_id: providedIds.wabaId
+        })
       });
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
-console.error(
-  'Exchange Error Body:',
-  errBody
-);
-
-throw new Error(
-  errBody.error?.message ||
-  errBody.message ||
-  `HTTP ${response.status}`
-);
-
+        throw new Error(errBody.error?.message || errBody.message || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -163,21 +141,21 @@ throw new Error(
           expires_in: data.expires_in,
           phone_number_id: data.phone_number_id,
           waba_account_id: data.waba_account_id,
-            phone_number:    data.phone_number,
+          phone_number:    data.phone_number,
           business_account_id: data.business_account_id,
         });
       }
 
       SupabaseIntegration.saveLocalIntegration({
-        access_token: data.access_token,
         phone_number_id: data.phone_number_id,
         waba_account_id: data.waba_account_id,
         phone_number:    data.phone_number,
-      });
+        connected_at:    new Date().toISOString()
+      }, data.access_token);
 
       _setStatus('success', {
         accessToken: data.access_token,
-         phoneId:     data.phone_number_id,
+        phoneId:     data.phone_number_id,
         wabaId:      data.waba_account_id,
         connectedAt: new Date().toISOString(),
       });
@@ -185,34 +163,35 @@ throw new Error(
     } catch (err) {
       console.error('[OAuthService] Exchange failed:', err);
       _setStatus('error', { errorMsg: err.message || 'فشل في الاتصال مع الخادم' });
+      throw err;
     }
   }
 
- async function getConnectionStatus() {
-  const supabaseData = await SupabaseIntegration.getIntegration();
-  if (supabaseData) {
+  async function getConnectionStatus() {
+    const supabaseData = await SupabaseIntegration.getIntegration();
+    if (supabaseData) {
+      return {
+        isConnected:  true,
+        accessToken:  supabaseData.access_token,
+        phoneId:      supabaseData.metadata?.phone_number_id,
+        phoneNumber:  supabaseData.metadata?.phone_number,
+        wabaId:       supabaseData.metadata?.waba_account_id,
+        connectedAt:  supabaseData.metadata?.connected_at,
+        source:       'supabase',
+      };
+    }
+
+    const localData = SupabaseIntegration.getLocalIntegration();
     return {
-      isConnected:  true,
-      accessToken:  supabaseData.access_token,
-phoneId: supabaseData.metadata?.phone_number_id,
-phoneNumber: supabaseData.metadata?.phone_number,
-      wabaId:       supabaseData.metadata?.waba_account_id,
-      connectedAt:  supabaseData.metadata?.connected_at,
-      source:       'supabase',
+      isConnected:  !!localData,
+      accessToken:  localData?.access_token,
+      phoneId:      localData?.phone_number_id,
+      phoneNumber:  localData?.phone_number,
+      wabaId:       localData?.waba_account_id,
+      connectedAt:  localData?.connected_at,
+      source:       'localStorage',
     };
   }
-
-  const localData = SupabaseIntegration.getLocalIntegration();
-  return {
-    isConnected:  !!localData,
-    accessToken:  localData?.access_token,
-phoneId: localData?.phone_number_id,
-phoneNumber: localData?.phone_number,
-    wabaId:       localData?.waba_account_id,
-    connectedAt:  localData?.connected_at,
-    source:       'localStorage',
-  };
-}
   
   async function disconnect() {
     await SupabaseIntegration.deleteIntegration();
@@ -227,15 +206,9 @@ phoneNumber: localData?.phone_number,
     return () => { _listeners = _listeners.filter(l => l !== fn); };
   }
 
-  // ─── Private Helpers ─────────────────────────────────
-
   function _setStatus(status, extra = {}) {
     _state = { ..._state, status, ...extra };
     _listeners.forEach(fn => fn(_state));
-  }
-
-  function _generateState() {
-    return Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
 
   function _cleanUrl() {
@@ -255,20 +228,14 @@ phoneNumber: localData?.phone_number,
 
 })();
 
-
-// Export for global access
 if (typeof window !== 'undefined') {
   window.OAuthService = OAuthService;
 }
 
-// Auto-handle callback on load
 if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     OAuthService.handleCallback();
   });
 }
 
-// Make service globally available
-window.OAuthService = OAuthService;
-// ES6 Export
 export { OAuthService };
