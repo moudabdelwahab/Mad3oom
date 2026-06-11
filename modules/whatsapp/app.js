@@ -966,11 +966,18 @@ function handleOAuthStateChange(state) {
 window.handleDisconnect = async function(phoneId = null) {
   if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الربط؟')) return;
   
+  // التأكد من تحويل القيم النصية غير الصالحة إلى null
+  const cleanPhoneId = (phoneId === 'undefined' || phoneId === 'null' || !phoneId) ? null : phoneId;
+  
   try {
-    await SupabaseIntegration.deleteIntegration(phoneId);
-    showToast('تم حذف الربط بنجاح', 'success');
-    updateConnectionStatus();
-    updateDashboard();
+    const result = await SupabaseIntegration.deleteIntegration(cleanPhoneId);
+    if (result.success) {
+      showToast('تم حذف الربط بنجاح', 'success');
+      updateConnectionStatus();
+      updateDashboard();
+    } else {
+      throw new Error(result.error);
+    }
   } catch (error) {
     showToast(`خطأ: ${error.message}`, 'error');
   }

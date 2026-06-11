@@ -219,8 +219,27 @@ async function deleteIntegration(phoneId = null) {
 
     if (!userId) throw new Error('المستخدم غير مصرح.');
 
+    // محاولة جلب السجل المحدد
     const target = await getIntegration(phoneId);
-    if (!target) throw new Error('لم يتم العثور على الربط المطلوب.');
+    
+    if (!target) {
+      // إذا لم نجد سجلاً محدداً، ولكن المستخدم طلب الحذف (ربما سجل تالف)
+      // سنقوم بحذف أي سجل واتساب لهذا المستخدم لا يحتوي على metadata مكتملة
+      if (!phoneId || phoneId === 'null' || phoneId === 'undefined') {
+        const { error: deleteError } = await supabase
+          .from('integrations')
+          .delete()
+          .eq('user_id', userId)
+          .eq('provider', 'whatsapp')
+          .or('metadata->>phone_number_id.is.null,metadata->>phone_number_id.eq.null');
+          
+        if (deleteError) throw new Error(`فشل حذف السجلات التالفة: ${deleteError.message}`);
+        
+        clearLocalIntegration();
+        return { success: true };
+      }
+      throw new Error('لم يتم العثور على الربط المطلوب.');
+    }
 
     const { error } = await supabase
       .from('integrations')
@@ -229,8 +248,9 @@ async function deleteIntegration(phoneId = null) {
 
     if (error) throw new Error(`فشل الحذف: ${error.message}`);
 
-    // If we deleted the one currently in localStorage, clear it
-    if (localStorage.getItem('mad3oom_wa_phone_id') === target.metadata?.phone_number_id) {
+    // تنظيف البيانات المحلية إذا كان هذا هو الرقم النشط
+    const localPhoneId = localStorage.getItem('mad3oom_wa_phone_id');
+    if (localPhoneId === target.metadata?.phone_number_id || !localPhoneId) {
       clearLocalIntegration();
     }
 
