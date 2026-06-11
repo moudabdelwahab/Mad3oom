@@ -38,6 +38,10 @@ const OAuthService = (() => {
     FB.login(
       function(response) {
         console.log('[OAuth] FB.login raw response:', response);
+        console.log(
+    "SESSION INFO:",
+    response.authResponse?.sessionInfo
+);
 
         if (response.authResponse) {
           const code = response.authResponse.code;
