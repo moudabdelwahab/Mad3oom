@@ -39,6 +39,15 @@ const OAuthService = (() => {
       function(response) {
         console.log('[OAuth] FB.login raw response:', response);
         console.log(
+   "AUTH RESPONSE",
+   response.authResponse
+);
+
+console.log(
+   "SESSION INFO",
+   response.authResponse?.sessionInfo
+);
+        console.log(
     "SESSION INFO:",
     response.authResponse?.sessionInfo
 );
