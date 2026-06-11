@@ -801,8 +801,8 @@ async function updateConnectionStatus() {
               </svg>
             </div>
             <div>
-              <div style="font-weight: 600; color: var(--text-primary);">${int.metadata?.phone_number || 'رقم غير معروف'}</div>
-              <div style="font-size: 12px; color: var(--text-muted);">ID: ${int.metadata?.phone_number_id}</div>
+              <div style="font-weight: 600; color: var(--text-primary);">${int.metadata?.phone_number || int.phone || 'رقم غير معروف'}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">ID: ${int.metadata?.phone_number_id || 'غير متوفر'}</div>
             </div>
           </div>
           <div style="display: flex; gap: 8px;">

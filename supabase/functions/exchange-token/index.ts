@@ -51,7 +51,6 @@ Deno.serve(async (req) => {
     }
 
     // 1. Exchange code for access token with Meta
-    // Use graph.facebook.com for WhatsApp Business API
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&code=${code}&redirect_uri=${redirect_uri}`,
       { method: "GET" }
@@ -76,7 +75,6 @@ Deno.serve(async (req) => {
     const accessToken = tokenData.access_token;
 
     // 2. Get Debug Token Info to get WABA and Phone Number ID
-    // In Embedded Signup, the token contains the shared WABA info
     const debugResponse = await fetch(
       `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
     );
@@ -93,13 +91,24 @@ Deno.serve(async (req) => {
       const metadata = debugData.data?.metadata;
       
       if (metadata) {
-        // For WhatsApp Embedded Signup, metadata often contains these
         wabaInfo.waba_account_id = metadata.waba_id || null;
         wabaInfo.phone_number_id = metadata.phone_number_id || null;
       }
     }
 
-    // 3. Fallback: If not in debug_token, try to fetch from shared_waba_accounts
+    // 3. Enrich data: Always try to get phone number if we have the ID or WABA
+    // Even if we got IDs from debug_token, we still need the display_phone_number
+    if (wabaInfo.phone_number_id) {
+        const phoneDetailResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${wabaInfo.phone_number_id}?access_token=${accessToken}`
+        );
+        if (phoneDetailResponse.ok) {
+            const phoneDetailData = await phoneDetailResponse.json();
+            wabaInfo.phone_number = phoneDetailData.display_phone_number || null;
+        }
+    }
+
+    // 4. Fallback: If still missing IDs, try to fetch from shared_waba_accounts
     if (!wabaInfo.waba_account_id) {
       const sharedWabaResponse = await fetch(
         `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
@@ -109,7 +118,6 @@ Deno.serve(async (req) => {
         if (sharedData.data && sharedData.data.length > 0) {
           wabaInfo.waba_account_id = sharedData.data[0].id;
           
-          // Now get phone numbers for this WABA
           const phonesResponse = await fetch(
             `https://graph.facebook.com/v21.0/${wabaInfo.waba_account_id}/phone_numbers?access_token=${accessToken}`
           );

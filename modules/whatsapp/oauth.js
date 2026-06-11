@@ -172,6 +172,7 @@ throw new Error(
         access_token: data.access_token,
         phone_number_id: data.phone_number_id,
         waba_account_id: data.waba_account_id,
+        phone_number:    data.phone_number,
       });
 
       _setStatus('success', {
