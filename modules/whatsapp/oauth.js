@@ -37,42 +37,58 @@ const OAuthService = (() => {
 
     FB.login(
       function(response) {
-        console.log('[OAuth] FB.login response:', response);
+        console.log('[OAuth] FB.login raw response:', response);
 
         if (response.authResponse) {
           const code = response.authResponse.code;
           
-          // استخراج المعرفات من sessionInfo إذا توفرت (Embedded Signup v3)
           let phoneId = null;
           let wabaId = null;
 
           try {
-            const sessionInfo = response.authResponse.sessionInfo;
+            // Meta غالباً ما ترجع sessionInfo كـ JSON string في Embedded Signup v3
+            let sessionInfo = response.authResponse.sessionInfo;
+            
+            if (typeof sessionInfo === 'string') {
+              sessionInfo = JSON.parse(sessionInfo);
+            }
+
             if (sessionInfo) {
-              if (sessionInfo.waba_id) wabaId = sessionInfo.waba_id;
-              if (sessionInfo.phone_number_id) phoneId = sessionInfo.phone_number_id;
+              console.log('[OAuth] Parsed sessionInfo:', sessionInfo);
               
-              console.log('[OAuth] Extracted IDs from sessionInfo:', { phoneId, wabaId });
+              // 1. محاولة استخراج المعرفات المباشرة
+              wabaId = sessionInfo.waba_id;
+              phoneId = sessionInfo.phone_number_id;
+
+              // 2. محاولة استخراج من المصفوفات (في حال وجود عدة أرقام)
+              if (!wabaId && sessionInfo.waba_ids && sessionInfo.waba_ids.length > 0) {
+                wabaId = sessionInfo.waba_ids[0];
+              }
+              if (!phoneId && sessionInfo.phone_number_ids && sessionInfo.phone_number_ids.length > 0) {
+                phoneId = sessionInfo.phone_number_ids[0];
+              }
             }
           } catch (e) {
-            console.warn('[OAuth] Failed to parse sessionInfo:', e);
+            console.error('[OAuth] Error parsing sessionInfo:', e);
           }
+
+          console.log('[OAuth] Final extracted IDs to send:', { phoneId, wabaId });
 
           _exchangeCode(code, { phoneId, wabaId })
             .catch(error => {
-              console.error('[OAuth] Exchange failed:', error);
+              console.error('[OAuth] Exchange process failed:', error);
               _setStatus('error', { errorMsg: error.message });
             });
 
         } else {
-          _setStatus('error', { errorMsg: 'تم إلغاء عملية الربط أو فشل التفويض' });
+          _setStatus('error', { errorMsg: 'تم إلغاء عملية الربط أو فشل التفويض من Meta' });
         }
       },
       {
         config_id: '2268694463535485',
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: CONFIG.REDIRECT_URI,
+        // إزالة redirect_uri من هنا قد يساعد في استقرار الـ callback في بعض المتصفحات
         extras: {
           setup: {},
           version: "v4",
@@ -101,6 +117,7 @@ const OAuthService = (() => {
     _setStatus('loading');
     
     try {
+      // في حالة الـ redirect callback المباشر، لا نملك sessionInfo
       await _exchangeCode(code);
     } catch (error) {
       console.error('[OAuthService] Error during code exchange:', error);
@@ -112,6 +129,12 @@ const OAuthService = (() => {
     try {
       const session = await SupabaseIntegration.getCurrentSession();
       const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+
+      console.log('[OAuth] Sending to exchange endpoint:', { 
+        hasCode: !!code, 
+        phoneId: providedIds.phoneId, 
+        wabaId: providedIds.wabaId 
+      });
 
       const response = await fetch(CONFIG.EXCHANGE_ENDPOINT, {
         method: 'POST',
@@ -133,6 +156,7 @@ const OAuthService = (() => {
       }
 
       const data = await response.json();
+      console.log('[OAuth] Exchange successful, received data:', data);
 
       if (session?.user?.id) {
         await SupabaseIntegration.saveIntegration({
@@ -161,8 +185,8 @@ const OAuthService = (() => {
       });
 
     } catch (err) {
-      console.error('[OAuthService] Exchange failed:', err);
-      _setStatus('error', { errorMsg: err.message || 'فشل في الاتصال مع الخادم' });
+      console.error('[OAuthService] _exchangeCode error:', err);
+      _setStatus('error', { errorMsg: err.message || 'فشل في تبادل الرموز مع الخادم' });
       throw err;
     }
   }

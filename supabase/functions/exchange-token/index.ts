@@ -43,10 +43,16 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { code, redirect_uri, phone_number_id, waba_account_id } = body;
 
+    console.log("[Exchange] Request body:", { 
+      hasCode: !!code, 
+      phone_number_id, 
+      waba_account_id 
+    });
+
     if (!code) {
       return new Response(JSON.stringify({ error: "Missing code" }), {
         status: 400,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
 
@@ -58,7 +64,7 @@ Deno.serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json();
-      console.error("Meta token exchange failed:", errorData);
+      console.error("[Exchange] Meta token exchange failed:", errorData);
       return new Response(
         JSON.stringify({
           error: "Failed to exchange code with Meta",
@@ -81,48 +87,78 @@ Deno.serve(async (req) => {
 
     // 3. Fallback: If IDs are missing, fetch from Graph API
     if (!finalWabaId || !finalPhoneId) {
-      console.log("[Exchange] IDs missing in request, fetching from Graph API Fallback...");
+      console.log("[Exchange] IDs missing, attempting Fallback...");
       
-      const debugResponse = await fetch(
-        `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
-      );
-      
-      if (debugResponse.ok) {
-        const debugData = await debugResponse.json();
-        const metadata = debugData.data?.metadata;
-        if (metadata) {
-          if (!finalWabaId) finalWabaId = metadata.waba_id;
-          if (!finalPhoneId) finalPhoneId = metadata.phone_number_id;
+      // A. Try debug_token
+      try {
+        const debugResponse = await fetch(
+          `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`
+        );
+        if (debugResponse.ok) {
+          const debugData = await debugResponse.json();
+          const metadata = debugData.data?.metadata;
+          if (metadata) {
+            if (!finalWabaId) finalWabaId = metadata.waba_id;
+            if (!finalPhoneId) finalPhoneId = metadata.phone_number_id;
+            console.log("[Exchange] Found in debug_token:", { finalWabaId, finalPhoneId });
+          }
         }
-      }
+      } catch (e) { console.error("[Exchange] debug_token error:", e); }
 
+      // B. Try /me/accounts (Most reliable for WhatsApp System User/Embedded tokens)
       if (!finalWabaId) {
-        const sharedWabaResponse = await fetch(
-          `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
-        );
-        if (sharedWabaResponse.ok) {
-          const sharedData = await sharedWabaResponse.json();
-          if (sharedData.data && sharedData.data.length > 0) {
-            finalWabaId = sharedData.data[0].id;
+        try {
+          const meAccountsResponse = await fetch(
+            `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`
+          );
+          if (meAccountsResponse.ok) {
+            const meData = await meAccountsResponse.json();
+            if (meData.data && meData.data.length > 0) {
+              // Note: For WhatsApp, it might be in shared_waba_accounts instead
+              // But some tokens show it here
+              const account = meData.data[0];
+              finalWabaId = account.id;
+              console.log("[Exchange] Found in /me/accounts:", finalWabaId);
+            }
           }
-        }
+        } catch (e) { console.error("[Exchange] /me/accounts error:", e); }
       }
 
-      if (finalWabaId && !finalPhoneId) {
-        const phonesResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${finalWabaId}/phone_numbers?access_token=${accessToken}`
-        );
-        if (phonesResponse.ok) {
-          const phonesData = await phonesResponse.json();
-          if (phonesData.data && phonesData.data.length > 0) {
-            finalPhoneId = phonesData.data[0].id;
-            finalPhoneNumber = phonesData.data[0].display_phone_number;
+      // C. Try /me/shared_waba_accounts (Specific for Embedded Signup)
+      if (!finalWabaId) {
+        try {
+          const sharedWabaResponse = await fetch(
+            `https://graph.facebook.com/v21.0/me/shared_waba_accounts?access_token=${accessToken}`
+          );
+          if (sharedWabaResponse.ok) {
+            const sharedData = await sharedWabaResponse.json();
+            if (sharedData.data && sharedData.data.length > 0) {
+              finalWabaId = sharedData.data[0].id;
+              console.log("[Exchange] Found in /me/shared_waba_accounts:", finalWabaId);
+            }
           }
-        }
+        } catch (e) { console.error("[Exchange] shared_waba error:", e); }
+      }
+
+      // D. Fetch Phone ID if we have WABA
+      if (finalWabaId && !finalPhoneId) {
+        try {
+          const phonesResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${finalWabaId}/phone_numbers?access_token=${accessToken}`
+          );
+          if (phonesResponse.ok) {
+            const phonesData = await phonesResponse.json();
+            if (phonesData.data && phonesData.data.length > 0) {
+              finalPhoneId = phonesData.data[0].id;
+              finalPhoneNumber = phonesData.data[0].display_phone_number;
+              console.log("[Exchange] Found Phone ID in WABA:", { finalPhoneId, finalPhoneNumber });
+            }
+          }
+        } catch (e) { console.error("[Exchange] phones fetch error:", e); }
       }
     }
 
-    // 4. Final verification/fetch display number if missing
+    // 4. Fetch display number if still missing
     if (finalPhoneId && !finalPhoneNumber) {
       try {
         const phoneDetailResponse = await fetch(
@@ -132,12 +168,11 @@ Deno.serve(async (req) => {
           const phoneDetailData = await phoneDetailResponse.json();
           finalPhoneNumber = phoneDetailData.display_phone_number;
         }
-      } catch (e) {
-        console.warn("[Exchange] Failed to fetch display phone number:", e);
-      }
+      } catch (e) { console.warn("[Exchange] display_phone_number error:", e); }
     }
 
-    // Return success response
+    console.log("[Exchange] Final Result:", { finalWabaId, finalPhoneId, finalPhoneNumber });
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -157,7 +192,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("Exchange token error:", error);
+    console.error("[Exchange] Internal error:", error);
     return new Response(
       JSON.stringify({
         error: "Internal server error",
