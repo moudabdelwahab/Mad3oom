@@ -963,24 +963,47 @@ function handleOAuthStateChange(state) {
 
 // ─── Disconnect Handler ──────────────────────────
 
-window.handleDisconnect = async function(phoneId = null) {
-  if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الربط؟')) return;
+window.handleDisconnect = function(phoneId = null) {
+  const modal = document.getElementById('delete-confirm-modal');
+  const confirmBtn = document.getElementById('confirm-delete-btn');
   
-  // التأكد من تحويل القيم النصية غير الصالحة إلى null
-  const cleanPhoneId = (phoneId === 'undefined' || phoneId === 'null' || !phoneId) ? null : phoneId;
-  
-  try {
-    const result = await SupabaseIntegration.deleteIntegration(cleanPhoneId);
-    if (result.success) {
-      showToast('تم حذف الربط بنجاح', 'success');
-      updateConnectionStatus();
-      updateDashboard();
-    } else {
-      throw new Error(result.error);
+  if (!modal || !confirmBtn) return;
+
+  modal.style.display = 'flex';
+
+  // تنظيف أي مستمعات أحداث سابقة لتجنب الحذف المتعدد
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+  newConfirmBtn.onclick = async () => {
+    newConfirmBtn.disabled = true;
+    newConfirmBtn.textContent = 'جاري الحذف...';
+    
+    // التأكد من تحويل القيم النصية غير الصالحة إلى null
+    const cleanPhoneId = (phoneId === 'undefined' || phoneId === 'null' || !phoneId) ? null : phoneId;
+    
+    try {
+      const result = await SupabaseIntegration.deleteIntegration(cleanPhoneId);
+      if (result.success) {
+        showToast('تم حذف الربط بنجاح', 'success');
+        closeDeleteModal();
+        updateConnectionStatus();
+        updateDashboard();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      showToast(`خطأ: ${error.message}`, 'error');
+    } finally {
+      newConfirmBtn.disabled = false;
+      newConfirmBtn.textContent = 'حذف الآن';
     }
-  } catch (error) {
-    showToast(`خطأ: ${error.message}`, 'error');
-  }
+  };
+};
+
+window.closeDeleteModal = function() {
+  const modal = document.getElementById('delete-confirm-modal');
+  if (modal) modal.style.display = 'none';
 };
 
 // ─── Sync Handler ────────────────────────────────
