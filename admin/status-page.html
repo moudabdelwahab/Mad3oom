@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حالة الخدمات - مدعوم</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-bg: #f8fafc;
+            --color-surface: #ffffff;
+            --color-border: #e2e8f0;
+            --color-text: #1e293b;
+            --color-text-secondary: #64748b;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-accent: #3b82f6;
+            --color-muted: #f1f5f9;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: 2rem 1rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .header-info h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-info p {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: var(--color-accent);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 1.5rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--color-muted);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--color-border);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.operational {
+            background: var(--color-success);
+        }
+
+        .status-dot.degraded {
+            background: var(--color-warning);
+        }
+
+        .status-dot.down {
+            background: var(--color-danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .last-updated {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        /* Summary Section */
+        .summary-section {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            text-align: center;
+            padding: 1.5rem;
+            background: var(--color-muted);
+            border-radius: 0.75rem;
+            border: 1px solid var(--color-border);
+        }
+
+        .summary-card-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--color-accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card-label {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        /* Services Section */
+        .services-section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--color-accent);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .service-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+        }
+
+        .service-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--color-accent);
+        }
+
+        .service-card.operational {
+            border-right: 4px solid var(--color-success);
+        }
+
+        .service-card.degraded {
+            border-right: 4px solid var(--color-warning);
+        }
+
+        .service-card.down {
+            border-right: 4px solid var(--color-danger);
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .service-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--color-text);
+        }
+
+        .service-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .service-status-badge.operational {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .service-status-badge.degraded {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .service-status-badge.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .service-description {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .service-uptime {
+            background: var(--color-muted);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .uptime-label {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .uptime-bars {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+
+        .uptime-bar {
+            flex: 1;
+            min-width: 20px;
+            height: 24px;
+            border-radius: 2px;
+            background: var(--color-success);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .uptime-bar:hover {
+            transform: scaleY(1.2);
+        }
+
+        .uptime-bar.degraded {
+            background: var(--color-warning);
+        }
+
+        .uptime-bar.down {
+            background: var(--color-danger);
+        }
+
+        .uptime-bar.unknown {
+            background: var(--color-border);
+        }
+
+        .service-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            border-top: 1px solid var(--color-border);
+            padding-top: 1rem;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        /* Incidents Section */
+        .incidents-section {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .incident-item {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+            transition: all 0.2s;
+        }
+
+        .incident-item:last-child {
+            border-bottom: none;
+        }
+
+        .incident-item:hover {
+            background: var(--color-muted);
+            border-radius: 0.5rem;
+        }
+
+        .incident-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .incident-title {
+            font-weight: 700;
+            color: var(--color-text);
+            font-size: 1rem;
+        }
+
+        .incident-date {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .incident-description {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .incident-status {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .incident-status.resolved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .incident-status.investigating {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .incident-status.identified {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-family: inherit;
+            color: var(--color-text);
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--color-accent);
+            color: white;
+            border-color: var(--color-accent);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .header-info h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            animation: loading 1.4s infinite;
+        }
+
+        @keyframes loading {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div class="logo">📊</div>
+                <div class="header-info">
+                    <h1>حالة الخدمات</h1>
+                    <p>مراقبة شاملة لجميع خدمات منصة مدعوم</p>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot operational"></div>
+                <div>
+                    <div class="status-text">جميع الخدمات تعمل بشكل طبيعي</div>
+                    <div class="last-updated" id="lastUpdated">آخر تحديث: الآن</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-card-number" id="operationalCount">0</div>
+                    <div class="summary-card-label">خدمات تعمل بشكل طبيعي</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-card-number" id="degradedCount">0</div>
+                    <div class="summary-card-label">خدمات بأداء منخفض</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-card-number" id="downCount">0</div>
+                    <div class="summary-card-label">خدمات معطلة</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-card-number" id="uptimePercent">99.9%</div>
+                    <div class="summary-card-label">متوسط التوفر الشهري</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">جميع الخدمات</button>
+                <button class="filter-btn" data-filter="operational">تعمل بشكل طبيعي</button>
+                <button class="filter-btn" data-filter="degraded">أداء منخفض</button>
+                <button class="filter-btn" data-filter="down">معطلة</button>
+            </div>
+        </div>
+
+        <!-- Services Section -->
+        <div class="services-section">
+            <div class="section-title">
+                <div class="section-title-icon">⚙️</div>
+                خدمات المنصة
+            </div>
+            <div class="services-grid" id="servicesGrid">
+                <div class="empty-state">
+                    <div class="loading" style="margin: 0 auto 1rem;"></div>
+                    <p>جاري تحميل حالة الخدمات...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Incidents Section -->
+        <div class="incidents-section">
+            <div class="section-title">
+                <div class="section-title-icon">🚨</div>
+                الحوادث والصيانة
+            </div>
+            <div id="incidentsList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <div class="empty-state-title">لا توجد حوادث حالية</div>
+                    <p>جميع الخدمات تعمل بشكل طبيعي</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from '/api-config.js';
+
+        // Mock data for services - يمكن استبدالها بـ API حقيقي
+        const mockServices = [
+            {
+                id: 1,
+                name: 'API الرئيسية',
+                description: 'خدمة API الأساسية للمنصة',
+                status: 'operational',
+                uptime: 99.95,
+                lastChecked: new Date(),
+                responseTime: 45
+            },
+            {
+                id: 2,
+                name: 'قاعدة البيانات',
+                description: 'خادم قاعدة البيانات الرئيسي',
+                status: 'operational',
+                uptime: 99.99,
+                lastChecked: new Date(),
+                responseTime: 12
+            },
+            {
+                id: 3,
+                name: 'خدمة المصادقة',
+                description: 'نظام تسجيل الدخول والمصادقة',
+                status: 'operational',
+                uptime: 99.98,
+                lastChecked: new Date(),
+                responseTime: 23
+            },
+            {
+                id: 4,
+                name: 'خدمة الدفع',
+                description: 'معالج الدفع والفواتير',
+                status: 'operational',
+                uptime: 99.97,
+                lastChecked: new Date(),
+                responseTime: 156
+            },
+            {
+                id: 5,
+                name: 'خدمة البريد الإلكتروني',
+                description: 'إرسال الرسائل والإشعارات',
+                status: 'operational',
+                uptime: 99.85,
+                lastChecked: new Date(),
+                responseTime: 234
+            },
+            {
+                id: 6,
+                name: 'خدمة التخزين السحابي',
+                description: 'تخزين الملفات والوسائط',
+                status: 'operational',
+                uptime: 99.99,
+                lastChecked: new Date(),
+                responseTime: 89
+            },
+            {
+                id: 7,
+                name: 'خدمة الإشعارات',
+                description: 'نظام الإشعارات الفورية',
+                status: 'degraded',
+                uptime: 98.5,
+                lastChecked: new Date(),
+                responseTime: 450
+            },
+            {
+                id: 8,
+                name: 'لوحة التحكم',
+                description: 'واجهة إدارة المنصة',
+                status: 'operational',
+                uptime: 99.92,
+                lastChecked: new Date(),
+                responseTime: 78
+            }
+        ];
+
+        const mockIncidents = [
+            {
+                id: 1,
+                title: 'تحديث صيانة مجدول',
+                description: 'سيتم إجراء صيانة دورية على خوادم API من الساعة 2:00 إلى 3:00 صباحاً بتوقيت UTC',
+                status: 'identified',
+                affectedServices: ['API الرئيسية'],
+                startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                endTime: null
+            },
+            {
+                id: 2,
+                title: 'تحسين أداء خدمة الإشعارات',
+                description: 'تم تحديد مشكلة في أداء خدمة الإشعارات وجاري العمل على حلها',
+                status: 'investigating',
+                affectedServices: ['خدمة الإشعارات'],
+                startTime: new Date(Date.now() - 30 * 60 * 1000),
+                endTime: null
+            }
+        ];
+
+        let currentFilter = 'all';
+
+        // Render Services
+        function renderServices() {
+            const grid = document.getElementById('servicesGrid');
+            const filtered = currentFilter === 'all' 
+                ? mockServices 
+                : mockServices.filter(s => s.status === currentFilter);
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-title">لا توجد خدمات بهذه الحالة</div>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(service => `
+                <div class="service-card ${service.status}">
+                    <div class="service-header">
+                        <div class="service-name">${service.name}</div>
+                        <div class="service-status-badge ${service.status}">
+                            <span class="status-dot ${service.status}" style="width: 6px; height: 6px; animation: none;"></span>
+                            ${getStatusLabel(service.status)}
+                        </div>
+                    </div>
+                    <div class="service-description">${service.description}</div>
+                    <div class="service-uptime">
+                        <div class="uptime-label">التوفر (آخر 30 يوم)</div>
+                        <div class="uptime-bars">
+                            ${generateUptimeBars(service.uptime)}
+                        </div>
+                    </div>
+                    <div class="service-meta">
+                        <div class="meta-item">
+                            <span>⏱️</span>
+                            <span>وقت الاستجابة: ${service.responseTime}ms</span>
+                        </div>
+                        <div class="meta-item">
+                            <span>📊</span>
+                            <span>التوفر: ${service.uptime}%</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Incidents
+        function renderIncidents() {
+            const list = document.getElementById('incidentsList');
+            
+            if (mockIncidents.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-title">لا توجد حوادث حالية</div>
+                        <p>جميع الخدمات تعمل بشكل طبيعي</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = mockIncidents.map(incident => `
+                <div class="incident-item">
+                    <div class="incident-header">
+                        <div>
+                            <div class="incident-title">${incident.title}</div>
+                            <div class="incident-date">${formatDate(incident.startTime)}</div>
+                        </div>
+                        <span class="incident-status ${incident.status}">
+                            ${getIncidentStatusLabel(incident.status)}
+                        </span>
+                    </div>
+                    <div class="incident-description">${incident.description}</div>
+                    <div style="font-size: 0.85rem; color: var(--color-text-secondary);">
+                        الخدمات المتأثرة: ${incident.affectedServices.join(', ')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update Summary
+        function updateSummary() {
+            const operational = mockServices.filter(s => s.status === 'operational').length;
+            const degraded = mockServices.filter(s => s.status === 'degraded').length;
+            const down = mockServices.filter(s => s.status === 'down').length;
+            const avgUptime = (mockServices.reduce((acc, s) => acc + s.uptime, 0) / mockServices.length).toFixed(2);
+
+            document.getElementById('operationalCount').textContent = operational;
+            document.getElementById('degradedCount').textContent = degraded;
+            document.getElementById('downCount').textContent = down;
+            document.getElementById('uptimePercent').textContent = avgUptime + '%';
+
+            // Update header status
+            const indicator = document.querySelector('.status-indicator');
+            const dot = indicator.querySelector('.status-dot');
+            const text = indicator.querySelector('.status-text');
+            
+            if (down > 0) {
+                dot.className = 'status-dot down';
+                text.textContent = 'بعض الخدمات معطلة';
+            } else if (degraded > 0) {
+                dot.className = 'status-dot degraded';
+                text.textContent = 'بعض الخدمات بأداء منخفض';
+            } else {
+                dot.className = 'status-dot operational';
+                text.textContent = 'جميع الخدمات تعمل بشكل طبيعي';
+            }
+        }
+
+        // Helper Functions
+        function getStatusLabel(status) {
+            const labels = {
+                operational: 'تعمل بشكل طبيعي',
+                degraded: 'أداء منخفض',
+                down: 'معطلة'
+            };
+            return labels[status] || status;
+        }
+
+        function getIncidentStatusLabel(status) {
+            const labels = {
+                resolved: 'تم الحل',
+                investigating: 'تحت التحقيق',
+                identified: 'تم تحديده'
+            };
+            return labels[status] || status;
+        }
+
+        function generateUptimeBars(uptime) {
+            const bars = [];
+            for (let i = 0; i < 30; i++) {
+                const random = Math.random();
+                let status = 'operational';
+                if (random < (100 - uptime) / 100) {
+                    status = Math.random() > 0.5 ? 'degraded' : 'down';
+                }
+                bars.push(`<div class="uptime-bar ${status}" title="اليوم ${i + 1}"></div>`);
+            }
+            return bars.join('');
+        }
+
+        function formatDate(date) {
+            return new Intl.DateTimeFormat('ar-EG', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        // Filter Buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderServices();
+            });
+        });
+
+        // Initialize
+        function init() {
+            updateSummary();
+            renderServices();
+            renderIncidents();
+            
+            // Update last updated time
+            document.getElementById('lastUpdated').textContent = 
+                'آخر تحديث: ' + new Intl.DateTimeFormat('ar-EG', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }).format(new Date());
+
+            // Refresh every 30 seconds
+            setInterval(() => {
+                document.getElementById('lastUpdated').textContent = 
+                    'آخر تحديث: ' + new Intl.DateTimeFormat('ar-EG', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).format(new Date());
+            }, 30000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
