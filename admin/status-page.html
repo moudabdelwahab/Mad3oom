@@ -150,6 +150,12 @@
             margin-bottom: 0.75rem;
         }
 
+        .btn-filter.active {
+            background: var(--color-accent) !important;
+            color: white !important;
+            border-color: var(--color-accent) !important;
+        }
+
         @media (max-width: 768px) {
             .global-status-banner { flex-direction: column; text-align: center; }
             .services-container { grid-template-columns: 1fr; }
@@ -178,8 +184,13 @@
             </div>
         </div>
 
-        <div class="section-header">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <h2 class="section-title">الخدمات الأساسية</h2>
+            <div class="filter-group" style="display: flex; gap: 0.5rem; background: var(--color-surface); padding: 0.4rem; border-radius: 0.75rem; border: 1px solid var(--color-border);">
+                <button class="btn btn-sm btn-filter active" data-filter="all" style="font-weight: 700; padding: 0.4rem 1rem;">الكل</button>
+                <button class="btn btn-sm btn-filter" data-filter="operational" style="font-weight: 700; padding: 0.4rem 1rem;">مستقر</button>
+                <button class="btn btn-sm btn-filter" data-filter="issue" style="font-weight: 700; padding: 0.4rem 1rem;">مشاكل</button>
+            </div>
         </div>
 
         <div class="services-container" id="servicesList">
@@ -207,6 +218,8 @@
         // Initialize Admin Sidebar
         initSidebar();
 
+        let currentFilter = 'all';
+
         async function refreshStatus() {
             try {
                 const services = await serviceStatusManager.fetchServices();
@@ -222,12 +235,20 @@
 
         function renderServices(services) {
             const container = document.getElementById('servicesList');
-            if (!services || services.length === 0) {
-                container.innerHTML = '<div class="section-card" style="grid-column: 1/-1; text-align: center;">لا توجد خدمات مضافة</div>';
+            
+            const filtered = services.filter(s => {
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'operational') return s.status === 'operational';
+                if (currentFilter === 'issue') return s.status !== 'operational';
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="section-card" style="grid-column: 1/-1; text-align: center; padding: 3rem;">لا توجد خدمات تطابق الفلتر المختار</div>';
                 return;
             }
 
-            container.innerHTML = services.map(s => `
+            container.innerHTML = filtered.map(s => `
                 <div class="service-status-card">
                     <div class="service-card-header">
                         <span class="service-title">${s.name}</span>
@@ -295,6 +316,19 @@
             const labels = { operational: 'مستقر', degraded: 'أداء منخفض', down: 'متوقف' };
             return labels[status] || status;
         }
+
+        // Filter Logic
+        document.querySelectorAll('.btn-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-filter').forEach(b => {
+                    b.classList.remove('active');
+                    b.classList.remove('btn-primary');
+                });
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                refreshStatus();
+            });
+        });
 
         // Initial fetch
         refreshStatus();
