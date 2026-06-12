@@ -5,659 +5,302 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>حالة الخدمات - مدعوم</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --color-bg: #f0f2f5;
-            --color-surface: #ffffff;
-            --color-border: #e4e6eb;
-            --color-text: #1c1e21;
-            --color-text-secondary: #65676b;
-            --color-success: #00a400;
-            --color-warning: #fb8c00;
-            --color-danger: #fa3e3e;
-            --color-accent: #0084ff;
-            --color-muted: #f5f6f7;
-            --shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.12);
-            --radius: 12px;
-        }
-
+        /* Fix for the layout based on the screenshot */
         body {
-            font-family: 'Cairo', sans-serif;
-            background: var(--color-bg);
-            color: var(--color-text);
-            line-height: 1.6;
+            display: block; /* Override flex if needed */
+            background-color: var(--color-background);
         }
 
-        /* Header */
-        .header {
-            background: var(--color-surface);
-            border-bottom: 1px solid var(--color-border);
-            padding: 1.5rem 2rem;
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
+        .admin-main {
+            padding: 2.5rem 2rem;
             max-width: 1200px;
             margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            min-height: calc(100vh - 70px);
         }
 
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .header-info h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--color-text);
-        }
-
-        .header-info p {
-            color: var(--color-text-secondary);
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .logo-container {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--color-accent), #00c6ff);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 132, 255, 0.2);
-        }
-
-        .status-badge-global {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            background: var(--color-muted);
-            padding: 0.6rem 1.2rem;
-            border-radius: 50px;
-            border: 1px solid var(--color-border);
-            transition: all 0.3s ease;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            position: relative;
-        }
-
-        .status-dot::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            border-radius: 50%;
-            border: 2px solid currentColor;
-            opacity: 0;
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.operational { color: var(--color-success); background: currentColor; }
-        .status-dot.degraded { color: var(--color-warning); background: currentColor; }
-        .status-dot.down { color: var(--color-danger); background: currentColor; }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(2.5); opacity: 0; }
-        }
-
-        .status-text {
-            font-size: 0.95rem;
-            font-weight: 700;
-        }
-
-        /* Main Container */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        /* Summary Section */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.25rem;
+        /* Status Page Specific UI */
+        .status-header-section {
             margin-bottom: 2.5rem;
         }
 
-        .summary-card {
+        .global-status-banner {
             background: var(--color-surface);
-            padding: 1.5rem;
-            border-radius: var(--radius);
+            border-radius: 1.25rem;
+            padding: 2rem;
             border: 1px solid var(--color-border);
             display: flex;
             align-items: center;
-            gap: 1.25rem;
-            box-shadow: var(--shadow);
-            transition: transform 0.2s;
+            gap: 2rem;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 2.5rem;
         }
 
-        .summary-card:hover { transform: translateY(-2px); }
-
-        .summary-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .summary-data h3 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .summary-data p {
-            font-size: 0.85rem;
-            color: var(--color-text-secondary);
-            font-weight: 600;
-            margin-top: 0.25rem;
-        }
-
-        /* Services Section */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
-        .service-card {
-            background: var(--color-surface);
-            border-radius: var(--radius);
-            border: 1px solid var(--color-border);
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .service-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 4px;
-            height: 100%;
-        }
-
-        .service-card.operational::before { background: var(--color-success); }
-        .service-card.degraded::before { background: var(--color-warning); }
-        .service-card.down::before { background: var(--color-danger); }
-
-        .service-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .service-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-
-        .service-info h4 {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--color-text);
-        }
-
-        .service-status-label {
-            font-size: 0.75rem;
-            font-weight: 800;
-            padding: 0.3rem 0.75rem;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .service-status-label.operational { background: #e7f3ff; color: #1877f2; }
-        .service-status-label.degraded { background: #fff8e1; color: #ff8f00; }
-        .service-status-label.down { background: #ffebee; color: #d32f2f; }
-
-        .service-desc {
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
-            margin-bottom: 1.25rem;
-            height: 2.8rem;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-        }
-
-        .uptime-container {
-            background: var(--color-muted);
-            padding: 0.75rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .uptime-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--color-text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .uptime-bars {
-            display: flex;
-            gap: 2px;
-            height: 20px;
-        }
-
-        .uptime-bar {
-            flex: 1;
-            background: var(--color-success);
-            border-radius: 2px;
-            opacity: 0.8;
-            transition: opacity 0.2s;
-        }
-
-        .uptime-bar:hover { opacity: 1; }
-        .uptime-bar.degraded { background: var(--color-warning); }
-        .uptime-bar.down { background: var(--color-danger); }
-
-        .service-footer {
-            display: flex;
-            justify-content: space-between;
-            padding-top: 1rem;
-            border-top: 1px solid var(--color-border);
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--color-text-secondary);
-        }
-
-        /* Incidents */
-        .incidents-container {
-            background: var(--color-surface);
-            border-radius: var(--radius);
-            border: 1px solid var(--color-border);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-
-        .incident-item {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--color-border);
-            display: flex;
-            gap: 1.5rem;
-        }
-
-        .incident-item:last-child { border-bottom: none; }
-
-        .incident-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: var(--color-muted);
+        .status-icon-wrapper {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
         }
 
-        .incident-content { flex-grow: 1; }
+        .status-icon-wrapper svg {
+            width: 35px;
+            height: 35px;
+        }
 
-        .incident-top {
+        .bg-success-light { background: rgba(46, 138, 58, 0.1); color: var(--color-success); }
+        .bg-warning-light { background: rgba(224, 168, 0, 0.1); color: var(--color-warning); }
+        .bg-danger-light { background: rgba(217, 83, 79, 0.1); color: var(--color-danger); }
+
+        .services-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .service-status-card {
+            background: var(--color-surface);
+            border-radius: 1.25rem;
+            border: 1px solid var(--color-border);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-status-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        .service-card-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 0.5rem;
+            align-items: flex-start;
+            margin-bottom: 1.25rem;
         }
 
-        .incident-title {
+        .service-title {
             font-weight: 800;
-            font-size: 1rem;
+            font-size: 1.15rem;
+            color: var(--color-primary);
         }
 
-        .incident-status-tag {
-            font-size: 0.7rem;
-            font-weight: 800;
-            padding: 0.2rem 0.6rem;
-            border-radius: 4px;
-            text-transform: uppercase;
+        .uptime-visual {
+            display: flex;
+            gap: 3px;
+            height: 35px;
+            margin: 1.5rem 0;
         }
 
-        .incident-status-tag.resolved { background: #e7f3ff; color: #1877f2; }
-        .incident-status-tag.active { background: #fff3e0; color: #ef6c00; }
+        .uptime-segment {
+            flex: 1;
+            background: var(--color-success);
+            border-radius: 3px;
+            opacity: 0.75;
+            transition: opacity 0.2s;
+        }
 
-        .incident-msg {
-            font-size: 0.9rem;
+        .uptime-segment:hover { opacity: 1; }
+        .uptime-segment.degraded { background: var(--color-warning); }
+        .uptime-segment.down { background: var(--color-danger); }
+
+        .service-card-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
             color: var(--color-text-secondary);
+            border-top: 1px solid var(--color-border);
+            padding-top: 1rem;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+
+        .incident-log {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .incident-entry {
+            background: var(--color-surface);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            border: 1px solid var(--color-border);
+            border-right: 6px solid var(--color-accent);
+        }
+
+        .incident-entry.resolved { border-right-color: var(--color-success); }
+        .incident-entry.active { border-right-color: var(--color-danger); }
+
+        .incident-entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 0.75rem;
         }
 
-        .incident-meta {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #8a8d91;
-            display: flex;
-            gap: 1rem;
-        }
-
-        /* Filters */
-        .filter-group {
-            display: flex;
-            gap: 0.5rem;
-            background: var(--color-surface);
-            padding: 0.4rem;
-            border-radius: 10px;
-            border: 1px solid var(--color-border);
-        }
-
-        .filter-btn {
-            padding: 0.4rem 1rem;
-            border: none;
-            background: transparent;
-            border-radius: 7px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            color: var(--color-text-secondary);
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-
-        .filter-btn.active {
-            background: var(--color-accent);
-            color: white;
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
-            .header { padding: 1rem; }
-            .header-content { flex-direction: column; align-items: flex-start; }
-            .summary-grid { grid-template-columns: 1fr 1fr; }
-            .services-grid { grid-template-columns: 1fr; }
-            .incident-item { flex-direction: column; gap: 1rem; }
+            .global-status-banner { flex-direction: column; text-align: center; }
+            .services-container { grid-template-columns: 1fr; }
+            .admin-main { padding: 1.5rem 1rem; }
         }
     </style>
 </head>
 <body>
     <div id="sidebar-container"></div>
-    <header class="header">
-        <div class="header-content">
-            <div class="header-brand">
-                <div class="logo-container">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
-                </div>
-                <div class="header-info">
-                    <h1>حالة الخدمات</h1>
-                    <p>المراقبة الحية لمنصة مدعوم</p>
-                </div>
-            </div>
-            <div class="status-badge-global" id="globalStatus">
-                <div class="status-dot operational"></div>
-                <span class="status-text">جميع الأنظمة تعمل بشكل مثالي</span>
-            </div>
-        </div>
-    </header>
 
-    <div class="container">
-        <!-- Stats Summary -->
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-icon" style="background: #e7f3ff; color: #1877f2;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                </div>
-                <div class="summary-data">
-                    <h3 id="operationalCount">0</h3>
-                    <p>أنظمة تعمل</p>
-                </div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-icon" style="background: #fff8e1; color: #ff8f00;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                </div>
-                <div class="summary-data">
-                    <h3 id="issueCount">0</h3>
-                    <p>مشاكل تقنية</p>
-                </div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-icon" style="background: #e1f5fe; color: #0288d1;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                </div>
-                <div class="summary-data">
-                    <h3 id="uptimeAvg">99.9%</h3>
-                    <p>متوسط التوفر</p>
-                </div>
+    <main class="admin-main">
+        <div class="status-header-section">
+            <div class="page-header">
+                <h1>حالة الخدمات</h1>
+                <p>متابعة فورية لأداء منصة مدعوم</p>
             </div>
         </div>
 
-        <!-- Services Grid -->
+        <div class="global-status-banner" id="globalBanner">
+            <div class="status-icon-wrapper bg-success-light" id="globalIcon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div>
+                <h2 id="globalTitle" style="font-weight: 800; font-size: 1.5rem; margin-bottom: 0.4rem;">جميع الأنظمة تعمل بشكل مثالي</h2>
+                <p id="globalDesc" style="color: var(--color-text-secondary); font-weight: 600; font-size: 1.05rem;">نراقب الخدمات باستمرار لضمان أفضل تجربة مستخدم.</p>
+            </div>
+        </div>
+
         <div class="section-header">
-            <div class="section-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-accent);"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-                الخدمات الأساسية
-            </div>
-            <div class="filter-group">
-                <button class="filter-btn active" data-filter="all">الكل</button>
-                <button class="filter-btn" data-filter="operational">مستقر</button>
-                <button class="filter-btn" data-filter="issue">مشاكل</button>
+            <h2 class="section-title">الخدمات الأساسية</h2>
+        </div>
+
+        <div class="services-container" id="servicesList">
+            <!-- Loading state -->
+            <div style="grid-column: 1/-1; text-align: center; padding: 4rem;">
+                <div class="stat-value" style="font-size: 1.2rem; color: var(--color-text-secondary);">جاري مزامنة البيانات...</div>
             </div>
         </div>
 
-        <div class="services-grid" id="servicesGrid">
-            <!-- Loading State -->
-            <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-                <p style="color: var(--color-text-secondary); font-weight: 700;">جاري مزامنة حالة الخدمات...</p>
-            </div>
-        </div>
-
-        <!-- Recent Incidents -->
         <div class="section-header">
-            <div class="section-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-danger);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                سجل الحوادث والصيانة
-            </div>
+            <h2 class="section-title">سجل الحوادث والصيانة</h2>
         </div>
 
-        <div class="incidents-container" id="incidentsList">
-            <div style="padding: 3rem; text-align: center;">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00a400" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                <h4 style="font-weight: 800;">لا توجد حوادث مسجلة</h4>
-                <p style="color: var(--color-text-secondary); font-size: 0.9rem;">جميع الخدمات تعمل بكفاءة عالية في الوقت الحالي</p>
+        <div class="incident-log" id="incidentsContainer">
+            <div class="section-card" style="text-align: center; padding: 4rem;">
+                <p style="color: var(--color-text-secondary); font-weight: 600;">لا توجد حوادث مسجلة حالياً</p>
             </div>
         </div>
-    </div>
+    </main>
 
     <script type="module">
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { serviceStatusManager } from '/service-status.js';
 
+        // Initialize Admin Sidebar
         initSidebar();
 
-        let allServices = [];
-        let currentFilter = 'all';
-
-        async function init() {
+        async function refreshStatus() {
             try {
-                allServices = await serviceStatusManager.fetchServices();
+                const services = await serviceStatusManager.fetchServices();
                 const incidents = await serviceStatusManager.fetchIncidents();
                 
-                updateStats();
-                renderServices();
+                renderServices(services);
                 renderIncidents(incidents);
-                setupFilters();
-                
-                // Real-time subscription
-                serviceStatusManager.subscribeToServiceUpdates((payload) => {
-                    console.log('Update received:', payload);
-                    refreshData();
-                });
+                updateGlobalUI(services);
             } catch (err) {
-                console.error('Init failed:', err);
+                console.error('Error refreshing status:', err);
             }
         }
 
-        async function refreshData() {
-            allServices = await serviceStatusManager.fetchServices();
-            updateStats();
-            renderServices();
-        }
-
-        function updateStats() {
-            const summary = serviceStatusManager.getSummary(allServices);
-            document.getElementById('operationalCount').textContent = summary.operational;
-            document.getElementById('issueCount').textContent = summary.degraded + summary.down;
-            
-            const globalStatus = document.getElementById('globalStatus');
-            const dot = globalStatus.querySelector('.status-dot');
-            const text = globalStatus.querySelector('.status-text');
-
-            if (summary.down > 0) {
-                dot.className = 'status-dot down';
-                text.textContent = 'انقطاع في بعض الخدمات';
-            } else if (summary.degraded > 0) {
-                dot.className = 'status-dot degraded';
-                text.textContent = 'أداء بعض الأنظمة متأثر';
-            } else {
-                dot.className = 'status-dot operational';
-                text.textContent = 'جميع الأنظمة تعمل بشكل مثالي';
-            }
-        }
-
-        function renderServices() {
-            const grid = document.getElementById('servicesGrid');
-            const filtered = allServices.filter(s => {
-                if (currentFilter === 'all') return true;
-                if (currentFilter === 'operational') return s.status === 'operational';
-                if (currentFilter === 'issue') return s.status !== 'operational';
-                return true;
-            });
-
-            if (filtered.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--color-text-secondary);">لا توجد خدمات تطابق البحث</div>';
+        function renderServices(services) {
+            const container = document.getElementById('servicesList');
+            if (!services || services.length === 0) {
+                container.innerHTML = '<div class="section-card" style="grid-column: 1/-1; text-align: center;">لا توجد خدمات مضافة</div>';
                 return;
             }
 
-            grid.innerHTML = filtered.map(service => `
-                <div class="service-card ${service.status}">
-                    <div class="service-top">
-                        <div class="service-info">
-                            <h4>${service.name}</h4>
-                        </div>
-                        <div class="service-status-label ${service.status}">
-                            <div class="status-dot ${service.status}" style="width: 6px; height: 6px; animation: none;"></div>
-                            ${getStatusText(service.status)}
-                        </div>
+            container.innerHTML = services.map(s => `
+                <div class="service-status-card">
+                    <div class="service-card-header">
+                        <span class="service-title">${s.name}</span>
+                        <span class="status-badge status-${s.status === 'operational' ? 'resolved' : s.status === 'degraded' ? 'pending' : 'danger'}">
+                            ${getStatusLabel(s.status)}
+                        </span>
                     </div>
-                    <p class="service-desc">${service.description || 'لا يوجد وصف متاح'}</p>
-                    <div class="uptime-container">
-                        <div class="uptime-header">
-                            <span>التوفر (30 يوم)</span>
-                            <span>99.9%</span>
-                        </div>
-                        <div class="uptime-bars">
-                            ${Array(30).fill(0).map(() => `<div class="uptime-bar"></div>`).join('')}
-                        </div>
+                    <p style="font-size: 0.95rem; color: var(--color-text-secondary); line-height: 1.5; height: 3rem; overflow: hidden;">${s.description || 'لا يوجد وصف متاح'}</p>
+                    <div class="uptime-visual">
+                        ${Array(30).fill(0).map(() => `<div class="uptime-segment"></div>`).join('')}
                     </div>
-                    <div class="service-footer">
-                        <span>الاستجابة: ${service.response_time || '--'}ms</span>
-                        <span>آخر فحص: ${formatTime(service.last_checked)}</span>
+                    <div class="service-card-footer">
+                        <span>⏱️ ${s.response_time || '--'}ms</span>
+                        <span style="color: var(--color-success);">99.9% متوفر</span>
                     </div>
                 </div>
             `).join('');
         }
 
         function renderIncidents(incidents) {
-            const container = document.getElementById('incidentsList');
+            const container = document.getElementById('incidentsContainer');
             if (!incidents || incidents.length === 0) return;
 
             container.innerHTML = incidents.map(inc => `
-                <div class="incident-item">
-                    <div class="incident-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+                <div class="incident-entry ${inc.status === 'resolved' ? 'resolved' : 'active'}">
+                    <div class="incident-entry-header">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: var(--color-primary);">${inc.title}</span>
+                        <span class="status-badge status-${inc.status === 'resolved' ? 'resolved' : 'danger'}">
+                            ${inc.status === 'resolved' ? 'تم الحل' : 'نشط'}
+                        </span>
                     </div>
-                    <div class="incident-content">
-                        <div class="incident-top">
-                            <span class="incident-title">${inc.title}</span>
-                            <span class="incident-status-tag ${inc.status === 'resolved' ? 'resolved' : 'active'}">
-                                ${inc.status === 'resolved' ? 'تم الحل' : 'نشط'}
-                            </span>
-                        </div>
-                        <p class="incident-msg">${inc.description}</p>
-                        <div class="incident-meta">
-                            <span>التاريخ: ${new Date(inc.created_at).toLocaleDateString('ar-EG')}</span>
-                            <span>الخدمات: ${inc.affected_services?.join(', ') || 'الكل'}</span>
-                        </div>
+                    <p style="font-size: 1rem; color: var(--color-text-secondary); margin-bottom: 1rem; line-height: 1.6;">${inc.description}</p>
+                    <div style="font-size: 0.85rem; color: #999; font-weight: 600;">
+                        🗓️ ${new Date(inc.created_at).toLocaleString('ar-EG')}
                     </div>
                 </div>
             `).join('');
         }
 
-        function setupFilters() {
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.onclick = () => {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentFilter = btn.dataset.filter;
-                    renderServices();
-                };
-            });
+        function updateGlobalUI(services) {
+            const summary = serviceStatusManager.getSummary(services);
+            const icon = document.getElementById('globalIcon');
+            const title = document.getElementById('globalTitle');
+            const desc = document.getElementById('globalDesc');
+
+            if (summary.down > 0) {
+                icon.className = 'status-icon-wrapper bg-danger-light';
+                icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+                title.textContent = 'انقطاع في بعض الخدمات';
+                desc.textContent = 'نعمل حالياً على إصلاح المشاكل التقنية واستعادة استقرار النظام.';
+            } else if (summary.degraded > 0) {
+                icon.className = 'status-icon-wrapper bg-warning-light';
+                icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>';
+                title.textContent = 'أداء بعض الأنظمة متأثر';
+                desc.textContent = 'قد تواجه بعض الخدمات بطئاً في الاستجابة، جاري التحسين.';
+            } else {
+                icon.className = 'status-icon-wrapper bg-success-light';
+                icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+                title.textContent = 'جميع الأنظمة تعمل بشكل مثالي';
+                desc.textContent = 'نراقب الخدمات باستمرار لضمان أفضل تجربة مستخدم.';
+            }
         }
 
-        function getStatusText(status) {
-            const map = { operational: 'مستقر', degraded: 'أداء منخفض', down: 'متوقف' };
-            return map[status] || status;
+        function getStatusLabel(status) {
+            const labels = { operational: 'مستقر', degraded: 'أداء منخفض', down: 'متوقف' };
+            return labels[status] || status;
         }
 
-        function formatTime(date) {
-            if (!date) return '--';
-            return new Date(date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        }
+        // Initial fetch
+        refreshStatus();
 
-        init();
+        // Listen for real-time changes
+        serviceStatusManager.subscribeToServiceUpdates(() => refreshStatus());
     </script>
 </body>
 </html>
