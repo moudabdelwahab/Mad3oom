@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إرسال بريد - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>إرسال بريد إلكتروني</h1>
+            <p>إرسال رسائل بريدية للمستخدمين</p>
+        </header>
+
+        <div class="section-card">
+            <form id="emailForm">
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">المستلم</label>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="recipient_type" value="single" checked style="cursor: pointer;">
+                            <span>مستخدم واحد</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="recipient_type" value="all" style="cursor: pointer;">
+                            <span>كل المستخدمين</span>
+                        </label>
+                    </div>
+                    <select id="userSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
+                        <option value="">جاري تحميل المستخدمين...</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="emailSubject" style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">عنوان الرسالة</label>
+                    <input type="text" id="emailSubject" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);" placeholder="أدخل عنوان الرسالة">
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="emailBody" style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">محتوى الرسالة</label>
+                    <textarea id="emailBody" required rows="10" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; resize: vertical; background: var(--input-bg); color: var(--color-text);" placeholder="أدخل محتوى الرسالة"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button type="submit" class="btn btn-primary" id="sendBtn" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        إرسال الرسالة
+                    </button>
+                    <span id="statusMessage" style="font-weight: 600;"></span>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <div id="toast" style="display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--color-success); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 9999; font-weight: 600; animation: slideUp 0.3s ease;"></div>
+
+    <style>
+        @keyframes slideUp {
+            from { transform: translate(-50%, 20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+    </style>
+
+    <script type="module" src="/assets/js/admin/send-email.js"></script>
+</body>
+</html>
