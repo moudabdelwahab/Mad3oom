@@ -702,25 +702,48 @@
             <!-- Quick Actions -->
             <div class="quick-actions-grid">
                 <div class="action-card" onclick="openTab('editor')">
-                    <div class="action-icon">✏️</div>
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </div>
                     <h3 class="action-title">محرر التدفقات</h3>
                     <p class="action-description">صمّم وعدّل تدفقات الرد الآلي بواجهة سحب وإفلات سهلة</p>
                 </div>
 
                 <div class="action-card" onclick="openTab('analytics')">
-                    <div class="action-icon">📊</div>
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                    </div>
                     <h3 class="action-title">التحليلات والإحصائيات</h3>
                     <p class="action-description">راقب أداء التدفقات وتحليل سلوك المستخدمين</p>
                 </div>
 
                 <div class="action-card" onclick="openTab('templates')">
-                    <div class="action-icon">📋</div>
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                    </div>
                     <h3 class="action-title">القوالب الجاهزة</h3>
                     <p class="action-description">ابدأ بسرعة باستخدام قوالب جاهزة ومجربة</p>
                 </div>
 
                 <div class="action-card" onclick="openTab('settings')">
-                    <div class="action-icon">⚙️</div>
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
+                        </svg>
+                    </div>
                     <h3 class="action-title">الإعدادات</h3>
                     <p class="action-description">تخصيص سلوك النظام وإعدادات الذكاء الاصطناعي</p>
                 </div>
@@ -839,7 +862,27 @@
 
         // Help Modal
         window.showHelpModal = function() {
-            alert('للحصول على المساعدة، راجع:\n\n📖 QUICK_START.md - دليل البدء السريع\n📚 README.md - الدليل الشامل\n📊 دليل المستخدم في صفحة التحليلات');
+            const helpDiv = document.createElement('div');
+            helpDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            helpDiv.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 25px rgba(0,0,0,0.15);">
+                    <h2 style="margin:0 0 20px 0;font-size:20px;font-weight:700;color:#0F172A;">مراجع المساعدة</h2>
+                    <div style="display:flex;gap:12px;margin-bottom:12px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">QUICK_START.md</div><div style="font-size:12px;color:#475569;">دليل البدء السريع</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-bottom:12px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">README.md</div><div style="font-size:12px;color:#475569;">الدليل الشامل</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-bottom:20px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">دليل التحليلات</div><div style="font-size:12px;color:#475569;">فهم الإحصائيات</div></div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:10px;background:linear-gradient(135deg,#0077CC,#00BCD4);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">حسناً</button>
+                </div>
+            `;
+            document.body.appendChild(helpDiv);
         };
 
         // Load stats
