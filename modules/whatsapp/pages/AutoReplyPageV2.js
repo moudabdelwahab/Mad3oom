@@ -49,12 +49,24 @@ export class AutoReplyPageV2 {
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
                         </button>
                         <div style="width: 1px; height: 20px; background: var(--border-subtle);"></div>
+                        <button class="btn btn-ghost btn-sm" id="templates-btn" title="القوالب الجاهزة">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h10M7 12h10M7 17h6"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                            <span style="margin-right: 4px;">قوالب</span>
+                        </button>
+                        <button class="btn btn-ghost btn-sm" id="analytics-btn" title="التحليلات">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            <span style="margin-right: 4px;">إحصائيات</span>
+                        </button>
                         <button class="btn btn-ghost btn-sm" id="test-flow-btn" title="اختبار التدفق">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             <span style="margin-right: 4px;">اختبار</span>
                         </button>
+                        <div style="width: 1px; height: 20px; background: var(--border-subtle);"></div>
                         <button class="btn btn-secondary btn-sm" id="clear-btn">مسح الكل</button>
-                        <button class="btn btn-primary btn-sm" id="save-btn">حفظ الآن</button>
+                        <button class="btn btn-primary btn-sm" id="save-btn">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            <span style="margin-right: 4px;">حفظ</span>
+                        </button>
                     </div>
                 </div>
 
@@ -227,6 +239,8 @@ export class AutoReplyPageV2 {
         // Buttons
         document.getElementById('undo-btn').addEventListener('click', () => this.undo());
         document.getElementById('redo-btn').addEventListener('click', () => this.redo());
+        document.getElementById('templates-btn').addEventListener('click', () => this.openTemplatesModal());
+        document.getElementById('analytics-btn').addEventListener('click', () => this.openAnalytics());
         document.getElementById('test-flow-btn').addEventListener('click', () => this.openTestModal());
         document.getElementById('clear-btn').addEventListener('click', () => this.clearAll());
         document.getElementById('save-btn').addEventListener('click', () => this.saveFlowData());
@@ -496,6 +510,20 @@ export class AutoReplyPageV2 {
 
     editNode(id) {
         this.selectNode(id);
+    }
+
+    openAnalytics() {
+        // Navigate to analytics page
+        if (window.navigateTo) {
+            window.navigateTo('analytics', document.querySelector('[data-page="analytics"]'));
+        } else {
+            alert('صفحة التحليلات غير متاحة حالياً');
+        }
+    }
+
+    openTemplatesModal() {
+        alert('ميزة القوالب الجاهزة قيد التطوير. سيتم إضافتها قريباً!');
+        // TODO: Implement templates modal with flow_templates table
     }
 
     openTestModal() {
