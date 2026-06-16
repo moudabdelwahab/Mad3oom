@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الرد الآلي المتقدم | مدعوم</title>
+    <link rel="stylesheet" href="./whatsapp-theme.css">
+    <link rel="stylesheet" href="./flow-editor-v2.css">
+    <link rel="stylesheet" href="./ui-components.css">
+    <style>
+        /* صفحة الرد الآلي الرئيسية */
+        .autoreply-page {
+            min-height: 100vh;
+            background: var(--wa-bg-primary);
+            padding: 0;
+            margin: 0;
+        }
+
+        .autoreply-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header */
+        .autoreply-header {
+            background: var(--wa-bg-secondary);
+            border: 1px solid var(--wa-border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .autoreply-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0077CC, #00BCD4);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .header-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--wa-text-primary);
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #0077CC, #00BCD4);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .header-description {
+            font-size: 16px;
+            color: var(--wa-text-secondary);
+            line-height: 1.6;
+            margin: 0 0 24px 0;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--wa-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0077CC;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        /* Quick Actions Grid */
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .action-card {
+            background: var(--wa-bg-secondary);
+            border: 1px solid var(--wa-border);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #0077CC, #00BCD4);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .action-card:hover {
+            border-color: #0077CC;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 119, 204, 0.15);
+        }
+
+        .action-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .action-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, rgba(0, 119, 204, 0.1), rgba(0, 188, 212, 0.1));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+
+        .action-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--wa-text-primary);
+            margin: 0 0 8px 0;
+        }
+
+        .action-description {
+            font-size: 14px;
+            color: var(--wa-text-secondary);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Main Content Tabs */
+        .content-tabs {
+            display: flex;
+            gap: 8px;
+            background: var(--wa-bg-secondary);
+            padding: 8px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--wa-border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 14px 24px;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--wa-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: var(--wa-text-primary);
+            background: rgba(0, 119, 204, 0.05);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #0077CC, #00BCD4);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 119, 204, 0.25);
+        }
+
+        .tab-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeInUp 0.3s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Flow Editor Container */
+        .flow-editor-wrapper {
+            background: var(--wa-bg-secondary);
+            border: 1px solid var(--wa-border);
+            border-radius: 16px;
+            overflow: hidden;
+            height: calc(100vh - 400px);
+            min-height: 600px;
+        }
+
+        /* Analytics Grid */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .analytics-card {
+            background: var(--wa-bg-secondary);
+            border: 1px solid var(--wa-border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .analytics-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--wa-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 16px 0;
+        }
+
+        .analytics-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--wa-text-primary);
+            margin: 0 0 8px 0;
+        }
+
+        .analytics-trend {
+            font-size: 13px;
+            color: #00E676;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .analytics-trend.down {
+            color: #FF5252;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .autoreply-container {
+                padding: 16px;
+            }
+
+            .autoreply-header {
+                padding: 20px;
+            }
+
+            .header-content {
+                flex-direction: column;
+            }
+
+            .header-title {
+                font-size: 24px;
+            }
+
+            .header-actions {
+                width: 100%;
+            }
+
+            .header-actions .btn {
+                flex: 1;
+            }
+
+            .quick-actions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content-tabs {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .flow-editor-wrapper {
+                height: calc(100vh - 300px);
+                min-height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="autoreply-page">
+        <div class="autoreply-container">
+            <!-- Header -->
+            <div class="autoreply-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="header-title">
+                            <span class="header-icon">🤖</span>
+                            نظام الرد الآلي المتقدم
+                        </h1>
+                        <p class="header-description">
+                            صمم تدفقات رد آلي احترافية بسهولة. تحكم كامل في تجربة العميل مع تحليلات متقدمة وإدارة ذكية للمحادثات.
+                        </p>
+                        <div class="header-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">التدفقات النشطة</span>
+                                <span class="stat-value" id="active-flows">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">الرسائل اليوم</span>
+                                <span class="stat-value" id="today-messages">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">معدل الاستجابة</span>
+                                <span class="stat-value" id="response-rate">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="window.history.back()">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 12H5M12 19l-7-7 7-7"/>
+                            </svg>
+                            <span>رجوع</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="showHelpModal()">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            <span>مساعدة</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions-grid">
+                <div class="action-card" onclick="openTab('editor')">
+                    <div class="action-icon">✏️</div>
+                    <h3 class="action-title">محرر التدفقات</h3>
+                    <p class="action-description">صمم وعدل تدفقات الرد الآلي بواجهة سحب وإفلات سهلة</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('analytics')">
+                    <div class="action-icon">📊</div>
+                    <h3 class="action-title">التحليلات والإحصائيات</h3>
+                    <p class="action-description">راقب أداء التدفقات وتحليل سلوك المستخدمين</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('templates')">
+                    <div class="action-icon">📋</div>
+                    <h3 class="action-title">القوالب الجاهزة</h3>
+                    <p class="action-description">ابدأ بسرعة باستخدام قوالب جاهزة ومجربة</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('settings')">
+                    <div class="action-icon">⚙️</div>
+                    <h3 class="action-title">الإعدادات</h3>
+                    <p class="action-description">تخصيص سلوك النظام وإعدادات الذكاء الاصطناعي</p>
+                </div>
+            </div>
+
+            <!-- Content Tabs -->
+            <div class="content-tabs">
+                <button class="tab-btn active" data-tab="editor" onclick="switchTab('editor')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span>المحرر</span>
+                </button>
+
+                <button class="tab-btn" data-tab="analytics" onclick="switchTab('analytics')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>التحليلات</span>
+                </button>
+
+                <button class="tab-btn" data-tab="templates" onclick="switchTab('templates')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span>القوالب</span>
+                </button>
+
+                <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"></path>
+                    </svg>
+                    <span>الإعدادات</span>
+                </button>
+            </div>
+
+            <!-- Tab Contents -->
+            <!-- Editor Tab -->
+            <div class="tab-content active" id="tab-editor">
+                <div class="flow-editor-wrapper" id="flow-editor-container">
+                    <!-- سيتم تحميل محرر التدفقات هنا -->
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div class="tab-content" id="tab-analytics">
+                <div id="analytics-container">
+                    <!-- سيتم تحميل صفحة التحليلات هنا -->
+                </div>
+            </div>
+
+            <!-- Templates Tab -->
+            <div class="tab-content" id="tab-templates">
+                <div class="analytics-card">
+                    <h3 class="analytics-card-title">القوالب الجاهزة</h3>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-title">قريباً...</div>
+                        <div class="empty-state-text">
+                            سيتم إضافة مكتبة من القوالب الجاهزة للاستخدام الفوري
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" id="tab-settings">
+                <div class="analytics-card">
+                    <h3 class="analytics-card-title">الإعدادات</h3>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚙️</div>
+                        <div class="empty-state-title">قريباً...</div>
+                        <div class="empty-state-text">
+                            إعدادات متقدمة للتحكم في سلوك النظام وتكامل الذكاء الاصطناعي
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module">
+        import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
+        import { FlowAnalyticsPage } from './pages/FlowAnalyticsPage.js';
+
+        // Initialize
+        let editorInstance = null;
+        let analyticsInstance = null;
+
+        // Load Editor
+        async function loadEditor() {
+            const container = document.getElementById('flow-editor-container');
+            if (!editorInstance) {
+                editorInstance = new AutoReplyPageV2(container);
+                await editorInstance.load();
+            }
+        }
+
+        // Load Analytics
+        async function loadAnalytics() {
+            const container = document.getElementById('analytics-container');
+            if (!analyticsInstance) {
+                analyticsInstance = new FlowAnalyticsPage(container);
+                await analyticsInstance.load();
+            }
+        }
+
+        // Switch Tabs
+        window.switchTab = function(tabName) {
+            // Remove active from all tabs and contents
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Add active to selected
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            // Load content if needed
+            if (tabName === 'editor' && !editorInstance) {
+                loadEditor();
+            } else if (tabName === 'analytics' && !analyticsInstance) {
+                loadAnalytics();
+            }
+        };
+
+        window.openTab = function(tabName) {
+            switchTab(tabName);
+        };
+
+        // Help Modal
+        window.showHelpModal = function() {
+            alert('للحصول على المساعدة، راجع:\n\n📖 QUICK_START.md - دليل البدء السريع\n📚 README.md - الدليل الشامل\n📊 دليل المستخدم في صفحة التحليلات');
+        };
+
+        // Load stats
+        async function loadStats() {
+            // TODO: جلب من API
+            document.getElementById('active-flows').textContent = '1';
+            document.getElementById('today-messages').textContent = '0';
+            document.getElementById('response-rate').textContent = '100%';
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadEditor();
+            loadStats();
+        });
+    </script>
+</body>
+</html>
