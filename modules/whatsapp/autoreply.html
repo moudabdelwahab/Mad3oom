@@ -3,901 +3,2249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام الرد الآلي المتقدم | مدعوم</title>
-    <link rel="stylesheet" href="./whatsapp-theme.css">
-    <link rel="stylesheet" href="./flow-editor-v2.css">
-    <link rel="stylesheet" href="./ui-components.css">
+    <title>نظام الرد الآلي | مدعوم</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        /* =====================================================
-           صفحة الرد الآلي - تصميم محسّن متطابق مع هوية مدعوم
-           ===================================================== */
+        /* ═══════════════════════════════════════════════════
+           DESIGN TOKENS — مدعوم Brand System
+           الألوان الأصلية: أزرق داكن متدرج #1e3c72 → #2a5298
+           ═══════════════════════════════════════════════════ */
+        :root {
+            --brand-primary: #1e3c72;
+            --brand-secondary: #2a5298;
+            --brand-accent: #3b6fd4;
+            --brand-light: #5a8dee;
+            --brand-glow: rgba(42, 82, 152, 0.18);
 
-        /* صفحة الرد الآلي الرئيسية */
-        .autoreply-page {
-            min-height: 100vh;
-            background: var(--wa-bg-primary);
-            padding: 0;
-            margin: 0;
+            /* Light Mode */
+            --bg-base: #f4f7fd;
+            --bg-surface: #ffffff;
+            --bg-card: #ffffff;
+            --bg-elevated: #f0f4fc;
+            --bg-hover: #e8eef8;
+            --bg-sidebar: #f8faff;
+
+            --text-primary: #0d1b3e;
+            --text-secondary: #4a5568;
+            --text-muted: #8fa3bf;
+            --text-inverse: #ffffff;
+
+            --border-subtle: rgba(30, 60, 114, 0.10);
+            --border-medium: rgba(30, 60, 114, 0.18);
+            --border-strong: rgba(30, 60, 114, 0.30);
+
+            --shadow-sm: 0 1px 4px rgba(30, 60, 114, 0.08);
+            --shadow-md: 0 4px 16px rgba(30, 60, 114, 0.10);
+            --shadow-lg: 0 8px 32px rgba(30, 60, 114, 0.14);
+            --shadow-xl: 0 16px 48px rgba(30, 60, 114, 0.18);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+
+            --status-success: #10b981;
+            --status-warning: #f59e0b;
+            --status-error: #ef4444;
+            --status-info: #3b82f6;
+
+            --sidebar-width: 270px;
+            --header-height: 68px;
+            --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .autoreply-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 32px;
+        /* Dark Mode */
+        [data-theme="dark"] {
+            --bg-base: #070d1a;
+            --bg-surface: #0d1830;
+            --bg-card: #111f3a;
+            --bg-elevated: #162540;
+            --bg-hover: #1d2e4f;
+            --bg-sidebar: #0a1425;
+
+            --text-primary: #e8eef8;
+            --text-secondary: #94aac8;
+            --text-muted: #546a8a;
+            --text-inverse: #ffffff;
+
+            --border-subtle: rgba(90, 141, 238, 0.08);
+            --border-medium: rgba(90, 141, 238, 0.15);
+            --border-strong: rgba(90, 141, 238, 0.28);
+
+            --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.25);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+            --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.55);
+
+            --brand-glow: rgba(90, 141, 238, 0.12);
         }
 
-        /* ─── Header Hero Section ─── */
-        .autoreply-header {
-            background: linear-gradient(135deg, var(--wa-bg-secondary) 0%, rgba(0, 119, 204, 0.05) 100%);
-            border: 1px solid rgba(0, 119, 204, 0.15);
-            border-radius: 20px;
-            padding: 48px;
-            margin-bottom: 40px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 119, 204, 0.08);
+        /* ═══ Reset & Base ═══ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            transition: background 0.35s ease, color 0.35s ease;
+            font-size: 15px;
+            line-height: 1.6;
         }
 
-        .autoreply-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #0077CC, #0055AA, #003366);
-        }
-
-        .autoreply-header::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -10%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(0, 119, 204, 0.08) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .header-content {
+        /* ═══ App Shell ═══ */
+        .app-shell {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 40px;
-            position: relative;
-            z-index: 1;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        .header-left {
-            flex: 1;
-        }
-
-        .header-title {
-            font-size: 38px;
-            font-weight: 900;
-            color: var(--wa-text-primary);
-            margin: 0 0 16px 0;
+        /* ═══════════════════════════
+           TOP BAR
+        ═══════════════════════════ */
+        .top-bar {
+            height: var(--header-height);
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-sm);
             display: flex;
             align-items: center;
             gap: 16px;
-            letter-spacing: -0.5px;
+            padding: 0 24px;
+            flex-shrink: 0;
+            z-index: 100;
+            position: relative;
         }
 
-        .header-icon {
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, #0077CC, #0055AA);
-            border-radius: 16px;
+        .top-bar::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent), var(--brand-light));
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-mark {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 8px 24px rgba(0, 119, 204, 0.25);
+            box-shadow: 0 4px 12px rgba(30, 60, 114, 0.3);
+            flex-shrink: 0;
         }
 
-        .header-description {
-            font-size: 17px;
-            color: var(--wa-text-secondary);
-            line-height: 1.7;
-            margin: 0 0 28px 0;
-            max-width: 600px;
-        }
+        .logo-mark svg { color: white; }
 
-        .header-stats {
-            display: flex;
-            gap: 48px;
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
+        .logo-text {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            line-height: 1.2;
         }
 
-        .stat-label {
-            font-size: 11px;
-            color: var(--wa-text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .logo-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--brand-primary);
+        }
+
+        [data-theme="dark"] .logo-name { color: var(--brand-light); }
+
+        .logo-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .top-bar-sep {
+            width: 1px;
+            height: 28px;
+            background: var(--border-medium);
+        }
+
+        .page-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .breadcrumb-home {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+        }
+
+        .breadcrumb-sep {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .breadcrumb-current {
+            color: var(--brand-accent);
             font-weight: 700;
         }
 
-        .stat-value {
-            font-size: 28px;
-            font-weight: 900;
-            background: linear-gradient(135deg, #0077CC, #0055AA);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header-actions {
+        .top-bar-actions {
+            margin-right: auto;
             display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            flex-direction: column;
+            align-items: center;
+            gap: 8px;
         }
 
-        .header-actions .btn {
-            width: 100%;
-            justify-content: center;
-        }
-
-        /* ─── Quick Actions Grid ─── */
-        .quick-actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
-        }
-
-        .action-card {
-            background: var(--wa-bg-secondary);
-            border: 1px solid rgba(0, 119, 204, 0.12);
-            border-radius: 16px;
-            padding: 28px;
+        /* Theme Toggle */
+        .theme-toggle {
+            width: 56px;
+            height: 30px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: 99px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
-            group: 'card';
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            padding: 2px;
         }
 
-        .action-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0077CC, #0055AA);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .action-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(0, 119, 204, 0.05) 0%, transparent 100%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .action-card:hover {
-            border-color: rgba(0, 119, 204, 0.3);
-            transform: translateY(-6px);
-            box-shadow: 0 16px 40px rgba(0, 119, 204, 0.15);
-        }
-
-        .action-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .action-card:hover::after {
-            opacity: 1;
-        }
-
-        .action-icon {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, rgba(0, 119, 204, 0.12), rgba(0, 85, 170, 0.08));
-            border-radius: 14px;
+        .theme-toggle-knob {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            box-shadow: 0 2px 8px rgba(30, 60, 114, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(0, 119, 204, 0.1);
-            transition: all 0.3s ease;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translateX(0);
+            color: white;
+            font-size: 12px;
+        }
+
+        [data-theme="dark"] .theme-toggle-knob {
+            transform: translateX(26px);
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .icon-btn:hover {
+            background: var(--brand-glow);
+            border-color: var(--border-strong);
+            color: var(--brand-accent);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px 4px 4px;
+            border-radius: 99px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .user-chip:hover { border-color: var(--border-medium); }
+
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ═══════════════════════════
+           MAIN LAYOUT
+        ═══════════════════════════ */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ═══ Left Sidebar ═══ */
+        .left-sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-left: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow: hidden;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px 18px 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .sidebar-section-title {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            padding: 4px 18px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sidebar-section-title::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background: var(--brand-accent);
+            border-radius: 50%;
+        }
+
+        .nav-group {
+            padding: 6px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: relative;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(30, 60, 114, 0.08), rgba(42, 82, 152, 0.05));
+            color: var(--brand-accent);
+            border-color: var(--border-medium);
+        }
+
+        [data-theme="dark"] .nav-item.active {
+            background: linear-gradient(135deg, rgba(90, 141, 238, 0.12), rgba(59, 111, 212, 0.08));
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 3px;
+            border-radius: 2px;
+            background: linear-gradient(180deg, var(--brand-accent), var(--brand-light));
+        }
+
+        .nav-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--bg-elevated);
+            transition: var(--transition);
+            font-size: 14px;
+        }
+
+        .nav-item.active .nav-icon {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            color: white;
+        }
+
+        .nav-badge {
+            margin-right: auto;
+            background: var(--brand-accent);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 99px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .nav-badge.green { background: var(--status-success); }
+        .nav-badge.yellow { background: var(--status-warning); color: #000; }
+
+        /* Sidebar Stats */
+        .sidebar-stats {
+            margin: 6px 10px;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            border-radius: var(--radius-md);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-stats::before {
+            content: '';
+            position: absolute;
+            top: -20px; right: -20px;
+            width: 80px; height: 80px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 50%;
+        }
+
+        .sidebar-stats-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+
+        .sidebar-stats-value {
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1.1;
+            margin: 4px 0 2px;
+        }
+
+        .sidebar-stats-sub {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        /* ═══ Main Content ═══ */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ═══ Page Header ═══ */
+        .page-header {
+            padding: 28px 32px 0;
+            flex-shrink: 0;
+        }
+
+        .page-hero {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-hero::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent), var(--brand-light));
+        }
+
+        /* Subtle background pattern */
+        .page-hero::before {
+            content: '';
+            position: absolute;
+            left: -60px;
+            top: -60px;
+            width: 220px;
+            height: 220px;
+            background: radial-gradient(circle, var(--brand-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
             position: relative;
             z-index: 1;
         }
 
-        .action-card:hover .action-icon {
-            background: linear-gradient(135deg, rgba(0, 119, 204, 0.18), rgba(0, 85, 170, 0.12));
-            transform: scale(1.08);
-        }
-
-        .action-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--wa-text-primary);
-            margin: 0 0 10px 0;
-            letter-spacing: -0.3px;
-        }
-
-        .action-description {
-            font-size: 14px;
-            color: var(--wa-text-secondary);
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        /* ─── Content Tabs ─── */
-        .content-tabs {
-            display: flex;
-            gap: 8px;
-            background: var(--wa-bg-secondary);
-            padding: 10px;
-            border-radius: 14px;
-            margin-bottom: 28px;
-            border: 1px solid rgba(0, 119, 204, 0.12);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 12px 20px;
-            border-radius: 10px;
-            background: transparent;
-            border: none;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--wa-text-secondary);
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .hero-icon-wrap {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            position: relative;
-        }
-
-        .tab-btn:hover {
-            color: var(--wa-text-primary);
-            background: rgba(0, 119, 204, 0.06);
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #0077CC, #0055AA);
+            box-shadow: 0 8px 24px rgba(30, 60, 114, 0.28);
+            flex-shrink: 0;
             color: white;
-            box-shadow: 0 6px 20px rgba(0, 119, 204, 0.3);
+            font-size: 26px;
         }
 
-        .tab-icon {
-            width: 20px;
-            height: 20px;
+        .hero-text h1 {
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
         }
 
-        /* ─── Tab Content ─── */
-        .tab-content {
-            display: none;
+        .hero-text p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
         }
 
-        .tab-content.active {
-            display: block;
-            animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        .hero-stats {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
         }
 
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .hero-stat {
+            text-align: center;
+            padding: 12px 20px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            min-width: 90px;
         }
 
-        /* ─── Flow Editor Container ─── */
-        .flow-editor-wrapper {
-            background: var(--wa-bg-secondary);
-            border: 1px solid rgba(0, 119, 204, 0.12);
-            border-radius: 16px;
+        .hero-stat-value {
+            font-size: 24px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .hero-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 3px;
+        }
+
+        /* ═══ Tab Bar ═══ */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 6px;
+            box-shadow: var(--shadow-sm);
+            margin: 0 32px 24px;
+        }
+
+        .tab-item {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Cairo', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            white-space: nowrap;
+        }
+
+        .tab-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+        }
+
+        .tab-item.active {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            color: white;
+            box-shadow: 0 4px 14px rgba(30, 60, 114, 0.3);
+        }
+
+        .tab-icon { width: 16px; height: 16px; flex-shrink: 0; }
+
+        /* ═══ Content Area ═══ */
+        .content-area {
+            flex: 1;
+            padding: 0 32px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            animation: fadeUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ═══ Cards ═══ */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
             overflow: hidden;
-            height: calc(100vh - 450px);
-            min-height: 650px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            transition: var(--transition);
         }
 
-        /* ─── Analytics Grid ─── */
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-medium);
+        }
+
+        .card-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-accent), var(--brand-light));
+        }
+
+        .card-body { padding: 22px; }
+
+        /* ═══ Flow Editor ═══ */
+        .flow-editor-shell {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            height: calc(100vh - 280px);
+            min-height: 520px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flow-toolbar {
+            padding: 14px 20px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .flow-toolbar-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .flow-toolbar-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .save-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--status-success);
+        }
+
+        .flow-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Nodes Palette */
+        .nodes-palette {
+            width: 220px;
+            background: var(--bg-sidebar);
+            border-left: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .palette-section-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            padding: 0 6px;
+        }
+
+        .node-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            cursor: grab;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .node-item:hover {
+            border-color: var(--brand-accent);
+            color: var(--brand-accent);
+            background: linear-gradient(135deg, rgba(30, 60, 114, 0.04), transparent);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .node-item:active { cursor: grabbing; opacity: 0.7; }
+
+        .node-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .node-dot.blue   { background: rgba(59, 130, 246, 0.12); }
+        .node-dot.green  { background: rgba(16, 185, 129, 0.12); }
+        .node-dot.orange { background: rgba(245, 158, 11, 0.12); }
+        .node-dot.purple { background: rgba(139, 92, 246, 0.12); }
+        .node-dot.red    { background: rgba(239, 68, 68, 0.12); }
+        .node-dot.teal   { background: rgba(20, 184, 166, 0.12); }
+
+        /* Canvas */
+        .flow-canvas {
+            flex: 1;
+            background-color: var(--bg-base);
+            background-image:
+                radial-gradient(circle, var(--border-subtle) 0.8px, transparent 0.8px);
+            background-size: 22px 22px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Canvas Nodes */
+        .canvas-node {
+            position: absolute;
+            width: 200px;
+            background: var(--bg-surface);
+            border: 2px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            cursor: move;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            user-select: none;
+        }
+
+        .canvas-node:hover {
+            border-color: var(--brand-accent);
+            box-shadow: var(--shadow-lg), 0 0 0 3px var(--brand-glow);
+        }
+
+        .canvas-node.selected {
+            border-color: var(--brand-light);
+            box-shadow: var(--shadow-xl), 0 0 0 3px rgba(90, 141, 238, 0.2);
+        }
+
+        .node-head {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+            border-radius: calc(var(--radius-md) - 2px) calc(var(--radius-md) - 2px) 0 0;
+        }
+
+        .node-body {
+            padding: 10px 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            direction: rtl;
+        }
+
+        .node-input-field {
+            width: 100%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 6px 9px;
+            font-size: 11px;
+            color: var(--text-primary);
+            font-family: 'Cairo', sans-serif;
+            margin-top: 5px;
+            transition: var(--transition);
+        }
+
+        .node-input-field:focus {
+            outline: none;
+            border-color: var(--brand-accent);
+            box-shadow: 0 0 0 2px var(--brand-glow);
+        }
+
+        .node-connector {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--brand-accent);
+            border: 2px solid var(--bg-surface);
+            box-shadow: 0 0 6px rgba(59, 111, 212, 0.4);
+            cursor: crosshair;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .node-connector:hover {
+            transform: scale(1.4);
+            box-shadow: 0 0 12px rgba(59, 111, 212, 0.6);
+        }
+
+        .node-connector.out { right: -7px; top: 50%; transform: translateY(-50%); }
+        .node-connector.in  { left: -7px;  top: 50%; transform: translateY(-50%); }
+
+        /* SVG Connections */
+        .connections-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .connection-path {
+            fill: none;
+            stroke: var(--brand-accent);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            filter: drop-shadow(0 2px 4px rgba(59, 111, 212, 0.25));
+        }
+
+        /* Canvas Controls */
+        .canvas-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            display: flex;
+            gap: 6px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 8px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .ctrl-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 16px;
+        }
+
+        .ctrl-btn:hover {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            color: white;
+            border-color: transparent;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Canvas minimap label */
+        .canvas-info {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ═══ Analytics Grid ═══ */
         .analytics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
         }
 
         .analytics-card {
-            background: var(--wa-bg-secondary);
-            border: 1px solid rgba(0, 119, 204, 0.12);
-            border-radius: 16px;
-            padding: 28px;
-            transition: all 0.3s ease;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: var(--transition);
             position: relative;
             overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
 
         .analytics-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #0077CC, #0055AA);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
 
-        .analytics-card:hover {
-            border-color: rgba(0, 119, 204, 0.25);
-            box-shadow: 0 12px 32px rgba(0, 119, 204, 0.12);
+        .analytics-card:hover { box-shadow: var(--shadow-lg); border-color: var(--border-medium); }
+        .analytics-card:hover::before { opacity: 1; }
+
+        .analytics-card.blue::before   { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .analytics-card.green::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+        .analytics-card.yellow::before { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+        .analytics-card.purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+        .analytics-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
         }
 
-        .analytics-card:hover::before {
-            opacity: 1;
-        }
+        .analytics-icon.blue   { background: rgba(59, 130, 246, 0.1); }
+        .analytics-icon.green  { background: rgba(16, 185, 129, 0.1); }
+        .analytics-icon.yellow { background: rgba(245, 158, 11, 0.1); }
+        .analytics-icon.purple { background: rgba(139, 92, 246, 0.1); }
 
-        .analytics-card-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--wa-text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 0 0 16px 0;
-        }
-
-        .analytics-value {
-            font-size: 36px;
+        .analytics-val {
+            font-size: 30px;
             font-weight: 900;
-            background: linear-gradient(135deg, #0077CC, #0055AA);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin: 0 0 12px 0;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .analytics-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .analytics-trend {
-            font-size: 13px;
-            color: #4CAF50;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 4px;
         }
 
-        .analytics-trend.down {
-            color: #F44336;
+        .trend-up   { color: var(--status-success); }
+        .trend-down { color: var(--status-error); }
+
+        /* Chart placeholder */
+        .chart-placeholder {
+            background: var(--bg-elevated);
+            border-radius: var(--radius-md);
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            padding: 20px;
+            gap: 8px;
+            overflow: hidden;
         }
 
-        /* ─── Buttons ─── */
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(180deg, var(--brand-light), var(--brand-secondary));
+            border-radius: 4px 4px 0 0;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .chart-bar:hover { opacity: 1; }
+
+        /* ═══ Buttons ═══ */
         .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 600;
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            font-family: 'Cairo', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
             cursor: pointer;
             border: none;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-size: 14px;
+            gap: 7px;
+            transition: var(--transition);
+            text-decoration: none;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #0077CC, #0055AA);
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
             color: white;
-            box-shadow: 0 4px 12px rgba(0, 119, 204, 0.25);
+            box-shadow: 0 4px 12px rgba(30, 60, 114, 0.25);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 119, 204, 0.35);
-        }
-
-        .btn-primary:active {
-            transform: translateY(0);
+            box-shadow: 0 8px 20px rgba(30, 60, 114, 0.35);
         }
 
         .btn-secondary {
-            background: var(--wa-bg-secondary);
-            color: var(--wa-text-primary);
-            border: 1px solid rgba(0, 119, 204, 0.15);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-medium);
         }
 
         .btn-secondary:hover {
-            background: rgba(0, 119, 204, 0.08);
-            border-color: rgba(0, 119, 204, 0.25);
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
         }
 
-        .btn-sm {
-            padding: 8px 14px;
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+        }
+
+        .btn-ghost:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-xs { padding: 4px 9px; font-size: 11px; }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--status-error);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.15); }
+
+        /* ═══ Rules Table ═══ */
+        .rules-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .rules-table th {
+            padding: 10px 16px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            text-align: right;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .rules-table th:last-child { text-align: center; }
+
+        .rules-table td {
+            padding: 14px 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            vertical-align: middle;
+        }
+
+        .rules-table tr:hover td { background: var(--bg-hover); }
+        .rules-table tr:last-child td { border-bottom: none; }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-badge.active  { background: rgba(16, 185, 129, 0.1); color: var(--status-success); }
+        .status-badge.paused  { background: rgba(245, 158, 11, 0.1); color: var(--status-warning); }
+        .status-badge.draft   { background: var(--bg-elevated); color: var(--text-muted); }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .keyword-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .keyword-chip {
+            padding: 2px 8px;
+            background: var(--brand-glow);
+            border: 1px solid var(--border-medium);
+            border-radius: 99px;
+            font-size: 11px;
+            color: var(--brand-accent);
+            font-weight: 600;
+        }
+
+        /* ═══ Template Cards Grid ═══ */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .template-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .template-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+        }
+
+        .template-card.blue::before  { background: linear-gradient(90deg, #1e3c72, #3b6fd4); }
+        .template-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .template-card.purple::before{ background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+        .template-card.orange::before{ background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+
+        .template-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .template-card:hover::before { transform: scaleX(1); }
+
+        .template-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .template-icon.blue   { background: rgba(30, 60, 114, 0.08); }
+        .template-icon.green  { background: rgba(16, 185, 129, 0.08); }
+        .template-icon.purple { background: rgba(139, 92, 246, 0.08); }
+        .template-icon.orange { background: rgba(245, 158, 11, 0.08); }
+
+        .template-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .template-desc {
             font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
         }
 
-        /* ─── Responsive Design ─── */
-        @media (max-width: 1024px) {
-            .autoreply-container {
-                padding: 24px;
-            }
+        .template-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-subtle);
+        }
 
-            .autoreply-header {
-                padding: 36px;
-            }
+        .template-tag {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 99px;
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+            border: 1px solid var(--border-subtle);
+        }
 
-            .header-content {
-                gap: 24px;
-            }
+        .template-use-btn {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--brand-accent);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-family: inherit;
+            transition: var(--transition);
+        }
 
-            .header-title {
-                font-size: 32px;
-            }
+        .template-use-btn:hover { color: var(--brand-light); }
 
-            .header-stats {
-                gap: 32px;
-            }
+        /* ═══ Settings Form ═══ */
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            gap: 16px;
+        }
 
-            .quick-actions-grid {
-                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                gap: 20px;
-            }
+        .settings-row:last-child { border-bottom: none; }
 
-            .flow-editor-wrapper {
-                height: calc(100vh - 400px);
-                min-height: 550px;
-            }
+        .settings-info h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .settings-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            width: 46px;
+            height: 26px;
+            background: var(--bg-elevated);
+            border: 2px solid var(--border-medium);
+            border-radius: 99px;
+            position: relative;
+            cursor: pointer;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .toggle-switch.on {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            border-color: transparent;
+        }
+
+        .toggle-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .toggle-switch.on .toggle-knob { transform: translateX(20px); }
+
+        /* Form Input */
+        .form-input {
+            width: 100%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-sm);
+            padding: 9px 13px;
+            font-size: 13px;
+            color: var(--text-primary);
+            font-family: 'Cairo', sans-serif;
+            transition: var(--transition);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--brand-accent);
+            box-shadow: 0 0 0 3px var(--brand-glow);
+            background: var(--bg-surface);
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        /* ═══ Empty State ═══ */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: var(--radius-md);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .empty-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-secondary);
+        }
+
+        .empty-sub {
+            font-size: 13px;
+            max-width: 300px;
+        }
+
+        /* ═══ Scrollbar ═══ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+        /* ═══ Responsive ═══ */
+        @media (max-width: 1100px) {
+            :root { --sidebar-width: 60px; }
+            .nav-item span, .logo-text, .sidebar-stats,
+            .sidebar-section-title { display: none; }
+            .nav-item { justify-content: center; padding: 10px; }
+            .nav-icon { width: 36px; height: 36px; }
+            .nav-item.active::before { display: none; }
+            .analytics-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
-            .autoreply-container {
-                padding: 16px;
-            }
-
-            .autoreply-header {
-                padding: 24px;
-                margin-bottom: 24px;
-            }
-
-            .autoreply-header::after {
-                display: none;
-            }
-
-            .header-content {
-                flex-direction: column;
-                gap: 20px;
-            }
-
-            .header-title {
-                font-size: 24px;
-            }
-
-            .header-icon {
-                width: 48px;
-                height: 48px;
-                font-size: 24px;
-            }
-
-            .header-description {
-                font-size: 15px;
-                margin-bottom: 20px;
-            }
-
-            .header-stats {
-                gap: 24px;
-                flex-wrap: wrap;
-            }
-
-            .stat-value {
-                font-size: 24px;
-            }
-
-            .header-actions {
-                width: 100%;
-            }
-
-            .header-actions .btn {
-                width: 100%;
-            }
-
-            .quick-actions-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
-                margin-bottom: 24px;
-            }
-
-            .action-card {
-                padding: 20px;
-            }
-
-            .action-icon {
-                width: 56px;
-                height: 56px;
-                font-size: 28px;
-                margin-bottom: 16px;
-            }
-
-            .action-title {
-                font-size: 16px;
-            }
-
-            .action-description {
-                font-size: 13px;
-            }
-
-            .content-tabs {
-                flex-direction: column;
-                gap: 6px;
-                padding: 6px;
-                margin-bottom: 20px;
-            }
-
-            .tab-btn {
-                padding: 10px 16px;
-                font-size: 13px;
-            }
-
-            .flow-editor-wrapper {
-                height: calc(100vh - 300px);
-                min-height: 450px;
-            }
-
-            .analytics-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .analytics-card {
-                padding: 20px;
-            }
-
-            .analytics-value {
-                font-size: 28px;
-            }
+            :root { --sidebar-width: 0px; }
+            .left-sidebar { display: none; }
+            .page-header { padding: 16px 16px 0; }
+            .page-hero { padding: 18px; flex-direction: column; gap: 16px; }
+            .hero-stats { width: 100%; justify-content: space-between; }
+            .tab-bar { margin: 0 16px 16px; }
+            .content-area { padding: 0 16px 24px; }
+            .analytics-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .templates-grid { grid-template-columns: 1fr; }
+            .flow-editor-shell { height: calc(100vh - 220px); min-height: 400px; }
+            .nodes-palette { width: 160px; padding: 12px 8px; }
         }
 
         @media (max-width: 480px) {
-            .autoreply-container {
-                padding: 12px;
-            }
-
-            .autoreply-header {
-                padding: 16px;
-                margin-bottom: 16px;
-            }
-
-            .header-title {
-                font-size: 20px;
-                gap: 8px;
-            }
-
-            .header-icon {
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
-            }
-
-            .header-description {
-                font-size: 14px;
-                margin-bottom: 16px;
-            }
-
-            .header-stats {
-                gap: 16px;
-            }
-
-            .stat-label {
-                font-size: 10px;
-            }
-
-            .stat-value {
-                font-size: 20px;
-            }
-
-            .quick-actions-grid {
-                gap: 12px;
-                margin-bottom: 16px;
-            }
-
-            .action-card {
-                padding: 16px;
-            }
-
-            .action-icon {
-                width: 48px;
-                height: 48px;
-                font-size: 24px;
-                margin-bottom: 12px;
-            }
-
-            .action-title {
-                font-size: 15px;
-                margin-bottom: 6px;
-            }
-
-            .action-description {
-                font-size: 12px;
-            }
-
-            .content-tabs {
-                gap: 4px;
-                padding: 4px;
-            }
-
-            .tab-btn {
-                padding: 8px 12px;
-                font-size: 12px;
-            }
-
-            .flow-editor-wrapper {
-                height: calc(100vh - 250px);
-                min-height: 350px;
-            }
+            .hero-stats { flex-wrap: wrap; }
+            .hero-stat { flex: 1; min-width: 80px; }
+            .analytics-grid { grid-template-columns: 1fr; }
+            .top-bar { padding: 0 14px; gap: 10px; }
         }
     </style>
 </head>
-<body>
-    <div class="autoreply-page">
-        <div class="autoreply-container">
-            <!-- Header -->
-            <div class="autoreply-header">
-                <div class="header-content">
-                    <div class="header-left">
-                        <h1 class="header-title">
-                            <span class="header-icon">🤖</span>
-                            نظام الرد الآلي المتقدم
-                        </h1>
-                        <p class="header-description">
-                            صمّم تدفقات رد آلي احترافية بسهولة. تحكم كامل في تجربة العميل مع تحليلات متقدمة وإدارة ذكية للمحادثات.
-                        </p>
-                        <div class="header-stats">
-                            <div class="stat-item">
-                                <span class="stat-label">التدفقات النشطة</span>
-                                <span class="stat-value" id="active-flows">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">الرسائل اليوم</span>
-                                <span class="stat-value" id="today-messages">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">معدل الاستجابة</span>
-                                <span class="stat-value" id="response-rate">0%</span>
-                            </div>
+<body data-theme="light">
+<div class="app-shell">
+
+    <!-- ══════════ TOP BAR ══════════ -->
+    <header class="top-bar">
+        <div class="logo-area">
+            <div class="logo-mark">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                    <path d="M8 12l2 2 4-4"/>
+                </svg>
+            </div>
+            <div class="logo-text">
+                <span class="logo-name">مدعوم</span>
+                <span class="logo-sub">WhatsApp Business</span>
+            </div>
+        </div>
+
+        <div class="top-bar-sep"></div>
+
+        <nav class="page-breadcrumb">
+            <span class="breadcrumb-home">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                </svg>
+            </span>
+            <span class="breadcrumb-sep">›</span>
+            <span style="color:var(--text-muted); font-size:13px;">واتساب</span>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-current">الرد الآلي</span>
+        </nav>
+
+        <div class="top-bar-actions">
+            <!-- Theme Toggle -->
+            <button class="theme-toggle" onclick="toggleTheme()" title="تبديل المظهر">
+                <div class="theme-toggle-knob" id="themeKnob">
+                    <span id="themeIcon">☀️</span>
+                </div>
+            </button>
+
+            <button class="icon-btn" title="الإشعارات">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
+            </button>
+
+            <div class="user-chip">
+                <div class="user-avatar">م</div>
+                <span class="user-name">محمد</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══════════ MAIN LAYOUT ══════════ -->
+    <div class="main-layout">
+
+        <!-- ══ LEFT SIDEBAR ══ -->
+        <aside class="left-sidebar">
+            <div style="padding: 14px 10px 10px;">
+                <button class="btn btn-primary" style="width:100%; font-size:13px; justify-content:center;" onclick="showNewFlowModal()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>تدفق جديد</span>
+                </button>
+            </div>
+
+            <div class="sidebar-section-title">القائمة الرئيسية</div>
+            <div class="nav-group">
+                <div class="nav-item active" onclick="switchTab('editor')">
+                    <div class="nav-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                            <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/>
+                        </svg>
+                    </div>
+                    <span>محرر التدفقات</span>
+                </div>
+                <div class="nav-item" onclick="switchTab('rules')">
+                    <div class="nav-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+                            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                        </svg>
+                    </div>
+                    <span>قواعد الرد</span>
+                    <span class="nav-badge">3</span>
+                </div>
+                <div class="nav-item" onclick="switchTab('analytics')">
+                    <div class="nav-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+                            <line x1="6" y1="20" x2="6" y2="14"/>
+                        </svg>
+                    </div>
+                    <span>التحليلات</span>
+                </div>
+                <div class="nav-item" onclick="switchTab('templates')">
+                    <div class="nav-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                    </div>
+                    <span>القوالب</span>
+                    <span class="nav-badge green">4</span>
+                </div>
+                <div class="nav-item" onclick="switchTab('settings')">
+                    <div class="nav-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                        </svg>
+                    </div>
+                    <span>الإعدادات</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section-title" style="margin-top:8px;">الأداء اليوم</div>
+            <div class="sidebar-stats">
+                <div class="sidebar-stats-label">الردود اليوم</div>
+                <div class="sidebar-stats-value" id="sidebar-replies">247</div>
+                <div class="sidebar-stats-sub">↑ 18% عن أمس</div>
+            </div>
+
+            <div style="margin-top:auto; padding: 12px 10px 10px;">
+                <div style="font-size:10px; color:var(--text-muted); text-align:center; padding:8px;">
+                    مدعوم v2.4.1 — جميع الحقوق محفوظة
+                </div>
+            </div>
+        </aside>
+
+        <!-- ══ MAIN CONTENT ══ -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-hero">
+                    <div class="hero-left">
+                        <div class="hero-icon-wrap">🤖</div>
+                        <div class="hero-text">
+                            <h1>نظام الرد الآلي المتقدم</h1>
+                            <p>صمّم تدفقات ردود احترافية بالسحب والإفلات — تحكم كامل في تجربة العملاء</p>
                         </div>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="window.history.back()">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 12H5M12 19l-7-7 7-7"/>
-                            </svg>
-                            <span>رجوع</span>
-                        </button>
-                        <button class="btn btn-primary btn-sm" onclick="showHelpModal()">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                            </svg>
-                            <span>مساعدة</span>
-                        </button>
+                    <div class="hero-stats">
+                        <div class="hero-stat">
+                            <div class="hero-stat-value" id="stat-flows">1</div>
+                            <div class="hero-stat-label">التدفقات</div>
+                        </div>
+                        <div class="hero-stat">
+                            <div class="hero-stat-value" id="stat-msgs">247</div>
+                            <div class="hero-stat-label">رسائل اليوم</div>
+                        </div>
+                        <div class="hero-stat">
+                            <div class="hero-stat-value" id="stat-rate">98%</div>
+                            <div class="hero-stat-label">معدل الاستجابة</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="quick-actions-grid">
-                <div class="action-card" onclick="openTab('editor')">
-                    <div class="action-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                    </div>
-                    <h3 class="action-title">محرر التدفقات</h3>
-                    <p class="action-description">صمّم وعدّل تدفقات الرد الآلي بواجهة سحب وإفلات سهلة</p>
-                </div>
-
-                <div class="action-card" onclick="openTab('analytics')">
-                    <div class="action-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="20" x2="18" y2="10"></line>
-                            <line x1="12" y1="20" x2="12" y2="4"></line>
-                            <line x1="6" y1="20" x2="6" y2="14"></line>
-                        </svg>
-                    </div>
-                    <h3 class="action-title">التحليلات والإحصائيات</h3>
-                    <p class="action-description">راقب أداء التدفقات وتحليل سلوك المستخدمين</p>
-                </div>
-
-                <div class="action-card" onclick="openTab('templates')">
-                    <div class="action-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                        </svg>
-                    </div>
-                    <h3 class="action-title">القوالب الجاهزة</h3>
-                    <p class="action-description">ابدأ بسرعة باستخدام قوالب جاهزة ومجربة</p>
-                </div>
-
-                <div class="action-card" onclick="openTab('settings')">
-                    <div class="action-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
-                        </svg>
-                    </div>
-                    <h3 class="action-title">الإعدادات</h3>
-                    <p class="action-description">تخصيص سلوك النظام وإعدادات الذكاء الاصطناعي</p>
-                </div>
-            </div>
-
-            <!-- Content Tabs -->
-            <div class="content-tabs">
-                <button class="tab-btn active" data-tab="editor" onclick="switchTab('editor')">
+            <!-- Tab Bar -->
+            <nav class="tab-bar">
+                <button class="tab-item active" data-tab="editor" onclick="switchTab('editor')">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                        <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/>
                     </svg>
                     <span>المحرر</span>
                 </button>
-
-                <button class="tab-btn" data-tab="analytics" onclick="switchTab('analytics')">
+                <button class="tab-item" data-tab="rules" onclick="switchTab('rules')">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="20" x2="18" y2="10"></line>
-                        <line x1="12" y1="20" x2="12" y2="4"></line>
-                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                    </svg>
+                    <span>قواعد الرد</span>
+                </button>
+                <button class="tab-item" data-tab="analytics" onclick="switchTab('analytics')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
                     </svg>
                     <span>التحليلات</span>
                 </button>
-
-                <button class="tab-btn" data-tab="templates" onclick="switchTab('templates')">
+                <button class="tab-item" data-tab="templates" onclick="switchTab('templates')">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
                     </svg>
                     <span>القوالب</span>
                 </button>
-
-                <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
+                <button class="tab-item" data-tab="settings" onclick="switchTab('settings')">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
                     </svg>
                     <span>الإعدادات</span>
                 </button>
-            </div>
+            </nav>
 
-            <!-- Tab Contents -->
-            <div id="tab-editor" class="tab-content active">
-                <div class="flow-editor-wrapper" id="flow-editor-container"></div>
-            </div>
+            <!-- ══════ CONTENT PANELS ══════ -->
+            <div class="content-area">
 
-            <div id="tab-analytics" class="tab-content">
-                <div class="analytics-grid" id="analytics-container"></div>
-            </div>
+                <!-- ▸ EDITOR TAB -->
+                <div id="tab-editor" class="tab-panel active">
+                    <div class="flow-editor-shell">
+                        <!-- Editor Toolbar -->
+                        <div class="flow-toolbar">
+                            <div>
+                                <div class="flow-toolbar-title">محرر التدفق البصري</div>
+                                <div class="flow-toolbar-sub">اسحب عناصر من القائمة وأنشئ تدفق ردك</div>
+                            </div>
+                            <div class="save-pill">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                                تم الحفظ
+                            </div>
+                            <div style="margin-right:auto; display:flex; gap:8px; align-items:center;">
+                                <button class="btn btn-ghost btn-sm" title="تراجع">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+                                </button>
+                                <button class="btn btn-ghost btn-sm" title="إعادة">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
+                                </button>
+                                <div style="width:1px;height:22px;background:var(--border-medium);"></div>
+                                <button class="btn btn-secondary btn-sm" onclick="clearCanvas()">مسح الكل</button>
+                                <button class="btn btn-primary btn-sm">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    حفظ التدفق
+                                </button>
+                            </div>
+                        </div>
 
-            <div id="tab-templates" class="tab-content">
-                <div class="analytics-grid" id="templates-container">
-                    <p style="grid-column: 1/-1; color: var(--wa-text-muted); text-align: center; padding: 40px;">جاري تحميل القوالب...</p>
-                </div>
-            </div>
+                        <div class="flow-body">
+                            <!-- Nodes Palette -->
+                            <div class="nodes-palette">
+                                <div class="palette-section-label">عناصر التدفق</div>
 
-            <div id="tab-settings" class="tab-content">
-                <div class="analytics-grid" id="settings-container">
-                    <p style="grid-column: 1/-1; color: var(--wa-text-muted); text-align: center; padding: 40px;">جاري تحميل الإعدادات...</p>
-                </div>
-            </div>
-        </div>
-    </div>
+                                <div class="node-item" draggable="true" data-type="trigger">
+                                    <div class="node-dot blue">⚡</div>
+                                    <span>محفّز الرسالة</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="message">
+                                    <div class="node-dot green">💬</div>
+                                    <span>إرسال رسالة</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="condition">
+                                    <div class="node-dot orange">🔀</div>
+                                    <span>شرط/تفرعة</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="delay">
+                                    <div class="node-dot purple">⏱️</div>
+                                    <span>تأخير</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="assign">
+                                    <div class="node-dot teal">👤</div>
+                                    <span>تحويل لوكيل</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="end">
+                                    <div class="node-dot red">🏁</div>
+                                    <span>إنهاء التدفق</span>
+                                </div>
 
-    <script type="module">
-        import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
-        import { FlowAnalyticsPage } from './pages/FlowAnalyticsPage.js';
+                                <div class="palette-section-label" style="margin-top:8px;">إجراءات ذكية</div>
+                                <div class="node-item" draggable="true" data-type="ai">
+                                    <div class="node-dot purple">🧠</div>
+                                    <span>رد بالذكاء الاصطناعي</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="media">
+                                    <div class="node-dot blue">📎</div>
+                                    <span>إرسال وسائط</span>
+                                </div>
+                                <div class="node-item" draggable="true" data-type="webhook">
+                                    <div class="node-dot orange">🔗</div>
+                                    <span>Webhook</span>
+                                </div>
+                            </div>
 
-        // Initialize
-        let editorInstance = null;
-        let analyticsInstance = null;
+                            <!-- Canvas -->
+                            <div class="flow-canvas" id="flowCanvas"
+                                ondragover="event.preventDefault()"
+                                ondrop="handleDrop(event)">
 
-        // Load Editor
-        async function loadEditor() {
-            const container = document.getElementById('flow-editor-container');
-            if (!editorInstance) {
-                editorInstance = new AutoReplyPageV2(container);
-                await editorInstance.load();
-            }
-        }
+                                <!-- SVG connections -->
+                                <svg class="connections-svg" id="connectionsSVG">
+                                    <defs>
+                                        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                                            <polygon points="0 0, 8 3, 0 6" fill="var(--brand-accent)" opacity="0.7"/>
+                                        </marker>
+                                    </defs>
+                                    <!-- Example connections -->
+                                    <path class="connection-path" d="M 250 120 C 300 120 300 200 350 200" marker-end="url(#arrowhead)"/>
+                                    <path class="connection-path" d="M 540 200 C 590 200 590 310 640 310" marker-end="url(#arrowhead)"/>
+                                </svg>
 
-        // Load Analytics
-        async function loadAnalytics() {
-            const container = document.getElementById('analytics-container');
-            if (!analyticsInstance) {
-                analyticsInstance = new FlowAnalyticsPage(container);
-                await analyticsInstance.load();
-            }
-        }
+                                <!-- Start Node -->
+                                <div class="canvas-node" style="top:80px; right:40px;">
+                                    <div class="node-connector in" style="display:none;"></div>
+                                    <div class="node-head">
+                                        <span style="font-size:14px;">⚡</span>
+                                        محفّز الرسالة
+                                    </div>
+                                    <div class="node-body">
+                                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">الكلمات المحفّزة</div>
+                                        <input class="node-input-field" value="مرحبا، أهلا، هلا" placeholder="أدخل الكلمات...">
+                                    </div>
+                                    <div class="node-connector out"></div>
+                                </div>
 
-        // Switch Tabs
-        window.switchTab = function(tabName) {
-            // Remove active from all tabs and contents
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
+                                <!-- Message Node -->
+                                <div class="canvas-node" style="top:160px; right:320px;">
+                                    <div class="node-connector in"></div>
+                                    <div class="node-head" style="background:rgba(16,185,129,0.08);">
+                                        <span style="font-size:14px;">💬</span>
+                                        إرسال رسالة
+                                    </div>
+                                    <div class="node-body">
+                                        <textarea class="node-input-field" style="resize:none;min-height:50px;" placeholder="نص الرسالة...">أهلاً وسهلاً! كيف أستطيع مساعدتك؟</textarea>
+                                    </div>
+                                    <div class="node-connector out"></div>
+                                </div>
 
-            // Add active to selected
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-            document.getElementById(`tab-${tabName}`).classList.add('active');
+                                <!-- Condition Node -->
+                                <div class="canvas-node" style="top:270px; right:600px;">
+                                    <div class="node-connector in"></div>
+                                    <div class="node-head" style="background:rgba(245,158,11,0.08);">
+                                        <span style="font-size:14px;">🔀</span>
+                                        شرط
+                                    </div>
+                                    <div class="node-body">
+                                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">الشرط</div>
+                                        <select class="node-input-field" style="font-family:Cairo,sans-serif;">
+                                            <option>الرسالة تحتوي على</option>
+                                            <option>المستخدم جديد</option>
+                                            <option>بعد ساعات العمل</option>
+                                        </select>
+                                    </div>
+                                    <div class="node-connector out" style="top:35%;"></div>
+                                    <div class="node-connector out" style="top:65%;background:var(--status-error);"></div>
+                                </div>
 
-            // Load content if needed
-            if (tabName === 'editor' && !editorInstance) {
-                loadEditor();
-            } else if (tabName === 'analytics' && !analyticsInstance) {
-                loadAnalytics();
-            }
-        };
+                                <!-- Canvas Controls -->
+                                <div class="canvas-controls">
+                                    <button class="ctrl-btn" title="تكبير" onclick="zoom(1)">+</button>
+                                    <button class="ctrl-btn" title="تصغير" onclick="zoom(-1)">−</button>
+                                    <button class="ctrl-btn" title="ضبط العرض" onclick="fitCanvas()">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                                        </svg>
+                                    </button>
+                                </div>
 
-        window.openTab = function(tabName) {
-            switchTab(tabName);
-        };
-
-        // Help Modal
-        window.showHelpModal = function() {
-            const helpDiv = document.createElement('div');
-            helpDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
-            helpDiv.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 25px rgba(0,0,0,0.15);">
-                    <h2 style="margin:0 0 20px 0;font-size:20px;font-weight:700;color:#0F172A;">مراجع المساعدة</h2>
-                    <div style="display:flex;gap:12px;margin-bottom:12px;">
-                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">QUICK_START.md</div><div style="font-size:12px;color:#475569;">دليل البدء السريع</div></div>
+                                <div class="canvas-info">مستوى التكبير: 100%</div>
+                            </div>
+                        </div>
                     </div>
-                    <div style="display:flex;gap:12px;margin-bottom:12px;">
-                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">README.md</div><div style="font-size:12px;color:#475569;">الدليل الشامل</div></div>
-                    </div>
-                    <div style="display:flex;gap:12px;margin-bottom:20px;">
-                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">دليل التحليلات</div><div style="font-size:12px;color:#475569;">فهم الإحصائيات</div></div>
-                    </div>
-                    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:10px;background:linear-gradient(135deg,#0077CC,#00BCD4);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">حسناً</button>
                 </div>
-            `;
-            document.body.appendChild(helpDiv);
-        };
 
-        // Load stats
-        async function loadStats() {
-            // TODO: جلب من API
-            document.getElementById('active-flows').textContent = '1';
-            document.getElementById('today-messages').textContent = '0';
-            document.getElementById('response-rate').textContent = '100%';
+                <!-- ▸ RULES TAB -->
+                <div id="tab-rules" class="tab-panel">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <span class="card-title-dot"></span>
+                                قواعد الرد الفعّالة
+                            </span>
+                            <button class="btn btn-primary btn-sm" onclick="showNewRuleModal()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                قاعدة جديدة
+                            </button>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="rules-table">
+                                <thead>
+                                    <tr>
+                                        <th>اسم القاعدة</th>
+                                        <th>الكلمات المفتاحية</th>
+                                        <th>الرد</th>
+                                        <th>الردود</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong style="color:var(--text-primary);">رسالة الترحيب</strong></td>
+                                        <td>
+                                            <div class="keyword-chips">
+                                                <span class="keyword-chip">مرحبا</span>
+                                                <span class="keyword-chip">أهلا</span>
+                                                <span class="keyword-chip">هلا</span>
+                                            </div>
+                                        </td>
+                                        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">أهلاً وسهلاً! كيف أستطيع مساعدتك؟</td>
+                                        <td><strong style="color:var(--text-primary);">124</strong></td>
+                                        <td><span class="status-badge active"><span class="status-dot"></span>نشط</span></td>
+                                        <td style="text-align:center;">
+                                            <div style="display:flex;gap:6px;justify-content:center;">
+                                                <button class="btn btn-ghost btn-xs">تعديل</button>
+                                                <button class="btn btn-danger btn-xs">حذف</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong style="color:var(--text-primary);">استفسار الأسعار</strong></td>
+                                        <td>
+                                            <div class="keyword-chips">
+                                                <span class="keyword-chip">سعر</span>
+                                                <span class="keyword-chip">تكلفة</span>
+                                                <span class="keyword-chip">كم</span>
+                                            </div>
+                                        </td>
+                                        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">يمكنك الاطلاع على أسعارنا من خلال الرابط...</td>
+                                        <td><strong style="color:var(--text-primary);">87</strong></td>
+                                        <td><span class="status-badge active"><span class="status-dot"></span>نشط</span></td>
+                                        <td style="text-align:center;">
+                                            <div style="display:flex;gap:6px;justify-content:center;">
+                                                <button class="btn btn-ghost btn-xs">تعديل</button>
+                                                <button class="btn btn-danger btn-xs">حذف</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong style="color:var(--text-primary);">خارج ساعات العمل</strong></td>
+                                        <td>
+                                            <div class="keyword-chips">
+                                                <span class="keyword-chip">أي رسالة</span>
+                                            </div>
+                                        </td>
+                                        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">نحن خارج أوقات العمل الآن. سنرد قريباً.</td>
+                                        <td><strong style="color:var(--text-primary);">36</strong></td>
+                                        <td><span class="status-badge paused"><span class="status-dot"></span>متوقف</span></td>
+                                        <td style="text-align:center;">
+                                            <div style="display:flex;gap:6px;justify-content:center;">
+                                                <button class="btn btn-ghost btn-xs">تعديل</button>
+                                                <button class="btn btn-danger btn-xs">حذف</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ▸ ANALYTICS TAB -->
+                <div id="tab-analytics" class="tab-panel">
+                    <div class="analytics-grid">
+                        <div class="analytics-card blue">
+                            <div class="analytics-icon blue">💬</div>
+                            <div class="analytics-val">247</div>
+                            <div class="analytics-label">رسائل اليوم</div>
+                            <div class="analytics-trend trend-up">↑ 18% عن أمس</div>
+                        </div>
+                        <div class="analytics-card green">
+                            <div class="analytics-icon green">✅</div>
+                            <div class="analytics-val">98%</div>
+                            <div class="analytics-label">معدل الاستجابة</div>
+                            <div class="analytics-trend trend-up">↑ 2% هذا الأسبوع</div>
+                        </div>
+                        <div class="analytics-card yellow">
+                            <div class="analytics-icon yellow">⚡</div>
+                            <div class="analytics-val">1.2ث</div>
+                            <div class="analytics-label">متوسط وقت الرد</div>
+                            <div class="analytics-trend trend-up">↑ أسرع 0.3ث</div>
+                        </div>
+                        <div class="analytics-card purple">
+                            <div class="analytics-icon purple">🤖</div>
+                            <div class="analytics-val">3</div>
+                            <div class="analytics-label">تدفقات نشطة</div>
+                            <div class="analytics-trend trend-up">↑ تدفق جديد</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <span class="card-title-dot"></span>
+                                الردود خلال الأسبوع
+                            </span>
+                            <button class="btn btn-ghost btn-sm">تصدير</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-placeholder">
+                                <div class="chart-bar" style="height:40%;"></div>
+                                <div class="chart-bar" style="height:65%;"></div>
+                                <div class="chart-bar" style="height:50%;"></div>
+                                <div class="chart-bar" style="height:80%;"></div>
+                                <div class="chart-bar" style="height:60%;"></div>
+                                <div class="chart-bar" style="height:90%; opacity:1;"></div>
+                                <div class="chart-bar" style="height:75%;"></div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:11px;color:var(--text-muted);font-weight:600;">
+                                <span>الأحد</span><span>الاثنين</span><span>الثلاثاء</span>
+                                <span>الأربعاء</span><span>الخميس</span><span>الجمعة</span><span>السبت</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ▸ TEMPLATES TAB -->
+                <div id="tab-templates" class="tab-panel">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                        <div>
+                            <h3 style="font-size:16px;font-weight:800;color:var(--text-primary);">القوالب الجاهزة</h3>
+                            <p style="font-size:13px;color:var(--text-muted);">ابدأ بسرعة باستخدام قوالب مجربة</p>
+                        </div>
+                    </div>
+                    <div class="templates-grid">
+                        <div class="template-card blue">
+                            <div class="template-icon blue">👋</div>
+                            <div class="template-name">رسالة الترحيب</div>
+                            <div class="template-desc">رسالة ترحيب تلقائية للعملاء الجدد مع عرض الخدمات المتاحة</div>
+                            <div class="template-meta">
+                                <span class="template-tag">خدمة عملاء</span>
+                                <button class="template-use-btn">
+                                    استخدم ←
+                                </button>
+                            </div>
+                        </div>
+                        <div class="template-card green">
+                            <div class="template-icon green">📦</div>
+                            <div class="template-name">تتبع الطلبات</div>
+                            <div class="template-desc">يطلب رقم الطلب ويرد بحالته التلقائية من النظام</div>
+                            <div class="template-meta">
+                                <span class="template-tag">التجارة</span>
+                                <button class="template-use-btn">استخدم ←</button>
+                            </div>
+                        </div>
+                        <div class="template-card purple">
+                            <div class="template-icon purple">🧠</div>
+                            <div class="template-name">مساعد ذكي</div>
+                            <div class="template-desc">تدفق مدعوم بالذكاء الاصطناعي يجيب على الأسئلة الشائعة</div>
+                            <div class="template-meta">
+                                <span class="template-tag">AI</span>
+                                <button class="template-use-btn">استخدم ←</button>
+                            </div>
+                        </div>
+                        <div class="template-card orange">
+                            <div class="template-icon orange">🌙</div>
+                            <div class="template-name">خارج أوقات العمل</div>
+                            <div class="template-desc">رد تلقائي ذكي يعمل خارج ساعات العمل مع جدولة المواعيد</div>
+                            <div class="template-meta">
+                                <span class="template-tag">التشغيل الآلي</span>
+                                <button class="template-use-btn">استخدم ←</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ▸ SETTINGS TAB -->
+                <div id="tab-settings" class="tab-panel">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <span class="card-title-dot"></span>
+                                إعدادات نظام الرد الآلي
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <h4>تفعيل الرد الآلي</h4>
+                                    <p>تشغيل أو إيقاف نظام الرد الآلي بالكامل</p>
+                                </div>
+                                <div class="toggle-switch on" onclick="toggleSwitch(this)">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <h4>الرد خارج أوقات العمل فقط</h4>
+                                    <p>تفعيل الرد الآلي تلقائياً خارج ساعات الدوام</p>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSwitch(this)">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <h4>تأخير الرد</h4>
+                                    <p>إضافة تأخير بين 1-10 ثوانٍ لجعل الرد يبدو طبيعياً</p>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="number" class="form-input" style="width:80px;text-align:center;" value="2" min="0" max="10">
+                                    <span style="font-size:13px;color:var(--text-muted);">ثانية</span>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <h4>الرد بالذكاء الاصطناعي (GPT)</h4>
+                                    <p>استخدام AI للردود التي لا تتطابق مع قواعد موجودة</p>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSwitch(this)">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <h4>إشعار عند تحويل المحادثة</h4>
+                                    <p>إرسال إشعار للفريق عند تحويل المحادثة لوكيل بشري</p>
+                                </div>
+                                <div class="toggle-switch on" onclick="toggleSwitch(this)">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding:16px 22px;border-top:1px solid var(--border-subtle);display:flex;gap:10px;justify-content:flex-end;">
+                            <button class="btn btn-secondary">إلغاء</button>
+                            <button class="btn btn-primary">حفظ التغييرات</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /content-area -->
+        </main>
+    </div><!-- /main-layout -->
+</div><!-- /app-shell -->
+
+<script>
+    // ═══ Theme ═══
+    function toggleTheme() {
+        const body = document.body;
+        const icon = document.getElementById('themeIcon');
+        if (body.dataset.theme === 'light') {
+            body.dataset.theme = 'dark';
+            icon.textContent = '🌙';
+        } else {
+            body.dataset.theme = 'light';
+            icon.textContent = '☀️';
         }
+    }
 
-        // Initialize on load
-        window.addEventListener('DOMContentLoaded', () => {
-            loadEditor();
-            loadStats();
+    // ═══ Tabs ═══
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+        const panel = document.getElementById('tab-' + tab);
+        if (panel) panel.classList.add('active');
+
+        document.querySelectorAll(`[data-tab="${tab}"]`).forEach(el => el.classList.add('active'));
+        document.querySelectorAll(`.nav-item`).forEach(n => {
+            if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${tab}'`)) {
+                n.classList.add('active');
+            }
         });
-    </script>
+    }
+
+    // ═══ Toggle Switch ═══
+    function toggleSwitch(el) {
+        el.classList.toggle('on');
+    }
+
+    // ═══ Drag & Drop ═══
+    const nodeColors = {
+        trigger:   { head: 'rgba(59,130,246,0.08)', emoji: '⚡', label: 'محفّز الرسالة' },
+        message:   { head: 'rgba(16,185,129,0.08)', emoji: '💬', label: 'إرسال رسالة' },
+        condition: { head: 'rgba(245,158,11,0.08)', emoji: '🔀', label: 'شرط/تفرعة' },
+        delay:     { head: 'rgba(139,92,246,0.08)', emoji: '⏱️', label: 'تأخير' },
+        assign:    { head: 'rgba(20,184,166,0.08)', emoji: '👤', label: 'تحويل لوكيل' },
+        end:       { head: 'rgba(239,68,68,0.08)',  emoji: '🏁', label: 'إنهاء التدفق' },
+        ai:        { head: 'rgba(139,92,246,0.08)', emoji: '🧠', label: 'رد AI' },
+        media:     { head: 'rgba(59,130,246,0.08)', emoji: '📎', label: 'إرسال وسائط' },
+        webhook:   { head: 'rgba(245,158,11,0.08)', emoji: '🔗', label: 'Webhook' },
+    };
+
+    document.querySelectorAll('.node-item').forEach(item => {
+        item.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('type', item.dataset.type);
+        });
+    });
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('type');
+        const canvas = document.getElementById('flowCanvas');
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left - 100;
+        const y = e.clientY - rect.top - 40;
+        addNode(type, x, y);
+    }
+
+    let nodeCount = 10;
+    function addNode(type, x, y) {
+        const cfg = nodeColors[type] || nodeColors.message;
+        const id = 'node-' + (++nodeCount);
+        const node = document.createElement('div');
+        node.className = 'canvas-node';
+        node.id = id;
+        node.style.cssText = `top:${y}px; right:${x}px;`;
+        node.innerHTML = `
+            <div class="node-connector in"></div>
+            <div class="node-head" style="background:${cfg.head}">
+                <span style="font-size:14px">${cfg.emoji}</span>
+                ${cfg.label}
+                <button onclick="this.closest('.canvas-node').remove()" style="margin-right:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1;padding:0 2px;">×</button>
+            </div>
+            <div class="node-body">
+                <input class="node-input-field" placeholder="أدخل المحتوى...">
+            </div>
+            <div class="node-connector out"></div>
+        `;
+        makeDraggable(node);
+        document.getElementById('flowCanvas').appendChild(node);
+    }
+
+    function makeDraggable(el) {
+        let startX, startY, startRight, startTop;
+        el.querySelector('.node-head').addEventListener('mousedown', e => {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            e.preventDefault();
+            startX = e.clientX;
+            startY = e.clientY;
+            startRight = parseInt(el.style.right) || 0;
+            startTop  = parseInt(el.style.top)  || 0;
+            el.classList.add('selected');
+
+            function move(e) {
+                el.style.right = (startRight - (e.clientX - startX)) + 'px';
+                el.style.top  = (startTop  + (e.clientY - startY)) + 'px';
+            }
+            function up() {
+                el.classList.remove('selected');
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
+            }
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
+        });
+    }
+
+    // Make existing nodes draggable
+    document.querySelectorAll('.canvas-node').forEach(makeDraggable);
+
+    function clearCanvas() {
+        if (!confirm('هل تريد مسح جميع العقد؟')) return;
+        document.querySelectorAll('.canvas-node').forEach(n => n.remove());
+    }
+
+    function zoom(dir) {
+        const info = document.querySelector('.canvas-info');
+        const current = parseInt(info.textContent) || 100;
+        const next = Math.max(50, Math.min(200, current + dir * 10));
+        info.textContent = `مستوى التكبير: ${next}%`;
+    }
+
+    function fitCanvas() {
+        const info = document.querySelector('.canvas-info');
+        info.textContent = 'مستوى التكبير: 100%';
+    }
+
+    // ═══ Modals (simple toast-style) ═══
+    function showToast(msg, type = 'success') {
+        const t = document.createElement('div');
+        const colors = {
+            success: '#10b981',
+            error: '#ef4444',
+            info: '#3b82f6'
+        };
+        t.style.cssText = `
+            position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+            background:${colors[type]||colors.success};color:white;
+            padding:12px 24px;border-radius:12px;font-weight:700;font-size:14px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;
+            font-family:Cairo,sans-serif;
+            animation:slideInUp 0.3s ease;
+        `;
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 3000);
+    }
+
+    function showNewFlowModal() { showToast('🚀 ميزة إنشاء تدفق جديد قريباً!', 'info'); }
+    function showNewRuleModal() { showToast('✏️ افتح نموذج قاعدة جديدة...', 'info'); }
+
+    // ═══ Style for toast ═══
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInUp {
+            from { opacity:0; transform:translateX(-50%) translateY(20px); }
+            to { opacity:1; transform:translateX(-50%) translateY(0); }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
 </body>
 </html>
