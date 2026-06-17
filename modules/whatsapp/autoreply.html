@@ -1,1701 +1,918 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>نظام الرد الآلي | مدعوم</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>
-/* ═══════════════════════════════════════
-   DESIGN TOKENS — مدعوم Brand
-   ═══════════════════════════════════════ */
-:root {
-  --brand-1: #1e3c72;
-  --brand-2: #2a5298;
-  --brand-3: #3b6fd4;
-  --brand-4: #5a8dee;
-  --brand-glow: rgba(42,82,152,.14);
-
-  --bg-base:    #f2f5fb;
-  --bg-surface: #ffffff;
-  --bg-card:    #ffffff;
-  --bg-raised:  #edf1fa;
-  --bg-hover:   #e4eaf6;
-
-  --tx-1: #0d1b3e;
-  --tx-2: #4a5568;
-  --tx-3: #8fa3bf;
-
-  --bd-1: rgba(30,60,114,.09);
-  --bd-2: rgba(30,60,114,.17);
-  --bd-3: rgba(30,60,114,.30);
-
-  --sh-sm: 0 1px 4px rgba(30,60,114,.08);
-  --sh-md: 0 4px 16px rgba(30,60,114,.11);
-  --sh-lg: 0 8px 32px rgba(30,60,114,.15);
-  --sh-xl: 0 16px 48px rgba(30,60,114,.20);
-
-  --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-xl: 24px;
-  --ok:  #10b981; --warn: #f59e0b; --err: #ef4444; --info: #3b82f6;
-  --tr: all .22s cubic-bezier(.4,0,.2,1);
-}
-[data-theme="dark"] {
-  --bg-base:    #070d1a;
-  --bg-surface: #0d1830;
-  --bg-card:    #111f3a;
-  --bg-raised:  #162540;
-  --bg-hover:   #1d2e4f;
-  --tx-1: #e8eef8; --tx-2: #94aac8; --tx-3: #546a8a;
-  --bd-1: rgba(90,141,238,.08); --bd-2: rgba(90,141,238,.16); --bd-3: rgba(90,141,238,.30);
-  --sh-sm: 0 1px 4px rgba(0,0,0,.3); --sh-md: 0 4px 16px rgba(0,0,0,.4);
-  --sh-lg: 0 8px 32px rgba(0,0,0,.5); --sh-xl: 0 16px 48px rgba(0,0,0,.6);
-  --brand-glow: rgba(90,141,238,.10);
-}
-
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);color:var(--tx-1);transition:background .3s,color .3s;font-size:15px}
-
-/* ═══ LAYOUT ═══ */
-.shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-
-/* TOP BAR */
-.topbar{
-  height:60px;background:var(--bg-surface);border-bottom:1px solid var(--bd-1);
-  box-shadow:var(--sh-sm);display:flex;align-items:center;gap:14px;padding:0 22px;
-  flex-shrink:0;z-index:100;position:relative;
-}
-.topbar::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--brand-1),var(--brand-3),var(--brand-4));
-}
-.logo{display:flex;align-items:center;gap:9px}
-.logo-icon{
-  width:36px;height:36px;background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
-  border-radius:9px;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 10px rgba(30,60,114,.28);color:#fff;
-}
-.logo-name{font-size:15px;font-weight:900;color:var(--brand-1)}
-[data-theme="dark"] .logo-name{color:var(--brand-4)}
-.logo-sub{font-size:10px;color:var(--tx-3);font-weight:600;letter-spacing:.4px}
-.sep{width:1px;height:26px;background:var(--bd-2)}
-.crumb{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx-3)}
-.crumb-cur{color:var(--brand-3);font-weight:700}
-.tb-right{margin-right:auto;display:flex;align-items:center;gap:8px}
-.theme-btn{
-  width:52px;height:28px;background:var(--bg-raised);border:1px solid var(--bd-2);
-  border-radius:99px;cursor:pointer;position:relative;display:flex;align-items:center;padding:2px;
-  transition:var(--tr);
-}
-.theme-knob{
-  width:22px;height:22px;border-radius:50%;
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
-  display:flex;align-items:center;justify-content:center;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);color:#fff;font-size:11px;
-}
-[data-theme="dark"] .theme-knob{transform:translateX(24px)}
-.icon-btn{
-  width:36px;height:36px;border-radius:var(--r-sm);border:1px solid var(--bd-1);
-  background:var(--bg-raised);color:var(--tx-2);display:flex;align-items:center;
-  justify-content:center;cursor:pointer;transition:var(--tr);
-}
-.icon-btn:hover{background:var(--brand-glow);border-color:var(--bd-3);color:var(--brand-3)}
-.user-chip{
-  display:flex;align-items:center;gap:7px;padding:3px 11px 3px 3px;
-  border-radius:99px;background:var(--bg-raised);border:1px solid var(--bd-1);cursor:pointer;
-}
-.user-av{
-  width:28px;height:28px;border-radius:50%;
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-3));
-  color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;
-}
-.user-name{font-size:12px;font-weight:700;color:var(--tx-1)}
-
-/* MAIN LAYOUT */
-.main{display:flex;flex:1;overflow:hidden}
-
-/* SIDEBAR */
-.sidebar{
-  width:258px;background:var(--bg-surface);border-left:1px solid var(--bd-1);
-  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
-}
-.sb-new-btn{padding:12px 10px 8px}
-.sb-sec{
-  font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--tx-3);
-  text-transform:uppercase;padding:6px 16px 7px;display:flex;align-items:center;gap:5px;
-}
-.sb-sec::before{content:'';width:4px;height:4px;background:var(--brand-3);border-radius:50%}
-.nav-group{padding:4px 8px;display:flex;flex-direction:column;gap:2px}
-.nav-item{
-  display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--r-sm);
-  cursor:pointer;transition:var(--tr);font-size:13px;font-weight:600;color:var(--tx-2);
-  position:relative;border:1px solid transparent;
-}
-.nav-item:hover{background:var(--bg-hover);color:var(--tx-1)}
-.nav-item.active{
-  background:linear-gradient(135deg,rgba(30,60,114,.08),rgba(42,82,152,.05));
-  color:var(--brand-3);border-color:var(--bd-2);
-}
-[data-theme="dark"] .nav-item.active{background:linear-gradient(135deg,rgba(90,141,238,.12),rgba(59,111,212,.07))}
-.nav-item.active::before{
-  content:'';position:absolute;right:0;top:22%;bottom:22%;width:3px;
-  border-radius:2px;background:linear-gradient(180deg,var(--brand-3),var(--brand-4));
-}
-.nav-ico{
-  width:30px;height:30px;border-radius:7px;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0;background:var(--bg-raised);transition:var(--tr);
-}
-.nav-item.active .nav-ico{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff}
-.nav-badge{
-  margin-right:auto;background:var(--brand-3);color:#fff;font-size:10px;font-weight:800;
-  padding:2px 7px;border-radius:99px;min-width:18px;text-align:center;
-}
-.nav-badge.g{background:var(--ok)}
-.nav-badge.y{background:var(--warn);color:#000}
-
-/* Sidebar Stats Card */
-.sb-stats{
-  margin:6px 8px;padding:14px 16px;
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
-  border-radius:var(--r-md);color:#fff;position:relative;overflow:hidden;
-}
-.sb-stats::before{
-  content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;
-  background:rgba(255,255,255,.07);border-radius:50%;
-}
-.sb-stats-label{font-size:10px;font-weight:700;letter-spacing:.9px;opacity:.7;text-transform:uppercase}
-.sb-stats-val{font-size:26px;font-weight:900;line-height:1.1;margin:3px 0 1px}
-.sb-stats-sub{font-size:11px;opacity:.7}
-.sb-footer{margin-top:auto;padding:10px;text-align:center;font-size:10px;color:var(--tx-3)}
-
-/* MAIN CONTENT */
-.content{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
-
-/* PAGE HERO */
-.ph-wrap{padding:22px 28px 0}
-.ph{
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-xl);
-  padding:22px 26px;margin-bottom:18px;display:flex;align-items:center;
-  justify-content:space-between;gap:22px;box-shadow:var(--sh-md);position:relative;overflow:hidden;
-}
-.ph::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:4px;
-  background:linear-gradient(90deg,var(--brand-1),var(--brand-3),var(--brand-4));
-}
-.ph::before{
-  content:'';position:absolute;left:-50px;top:-50px;width:200px;height:200px;
-  background:radial-gradient(circle,var(--brand-glow) 0%,transparent 70%);pointer-events:none;
-}
-.ph-left{display:flex;align-items:center;gap:16px;flex:1;position:relative;z-index:1}
-.ph-icon{
-  width:52px;height:52px;border-radius:var(--r-md);
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 6px 20px rgba(30,60,114,.25);flex-shrink:0;color:#fff;
-}
-.ph-title{font-size:20px;font-weight:900;color:var(--tx-1);margin-bottom:3px;letter-spacing:-.3px}
-.ph-sub{font-size:12px;color:var(--tx-2);line-height:1.5}
-.ph-stats{display:flex;gap:14px;position:relative;z-index:1}
-.ph-stat{
-  text-align:center;padding:10px 16px;background:var(--bg-raised);
-  border-radius:var(--r-md);border:1px solid var(--bd-1);min-width:82px;
-}
-.ph-stat-val{
-  font-size:22px;font-weight:900;
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-3));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1;
-}
-.ph-stat-label{font-size:9px;color:var(--tx-3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
-
-/* TAB BAR */
-.tab-bar{
-  display:flex;gap:4px;background:var(--bg-surface);border:1px solid var(--bd-1);
-  border-radius:var(--r-lg);padding:5px;box-shadow:var(--sh-sm);margin:0 28px 18px;
-}
-.tab-btn{
-  flex:1;padding:9px 14px;border-radius:9px;border:none;background:transparent;
-  color:var(--tx-3);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;
-  cursor:pointer;transition:var(--tr);display:flex;align-items:center;justify-content:center;gap:6px;
-}
-.tab-btn:hover{color:var(--tx-1);background:var(--bg-raised)}
-.tab-btn.active{
-  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;
-  box-shadow:0 4px 12px rgba(30,60,114,.28);
-}
-.tab-ico{width:14px;height:14px;flex-shrink:0}
-
-/* CONTENT AREA */
-.ca{flex:1;padding:0 28px 28px;display:flex;flex-direction:column;gap:18px}
-.panel{display:none}
-.panel.active{display:flex;flex-direction:column;gap:18px;animation:fadeUp .3s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-
-/* STATUS INDICATOR */
-.conn-status{
-  display:flex;align-items:center;gap:8px;padding:8px 14px;
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-md);
-  font-size:12px;font-weight:600;box-shadow:var(--sh-sm);
-}
-.conn-dot{width:8px;height:8px;border-radius:50%;animation:pulse-dot 2s infinite}
-.conn-dot.ok{background:var(--ok)}
-.conn-dot.loading{background:var(--warn)}
-.conn-dot.err{background:var(--err)}
-@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
-
-/* ═══ FLOW EDITOR (card wrapper) ═══ */
-.fe-card{
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-lg);
-  box-shadow:var(--sh-md);overflow:hidden;display:flex;flex-direction:column;
-  height:calc(100vh - 290px);min-height:480px;
-}
-.fe-toolbar{
-  padding:12px 18px;background:var(--bg-surface);border-bottom:1px solid var(--bd-1);
-  display:flex;align-items:center;gap:10px;flex-shrink:0;
-}
-.fe-title{font-size:13px;font-weight:800;color:var(--tx-1)}
-.fe-sub{font-size:11px;color:var(--tx-3)}
-.save-pill{
-  display:flex;align-items:center;gap:5px;padding:4px 11px;
-  background:rgba(16,185,129,.09);border:1px solid rgba(16,185,129,.2);
-  border-radius:99px;font-size:11px;font-weight:700;color:var(--ok);
-}
-.fe-body{flex:1;display:flex;overflow:hidden;position:relative}
-
-/* PALETTE */
-.palette{
-  width:210px;background:var(--bg-raised);border-left:1px solid var(--bd-1);
-  padding:14px 10px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex-shrink:0;
-}
-.pal-label{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--tx-3);text-transform:uppercase;padding:0 5px}
-.pal-item{
-  display:flex;align-items:center;gap:9px;padding:9px 11px;
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-sm);
-  cursor:grab;font-size:12px;font-weight:700;color:var(--tx-2);
-  transition:var(--tr);user-select:none;
-}
-.pal-item:hover{border-color:var(--brand-3);color:var(--brand-3);transform:translateY(-1px);box-shadow:var(--sh-sm)}
-.pal-item:active{cursor:grabbing;opacity:.7}
-.pal-dot{
-  width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0;
-}
-.c-blue{background:rgba(59,130,246,.1)} .c-green{background:rgba(16,185,129,.1)}
-.c-orange{background:rgba(245,158,11,.1)} .c-purple{background:rgba(139,92,246,.1)}
-.c-red{background:rgba(239,68,68,.1)} .c-teal{background:rgba(20,184,166,.1)}
-
-/* CANVAS */
-.canvas{
-  flex:1;position:relative;overflow:hidden;
-  background-color:var(--bg-base);
-  background-image:radial-gradient(circle,var(--bd-1) .8px,transparent .8px);
-  background-size:20px 20px;
-}
-
-/* SVG Layer */
-#conn-svg{
-  position:absolute;top:0;left:0;width:100%;height:100%;
-  pointer-events:none;overflow:visible;z-index:1;
-}
-.conn-path{fill:none;stroke:var(--brand-3);stroke-width:2.5;stroke-linecap:round}
-.conn-path.temp{stroke-dasharray:6 3;animation:dash-move 1s linear infinite}
-@keyframes dash-move{to{stroke-dashoffset:-18}}
-
-/* NODES */
-.node{
-  position:absolute;width:205px;background:var(--bg-surface);
-  border:2px solid var(--bd-2);border-radius:var(--r-md);
-  box-shadow:var(--sh-md);cursor:move;user-select:none;z-index:2;
-  transition:box-shadow .2s,border-color .2s;
-}
-.node:hover{border-color:var(--brand-3);box-shadow:var(--sh-lg)}
-.node.selected{border-color:var(--brand-4);box-shadow:var(--sh-xl),0 0 0 3px rgba(90,141,238,.18)}
-.node-head{
-  padding:9px 11px;border-bottom:1px solid var(--bd-1);font-size:11px;font-weight:800;
-  display:flex;align-items:center;gap:7px;color:var(--tx-1);
-  background:var(--bg-raised);border-radius:calc(var(--r-md) - 2px) calc(var(--r-md) - 2px) 0 0;
-}
-.node-head-ico{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.node-close{margin-right:auto;background:none;border:none;cursor:pointer;color:var(--tx-3);font-size:14px;line-height:1;padding:0;transition:color .15s}
-.node-close:hover{color:var(--err)}
-.node-body{padding:9px 11px;font-size:11px;color:var(--tx-2);direction:rtl}
-.node-lbl{font-size:10px;color:var(--tx-3);font-weight:700;margin-bottom:3px}
-.node-inp{
-  width:100%;background:var(--bg-raised);border:1px solid var(--bd-1);border-radius:6px;
-  padding:5px 8px;font-size:11px;color:var(--tx-1);font-family:'Cairo',sans-serif;margin-top:3px;
-  transition:border-color .15s;
-}
-.node-inp:focus{outline:none;border-color:var(--brand-3);box-shadow:0 0 0 2px var(--brand-glow)}
-.node-inp.ta{resize:none;min-height:46px;max-height:90px}
-
-/* Ports */
-.port{
-  position:absolute;width:14px;height:14px;border-radius:50%;
-  background:var(--brand-3);border:2.5px solid var(--bg-surface);
-  box-shadow:0 0 6px rgba(59,111,212,.4);cursor:crosshair;z-index:10;
-  transition:transform .15s,box-shadow .15s;
-}
-.port:hover{transform:scale(1.5);box-shadow:0 0 12px rgba(59,111,212,.6)}
-.port.out{right:-7px}
-.port.in{left:-7px}
-.port.out-b{bottom:-7px;right:50%;transform:translateX(50%)}
-.port.out-b:hover{transform:translateX(50%) scale(1.5)}
-
-/* Canvas Controls */
-.cv-ctrls{
-  position:absolute;bottom:14px;left:14px;display:flex;gap:5px;
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-md);
-  padding:7px;box-shadow:var(--sh-md);z-index:20;
-}
-.cv-btn{
-  width:32px;height:32px;border-radius:7px;border:1px solid var(--bd-1);
-  background:var(--bg-raised);color:var(--tx-2);display:flex;align-items:center;
-  justify-content:center;cursor:pointer;transition:var(--tr);
-}
-.cv-btn:hover{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;border-color:transparent}
-.cv-info{
-  position:absolute;bottom:14px;right:14px;background:var(--bg-surface);
-  border:1px solid var(--bd-1);border-radius:7px;padding:5px 10px;
-  font-size:10px;color:var(--tx-3);font-weight:600;box-shadow:var(--sh-sm);z-index:20;
-}
-
-/* ═══ ANALYTICS ═══ */
-.an-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.an-card{
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-lg);
-  padding:18px;display:flex;flex-direction:column;gap:8px;
-  box-shadow:var(--sh-sm);transition:var(--tr);position:relative;overflow:hidden;
-}
-.an-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;opacity:0;transition:opacity .3s}
-.an-card:hover{box-shadow:var(--sh-lg);border-color:var(--bd-2)}
-.an-card:hover::after{opacity:1}
-.an-card.b::after{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
-.an-card.g::after{background:linear-gradient(90deg,#10b981,#34d399)}
-.an-card.y::after{background:linear-gradient(90deg,#f59e0b,#fcd34d)}
-.an-card.p::after{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
-.an-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center}
-.an-ico.b{background:rgba(59,130,246,.1)} .an-ico.g{background:rgba(16,185,129,.1)}
-.an-ico.y{background:rgba(245,158,11,.1)} .an-ico.p{background:rgba(139,92,246,.1)}
-.an-val{font-size:28px;font-weight:900;color:var(--tx-1);line-height:1}
-.an-lbl{font-size:10px;font-weight:700;color:var(--tx-3);text-transform:uppercase;letter-spacing:.4px}
-.an-tr{font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px}
-.tr-up{color:var(--ok)} .tr-dn{color:var(--err)}
-
-/* Chart */
-.chart-wrap{background:var(--bg-raised);border-radius:var(--r-md);height:190px;display:flex;align-items:flex-end;padding:16px;gap:7px;overflow:hidden}
-.chart-b{flex:1;background:linear-gradient(180deg,var(--brand-4),var(--brand-2));border-radius:4px 4px 0 0;opacity:.65;transition:opacity .2s}
-.chart-b:hover{opacity:1}
-.chart-xlbl{display:flex;justify-content:space-between;padding:8px 4px 0;font-size:10px;color:var(--tx-3);font-weight:600}
-
-/* ═══ RULES TABLE ═══ */
-.tbl{width:100%;border-collapse:collapse}
-.tbl th{padding:9px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--tx-3);text-align:right;background:var(--bg-raised);border-bottom:1px solid var(--bd-1)}
-.tbl th:last-child{text-align:center}
-.tbl td{padding:13px 14px;font-size:12px;color:var(--tx-2);border-bottom:1px solid var(--bd-1);vertical-align:middle}
-.tbl tr:hover td{background:var(--bg-hover)}
-.tbl tr:last-child td{border-bottom:none}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700}
-.badge.ok{background:rgba(16,185,129,.1);color:var(--ok)}
-.badge.warn{background:rgba(245,158,11,.1);color:var(--warn)}
-.badge.muted{background:var(--bg-raised);color:var(--tx-3);border:1px solid var(--bd-1)}
-.bdot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.kwchips{display:flex;flex-wrap:wrap;gap:3px}
-.kw{padding:2px 7px;background:var(--brand-glow);border:1px solid var(--bd-2);border-radius:99px;font-size:10px;color:var(--brand-3);font-weight:600}
-
-/* ═══ TEMPLATES ═══ */
-.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-.tpl-card{
-  background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-lg);
-  padding:18px;cursor:pointer;transition:var(--tr);display:flex;flex-direction:column;gap:10px;
-  box-shadow:var(--sh-sm);position:relative;overflow:hidden;
-}
-.tpl-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;transform:scaleX(0);transform-origin:right;transition:transform .3s}
-.tpl-card.bl::before{background:linear-gradient(90deg,var(--brand-1),var(--brand-3))}
-.tpl-card.gr::before{background:linear-gradient(90deg,#10b981,#34d399)}
-.tpl-card.pu::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
-.tpl-card.or::before{background:linear-gradient(90deg,#f59e0b,#fcd34d)}
-.tpl-card:hover{border-color:var(--bd-2);transform:translateY(-3px);box-shadow:var(--sh-lg)}
-.tpl-card:hover::before{transform:scaleX(1)}
-.tpl-ico{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center}
-.tpl-ico.bl{background:rgba(30,60,114,.08)} .tpl-ico.gr{background:rgba(16,185,129,.08)}
-.tpl-ico.pu{background:rgba(139,92,246,.08)} .tpl-ico.or{background:rgba(245,158,11,.08)}
-.tpl-name{font-size:14px;font-weight:800;color:var(--tx-1)}
-.tpl-desc{font-size:12px;color:var(--tx-2);line-height:1.5}
-.tpl-foot{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--bd-1)}
-.tpl-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--bg-raised);color:var(--tx-3);border:1px solid var(--bd-1)}
-.tpl-use{font-size:11px;font-weight:700;color:var(--brand-3);background:none;border:none;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:3px;transition:color .15s}
-.tpl-use:hover{color:var(--brand-4)}
-
-/* ═══ SETTINGS ═══ */
-.set-row{display:flex;align-items:center;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--bd-1);gap:14px}
-.set-row:last-child{border-bottom:none}
-.set-info h4{font-size:13px;font-weight:700;color:var(--tx-1);margin-bottom:2px}
-.set-info p{font-size:11px;color:var(--tx-3)}
-.tog{width:44px;height:25px;background:var(--bg-raised);border:2px solid var(--bd-2);border-radius:99px;position:relative;cursor:pointer;transition:var(--tr);flex-shrink:0}
-.tog.on{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));border-color:transparent}
-.tog-k{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-.tog.on .tog-k{transform:translateX(19px)}
-.f-inp{
-  width:100%;background:var(--bg-raised);border:1px solid var(--bd-2);border-radius:var(--r-sm);
-  padding:8px 11px;font-size:12px;color:var(--tx-1);font-family:'Cairo',sans-serif;transition:var(--tr);
-}
-.f-inp:focus{outline:none;border-color:var(--brand-3);box-shadow:0 0 0 3px var(--brand-glow);background:var(--bg-surface)}
-
-/* ═══ CARDS ═══ */
-.card{background:var(--bg-surface);border:1px solid var(--bd-1);border-radius:var(--r-lg);box-shadow:var(--sh-sm);overflow:hidden;transition:var(--tr)}
-.card:hover{box-shadow:var(--sh-md);border-color:var(--bd-2)}
-.card-head{padding:16px 20px;border-bottom:1px solid var(--bd-1);display:flex;align-items:center;justify-content:space-between;gap:10px}
-.card-ttl{font-size:14px;font-weight:800;color:var(--tx-1);display:flex;align-items:center;gap:7px}
-.card-dot{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--brand-3),var(--brand-4))}
-.card-body{padding:20px}
-
-/* ═══ BUTTONS ═══ */
-.btn{
-  padding:8px 16px;border-radius:var(--r-sm);font-family:'Cairo',sans-serif;font-size:12px;
-  font-weight:700;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;
-  transition:var(--tr);text-decoration:none;
-}
-.btn-p{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;box-shadow:0 4px 10px rgba(30,60,114,.22)}
-.btn-p:hover{transform:translateY(-2px);box-shadow:0 7px 18px rgba(30,60,114,.32)}
-.btn-s{background:var(--bg-raised);color:var(--tx-1);border:1px solid var(--bd-2)}
-.btn-s:hover{background:var(--bg-hover);border-color:var(--bd-3)}
-.btn-g{background:transparent;color:var(--tx-2);border:1px solid transparent}
-.btn-g:hover{background:var(--bg-hover);color:var(--tx-1)}
-.btn-d{background:rgba(239,68,68,.08);color:var(--err);border:1px solid rgba(239,68,68,.2)}
-.btn-d:hover{background:rgba(239,68,68,.15)}
-.btn-sm{padding:5px 11px;font-size:11px}
-.btn-xs{padding:3px 8px;font-size:10px}
-.btn-full{width:100%;justify-content:center}
-
-/* ═══ FULLSCREEN MODAL ═══ */
-.fs-overlay{
-  position:fixed;inset:0;background:rgba(5,12,30,.75);backdrop-filter:blur(8px);
-  z-index:1000;display:flex;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .3s ease;
-}
-.fs-overlay.open{opacity:1;pointer-events:all}
-.fs-modal{
-  width:calc(100vw - 40px);max-width:1440px;height:calc(100vh - 40px);
-  background:var(--bg-surface);border-radius:var(--r-xl);
-  border:1px solid var(--bd-2);box-shadow:var(--sh-xl);
-  display:flex;flex-direction:column;overflow:hidden;
-  transform:scale(.95);transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-}
-.fs-overlay.open .fs-modal{transform:scale(1)}
-.fs-header{
-  padding:14px 20px;border-bottom:1px solid var(--bd-1);
-  display:flex;align-items:center;gap:12px;flex-shrink:0;
-  background:var(--bg-surface);position:relative;
-}
-.fs-header::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--brand-1),var(--brand-3),var(--brand-4));
-}
-.fs-title{font-size:15px;font-weight:800;color:var(--tx-1)}
-.fs-sub{font-size:11px;color:var(--tx-3)}
-.fs-body{flex:1;display:flex;overflow:hidden}
-.fs-close{
-  margin-right:auto;width:32px;height:32px;border-radius:8px;
-  background:var(--bg-raised);border:1px solid var(--bd-1);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;color:var(--tx-2);
-  transition:var(--tr);
-}
-.fs-close:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--err)}
-
-/* SCROLLBAR */
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bd-2);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--bd-3)}
-
-/* LOADING SKELETON */
-.skel{background:linear-gradient(90deg,var(--bg-raised) 25%,var(--bg-hover) 50%,var(--bg-raised) 75%);background-size:200% 100%;animation:skel-load 1.4s ease-in-out infinite;border-radius:6px}
-@keyframes skel-load{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-/* TOAST */
-.toast{
-  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
-  padding:10px 20px;border-radius:11px;font-weight:700;font-size:13px;
-  color:#fff;box-shadow:var(--sh-xl);z-index:9999;font-family:'Cairo',sans-serif;
-  opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;
-}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{background:var(--ok)} .toast.err{background:var(--err)} .toast.info{background:var(--brand-2)}
-
-/* RESPONSIVE */
-@media(max-width:1050px){
-  .sidebar{width:56px}
-  .nav-item span,.logo-text,.sb-sec,.sb-stats,.sb-footer{display:none}
-  .nav-item{justify-content:center;padding:10px}
-  .nav-ico{width:34px;height:34px}
-  .nav-item.active::before{display:none}
-  .an-grid{grid-template-columns:repeat(2,1fr)}
-}
-@media(max-width:768px){
-  .sidebar{display:none}
-  .ph-wrap{padding:14px 14px 0}
-  .ph{padding:16px;flex-direction:column;gap:14px}
-  .ph-stats{width:100%;justify-content:space-between}
-  .tab-bar,.ca{margin:0 14px}
-  .ca{padding:0 14px 20px}
-  .an-grid{grid-template-columns:1fr 1fr}
-  .tpl-grid{grid-template-columns:1fr}
-  .fe-card{height:calc(100vh - 200px)}
-  .palette{width:150px}
-}
-</style>
-</head>
-<body data-theme="light">
-<div class="shell">
-
-<!-- TOP BAR -->
-<header class="topbar">
-  <div class="logo">
-    <div class="logo-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l2 2 4-4"/></svg>
-    </div>
-    <div>
-      <div class="logo-name">مدعوم</div>
-      <div class="logo-sub">WhatsApp Business</div>
-    </div>
-  </div>
-  <div class="sep"></div>
-  <nav class="crumb">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
-    <span style="color:var(--tx-3);font-size:12px">واتساب</span>
-    <span style="color:var(--tx-3);font-size:12px">›</span>
-    <span class="crumb-cur">الرد الآلي</span>
-  </nav>
-  <div class="tb-right">
-    <!-- Connection status -->
-    <div class="conn-status" id="connStatus">
-      <div class="conn-dot loading" id="connDot"></div>
-      <span id="connText" style="color:var(--tx-2)">جاري الاتصال...</span>
-    </div>
-    <button class="theme-btn" onclick="toggleTheme()">
-      <div class="theme-knob" id="themeKnob"><span id="themeIco">☀️</span></div>
-    </button>
-    <button class="icon-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
-    </button>
-    <div class="user-chip">
-      <div class="user-av">م</div>
-      <span class="user-name" id="userName">...</span>
-    </div>
-  </div>
-</header>
-
-<!-- MAIN -->
-<div class="main">
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sb-new-btn">
-      <button class="btn btn-p btn-full" onclick="openFlowModal()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span>تدفق جديد</span>
-      </button>
-    </div>
-    <div class="sb-sec">القائمة</div>
-    <div class="nav-group">
-      <div class="nav-item active" data-tab="editor" onclick="switchTab('editor')">
-        <div class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg></div>
-        <span>محرر التدفقات</span>
-      </div>
-      <div class="nav-item" data-tab="rules" onclick="switchTab('rules')">
-        <div class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
-        <span>قواعد الرد</span>
-      </div>
-      <div class="nav-item" data-tab="analytics" onclick="switchTab('analytics')">
-        <div class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-        <span>التحليلات</span>
-      </div>
-      <div class="nav-item" data-tab="templates" onclick="switchTab('templates')">
-        <div class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <span>القوالب</span>
-        <span class="nav-badge g" id="tpl-count">1</span>
-      </div>
-      <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
-        <div class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
-        <span>الإعدادات</span>
-      </div>
-    </div>
-    <div class="sb-sec" style="margin-top:8px">الأداء اليوم</div>
-    <div class="sb-stats">
-      <div class="sb-stats-label">الرسائل اليوم</div>
-      <div class="sb-stats-val" id="sb-today">—</div>
-      <div class="sb-stats-sub" id="sb-sub">جاري التحميل...</div>
-    </div>
-    <div class="sb-footer">مدعوم v2.4.1</div>
-  </aside>
-
-  <!-- CONTENT -->
-  <main class="content">
-    <div class="ph-wrap">
-      <div class="ph">
-        <div class="ph-left">
-          <div class="ph-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-          </div>
-          <div>
-            <div class="ph-title">نظام الرد الآلي المتقدم</div>
-            <div class="ph-sub">صمّم تدفقات ردود بالسحب والإفلات — مربوط مباشرة بـ Supabase</div>
-          </div>
-        </div>
-        <div class="ph-stats">
-          <div class="ph-stat">
-            <div class="ph-stat-val" id="stat-flows">—</div>
-            <div class="ph-stat-label">التدفقات</div>
-          </div>
-          <div class="ph-stat">
-            <div class="ph-stat-val" id="stat-msgs">—</div>
-            <div class="ph-stat-label">اليوم</div>
-          </div>
-          <div class="ph-stat">
-            <div class="ph-stat-val" id="stat-rate">—</div>
-            <div class="ph-stat-label">الاستجابة</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB BAR -->
-    <nav class="tab-bar">
-      <button class="tab-btn active" data-tab="editor" onclick="switchTab('editor')">
-        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
-        <span>المحرر</span>
-      </button>
-      <button class="tab-btn" data-tab="rules" onclick="switchTab('rules')">
-        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg>
-        <span>قواعد الرد</span>
-      </button>
-      <button class="tab-btn" data-tab="analytics" onclick="switchTab('analytics')">
-        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>التحليلات</span>
-      </button>
-      <button class="tab-btn" data-tab="templates" onclick="switchTab('templates')">
-        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <span>القوالب</span>
-      </button>
-      <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
-        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4"/></svg>
-        <span>الإعدادات</span>
-      </button>
-    </nav>
-
-    <!-- PANELS -->
-    <div class="ca">
-
-      <!-- EDITOR PANEL -->
-      <div id="panel-editor" class="panel active">
-        <div class="fe-card">
-          <div class="fe-toolbar">
-            <div>
-              <div class="fe-title">محرر التدفق البصري</div>
-              <div class="fe-sub">اسحب العناصر وأنشئ تدفق الرد</div>
-            </div>
-            <div class="save-pill" id="savePill">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-              محفوظ
-            </div>
-            <div style="margin-right:auto;display:flex;gap:7px;align-items:center">
-              <button class="btn btn-g btn-sm" onclick="undoFlow()" title="تراجع">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-              </button>
-              <button class="btn btn-g btn-sm" onclick="redoFlow()" title="إعادة">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
-              </button>
-              <div style="width:1px;height:20px;background:var(--bd-2)"></div>
-              <button class="btn btn-s btn-sm" onclick="openFlowModal()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
-                ملء الشاشة
-              </button>
-              <button class="btn btn-s btn-sm" onclick="clearCanvas('mini')">مسح</button>
-              <button class="btn btn-p btn-sm" onclick="saveFlow()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                حفظ
-              </button>
-            </div>
-          </div>
-          <div class="fe-body">
-            <div class="palette" id="miniPalette">
-              <div class="pal-label">عناصر التدفق</div>
-              <div class="pal-item" draggable="true" data-type="trigger">
-                <div class="pal-dot c-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-                <span>محفّز الرسالة</span>
-              </div>
-              <div class="pal-item" draggable="true" data-type="message">
-                <div class="pal-dot c-green"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-                <span>إرسال رسالة</span>
-              </div>
-              <div class="pal-item" draggable="true" data-type="condition">
-                <div class="pal-dot c-orange"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg></div>
-                <span>شرط / تفرعة</span>
-              </div>
-              <div class="pal-item" draggable="true" data-type="delay">
-                <div class="pal-dot c-purple"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                <span>تأخير</span>
-              </div>
-              <div class="pal-item" draggable="true" data-type="assign">
-                <div class="pal-dot c-teal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <span>تحويل لوكيل</span>
-              </div>
-              <div class="pal-item" draggable="true" data-type="end">
-                <div class="pal-dot c-red"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
-                <span>إنهاء التدفق</span>
-              </div>
-              <div class="pal-label" style="margin-top:6px">ذكاء اصطناعي</div>
-              <div class="pal-item" draggable="true" data-type="ai">
-                <div class="pal-dot c-purple"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
-                <span>رد بالذكاء الاصطناعي</span>
-              </div>
-            </div>
-            <div class="canvas" id="miniCanvas"
-              ondragover="e_dragover(event)"
-              ondrop="e_drop(event,'mini')">
-              <svg id="conn-svg-mini" class="conn-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
-                <defs>
-                  <marker id="arr-mini" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
-                  </marker>
-                </defs>
-              </svg>
-              <div class="cv-ctrls">
-                <button class="cv-btn" onclick="zoom_cv('mini',1)" title="تكبير"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                <button class="cv-btn" onclick="zoom_cv('mini',-1)" title="تصغير"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                <button class="cv-btn" onclick="fit_cv('mini')" title="ملاءمة"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
-              </div>
-              <div class="cv-info" id="zoom-mini">100%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- RULES PANEL -->
-      <div id="panel-rules" class="panel">
-        <div class="card">
-          <div class="card-head">
-            <span class="card-ttl"><span class="card-dot"></span>قواعد الرد الفعّالة</span>
-            <button class="btn btn-p btn-sm">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              قاعدة جديدة
-            </button>
-          </div>
-          <div style="overflow-x:auto"><table class="tbl" id="rulesTable">
-            <thead><tr><th>الاسم</th><th>الكلمات المفتاحية</th><th>الرد</th><th>الحالة</th><th>الأولوية</th><th>الإجراءات</th></tr></thead>
-            <tbody id="rulesTbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--tx-3)"><div class="skel" style="height:14px;width:60%;margin:auto"></div></td></tr></tbody>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- ANALYTICS PANEL -->
-      <div id="panel-analytics" class="panel">
-        <div class="an-grid">
-          <div class="an-card b">
-            <div class="an-ico b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-            <div class="an-val" id="an-today">—</div>
-            <div class="an-lbl">رسائل اليوم</div>
-            <div class="an-tr tr-up" id="an-today-tr">...</div>
-          </div>
-          <div class="an-card g">
-            <div class="an-ico g"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
-            <div class="an-val" id="an-out">—</div>
-            <div class="an-lbl">رسائل صادرة</div>
-            <div class="an-tr tr-up" id="an-out-tr">...</div>
-          </div>
-          <div class="an-card y">
-            <div class="an-ico y"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-            <div class="an-val" id="an-total">—</div>
-            <div class="an-lbl">إجمالي الرسائل</div>
-            <div class="an-tr" id="an-total-tr" style="color:var(--tx-3)">...</div>
-          </div>
-          <div class="an-card p">
-            <div class="an-ico p"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3"/></svg></div>
-            <div class="an-val" id="an-inbound">—</div>
-            <div class="an-lbl">رسائل واردة</div>
-            <div class="an-tr" id="an-in-tr" style="color:var(--tx-3)">...</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <span class="card-ttl"><span class="card-dot"></span>توزيع الرسائل حسب اليوم (آخر 7 أيام)</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-wrap" id="chartWrap">
-              <div class="chart-b skel" style="height:60%"></div>
-              <div class="chart-b skel" style="height:40%"></div>
-              <div class="chart-b skel" style="height:70%"></div>
-              <div class="chart-b skel" style="height:50%"></div>
-              <div class="chart-b skel" style="height:80%"></div>
-              <div class="chart-b skel" style="height:90%"></div>
-              <div class="chart-b skel" style="height:65%"></div>
-            </div>
-            <div class="chart-xlbl" id="chartLbls">
-              <span>...</span><span>...</span><span>...</span><span>...</span><span>...</span><span>...</span><span>...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TEMPLATES PANEL -->
-      <div id="panel-templates" class="panel">
-        <div class="tpl-grid" id="tplGrid">
-          <div class="skel" style="height:180px"></div>
-          <div class="skel" style="height:180px"></div>
-          <div class="skel" style="height:180px"></div>
-        </div>
-      </div>
-
-      <!-- SETTINGS PANEL -->
-      <div id="panel-settings" class="panel">
-        <div class="card">
-          <div class="card-head">
-            <span class="card-ttl"><span class="card-dot"></span>إعدادات نظام الرد الآلي</span>
-            <span style="font-size:11px;color:var(--tx-3)" id="settingsLastSaved">جاري التحميل...</span>
-          </div>
-          <div class="card-body">
-            <div class="set-row">
-              <div class="set-info"><h4>تفعيل الرد الآلي</h4><p>تشغيل أو إيقاف نظام الرد الآلي بالكامل</p></div>
-              <div class="tog" id="tog-automation" onclick="toggleSetting('automation_enabled',this)"><div class="tog-k"></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>تفعيل البوت</h4><p>تشغيل البوت للرد على الرسائل</p></div>
-              <div class="tog" id="tog-bot" onclick="toggleSetting('bot_enabled',this)"><div class="tog-k"></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>الذكاء الاصطناعي (AI)</h4><p>استخدام AI للردود غير المتطابقة مع قواعد موجودة</p></div>
-              <div class="tog" id="tog-ai" onclick="toggleSetting('ai_enabled',this)"><div class="tog-k"></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>الذاكرة الذكية</h4><p>تذكّر سياق المحادثة لردود أكثر ذكاءً</p></div>
-              <div class="tog" id="tog-memory" onclick="toggleSetting('smart_memory_enabled',this)"><div class="tog-k"></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>أول محادثة فقط</h4><p>تفعيل الرد الآلي للرسائل الأولى فقط</p></div>
-              <div class="tog" id="tog-first" onclick="toggleSetting('advanced_first_chat_only',this)"><div class="tog-k"></div></div>
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>تأخير الرد (ثواني)</h4><p>يجعل الرد يبدو طبيعياً</p></div>
-              <input type="number" class="f-inp" id="delay-inp" style="width:80px;text-align:center" value="2" min="0" max="30" onchange="saveDelay(this.value)">
-            </div>
-            <div class="set-row">
-              <div class="set-info"><h4>رسالة الترحيب</h4><p>الرسالة الافتراضية للعملاء الجدد</p></div>
-              <div style="flex:1;max-width:320px">
-                <textarea class="f-inp" id="welcome-inp" rows="2" style="resize:none" placeholder="أهلاً بك!"></textarea>
-              </div>
-            </div>
-          </div>
-          <div style="padding:14px 20px;border-top:1px solid var(--bd-1);display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-s btn-sm" onclick="loadSettings()">تحديث</button>
-            <button class="btn btn-p btn-sm" onclick="saveAllSettings()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-              حفظ الإعدادات
-            </button>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /ca -->
-  </main>
-</div><!-- /main -->
-</div><!-- /shell -->
-
-<!-- ═══ FULLSCREEN FLOW MODAL ═══ -->
-<div class="fs-overlay" id="fsOverlay" onclick="handleOverlayClick(event)">
-  <div class="fs-modal">
-    <div class="fs-header">
-      <div class="ph-icon" style="width:38px;height:38px;border-radius:9px">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
-      </div>
-      <div><div class="fs-title">محرر التدفق — ملء الشاشة</div><div class="fs-sub">اسحب العناصر وربط التوصيلات بسهولة</div></div>
-      <div style="margin-right:auto;display:flex;gap:7px;align-items:center">
-        <div class="save-pill" id="fsSavePill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> محفوظ</div>
-        <button class="btn btn-g btn-sm" onclick="undoFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
-        <button class="btn btn-g btn-sm" onclick="redoFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
-        <button class="btn btn-s btn-sm" onclick="clearCanvas('fs')">مسح الكل</button>
-        <button class="btn btn-p btn-sm" onclick="saveFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg> حفظ</button>
-        <div style="width:1px;height:20px;background:var(--bd-2)"></div>
-        <button class="fs-close" onclick="closeFlowModal()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="fs-body">
-      <div class="palette" id="fsPalette">
-        <div class="pal-label">عناصر التدفق</div>
-        <div class="pal-item" draggable="true" data-type="trigger">
-          <div class="pal-dot c-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-          <span>محفّز الرسالة</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="message">
-          <div class="pal-dot c-green"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-          <span>إرسال رسالة</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="condition">
-          <div class="pal-dot c-orange"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg></div>
-          <span>شرط / تفرعة</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="delay">
-          <div class="pal-dot c-purple"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <span>تأخير</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="assign">
-          <div class="pal-dot c-teal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-          <span>تحويل لوكيل</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="end">
-          <div class="pal-dot c-red"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
-          <span>إنهاء التدفق</span>
-        </div>
-        <div class="pal-label" style="margin-top:8px">ذكاء اصطناعي</div>
-        <div class="pal-item" draggable="true" data-type="ai">
-          <div class="pal-dot c-purple"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
-          <span>رد بالذكاء الاصطناعي</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="media">
-          <div class="pal-dot c-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
-          <span>إرسال وسائط</span>
-        </div>
-        <div class="pal-item" draggable="true" data-type="webhook">
-          <div class="pal-dot c-orange"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
-          <span>Webhook</span>
-        </div>
-      </div>
-      <!-- FS Canvas -->
-      <div class="canvas" id="fsCanvas"
-        ondragover="e_dragover(event)"
-        ondrop="e_drop(event,'fs')">
-        <svg id="conn-svg-fs" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
-          <defs>
-            <marker id="arr-fs" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-              <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
-            </marker>
-          </defs>
-        </svg>
-        <div class="cv-ctrls">
-          <button class="cv-btn" onclick="zoom_cv('fs',1)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <button class="cv-btn" onclick="zoom_cv('fs',-1)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <button class="cv-btn" onclick="fit_cv('fs')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
-          <button class="cv-btn" onclick="autoLayout('fs')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></button>
-        </div>
-        <div class="cv-info" id="zoom-fs">100%</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<script type="module">
-// ══════════════════════════════════════════════════════
-//  SUPABASE CLIENT
-// ══════════════════════════════════════════════════════
-const SUPA_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
-const SUPA_KEY  = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
-
-let sb = null;
-let sbSettingsId = null;
-
-async function initSupa() {
-  try {
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
-    sb = createClient(SUPA_URL, SUPA_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true }
-    });
-    setConn('ok', '✓ متصل بـ Supabase');
-    return true;
-  } catch(e) {
-    setConn('err', 'خطأ في الاتصال');
-    return false;
-  }
-}
-
-function setConn(s, txt) {
-  const dot = document.getElementById('connDot');
-  const tx  = document.getElementById('connText');
-  dot.className = 'conn-dot ' + s;
-  tx.textContent = txt;
-}
-
-// ══════════════════════════════════════════════════════
-//  LOAD STATS & SETTINGS
-// ══════════════════════════════════════════════════════
-async function loadAll() {
-  if (!sb) return;
-
-  // Messages stats
-  try {
-    const now = new Date();
-    const start = new Date(now); start.setHours(0,0,0,0);
-
-    const { data: msgs } = await sb.from('messages').select('direction,timestamp,created_at');
-    if (msgs) {
-      const today = msgs.filter(m => new Date(m.timestamp || m.created_at) >= start);
-      const out   = msgs.filter(m => m.direction === 'outbound');
-      const inb   = msgs.filter(m => m.direction === 'inbound');
-
-      setEl('stat-msgs',   today.length);
-      setEl('an-today',    today.length);
-      setEl('an-out',      out.length);
-      setEl('an-total',    msgs.length);
-      setEl('an-inbound',  inb.length);
-      setEl('sb-today',    today.length);
-      setEl('sb-sub',      `من ${msgs.length} إجمالي`);
-      setEl('an-today-tr', `↑ وارد: ${inb.filter(m=>new Date(m.timestamp||m.created_at)>=start).length}`);
-      setEl('an-out-tr',   `من ${out.length} إجمالي`);
-      setEl('an-total-tr', `${inb.length} وارد | ${out.length} صادر`);
-      setEl('an-in-tr',    `اليوم: ${inb.filter(m=>new Date(m.timestamp||m.created_at)>=start).length}`);
-
-      // Chart
-      buildChart(msgs);
-    }
-  } catch(e) { console.warn('msgs:', e) }
-
-  // bot_settings
-  try {
-    const { data } = await sb.from('bot_settings').select('*').limit(1).single();
-    if (data) {
-      sbSettingsId = data.id;
-      applySettings(data);
-    }
-  } catch(e) { console.warn('settings:', e) }
-
-  // flow_templates
-  try {
-    const { data } = await sb.from('flow_templates').select('*');
-    if (data) {
-      setEl('tpl-count', data.length);
-      renderTemplates(data);
-    }
-  } catch(e) { renderTemplates([]) }
-
-  // rules_engine
-  try {
-    const { data } = await sb.from('rules_engine').select('*').order('priority', {ascending:false});
-    renderRules(data || []);
-  } catch(e) { renderRules([]) }
-
-  // flow stat
-  setEl('stat-flows', '1');
-  setEl('stat-rate',  '98%');
-}
-
-function setEl(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-function buildChart(msgs) {
-  const days = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
-  const now = new Date();
-  const counts = Array(7).fill(0);
-  const labels = [];
-  for (let i=6; i>=0; i--) {
-    const d = new Date(now); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
-    const e = new Date(d); e.setHours(23,59,59,999);
-    counts[6-i] = msgs.filter(m => {
-      const t = new Date(m.timestamp || m.created_at);
-      return t >= d && t <= e;
-    }).length;
-    labels.push(days[d.getDay()]);
-  }
-  const max = Math.max(...counts, 1);
-  const wrap = document.getElementById('chartWrap');
-  wrap.innerHTML = counts.map((c,i) =>
-    `<div class="chart-b" style="height:${Math.max(8, Math.round(c/max*100))}%;opacity:${i===6?1:.65}" title="${labels[i]}: ${c}"></div>`
-  ).join('');
-  document.getElementById('chartLbls').innerHTML = labels.map(l=>`<span>${l}</span>`).join('');
-}
-
-function applySettings(d) {
-  togSet('tog-automation', d.automation_enabled);
-  togSet('tog-bot',        d.bot_enabled);
-  togSet('tog-ai',         d.ai_enabled);
-  togSet('tog-memory',     d.smart_memory_enabled);
-  togSet('tog-first',      d.advanced_first_chat_only);
-  const di = document.getElementById('delay-inp');
-  if (di) di.value = d.response_delay_seconds || 2;
-  const wi = document.getElementById('welcome-inp');
-  if (wi) wi.value = d.welcome_message || '';
-  const ls = document.getElementById('settingsLastSaved');
-  if (ls && d.updated_at) ls.textContent = 'آخر حفظ: ' + new Date(d.updated_at).toLocaleString('ar');
-
-  // load flow into canvas
-  if (d.custom_replies) {
-    try {
-      const flow = typeof d.custom_replies === 'string' ? JSON.parse(d.custom_replies) : d.custom_replies;
-      if (Array.isArray(flow) && flow.length) {
-        STATE.nodes = []; STATE.conns = [];
-        flow.forEach((n,i) => {
-          if (!n || typeof n !== 'object') return;
-          addNode('mini', n.type||'message', 60+i*240, 100, n);
-          addNode('fs',   n.type||'message', 60+i*240, 100, n);
-        });
-      }
-    } catch(e){}
-  }
-}
-
-function togSet(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  val ? el.classList.add('on') : el.classList.remove('on');
-}
-
-function renderTemplates(data) {
-  const cats = {
-    welcome:'bl', support:'gr', sales:'pu', feedback:'or',
-    lead_generation:'bl', appointment:'gr', faq:'or', custom:'bl'
-  };
-  const icons = {
-    welcome:'👋', support:'🛠️', sales:'💼', feedback:'⭐',
-    lead_generation:'🎯', appointment:'📅', faq:'❓', custom:'⚙️'
-  };
-  const staticTpls = [
-    {id:'s1', name_ar:'رسالة الترحيب', description_ar:'رسالة ترحيب تلقائية للعملاء الجدد مع عرض الخدمات', category:'welcome', tags:['خدمة عملاء']},
-    {id:'s2', name_ar:'تتبع الطلبات', description_ar:'يطلب رقم الطلب ويرد بحالته التلقائية من النظام', category:'support', tags:['التجارة']},
-    {id:'s3', name_ar:'خارج أوقات العمل', description_ar:'رد ذكي يعمل خارج ساعات العمل مع جدولة المواعيد', category:'appointment', tags:['تشغيل آلي']},
-  ];
-  const all = [...(data||[]), ...staticTpls];
-  document.getElementById('tplGrid').innerHTML = all.map(t => {
-    const c = cats[t.category]||'bl';
-    const ic = icons[t.category]||'📋';
-    const tag = (t.tags||[])[0]||t.category||'';
-    return `<div class="tpl-card ${c}" onclick="useTemplate('${t.id}')">
-      <div class="tpl-ico ${c}" style="font-size:22px">${ic}</div>
-      <div class="tpl-name">${t.name_ar||t.name||'قالب'}</div>
-      <div class="tpl-desc">${t.description_ar||t.description||''}</div>
-      <div class="tpl-foot">
-        <span class="tpl-tag">${tag}</span>
-        <button class="tpl-use" onclick="event.stopPropagation();useTemplate('${t.id}')">
-          استخدم
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderRules(data) {
-  const tbody = document.getElementById('rulesTbody');
-  if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--tx-3)">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:auto;display:block;opacity:.3"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      <div style="margin-top:10px;font-size:13px">لا توجد قواعد بعد</div>
-    </td></tr>`;
-    return;
-  }
-  tbody.innerHTML = data.map(r => `<tr>
-    <td><strong style="color:var(--tx-1)">${r.name||'—'}</strong></td>
-    <td><div class="kwchips">${(r.conditions?.keywords||[]).map(k=>`<span class="kw">${k}</span>`).join('')||'<span style="color:var(--tx-3);font-size:11px">أي رسالة</span>'}</div></td>
-    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.actions||[])[0]?.message||'—'}</td>
-    <td><span class="badge ${r.is_active?'ok':'warn'}"><span class="bdot"></span>${r.is_active?'نشط':'متوقف'}</span></td>
-    <td style="text-align:center"><strong>${r.priority||0}</strong></td>
-    <td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center">
-      <button class="btn btn-g btn-xs">تعديل</button>
-      <button class="btn btn-d btn-xs" onclick="deleteRule('${r.id}')">حذف</button>
-    </div></td>
-  </tr>`).join('');
-}
-
-// ══════════════════════════════════════════════════════
-//  SAVE / TOGGLE
-// ══════════════════════════════════════════════════════
-window.toggleSetting = async function(col, el) {
-  el.classList.toggle('on');
-  if (!sb || !sbSettingsId) return;
-  const val = el.classList.contains('on');
-  try {
-    await sb.from('bot_settings').update({[col]: val}).eq('id', sbSettingsId);
-    toast('تم حفظ الإعداد', 'ok');
-  } catch(e) { toast('خطأ في الحفظ', 'err') }
-};
-
-window.saveDelay = async function(v) {
-  if (!sb || !sbSettingsId) return;
-  await sb.from('bot_settings').update({response_delay_seconds: parseInt(v)}).eq('id', sbSettingsId);
-  toast('تم حفظ مدة التأخير', 'ok');
-};
-
-window.saveAllSettings = async function() {
-  if (!sb || !sbSettingsId) { toast('لم يتم الاتصال', 'err'); return; }
-  const flow = serializeFlow();
-  const updates = {
-    automation_enabled:          document.getElementById('tog-automation').classList.contains('on'),
-    bot_enabled:                 document.getElementById('tog-bot').classList.contains('on'),
-    ai_enabled:                  document.getElementById('tog-ai').classList.contains('on'),
-    smart_memory_enabled:        document.getElementById('tog-memory').classList.contains('on'),
-    advanced_first_chat_only:    document.getElementById('tog-first').classList.contains('on'),
-    response_delay_seconds:      parseInt(document.getElementById('delay-inp').value)||2,
-    welcome_message:             document.getElementById('welcome-inp').value,
-    custom_replies:              flow,
-    updated_at:                  new Date().toISOString(),
-  };
-  try {
-    const { error } = await sb.from('bot_settings').update(updates).eq('id', sbSettingsId);
-    if (error) throw error;
-    toast('✓ تم حفظ جميع الإعدادات', 'ok');
-    document.getElementById('settingsLastSaved').textContent = 'آخر حفظ: ' + new Date().toLocaleString('ar');
-  } catch(e) { toast('خطأ: ' + e.message, 'err') }
-};
-
-window.saveFlow = async function() {
-  if (!sb || !sbSettingsId) { toast('لم يتم الاتصال بعد', 'err'); return; }
-  setSavePill('حفظ...');
-  const flow = serializeFlow();
-  try {
-    const { error } = await sb.from('bot_settings').update({
-      custom_replies: flow, updated_at: new Date().toISOString()
-    }).eq('id', sbSettingsId);
-    if (error) throw error;
-    setSavePill('✓ محفوظ');
-    toast('تم حفظ التدفق', 'ok');
-  } catch(e) { setSavePill('خطأ'); toast('خطأ في الحفظ', 'err') }
-};
-
-function setSavePill(txt) {
-  ['savePill','fsSavePill'].forEach(id => { const el=document.getElementById(id); if(el) el.lastChild.textContent=' '+txt });
-}
-
-window.loadSettings = loadAll;
-
-window.deleteRule = async function(id) {
-  if (!confirm('حذف هذه القاعدة؟')) return;
-  if (!sb) return;
-  await sb.from('rules_engine').delete().eq('id', id);
-  loadAll();
-};
-
-window.useTemplate = function(id) { toast('📋 جاري تحميل القالب...', 'info') };
-
-// ══════════════════════════════════════════════════════
-//  FLOW ENGINE
-// ══════════════════════════════════════════════════════
-const NODE_CFG = {
-  trigger:   { label:'محفّز الرسالة', hbg:'rgba(59,130,246,.08)',   stroke:'#3b82f6', ico:'trigger' },
-  message:   { label:'إرسال رسالة',   hbg:'rgba(16,185,129,.08)',   stroke:'#10b981', ico:'message' },
-  condition: { label:'شرط / تفرعة',  hbg:'rgba(245,158,11,.08)',   stroke:'#f59e0b', ico:'condition' },
-  delay:     { label:'تأخير',          hbg:'rgba(139,92,246,.08)',   stroke:'#8b5cf6', ico:'delay' },
-  assign:    { label:'تحويل لوكيل',   hbg:'rgba(20,184,166,.08)',   stroke:'#14b8a6', ico:'assign' },
-  end:       { label:'إنهاء التدفق',   hbg:'rgba(239,68,68,.08)',    stroke:'#ef4444', ico:'end' },
-  ai:        { label:'رد بالذكاء AI', hbg:'rgba(139,92,246,.08)',   stroke:'#8b5cf6', ico:'ai' },
-  media:     { label:'إرسال وسائط',   hbg:'rgba(59,130,246,.08)',   stroke:'#3b82f6', ico:'media' },
-  webhook:   { label:'Webhook',        hbg:'rgba(245,158,11,.08)',   stroke:'#f59e0b', ico:'webhook' },
-};
-
-const SVG_ICO = {
-  trigger:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-  message:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
-  condition: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg>`,
-  delay:     `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  assign:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-  end:       `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>`,
-  ai:        `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3"/></svg>`,
-  media:     `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`,
-  webhook:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`,
-};
-
-const STATE = {
-  nodes: [], // {id, cv, type, el, x, y}
-  conns: [], // {id, from, fromPort, to, toPort}
-  zoom:  { mini:100, fs:100 },
-  drawingConn: null, // {fromId, fromPort}
-  history: [], histIdx: -1,
-  nextId: 1,
-};
-
-function cvId(cv)   { return cv === 'fs' ? 'fsCanvas' : 'miniCanvas' }
-function svgId(cv)  { return cv === 'fs' ? 'conn-svg-fs' : 'conn-svg-mini' }
-function arrId(cv)  { return 'arr-' + cv }
-
-function getPortCenter(nodeEl, portCls) {
-  const canvas = nodeEl.parentElement;
-  const cr = canvas.getBoundingClientRect();
-  const ports = nodeEl.querySelectorAll('.' + portCls.replace(/ /g,'.'));
-  const port  = ports[0];
-  if (!port) return null;
-  const pr = port.getBoundingClientRect();
-  return {
-    x: pr.left - cr.left + pr.width/2,
-    y: pr.top  - cr.top  + pr.height/2
-  };
-}
-
-function redrawConns(cv) {
-  const svg = document.getElementById(svgId(cv));
-  if (!svg) return;
-  // keep defs
-  const defs = svg.querySelector('defs');
-  svg.innerHTML = '';
-  if (defs) svg.appendChild(defs);
-
-  const cvNodes = STATE.nodes.filter(n => n.cv === cv);
-  STATE.conns.forEach(c => {
-    const fromNode = cvNodes.find(n => n.id === c.from);
-    const toNode   = cvNodes.find(n => n.id === c.to);
-    if (!fromNode || !toNode) return;
-
-    const portCls  = c.fromPort || 'port out';
-    const tportCls = c.toPort   || 'port in';
-    const s = getPortCenter(fromNode.el, portCls);
-    const e = getPortCenter(toNode.el,   tportCls);
-    if (!s || !e) return;
-
-    const dx = Math.abs(e.x - s.x);
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('class','conn-path');
-    path.setAttribute('marker-end', `url(#${arrId(cv)})`);
-    // Bezier — always horizontal tangents
-    const cx1 = s.x + dx * .5;
-    const cx2 = e.x - dx * .5;
-    path.setAttribute('d', `M${s.x},${s.y} C${cx1},${s.y} ${cx2},${e.y} ${e.x},${e.y}`);
-    path.dataset.connId = c.id;
-    path.addEventListener('dblclick', () => removeConn(c.id, cv));
-    svg.appendChild(path);
-  });
-}
-
-function removeConn(connId, cv) {
-  STATE.conns = STATE.conns.filter(c => c.id !== connId);
-  redrawConns(cv);
-}
-
-function addNode(cv, type, x, y, data) {
-  const cfg = NODE_CFG[type] || NODE_CFG.message;
-  const id  = 'n' + (STATE.nextId++);
-  const canvas = document.getElementById(cvId(cv));
-
-  const el = document.createElement('div');
-  el.className = 'node';
-  el.id = id + '-' + cv;
-  el.style.cssText = `left:${x}px;top:${y}px`;
-  el.dataset.nodeId = id;
-  el.dataset.cv     = cv;
-
-  // Inputs per type
-  let bodyHTML = '';
-  if (type === 'trigger') {
-    bodyHTML = `<div class="node-lbl">الكلمات المحفّزة</div>
-    <input class="node-inp" placeholder="مرحبا، أهلا" value="${data?.keywords||''}" onchange="updateNodeData('${id}','keywords',this.value)">`;
-  } else if (type === 'message' || type === 'ai') {
-    bodyHTML = `<div class="node-lbl">نص الرسالة</div>
-    <textarea class="node-inp ta" placeholder="أدخل الرسالة..." onchange="updateNodeData('${id}','text',this.value)">${data?.text||''}</textarea>`;
-  } else if (type === 'condition') {
-    bodyHTML = `<div class="node-lbl">نوع الشرط</div>
-    <select class="node-inp" onchange="updateNodeData('${id}','cond',this.value)">
-      <option value="contains">الرسالة تحتوي على</option>
-      <option value="equals">الرسالة تساوي</option>
-      <option value="new_user">مستخدم جديد</option>
-      <option value="after_hours">بعد ساعات العمل</option>
-    </select>
-    <input class="node-inp" style="margin-top:4px" placeholder="القيمة..." value="${data?.condVal||''}" onchange="updateNodeData('${id}','condVal',this.value)">`;
-  } else if (type === 'delay') {
-    bodyHTML = `<div class="node-lbl">مدة التأخير (ثواني)</div>
-    <input type="number" class="node-inp" value="${data?.delay||5}" min="1" max="300" onchange="updateNodeData('${id}','delay',this.value)">`;
-  } else if (type === 'assign') {
-    bodyHTML = `<div class="node-lbl">القسم / الفريق</div>
-    <input class="node-inp" placeholder="الدعم الفني..." value="${data?.team||''}" onchange="updateNodeData('${id}','team',this.value)">`;
-  } else if (type === 'webhook') {
-    bodyHTML = `<div class="node-lbl">رابط الـ Webhook</div>
-    <input class="node-inp" placeholder="https://..." value="${data?.url||''}" onchange="updateNodeData('${id}','url',this.value)">`;
-  }
-
-  const hasOut2 = type === 'condition';
-
-  el.innerHTML = `
-    <div class="port in" data-node="${id}" data-port="in"></div>
-    <div class="node-head" style="background:${cfg.hbg}">
-      <div class="node-head-ico" style="background:${cfg.hbg};color:${cfg.stroke}">${SVG_ICO[cfg.ico]||''}</div>
-      <span>${cfg.label}</span>
-      <button class="node-close" onclick="removeNode('${id}','${cv}')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="node-body">${bodyHTML||'<span style="color:var(--tx-3);font-size:11px">'+cfg.label+'</span>'}</div>
-    <div class="port out" data-node="${id}" data-port="out"></div>
-    ${hasOut2 ? `<div class="port out-b" data-node="${id}" data-port="out-false" title="لا (False)"></div>` : ''}
-  `;
-
-  canvas.appendChild(el);
-  makeDraggable(el, cv);
-  initPortDrag(el, cv);
-
-  const nodeData = {id, cv, type, el, x, y, data: data||{}};
-  STATE.nodes.push(nodeData);
-  redrawConns(cv);
-  return nodeData;
-}
-
-window.removeNode = function(id, cv) {
-  STATE.conns = STATE.conns.filter(c => c.from !== id && c.to !== id);
-  STATE.nodes = STATE.nodes.filter(n => !(n.id === id && n.cv === cv));
-  const el = document.getElementById(id + '-' + cv);
-  if (el) el.remove();
-  redrawConns(cv);
-};
-
-window.updateNodeData = function(id, key, val) {
-  const n = STATE.nodes.find(n => n.id === id);
-  if (n) n.data[key] = val;
-};
-
-function makeDraggable(el, cv) {
-  const head = el.querySelector('.node-head');
-  let sx, sy, ox, oy;
-
-  head.addEventListener('mousedown', e => {
-    if (e.target.closest('.node-close,.port,button,input,textarea,select')) return;
-    e.preventDefault();
-    sx = e.clientX; sy = e.clientY;
-    const style = getComputedStyle(el);
-    ox = parseInt(style.left)||0;
-    oy = parseInt(style.top)||0;
-    el.classList.add('selected');
-    document.querySelectorAll('.node.selected').forEach(n => { if(n!==el) n.classList.remove('selected') });
-
-    const onMove = e => {
-      const nx = ox + (e.clientX - sx);
-      const ny = oy + (e.clientY - sy);
-      el.style.left = nx + 'px';
-      el.style.top  = ny + 'px';
-      const nd = STATE.nodes.find(n => n.id === el.dataset.nodeId && n.cv === cv);
-      if (nd) { nd.x = nx; nd.y = ny }
-      redrawConns(cv);
-    };
-    const onUp = () => {
-      el.classList.remove('selected');
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
-function initPortDrag(el, cv) {
-  el.querySelectorAll('.port.out, .port.out-b').forEach(port => {
-    port.addEventListener('mousedown', e => {
-      e.stopPropagation(); e.preventDefault();
-      STATE.drawingConn = {
-        fromId: el.dataset.nodeId,
-        fromPort: Array.from(port.classList).join(' '),
-        cv
-      };
-      const svg = document.getElementById(svgId(cv));
-      const cr  = svg.getBoundingClientRect();
-      const pr  = port.getBoundingClientRect();
-      const sx  = pr.left - cr.left + pr.width/2;
-      const sy  = pr.top  - cr.top  + pr.height/2;
-
-      const tempPath = document.createElementNS('http://www.w3.org/2000/svg','path');
-      tempPath.id = 'tmp-conn';
-      tempPath.setAttribute('class','conn-path temp');
-      tempPath.setAttribute('d', `M${sx},${sy} L${sx},${sy}`);
-      svg.appendChild(tempPath);
-
-      const onMove = e => {
-        const ex = e.clientX - cr.left;
-        const ey = e.clientY - cr.top;
-        const dx = Math.abs(ex - sx);
-        tempPath.setAttribute('d', `M${sx},${sy} C${sx+dx*.5},${sy} ${ex-dx*.5},${ey} ${ex},${ey}`);
-      };
-      const onUp = e => {
-        tempPath.remove();
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-
-        // find target port
-        const target = document.elementFromPoint(e.clientX, e.clientY);
-        if (target && target.classList.contains('port') && target.classList.contains('in')) {
-          const toEl = target.closest('.node');
-          if (toEl && toEl.dataset.nodeId !== STATE.drawingConn.fromId) {
-            STATE.conns.push({
-              id: 'c'+(STATE.nextId++),
-              from:     STATE.drawingConn.fromId,
-              fromPort: STATE.drawingConn.fromPort,
-              to:       toEl.dataset.nodeId,
-              toPort:   'port in',
-            });
-            redrawConns(cv);
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الرد الآلي المتقدم | مدعوم</title>
+    <link rel="stylesheet" href="./whatsapp-theme.css">
+    <link rel="stylesheet" href="./flow-editor-v2.css">
+    <link rel="stylesheet" href="./ui-components.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
+    <style>
+        /* =====================================================
+           صفحة الرد الآلي - تصميم محسّن متطابق مع هوية مدعوم
+           ===================================================== */
+
+        /* صفحة الرد الآلي الرئيسية */
+        .autoreply-page {
+            min-height: 100vh;
+            background: var(--wa-bg-primary);
+            padding: 0;
+            margin: 0;
         }
-        STATE.drawingConn = null;
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  });
-}
 
-function serializeFlow() {
-  return STATE.nodes
-    .filter(n => n.cv === 'mini' || n.cv === 'fs')
-    .filter((n,i,arr) => arr.findIndex(x=>x.id===n.id) === i)
-    .map(n => ({
-      id: n.id, type: n.type,
-      x: n.x, y: n.y,
-      ...n.data,
-      connections: STATE.conns.filter(c=>c.from===n.id).map(c=>({to:c.to, port:c.fromPort}))
-    }));
-}
+        .autoreply-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 32px;
+        }
 
-// Drag & drop from palette
-window.e_dragover = e => e.preventDefault();
-window.e_drop = function(e, cv) {
-  e.preventDefault();
-  const type = e.dataTransfer.getData('type');
-  if (!type) return;
-  const canvas = document.getElementById(cvId(cv));
-  const cr = canvas.getBoundingClientRect();
-  const x = e.clientX - cr.left - 100;
-  const y = e.clientY - cr.top  - 40;
-  addNode(cv, type, Math.max(10,x), Math.max(10,y), {});
-};
+        /* ─── Header Hero Section ─── */
+        .autoreply-header {
+            background: linear-gradient(135deg, var(--wa-bg-secondary) 0%, rgba(0, 119, 204, 0.05) 100%);
+            border: 1px solid rgba(0, 119, 204, 0.15);
+            border-radius: 20px;
+            padding: 48px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 119, 204, 0.08);
+        }
 
-document.querySelectorAll('.pal-item').forEach(item => {
-  item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
-});
+        .autoreply-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #0077CC, #0055AA, #003366);
+        }
 
-window.clearCanvas = function(cv) {
-  if (!confirm('مسح جميع العناصر؟')) return;
-  const toRm = STATE.nodes.filter(n => n.cv === cv);
-  toRm.forEach(n => { if(n.el && n.el.parentNode) n.el.remove() });
-  STATE.nodes  = STATE.nodes.filter(n => n.cv !== cv);
-  STATE.conns  = STATE.conns.filter(c => !toRm.find(n=>n.id===c.from||n.id===c.to));
-  redrawConns(cv);
-};
+        .autoreply-header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 119, 204, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
 
-// Zoom
-window.zoom_cv = function(cv, dir) {
-  STATE.zoom[cv] = Math.max(50, Math.min(200, STATE.zoom[cv] + dir * 10));
-  document.getElementById('zoom-' + cv).textContent = STATE.zoom[cv] + '%';
-};
-window.fit_cv = function(cv) {
-  STATE.zoom[cv] = 100;
-  document.getElementById('zoom-' + cv).textContent = '100%';
-};
-window.autoLayout = function(cv) {
-  const nodes = STATE.nodes.filter(n => n.cv === cv);
-  nodes.forEach((n,i) => {
-    n.x = 40 + i * 260; n.y = 160;
-    n.el.style.left = n.x + 'px';
-    n.el.style.top  = n.y + 'px';
-  });
-  redrawConns(cv);
-};
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 40px;
+            position: relative;
+            z-index: 1;
+        }
 
-window.undoFlow = () => toast('Undo — قريباً', 'info');
-window.redoFlow = () => toast('Redo — قريباً', 'info');
+        .header-left {
+            flex: 1;
+        }
 
-// ══════════════════════════════════════════════════════
-//  MODAL
-// ══════════════════════════════════════════════════════
-window.openFlowModal = function() {
-  const ov = document.getElementById('fsOverlay');
-  ov.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  // sync nodes from mini to fs
-  setTimeout(() => {
-    const miniNodes = STATE.nodes.filter(n => n.cv === 'mini');
-    miniNodes.forEach(mn => {
-      if (!STATE.nodes.find(n => n.id === mn.id && n.cv === 'fs')) {
-        addNode('fs', mn.type, mn.x, mn.y, mn.data);
-        // copy conns
-        STATE.conns.filter(c=>c.from===mn.id).forEach(c => {
-          if (!STATE.conns.find(x=>x.from===c.from&&x.to===c.to&&x.fromPort===c.fromPort)) {
-            STATE.conns.push({...c, id:'c'+(STATE.nextId++)});
-          }
+        .header-title {
+            font-size: 38px;
+            font-weight: 900;
+            color: var(--wa-text-primary);
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #0077CC, #0055AA);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 8px 24px rgba(0, 119, 204, 0.25);
+        }
+
+        .header-description {
+            font-size: 17px;
+            color: var(--wa-text-secondary);
+            line-height: 1.7;
+            margin: 0 0 28px 0;
+            max-width: 600px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 48px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--wa-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0077CC, #0055AA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .header-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ─── Quick Actions Grid ─── */
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .action-card {
+            background: var(--wa-bg-secondary);
+            border: 1px solid rgba(0, 119, 204, 0.12);
+            border-radius: 16px;
+            padding: 28px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0077CC, #0055AA);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .action-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 119, 204, 0.05) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .action-card:hover {
+            border-color: rgba(0, 119, 204, 0.3);
+            transform: translateY(-6px);
+            box-shadow: 0 16px 40px rgba(0, 119, 204, 0.15);
+        }
+
+        .action-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .action-card:hover::after {
+            opacity: 1;
+        }
+
+        .action-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, rgba(0, 119, 204, 0.12), rgba(0, 85, 170, 0.08));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 119, 204, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .action-card:hover .action-icon {
+            background: linear-gradient(135deg, rgba(0, 119, 204, 0.18), rgba(0, 85, 170, 0.12));
+            transform: scale(1.08);
+        }
+
+        .action-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--wa-text-primary);
+            margin: 0 0 10px 0;
+            letter-spacing: -0.3px;
+        }
+
+        .action-description {
+            font-size: 14px;
+            color: var(--wa-text-secondary);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* ─── Content Tabs ─── */
+        .content-tabs {
+            display: flex;
+            gap: 8px;
+            background: var(--wa-bg-secondary);
+            padding: 10px;
+            border-radius: 14px;
+            margin-bottom: 28px;
+            border: 1px solid rgba(0, 119, 204, 0.12);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 10px;
+            background: transparent;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--wa-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .tab-btn:hover {
+            color: var(--wa-text-primary);
+            background: rgba(0, 119, 204, 0.06);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #0077CC, #0055AA);
+            color: white;
+            box-shadow: 0 6px 20px rgba(0, 119, 204, 0.3);
+        }
+
+        .tab-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* ─── Tab Content ─── */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ─── Flow Editor Container ─── */
+        .flow-editor-wrapper {
+            background: var(--wa-bg-secondary);
+            border: 1px solid rgba(0, 119, 204, 0.12);
+            border-radius: 16px;
+            overflow: hidden;
+            height: calc(100vh - 450px);
+            min-height: 650px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        /* ─── Analytics Grid ─── */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .analytics-card {
+            background: var(--wa-bg-secondary);
+            border: 1px solid rgba(0, 119, 204, 0.12);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .analytics-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #0077CC, #0055AA);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .analytics-card:hover {
+            border-color: rgba(0, 119, 204, 0.25);
+            box-shadow: 0 12px 32px rgba(0, 119, 204, 0.12);
+        }
+
+        .analytics-card:hover::before {
+            opacity: 1;
+        }
+
+        .analytics-card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--wa-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 16px 0;
+        }
+
+        .analytics-value {
+            font-size: 36px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0077CC, #0055AA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0 0 12px 0;
+        }
+
+        .analytics-trend {
+            font-size: 13px;
+            color: #4CAF50;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .analytics-trend.down {
+            color: #F44336;
+        }
+
+        /* ─── Buttons ─── */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0077CC, #0055AA);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 119, 204, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 119, 204, 0.35);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--wa-bg-secondary);
+            color: var(--wa-text-primary);
+            border: 1px solid rgba(0, 119, 204, 0.15);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 119, 204, 0.08);
+            border-color: rgba(0, 119, 204, 0.25);
+        }
+
+        .btn-sm {
+            padding: 8px 14px;
+            font-size: 12px;
+        }
+
+        /* ─── Responsive Design ─── */
+        @media (max-width: 1024px) {
+            .autoreply-container {
+                padding: 24px;
+            }
+
+            .autoreply-header {
+                padding: 36px;
+            }
+
+            .header-content {
+                gap: 24px;
+            }
+
+            .header-title {
+                font-size: 32px;
+            }
+
+            .header-stats {
+                gap: 32px;
+            }
+
+            .quick-actions-grid {
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 20px;
+            }
+
+            .flow-editor-wrapper {
+                height: calc(100vh - 400px);
+                min-height: 550px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .autoreply-container {
+                padding: 16px;
+            }
+
+            .autoreply-header {
+                padding: 24px;
+                margin-bottom: 24px;
+            }
+
+            .autoreply-header::after {
+                display: none;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .header-title {
+                font-size: 24px;
+            }
+
+            .header-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 24px;
+            }
+
+            .header-description {
+                font-size: 15px;
+                margin-bottom: 20px;
+            }
+
+            .header-stats {
+                gap: 24px;
+                flex-wrap: wrap;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .header-actions {
+                width: 100%;
+            }
+
+            .header-actions .btn {
+                width: 100%;
+            }
+
+            .quick-actions-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+
+            .action-card {
+                padding: 20px;
+            }
+
+            .action-icon {
+                width: 56px;
+                height: 56px;
+                font-size: 28px;
+                margin-bottom: 16px;
+            }
+
+            .action-title {
+                font-size: 16px;
+            }
+
+            .action-description {
+                font-size: 13px;
+            }
+
+            .content-tabs {
+                flex-direction: column;
+                gap: 6px;
+                padding: 6px;
+                margin-bottom: 20px;
+            }
+
+            .tab-btn {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+
+            .flow-editor-wrapper {
+                height: calc(100vh - 300px);
+                min-height: 450px;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .analytics-card {
+                padding: 20px;
+            }
+
+            .analytics-value {
+                font-size: 28px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .autoreply-container {
+                padding: 12px;
+            }
+
+            .autoreply-header {
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+
+            .header-title {
+                font-size: 20px;
+                gap: 8px;
+            }
+
+            .header-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            .header-description {
+                font-size: 14px;
+                margin-bottom: 16px;
+            }
+
+            .header-stats {
+                gap: 16px;
+            }
+
+            .stat-label {
+                font-size: 10px;
+            }
+
+            .stat-value {
+                font-size: 20px;
+            }
+
+            .quick-actions-grid {
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .action-card {
+                padding: 16px;
+            }
+
+            .action-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 24px;
+                margin-bottom: 12px;
+            }
+
+            .action-title {
+                font-size: 15px;
+                margin-bottom: 6px;
+            }
+
+            .action-description {
+                font-size: 12px;
+            }
+
+            .content-tabs {
+                gap: 4px;
+                padding: 4px;
+            }
+
+            .tab-btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+
+            .flow-editor-wrapper {
+                height: calc(100vh - 250px);
+                min-height: 350px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="autoreply-page">
+        <div class="autoreply-container">
+            <!-- Header -->
+            <div class="autoreply-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="header-title">
+                            <span class="header-icon">🤖</span>
+                            نظام الرد الآلي المتقدم
+                        </h1>
+                        <p class="header-description">
+                            صمّم تدفقات رد آلي احترافية بسهولة. تحكم كامل في تجربة العميل مع تحليلات متقدمة وإدارة ذكية للمحادثات.
+                        </p>
+                        <div class="header-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">التدفقات النشطة</span>
+                                <span class="stat-value" id="active-flows">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">الرسائل اليوم</span>
+                                <span class="stat-value" id="today-messages">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">معدل الاستجابة</span>
+                                <span class="stat-value" id="response-rate">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="window.history.back()">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 12H5M12 19l-7-7 7-7"/>
+                            </svg>
+                            <span>رجوع</span>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="window.newFlow()">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            <span>تدفق جديد</span>
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="showHelpModal()">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            <span>مساعدة</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions-grid">
+                <div class="action-card" onclick="openTab('editor')">
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="action-title">محرر التدفقات</h3>
+                    <p class="action-description">صمّم وعدّل تدفقات الرد الآلي بواجهة سحب وإفلات سهلة</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('analytics')">
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                    </div>
+                    <h3 class="action-title">التحليلات والإحصائيات</h3>
+                    <p class="action-description">راقب أداء التدفقات وتحليل سلوك المستخدمين</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('templates')">
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                    </div>
+                    <h3 class="action-title">القوالب الجاهزة</h3>
+                    <p class="action-description">ابدأ بسرعة باستخدام قوالب جاهزة ومجربة</p>
+                </div>
+
+                <div class="action-card" onclick="openTab('settings')">
+                    <div class="action-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
+                        </svg>
+                    </div>
+                    <h3 class="action-title">الإعدادات</h3>
+                    <p class="action-description">تخصيص سلوك النظام وإعدادات الذكاء الاصطناعي</p>
+                </div>
+            </div>
+
+            <!-- Content Tabs -->
+            <div class="content-tabs">
+                <button class="tab-btn active" data-tab="editor" onclick="switchTab('editor')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span>المحرر</span>
+                </button>
+
+                <button class="tab-btn" data-tab="analytics" onclick="switchTab('analytics')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>التحليلات</span>
+                </button>
+
+                <button class="tab-btn" data-tab="templates" onclick="switchTab('templates')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span>القوالب</span>
+                </button>
+
+                <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
+                    </svg>
+                    <span>الإعدادات</span>
+                </button>
+            </div>
+
+            <!-- Tab Contents -->
+            <div id="tab-editor" class="tab-content active">
+                <div class="flow-editor-wrapper" id="flow-editor-container"></div>
+            </div>
+
+            <div id="tab-analytics" class="tab-content">
+                <div class="analytics-grid" id="analytics-container"></div>
+            </div>
+
+            <div id="tab-templates" class="tab-content">
+                <div class="analytics-grid" id="templates-container">
+                    <p style="grid-column: 1/-1; color: var(--wa-text-muted); text-align: center; padding: 40px;">جاري تحميل القوالب...</p>
+                </div>
+            </div>
+
+            <div id="tab-settings" class="tab-content">
+                <div class="analytics-grid" id="settings-container">
+                    <p style="grid-column: 1/-1; color: var(--wa-text-muted); text-align: center; padding: 40px;">جاري تحميل الإعدادات...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { AutoReplyPageV2 } from './pages/AutoReplyPageV2.js';
+        import { FlowAnalyticsPage } from './pages/FlowAnalyticsPage.js';
+
+        // Initialize
+        let editorInstance = null;
+        let analyticsInstance = null;
+
+        // Load Editor
+        async function loadEditor() {
+            const container = document.getElementById('flow-editor-container');
+            if (!editorInstance) {
+                editorInstance = new AutoReplyPageV2(container);
+                await editorInstance.load();
+            }
+        }
+
+        // Load Analytics
+        async function loadAnalytics() {
+            const container = document.getElementById('analytics-container');
+            if (!analyticsInstance) {
+                analyticsInstance = new FlowAnalyticsPage(container);
+                await analyticsInstance.load();
+            }
+        }
+
+        // Switch Tabs
+        window.switchTab = function(tabName) {
+            // Remove active from all tabs and contents
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Add active to selected
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            // Load content if needed
+            if (tabName === 'editor' && !editorInstance) {
+                loadEditor();
+            } else if (tabName === 'analytics' && !analyticsInstance) {
+                loadAnalytics();
+            }
+        };
+
+        window.openTab = function(tabName) {
+            switchTab(tabName);
+        };
+
+        window.newFlow = function() {
+            if (editorInstance) {
+                if (!confirm('هل ترغب في إنشاء تدفق جديد؟ سيتم مسح التدفق الحالي.')) return;
+                editorInstance.clearAll();
+                editorInstance.addNodeToEditor('start', 200, 120);
+                editorInstance.triggerAutosave();
+            }
+        };
+
+        // Help Modal
+        window.showHelpModal = function() {
+            const helpDiv = document.createElement('div');
+            helpDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            helpDiv.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 25px rgba(0,0,0,0.15);">
+                    <h2 style="margin:0 0 20px 0;font-size:20px;font-weight:700;color:#0F172A;">مراجع المساعدة</h2>
+                    <div style="display:flex;gap:12px;margin-bottom:12px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">QUICK_START.md</div><div style="font-size:12px;color:#475569;">دليل البدء السريع</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-bottom:12px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">README.md</div><div style="font-size:12px;color:#475569;">الدليل الشامل</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-bottom:20px;">
+                        <svg style="width:24px;height:24px;flex-shrink:0;stroke:#0077CC;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <div><div style="font-weight:600;font-size:13px;color:#0F172A;">دليل التحليلات</div><div style="font-size:12px;color:#475569;">فهم الإحصائيات</div></div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:10px;background:linear-gradient(135deg,#0077CC,#00BCD4);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">حسناً</button>
+                </div>
+            `;
+            document.body.appendChild(helpDiv);
+        };
+
+        // Load stats
+        async function loadStats() {
+            // TODO: جلب من API
+            document.getElementById('active-flows').textContent = '1';
+            document.getElementById('today-messages').textContent = '0';
+            document.getElementById('response-rate').textContent = '100%';
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadEditor();
+            loadStats();
         });
-      }
-    });
-    redrawConns('fs');
-  }, 100);
-};
-
-window.closeFlowModal = function() {
-  document.getElementById('fsOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-  // sync back fs → mini
-  setTimeout(() => {
-    const fsNodes = STATE.nodes.filter(n => n.cv === 'fs');
-    fsNodes.forEach(fn => {
-      const mn = STATE.nodes.find(n => n.id === fn.id && n.cv === 'mini');
-      if (!mn) { addNode('mini', fn.type, fn.x, fn.y, fn.data) }
-      else { mn.data = fn.data }
-    });
-    redrawConns('mini');
-  }, 50);
-};
-
-window.handleOverlayClick = function(e) {
-  if (e.target === document.getElementById('fsOverlay')) closeFlowModal();
-};
-
-// ══════════════════════════════════════════════════════
-//  TABS & THEME
-// ══════════════════════════════════════════════════════
-window.switchTab = function(tab) {
-  document.querySelectorAll('.tab-btn,.nav-item').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
-  });
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById('panel-' + tab);
-  if (panel) panel.classList.add('active');
-};
-
-window.toggleTheme = function() {
-  const dark = document.body.dataset.theme === 'dark';
-  document.body.dataset.theme = dark ? 'light' : 'dark';
-  document.getElementById('themeIco').textContent = dark ? '☀️' : '🌙';
-};
-
-// ══════════════════════════════════════════════════════
-//  TOAST
-// ══════════════════════════════════════════════════════
-let toastTimer;
-function toast(msg, type='ok') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast ' + type + ' show';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-// ══════════════════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════════════════
-async function init() {
-  const ok = await initSupa();
-  if (ok) {
-    await loadAll();
-    // Default demo node
-    if (STATE.nodes.filter(n=>n.cv==='mini').length === 0) {
-      const n1 = addNode('mini','trigger', 40,  80, {keywords:'مرحبا، أهلا'});
-      const n2 = addNode('mini','message', 300, 80, {text:'أهلاً! كيف أساعدك؟'});
-      const n3 = addNode('mini','condition',560, 80, {});
-      const n4 = addNode('mini','message', 420,200, {text:'سأحيلك لأحد وكلائنا.'});
-      const n5 = addNode('mini','end',     680,200, {});
-      STATE.conns.push({id:'c0',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
-      STATE.conns.push({id:'c1',from:n2.id,fromPort:'port out',to:n3.id,toPort:'port in'});
-      STATE.conns.push({id:'c2',from:n3.id,fromPort:'port out',to:n5.id,toPort:'port in'});
-      STATE.conns.push({id:'c3',from:n3.id,fromPort:'port out-b',to:n4.id,toPort:'port in'});
-      redrawConns('mini');
-    }
-    document.getElementById('userName').textContent = 'المستخدم';
-  } else {
-    // Offline demo
-    document.getElementById('stat-msgs').textContent = '128';
-    document.getElementById('stat-flows').textContent = '1';
-    document.getElementById('stat-rate').textContent = '98%';
-    document.getElementById('sb-today').textContent = '128';
-    document.getElementById('sb-sub').textContent = 'وضع تجريبي';
-    const n1 = addNode('mini','trigger', 40,  80, {keywords:'مرحبا'});
-    const n2 = addNode('mini','message', 300, 80, {text:'أهلاً!'});
-    STATE.conns.push({id:'c0',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
-    redrawConns('mini');
-  }
-}
-
-init();
-</script>
+    </script>
 </body>
 </html>
