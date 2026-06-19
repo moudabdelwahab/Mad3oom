@@ -175,6 +175,14 @@ export async function signIn(identifier, password, options = {}) {
                     message: 'اسم المستخدم غير موجود.'
                 }
             };
+        const { data: profile, error: profileLookupError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('username', normalizedIdentifier)
+    .maybeSingle();
+
+console.log('profile =', profile);
+console.log('profileLookupError =', profileLookupError);
         }
     } else {
         email = normalizedIdentifier.toLowerCase();
