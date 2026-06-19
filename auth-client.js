@@ -154,8 +154,7 @@ export async function signIn(identifier, password, options = {}) {
         const { data: profile, error: profileLookupError } = await supabase
             .from('profiles')
             .select('email')
-            .eq('username', normalizedIdentifier)
-            .maybeSingle();
+.ilike('username', normalizedIdentifier.trim())            .maybeSingle();
 console.log('profile=', profile);
 console.log('profileLookupError=', profileLookupError);
         // إذا فشل جلب البريد بسبب خطأ 500، نبلغ المستخدم
@@ -178,12 +177,19 @@ console.log('profileLookupError=', profileLookupError);
                     message: 'اسم المستخدم غير موجود.'
                 }
             };
-      const { data: profile, error: profileLookupError } = await supabase
-    .from('profiles')
+     const { data: profile, error: profileLookupError } = await supabase
+    .from('username_lookup')
     .select('email')
     .eq('username', normalizedIdentifier)
     .maybeSingle();
+const { data, error } = await supabase.rpc(
+    'get_email_by_username',
+    {
+        p_username: normalizedIdentifier
+    }
+);
 
+const profile = data?.[0];
 console.log('profile =', profile);
 console.log('profileLookupError =', profileLookupError);
 console.log('profile =', profile);
