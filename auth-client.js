@@ -132,6 +132,7 @@ async function ensureUserProfile(user) {
 ========================================================= */
 
 export async function signIn(identifier, password, options = {}) {
+   console.log('signIn function started');
     const normalizedIdentifier = (identifier || '').trim();
     const normalizedPassword = password || '';
     const { turnstileToken } = options;
@@ -148,13 +149,15 @@ export async function signIn(identifier, password, options = {}) {
     let email = normalizedIdentifier;
 
     if (!normalizedIdentifier.includes('@')) {
+       console.log('Searching username:', normalizedIdentifier);
         // محاولة جلب البريد الإلكتروني باستخدام اسم المستخدم
         const { data: profile, error: profileLookupError } = await supabase
             .from('profiles')
             .select('email')
             .eq('username', normalizedIdentifier)
             .maybeSingle();
-
+console.log('profile=', profile);
+console.log('profileLookupError=', profileLookupError);
         // إذا فشل جلب البريد بسبب خطأ 500، نبلغ المستخدم
         if (profileLookupError) {
             console.error('Username lookup failed (500):', profileLookupError);
