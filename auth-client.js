@@ -137,78 +137,64 @@ export async function signIn(identifier, password, options = {}) {
     const normalizedPassword = password || '';
     const { turnstileToken } = options;
 
-    if (!normalizedIdentifier || !normalizedPassword) {
+  if (!normalizedIdentifier || !normalizedPassword) {
+    return {
+        data: null,
+        error: {
+            message: 'يرجى إدخال البريد الإلكتروني/اسم المستخدم وكلمة المرور.'
+        }
+    };
+}
+
+let email = normalizedIdentifier;
+
+if (!normalizedIdentifier.includes('@')) {
+    console.log('Searching username:', normalizedIdentifier);
+
+    const { data: profile, error: profileLookupError } = await supabase
+        .from('username_lookup')
+        .select('email')
+        .ilike('username', normalizedIdentifier.trim())
+        .maybeSingle();
+
+    console.log('profile =', profile);
+    console.log('profileLookupError =', profileLookupError);
+
+    if (profileLookupError) {
+        console.error('Username lookup failed:', profileLookupError);
+
         return {
             data: null,
             error: {
-                message: 'يرجى إدخال البريد الإلكتروني/اسم المستخدم وكلمة المرور.'
+                message: 'حدث خطأ في الاتصال بالسيرفر. يرجى المحاولة مرة أخرى.'
             }
         };
     }
 
-    let email = normalizedIdentifier;
-
-    if (!normalizedIdentifier.includes('@')) {
-       console.log('Searching username:', normalizedIdentifier);
-        // محاولة جلب البريد الإلكتروني باستخدام اسم المستخدم
-        const { data: profile, error: profileLookupError } = await supabase
-            .from('profiles')
-            .select('email')
-.ilike('username', normalizedIdentifier.trim())            .maybeSingle();
-console.log('profile=', profile);
-console.log('profileLookupError=', profileLookupError);
-        // إذا فشل جلب البريد بسبب خطأ 500، نبلغ المستخدم
-        if (profileLookupError) {
-            console.error('Username lookup failed (500):', profileLookupError);
-            return {
-                data: null,
-                error: {
-                    message: 'حدث خطأ في الاتصال بالسيرفر. يرجى المحاولة باستخدام البريد الإلكتروني بدلاً من اسم المستخدم.'
-                }
-            };
-        }
-
-        if (profile?.email) {
-            email = profile.email.trim().toLowerCase();
-        } else {
-            return {
-                data: null,
-                error: {
-                    message: 'اسم المستخدم غير موجود.'
-                }
-            };
-     const { data: profile, error: profileLookupError } = await supabase
-    .from('username_lookup')
-    .select('email')
-    .eq('username', normalizedIdentifier)
-    .maybeSingle();
-const { data, error } = await supabase.rpc(
-    'get_email_by_username',
-    {
-        p_username: normalizedIdentifier
-    }
-);
-
-const profile = data?.[0];
-console.log('profile =', profile);
-console.log('profileLookupError =', profileLookupError);
-console.log('profile =', profile);
-console.log('profileLookupError =', profileLookupError);
-        }
-    } else {
-        email = normalizedIdentifier.toLowerCase();
+    if (!profile?.email) {
+        return {
+            data: null,
+            error: {
+                message: 'اسم المستخدم غير موجود.'
+            }
+        };
     }
 
-    const result = await supabase.auth.signInWithPassword({
-        email,
-        password: normalizedPassword
-    });
+    email = profile.email.trim().toLowerCase();
 
-    if (result.error) {
-        debugAuthError(result.error);
-        return result;
-    }
+} else {
+    email = normalizedIdentifier.trim().toLowerCase();
+}
 
+const result = await supabase.auth.signInWithPassword({
+    email,
+    password: normalizedPassword
+});
+
+if (result.error) {
+    debugAuthError(result.error);
+    return result;
+}
     const user = result.data.user;
 
     if (!user.email_confirmed_at) {
