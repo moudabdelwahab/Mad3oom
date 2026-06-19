@@ -63,6 +63,7 @@
         })();
     </script>
     <script src="theme-manager.js" defer></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body class="auth-wrapper">
     <nav class="navbar">
@@ -149,6 +150,18 @@
                         </button>
                     </div>
                 </div>
+                <!-- Cloudflare Turnstile CAPTCHA -->
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <div class="cf-turnstile" 
+                         data-sitekey="0x4AAAAAADnzinuKMCVrMqHi"
+                         data-theme="light"
+                         data-size="normal"
+                         id="turnstile-signup"></div>
+                    <div id="turnstileError" class="message-box message-error" style="display:none; margin-top: 0.5rem;">
+                        <p>يرجى إكمال التحقق من CAPTCHA</p>
+                    </div>
+                </div>
+
                 <div class="auth-actions">
                     <button type="submit" class="btn btn-primary" id="signUpBtn">
                         <span id="signUpBtnText">إنشاء الحساب</span>
@@ -162,6 +175,7 @@
 
     <script type="module">
         import { signUp, checkUsernameAvailability } from './auth-client.js';
+        import { getTurnstileToken, resetTurnstile } from './turnstile-config.js';
 
         const form = document.getElementById('signUpForm');
         const submitBtn = document.getElementById('signUpBtn');
@@ -263,15 +277,29 @@
 
             setLoading(true);
             errorMessage.style.display = 'none';
+            document.getElementById('turnstileError').style.display = 'none';
+
+            // التحقق من Turnstile Token
+            const turnstileToken = await getTurnstileToken();
+            if (!turnstileToken) {
+                setLoading(false);
+                document.getElementById('turnstileError').style.display = 'block';
+                resetTurnstile();
+                return;
+            }
 
             try {
                 const { data, error } = await signUp(email, password, {
                     first_name: firstName,
                     last_name: lastName,
-                    username: username
+                    username: username,
+                    turnstileToken: turnstileToken
                 });
                 
-                if (error) throw error;
+                if (error) {
+                    resetTurnstile();
+                    throw error;
+                }
 
                 // إخفاء النموذج وإظهار رسالة النجاح
                 form.style.display = 'none';
