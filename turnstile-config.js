@@ -13,7 +13,7 @@
 export const TURNSTILE_CONFIG = {
   // مفاتيح الاختبار (Testing Keys)
   SITEKEY: '0x4AAAAAADnzinuKMCVrMqHi',
-  SECRET_KEY: '0x4AAAAAADnzinuKMCVrMqHi',
+  SECRET_KEY: '0x4AAAAAADnzik3fto2xkbWahk7EN-qHAwc',
   
   // API Endpoints
   SITEVERIFY_URL: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
