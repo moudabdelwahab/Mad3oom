@@ -288,6 +288,13 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   background-color:var(--bg-base);
   background-image:radial-gradient(circle,var(--bd-1) .8px,transparent .8px);
   background-size:20px 20px;
+  cursor:grab;
+}
+.canvas.panning{cursor:grabbing}
+.canvas-zoom-layer{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  transform-origin:0 0;
+  transition:transform .12s ease-out;
 }
 
 /* SVG Layer */
@@ -295,8 +302,13 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   position:absolute;top:0;left:0;width:100%;height:100%;
   pointer-events:none;overflow:visible;z-index:1;
 }
-.conn-path{fill:none;stroke:var(--brand-3);stroke-width:2.5;stroke-linecap:round}
-.conn-path.temp{stroke-dasharray:6 3;animation:dash-move 1s linear infinite}
+.conn-path{fill:none;stroke:var(--brand-3);stroke-width:2.5;stroke-linecap:round;cursor:pointer;transition:stroke .15s,stroke-width .15s}
+.conn-path:hover{stroke:var(--brand-4);stroke-width:3.5}
+.conn-path.active{stroke:var(--brand-4);stroke-width:4;filter:drop-shadow(0 0 6px rgba(90,141,238,.5))}
+.conn-path.false-branch{stroke:var(--err);stroke-dasharray:none}
+.conn-path.false-branch:hover{stroke:#f87171}
+.conn-path.false-branch.active{stroke:#f87171;filter:drop-shadow(0 0 6px rgba(239,68,68,.5))}
+.conn-path.temp{stroke-dasharray:6 3;animation:dash-move 1s linear infinite;pointer-events:none}
 @keyframes dash-move{to{stroke-dashoffset:-18}}
 
 /* NODES */
@@ -331,13 +343,19 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   position:absolute;width:14px;height:14px;border-radius:50%;
   background:var(--brand-3);border:2.5px solid var(--bg-surface);
   box-shadow:0 0 6px rgba(59,111,212,.4);cursor:crosshair;z-index:10;
-  transition:transform .15s,box-shadow .15s;
+  transition:transform .15s,box-shadow .15s,background .15s;
 }
-.port:hover{transform:scale(1.5);box-shadow:0 0 12px rgba(59,111,212,.6)}
-.port.out{right:-7px}
-.port.in{left:-7px}
-.port.out-b{bottom:-7px;right:50%;transform:translateX(50%)}
-.port.out-b:hover{transform:translateX(50%) scale(1.5)}
+.port:hover{transform:scale(1.5);box-shadow:0 0 14px rgba(59,111,212,.7);background:var(--brand-4)}
+.port.in{left:-7px;top:50%;transform:translateY(-50%)}
+.port.in:hover{transform:translateY(-50%) scale(1.5)}
+.port.out{right:-7px;top:50%;transform:translateY(-50%)}
+.port.out:hover{transform:translateY(-50%) scale(1.5)}
+.port.out-b{bottom:-7px;left:50%;transform:translateX(-50%);background:var(--err)}
+.port.out-b:hover{transform:translateX(-50%) scale(1.5)}
+/* port label tooltips */
+.port.out::after{content:"نعم";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--brand-3);white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;font-family:'Cairo',sans-serif}
+.port.out-b::after{content:"لا";position:absolute;left:50%;bottom:18px;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--err);white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;font-family:'Cairo',sans-serif}
+.node:hover .port.out::after,.node:hover .port.out-b::after{opacity:1}
 
 /* Canvas Controls */
 .cv-ctrls{
@@ -356,6 +374,17 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   border:1px solid var(--bd-1);border-radius:7px;padding:5px 10px;
   font-size:10px;color:var(--tx-3);font-weight:600;box-shadow:var(--sh-sm);z-index:20;
 }
+
+/* Empty canvas hint */
+.canvas-empty-hint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  color:var(--tx-3);pointer-events:none;z-index:0;text-align:center;
+  opacity:.7;
+}
+.canvas-empty-hint svg{opacity:.4}
+.canvas-empty-hint span{font-size:13px;font-weight:700}
+.canvas-empty-hint small{font-size:11px;font-weight:500}
 
 /* ═══ ANALYTICS ═══ */
 .an-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -459,6 +488,7 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
 .btn-s:hover{background:var(--bg-hover);border-color:var(--bd-3)}
 .btn-g{background:transparent;color:var(--tx-2);border:1px solid transparent}
 .btn-g:hover{background:var(--bg-hover);color:var(--tx-1)}
+.btn-g:disabled,.btn-s:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 .btn-d{background:rgba(239,68,68,.08);color:var(--err);border:1px solid rgba(239,68,68,.2)}
 .btn-d:hover{background:rgba(239,68,68,.15)}
 .btn-sm{padding:5px 11px;font-size:11px}
@@ -697,10 +727,10 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
               محفوظ
             </div>
             <div style="margin-right:auto;display:flex;gap:7px;align-items:center">
-              <button class="btn btn-g btn-sm" onclick="undoFlow()" title="تراجع">
+              <button class="btn btn-g btn-sm undo-btn" onclick="undoFlow()" title="تراجع (Ctrl+Z)" disabled>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
               </button>
-              <button class="btn btn-g btn-sm" onclick="redoFlow()" title="إعادة">
+              <button class="btn btn-g btn-sm redo-btn" onclick="redoFlow()" title="إعادة (Ctrl+Y)" disabled>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
               </button>
               <div style="width:1px;height:20px;background:var(--bd-2)"></div>
@@ -750,14 +780,25 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
             </div>
             <div class="canvas" id="miniCanvas"
               ondragover="e_dragover(event)"
-              ondrop="e_drop(event,'mini')">
-              <svg id="conn-svg-mini" class="conn-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
-                <defs>
-                  <marker id="arr-mini" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
-                  </marker>
-                </defs>
-              </svg>
+              ondrop="e_drop(event,'mini')"
+              onmousedown="canvasPanStart(event,'mini')">
+              <div class="canvas-empty-hint" id="emptyHint-mini">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+                <span>ابدأ بإضافة عنصر</span>
+                <small>اسحب عنصراً من القائمة وأفلته هنا</small>
+              </div>
+              <div class="canvas-zoom-layer" id="miniZoomLayer">
+                <svg id="conn-svg-mini" class="conn-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
+                  <defs>
+                    <marker id="arr-mini" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                      <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
+                    </marker>
+                    <marker id="arr-mini-false" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                      <polygon points="0 0, 8 3, 0 6" fill="rgba(239,68,68,.7)"/>
+                    </marker>
+                  </defs>
+                </svg>
+              </div>
               <div class="cv-ctrls">
                 <button class="cv-btn" onclick="zoom_cv('mini',1)" title="تكبير"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
                 <button class="cv-btn" onclick="zoom_cv('mini',-1)" title="تصغير"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -908,8 +949,8 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       <div><div class="fs-title">محرر التدفق — ملء الشاشة</div><div class="fs-sub">اسحب العناصر وربط التوصيلات بسهولة</div></div>
       <div style="margin-right:auto;display:flex;gap:7px;align-items:center">
         <div class="save-pill" id="fsSavePill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> محفوظ</div>
-        <button class="btn btn-g btn-sm" onclick="undoFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
-        <button class="btn btn-g btn-sm" onclick="redoFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
+        <button class="btn btn-g btn-sm undo-btn" onclick="undoFlow()" title="تراجع (Ctrl+Z)" disabled><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
+        <button class="btn btn-g btn-sm redo-btn" onclick="redoFlow()" title="إعادة (Ctrl+Y)" disabled><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
         <button class="btn btn-s btn-sm" onclick="clearCanvas('fs')">مسح الكل</button>
         <button class="btn btn-p btn-sm" onclick="saveFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg> حفظ</button>
         <div style="width:1px;height:20px;background:var(--bd-2)"></div>
@@ -962,14 +1003,25 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       <!-- FS Canvas -->
       <div class="canvas" id="fsCanvas"
         ondragover="e_dragover(event)"
-        ondrop="e_drop(event,'fs')">
-        <svg id="conn-svg-fs" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
-          <defs>
-            <marker id="arr-fs" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-              <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
-            </marker>
-          </defs>
-        </svg>
+        ondrop="e_drop(event,'fs')"
+        onmousedown="canvasPanStart(event,'fs')">
+        <div class="canvas-empty-hint" id="emptyHint-fs">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+          <span>ابدأ بإضافة عنصر</span>
+          <small>اسحب عنصراً من القائمة وأفلته هنا</small>
+        </div>
+        <div class="canvas-zoom-layer" id="fsZoomLayer">
+          <svg id="conn-svg-fs" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1">
+            <defs>
+              <marker id="arr-fs" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="rgba(59,111,212,.7)"/>
+              </marker>
+              <marker id="arr-fs-false" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="rgba(239,68,68,.7)"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
         <div class="cv-ctrls">
           <button class="cv-btn" onclick="zoom_cv('fs',1)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           <button class="cv-btn" onclick="zoom_cv('fs',-1)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1124,14 +1176,52 @@ function applySettings(d) {
     try {
       const flow = typeof d.custom_replies === 'string' ? JSON.parse(d.custom_replies) : d.custom_replies;
       if (Array.isArray(flow) && flow.length) {
-        STATE.nodes = []; STATE.conns = [];
-        flow.forEach((n,i) => {
-          if (!n || typeof n !== 'object') return;
-          addNode('mini', n.type||'message', 60+i*240, 100, n);
-          addNode('fs',   n.type||'message', 60+i*240, 100, n);
+        // Clear existing canvases
+        ['mini','fs'].forEach(cv => {
+          STATE.nodes.filter(n=>n.cv===cv).forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+          STATE.nodes = STATE.nodes.filter(n=>n.cv!==cv);
+          STATE.conns = STATE.conns.filter(c=>c.cv!==cv);
         });
+
+        // Build id map: stored id -> new node per canvas
+        flow.forEach((n) => {
+          if (!n || typeof n !== 'object') return;
+          const type = n.type || 'message';
+          const x = typeof n.x === 'number' ? n.x : 60;
+          const y = typeof n.y === 'number' ? n.y : 100;
+          const { id, type:_t, x:_x, y:_y, connections, ...rest } = n;
+          _addNodeInternal('mini', type, x, y, rest, id);
+          _addNodeInternal('fs',   type, x, y, rest, id);
+        });
+
+        // Restore connections from each node's `connections` array
+        flow.forEach((n) => {
+          if (!n || !n.id || !Array.isArray(n.connections)) return;
+          n.connections.forEach(conn => {
+            if (!conn || !conn.to) return;
+            ['mini','fs'].forEach(cv => {
+              const fromExists = STATE.nodes.find(x => x.id === n.id && x.cv === cv);
+              const toExists   = STATE.nodes.find(x => x.id === conn.to && x.cv === cv);
+              if (fromExists && toExists) {
+                STATE.conns.push({
+                  id: 'c' + (STATE.nextId++),
+                  cv,
+                  from: n.id,
+                  fromPort: conn.port || 'port out',
+                  to: conn.to,
+                  toPort: 'port in',
+                });
+              }
+            });
+          });
+        });
+
+        STATE.undoStack = []; STATE.redoStack = [];
+        updateUndoRedoBtns();
+        redrawConns('mini');
+        redrawConns('fs');
       }
-    } catch(e){}
+    } catch(e){ console.warn('flow load error:', e) }
   }
 }
 
@@ -1146,22 +1236,36 @@ function renderTemplates(data) {
     welcome:'bl', support:'gr', sales:'pu', feedback:'or',
     lead_generation:'bl', appointment:'gr', faq:'or', custom:'bl'
   };
-  const icons = {
-    welcome:'👋', support:'🛠️', sales:'💼', feedback:'⭐',
-    lead_generation:'🎯', appointment:'📅', faq:'❓', custom:'⚙️'
+  const icoSvg = {
+    welcome: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>`,
+    support: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
+    sales: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>`,
+    feedback: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    lead_generation: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+    appointment: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+    faq: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
+    custom: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
   };
   const staticTpls = [
-    {id:'s1', name_ar:'رسالة الترحيب', description_ar:'رسالة ترحيب تلقائية للعملاء الجدد مع عرض الخدمات', category:'welcome', tags:['خدمة عملاء']},
-    {id:'s2', name_ar:'تتبع الطلبات', description_ar:'يطلب رقم الطلب ويرد بحالته التلقائية من النظام', category:'support', tags:['التجارة']},
-    {id:'s3', name_ar:'خارج أوقات العمل', description_ar:'رد ذكي يعمل خارج ساعات العمل مع جدولة المواعيد', category:'appointment', tags:['تشغيل آلي']},
+    {id:'s1', name_ar:'رسالة الترحيب', description_ar:'رسالة ترحيب تلقائية للعملاء الجدد مع عرض الخدمات', category:'welcome', tags:['خدمة عملاء'],
+      flow_data:[{id:'t1',type:'trigger',x:40,y:80,keywords:'مرحبا، أهلا، هلا',connections:[{to:'t2',port:'port out'}]},
+                 {id:'t2',type:'message',x:300,y:80,text:'أهلاً وسهلاً! كيف أستطيع مساعدتك اليوم؟',connections:[]}]},
+    {id:'s2', name_ar:'تتبع الطلبات', description_ar:'يطلب رقم الطلب ويرد بحالته التلقائية من النظام', category:'support', tags:['التجارة'],
+      flow_data:[{id:'t1',type:'trigger',x:40,y:80,keywords:'طلبي، تتبع، شحن',connections:[{to:'t2',port:'port out'}]},
+                 {id:'t2',type:'message',x:300,y:80,text:'من فضلك أرسل رقم الطلب لتتبع حالته.',connections:[{to:'t3',port:'port out'}]},
+                 {id:'t3',type:'webhook',x:560,y:80,url:'',connections:[]}]},
+    {id:'s3', name_ar:'خارج أوقات العمل', description_ar:'رد ذكي يعمل خارج ساعات العمل مع جدولة المواعيد', category:'appointment', tags:['تشغيل آلي'],
+      flow_data:[{id:'t1',type:'trigger',x:40,y:80,keywords:'',connections:[{to:'t2',port:'port out'}]},
+                 {id:'t2',type:'condition',x:300,y:80,condVal:'after_hours',connections:[{to:'t3',port:'port out'}]},
+                 {id:'t3',type:'message',x:560,y:80,text:'نحن خارج أوقات العمل حالياً. سنرد عليك في أقرب وقت ممكن.',connections:[]}]},
   ];
-  const all = [...(data||[]), ...staticTpls];
+  const all = [...(data||[]).map(t=>({...t})), ...staticTpls];
   document.getElementById('tplGrid').innerHTML = all.map(t => {
     const c = cats[t.category]||'bl';
-    const ic = icons[t.category]||'📋';
+    const ic = icoSvg[t.category]||icoSvg.custom;
     const tag = (t.tags||[])[0]||t.category||'';
     return `<div class="tpl-card ${c}" onclick="useTemplate('${t.id}')">
-      <div class="tpl-ico ${c}" style="font-size:22px">${ic}</div>
+      <div class="tpl-ico ${c}" style="color:var(--brand-3)">${ic}</div>
       <div class="tpl-name">${t.name_ar||t.name||'قالب'}</div>
       <div class="tpl-desc">${t.description_ar||t.description||''}</div>
       <div class="tpl-foot">
@@ -1173,6 +1277,8 @@ function renderTemplates(data) {
       </div>
     </div>`;
   }).join('');
+  // Store templates for useTemplate() lookup
+  window.__TEMPLATES_CACHE = all;
 }
 
 function renderRules(data) {
@@ -1261,11 +1367,76 @@ window.loadSettings = loadAll;
 window.deleteRule = async function(id) {
   if (!confirm('حذف هذه القاعدة؟')) return;
   if (!sb) return;
-  await sb.from('rules_engine').delete().eq('id', id);
-  loadAll();
+  try {
+    const { error } = await sb.from('rules_engine').delete().eq('id', id);
+    if (error) throw error;
+    // Re-fetch rules only — do NOT call loadAll() as it would overwrite
+    // any unsaved canvas edits by re-pulling bot_settings.custom_replies
+    const { data } = await sb.from('rules_engine').select('*').order('priority', {ascending:false});
+    renderRules(data || []);
+    toast('تم حذف القاعدة', 'ok');
+  } catch(e) { toast('خطأ في الحذف', 'err') }
 };
 
-window.useTemplate = function(id) { toast('📋 جاري تحميل القالب...', 'info') };
+window.useTemplate = function(id) {
+  const tpl = (window.__TEMPLATES_CACHE || []).find(t => t.id === id);
+  if (!tpl) { toast('القالب غير متاح', 'err'); return; }
+
+  const flowData = tpl.flow_data;
+  if (!Array.isArray(flowData) || !flowData.length) {
+    toast('هذا القالب لا يحتوي على تدفق جاهز', 'info');
+    return;
+  }
+
+  if (!confirm(`سيتم استبدال التدفق الحالي بقالب "${tpl.name_ar||tpl.name}". هل تريد المتابعة؟`)) return;
+
+  const activeCv = document.getElementById('fsOverlay').classList.contains('open') ? 'fs' : 'mini';
+  pushHistory(activeCv);
+  if (activeCv === 'mini') pushHistory('fs'); else pushHistory('mini');
+
+  // Clear both canvases and rebuild from template, remapping ids to avoid collisions
+  const idMap = {};
+  ['mini','fs'].forEach(cv => {
+    STATE.nodes.filter(n=>n.cv===cv).forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+    STATE.nodes = STATE.nodes.filter(n=>n.cv!==cv);
+    STATE.conns = STATE.conns.filter(c=>c.cv!==cv);
+  });
+
+  flowData.forEach(n => {
+    if (!n || typeof n !== 'object') return;
+    const newId = 'n' + (STATE.nextId++);
+    idMap[n.id] = newId;
+  });
+
+  flowData.forEach(n => {
+    if (!n || typeof n !== 'object') return;
+    const newId = idMap[n.id];
+    const { id:_id, type, x, y, connections, ...rest } = n;
+    _addNodeInternal('mini', type || 'message', x||60, y||100, rest, newId);
+    _addNodeInternal('fs',   type || 'message', x||60, y||100, rest, newId);
+  });
+
+  flowData.forEach(n => {
+    if (!n || !Array.isArray(n.connections)) return;
+    const fromId = idMap[n.id];
+    n.connections.forEach(conn => {
+      const toId = idMap[conn.to];
+      if (!fromId || !toId) return;
+      ['mini','fs'].forEach(cv => {
+        STATE.conns.push({
+          id: 'c' + (STATE.nextId++), cv,
+          from: fromId, fromPort: conn.port || 'port out',
+          to: toId, toPort: 'port in',
+        });
+      });
+    });
+  });
+
+  redrawConns('mini');
+  redrawConns('fs');
+  toast(`✓ تم تحميل قالب "${tpl.name_ar||tpl.name}"`, 'ok');
+  switchTab('editor');
+};
 
 // ══════════════════════════════════════════════════════
 //  FLOW ENGINE
@@ -1295,61 +1466,121 @@ const SVG_ICO = {
 };
 
 const STATE = {
-  nodes: [], // {id, cv, type, el, x, y}
-  conns: [], // {id, from, fromPort, to, toPort}
-  zoom:  { mini:100, fs:100 },
-  drawingConn: null, // {fromId, fromPort}
-  history: [], histIdx: -1,
+  nodes: [],        // {id, cv, type, el, x, y, data}
+  conns: [],        // {id, from, fromPort, to, toPort, cv}
+  zoom:  { mini:1, fs:1 },
+  pan:   { mini:{x:0,y:0}, fs:{x:0,y:0} },
+  drawingConn: null,
+  // Undo/Redo stacks
+  undoStack: [], redoStack: [],
   nextId: 1,
 };
 
 function cvId(cv)   { return cv === 'fs' ? 'fsCanvas' : 'miniCanvas' }
+function zoomLayerId(cv) { return cv === 'fs' ? 'fsZoomLayer' : 'miniZoomLayer' }
 function svgId(cv)  { return cv === 'fs' ? 'conn-svg-fs' : 'conn-svg-mini' }
 function arrId(cv)  { return 'arr-' + cv }
 
-function getPortCenter(nodeEl, portCls) {
-  const canvas = nodeEl.parentElement;
-  const cr = canvas.getBoundingClientRect();
-  const ports = nodeEl.querySelectorAll('.' + portCls.replace(/ /g,'.'));
-  const port  = ports[0];
-  if (!port) return null;
-  const pr = port.getBoundingClientRect();
+// ── Snapshot for undo/redo ──────────────────────────────
+function snapshot(cv) {
   return {
-    x: pr.left - cr.left + pr.width/2,
-    y: pr.top  - cr.top  + pr.height/2
+    nodes: STATE.nodes.filter(n=>n.cv===cv).map(n=>({
+      id:n.id, cv:n.cv, type:n.type, x:n.x, y:n.y, data:{...n.data}
+    })),
+    conns: STATE.conns.filter(c=>c.cv===cv).map(c=>({...c}))
   };
+}
+
+function pushHistory(cv) {
+  STATE.undoStack.push({cv, snap: snapshot(cv)});
+  if (STATE.undoStack.length > 50) STATE.undoStack.shift();
+  STATE.redoStack = [];
+  updateUndoRedoBtns();
+}
+
+function updateUndoRedoBtns() {
+  document.querySelectorAll('.undo-btn').forEach(b => b.disabled = STATE.undoStack.length === 0);
+  document.querySelectorAll('.redo-btn').forEach(b => b.disabled = STATE.redoStack.length === 0);
+}
+
+// ── Port position — uses offsetLeft/offsetTop (stable, no getBoundingClientRect) ──
+function getPortPos(nodeEl, portSelector) {
+  const canvas = nodeEl.parentElement;
+  // Find all matching ports
+  const port = nodeEl.querySelector(portSelector);
+  if (!port) return null;
+
+  // Position relative to canvas using offsetLeft + port's own offset
+  const nodeLeft = nodeEl.offsetLeft;
+  const nodeTop  = nodeEl.offsetTop;
+  const portLeft = port.offsetLeft;
+  const portTop  = port.offsetTop;
+  const pw = port.offsetWidth  || 14;
+  const ph = port.offsetHeight || 14;
+
+  return {
+    x: nodeLeft + portLeft + pw / 2,
+    y: nodeTop  + portTop  + ph / 2
+  };
+}
+
+function portSelector(portCls) {
+  // portCls is like "port out" or "port out-b" or "port in"
+  const cls = portCls.trim().split(/\s+/);
+  return cls.map(c => '.' + c).join('');
+}
+
+function makeBezier(sx, sy, ex, ey) {
+  const dx = Math.abs(ex - sx);
+  const dy = Math.abs(ey - sy);
+  // horizontal bezier when mostly horizontal, else use offset
+  const offset = Math.max(dx * 0.5, 60);
+  const cx1 = sx + offset;
+  const cx2 = ex - offset;
+  return `M${sx},${sy} C${cx1},${sy} ${cx2},${ey} ${ex},${ey}`;
 }
 
 function redrawConns(cv) {
   const svg = document.getElementById(svgId(cv));
   if (!svg) return;
-  // keep defs
   const defs = svg.querySelector('defs');
   svg.innerHTML = '';
   if (defs) svg.appendChild(defs);
 
   const cvNodes = STATE.nodes.filter(n => n.cv === cv);
-  STATE.conns.forEach(c => {
+
+  // Toggle empty-state hint
+  const hint = document.getElementById('emptyHint-' + cv);
+  if (hint) hint.style.display = cvNodes.length === 0 ? 'flex' : 'none';
+
+  STATE.conns.filter(c => c.cv === cv).forEach(c => {
     const fromNode = cvNodes.find(n => n.id === c.from);
     const toNode   = cvNodes.find(n => n.id === c.to);
     if (!fromNode || !toNode) return;
 
-    const portCls  = c.fromPort || 'port out';
-    const tportCls = c.toPort   || 'port in';
-    const s = getPortCenter(fromNode.el, portCls);
-    const e = getPortCenter(toNode.el,   tportCls);
+    const s = getPortPos(fromNode.el, portSelector(c.fromPort || 'port out'));
+    const e = getPortPos(toNode.el,   portSelector(c.toPort   || 'port in'));
     if (!s || !e) return;
 
-    const dx = Math.abs(e.x - s.x);
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('class','conn-path');
-    path.setAttribute('marker-end', `url(#${arrId(cv)})`);
-    // Bezier — always horizontal tangents
-    const cx1 = s.x + dx * .5;
-    const cx2 = e.x - dx * .5;
-    path.setAttribute('d', `M${s.x},${s.y} C${cx1},${s.y} ${cx2},${e.y} ${e.x},${e.y}`);
+    const isFalseBranch = (c.fromPort || '').includes('out-b');
+    path.setAttribute('class', 'conn-path' + (isFalseBranch ? ' false-branch' : ''));
+    path.setAttribute('marker-end', `url(#${arrId(cv)}${isFalseBranch ? '-false' : ''})`);
+    path.setAttribute('d', makeBezier(s.x, s.y, e.x, e.y));
     path.dataset.connId = c.id;
-    path.addEventListener('dblclick', () => removeConn(c.id, cv));
+    path.style.pointerEvents = 'stroke';
+    path.style.cursor = 'pointer';
+    // Click to select, dblclick to delete
+    path.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      document.querySelectorAll('.conn-path.active').forEach(p=>p.classList.remove('active'));
+      path.classList.add('active');
+    });
+    path.addEventListener('dblclick', (ev) => {
+      ev.stopPropagation();
+      pushHistory(cv);
+      removeConn(c.id, cv);
+    });
     svg.appendChild(path);
   });
 }
@@ -1359,82 +1590,111 @@ function removeConn(connId, cv) {
   redrawConns(cv);
 }
 
-function addNode(cv, type, x, y, data) {
+function restoreSnapshot(cv, snap) {
+  STATE.nodes.filter(n=>n.cv===cv).forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+  STATE.nodes = STATE.nodes.filter(n=>n.cv!==cv);
+  STATE.conns = STATE.conns.filter(c=>c.cv!==cv);
+  snap.nodes.forEach(n => _addNodeInternal(cv, n.type, n.x, n.y, n.data, n.id));
+  snap.conns.forEach(c => STATE.conns.push({...c}));
+  redrawConns(cv);
+}
+
+function _addNodeInternal(cv, type, x, y, data, fixedId) {
   const cfg = NODE_CFG[type] || NODE_CFG.message;
-  const id  = 'n' + (STATE.nextId++);
-  const canvas = document.getElementById(cvId(cv));
+  const id  = fixedId || ('n' + (STATE.nextId++));
+  if (!fixedId) {
+    // safe numeric suffix extraction
+  } else {
+    const m = /^n(\d+)$/.exec(fixedId);
+    if (m) STATE.nextId = Math.max(STATE.nextId, parseInt(m[1], 10) + 1);
+  }
+  const layer = document.getElementById(zoomLayerId(cv));
+  if (!layer) return null;
 
   const el = document.createElement('div');
   el.className = 'node';
   el.id = id + '-' + cv;
-  el.style.cssText = `left:${x}px;top:${y}px`;
+  el.style.cssText = `left:${x}px;top:${y}px;position:absolute`;
   el.dataset.nodeId = id;
-  el.dataset.cv     = cv;
+  el.dataset.cv = cv;
 
-  // Inputs per type
+  const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
   let bodyHTML = '';
   if (type === 'trigger') {
     bodyHTML = `<div class="node-lbl">الكلمات المحفّزة</div>
-    <input class="node-inp" placeholder="مرحبا، أهلا" value="${data?.keywords||''}" onchange="updateNodeData('${id}','keywords',this.value)">`;
+    <input class="node-inp" placeholder="مرحبا، أهلا" value="${esc(data?.keywords)}" onchange="updateNodeData('${id}','${cv}','keywords',this.value)">`;
   } else if (type === 'message' || type === 'ai') {
     bodyHTML = `<div class="node-lbl">نص الرسالة</div>
-    <textarea class="node-inp ta" placeholder="أدخل الرسالة..." onchange="updateNodeData('${id}','text',this.value)">${data?.text||''}</textarea>`;
+    <textarea class="node-inp ta" placeholder="أدخل الرسالة..." onchange="updateNodeData('${id}','${cv}','text',this.value)">${esc(data?.text)}</textarea>`;
   } else if (type === 'condition') {
     bodyHTML = `<div class="node-lbl">نوع الشرط</div>
-    <select class="node-inp" onchange="updateNodeData('${id}','cond',this.value)">
+    <select class="node-inp" onchange="updateNodeData('${id}','${cv}','cond',this.value)">
       <option value="contains">الرسالة تحتوي على</option>
       <option value="equals">الرسالة تساوي</option>
       <option value="new_user">مستخدم جديد</option>
       <option value="after_hours">بعد ساعات العمل</option>
     </select>
-    <input class="node-inp" style="margin-top:4px" placeholder="القيمة..." value="${data?.condVal||''}" onchange="updateNodeData('${id}','condVal',this.value)">`;
+    <input class="node-inp" style="margin-top:4px" placeholder="القيمة..." value="${esc(data?.condVal)}" onchange="updateNodeData('${id}','${cv}','condVal',this.value)">`;
   } else if (type === 'delay') {
     bodyHTML = `<div class="node-lbl">مدة التأخير (ثواني)</div>
-    <input type="number" class="node-inp" value="${data?.delay||5}" min="1" max="300" onchange="updateNodeData('${id}','delay',this.value)">`;
+    <input type="number" class="node-inp" value="${esc(data?.delay||5)}" min="1" max="300" onchange="updateNodeData('${id}','${cv}','delay',this.value)">`;
   } else if (type === 'assign') {
     bodyHTML = `<div class="node-lbl">القسم / الفريق</div>
-    <input class="node-inp" placeholder="الدعم الفني..." value="${data?.team||''}" onchange="updateNodeData('${id}','team',this.value)">`;
+    <input class="node-inp" placeholder="الدعم الفني..." value="${esc(data?.team)}" onchange="updateNodeData('${id}','${cv}','team',this.value)">`;
   } else if (type === 'webhook') {
     bodyHTML = `<div class="node-lbl">رابط الـ Webhook</div>
-    <input class="node-inp" placeholder="https://..." value="${data?.url||''}" onchange="updateNodeData('${id}','url',this.value)">`;
+    <input class="node-inp" placeholder="https://..." value="${esc(data?.url)}" onchange="updateNodeData('${id}','${cv}','url',this.value)">`;
+  } else if (type === 'media') {
+    bodyHTML = `<div class="node-lbl">نوع الوسائط</div>
+    <select class="node-inp" onchange="updateNodeData('${id}','${cv}','mediaType',this.value)">
+      <option value="image">صورة</option><option value="video">فيديو</option><option value="document">ملف</option>
+    </select>`;
   }
 
   const hasOut2 = type === 'condition';
 
   el.innerHTML = `
-    <div class="port in" data-node="${id}" data-port="in"></div>
+    <div class="port in" data-node="${id}" data-cv="${cv}"></div>
     <div class="node-head" style="background:${cfg.hbg}">
-      <div class="node-head-ico" style="background:${cfg.hbg};color:${cfg.stroke}">${SVG_ICO[cfg.ico]||''}</div>
+      <div class="node-head-ico" style="color:${cfg.stroke}">${SVG_ICO[cfg.ico]||''}</div>
       <span>${cfg.label}</span>
       <button class="node-close" onclick="removeNode('${id}','${cv}')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="node-body">${bodyHTML||'<span style="color:var(--tx-3);font-size:11px">'+cfg.label+'</span>'}</div>
-    <div class="port out" data-node="${id}" data-port="out"></div>
-    ${hasOut2 ? `<div class="port out-b" data-node="${id}" data-port="out-false" title="لا (False)"></div>` : ''}
+    <div class="node-body">${bodyHTML||`<span style="color:var(--tx-3);font-size:11px">${cfg.label}</span>`}</div>
+    <div class="port out" data-node="${id}" data-cv="${cv}"></div>
+    ${hasOut2 ? `<div class="port out-b" data-node="${id}" data-cv="${cv}" title="لا (False)"></div>` : ''}
   `;
 
-  canvas.appendChild(el);
+  layer.appendChild(el);
   makeDraggable(el, cv);
   initPortDrag(el, cv);
 
-  const nodeData = {id, cv, type, el, x, y, data: data||{}};
+  const nodeData = {id, cv, type, el, x, y, data: {...(data||{})}};
   STATE.nodes.push(nodeData);
-  redrawConns(cv);
   return nodeData;
 }
 
+function addNode(cv, type, x, y, data) {
+  pushHistory(cv);
+  const nd = _addNodeInternal(cv, type, x, y, data);
+  if (nd) redrawConns(cv);
+  return nd;
+}
+
 window.removeNode = function(id, cv) {
-  STATE.conns = STATE.conns.filter(c => c.from !== id && c.to !== id);
+  pushHistory(cv);
+  STATE.conns = STATE.conns.filter(c => !(c.cv === cv && (c.from === id || c.to === id)));
   STATE.nodes = STATE.nodes.filter(n => !(n.id === id && n.cv === cv));
   const el = document.getElementById(id + '-' + cv);
   if (el) el.remove();
   redrawConns(cv);
 };
 
-window.updateNodeData = function(id, key, val) {
-  const n = STATE.nodes.find(n => n.id === id);
+window.updateNodeData = function(id, cv, key, val) {
+  const n = STATE.nodes.find(n => n.id === id && n.cv === cv);
   if (n) n.data[key] = val;
 };
 
@@ -1445,16 +1705,17 @@ function makeDraggable(el, cv) {
   head.addEventListener('mousedown', e => {
     if (e.target.closest('.node-close,.port,button,input,textarea,select')) return;
     e.preventDefault();
+    e.stopPropagation(); // prevent canvas pan from also triggering
     sx = e.clientX; sy = e.clientY;
-    const style = getComputedStyle(el);
-    ox = parseInt(style.left)||0;
-    oy = parseInt(style.top)||0;
+    ox = el.offsetLeft;
+    oy = el.offsetTop;
     el.classList.add('selected');
     document.querySelectorAll('.node.selected').forEach(n => { if(n!==el) n.classList.remove('selected') });
 
     const onMove = e => {
-      const nx = ox + (e.clientX - sx);
-      const ny = oy + (e.clientY - sy);
+      const zoom = STATE.zoom[cv] || 1;
+      const nx = ox + (e.clientX - sx) / zoom;
+      const ny = oy + (e.clientY - sy) / zoom;
       el.style.left = nx + 'px';
       el.style.top  = ny + 'px';
       const nd = STATE.nodes.find(n => n.id === el.dataset.nodeId && n.cv === cv);
@@ -1475,51 +1736,79 @@ function initPortDrag(el, cv) {
   el.querySelectorAll('.port.out, .port.out-b').forEach(port => {
     port.addEventListener('mousedown', e => {
       e.stopPropagation(); e.preventDefault();
-      STATE.drawingConn = {
-        fromId: el.dataset.nodeId,
-        fromPort: Array.from(port.classList).join(' '),
-        cv
-      };
-      const svg = document.getElementById(svgId(cv));
-      const cr  = svg.getBoundingClientRect();
-      const pr  = port.getBoundingClientRect();
-      const sx  = pr.left - cr.left + pr.width/2;
-      const sy  = pr.top  - cr.top  + pr.height/2;
+
+      const fromPortCls = Array.from(port.classList).join(' ');
+      const svg   = document.getElementById(svgId(cv));
+      const layer = document.getElementById(zoomLayerId(cv));
+      const layerRect = layer.getBoundingClientRect();
+      const zoom = STATE.zoom[cv] || 1;
+
+      // Use offset positions relative to the zoom layer (unscaled local coords)
+      const s = getPortPos(el, portSelector(fromPortCls));
+      if (!s) return;
 
       const tempPath = document.createElementNS('http://www.w3.org/2000/svg','path');
-      tempPath.id = 'tmp-conn';
       tempPath.setAttribute('class','conn-path temp');
-      tempPath.setAttribute('d', `M${sx},${sy} L${sx},${sy}`);
+      tempPath.setAttribute('stroke-dasharray','6,3');
       svg.appendChild(tempPath);
 
-      const onMove = e => {
-        const ex = e.clientX - cr.left;
-        const ey = e.clientY - cr.top;
-        const dx = Math.abs(ex - sx);
-        tempPath.setAttribute('d', `M${sx},${sy} C${sx+dx*.5},${sy} ${ex-dx*.5},${ey} ${ex},${ey}`);
+      // Highlight valid target ports
+      document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '0 0 0 3px rgba(59,111,212,.4)');
+
+      const onMove = me => {
+        // Convert mouse position to layer-local (unscaled) coordinates
+        const ex = (me.clientX - layerRect.left) / zoom;
+        const ey = (me.clientY - layerRect.top)  / zoom;
+        tempPath.setAttribute('d', makeBezier(s.x, s.y, ex, ey));
       };
-      const onUp = e => {
+
+      const onUp = ue => {
         tempPath.remove();
+        document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '');
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
 
-        // find target port
-        const target = document.elementFromPoint(e.clientX, e.clientY);
-        if (target && target.classList.contains('port') && target.classList.contains('in')) {
+        // Find the port element under cursor — check elementFromPoint and parents
+        let target = document.elementFromPoint(ue.clientX, ue.clientY);
+        for (let i = 0; i < 4; i++) {
+          if (!target) break;
+          if (target.classList && target.classList.contains('port') && target.classList.contains('in')) break;
+          target = target.parentElement;
+        }
+
+        if (target && target.classList && target.classList.contains('port') && target.classList.contains('in')) {
           const toEl = target.closest('.node');
-          if (toEl && toEl.dataset.nodeId !== STATE.drawingConn.fromId) {
-            STATE.conns.push({
-              id: 'c'+(STATE.nextId++),
-              from:     STATE.drawingConn.fromId,
-              fromPort: STATE.drawingConn.fromPort,
-              to:       toEl.dataset.nodeId,
-              toPort:   'port in',
-            });
-            redrawConns(cv);
+          if (toEl && toEl.dataset.nodeId && toEl.dataset.nodeId !== el.dataset.nodeId) {
+            const toNodeEntry = STATE.nodes.find(n => n.id === toEl.dataset.nodeId && n.cv === cv);
+            if (toNodeEntry) {
+              const fromId = el.dataset.nodeId;
+              const toId   = toEl.dataset.nodeId;
+
+              // Guard: prevent exact duplicate connection (same from/fromPort/to)
+              const isDup = STATE.conns.some(c =>
+                c.cv === cv && c.from === fromId && c.to === toId && c.fromPort === fromPortCls
+              );
+              if (isDup) {
+                toast('هذا الربط موجود بالفعل', 'info');
+                return;
+              }
+
+              pushHistory(cv);
+              STATE.conns.push({
+                id:       'c' + (STATE.nextId++),
+                cv:       cv,
+                from:     fromId,
+                fromPort: fromPortCls,
+                to:       toId,
+                toPort:   'port in',
+              });
+              redrawConns(cv);
+              toast('تم الربط بنجاح', 'ok');
+            }
           }
         }
-        STATE.drawingConn = null;
       };
+
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
@@ -1527,15 +1816,17 @@ function initPortDrag(el, cv) {
 }
 
 function serializeFlow() {
-  return STATE.nodes
-    .filter(n => n.cv === 'mini' || n.cv === 'fs')
-    .filter((n,i,arr) => arr.findIndex(x=>x.id===n.id) === i)
-    .map(n => ({
-      id: n.id, type: n.type,
-      x: n.x, y: n.y,
-      ...n.data,
-      connections: STATE.conns.filter(c=>c.from===n.id).map(c=>({to:c.to, port:c.fromPort}))
-    }));
+  // Prefer 'fs' canvas data if modal is open (most recent edits), else 'mini'
+  const activeCv = document.getElementById('fsOverlay').classList.contains('open') ? 'fs' : 'mini';
+  const cvNodes = STATE.nodes.filter(n => n.cv === activeCv);
+  const cvConns = STATE.conns.filter(c => c.cv === activeCv);
+
+  return cvNodes.map(n => ({
+    id: n.id, type: n.type,
+    x: n.x, y: n.y,
+    ...n.data,
+    connections: cvConns.filter(c => c.from === n.id).map(c => ({to: c.to, port: c.fromPort}))
+  }));
 }
 
 // Drag & drop from palette
@@ -1544,10 +1835,11 @@ window.e_drop = function(e, cv) {
   e.preventDefault();
   const type = e.dataTransfer.getData('type');
   if (!type) return;
-  const canvas = document.getElementById(cvId(cv));
-  const cr = canvas.getBoundingClientRect();
-  const x = e.clientX - cr.left - 100;
-  const y = e.clientY - cr.top  - 40;
+  const layer = document.getElementById(zoomLayerId(cv));
+  const lr = layer.getBoundingClientRect();
+  const zoom = STATE.zoom[cv] || 1;
+  const x = (e.clientX - lr.left) / zoom - 100;
+  const y = (e.clientY - lr.top)  / zoom - 40;
   addNode(cv, type, Math.max(10,x), Math.max(10,y), {});
 };
 
@@ -1557,34 +1849,138 @@ document.querySelectorAll('.pal-item').forEach(item => {
 
 window.clearCanvas = function(cv) {
   if (!confirm('مسح جميع العناصر؟')) return;
+  pushHistory(cv);
   const toRm = STATE.nodes.filter(n => n.cv === cv);
   toRm.forEach(n => { if(n.el && n.el.parentNode) n.el.remove() });
   STATE.nodes  = STATE.nodes.filter(n => n.cv !== cv);
-  STATE.conns  = STATE.conns.filter(c => !toRm.find(n=>n.id===c.from||n.id===c.to));
+  STATE.conns  = STATE.conns.filter(c => c.cv !== cv);
   redrawConns(cv);
 };
 
 // Zoom
 window.zoom_cv = function(cv, dir) {
-  STATE.zoom[cv] = Math.max(50, Math.min(200, STATE.zoom[cv] + dir * 10));
-  document.getElementById('zoom-' + cv).textContent = STATE.zoom[cv] + '%';
+  STATE.zoom[cv] = Math.max(0.3, Math.min(2.5, STATE.zoom[cv] + dir * 0.1));
+  applyZoom(cv);
 };
 window.fit_cv = function(cv) {
-  STATE.zoom[cv] = 100;
-  document.getElementById('zoom-' + cv).textContent = '100%';
+  STATE.zoom[cv] = 1;
+  STATE.pan[cv] = {x:0, y:0};
+  applyZoom(cv);
+};
+function applyZoom(cv) {
+  const pct = Math.round(STATE.zoom[cv] * 100);
+  document.getElementById('zoom-' + cv).textContent = pct + '%';
+  const layer = document.getElementById(zoomLayerId(cv));
+  if (layer) {
+    const p = STATE.pan[cv] || {x:0,y:0};
+    layer.style.transform = `translate(${p.x}px,${p.y}px) scale(${STATE.zoom[cv]})`;
+  }
+  redrawConns(cv);
+}
+
+// Mouse wheel zoom (Ctrl+wheel or plain wheel over canvas)
+['mini','fs'].forEach(cv => {
+  const canvasEl = document.getElementById(cvId(cv));
+  if (!canvasEl) return;
+  canvasEl.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return; // require ctrl/cmd to avoid hijacking page scroll
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1 : -1;
+    STATE.zoom[cv] = Math.max(0.3, Math.min(2.5, STATE.zoom[cv] + dir * 0.08));
+    applyZoom(cv);
+  }, { passive: false });
+});
+
+// Canvas panning (drag empty canvas area to pan)
+window.canvasPanStart = function(e, cv) {
+  // Only pan when clicking directly on canvas/zoom-layer background, not on a node
+  if (e.target.closest('.node, .port, button, input, textarea, select')) return;
+  if (e.button !== 0) return; // left click only
+
+  // Deselect any active node/connection
+  document.querySelectorAll('.node.selected').forEach(n=>n.classList.remove('selected'));
+  document.querySelectorAll('.conn-path.active').forEach(p=>p.classList.remove('active'));
+
+  const canvasEl = document.getElementById(cvId(cv));
+  const startX = e.clientX, startY = e.clientY;
+  const basePan = { ...(STATE.pan[cv] || {x:0,y:0}) };
+  canvasEl.classList.add('panning');
+
+  const onMove = me => {
+    STATE.pan[cv] = {
+      x: basePan.x + (me.clientX - startX),
+      y: basePan.y + (me.clientY - startY)
+    };
+    applyZoom(cv);
+  };
+  const onUp = () => {
+    canvasEl.classList.remove('panning');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 };
 window.autoLayout = function(cv) {
   const nodes = STATE.nodes.filter(n => n.cv === cv);
+  if (!nodes.length) return;
+  pushHistory(cv);
   nodes.forEach((n,i) => {
     n.x = 40 + i * 260; n.y = 160;
     n.el.style.left = n.x + 'px';
     n.el.style.top  = n.y + 'px';
   });
   redrawConns(cv);
+  toast('تم ترتيب العناصر تلقائياً', 'ok');
 };
 
-window.undoFlow = () => toast('Undo — قريباً', 'info');
-window.redoFlow = () => toast('Redo — قريباً', 'info');
+window.undoFlow = function(cv) {
+  // Determine active canvas
+  const activeCv = document.getElementById('fsOverlay').classList.contains('open') ? 'fs' : 'mini';
+  if (STATE.undoStack.length === 0) { toast('لا يوجد ما يمكن التراجع عنه', 'info'); return; }
+  const entry = STATE.undoStack.pop();
+  const c = entry.cv || activeCv;
+  // Push current state to redo
+  STATE.redoStack.push({cv: c, snap: snapshot(c)});
+  restoreSnapshot(c, entry.snap);
+  updateUndoRedoBtns();
+  toast('↩ تم التراجع', 'info');
+};
+
+window.redoFlow = function() {
+  const activeCv = document.getElementById('fsOverlay').classList.contains('open') ? 'fs' : 'mini';
+  if (STATE.redoStack.length === 0) { toast('لا يوجد ما يمكن إعادته', 'info'); return; }
+  const entry = STATE.redoStack.pop();
+  const c = entry.cv || activeCv;
+  STATE.undoStack.push({cv: c, snap: snapshot(c)});
+  restoreSnapshot(c, entry.snap);
+  updateUndoRedoBtns();
+  toast('↪ تم الإعادة', 'info');
+};
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); window.undoFlow(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); window.redoFlow(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    // Delete selected node
+    const sel = document.querySelector('.node.selected');
+    if (sel && !e.target.closest('input,textarea,select')) {
+      window.removeNode(sel.dataset.nodeId, sel.dataset.cv);
+    }
+    // Delete selected connection
+    const selPath = document.querySelector('.conn-path.active');
+    if (selPath) {
+      const activeCv = document.getElementById('fsOverlay').classList.contains('open') ? 'fs' : 'mini';
+      pushHistory(activeCv);
+      removeConn(selPath.dataset.connId, activeCv);
+    }
+  }
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.node.selected').forEach(n=>n.classList.remove('selected'));
+    document.querySelectorAll('.conn-path.active').forEach(p=>p.classList.remove('active'));
+  }
+});
 
 // ══════════════════════════════════════════════════════
 //  MODAL
@@ -1595,20 +1991,23 @@ window.openFlowModal = function() {
   document.body.style.overflow = 'hidden';
   // sync nodes from mini to fs
   setTimeout(() => {
+    // Clear existing fs nodes/conns and rebuild from mini
+    STATE.nodes.filter(n=>n.cv==='fs').forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+    STATE.nodes = STATE.nodes.filter(n=>n.cv!=='fs');
+    STATE.conns = STATE.conns.filter(c=>c.cv!=='fs');
+
     const miniNodes = STATE.nodes.filter(n => n.cv === 'mini');
     miniNodes.forEach(mn => {
-      if (!STATE.nodes.find(n => n.id === mn.id && n.cv === 'fs')) {
-        addNode('fs', mn.type, mn.x, mn.y, mn.data);
-        // copy conns
-        STATE.conns.filter(c=>c.from===mn.id).forEach(c => {
-          if (!STATE.conns.find(x=>x.from===c.from&&x.to===c.to&&x.fromPort===c.fromPort)) {
-            STATE.conns.push({...c, id:'c'+(STATE.nextId++)});
-          }
-        });
-      }
+      _addNodeInternal('fs', mn.type, mn.x, mn.y, mn.data, mn.id);
     });
+    // Copy mini conns to fs
+    STATE.conns.filter(c=>c.cv==='mini').forEach(c => {
+      STATE.conns.push({...c, id:'c'+(STATE.nextId++), cv:'fs'});
+    });
+    STATE.undoStack = []; STATE.redoStack = [];
+    updateUndoRedoBtns();
     redrawConns('fs');
-  }, 100);
+  }, 80);
 };
 
 window.closeFlowModal = function() {
@@ -1616,12 +2015,20 @@ window.closeFlowModal = function() {
   document.body.style.overflow = '';
   // sync back fs → mini
   setTimeout(() => {
+    // Sync fs → mini
+    STATE.nodes.filter(n=>n.cv==='mini').forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+    STATE.nodes = STATE.nodes.filter(n=>n.cv!=='mini');
+    STATE.conns = STATE.conns.filter(c=>c.cv!=='mini');
+
     const fsNodes = STATE.nodes.filter(n => n.cv === 'fs');
     fsNodes.forEach(fn => {
-      const mn = STATE.nodes.find(n => n.id === fn.id && n.cv === 'mini');
-      if (!mn) { addNode('mini', fn.type, fn.x, fn.y, fn.data) }
-      else { mn.data = fn.data }
+      _addNodeInternal('mini', fn.type, fn.x, fn.y, fn.data, fn.id);
     });
+    STATE.conns.filter(c=>c.cv==='fs').forEach(c => {
+      STATE.conns.push({...c, id:'c'+(STATE.nextId++), cv:'mini'});
+    });
+    STATE.undoStack = []; STATE.redoStack = [];
+    updateUndoRedoBtns();
     redrawConns('mini');
   }, 50);
 };
@@ -1674,10 +2081,13 @@ async function init() {
       const n3 = addNode('mini','condition',560, 80, {});
       const n4 = addNode('mini','message', 420,200, {text:'سأحيلك لأحد وكلائنا.'});
       const n5 = addNode('mini','end',     680,200, {});
-      STATE.conns.push({id:'c0',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
-      STATE.conns.push({id:'c1',from:n2.id,fromPort:'port out',to:n3.id,toPort:'port in'});
-      STATE.conns.push({id:'c2',from:n3.id,fromPort:'port out',to:n5.id,toPort:'port in'});
-      STATE.conns.push({id:'c3',from:n3.id,fromPort:'port out-b',to:n4.id,toPort:'port in'});
+      STATE.conns.push({id:'c0',cv:'mini',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
+      STATE.conns.push({id:'c1',cv:'mini',from:n2.id,fromPort:'port out',to:n3.id,toPort:'port in'});
+      STATE.conns.push({id:'c2',cv:'mini',from:n3.id,fromPort:'port out',to:n5.id,toPort:'port in'});
+      STATE.conns.push({id:'c3',cv:'mini',from:n3.id,fromPort:'port out-b',to:n4.id,toPort:'port in'});
+      // clear history after initial load
+      STATE.undoStack = []; STATE.redoStack = [];
+      updateUndoRedoBtns();
       redrawConns('mini');
     }
     document.getElementById('userName').textContent = 'المستخدم';
@@ -1690,7 +2100,9 @@ async function init() {
     document.getElementById('sb-sub').textContent = 'وضع تجريبي';
     const n1 = addNode('mini','trigger', 40,  80, {keywords:'مرحبا'});
     const n2 = addNode('mini','message', 300, 80, {text:'أهلاً!'});
-    STATE.conns.push({id:'c0',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
+    STATE.conns.push({id:'c0',cv:'mini',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
+    STATE.undoStack = []; STATE.redoStack = [];
+    updateUndoRedoBtns();
     redrawConns('mini');
   }
 }
