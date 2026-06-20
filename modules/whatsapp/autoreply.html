@@ -80,6 +80,56 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
 .sep{width:1px;height:26px;background:var(--bd-2)}
 .crumb{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx-3)}
 .crumb-cur{color:var(--brand-3);font-weight:700}
+
+/* PHONE NUMBER SELECTOR */
+.phone-selector{
+  position:relative;display:flex;align-items:center;gap:9px;
+  padding:6px 12px 6px 8px;border-radius:99px;
+  background:var(--bg-raised);border:1px solid var(--bd-2);
+  cursor:pointer;transition:var(--tr);min-width:175px;
+}
+.phone-selector:hover{border-color:var(--bd-3);background:var(--bg-hover)}
+.phone-selector.open{border-color:var(--brand-3);box-shadow:0 0 0 3px var(--brand-glow)}
+.phone-sel-icon{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#10b981,#34d399);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.phone-sel-info{display:flex;flex-direction:column;line-height:1.25;flex:1;min-width:0}
+.phone-sel-number{font-size:12px;font-weight:800;color:var(--tx-1);direction:ltr;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phone-sel-label{font-size:9px;color:var(--tx-3);font-weight:700}
+.phone-sel-chevron{color:var(--tx-3);flex-shrink:0;transition:transform .2s}
+.phone-selector.open .phone-sel-chevron{transform:rotate(180deg)}
+
+.phone-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;width:300px;
+  background:var(--bg-surface);border:1px solid var(--bd-2);border-radius:var(--r-lg);
+  box-shadow:var(--sh-xl);z-index:200;overflow:hidden;
+  opacity:0;pointer-events:none;transform:translateY(-6px);
+  transition:opacity .18s ease,transform .18s ease;
+}
+.phone-dropdown.open{opacity:1;pointer-events:all;transform:translateY(0)}
+.phone-dropdown-label{
+  padding:11px 14px;font-size:10px;font-weight:800;letter-spacing:.6px;
+  color:var(--tx-3);text-transform:uppercase;border-bottom:1px solid var(--bd-1);
+  background:var(--bg-raised);
+}
+.phone-opt{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  transition:var(--tr);border-bottom:1px solid var(--bd-1);
+}
+.phone-opt:last-child{border-bottom:none}
+.phone-opt:hover{background:var(--bg-hover)}
+.phone-opt.current{background:var(--brand-glow)}
+.phone-opt-dot{width:9px;height:9px;border-radius:50%;background:var(--tx-3);flex-shrink:0}
+.phone-opt.current .phone-opt-dot{background:var(--ok);box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+.phone-opt-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.phone-opt-num{font-size:13px;font-weight:700;color:var(--tx-1);direction:ltr;text-align:right}
+.phone-opt-id{font-size:10px;color:var(--tx-3);direction:ltr;text-align:right}
+.phone-opt-badge{
+  font-size:9px;font-weight:800;padding:3px 8px;border-radius:99px;
+  background:rgba(16,185,129,.12);color:var(--ok);flex-shrink:0;
+}
 .tb-right{margin-right:auto;display:flex;align-items:center;gap:8px}
 .theme-btn{
   width:52px;height:28px;background:var(--bg-raised);border:1px solid var(--bd-2);
@@ -570,6 +620,10 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   .tpl-grid{grid-template-columns:1fr}
   .fe-card{height:calc(100vh - 200px)}
   .palette{width:150px}
+  .phone-selector{min-width:0;width:auto}
+  .phone-sel-info{display:none}
+  .phone-dropdown{width:260px;right:-60px}
+  .crumb span{display:none}
 }
 </style>
 </head>
@@ -594,6 +648,27 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
     <span style="color:var(--tx-3);font-size:12px">›</span>
     <span class="crumb-cur">الرد الآلي</span>
   </nav>
+  <div class="sep"></div>
+
+  <!-- Active WhatsApp number selector — each number has its own isolated bot settings/flow -->
+  <div class="phone-selector" id="phoneSelector" onclick="togglePhoneDropdown(event)">
+    <div class="phone-sel-icon">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+    </div>
+    <div class="phone-sel-info">
+      <span class="phone-sel-number" id="phoneSelNumber">جاري التحميل...</span>
+      <span class="phone-sel-label">الرقم النشط</span>
+    </div>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="phone-sel-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+
+    <div class="phone-dropdown" id="phoneDropdown">
+      <div class="phone-dropdown-label">أرقام واتساب المربوطة</div>
+      <div id="phoneDropdownList">
+        <div style="padding:14px;text-align:center;color:var(--tx-3);font-size:12px">جاري التحميل...</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tb-right">
     <!-- Connection status -->
     <div class="conn-status" id="connStatus">
@@ -1065,7 +1140,10 @@ const SUPA_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
 
 let sb = null;
 let currentUserId = null;
-let sbSettingsId = null; // resolved row id for the logged-in user (for reference/debug only)
+let sbSettingsId = null;   // resolved bot_settings row id for (user, phone) pair
+let currentPhoneId = null; // active WhatsApp phone_number_id — each phone has isolated bot settings/flow
+let availablePhones = [];  // list of integrations rows (provider='whatsapp') for this user
+const PHONE_STORAGE_KEY = 'mad3oom_wa_phone_id'; // same key used by supabase-integration.js
 
 async function initSupa() {
   try {
@@ -1135,17 +1213,153 @@ window.dismissAuthGate = function() {
 };
 
 // ══════════════════════════════════════════════════════
+//  PHONE NUMBER MANAGEMENT
+//  Each connected WhatsApp number gets fully isolated
+//  bot_settings + flow, matching the integrations table
+//  and the same localStorage key the rest of مدعوم uses.
+// ══════════════════════════════════════════════════════
+async function loadPhoneNumbers() {
+  try {
+    const { data, error } = await sb.from('integrations')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .eq('provider', 'whatsapp');
+    if (error) throw error;
+
+    availablePhones = (data || []).filter(i => i.metadata?.phone_number_id);
+
+    if (!availablePhones.length) {
+      currentPhoneId = null;
+      renderPhoneDropdown();
+      return;
+    }
+
+    // Resolve active phone exactly like supabase-integration.js does:
+    // 1) localStorage preference if still valid, 2) else first available
+    const storedId = localStorage.getItem(PHONE_STORAGE_KEY);
+    const stillValid = storedId && availablePhones.some(p => p.metadata?.phone_number_id === storedId);
+    currentPhoneId = stillValid ? storedId : availablePhones[0].metadata.phone_number_id;
+
+    // Keep localStorage in sync (covers the "first available" fallback case)
+    if (!stillValid) localStorage.setItem(PHONE_STORAGE_KEY, currentPhoneId);
+
+    renderPhoneDropdown();
+  } catch(e) {
+    console.warn('loadPhoneNumbers error:', e);
+    availablePhones = [];
+    currentPhoneId = null;
+    renderPhoneDropdown();
+  }
+}
+
+function renderPhoneDropdown() {
+  const numEl  = document.getElementById('phoneSelNumber');
+  const listEl = document.getElementById('phoneDropdownList');
+  if (!numEl || !listEl) return;
+
+  if (!availablePhones.length) {
+    numEl.textContent = 'لا يوجد رقم مربوط';
+    listEl.innerHTML = `<div style="padding:16px;text-align:center;color:var(--tx-3);font-size:12px">
+      لم تقم بربط أي رقم واتساب بعد.<br>
+      <a href="/modules/whatsapp/index.html" style="color:var(--brand-3);font-weight:700">اذهب إلى صفحة ربط الأرقام</a>
+    </div>`;
+    return;
+  }
+
+  const active = availablePhones.find(p => p.metadata?.phone_number_id === currentPhoneId);
+  numEl.textContent = active?.phone || active?.metadata?.phone_number || 'اختر رقماً';
+
+  listEl.innerHTML = availablePhones.map(p => {
+    const pid = p.metadata?.phone_number_id;
+    const isCurrent = pid === currentPhoneId;
+    const num = p.phone || p.metadata?.phone_number || '—';
+    return `<div class="phone-opt ${isCurrent?'current':''}" onclick="selectPhone('${pid}')">
+      <div class="phone-opt-dot"></div>
+      <div class="phone-opt-info">
+        <span class="phone-opt-num">${num}</span>
+        <span class="phone-opt-id">ID: ${pid}</span>
+      </div>
+      ${isCurrent ? '<span class="phone-opt-badge">نشط حالياً</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+window.togglePhoneDropdown = function(e) {
+  e.stopPropagation();
+  const sel = document.getElementById('phoneSelector');
+  const dd  = document.getElementById('phoneDropdown');
+  const willOpen = !dd.classList.contains('open');
+  dd.classList.toggle('open', willOpen);
+  sel.classList.toggle('open', willOpen);
+};
+
+document.addEventListener('click', (e) => {
+  const sel = document.getElementById('phoneSelector');
+  if (sel && !sel.contains(e.target)) {
+    document.getElementById('phoneDropdown')?.classList.remove('open');
+    sel.classList.remove('open');
+  }
+});
+
+window.selectPhone = async function(phoneId) {
+  if (phoneId === currentPhoneId) {
+    document.getElementById('phoneDropdown')?.classList.remove('open');
+    return;
+  }
+  // Warn if there's an unsaved flow on the current phone before switching away
+  const savePill = document.getElementById('savePill');
+  const hasUnsaved = savePill && !savePill.textContent.includes('محفوظ');
+  if (hasUnsaved && !confirm('هناك تعديلات غير محفوظة على تدفق الرقم الحالي. هل تريد المتابعة دون حفظها؟')) {
+    document.getElementById('phoneDropdown')?.classList.remove('open');
+    return;
+  }
+
+  currentPhoneId = phoneId;
+  localStorage.setItem(PHONE_STORAGE_KEY, phoneId);
+  document.getElementById('phoneDropdown')?.classList.remove('open');
+  document.getElementById('phoneSelector')?.classList.remove('open');
+
+  toast('جاري تحميل بيانات الرقم...', 'info');
+  await loadAll();
+  toast('تم التبديل إلى الرقم النشط', 'ok');
+};
+
+function renderNoPhoneState() {
+  setEl('stat-msgs', '—');
+  setEl('stat-flows', '—');
+  setEl('stat-rate', '—');
+  setEl('sb-today', '—');
+  setEl('sb-sub', 'لا يوجد رقم مربوط');
+  loadFlowIntoCanvases([]); // shows the empty-trigger placeholder state
+  renderRules([]);
+  renderTemplates([]);
+  toast('لا يوجد رقم واتساب مربوط بحسابك بعد', 'info');
+}
+
+// ══════════════════════════════════════════════════════
 //  LOAD STATS & SETTINGS
 // ══════════════════════════════════════════════════════
 async function loadAll() {
   if (!sb || !currentUserId) return;
 
-  // Messages stats — scoped to this user
+  // ── Step 0: resolve connected WhatsApp numbers + the active one ──
+  await loadPhoneNumbers();
+  if (!currentPhoneId) {
+    // No WhatsApp number connected yet for this account at all
+    renderNoPhoneState();
+    return;
+  }
+
+  // Messages stats — scoped to this user AND this specific phone number.
+  // Note: messages table uses `waba_id` (matches the phone's phone_number_id) for channel scoping.
   try {
     const now = new Date();
     const start = new Date(now); start.setHours(0,0,0,0);
 
-    const { data: msgs } = await sb.from('messages').select('direction,timestamp,created_at').eq('user_id', currentUserId);
+    const { data: msgs } = await sb.from('messages')
+      .select('direction,timestamp,created_at,waba_id')
+      .eq('user_id', currentUserId)
+      .eq('waba_id', currentPhoneId);
     if (msgs) {
       const today = msgs.filter(m => new Date(m.timestamp || m.created_at) >= start);
       const out   = msgs.filter(m => m.direction === 'outbound');
@@ -1166,22 +1380,29 @@ async function loadAll() {
       // Chart
       buildChart(msgs);
     }
-  } catch(e) { console.warn('msgs:', e) }
+  } catch(e) {
+    console.warn('msgs (phone-scoped) failed:', e);
+    setEl('sb-sub', 'تعذر تحميل الرسائل');
+  }
 
-  // bot_settings — scoped to this user via user_id (matches platform's upsert/onConflict:'user_id' design)
+  // bot_settings — scoped to this user AND this specific phone (composite unique key)
   try {
-    const { data, error } = await sb.from('bot_settings').select('*').eq('user_id', currentUserId).maybeSingle();
+    const { data, error } = await sb.from('bot_settings')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .eq('phone_number_id', currentPhoneId)
+      .maybeSingle();
     if (error) throw error;
     if (data) {
       sbSettingsId = data.id;
       applySettings(data);
     } else {
-      // No row yet for this user — fresh account, start with empty/default state
+      // No settings row yet for this specific phone — fresh, start with empty/default state
       sbSettingsId = null;
-      applySettings({}); // applies defaults, loads no flow (canvas stays empty)
-      setEl('settingsLastSaved', 'لم يتم الحفظ بعد');
+      applySettings({});
+      setEl('settingsLastSaved', 'لم يتم الحفظ بعد لهذا الرقم');
     }
-  } catch(e) { console.warn('settings:', e); toast('تعذر تحميل الإعدادات', 'err') }
+  } catch(e) { console.warn('settings:', e); toast('تعذر تحميل إعدادات هذا الرقم', 'err') }
 
   // flow_templates — public/shared table, no user scoping column exists
   try {
@@ -1464,10 +1685,14 @@ function renderRules(data) {
 window.toggleSetting = async function(col, el) {
   el.classList.toggle('on');
   if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  if (!currentPhoneId) { toast('اربط رقم واتساب أولاً', 'err'); el.classList.toggle('on'); return; }
   const val = el.classList.contains('on');
   try {
     const { data, error } = await sb.from('bot_settings')
-      .upsert({ user_id: currentUserId, [col]: val, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .upsert(
+        { user_id: currentUserId, phone_number_id: currentPhoneId, [col]: val, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,phone_number_id' }
+      )
       .select('id')
       .single();
     if (error) throw error;
@@ -1478,9 +1703,13 @@ window.toggleSetting = async function(col, el) {
 
 window.saveDelay = async function(v) {
   if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  if (!currentPhoneId) { toast('اربط رقم واتساب أولاً', 'err'); return; }
   try {
     const { data, error } = await sb.from('bot_settings')
-      .upsert({ user_id: currentUserId, response_delay_seconds: parseInt(v)||2, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .upsert(
+        { user_id: currentUserId, phone_number_id: currentPhoneId, response_delay_seconds: parseInt(v)||2, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,phone_number_id' }
+      )
       .select('id')
       .single();
     if (error) throw error;
@@ -1491,9 +1720,11 @@ window.saveDelay = async function(v) {
 
 window.saveAllSettings = async function() {
   if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  if (!currentPhoneId) { toast('يجب ربط رقم واتساب أولاً من صفحة ربط الأرقام', 'err'); return; }
   const flow = serializeFlow();
   const updates = {
     user_id:                     currentUserId,
+    phone_number_id:             currentPhoneId,
     automation_enabled:          document.getElementById('tog-automation').classList.contains('on'),
     bot_enabled:                 document.getElementById('tog-bot').classList.contains('on'),
     ai_enabled:                  document.getElementById('tog-ai').classList.contains('on'),
@@ -1506,7 +1737,7 @@ window.saveAllSettings = async function() {
   };
   try {
     const { data, error } = await sb.from('bot_settings')
-      .upsert(updates, { onConflict: 'user_id' })
+      .upsert(updates, { onConflict: 'user_id,phone_number_id' })
       .select('id')
       .single();
     if (error) throw error;
@@ -1518,15 +1749,17 @@ window.saveAllSettings = async function() {
 
 window.saveFlow = async function() {
   if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  if (!currentPhoneId) { toast('يجب ربط رقم واتساب أولاً من صفحة ربط الأرقام', 'err'); return; }
   setSavePill('حفظ...');
   const flow = serializeFlow();
   try {
     const { data, error } = await sb.from('bot_settings')
       .upsert({
         user_id: currentUserId,
+        phone_number_id: currentPhoneId,
         custom_replies: flow,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' })
+      }, { onConflict: 'user_id,phone_number_id' })
       .select('id')
       .single();
     if (error) throw error;
