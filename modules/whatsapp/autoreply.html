@@ -1034,28 +1034,85 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   </div>
 </div>
 
+<!-- AUTH GATE — shown when there's no logged-in مدعوم session -->
+<div class="fs-overlay" id="authGate" style="z-index:2000">
+  <div style="width:min(420px,90vw);background:var(--bg-surface);border:1px solid var(--bd-2);border-radius:var(--r-xl);box-shadow:var(--sh-xl);padding:32px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px">
+    <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--brand-1),var(--brand-2));display:flex;align-items:center;justify-content:center;color:#fff">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    </div>
+    <div>
+      <div style="font-size:16px;font-weight:800;color:var(--tx-1);margin-bottom:6px">تسجيل الدخول مطلوب</div>
+      <div style="font-size:13px;color:var(--tx-2);line-height:1.7">هذه الصفحة جزء من لوحة تحكم مدعوم وتحتاج جلسة دخول فعّالة لعرض وحفظ بياناتك. سجّل الدخول من المنصة الرئيسية ثم أعد فتح هذه الصفحة.</div>
+    </div>
+    <a href="/login.html" class="btn btn-p btn-full" style="text-decoration:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+      الذهاب إلى صفحة الدخول
+    </a>
+    <button class="btn btn-g btn-sm" onclick="dismissAuthGate()" style="font-size:11px">متابعة بدون تسجيل (عرض فقط)</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script type="module">
 // ══════════════════════════════════════════════════════
-//  SUPABASE CLIENT
+//  SUPABASE CLIENT — Real platform auth (matches
+//  supabase-config.js + supabase-integration.js exactly)
 // ══════════════════════════════════════════════════════
-const SUPA_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
-const SUPA_KEY  = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
+const SUPA_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
+const SUPA_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
 
 let sb = null;
-let sbSettingsId = null;
+let currentUserId = null;
+let sbSettingsId = null; // resolved row id for the logged-in user (for reference/debug only)
 
 async function initSupa() {
   try {
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm');
+    // Same client config as supabase-integration.js — persistSession + localStorage
+    // means an existing مدعوم login session (set on another page of the same origin)
+    // is picked up automatically here too.
     sb = createClient(SUPA_URL, SUPA_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true }
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+        storage: window.localStorage,
+      }
     });
-    setConn('ok', '✓ متصل بـ Supabase');
+
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) {
+      setConn('err', 'خطأ في جلسة الدخول');
+      return false;
+    }
+
+    if (!session || !session.user) {
+      setConn('err', 'غير مسجّل الدخول');
+      showAuthGate();
+      return false;
+    }
+
+    currentUserId = session.user.id;
+    setConn('ok', '✓ متصل — ' + (session.user.email || 'مستخدم مدعوم'));
+
+    // Keep in sync if the session changes (login/logout in another tab, token refresh, etc.)
+    sb.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'SIGNED_OUT' || !newSession) {
+        currentUserId = null;
+        setConn('err', 'تم تسجيل الخروج');
+        showAuthGate();
+      } else if (newSession.user?.id && newSession.user.id !== currentUserId) {
+        currentUserId = newSession.user.id;
+        loadAll();
+      }
+    });
+
     return true;
-  } catch(e) {
+  } catch (e) {
+    console.error('Supabase init error:', e);
     setConn('err', 'خطأ في الاتصال');
     return false;
   }
@@ -1068,18 +1125,27 @@ function setConn(s, txt) {
   tx.textContent = txt;
 }
 
+function showAuthGate() {
+  const gate = document.getElementById('authGate');
+  if (gate) gate.classList.add('open');
+}
+window.dismissAuthGate = function() {
+  const gate = document.getElementById('authGate');
+  if (gate) gate.classList.remove('open');
+};
+
 // ══════════════════════════════════════════════════════
 //  LOAD STATS & SETTINGS
 // ══════════════════════════════════════════════════════
 async function loadAll() {
-  if (!sb) return;
+  if (!sb || !currentUserId) return;
 
-  // Messages stats
+  // Messages stats — scoped to this user
   try {
     const now = new Date();
     const start = new Date(now); start.setHours(0,0,0,0);
 
-    const { data: msgs } = await sb.from('messages').select('direction,timestamp,created_at');
+    const { data: msgs } = await sb.from('messages').select('direction,timestamp,created_at').eq('user_id', currentUserId);
     if (msgs) {
       const today = msgs.filter(m => new Date(m.timestamp || m.created_at) >= start);
       const out   = msgs.filter(m => m.direction === 'outbound');
@@ -1102,16 +1168,22 @@ async function loadAll() {
     }
   } catch(e) { console.warn('msgs:', e) }
 
-  // bot_settings
+  // bot_settings — scoped to this user via user_id (matches platform's upsert/onConflict:'user_id' design)
   try {
-    const { data } = await sb.from('bot_settings').select('*').limit(1).single();
+    const { data, error } = await sb.from('bot_settings').select('*').eq('user_id', currentUserId).maybeSingle();
+    if (error) throw error;
     if (data) {
       sbSettingsId = data.id;
       applySettings(data);
+    } else {
+      // No row yet for this user — fresh account, start with empty/default state
+      sbSettingsId = null;
+      applySettings({}); // applies defaults, loads no flow (canvas stays empty)
+      setEl('settingsLastSaved', 'لم يتم الحفظ بعد');
     }
-  } catch(e) { console.warn('settings:', e) }
+  } catch(e) { console.warn('settings:', e); toast('تعذر تحميل الإعدادات', 'err') }
 
-  // flow_templates
+  // flow_templates — public/shared table, no user scoping column exists
   try {
     const { data } = await sb.from('flow_templates').select('*');
     if (data) {
@@ -1120,7 +1192,7 @@ async function loadAll() {
     }
   } catch(e) { renderTemplates([]) }
 
-  // rules_engine
+  // rules_engine — public/shared table, no user scoping column exists
   try {
     const { data } = await sb.from('rules_engine').select('*').order('priority', {ascending:false});
     renderRules(data || []);
@@ -1171,57 +1243,140 @@ function applySettings(d) {
   const ls = document.getElementById('settingsLastSaved');
   if (ls && d.updated_at) ls.textContent = 'آخر حفظ: ' + new Date(d.updated_at).toLocaleString('ar');
 
-  // load flow into canvas
-  if (d.custom_replies) {
+  // ── Load flow into canvas — handles 3 possible legacy data shapes ──
+  const flow = parseStoredFlow(d.custom_replies);
+  loadFlowIntoCanvases(flow);
+}
+
+// Normalizes whatever is stored in custom_replies into our canonical
+// array-of-nodes format: [{id, type, x, y, ...data, connections:[{to,port}]}]
+function parseStoredFlow(raw) {
+  if (!raw) return [];
+  let val = raw;
+  if (typeof val === 'string') {
+    try { val = JSON.parse(val); } catch(e) { return []; }
+  }
+  if (!val || typeof val !== 'object') return [];
+
+  // Shape A (ours): already an array of {id,type,x,y,connections}
+  if (Array.isArray(val)) {
+    // Could be our format, OR the very old [{trigger,response}] format —
+    // distinguish by checking for our expected keys.
+    const looksLikeOurs = val.every(n => n && typeof n === 'object' && 'type' in n);
+    if (looksLikeOurs) return val;
+
+    // Legacy simple format: [{trigger:"text", response:"text"}, ...]
+    // Convert each pair into a trigger→message mini-chain.
+    const out = [];
+    val.forEach((pair, i) => {
+      if (!pair || typeof pair !== 'object') return;
+      const tId = 'legacy_t' + i;
+      const mId = 'legacy_m' + i;
+      out.push({ id: tId, type: 'trigger', x: 60 + i*40, y: 80 + i*180, keywords: pair.trigger || '', connections: [{to:mId, port:'port out'}] });
+      out.push({ id: mId, type: 'message', x: 320 + i*40, y: 80 + i*180, text: pair.response || '', connections: [] });
+    });
+    return out;
+  }
+
+  // Shape B (legacy Drawflow editor format): { drawflow: { Home: { data: { "1": {...}, "2": {...} } } } }
+  if (val.drawflow) {
     try {
-      const flow = typeof d.custom_replies === 'string' ? JSON.parse(d.custom_replies) : d.custom_replies;
-      if (Array.isArray(flow) && flow.length) {
-        // Clear existing canvases
-        ['mini','fs'].forEach(cv => {
-          STATE.nodes.filter(n=>n.cv===cv).forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
-          STATE.nodes = STATE.nodes.filter(n=>n.cv!==cv);
-          STATE.conns = STATE.conns.filter(c=>c.cv!==cv);
-        });
-
-        // Build id map: stored id -> new node per canvas
-        flow.forEach((n) => {
-          if (!n || typeof n !== 'object') return;
-          const type = n.type || 'message';
-          const x = typeof n.x === 'number' ? n.x : 60;
-          const y = typeof n.y === 'number' ? n.y : 100;
-          const { id, type:_t, x:_x, y:_y, connections, ...rest } = n;
-          _addNodeInternal('mini', type, x, y, rest, id);
-          _addNodeInternal('fs',   type, x, y, rest, id);
-        });
-
-        // Restore connections from each node's `connections` array
-        flow.forEach((n) => {
-          if (!n || !n.id || !Array.isArray(n.connections)) return;
-          n.connections.forEach(conn => {
-            if (!conn || !conn.to) return;
-            ['mini','fs'].forEach(cv => {
-              const fromExists = STATE.nodes.find(x => x.id === n.id && x.cv === cv);
-              const toExists   = STATE.nodes.find(x => x.id === conn.to && x.cv === cv);
-              if (fromExists && toExists) {
-                STATE.conns.push({
-                  id: 'c' + (STATE.nextId++),
-                  cv,
-                  from: n.id,
-                  fromPort: conn.port || 'port out',
-                  to: conn.to,
-                  toPort: 'port in',
-                });
-              }
-            });
+      const homeData = val.drawflow.Home?.data || {};
+      const drawflowTypeMap = {
+        'start-node': 'trigger',
+        'message-node': 'message',
+        'condition-node': 'condition',
+        'delay-node': 'delay',
+        'agent-node': 'assign',
+        'end-node': 'end',
+        'ai-node': 'ai',
+      };
+      const out = [];
+      Object.values(homeData).forEach(node => {
+        if (!node) return;
+        const mappedType = drawflowTypeMap[node.class] || 'message';
+        const conns = [];
+        Object.values(node.outputs || {}).forEach(out_ => {
+          (out_.connections || []).forEach(c => {
+            if (c.node) conns.push({ to: 'df_' + c.node, port: 'port out' });
           });
         });
+        out.push({
+          id: 'df_' + node.id,
+          type: mappedType,
+          x: typeof node.pos_x === 'number' ? node.pos_x + 200 : 60,
+          y: typeof node.pos_y === 'number' ? node.pos_y + 200 : 80,
+          text: node.data?.text || '',
+          connections: conns,
+        });
+      });
+      return out;
+    } catch(e) { console.warn('Drawflow parse error:', e); return []; }
+  }
 
-        STATE.undoStack = []; STATE.redoStack = [];
-        updateUndoRedoBtns();
-        redrawConns('mini');
-        redrawConns('fs');
-      }
-    } catch(e){ console.warn('flow load error:', e) }
+  return [];
+}
+
+function loadFlowIntoCanvases(flow) {
+  // Clear existing canvases first regardless of outcome
+  ['mini','fs'].forEach(cv => {
+    STATE.nodes.filter(n=>n.cv===cv).forEach(n=>{ if(n.el&&n.el.parentNode) n.el.remove(); });
+    STATE.nodes = STATE.nodes.filter(n=>n.cv!==cv);
+    STATE.conns = STATE.conns.filter(c=>c.cv!==cv);
+  });
+
+  if (!Array.isArray(flow) || !flow.length) {
+    // No valid flow saved yet — start fresh with a single trigger node
+    // (never default to "message" as the first/only node).
+    const t1 = _addNodeInternal('mini', 'trigger', 40, 100, {});
+    _addNodeInternal('fs', 'trigger', 40, 100, {});
+    STATE.undoStack = []; STATE.redoStack = [];
+    updateUndoRedoBtns();
+    redrawConns('mini');
+    redrawConns('fs');
+    return;
+  }
+
+  try {
+    flow.forEach((n) => {
+      if (!n || typeof n !== 'object') return;
+      const type = n.type || 'message';
+      const x = typeof n.x === 'number' ? n.x : 60;
+      const y = typeof n.y === 'number' ? n.y : 100;
+      const { id, type:_t, x:_x, y:_y, connections, ...rest } = n;
+      _addNodeInternal('mini', type, x, y, rest, id);
+      _addNodeInternal('fs',   type, x, y, rest, id);
+    });
+
+    flow.forEach((n) => {
+      if (!n || !n.id || !Array.isArray(n.connections)) return;
+      n.connections.forEach(conn => {
+        if (!conn || !conn.to) return;
+        ['mini','fs'].forEach(cv => {
+          const fromExists = STATE.nodes.find(x => x.id === n.id && x.cv === cv);
+          const toExists   = STATE.nodes.find(x => x.id === conn.to && x.cv === cv);
+          if (fromExists && toExists) {
+            STATE.conns.push({
+              id: 'c' + (STATE.nextId++),
+              cv,
+              from: n.id,
+              fromPort: conn.port || 'port out',
+              to: conn.to,
+              toPort: 'port in',
+            });
+          }
+        });
+      });
+    });
+
+    STATE.undoStack = []; STATE.redoStack = [];
+    updateUndoRedoBtns();
+    redrawConns('mini');
+    redrawConns('fs');
+  } catch(e) {
+    console.warn('flow load error:', e);
+    // On parse/render failure, fall back to a single trigger node rather than leaving a broken state
+    loadFlowIntoCanvases([]);
   }
 }
 
@@ -1308,24 +1463,37 @@ function renderRules(data) {
 // ══════════════════════════════════════════════════════
 window.toggleSetting = async function(col, el) {
   el.classList.toggle('on');
-  if (!sb || !sbSettingsId) return;
+  if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
   const val = el.classList.contains('on');
   try {
-    await sb.from('bot_settings').update({[col]: val}).eq('id', sbSettingsId);
+    const { data, error } = await sb.from('bot_settings')
+      .upsert({ user_id: currentUserId, [col]: val, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
+    if (error) throw error;
+    sbSettingsId = data.id;
     toast('تم حفظ الإعداد', 'ok');
-  } catch(e) { toast('خطأ في الحفظ', 'err') }
+  } catch(e) { console.error(e); toast('خطأ في الحفظ', 'err') }
 };
 
 window.saveDelay = async function(v) {
-  if (!sb || !sbSettingsId) return;
-  await sb.from('bot_settings').update({response_delay_seconds: parseInt(v)}).eq('id', sbSettingsId);
-  toast('تم حفظ مدة التأخير', 'ok');
+  if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  try {
+    const { data, error } = await sb.from('bot_settings')
+      .upsert({ user_id: currentUserId, response_delay_seconds: parseInt(v)||2, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
+    if (error) throw error;
+    sbSettingsId = data.id;
+    toast('تم حفظ مدة التأخير', 'ok');
+  } catch(e) { console.error(e); toast('خطأ في الحفظ', 'err') }
 };
 
 window.saveAllSettings = async function() {
-  if (!sb || !sbSettingsId) { toast('لم يتم الاتصال', 'err'); return; }
+  if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
   const flow = serializeFlow();
   const updates = {
+    user_id:                     currentUserId,
     automation_enabled:          document.getElementById('tog-automation').classList.contains('on'),
     bot_enabled:                 document.getElementById('tog-bot').classList.contains('on'),
     ai_enabled:                  document.getElementById('tog-ai').classList.contains('on'),
@@ -1337,25 +1505,35 @@ window.saveAllSettings = async function() {
     updated_at:                  new Date().toISOString(),
   };
   try {
-    const { error } = await sb.from('bot_settings').update(updates).eq('id', sbSettingsId);
+    const { data, error } = await sb.from('bot_settings')
+      .upsert(updates, { onConflict: 'user_id' })
+      .select('id')
+      .single();
     if (error) throw error;
+    sbSettingsId = data.id;
     toast('✓ تم حفظ جميع الإعدادات', 'ok');
     document.getElementById('settingsLastSaved').textContent = 'آخر حفظ: ' + new Date().toLocaleString('ar');
-  } catch(e) { toast('خطأ: ' + e.message, 'err') }
+  } catch(e) { console.error(e); toast('خطأ: ' + e.message, 'err') }
 };
 
 window.saveFlow = async function() {
-  if (!sb || !sbSettingsId) { toast('لم يتم الاتصال بعد', 'err'); return; }
+  if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
   setSavePill('حفظ...');
   const flow = serializeFlow();
   try {
-    const { error } = await sb.from('bot_settings').update({
-      custom_replies: flow, updated_at: new Date().toISOString()
-    }).eq('id', sbSettingsId);
+    const { data, error } = await sb.from('bot_settings')
+      .upsert({
+        user_id: currentUserId,
+        custom_replies: flow,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
     if (error) throw error;
+    sbSettingsId = data.id;
     setSavePill('✓ محفوظ');
     toast('تم حفظ التدفق', 'ok');
-  } catch(e) { setSavePill('خطأ'); toast('خطأ في الحفظ', 'err') }
+  } catch(e) { console.error(e); setSavePill('خطأ'); toast('خطأ في الحفظ: ' + e.message, 'err') }
 };
 
 function setSavePill(txt) {
@@ -2073,37 +2251,18 @@ function toast(msg, type='ok') {
 async function init() {
   const ok = await initSupa();
   if (ok) {
-    await loadAll();
-    // Default demo node
-    if (STATE.nodes.filter(n=>n.cv==='mini').length === 0) {
-      const n1 = addNode('mini','trigger', 40,  80, {keywords:'مرحبا، أهلا'});
-      const n2 = addNode('mini','message', 300, 80, {text:'أهلاً! كيف أساعدك؟'});
-      const n3 = addNode('mini','condition',560, 80, {});
-      const n4 = addNode('mini','message', 420,200, {text:'سأحيلك لأحد وكلائنا.'});
-      const n5 = addNode('mini','end',     680,200, {});
-      STATE.conns.push({id:'c0',cv:'mini',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
-      STATE.conns.push({id:'c1',cv:'mini',from:n2.id,fromPort:'port out',to:n3.id,toPort:'port in'});
-      STATE.conns.push({id:'c2',cv:'mini',from:n3.id,fromPort:'port out',to:n5.id,toPort:'port in'});
-      STATE.conns.push({id:'c3',cv:'mini',from:n3.id,fromPort:'port out-b',to:n4.id,toPort:'port in'});
-      // clear history after initial load
-      STATE.undoStack = []; STATE.redoStack = [];
-      updateUndoRedoBtns();
-      redrawConns('mini');
-    }
-    document.getElementById('userName').textContent = 'المستخدم';
+    await loadAll(); // loadAll → applySettings → loadFlowIntoCanvases handles
+                      // the empty-state (single trigger node) automatically
+    const { data: { session } } = await sb.auth.getSession();
+    document.getElementById('userName').textContent =
+      session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'المستخدم';
   } else {
-    // Offline demo
-    document.getElementById('stat-msgs').textContent = '128';
-    document.getElementById('stat-flows').textContent = '1';
-    document.getElementById('stat-rate').textContent = '98%';
-    document.getElementById('sb-today').textContent = '128';
-    document.getElementById('sb-sub').textContent = 'وضع تجريبي';
-    const n1 = addNode('mini','trigger', 40,  80, {keywords:'مرحبا'});
-    const n2 = addNode('mini','message', 300, 80, {text:'أهلاً!'});
-    STATE.conns.push({id:'c0',cv:'mini',from:n1.id,fromPort:'port out',to:n2.id,toPort:'port in'});
-    STATE.undoStack = []; STATE.redoStack = [];
-    updateUndoRedoBtns();
-    redrawConns('mini');
+    // Not authenticated — show the auth gate, keep stat placeholders neutral
+    setEl('stat-msgs', '—');
+    setEl('stat-flows', '—');
+    setEl('stat-rate', '—');
+    setEl('sb-today', '—');
+    setEl('sb-sub', 'سجّل الدخول لعرض البيانات');
   }
 }
 
