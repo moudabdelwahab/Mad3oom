@@ -388,6 +388,60 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
 .node-inp:focus{outline:none;border-color:var(--brand-3);box-shadow:0 0 0 2px var(--brand-glow)}
 .node-inp.ta{resize:none;min-height:46px;max-height:90px}
 
+/* ── Trigger node: keywords vs any-message mode ── */
+.trigger-mode-row{display:flex;gap:10px;margin-bottom:8px}
+.trigger-mode-opt{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--tx-2);cursor:pointer}
+.trigger-mode-opt input[type="radio"]{accent-color:var(--brand-3);width:13px;height:13px;cursor:pointer;margin:0}
+.trigger-any-hint{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;
+  background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);
+  border-radius:7px;font-size:11px;font-weight:600;color:var(--ok);line-height:1.5;
+}
+
+/* ── Message node: content-type picker trigger + selected-type chip ── */
+.content-picker-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:11px;border-radius:8px;border:1.5px dashed var(--bd-3);
+  background:var(--bg-raised);color:var(--brand-3);font-size:12px;font-weight:700;
+  font-family:'Cairo',sans-serif;cursor:pointer;transition:var(--tr);
+}
+.content-picker-btn:hover{background:var(--brand-glow);border-color:var(--brand-3)}
+.content-type-row{margin-bottom:7px}
+.content-type-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:99px;background:var(--brand-glow);border:1px solid var(--bd-2);
+  color:var(--brand-3);font-size:11px;font-weight:700;cursor:pointer;
+  font-family:'Cairo',sans-serif;transition:var(--tr);
+}
+.content-type-chip:hover{border-color:var(--brand-3)}
+
+/* ── Content picker modal grid ── */
+.content-picker-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  padding:18px 22px;overflow-y:auto;
+}
+.content-picker-item{
+  display:flex;align-items:center;gap:11px;padding:13px;
+  border-radius:var(--r-md);border:1px solid var(--bd-1);background:var(--bg-raised);
+  cursor:pointer;transition:var(--tr);text-align:right;font-family:'Cairo',sans-serif;
+}
+.content-picker-item:hover{border-color:var(--brand-3);background:var(--brand-glow);transform:translateY(-1px);box-shadow:var(--sh-sm)}
+.content-picker-icon{
+  width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.content-picker-icon.b{background:rgba(59,130,246,.12);color:#3b82f6}
+.content-picker-icon.g{background:rgba(16,185,129,.12);color:#10b981}
+.content-picker-icon.p{background:rgba(139,92,246,.12);color:#8b5cf6}
+.content-picker-icon.y{background:rgba(245,158,11,.12);color:#f59e0b}
+.content-picker-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.content-picker-label{font-size:13px;font-weight:800;color:var(--tx-1)}
+.content-picker-hint{font-size:10.5px;color:var(--tx-3);line-height:1.4}
+
+@media(max-width:480px){
+  .content-picker-grid{grid-template-columns:1fr}
+}
+
+
 /* Ports */
 .port{
   position:absolute;width:14px;height:14px;border-radius:50%;
@@ -1124,6 +1178,19 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       الذهاب إلى صفحة الدخول
     </a>
     <button class="btn btn-g btn-sm" onclick="dismissAuthGate()" style="font-size:11px">متابعة بدون تسجيل (عرض فقط)</button>
+  </div>
+</div>
+
+<!-- CONTENT TYPE PICKER — Arabic equivalent of the "Add Message Block" list -->
+<div class="fs-overlay" id="contentPickerOverlay" style="z-index:1500" onclick="if(event.target===this)closeContentPicker()">
+  <div style="width:min(560px,92vw);max-height:80vh;background:var(--bg-surface);border:1px solid var(--bd-2);border-radius:var(--r-xl);box-shadow:var(--sh-xl);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--bd-1);display:flex;align-items:center;gap:10px">
+      <div style="font-size:15px;font-weight:800;color:var(--tx-1)">اختر نوع المحتوى</div>
+      <button class="fs-close" onclick="closeContentPicker()" style="margin-right:auto">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="content-picker-grid" id="contentPickerGrid"></div>
   </div>
 </div>
 
@@ -2010,6 +2077,165 @@ function restoreSnapshot(cv, snap) {
   redrawConns(cv);
 }
 
+// ── Message content-type catalog (used by the "عرض القائمة" picker) ──
+const MSG_CONTENT_TYPES = [
+  { key:'text',     label:'نص',              hint:'رسالة نصية بسيطة',                color:'b', svg:`<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>` },
+  { key:'image',    label:'صورة',             hint:'إرسال صورة برابط',                color:'g', svg:`<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>` },
+  { key:'video',    label:'فيديو',            hint:'إرسال مقطع فيديو',                color:'p', svg:`<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>` },
+  { key:'audio',    label:'صوت',              hint:'إرسال رسالة أو ملف صوتي',          color:'y', svg:`<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>` },
+  { key:'document', label:'ملف',              hint:'إرسال مستند أو ملف PDF',          color:'b', svg:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>` },
+  { key:'location', label:'موقع',             hint:'إرسال موقع جغرافي',               color:'g', svg:`<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>` },
+  { key:'list',     label:'قائمة اختيار',      hint:'قائمة خيارات يختار منها العميل',   color:'p', svg:`<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>` },
+  { key:'buttons',  label:'أزرار سريعة',       hint:'حتى 3 أزرار رد سريع',             color:'y', svg:`<rect x="3" y="8" width="18" height="8" rx="2"/><line x1="8" y1="8" x2="8" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/>` },
+  { key:'urlbtn',   label:'زر رابط',           hint:'زر يفتح رابط خارجي',              color:'b', svg:`<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>` },
+  { key:'input',    label:'إدخال من العميل',   hint:'طلب إدخال نص/رقم من العميل',      color:'g', svg:`<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h8M6 16h12"/>` },
+];
+
+function getContentType(key) {
+  return MSG_CONTENT_TYPES.find(t => t.key === key) || null;
+}
+
+function renderMessageBody(id, cv, data) {
+  const ctype = data?.contentType;
+  if (!ctype) {
+    // No content type chosen yet — show the picker trigger button
+    return `<button type="button" class="content-picker-btn" onclick="openContentPicker('${id}','${cv}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span>عرض القائمة — اختر نوع المحتوى</span>
+    </button>`;
+  }
+
+  const meta = getContentType(ctype);
+  const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const changeBtn = `<button type="button" class="content-type-chip" onclick="openContentPicker('${id}','${cv}')">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">${meta?.svg||''}</svg>
+    <span>${meta?.label||ctype}</span>
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>`;
+
+  let fields = '';
+  if (ctype === 'text') {
+    fields = `<textarea class="node-inp ta" placeholder="أدخل نص الرسالة..." onchange="updateNodeData('${id}','${cv}','text',this.value)">${esc(data?.text)}</textarea>`;
+  } else if (ctype === 'image' || ctype === 'video' || ctype === 'audio' || ctype === 'document') {
+    fields = `<div class="node-lbl">رابط الملف</div>
+      <input class="node-inp" placeholder="https://..." value="${esc(data?.mediaUrl)}" onchange="updateNodeData('${id}','${cv}','mediaUrl',this.value)">
+      <div class="node-lbl" style="margin-top:6px">تعليق (اختياري)</div>
+      <input class="node-inp" placeholder="نص إضافي مع الملف..." value="${esc(data?.caption)}" onchange="updateNodeData('${id}','${cv}','caption',this.value)">`;
+  } else if (ctype === 'location') {
+    fields = `<div class="node-lbl">خط العرض / الطول</div>
+      <div style="display:flex;gap:6px">
+        <input class="node-inp" placeholder="Lat" value="${esc(data?.lat)}" onchange="updateNodeData('${id}','${cv}','lat',this.value)">
+        <input class="node-inp" placeholder="Lng" value="${esc(data?.lng)}" onchange="updateNodeData('${id}','${cv}','lng',this.value)">
+      </div>
+      <div class="node-lbl" style="margin-top:6px">اسم الموقع</div>
+      <input class="node-inp" placeholder="مقر الشركة..." value="${esc(data?.locationName)}" onchange="updateNodeData('${id}','${cv}','locationName',this.value)">`;
+  } else if (ctype === 'list') {
+    fields = `<div class="node-lbl">عنوان القائمة</div>
+      <input class="node-inp" placeholder="اختر من القائمة..." value="${esc(data?.listTitle)}" onchange="updateNodeData('${id}','${cv}','listTitle',this.value)">
+      <div class="node-lbl" style="margin-top:6px">الخيارات (سطر لكل خيار)</div>
+      <textarea class="node-inp ta" placeholder="الخيار الأول&#10;الخيار الثاني" onchange="updateNodeData('${id}','${cv}','listOptions',this.value)">${esc(data?.listOptions)}</textarea>`;
+  } else if (ctype === 'buttons') {
+    fields = `<div class="node-lbl">نص الرسالة</div>
+      <input class="node-inp" placeholder="اختر أحد الخيارات..." value="${esc(data?.text)}" onchange="updateNodeData('${id}','${cv}','text',this.value)">
+      <div class="node-lbl" style="margin-top:6px">الأزرار (سطر لكل زر، حتى 3)</div>
+      <textarea class="node-inp ta" placeholder="نعم&#10;لا&#10;لاحقاً" onchange="updateNodeData('${id}','${cv}','buttonsList',this.value)">${esc(data?.buttonsList)}</textarea>`;
+  } else if (ctype === 'urlbtn') {
+    fields = `<div class="node-lbl">نص الزر</div>
+      <input class="node-inp" placeholder="زورونا الآن" value="${esc(data?.btnLabel)}" onchange="updateNodeData('${id}','${cv}','btnLabel',this.value)">
+      <div class="node-lbl" style="margin-top:6px">الرابط</div>
+      <input class="node-inp" placeholder="https://..." value="${esc(data?.url)}" onchange="updateNodeData('${id}','${cv}','url',this.value)">`;
+  } else if (ctype === 'input') {
+    fields = `<div class="node-lbl">نص الطلب</div>
+      <input class="node-inp" placeholder="من فضلك أدخل رقم هاتفك" value="${esc(data?.text)}" onchange="updateNodeData('${id}','${cv}','text',this.value)">
+      <div class="node-lbl" style="margin-top:6px">نوع الإدخال</div>
+      <select class="node-inp" onchange="updateNodeData('${id}','${cv}','inputType',this.value)">
+        <option value="text" ${data?.inputType==='text'||!data?.inputType?'selected':''}>نص</option>
+        <option value="number" ${data?.inputType==='number'?'selected':''}>رقم</option>
+        <option value="phone" ${data?.inputType==='phone'?'selected':''}>رقم هاتف</option>
+        <option value="email" ${data?.inputType==='email'?'selected':''}>بريد إلكتروني</option>
+      </select>`;
+  }
+
+  return `<div class="content-type-row">${changeBtn}</div>${fields}`;
+}
+
+function renderTriggerBody(id, cv, data) {
+  const anyMsg = data?.triggerMode === 'any';
+  const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `
+    <div class="trigger-mode-row">
+      <label class="trigger-mode-opt">
+        <input type="radio" name="trigmode-${id}-${cv}" ${!anyMsg?'checked':''} onchange="updateNodeData('${id}','${cv}','triggerMode','keywords');refreshNodeBody('${id}','${cv}')">
+        <span>كلمات محددة</span>
+      </label>
+      <label class="trigger-mode-opt">
+        <input type="radio" name="trigmode-${id}-${cv}" ${anyMsg?'checked':''} onchange="updateNodeData('${id}','${cv}','triggerMode','any');refreshNodeBody('${id}','${cv}')">
+        <span>أي رسالة</span>
+      </label>
+    </div>
+    ${anyMsg
+      ? `<div class="trigger-any-hint">
+           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+           سيتم تشغيل هذا التدفق على أي رسالة يرسلها العميل
+         </div>`
+      : `<div class="node-lbl">الكلمات المحفّزة</div>
+         <input class="node-inp" placeholder="مرحبا، أهلا" value="${esc(data?.keywords)}" onchange="updateNodeData('${id}','${cv}','keywords',this.value)">`
+    }`;
+}
+
+window.openContentPicker = function(id, cv) {
+  STATE.contentPickerTarget = { id, cv };
+  const grid = document.getElementById('contentPickerGrid');
+  grid.innerHTML = MSG_CONTENT_TYPES.map(t => `
+    <button type="button" class="content-picker-item ${t.color}" onclick="pickContentType('${t.key}')">
+      <div class="content-picker-icon ${t.color}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${t.svg}</svg>
+      </div>
+      <div class="content-picker-text">
+        <span class="content-picker-label">${t.label}</span>
+        <span class="content-picker-hint">${t.hint}</span>
+      </div>
+    </button>
+  `).join('');
+  const overlay = document.getElementById('contentPickerOverlay');
+  overlay.classList.add('open');
+};
+
+window.closeContentPicker = function() {
+  document.getElementById('contentPickerOverlay').classList.remove('open');
+  STATE.contentPickerTarget = null;
+};
+
+window.pickContentType = function(typeKey) {
+  const target = STATE.contentPickerTarget;
+  if (!target) return;
+  const { id, cv } = target;
+  // Apply to both canvases (mini + fs) so they stay in sync, like updateNodeData elsewhere
+  ['mini','fs'].forEach(c => {
+    const n = STATE.nodes.find(n => n.id === id && n.cv === c);
+    if (n) n.data.contentType = typeKey;
+  });
+  window.closeContentPicker();
+  refreshNodeBody(id, cv === 'fs' ? 'fs' : 'mini');
+  // Also refresh the other canvas's instance of this node if it exists
+  const otherCv = cv === 'fs' ? 'mini' : 'fs';
+  if (STATE.nodes.find(n => n.id === id && n.cv === otherCv)) refreshNodeBody(id, otherCv);
+};
+
+// Re-render a single node's body in place (used after changing trigger mode or content type)
+window.refreshNodeBody = function(id, cv) {
+  const n = STATE.nodes.find(n => n.id === id && n.cv === cv);
+  if (!n) return;
+  const bodyEl = n.el.querySelector('.node-body');
+  if (!bodyEl) return;
+  if (n.type === 'trigger') {
+    bodyEl.innerHTML = renderTriggerBody(id, cv, n.data);
+  } else if (n.type === 'message' || n.type === 'ai') {
+    bodyEl.innerHTML = renderMessageBody(id, cv, n.data);
+  }
+  redrawConns(cv);
+};
+
 function _addNodeInternal(cv, type, x, y, data, fixedId) {
   const cfg = NODE_CFG[type] || NODE_CFG.message;
   const id  = fixedId || ('n' + (STATE.nextId++));
@@ -2033,11 +2259,9 @@ function _addNodeInternal(cv, type, x, y, data, fixedId) {
 
   let bodyHTML = '';
   if (type === 'trigger') {
-    bodyHTML = `<div class="node-lbl">الكلمات المحفّزة</div>
-    <input class="node-inp" placeholder="مرحبا، أهلا" value="${esc(data?.keywords)}" onchange="updateNodeData('${id}','${cv}','keywords',this.value)">`;
+    bodyHTML = renderTriggerBody(id, cv, data);
   } else if (type === 'message' || type === 'ai') {
-    bodyHTML = `<div class="node-lbl">نص الرسالة</div>
-    <textarea class="node-inp ta" placeholder="أدخل الرسالة..." onchange="updateNodeData('${id}','${cv}','text',this.value)">${esc(data?.text)}</textarea>`;
+    bodyHTML = renderMessageBody(id, cv, data);
   } else if (type === 'condition') {
     bodyHTML = `<div class="node-lbl">نوع الشرط</div>
     <select class="node-inp" onchange="updateNodeData('${id}','${cv}','cond',this.value)">
