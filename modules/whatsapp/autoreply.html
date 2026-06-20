@@ -131,6 +131,23 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   background:rgba(16,185,129,.12);color:var(--ok);flex-shrink:0;
 }
 .tb-right{margin-right:auto;display:flex;align-items:center;gap:8px}
+/* WHAT'S NEW BUTTON */
+.whats-new-btn{
+  position:relative;display:flex;align-items:center;gap:6px;
+  padding:7px 13px;border-radius:99px;border:1px solid var(--bd-2);
+  background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(59,111,212,.06));
+  color:var(--brand-3);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;
+  cursor:pointer;transition:var(--tr);
+}
+.whats-new-btn:hover{border-color:var(--brand-3);box-shadow:0 0 0 3px var(--brand-glow);transform:translateY(-1px)}
+.whats-new-dot{
+  position:absolute;top:-3px;left:-3px;width:9px;height:9px;border-radius:50%;
+  background:var(--err);border:2px solid var(--bg-surface);
+  display:none;
+}
+.whats-new-dot.show{display:block;animation:wnPulse 1.8s ease-in-out infinite}
+@keyframes wnPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}}
+
 .theme-btn{
   width:52px;height:28px;background:var(--bg-raised);border:1px solid var(--bd-2);
   border-radius:99px;cursor:pointer;position:relative;display:flex;align-items:center;padding:2px;
@@ -729,6 +746,17 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       <div class="conn-dot loading" id="connDot"></div>
       <span id="connText" style="color:var(--tx-2)">جاري الاتصال...</span>
     </div>
+
+    <!-- What's New -->
+    <button class="whats-new-btn" id="whatsNewBtn" onclick="openWhatsNew()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z"/>
+        <path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9L19 14z"/>
+      </svg>
+      <span>ما الجديد؟</span>
+      <span class="whats-new-dot" id="whatsNewDot"></span>
+    </button>
+
     <button class="theme-btn" onclick="toggleTheme()">
       <div class="theme-knob" id="themeKnob"><span id="themeIco">☀️</span></div>
     </button>
@@ -1191,6 +1219,32 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       </button>
     </div>
     <div class="content-picker-grid" id="contentPickerGrid"></div>
+  </div>
+</div>
+
+<!-- WHAT'S NEW MODAL -->
+<div class="fs-overlay" id="whatsNewOverlay" style="z-index:1500" onclick="if(event.target===this)closeWhatsNew()">
+  <div class="whats-new-modal">
+    <div class="whats-new-header">
+      <div class="whats-new-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z"/>
+          <path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9L19 14z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="whats-new-title">ما الجديد في الرد الآلي</div>
+        <div class="whats-new-sub">المزايا المتاحة وآخر التحديثات</div>
+      </div>
+      <button class="fs-close" onclick="closeWhatsNew()" style="margin-right:auto">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="whats-new-tabs">
+      <button class="wn-tab active" data-wntab="updates" onclick="switchWnTab('updates')">سجل التحديثات</button>
+      <button class="wn-tab" data-wntab="features" onclick="switchWnTab('features')">كل المزايا</button>
+    </div>
+    <div class="whats-new-body" id="whatsNewBody"></div>
   </div>
 </div>
 
