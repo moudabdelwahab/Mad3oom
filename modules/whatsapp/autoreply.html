@@ -2636,90 +2636,95 @@ function makeDraggable(el, cv) {
 }
 
 function initPortDrag(el, cv) {
-  // Covers the standard edge "port out" AND every dynamically generated
-  // branch port (which all carry the shared "out" class plus a unique
-  // branch-port-{id} class), so this stays correct as branches are added/removed.
-  el.querySelectorAll('.port.out').forEach(port => {
-    port.addEventListener('mousedown', e => {
-      e.stopPropagation(); e.preventDefault();
+  // Event delegation: bind ONE mousedown listener on the node itself rather
+  // than on each individual port. This is critical because branch ports are
+  // added/removed dynamically (addBranch/removeBranch trigger refreshNodeBody,
+  // which replaces .node-body's innerHTML entirely) — listeners bound directly
+  // to port elements would be destroyed along with the old DOM nodes. Binding
+  // on the stable outer .node element means newly-created branch ports work
+  // immediately without any extra re-binding step.
+  el.addEventListener('mousedown', e => {
+    const port = e.target.closest('.port.out');
+    if (!port || !el.contains(port)) return;
 
-      const fromPortCls = Array.from(port.classList).join(' ');
-      const svg   = document.getElementById(svgId(cv));
-      const layer = document.getElementById(zoomLayerId(cv));
-      const layerRect = layer.getBoundingClientRect();
-      const zoom = STATE.zoom[cv] || 1;
+    e.stopPropagation(); e.preventDefault();
 
-      // getPortPos returns position relative to the node itself; add the
-      // node's own offset (relative to the zoom layer) for canvas-space coords.
-      const sLocal = getPortPos(el, portSelector(fromPortCls));
-      if (!sLocal) return;
-      const s = { x: el.offsetLeft + sLocal.x, y: el.offsetTop + sLocal.y };
+    const fromPortCls = Array.from(port.classList).join(' ');
+    const svg   = document.getElementById(svgId(cv));
+    const layer = document.getElementById(zoomLayerId(cv));
+    const layerRect = layer.getBoundingClientRect();
+    const zoom = STATE.zoom[cv] || 1;
 
-      const tempPath = document.createElementNS('http://www.w3.org/2000/svg','path');
-      tempPath.setAttribute('class','conn-path temp');
-      tempPath.setAttribute('stroke-dasharray','6,3');
-      svg.appendChild(tempPath);
+    // getPortPos returns position relative to the node itself; add the
+    // node's own offset (relative to the zoom layer) for canvas-space coords.
+    const sLocal = getPortPos(el, portSelector(fromPortCls));
+    if (!sLocal) return;
+    const s = { x: el.offsetLeft + sLocal.x, y: el.offsetTop + sLocal.y };
 
-      // Highlight valid target ports
-      document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '0 0 0 3px rgba(59,111,212,.4)');
+    const tempPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+    tempPath.setAttribute('class','conn-path temp');
+    tempPath.setAttribute('stroke-dasharray','6,3');
+    svg.appendChild(tempPath);
 
-      const onMove = me => {
-        // Convert mouse position to layer-local (unscaled) coordinates
-        const ex = (me.clientX - layerRect.left) / zoom;
-        const ey = (me.clientY - layerRect.top)  / zoom;
-        tempPath.setAttribute('d', makeBezier(s.x, s.y, ex, ey));
-      };
+    // Highlight valid target ports
+    document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '0 0 0 3px rgba(59,111,212,.4)');
 
-      const onUp = ue => {
-        tempPath.remove();
-        document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '');
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+    const onMove = me => {
+      // Convert mouse position to layer-local (unscaled) coordinates
+      const ex = (me.clientX - layerRect.left) / zoom;
+      const ey = (me.clientY - layerRect.top)  / zoom;
+      tempPath.setAttribute('d', makeBezier(s.x, s.y, ex, ey));
+    };
 
-        // Find the port element under cursor — check elementFromPoint and parents
-        let target = document.elementFromPoint(ue.clientX, ue.clientY);
-        for (let i = 0; i < 4; i++) {
-          if (!target) break;
-          if (target.classList && target.classList.contains('port') && target.classList.contains('in')) break;
-          target = target.parentElement;
-        }
+    const onUp = ue => {
+      tempPath.remove();
+      document.querySelectorAll('.port.in').forEach(p => p.style.boxShadow = '');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
 
-        if (target && target.classList && target.classList.contains('port') && target.classList.contains('in')) {
-          const toEl = target.closest('.node');
-          if (toEl && toEl.dataset.nodeId && toEl.dataset.nodeId !== el.dataset.nodeId) {
-            const toNodeEntry = STATE.nodes.find(n => n.id === toEl.dataset.nodeId && n.cv === cv);
-            if (toNodeEntry) {
-              const fromId = el.dataset.nodeId;
-              const toId   = toEl.dataset.nodeId;
+      // Find the port element under cursor — check elementFromPoint and parents
+      let target = document.elementFromPoint(ue.clientX, ue.clientY);
+      for (let i = 0; i < 4; i++) {
+        if (!target) break;
+        if (target.classList && target.classList.contains('port') && target.classList.contains('in')) break;
+        target = target.parentElement;
+      }
 
-              // Guard: prevent exact duplicate connection (same from/fromPort/to)
-              const isDup = STATE.conns.some(c =>
-                c.cv === cv && c.from === fromId && c.to === toId && c.fromPort === fromPortCls
-              );
-              if (isDup) {
-                toast('هذا الربط موجود بالفعل', 'info');
-                return;
-              }
+      if (target && target.classList && target.classList.contains('port') && target.classList.contains('in')) {
+        const toEl = target.closest('.node');
+        if (toEl && toEl.dataset.nodeId && toEl.dataset.nodeId !== el.dataset.nodeId) {
+          const toNodeEntry = STATE.nodes.find(n => n.id === toEl.dataset.nodeId && n.cv === cv);
+          if (toNodeEntry) {
+            const fromId = el.dataset.nodeId;
+            const toId   = toEl.dataset.nodeId;
 
-              pushHistory(cv);
-              STATE.conns.push({
-                id:       'c' + (STATE.nextId++),
-                cv:       cv,
-                from:     fromId,
-                fromPort: fromPortCls,
-                to:       toId,
-                toPort:   'port in',
-              });
-              redrawConns(cv);
-              toast('تم الربط بنجاح', 'ok');
+            // Guard: prevent exact duplicate connection (same from/fromPort/to)
+            const isDup = STATE.conns.some(c =>
+              c.cv === cv && c.from === fromId && c.to === toId && c.fromPort === fromPortCls
+            );
+            if (isDup) {
+              toast('هذا الربط موجود بالفعل', 'info');
+              return;
             }
+
+            pushHistory(cv);
+            STATE.conns.push({
+              id:       'c' + (STATE.nextId++),
+              cv:       cv,
+              from:     fromId,
+              fromPort: fromPortCls,
+              to:       toId,
+              toPort:   'port in',
+            });
+            redrawConns(cv);
+            toast('تم الربط بنجاح', 'ok');
           }
         }
-      };
+      }
+    };
 
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
 }
 
