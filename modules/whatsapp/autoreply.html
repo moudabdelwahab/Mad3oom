@@ -405,6 +405,43 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
 .node-inp:focus{outline:none;border-color:var(--brand-3);box-shadow:0 0 0 2px var(--brand-glow)}
 .node-inp.ta{resize:none;min-height:46px;max-height:90px}
 
+/* ── Dynamic branches (condition / list / buttons) ── */
+.branches-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.branch-row{
+  position:relative;display:flex;align-items:center;gap:6px;
+  padding-left:14px; /* room for the inline port to sit just outside the row */
+}
+.branch-row-num{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;
+  background:var(--bg-elevated, var(--bg-raised));border:1px solid var(--bd-1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:var(--tx-3);
+}
+.branch-row-input{flex:1;min-width:0;margin-top:0}
+.branch-row-remove{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;border:none;
+  background:transparent;color:var(--tx-3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:var(--tr);
+}
+.branch-row-remove:hover{background:rgba(239,68,68,.1);color:var(--err)}
+.branch-add-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:5px;
+  margin-top:7px;padding:7px;border-radius:7px;border:1.5px dashed var(--bd-2);
+  background:transparent;color:var(--tx-3);font-size:11px;font-weight:700;
+  font-family:'Cairo',sans-serif;cursor:pointer;transition:var(--tr);
+}
+.branch-add-btn:hover{border-color:var(--brand-3);color:var(--brand-3);background:var(--brand-glow)}
+
+/* Inline branch port — same visual language as the standard edge port,
+   but anchored to its own row instead of the node's right edge. */
+.branch-row .port{
+  position:absolute;
+  right:-7px;
+  top:50%;
+  transform:translateY(-50%);
+}
+.branch-row .port:hover{transform:translateY(-50%) scale(1.5)}
+
 /* ── Trigger node: keywords vs any-message mode ── */
 .trigger-mode-row{display:flex;gap:10px;margin-bottom:8px}
 .trigger-mode-opt{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--tx-2);cursor:pointer}
@@ -458,6 +495,87 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
   .content-picker-grid{grid-template-columns:1fr}
 }
 
+/* ── WHAT'S NEW MODAL ── */
+.whats-new-modal{
+  width:min(620px,92vw);max-height:82vh;
+  background:var(--bg-surface);border:1px solid var(--bd-2);border-radius:var(--r-xl);
+  box-shadow:var(--sh-xl);display:flex;flex-direction:column;overflow:hidden;
+}
+.whats-new-header{
+  padding:18px 22px;border-bottom:1px solid var(--bd-1);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;position:relative;
+}
+.whats-new-header::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--brand-1),var(--brand-3),var(--brand-4));
+}
+.whats-new-header-icon{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.whats-new-title{font-size:15px;font-weight:800;color:var(--tx-1)}
+.whats-new-sub{font-size:11px;color:var(--tx-3);margin-top:2px}
+
+.whats-new-tabs{
+  display:flex;gap:4px;padding:10px 22px 0;border-bottom:1px solid var(--bd-1);flex-shrink:0;
+}
+.wn-tab{
+  padding:9px 16px;border:none;background:transparent;cursor:pointer;
+  font-family:'Cairo',sans-serif;font-size:12.5px;font-weight:700;color:var(--tx-3);
+  border-bottom:2px solid transparent;transition:var(--tr);margin-bottom:-1px;
+}
+.wn-tab:hover{color:var(--tx-1)}
+.wn-tab.active{color:var(--brand-3);border-bottom-color:var(--brand-3)}
+
+.whats-new-body{flex:1;overflow-y:auto;padding:18px 22px 22px}
+
+/* Updates tab */
+.wn-entry{padding:16px 0;border-bottom:1px solid var(--bd-1)}
+.wn-entry:first-child{padding-top:4px}
+.wn-entry:last-child{border-bottom:none}
+.wn-entry-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.wn-version{font-size:13px;font-weight:900;color:var(--brand-3)}
+.wn-latest-tag{
+  font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:99px;
+  background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;
+}
+.wn-date{font-size:11px;color:var(--tx-3);margin-right:auto}
+.wn-entry-title{font-size:13.5px;font-weight:700;color:var(--tx-1);margin-bottom:9px;line-height:1.5}
+.wn-entry-list{list-style:none;display:flex;flex-direction:column;gap:7px}
+.wn-entry-list li{
+  position:relative;padding-right:18px;font-size:12.5px;color:var(--tx-2);line-height:1.6;
+}
+.wn-entry-list li::before{
+  content:'';position:absolute;right:0;top:7px;width:6px;height:6px;
+  border-radius:50%;background:var(--brand-3);
+}
+
+/* Features tab */
+.wn-feature-group{margin-bottom:18px}
+.wn-feature-group:last-child{margin-bottom:0}
+.wn-feature-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.wn-feature-icon{
+  width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.wn-feature-icon.b{background:rgba(59,130,246,.12);color:#3b82f6}
+.wn-feature-icon.g{background:rgba(16,185,129,.12);color:#10b981}
+.wn-feature-icon.p{background:rgba(139,92,246,.12);color:#8b5cf6}
+.wn-feature-icon.y{background:rgba(245,158,11,.12);color:#f59e0b}
+.wn-feature-head span{font-size:13.5px;font-weight:800;color:var(--tx-1)}
+.wn-feature-list{list-style:none;display:flex;flex-direction:column;gap:6px;padding-right:39px}
+.wn-feature-list li{
+  position:relative;padding-right:16px;font-size:12.5px;color:var(--tx-2);line-height:1.6;
+}
+.wn-feature-list li::before{
+  content:'✓';position:absolute;right:0;top:0;color:var(--ok);font-weight:800;font-size:11px;
+}
+
+@media(max-width:600px){
+  .whats-new-modal{width:94vw;max-height:88vh}
+  .whats-new-header,.whats-new-tabs,.whats-new-body{padding-left:16px;padding-right:16px}
+}
+
 
 /* Ports */
 .port{
@@ -473,10 +591,8 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
 .port.out:hover{transform:translateY(-50%) scale(1.5)}
 .port.out-b{bottom:-7px;left:50%;transform:translateX(-50%);background:var(--err)}
 .port.out-b:hover{transform:translateX(-50%) scale(1.5)}
-/* port label tooltips */
-.port.out::after{content:"نعم";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--brand-3);white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;font-family:'Cairo',sans-serif}
-.port.out-b::after{content:"لا";position:absolute;left:50%;bottom:18px;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--err);white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;font-family:'Cairo',sans-serif}
-.node:hover .port.out::after,.node:hover .port.out-b::after{opacity:1}
+/* port label tooltip — kept minimal; branch ports are already self-labeled
+   by the text in their row, so no extra tooltip needed there. */
 
 /* Canvas Controls */
 .cv-ctrls{
@@ -2037,23 +2153,27 @@ function updateUndoRedoBtns() {
 
 // ── Port position — uses offsetLeft/offsetTop (stable, no getBoundingClientRect) ──
 function getPortPos(nodeEl, portSelector) {
-  const canvas = nodeEl.parentElement;
-  // Find all matching ports
   const port = nodeEl.querySelector(portSelector);
   if (!port) return null;
 
-  // Position relative to canvas using offsetLeft + port's own offset
-  const nodeLeft = nodeEl.offsetLeft;
-  const nodeTop  = nodeEl.offsetTop;
-  const portLeft = port.offsetLeft;
-  const portTop  = port.offsetTop;
+  // Walk up the offsetParent chain from the port until we reach nodeEl itself,
+  // accumulating offsets along the way. This makes the position correct no
+  // matter how deeply the port is nested (standard edge ports sit directly on
+  // the node, while branch ports are nested inside .branch-row → .node-body).
+  let x = 0, y = 0;
+  let el = port;
+  let guard = 0;
+  while (el && el !== nodeEl && guard < 20) {
+    x += el.offsetLeft;
+    y += el.offsetTop;
+    el = el.offsetParent;
+    guard++;
+  }
+
   const pw = port.offsetWidth  || 14;
   const ph = port.offsetHeight || 14;
 
-  return {
-    x: nodeLeft + portLeft + pw / 2,
-    y: nodeTop  + portTop  + ph / 2
-  };
+  return { x: x + pw / 2, y: y + ph / 2 };
 }
 
 function portSelector(portCls) {
@@ -2063,10 +2183,13 @@ function portSelector(portCls) {
 }
 
 function makeBezier(sx, sy, ex, ey) {
-  const dx = Math.abs(ex - sx);
-  const dy = Math.abs(ey - sy);
-  // horizontal bezier when mostly horizontal, else use offset
-  const offset = Math.max(dx * 0.5, 60);
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  // Balanced control-point offset: scales with both horizontal distance and
+  // overall connection length, clamped to a pleasant min/max so curves never
+  // look too flat (long horizontal runs) or too sharp (short/steep runs).
+  const offset = Math.min(140, Math.max(50, Math.abs(dx) * 0.45 + dist * 0.12));
   const cx1 = sx + offset;
   const cx2 = ex - offset;
   return `M${sx},${sy} C${cx1},${sy} ${cx2},${ey} ${ex},${ey}`;
@@ -2090,12 +2213,21 @@ function redrawConns(cv) {
     const toNode   = cvNodes.find(n => n.id === c.to);
     if (!fromNode || !toNode) return;
 
-    const s = getPortPos(fromNode.el, portSelector(c.fromPort || 'port out'));
-    const e = getPortPos(toNode.el,   portSelector(c.toPort   || 'port in'));
-    if (!s || !e) return;
+    const sLocal = getPortPos(fromNode.el, portSelector(c.fromPort || 'port out'));
+    const eLocal = getPortPos(toNode.el,   portSelector(c.toPort   || 'port in'));
+    if (!sLocal || !eLocal) return;
+
+    // getPortPos returns a position relative to the node element itself;
+    // add the node's own offset (relative to the zoom layer) to get final
+    // canvas-space coordinates for the SVG path.
+    const s = { x: fromNode.el.offsetLeft + sLocal.x, y: fromNode.el.offsetTop + sLocal.y };
+    const e = { x: toNode.el.offsetLeft   + eLocal.x, y: toNode.el.offsetTop   + eLocal.y };
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    const isFalseBranch = (c.fromPort || '').includes('out-b');
+    // "False" branches (the 2nd port on a 2-branch condition node, kept for
+    // backward compatibility with older saved flows) render in red like before.
+    // New multi-branch ports (branch-port-*) all render in the normal brand color.
+    const isFalseBranch = (c.fromPort || '') === 'port out-b';
     path.setAttribute('class', 'conn-path' + (isFalseBranch ? ' false-branch' : ''));
     path.setAttribute('marker-end', `url(#${arrId(cv)}${isFalseBranch ? '-false' : ''})`);
     path.setAttribute('d', makeBezier(s.x, s.y, e.x, e.y));
@@ -2186,13 +2318,11 @@ function renderMessageBody(id, cv, data) {
   } else if (ctype === 'list') {
     fields = `<div class="node-lbl">عنوان القائمة</div>
       <input class="node-inp" placeholder="اختر من القائمة..." value="${esc(data?.listTitle)}" onchange="updateNodeData('${id}','${cv}','listTitle',this.value)">
-      <div class="node-lbl" style="margin-top:6px">الخيارات (سطر لكل خيار)</div>
-      <textarea class="node-inp ta" placeholder="الخيار الأول&#10;الخيار الثاني" onchange="updateNodeData('${id}','${cv}','listOptions',this.value)">${esc(data?.listOptions)}</textarea>`;
+      ${renderBranchesBody(id, cv, data, 'list')}`;
   } else if (ctype === 'buttons') {
     fields = `<div class="node-lbl">نص الرسالة</div>
       <input class="node-inp" placeholder="اختر أحد الخيارات..." value="${esc(data?.text)}" onchange="updateNodeData('${id}','${cv}','text',this.value)">
-      <div class="node-lbl" style="margin-top:6px">الأزرار (سطر لكل زر، حتى 3)</div>
-      <textarea class="node-inp ta" placeholder="نعم&#10;لا&#10;لاحقاً" onchange="updateNodeData('${id}','${cv}','buttonsList',this.value)">${esc(data?.buttonsList)}</textarea>`;
+      ${renderBranchesBody(id, cv, data, 'buttons')}`;
   } else if (ctype === 'urlbtn') {
     fields = `<div class="node-lbl">نص الزر</div>
       <input class="node-inp" placeholder="زورونا الآن" value="${esc(data?.btnLabel)}" onchange="updateNodeData('${id}','${cv}','btnLabel',this.value)">
@@ -2212,6 +2342,94 @@ function renderMessageBody(id, cv, data) {
 
   return `<div class="content-type-row">${changeBtn}</div>${fields}`;
 }
+
+// ── Dynamic branches: powers condition / list / buttons nodes.
+//    Each row = one outgoing port, generated/removed as the user
+//    adds or deletes options. Branch data is stored as an array on
+//    the node: data.branches = [{id, label, value}, ...]
+function getBranches(data, kind) {
+  if (Array.isArray(data?.branches) && data.branches.length) return data.branches;
+  // Sensible defaults so a freshly-added node isn't empty
+  if (kind === 'condition') return [{ id:'br1', label:'الشرط الأول', value:'' }];
+  if (kind === 'list')      return [{ id:'br1', label:'الخيار الأول', value:'' }];
+  if (kind === 'buttons')   return [{ id:'br1', label:'نعم', value:'' }];
+  return [];
+}
+
+function renderBranchesBody(id, cv, data, kind) {
+  const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const branches = getBranches(data, kind);
+  const maxReached = kind === 'buttons' && branches.length >= 3;
+
+  const labelText = kind === 'condition' ? 'الفروع (كل فرع له شرط مستقل)'
+                   : kind === 'list'      ? 'خيارات القائمة'
+                   : 'الأزرار (حتى 3 أزرار)';
+
+  const placeholder = kind === 'condition' ? 'مثال: تحتوي على "سعر"'
+                     : kind === 'list'      ? 'نص الخيار...'
+                     : 'نص الزر...';
+
+  const rows = branches.map((br, i) => `
+    <div class="branch-row" data-branch-id="${br.id}">
+      <span class="branch-row-num">${i+1}</span>
+      <input class="node-inp branch-row-input" placeholder="${placeholder}"
+        value="${esc(br.label)}"
+        onchange="updateBranchLabel('${id}','${cv}','${br.id}',this.value)">
+      ${branches.length > 1 ? `
+        <button type="button" class="branch-row-remove" onclick="removeBranch('${id}','${cv}','${br.id}')" title="حذف">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>` : ''}
+      <div class="port out branch-port-${br.id}" data-node="${id}" data-cv="${cv}" data-branch="${br.id}"></div>
+    </div>
+  `).join('');
+
+  const addBtn = maxReached ? '' : `
+    <button type="button" class="branch-add-btn" onclick="addBranch('${id}','${cv}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>${kind === 'condition' ? 'إضافة فرع' : kind === 'buttons' ? 'إضافة زر' : 'إضافة خيار'}</span>
+    </button>`;
+
+  return `<div class="node-lbl" style="margin-top:6px">${labelText}</div>
+    <div class="branches-list">${rows}</div>
+    ${addBtn}`;
+}
+
+window.addBranch = function(id, cv) {
+  ['mini','fs'].forEach(c => {
+    const n = STATE.nodes.find(n => n.id === id && n.cv === c);
+    if (!n) return;
+    const branches = getBranches(n.data, n.type === 'condition' ? 'condition' : (n.data.contentType||'list'));
+    const kind = n.type === 'condition' ? 'condition' : n.data.contentType;
+    if (kind === 'buttons' && branches.length >= 3) return;
+    const newId = 'br' + Date.now().toString(36) + Math.floor(Math.random()*1000);
+    n.data.branches = [...branches, { id: newId, label: '', value: '' }];
+  });
+  refreshNodeBody(id, cv);
+};
+
+window.removeBranch = function(id, cv, branchId) {
+  ['mini','fs'].forEach(c => {
+    const n = STATE.nodes.find(n => n.id === id && n.cv === c);
+    if (!n) return;
+    const branches = getBranches(n.data, n.type === 'condition' ? 'condition' : (n.data.contentType||'list'));
+    if (branches.length <= 1) return; // always keep at least one branch
+    n.data.branches = branches.filter(b => b.id !== branchId);
+    // Remove any connections that were attached to this branch's port
+    const portClass = `port out branch-port-${branchId}`;
+    STATE.conns = STATE.conns.filter(conn => !(conn.cv === c && conn.from === id && conn.fromPort === portClass));
+  });
+  refreshNodeBody(id, cv);
+};
+
+window.updateBranchLabel = function(id, cv, branchId, val) {
+  ['mini','fs'].forEach(c => {
+    const n = STATE.nodes.find(n => n.id === id && n.cv === c);
+    if (!n) return;
+    const branches = getBranches(n.data, n.type === 'condition' ? 'condition' : (n.data.contentType||'list'));
+    const br = branches.find(b => b.id === branchId);
+    if (br) br.label = val;
+  });
+};
 
 function renderTriggerBody(id, cv, data) {
   const anyMsg = data?.triggerMode === 'any';
@@ -2317,14 +2535,7 @@ function _addNodeInternal(cv, type, x, y, data, fixedId) {
   } else if (type === 'message' || type === 'ai') {
     bodyHTML = renderMessageBody(id, cv, data);
   } else if (type === 'condition') {
-    bodyHTML = `<div class="node-lbl">نوع الشرط</div>
-    <select class="node-inp" onchange="updateNodeData('${id}','${cv}','cond',this.value)">
-      <option value="contains">الرسالة تحتوي على</option>
-      <option value="equals">الرسالة تساوي</option>
-      <option value="new_user">مستخدم جديد</option>
-      <option value="after_hours">بعد ساعات العمل</option>
-    </select>
-    <input class="node-inp" style="margin-top:4px" placeholder="القيمة..." value="${esc(data?.condVal)}" onchange="updateNodeData('${id}','${cv}','condVal',this.value)">`;
+    bodyHTML = renderBranchesBody(id, cv, data, 'condition');
   } else if (type === 'delay') {
     bodyHTML = `<div class="node-lbl">مدة التأخير (ثواني)</div>
     <input type="number" class="node-inp" value="${esc(data?.delay||5)}" min="1" max="300" onchange="updateNodeData('${id}','${cv}','delay',this.value)">`;
@@ -2341,7 +2552,11 @@ function _addNodeInternal(cv, type, x, y, data, fixedId) {
     </select>`;
   }
 
-  const hasOut2 = type === 'condition';
+  // Nodes whose outgoing connections are rendered as inline per-branch ports
+  // (inside the body itself) should NOT also get the standard edge "port out" —
+  // that's: condition nodes, and message nodes set to list/buttons content.
+  const usesBranchPorts = type === 'condition' ||
+    ((type === 'message' || type === 'ai') && (data?.contentType === 'list' || data?.contentType === 'buttons'));
 
   el.innerHTML = `
     <div class="port in" data-node="${id}" data-cv="${cv}"></div>
@@ -2353,8 +2568,7 @@ function _addNodeInternal(cv, type, x, y, data, fixedId) {
       </button>
     </div>
     <div class="node-body">${bodyHTML||`<span style="color:var(--tx-3);font-size:11px">${cfg.label}</span>`}</div>
-    <div class="port out" data-node="${id}" data-cv="${cv}"></div>
-    ${hasOut2 ? `<div class="port out-b" data-node="${id}" data-cv="${cv}" title="لا (False)"></div>` : ''}
+    ${usesBranchPorts ? '' : `<div class="port out" data-node="${id}" data-cv="${cv}"></div>`}
   `;
 
   layer.appendChild(el);
@@ -2422,7 +2636,10 @@ function makeDraggable(el, cv) {
 }
 
 function initPortDrag(el, cv) {
-  el.querySelectorAll('.port.out, .port.out-b').forEach(port => {
+  // Covers the standard edge "port out" AND every dynamically generated
+  // branch port (which all carry the shared "out" class plus a unique
+  // branch-port-{id} class), so this stays correct as branches are added/removed.
+  el.querySelectorAll('.port.out').forEach(port => {
     port.addEventListener('mousedown', e => {
       e.stopPropagation(); e.preventDefault();
 
@@ -2432,9 +2649,11 @@ function initPortDrag(el, cv) {
       const layerRect = layer.getBoundingClientRect();
       const zoom = STATE.zoom[cv] || 1;
 
-      // Use offset positions relative to the zoom layer (unscaled local coords)
-      const s = getPortPos(el, portSelector(fromPortCls));
-      if (!s) return;
+      // getPortPos returns position relative to the node itself; add the
+      // node's own offset (relative to the zoom layer) for canvas-space coords.
+      const sLocal = getPortPos(el, portSelector(fromPortCls));
+      if (!sLocal) return;
+      const s = { x: el.offsetLeft + sLocal.x, y: el.offsetTop + sLocal.y };
 
       const tempPath = document.createElementNS('http://www.w3.org/2000/svg','path');
       tempPath.setAttribute('class','conn-path temp');
@@ -2745,6 +2964,159 @@ window.toggleTheme = function() {
 };
 
 // ══════════════════════════════════════════════════════
+//  WHAT'S NEW — single source of truth for the changelog.
+//  To ship a new update: add ONE entry to the TOP of this
+//  array. The button badge, modal list, and "latest" tag
+//  all update automatically — no other code changes needed.
+// ══════════════════════════════════════════════════════
+const WHATS_NEW_LOG = [
+  {
+    version: 'v1.0.0',
+    date: '2026-06-21',
+    title: 'إطلاق محرر التدفقات المرئي ونظام الربط متعدد الأرقام',
+    items: [
+      'محرر تدفق بصري بالسحب والإفلات مع توصيلات SVG حقيقية بين العقد.',
+      'دعم فتح المحرر في شاشة ملء الكاملة للعمل على التدفقات الكبيرة بسهولة.',
+      'تراجع/إعادة (Ctrl+Z / Ctrl+Y) لكل تعديل في التدفق، مع تكبير وتصغير وتحريك الكانفاس.',
+      'كل رقم واتساب مربوط له تدفق وإعدادات منفصلة تماماً عن باقي الأرقام.',
+      'محفّز الرسالة يدعم وضعين: كلمات محددة، أو أي رسالة يرسلها العميل بدون شرط.',
+      'عقدة "إرسال رسالة" تدعم 10 أنواع محتوى: نص، صورة، فيديو، صوت، ملف، موقع، قائمة اختيار، أزرار سريعة، زر رابط، وطلب إدخال من العميل.',
+      'تبديل فوري بين الوضع الفاتح والداكن، متوافق مع هوية مدعوم البصرية.',
+    ],
+  },
+];
+
+// Feature catalog — grouped reference of everything currently usable
+const FEATURE_CATALOG = [
+  {
+    group: 'محرر التدفقات',
+    icon: `<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/>`,
+    color: 'b',
+    items: [
+      'سحب وإفلات عناصر التدفق من القائمة الجانبية مباشرة على الكانفاس',
+      'ربط العقد ببعضها بسحب خط من نقطة الخروج إلى نقطة الدخول',
+      'فتح المحرر في وضع ملء الشاشة للتعديلات الكبيرة',
+      'تراجع وإعادة غير محدودين بـ Ctrl+Z و Ctrl+Y',
+      'تكبير/تصغير وتحريك الكانفاس بحرية (اسحب الخلفية الفارغة)',
+      'حذف عقدة أو توصيلة محددة بزر Delete',
+    ],
+  },
+  {
+    group: 'محفّز الرسالة',
+    icon: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
+    color: 'g',
+    items: [
+      'تشغيل التدفق عند كلمات محددة مفصولة بفواصل',
+      'تشغيل التدفق على أي رسالة من العميل بدون أي شرط',
+    ],
+  },
+  {
+    group: 'إرسال الرسائل',
+    icon: `<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`,
+    color: 'p',
+    items: [
+      'رسالة نصية بسيطة',
+      'صورة أو فيديو أو ملف صوتي أو مستند عبر رابط مباشر',
+      'مشاركة موقع جغرافي بإحداثيات واسم',
+      'قائمة اختيار يقدر العميل يختار منها',
+      'أزرار رد سريع (حتى 3 أزرار)',
+      'زر يفتح رابطاً خارجياً',
+      'طلب إدخال نص أو رقم أو بريد إلكتروني من العميل',
+    ],
+  },
+  {
+    group: 'إدارة متعددة الأرقام',
+    icon: `<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>`,
+    color: 'y',
+    items: [
+      'عرض كل أرقام الواتساب المربوطة بحسابك في قائمة منسدلة أعلى الصفحة',
+      'تبديل الرقم النشط بضغطة واحدة',
+      'كل رقم له تدفق وقواعد رد وإعدادات منفصلة تماماً',
+    ],
+  },
+  {
+    group: 'التحليلات والإعدادات',
+    icon: `<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`,
+    color: 'b',
+    items: [
+      'إحصائيات يومية فورية لعدد الرسائل الواردة والصادرة',
+      'رسم بياني لتوزيع الرسائل على آخر 7 أيام',
+      'تفعيل/إيقاف الرد الآلي، الذكاء الاصطناعي، والذاكرة الذكية لكل رقم',
+      'ضبط مدة تأخير الرد ورسالة الترحيب الافتراضية',
+    ],
+  },
+];
+
+const WN_STORAGE_KEY = 'mad3oom_whats_new_seen_version';
+
+function getLatestVersion() {
+  return WHATS_NEW_LOG[0]?.version || '';
+}
+
+function checkWhatsNewBadge() {
+  const seen = localStorage.getItem(WN_STORAGE_KEY);
+  const dot = document.getElementById('whatsNewDot');
+  if (!dot) return;
+  dot.classList.toggle('show', seen !== getLatestVersion());
+}
+
+window.openWhatsNew = function() {
+  document.getElementById('whatsNewOverlay').classList.add('open');
+  switchWnTab('updates');
+  // Mark as seen
+  localStorage.setItem(WN_STORAGE_KEY, getLatestVersion());
+  document.getElementById('whatsNewDot')?.classList.remove('show');
+};
+
+window.closeWhatsNew = function() {
+  document.getElementById('whatsNewOverlay').classList.remove('open');
+};
+
+window.switchWnTab = function(tab) {
+  document.querySelectorAll('.wn-tab').forEach(b => b.classList.toggle('active', b.dataset.wntab === tab));
+  const body = document.getElementById('whatsNewBody');
+  body.innerHTML = tab === 'updates' ? renderWnUpdates() : renderWnFeatures();
+};
+
+function renderWnUpdates() {
+  return WHATS_NEW_LOG.map((entry, i) => `
+    <div class="wn-entry">
+      <div class="wn-entry-head">
+        <span class="wn-version">${entry.version}</span>
+        ${i === 0 ? '<span class="wn-latest-tag">الأحدث</span>' : ''}
+        <span class="wn-date">${formatWnDate(entry.date)}</span>
+      </div>
+      <div class="wn-entry-title">${entry.title}</div>
+      <ul class="wn-entry-list">
+        ${entry.items.map(it => `<li>${it}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+function renderWnFeatures() {
+  return FEATURE_CATALOG.map(g => `
+    <div class="wn-feature-group">
+      <div class="wn-feature-head">
+        <div class="wn-feature-icon ${g.color}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${g.icon}</svg>
+        </div>
+        <span>${g.group}</span>
+      </div>
+      <ul class="wn-feature-list">
+        ${g.items.map(it => `<li>${it}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+function formatWnDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+  } catch(e) { return iso; }
+}
+
+// ══════════════════════════════════════════════════════
 //  TOAST
 // ══════════════════════════════════════════════════════
 let toastTimer;
@@ -2760,6 +3132,7 @@ function toast(msg, type='ok') {
 //  INIT
 // ══════════════════════════════════════════════════════
 async function init() {
+  checkWhatsNewBadge(); // independent of auth — works even before/without login
   const ok = await initSupa();
   if (ok) {
     await loadAll(); // loadAll → applySettings → loadFlowIntoCanvases handles
