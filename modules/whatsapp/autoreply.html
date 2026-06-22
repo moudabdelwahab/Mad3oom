@@ -1069,6 +1069,16 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
                 ملء الشاشة
               </button>
               <button class="btn btn-s btn-sm" onclick="clearCanvas('mini')">مسح</button>
+              <div style="width:1px;height:20px;background:var(--bd-2)"></div>
+              <button class="btn btn-g btn-sm" onclick="exportFlowExcel()" title="تصدير التدفق إلى Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                تصدير
+              </button>
+              <label class="btn btn-g btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px" title="استيراد تدفق من Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                استيراد
+                <input type="file" accept=".xlsx,.csv" style="display:none" onchange="importFlowExcel(this)">
+              </label>
               <button class="btn btn-p btn-sm" onclick="saveFlow()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 حفظ
@@ -1302,6 +1312,15 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
         <button class="btn btn-g btn-sm undo-btn" onclick="undoFlow()" title="تراجع (Ctrl+Z)" disabled><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
         <button class="btn btn-g btn-sm redo-btn" onclick="redoFlow()" title="إعادة (Ctrl+Y)" disabled><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
         <button class="btn btn-s btn-sm" onclick="clearCanvas('fs')">مسح الكل</button>
+        <button class="btn btn-g btn-sm" onclick="exportFlowExcel()" title="تصدير إلى Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          تصدير
+        </button>
+        <label class="btn btn-g btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px" title="استيراد من Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          استيراد
+          <input type="file" accept=".xlsx,.csv" style="display:none" onchange="importFlowExcel(this)">
+        </label>
         <button class="btn btn-p btn-sm" onclick="saveFlow()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg> حفظ</button>
         <div style="width:1px;height:20px;background:var(--bd-2)"></div>
         <button class="fs-close" onclick="closeFlowModal()">
@@ -3396,6 +3415,200 @@ function toast(msg, type='ok') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
+
+// ══════════════════════════════════════════════════════
+//  IMPORT / EXPORT — Excel (xlsx) using SheetJS
+//  Sheet "Nodes"       → id | type | title | text | media_url | variable | metadata
+//  Sheet "Connections" → from_node | output | to_node
+// ══════════════════════════════════════════════════════
+
+// Lazily load SheetJS from CDN once, cache the promise.
+let _xlsxReady = null;
+function loadXLSX() {
+  if (_xlsxReady) return _xlsxReady;
+  _xlsxReady = new Promise((resolve, reject) => {
+    if (window.XLSX) { resolve(window.XLSX); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload  = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('فشل تحميل مكتبة Excel'));
+    document.head.appendChild(s);
+  });
+  return _xlsxReady;
+}
+
+// ── EXPORT ──────────────────────────────────────────────
+window.exportFlowExcel = async function() {
+  try {
+    const XLSX = await loadXLSX();
+    const flow = serializeFlow();         // [{id,type,x,y,...data,connections:[]}]
+    if (!flow.length) { toast('التدفق فارغ — لا يوجد شيء للتصدير', 'info'); return; }
+
+    // ── Sheet 1: Nodes ──────────────────────────────────
+    const nodeRows = flow.map(n => {
+      // Collect human-readable content per node type
+      const title   = n.listTitle || n.label || '';
+      const text    = n.text || n.keywords || n.condVal || n.delay || n.url || '';
+      const mediaUrl = n.mediaUrl || '';
+      const variable = n.inputType  || n.triggerMode || '';
+
+      // Pack any extra data (branches etc.) as compact JSON in metadata column
+      const meta = {};
+      if (Array.isArray(n.branches) && n.branches.length) meta.branches = n.branches;
+      if (n.contentType) meta.contentType = n.contentType;
+      if (n.cond)        meta.cond = n.cond;
+      if (n.lat)         meta.lat  = n.lat;
+      if (n.lng)         meta.lng  = n.lng;
+      if (n.locationName) meta.locationName = n.locationName;
+      if (n.btnLabel)    meta.btnLabel = n.btnLabel;
+      if (n.caption)     meta.caption  = n.caption;
+      if (n.listOptions) meta.listOptions = n.listOptions;
+      if (n.buttonsList) meta.buttonsList = n.buttonsList;
+      if (n.welcome_message) meta.welcome_message = n.welcome_message;
+      // Preserve layout position so re-import restores node placement
+      meta._x = n.x || 0;
+      meta._y = n.y || 0;
+
+      return {
+        id:         n.id,
+        type:       n.type,
+        title:      title,
+        text:       text,
+        media_url:  mediaUrl,
+        variable:   variable,
+        metadata:   Object.keys(meta).length ? JSON.stringify(meta) : '',
+      };
+    });
+
+    // ── Sheet 2: Connections ────────────────────────────
+    const connRows = [];
+    flow.forEach(n => {
+      (n.connections || []).forEach(c => {
+        connRows.push({
+          from_node: n.id,
+          output:    c.port || 'port out',   // e.g. "port out branch-port-br1"
+          to_node:   c.to,
+        });
+      });
+    });
+
+    // ── Build workbook ──────────────────────────────────
+    const wb = XLSX.utils.book_new();
+    const wsNodes = XLSX.utils.json_to_sheet(nodeRows, {
+      header: ['id','type','title','text','media_url','variable','metadata'],
+    });
+    const wsConns = XLSX.utils.json_to_sheet(connRows.length ? connRows : [{ from_node:'', output:'', to_node:'' }], {
+      header: ['from_node','output','to_node'],
+    });
+
+    // Column widths for readability
+    wsNodes['!cols'] = [14,12,22,40,30,14,50].map(w => ({ wch: w }));
+    wsConns['!cols'] = [20,35,20].map(w => ({ wch: w }));
+
+    XLSX.utils.book_append_sheet(wb, wsNodes, 'Nodes');
+    XLSX.utils.book_append_sheet(wb, wsConns, 'Connections');
+
+    const ts   = new Date().toISOString().slice(0,10);
+    const name = `autoreply-flow-${ts}.xlsx`;
+    XLSX.writeFile(wb, name);
+    toast(`✓ تم تصدير التدفق: ${name}`, 'ok');
+  } catch(e) {
+    console.error('exportFlowExcel:', e);
+    toast('خطأ في التصدير: ' + e.message, 'err');
+  }
+};
+
+// ── IMPORT ──────────────────────────────────────────────
+window.importFlowExcel = async function(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  // Reset file input so the same file can be imported again if needed
+  input.value = '';
+
+  try {
+    const XLSX = await loadXLSX();
+
+    const data = await file.arrayBuffer();
+    const wb   = XLSX.read(data, { type: 'array' });
+
+    const nsName = wb.SheetNames.find(n => /node/i.test(n));
+    const csName = wb.SheetNames.find(n => /conn/i.test(n));
+    if (!nsName) { toast('لم يتم العثور على Sheet "Nodes" في الملف', 'err'); return; }
+
+    const rawNodes = XLSX.utils.sheet_to_json(wb.Sheets[nsName], { defval: '' });
+    const rawConns = csName ? XLSX.utils.sheet_to_json(wb.Sheets[csName], { defval: '' }) : [];
+
+    if (!rawNodes.length) { toast('Sheet Nodes فارغ', 'err'); return; }
+
+    if (!confirm(`استيراد ${rawNodes.length} عقدة و${rawConns.length} اتصال؟\nسيتم استبدال التدفق الحالي.`)) return;
+
+    // ── Parse nodes ────────────────────────────────────
+    const idMap  = {};  // original id → new id (for idempotency with existing ids)
+    const newFlow = [];
+
+    rawNodes.forEach((row, i) => {
+      const origId = String(row.id || '').trim();
+      // Preserve id if it looks like one of ours (n### or a short alphanumeric)
+      // otherwise generate a safe one
+      const safeId = /^[a-zA-Z0-9_-]{1,32}$/.test(origId) ? origId : 'n' + (STATE.nextId + i);
+      idMap[origId] = safeId;
+
+      // Parse metadata JSON
+      let meta = {};
+      try { if (row.metadata) meta = JSON.parse(row.metadata); } catch(_) {}
+
+      const x = typeof meta._x === 'number' ? meta._x : 60 + (i % 5) * 260;
+      const y = typeof meta._y === 'number' ? meta._y : 80 + Math.floor(i / 5) * 200;
+
+      // Build data object matching our node format
+      const nodeData = {
+        // Text / keyword fields
+        keywords:     (row.type === 'trigger') ? (row.text || '') : undefined,
+        text:         (row.type !== 'trigger') ? (row.text || '') : undefined,
+        listTitle:    row.title || '',
+        mediaUrl:     row.media_url || '',
+        url:          row.media_url || '',
+        triggerMode:  (row.type === 'trigger' && row.variable) ? row.variable : undefined,
+        inputType:    (row.type === 'input')  ? (row.variable || 'text') : undefined,
+        condVal:      (row.type === 'condition' && !meta.branches) ? row.text : undefined,
+        delay:        (row.type === 'delay')  ? row.text : undefined,
+        btnLabel:     meta.btnLabel   || '',
+        caption:      meta.caption    || '',
+        locationName: meta.locationName || '',
+        lat:          meta.lat || '',
+        lng:          meta.lng || '',
+        listOptions:  meta.listOptions  || '',
+        buttonsList:  meta.buttonsList  || '',
+        contentType:  meta.contentType  || (row.type === 'message' ? 'text' : undefined),
+        cond:         meta.cond || undefined,
+        branches:     Array.isArray(meta.branches) ? meta.branches : undefined,
+        // Remove undefined keys
+      };
+      // Clean undefined
+      Object.keys(nodeData).forEach(k => { if (nodeData[k] === undefined) delete nodeData[k]; });
+
+      newFlow.push({ id: safeId, type: row.type || 'message', x, y, data: nodeData, connections: [] });
+    });
+
+    // ── Parse connections ───────────────────────────────
+    rawConns.forEach(row => {
+      const fromId = idMap[String(row.from_node || '').trim()];
+      const toId   = idMap[String(row.to_node   || '').trim()];
+      if (!fromId || !toId) return;
+      const port = String(row.output || 'port out').trim();
+      const fromNode = newFlow.find(n => n.id === fromId);
+      if (fromNode) fromNode.connections.push({ to: toId, port });
+    });
+
+    // ── Load into canvases ──────────────────────────────
+    pushHistory('mini'); pushHistory('fs');
+    loadFlowIntoCanvases(newFlow.map(n => ({ ...n.data, id: n.id, type: n.type, x: n.x, y: n.y, connections: n.connections })));
+    toast(`✓ تم استيراد ${rawNodes.length} عقدة و${rawConns.length} اتصال`, 'ok');
+  } catch(e) {
+    console.error('importFlowExcel:', e);
+    toast('خطأ في الاستيراد: ' + e.message, 'err');
+  }
+};
 
 // ══════════════════════════════════════════════════════
 //  INIT
