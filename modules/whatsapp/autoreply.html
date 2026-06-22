@@ -2229,28 +2229,21 @@ function updateUndoRedoBtns() {
 }
 
 // ── Port position — uses offsetLeft/offsetTop (stable, no getBoundingClientRect) ──
-function getPortPos(nodeEl, portSelector) {
-  const port = nodeEl.querySelector(portSelector);
+function getPortPos(nodeEl, portSel, zoom) {
+  const port = nodeEl.querySelector(portSel);
   if (!port) return null;
 
-  // Walk up the offsetParent chain from the port until we reach nodeEl itself,
-  // accumulating offsets along the way. This makes the position correct no
-  // matter how deeply the port is nested (standard edge ports sit directly on
-  // the node, while branch ports are nested inside .branch-row → .node-body).
-  let x = 0, y = 0;
-  let el = port;
-  let guard = 0;
-  while (el && el !== nodeEl && guard < 20) {
-    x += el.offsetLeft;
-    y += el.offsetTop;
-    el = el.offsetParent;
-    guard++;
-  }
+  // getBoundingClientRect returns zoomed screen-space coords.
+  // Dividing the difference by zoom converts it to unscaled node-local space,
+  // which matches the offsetLeft/offsetTop coordinate system used for SVG paths.
+  const z = zoom || 1;
+  const nodeRect = nodeEl.getBoundingClientRect();
+  const portRect = port.getBoundingClientRect();
 
-  const pw = port.offsetWidth  || 14;
-  const ph = port.offsetHeight || 14;
-
-  return { x: x + pw / 2, y: y + ph / 2 };
+  return {
+    x: ((portRect.left - nodeRect.left) + portRect.width  / 2) / z,
+    y: ((portRect.top  - nodeRect.top)  + portRect.height / 2) / z,
+  };
 }
 
 function portSelector(portCls) {
@@ -2285,18 +2278,16 @@ function redrawConns(cv) {
   const hint = document.getElementById('emptyHint-' + cv);
   if (hint) hint.style.display = cvNodes.length === 0 ? 'flex' : 'none';
 
+  const zoom = STATE.zoom[cv] || 1;
   STATE.conns.filter(c => c.cv === cv).forEach(c => {
     const fromNode = cvNodes.find(n => n.id === c.from);
     const toNode   = cvNodes.find(n => n.id === c.to);
     if (!fromNode || !toNode) return;
 
-    const sLocal = getPortPos(fromNode.el, portSelector(c.fromPort || 'port out'));
-    const eLocal = getPortPos(toNode.el,   portSelector(c.toPort   || 'port in'));
+    const sLocal = getPortPos(fromNode.el, portSelector(c.fromPort || 'port out'), zoom);
+    const eLocal = getPortPos(toNode.el,   portSelector(c.toPort   || 'port in'),  zoom);
     if (!sLocal || !eLocal) return;
 
-    // getPortPos returns a position relative to the node element itself;
-    // add the node's own offset (relative to the zoom layer) to get final
-    // canvas-space coordinates for the SVG path.
     const s = { x: fromNode.el.offsetLeft + sLocal.x, y: fromNode.el.offsetTop + sLocal.y };
     const e = { x: toNode.el.offsetLeft   + eLocal.x, y: toNode.el.offsetTop   + eLocal.y };
 
@@ -2734,7 +2725,7 @@ function initPortDrag(el, cv) {
 
     // getPortPos returns position relative to the node itself; add the
     // node's own offset (relative to the zoom layer) for canvas-space coords.
-    const sLocal = getPortPos(el, portSelector(fromPortCls));
+    const sLocal = getPortPos(el, portSelector(fromPortCls), zoom);
     if (!sLocal) return;
     const s = { x: el.offsetLeft + sLocal.x, y: el.offsetTop + sLocal.y };
 
