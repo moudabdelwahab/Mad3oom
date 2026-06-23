@@ -1079,6 +1079,10 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
                 استيراد
                 <input type="file" accept=".xlsx,.csv" style="display:none" onchange="importFlowExcel(this)">
               </label>
+              <button class="btn btn-g btn-sm" onclick="openSaveAsTemplate()" title="حفظ التدفق الحالي كقالب">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M12 12v6m-3-3h6"/></svg>
+                حفظ كقالب
+              </button>
               <button class="btn btn-p btn-sm" onclick="saveFlow()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 حفظ
@@ -1457,6 +1461,48 @@ html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg-base);c
       <button class="wn-tab" data-wntab="features" onclick="switchWnTab('features')">كل المزايا</button>
     </div>
     <div class="whats-new-body" id="whatsNewBody"></div>
+  </div>
+</div>
+
+<!-- TEMPLATE SAVE / EDIT MODAL -->
+<div class="fs-overlay" id="tplSaveOverlay" style="z-index:1600" onclick="if(event.target===this)closeTplModal()">
+  <div style="width:min(480px,92vw);background:var(--bg-surface);border:1px solid var(--bd-2);border-radius:var(--r-xl);box-shadow:var(--sh-xl);overflow:hidden">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--bd-1);display:flex;align-items:center;gap:10px">
+      <div style="font-size:15px;font-weight:800;color:var(--tx-1)" id="tplModalTitle">حفظ كقالب</div>
+      <button class="fs-close" onclick="closeTplModal()" style="margin-right:auto">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="padding:22px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div class="node-lbl">اسم القالب <span style="color:var(--err)">*</span></div>
+        <input class="node-inp" id="tplName" placeholder="مثال: تدفق خدمة العملاء" style="margin-top:5px">
+      </div>
+      <div>
+        <div class="node-lbl">وصف مختصر</div>
+        <input class="node-inp" id="tplDesc" placeholder="ما الذي يفعله هذا التدفق؟" style="margin-top:5px">
+      </div>
+      <div>
+        <div class="node-lbl">التصنيف</div>
+        <select class="node-inp" id="tplCategory" style="margin-top:5px">
+          <option value="custom">عام</option>
+          <option value="welcome">ترحيب</option>
+          <option value="support">دعم فني</option>
+          <option value="sales">مبيعات</option>
+          <option value="feedback">تقييمات</option>
+          <option value="lead_generation">توليد عملاء</option>
+          <option value="appointment">مواعيد</option>
+          <option value="faq">أسئلة شائعة</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+        <button class="btn btn-g btn-sm" onclick="closeTplModal()">إلغاء</button>
+        <button class="btn btn-p btn-sm" onclick="confirmSaveTpl()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg>
+          <span id="tplModalBtn">حفظ القالب</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1955,6 +2001,7 @@ function renderTemplates(data) {
     faq: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
     custom: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
   };
+
   const staticTpls = [
     {id:'s1', name_ar:'رسالة الترحيب', description_ar:'رسالة ترحيب تلقائية للعملاء الجدد مع عرض الخدمات', category:'welcome', tags:['خدمة عملاء'],
       flow_data:[{id:'t1',type:'trigger',x:40,y:80,keywords:'مرحبا، أهلا، هلا',connections:[{to:'t2',port:'port out'}]},
@@ -1968,25 +2015,55 @@ function renderTemplates(data) {
                  {id:'t2',type:'condition',x:300,y:80,condVal:'after_hours',connections:[{to:'t3',port:'port out'}]},
                  {id:'t3',type:'message',x:560,y:80,text:'نحن خارج أوقات العمل حالياً. سنرد عليك في أقرب وقت ممكن.',connections:[]}]},
   ];
-  const all = [...(data||[]).map(t=>({...t})), ...staticTpls];
-  document.getElementById('tplGrid').innerHTML = all.map(t => {
-    const c = cats[t.category]||'bl';
-    const ic = icoSvg[t.category]||icoSvg.custom;
-    const tag = (t.tags||[])[0]||t.category||'';
-    return `<div class="tpl-card ${c}" onclick="useTemplate('${t.id}')">
+
+  // Separate user-created templates from static ones
+  const dbTpls     = (data || []).map(t => ({ ...t, _isUser: true }));
+  const all        = [...dbTpls, ...staticTpls];
+
+  const renderCard = (t) => {
+    const c       = cats[t.category] || 'bl';
+    const ic      = icoSvg[t.category] || icoSvg.custom;
+    const tag     = (t.tags || [])[0] || t.category || '';
+    const name    = t.name_ar || t.name || 'قالب';
+    const isUser  = !!t._isUser;
+
+    const actionBtns = isUser ? `
+      <button class="tpl-action-btn edit" onclick="event.stopPropagation();openEditTemplate('${t.id}')" title="تعديل">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+      </button>
+      <button class="tpl-action-btn del" onclick="event.stopPropagation();deleteTemplate('${t.id}','${name.replace(/'/g,"\\'")}')" title="حذف">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>` : '';
+
+    const userBadge = isUser ? `<span class="tpl-user-badge">قالبي</span>` : '';
+
+    return `<div class="tpl-card ${c}${isUser ? ' tpl-card-user' : ''}" onclick="useTemplate('${t.id}')">
       <div class="tpl-ico ${c}" style="color:var(--brand-3)">${ic}</div>
-      <div class="tpl-name">${t.name_ar||t.name||'قالب'}</div>
-      <div class="tpl-desc">${t.description_ar||t.description||''}</div>
+      <div class="tpl-name">${name} ${userBadge}</div>
+      <div class="tpl-desc">${t.description_ar || t.description || ''}</div>
       <div class="tpl-foot">
         <span class="tpl-tag">${tag}</span>
-        <button class="tpl-use" onclick="event.stopPropagation();useTemplate('${t.id}')">
-          استخدم
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </button>
+        <div style="display:flex;gap:5px;align-items:center">
+          ${actionBtns}
+          <button class="tpl-use" onclick="event.stopPropagation();useTemplate('${t.id}')">
+            استخدم
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
       </div>
     </div>`;
-  }).join('');
-  // Store templates for useTemplate() lookup
+  };
+
+  let html = '';
+  // User templates section (only if any exist)
+  if (dbTpls.length) {
+    html += `<div class="tpl-section-label">قوالبي (${dbTpls.length})</div>`;
+    html += dbTpls.map(renderCard).join('');
+    html += `<div class="tpl-section-label" style="margin-top:8px">قوالب افتراضية</div>`;
+  }
+  html += staticTpls.map(renderCard).join('');
+
+  document.getElementById('tplGrid').innerHTML = html;
   window.__TEMPLATES_CACHE = all;
 }
 
@@ -3609,6 +3686,123 @@ window.importFlowExcel = async function(input) {
     toast('خطأ في الاستيراد: ' + e.message, 'err');
   }
 };
+
+// ══════════════════════════════════════════════════════
+//  TEMPLATE MANAGEMENT
+//  - Save current flow as a named template (to flow_templates table)
+//  - Edit name/description/category of own templates
+//  - Delete own templates
+//  - User's own templates shown first with action buttons
+// ══════════════════════════════════════════════════════
+
+let _tplEditId = null; // null = new, uuid = editing existing
+
+// ── Open modal for saving current flow as a new template ──
+window.openSaveAsTemplate = function() {
+  const flow = serializeFlow();
+  if (!flow || !flow.length) { toast('التدفق فارغ — لا يوجد شيء لحفظه', 'info'); return; }
+  if (!sb || !currentUserId) { toast('يجب تسجيل الدخول أولاً', 'err'); return; }
+  _tplEditId = null;
+  document.getElementById('tplModalTitle').textContent = 'حفظ التدفق الحالي كقالب';
+  document.getElementById('tplModalBtn').textContent   = 'حفظ القالب';
+  document.getElementById('tplName').value     = '';
+  document.getElementById('tplDesc').value     = '';
+  document.getElementById('tplCategory').value = 'custom';
+  document.getElementById('tplSaveOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('tplName').focus(), 100);
+};
+
+// ── Open modal for editing an existing template ──
+window.openEditTemplate = function(id) {
+  const tpl = (window.__TEMPLATES_CACHE || []).find(t => t.id === id);
+  if (!tpl) { toast('القالب غير موجود', 'err'); return; }
+  // Only allow editing user's own templates (not static built-ins)
+  if (String(id).startsWith('s') && id.length <= 3) { toast('القوالب الافتراضية لا يمكن تعديلها', 'info'); return; }
+  _tplEditId = id;
+  document.getElementById('tplModalTitle').textContent = 'تعديل القالب';
+  document.getElementById('tplModalBtn').textContent   = 'حفظ التعديلات';
+  document.getElementById('tplName').value     = tpl.name_ar  || tpl.name  || '';
+  document.getElementById('tplDesc').value     = tpl.description_ar || tpl.description || '';
+  document.getElementById('tplCategory').value = tpl.category || 'custom';
+  document.getElementById('tplSaveOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('tplName').focus(), 100);
+};
+
+window.closeTplModal = function() {
+  document.getElementById('tplSaveOverlay').classList.remove('open');
+  _tplEditId = null;
+};
+
+// ── Confirm: save new or update existing ──
+window.confirmSaveTpl = async function() {
+  const name = document.getElementById('tplName').value.trim();
+  if (!name) { toast('يجب إدخال اسم للقالب', 'err'); return; }
+  const desc     = document.getElementById('tplDesc').value.trim();
+  const category = document.getElementById('tplCategory').value || 'custom';
+
+  if (_tplEditId) {
+    // UPDATE existing template (name/desc/category only, not flow_data)
+    try {
+      const { error } = await sb.from('flow_templates').update({
+        name_ar:        name,
+        name:           name,
+        description_ar: desc,
+        description:    desc,
+        category:       category,
+        updated_at:     new Date().toISOString(),
+      }).eq('id', _tplEditId).eq('created_by', currentUserId);
+      if (error) throw error;
+      toast('✓ تم تحديث القالب', 'ok');
+      closeTplModal();
+      await reloadTemplates();
+    } catch(e) { console.error(e); toast('خطأ في التحديث: ' + e.message, 'err'); }
+  } else {
+    // INSERT new template from current flow
+    const flow = serializeFlow();
+    if (!flow || !flow.length) { toast('التدفق فارغ', 'err'); return; }
+    try {
+      const { error } = await sb.from('flow_templates').insert({
+        name_ar:        name,
+        name:           name,
+        description_ar: desc || name,
+        description:    desc || name,
+        category:       category,
+        flow_data:      flow,
+        created_by:     currentUserId,
+        is_public:      false,
+        is_featured:    false,
+        tags:           [category],
+      });
+      if (error) throw error;
+      toast('✓ تم حفظ القالب: ' + name, 'ok');
+      closeTplModal();
+      await reloadTemplates();
+    } catch(e) { console.error(e); toast('خطأ في الحفظ: ' + e.message, 'err'); }
+  }
+};
+
+// ── Delete a user's own template ──
+window.deleteTemplate = function(id, name) {
+  if (String(id).startsWith('s') && id.length <= 3) { toast('القوالب الافتراضية لا يمكن حذفها', 'info'); return; }
+  if (!confirm('حذف قالب "' + name + '"؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+  sb.from('flow_templates').delete().eq('id', id).eq('created_by', currentUserId)
+    .then(({ error }) => {
+      if (error) { toast('خطأ في الحذف: ' + error.message, 'err'); return; }
+      toast('تم حذف القالب', 'ok');
+      reloadTemplates();
+    });
+};
+
+// ── Reload templates from DB and re-render ──
+async function reloadTemplates() {
+  try {
+    const { data } = await sb.from('flow_templates').select('*');
+    if (data) {
+      setEl('tpl-count', data.length);
+      renderTemplates(data);
+    }
+  } catch(e) { console.error('reloadTemplates:', e); }
+}
 
 // ══════════════════════════════════════════════════════
 //  INIT
