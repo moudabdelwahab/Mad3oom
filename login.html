@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدعوم</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+<style>
+
+/* ===== CSS هنا ===== */
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Segoe UI',sans-serif;
+}
+
+body{
+height:100vh;
+overflow:hidden;
+}
+
+.container{
+display:flex;
+height:100vh;
+}
+
+.hero-side{
+width:50%;
+background:linear-gradient(180deg,#11478d,#06285f);
+color:white;
+position:relative;
+display:flex;
+justify-content:center;
+align-items:center;
+overflow:hidden;
+}
+
+.hero-content{
+text-align:center;
+}
+
+.brand{
+font-size:72px;
+margin-bottom:15px;
+}
+
+.hero-content p{
+font-size:24px;
+margin-bottom:10px;
+}
+
+.hero-content span{
+font-size:18px;
+opacity:.8;
+}
+
+.circle-wrapper{
+position:relative;
+width:550px;
+height:550px;
+margin-top:50px;
+}
+
+.main-circle{
+width:320px;
+height:320px;
+border-radius:50%;
+background:linear-gradient(135deg,#4fb4ff,#153b93);
+position:absolute;
+left:50%;
+top:50%;
+transform:translate(-50%,-50%);
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:120px;
+box-shadow:0 0 50px rgba(0,180,255,.5);
+}
+
+.floating{
+width:80px;
+height:80px;
+border-radius:20px;
+background:rgba(255,255,255,.15);
+backdrop-filter:blur(10px);
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:32px;
+position:absolute;
+transition:all 1.2s ease;
+}
+
+.item1{
+top:0;
+left:50%;
+transform:translateX(-50%);
+}
+
+.item2{
+right:0;
+top:50%;
+transform:translateY(-50%);
+}
+
+.item3{
+bottom:0;
+left:50%;
+transform:translateX(-50%);
+}
+
+.item4{
+left:0;
+top:50%;
+transform:translateY(-50%);
+}
+
+.login-side{
+width:50%;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#f8f8f8;
+}
+
+.login-card{
+width:420px;
+background:white;
+padding:40px;
+border-radius:30px;
+box-shadow:0 20px 50px rgba(0,0,0,.1);
+}
+
+.logo-small{
+text-align:center;
+font-size:70px;
+color:#2f7fd9;
+margin-bottom:20px;
+}
+
+.login-card h1{
+text-align:center;
+margin-bottom:30px;
+}
+
+.input-group{
+position:relative;
+margin-bottom:20px;
+}
+
+.input-group input{
+width:100%;
+padding:15px 50px;
+border-radius:50px;
+border:1px solid #ddd;
+font-size:16px;
+}
+
+.input-group i{
+position:absolute;
+left:20px;
+top:50%;
+transform:translateY(-50%);
+color:#888;
+}
+
+.login-btn{
+width:100%;
+padding:15px;
+border:none;
+border-radius:50px;
+background:linear-gradient(90deg,#4f8edc,#2f6ab5);
+color:white;
+font-size:20px;
+cursor:pointer;
+}
+
+.copyright{
+position:absolute;
+bottom:20px;
+width:100%;
+text-align:center;
+opacity:.8;
+}
+
+@media(max-width:900px){
+
+.container{
+flex-direction:column;
+}
+
+.hero-side,
+.login-side{
+width:100%;
+height:50vh;
+}
+
+.circle-wrapper{
+transform:scale(.6);
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="hero-side">
+
+<div class="hero-content">
+
+<h1 class="brand">مدعوم</h1>
+
+<p>منصة تكامل الواتساب السحابي والدعم الفني</p>
+
+<span>WhatsApp Cloud API & Tech Support Platform</span>
+
+<div class="circle-wrapper">
+
+<div class="main-circle">
+<i class="fa-solid fa-comments"></i>
+</div>
+
+<div class="floating item1">
+<i class="fa-solid fa-cloud-arrow-up"></i>
+</div>
+
+<div class="floating item2">
+<i class="fa-solid fa-code"></i>
+</div>
+
+<div class="floating item3">
+<i class="fa-solid fa-server"></i>
+</div>
+
+<div class="floating item4">
+<i class="fa-regular fa-message"></i>
+</div>
+
+</div>
+
+</div>
+
+<div class="copyright">
+مدعوم - جميع الحقوق محفوظة
+</div>
+
+</div>
+
+<div class="login-side">
+
+<div class="login-card">
+
+<div class="logo-small">
+<i class="fa-solid fa-comments"></i>
+</div>
+
+<h1>تسجيل الدخول</h1>
+
+<div class="input-group">
+<input type="email" placeholder="البريد الإلكتروني">
+<i class="fa-regular fa-envelope"></i>
+</div>
+
+<div class="input-group">
+<input type="password" placeholder="كلمة المرور">
+<i class="fa-solid fa-lock"></i>
+</div>
+
+<button class="login-btn">
+دخول
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* ===== JS هنا ===== */
+
+const items = document.querySelectorAll('.floating');
