@@ -654,7 +654,6 @@ async function handleLogin() {
     showAlert('success', `مرحباً بك! جاري تحويلك...`);
     setTimeout(() => {
       // Redirect to dashboard after login
-      window.location.href = '/dashboard.html';
     }, 1200);
   } catch (err) {
     const msgs = {
