@@ -1,721 +1,866 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مدعوم - تسجيل الدخول</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* =====================
+   Features Card
+===================== */
 
-  body {
-    font-family: 'Cairo', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    background: #f0f4f8;
-    overflow: hidden;
-  }
+.features{
 
-  /* ===== LEFT PANEL ===== */
-  .left-panel {
-    width: 48%;
-    background: linear-gradient(160deg, #0d2257 0%, #1a3a8f 40%, #1e4db7 100%);
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    padding: 48px 36px 32px;
-    overflow: hidden;
-  }
+    margin-top:40px;
 
-  /* Grid overlay */
-  .left-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
+    width:100%;
+
+    background:white;
+
+    border-radius:26px;
+
+    box-shadow:var(--shadow);
+
+    padding:30px;
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(3,1fr);
+
+    gap:20px;
+}
+
+.feature{
+    text-align:center;
+}
+
+.feature-icon{
+    font-size:32px;
+    color:var(--primary);
+}
+
+.feature h3{
+    margin-top:10px;
+    font-size:18px;
+}
+
+.feature p{
+    color:var(--text-secondary);
+}
+
+/* =====================
+   Security Badge
+===================== */
+
+.security-badge{
+
+    margin-top:25px;
+
+    background:white;
+
+    border-radius:100px;
+
+    padding:14px 22px;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    box-shadow:
+    0 10px 30px rgba(15,23,42,.05);
+}
+
+.security-badge .dot{
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background:var(--success);
+}
+
+/* =====================
+   Animations
+===================== */
+
+@keyframes float{
+
+    0%,100%{
+        transform:translateY(0px);
+    }
+
+    50%{
+        transform:translateY(-15px);
+    }
+}
+
+@keyframes floatLogo{
+
+    0%,100%{
+        transform:translateY(0px);
+    }
+
+    50%{
+        transform:translateY(-18px);
+    }
+}
+/* =========================
+   Responsive
+========================= */
+
+@media (max-width:1200px){
+
+    .login-layout{
+
+        gap:40px;
+    }
+
+    .hero-title{
+
+        font-size:3rem;
+    }
+
+    .login-side{
+
+        width:480px;
+    }
+
+}
+
+@media (max-width:992px){
+
+    .login-layout{
+
+        flex-direction:column;
+
+        padding:30px 20px;
+    }
+
+    .hero-side{
+
+        max-width:100%;
+    }
+
+    .login-side{
+
+        width:100%;
+        max-width:600px;
+    }
+
+    .logo-wrapper{
+
+        width:260px;
+        height:260px;
+    }
+
+    .hero-title{
+
+        margin-top:50px;
+
+        font-size:2.6rem;
+    }
+
+    .features{
+
+        grid-template-columns:
+        repeat(3,1fr);
+    }
+
+    .floating-icon{
+
+        width:65px;
+        height:65px;
+    }
+
+}
+
+@media (max-width:768px){
+
+    .login-layout{
+
+        padding:20px 15px;
+    }
+
+    .hero-title{
+
+        font-size:2.1rem;
+    }
+
+    .hero-subtitle{
+
+        font-size:1rem;
+    }
+
+    .features{
+
+        grid-template-columns:1fr;
+
+        gap:15px;
+    }
+
+    .feature{
+
+        background:#f8fbff;
+
+        padding:15px;
+
+        border-radius:16px;
+    }
+
+    .login-card{
+
+        padding:30px 22px;
+    }
+
+    .login-title{
+
+        font-size:2rem;
+    }
+
+    .card-logo img{
+
+        width:75px;
+    }
+
+    .security-badge{
+
+        flex-wrap:wrap;
+
+        justify-content:center;
+
+        text-align:center;
+    }
+
+}
+
+@media (max-width:480px){
+
+    .hero-title{
+
+        font-size:1.8rem;
+    }
+
+    .hero-subtitle{
+
+        line-height:1.8;
+    }
+
+    .logo-wrapper{
+
+        width:220px;
+        height:220px;
+    }
+
+    .login-card{
+
+        border-radius:24px;
+
+        padding:25px 18px;
+    }
+
+    .input-wrapper input{
+
+        height:56px;
+    }
+
+    .login-btn,
+    .google-btn{
+
+        height:56px;
+    }
+
+    .floating-icon{
+
+        display:none;
+    }
+
+    .platform-ring{
+
+        width:220px;
+    }
+
+}
+
+/* =========================
+   Decorative Dots
+========================= */
+
+body::before{
+
+    content:"";
+
+    position:fixed;
+
+    top:120px;
+    right:8%;
+
+    width:160px;
+    height:160px;
+
     background-image:
-      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-  }
+    radial-gradient(
+        rgba(22,119,255,.15) 2px,
+        transparent 2px
+    );
 
-  /* Glow circles */
-  .left-panel::after {
-    content: '';
-    position: absolute;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(41,130,255,0.18) 0%, transparent 70%);
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
+    background-size:
+    18px 18px;
 
-  .brand-top {
-    text-align: center;
-    position: relative;
-    z-index: 2;
-  }
+    z-index:-1;
+}
 
-  .brand-name {
-    font-size: 72px;
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: -1px;
-    line-height: 1;
-    text-shadow: 0 4px 24px rgba(0,0,0,0.3);
-  }
+body::after{
 
-  .brand-tagline-ar {
-    font-size: 15px;
-    font-weight: 500;
-    color: rgba(255,255,255,0.85);
-    margin-top: 8px;
-  }
+    content:"";
 
-  .brand-tagline-en {
-    font-size: 13px;
-    font-weight: 400;
-    color: rgba(255,255,255,0.55);
-    margin-top: 3px;
-    letter-spacing: 0.3px;
-  }
+    position:fixed;
 
-  /* Central 3D icon area */
-  .icon-scene {
-    position: relative;
-    z-index: 2;
-    width: 280px;
-    height: 280px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+    bottom:80px;
+    left:6%;
 
-  /* Outer ring */
-  .ring {
-    position: absolute;
-    width: 260px; height: 260px;
-    border: 1.5px solid rgba(100,160,255,0.25);
-    border-radius: 50%;
-    animation: spin-slow 18s linear infinite;
-  }
-  .ring-2 {
-    width: 220px; height: 220px;
-    border-color: rgba(100,160,255,0.15);
-    animation-direction: reverse;
-    animation-duration: 24s;
-  }
+    width:180px;
+    height:180px;
 
-  @keyframes spin-slow { to { transform: rotate(360deg); } }
+    background-image:
+    radial-gradient(
+        rgba(0,184,255,.15) 2px,
+        transparent 2px
+    );
 
-  /* Main chat bubble */
-  .main-bubble {
-    width: 160px; height: 160px;
-    background: linear-gradient(145deg, #3a7bd5 0%, #1e4db7 50%, #0d2e8a 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background-size:
+    20px 20px;
+
+    z-index:-1;
+}
+
+/* =========================
+   Hover Enhancements
+========================= */
+
+.feature{
+
+    transition:.35s;
+}
+
+.feature:hover{
+
+    transform:
+    translateY(-6px);
+
+    background:
+    #f8fbff;
+
+    border-radius:18px;
+}
+
+.login-card{
+
+    transition:.4s;
+}
+
+.login-card:hover{
+
     box-shadow:
-      0 0 0 12px rgba(30,77,183,0.2),
-      0 0 0 24px rgba(30,77,183,0.1),
-      0 20px 60px rgba(0,0,0,0.5),
-      inset 0 2px 4px rgba(255,255,255,0.15);
-    position: relative;
-    z-index: 3;
-  }
+    0 40px 90px rgba(15,23,42,.10);
+}
 
-  .main-bubble svg {
-    width: 80px; height: 80px;
-  }
+.security-badge{
 
-  /* Floating mini icons */
-  .float-icon {
-    position: absolute;
-    width: 46px; height: 46px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(8px);
-    z-index: 4;
-  }
+    transition:.3s;
+}
 
-  .float-icon svg { width: 22px; height: 22px; }
+.security-badge:hover{
 
-  .fi-1 { top: 10px; right: 10px; animation: float 3.2s ease-in-out infinite; }
-  .fi-2 { top: 10px; left: 10px; animation: float 3.8s ease-in-out infinite 0.5s; }
-  .fi-3 { bottom: 28px; right: 0px; animation: float 3.5s ease-in-out infinite 1s; }
-  .fi-4 { bottom: 10px; left: 10px; animation: float 4s ease-in-out infinite 0.3s; }
-  .fi-5 { top: 50%; right: -10px; transform: translateY(-50%); animation: float 3.6s ease-in-out infinite 0.7s; }
+    transform:
+    translateY(-3px);
+}
 
-  /* Green chat icon (top right) */
-  .fi-1 { background: rgba(37,211,102,0.15); border-color: rgba(37,211,102,0.3); }
+/* =========================
+   Smooth Animations
+========================= */
 
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-7px); }
-  }
-  .fi-5 { transform: translateY(-50%); }
-  .fi-5:hover { transform: translateY(calc(-50% - 4px)); }
+.input-wrapper,
+.feature,
+.security-badge,
+.google-btn,
+.login-btn{
 
-  .copyright {
-    font-size: 12px;
-    color: rgba(255,255,255,0.4);
-    position: relative;
-    z-index: 2;
-  }
-
-  /* ===== RIGHT PANEL ===== */
-  .right-panel {
-    width: 52%;
-    background: #e8edf5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 32px;
-    position: relative;
-  }
-
-  /* Subtle background texture */
-  .right-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: 
-      radial-gradient(ellipse 80% 50% at 80% 20%, rgba(30,60,114,0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 60% at 20% 80%, rgba(42,82,152,0.04) 0%, transparent 50%);
-    pointer-events: none;
-  }
-
-  .login-card {
-    background: #fff;
-    border-radius: 24px;
-    padding: 44px 40px;
-    width: 100%;
-    max-width: 420px;
-    box-shadow:
-      0 4px 6px rgba(0,0,0,0.04),
-      0 20px 60px rgba(0,0,0,0.1),
-      0 1px 3px rgba(0,0,0,0.06);
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Card top icon */
-  .card-icon {
-    width: 68px; height: 68px;
-    background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 24px;
-    box-shadow: 0 8px 24px rgba(30,60,114,0.35);
-  }
-
-  .card-icon svg { width: 36px; height: 36px; }
-
-  .card-title {
-    font-size: 26px;
-    font-weight: 800;
-    color: #1a1a2e;
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  /* Input group */
-  .input-group {
-    position: relative;
-    margin-bottom: 16px;
-  }
-
-  .input-group input {
-    width: 100%;
-    padding: 14px 48px 14px 48px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 14px;
-    font-family: 'Cairo', sans-serif;
-    color: #1a1a2e;
-    background: #f8fafc;
-    outline: none;
-    text-align: right;
-    direction: rtl;
-    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  }
-
-  .input-group input::placeholder { color: #a0aec0; }
-
-  .input-group input:focus {
-    border-color: #2a5298;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(42,82,152,0.1);
-  }
-
-  .input-group input.error {
-    border-color: #e53e3e;
-    box-shadow: 0 0 0 3px rgba(229,62,62,0.1);
-  }
-
-  /* Icons inside inputs */
-  .input-icon-right, .input-icon-left {
-    position: absolute;
-    top: 50%; transform: translateY(-50%);
-    color: #a0aec0;
-    pointer-events: none;
-  }
-
-  .input-icon-right { right: 16px; }
-  .input-icon-left { left: 16px; }
-
-  .input-icon-left.clickable {
-    pointer-events: auto;
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-  .input-icon-left.clickable:hover { color: #2a5298; }
-
-  /* Forgot password */
-  .forgot-link {
-    display: block;
-    text-align: right;
-    font-size: 13px;
-    color: #4a5568;
-    text-decoration: none;
-    margin-bottom: 24px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .forgot-link:hover { color: #2a5298; }
-
-  /* Login button */
-  .btn-login {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(90deg, #2a5298 0%, #1e3c72 100%);
-    color: #fff;
-    font-family: 'Cairo', sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
-    box-shadow: 0 4px 15px rgba(30,60,114,0.35);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .btn-login:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(30,60,114,0.45);
-  }
-
-  .btn-login:active { transform: translateY(0); }
-
-  .btn-login:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .btn-login .btn-spinner {
-    display: none;
-    width: 20px; height: 20px;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin: 0 auto;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .btn-login.loading .btn-text { display: none; }
-  .btn-login.loading .btn-spinner { display: block; }
-
-  /* Divider */
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 20px 0 8px;
-    color: #a0aec0;
-    font-size: 13px;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: #e2e8f0;
-  }
-
-  .signup-link {
-    text-align: center;
-    font-size: 14px;
-    color: #4a5568;
-  }
-  .signup-link a {
-    color: #2a5298;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-  }
-  .signup-link a:hover { text-decoration: underline; }
-
-  /* Error/success messages */
-  .alert {
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 16px;
-    display: none;
-    text-align: right;
-  }
-  .alert.error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
-  .alert.success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-  .alert.show { display: block; }
-
-  /* Forgot password modal */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-overlay.show { display: flex; }
-
-  .modal-box {
-    background: #fff;
-    border-radius: 20px;
-    padding: 36px 32px;
-    width: 100%;
-    max-width: 380px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-    text-align: center;
-  }
-  .modal-box h3 { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
-  .modal-box p { font-size: 13px; color: #718096; margin-bottom: 20px; }
-  .modal-close {
-    margin-top: 12px;
-    width: 100%;
-    padding: 12px;
-    background: #f7fafc;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 14px;
-    color: #4a5568;
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .modal-close:hover { background: #edf2f7; }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    body { flex-direction: column; overflow: auto; }
-    .left-panel { width: 100%; min-height: 320px; padding: 32px 24px 24px; }
-    .right-panel { width: 100%; padding: 24px 16px 32px; }
-    .brand-name { font-size: 52px; }
-    .icon-scene { width: 200px; height: 200px; }
-    .main-bubble { width: 120px; height: 120px; }
-    .ring { width: 190px; height: 190px; }
-    .ring-2 { width: 160px; height: 160px; }
-  }
+    transition:
+    all .3s ease;
+}
 </style>
 </head>
+
 <body>
 
-<!-- LEFT PANEL -->
-<div class="left-panel">
-  <div class="brand-top">
-    <div class="brand-name">مدعوم</div>
-    <div class="brand-tagline-ar">منصة تكامل الواتساب السحابي والدعم الفني</div>
-    <div class="brand-tagline-en">WhatsApp Cloud API &amp; Tech Support Platform</div>
-  </div>
+<div class="bg-circle one"></div>
+<div class="bg-circle two"></div>
 
-  <div class="icon-scene">
-    <div class="ring"></div>
-    <div class="ring ring-2"></div>
+<div class="login-layout">
 
-    <!-- Float icons -->
-    <div class="float-icon fi-1">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#25D366"/>
-        <circle cx="8" cy="11" r="1.2" fill="#fff"/>
-        <circle cx="12" cy="11" r="1.2" fill="#fff"/>
-        <circle cx="16" cy="11" r="1.2" fill="#fff"/>
-      </svg>
-    </div>
+    <!-- LEFT SIDE -->
 
-    <div class="float-icon fi-2">
-      <svg viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="18" height="18" rx="2" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
-        <path d="M3 9h18M9 21V9" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
-        <circle cx="16" cy="5" r="1.5" fill="rgba(255,255,255,0.9)"/>
-      </svg>
-    </div>
+    <section class="hero-side">
 
-    <div class="float-icon fi-3">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </div>
+        <div class="floating-icon icon-cloud">☁️</div>
+        <div class="floating-icon icon-chart">📊</div>
+        <div class="floating-icon icon-chat">💬</div>
+        <div class="floating-icon icon-shield">🛡️</div>
 
-    <div class="float-icon fi-4">
-      <svg viewBox="0 0 24 24" fill="none">
-        <polyline points="16 18 22 12 16 6" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
-        <polyline points="8 6 2 12 8 18" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </div>
+        <div class="logo-zone">
 
-    <div class="float-icon fi-5" style="right:-10px;top:50%;transform:translateY(-50%);">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-1" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M15 3H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l4-4h4a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </div>
+            <div class="logo-wrapper">
+                <img src="logo.png" alt="Mad3oom">
+            </div>
 
-    <!-- Main bubble -->
-    <div class="main-bubble">
-      <svg viewBox="0 0 60 60" fill="none">
-        <ellipse cx="30" cy="30" rx="28" ry="26" fill="url(#bubbleGrad)"/>
-        <path d="M8 52 L18 42" stroke="url(#bubbleGrad2)" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="20" cy="30" r="4" fill="white" opacity="0.9"/>
-        <circle cx="30" cy="30" r="4" fill="white" opacity="0.9"/>
-        <circle cx="40" cy="30" r="4" fill="white" opacity="0.9"/>
-        <defs>
-          <linearGradient id="bubbleGrad" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#5096f0"/>
-            <stop offset="100%" stop-color="#1a3a8f"/>
-          </linearGradient>
-          <linearGradient id="bubbleGrad2" x1="0" y1="0" x2="20" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#5096f0"/>
-            <stop offset="100%" stop-color="#1a3a8f"/>
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-  </div>
+            <div class="platform-ring"></div>
 
-  <div class="copyright">مدعوم. جميع الحقوق محفوظة.</div>
+        </div>
+
+        <h1 class="hero-title">
+            منصة <span>مدعوم</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            منصة تكامل واتساب السحابي والدعم الفني
+        </p>
+
+        <div class="features">
+
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>سريع</h3>
+                <p>وموثوق</p>
+            </div>
+
+            <div class="feature">
+                <div class="feature-icon">🛡️</div>
+                <h3>آمن</h3>
+                <p>ومحمي</p>
+            </div>
+
+            <div class="feature">
+                <div class="feature-icon">☁️</div>
+                <h3>سحابي</h3>
+                <p>100%</p>
+            </div>
+
+        </div>
+
+        <div class="security-badge">
+            <div class="dot"></div>
+            تشفير متقدم وحماية بيانات على أعلى مستوى
+        </div>
+
+    </section>
+
+    <!-- RIGHT SIDE -->
+    <section class="login-side">
+
+/* =====================
+   Login Card
+===================== */
+
+.login-card{
+
+    background:
+    rgba(255,255,255,.92);
+
+    backdrop-filter:
+    blur(20px);
+
+    border:
+    1px solid rgba(255,255,255,.6);
+
+    border-radius:32px;
+
+    padding:45px;
+
+    box-shadow:
+    0 30px 80px rgba(15,23,42,.08);
+
+    animation:
+    cardEnter .8s ease;
+}
+
+.card-logo{
+    text-align:center;
+}
+
+.card-logo img{
+    width:95px;
+}
+
+.login-title{
+
+    text-align:center;
+
+    margin-top:15px;
+
+    font-size:3rem;
+    font-weight:800;
+}
+
+.login-subtitle{
+
+    text-align:center;
+
+    color:var(--text-secondary);
+
+    margin-top:10px;
+    margin-bottom:35px;
+}
+
+/* =====================
+   Form
+===================== */
+
+.form-group{
+    margin-bottom:22px;
+}
+
+.form-group label{
+
+    display:block;
+
+    margin-bottom:10px;
+
+    font-weight:700;
+}
+
+.input-wrapper{
+
+    position:relative;
+}
+
+.input-wrapper input{
+
+    width:100%;
+    height:62px;
+
+    border:1px solid var(--border);
+
+    border-radius:16px;
+
+    background:white;
+
+    padding:
+    0 55px 0 55px;
+
+    font-size:16px;
+
+    transition:.3s;
+}
+
+.input-wrapper input:focus{
+
+    outline:none;
+
+    border-color:var(--primary);
+
+    box-shadow:
+    0 0 0 4px
+    rgba(22,119,255,.12);
+}
+
+.input-icon{
+
+    position:absolute;
+
+    right:18px;
+    top:50%;
+
+    transform:
+    translateY(-50%);
+}
+
+.toggle-password{
+
+    position:absolute;
+
+    left:15px;
+    top:50%;
+
+    transform:
+    translateY(-50%);
+
+    background:none;
+    border:none;
+
+    cursor:pointer;
+
+    font-size:18px;
+}
+
+.remember-row{
+
+    display:flex;
+
+    justify-content:flex-start;
+
+    margin-bottom:25px;
+}
+
+.checkbox{
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    cursor:pointer;
+}
+
+.checkbox input{
+
+    width:18px;
+    height:18px;
+}
+
+/* =====================
+   Buttons
+===================== */
+
+.login-btn{
+
+    width:100%;
+    height:60px;
+
+    border:none;
+
+    border-radius:16px;
+
+    cursor:pointer;
+
+    color:white;
+
+    font-size:18px;
+    font-weight:700;
+
+    background:
+    linear-gradient(
+        135deg,
+        var(--primary-dark),
+        var(--primary),
+        var(--primary-light)
+    );
+
+    transition:.3s;
+}
+
+.login-btn:hover{
+
+    transform:
+    translateY(-3px);
+
+    box-shadow:
+    0 15px 35px
+    rgba(22,119,255,.30);
+}
+
+.forgot-link{
+
+    display:block;
+
+    text-align:center;
+
+    margin-top:20px;
+
+    color:var(--primary);
+
+    text-decoration:none;
+
+    font-weight:700;
+}
+
+.divider{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+    margin:28px 0;
+}
+
+.divider::before,
+.divider::after{
+
+    content:"";
+
+    flex:1;
+
+    height:1px;
+
+    background:#E2E8F0;
+}
+
+.google-btn{
+
+    width:100%;
+    height:60px;
+
+    border-radius:16px;
+
+    border:1px solid var(--border);
+
+    background:white;
+
+    cursor:pointer;
+
+    display:flex;
+
+    align-items:center;
+    justify-content:center;
+
+    gap:12px;
+
+    font-size:16px;
+    font-weight:700;
+
+    transition:.3s;
+}
+
+.google-btn:hover{
+
+    background:
+    var(--bg-soft);
+}
+
+.google-icon{
+
+    color:#EA4335;
+
+    font-size:22px;
+
+    font-weight:800;
+}
+
+.register-row{
+
+    text-align:center;
+
+    margin-top:25px;
+
+    color:var(--text-secondary);
+}
+
+.register-row a{
+
+    color:var(--primary);
+
+    font-weight:700;
+
+    text-decoration:none;
+}
+
+/* =====================
+   Footer
+===================== */
+
+.footer{
+
+    text-align:center;
+
+    margin-top:25px;
+
+    color:#94A3B8;
+}
+
+/* =====================
+   Card Animation
+===================== */
+
+@keyframes cardEnter{
+
+    from{
+
+        opacity:0;
+
+        transform:
+        translateY(30px);
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:
+        translateY(0);
+    }
+}
+    </section>
+
 </div>
-
-<!-- RIGHT PANEL -->
-<div class="right-panel">
-  <div class="login-card">
-    <div class="card-icon">
-      <svg viewBox="0 0 60 60" fill="none">
-        <ellipse cx="30" cy="28" rx="24" ry="22" fill="white" opacity="0.9"/>
-        <path d="M10 50 L20 40" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
-        <circle cx="21" cy="28" r="3.5" fill="#1e3c72"/>
-        <circle cx="30" cy="28" r="3.5" fill="#1e3c72"/>
-        <circle cx="39" cy="28" r="3.5" fill="#1e3c72"/>
-      </svg>
-    </div>
-
-    <h2 class="card-title">تسجيل الدخول إلى حسابك</h2>
-
-    <div class="alert error" id="alertError"></div>
-    <div class="alert success" id="alertSuccess"></div>
-
-    <!-- Email -->
-    <div class="input-group">
-      <span class="input-icon-right">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <rect x="2" y="4" width="20" height="16" rx="2" stroke="#a0aec0" stroke-width="1.5"/>
-          <path d="M2 8l10 6 10-6" stroke="#a0aec0" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </span>
-      <input type="email" id="emailInput" placeholder="البريد الإلكتروني" autocomplete="email" />
-    </div>
-
-    <!-- Password -->
-    <div class="input-group">
-      <span class="input-icon-right">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="11" width="18" height="11" rx="2" stroke="#a0aec0" stroke-width="1.5"/>
-          <path d="M7 11V7a5 5 0 0110 0v4" stroke="#a0aec0" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="12" cy="16" r="1.5" fill="#a0aec0"/>
-        </svg>
-      </span>
-      <input type="password" id="passwordInput" placeholder="كلمة المرور" autocomplete="current-password" />
-      <span class="input-icon-left clickable" id="togglePassword" title="إظهار/إخفاء كلمة المرور">
-        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#a0aec0" stroke-width="1.5"/>
-          <circle cx="12" cy="12" r="3" stroke="#a0aec0" stroke-width="1.5"/>
-        </svg>
-      </span>
-    </div>
-
-    <a class="forgot-link" onclick="openForgot()">نسيت كلمة المرور؟</a>
-
-    <button class="btn-login" id="loginBtn" onclick="handleLogin()">
-      <span class="btn-text">دخول</span>
-      <div class="btn-spinner"></div>
-    </button>
-
-    <div class="divider">أو</div>
-
-    <div class="signup-link">
-      ليس لديك حساب؟ <a onclick="handleSignup()">أنشئ حساباً جديداً</a>
-    </div>
-  </div>
-</div>
-
-<!-- Forgot Password Modal -->
-<div class="modal-overlay" id="forgotModal">
-  <div class="modal-box">
-    <div class="card-icon" style="width:52px;height:52px;border-radius:14px;margin-bottom:16px;">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-        <rect x="2" y="4" width="20" height="16" rx="2" stroke="white" stroke-width="1.5"/>
-        <path d="M2 8l10 6 10-6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <h3>استعادة كلمة المرور</h3>
-    <p>أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين</p>
-    <div class="input-group">
-      <span class="input-icon-right">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <rect x="2" y="4" width="20" height="16" rx="2" stroke="#a0aec0" stroke-width="1.5"/>
-          <path d="M2 8l10 6 10-6" stroke="#a0aec0" stroke-width="1.5"/>
-        </svg>
-      </span>
-      <input type="email" id="resetEmail" placeholder="البريد الإلكتروني" />
-    </div>
-    <button class="btn-login" id="resetBtn" onclick="handleReset()" style="margin-top:4px;">
-      <span class="btn-text">إرسال رابط الاستعادة</span>
-      <div class="btn-spinner"></div>
-    </button>
-    <button class="modal-close" onclick="closeForgot()">إلغاء</button>
-  </div>
+<div class="footer">
+    © 2026 منصة مدعوم - جميع الحقوق محفوظة
 </div>
 
 <script>
-const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
 
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* =========================
+   Toggle Password
+========================= */
 
-// Toggle password visibility
-let pwVisible = false;
-document.getElementById('togglePassword').addEventListener('click', () => {
-  pwVisible = !pwVisible;
-  const inp = document.getElementById('passwordInput');
-  inp.type = pwVisible ? 'text' : 'password';
-  document.getElementById('eyeIcon').innerHTML = pwVisible
-    ? `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" stroke="#2a5298" stroke-width="1.5" stroke-linecap="round"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" stroke="#2a5298" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="#2a5298" stroke-width="1.5" stroke-linecap="round"/>`
-    : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#a0aec0" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="#a0aec0" stroke-width="1.5"/>`;
-});
+function togglePassword(){
 
-function showAlert(type, msg) {
-  ['alertError','alertSuccess'].forEach(id => {
-    document.getElementById(id).classList.remove('show');
-    document.getElementById(id).textContent = '';
-  });
-  const el = document.getElementById(type === 'error' ? 'alertError' : 'alertSuccess');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 5000);
+    const password =
+    document.getElementById("password");
+
+    if(password.type === "password"){
+        password.type = "text";
+    }else{
+        password.type = "password";
+    }
 }
 
-function setLoading(btnId, loading) {
-  const btn = document.getElementById(btnId);
-  btn.disabled = loading;
-  btn.classList.toggle('loading', loading);
-}
+/* =========================
+   Floating Effect
+========================= */
 
-async function handleLogin() {
-  const email = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('passwordInput').value;
+document.addEventListener("mousemove",(e)=>{
 
-  if (!email || !password) {
-    showAlert('error', 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
-    return;
-  }
+    const cards =
+    document.querySelectorAll(
+        ".floating-icon"
+    );
 
-  setLoading('loginBtn', true);
+    const x =
+    (window.innerWidth/2 - e.clientX)
+    / 60;
 
-  try {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    showAlert('success', `مرحباً بك! جاري تحويلك...`);
-    setTimeout(() => {
-      // Redirect to dashboard after login
-    }, 1200);
-  } catch (err) {
-    const msgs = {
-      'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-      'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',
-      'Too many requests': 'محاولات كثيرة، يرجى الانتظار قليلاً',
-    };
-    showAlert('error', msgs[err.message] || err.message);
-  } finally {
-    setLoading('loginBtn', false);
-  }
-}
+    const y =
+    (window.innerHeight/2 - e.clientY)
+    / 60;
 
-function handleSignup() {
-  // Redirect to signup page
-  window.location.href = '/signup.html';
-}
+    cards.forEach((card,index)=>{
 
-function openForgot() {
-  document.getElementById('forgotModal').classList.add('show');
-}
+        const speed =
+        (index + 1) * 0.4;
 
-function closeForgot() {
-  document.getElementById('forgotModal').classList.remove('show');
-}
-
-async function handleReset() {
-  const email = document.getElementById('resetEmail').value.trim();
-  if (!email) {
-    alert('يرجى إدخال بريدك الإلكتروني');
-    return;
-  }
-
-  setLoading('resetBtn', true);
-  try {
-    const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password.html',
+        card.style.transform =
+        translate(${x*speed}px, ${y*speed}px);
     });
-    if (error) throw error;
-    closeForgot();
-    showAlert('success', 'تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني');
-  } catch (err) {
-    alert('حدث خطأ: ' + err.message);
-  } finally {
-    setLoading('resetBtn', false);
-  }
-}
-
-// Enter key support
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !document.getElementById('forgotModal').classList.contains('show')) {
-    handleLogin();
-  }
 });
 
-// Check existing session
-(async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    window.location.href = '/dashboard.html';
-  }
-})();
+/* =========================
+   Inputs Animation
+========================= */
+
+document
+.querySelectorAll("input")
+.forEach(input=>{
+
+    input.addEventListener(
+        "focus",
+        ()=>{
+            input.parentElement.style.transform =
+            "translateY(-2px)";
+        }
+    );
+
+    input.addEventListener(
+        "blur",
+        ()=>{
+            input.parentElement.style.transform =
+            "translateY(0)";
+        }
+    );
+
+});
+
 </script>
 </body>
 </html>
