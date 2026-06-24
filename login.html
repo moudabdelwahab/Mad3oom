@@ -1,866 +1,783 @@
-/* =====================
-   Features Card
-===================== */
-
-.features{
-
-    margin-top:40px;
-
-    width:100%;
-
-    background:white;
-
-    border-radius:26px;
-
-    box-shadow:var(--shadow);
-
-    padding:30px;
-
-    display:grid;
-
-    grid-template-columns:
-    repeat(3,1fr);
-
-    gap:20px;
-}
-
-.feature{
-    text-align:center;
-}
-
-.feature-icon{
-    font-size:32px;
-    color:var(--primary);
-}
-
-.feature h3{
-    margin-top:10px;
-    font-size:18px;
-}
-
-.feature p{
-    color:var(--text-secondary);
-}
-
-/* =====================
-   Security Badge
-===================== */
-
-.security-badge{
-
-    margin-top:25px;
-
-    background:white;
-
-    border-radius:100px;
-
-    padding:14px 22px;
-
-    display:flex;
-    align-items:center;
-    gap:10px;
-
-    box-shadow:
-    0 10px 30px rgba(15,23,42,.05);
-}
-
-.security-badge .dot{
-    width:12px;
-    height:12px;
-    border-radius:50%;
-    background:var(--success);
-}
-
-/* =====================
-   Animations
-===================== */
-
-@keyframes float{
-
-    0%,100%{
-        transform:translateY(0px);
-    }
-
-    50%{
-        transform:translateY(-15px);
-    }
-}
-
-@keyframes floatLogo{
-
-    0%,100%{
-        transform:translateY(0px);
-    }
-
-    50%{
-        transform:translateY(-18px);
-    }
-}
-/* =========================
-   Responsive
-========================= */
-
-@media (max-width:1200px){
-
-    .login-layout{
-
-        gap:40px;
-    }
-
-    .hero-title{
-
-        font-size:3rem;
-    }
-
-    .login-side{
-
-        width:480px;
-    }
-
-}
-
-@media (max-width:992px){
-
-    .login-layout{
-
-        flex-direction:column;
-
-        padding:30px 20px;
-    }
-
-    .hero-side{
-
-        max-width:100%;
-    }
-
-    .login-side{
-
-        width:100%;
-        max-width:600px;
-    }
-
-    .logo-wrapper{
-
-        width:260px;
-        height:260px;
-    }
-
-    .hero-title{
-
-        margin-top:50px;
-
-        font-size:2.6rem;
-    }
-
-    .features{
-
-        grid-template-columns:
-        repeat(3,1fr);
-    }
-
-    .floating-icon{
-
-        width:65px;
-        height:65px;
-    }
-
-}
-
-@media (max-width:768px){
-
-    .login-layout{
-
-        padding:20px 15px;
-    }
-
-    .hero-title{
-
-        font-size:2.1rem;
-    }
-
-    .hero-subtitle{
-
-        font-size:1rem;
-    }
-
-    .features{
-
-        grid-template-columns:1fr;
-
-        gap:15px;
-    }
-
-    .feature{
-
-        background:#f8fbff;
-
-        padding:15px;
-
-        border-radius:16px;
-    }
-
-    .login-card{
-
-        padding:30px 22px;
-    }
-
-    .login-title{
-
-        font-size:2rem;
-    }
-
-    .card-logo img{
-
-        width:75px;
-    }
-
-    .security-badge{
-
-        flex-wrap:wrap;
-
-        justify-content:center;
-
-        text-align:center;
-    }
-
-}
-
-@media (max-width:480px){
-
-    .hero-title{
-
-        font-size:1.8rem;
-    }
-
-    .hero-subtitle{
-
-        line-height:1.8;
-    }
-
-    .logo-wrapper{
-
-        width:220px;
-        height:220px;
-    }
-
-    .login-card{
-
-        border-radius:24px;
-
-        padding:25px 18px;
-    }
-
-    .input-wrapper input{
-
-        height:56px;
-    }
-
-    .login-btn,
-    .google-btn{
-
-        height:56px;
-    }
-
-    .floating-icon{
-
-        display:none;
-    }
-
-    .platform-ring{
-
-        width:220px;
-    }
-
-}
-
-/* =========================
-   Decorative Dots
-========================= */
-
-body::before{
-
-    content:"";
-
-    position:fixed;
-
-    top:120px;
-    right:8%;
-
-    width:160px;
-    height:160px;
-
-    background-image:
-    radial-gradient(
-        rgba(22,119,255,.15) 2px,
-        transparent 2px
-    );
-
-    background-size:
-    18px 18px;
-
-    z-index:-1;
-}
-
-body::after{
-
-    content:"";
-
-    position:fixed;
-
-    bottom:80px;
-    left:6%;
-
-    width:180px;
-    height:180px;
-
-    background-image:
-    radial-gradient(
-        rgba(0,184,255,.15) 2px,
-        transparent 2px
-    );
-
-    background-size:
-    20px 20px;
-
-    z-index:-1;
-}
-
-/* =========================
-   Hover Enhancements
-========================= */
-
-.feature{
-
-    transition:.35s;
-}
-
-.feature:hover{
-
-    transform:
-    translateY(-6px);
-
-    background:
-    #f8fbff;
-
-    border-radius:18px;
-}
-
-.login-card{
-
-    transition:.4s;
-}
-
-.login-card:hover{
-
-    box-shadow:
-    0 40px 90px rgba(15,23,42,.10);
-}
-
-.security-badge{
-
-    transition:.3s;
-}
-
-.security-badge:hover{
-
-    transform:
-    translateY(-3px);
-}
-
-/* =========================
-   Smooth Animations
-========================= */
-
-.input-wrapper,
-.feature,
-.security-badge,
-.google-btn,
-.login-btn{
-
-    transition:
-    all .3s ease;
-}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل الدخول - منصة مدعوم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #1677FF;
+    --primary-dark: #0F52BA;
+    --primary-light: #4DA3FF;
+    --accent: #00B8FF;
+    --bg: #F0F6FF;
+    --card: #FFFFFF;
+    --border: #E5EDF7;
+    --text: #0F172A;
+    --muted: #64748B;
+    --success: #22C55E;
+    --shadow: rgba(15,23,42,0.08);
+    --shadow-md: rgba(15,23,42,0.12);
+    --shadow-blue: rgba(22,119,255,0.18);
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── LAYOUT ── */
+  .page {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    position: relative;
+    background: linear-gradient(145deg, #ddeeff 0%, #e8f2ff 40%, #c8e0ff 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2.5rem;
+    overflow: hidden;
+  }
+
+  /* dot pattern */
+  .left-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(22,119,255,0.12) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+
+  /* corner accent blobs */
+  .left-panel::after {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(22,119,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .blob-bottom {
+    position: absolute;
+    bottom: -100px; left: -60px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,184,255,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── LOGO STAGE ── */
+  .logo-stage {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin-bottom: 2.5rem;
+  }
+
+  .logo-glow {
+    position: absolute;
+    bottom: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 160px; height: 36px;
+    background: radial-gradient(ellipse, rgba(22,119,255,0.35) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(6px);
+  }
+
+  .logo-pedestal {
+    position: absolute;
+    bottom: -4px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 18px;
+    background: linear-gradient(180deg, rgba(22,119,255,0.15) 0%, transparent 100%);
+    border-radius: 50%;
+    filter: blur(2px);
+  }
+
+  .logo-3d {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -52%);
+    width: 160px; height: 160px;
+    animation: float-center 4s ease-in-out infinite;
+  }
+
+  /* floating icons */
+  .float-icon {
+    position: absolute;
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,0.88);
+    border: 1.5px solid rgba(22,119,255,0.15);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px var(--shadow-blue);
+    backdrop-filter: blur(8px);
+  }
+
+  .float-icon.cloud  { top: 10px;  right: 18px;  animation: float-a 3.6s ease-in-out infinite; }
+  .float-icon.chart  { top: 14px;  left: 28px;   animation: float-b 4.1s ease-in-out infinite; }
+  .float-icon.shield { bottom: 40px; right: 10px; animation: float-c 3.8s ease-in-out infinite; }
+  .float-icon.chat   { bottom: 50px; left: 20px;  animation: float-d 4.3s ease-in-out infinite; }
+
+  /* connector dots */
+  .connector {
+    position: absolute;
+    pointer-events: none;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* ── BRAND TEXT ── */
+  .brand-heading {
+    text-align: center;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+  .brand-heading .plain { font-size: 2rem; font-weight: 700; color: var(--text); }
+  .brand-heading .colored { font-size: 2rem; font-weight: 800; color: var(--primary); }
+
+  .brand-tagline {
+    font-size: 0.92rem;
+    color: var(--muted);
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  /* ── FEATURES CARD ── */
+  .features-card {
+    background: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 18px;
+    padding: 1.1rem 1.5rem;
+    display: flex; gap: 0;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 4px 20px var(--shadow);
+    backdrop-filter: blur(12px);
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .feature-item {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0.35rem;
+    padding: 0 0.5rem;
+    border-left: 1px solid var(--border);
+    text-align: center;
+  }
+  .feature-item:last-child { border-left: none; }
+
+  .feature-icon { width: 32px; height: 32px; }
+  .feature-label { font-size: 0.78rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+
+  /* ── SECURITY BADGE ── */
+  .security-badge {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 50px;
+    padding: 0.45rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #16a34a;
+    width: 100%; max-width: 380px;
+    justify-content: center;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    background: linear-gradient(160deg, #f7faff 0%, #eef4ff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .right-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(22,119,255,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+  }
+
+  /* ── LOGIN CARD ── */
+  .login-card {
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(255,255,255,0.95);
+    border-radius: 24px;
+    padding: 2.8rem 2.5rem;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 8px 40px rgba(22,119,255,0.1), 0 2px 12px var(--shadow);
+    backdrop-filter: blur(20px);
+    animation: card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-logo {
+    display: flex; justify-content: center;
+    margin-bottom: 1.4rem;
+  }
+
+  .card-logo-mark {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px var(--shadow-blue);
+  }
+
+  .card-title {
+    text-align: center;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .card-subtitle {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 2rem;
+  }
+
+  /* ── FORM ── */
+  .form-group {
+    margin-bottom: 1.2rem;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 0.87rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.45rem;
+  }
+
+  .input-wrap {
+    position: relative;
+    display: flex; align-items: center;
+  }
+
+  .input-wrap .input-icon {
+    position: absolute;
+    right: 14px;
+    color: #94a3b8;
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+
+  .input-wrap .input-toggle {
+    position: absolute;
+    left: 14px;
+    background: none; border: none; cursor: pointer;
+    color: #94a3b8; padding: 0;
+    display: flex; align-items: center;
+    transition: color 0.2s;
+  }
+
+  .input-wrap input {
+    width: 100%;
+    padding: 0.78rem 2.8rem 0.78rem 2.6rem;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text);
+    background: #f8fbff;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    outline: none;
+    direction: rtl;
+  }
+
+  .input-wrap input::placeholder { color: #b0bec5; font-weight: 400; }
+
+  .input-wrap input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3.5px rgba(22,119,255,0.12);
+    background: #fff;
+  }
+
+  .input-wrap input:focus ~ .input-icon,
+  .input-wrap:has(input:focus) .input-toggle { color: var(--primary); }
+
+  /* ── REMEMBER ME ── */
+  .remember-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .custom-checkbox {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    background: #f8fbff;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .remember-row input[type="checkbox"] { display: none; }
+
+  .remember-row input[type="checkbox"]:checked + .custom-checkbox {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .remember-row input[type="checkbox"]:checked + .custom-checkbox svg { opacity: 1; }
+  .custom-checkbox svg { opacity: 0; transition: opacity 0.15s; }
+
+  .remember-label { font-size: 0.87rem; font-weight: 600; color: var(--muted); }
+
+  /* ── BUTTON ── */
+  .btn-primary {
+    width: 100%;
+    padding: 0.88rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 16px rgba(22,119,255,0.35);
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .btn-primary:hover { transform: translateY(-1.5px); box-shadow: 0 6px 24px rgba(22,119,255,0.45); }
+  .btn-primary:active { transform: translateY(0); }
+
+  /* ── FORGOT ── */
+  .forgot-link {
+    display: block; text-align: center;
+    font-size: 0.87rem; font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    margin-bottom: 1.4rem;
+    transition: color 0.2s;
+  }
+  .forgot-link:hover { color: var(--primary-dark); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 0.75rem;
+    margin-bottom: 1.2rem;
+  }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text { font-size: 0.82rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+
+  /* ── GOOGLE BTN ── */
+  .btn-google {
+    width: 100%;
+    padding: 0.78rem;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    margin-bottom: 1.6rem;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .btn-google:hover { border-color: rgba(22,119,255,0.3); box-shadow: 0 4px 16px var(--shadow-blue); background: #fafcff; }
+
+  /* ── REGISTER LINK ── */
+  .register-row {
+    text-align: center;
+    font-size: 0.87rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .register-row a { color: var(--primary); font-weight: 700; text-decoration: none; }
+  .register-row a:hover { color: var(--primary-dark); }
+
+  /* ── FOOTER ── */
+  .page-footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    text-align: center;
+    padding: 0.75rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 500;
+    background: rgba(247,250,255,0.85);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes float-center {
+    0%, 100% { transform: translate(-50%, -52%); }
+    50%       { transform: translate(-50%, -58%); }
+  }
+  @keyframes float-a {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50%       { transform: translateY(-9px) rotate(2deg); }
+  }
+  @keyframes float-b {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-12px); }
+  }
+  @keyframes float-c {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50%       { transform: translateY(-8px) rotate(-2deg); }
+  }
+  @keyframes float-d {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-10px); }
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(28px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .page { grid-template-columns: 1fr; }
+    .left-panel { display: none; }
+    .right-panel { padding: 2rem 1.2rem; background: var(--bg); min-height: 100vh; }
+    .login-card { padding: 2.2rem 1.6rem; }
+    .page-footer { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    .login-card { border-radius: 18px; padding: 1.8rem 1.2rem; }
+    .card-title { font-size: 1.45rem; }
+  }
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .logo-3d, .float-icon { animation: none !important; }
+    .login-card { animation: none !important; }
+  }
 </style>
 </head>
-
 <body>
 
-<div class="bg-circle one"></div>
-<div class="bg-circle two"></div>
+<div class="page">
 
-<div class="login-layout">
+  <!-- ══ LEFT PANEL ══ -->
+  <aside class="left-panel">
+    <div class="blob-bottom"></div>
 
-    <!-- LEFT SIDE -->
+    <!-- 3D logo stage with floating icons -->
+    <div class="logo-stage">
+      <svg class="connector" viewBox="0 0 260 260" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- dotted connector lines -->
+        <line x1="200" y1="36" x2="130" y2="100" stroke="rgba(22,119,255,0.2)" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <line x1="56" y1="44" x2="130" y2="100" stroke="rgba(22,119,255,0.2)" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <line x1="210" y1="200" x2="145" y2="148" stroke="rgba(22,119,255,0.2)" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <line x1="46" y1="195" x2="115" y2="148" stroke="rgba(22,119,255,0.2)" stroke-width="1.5" stroke-dasharray="4 5"/>
+      </svg>
 
-    <section class="hero-side">
+      <!-- Float icons -->
+      <div class="float-icon cloud" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M18 10h-.27A7 7 0 1 0 6.5 18H18a4 4 0 0 0 0-8Z" fill="url(#cloud-g)"/>
+          <defs><linearGradient id="cloud-g" x1="3" y1="7" x2="22" y2="18" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1677FF"/><stop offset="1" stop-color="#00B8FF"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
 
-        <div class="floating-icon icon-cloud">☁️</div>
-        <div class="floating-icon icon-chart">📊</div>
-        <div class="floating-icon icon-chat">💬</div>
-        <div class="floating-icon icon-shield">🛡️</div>
+      <div class="float-icon chart" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="12" width="4" height="9" rx="1.5" fill="#1677FF"/>
+          <rect x="10" y="7" width="4" height="14" rx="1.5" fill="url(#chart-g)"/>
+          <rect x="17" y="3" width="4" height="18" rx="1.5" fill="#00B8FF"/>
+          <defs><linearGradient id="chart-g" x1="10" y1="7" x2="14" y2="21" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1677FF"/><stop offset="1" stop-color="#4DA3FF"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
 
-        <div class="logo-zone">
+      <div class="float-icon shield" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L4 6v5c0 4.97 3.4 9.63 8 10.93C16.6 20.63 20 15.97 20 11V6L12 2Z" fill="url(#shield-g)"/>
+          <path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="shield-g" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#22C55E"/><stop offset="1" stop-color="#16a34a"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
 
-            <div class="logo-wrapper">
-                <img src="logo.png" alt="Mad3oom">
-            </div>
+      <div class="float-icon chat" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" fill="url(#chat-g)"/>
+          <circle cx="8.5" cy="11" r="1" fill="#fff"/>
+          <circle cx="12" cy="11" r="1" fill="#fff"/>
+          <circle cx="15.5" cy="11" r="1" fill="#fff"/>
+          <defs><linearGradient id="chat-g" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1677FF"/><stop offset="1" stop-color="#00B8FF"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
 
-            <div class="platform-ring"></div>
+      <!-- 3D circular logo SVG -->
+      <svg class="logo-3d" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="شعار مدعوم">
+        <defs>
+          <radialGradient id="rg1" cx="35%" cy="25%" r="70%">
+            <stop offset="0%" stop-color="#4DA3FF"/>
+            <stop offset="55%" stop-color="#1677FF"/>
+            <stop offset="100%" stop-color="#0F52BA"/>
+          </radialGradient>
+          <radialGradient id="rg2" cx="40%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="#60b8ff"/>
+            <stop offset="100%" stop-color="#1060d0"/>
+          </radialGradient>
+          <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="rgba(22,119,255,0.4)"/>
+          </filter>
+          <filter id="inner-glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
 
+        <!-- outer ring -->
+        <circle cx="80" cy="80" r="74" fill="url(#rg1)" filter="url(#drop)"/>
+        <!-- highlight arc top-left -->
+        <path d="M36 36 A 62 62 0 0 1 124 36" stroke="rgba(255,255,255,0.35)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <!-- inner white bubble -->
+        <rect x="28" y="36" width="104" height="78" rx="26" fill="white"/>
+        <!-- dots -->
+        <circle cx="56" cy="75" r="9" fill="url(#rg2)"/>
+        <circle cx="80" cy="75" r="9" fill="url(#rg2)"/>
+        <circle cx="104" cy="75" r="9" fill="url(#rg2)"/>
+        <!-- bubble tail -->
+        <path d="M42 112 L30 130 L65 116Z" fill="white"/>
+        <!-- ring inner shadow -->
+        <circle cx="80" cy="80" r="74" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+      </svg>
+
+      <div class="logo-glow" aria-hidden="true"></div>
+      <div class="logo-pedestal" aria-hidden="true"></div>
+    </div>
+
+    <!-- Brand text -->
+    <div class="brand-heading">
+      <span class="plain">منصة </span><span class="colored">مدعوم</span>
+    </div>
+    <p class="brand-tagline">منصة تكامل واتساب السحابي والدعم الفني</p>
+
+    <!-- Features card -->
+    <div class="features-card" role="list">
+      <div class="feature-item" role="listitem">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" fill="rgba(22,119,255,0.1)"/>
+          <path d="M10 22l4-12 3 8 2-5 3 9" stroke="#1677FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="feature-label">سريع<br>وموثوق</span>
+      </div>
+      <div class="feature-item" role="listitem">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" fill="rgba(34,197,94,0.1)"/>
+          <path d="M16 5L8 9v6c0 5.25 3.6 10.15 8 11.5 4.4-1.35 8-6.25 8-11.5V9L16 5z" fill="rgba(34,197,94,0.2)" stroke="#22C55E" stroke-width="1.8"/>
+          <path d="M12 16l2.5 2.5 5-5" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="feature-label">آمن<br>ومحمي</span>
+      </div>
+      <div class="feature-item" role="listitem">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" fill="rgba(0,184,255,0.1)"/>
+          <path d="M22 14h-.29A7.38 7.38 0 1 0 8.5 20H22a4 4 0 0 0 0-8Z" fill="rgba(0,184,255,0.3)" stroke="#00B8FF" stroke-width="1.8"/>
+        </svg>
+        <span class="feature-label">سحابي<br>100%</span>
+      </div>
+    </div>
+
+    <!-- Security badge -->
+    <div class="security-badge" role="note">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 1L2 4v4c0 3.31 2.5 6.4 6 7 3.5-.6 6-3.69 6-7V4L8 1Z" fill="#22C55E"/>
+        <path d="M5.5 8l2 2 3.5-3.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      تشفير متقدم وحماية بيانات على أعلى مستوى
+    </div>
+  </aside>
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <main class="right-panel">
+    <article class="login-card">
+
+      <!-- Card logo -->
+      <div class="card-logo">
+        <div class="card-logo-mark" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+            <rect x="4" y="7" width="26" height="20" rx="7" fill="rgba(255,255,255,0.25)"/>
+            <circle cx="11" cy="17" r="3" fill="white"/>
+            <circle cx="17" cy="17" r="3" fill="white"/>
+            <circle cx="23" cy="17" r="3" fill="white"/>
+            <path d="M9 26l-5 6 10-4Z" fill="rgba(255,255,255,0.25)"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 class="card-title">تسجيل الدخول</h1>
+      <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
+
+      <form id="login-form" novalidate>
+
+        <!-- Email -->
+        <div class="form-group">
+          <label class="form-label" for="email">البريد الإلكتروني</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+            <input type="email" id="email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
+          </div>
         </div>
 
-        <h1 class="hero-title">
-            منصة <span>مدعوم</span>
-        </h1>
-
-        <p class="hero-subtitle">
-            منصة تكامل واتساب السحابي والدعم الفني
-        </p>
-
-        <div class="features">
-
-            <div class="feature">
-                <div class="feature-icon">⚡</div>
-                <h3>سريع</h3>
-                <p>وموثوق</p>
-            </div>
-
-            <div class="feature">
-                <div class="feature-icon">🛡️</div>
-                <h3>آمن</h3>
-                <p>ومحمي</p>
-            </div>
-
-            <div class="feature">
-                <div class="feature-icon">☁️</div>
-                <h3>سحابي</h3>
-                <p>100%</p>
-            </div>
-
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label" for="password">كلمة المرور</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+            </svg>
+            <button type="button" class="input-toggle" id="toggle-pw" aria-label="إظهار كلمة المرور">
+              <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              </svg>
+            </button>
+            <input type="password" id="password" name="password" placeholder="أدخل كلمة المرور" autocomplete="current-password" required>
+          </div>
         </div>
 
-        <div class="security-badge">
-            <div class="dot"></div>
-            تشفير متقدم وحماية بيانات على أعلى مستوى
-        </div>
-
-    </section>
-
-    <!-- RIGHT SIDE -->
-    <section class="login-side">
-
-/* =====================
-   Login Card
-===================== */
-
-.login-card{
-
-    background:
-    rgba(255,255,255,.92);
-
-    backdrop-filter:
-    blur(20px);
-
-    border:
-    1px solid rgba(255,255,255,.6);
-
-    border-radius:32px;
-
-    padding:45px;
-
-    box-shadow:
-    0 30px 80px rgba(15,23,42,.08);
-
-    animation:
-    cardEnter .8s ease;
-}
-
-.card-logo{
-    text-align:center;
-}
-
-.card-logo img{
-    width:95px;
-}
-
-.login-title{
-
-    text-align:center;
-
-    margin-top:15px;
-
-    font-size:3rem;
-    font-weight:800;
-}
-
-.login-subtitle{
-
-    text-align:center;
-
-    color:var(--text-secondary);
-
-    margin-top:10px;
-    margin-bottom:35px;
-}
-
-/* =====================
-   Form
-===================== */
-
-.form-group{
-    margin-bottom:22px;
-}
-
-.form-group label{
-
-    display:block;
-
-    margin-bottom:10px;
-
-    font-weight:700;
-}
-
-.input-wrapper{
-
-    position:relative;
-}
-
-.input-wrapper input{
-
-    width:100%;
-    height:62px;
-
-    border:1px solid var(--border);
-
-    border-radius:16px;
-
-    background:white;
-
-    padding:
-    0 55px 0 55px;
-
-    font-size:16px;
-
-    transition:.3s;
-}
-
-.input-wrapper input:focus{
-
-    outline:none;
-
-    border-color:var(--primary);
-
-    box-shadow:
-    0 0 0 4px
-    rgba(22,119,255,.12);
-}
-
-.input-icon{
-
-    position:absolute;
-
-    right:18px;
-    top:50%;
-
-    transform:
-    translateY(-50%);
-}
-
-.toggle-password{
-
-    position:absolute;
-
-    left:15px;
-    top:50%;
-
-    transform:
-    translateY(-50%);
-
-    background:none;
-    border:none;
-
-    cursor:pointer;
-
-    font-size:18px;
-}
-
-.remember-row{
-
-    display:flex;
-
-    justify-content:flex-start;
-
-    margin-bottom:25px;
-}
-
-.checkbox{
-
-    display:flex;
-    align-items:center;
-    gap:10px;
-
-    cursor:pointer;
-}
-
-.checkbox input{
-
-    width:18px;
-    height:18px;
-}
-
-/* =====================
-   Buttons
-===================== */
-
-.login-btn{
-
-    width:100%;
-    height:60px;
-
-    border:none;
-
-    border-radius:16px;
-
-    cursor:pointer;
-
-    color:white;
-
-    font-size:18px;
-    font-weight:700;
-
-    background:
-    linear-gradient(
-        135deg,
-        var(--primary-dark),
-        var(--primary),
-        var(--primary-light)
-    );
-
-    transition:.3s;
-}
-
-.login-btn:hover{
-
-    transform:
-    translateY(-3px);
-
-    box-shadow:
-    0 15px 35px
-    rgba(22,119,255,.30);
-}
-
-.forgot-link{
-
-    display:block;
-
-    text-align:center;
-
-    margin-top:20px;
-
-    color:var(--primary);
-
-    text-decoration:none;
-
-    font-weight:700;
-}
-
-.divider{
-
-    display:flex;
-
-    align-items:center;
-
-    gap:15px;
-
-    margin:28px 0;
-}
-
-.divider::before,
-.divider::after{
-
-    content:"";
-
-    flex:1;
-
-    height:1px;
-
-    background:#E2E8F0;
-}
-
-.google-btn{
-
-    width:100%;
-    height:60px;
-
-    border-radius:16px;
-
-    border:1px solid var(--border);
-
-    background:white;
-
-    cursor:pointer;
-
-    display:flex;
-
-    align-items:center;
-    justify-content:center;
-
-    gap:12px;
-
-    font-size:16px;
-    font-weight:700;
-
-    transition:.3s;
-}
-
-.google-btn:hover{
-
-    background:
-    var(--bg-soft);
-}
-
-.google-icon{
-
-    color:#EA4335;
-
-    font-size:22px;
-
-    font-weight:800;
-}
-
-.register-row{
-
-    text-align:center;
-
-    margin-top:25px;
-
-    color:var(--text-secondary);
-}
-
-.register-row a{
-
-    color:var(--primary);
-
-    font-weight:700;
-
-    text-decoration:none;
-}
-
-/* =====================
-   Footer
-===================== */
-
-.footer{
-
-    text-align:center;
-
-    margin-top:25px;
-
-    color:#94A3B8;
-}
-
-/* =====================
-   Card Animation
-===================== */
-
-@keyframes cardEnter{
-
-    from{
-
-        opacity:0;
-
-        transform:
-        translateY(30px);
-    }
-
-    to{
-
-        opacity:1;
-
-        transform:
-        translateY(0);
-    }
-}
-    </section>
+        <!-- Remember me -->
+        <label class="remember-row">
+          <input type="checkbox" id="remember" name="remember">
+          <span class="custom-checkbox">
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+              <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="remember-label">تذكرني</span>
+        </label>
+
+        <!-- Login button -->
+        <button type="submit" class="btn-primary">تسجيل الدخول</button>
+
+      </form>
+
+      <!-- Forgot -->
+      <a href="#" class="forgot-link">هل نسيت كلمة المرور؟</a>
+
+      <!-- Divider -->
+      <div class="divider" aria-hidden="true">
+        <div class="divider-line"></div>
+        <span class="divider-text">أو</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Google -->
+      <button type="button" class="btn-google">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#EA4335"/>
+        </svg>
+        تسجيل الدخول باستخدام Google
+      </button>
+
+      <!-- Register -->
+      <p class="register-row">
+        ليس لديك حساب؟ <a href="#">إنشاء حساب جديد</a>
+      </p>
+
+    </article>
+  </main>
 
 </div>
-<div class="footer">
-    © 2026 منصة مدعوم - جميع الحقوق محفوظة
-</div>
+
+<footer class="page-footer">
+  <span>&#169; منصة مدعوم. جميع الحقوق محفوظة.</span>
+</footer>
 
 <script>
+  // Password show/hide toggle
+  const pwInput = document.getElementById('password');
+  const toggleBtn = document.getElementById('toggle-pw');
+  const eyeIcon = document.getElementById('eye-icon');
 
-/* =========================
-   Toggle Password
-========================= */
+  const eyeOpen = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
+  const eyeClosed = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
 
-function togglePassword(){
+  toggleBtn.addEventListener('click', () => {
+    const isPassword = pwInput.type === 'password';
+    pwInput.type = isPassword ? 'text' : 'password';
+    eyeIcon.innerHTML = isPassword ? eyeClosed : eyeOpen;
+    toggleBtn.setAttribute('aria-label', isPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+  });
 
-    const password =
-    document.getElementById("password");
+  // Form submit handler
+  document.getElementById('login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-primary');
+    btn.textContent = 'جاري الدخول...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = 'تسجيل الدخول';
+      btn.disabled = false;
+    }, 2000);
+  });
 
-    if(password.type === "password"){
-        password.type = "text";
-    }else{
-        password.type = "password";
-    }
-}
-
-/* =========================
-   Floating Effect
-========================= */
-
-document.addEventListener("mousemove",(e)=>{
-
-    const cards =
-    document.querySelectorAll(
-        ".floating-icon"
-    );
-
-    const x =
-    (window.innerWidth/2 - e.clientX)
-    / 60;
-
-    const y =
-    (window.innerHeight/2 - e.clientY)
-    / 60;
-
-    cards.forEach((card,index)=>{
-
-        const speed =
-        (index + 1) * 0.4;
-
-        card.style.transform =
-        translate(${x*speed}px, ${y*speed}px);
-    });
-});
-
-/* =========================
-   Inputs Animation
-========================= */
-
-document
-.querySelectorAll("input")
-.forEach(input=>{
-
-    input.addEventListener(
-        "focus",
-        ()=>{
-            input.parentElement.style.transform =
-            "translateY(-2px)";
-        }
-    );
-
-    input.addEventListener(
-        "blur",
-        ()=>{
-            input.parentElement.style.transform =
-            "translateY(0)";
-        }
-    );
-
-});
-
+  // Checkbox visual
+  document.getElementById('remember').addEventListener('change', function() {
+    // handled via CSS :checked
+  });
 </script>
+
 </body>
 </html>
