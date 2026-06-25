@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل العميل (Customer Timeline) | منصة مدعوم</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== Sidebar (مطابق لهيكل لوحة تحكم مدعوم) ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">م</div>
+      <span class="logo-text">مدعوم</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item"><span class="nav-icon">🏠</span> الرئيسية</a>
+      <a href="#" class="nav-item"><span class="nav-icon">🎫</span> التذاكر</a>
+      <a href="#" class="nav-item"><span class="nav-icon">💬</span> المحادثات</a>
+      <a href="#" class="nav-item"><span class="nav-icon">🟢</span> واتساب</a>
+      <a href="#" class="nav-item active"><span class="nav-icon">👤</span> سجل العميل</a>
+      <a href="#" class="nav-item"><span class="nav-icon">⚙️</span> الإعدادات</a>
+    </nav>
+  </aside>
+
+  <!-- ===== Main ===== -->
+  <main class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>سجل العميل <span class="topbar-sub">Customer Timeline</span></h1>
+      </div>
+
+      <div class="customer-search">
+        <input type="text" id="customerSearch" placeholder="ابحث باسم العميل، رقم الهاتف، أو رقم التذكرة...">
+        <button id="searchBtn" class="btn btn-primary">بحث</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- قائمة العملاء (يسار المحتوى) -->
+      <section class="customer-list" id="customerList" aria-label="قائمة العملاء">
+        <div class="customer-list-head">العملاء <span id="customerCount" class="count-badge">0</span></div>
+        <div id="customerListItems"></div>
+      </section>
+
+      <!-- تفاصيل العميل + Timeline -->
+      <section class="customer-detail" id="customerDetail">
+
+        <!-- حالة فاضية لو لسه مفيش عميل متحدد -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">👥</div>
+          <p>اختر عميلًا من القائمة لعرض سجله الكامل</p>
+        </div>
+
+        <!-- محتوى العميل -->
+        <div id="customerContent" class="customer-content hidden">
+
+          <!-- بطاقة معلومات العميل -->
+          <div class="customer-card">
+            <div class="customer-card-main">
+              <div class="avatar" id="custAvatar">ع</div>
+              <div class="customer-info">
+                <h2 id="custName">—</h2>
+                <div class="customer-meta">
+                  <span id="custPhone">—</span>
+                  <span class="dot">•</span>
+                  <span id="custEmail">—</span>
+                </div>
+                <div class="customer-tags" id="custTags"></div>
+              </div>
+            </div>
+
+            <div class="customer-card-stats">
+              <div class="stat-box">
+                <span class="stat-num" id="statTickets">0</span>
+                <span class="stat-label">تذاكر</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-num" id="statMessages">0</span>
+                <span class="stat-label">رسائل</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-num" id="statWhatsapp">0</span>
+                <span class="stat-label">واتساب</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-num" id="statNotes">0</span>
+                <span class="stat-label">ملاحظات</span>
+              </div>
+            </div>
+
+            <div class="last-agent-box">
+              <span class="last-agent-label">آخر موظف تعامل مع العميل</span>
+              <div class="last-agent-info">
+                <div class="agent-avatar" id="lastAgentAvatar">؟</div>
+                <div>
+                  <div class="agent-name" id="lastAgentName">—</div>
+                  <div class="agent-time" id="lastAgentTime">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- فلاتر التايم لاين -->
+          <div class="timeline-toolbar">
+            <div class="filters" id="filters">
+              <button class="filter-chip active" data-filter="all">الكل</button>
+              <button class="filter-chip" data-filter="message">رسائل</button>
+              <button class="filter-chip" data-filter="ticket">تذاكر</button>
+              <button class="filter-chip" data-filter="whatsapp">واتساب</button>
+              <button class="filter-chip" data-filter="note">ملاحظات داخلية</button>
+            </div>
+            <button class="btn btn-secondary" id="addNoteBtn">+ إضافة ملاحظة داخلية</button>
+          </div>
+
+          <!-- Timeline -->
+          <div class="timeline" id="timeline"></div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ===== Modal: إضافة ملاحظة داخلية ===== -->
+<div class="modal-overlay hidden" id="noteModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>إضافة ملاحظة داخلية</h3>
+      <button class="modal-close" id="closeNoteModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <label for="noteText">الملاحظة</label>
+      <textarea id="noteText" rows="4" placeholder="اكتب ملاحظة داخلية تخص هذا العميل... (لا تظهر للعميل)"></textarea>
+      <p class="modal-hint">هذه الملاحظة تظهر فقط لفريق الدعم داخل مدعوم.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelNoteBtn">إلغاء</button>
+      <button class="btn btn-primary" id="saveNoteBtn">حفظ الملاحظة</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div class="toast hidden" id="toast"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
