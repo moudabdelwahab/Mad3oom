@@ -465,6 +465,19 @@
     .logo-img, .float-icon { animation: none !important; }
     .login-card { animation: none !important; }
   }
+  /* ══ PANEL SWAP ANIMATION ══ */
+  .panel-exit {
+    animation: panel-out 0.38s cubic-bezier(0.4,0,1,1) forwards;
+  }
+  .panel-enter {
+    animation: card-in 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+
+  @keyframes panel-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(20px) scale(0.97); }
+  }
+
 </style>
 </head>
 <body>
@@ -472,7 +485,7 @@
 <div class="page">
 
   <!-- ══ LEFT = LOGIN ══ -->
-  <main class="login-panel">
+  <main class="login-panel" id="login-panel">
     <article class="login-card">
 
       <div class="card-logo">
@@ -546,7 +559,99 @@
       </button>
 
       <p class="register-row">
-        ليس لديك حساب؟ <a href="#">إنشاء حساب جديد</a>
+        ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
+      </p>
+
+    </article>
+  </main>
+
+  <!-- ══ LEFT = REGISTER (hidden initially) ══ -->
+  <main class="login-panel" id="register-panel" style="display:none;">
+    <article class="login-card" id="register-card">
+
+      <div class="card-logo">
+        <img class="card-logo-img" src="" alt="شعار مدعوم" id="register-logo">
+      </div>
+
+      <h1 class="card-title">إنشاء حساب جديد</h1>
+      <p class="card-subtitle">أنشئ حسابك في منصة مدعوم</p>
+
+      <form id="register-form" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-name">الاسم الكامل</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+            <input type="text" id="reg-name" name="name" placeholder="أدخل اسمك الكامل" autocomplete="name" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-email">البريد الإلكتروني</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+            <input type="email" id="reg-email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-password">كلمة المرور</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+            </svg>
+            <button type="button" class="input-toggle" id="toggle-reg-pw" aria-label="إظهار كلمة المرور">
+              <svg id="reg-eye-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              </svg>
+            </button>
+            <input type="password" id="reg-password" name="password" placeholder="أنشئ كلمة مرور قوية" autocomplete="new-password" required>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.1rem;">
+          <label class="form-label" for="reg-confirm">تأكيد كلمة المرور</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <path d="M9 16l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <input type="password" id="reg-confirm" name="confirm" placeholder="أعد إدخال كلمة المرور" autocomplete="new-password" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">إنشاء الحساب</button>
+
+      </form>
+
+      <div class="divider" aria-hidden="true">
+        <div class="divider-line"></div>
+        <span class="divider-text">أو</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <button type="button" class="btn-google">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#EA4335"/>
+        </svg>
+        التسجيل باستخدام Google
+      </button>
+
+      <p class="register-row">
+        لديك حساب بالفعل؟ <a href="#" id="go-login">تسجيل الدخول</a>
       </p>
 
     </article>
@@ -657,6 +762,59 @@
 </footer>
 
 <script>
+  // ── الحصول على اللوجو من البانل البراندي وإعادة استخدامه ──
+  const brandLogoSrc = document.querySelector('.logo-img').src;
+  document.getElementById('register-logo').src = brandLogoSrc;
+
+  // ── الحصول على عنصر الكارت اللي في اللوجو الأصلي ──
+  const loginLogoImg = document.querySelector('#login-panel .card-logo-img');
+  // copy src to register logo on load
+  document.getElementById('register-logo').src = loginLogoImg ? loginLogoImg.src : '';
+
+  // ── PANELS ──
+  const loginPanel    = document.getElementById('login-panel');
+  const registerPanel = document.getElementById('register-panel');
+  const brandPanel    = document.querySelector('.brand-panel');
+
+  function swapToRegister() {
+    // خروج بانل لوجين
+    loginPanel.classList.add('panel-exit');
+    setTimeout(() => {
+      loginPanel.style.display = 'none';
+      loginPanel.classList.remove('panel-exit');
+      // إظهار بانل التسجيل مع دخول
+      registerPanel.style.display = 'flex';
+      registerPanel.querySelector('.login-card').classList.add('panel-enter');
+      setTimeout(() => registerPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
+      // تبديل البراند للجهة اليمين→يسار (RTL swap)
+      brandPanel.style.order = '-1';
+    }, 340);
+  }
+
+  function swapToLogin() {
+    registerPanel.classList.add('panel-exit');
+    setTimeout(() => {
+      registerPanel.style.display = 'none';
+      registerPanel.classList.remove('panel-exit');
+      loginPanel.style.display = 'flex';
+      loginPanel.querySelector('.login-card').classList.add('panel-enter');
+      setTimeout(() => loginPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
+      // إرجاع البراند
+      brandPanel.style.order = '';
+    }, 340);
+  }
+
+  document.getElementById('go-register').addEventListener('click', (e) => {
+    e.preventDefault();
+    swapToRegister();
+  });
+
+  document.getElementById('go-login').addEventListener('click', (e) => {
+    e.preventDefault();
+    swapToLogin();
+  });
+
+  // ── Password toggle – Login ──
   const pwInput   = document.getElementById('password');
   const toggleBtn = document.getElementById('toggle-pw');
   const eyeIcon   = document.getElementById('eye-icon');
@@ -671,12 +829,43 @@
     toggleBtn.setAttribute('aria-label', isPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
   });
 
+  // ── Password toggle – Register ──
+  const regPwInput   = document.getElementById('reg-password');
+  const regToggleBtn = document.getElementById('toggle-reg-pw');
+  const regEyeIcon   = document.getElementById('reg-eye-icon');
+
+  regToggleBtn.addEventListener('click', () => {
+    const isPw = regPwInput.type === 'password';
+    regPwInput.type = isPw ? 'text' : 'password';
+    regEyeIcon.innerHTML = isPw ? eyeClosed : eyeOpen;
+    regToggleBtn.setAttribute('aria-label', isPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+  });
+
+  // ── Login submit ──
   document.getElementById('login-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('.btn-primary');
     btn.textContent = 'جاري الدخول...';
     btn.disabled = true;
     setTimeout(() => { btn.textContent = 'تسجيل الدخول'; btn.disabled = false; }, 2000);
+  });
+
+  // ── Register submit ──
+  document.getElementById('register-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-primary');
+    const pw  = document.getElementById('reg-password').value;
+    const cpw = document.getElementById('reg-confirm').value;
+    if (pw !== cpw) {
+      document.getElementById('reg-confirm').style.borderColor = '#ef4444';
+      document.getElementById('reg-confirm').style.boxShadow  = '0 0 0 3px rgba(239,68,68,0.12)';
+      return;
+    }
+    document.getElementById('reg-confirm').style.borderColor = '';
+    document.getElementById('reg-confirm').style.boxShadow  = '';
+    btn.textContent = 'جاري الإنشاء...';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = 'إنشاء الحساب'; btn.disabled = false; }, 2000);
   });
 </script>
 
