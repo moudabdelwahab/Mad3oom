@@ -52,7 +52,7 @@
                 window.location.replace('customer-dashboard.html');
             } catch (err) {
                 console.error('Guest login failed:', err);
-                window.location.href = 'sign-in.html';
+                window.location.href = 'login.html';
             }
         };
     </script>
@@ -110,10 +110,10 @@
                         <span>حسابي</span>
                     </button>
                     <div id="accountDropdown" style="display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.5rem; box-shadow: var(--shadow); min-width: 200px; z-index: 1000; margin-top: 0.5rem;">
-                        <a href="sign-in.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
+                        <a href="login.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
                             تسجيل الدخول
                         </a>
-                        <a href="sign-up.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
+                        <a href="login.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
                             إنشاء حساب
                         </a>
                         <a href="javascript:void(0)" onclick="handleGuestLogin()" id="guestLoginLink" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; transition: all 0.3s;">
@@ -134,7 +134,7 @@
                 <h1>مساعد الدعم الفني <span class="gradient-text">الاحترافي</span></h1>
                 <p>نظام دعم فني متكامل يجمع بين نظام التذاكر والمحادثة الفورية وحلول WhatsApp Cloud API لنمو شركتك.</p>
                 <div class="hero-buttons">
-                    <a href="sign-in.html" class="btn btn-primary">ابدأ الآن</a>
+                    <a href="login.html" class="btn btn-primary">ابدأ الآن</a>
                     <a href="comparison.html" class="btn btn-secondary">اكتشف الفرق</a>
                 </div>
             </div>
@@ -257,7 +257,7 @@
             <p>تواصل معنا الآن واحصل على دعم فني متخصص وسريع الاستجابة</p>
             <div class="cta-buttons">
                 <a href="chat-customer.html" class="btn btn-primary">ابدأ المحادثة</a>
-                <a href="sign-in.html" class="btn btn-accent">أنشئ تذكرة</a>
+                <a href="login.html" class="btn btn-accent">أنشئ تذكرة</a>
             </div>
         </section>
     </div>
