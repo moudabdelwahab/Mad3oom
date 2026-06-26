@@ -761,37 +761,216 @@
   <span>&#169; منصة مدعوم. جميع الحقوق محفوظة.</span>
 </footer>
 
-<script>
-  // ── الحصول على اللوجو من البانل البراندي وإعادة استخدامه ──
-  const brandLogoSrc = document.querySelector('.logo-img').src;
-  document.getElementById('register-logo').src = brandLogoSrc;
+<script type="module">
+  // ── SUPABASE INIT ──
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-  // ── الحصول على عنصر الكارت اللي في اللوجو الأصلي ──
-  const loginLogoImg = document.querySelector('#login-panel .card-logo-img');
-  // copy src to register logo on load
-  document.getElementById('register-logo').src = loginLogoImg ? loginLogoImg.src : '';
+  const SUPABASE_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
+  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ── PANELS ──
+  // ── REDIRECT IF ALREADY LOGGED IN ──
+  async function checkExistingSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) await redirectByRole(session.user.id);
+  }
+
+  // ── ROLE-BASED REDIRECT ──
+  async function redirectByRole(userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    const role = profile?.role || 'user';
+    if (role === 'admin') {
+      window.location.href = 'admin-dashboard.html';
+    } else {
+      window.location.href = 'customer-dashboard.html';
+    }
+  }
+
+  // ── HANDLE GOOGLE OAUTH CALLBACK ──
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+      // Check if profile exists, create if not
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!existing) {
+        // New user via Google — create profile
+        await supabase.from('profiles').insert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || '',
+          role: 'user'
+        });
+      }
+      // Redirect
+      const role = existing?.role || 'user';
+      if (role === 'admin') {
+        window.location.href = 'admin-dashboard.html';
+      } else {
+        window.location.href = 'customer-dashboard.html';
+      }
+    }
+  });
+
+  // Check on page load
+  checkExistingSession();
+
+  // ── SHOW / HIDE TOAST ──
+  function showToast(msg, type = 'error') {
+    let toast = document.getElementById('auth-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'auth-toast';
+      toast.style.cssText = `
+        position:fixed; top:1.2rem; left:50%; transform:translateX(-50%);
+        padding:0.75rem 1.4rem; border-radius:10px; font-family:Cairo,sans-serif;
+        font-size:0.88rem; font-weight:600; z-index:9999;
+        box-shadow:0 4px 20px rgba(0,0,0,0.12); transition:opacity 0.3s;
+        direction:rtl; max-width:90vw; text-align:center;
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
+    toast.style.color       = type === 'error' ? '#dc2626' : '#16a34a';
+    toast.style.border      = type === 'error' ? '1px solid #fca5a5' : '1px solid #86efac';
+    toast.style.opacity = '1';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+  }
+
+  function setLoading(btn, loading, label) {
+    btn.disabled = loading;
+    btn.textContent = loading ? 'جاري التحميل...' : label;
+  }
+
+  // ── LOGIN FORM ──
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn   = e.target.querySelector('.btn-primary');
+    const email = document.getElementById('email').value.trim();
+    const pw    = document.getElementById('password').value;
+
+    setLoading(btn, true, 'تسجيل الدخول');
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+
+    if (error) {
+      setLoading(btn, false, 'تسجيل الدخول');
+      const msgs = {
+        'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+        'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',
+        'Too many requests': 'محاولات كثيرة، يرجى الانتظار قليلاً',
+      };
+      showToast(msgs[error.message] || error.message);
+      return;
+    }
+
+    await redirectByRole(data.user.id);
+  });
+
+  // ── REGISTER FORM ──
+  document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn  = e.target.querySelector('.btn-primary');
+    const name = document.getElementById('reg-name').value.trim();
+    const email= document.getElementById('reg-email').value.trim();
+    const pw   = document.getElementById('reg-password').value;
+    const cpw  = document.getElementById('reg-confirm').value;
+
+    const confirmInput = document.getElementById('reg-confirm');
+    if (pw !== cpw) {
+      confirmInput.style.borderColor = '#ef4444';
+      confirmInput.style.boxShadow   = '0 0 0 3px rgba(239,68,68,0.12)';
+      showToast('كلمة المرور وتأكيدها غير متطابقتين');
+      return;
+    }
+    confirmInput.style.borderColor = '';
+    confirmInput.style.boxShadow   = '';
+
+    if (pw.length < 8) {
+      showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+      return;
+    }
+
+    setLoading(btn, true, 'إنشاء الحساب');
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pw,
+      options: { data: { full_name: name } }
+    });
+
+    if (error) {
+      setLoading(btn, false, 'إنشاء الحساب');
+      const msgs = {
+        'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
+        'Password should be at least 6 characters': 'كلمة المرور قصيرة جداً',
+      };
+      showToast(msgs[error.message] || error.message);
+      return;
+    }
+
+    // Create profile row
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email,
+        full_name: name,
+        role: 'user'
+      }, { onConflict: 'id' });
+    }
+
+    setLoading(btn, false, 'إنشاء الحساب');
+    showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
+
+    // Switch to login after 2s
+    setTimeout(() => swapToLogin(), 2200);
+  });
+
+  // ── GOOGLE LOGIN ──
+  // Shared handler for both panels
+  async function googleSignIn() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname,
+        queryParams: { access_type: 'offline', prompt: 'consent' }
+      }
+    });
+    if (error) showToast('حدث خطأ أثناء تسجيل الدخول بـ Google: ' + error.message);
+  }
+
+  document.querySelectorAll('.btn-google').forEach(btn => {
+    btn.addEventListener('click', googleSignIn);
+  });
+
+  // ── PANEL SWAP ──
   const loginPanel    = document.getElementById('login-panel');
   const registerPanel = document.getElementById('register-panel');
   const brandPanel    = document.querySelector('.brand-panel');
 
-  function swapToRegister() {
-    // خروج بانل لوجين
+  window.swapToRegister = function() {
     loginPanel.classList.add('panel-exit');
     setTimeout(() => {
       loginPanel.style.display = 'none';
       loginPanel.classList.remove('panel-exit');
-      // إظهار بانل التسجيل مع دخول
       registerPanel.style.display = 'flex';
       registerPanel.querySelector('.login-card').classList.add('panel-enter');
       setTimeout(() => registerPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
-      // تبديل البراند للجهة اليمين→يسار (RTL swap)
       brandPanel.style.order = '-1';
     }, 340);
-  }
+  };
 
-  function swapToLogin() {
+  window.swapToLogin = function() {
     registerPanel.classList.add('panel-exit');
     setTimeout(() => {
       registerPanel.style.display = 'none';
@@ -799,74 +978,38 @@
       loginPanel.style.display = 'flex';
       loginPanel.querySelector('.login-card').classList.add('panel-enter');
       setTimeout(() => loginPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
-      // إرجاع البراند
       brandPanel.style.order = '';
     }, 340);
-  }
+  };
 
-  document.getElementById('go-register').addEventListener('click', (e) => {
-    e.preventDefault();
-    swapToRegister();
-  });
+  document.getElementById('go-register').addEventListener('click', (e) => { e.preventDefault(); swapToRegister(); });
+  document.getElementById('go-login').addEventListener('click',    (e) => { e.preventDefault(); swapToLogin();    });
 
-  document.getElementById('go-login').addEventListener('click', (e) => {
-    e.preventDefault();
-    swapToLogin();
-  });
-
-  // ── Password toggle – Login ──
-  const pwInput   = document.getElementById('password');
-  const toggleBtn = document.getElementById('toggle-pw');
-  const eyeIcon   = document.getElementById('eye-icon');
-
+  // ── PASSWORD TOGGLES ──
   const eyeOpen   = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
   const eyeClosed = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
 
-  toggleBtn.addEventListener('click', () => {
-    const isPw = pwInput.type === 'password';
-    pwInput.type = isPw ? 'text' : 'password';
-    eyeIcon.innerHTML = isPw ? eyeClosed : eyeOpen;
-    toggleBtn.setAttribute('aria-label', isPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
-  });
+  function initPwToggle(inputId, toggleId, iconId) {
+    const input  = document.getElementById(inputId);
+    const toggle = document.getElementById(toggleId);
+    const icon   = document.getElementById(iconId);
+    toggle.addEventListener('click', () => {
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      icon.innerHTML = isPw ? eyeClosed : eyeOpen;
+      toggle.setAttribute('aria-label', isPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+    });
+  }
 
-  // ── Password toggle – Register ──
-  const regPwInput   = document.getElementById('reg-password');
-  const regToggleBtn = document.getElementById('toggle-reg-pw');
-  const regEyeIcon   = document.getElementById('reg-eye-icon');
+  initPwToggle('password',     'toggle-pw',     'eye-icon');
+  initPwToggle('reg-password', 'toggle-reg-pw', 'reg-eye-icon');
 
-  regToggleBtn.addEventListener('click', () => {
-    const isPw = regPwInput.type === 'password';
-    regPwInput.type = isPw ? 'text' : 'password';
-    regEyeIcon.innerHTML = isPw ? eyeClosed : eyeOpen;
-    regToggleBtn.setAttribute('aria-label', isPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
-  });
-
-  // ── Login submit ──
-  document.getElementById('login-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('.btn-primary');
-    btn.textContent = 'جاري الدخول...';
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = 'تسجيل الدخول'; btn.disabled = false; }, 2000);
-  });
-
-  // ── Register submit ──
-  document.getElementById('register-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('.btn-primary');
-    const pw  = document.getElementById('reg-password').value;
-    const cpw = document.getElementById('reg-confirm').value;
-    if (pw !== cpw) {
-      document.getElementById('reg-confirm').style.borderColor = '#ef4444';
-      document.getElementById('reg-confirm').style.boxShadow  = '0 0 0 3px rgba(239,68,68,0.12)';
-      return;
-    }
-    document.getElementById('reg-confirm').style.borderColor = '';
-    document.getElementById('reg-confirm').style.boxShadow  = '';
-    btn.textContent = 'جاري الإنشاء...';
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = 'إنشاء الحساب'; btn.disabled = false; }, 2000);
-  });
+  // Copy logo src to register panel
+  const brandLogoSrc = document.querySelector('.logo-img')?.src;
+  if (brandLogoSrc) {
+    const regLogo = document.getElementById('register-logo');
+    if (regLogo) regLogo.src = brandLogoSrc;
+  }
 </script>
 
 </body>
