@@ -32,22 +32,19 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── LAYOUT: login RIGHT → LTR order = left first in DOM ── */
   .page {
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
 
-  /* ══════════════════════════════════════
-     LEFT = LOGIN PANEL (was right)
-  ══════════════════════════════════════ */
+  /* ══ LOGIN PANEL ══ */
   .login-panel {
     background: linear-gradient(160deg, #f7faff 0%, #eef4ff 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem 1rem;
+    padding: 1rem;
     position: relative;
     overflow: hidden;
   }
@@ -160,8 +157,10 @@
     background: #fff;
   }
 
-  .input-wrap input:focus + .input-icon { color: var(--primary); }
-  .input-wrap:has(input:focus) .input-toggle { color: var(--primary); }
+  .input-wrap input.input-error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
+  }
 
   /* remember */
   .remember-row {
@@ -199,11 +198,15 @@
     font-size: 0.97rem;
     font-weight: 700;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
     box-shadow: 0 4px 16px rgba(22,119,255,0.32);
     margin-bottom: 0.65rem;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
   .btn-primary::after {
     content: '';
@@ -211,8 +214,22 @@
     background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
     pointer-events: none;
   }
-  .btn-primary:hover { transform: translateY(-1.5px); box-shadow: 0 6px 22px rgba(22,119,255,0.42); }
-  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1.5px); box-shadow: 0 6px 22px rgba(22,119,255,0.42); }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  /* spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+    flex-shrink: 0;
+  }
+  .btn-primary.loading .spinner { display: block; }
+  .btn-primary.loading .btn-label { opacity: 0.85; }
 
   .forgot-link {
     display: block; text-align: center;
@@ -258,9 +275,58 @@
   .register-row a { color: var(--primary); font-weight: 700; text-decoration: none; }
   .register-row a:hover { color: var(--primary-dark); }
 
-  /* ══════════════════════════════════════
-     RIGHT = BRAND PANEL (was left)
-  ══════════════════════════════════════ */
+  /* ── 2FA PANEL ── */
+  .twofa-info {
+    background: rgba(22,119,255,0.06);
+    border: 1px solid rgba(22,119,255,0.15);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.84rem;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  .otp-inputs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+    direction: ltr;
+  }
+
+  .otp-inputs input {
+    width: 44px; height: 50px;
+    text-align: center;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: #f8fbff;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .otp-inputs input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(22,119,255,0.11);
+    background: #fff;
+  }
+
+  .back-link {
+    display: block; text-align: center;
+    font-size: 0.84rem; font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--primary); }
+
+  /* ══ BRAND PANEL ══ */
   .brand-panel {
     position: relative;
     background: linear-gradient(145deg, #d8eaff 0%, #e4f0ff 40%, #c4daff 100%);
@@ -268,7 +334,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem 1.5rem;
+    padding: 1.5rem;
     overflow: hidden;
   }
 
@@ -299,7 +365,6 @@
     pointer-events: none;
   }
 
-  /* logo stage */
   .logo-stage {
     position: relative;
     width: 210px; height: 210px;
@@ -326,7 +391,6 @@
     filter: blur(5px);
   }
 
-  /* floating icons */
   .float-icon {
     position: absolute;
     width: 48px; height: 48px;
@@ -350,7 +414,6 @@
     width: 100%; height: 100%;
   }
 
-  /* brand text */
   .brand-heading {
     text-align: center;
     margin-bottom: 0.35rem;
@@ -367,7 +430,6 @@
     margin-bottom: 1.1rem;
   }
 
-  /* features card */
   .features-card {
     background: rgba(255,255,255,0.76);
     border: 1px solid rgba(255,255,255,0.92);
@@ -393,7 +455,6 @@
   .feature-icon { width: 30px; height: 30px; }
   .feature-label { font-size: 0.74rem; font-weight: 700; color: var(--text); line-height: 1.3; }
 
-  /* security badge */
   .security-badge {
     display: flex; align-items: center; gap: 0.45rem;
     background: rgba(34,197,94,0.1);
@@ -422,6 +483,27 @@
     z-index: 10;
   }
 
+  /* ── TOAST ── */
+  #auth-toast {
+    position: fixed;
+    top: 1.2rem; left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.4rem;
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    transition: opacity 0.3s, transform 0.3s;
+    direction: rtl;
+    max-width: 90vw;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #auth-toast.show { opacity: 1; }
+
   /* ── ANIMATIONS ── */
   @keyframes float-center {
     0%,100% { transform: translate(-50%,-52%); }
@@ -447,6 +529,18 @@
     from { opacity: 0; transform: translateY(24px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── PANEL SWAP ── */
+  .panel-exit { animation: panel-out 0.38s cubic-bezier(0.4,0,1,1) forwards; }
+  .panel-enter { animation: card-in 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+  @keyframes panel-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(20px) scale(0.97); }
+  }
 
   /* ── RESPONSIVE ── */
   @media (max-width: 860px) {
@@ -459,53 +553,39 @@
   @media (max-width: 440px) {
     .login-card { border-radius: 16px; padding: 1.6rem 1.1rem; }
     .card-title { font-size: 1.35rem; }
+    .otp-inputs input { width: 38px; height: 44px; font-size: 1.1rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .logo-img, .float-icon { animation: none !important; }
     .login-card { animation: none !important; }
   }
-  /* ══ PANEL SWAP ANIMATION ══ */
-  .panel-exit {
-    animation: panel-out 0.38s cubic-bezier(0.4,0,1,1) forwards;
-  }
-  .panel-enter {
-    animation: card-in 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
-  }
-
-  @keyframes panel-out {
-    from { opacity: 1; transform: translateY(0) scale(1); }
-    to   { opacity: 0; transform: translateY(20px) scale(0.97); }
-  }
-
 </style>
 </head>
 <body>
 
+<div id="auth-toast" role="alert" aria-live="polite"></div>
+
 <div class="page">
 
-  <!-- ══ LEFT = LOGIN ══ -->
+  <!-- ══ PANEL 1: LOGIN ══ -->
   <main class="login-panel" id="login-panel">
     <article class="login-card">
-
       <div class="card-logo">
-                  <img class="card-logo-img" src="/logo.png">
-
+        <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
       </div>
-
       <h1 class="card-title">تسجيل الدخول</h1>
       <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
 
       <form id="login-form" novalidate>
-
         <div class="form-group">
-          <label class="form-label" for="email">البريد الإلكتروني</label>
+          <label class="form-label" for="email">البريد الإلكتروني أو اسم المستخدم</label>
           <div class="input-wrap">
             <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
               <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
             </svg>
-            <input type="email" id="email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
+            <input type="text" id="email" name="email" placeholder="البريد الإلكتروني أو اسم المستخدم" autocomplete="username" required>
           </div>
         </div>
 
@@ -537,11 +617,13 @@
           <span class="remember-label">تذكرني</span>
         </label>
 
-        <button type="submit" class="btn-primary">تسجيل الدخول</button>
-
+        <button type="submit" class="btn-primary" id="login-btn">
+          <span class="spinner"></span>
+          <span class="btn-label">تسجيل الدخول</span>
+        </button>
       </form>
 
-      <a href="#" class="forgot-link">هل نسيت كلمة المرور؟</a>
+      <a href="#" class="forgot-link" id="forgot-link">هل نسيت كلمة المرور؟</a>
 
       <div class="divider" aria-hidden="true">
         <div class="divider-line"></div>
@@ -549,7 +631,7 @@
         <div class="divider-line"></div>
       </div>
 
-      <button type="button" class="btn-google">
+      <button type="button" class="btn-google" id="google-login-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
@@ -562,23 +644,19 @@
       <p class="register-row">
         ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
       </p>
-
     </article>
   </main>
 
-  <!-- ══ LEFT = REGISTER (hidden initially) ══ -->
+  <!-- ══ PANEL 2: REGISTER ══ -->
   <main class="login-panel" id="register-panel" style="display:none;">
     <article class="login-card" id="register-card">
-
       <div class="card-logo">
-        <img class="card-logo-img" src="" alt="شعار مدعوم" id="register-logo">
+        <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
       </div>
-
       <h1 class="card-title">إنشاء حساب جديد</h1>
       <p class="card-subtitle">أنشئ حسابك في منصة مدعوم</p>
 
       <form id="register-form" novalidate>
-
         <div class="form-group">
           <label class="form-label" for="reg-name">الاسم الكامل</label>
           <div class="input-wrap">
@@ -631,8 +709,10 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-primary">إنشاء الحساب</button>
-
+        <button type="submit" class="btn-primary" id="register-btn">
+          <span class="spinner"></span>
+          <span class="btn-label">إنشاء الحساب</span>
+        </button>
       </form>
 
       <div class="divider" aria-hidden="true">
@@ -641,7 +721,7 @@
         <div class="divider-line"></div>
       </div>
 
-      <button type="button" class="btn-google">
+      <button type="button" class="btn-google" id="google-register-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
@@ -654,12 +734,73 @@
       <p class="register-row">
         لديك حساب بالفعل؟ <a href="#" id="go-login">تسجيل الدخول</a>
       </p>
+    </article>
+  </main>
 
+  <!-- ══ PANEL 3: 2FA (TOTP) ══ -->
+  <main class="login-panel" id="twofa-panel" style="display:none;">
+    <article class="login-card">
+      <div class="card-logo">
+        <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
+      </div>
+      <h1 class="card-title">التحقق الثنائي</h1>
+      <p class="card-subtitle">أدخل رمز التحقق</p>
+
+      <div class="twofa-info">
+        افتح تطبيق المصادقة الخاص بك (Google Authenticator أو مشابه) وأدخل الرمز المكوّن من 6 أرقام.
+      </div>
+
+      <div class="otp-inputs" id="totp-inputs" role="group" aria-label="رمز التحقق">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الأول">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الثاني">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الثالث">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الرابع">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الخامس">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم السادس">
+      </div>
+
+      <button type="button" class="btn-primary" id="totp-submit-btn">
+        <span class="spinner"></span>
+        <span class="btn-label">تأكيد</span>
+      </button>
+
+      <span class="back-link" id="back-from-2fa">← العودة لتسجيل الدخول</span>
+    </article>
+  </main>
+
+  <!-- ══ PANEL 4: TELEGRAM OTP ══ -->
+  <main class="login-panel" id="telegram-panel" style="display:none;">
+    <article class="login-card">
+      <div class="card-logo">
+        <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
+      </div>
+      <h1 class="card-title">رمز Telegram</h1>
+      <p class="card-subtitle">أدخل الرمز المرسل لحسابك</p>
+
+      <div class="twofa-info">
+        تم إرسال رمز التحقق إلى حساب Telegram الخاص بك. الرمز صالح لمدة محدودة.
+      </div>
+
+      <div class="otp-inputs" id="telegram-inputs" role="group" aria-label="رمز Telegram">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الأول">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الثاني">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الثالث">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الرابع">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم الخامس">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="الرقم السادس">
+      </div>
+
+      <button type="button" class="btn-primary" id="telegram-submit-btn">
+        <span class="spinner"></span>
+        <span class="btn-label">تأكيد</span>
+      </button>
+
+      <span class="back-link" id="back-from-telegram">← العودة لتسجيل الدخول</span>
     </article>
   </main>
 
   <!-- ══ RIGHT = BRAND ══ -->
-  <aside class="brand-panel">
+  <aside class="brand-panel" id="brand-panel">
     <div class="blob-br"></div>
 
     <div class="logo-stage">
@@ -712,8 +853,7 @@
         </svg>
       </div>
 
-      <!-- REAL LOGO IMAGE -->
-        <img class="logo-img" src="/logo.png">
+      <img class="logo-img" src="/logo.png" alt="شعار مدعوم">
       <div class="logo-glow" aria-hidden="true"></div>
     </div>
 
@@ -763,230 +903,320 @@
 </footer>
 
 <script type="module">
-  // ── SUPABASE INIT ──
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  // ══════════════════════════════════════════════════
+  // استيراد كل الدوال من auth-client.js
+  // ══════════════════════════════════════════════════
+  import {
+    signIn,
+    signUp,
+    autoRedirect,
+    requireAuth
+  } from './auth-client.js';
 
-  const SUPABASE_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
-  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  import { supabase } from './api-config.js';
 
-  // ── REDIRECT IF ALREADY LOGGED IN ──
-  async function checkExistingSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) await redirectByRole(session.user.id);
+  // ══════════════════════════════════════════════════
+  // حالة التطبيق
+  // ══════════════════════════════════════════════════
+  let pendingSignInResult = null; // نتيجة signIn المعلقة (للـ 2FA)
+
+  // ══════════════════════════════════════════════════
+  // التحقق من الجلسة الموجودة وإعادة التوجيه
+  // ══════════════════════════════════════════════════
+  autoRedirect();
+
+  // ══════════════════════════════════════════════════
+  // Toast
+  // ══════════════════════════════════════════════════
+  const toastEl = document.getElementById('auth-toast');
+  let toastTimer;
+
+  function showToast(msg, type = 'error') {
+    toastEl.textContent = msg;
+    toastEl.style.background = type === 'error'   ? '#fee2e2'
+                             : type === 'success' ? '#dcfce7'
+                             : '#eff6ff';
+    toastEl.style.color       = type === 'error'   ? '#dc2626'
+                             : type === 'success' ? '#16a34a'
+                             : '#1d4ed8';
+    toastEl.style.border      = type === 'error'   ? '1px solid #fca5a5'
+                             : type === 'success' ? '1px solid #86efac'
+                             : '1px solid #93c5fd';
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 4500);
   }
 
-  // ── ROLE-BASED REDIRECT ──
-  async function redirectByRole(userId) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+  // ══════════════════════════════════════════════════
+  // Loading state للأزرار
+  // ══════════════════════════════════════════════════
+  function setLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.classList.toggle('loading', loading);
+  }
 
-    const role = profile?.role || 'user';
-    if (role === 'admin') {
-      window.location.href = 'admin-dashboard.html';
+  // ══════════════════════════════════════════════════
+  // Redirect بناءً على الـ role
+  // ══════════════════════════════════════════════════
+  function redirectByRole(profile) {
+    const role = profile?.role;
+    if (role === 'admin' || role === 'support' || role === 'super_user') {
+      window.location.replace('admin-dashboard.html');
     } else {
-      window.location.href = 'customer-dashboard.html';
+      window.location.replace('customer-dashboard.html');
     }
   }
 
-  // ── HANDLE GOOGLE OAUTH CALLBACK ──
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-      // Check if profile exists, create if not
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', session.user.id)
-        .single();
+  // ══════════════════════════════════════════════════
+  // Panel Switcher
+  // ══════════════════════════════════════════════════
+  const panels = {
+    login:    document.getElementById('login-panel'),
+    register: document.getElementById('register-panel'),
+    twofa:    document.getElementById('twofa-panel'),
+    telegram: document.getElementById('telegram-panel'),
+  };
+  const brand = document.getElementById('brand-panel');
 
-      if (!existing) {
-        // New user via Google — create profile
-        await supabase.from('profiles').insert({
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || '',
-          role: 'user'
-        });
-      }
-      // Redirect
-      const role = existing?.role || 'user';
-      if (role === 'admin') {
-        window.location.href = 'admin-dashboard.html';
-      } else {
-        window.location.href = 'customer-dashboard.html';
-      }
+  function showPanel(name) {
+    const current = Object.values(panels).find(p => p.style.display !== 'none');
+    if (current) {
+      current.classList.add('panel-exit');
+      setTimeout(() => {
+        current.style.display = 'none';
+        current.classList.remove('panel-exit');
+        _displayPanel(name);
+      }, 340);
+    } else {
+      _displayPanel(name);
+    }
+  }
+
+  function _displayPanel(name) {
+    const panel = panels[name];
+    panel.style.display = 'flex';
+    const card = panel.querySelector('.login-card');
+    if (card) {
+      card.classList.add('panel-enter');
+      setTimeout(() => card.classList.remove('panel-enter'), 500);
+    }
+    // Brand panel جهة: login/2fa = يمين العرض العادي، register = يسار
+    if (name === 'register') {
+      brand.style.order = '-1';
+    } else {
+      brand.style.order = '';
+    }
+  }
+
+  // Navigation links
+  document.getElementById('go-register').addEventListener('click', e => { e.preventDefault(); showPanel('register'); });
+  document.getElementById('go-login').addEventListener('click',    e => { e.preventDefault(); showPanel('login'); });
+  document.getElementById('back-from-2fa').addEventListener('click',      () => { pendingSignInResult = null; showPanel('login'); });
+  document.getElementById('back-from-telegram').addEventListener('click', () => { pendingSignInResult = null; showPanel('login'); });
+
+  // ══════════════════════════════════════════════════
+  // نسيت كلمة المرور
+  // ══════════════════════════════════════════════════
+  document.getElementById('forgot-link').addEventListener('click', async e => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    if (!email || !email.includes('@')) {
+      showToast('أدخل بريدك الإلكتروني أولاً ثم اضغط "نسيت كلمة المرور"', 'info');
+      document.getElementById('email').focus();
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login.html`
+    });
+    if (error) {
+      showToast('حدث خطأ أثناء إرسال رابط الاسترداد');
+    } else {
+      showToast('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك', 'success');
     }
   });
 
-  // Check on page load
-  checkExistingSession();
-
-  // ── SHOW / HIDE TOAST ──
-  function showToast(msg, type = 'error') {
-    let toast = document.getElementById('auth-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'auth-toast';
-      toast.style.cssText = `
-        position:fixed; top:1.2rem; left:50%; transform:translateX(-50%);
-        padding:0.75rem 1.4rem; border-radius:10px; font-family:Cairo,sans-serif;
-        font-size:0.88rem; font-weight:600; z-index:9999;
-        box-shadow:0 4px 20px rgba(0,0,0,0.12); transition:opacity 0.3s;
-        direction:rtl; max-width:90vw; text-align:center;
-      `;
-      document.body.appendChild(toast);
-    }
-    toast.textContent = msg;
-    toast.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
-    toast.style.color       = type === 'error' ? '#dc2626' : '#16a34a';
-    toast.style.border      = type === 'error' ? '1px solid #fca5a5' : '1px solid #86efac';
-    toast.style.opacity = '1';
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
-  }
-
-  function setLoading(btn, loading, label) {
-    btn.disabled = loading;
-    btn.textContent = loading ? 'جاري التحميل...' : label;
-  }
-
-  // ── LOGIN FORM ──
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
+  // ══════════════════════════════════════════════════
+  // تسجيل الدخول — يعتمد على auth-client.js::signIn
+  // ══════════════════════════════════════════════════
+  document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
-    const btn   = e.target.querySelector('.btn-primary');
-    const email = document.getElementById('email').value.trim();
-    const pw    = document.getElementById('password').value;
+    const btn        = document.getElementById('login-btn');
+    const identifier = document.getElementById('email').value.trim();
+    const password   = document.getElementById('password').value;
 
-    setLoading(btn, true, 'تسجيل الدخول');
+    setLoading(btn, true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    const result = await signIn(identifier, password);
 
-    if (error) {
-      setLoading(btn, false, 'تسجيل الدخول');
-      const msgs = {
-        'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-        'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',
-        'Too many requests': 'محاولات كثيرة، يرجى الانتظار قليلاً',
-      };
-      showToast(msgs[error.message] || error.message);
+    setLoading(btn, false);
+
+    if (result.error) {
+      showToast(result.error.message);
       return;
     }
 
-    await redirectByRole(data.user.id);
+    // ── حساب محظور ──
+    if (result.data?.user && result.profile && result.profile.ban_status) {
+      showToast('تم حظر هذا الحساب. تواصل مع الإدارة.');
+      return;
+    }
+
+    // ── يحتاج TOTP ──
+    if (result.requires2FA) {
+      pendingSignInResult = result;
+      showPanel('twofa');
+      return;
+    }
+
+    // ── يحتاج Telegram OTP ──
+    if (result.requiresTelegramOTP) {
+      pendingSignInResult = result;
+      showPanel('telegram');
+      return;
+    }
+
+    // ── دخول مباشر ──
+    redirectByRole(result.profile);
   });
 
-  // ── REGISTER FORM ──
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn  = e.target.querySelector('.btn-primary');
-    const name = document.getElementById('reg-name').value.trim();
-    const email= document.getElementById('reg-email').value.trim();
-    const pw   = document.getElementById('reg-password').value;
-    const cpw  = document.getElementById('reg-confirm').value;
+  // ══════════════════════════════════════════════════
+  // TOTP Verification
+  // ══════════════════════════════════════════════════
+  document.getElementById('totp-submit-btn').addEventListener('click', async () => {
+    const btn  = document.getElementById('totp-submit-btn');
+    const code = getOtpValue('totp-inputs');
 
+    if (code.length !== 6) {
+      showToast('أدخل رمز التحقق كاملاً (6 أرقام)');
+      return;
+    }
+
+    setLoading(btn, true);
+
+    const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: pendingSignInResult?.data?.user?.factors?.[0]?.id,
+      code
+    });
+
+    setLoading(btn, false);
+
+    if (error) {
+      showToast('رمز التحقق غير صحيح أو منتهي الصلاحية');
+      return;
+    }
+
+    redirectByRole(pendingSignInResult?.profile);
+  });
+
+  // ══════════════════════════════════════════════════
+  // Telegram OTP Verification
+  // ══════════════════════════════════════════════════
+  document.getElementById('telegram-submit-btn').addEventListener('click', async () => {
+    const btn  = document.getElementById('telegram-submit-btn');
+    const code = getOtpValue('telegram-inputs');
+
+    if (code.length !== 6) {
+      showToast('أدخل رمز التحقق كاملاً (6 أرقام)');
+      return;
+    }
+
+    setLoading(btn, true);
+
+    const userId = pendingSignInResult?.data?.user?.id;
+    const { data, error } = await supabase.functions.invoke('verify-telegram-otp', {
+      body: { user_id: userId, otp: code }
+    });
+
+    setLoading(btn, false);
+
+    if (error || !data?.success) {
+      showToast('رمز التحقق غير صحيح أو منتهي الصلاحية');
+      return;
+    }
+
+    redirectByRole(pendingSignInResult?.profile);
+  });
+
+  // ══════════════════════════════════════════════════
+  // إنشاء حساب — يعتمد على auth-client.js::signUp
+  // ══════════════════════════════════════════════════
+  document.getElementById('register-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn     = document.getElementById('register-btn');
+    const name    = document.getElementById('reg-name').value.trim();
+    const email   = document.getElementById('reg-email').value.trim();
+    const pw      = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-confirm').value;
     const confirmInput = document.getElementById('reg-confirm');
-    if (pw !== cpw) {
-      confirmInput.style.borderColor = '#ef4444';
-      confirmInput.style.boxShadow   = '0 0 0 3px rgba(239,68,68,0.12)';
+
+    // التحقق من تطابق كلمتي المرور
+    if (pw !== confirm) {
+      confirmInput.classList.add('input-error');
       showToast('كلمة المرور وتأكيدها غير متطابقتين');
       return;
     }
-    confirmInput.style.borderColor = '';
-    confirmInput.style.boxShadow   = '';
+    confirmInput.classList.remove('input-error');
 
-    if (pw.length < 8) {
-      showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+    setLoading(btn, true);
+
+    // signUp في auth-client.js يتحقق من البريد وقوة الكلمة وتكرار اسم المستخدم
+    const result = await signUp(email, pw, { full_name: name });
+
+    setLoading(btn, false);
+
+    if (result.error) {
+      showToast(result.error.message);
       return;
     }
 
-    setLoading(btn, true, 'إنشاء الحساب');
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: pw,
-      options: { data: { full_name: name } }
-    });
-
-    if (error) {
-      setLoading(btn, false, 'إنشاء الحساب');
-      const msgs = {
-        'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
-        'Password should be at least 6 characters': 'كلمة المرور قصيرة جداً',
-      };
-      showToast(msgs[error.message] || error.message);
-      return;
-    }
-
-    // Create profile row
-    if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        full_name: name,
-        role: 'user'
-      }, { onConflict: 'id' });
-    }
-
-    setLoading(btn, false, 'إنشاء الحساب');
-    showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
-
-    // Switch to login after 2s
-    setTimeout(() => swapToLogin(), 2200);
+    showToast('تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
+    setTimeout(() => showPanel('login'), 2200);
   });
 
-  // ── GOOGLE LOGIN ──
-  // Shared handler for both panels
+  // ══════════════════════════════════════════════════
+  // Google OAuth — يعتمد على supabase مباشرة
+  // (auth-client.js لا يحتوي على دالة Google OAuth)
+  // ══════════════════════════════════════════════════
   async function googleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: window.location.origin + '/login.html',
         queryParams: { access_type: 'offline', prompt: 'consent' }
       }
     });
     if (error) showToast('حدث خطأ أثناء تسجيل الدخول بـ Google: ' + error.message);
   }
 
-  document.querySelectorAll('.btn-google').forEach(btn => {
-    btn.addEventListener('click', googleSignIn);
+  // معالجة رجوع Google OAuth بعد التحويل
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+      // التحقق من وجود profile أو إنشاؤه (يعالجه ensureUserProfile داخلياً عند أول استخدام)
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from('profiles').upsert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || '',
+          role: 'customer'
+        }, { onConflict: 'id' });
+      }
+
+      redirectByRole(existing || { role: 'customer' });
+    }
   });
 
-  // ── PANEL SWAP ──
-  const loginPanel    = document.getElementById('login-panel');
-  const registerPanel = document.getElementById('register-panel');
-  const brandPanel    = document.querySelector('.brand-panel');
+  document.getElementById('google-login-btn').addEventListener('click',    googleSignIn);
+  document.getElementById('google-register-btn').addEventListener('click', googleSignIn);
 
-  window.swapToRegister = function() {
-    loginPanel.classList.add('panel-exit');
-    setTimeout(() => {
-      loginPanel.style.display = 'none';
-      loginPanel.classList.remove('panel-exit');
-      registerPanel.style.display = 'flex';
-      registerPanel.querySelector('.login-card').classList.add('panel-enter');
-      setTimeout(() => registerPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
-      brandPanel.style.order = '-1';
-    }, 340);
-  };
-
-  window.swapToLogin = function() {
-    registerPanel.classList.add('panel-exit');
-    setTimeout(() => {
-      registerPanel.style.display = 'none';
-      registerPanel.classList.remove('panel-exit');
-      loginPanel.style.display = 'flex';
-      loginPanel.querySelector('.login-card').classList.add('panel-enter');
-      setTimeout(() => loginPanel.querySelector('.login-card').classList.remove('panel-enter'), 500);
-      brandPanel.style.order = '';
-    }, 340);
-  };
-
-  document.getElementById('go-register').addEventListener('click', (e) => { e.preventDefault(); swapToRegister(); });
-  document.getElementById('go-login').addEventListener('click',    (e) => { e.preventDefault(); swapToLogin();    });
-
-  // ── PASSWORD TOGGLES ──
+  // ══════════════════════════════════════════════════
+  // Password Toggles
+  // ══════════════════════════════════════════════════
   const eyeOpen   = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
   const eyeClosed = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
 
@@ -1005,12 +1235,45 @@
   initPwToggle('password',     'toggle-pw',     'eye-icon');
   initPwToggle('reg-password', 'toggle-reg-pw', 'reg-eye-icon');
 
-  // Copy logo src to register panel
-  const brandLogoSrc = document.querySelector('.logo-img')?.src;
-  if (brandLogoSrc) {
-    const regLogo = document.getElementById('register-logo');
-    if (regLogo) regLogo.src = brandLogoSrc;
+  // ══════════════════════════════════════════════════
+  // OTP Input UX — انتقال تلقائي بين الخانات
+  // ══════════════════════════════════════════════════
+  function initOtpInputs(containerId) {
+    const container = document.getElementById(containerId);
+    const inputs    = Array.from(container.querySelectorAll('input'));
+
+    inputs.forEach((input, i) => {
+      input.addEventListener('input', e => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val ? val[0] : '';
+        if (val && i < inputs.length - 1) inputs[i + 1].focus();
+      });
+
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !input.value && i > 0) {
+          inputs[i - 1].focus();
+        }
+      });
+
+      input.addEventListener('paste', e => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData)
+          .getData('text').replace(/\D/g, '').slice(0, 6);
+        pasted.split('').forEach((ch, j) => {
+          if (inputs[j]) inputs[j].value = ch;
+        });
+        if (inputs[pasted.length - 1]) inputs[pasted.length - 1].focus();
+      });
+    });
   }
+
+  function getOtpValue(containerId) {
+    return Array.from(document.getElementById(containerId).querySelectorAll('input'))
+      .map(i => i.value).join('');
+  }
+
+  initOtpInputs('totp-inputs');
+  initOtpInputs('telegram-inputs');
 </script>
 
 </body>
