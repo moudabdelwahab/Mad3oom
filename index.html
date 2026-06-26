@@ -272,16 +272,7 @@
     </div>
 
     <script>
-        // Theme Toggle
-        const themeToggle = document.querySelector('.theme-toggle');
-        if (themeToggle) {
-            themeToggle.addEventListener('click', () => {
-                const current = document.documentElement.getAttribute('data-theme') || 'light';
-                const next = current === 'light' ? 'dark' : 'light';
-                document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('theme-preference', next);
-            });
-        }
+     
 
         // Hamburger Menu
         const hamburger = document.getElementById('hamburgerBtn');
