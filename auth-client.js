@@ -422,8 +422,7 @@ export async function signUp(email, password, metadata = {}) {
         }
     }
 
-    const emailRedirectTo = `${window.location.origin}/sign-in.html`;
-
+const emailRedirectTo = `${window.location.origin}/login.html`;
     const result = await supabase.auth.signUp({
         email: email.toLowerCase(),
         password,
@@ -572,13 +571,12 @@ export async function autoRedirect() {
     const { data: { session } } = await supabase.auth.getSession();
     const guestSession = localStorage.getItem('mad3oom-guest-session');
 
-    if (!session?.user && !guestSession) return;
-
-    const isAuthPage =
-        window.location.pathname.includes('sign-in.html') ||
-        window.location.pathname.includes('sign-up.html') ||
-        window.location.pathname === '/' ||
-        window.location.pathname.endsWith('index.html');
+    
+if (!session?.user && !guestSession) return;
+const isAuthPage =
+    window.location.pathname.includes('login.html') ||
+    window.location.pathname === '/' ||
+    window.location.pathname.endsWith('index.html');
 
     if (!isAuthPage) return;
 
