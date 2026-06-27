@@ -20,6 +20,35 @@ import {
 } from './notifications-service.js';
 import { ui } from './ui-service.js';
 
+/**
+ * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
+ * لمنع هجمات XSS (Cross-Site Scripting).
+ * يحوّل الأحرف الخطرة (< > & " ') إلى الكيانات الآمنة المقابلة لها.
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * تنقية الروابط (URLs) قبل استخدامها في خصائص مثل src/href.
+ * يسمح فقط بروابط http/https أو الروابط النسبية، ويرفض أي بروتوكول خطير
+ * مثل javascript: أو data: التي قد تُستخدم لتنفيذ كود ضار.
+ */
+function sanitizeUrl(url) {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('./')) {
+        return escapeHtml(trimmed);
+    }
+    return '';
+}
+
 (async function () {
 
     /* ================= AUTH ================= */
@@ -171,7 +200,7 @@ import { ui } from './ui-service.js';
                     <span style="color: var(--color-text-secondary); font-size: 0.8rem; font-weight: 700;">#${t.ticket_number || '---'}</span>
                     <span class="status-badge status-${t.status}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${statusLabels[t.status] || t.status}</span>
                 </div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${t.title}</h4>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(t.title)}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--color-text-secondary);">
                     <span>أولوية: ${priorityLabels[t.priority] || t.priority}</span>
                     <span>${new Date(t.created_at).toLocaleDateString('ar-EG', {month: 'short', day: 'numeric'})}</span>
@@ -257,8 +286,8 @@ import { ui } from './ui-service.js';
                 <!-- Header -->
                 <div style="border-bottom: 2px solid var(--color-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
-                        <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${ticket.title}</h2>
-                        <span class="status-badge status-${ticket.status}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${statusLabels[ticket.status]}</span>
+                        <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${escapeHtml(ticket.title)}</h2>
+                        <span class="status-badge status-${escapeHtml(ticket.status)}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${escapeHtml(statusLabels[ticket.status])}</span>
                     </div>
                     <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary); flex-wrap: wrap;">
                         <span>رقم التذكرة: <strong>#${ticket.ticket_number || '---'}</strong></span>
@@ -270,13 +299,13 @@ import { ui } from './ui-service.js';
                 <!-- Description -->
                 <div style="margin-bottom: 1.5rem;">
                     <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">وصف المشكلة</h3>
-                    <p style="line-height: 1.6; white-space: pre-wrap;">${ticket.description}</p>
+                    <p style="line-height: 1.6; white-space: pre-wrap;">${escapeHtml(ticket.description)}</p>
                 </div>
                 
                 ${ticket.image_url ? `
                 <div style="margin-bottom: 1.5rem;">
                     <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">المرفقات</h3>
-                    <img src="${ticket.image_url}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
+                    <img src="${sanitizeUrl(ticket.image_url)}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
                 </div>
                 ` : ''}
                 
@@ -464,10 +493,10 @@ ${ticket.description}
             list.innerHTML = replies.map(r => `
                 <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: var(--color-muted); border-right: 4px solid ${r.profiles?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-success)'};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <strong style="font-size: 0.9rem;">${r.profiles?.full_name || 'مستخدم'}</strong>
+                        <strong style="font-size: 0.9rem;">${escapeHtml(r.profiles?.full_name || 'مستخدم')}</strong>
                         <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG')}</span>
                     </div>
-                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${r.message}</p>
+                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${escapeHtml(r.message)}</p>
                 </div>
             `).join('');
         } catch (err) {
@@ -491,10 +520,10 @@ ${ticket.description}
             list.innerHTML = replies.map(r => `
                 <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: var(--color-muted); border-right: 4px solid ${r.profiles?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-success)'};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <strong style="font-size: 0.9rem;">${r.profiles?.full_name || 'مستخدم'}</strong>
+                        <strong style="font-size: 0.9rem;">${escapeHtml(r.profiles?.full_name || 'مستخدم')}</strong>
                         <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG')}</span>
                     </div>
-                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${r.message}</p>
+                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${escapeHtml(r.message)}</p>
                 </div>
             `).join('');
         } catch (err) {
@@ -538,8 +567,8 @@ ${ticket.description}
             
             container.innerHTML = notifications.map(n => `
                 <div class="notification-item ${!n.is_read ? 'unread' : ''}" style="border-bottom: 1px solid var(--color-border); padding: 12px 16px; cursor: pointer; transition: background 0.2s;">
-                    <div style="font-weight: 600; font-size: 0.9rem;">${n.title}</div>
-                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${n.message}</div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">${escapeHtml(n.title)}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${escapeHtml(n.message)}</div>
                     <div style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 0.4rem; opacity: 0.7;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
                 </div>
             `).join('');
