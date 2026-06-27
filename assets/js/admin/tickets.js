@@ -5,6 +5,32 @@ import { subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, addTi
 import { adminImpersonateUser } from '/auth-client.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket } from '/whatsapp-subscription-service.js';
 
+/**
+ * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
+ * لمنع هجمات XSS (Cross-Site Scripting).
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * تنقية الروابط قبل استخدامها في خصائص مثل src لمنع بروتوكولات خطيرة مثل javascript:
+ */
+function sanitizeUrl(url) {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('./')) {
+        return escapeHtml(trimmed);
+    }
+    return '';
+}
+
 let user = null;
 let currentTicketId = null;
 let repliesSubscription = null;
@@ -128,17 +154,17 @@ function renderTickets(tickets) {
     };
 
     grid.innerHTML = tickets.map(t => {
-        const userName = t.profiles?.full_name || 'مستخدم';
+        const userName = escapeHtml(t.profiles?.full_name || 'مستخدم');
         const userInitial = userName[0].toUpperCase();
         const priority = priorityMap[t.priority] || priorityMap['low'];
 
         return `
-            <div class="ticket-card" data-id="${t.id}">
+            <div class="ticket-card" data-id="${escapeHtml(t.id)}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="color: var(--color-text-secondary); font-size: 0.8rem; font-weight: 700;">#${t.ticket_number || '---'}</span>
-                    <span class="status-badge status-${t.status}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${statusMap[t.status] || t.status}</span>
+                    <span style="color: var(--color-text-secondary); font-size: 0.8rem; font-weight: 700;">#${escapeHtml(t.ticket_number || '---')}</span>
+                    <span class="status-badge status-${escapeHtml(t.status)}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${escapeHtml(statusMap[t.status] || t.status)}</span>
                 </div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${t.title}</h4>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(t.title)}</h4>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                     <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--color-accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">${userInitial}</div>
                     <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${userName}</span>
@@ -304,10 +330,10 @@ async function loadReplies(ticketId) {
             return `
                 <div class="reply-item ${typeClass}">
                     <div class="reply-header">
-                        <span style="font-weight:700;">${r.profiles?.full_name || 'مستخدم'} ${typeLabel}</span>
+                        <span style="font-weight:700;">${escapeHtml(r.profiles?.full_name || 'مستخدم')} ${typeLabel}</span>
                         <span>${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'})}</span>
                     </div>
-                    <div class="reply-content">${r.message}</div>
+                    <div class="reply-content">${escapeHtml(r.message)}</div>
                 </div>
             `;
         }).join('');
@@ -544,31 +570,31 @@ async function showAdminTicketInPanel(ticketId) {
             <!-- Header -->
             <div style="border-bottom: 2px solid var(--color-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
-                    <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${ticket.title}</h2>
-                    <span class="status-badge status-${ticket.status}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${statusMap[ticket.status]}</span>
+                    <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${escapeHtml(ticket.title)}</h2>
+                    <span class="status-badge status-${escapeHtml(ticket.status)}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${escapeHtml(statusMap[ticket.status])}</span>
                 </div>
                 <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary); flex-wrap: wrap;">
-                    <span>رقم التذكرة: <strong>#${ticket.ticket_number || '---'}</strong></span>
-                    <span>الأولوية: <strong style="color: var(--color-accent);">${priorityMap[ticket.priority]}</strong></span>
+                    <span>رقم التذكرة: <strong>#${escapeHtml(ticket.ticket_number || '---')}</strong></span>
+                    <span>الأولوية: <strong style="color: var(--color-accent);">${escapeHtml(priorityMap[ticket.priority])}</strong></span>
                     <span>${new Date(ticket.created_at).toLocaleDateString('ar-EG')}</span>
                 </div>
                 <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--color-muted); border-radius: 0.5rem;">
                     <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">العميل</div>
-                    <div style="font-weight: 700;">${ticket.profiles?.full_name || 'مستخدم'}</div>
-                    <div style="font-size: 0.85rem; color: var(--color-text-secondary);">${ticket.profiles?.email || ''}</div>
+                    <div style="font-weight: 700;">${escapeHtml(ticket.profiles?.full_name || 'مستخدم')}</div>
+                    <div style="font-size: 0.85rem; color: var(--color-text-secondary);">${escapeHtml(ticket.profiles?.email || '')}</div>
                 </div>
             </div>
             
             <!-- Description -->
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">وصف المشكلة</h3>
-                <p style="line-height: 1.6; white-space: pre-wrap;">${ticket.description}</p>
+                <p style="line-height: 1.6; white-space: pre-wrap;">${escapeHtml(ticket.description)}</p>
             </div>
             
             ${ticket.image_url ? `
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">المرفقات</h3>
-                <img src="${ticket.image_url}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
+                <img src="${sanitizeUrl(ticket.image_url)}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
             </div>
             ` : ''}
             
@@ -659,10 +685,10 @@ async function loadAdminRepliesInPanel(ticketId) {
         list.innerHTML = replies.map(r => `
             <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.75rem;">
-                    <strong style="color: var(--color-accent);">${r.profiles?.role === 'admin' ? 'الدعم الفني' : (r.profiles?.full_name || 'العميل')}</strong>
+                    <strong style="color: var(--color-accent);">${r.profiles?.role === 'admin' ? 'الدعم الفني' : escapeHtml(r.profiles?.full_name || 'العميل')}</strong>
                     <span style="color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day: 'numeric', month: 'short'})}</span>
                 </div>
-                <div style="font-size: 0.85rem; line-height: 1.5;">${r.message}</div>
+                <div style="font-size: 0.85rem; line-height: 1.5;">${escapeHtml(r.message)}</div>
             </div>
         `).join('');
         list.scrollTop = list.scrollHeight;
