@@ -55,7 +55,7 @@ function sanitizeUrl(url) {
 
     const user = await requireAuth('customer');
     if (!user) {
-        window.location.replace('sign-in.html');
+        window.location.replace('login.html');
         return;
     }
 
@@ -602,7 +602,7 @@ ${ticket.description}
         signOutLink.onclick = async (e) => {
             e.preventDefault();
             await logout();
-            window.location.replace('sign-in.html');
+            window.location.replace('login.html');
         };
     }
 
