@@ -2,6 +2,32 @@ import { supabase } from '/api-config.js';
 
 console.log("CHAT LOGIC VERSION 3.1 - FIXED WHATSAPP STYLE");
 
+/**
+ * تنقية أي نص قادم من المستخدم (رسائل الشات، الأسماء...) قبل حقنه داخل innerHTML
+ * لمنع هجمات XSS (Cross-Site Scripting).
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * تنقية الروابط قبل استخدامها في خصائص مثل src لمنع بروتوكولات خطيرة مثل javascript:
+ */
+function sanitizeUrl(url) {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('./')) {
+        return escapeHtml(trimmed);
+    }
+    return '';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
     const chatsList = document.getElementById('chatsList');
@@ -172,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const messageEl = document.createElement('div');
         messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
         messageEl.innerHTML = `
-            <span>${text}</span>
+            <span>${escapeHtml(text)}</span>
             <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}</div>
         `;
 
@@ -368,14 +394,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             item.innerHTML = `
                 <div class="chat-item-avatar">
-                    <img src="${session.profiles?.avatar_url || '/assets/images/default-avatar.png'}" alt="User">
+                    <img src="${sanitizeUrl(session.profiles?.avatar_url) || '/assets/images/default-avatar.png'}" alt="User">
                 </div>
                 <div class="chat-item-info">
                     <div class="chat-item-header">
-                        <span class="chat-item-name">${session.profiles?.full_name || 'عميل مجهول'}</span>
+                        <span class="chat-item-name">${escapeHtml(session.profiles?.full_name || 'عميل مجهول')}</span>
                         <span class="chat-item-time">${time}</span>
                     </div>
-                    <div class="chat-item-last-msg">${lastMsg?.message_text || 'لا توجد رسائل'}</div>
+                    <div class="chat-item-last-msg">${escapeHtml(lastMsg?.message_text || 'لا توجد رسائل')}</div>
                 </div>
             `;
             chatsList.appendChild(item);
@@ -438,7 +464,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const div = document.createElement('div');
         div.className = `msg ${isOwn ? 'sent' : 'received'}`;
         div.innerHTML = `
-            <span>${msg.message_text}</span>
+            <span>${escapeHtml(msg.message_text)}</span>
             <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 4px;">${time}</div>
         `;
         
