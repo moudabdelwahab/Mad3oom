@@ -362,6 +362,20 @@
         import { supabase } from '/api-config.js';
         import { generate2FASecret, generateRecoveryCodes, enable2FA, disable2FA } from '/2fa-service.js';
         import { isFacebookLinked, linkFacebookIdentity, unlinkFacebookIdentity } from '/facebook-oauth.js';
+
+        /**
+         * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
+         * لمنع هجمات XSS (Cross-Site Scripting).
+         */
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
         
         let currentUser = null;
         let currentSecret = null;
@@ -472,20 +486,20 @@
                 }
 
                 list.innerHTML = devices.map(device => `
-                    <div class="device-item" id="device-${device.id}">
+                    <div class="device-item" id="device-${escapeHtml(device.id)}">
                         <div class="device-info">
                             <div class="device-icon">
-                                ${device.device_name.toLowerCase().includes('phone') || device.device_name.toLowerCase().includes('iphone') || device.device_name.toLowerCase().includes('android') ? 
+                                ${(device.device_name || '').toLowerCase().includes('phone') || (device.device_name || '').toLowerCase().includes('iphone') || (device.device_name || '').toLowerCase().includes('android') ? 
                                     '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>' : 
                                     '<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'}
                             </div>
                             <div class="device-meta">
-                                <h4>${device.device_name || 'جهاز غير معروف'}</h4>
+                                <h4>${escapeHtml(device.device_name || 'جهاز غير معروف')}</h4>
                                 <p>${new Date(device.last_login).toLocaleString('ar-SA')}</p>
-                                ${device.ip_address ? `<span class="device-ip">IP: ${device.ip_address}</span>` : ''}
+                                ${device.ip_address ? `<span class="device-ip">IP: ${escapeHtml(device.ip_address)}</span>` : ''}
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="window.removeDevice('${device.id}')">إزالة</button>
+                        <button class="btn btn-sm btn-danger" onclick="window.removeDevice('${escapeHtml(device.id)}')">إزالة</button>
                     </div>
                 `).join('');
             } catch (error) {
