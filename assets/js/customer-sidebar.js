@@ -286,12 +286,12 @@ function setupSidebarLogic(onTabChange) {
         try {
             const { logout } = await import('../auth-client.js');
             await logout();
-            window.location.replace('sign-in.html');
+            window.location.replace('login.html');
         } catch (err) {
             console.error('Logout failed:', err);
             // Fallback: try to clear local storage and redirect
             localStorage.removeItem('mad3oom-guest-session');
-            window.location.replace('sign-in.html');
+            window.location.replace('login.html');
         }
     };
 
