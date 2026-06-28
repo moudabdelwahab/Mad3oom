@@ -571,3 +571,89 @@ body {
 .close-ticket-modal-footer .btn-cancel:hover  { background: var(--color-border); }
 .close-ticket-modal-footer .btn-confirm { background: var(--color-danger); color: white; }
 .close-ticket-modal-footer .btn-confirm:hover { background: #c9302c; }
+
+/* ==================== Options Action Sheet ==================== */
+.options-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 3998;
+    display: none;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+.options-overlay.active { display: block; }
+
+.options-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -100%;
+    z-index: 3999;
+    background: var(--color-surface);
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0;
+    transition: bottom 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.options-panel.active { bottom: 0; }
+
+.options-panel-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    margin: 0.75rem auto 0;
+}
+
+.options-panel-header {
+    padding: 0.75rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: center;
+}
+.options-panel-header .opt-user-name { font-weight: 700; font-size: 1rem; color: var(--color-text); }
+.options-panel-header .opt-user-email { font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem; }
+
+.options-panel-body { padding: 1rem 1.25rem 1.5rem; }
+
+.options-group-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin: 0.75rem 0 0.5rem;
+}
+
+.option-row-btn {
+    width: 100%;
+    text-align: right;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: 0.8rem 1rem;
+    border-radius: 0.7rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    font-size: 0.92rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    transition: background 0.2s;
+}
+.option-row-btn:hover { background: var(--color-border); }
+
+.option-row-btn.danger { color: var(--color-danger); }
+.option-row-btn.role-active {
+    background: rgba(0,119,204,0.1);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.option-row-btn .opt-icon { font-size: 1rem; }
+
+.status-super_user { background: #EDE7F6; color: #5E35B1; }
