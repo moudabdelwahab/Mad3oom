@@ -5,7 +5,6 @@
 
 const translations = {
     ar: {
-        // القائمة المنسدلة
         'profile': 'الملف الشخصي',
         'account_settings': 'إعدادات الحساب',
         'security_settings': 'إعدادات الأمان',
@@ -15,8 +14,6 @@ const translations = {
         'change_language': 'تغيير اللغة',
         'arabic': 'العربية',
         'english': 'English',
-        
-        // رسائل عامة
         'welcome_user': 'مرحباً بك',
         'customer_dashboard': 'لوحة تحكم العميل',
         'admin_dashboard': 'لوحة الإدارة',
@@ -47,7 +44,6 @@ const translations = {
         'system_settings': 'إعدادات النظام',
     },
     en: {
-        // Dropdown Menu
         'profile': 'Profile',
         'account_settings': 'Account Settings',
         'security_settings': 'Security Settings',
@@ -57,8 +53,6 @@ const translations = {
         'change_language': 'Change Language',
         'arabic': 'العربية',
         'english': 'English',
-        
-        // General Messages
         'welcome_user': 'Welcome',
         'customer_dashboard': 'Customer Dashboard',
         'admin_dashboard': 'Admin Dashboard',
@@ -97,114 +91,104 @@ class LanguageManager {
         this.init();
     }
 
-    /**
-     * تهيئة اللغة عند التحميل
-     */
     init() {
-        this.updatePageLanguage(this.currentLanguage);
+        // طبّق اللغة فوراً على <html> قبل أي حاجة
+        this._applyToHTML(this.currentLanguage);
+
+        // لما DOM يكون جاهز، طبّق على <body> والعناصر
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this._applyToBody(this.currentLanguage);
+                this._applyTranslations(this.currentLanguage);
+            }, { once: true });
+        } else {
+            this._applyToBody(this.currentLanguage);
+            this._applyTranslations(this.currentLanguage);
+        }
     }
 
-    /**
-     * تحميل اللغة المحفوظة من localStorage
-     */
     loadLanguage() {
         const saved = localStorage.getItem('mad3oom-language');
         if (saved === 'ar' || saved === 'en') return saved;
-        
-        const browserLang = navigator.language.startsWith('ar') ? 'ar' : 'en';
-        return browserLang;
+        return navigator.language.startsWith('ar') ? 'ar' : 'en';
     }
 
-    /**
-     * حفظ اللغة المختارة
-     */
     saveLanguage(lang) {
         localStorage.setItem('mad3oom-language', lang);
         this.currentLanguage = lang;
     }
 
-    /**
-     * تغيير اللغة
-     */
     setLanguage(lang) {
         if (lang !== 'ar' && lang !== 'en') {
             console.warn(`Invalid language: ${lang}`);
             return;
         }
-        
         this.saveLanguage(lang);
-        this.updatePageLanguage(lang);
+        this._applyToHTML(lang);
+        this._applyToBody(lang);
+        this._applyTranslations(lang);
         this.notifyListeners();
     }
 
     /**
-     * الحصول على النص المترجم
+     * يطبّق dir و lang على <html> فقط — بيشتغل حتى لو DOM لسه مش جاهز
      */
-    translate(key) {
-        const lang = this.currentLanguage;
-        return translations[lang]?.[key] || translations['ar'][key] || key;
-    }
-
-    /**
-     * تحديث لغة الصفحة
-     */
-    updatePageLanguage(lang) {
+    _applyToHTML(lang) {
         const html = document.documentElement;
-        if (html) {
-            html.lang = lang;
-            html.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        }
-        
-        // التأكد من أن body متاح قبل محاولة الوصول إلى style
-        if (document.body) {
-            document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
-        } else {
-            // إذا لم يكن body متاحاً بعد، ننتظر تحميل DOM
-            document.addEventListener('DOMContentLoaded', () => {
-                if (document.body) {
-                    document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
-                }
-            });
-        }
+        html.lang = lang;
+        html.dir = lang === 'ar' ? 'rtl' : 'ltr';
     }
 
     /**
-     * تسجيل مستمع للتغييرات
+     * يطبّق dir على <body> — بس لما body يكون موجود
+     * بيستخدم setAttribute مش style.direction عشان يتوارث صح
      */
+    _applyToBody(lang) {
+        if (!document.body) return;
+        // نمسح أي inline style قديم ونسيب الـ dir يتوارث من <html>
+        document.body.style.removeProperty('direction');
+        document.body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+    }
+
+    /**
+     * يترجم كل العناصر اللي عندها data-i18n
+     */
+    _applyTranslations(lang) {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            const text = translations[lang]?.[key] || translations['ar'][key] || key;
+            el.textContent = text;
+        });
+    }
+
+    // ===== Legacy method — محتفظ بيه عشان كود تاني ممكن يستخدمه =====
+    updatePageLanguage(lang) {
+        this._applyToHTML(lang);
+        this._applyToBody(lang);
+    }
+
+    translate(key) {
+        return translations[this.currentLanguage]?.[key]
+            || translations['ar'][key]
+            || key;
+    }
+
     onLanguageChange(callback) {
         this.listeners.push(callback);
     }
 
-    /**
-     * إخطار المستمعين بتغيير اللغة
-     */
     notifyListeners() {
-        this.listeners.forEach(callback => callback(this.currentLanguage));
+        this.listeners.forEach(cb => cb(this.currentLanguage));
     }
 
-    /**
-     * الحصول على اللغة الحالية
-     */
-    getLanguage() {
-        return this.currentLanguage;
-    }
-
-    /**
-     * التحقق من اللغة الحالية
-     */
-    isArabic() {
-        return this.currentLanguage === 'ar';
-    }
-
-    isEnglish() {
-        return this.currentLanguage === 'en';
-    }
+    getLanguage() { return this.currentLanguage; }
+    isArabic()    { return this.currentLanguage === 'ar'; }
+    isEnglish()   { return this.currentLanguage === 'en'; }
 }
 
-// إنشاء مثيل عام من LanguageManager
+// مثيل عام
 const languageManager = new LanguageManager();
 
-// تصدير للاستخدام في الملفات الأخرى
 if (typeof window !== 'undefined') {
     window.languageManager = languageManager;
 }
