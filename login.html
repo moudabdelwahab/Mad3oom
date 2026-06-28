@@ -844,6 +844,59 @@
   }
 
   // ══════════════════════════════════════════════════════════════
+  // SUBDOMAIN LOGO INJECTION
+  // يجيب لوجو العميل من Supabase Storage ويستبدل لوجو مدعوم
+  // ══════════════════════════════════════════════════════════════
+  const LOGO_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/subdomain-logos`;
+
+  async function loadSubdomainLogo() {
+    if (!currentSubdomain) return; // الدومين الرئيسي → لوجو مدعوم الافتراضي
+
+    // جرب الـ extensions بالترتيب (png أولاً لأنه الأشيع)
+    const extensions = ['png', 'jpg', 'webp', 'svg'];
+
+    for (const ext of extensions) {
+      const url = `${LOGO_BUCKET_URL}/${currentSubdomain}/logo.${ext}`;
+      const exists = await checkImageExists(url);
+      if (exists) {
+        applyCustomLogo(url);
+        return;
+      }
+    }
+    // لو مش لقي لوجو → يفضل لوجو مدعوم (لا حاجة نعمل حاجة)
+  }
+
+  function checkImageExists(url) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve(true);
+      img.onerror = () => resolve(false);
+      // timeout لتجنب الانتظار طويلاً
+      const timer = setTimeout(() => resolve(false), 3000);
+      img.onload  = () => { clearTimeout(timer); resolve(true); };
+      img.onerror = () => { clearTimeout(timer); resolve(false); };
+      img.src = url + '?check=1';
+    });
+  }
+
+  function applyCustomLogo(logoUrl) {
+    // 1. لوجو الكارد (login panel)
+    const cardLogo = document.querySelector('.card-logo-img');
+    if (cardLogo) cardLogo.src = logoUrl;
+
+    // 2. لوجو الـ register panel
+    const registerLogo = document.getElementById('register-logo');
+    if (registerLogo) registerLogo.src = logoUrl;
+
+    // 3. اللوجو الطائر في الـ brand panel (اليمين)
+    const brandLogo = document.querySelector('.logo-img');
+    if (brandLogo) brandLogo.src = logoUrl;
+  }
+
+  // استدعي مباشرة بدون انتظار
+  loadSubdomainLogo();
+
+  // ══════════════════════════════════════════════════════════════
   // SUBDOMAIN OWNERSHIP CHECK
   // يتحقق إن المستخدم المسجل هو صاحب الـ subdomain فعلاً
   // ══════════════════════════════════════════════════════════════
@@ -1138,10 +1191,14 @@
   initPwToggle('password',     'toggle-pw',     'eye-icon');
   initPwToggle('reg-password', 'toggle-reg-pw', 'reg-eye-icon');
 
-  const brandLogoSrc = document.querySelector('.logo-img')?.src;
-  if (brandLogoSrc) {
-    const regLogo = document.getElementById('register-logo');
-    if (regLogo) regLogo.src = brandLogoSrc;
+  // لوجو الـ register panel بيتضبط تلقائياً عبر applyCustomLogo()
+  // لو مفيش لوجو مخصص → نكوبي من brand panel كـ fallback
+  if (!currentSubdomain) {
+    const brandLogoSrc = document.querySelector('.logo-img')?.src;
+    if (brandLogoSrc) {
+      const regLogo = document.getElementById('register-logo');
+      if (regLogo) regLogo.src = brandLogoSrc;
+    }
   }
 
   // ══════════════════════════════════════════════════════
