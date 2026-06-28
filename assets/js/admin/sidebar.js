@@ -11,6 +11,9 @@ export function initSidebar() {
             sidebarContainer.innerHTML = html;
             setupSidebarLogic();
             highlightActiveLink();
+                 if (window.themeManager) {
+            window.themeManager.setupToggleButton();
+        }
         })
         .catch(err => console.error('Error loading sidebar:', err));
 }
