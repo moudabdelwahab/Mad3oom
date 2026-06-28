@@ -32,16 +32,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── LAYOUT: login RIGHT → LTR order = left first in DOM ── */
   .page {
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
 
-  /* ══════════════════════════════════════
-     LEFT = LOGIN PANEL (was right)
-  ══════════════════════════════════════ */
   .login-panel {
     background: linear-gradient(160deg, #f7faff 0%, #eef4ff 100%);
     display: flex;
@@ -61,7 +57,6 @@
     pointer-events: none;
   }
 
-  /* ── CARD ── */
   .login-card {
     background: rgba(255,255,255,0.95);
     border: 1px solid rgba(255,255,255,0.98);
@@ -104,7 +99,24 @@
     margin-bottom: 1.2rem;
   }
 
-  /* ── FORM ── */
+  /* ── SUBDOMAIN BADGE (جديد) ── */
+  .subdomain-banner {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    background: #EAF4FC;
+    border: 1px solid #B7D4EB;
+    border-radius: 10px;
+    padding: 0.55rem 0.9rem;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+    color: #0F3C6E;
+    font-weight: 600;
+  }
+  .subdomain-banner.show { display: flex; }
+  .subdomain-banner svg { flex-shrink: 0; color: #1879C5; }
+  .subdomain-banner span { direction: ltr; font-family: 'JetBrains Mono', monospace, sans-serif; }
+
   .form-group { margin-bottom: 0.75rem; }
 
   .form-label {
@@ -163,7 +175,6 @@
   .input-wrap input:focus + .input-icon { color: var(--primary); }
   .input-wrap:has(input:focus) .input-toggle { color: var(--primary); }
 
-  /* remember */
   .remember-row {
     display: flex; align-items: center; gap: 0.5rem;
     margin-bottom: 0.9rem;
@@ -187,7 +198,6 @@
   .custom-checkbox svg { opacity: 0; transition: opacity 0.15s; }
   .remember-label { font-size: 0.84rem; font-weight: 600; color: var(--muted); }
 
-  /* buttons */
   .btn-primary {
     width: 100%;
     padding: 0.82rem;
@@ -258,9 +268,6 @@
   .register-row a { color: var(--primary); font-weight: 700; text-decoration: none; }
   .register-row a:hover { color: var(--primary-dark); }
 
-  /* ══════════════════════════════════════
-     RIGHT = BRAND PANEL (was left)
-  ══════════════════════════════════════ */
   .brand-panel {
     position: relative;
     background: linear-gradient(145deg, #d8eaff 0%, #e4f0ff 40%, #c4daff 100%);
@@ -299,7 +306,6 @@
     pointer-events: none;
   }
 
-  /* logo stage */
   .logo-stage {
     position: relative;
     width: 210px; height: 210px;
@@ -326,7 +332,6 @@
     filter: blur(5px);
   }
 
-  /* floating icons */
   .float-icon {
     position: absolute;
     width: 48px; height: 48px;
@@ -350,7 +355,6 @@
     width: 100%; height: 100%;
   }
 
-  /* brand text */
   .brand-heading {
     text-align: center;
     margin-bottom: 0.35rem;
@@ -367,7 +371,6 @@
     margin-bottom: 1.1rem;
   }
 
-  /* features card */
   .features-card {
     background: rgba(255,255,255,0.76);
     border: 1px solid rgba(255,255,255,0.92);
@@ -393,7 +396,6 @@
   .feature-icon { width: 30px; height: 30px; }
   .feature-label { font-size: 0.74rem; font-weight: 700; color: var(--text); line-height: 1.3; }
 
-  /* security badge */
   .security-badge {
     display: flex; align-items: center; gap: 0.45rem;
     background: rgba(34,197,94,0.1);
@@ -407,7 +409,6 @@
     justify-content: center;
   }
 
-  /* ── FOOTER ── */
   .page-footer {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -422,7 +423,6 @@
     z-index: 10;
   }
 
-  /* ── ANIMATIONS ── */
   @keyframes float-center {
     0%,100% { transform: translate(-50%,-52%); }
     50%      { transform: translate(-50%,-58%); }
@@ -448,7 +448,6 @@
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
-  /* ── RESPONSIVE ── */
   @media (max-width: 860px) {
     .page { grid-template-columns: 1fr; }
     .brand-panel { display: none; }
@@ -465,7 +464,7 @@
     .logo-img, .float-icon { animation: none !important; }
     .login-card { animation: none !important; }
   }
-  /* ══ PANEL SWAP ANIMATION ══ */
+
   .panel-exit {
     animation: panel-out 0.38s cubic-bezier(0.4,0,1,1) forwards;
   }
@@ -478,7 +477,6 @@
     to   { opacity: 0; transform: translateY(20px) scale(0.97); }
   }
 
-  /* ── PI NETWORK BUTTON ── */
   .btn-pi {
     width: 100%;
     padding: 0.72rem;
@@ -502,10 +500,7 @@
     box-shadow: 0 4px 14px rgba(244,167,38,0.28);
     background: #fffdf7;
   }
-  .btn-pi:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-  }
+  .btn-pi:disabled { opacity: 0.65; cursor: not-allowed; }
   .btn-pi .pi-spinner {
     width: 16px; height: 16px;
     border: 2px solid rgba(244,167,38,0.3);
@@ -515,8 +510,6 @@
     flex-shrink: 0;
   }
   @keyframes pi-spin { to { transform: rotate(360deg); } }
-
-
 </style>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
@@ -534,6 +527,15 @@
 
       <h1 class="card-title">تسجيل الدخول</h1>
       <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
+
+      <!-- ══ شارة النطاق الفرعي — تظهر فقط على subdomains ══ -->
+      <div class="subdomain-banner" id="subdomainBanner">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span id="subdomainBannerText"></span>
+      </div>
 
       <form id="login-form" novalidate>
 
@@ -614,7 +616,7 @@
     </article>
   </main>
 
-  <!-- ══ LEFT = REGISTER (hidden initially) ══ -->
+  <!-- ══ REGISTER PANEL ══ -->
   <main class="login-panel" id="register-panel" style="display:none;">
     <article class="login-card" id="register-card">
 
@@ -769,7 +771,6 @@
         </svg>
       </div>
 
-      <!-- REAL LOGO IMAGE -->
       <img class="logo-img" src="/logo.png" alt="شعار منصة مدعوم">
       <div class="logo-glow" aria-hidden="true"></div>
     </div>
@@ -820,17 +821,77 @@
 </footer>
 
 <script type="module">
-  // ── SUPABASE INIT ──
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
   const SUPABASE_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
   const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+  // ══════════════════════════════════════════════════════════════
+  // SUBDOMAIN DETECTION
+  // يكتشف إذا كنا على subdomain.mad3oom.online ويحفظ الاسم
+  // ══════════════════════════════════════════════════════════════
+  const ROOT_DOMAIN   = 'mad3oom.online';
+  const hostname      = window.location.hostname;
+  const isSubdomain   = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
+  const currentSubdomain = isSubdomain ? hostname.replace('.' + ROOT_DOMAIN, '') : null;
+
+  // عرض شارة النطاق لما نكون على subdomain
+  if (currentSubdomain) {
+    const banner = document.getElementById('subdomainBanner');
+    document.getElementById('subdomainBannerText').textContent = `${currentSubdomain}.${ROOT_DOMAIN}`;
+    banner.classList.add('show');
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // SUBDOMAIN OWNERSHIP CHECK
+  // يتحقق إن المستخدم المسجل هو صاحب الـ subdomain فعلاً
+  // ══════════════════════════════════════════════════════════════
+  async function checkSubdomainOwnership(accessToken) {
+    if (!currentSubdomain) return { ok: true }; // الدومين الرئيسي → تمر مباشرة
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/subdomain-auth-check`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subdomain: currentSubdomain }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          status: res.status,
+          message: data.error || 'حدث خطأ في التحقق',
+          hint: data.owner_hint || null,
+        };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, status: 0, message: 'تعذّر الاتصال بالخادم، تحقق من الاتصال وحاول مرة أخرى' };
+    }
+  }
+
   // ── REDIRECT IF ALREADY LOGGED IN ──
   async function checkExistingSession() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) await redirectByRole(session.user.id);
+    if (!session) return;
+
+    // لو على subdomain → تحقق من الملكية أولاً حتى للجلسة الموجودة
+    if (currentSubdomain) {
+      const check = await checkSubdomainOwnership(session.access_token);
+      if (!check.ok) {
+        await supabase.auth.signOut();
+        const hint = check.hint ? `\n${check.hint}` : '';
+        showToast(`هذا النطاق (${currentSubdomain}.${ROOT_DOMAIN}) ليس مرتبطاً بحسابك.${hint}`);
+        return;
+      }
+    }
+
+    await redirectByRole(session.user.id);
   }
 
   // ── ROLE-BASED REDIRECT ──
@@ -842,17 +903,12 @@
       .single();
 
     const role = profile?.role || 'user';
-    if (role === 'admin') {
-      window.location.href = 'admin-dashboard.html';
-    } else {
-      window.location.href = 'customer-dashboard.html';
-    }
+    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
-  // ── HANDLE GOOGLE OAUTH CALLBACK ──
+  // ── GOOGLE OAUTH CALLBACK ──
   supabase.auth.onAuthStateChange(async (event, session) => {
     if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-      // Check if profile exists, create if not
       const { data: existing } = await supabase
         .from('profiles')
         .select('id, role')
@@ -860,7 +916,6 @@
         .single();
 
       if (!existing) {
-        // New user via Google — create profile
         await supabase.from('profiles').insert({
           id: session.user.id,
           email: session.user.email,
@@ -868,20 +923,25 @@
           role: 'user'
         });
       }
-      // Redirect
-      const role = existing?.role || 'user';
-      if (role === 'admin') {
-        window.location.href = 'admin-dashboard.html';
-      } else {
-        window.location.href = 'customer-dashboard.html';
+
+      // تحقق من الـ subdomain للـ OAuth أيضاً
+      if (currentSubdomain) {
+        const check = await checkSubdomainOwnership(session.access_token);
+        if (!check.ok) {
+          await supabase.auth.signOut();
+          showToast(check.message + (check.hint ? ` — ${check.hint}` : ''));
+          return;
+        }
       }
+
+      const role = existing?.role || 'user';
+      window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
     }
   });
 
-  // Check on page load
   checkExistingSession();
 
-  // ── SHOW / HIDE TOAST ──
+  // ── TOAST ──
   function showToast(msg, type = 'error') {
     let toast = document.getElementById('auth-toast');
     if (!toast) {
@@ -892,7 +952,7 @@
         padding:0.75rem 1.4rem; border-radius:10px; font-family:Cairo,sans-serif;
         font-size:0.88rem; font-weight:600; z-index:9999;
         box-shadow:0 4px 20px rgba(0,0,0,0.12); transition:opacity 0.3s;
-        direction:rtl; max-width:90vw; text-align:center;
+        direction:rtl; max-width:90vw; text-align:center; line-height:1.6;
       `;
       document.body.appendChild(toast);
     }
@@ -902,7 +962,7 @@
     toast.style.border      = type === 'error' ? '1px solid #fca5a5' : '1px solid #86efac';
     toast.style.opacity = '1';
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 5000);
   }
 
   function setLoading(btn, loading, label) {
@@ -930,6 +990,26 @@
       };
       showToast(msgs[error.message] || error.message);
       return;
+    }
+
+    // ══ تحقق من ملكية الـ subdomain بعد تسجيل الدخول ══
+    if (currentSubdomain) {
+      const check = await checkSubdomainOwnership(data.session.access_token);
+      if (!check.ok) {
+        await supabase.auth.signOut();
+        setLoading(btn, false, 'تسجيل الدخول');
+
+        if (check.status === 403) {
+          // مستخدم تاني حاول يدخل على subdomain مش بتاعه
+          const hint = check.hint ? `\n${check.hint}` : '';
+          showToast(`⚠️ فضلاً سجّل الدخول بالحساب المالك لـ ${currentSubdomain}.${ROOT_DOMAIN}${hint}`);
+        } else if (check.status === 404) {
+          showToast('هذا النطاق الفرعي غير موجود أو تم حذفه');
+        } else {
+          showToast(check.message);
+        }
+        return;
+      }
     }
 
     await redirectByRole(data.user.id);
@@ -977,7 +1057,6 @@
       return;
     }
 
-    // Create profile row
     if (data.user) {
       await supabase.from('profiles').upsert({
         id: data.user.id,
@@ -989,13 +1068,10 @@
 
     setLoading(btn, false, 'إنشاء الحساب');
     showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
-
-    // Switch to login after 2s
     setTimeout(() => swapToLogin(), 2200);
   });
 
   // ── GOOGLE LOGIN ──
-  // Shared handler for both panels
   async function googleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -1062,7 +1138,6 @@
   initPwToggle('password',     'toggle-pw',     'eye-icon');
   initPwToggle('reg-password', 'toggle-reg-pw', 'reg-eye-icon');
 
-  // Copy logo src to register panel
   const brandLogoSrc = document.querySelector('.logo-img')?.src;
   if (brandLogoSrc) {
     const regLogo = document.getElementById('register-logo');
@@ -1073,82 +1148,49 @@
   // PI NETWORK AUTHENTICATION
   // ══════════════════════════════════════════════════════
 
-  const PI_SANDBOX = false; // set true during local dev outside Pi Browser
+  const PI_SANDBOX = false;
 
-  // ── Pi SDK wrapper (vanilla-JS PiService pattern) ──
   class PiService {
     constructor() {
       this._sdkReady = false;
       this._initPromise = null;
     }
-
-    /** Call once. Resolves when Pi SDK is fully initialised. */
     init() {
       if (this._initPromise) return this._initPromise;
       this._initPromise = new Promise((resolve, reject) => {
-        // Pi SDK loads synchronously from CDN script tag;
-        // but we still wait for the DOM + script to be ready.
         const tryInit = () => {
-          if (typeof window.Pi === 'undefined') {
-            setTimeout(tryInit, 150);
-            return;
-          }
+          if (typeof window.Pi === 'undefined') { setTimeout(tryInit, 150); return; }
           try {
             window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX });
             this._sdkReady = true;
             resolve();
-          } catch (err) {
-            reject(err);
-          }
+          } catch (err) { reject(err); }
         };
         tryInit();
       });
       return this._initPromise;
     }
-
-    /**
-     * Authenticate with Pi Network.
-     * @returns {{ uid, username, accessToken }} on success
-     */
     async authenticate() {
       await this.init();
-
       return new Promise((resolve, reject) => {
-        window.Pi.authenticate(
-          ['username'],
-          (incompletePayment) => {
-            // Required callback — we do not support payments here
-            console.warn('[Pi] Incomplete payment found:', incompletePayment?.identifier);
-          }
-        )
-          .then((authResult) => {
-            resolve({
-              uid:         authResult.user.uid,
-              username:    authResult.user.username,
-              accessToken: authResult.accessToken,
-            });
-          })
-          .catch((err) => {
-            reject(err);
-          });
+        window.Pi.authenticate(['username'], (p) => {
+          console.warn('[Pi] Incomplete payment:', p?.identifier);
+        })
+          .then(r => resolve({ uid: r.user.uid, username: r.user.username, accessToken: r.accessToken }))
+          .catch(reject);
       });
     }
   }
 
   const piService = new PiService();
 
-  // ── Send Pi accessToken to backend Edge Function for validation ──
-  // The frontend NEVER calls api.minepi.com directly.
-  // All validation happens inside the pi-auth Edge Function (server-side only).
   async function handlePiAuthResult(piResult) {
     const EDGE_URL = `${SUPABASE_URL}/functions/v1/pi-auth`;
-
     let res, data;
     try {
-      res = await fetch(EDGE_URL, {
-        method:  'POST',
+      res  = await fetch(EDGE_URL, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Send ONLY the raw access token — backend derives everything else
         body: JSON.stringify({ accessToken: piResult.accessToken }),
       });
       data = await res.json();
@@ -1156,34 +1198,34 @@
       throw new Error('تعذّر الاتصال بالخادم: ' + err.message);
     }
 
-    if (!res.ok || !data?.session) {
-      throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
-    }
+    if (!res.ok || !data?.session) throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
 
-    // Restore the validated Supabase session returned by the backend
     const { error: setErr } = await supabase.auth.setSession({
       access_token:  data.session.access_token,
       refresh_token: data.session.refresh_token,
     });
     if (setErr) throw new Error('فشل إنشاء الجلسة: ' + setErr.message);
 
-    // Redirect based on role returned by backend (no extra DB call needed)
-    const role = data.role || 'user';
-    if (role === 'admin') {
-      window.location.href = 'admin-dashboard.html';
-    } else {
-      window.location.href = 'customer-dashboard.html';
+    // تحقق من الـ subdomain لـ Pi auth أيضاً
+    if (currentSubdomain) {
+      const check = await checkSubdomainOwnership(data.session.access_token);
+      if (!check.ok) {
+        await supabase.auth.signOut();
+        throw new Error(check.message);
+      }
     }
+
+    const role = data.role || 'user';
+    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
-  // ── Pi button UI helpers ──
   function setPiLoading(panel, loading) {
-    const btn      = document.getElementById(`pi-${panel}-btn`);
-    const label    = document.getElementById(`pi-${panel}-label`);
-    const spinner  = document.getElementById(`pi-${panel}-spinner`);
+    const btn     = document.getElementById(`pi-${panel}-btn`);
+    const label   = document.getElementById(`pi-${panel}-label`);
+    const spinner = document.getElementById(`pi-${panel}-spinner`);
     if (!btn) return;
-    btn.disabled        = loading;
-    label.style.display = loading ? 'none' : '';
+    btn.disabled          = loading;
+    label.style.display   = loading ? 'none' : '';
     spinner.style.display = loading ? 'inline-block' : 'none';
   }
 
@@ -1197,34 +1239,24 @@
       const msg = err?.message || '';
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user closed')) {
         showToast('تم إلغاء تسجيل الدخول بـ Pi Network');
-      } else if (msg.includes('Pi API error')) {
-        showToast('تعذّر التحقق من حساب Pi. تأكد من الاتصال وحاول مجدداً.');
       } else {
         showToast('خطأ في Pi Network: ' + msg);
       }
     }
   }
 
-  // ── Bind Pi buttons ──
   document.getElementById('pi-login-btn')?.addEventListener('click',    () => triggerPiAuth('login'));
   document.getElementById('pi-register-btn')?.addEventListener('click', () => triggerPiAuth('register'));
 
-  // ── Auto-attempt Pi auth if running inside Pi Browser ──
   (async () => {
     try {
       await piService.init();
-      // Pi Browser injects window.__PI_BROWSER__ or similar; detect by UA
       const inPiBrowser = /PiBrowser/i.test(navigator.userAgent);
       if (inPiBrowser) {
-        // Auto-auth silently — only proceed if no existing Supabase session
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          await triggerPiAuth('login');
-        }
+        if (!session) await triggerPiAuth('login');
       }
-    } catch (_) {
-      // Pi SDK not available (regular browser) — silently ignore
-    }
+    } catch (_) {}
   })();
 
 </script>
