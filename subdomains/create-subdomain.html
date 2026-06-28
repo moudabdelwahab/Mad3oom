@@ -1,790 +1,102 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>إنشاء نطاق فرعي | منصة مدعوم</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --primary: #1879C5;
-    --primary-dark: #0F3C6E;
-    --primary-light: #4C97E8;
-
-    --background: #FFFFFF;
-    --surface: #F7F7F7;
-
-    --badge-bg: #EAF4FC;
-    --badge-border: #B7D4EB;
-
-    --text: #2F3136;
-    --text-secondary: #757575;
-
-    --border: #E5E7EB;
-
-    --danger: #D64545;
-    --danger-bg: #FCEAEA;
-    --danger-border: #F2C6C6;
-
-    --radius: 14px;
-    --shadow-sm: 0 1px 2px rgba(15, 60, 110, 0.06);
-    --shadow-md: 0 8px 24px rgba(15, 60, 110, 0.08);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  html, body {
-    background: var(--surface);
-    color: var(--text);
-    font-family: 'Cairo', sans-serif;
-    min-height: 100vh;
-  }
-
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-bottom: 40px;
-  }
-
-  /* ---------- Top nav ---------- */
-  .topnav {
-    width: 100%;
-    background: var(--background);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 36px;
-  }
-
-  .nav-inner {
-    width: 100%;
-    max-width: 880px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .brand-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    background: linear-gradient(155deg, var(--primary-light), var(--primary));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    color: #FFFFFF;
-    font-size: 15px;
-    flex-shrink: 0;
-  }
-
-  .brand-name {
-    font-weight: 700;
-    font-size: 16px;
-    color: var(--text);
-  }
-
-  .nav-links {
-    display: flex;
-    gap: 6px;
-  }
-
-  .nav-link {
-    padding: 8px 16px;
-    border-radius: 9px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: all 0.15s ease;
-  }
-
-  .nav-link:hover {
-    background: var(--surface);
-    color: var(--text);
-  }
-
-  .nav-link.active {
-    background: var(--badge-bg);
-    color: var(--primary);
-    border: 1px solid var(--badge-border);
-  }
-
-  /* ---------- Page content ---------- */
-  .wrap {
-    width: 100%;
-    max-width: 480px;
-    padding: 0 20px;
-  }
-
-  .eyebrow {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  h1 {
-    text-align: center;
-    font-size: 23px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    line-height: 1.4;
-    color: var(--text);
-  }
-
-  .subtitle {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin-bottom: 28px;
-    line-height: 1.7;
-  }
-
-  .card {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 26px;
-    box-shadow: var(--shadow-md);
-  }
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 9px;
-  }
-
-  .input-row {
-    display: flex;
-    align-items: center;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-
-  .input-row:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(24, 121, 197, 0.12);
-    background: var(--background);
-  }
-
-  .input-row input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    padding: 13px 4px 13px 0;
-    direction: ltr;
-    text-align: left;
-    min-width: 0;
-  }
-
-  .input-row input::placeholder {
-    color: #A8ACB3;
-  }
-
-  .domain-suffix {
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13.5px;
-    padding: 13px 14px 13px 0;
-    white-space: nowrap;
-    direction: ltr;
-  }
-
-  .hint {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 8px;
-    line-height: 1.6;
-  }
-
-  .field-error {
-    font-size: 12.5px;
-    color: var(--danger);
-    margin-top: 8px;
-    display: none;
-    font-weight: 600;
-  }
-
-  .client-results {
-    display: none;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-top: 6px;
-    overflow: hidden;
-    max-height: 220px;
-    overflow-y: auto;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .client-results.active { display: block; }
-
-  .client-option {
-    padding: 11px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s ease;
-  }
-
-  .client-option:last-child { border-bottom: none; }
-  .client-option:hover { background: var(--badge-bg); }
-
-  .client-option .co-email {
-    font-size: 14px;
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .client-option .co-name {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 2px;
-  }
-
-  .client-empty {
-    padding: 12px 14px;
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
-
-  .selected-client {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--badge-bg);
-    border: 1px solid var(--badge-border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-top: 6px;
-  }
-
-  .selected-client.active { display: flex; }
-
-  .selected-client .sc-info { font-size: 13.5px; }
-  .selected-client .sc-email { font-weight: 700; color: var(--primary-dark); }
-  .selected-client .sc-name { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
-
-  .selected-client .sc-clear {
-    background: var(--background);
-    border: 1px solid var(--badge-border);
-    color: var(--primary);
-    cursor: pointer;
-    font-size: 12.5px;
-    font-weight: 700;
-    padding: 5px 12px;
-    border-radius: 7px;
-  }
-  .selected-client .sc-clear:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-
-  button.submit {
-    width: 100%;
-    margin-top: 20px;
-    background: linear-gradient(155deg, var(--primary-light), var(--primary));
-    color: #FFFFFF;
-    border: none;
-    border-radius: 10px;
-    padding: 14px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    box-shadow: 0 4px 14px rgba(24, 121, 197, 0.28);
-  }
-
-  button.submit:hover:not(:disabled) { filter: brightness(1.05); box-shadow: 0 6px 18px rgba(24, 121, 197, 0.34); }
-  button.submit:active:not(:disabled) { transform: scale(0.99); }
-
-  button.submit:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  /* Progress pipeline */
-  .pipeline {
-    display: none;
-    margin-top: 22px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-  }
-
-  .pipeline.active { display: block; }
-
-  .pipe-step {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 0;
-  }
-
-  .pipe-dot {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    transition: all 0.25s ease;
-    position: relative;
-    color: var(--text-secondary);
-    font-weight: 700;
-  }
-
-  .pipe-step.pending .pipe-dot { border-color: var(--border); }
-
-  .pipe-step.active .pipe-dot {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .pipe-step.active .pipe-dot::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 2px solid var(--primary);
-    opacity: 0.45;
-    animation: ping 1.2s ease-out infinite;
-  }
-
-  .pipe-step.done .pipe-dot {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
-  }
-
-  .pipe-step.error .pipe-dot {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
-  }
-
-  @keyframes ping {
-    0% { transform: scale(0.8); opacity: 0.5; }
-    100% { transform: scale(1.6); opacity: 0; }
-  }
-
-  .pipe-label {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    transition: color 0.2s ease;
-    font-weight: 500;
-  }
-
-  .pipe-step.active .pipe-label,
-  .pipe-step.done .pipe-label { color: var(--text); font-weight: 600; }
-
-  .pipe-line {
-    width: 1.5px;
-    height: 16px;
-    background: var(--border);
-    margin-right: 10.5px;
-  }
-
-  .result-box {
-    display: none;
-    margin-top: 18px;
-    padding: 16px;
-    border-radius: 10px;
-    text-align: center;
-  }
-
-  .result-box.success {
-    display: block;
-    background: var(--badge-bg);
-    border: 1px solid var(--badge-border);
-  }
-
-  .result-box.failure {
-    display: block;
-    background: var(--danger-bg);
-    border: 1px solid var(--danger-border);
-  }
-
-  .result-domain {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--primary-dark);
-    direction: ltr;
-    margin-bottom: 6px;
-  }
-
-  .result-msg {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-  }
-
-  .footer-note {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 12px;
-    margin-top: 24px;
-    line-height: 1.7;
-    opacity: 0.85;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pipe-step.active .pipe-dot::after { animation: none; }
-  }
-
-  @media (max-width: 560px) {
-    .topnav { padding: 12px 16px; }
-    .nav-link { padding: 7px 12px; font-size: 13px; }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء نطاق فرعي - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .input-row {
+            display: flex;
+            align-items: center;
+            background: var(--color-surface);
+            border: 1.5px solid var(--color-border);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: border-color 0.15s ease;
+        }
+        .input-row:focus-within {
+            border-color: var(--color-primary);
+        }
+        .input-row input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--color-text);
+            padding: 12px;
+            direction: ltr;
+        }
+        .domain-suffix {
+            padding: 0 12px;
+            color: var(--color-text-secondary);
+            background: var(--color-muted);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            border-right: 1px solid var(--color-border);
+            direction: ltr;
+        }
+        .admin-card {
+            background: var(--color-surface);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow-md);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 700;
+            width: 100%;
+        }
+    </style>
 </head>
-<body>
+<body class="admin-body">
+    <div id="sidebar-container"></div>
 
-<nav class="topnav">
-  <div class="nav-inner">
-    <div class="brand">
-      <div class="brand-mark">م</div>
-      <div class="brand-name">منصة مدعوم</div>
-    </div>
-    <div class="nav-links">
-      <a href="create-subdomain.html" class="nav-link active">إنشاء نطاق</a>
-      <a href="manage-subdomains.html" class="nav-link">النطاقات الفعالة</a>
-    </div>
-  </div>
-</nav>
+    <main class="admin-main">
+        <div class="dashboard-container">
+            <div class="page-intro">
+                <h1>إنشاء نطاق فرعي لجهة جديدة</h1>
+                <p>أدخل اسم الجهة بالإنجليزية، وسنربطه تلقائيًا بنطاق فرعي خاص بها على منصة مدعوم.</p>
+            </div>
 
-<div class="wrap">
-  <div class="eyebrow">لوحة الإدارة الداخلية</div>
-  <h1>إنشاء نطاق فرعي لجهة جديدة</h1>
-  <p class="subtitle">أدخل اسم الجهة بالإنجليزية، وسنربطه تلقائيًا بنطاق فرعي خاص بها على منصة مدعوم.</p>
-
-  <div class="card">
-    <form id="subdomainForm">
-      <label for="clientSearch">العميل المرتبط بالنطاق</label>
-      <div class="input-row" style="margin-bottom: 4px;">
-        <input
-          type="text"
-          id="clientSearch"
-          placeholder="ابحث بالإيميل أو الاسم..."
-          autocomplete="off"
-          spellcheck="false"
-          style="direction: rtl; text-align: right; font-family: 'Cairo';"
-        >
-      </div>
-      <div id="clientResults" class="client-results"></div>
-      <div id="selectedClientBox" class="selected-client">
-        <div class="sc-info">
-          <div class="sc-email" id="scEmail"></div>
-          <div class="sc-name" id="scName"></div>
+            <div class="admin-card">
+                <form id="subdomainForm">
+                    <div class="form-group">
+                        <label for="orgName">اسم الجهة (بالإنجليزية)</label>
+                        <div class="input-row">
+                            <input type="text" id="orgName" name="orgName" placeholder="mtjr" required>
+                            <span class="domain-suffix">.mad3oom.online</span>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--color-text-secondary); mt: 0.5rem;">حروف إنجليزية صغيرة وأرقام وشرطات فقط.</p>
+                    </div>
+                    <button type="submit" class="btn-primary">إنشاء النطاق الفرعي</button>
+                </form>
+            </div>
         </div>
-        <button type="button" class="sc-clear" id="scClear">تغيير</button>
-      </div>
-      <input type="hidden" id="selectedClientId">
-      <p class="field-error" id="clientError"></p>
+    </main>
 
-      <label for="orgName" style="margin-top: 18px;">اسم الجهة (بالإنجليزية)</label>
-      <div class="input-row">
-        <input
-          type="text"
-          id="orgName"
-          name="orgName"
-          placeholder="mtjr"
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-          required
-        >
-        <span class="domain-suffix">.mad3oom.online</span>
-      </div>
-      <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات (مثال: mtjr أو my-store).</p>
-      <p class="field-error" id="fieldError"></p>
+    <script type="module">
+        import { initSidebar } from '/assets/js/admin/sidebar.js';
+        import { checkAdminAuth } from '/assets/js/admin/auth.js';
 
-      <button type="submit" class="submit" id="submitBtn">
-        <span id="submitLabel">إنشاء النطاق الفرعي</span>
-      </button>
-    </form>
-
-    <div class="pipeline" id="pipeline">
-      <div class="pipe-step pending" id="step-validate">
-        <div class="pipe-dot">1</div>
-        <div class="pipe-label">التحقق من توافر الاسم</div>
-      </div>
-      <div class="pipe-line"></div>
-      <div class="pipe-step pending" id="step-dns">
-        <div class="pipe-dot">2</div>
-        <div class="pipe-label">إنشاء سجل النطاق على Cloudflare</div>
-      </div>
-      <div class="pipe-line"></div>
-      <div class="pipe-step pending" id="step-vercel">
-        <div class="pipe-dot">3</div>
-        <div class="pipe-label">ربط النطاق بمشروع Vercel</div>
-      </div>
-    </div>
-
-    <div class="result-box" id="resultBox">
-      <div class="result-domain" id="resultDomain"></div>
-      <div class="result-msg" id="resultMsg"></div>
-    </div>
-  </div>
-
-  <p class="footer-note">قد يستغرق ظهور النطاق بشكل كامل بعض الدقائق حسب انتشار DNS.<br>© 2026 منصة مدعوم</p>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script>
-  const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co";
-  const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
-
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  const CREATE_FN_URL = `${SUPABASE_URL}/functions/v1/create-subdomain`;
-  const MANAGE_FN_URL = `${SUPABASE_URL}/functions/v1/manage-subdomain`;
-
-  // ---------- DOM refs ----------
-  const form = document.getElementById('subdomainForm');
-  const input = document.getElementById('orgName');
-  const fieldError = document.getElementById('fieldError');
-  const submitBtn = document.getElementById('submitBtn');
-  const submitLabel = document.getElementById('submitLabel');
-  const pipeline = document.getElementById('pipeline');
-  const resultBox = document.getElementById('resultBox');
-  const resultDomain = document.getElementById('resultDomain');
-  const resultMsg = document.getElementById('resultMsg');
-
-  const clientSearch = document.getElementById('clientSearch');
-  const clientResults = document.getElementById('clientResults');
-  const selectedClientBox = document.getElementById('selectedClientBox');
-  const selectedClientId = document.getElementById('selectedClientId');
-  const scEmail = document.getElementById('scEmail');
-  const scName = document.getElementById('scName');
-  const scClear = document.getElementById('scClear');
-  const clientError = document.getElementById('clientError');
-
-  const steps = {
-    validate: document.getElementById('step-validate'),
-    dns: document.getElementById('step-dns'),
-    vercel: document.getElementById('step-vercel'),
-  };
-
-  const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
-
-  // ---------- Auth helper: يحصل على access token الحقيقي بتاع الأدمن ----------
-  async function getAccessToken() {
-    const { data } = await sb.auth.getSession();
-    return data?.session?.access_token || null;
-  }
-
-  async function callFunction(url, body) {
-    const token = await getAccessToken();
-    if (!token) {
-      throw new Error('NO_SESSION');
-    }
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error || 'حدث خطأ غير متوقع');
-    }
-    return data;
-  }
-
-  // ---------- بحث العميل ----------
-  let searchTimer = null;
-
-  clientSearch.addEventListener('input', () => {
-    selectedClientId.value = '';
-    clientError.style.display = 'none';
-    const q = clientSearch.value.trim();
-
-    clearTimeout(searchTimer);
-    if (q.length < 1) {
-      clientResults.classList.remove('active');
-      clientResults.innerHTML = '';
-      return;
-    }
-
-    searchTimer = setTimeout(async () => {
-      try {
-        const data = await callFunction(MANAGE_FN_URL, { action: 'search_clients', q });
-        renderClientResults(data.items || []);
-      } catch (err) {
-        clientResults.innerHTML = `<div class="client-empty">${escapeHtml(err.message)}</div>`;
-        clientResults.classList.add('active');
-      }
-    }, 300);
-  });
-
-  function renderClientResults(items) {
-    if (!items.length) {
-      clientResults.innerHTML = `<div class="client-empty">لا يوجد عملاء مطابقين</div>`;
-      clientResults.classList.add('active');
-      return;
-    }
-    clientResults.innerHTML = items.map(c => `
-      <div class="client-option" data-id="${escapeHtml(c.id)}" data-email="${escapeHtml(c.email || '')}" data-name="${escapeHtml(c.full_name || '')}">
-        <div class="co-email">${escapeHtml(c.email || 'بدون إيميل')}</div>
-        <div class="co-name">${escapeHtml(c.full_name || '')}</div>
-      </div>
-    `).join('');
-    clientResults.classList.add('active');
-
-    clientResults.querySelectorAll('.client-option').forEach(el => {
-      el.addEventListener('click', () => {
-        selectedClientId.value = el.dataset.id;
-        scEmail.textContent = el.dataset.email;
-        scName.textContent = el.dataset.name;
-        selectedClientBox.classList.add('active');
-        clientResults.classList.remove('active');
-        clientSearch.value = '';
-        clientSearch.parentElement.style.display = 'none';
-      });
-    });
-  }
-
-  scClear.addEventListener('click', () => {
-    selectedClientId.value = '';
-    selectedClientBox.classList.remove('active');
-    clientSearch.parentElement.style.display = 'flex';
-    clientSearch.focus();
-  });
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-  }
-
-  // ---------- Pipeline UI ----------
-  function setStep(stepEl, state) {
-    stepEl.classList.remove('pending', 'active', 'done', 'error');
-    stepEl.classList.add(state);
-    const dot = stepEl.querySelector('.pipe-dot');
-    if (state === 'done') dot.textContent = '✓';
-    else if (state === 'error') dot.textContent = '×';
-  }
-
-  function resetUI() {
-    fieldError.style.display = 'none';
-    clientError.style.display = 'none';
-    resultBox.className = 'result-box';
-    pipeline.classList.remove('active');
-    Object.values(steps).forEach(s => {
-      s.classList.remove('active', 'done', 'error');
-      s.classList.add('pending');
-      s.querySelector('.pipe-dot').textContent = s === steps.validate ? '1' : (s === steps.dns ? '2' : '3');
-    });
-  }
-
-  async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  function showResult(success, name, message) {
-    resultBox.className = `result-box ${success ? 'success' : 'failure'}`;
-    resultDomain.textContent = `${name}.mad3oom.online`;
-    resultMsg.textContent = message;
-  }
-
-  // ---------- Submit ----------
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const rawName = input.value.trim().toLowerCase();
-    const clientId = selectedClientId.value;
-    resetUI();
-
-    if (!clientId) {
-      clientError.textContent = 'يرجى اختيار العميل المرتبط بالنطاق أولًا.';
-      clientError.style.display = 'block';
-      return;
-    }
-
-    if (!rawName || !NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
-      fieldError.textContent = 'يرجى إدخال اسم صحيح: حروف إنجليزية صغيرة وأرقام وشرطات فقط.';
-      fieldError.style.display = 'block';
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitLabel.textContent = 'جاري الإنشاء...';
-    pipeline.classList.add('active');
-
-    setStep(steps.validate, 'active');
-    await sleep(350);
-    setStep(steps.validate, 'done');
-    setStep(steps.dns, 'active');
-
-    try {
-      const data = await callFunction(CREATE_FN_URL, {
-        name: rawName,
-        client_user_id: clientId,
-      });
-
-      setStep(steps.dns, 'done');
-      setStep(steps.vercel, 'active');
-      await sleep(450);
-      setStep(steps.vercel, 'done');
-
-      showResult(true, rawName, data.message);
-
-      // reset form for next entry
-      input.value = '';
-      selectedClientId.value = '';
-      selectedClientBox.classList.remove('active');
-      clientSearch.parentElement.style.display = 'flex';
-    } catch (err) {
-      setStep(steps.dns, 'error');
-      const msg = err.message === 'NO_SESSION'
-        ? 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.'
-        : err.message;
-      showResult(false, rawName, msg);
-    } finally {
-      submitBtn.disabled = false;
-      submitLabel.textContent = 'إنشاء النطاق الفرعي';
-    }
-  });
-
-  input.addEventListener('input', () => {
-    fieldError.style.display = 'none';
-  });
-</script>
-
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAdminAuth();
+            initSidebar();
+        });
+    </script>
 </body>
 </html>
