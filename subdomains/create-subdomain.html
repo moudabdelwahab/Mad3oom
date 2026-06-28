@@ -11,497 +11,169 @@
     --primary: #1879C5;
     --primary-dark: #0F3C6E;
     --primary-light: #4C97E8;
-
     --background: #FFFFFF;
     --surface: #F7F7F7;
-
     --badge-bg: #EAF4FC;
     --badge-border: #B7D4EB;
-
     --text: #2F3136;
     --text-secondary: #757575;
-
     --border: #E5E7EB;
-
     --danger: #D64545;
     --danger-bg: #FCEAEA;
     --danger-border: #F2C6C6;
-
     --radius: 14px;
-    --shadow-sm: 0 1px 2px rgba(15, 60, 110, 0.06);
-    --shadow-md: 0 8px 24px rgba(15, 60, 110, 0.08);
+    --shadow-sm: 0 1px 2px rgba(15,60,110,0.06);
+    --shadow-md: 0 8px 24px rgba(15,60,110,0.08);
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { background:var(--surface); color:var(--text); font-family:'Cairo',sans-serif; min-height:100vh; }
+  body { display:flex; flex-direction:column; align-items:center; padding-bottom:40px; }
 
-  html, body {
-    background: var(--surface);
-    color: var(--text);
-    font-family: 'Cairo', sans-serif;
-    min-height: 100vh;
+  /* nav */
+  .topnav { width:100%; background:var(--background); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; margin-bottom:36px; }
+  .nav-inner { width:100%; max-width:880px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:10px; }
+
+  .back-btn { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--background); color:var(--text-secondary); text-decoration:none; transition:all .15s; flex-shrink:0; }
+  .back-btn:hover { border-color:var(--primary); color:var(--primary); background:var(--badge-bg); }
+
+  .brand-mark { width:32px; height:32px; border-radius:9px; background:linear-gradient(155deg,var(--primary-light),var(--primary)); display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:15px; flex-shrink:0; }
+  .brand-name { font-weight:700; font-size:16px; color:var(--text); }
+  .nav-links { display:flex; gap:6px; }
+  .nav-link { padding:8px 16px; border-radius:9px; font-size:13.5px; font-weight:600; color:var(--text-secondary); text-decoration:none; transition:all .15s; }
+  .nav-link:hover { background:var(--surface); color:var(--text); }
+  .nav-link.active { background:var(--badge-bg); color:var(--primary); border:1px solid var(--badge-border); }
+
+  /* page */
+  .wrap { width:100%; max-width:480px; padding:0 20px; }
+  .eyebrow { text-align:center; color:var(--text-secondary); font-size:13px; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:.5px; }
+  h1 { text-align:center; font-size:23px; font-weight:800; margin-bottom:8px; line-height:1.4; color:var(--text); }
+  .subtitle { text-align:center; color:var(--text-secondary); font-size:14px; margin-bottom:28px; line-height:1.7; }
+
+  .card { background:var(--background); border:1px solid var(--border); border-radius:var(--radius); padding:26px; box-shadow:var(--shadow-md); }
+
+  label { display:block; font-size:13px; font-weight:700; color:var(--text); margin-bottom:9px; }
+
+  .input-row { display:flex; align-items:center; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; overflow:hidden; transition:border-color .15s,box-shadow .15s; }
+  .input-row:focus-within { border-color:var(--primary); box-shadow:0 0 0 3px rgba(24,121,197,.12); background:var(--background); }
+  .input-row input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:15px; padding:13px 4px 13px 0; direction:ltr; text-align:left; min-width:0; }
+  .input-row input::placeholder { color:#A8ACB3; }
+  .domain-suffix { color:var(--text-secondary); font-family:'JetBrains Mono',monospace; font-size:13.5px; padding:13px 14px 13px 0; white-space:nowrap; direction:ltr; }
+
+  .hint { font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.6; }
+  .field-error { font-size:12.5px; color:var(--danger); margin-top:8px; display:none; font-weight:600; }
+
+  .availability-status { font-size:12.5px; margin-top:8px; display:none; font-weight:700; align-items:center; gap:5px; }
+  .availability-status.show { display:flex; }
+  .availability-status.checking { color:var(--text-secondary); }
+  .availability-status.available { color:#1E9E4F; }
+  .availability-status.unavailable { color:var(--danger); }
+
+  /* client search */
+  .client-results { display:none; background:var(--background); border:1px solid var(--border); border-radius:10px; margin-top:6px; overflow:hidden; max-height:220px; overflow-y:auto; box-shadow:var(--shadow-sm); }
+  .client-results.active { display:block; }
+  .client-option { padding:11px 14px; cursor:pointer; border-bottom:1px solid var(--border); transition:background .12s; }
+  .client-option:last-child { border-bottom:none; }
+  .client-option:hover { background:var(--badge-bg); }
+  .client-option .co-email { font-size:14px; color:var(--text); font-weight:600; }
+  .client-option .co-name { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .client-empty { padding:12px 14px; font-size:13px; color:var(--text-secondary); }
+
+  .selected-client { display:none; align-items:center; justify-content:space-between; background:var(--badge-bg); border:1px solid var(--badge-border); border-radius:10px; padding:10px 14px; margin-top:6px; }
+  .selected-client.active { display:flex; }
+  .selected-client .sc-info { font-size:13.5px; }
+  .selected-client .sc-email { font-weight:700; color:var(--primary-dark); }
+  .selected-client .sc-name { color:var(--text-secondary); font-size:12px; margin-top:2px; }
+  .selected-client .sc-clear { background:var(--background); border:1px solid var(--badge-border); color:var(--primary); cursor:pointer; font-size:12.5px; font-weight:700; padding:5px 12px; border-radius:7px; }
+  .selected-client .sc-clear:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+  /* ══ LOGO UPLOAD ══ */
+  .logo-section { margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
+  .logo-section-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px; }
+  .logo-section-hint { font-size:12px; color:var(--text-secondary); margin-bottom:14px; line-height:1.65; }
+
+  .logo-specs-row {
+    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;
   }
-
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-bottom: 40px;
+  .logo-spec-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:20px; padding:4px 10px;
+    font-size:11.5px; font-weight:600; color:var(--text-secondary);
   }
+  .logo-spec-badge svg { color:var(--primary); }
 
-  /* ---------- Top nav ---------- */
-  .topnav {
-    width: 100%;
-    background: var(--background);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 36px;
+  .logo-upload-area {
+    border:2px dashed var(--border); border-radius:12px;
+    padding:24px 16px; text-align:center; cursor:pointer;
+    transition:all .2s; position:relative; background:var(--surface);
+    user-select:none;
   }
-
-  .nav-inner {
-    width: 100%;
-    max-width: 880px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+  .logo-upload-area:hover, .logo-upload-area.drag-over {
+    border-color:var(--primary); background:var(--badge-bg);
   }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .logo-upload-area input[type="file"] {
+    position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;
   }
+  .upload-icon { color:var(--text-secondary); margin-bottom:10px; }
+  .upload-text { font-size:13px; font-weight:600; color:var(--text-secondary); line-height:1.6; }
+  .upload-text span { color:var(--primary); text-decoration:underline; }
+  .upload-sub { font-size:11.5px; color:var(--text-secondary); margin-top:5px; opacity:.85; }
 
-  .back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    border: 1px solid var(--border);
-    background: var(--background);
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
+  /* preview */
+  .logo-preview-wrap { display:none; align-items:center; gap:14px; background:var(--badge-bg); border:1px solid var(--badge-border); border-radius:12px; padding:12px 16px; margin-top:10px; }
+  .logo-preview-wrap.show { display:flex; }
+
+  .logo-preview-img-box {
+    width:60px; height:60px; flex-shrink:0;
+    border-radius:10px; background:#fff;
+    border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; padding:4px;
   }
+  .logo-preview-img { width:100%; height:100%; object-fit:contain; }
 
-  .back-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: var(--badge-bg);
-  }
+  .logo-preview-info { flex:1; min-width:0; }
+  .logo-preview-name { font-size:13px; font-weight:700; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .logo-preview-size { font-size:11.5px; color:var(--text-secondary); margin-top:3px; }
+  .logo-preview-dims { font-size:11px; color:var(--text-secondary); margin-top:2px; opacity:.8; }
 
-  .brand-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    background: linear-gradient(155deg, var(--primary-light), var(--primary));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    color: #FFFFFF;
-    font-size: 15px;
-    flex-shrink: 0;
-  }
+  .logo-remove-btn { background:var(--danger-bg); border:1px solid var(--danger-border); color:var(--danger); border-radius:7px; padding:5px 10px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; transition:all .15s; }
+  .logo-remove-btn:hover { background:var(--danger); color:#fff; }
 
-  .brand-name {
-    font-weight: 700;
-    font-size: 16px;
-    color: var(--text);
-  }
+  .logo-error { font-size:12.5px; color:var(--danger); margin-top:8px; display:none; font-weight:600; }
 
-  .nav-links {
-    display: flex;
-    gap: 6px;
-  }
+  /* submit */
+  button.submit { width:100%; margin-top:22px; background:linear-gradient(155deg,var(--primary-light),var(--primary)); color:#fff; border:none; border-radius:10px; padding:14px; font-family:'Cairo',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:filter .15s,transform .1s,box-shadow .15s; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(24,121,197,.28); }
+  button.submit:hover:not(:disabled) { filter:brightness(1.05); box-shadow:0 6px 18px rgba(24,121,197,.34); }
+  button.submit:active:not(:disabled) { transform:scale(.99); }
+  button.submit:disabled { opacity:.55; cursor:not-allowed; box-shadow:none; }
 
-  .nav-link {
-    padding: 8px 16px;
-    border-radius: 9px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: all 0.15s ease;
-  }
+  /* pipeline */
+  .pipeline { display:none; margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
+  .pipeline.active { display:block; }
+  .pipe-step { display:flex; align-items:center; gap:12px; padding:9px 0; }
+  .pipe-dot { width:22px; height:22px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; transition:all .25s; position:relative; color:var(--text-secondary); font-weight:700; }
+  .pipe-step.active .pipe-dot { border-color:var(--primary); color:var(--primary); }
+  .pipe-step.active .pipe-dot::after { content:''; position:absolute; inset:-4px; border-radius:50%; border:2px solid var(--primary); opacity:.45; animation:ping 1.2s ease-out infinite; }
+  .pipe-step.done .pipe-dot { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .pipe-step.error .pipe-dot { background:var(--danger); border-color:var(--danger); color:#fff; }
+  @keyframes ping { 0%{transform:scale(.8);opacity:.5} 100%{transform:scale(1.6);opacity:0} }
+  .pipe-label { font-size:13.5px; color:var(--text-secondary); transition:color .2s; font-weight:500; }
+  .pipe-step.active .pipe-label, .pipe-step.done .pipe-label { color:var(--text); font-weight:600; }
+  .pipe-line { width:1.5px; height:16px; background:var(--border); margin-right:10.5px; }
 
-  .nav-link:hover {
-    background: var(--surface);
-    color: var(--text);
-  }
+  .result-box { display:none; margin-top:18px; padding:16px; border-radius:10px; text-align:center; }
+  .result-box.success { display:block; background:var(--badge-bg); border:1px solid var(--badge-border); }
+  .result-box.failure { display:block; background:var(--danger-bg); border:1px solid var(--danger-border); }
+  .result-domain { font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:700; color:var(--primary-dark); direction:ltr; margin-bottom:6px; }
+  .result-msg { font-size:13.5px; color:var(--text-secondary); line-height:1.6; }
 
-  .nav-link.active {
-    background: var(--badge-bg);
-    color: var(--primary);
-    border: 1px solid var(--badge-border);
-  }
+  .footer-note { text-align:center; color:var(--text-secondary); font-size:12px; margin-top:24px; line-height:1.7; opacity:.85; }
 
-  /* ---------- Page content ---------- */
-  .wrap {
-    width: 100%;
-    max-width: 480px;
-    padding: 0 20px;
-  }
-
-  .eyebrow {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  h1 {
-    text-align: center;
-    font-size: 23px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    line-height: 1.4;
-    color: var(--text);
-  }
-
-  .subtitle {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin-bottom: 28px;
-    line-height: 1.7;
-  }
-
-  .card {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 26px;
-    box-shadow: var(--shadow-md);
-  }
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 9px;
-  }
-
-  .input-row {
-    display: flex;
-    align-items: center;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-
-  .input-row:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(24, 121, 197, 0.12);
-    background: var(--background);
-  }
-
-  .input-row input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    padding: 13px 4px 13px 0;
-    direction: ltr;
-    text-align: left;
-    min-width: 0;
-  }
-
-  .input-row input::placeholder {
-    color: #A8ACB3;
-  }
-
-  .domain-suffix {
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13.5px;
-    padding: 13px 14px 13px 0;
-    white-space: nowrap;
-    direction: ltr;
-  }
-
-  .hint {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 8px;
-    line-height: 1.6;
-  }
-
-  .field-error {
-    font-size: 12.5px;
-    color: var(--danger);
-    margin-top: 8px;
-    display: none;
-    font-weight: 600;
-  }
-
-  .availability-status {
-    font-size: 12.5px;
-    margin-top: 8px;
-    display: none;
-    font-weight: 700;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .availability-status.show { display: flex; }
-  .availability-status.checking { color: var(--text-secondary); }
-  .availability-status.available { color: #1E9E4F; }
-  .availability-status.unavailable { color: var(--danger); }
-
-  .client-results {
-    display: none;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-top: 6px;
-    overflow: hidden;
-    max-height: 220px;
-    overflow-y: auto;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .client-results.active { display: block; }
-
-  .client-option {
-    padding: 11px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s ease;
-  }
-
-  .client-option:last-child { border-bottom: none; }
-  .client-option:hover { background: var(--badge-bg); }
-
-  .client-option .co-email {
-    font-size: 14px;
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .client-option .co-name {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 2px;
-  }
-
-  .client-empty {
-    padding: 12px 14px;
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
-
-  .selected-client {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--badge-bg);
-    border: 1px solid var(--badge-border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-top: 6px;
-  }
-
-  .selected-client.active { display: flex; }
-
-  .selected-client .sc-info { font-size: 13.5px; }
-  .selected-client .sc-email { font-weight: 700; color: var(--primary-dark); }
-  .selected-client .sc-name { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
-
-  .selected-client .sc-clear {
-    background: var(--background);
-    border: 1px solid var(--badge-border);
-    color: var(--primary);
-    cursor: pointer;
-    font-size: 12.5px;
-    font-weight: 700;
-    padding: 5px 12px;
-    border-radius: 7px;
-  }
-  .selected-client .sc-clear:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-
-  button.submit {
-    width: 100%;
-    margin-top: 20px;
-    background: linear-gradient(155deg, var(--primary-light), var(--primary));
-    color: #FFFFFF;
-    border: none;
-    border-radius: 10px;
-    padding: 14px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    box-shadow: 0 4px 14px rgba(24, 121, 197, 0.28);
-  }
-
-  button.submit:hover:not(:disabled) { filter: brightness(1.05); box-shadow: 0 6px 18px rgba(24, 121, 197, 0.34); }
-  button.submit:active:not(:disabled) { transform: scale(0.99); }
-
-  button.submit:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  /* Progress pipeline */
-  .pipeline {
-    display: none;
-    margin-top: 22px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-  }
-
-  .pipeline.active { display: block; }
-
-  .pipe-step {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 0;
-  }
-
-  .pipe-dot {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    transition: all 0.25s ease;
-    position: relative;
-    color: var(--text-secondary);
-    font-weight: 700;
-  }
-
-  .pipe-step.pending .pipe-dot { border-color: var(--border); }
-
-  .pipe-step.active .pipe-dot {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .pipe-step.active .pipe-dot::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 2px solid var(--primary);
-    opacity: 0.45;
-    animation: ping 1.2s ease-out infinite;
-  }
-
-  .pipe-step.done .pipe-dot {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
-  }
-
-  .pipe-step.error .pipe-dot {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
-  }
-
-  @keyframes ping {
-    0% { transform: scale(0.8); opacity: 0.5; }
-    100% { transform: scale(1.6); opacity: 0; }
-  }
-
-  .pipe-label {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    transition: color 0.2s ease;
-    font-weight: 500;
-  }
-
-  .pipe-step.active .pipe-label,
-  .pipe-step.done .pipe-label { color: var(--text); font-weight: 600; }
-
-  .pipe-line {
-    width: 1.5px;
-    height: 16px;
-    background: var(--border);
-    margin-right: 10.5px;
-  }
-
-  .result-box {
-    display: none;
-    margin-top: 18px;
-    padding: 16px;
-    border-radius: 10px;
-    text-align: center;
-  }
-
-  .result-box.success {
-    display: block;
-    background: var(--badge-bg);
-    border: 1px solid var(--badge-border);
-  }
-
-  .result-box.failure {
-    display: block;
-    background: var(--danger-bg);
-    border: 1px solid var(--danger-border);
-  }
-
-  .result-domain {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--primary-dark);
-    direction: ltr;
-    margin-bottom: 6px;
-  }
-
-  .result-msg {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-  }
-
-  .footer-note {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 12px;
-    margin-top: 24px;
-    line-height: 1.7;
-    opacity: 0.85;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pipe-step.active .pipe-dot::after { animation: none; }
-  }
-
-  @media (max-width: 560px) {
-    .topnav { padding: 12px 16px; }
-    .nav-link { padding: 7px 12px; font-size: 13px; }
-  }
+  @media (prefers-reduced-motion:reduce) { .pipe-step.active .pipe-dot::after { animation:none; } }
+  @media (max-width:560px) { .topnav{padding:12px 16px;} .nav-link{padding:7px 12px;font-size:13px;} }
 </style>
 </head>
 <body>
@@ -510,7 +182,7 @@
   <div class="nav-inner">
     <div class="brand">
       <a href="/admin-dashboard.html" class="back-btn" title="الرجوع للوحة الأدمن">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
@@ -531,76 +203,131 @@
 
   <div class="card">
     <form id="subdomainForm">
+
+      <!-- ── العميل ── -->
       <label for="clientSearch">العميل المرتبط بالنطاق</label>
-      <div class="input-row" style="margin-bottom: 4px;">
-        <input
-          type="text"
-          id="clientSearch"
+      <div class="input-row" style="margin-bottom:4px;">
+        <input type="text" id="clientSearch"
           placeholder="ابحث بالإيميل أو الاسم..."
-          autocomplete="off"
-          spellcheck="false"
-          style="direction: rtl; text-align: right; font-family: 'Cairo';"
-        >
+          autocomplete="off" spellcheck="false"
+          style="direction:rtl;text-align:right;font-family:'Cairo';">
       </div>
       <div id="clientResults" class="client-results"></div>
       <div id="selectedClientBox" class="selected-client">
         <div class="sc-info">
           <div class="sc-email" id="scEmail"></div>
-          <div class="sc-name" id="scName"></div>
+          <div class="sc-name"  id="scName"></div>
         </div>
         <button type="button" class="sc-clear" id="scClear">تغيير</button>
       </div>
       <input type="hidden" id="selectedClientId">
       <p class="field-error" id="clientError"></p>
 
-      <label for="orgName" style="margin-top: 18px;">اسم الجهة (بالإنجليزية)</label>
+      <!-- ── اسم النطاق ── -->
+      <label for="orgName" style="margin-top:18px;">اسم الجهة (بالإنجليزية)</label>
       <div class="input-row">
-        <input
-          type="text"
-          id="orgName"
-          name="orgName"
-          placeholder="sub"
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-          required
-        >
+        <input type="text" id="orgName" name="orgName"
+          placeholder="sub" autocomplete="off"
+          autocapitalize="off" spellcheck="false" required>
         <span class="domain-suffix">.mad3oom.online</span>
       </div>
       <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات (مثال: sub أو my-store).</p>
       <p class="availability-status" id="availabilityStatus"></p>
       <p class="field-error" id="fieldError"></p>
 
+      <!-- ══ شعار الجهة ══ -->
+      <div class="logo-section">
+        <div class="logo-section-title">شعار الجهة <span style="color:var(--text-secondary);font-weight:500;">(اختياري)</span></div>
+        <div class="logo-section-hint">
+          سيظهر هذا الشعار بدلاً من شعار مدعوم في صفحة تسجيل الدخول الخاصة بالنطاق الفرعي.
+        </div>
+
+        <!-- مواصفات الشعار -->
+        <div class="logo-specs-row">
+          <span class="logo-spec-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            PNG / JPG / WebP / SVG
+          </span>
+          <span class="logo-spec-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            حد أقصى 2 MB
+          </span>
+          <span class="logo-spec-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            مربع يُفضّل 256×256
+          </span>
+          <span class="logo-spec-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            خلفية شفافة مثالية
+          </span>
+        </div>
+
+        <!-- منطقة السحب والإفلات -->
+        <div class="logo-upload-area" id="logoDropZone">
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml">
+          <div class="upload-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="upload-text">اسحب الشعار هنا أو <span>اختر ملفًا</span></div>
+          <div class="upload-sub">PNG · JPG · WebP · SVG — 2MB كحد أقصى</div>
+        </div>
+
+        <!-- معاينة بعد الاختيار -->
+        <div class="logo-preview-wrap" id="logoPreviewWrap">
+          <div class="logo-preview-img-box">
+            <img class="logo-preview-img" id="logoPreviewImg" src="" alt="معاينة الشعار">
+          </div>
+          <div class="logo-preview-info">
+            <div class="logo-preview-name" id="logoPreviewName"></div>
+            <div class="logo-preview-size" id="logoPreviewSize"></div>
+            <div class="logo-preview-dims" id="logoPreviewDims"></div>
+          </div>
+          <button type="button" class="logo-remove-btn" id="logoRemoveBtn">إزالة</button>
+        </div>
+
+        <p class="logo-error" id="logoError"></p>
+      </div>
+
       <button type="submit" class="submit" id="submitBtn">
         <span id="submitLabel">إنشاء النطاق الفرعي</span>
       </button>
     </form>
 
+    <!-- pipeline — 5 خطوات الآن (أضفنا رفع الشعار) -->
     <div class="pipeline" id="pipeline">
       <div class="pipe-step pending" id="step-validate">
         <div class="pipe-dot">1</div>
         <div class="pipe-label">التحقق من توافر الاسم</div>
       </div>
       <div class="pipe-line"></div>
-      <div class="pipe-step pending" id="step-dns">
+      <div class="pipe-step pending" id="step-logo">
         <div class="pipe-dot">2</div>
+        <div class="pipe-label">رفع شعار الجهة</div>
+      </div>
+      <div class="pipe-line"></div>
+      <div class="pipe-step pending" id="step-dns">
+        <div class="pipe-dot">3</div>
         <div class="pipe-label">إنشاء سجل النطاق على Cloudflare</div>
       </div>
       <div class="pipe-line"></div>
       <div class="pipe-step pending" id="step-vercel">
-        <div class="pipe-dot">3</div>
+        <div class="pipe-dot">4</div>
         <div class="pipe-label">ربط النطاق بمشروع Vercel</div>
       </div>
       <div class="pipe-line"></div>
       <div class="pipe-step pending" id="step-propagate">
-        <div class="pipe-dot">4</div>
+        <div class="pipe-dot">5</div>
         <div class="pipe-label">انتظار انتشار النطاق فعليًا</div>
       </div>
     </div>
 
     <div class="result-box" id="resultBox">
       <div class="result-domain" id="resultDomain"></div>
-      <div class="result-msg" id="resultMsg"></div>
+      <div class="result-msg"   id="resultMsg"></div>
     </div>
   </div>
 
@@ -609,52 +336,85 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-  const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co";
-  const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
+  const SUPABASE_URL      = "https://srnelrdpqkcntbgudyto.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI";
+  const sb                = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const CREATE_FN_URL     = `${SUPABASE_URL}/functions/v1/create-subdomain`;
+  const MANAGE_FN_URL     = `${SUPABASE_URL}/functions/v1/manage-subdomain`;
+  const CHECK_DNS_FN_URL  = `${SUPABASE_URL}/functions/v1/check-dns-status`;
+  const LOGO_BUCKET       = "subdomain-logos";
 
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  const CREATE_FN_URL = `${SUPABASE_URL}/functions/v1/create-subdomain`;
-  const MANAGE_FN_URL = `${SUPABASE_URL}/functions/v1/manage-subdomain`;
-
-  // ---------- DOM refs ----------
-  const form = document.getElementById('subdomainForm');
-  const input = document.getElementById('orgName');
-  const fieldError = document.getElementById('fieldError');
+  // ── DOM ──
+  const form               = document.getElementById('subdomainForm');
+  const input              = document.getElementById('orgName');
+  const fieldError         = document.getElementById('fieldError');
   const availabilityStatus = document.getElementById('availabilityStatus');
-  const submitBtn = document.getElementById('submitBtn');
-  const submitLabel = document.getElementById('submitLabel');
-  const pipeline = document.getElementById('pipeline');
-  const resultBox = document.getElementById('resultBox');
-  const resultDomain = document.getElementById('resultDomain');
-  const resultMsg = document.getElementById('resultMsg');
+  const submitBtn          = document.getElementById('submitBtn');
+  const submitLabel        = document.getElementById('submitLabel');
+  const pipeline           = document.getElementById('pipeline');
+  const resultBox          = document.getElementById('resultBox');
+  const resultDomain       = document.getElementById('resultDomain');
+  const resultMsg          = document.getElementById('resultMsg');
 
-  const clientSearch = document.getElementById('clientSearch');
-  const clientResults = document.getElementById('clientResults');
-  const selectedClientBox = document.getElementById('selectedClientBox');
-  const selectedClientId = document.getElementById('selectedClientId');
-  const scEmail = document.getElementById('scEmail');
-  const scName = document.getElementById('scName');
-  const scClear = document.getElementById('scClear');
-  const clientError = document.getElementById('clientError');
+  const clientSearch       = document.getElementById('clientSearch');
+  const clientResults      = document.getElementById('clientResults');
+  const selectedClientBox  = document.getElementById('selectedClientBox');
+  const selectedClientId   = document.getElementById('selectedClientId');
+  const scEmail            = document.getElementById('scEmail');
+  const scName             = document.getElementById('scName');
+  const scClear            = document.getElementById('scClear');
+  const clientError        = document.getElementById('clientError');
+
+  const logoDropZone       = document.getElementById('logoDropZone');
+  const logoFile           = document.getElementById('logoFile');
+  const logoPreviewWrap    = document.getElementById('logoPreviewWrap');
+  const logoPreviewImg     = document.getElementById('logoPreviewImg');
+  const logoPreviewName    = document.getElementById('logoPreviewName');
+  const logoPreviewSize    = document.getElementById('logoPreviewSize');
+  const logoPreviewDims    = document.getElementById('logoPreviewDims');
+  const logoRemoveBtn      = document.getElementById('logoRemoveBtn');
+  const logoError          = document.getElementById('logoError');
 
   const steps = {
-    validate: document.getElementById('step-validate'),
-    dns: document.getElementById('step-dns'),
-    vercel: document.getElementById('step-vercel'),
-    propagate: document.getElementById('step-propagate'),
+    validate  : document.getElementById('step-validate'),
+    logo      : document.getElementById('step-logo'),
+    dns       : document.getElementById('step-dns'),
+    vercel    : document.getElementById('step-vercel'),
+    propagate : document.getElementById('step-propagate'),
   };
 
-  const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+  const NAME_REGEX       = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+  let isNameAvailable    = false;
+  let selectedLogoFile   = null;
 
-  // ---------- فحص توافر الاسم لحظيًا ----------
+  // ── Auth ──
+  async function getAccessToken() {
+    const { data } = await sb.auth.getSession();
+    return data?.session?.access_token || null;
+  }
+
+  async function callFunction(url, body) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('NO_SESSION');
+    const res  = await fetch(url, {
+      method : 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+      body   : JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'حدث خطأ غير متوقع');
+    return data;
+  }
+
+  // ══════════════════════════════════════════════
+  // AVAILABILITY CHECK (كما هو في نسختك)
+  // ══════════════════════════════════════════════
   let availabilityTimer = null;
-  let isNameAvailable = false;
 
   function setAvailabilityStatus(state, text) {
     availabilityStatus.className = `availability-status show ${state}`;
     const dotColor = state === 'available' ? '#1E9E4F' : (state === 'unavailable' ? '#D64545' : '#9AA0A6');
-    const dotSvg = `<svg width="9" height="9" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="${dotColor}"/></svg>`;
+    const dotSvg   = `<svg width="9" height="9" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="${dotColor}"/></svg>`;
     availabilityStatus.innerHTML = `${dotSvg}<span>${text}</span>`;
   }
 
@@ -667,84 +427,42 @@
     fieldError.style.display = 'none';
     isNameAvailable = false;
     const rawName = input.value.trim().toLowerCase();
-
     clearTimeout(availabilityTimer);
-
-    if (!rawName) {
-      clearAvailabilityStatus();
-      return;
+    if (!rawName || !NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
+      clearAvailabilityStatus(); return;
     }
-
-    if (!NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
-      clearAvailabilityStatus();
-      return;
-    }
-
     setAvailabilityStatus('checking', 'جاري التحقق...');
-
     availabilityTimer = setTimeout(async () => {
       try {
-        const data = await callFunction(MANAGE_FN_URL, { action: 'check_availability', name: rawName });
-        if (input.value.trim().toLowerCase() !== rawName) return; // المستخدم غيّر الإدخال أثناء الانتظار
+        const data = await callFunction(MANAGE_FN_URL, { action:'check_availability', name:rawName });
+        if (input.value.trim().toLowerCase() !== rawName) return;
         if (data.available) {
           isNameAvailable = true;
-          setAvailabilityStatus('available', 'متاح');
+          setAvailabilityStatus('available', 'متاح ✓');
         } else {
           isNameAvailable = false;
           setAvailabilityStatus('unavailable', data.reason || 'مستخدم بالفعل');
         }
-      } catch (err) {
-        clearAvailabilityStatus();
-      }
+      } catch { clearAvailabilityStatus(); }
     }, 400);
   });
 
-  // ---------- Auth helper: يحصل على access token الحقيقي بتاع الأدمن ----------
-  async function getAccessToken() {
-    const { data } = await sb.auth.getSession();
-    return data?.session?.access_token || null;
-  }
-
-  async function callFunction(url, body) {
-    const token = await getAccessToken();
-    if (!token) {
-      throw new Error('NO_SESSION');
-    }
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error || 'حدث خطأ غير متوقع');
-    }
-    return data;
-  }
-
-  // ---------- بحث العميل ----------
+  // ══════════════════════════════════════════════
+  // CLIENT SEARCH
+  // ══════════════════════════════════════════════
   let searchTimer = null;
 
   clientSearch.addEventListener('input', () => {
     selectedClientId.value = '';
     clientError.style.display = 'none';
     const q = clientSearch.value.trim();
-
     clearTimeout(searchTimer);
-    if (q.length < 1) {
-      clientResults.classList.remove('active');
-      clientResults.innerHTML = '';
-      return;
-    }
-
+    if (!q) { clientResults.classList.remove('active'); clientResults.innerHTML=''; return; }
     searchTimer = setTimeout(async () => {
       try {
-        const data = await callFunction(MANAGE_FN_URL, { action: 'search_clients', q });
+        const data = await callFunction(MANAGE_FN_URL, { action:'search_clients', q });
         renderClientResults(data.items || []);
-      } catch (err) {
+      } catch(err) {
         clientResults.innerHTML = `<div class="client-empty">${escapeHtml(err.message)}</div>`;
         clientResults.classList.add('active');
       }
@@ -754,22 +472,23 @@
   function renderClientResults(items) {
     if (!items.length) {
       clientResults.innerHTML = `<div class="client-empty">لا يوجد عملاء مطابقين</div>`;
-      clientResults.classList.add('active');
-      return;
+      clientResults.classList.add('active'); return;
     }
     clientResults.innerHTML = items.map(c => `
-      <div class="client-option" data-id="${escapeHtml(c.id)}" data-email="${escapeHtml(c.email || '')}" data-name="${escapeHtml(c.full_name || '')}">
-        <div class="co-email">${escapeHtml(c.email || 'بدون إيميل')}</div>
-        <div class="co-name">${escapeHtml(c.full_name || '')}</div>
+      <div class="client-option"
+        data-id="${escapeHtml(c.id)}"
+        data-email="${escapeHtml(c.email||'')}"
+        data-name="${escapeHtml(c.full_name||'')}">
+        <div class="co-email">${escapeHtml(c.email||'بدون إيميل')}</div>
+        <div class="co-name">${escapeHtml(c.full_name||'')}</div>
       </div>
     `).join('');
     clientResults.classList.add('active');
-
     clientResults.querySelectorAll('.client-option').forEach(el => {
       el.addEventListener('click', () => {
         selectedClientId.value = el.dataset.id;
-        scEmail.textContent = el.dataset.email;
-        scName.textContent = el.dataset.name;
+        scEmail.textContent    = el.dataset.email;
+        scName.textContent     = el.dataset.name;
         selectedClientBox.classList.add('active');
         clientResults.classList.remove('active');
         clientSearch.value = '';
@@ -786,14 +505,104 @@
   });
 
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
+    return String(str).replace(/[&<>"']/g,
+      c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // ---------- Pipeline UI ----------
+  // ══════════════════════════════════════════════
+  // LOGO FILE HANDLING
+  // ══════════════════════════════════════════════
+  const ALLOWED_TYPES = ['image/png','image/jpeg','image/jpg','image/webp','image/svg+xml'];
+  const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    return (b/(1024*1024)).toFixed(2) + ' MB';
+  }
+
+  function getImageDimensions(file) {
+    return new Promise(resolve => {
+      if (file.type === 'image/svg+xml') { resolve('SVG — متجه قابل للتكبير'); return; }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload  = () => { URL.revokeObjectURL(url); resolve(`${img.naturalWidth} × ${img.naturalHeight} px`); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
+      img.src = url;
+    });
+  }
+
+  async function handleLogoFile(file) {
+    logoError.style.display = 'none';
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      logoError.textContent = 'نوع الملف غير مدعوم. يُقبل: PNG أو JPG أو WebP أو SVG فقط.';
+      logoError.style.display = 'block'; return;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      logoError.textContent = `حجم الملف كبير جداً (${formatBytes(file.size)}). الحد الأقصى 2 ميجابايت.`;
+      logoError.style.display = 'block'; return;
+    }
+
+    selectedLogoFile = file;
+
+    const [dims] = await Promise.all([getImageDimensions(file)]);
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      logoPreviewImg.src         = e.target.result;
+      logoPreviewName.textContent = file.name;
+      logoPreviewSize.textContent = formatBytes(file.size);
+      logoPreviewDims.textContent = dims;
+      logoDropZone.style.display  = 'none';
+      logoPreviewWrap.classList.add('show');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  logoFile.addEventListener('change', () => handleLogoFile(logoFile.files[0]));
+
+  // Drag & Drop
+  logoDropZone.addEventListener('dragover',  e => { e.preventDefault(); logoDropZone.classList.add('drag-over'); });
+  logoDropZone.addEventListener('dragleave', ()=> logoDropZone.classList.remove('drag-over'));
+  logoDropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    logoDropZone.classList.remove('drag-over');
+    handleLogoFile(e.dataTransfer.files[0]);
+  });
+
+  logoRemoveBtn.addEventListener('click', () => {
+    selectedLogoFile      = null;
+    logoFile.value        = '';
+    logoPreviewWrap.classList.remove('show');
+    logoDropZone.style.display = '';
+    logoPreviewImg.src    = '';
+    logoError.style.display = 'none';
+  });
+
+  // ══════════════════════════════════════════════
+  // LOGO UPLOAD TO STORAGE
+  // ══════════════════════════════════════════════
+  async function uploadLogo(subdomainName, file) {
+    const ext      = file.name.split('.').pop().toLowerCase();
+    const filePath = `${subdomainName}/logo.${ext}`;
+
+    // احذف النسخة القديمة لو موجودة (upsert بيتكفل بده)
+    const { error } = await sb.storage.from(LOGO_BUCKET).upload(filePath, file, {
+      contentType : file.type,
+      upsert      : true,
+    });
+    if (error) throw new Error('فشل رفع الشعار: ' + error.message);
+
+    const { data } = sb.storage.from(LOGO_BUCKET).getPublicUrl(filePath);
+    // أضف cache-buster لتجنب تخزين الصورة القديمة
+    return data.publicUrl + '?t=' + Date.now();
+  }
+
+  // ── Pipeline UI ──
   function setStep(stepEl, state) {
-    stepEl.classList.remove('pending', 'active', 'done', 'error');
+    stepEl.classList.remove('pending','active','done','error');
     stepEl.classList.add(state);
     const dot = stepEl.querySelector('.pipe-dot');
     if (state === 'done') {
@@ -804,146 +613,150 @@
   }
 
   function resetUI() {
-    fieldError.style.display = 'none';
+    fieldError.style.display  = 'none';
     clientError.style.display = 'none';
+    logoError.style.display   = 'none';
     resultBox.className = 'result-box';
     pipeline.classList.remove('active');
-    const numbers = { validate: '1', dns: '2', vercel: '3', propagate: '4' };
-    Object.entries(steps).forEach(([key, s]) => {
-      s.classList.remove('active', 'done', 'error');
+    const nums = { validate:'1', logo:'2', dns:'3', vercel:'4', propagate:'5' };
+    Object.entries(steps).forEach(([k,s]) => {
+      s.classList.remove('active','done','error');
       s.classList.add('pending');
-      s.querySelector('.pipe-dot').textContent = numbers[key];
+      s.querySelector('.pipe-dot').textContent = nums[k];
     });
   }
 
-  async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+  function sleep(ms) { return new Promise(r => setTimeout(r,ms)); }
 
   function showResult(success, name, message) {
-    resultBox.className = `result-box ${success ? 'success' : 'failure'}`;
-    resultDomain.textContent = `${name}.mad3oom.online`;
-    resultMsg.textContent = message;
+    resultBox.className       = `result-box ${success ? 'success' : 'failure'}`;
+    resultDomain.textContent  = `${name}.mad3oom.online`;
+    resultMsg.textContent     = message;
   }
 
-  // ---------- Submit ----------
+  // ══════════════════════════════════════════════
+  // DNS PROPAGATION POLL
+  // ══════════════════════════════════════════════
+  async function pollDnsPropagation(rowId, maxAttempts=6, intervalMs=4000) {
+    if (!rowId) return false;
+    for (let i=0; i<maxAttempts; i++) {
+      try {
+        const res  = await fetch(CHECK_DNS_FN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ id: rowId }),
+        });
+        const data = await res.json();
+        if (data.propagated) return true;
+      } catch { /* تجاهل وحاول مرة أخرى */ }
+      await sleep(intervalMs);
+    }
+    return false;
+  }
+
+  // ══════════════════════════════════════════════
+  // SUBMIT
+  // ══════════════════════════════════════════════
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const rawName = input.value.trim().toLowerCase();
+    const rawName  = input.value.trim().toLowerCase();
     const clientId = selectedClientId.value;
     resetUI();
 
+    // ── Validation ──
     if (!clientId) {
       clientError.textContent = 'يرجى اختيار العميل المرتبط بالنطاق أولًا.';
-      clientError.style.display = 'block';
-      return;
+      clientError.style.display = 'block'; return;
     }
-
     if (!rawName || !NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
       fieldError.textContent = 'يرجى إدخال اسم صحيح: حروف إنجليزية صغيرة وأرقام وشرطات فقط.';
-      fieldError.style.display = 'block';
-      return;
+      fieldError.style.display = 'block'; return;
     }
-
     if (!isNameAvailable) {
-      fieldError.textContent = 'يرجى التأكد من توافر الاسم أولًا (انتظر ظهور "متاح").';
-      fieldError.style.display = 'block';
-      return;
+      fieldError.textContent = 'يرجى التأكد من توافر الاسم أولًا (انتظر ظهور "متاح ✓").';
+      fieldError.style.display = 'block'; return;
     }
 
     submitBtn.disabled = true;
     submitLabel.textContent = 'جاري الإنشاء...';
     pipeline.classList.add('active');
 
+    // ── Step 1: فحص أخير لحظي ──
     setStep(steps.validate, 'active');
-
-    // فحص أخير لحظي مباشرة قبل التنفيذ، لتفادي تضارب لو حد آخر أخذ نفس الاسم في نفس اللحظة
     try {
-      const checkData = await callFunction(MANAGE_FN_URL, { action: 'check_availability', name: rawName });
-      if (!checkData.available) {
+      const chk = await callFunction(MANAGE_FN_URL, { action:'check_availability', name:rawName });
+      if (!chk.available) {
         setStep(steps.validate, 'error');
-        showResult(false, rawName, checkData.reason || 'هذا الاسم أصبح مستخدمًا، جرّب اسمًا آخر.');
-        submitBtn.disabled = false;
-        submitLabel.textContent = 'إنشاء النطاق الفرعي';
-        return;
+        showResult(false, rawName, chk.reason || 'هذا الاسم أصبح مستخدمًا، جرّب اسمًا آخر.');
+        submitBtn.disabled = false; submitLabel.textContent = 'إنشاء النطاق الفرعي'; return;
       }
-    } catch (err) {
+    } catch {
       setStep(steps.validate, 'error');
       showResult(false, rawName, 'تعذر التحقق من توافر الاسم، حاول مرة أخرى.');
-      submitBtn.disabled = false;
-      submitLabel.textContent = 'إنشاء النطاق الفرعي';
-      return;
+      submitBtn.disabled = false; submitLabel.textContent = 'إنشاء النطاق الفرعي'; return;
+    }
+    setStep(steps.validate, 'done');
+
+    // ── Step 2: رفع الشعار ──
+    let logoUrl = null;
+    setStep(steps.logo, 'active');
+    if (selectedLogoFile) {
+      try {
+        logoUrl = await uploadLogo(rawName, selectedLogoFile);
+        setStep(steps.logo, 'done');
+      } catch(err) {
+        setStep(steps.logo, 'error');
+        showResult(false, rawName, err.message);
+        submitBtn.disabled = false; submitLabel.textContent = 'إنشاء النطاق الفرعي'; return;
+      }
+    } else {
+      await sleep(180);
+      setStep(steps.logo, 'done'); // لا يوجد شعار — تخطّ
     }
 
-    setStep(steps.validate, 'done');
+    // ── Step 3 & 4: DNS + Vercel ──
     setStep(steps.dns, 'active');
-
     try {
       const data = await callFunction(CREATE_FN_URL, {
-        name: rawName,
-        client_user_id: clientId,
+        name           : rawName,
+        client_user_id : clientId,
+        logo_url       : logoUrl,   // ← مخزّن في قاعدة البيانات عبر Edge Function
       });
 
       setStep(steps.dns, 'done');
       setStep(steps.vercel, 'active');
       await sleep(450);
       setStep(steps.vercel, 'done');
+
+      // ── Step 5: انتشار DNS ──
       setStep(steps.propagate, 'active');
-
-      // الانتشار الفعلي: نستخدم id السطر الراجع مباشرة من create-subdomain
       const propagated = await pollDnsPropagation(data.id);
+      setStep(steps.propagate, 'done');
 
+      const logoNote = logoUrl ? ' · تم رفع الشعار ✓' : '';
       if (propagated) {
-        setStep(steps.propagate, 'done');
-        showResult(true, rawName, `تم تفعيل النطاق الفرعي ${rawName}.mad3oom.online بالكامل وهو متاح الآن.`);
+        showResult(true, rawName, `تم تفعيل النطاق الفرعي بالكامل وهو متاح الآن.${logoNote}`);
       } else {
-        // لم يكتمل الانتشار خلال فترة الانتظار، لكن التسجيل تم بنجاح ولا يعتبر هذا فشلًا
-        setStep(steps.propagate, 'done');
-        showResult(true, rawName, `${data.message} — قد يستغرق ظهوره بالكامل بضع دقائق إضافية حسب انتشار DNS.`);
+        showResult(true, rawName, `${data.message} — قد يستغرق الظهور الكامل بضع دقائق إضافية.${logoNote}`);
       }
 
-      // reset form for next entry
-      input.value = '';
-      isNameAvailable = false;
-      clearAvailabilityStatus();
+      // ── Reset ──
+      input.value = ''; isNameAvailable = false; clearAvailabilityStatus();
       selectedClientId.value = '';
       selectedClientBox.classList.remove('active');
       clientSearch.parentElement.style.display = 'flex';
-    } catch (err) {
+      logoRemoveBtn.click();
+
+    } catch(err) {
       setStep(steps.dns, 'error');
-      const msg = err.message === 'NO_SESSION'
-        ? 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.'
-        : err.message;
-      showResult(false, rawName, msg);
+      showResult(false, rawName,
+        err.message === 'NO_SESSION' ? 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.' : err.message);
     } finally {
       submitBtn.disabled = false;
       submitLabel.textContent = 'إنشاء النطاق الفرعي';
     }
   });
-
-  // ---------- فحص انتشار DNS الفعلي بعد الإنشاء ----------
-  const CHECK_DNS_FN_URL = `${SUPABASE_URL}/functions/v1/check-dns-status`;
-
-  async function pollDnsPropagation(rowId, maxAttempts = 6, intervalMs = 4000) {
-    if (!rowId) return false;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const res = await fetch(CHECK_DNS_FN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: rowId }),
-        });
-        const data = await res.json();
-        if (data.propagated) return true;
-      } catch {
-        // تجاهل وحاول مرة أخرى
-      }
-      await sleep(intervalMs);
-    }
-    return false;
-  }
 </script>
 
 </body>
