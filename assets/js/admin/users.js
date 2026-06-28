@@ -31,7 +31,7 @@ async function init() {
         .subscribe();
 }
 
-// إنشاء النافذة المنزلقة (Action Sheet) مرة واحدة في الصفحة
+// إنشاء النافذة المنزلقة (في نص الشاشة) مرة واحدة في الصفحة
 function injectOptionsPanel() {
     const overlay = document.createElement('div');
     overlay.className = 'options-overlay';
@@ -41,7 +41,6 @@ function injectOptionsPanel() {
     panel.className = 'options-panel';
     panel.id = 'optionsPanel';
     panel.innerHTML = `
-        <div class="options-panel-handle"></div>
         <div class="options-panel-header">
             <div class="opt-user-name" id="optUserName"></div>
             <div class="opt-user-email" id="optUserEmail"></div>
@@ -49,21 +48,29 @@ function injectOptionsPanel() {
         <div class="options-panel-body">
             <button class="option-row-btn danger" id="optBanBtn">
                 <span>حظر المستخدم</span>
-                <span class="opt-icon">🚫</span>
+                <span class="opt-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+                </span>
             </button>
 
             <div class="options-group-label">تغيير الصلاحية</div>
             <button class="option-row-btn" id="optRoleUser" data-role="user">
                 <span>عضو</span>
-                <span class="opt-icon">👤</span>
+                <span class="opt-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
             </button>
             <button class="option-row-btn" id="optRoleSuper" data-role="super_user">
                 <span>Super User</span>
-                <span class="opt-icon">⭐</span>
+                <span class="opt-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </span>
             </button>
             <button class="option-row-btn" id="optRoleAdmin" data-role="admin">
                 <span>Admin</span>
-                <span class="opt-icon">👑</span>
+                <span class="opt-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18l-1.5-9-4.5 5-3-7-3 7-4.5-5L3 17Z"/><path d="M5 21h14"/></svg>
+                </span>
             </button>
         </div>
     `;
