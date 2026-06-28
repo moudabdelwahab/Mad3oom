@@ -70,6 +70,27 @@
 
   .brand { display: flex; align-items: center; gap: 10px; }
 
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .back-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--badge-bg);
+  }
+
   .brand-mark {
     width: 32px; height: 32px; border-radius: 9px;
     background: linear-gradient(155deg, var(--primary-light), var(--primary));
@@ -176,8 +197,10 @@
   .badge.success { background: var(--success-bg); color: var(--success-text); }
   .badge.failed { background: var(--danger-bg); color: var(--danger); }
   .badge.creating { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.propagating { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.suspended { background: #EFEFEF; color: #6B6F76; }
 
-  .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; position: relative; }
   .icon-btn {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -187,9 +210,69 @@
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; font-size: 13px;
     transition: all 0.15s ease;
+    position: relative;
   }
   .icon-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--badge-bg); }
   .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+
+  .copy-feedback {
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+  .copy-feedback.show { opacity: 1; }
+
+  /* Actions dropdown menu */
+  .actions-menu {
+    display: none;
+    position: absolute;
+    top: 36px;
+    left: 0;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    min-width: 170px;
+    overflow: hidden;
+    z-index: 30;
+  }
+  .actions-menu.open { display: block; }
+
+  .actions-menu button {
+    width: 100%;
+    text-align: right;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    font-family: 'Cairo';
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .actions-menu button:last-child { border-bottom: none; }
+  .actions-menu button:hover { background: var(--surface); }
+  .actions-menu button.danger-action { color: var(--danger); }
+  .actions-menu button.danger-action:hover { background: var(--danger-bg); }
+  .actions-menu button.warn-action { color: var(--warn-text); }
+  .actions-menu button.warn-action:hover { background: var(--warn-bg); }
+  .actions-menu button.success-action { color: var(--success-text); }
+  .actions-menu button.success-action:hover { background: var(--success-bg); }
 
   .empty-state {
     padding: 50px 20px;
@@ -269,6 +352,11 @@
 <nav class="topnav">
   <div class="nav-inner">
     <div class="brand">
+      <a href="/admin-dashboard" class="back-btn" title="الرجوع للوحة الأدمن">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
       <div class="brand-mark">م</div>
       <div class="brand-name">منصة مدعوم</div>
     </div>
@@ -281,7 +369,7 @@
 
 <div class="wrap">
   <h1>النطاقات الفرعية الفعالة</h1>
-  <p class="subtitle">إدارة كل النطاقات الفرعية المرتبطة بالعملاء على mad3oom.online</p>
+  <p class="subtitle">إدارة كل النطاقات الفرعية المرتبطة بالعملاء على منصة مدعوم</p>
 
   <div class="search-bar">
     <input type="text" id="tableSearch" placeholder="ابحث بالنطاق أو إيميل العميل...">
@@ -333,12 +421,25 @@
   </div>
 </div>
 
+<!-- Suspend/Reactivate Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">تأكيد الإجراء</h3>
+    <p style="color: var(--text-secondary); font-size: 13.5px; line-height: 1.7; margin-bottom: 8px;" id="confirmBody"></p>
+    <p class="modal-error" id="confirmError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="confirmModal">إلغاء</button>
+      <button class="btn-confirm" id="confirmActionBtn">تأكيد</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete Modal -->
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
-    <h3>حذف النطاق</h3>
+    <h3>حذف النطاق نهائيًا</h3>
     <p style="color: var(--text-secondary); font-size: 13.5px; line-height: 1.7; margin-bottom: 8px;">
-      سيتم حذف <span id="deleteDomainName" style="color: var(--primary-dark); font-weight: 700; font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block;"></span> نهائيًا من Cloudflare وVercel. لا يمكن التراجع عن هذا الإجراء.
+      سيتم حذف <span id="deleteDomainName" style="color: var(--primary-dark); font-weight: 700; font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block;"></span> نهائيًا من Cloudflare وVercel وسجل قاعدة البيانات. هذا إجراء دائم ولا يمكن التراجع عنه — استخدم "تعطيل" بدلًا من ذلك إذا كان العميل قد يعود لاحقًا.
     </p>
     <p class="modal-error" id="deleteError"></p>
     <div class="modal-actions">
@@ -394,9 +495,33 @@
   }
 
   function statusBadge(status) {
-    const map = { success: ['مفعّل', 'success'], failed: ['فشل', 'failed'], creating: ['جاري الإنشاء', 'creating'], pending: ['معلّق', 'creating'] };
+    const map = {
+      success: ['مفعّل', 'success'],
+      failed: ['فشل', 'failed'],
+      creating: ['جاري الإنشاء', 'creating'],
+      propagating: ['قيد الانتشار', 'propagating'],
+      pending: ['معلّق', 'creating'],
+      suspended: ['معطّل', 'suspended'],
+      deleted: ['محذوف', 'failed'],
+    };
     const [label, cls] = map[status] || [status, 'creating'];
     return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  // ---------- مكتبة أيقونات SVG بسيطة (line icons) ----------
+  const ICONS = {
+    copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2"/></svg>',
+    open: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 3H21V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 13V19A2 2 0 0 1 17 21H5A2 2 0 0 1 3 19V7A2 2 0 0 1 5 5H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    menu: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    rename: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4A2 2 0 0 0 2 6V20A2 2 0 0 0 4 22H18A2 2 0 0 0 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5A2.121 2.121 0 0 1 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    user: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 21V19A4 4 0 0 0 16 15H8A4 4 0 0 0 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>',
+    pause: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg>',
+    play: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 4L19 12L6 20V4Z" fill="currentColor"/></svg>',
+    trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4A2 2 0 0 1 10 2H14A2 2 0 0 1 16 4V6M19 6V20A2 2 0 0 1 17 22H7A2 2 0 0 1 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+
+  function iconSpan(name) {
+    return `<span style="display:inline-flex; align-items:center;">${ICONS[name]}</span>`;
   }
 
   function renderTable(items) {
@@ -404,7 +529,14 @@
       tableBody.innerHTML = `<div class="empty-state">لا توجد نطاقات فرعية مطابقة</div>`;
       return;
     }
-    tableBody.innerHTML = items.map(item => `
+    tableBody.innerHTML = items.map(item => {
+      const isSuspended = item.status === 'suspended';
+      const toggleAction = isSuspended ? 'reactivate' : 'suspend';
+      const toggleIcon = isSuspended ? iconSpan('play') : iconSpan('pause');
+      const toggleLabel = isSuspended ? 'إعادة تفعيل' : 'تعطيل';
+      const toggleClass = isSuspended ? 'success-action' : 'warn-action';
+
+      return `
       <div class="row" data-id="${item.id}">
         <div class="cell-domain" data-label="النطاق">${escapeHtml(item.full_domain)}</div>
         <div class="cell-client" data-label="العميل">
@@ -415,24 +547,90 @@
         <div class="cell-ip" data-label="IP التفعيل">${escapeHtml(item.created_ip || '—')}</div>
         <div class="cell-date" data-label="تاريخ التفعيل">${formatDate(item.activated_at || item.created_at)}</div>
         <div class="row-actions">
-          <button class="icon-btn" title="تغيير الاسم" data-action="rename" data-id="${item.id}">✎</button>
-          <button class="icon-btn" title="تغيير العميل" data-action="reassign" data-id="${item.id}">👤</button>
-          <button class="icon-btn danger" title="حذف" data-action="delete" data-id="${item.id}">🗑</button>
+          <button class="icon-btn" title="نسخ الرابط" data-action="copy" data-domain="${escapeHtml(item.full_domain)}">
+            ${iconSpan('copy')}
+            <span class="copy-feedback">تم النسخ</span>
+          </button>
+          <button class="icon-btn" title="فتح الرابط" data-action="open" data-domain="${escapeHtml(item.full_domain)}">${iconSpan('open')}</button>
+          <button class="icon-btn" title="المزيد من الإجراءات" data-action="menu" data-id="${item.id}">${iconSpan('menu')}</button>
+          <div class="actions-menu" data-menu-for="${item.id}">
+            <button data-action="rename" data-id="${item.id}">${iconSpan('rename')} تغيير الاسم</button>
+            <button data-action="reassign" data-id="${item.id}">${iconSpan('user')} تغيير العميل</button>
+            <button class="${toggleClass}" data-action="${toggleAction}" data-id="${item.id}">${toggleIcon} ${toggleLabel}</button>
+            <button class="danger-action" data-action="delete" data-id="${item.id}">${iconSpan('trash')} حذف نهائي</button>
+          </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
-    tableBody.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // نسخ الرابط
+    tableBody.querySelectorAll('[data-action="copy"]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const domain = btn.dataset.domain;
+        try {
+          await navigator.clipboard.writeText(`https://${domain}`);
+        } catch {
+          // fallback لو الكليبورد API مش متاح
+          const ta = document.createElement('textarea');
+          ta.value = `https://${domain}`;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        const feedback = btn.querySelector('.copy-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => feedback.classList.remove('show'), 1300);
+      });
+    });
+
+    // فتح الرابط في تاب جديد
+    tableBody.querySelectorAll('[data-action="open"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(`https://${btn.dataset.domain}`, '_blank', 'noopener');
+      });
+    });
+
+    // فتح/إغلاق منيو الإجراءات
+    tableBody.querySelectorAll('[data-action="menu"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const menu = tableBody.querySelector(`.actions-menu[data-menu-for="${id}"]`);
+        const wasOpen = menu.classList.contains('open');
+        closeAllMenus();
+        if (!wasOpen) menu.classList.add('open');
+      });
+    });
+
+    // إجراءات المنيو
+    tableBody.querySelectorAll('.actions-menu [data-action]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllMenus();
         const id = btn.dataset.id;
         const action = btn.dataset.action;
         const item = allItems.find(i => i.id === id);
         if (action === 'rename') openRenameModal(item);
         if (action === 'reassign') openReassignModal(item);
+        if (action === 'suspend') openSuspendConfirm(item);
+        if (action === 'reactivate') openReactivateConfirm(item);
         if (action === 'delete') openDeleteModal(item);
       });
     });
   }
+
+  function closeAllMenus() {
+    document.querySelectorAll('.actions-menu.open').forEach(m => m.classList.remove('open'));
+  }
+
+  document.addEventListener('click', closeAllMenus);
+
+  const CHECK_DNS_FN_URL = `${SUPABASE_URL}/functions/v1/check-dns-status`;
+  let propagationPollTimer = null;
 
   async function loadList() {
     tableBody.innerHTML = `<div class="empty-state">جاري التحميل...</div>`;
@@ -440,9 +638,38 @@
       const data = await callFunction({ action: 'list' });
       allItems = data.items || [];
       applyFilter();
+      schedulePropagationCheck();
     } catch (err) {
       tableBody.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
     }
+  }
+
+  function schedulePropagationCheck() {
+    clearTimeout(propagationPollTimer);
+    const propagatingItems = allItems.filter(i => i.status === 'propagating');
+    if (!propagatingItems.length) return;
+
+    propagationPollTimer = setTimeout(async () => {
+      let anyChanged = false;
+      for (const item of propagatingItems) {
+        try {
+          const res = await fetch(CHECK_DNS_FN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: item.id }),
+          });
+          const result = await res.json();
+          if (result.propagated) anyChanged = true;
+        } catch {
+          // تجاهل وحاول في الدورة القادمة
+        }
+      }
+      if (anyChanged) {
+        loadList(); // يعيد تحميل القائمة كاملة ويعيد جدولة الفحص لو لسه فيه عناصر propagating
+      } else {
+        schedulePropagationCheck(); // كرر الفحص لنفس العناصر لاحقًا
+      }
+    }, 5000);
   }
 
   function applyFilter() {
@@ -601,6 +828,53 @@
       deleteError.textContent = err.message;
     } finally {
       deleteConfirm.disabled = false;
+    }
+  });
+
+  // ---------- Suspend / Reactivate ----------
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmBody = document.getElementById('confirmBody');
+  const confirmError = document.getElementById('confirmError');
+  const confirmActionBtn = document.getElementById('confirmActionBtn');
+  let pendingConfirmAction = null; // 'suspend' | 'reactivate'
+
+  function openSuspendConfirm(item) {
+    activeRowId = item.id;
+    pendingConfirmAction = 'suspend';
+    confirmTitle.textContent = 'تعطيل النطاق';
+    confirmBody.innerHTML = `سيتم إيقاف <span style="color: var(--primary-dark); font-weight:700; font-family:'JetBrains Mono', monospace; direction: ltr; display:inline-block;">${escapeHtml(item.full_domain)}</span> فعليًا عن العمل (إزالة سجل DNS من Cloudflare وإزالة الدومين من Vercel)، مع الاحتفاظ بكل بيانات العميل والتاريخ. يمكنك إعادة تفعيله في أي وقت لاحق.`;
+    confirmError.textContent = '';
+    confirmActionBtn.textContent = 'تعطيل';
+    confirmActionBtn.className = 'btn-confirm';
+    confirmActionBtn.style.background = 'var(--warn-text)';
+    openModal('confirmModal');
+  }
+
+  function openReactivateConfirm(item) {
+    activeRowId = item.id;
+    pendingConfirmAction = 'reactivate';
+    confirmTitle.textContent = 'إعادة تفعيل النطاق';
+    confirmBody.innerHTML = `سيتم إنشاء سجل DNS جديد وربط <span style="color: var(--primary-dark); font-weight:700; font-family:'JetBrains Mono', monospace; direction: ltr; display:inline-block;">${escapeHtml(item.full_domain)}</span> بمشروع Vercel من جديد، وسيعمل النطاق فورًا.`;
+    confirmError.textContent = '';
+    confirmActionBtn.textContent = 'إعادة تفعيل';
+    confirmActionBtn.className = 'btn-confirm';
+    confirmActionBtn.style.background = '';
+    openModal('confirmModal');
+  }
+
+  confirmActionBtn.addEventListener('click', async () => {
+    if (!pendingConfirmAction) return;
+    confirmActionBtn.disabled = true;
+    confirmError.textContent = '';
+    try {
+      const data = await callFunction({ action: pendingConfirmAction, id: activeRowId });
+      closeModal('confirmModal');
+      showToast(data.message, true);
+      loadList();
+    } catch (err) {
+      confirmError.textContent = err.message;
+    } finally {
+      confirmActionBtn.disabled = false;
     }
   });
 
