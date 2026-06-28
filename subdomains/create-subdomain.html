@@ -77,6 +77,27 @@
     gap: 10px;
   }
 
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .back-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--badge-bg);
+  }
+
   .brand-mark {
     width: 32px;
     height: 32px;
@@ -230,6 +251,20 @@
     display: none;
     font-weight: 600;
   }
+
+  .availability-status {
+    font-size: 12.5px;
+    margin-top: 8px;
+    display: none;
+    font-weight: 700;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .availability-status.show { display: flex; }
+  .availability-status.checking { color: var(--text-secondary); }
+  .availability-status.available { color: #1E9E4F; }
+  .availability-status.unavailable { color: var(--danger); }
 
   .client-results {
     display: none;
@@ -474,6 +509,11 @@
 <nav class="topnav">
   <div class="nav-inner">
     <div class="brand">
+      <a href="/admin-dashboard" class="back-btn" title="الرجوع للوحة الأدمن">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
       <div class="brand-mark">م</div>
       <div class="brand-name">منصة مدعوم</div>
     </div>
@@ -519,7 +559,7 @@
           type="text"
           id="orgName"
           name="orgName"
-          placeholder="subdomain"
+          placeholder="mtjr"
           autocomplete="off"
           autocapitalize="off"
           spellcheck="false"
@@ -527,7 +567,8 @@
         >
         <span class="domain-suffix">.mad3oom.online</span>
       </div>
-      <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات (مثال: subdomain أو my-store).</p>
+      <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات (مثال: mtjr أو my-store).</p>
+      <p class="availability-status" id="availabilityStatus"></p>
       <p class="field-error" id="fieldError"></p>
 
       <button type="submit" class="submit" id="submitBtn">
@@ -549,6 +590,11 @@
       <div class="pipe-step pending" id="step-vercel">
         <div class="pipe-dot">3</div>
         <div class="pipe-label">ربط النطاق بمشروع Vercel</div>
+      </div>
+      <div class="pipe-line"></div>
+      <div class="pipe-step pending" id="step-propagate">
+        <div class="pipe-dot">4</div>
+        <div class="pipe-label">انتظار انتشار النطاق فعليًا</div>
       </div>
     </div>
 
@@ -575,6 +621,7 @@
   const form = document.getElementById('subdomainForm');
   const input = document.getElementById('orgName');
   const fieldError = document.getElementById('fieldError');
+  const availabilityStatus = document.getElementById('availabilityStatus');
   const submitBtn = document.getElementById('submitBtn');
   const submitLabel = document.getElementById('submitLabel');
   const pipeline = document.getElementById('pipeline');
@@ -595,9 +642,62 @@
     validate: document.getElementById('step-validate'),
     dns: document.getElementById('step-dns'),
     vercel: document.getElementById('step-vercel'),
+    propagate: document.getElementById('step-propagate'),
   };
 
   const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+  // ---------- فحص توافر الاسم لحظيًا ----------
+  let availabilityTimer = null;
+  let isNameAvailable = false;
+
+  function setAvailabilityStatus(state, text) {
+    availabilityStatus.className = `availability-status show ${state}`;
+    const dotColor = state === 'available' ? '#1E9E4F' : (state === 'unavailable' ? '#D64545' : '#9AA0A6');
+    const dotSvg = `<svg width="9" height="9" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="${dotColor}"/></svg>`;
+    availabilityStatus.innerHTML = `${dotSvg}<span>${text}</span>`;
+  }
+
+  function clearAvailabilityStatus() {
+    availabilityStatus.className = 'availability-status';
+    availabilityStatus.textContent = '';
+  }
+
+  input.addEventListener('input', () => {
+    fieldError.style.display = 'none';
+    isNameAvailable = false;
+    const rawName = input.value.trim().toLowerCase();
+
+    clearTimeout(availabilityTimer);
+
+    if (!rawName) {
+      clearAvailabilityStatus();
+      return;
+    }
+
+    if (!NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
+      clearAvailabilityStatus();
+      return;
+    }
+
+    setAvailabilityStatus('checking', 'جاري التحقق...');
+
+    availabilityTimer = setTimeout(async () => {
+      try {
+        const data = await callFunction(MANAGE_FN_URL, { action: 'check_availability', name: rawName });
+        if (input.value.trim().toLowerCase() !== rawName) return; // المستخدم غيّر الإدخال أثناء الانتظار
+        if (data.available) {
+          isNameAvailable = true;
+          setAvailabilityStatus('available', 'متاح');
+        } else {
+          isNameAvailable = false;
+          setAvailabilityStatus('unavailable', data.reason || 'مستخدم بالفعل');
+        }
+      } catch (err) {
+        clearAvailabilityStatus();
+      }
+    }, 400);
+  });
 
   // ---------- Auth helper: يحصل على access token الحقيقي بتاع الأدمن ----------
   async function getAccessToken() {
@@ -696,8 +796,11 @@
     stepEl.classList.remove('pending', 'active', 'done', 'error');
     stepEl.classList.add(state);
     const dot = stepEl.querySelector('.pipe-dot');
-    if (state === 'done') dot.textContent = '✓';
-    else if (state === 'error') dot.textContent = '×';
+    if (state === 'done') {
+      dot.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    } else if (state === 'error') {
+      dot.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
   }
 
   function resetUI() {
@@ -705,10 +808,11 @@
     clientError.style.display = 'none';
     resultBox.className = 'result-box';
     pipeline.classList.remove('active');
-    Object.values(steps).forEach(s => {
+    const numbers = { validate: '1', dns: '2', vercel: '3', propagate: '4' };
+    Object.entries(steps).forEach(([key, s]) => {
       s.classList.remove('active', 'done', 'error');
       s.classList.add('pending');
-      s.querySelector('.pipe-dot').textContent = s === steps.validate ? '1' : (s === steps.dns ? '2' : '3');
+      s.querySelector('.pipe-dot').textContent = numbers[key];
     });
   }
 
@@ -742,12 +846,36 @@
       return;
     }
 
+    if (!isNameAvailable) {
+      fieldError.textContent = 'يرجى التأكد من توافر الاسم أولًا (انتظر ظهور "متاح").';
+      fieldError.style.display = 'block';
+      return;
+    }
+
     submitBtn.disabled = true;
     submitLabel.textContent = 'جاري الإنشاء...';
     pipeline.classList.add('active');
 
     setStep(steps.validate, 'active');
-    await sleep(350);
+
+    // فحص أخير لحظي مباشرة قبل التنفيذ، لتفادي تضارب لو حد آخر أخذ نفس الاسم في نفس اللحظة
+    try {
+      const checkData = await callFunction(MANAGE_FN_URL, { action: 'check_availability', name: rawName });
+      if (!checkData.available) {
+        setStep(steps.validate, 'error');
+        showResult(false, rawName, checkData.reason || 'هذا الاسم أصبح مستخدمًا، جرّب اسمًا آخر.');
+        submitBtn.disabled = false;
+        submitLabel.textContent = 'إنشاء النطاق الفرعي';
+        return;
+      }
+    } catch (err) {
+      setStep(steps.validate, 'error');
+      showResult(false, rawName, 'تعذر التحقق من توافر الاسم، حاول مرة أخرى.');
+      submitBtn.disabled = false;
+      submitLabel.textContent = 'إنشاء النطاق الفرعي';
+      return;
+    }
+
     setStep(steps.validate, 'done');
     setStep(steps.dns, 'active');
 
@@ -761,11 +889,24 @@
       setStep(steps.vercel, 'active');
       await sleep(450);
       setStep(steps.vercel, 'done');
+      setStep(steps.propagate, 'active');
 
-      showResult(true, rawName, data.message);
+      // الانتشار الفعلي: نستخدم id السطر الراجع مباشرة من create-subdomain
+      const propagated = await pollDnsPropagation(data.id);
+
+      if (propagated) {
+        setStep(steps.propagate, 'done');
+        showResult(true, rawName, `تم تفعيل النطاق الفرعي ${rawName}.mad3oom.online بالكامل وهو متاح الآن.`);
+      } else {
+        // لم يكتمل الانتشار خلال فترة الانتظار، لكن التسجيل تم بنجاح ولا يعتبر هذا فشلًا
+        setStep(steps.propagate, 'done');
+        showResult(true, rawName, `${data.message} — قد يستغرق ظهوره بالكامل بضع دقائق إضافية حسب انتشار DNS.`);
+      }
 
       // reset form for next entry
       input.value = '';
+      isNameAvailable = false;
+      clearAvailabilityStatus();
       selectedClientId.value = '';
       selectedClientBox.classList.remove('active');
       clientSearch.parentElement.style.display = 'flex';
@@ -781,9 +922,28 @@
     }
   });
 
-  input.addEventListener('input', () => {
-    fieldError.style.display = 'none';
-  });
+  // ---------- فحص انتشار DNS الفعلي بعد الإنشاء ----------
+  const CHECK_DNS_FN_URL = `${SUPABASE_URL}/functions/v1/check-dns-status`;
+
+  async function pollDnsPropagation(rowId, maxAttempts = 6, intervalMs = 4000) {
+    if (!rowId) return false;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch(CHECK_DNS_FN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: rowId }),
+        });
+        const data = await res.json();
+        if (data.propagated) return true;
+      } catch {
+        // تجاهل وحاول مرة أخرى
+      }
+      await sleep(intervalMs);
+    }
+    return false;
+  }
 </script>
 
 </body>
