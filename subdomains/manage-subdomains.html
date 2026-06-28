@@ -1,108 +1,612 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة النطاقات الفرعية - لوحة الإدارة</title>
-    <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/robot.css">
-    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        .table-container {
-            background: var(--color-surface);
-            border-radius: 1rem;
-            overflow: hidden;
-            box-shadow: var(--shadow-md);
-            margin-top: 2rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: right;
-        }
-        th, td {
-            padding: 1rem;
-            border-bottom: 1px solid var(--color-border);
-        }
-        th {
-            background: var(--color-muted);
-            font-weight: 700;
-        }
-        .badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .badge-success { background: #e6fffa; color: #2c7a7b; }
-        .badge-pending { background: #fffaf0; color: #9c4221; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>النطاقات الفرعية | منصة مدعوم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1879C5;
+    --primary-dark: #0F3C6E;
+    --primary-light: #4C97E8;
+
+    --background: #FFFFFF;
+    --surface: #F7F7F7;
+
+    --badge-bg: #EAF4FC;
+    --badge-border: #B7D4EB;
+
+    --text: #2F3136;
+    --text-secondary: #757575;
+
+    --border: #E5E7EB;
+
+    --danger: #D64545;
+    --danger-bg: #FCEAEA;
+    --danger-border: #F2C6C6;
+
+    --success-bg: #EAF8EF;
+    --success-text: #1E9E4F;
+    --warn-bg: #FFF6E5;
+    --warn-text: #B8860B;
+
+    --radius: 14px;
+    --shadow-sm: 0 1px 2px rgba(15, 60, 110, 0.06);
+    --shadow-md: 0 8px 24px rgba(15, 60, 110, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    min-height: 100vh;
+  }
+
+  body { padding-bottom: 60px; }
+
+  /* ---------- Top nav ---------- */
+  .topnav {
+    width: 100%;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    margin-bottom: 28px;
+  }
+
+  .nav-inner {
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: linear-gradient(155deg, var(--primary-light), var(--primary));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #FFFFFF; font-size: 15px; flex-shrink: 0;
+  }
+
+  .brand-name { font-weight: 700; font-size: 16px; color: var(--text); }
+
+  .nav-links { display: flex; gap: 6px; }
+
+  .nav-link {
+    padding: 8px 16px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+  .nav-link:hover { background: var(--surface); color: var(--text); }
+  .nav-link.active {
+    background: var(--badge-bg);
+    color: var(--primary);
+    border: 1px solid var(--badge-border);
+  }
+
+  /* ---------- Page content ---------- */
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  h1 { font-size: 21px; font-weight: 800; margin-bottom: 4px; color: var(--text); }
+  .subtitle { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 22px; }
+
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--background);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 0 6px 0 14px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-sm);
+  }
+  .search-bar input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'Cairo'; font-size: 14px; padding: 12px 8px;
+  }
+  .search-bar input::placeholder { color: #A8ACB3; }
+  .search-bar:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,121,197,0.12); }
+
+  .refresh-btn {
+    background: var(--badge-bg);
+    border: 1px solid var(--badge-border);
+    color: var(--primary-dark);
+    border-radius: 8px;
+    padding: 9px 16px;
+    margin: 6px 0;
+    font-family: 'Cairo'; font-size: 13px; font-weight: 700; cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .refresh-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .table-wrap {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 100px 130px 1fr 90px;
+    gap: 10px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    font-size: 13px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:not(.head):hover { background: #FAFBFC; }
+  .row.head {
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 11.5px;
+  }
+
+  .cell-domain { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: right; font-weight: 700; color: var(--primary-dark); }
+  .cell-client .cc-email { font-weight: 600; color: var(--text); }
+  .cell-client .cc-name { color: var(--text-secondary); font-size: 11.5px; margin-top: 2px; }
+  .cell-ip { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: right; color: var(--text-secondary); font-size: 12px; }
+  .cell-date { color: var(--text-secondary); font-size: 12px; }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 11px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge.success { background: var(--success-bg); color: var(--success-text); }
+  .badge.failed { background: var(--danger-bg); color: var(--danger); }
+  .badge.creating { background: var(--warn-bg); color: var(--warn-text); }
+
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .icon-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 7px;
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px;
+    transition: all 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--badge-bg); }
+  .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+
+  .empty-state {
+    padding: 50px 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 33, 0.45);
+    align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 20px 50px rgba(15, 23, 33, 0.2);
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 14px; color: var(--text); }
+  .modal label { display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 7px; font-weight: 700; }
+  .modal input {
+    width: 100%; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 9px; padding: 11px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; direction: ltr; text-align: left; outline: none; margin-bottom: 6px;
+  }
+  .modal input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,121,197,0.12); background: var(--background); }
+  .modal .modal-error { font-size: 12px; color: var(--danger); margin-bottom: 10px; min-height: 14px; font-weight: 600; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .modal-actions button {
+    flex: 1; padding: 11px; border-radius: 9px; font-family: 'Cairo'; font-size: 13.5px;
+    font-weight: 700; cursor: pointer; border: none;
+  }
+  .btn-cancel { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border) !important; }
+  .btn-cancel:hover { background: var(--border); }
+  .btn-confirm { background: linear-gradient(155deg, var(--primary-light), var(--primary)); color: #fff; box-shadow: 0 4px 12px rgba(24,121,197,0.28); }
+  .btn-confirm.delete { background: var(--danger); box-shadow: 0 4px 12px rgba(214,69,69,0.28); }
+  .btn-confirm:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--background); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px; font-size: 13.5px;
+    display: none; max-width: 90vw; text-align: center; z-index: 60;
+    box-shadow: var(--shadow-md);
+    font-weight: 600;
+  }
+  .toast.show { display: block; }
+  .toast.success { border-color: var(--badge-border); color: var(--success-text); }
+  .toast.failure { border-color: var(--danger-border); color: var(--danger); }
+
+  @media (max-width: 720px) {
+    .row { grid-template-columns: 1fr; gap: 4px; }
+    .row.head { display: none; }
+    .row { padding: 14px; }
+    .row > div::before { content: attr(data-label); display: block; color: #A8ACB3; font-size: 10.5px; margin-bottom: 2px; }
+    .row-actions { justify-content: flex-start; margin-top: 6px; }
+  }
+
+  @media (max-width: 560px) {
+    .topnav { padding: 12px 16px; }
+    .nav-link { padding: 7px 12px; font-size: 13px; }
+  }
+</style>
 </head>
-<body class="admin-body">
-    <div id="sidebar-container"></div>
+<body>
 
-    <main class="admin-main">
-        <div class="dashboard-container">
-            <div class="page-intro">
-                <h1>النطاقات الفرعية الفعالة</h1>
-                <p>إدارة كل النطاقات الفرعية المرتبطة بالعملاء على mad3oom.online</p>
-            </div>
+<nav class="topnav">
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark">م</div>
+      <div class="brand-name">منصة مدعوم</div>
+    </div>
+    <div class="nav-links">
+      <a href="create-subdomain.html" class="nav-link">إنشاء نطاق</a>
+      <a href="manage-subdomains.html" class="nav-link active">النطاقات الفعالة</a>
+    </div>
+  </div>
+</nav>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <div class="search-box">
-                    <input type="text" placeholder="بحث بالنطاق..." style="padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid var(--color-border);">
-                </div>
-                <a href="create-subdomain.html" class="btn-primary" style="text-decoration: none; padding: 0.5rem 1rem; background: var(--color-primary); color: white; border-radius: 0.5rem; font-weight: 600;">إنشاء نطاق جديد</a>
-            </div>
+<div class="wrap">
+  <h1>النطاقات الفرعية الفعالة</h1>
+  <p class="subtitle">إدارة كل النطاقات الفرعية المرتبطة بالعملاء على mad3oom.online</p>
 
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>النطاق</th>
-                            <th>العميل</th>
-                            <th>الحالة</th>
-                            <th>تاريخ التفعيل</th>
-                            <th>إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="subdomainsTableBody">
-                        <!-- سيتم تحميل البيانات هنا -->
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">جاري تحميل البيانات...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+  <div class="search-bar">
+    <input type="text" id="tableSearch" placeholder="ابحث بالنطاق أو إيميل العميل...">
+    <button class="refresh-btn" id="refreshBtn">تحديث</button>
+  </div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="row head">
+      <div>النطاق</div>
+      <div>العميل</div>
+      <div>الحالة</div>
+      <div>IP التفعيل</div>
+      <div>تاريخ التفعيل</div>
+      <div></div>
+    </div>
+    <div id="tableBody"></div>
+  </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay" id="renameModal">
+  <div class="modal">
+    <h3>تغيير اسم النطاق</h3>
+    <label>الاسم الجديد</label>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <input type="text" id="renameInput" placeholder="new-name">
+      <span style="color: var(--text-secondary); font-size: 13px; white-space: nowrap;">.mad3oom.online</span>
+    </div>
+    <p class="modal-error" id="renameError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="renameModal">إلغاء</button>
+      <button class="btn-confirm" id="renameConfirm">تأكيد التغيير</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reassign Modal -->
+<div class="modal-overlay" id="reassignModal">
+  <div class="modal">
+    <h3>تغيير العميل المرتبط</h3>
+    <label>ابحث عن العميل الجديد</label>
+    <input type="text" id="reassignSearch" placeholder="ابحث بالإيميل أو الاسم..." style="font-family:'Cairo'; direction: rtl; text-align: right;">
+    <div id="reassignResults" style="max-height:180px; overflow-y:auto; margin-top:6px;"></div>
+    <p class="modal-error" id="reassignError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="reassignModal">إلغاء</button>
+      <button class="btn-confirm" id="reassignConfirm" disabled>تأكيد النقل</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>حذف النطاق</h3>
+    <p style="color: var(--text-secondary); font-size: 13.5px; line-height: 1.7; margin-bottom: 8px;">
+      سيتم حذف <span id="deleteDomainName" style="color: var(--primary-dark); font-weight: 700; font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block;"></span> نهائيًا من Cloudflare وVercel. لا يمكن التراجع عن هذا الإجراء.
+    </p>
+    <p class="modal-error" id="deleteError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="deleteModal">إلغاء</button>
+      <button class="btn-confirm delete" id="deleteConfirm">حذف نهائيًا</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co";
+  const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const MANAGE_FN_URL = `${SUPABASE_URL}/functions/v1/manage-subdomain`;
+
+  const tableBody = document.getElementById('tableBody');
+  const tableSearch = document.getElementById('tableSearch');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const toast = document.getElementById('toast');
+
+  let allItems = [];
+  let activeRowId = null;
+
+  async function getAccessToken() {
+    const { data } = await sb.auth.getSession();
+    return data?.session?.access_token || null;
+  }
+
+  async function callFunction(body) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.');
+    const res = await fetch(MANAGE_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'حدث خطأ غير متوقع');
+    return data;
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleString('ar-EG', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function statusBadge(status) {
+    const map = { success: ['مفعّل', 'success'], failed: ['فشل', 'failed'], creating: ['جاري الإنشاء', 'creating'], pending: ['معلّق', 'creating'] };
+    const [label, cls] = map[status] || [status, 'creating'];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function renderTable(items) {
+    if (!items.length) {
+      tableBody.innerHTML = `<div class="empty-state">لا توجد نطاقات فرعية مطابقة</div>`;
+      return;
+    }
+    tableBody.innerHTML = items.map(item => `
+      <div class="row" data-id="${item.id}">
+        <div class="cell-domain" data-label="النطاق">${escapeHtml(item.full_domain)}</div>
+        <div class="cell-client" data-label="العميل">
+          <div class="cc-email">${escapeHtml(item.profiles?.email || 'بدون عميل')}</div>
+          <div class="cc-name">${escapeHtml(item.profiles?.full_name || '')}</div>
         </div>
-    </main>
+        <div data-label="الحالة">${statusBadge(item.status)}</div>
+        <div class="cell-ip" data-label="IP التفعيل">${escapeHtml(item.created_ip || '—')}</div>
+        <div class="cell-date" data-label="تاريخ التفعيل">${formatDate(item.activated_at || item.created_at)}</div>
+        <div class="row-actions">
+          <button class="icon-btn" title="تغيير الاسم" data-action="rename" data-id="${item.id}">✎</button>
+          <button class="icon-btn" title="تغيير العميل" data-action="reassign" data-id="${item.id}">👤</button>
+          <button class="icon-btn danger" title="حذف" data-action="delete" data-id="${item.id}">🗑</button>
+        </div>
+      </div>
+    `).join('');
 
-    <script type="module">
-        import { initSidebar } from '/assets/js/admin/sidebar.js';
-        import { checkAdminAuth } from '/assets/js/admin/auth.js';
+    tableBody.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        const item = allItems.find(i => i.id === id);
+        if (action === 'rename') openRenameModal(item);
+        if (action === 'reassign') openReassignModal(item);
+        if (action === 'delete') openDeleteModal(item);
+      });
+    });
+  }
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkAdminAuth();
-            initSidebar();
-            
-            // محاكاة تحميل البيانات أو ربطها بـ Supabase لاحقاً
-            setTimeout(() => {
-                const tbody = document.getElementById('subdomainsTableBody');
-                tbody.innerHTML = `
-                    <tr>
-                        <td dir="ltr">demo.mad3oom.online</td>
-                        <td>تجريبي</td>
-                        <td><span class="badge badge-success">مفعل</span></td>
-                        <td>2024-01-01</td>
-                        <td>
-                            <button style="background: none; border: none; color: var(--color-primary); cursor: pointer;">تعديل</button>
-                        </td>
-                    </tr>
-                `;
-            }, 1000);
-        });
-    </script>
+  async function loadList() {
+    tableBody.innerHTML = `<div class="empty-state">جاري التحميل...</div>`;
+    try {
+      const data = await callFunction({ action: 'list' });
+      allItems = data.items || [];
+      applyFilter();
+    } catch (err) {
+      tableBody.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function applyFilter() {
+    const q = tableSearch.value.trim().toLowerCase();
+    if (!q) { renderTable(allItems); return; }
+    const filtered = allItems.filter(i =>
+      i.full_domain?.toLowerCase().includes(q) ||
+      i.profiles?.email?.toLowerCase().includes(q) ||
+      i.profiles?.full_name?.toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  }
+
+  tableSearch.addEventListener('input', applyFilter);
+  refreshBtn.addEventListener('click', loadList);
+
+  function showToast(message, success = true) {
+    toast.textContent = message;
+    toast.className = `toast show ${success ? 'success' : 'failure'}`;
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.dataset.close));
+  });
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+  }
+  function openModal(id) {
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ---------- Rename ----------
+  const renameInput = document.getElementById('renameInput');
+  const renameError = document.getElementById('renameError');
+  const renameConfirm = document.getElementById('renameConfirm');
+
+  function openRenameModal(item) {
+    activeRowId = item.id;
+    renameInput.value = '';
+    renameError.textContent = '';
+    openModal('renameModal');
+    setTimeout(() => renameInput.focus(), 50);
+  }
+
+  renameConfirm.addEventListener('click', async () => {
+    const newName = renameInput.value.trim().toLowerCase();
+    if (!newName) { renameError.textContent = 'يرجى إدخال اسم جديد'; return; }
+    renameConfirm.disabled = true;
+    renameError.textContent = '';
+    try {
+      const data = await callFunction({ action: 'rename', id: activeRowId, new_name: newName });
+      closeModal('renameModal');
+      showToast(data.message, true);
+      loadList();
+    } catch (err) {
+      renameError.textContent = err.message;
+    } finally {
+      renameConfirm.disabled = false;
+    }
+  });
+
+  // ---------- Reassign ----------
+  const reassignSearch = document.getElementById('reassignSearch');
+  const reassignResults = document.getElementById('reassignResults');
+  const reassignError = document.getElementById('reassignError');
+  const reassignConfirm = document.getElementById('reassignConfirm');
+  let selectedNewClientId = null;
+  let reassignTimer = null;
+
+  function openReassignModal(item) {
+    activeRowId = item.id;
+    reassignSearch.value = '';
+    reassignResults.innerHTML = '';
+    reassignError.textContent = '';
+    selectedNewClientId = null;
+    reassignConfirm.disabled = true;
+    openModal('reassignModal');
+    setTimeout(() => reassignSearch.focus(), 50);
+  }
+
+  reassignSearch.addEventListener('input', () => {
+    selectedNewClientId = null;
+    reassignConfirm.disabled = true;
+    clearTimeout(reassignTimer);
+    const q = reassignSearch.value.trim();
+    if (!q) { reassignResults.innerHTML = ''; return; }
+    reassignTimer = setTimeout(async () => {
+      try {
+        const data = await callFunction({ action: 'search_clients', q });
+        renderReassignResults(data.items || []);
+      } catch (err) {
+        reassignResults.innerHTML = `<div style="padding:10px; color: var(--text-secondary); font-size:13px;">${escapeHtml(err.message)}</div>`;
+      }
+    }, 300);
+  });
+
+  function renderReassignResults(items) {
+    if (!items.length) {
+      reassignResults.innerHTML = `<div style="padding:10px; color: var(--text-secondary); font-size:13px;">لا يوجد عملاء مطابقين</div>`;
+      return;
+    }
+    reassignResults.innerHTML = items.map(c => `
+      <div class="client-pick" data-id="${escapeHtml(c.id)}" style="padding:10px 12px; background:var(--surface); border:1.5px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer;">
+        <div style="font-weight:600; font-size:13.5px; color: var(--text);">${escapeHtml(c.email)}</div>
+        <div style="color:var(--text-secondary); font-size:11.5px;">${escapeHtml(c.full_name || '')}</div>
+      </div>
+    `).join('');
+    reassignResults.querySelectorAll('.client-pick').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedNewClientId = el.dataset.id;
+        reassignConfirm.disabled = false;
+        reassignResults.querySelectorAll('.client-pick').forEach(p => p.style.borderColor = 'var(--border)');
+        el.style.borderColor = 'var(--primary)';
+      });
+    });
+  }
+
+  reassignConfirm.addEventListener('click', async () => {
+    if (!selectedNewClientId) return;
+    reassignConfirm.disabled = true;
+    reassignError.textContent = '';
+    try {
+      const data = await callFunction({ action: 'reassign', id: activeRowId, new_client_user_id: selectedNewClientId });
+      closeModal('reassignModal');
+      showToast(data.message, true);
+      loadList();
+    } catch (err) {
+      reassignError.textContent = err.message;
+      reassignConfirm.disabled = false;
+    }
+  });
+
+  // ---------- Delete ----------
+  const deleteDomainName = document.getElementById('deleteDomainName');
+  const deleteError = document.getElementById('deleteError');
+  const deleteConfirm = document.getElementById('deleteConfirm');
+
+  function openDeleteModal(item) {
+    activeRowId = item.id;
+    deleteDomainName.textContent = item.full_domain;
+    deleteError.textContent = '';
+    openModal('deleteModal');
+  }
+
+  deleteConfirm.addEventListener('click', async () => {
+    deleteConfirm.disabled = true;
+    deleteError.textContent = '';
+    try {
+      const data = await callFunction({ action: 'delete', id: activeRowId });
+      closeModal('deleteModal');
+      showToast(data.message, true);
+      loadList();
+    } catch (err) {
+      deleteError.textContent = err.message;
+    } finally {
+      deleteConfirm.disabled = false;
+    }
+  });
+
+  // ---------- Init ----------
+  loadList();
+</script>
+
 </body>
 </html>
