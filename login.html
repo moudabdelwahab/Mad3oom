@@ -99,7 +99,6 @@
     margin-bottom: 1.2rem;
   }
 
-  /* ── SUBDOMAIN BADGE (جديد) ── */
   .subdomain-banner {
     display: none;
     align-items: center;
@@ -223,6 +222,7 @@
   }
   .btn-primary:hover { transform: translateY(-1.5px); box-shadow: 0 6px 22px rgba(22,119,255,0.42); }
   .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
   .forgot-link {
     display: block; text-align: center;
@@ -528,7 +528,6 @@
       <h1 class="card-title">تسجيل الدخول</h1>
       <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
 
-      <!-- ══ شارة النطاق الفرعي — تظهر فقط على subdomains ══ -->
       <div class="subdomain-banner" id="subdomainBanner">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
@@ -621,7 +620,7 @@
     <article class="login-card" id="register-card">
 
       <div class="card-logo">
-        <img class="card-logo-img" src="" alt="شعار مدعوم" id="register-logo">
+        <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم" id="register-logo">
       </div>
 
       <h1 class="card-title">إنشاء حساب جديد</h1>
@@ -823,20 +822,24 @@
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-  const SUPABASE_URL  = 'https://srnelrdpqkcntbgudyto.supabase.co';
-  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
+  const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // ══════════════════════════════════════════════════════════════
-  // SUBDOMAIN DETECTION
-  // يكتشف إذا كنا على subdomain.mad3oom.online ويحفظ الاسم
+  // FLAG: يمنع onAuthStateChange من يتدخل لما login/register form
+  // بيشتغلوا بنفسهم — بيتصفر تاني لو عملنا signOut
   // ══════════════════════════════════════════════════════════════
-  const ROOT_DOMAIN   = 'mad3oom.online';
-  const hostname      = window.location.hostname;
-  const isSubdomain   = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
+  let _handlingAuthManually = false;
+
+  // ══════════════════════════════════════════════════════════════
+  // SUBDOMAIN DETECTION
+  // ══════════════════════════════════════════════════════════════
+  const ROOT_DOMAIN      = 'mad3oom.online';
+  const hostname         = window.location.hostname;
+  const isSubdomain      = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
   const currentSubdomain = isSubdomain ? hostname.replace('.' + ROOT_DOMAIN, '') : null;
 
-  // عرض شارة النطاق لما نكون على subdomain
   if (currentSubdomain) {
     const banner = document.getElementById('subdomainBanner');
     document.getElementById('subdomainBannerText').textContent = `${currentSubdomain}.${ROOT_DOMAIN}`;
@@ -845,33 +848,22 @@
 
   // ══════════════════════════════════════════════════════════════
   // SUBDOMAIN LOGO INJECTION
-  // يجيب لوجو العميل من Supabase Storage ويستبدل لوجو مدعوم
   // ══════════════════════════════════════════════════════════════
   const LOGO_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/subdomain-logos`;
 
   async function loadSubdomainLogo() {
-    if (!currentSubdomain) return; // الدومين الرئيسي → لوجو مدعوم الافتراضي
-
-    // جرب الـ extensions بالترتيب (png أولاً لأنه الأشيع)
+    if (!currentSubdomain) return;
     const extensions = ['png', 'jpg', 'webp', 'svg'];
-
     for (const ext of extensions) {
       const url = `${LOGO_BUCKET_URL}/${currentSubdomain}/logo.${ext}`;
       const exists = await checkImageExists(url);
-      if (exists) {
-        applyCustomLogo(url);
-        return;
-      }
+      if (exists) { applyCustomLogo(url); return; }
     }
-    // لو مش لقي لوجو → يفضل لوجو مدعوم (لا حاجة نعمل حاجة)
   }
 
   function checkImageExists(url) {
     return new Promise(resolve => {
       const img = new Image();
-      img.onload  = () => resolve(true);
-      img.onerror = () => resolve(false);
-      // timeout لتجنب الانتظار طويلاً
       const timer = setTimeout(() => resolve(false), 3000);
       img.onload  = () => { clearTimeout(timer); resolve(true); };
       img.onerror = () => { clearTimeout(timer); resolve(false); };
@@ -880,64 +872,62 @@
   }
 
   function applyCustomLogo(logoUrl) {
-    // 1. لوجو الكارد (login panel)
     const cardLogo = document.querySelector('.card-logo-img');
     if (cardLogo) cardLogo.src = logoUrl;
-
-    // 2. لوجو الـ register panel
     const registerLogo = document.getElementById('register-logo');
     if (registerLogo) registerLogo.src = logoUrl;
-
-    // 3. اللوجو الطائر في الـ brand panel (اليمين)
     const brandLogo = document.querySelector('.logo-img');
     if (brandLogo) brandLogo.src = logoUrl;
   }
 
-  // استدعي مباشرة بدون انتظار
   loadSubdomainLogo();
 
   // ══════════════════════════════════════════════════════════════
   // SUBDOMAIN OWNERSHIP CHECK
-  // يتحقق إن المستخدم المسجل هو صاحب الـ subdomain فعلاً
   // ══════════════════════════════════════════════════════════════
   async function checkSubdomainOwnership(accessToken) {
-    if (!currentSubdomain) return { ok: true }; // الدومين الرئيسي → تمر مباشرة
-
+    if (!currentSubdomain) return { ok: true };
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/subdomain-auth-check`, {
+      const res  = await fetch(`${SUPABASE_URL}/functions/v1/subdomain-auth-check`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ subdomain: currentSubdomain }),
       });
       const data = await res.json();
-
-      if (!res.ok) {
-        return {
-          ok: false,
-          status: res.status,
-          message: data.error || 'حدث خطأ في التحقق',
-          hint: data.owner_hint || null,
-        };
-      }
+      if (!res.ok) return { ok: false, status: res.status, message: data.error || 'حدث خطأ في التحقق', hint: data.owner_hint || null };
       return { ok: true };
     } catch {
       return { ok: false, status: 0, message: 'تعذّر الاتصال بالخادم، تحقق من الاتصال وحاول مرة أخرى' };
     }
   }
 
-  // ── REDIRECT IF ALREADY LOGGED IN ──
+  // ══════════════════════════════════════════════════════════════
+  // ROLE-BASED REDIRECT
+  // ══════════════════════════════════════════════════════════════
+  async function redirectByRole(userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+    const role = profile?.role || 'user';
+    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // CHECK EXISTING SESSION ON PAGE LOAD
+  // يشتغل مرة واحدة عند load — لو في جلسة نشطة يعمل redirect
+  // ══════════════════════════════════════════════════════════════
   async function checkExistingSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // لو على subdomain → تحقق من الملكية أولاً حتى للجلسة الموجودة
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(session.access_token);
       if (!check.ok) {
+        _handlingAuthManually = true;
         await supabase.auth.signOut();
+        _handlingAuthManually = false;
         const hint = check.hint ? `\n${check.hint}` : '';
         showToast(`هذا النطاق (${currentSubdomain}.${ROOT_DOMAIN}) ليس مرتبطاً بحسابك.${hint}`);
         return;
@@ -947,54 +937,63 @@
     await redirectByRole(session.user.id);
   }
 
-  // ── ROLE-BASED REDIRECT ──
-  async function redirectByRole(userId) {
-    const { data: profile } = await supabase
+  // ══════════════════════════════════════════════════════════════
+  // onAuthStateChange — يشتغل فقط لـ OAuth callbacks
+  // (Google redirect بيرجع للصفحة وبيطلق SIGNED_IN event)
+  // Email login بيتعامل معاه يدوياً في form submit
+  // ══════════════════════════════════════════════════════════════
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    // تجاهل لو إحنا بنتعامل مع auth يدوياً (email login / signOut)
+    if (_handlingAuthManually) return;
+
+    // شغّل فقط لما يكون OAuth redirect (مش email login عادي)
+    // OAuth redirect بيبعت SIGNED_IN فوراً لما الصفحة تتحمل من redirect
+    if (event !== 'SIGNED_IN' || !session) return;
+
+    // تأكد إن الـ URL فيه OAuth callback parameters (code أو access_token)
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const isOAuthCallback = params.has('code') || hashParams.has('access_token');
+    if (!isOAuthCallback) return; // email login → تجاهل
+
+    // إنشاء profile لو مش موجود
+    const { data: existing } = await supabase
       .from('profiles')
-      .select('role')
-      .eq('id', userId)
+      .select('id, role')
+      .eq('id', session.user.id)
       .single();
 
-    const role = profile?.role || 'user';
-    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
-  }
-
-  // ── GOOGLE OAUTH CALLBACK ──
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', session.user.id)
-        .single();
-
-      if (!existing) {
-        await supabase.from('profiles').insert({
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || '',
-          role: 'user'
-        });
-      }
-
-      // تحقق من الـ subdomain للـ OAuth أيضاً
-      if (currentSubdomain) {
-        const check = await checkSubdomainOwnership(session.access_token);
-        if (!check.ok) {
-          await supabase.auth.signOut();
-          showToast(check.message + (check.hint ? ` — ${check.hint}` : ''));
-          return;
-        }
-      }
-
-      const role = existing?.role || 'user';
-      window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    if (!existing) {
+      await supabase.from('profiles').insert({
+        id: session.user.id,
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name || '',
+        role: 'user'
+      });
     }
+
+    // تحقق من الـ subdomain للـ OAuth
+    if (currentSubdomain) {
+      const check = await checkSubdomainOwnership(session.access_token);
+      if (!check.ok) {
+        _handlingAuthManually = true;
+        await supabase.auth.signOut();
+        _handlingAuthManually = false;
+        showToast(check.message + (check.hint ? ` — ${check.hint}` : ''));
+        return;
+      }
+    }
+
+    const role = existing?.role || 'user';
+    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   });
 
+  // استدعي checkExistingSession بعد ما listener اتسجّل
   checkExistingSession();
 
-  // ── TOAST ──
+  // ══════════════════════════════════════════════════════════════
+  // TOAST
+  // ══════════════════════════════════════════════════════════════
   function showToast(msg, type = 'error') {
     let toast = document.getElementById('auth-toast');
     if (!toast) {
@@ -1019,11 +1018,13 @@
   }
 
   function setLoading(btn, loading, label) {
-    btn.disabled = loading;
-    btn.textContent = loading ? 'جاري التحميل...' : label;
+    btn.disabled     = loading;
+    btn.textContent  = loading ? 'جاري التحميل...' : label;
   }
 
-  // ── LOGIN FORM ──
+  // ══════════════════════════════════════════════════════════════
+  // LOGIN FORM
+  // ══════════════════════════════════════════════════════════════
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn   = e.target.querySelector('.btn-primary');
@@ -1031,10 +1032,12 @@
     const pw    = document.getElementById('password').value;
 
     setLoading(btn, true, 'تسجيل الدخول');
+    _handlingAuthManually = true; // أوقف onAuthStateChange
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
 
     if (error) {
+      _handlingAuthManually = false;
       setLoading(btn, false, 'تسجيل الدخول');
       const msgs = {
         'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
@@ -1045,15 +1048,14 @@
       return;
     }
 
-    // ══ تحقق من ملكية الـ subdomain بعد تسجيل الدخول ══
+    // تحقق من ملكية الـ subdomain
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(data.session.access_token);
       if (!check.ok) {
         await supabase.auth.signOut();
+        _handlingAuthManually = false;
         setLoading(btn, false, 'تسجيل الدخول');
-
         if (check.status === 403) {
-          // مستخدم تاني حاول يدخل على subdomain مش بتاعه
           const hint = check.hint ? `\n${check.hint}` : '';
           showToast(`⚠️ فضلاً سجّل الدخول بالحساب المالك لـ ${currentSubdomain}.${ROOT_DOMAIN}${hint}`);
         } else if (check.status === 404) {
@@ -1065,17 +1067,20 @@
       }
     }
 
+    // نجح كل شيء → redirect (الـ flag مش محتاجين نصفّره لأننا هنغادر الصفحة)
     await redirectByRole(data.user.id);
   });
 
-  // ── REGISTER FORM ──
+  // ══════════════════════════════════════════════════════════════
+  // REGISTER FORM
+  // ══════════════════════════════════════════════════════════════
   document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn  = e.target.querySelector('.btn-primary');
-    const name = document.getElementById('reg-name').value.trim();
-    const email= document.getElementById('reg-email').value.trim();
-    const pw   = document.getElementById('reg-password').value;
-    const cpw  = document.getElementById('reg-confirm').value;
+    const btn   = e.target.querySelector('.btn-primary');
+    const name  = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pw    = document.getElementById('reg-password').value;
+    const cpw   = document.getElementById('reg-confirm').value;
 
     const confirmInput = document.getElementById('reg-confirm');
     if (pw !== cpw) {
@@ -1093,6 +1098,7 @@
     }
 
     setLoading(btn, true, 'إنشاء الحساب');
+    _handlingAuthManually = true;
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -1101,6 +1107,7 @@
     });
 
     if (error) {
+      _handlingAuthManually = false;
       setLoading(btn, false, 'إنشاء الحساب');
       const msgs = {
         'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
@@ -1119,12 +1126,15 @@
       }, { onConflict: 'id' });
     }
 
+    _handlingAuthManually = false;
     setLoading(btn, false, 'إنشاء الحساب');
     showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
     setTimeout(() => swapToLogin(), 2200);
   });
 
-  // ── GOOGLE LOGIN ──
+  // ══════════════════════════════════════════════════════════════
+  // GOOGLE LOGIN
+  // ══════════════════════════════════════════════════════════════
   async function googleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -1140,12 +1150,14 @@
     btn.addEventListener('click', googleSignIn);
   });
 
-  // ── PANEL SWAP ──
+  // ══════════════════════════════════════════════════════════════
+  // PANEL SWAP
+  // ══════════════════════════════════════════════════════════════
   const loginPanel    = document.getElementById('login-panel');
   const registerPanel = document.getElementById('register-panel');
   const brandPanel    = document.querySelector('.brand-panel');
 
-  window.swapToRegister = function() {
+  window.swapToRegister = function () {
     loginPanel.classList.add('panel-exit');
     setTimeout(() => {
       loginPanel.style.display = 'none';
@@ -1157,7 +1169,7 @@
     }, 340);
   };
 
-  window.swapToLogin = function() {
+  window.swapToLogin = function () {
     registerPanel.classList.add('panel-exit');
     setTimeout(() => {
       registerPanel.style.display = 'none';
@@ -1172,7 +1184,9 @@
   document.getElementById('go-register').addEventListener('click', (e) => { e.preventDefault(); swapToRegister(); });
   document.getElementById('go-login').addEventListener('click',    (e) => { e.preventDefault(); swapToLogin();    });
 
-  // ── PASSWORD TOGGLES ──
+  // ══════════════════════════════════════════════════════════════
+  // PASSWORD TOGGLES
+  // ══════════════════════════════════════════════════════════════
   const eyeOpen   = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
   const eyeClosed = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
 
@@ -1191,8 +1205,6 @@
   initPwToggle('password',     'toggle-pw',     'eye-icon');
   initPwToggle('reg-password', 'toggle-reg-pw', 'reg-eye-icon');
 
-  // لوجو الـ register panel بيتضبط تلقائياً عبر applyCustomLogo()
-  // لو مفيش لوجو مخصص → نكوبي من brand panel كـ fallback
   if (!currentSubdomain) {
     const brandLogoSrc = document.querySelector('.logo-img')?.src;
     if (brandLogoSrc) {
@@ -1201,27 +1213,20 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   // PI NETWORK AUTHENTICATION
-  // ══════════════════════════════════════════════════════
-
+  // ══════════════════════════════════════════════════════════════
   const PI_SANDBOX = false;
 
   class PiService {
-    constructor() {
-      this._sdkReady = false;
-      this._initPromise = null;
-    }
+    constructor() { this._sdkReady = false; this._initPromise = null; }
     init() {
       if (this._initPromise) return this._initPromise;
       this._initPromise = new Promise((resolve, reject) => {
         const tryInit = () => {
           if (typeof window.Pi === 'undefined') { setTimeout(tryInit, 150); return; }
-          try {
-            window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX });
-            this._sdkReady = true;
-            resolve();
-          } catch (err) { reject(err); }
+          try { window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX }); this._sdkReady = true; resolve(); }
+          catch (err) { reject(err); }
         };
         tryInit();
       });
@@ -1230,9 +1235,7 @@
     async authenticate() {
       await this.init();
       return new Promise((resolve, reject) => {
-        window.Pi.authenticate(['username'], (p) => {
-          console.warn('[Pi] Incomplete payment:', p?.identifier);
-        })
+        window.Pi.authenticate(['username'], (p) => { console.warn('[Pi] Incomplete payment:', p?.identifier); })
           .then(r => resolve({ uid: r.user.uid, username: r.user.username, accessToken: r.accessToken }))
           .catch(reject);
       });
@@ -1257,17 +1260,21 @@
 
     if (!res.ok || !data?.session) throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
 
+    _handlingAuthManually = true;
     const { error: setErr } = await supabase.auth.setSession({
       access_token:  data.session.access_token,
       refresh_token: data.session.refresh_token,
     });
-    if (setErr) throw new Error('فشل إنشاء الجلسة: ' + setErr.message);
+    if (setErr) {
+      _handlingAuthManually = false;
+      throw new Error('فشل إنشاء الجلسة: ' + setErr.message);
+    }
 
-    // تحقق من الـ subdomain لـ Pi auth أيضاً
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(data.session.access_token);
       if (!check.ok) {
         await supabase.auth.signOut();
+        _handlingAuthManually = false;
         throw new Error(check.message);
       }
     }
