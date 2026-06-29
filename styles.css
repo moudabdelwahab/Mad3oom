@@ -111,7 +111,7 @@ body {
 }
 
 .nav-container {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 1rem var(--container-padding);
     display: flex;
@@ -218,7 +218,7 @@ body {
 
 /* ==================== Hero Section ==================== */
 .hero {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: var(--section-padding) var(--container-padding);
     text-align: center;
@@ -244,7 +244,7 @@ body {
     font-size: clamp(1rem, 2vw, 1.25rem);
     color: var(--color-text-secondary);
     margin-bottom: 2rem;
-    max-width: 600px;
+    max-width: 100%;
     margin-left: auto;
     margin-right: auto;
 }
@@ -258,7 +258,7 @@ body {
 
 /* ==================== Features Section ==================== */
 .features {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: var(--section-padding) var(--container-padding);
 }
@@ -325,7 +325,7 @@ body {
 
 /* ==================== SaaS Section ==================== */
 .saas-section {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 2rem auto;
     padding: var(--section-padding) var(--container-padding);
     background: var(--color-surface);
@@ -346,14 +346,14 @@ body {
     text-align: center;
     color: var(--color-text-secondary);
     margin-bottom: 2rem;
-    max-width: 700px;
+    max-width: 100%;
     margin-left: auto;
     margin-right: auto;
 }
 
 /* ==================== Image Sections ==================== */
 .image-section {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: var(--section-padding) var(--container-padding);
     opacity: 1;
@@ -401,7 +401,7 @@ body {
 
 /* ==================== CTA Section ==================== */
 .cta {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: var(--section-padding) var(--container-padding);
     background: linear-gradient(135deg, var(--color-accent), var(--color-primary-variant));
