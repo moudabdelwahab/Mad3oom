@@ -1,336 +1,125 @@
-import { supabase } from '/api-config.js';
+<!-- Navigation Bar -->
+<nav class="admin-nav">
+    <div class="nav-container">
+        <div class="nav-right">
+            <button class="menu-toggle" id="menuToggle" aria-label="القائمة">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <img src="/assets/images/logo.png" alt="مدعوم" class="admin-logo">
+            <span class="admin-title" data-i18n="nav_admin_panel">لوحة الإدارة</span>
+        </div>
+        <div class="nav-left">
+            <div id="adminBadgeContainer" style="display:none;">
+                <div class="admin-badge" data-i18n="nav_admin_badge">مدير النظام</div>
+            </div>
+            <div class="nav-actions" style="position:relative;">
 
-export function initSidebar() {
-    const sidebarContainer = document.getElementById('sidebar-container');
-    if (!sidebarContainer) return;
+                <!-- Dark mode -->
+                <button class="theme-toggle nav-btn" id="themeToggleBtn" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
 
-    // Load sidebar HTML - Use absolute path to ensure it works from any directory
-    fetch('/assets/components/sidebar.html')
-        .then(response => response.text())
-        .then(html => {
-            sidebarContainer.innerHTML = html;
-            setupSidebarLogic();
-            highlightActiveLink();
-                 if (window.themeManager) {
-            window.themeManager.setupToggleButton();
-        }
-        })
-        .catch(err => console.error('Error loading sidebar:', err));
-}
+                <!-- Notifications -->
+                <button class="nav-btn" id="notificationBtn" title="الإشعارات" style="position:relative;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <span id="notificationBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--color-danger);color:white;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid var(--color-primary);">0</span>
+                </button>
 
-function setupSidebarLogic() {
-    const menuToggle = document.getElementById('menuToggle');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarClose = document.getElementById('sidebarClose');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    const adminAvatarBtn = document.getElementById('adminAvatarBtn');
-    const adminAvatarMenu = document.getElementById('adminAvatarMenu');
-    const notificationBtn = document.getElementById('notificationBtn');
-    const notificationMenu = document.getElementById('notificationMenu');
-
-    if (!menuToggle || !sidebar) return;
-
-    // Notification Logic
-    if (notificationBtn && notificationMenu) {
-        notificationBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isVisible = notificationMenu.style.display === 'block';
-            notificationMenu.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) {
-                loadNotifications();
-            }
-        });
-
-        document.getElementById('markAllReadBtn')?.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const { markAllAsRead } = await import('/notifications-service.js');
-            await markAllAsRead();
-            loadNotifications();
-        });
-    }
-
-    async function loadNotifications() {
-        const list = document.getElementById('notificationList');
-        const badge = document.getElementById('notificationBadge');
-        if (!list) return;
-
-        try {
-            const { fetchNotifications, markAsRead } = await import('/notifications-service.js');
-            const notifications = await fetchNotifications();
-            
-            // في لوحة الإدارة، نعرض فقط الإشعارات الموجهة للأدمن (التي تم جلبها بالفعل بناءً على user_id في الخدمة)
-            const unreadCount = notifications.filter(n => !n.is_read).length;
-            if (badge) {
-                badge.textContent = unreadCount;
-                badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-            }
-
-            if (notifications.length === 0) {
-                list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--color-text-secondary); font-size: 0.85rem;">لا توجد إشعارات إدارية</div>';
-                return;
-            }
-
-            list.innerHTML = notifications.map(n => `
-                <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" style="padding: 12px 16px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.2s; ${n.is_read ? '' : 'background: rgba(0, 119, 204, 0.05);'}">
-                    <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text);">${n.title}</div>
-                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;">${n.message}</div>
-                    <div style="font-size: 0.7rem; color: #999; margin-top: 6px;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
+                <!-- Notification dropdown -->
+                <div id="notificationMenu" style="display:none;position:absolute;top:50px;left:0;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:1001;width:min(350px,90vw);overflow:hidden;">
+                    <div style="padding:12px 16px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center;background:var(--color-muted);">
+                        <span style="font-weight:700;font-size:0.9rem;" data-i18n="nav_notifications">الإشعارات</span>
+                        <button id="markAllReadBtn" style="background:none;border:none;color:var(--color-accent);font-size:0.75rem;cursor:pointer;font-weight:600;" data-i18n="nav_mark_all_read">تحديد الكل كمقروء</button>
+                    </div>
+                    <div id="notificationList" style="max-height:400px;overflow-y:auto;">
+                        <div style="padding:20px;text-align:center;color:var(--color-text-secondary);font-size:0.85rem;" data-i18n="nav_loading_notif">جاري تحميل الإشعارات...</div>
+                    </div>
+                    <div style="padding:10px;border-top:1px solid var(--color-border);text-align:center;background:var(--color-muted);">
+                        <a href="#" style="font-size:0.8rem;color:var(--color-text-secondary);text-decoration:none;font-weight:600;" data-i18n="nav_view_all">عرض كل الإشعارات</a>
+                    </div>
                 </div>
-            `).join('');
 
-            list.querySelectorAll('.notification-item').forEach(item => {
-                item.addEventListener('click', async () => {
-                    const id = item.dataset.id;
-                    await markAsRead(id);
-                    const notification = notifications.find(n => n.id == id);
-                    if (notification && notification.link) {
-                        window.location.href = notification.link;
-                    } else {
-                        loadNotifications();
-                    }
-                });
-            });
-        } catch (err) {
-            console.error('[Sidebar] Error loading notifications:', err);
-            list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--color-danger); font-size: 0.85rem;">فشل تحميل الإشعارات</div>';
-        }
-    }
+                <!-- Language -->
+                <button class="nav-btn" id="adminLanguageToggleBtn" title="تغيير اللغة" style="position:relative;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                </button>
+                <div id="adminLanguageMenu" style="display:none;position:absolute;top:50px;left:0;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow);z-index:1001;min-width:140px;overflow:hidden;">
+                    <button id="adminLangArabic" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 16px;background:none;border:none;color:var(--color-text);text-align:right;font-size:0.9rem;font-weight:600;cursor:pointer;border-bottom:1px solid var(--color-border);">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" style="display:none;flex-shrink:0;" class="admin-lang-check"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span data-i18n="nav_lang_arabic">العربية</span>
+                    </button>
+                    <button id="adminLangEnglish" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 16px;background:none;border:none;color:var(--color-text);text-align:right;font-size:0.9rem;font-weight:600;cursor:pointer;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" style="display:none;flex-shrink:0;" class="admin-lang-check"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span data-i18n="nav_lang_english">English</span>
+                    </button>
+                </div>
 
-    // Setup realtime subscription for notifications
-    let notificationSubscription = null;
-    async function setupNotificationRealtime() {
-        const { subscribeToNotifications } = await import('/notifications-service.js');
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user && !notificationSubscription) {
-            notificationSubscription = subscribeToNotifications(user.id, (newNotification) => {
-                loadNotifications();
-                
-                // Show browser notification if supported
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification(newNotification.title, {
-                        body: newNotification.message,
-                        icon: '/assets/images/logo.png'
-                    });
-                }
-            });
-        }
-    }
+                <!-- Avatar -->
+                <button class="nav-btn" id="adminAvatarBtn">
+                    <div class="avatar-circle" id="adminInitial">A</div>
+                </button>
+                <div class="admin-avatar-menu" id="adminAvatarMenu" style="display:none;position:absolute;top:50px;left:0;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow);z-index:1001;min-width:200px;overflow:hidden;">
+                    <a href="#" id="adminProfile" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:var(--color-text);text-decoration:none;font-size:0.9rem;font-weight:600;border-bottom:1px solid var(--color-border);">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        <span id="adminProfileText" data-i18n="avatar_profile">الملف الشخصي</span>
+                    </a>
+                    <a href="#" id="adminAccountSettings" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:var(--color-text);text-decoration:none;font-size:0.9rem;font-weight:600;border-bottom:1px solid var(--color-border);">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        <span id="adminSettingsText" data-i18n="avatar_settings">إعدادات الحساب</span>
+                    </a>
+                    <a href="#" id="adminSecuritySettings" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:var(--color-text);text-decoration:none;font-size:0.9rem;font-weight:600;border-bottom:1px solid var(--color-border);">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span id="adminSecurityText" data-i18n="avatar_security">إعدادات الأمان</span>
+                    </a>
+                    <a href="#" id="adminHelpSupport" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:var(--color-text);text-decoration:none;font-size:0.9rem;font-weight:600;border-bottom:1px solid var(--color-border);">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                        <span id="adminHelpText" data-i18n="avatar_help">الدعم والمساعدة</span>
+                    </a>
+                    <a href="#" id="adminSignOut" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#d9534f;text-decoration:none;font-size:0.9rem;font-weight:600;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span id="adminLogoutText" data-i18n="avatar_logout">تسجيل الخروج</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
 
-    // Initial load
-    loadNotifications();
-    setupNotificationRealtime();
-    checkAdminForErrorTracker();
-    checkMainAdminForSuperUser();
-    checkSuperUserForMyUsers();
-    checkSupportForWhatsApp();
+<!-- Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    const toggleSidebar = () => {
-        sidebar.classList.toggle('active');
-        sidebarOverlay.classList.toggle('active');
-    };
-
-    menuToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleSidebar();
-    });
-    
-    if (sidebarClose) sidebarClose.addEventListener('click', toggleSidebar);
-    if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
-
-    // Language Toggle Logic
-    const adminLanguageToggleBtn = document.getElementById('adminLanguageToggleBtn');
-    const adminLanguageMenu = document.getElementById('adminLanguageMenu');
-    const adminLangArabic = document.getElementById('adminLangArabic');
-    const adminLangEnglish = document.getElementById('adminLangEnglish');
-
-    if (adminLanguageToggleBtn && adminLanguageMenu) {
-        adminLanguageToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isVisible = adminLanguageMenu.style.display === 'block';
-            adminLanguageMenu.style.display = isVisible ? 'none' : 'block';
-            updateAdminLanguageCheckmarks();
-        });
-
-        adminLangArabic?.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            changeAdminLanguage('ar');
-            adminLanguageMenu.style.display = 'none';
-        });
-
-        adminLangEnglish?.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            changeAdminLanguage('en');
-            adminLanguageMenu.style.display = 'none';
-        });
-    }
-
-    function updateAdminLanguageCheckmarks() {
-        const currentLang = localStorage.getItem('mad3oom-language') || 'ar';
-        const arabicChecks = document.querySelectorAll('.admin-lang-check');
-        arabicChecks.forEach((check, idx) => {
-            check.style.display = (idx === 0 && currentLang === 'ar') || (idx === 1 && currentLang === 'en') ? 'none' : 'none';
-        });
-        const arabicCheck = adminLangArabic?.querySelector('.admin-lang-check');
-        const englishCheck = adminLangEnglish?.querySelector('.admin-lang-check');
-        
-        if (arabicCheck) arabicCheck.style.display = currentLang === 'ar' ? 'inline' : 'none';
-        if (englishCheck) englishCheck.style.display = currentLang === 'en' ? 'inline' : 'none';
-    }
-
-    function changeAdminLanguage(lang) {
-        if (window.languageManager) {
-            window.languageManager.setLanguage(lang);
-        } else {
-            localStorage.setItem('mad3oom-language', lang);
-            const html = document.documentElement;
-            html.lang = lang;
-            html.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
-        }
-        
-        // Reload page to apply language changes
-        window.location.reload();
-    }
-
-    // Avatar Menu Logic
-    if (adminAvatarBtn && adminAvatarMenu) {
-        adminAvatarBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isVisible = adminAvatarMenu.style.display === 'block';
-            adminAvatarMenu.style.display = isVisible ? 'none' : 'block';
-        });
-
-        document.addEventListener('click', () => {
-            if (adminAvatarMenu) adminAvatarMenu.style.display = 'none';
-            if (notificationMenu) notificationMenu.style.display = 'none';
-            if (adminLanguageMenu) adminLanguageMenu.style.display = 'none';
-        });
-    }
-
-    // Handle menu item clicks
-    const adminProfile = document.getElementById('adminProfile');
-    const adminAccountSettings = document.getElementById('adminAccountSettings');
-    const adminSecuritySettings = document.getElementById('adminSecuritySettings');
-    const adminHelpSupport = document.getElementById('adminHelpSupport');
-
-    if (adminProfile) {
-        adminProfile.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Navigate to profile page
-            window.location.href = '#profile';
-            adminAvatarMenu.style.display = 'none';
-        });
-    }
-
-    if (adminAccountSettings) {
-        adminAccountSettings.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Navigate to account settings
-            window.location.href = '/admin/settings.html';
-            adminAvatarMenu.style.display = 'none';
-        });
-    }
-
-    if (adminSecuritySettings) {
-        adminSecuritySettings.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Navigate to security settings
-            window.location.href = '/admin-security-settings.html';
-            adminAvatarMenu.style.display = 'none';
-        });
-    }
-
-    if (adminHelpSupport) {
-        adminHelpSupport.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Navigate to help/support
-            window.location.href = '/knowledge-base.html';
-            adminAvatarMenu.style.display = 'none';
-        });
-    }
-
-    // Initialize language checkmarks on load
-    updateAdminLanguageCheckmarks();
-
-    // Handle logout
-    const adminSignOut = document.getElementById('adminSignOut');
-    const sidebarSignOut = document.getElementById('sidebarSignOut');
-    
-    const onLogout = async (e) => {
-        e.preventDefault();
-        const { handleLogout } = await import('./auth.js');
-        await handleLogout();
-    };
-
-    if (adminSignOut) adminSignOut.addEventListener('click', onLogout);
-    if (sidebarSignOut) sidebarSignOut.addEventListener('click', onLogout);
-
-    // Initialize language checkmarks on load
-    updateAdminLanguageCheckmarks();
-}
-
-async function checkAdminForErrorTracker() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile && profile.role === 'admin') {
-            const errorLink = document.getElementById('errorTrackerLink');
-            if (errorLink) errorLink.style.display = 'flex';
-        }
-    }
-}
-
-async function checkMainAdminForSuperUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.email === 'support@mad3oom.online') {
-        const superUserLink = document.getElementById('superUserLink');
-        if (superUserLink) superUserLink.style.display = 'flex';
-    }
-}
-
-async function checkSuperUserForMyUsers() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile && (profile.role === 'super_user' || profile.role === 'admin')) {
-            const myUsersLink = document.getElementById('myUsersLink');
-            if (myUsersLink) myUsersLink.style.display = 'flex';
-        }
-    }
-}
-
-async function checkSupportForWhatsApp() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('email, role, whatsapp_enabled').eq('id', user.id).maybeSingle();
-        if (profile && (profile.email === 'support@mad3oom.online' || profile.role === 'admin' || profile.whatsapp_enabled)) {
-            const whatsappLink = document.getElementById('whatsappLink');
-            if (whatsappLink) whatsappLink.style.display = 'flex';
-        }
-    }
-}
-
-function highlightActiveLink() {
-    const currentPath = window.location.pathname;
-    const sidebarItems = document.querySelectorAll('.sidebar-item');
-    
-    sidebarItems.forEach(item => {
-        const href = item.getAttribute('href');
-        if (!href || href === '#') return;
-
-        const cleanPath = currentPath.replace(/\/$/, '');
-        const cleanHref = href.replace(/\/$/, '');
-
-        if (cleanPath.endsWith(cleanHref) || 
-           (cleanPath === '' && cleanHref === '/admin-dashboard.html') ||
-           (cleanPath.endsWith('/admin/') && cleanHref.endsWith('/admin/dashboard.html')) ||
-           (cleanPath.endsWith('/admin/dashboard.html') && cleanHref.endsWith('/admin-dashboard.html'))) {
-            item.classList.add('active');
-        } else {
-            item.classList.remove('active');
-        }
-    });
-}
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <span style="font-weight:800;font-size:1.1rem;" data-i18n="sidebar_main_menu">القائمة الرئيسية</span>
+        <button class="sidebar-close" id="sidebarClose" aria-label="إغلاق">&times;</button>
+    </div>
+    <div class="sidebar-menu">
+        <a href="/admin-dashboard.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg><span data-i18n="sidebar_dashboard">لوحة التحكم</span></a>
+        <a href="/admin/tickets.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg><span data-i18n="sidebar_tickets">إدارة التذاكر</span></a>
+        <a href="/chat-admin.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><span data-i18n="sidebar_chat">المحادثات والبوت</span></a>
+        <a href="/admin/users.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span data-i18n="sidebar_users">المستخدمين</span></a>
+        <a href="/admin/super-users.html" class="sidebar-item" id="superUserLink" style="display:none;"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg><span data-i18n="sidebar_super_users">Super Users</span></a>
+        <a href="/admin/my-users.html" class="sidebar-item" id="myUsersLink" style="display:none;"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span data-i18n="sidebar_my_users">مستخدميني</span></a>
+        <a href="/admin/banned.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg><span data-i18n="sidebar_banned">المحظورين</span></a>
+        <a href="/admin/stats.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg><span data-i18n="sidebar_stats">الإحصائيات</span></a>
+        <a href="/admin/activity-log.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><span data-i18n="sidebar_activity">سجل النشاط</span></a>
+        <a href="/admin/status-page.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg><span data-i18n="sidebar_status">حالة الخدمات</span></a>
+        <a href="/admin/settings.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span data-i18n="sidebar_settings">إعدادات المنصة</span></a>
+        <a href="/community.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span data-i18n="sidebar_community">مجتمع مدعوم</span></a>
+        <a href="/admin/suggestions.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg><span data-i18n="sidebar_suggestions">إدارة الاقتراحات</span></a>
+        <a href="/admin/send-email.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg><span data-i18n="sidebar_send_email">إرسال بريد</span></a>
+        <a href="/admin/knowledge-base-admin.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span data-i18n="sidebar_knowledge">قاعدة المعرفة</span></a>
+        <a href="/admin/errors.html" class="sidebar-item" id="errorTrackerLink" style="display:none;"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span data-i18n="sidebar_errors">مشاكل الموقع</span></a>
+        <a href="/admin/subscriptions.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 9V7a5 5 0 0 0-10 0v2"></path><rect x="5" y="9" width="14" height="11" rx="2"></rect><circle cx="12" cy="14" r="1"></circle></svg><span data-i18n="sidebar_subscriptions">إدارة الاشتراكات</span></a>
+        <a href="/subdomains/manage-subdomains.html" class="sidebar-item"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg><span data-i18n="sidebar_subdomains">النطاقات الفرعية</span></a>
+        <a href="/modules/whatsapp/index.html" class="sidebar-item" id="whatsappLink" style="display:none;"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><span data-i18n="sidebar_whatsapp">واتساب</span></a>
+    </div>
+    <div style="padding:1rem;border-top:1px solid rgba(255,255,255,0.1);">
+        <a href="#" class="sidebar-item" id="sidebarSignOut" style="color:#ff6b6b;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span data-i18n="sidebar_logout">تسجيل الخروج</span>
+        </a>
+    </div>
+</aside>
