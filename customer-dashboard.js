@@ -374,6 +374,8 @@ ${ticket.description}
         }
         
         // Setup delete button with confirmation modal
+        // ملاحظة: "الحذف" هنا من منظور العميل هو أرشفة (إخفاء من لوحته فقط).
+        // التذكرة وسجل ردودها يبقيان محفوظين بالكامل ومتاحين للأدمن دائماً.
         const deleteBtn = document.getElementById('deleteTicket');
         if (deleteBtn) {
             deleteBtn.onclick = async () => {
@@ -385,8 +387,8 @@ ${ticket.description}
                 
                 if (!deleteModal) return;
                 
-                // تحديث نص التأكيد برقم التذكرة
-                deleteConfirmText.textContent = `هل أنت متأكد من رغبتك في حذف التذكرة #${ticket.ticket_number}؟ هذا الإجراء لا يمكن التراجع عنه.`;
+                // تحديث نص التأكيد برقم التذكرة (يوضح أنها إخفاء من لوحة العميل لا حذف نهائي)
+                deleteConfirmText.textContent = `هل أنت متأكد من رغبتك في حذف التذكرة #${ticket.ticket_number} من لوحتك؟ ستبقى التذكرة محفوظة لدى فريق الدعم، ولن تظهر بعد الآن في قائمة تذاكرك.`;
                 
                 // عرض النافذة
                 deleteModal.classList.add('active');
@@ -401,7 +403,7 @@ ${ticket.description}
                         confirmDeleteBtn.disabled = true;
                         confirmDeleteBtn.textContent = 'جاري الحذف...';
                         
-                        // حذف التذكرة
+                        // أرشفة التذكرة (إخفاؤها من لوحة العميل فقط)
                         await deleteTicket(ticket.id);
                         
                         // إعادة تحميل قائمة التذاكر
@@ -412,7 +414,7 @@ ${ticket.description}
                         deleteModal.classList.remove('active');
                         
                         // إظهار رسالة نجاح
-                        alert('تم حذف التذكرة بنجاح');
+                        alert('تم حذف التذكرة من قائمتك بنجاح');
                         
                         // مسح لوحة التفاصيل
                         if (panel) {
