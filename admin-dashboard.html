@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة الإدارة - مدعوم</title>
-    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/js/admin/central-wallet-modal.css">
+    <!-- ✅ theme-manager أول حاجة عشان يطبق الثيم قبل أي حاجة تانية -->
+    <script src="/theme-manager.js"></script>
+    <!-- ✅ theme أولاً لمنع الوميض -->
     <script src="/theme-manager.js"></script>
     <script src="/language-manager.js"></script>
     <script src="/error-tracker.js"></script>
@@ -21,7 +24,6 @@
             padding: 1.5rem 1rem;
         }
 
-        /* ===== Hero Banner ===== */
         .page-intro {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             padding: 2rem 2rem;
@@ -36,10 +38,8 @@
         .page-intro::before {
             content: '';
             position: absolute;
-            top: -60%;
-            left: -30%;
-            width: 160%;
-            height: 220%;
+            top: -60%; left: -30%;
+            width: 160%; height: 220%;
             background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 65%);
             pointer-events: none;
         }
@@ -64,14 +64,12 @@
             z-index: 1;
         }
 
-        /* ===== Cards Grid ===== */
         .sections-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 1.25rem;
         }
 
-        /* ===== Card ===== */
         .section-card {
             background: var(--color-surface);
             border-radius: 1rem;
@@ -101,9 +99,7 @@
             transition: transform 0.3s ease;
         }
 
-        .section-card:hover::after {
-            transform: scaleX(1);
-        }
+        .section-card:hover::after { transform: scaleX(1); }
 
         .card-link {
             text-decoration: none;
@@ -113,7 +109,6 @@
             flex: 1;
         }
 
-        /* Card Top */
         .card-top {
             padding: 1.25rem 1.25rem 1rem;
             background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
@@ -123,9 +118,7 @@
         }
 
         .card-icon-wrapper {
-            width: 52px;
-            height: 52px;
-            min-width: 52px;
+            width: 52px; height: 52px; min-width: 52px;
             background: rgba(255,255,255,0.92);
             border-radius: 0.75rem;
             display: flex;
@@ -135,28 +128,18 @@
             transition: transform 0.3s ease;
         }
 
-        .section-card:hover .card-icon-wrapper {
-            transform: scale(1.08) rotate(5deg);
-        }
-
-        .card-icon-wrapper svg {
-            color: var(--card-accent-color);
-        }
+        .section-card:hover .card-icon-wrapper { transform: scale(1.08) rotate(5deg); }
+        .card-icon-wrapper svg { color: var(--card-accent-color); }
 
         .card-title {
             font-size: clamp(0.95rem, 2vw, 1.15rem);
             font-weight: 800;
             color: white;
             margin: 0;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.15);
             line-height: 1.3;
         }
 
-        /* Card Body */
-        .card-body {
-            padding: 1rem 1.25rem 0.75rem;
-            flex: 1;
-        }
+        .card-body { padding: 1rem 1.25rem 0.75rem; flex: 1; }
 
         .stats-row {
             display: grid;
@@ -164,9 +147,7 @@
             gap: 0.6rem;
         }
 
-        .stats-row.single {
-            grid-template-columns: 1fr;
-        }
+        .stats-row.single { grid-template-columns: 1fr; }
 
         .stat-box {
             background: var(--color-muted);
@@ -174,18 +155,10 @@
             border-radius: 0.625rem;
             text-align: center;
             transition: background 0.25s, transform 0.25s;
-            border: 1.5px solid transparent;
         }
 
-        .stat-box:hover {
-            background: var(--card-accent-color);
-            transform: scale(1.04);
-        }
-
-        .stat-box:hover .stat-label,
-        .stat-box:hover .stat-value {
-            color: white;
-        }
+        .stat-box:hover { background: var(--card-accent-color); transform: scale(1.04); }
+        .stat-box:hover .stat-label, .stat-box:hover .stat-value { color: white; }
 
         .stat-label {
             font-size: 0.75rem;
@@ -206,7 +179,6 @@
             transition: color 0.25s;
         }
 
-        /* Card Footer */
         .card-footer {
             padding: 0.7rem 1.25rem;
             background: var(--color-muted);
@@ -217,95 +189,32 @@
             border-top: 1px solid var(--color-border);
         }
 
-        /* ===== Card Colors ===== */
-        .card-tickets  { --card-accent-color: #6366f1; --card-bg-start: #6366f1; --card-bg-end: #8b5cf6; }
-        .card-chat     { --card-accent-color: #ec4899; --card-bg-start: #ec4899; --card-bg-end: #f43f5e; }
-        .card-users    { --card-accent-color: #06b6d4; --card-bg-start: #06b6d4; --card-bg-end: #0ea5e9; }
-        .card-banned   { --card-accent-color: #f59e0b; --card-bg-start: #f59e0b; --card-bg-end: #ef4444; }
-        .card-stats    { --card-accent-color: #10b981; --card-bg-start: #10b981; --card-bg-end: #059669; }
-        .card-activity { --card-accent-color: #8b5cf6; --card-bg-start: #8b5cf6; --card-bg-end: #a78bfa; }
-        .card-settings { --card-accent-color: #64748b; --card-bg-start: #64748b; --card-bg-end: #475569; }
+        .card-tickets  { --card-accent-color:#6366f1; --card-bg-start:#6366f1; --card-bg-end:#8b5cf6; }
+        .card-chat     { --card-accent-color:#ec4899; --card-bg-start:#ec4899; --card-bg-end:#f43f5e; }
+        .card-users    { --card-accent-color:#06b6d4; --card-bg-start:#06b6d4; --card-bg-end:#0ea5e9; }
+        .card-banned   { --card-accent-color:#f59e0b; --card-bg-start:#f59e0b; --card-bg-end:#ef4444; }
+        .card-stats    { --card-accent-color:#10b981; --card-bg-start:#10b981; --card-bg-end:#059669; }
+        .card-activity { --card-accent-color:#8b5cf6; --card-bg-start:#8b5cf6; --card-bg-end:#a78bfa; }
+        .card-settings { --card-accent-color:#64748b; --card-bg-start:#64748b; --card-bg-end:#475569; }
 
-        /* ===== Responsive ===== */
+        @media (max-width: 1024px) { .sections-grid { grid-template-columns: repeat(2, 1fr); } }
 
-        /* Tablet: 2 columns */
-        @media (max-width: 1024px) {
-            .sections-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Large mobile: still 2 columns but smaller */
         @media (max-width: 640px) {
-            .dashboard-container {
-                padding: 1rem 0.75rem;
-            }
-
-            .page-intro {
-                padding: 1.25rem 1.25rem;
-                border-radius: 1rem;
-                margin-bottom: 1.25rem;
-            }
-
-            .sections-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
-            }
-
-            .card-top {
-                padding: 1rem 1rem 0.875rem;
-                gap: 0.625rem;
-            }
-
-            .card-icon-wrapper {
-                width: 40px;
-                height: 40px;
-                min-width: 40px;
-                border-radius: 0.5rem;
-            }
-
-            .card-icon-wrapper svg {
-                width: 22px;
-                height: 22px;
-            }
-
-            .card-body {
-                padding: 0.75rem 0.875rem 0.5rem;
-            }
-
-            .stats-row {
-                gap: 0.4rem;
-            }
-
-            .stat-box {
-                padding: 0.5rem 0.375rem;
-                border-radius: 0.5rem;
-            }
-
-            .stat-label {
-                font-size: 0.65rem;
-            }
-
-            .stat-value {
-                font-size: 1.2rem;
-            }
-
-            .card-footer {
-                padding: 0.55rem 0.875rem;
-                font-size: 0.72rem;
-            }
+            .dashboard-container { padding: 1rem 0.75rem; }
+            .page-intro { padding: 1.25rem; border-radius: 1rem; margin-bottom: 1.25rem; }
+            .sections-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+            .card-top { padding: 1rem; gap: 0.625rem; }
+            .card-icon-wrapper { width: 40px; height: 40px; min-width: 40px; border-radius: 0.5rem; }
+            .card-icon-wrapper svg { width: 22px; height: 22px; }
+            .card-body { padding: 0.75rem 0.875rem 0.5rem; }
+            .stats-row { gap: 0.4rem; }
+            .stat-box { padding: 0.5rem 0.375rem; border-radius: 0.5rem; }
+            .stat-label { font-size: 0.65rem; }
+            .stat-value { font-size: 1.2rem; }
+            .card-footer { padding: 0.55rem 0.875rem; font-size: 0.72rem; }
         }
 
-        /* Very small phones: single column */
-        @media (max-width: 380px) {
-            .sections-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .card-top {
-                flex-direction: row;
-            }
-        }
+        @media (max-width: 380px) { .sections-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -315,175 +224,146 @@
         <div class="dashboard-container">
             <div class="page-intro">
                 <h1>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
-                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
-                    </svg>
-                    لوحة التحكم الرئيسية
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span data-i18n="dashboard_title">لوحة التحكم الرئيسية</span>
                 </h1>
-                <p>إدارة شاملة لجميع أقسام المنصة من مكان واحد</p>
+                <p><span data-i18n="dashboard_subtitle">إدارة شاملة لجميع أقسام المنصة من مكان واحد</span></p>
             </div>
 
             <div class="sections-grid">
-
-                <!-- التذاكر -->
                 <div class="section-card card-tickets">
                     <a href="/admin/tickets.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="2"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
-                            </div>
-                            <h3 class="card-title">إدارة التذاكر</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="2"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_tickets_title">إدارة التذاكر</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">المفتوحة</div><div class="stat-value" id="ticketsOpen">0</div></div>
-                                <div class="stat-box"><div class="stat-label">المغلقة</div><div class="stat-value" id="ticketsClosed">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_tickets_open">المفتوحة</span></div><div class="stat-value" id="ticketsOpen">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_tickets_closed">المغلقة</span></div><div class="stat-value" id="ticketsClosed">0</div></div>
                             </div>
                             <div class="stats-row" style="margin-top:0.4rem">
-                                <div class="stat-box"><div class="stat-label">قيد المعالجة</div><div class="stat-value" id="ticketsInProgress">0</div></div>
-                                <div class="stat-box"><div class="stat-label">تم الحل</div><div class="stat-value" id="ticketsResolved">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_tickets_inprogress">قيد المعالجة</span></div><div class="stat-value" id="ticketsInProgress">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_tickets_resolved">تم الحل</span></div><div class="stat-value" id="ticketsResolved">0</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر للوصول إلى إدارة التذاكر ←</div>
+                        <div class="card-footer"><span data-i18n="card_tickets_footer">انقر للوصول إلى إدارة التذاكر ←</span></div>
                     </a>
                 </div>
 
-                <!-- المحادثات -->
                 <div class="section-card card-chat">
                     <a href="/chat-admin.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><circle cx="9" cy="10" r="1"></circle><circle cx="12" cy="10" r="1"></circle><circle cx="15" cy="10" r="1"></circle></svg>
-                            </div>
-                            <h3 class="card-title">المحادثات الفورية</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><circle cx="9" cy="10" r="1"></circle><circle cx="12" cy="10" r="1"></circle><circle cx="15" cy="10" r="1"></circle></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_chat_title">المحادثات الفورية</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">جارية</div><div class="stat-value" id="chatActive">0</div></div>
-                                <div class="stat-box"><div class="stat-label">مغلقة</div><div class="stat-value" id="chatClosed">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_chat_active">جارية</span></div><div class="stat-value" id="chatActive">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_chat_closed">مغلقة</span></div><div class="stat-value" id="chatClosed">0</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر للوصول إلى المحادثات ←</div>
+                        <div class="card-footer"><span data-i18n="card_chat_footer">انقر للوصول إلى المحادثات ←</span></div>
                     </a>
                 </div>
 
-                <!-- المستخدمين -->
                 <div class="section-card card-users">
                     <a href="/admin/users.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                            </div>
-                            <h3 class="card-title">إدارة المستخدمين</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_users_title">إدارة المستخدمين</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">إجمالي</div><div class="stat-value" id="usersTotal">0</div></div>
-                                <div class="stat-box"><div class="stat-label">نشط</div><div class="stat-value" id="usersActive">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_users_total">إجمالي</span></div><div class="stat-value" id="usersTotal">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_users_active">نشط</span></div><div class="stat-value" id="usersActive">0</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر للوصول إلى المستخدمين ←</div>
+                        <div class="card-footer"><span data-i18n="card_users_footer">انقر للوصول إلى المستخدمين ←</span></div>
                     </a>
                 </div>
 
-                <!-- المنتدى -->
                 <div class="section-card" style="--card-accent-color:#8e44ad;--card-bg-start:#8e44ad;--card-bg-end:#9b59b6;">
                     <a href="forum.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                            </div>
-                            <h3 class="card-title">إدارة المنتدى</h3>
+                            <div class="card-icon-wrapper"><svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_forum_title">إدارة المنتدى</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">المواضيع</div><div class="stat-value" id="forumThreadsCount">0</div></div>
-                                <div class="stat-box"><div class="stat-label">البلاغات</div><div class="stat-value" id="forumReportsCount">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_forum_threads">المواضيع</span></div><div class="stat-value" id="forumThreadsCount">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_forum_reports">البلاغات</span></div><div class="stat-value" id="forumReportsCount">0</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر للوصول إلى المنتدى ←</div>
+                        <div class="card-footer"><span data-i18n="card_forum_footer">انقر للوصول إلى المنتدى ←</span></div>
                     </a>
                 </div>
 
-                <!-- المحظورين -->
                 <div class="section-card card-banned">
                     <a href="/admin/banned.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-                            </div>
-                            <h3 class="card-title">المحظورين</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_banned_title">المحظورين</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">عدد المحظورين</div><div class="stat-value" id="bannedTotal">0</div></div>
-                                <div class="stat-box"><div class="stat-label">آخر حظر</div><div class="stat-value" style="font-size:0.95rem" id="bannedRecent">-</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_banned_count">عدد المحظورين</span></div><div class="stat-value" id="bannedTotal">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_banned_last">آخر حظر</span></div><div class="stat-value" style="font-size:0.95rem" id="bannedRecent">-</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر لعرض المحظورين ←</div>
+                        <div class="card-footer"><span data-i18n="card_banned_footer">انقر لعرض المحظورين ←</span></div>
                     </a>
                 </div>
 
-                <!-- الإحصائيات -->
                 <div class="section-card card-stats">
                     <a href="/admin/stats.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                            </div>
-                            <h3 class="card-title">الإحصائيات</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_stats_title">الإحصائيات</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">إجمالي الزيارات</div><div class="stat-value" style="font-size:1.1rem" id="statsVisits">-</div></div>
-                                <div class="stat-box"><div class="stat-label">معدل الاستجابة</div><div class="stat-value" style="font-size:1.1rem" id="statsResponse">-</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_stats_visits">إجمالي الزيارات</span></div><div class="stat-value" style="font-size:1.1rem" id="statsVisits">-</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_stats_response">معدل الاستجابة</span></div><div class="stat-value" style="font-size:1.1rem" id="statsResponse">-</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر لعرض الإحصائيات ←</div>
+                        <div class="card-footer"><span data-i18n="card_stats_footer">انقر لعرض الإحصائيات ←</span></div>
                     </a>
                 </div>
 
-                <!-- سجل النشاطات -->
                 <div class="section-card card-activity">
                     <a href="/admin/activity-log.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                            </div>
-                            <h3 class="card-title">سجل النشاطات</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_activity_title">سجل النشاطات</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row">
-                                <div class="stat-box"><div class="stat-label">نشاطات اليوم</div><div class="stat-value" id="activityToday">0</div></div>
-                                <div class="stat-box"><div class="stat-label">آخر نشاط</div><div class="stat-value" style="font-size:0.95rem" id="activityRecent">-</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_activity_today">نشاطات اليوم</span></div><div class="stat-value" id="activityToday">0</div></div>
+                                <div class="stat-box"><div class="stat-label"><span data-i18n="card_activity_last">آخر نشاط</span></div><div class="stat-value" style="font-size:0.95rem" id="activityRecent">-</div></div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر لعرض سجل النشاطات ←</div>
+                        <div class="card-footer"><span data-i18n="card_activity_footer">انقر لعرض سجل النشاطات ←</span></div>
                     </a>
                 </div>
 
-                <!-- الإعدادات -->
                 <div class="section-card card-settings">
                     <a href="/admin/settings.html" class="card-link">
                         <div class="card-top">
-                            <div class="card-icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                            </div>
-                            <h3 class="card-title">الإعدادات</h3>
+                            <div class="card-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                            <h3 class="card-title"><span data-i18n="card_settings_title">الإعدادات</span></h3>
                         </div>
                         <div class="card-body">
                             <div class="stats-row single">
-                                <div class="stat-box" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-direction:row;">
+                                <div class="stat-box" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--card-accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                                    <span class="stat-label" style="margin:0;font-size:0.85rem">إعدادات النظام</span>
+                                    <span class="stat-label" style="margin:0;font-size:0.85rem"><span data-i18n="card_settings_label">إعدادات النظام</span></span>
                                 </div>
                             </div>
                         </div>
-                        <div class="card-footer">انقر للوصول إلى الإعدادات ←</div>
+                        <div class="card-footer"><span data-i18n="card_settings_footer">انقر للوصول إلى الإعدادات ←</span></div>
                     </a>
                 </div>
-
             </div>
         </div>
     </main>
