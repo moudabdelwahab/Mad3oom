@@ -41,6 +41,7 @@ export async function fetchUserTickets(filters = {}) {
 
     // جلب البروفايل لمعرفة الدور
     const profile = await getCurrentProfile(user.id);
+    const isAdmin = profile && profile.role === 'admin';
 
     let query = supabase
         .from('tickets')
@@ -48,8 +49,10 @@ export async function fetchUserTickets(filters = {}) {
         .order('created_at', { ascending: false });
 
     // إذا كان المستخدم عميلاً (أو لا يوجد بروفايل بعد)، نفلتر التذاكر الخاصة به فقط
-    if (!profile || profile.role !== 'admin') {
-        query = query.eq('user_id', user.id);
+    // ونستثني التذاكر التي قام بأرشفتها (حذفها من واجهته) بنفسه.
+    // الأدمن يرى كل التذاكر دائماً بما فيها المؤرشفة من العميل، للمراجعة والتدقيق.
+    if (!isAdmin) {
+        query = query.eq('user_id', user.id).eq('archived_by_customer', false);
     }
 
     if (filters.status && filters.status !== 'all') {
@@ -132,12 +135,14 @@ export async function fetchTicketStats() {
 
     // جلب البروفايل لمعرفة الدور
     const profile = await getCurrentProfile(user.id);
+    const isAdmin = profile && profile.role === 'admin';
 
     let query = supabase.from('tickets').select('status', { count: 'exact' });
 
     // إذا كان المستخدم عميلاً، نفلتر التذاكر الخاصة به فقط
-    if (!profile || profile.role !== 'admin') {
-        query = query.eq('user_id', user.id);
+    // ونستثني التذاكر المؤرشفة من قبله (نفس منطق fetchUserTickets)
+    if (!isAdmin) {
+        query = query.eq('user_id', user.id).eq('archived_by_customer', false);
     }
 
     const { data, error } = await query;
@@ -155,14 +160,26 @@ export async function fetchTicketStats() {
 
 /**
  * تحديث حالة التذكرة
+ *
+ * نتحقق من البيانات المُرجعة فعلياً (وليس فقط من غياب الخطأ)، لأن RLS
+ * قد يرفض التحديث بصمت (error = null مع 0 صفوف متأثرة) لو الأدمن الحالي
+ * خسر صلاحيته في نفس الجلسة أو لو التذكرة غير موجودة. الاعتماد على غياب
+ * الخطأ فقط هنا قد يؤدي لإرسال إشعار "تم تغيير الحالة" بينما الحالة
+ * الفعلية في قاعدة البيانات لم تتغير.
  */
 export async function updateTicketStatus(ticketId, status) {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
         .from('tickets')
         .update({ status })
-        .eq('id', ticketId);
+        .eq('id', ticketId)
+        .select('id')
+        .maybeSingle();
 
     if (error) throw error;
+
+    if (!updated) {
+        throw new Error('لم يتم تحديث حالة التذكرة. قد لا تملك صلاحية هذا الإجراء أو أن التذكرة غير موجودة.');
+    }
 
     // جلب بيانات التذكرة لإرسال إشعار للعميل ومعالجة الاشتراكات
     const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
@@ -253,15 +270,50 @@ export function subscribeToTicketReplies(ticketId, callback) {
 }
 
 /**
- * حذف تذكرة
+ * حذف تذكرة (من منظور العميل)
+ *
+ * ملاحظة مهمة: هذه الدالة لا تحذف الصف فعلياً من قاعدة البيانات.
+ * بدلاً من ذلك، تقوم بأرشفتها (soft delete) عبر تعليم
+ * archived_by_customer = true. هذا يخفي التذكرة من واجهة العميل
+ * فقط، بينما تبقى التذكرة وسجل ردودها متاحة بالكامل للأدمن
+ * للمراجعة والتدقيق ولحل أي نزاع مستقبلي.
+ *
+ * الحذف الفعلي للصف مسموح به فقط للأدمن (انظر RLS policy
+ * "Admin can delete tickets")، وأي محاولة حذف فعلي (.delete())
+ * من حساب عميل سترفضها قاعدة البيانات بصمت (0 صفوف متأثرة)
+ * لعدم وجود policy تسمح بذلك لغير الأدمن.
+ *
+ * نتحقق هنا من البيانات المُرجعة فعلياً (وليس فقط من غياب الخطأ)
+ * لأن RLS قد يرفض العملية بصمت (error = null مع 0 صفوف متأثرة)
+ * إذا لم تكن الصلاحيات مضبوطة كما هو متوقع.
  */
 export async function deleteTicket(ticketId) {
-    const { error } = await supabase
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
         .from('tickets')
-        .delete()
-        .eq('id', ticketId);
+        .update({
+            archived_by_customer: true,
+            archived_at: new Date().toISOString()
+        })
+        .eq('id', ticketId)
+        .eq('user_id', user.id) // طبقة حماية إضافية بجانب RLS: لا تسمح إلا بأرشفة تذاكر المستخدم الحالي
+        .select('id')
+        .maybeSingle();
 
     if (error) throw error;
+
+    // لو data فاضية (null)، يبقى معنى ذلك أن الصف لم يتأثر فعلياً —
+    // إما لأن التذكرة غير موجودة، أو لا تخص هذا المستخدم، أو رفضتها RLS بصمت.
+    // في هذه الحالة لا نعتبر العملية ناجحة ولا نخفيها من الواجهة بدون تأكيد فعلي.
+    if (!data) {
+        throw new Error('لم يتم العثور على التذكرة أو لا يمكن أرشفتها. حاول تحديث الصفحة والمحاولة مرة أخرى.');
+    }
+
+    await logActivity('ticket_archive_by_customer', { ticket_id: ticketId });
+
+    return data;
 }
 
 /**
