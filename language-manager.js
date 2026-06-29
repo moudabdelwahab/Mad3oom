@@ -224,11 +224,21 @@ class LanguageManager {
     }
 
     // يراقب إضافة عناصر جديدة للـ DOM (مثل sidebar بعد fetch)
-    // ويطبق الترجمة عليها تلقائياً
+    // آمن من الـ infinite loop: بيراقب childList فقط (مش characterData)
     _watchDOM() {
         if (this._domObserver) return;
-        this._domObserver = new MutationObserver(() => {
+        this._domObserver = new MutationObserver((mutations) => {
+            // بنتحقق إن في عناصر جديدة اتضافت فعلاً (مش مجرد نصوص اتغيرت)
+            const hasNewNodes = mutations.some(m =>
+                m.type === 'childList' && m.addedNodes.length > 0 &&
+                Array.from(m.addedNodes).some(n => n.nodeType === 1) // Element nodes فقط
+            );
+            if (!hasNewNodes) return;
+            // وقف الـ observer مؤقتاً أثناء التطبيق
+            this._domObserver.disconnect();
             this._applyTranslations(this.currentLanguage);
+            // أعد التشغيل بعد التطبيق
+            this._domObserver.observe(document.body, { childList: true, subtree: true });
         });
         this._domObserver.observe(document.body, {
             childList: true,
