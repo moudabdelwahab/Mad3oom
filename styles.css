@@ -111,7 +111,8 @@ body {
 }
 
 .nav-container {
-    max-width: 100vh;
+    width:100%;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 1rem var(--container-padding);
     display: flex;
