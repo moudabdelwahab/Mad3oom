@@ -4,7 +4,6 @@
 
 const translations = {
     ar: {
-        // القائمة الجانبية
         'sidebar_main_menu': 'القائمة الرئيسية',
         'sidebar_dashboard': 'لوحة التحكم',
         'sidebar_tickets': 'إدارة التذاكر',
@@ -26,7 +25,6 @@ const translations = {
         'sidebar_subdomains': 'النطاقات الفرعية',
         'sidebar_whatsapp': 'واتساب',
         'sidebar_logout': 'تسجيل الخروج',
-        // الـ navbar
         'nav_admin_panel': 'لوحة الإدارة',
         'nav_admin_badge': 'مدير النظام',
         'nav_notifications': 'الإشعارات',
@@ -36,13 +34,11 @@ const translations = {
         'nav_no_notif_admin': 'لا توجد إشعارات إدارية',
         'nav_lang_arabic': 'العربية',
         'nav_lang_english': 'English',
-        // قائمة الأفاتار
         'avatar_profile': 'الملف الشخصي',
         'avatar_settings': 'إعدادات الحساب',
         'avatar_security': 'إعدادات الأمان',
         'avatar_help': 'الدعم والمساعدة',
         'avatar_logout': 'تسجيل الخروج',
-        // لوحة التحكم
         'dashboard_title': 'لوحة التحكم الرئيسية',
         'dashboard_subtitle': 'إدارة شاملة لجميع أقسام المنصة من مكان واحد',
         'card_tickets_title': 'إدارة التذاكر',
@@ -80,7 +76,6 @@ const translations = {
         'card_settings_footer': 'انقر للوصول إلى الإعدادات ←',
     },
     en: {
-        // Sidebar
         'sidebar_main_menu': 'Main Menu',
         'sidebar_dashboard': 'Dashboard',
         'sidebar_tickets': 'Ticket Management',
@@ -102,7 +97,6 @@ const translations = {
         'sidebar_subdomains': 'Subdomains',
         'sidebar_whatsapp': 'WhatsApp',
         'sidebar_logout': 'Logout',
-        // Navbar
         'nav_admin_panel': 'Admin Panel',
         'nav_admin_badge': 'System Admin',
         'nav_notifications': 'Notifications',
@@ -112,13 +106,11 @@ const translations = {
         'nav_no_notif_admin': 'No admin notifications',
         'nav_lang_arabic': 'العربية',
         'nav_lang_english': 'English',
-        // Avatar menu
         'avatar_profile': 'Profile',
         'avatar_settings': 'Account Settings',
         'avatar_security': 'Security Settings',
         'avatar_help': 'Help & Support',
         'avatar_logout': 'Logout',
-        // Dashboard
         'dashboard_title': 'Main Dashboard',
         'dashboard_subtitle': 'Manage all platform sections from one place',
         'card_tickets_title': 'Ticket Management',
@@ -159,49 +151,28 @@ const translations = {
 
 class LanguageManager {
     constructor() {
-        this.currentLanguage = this.loadLanguage();
+        this.currentLanguage = this._loadLanguage();
         this.listeners = [];
-        this.init();
-    }
-
-    init() {
-        // طبّق على <html> فوراً
+        // طبّق على <html> فوراً قبل أي حاجة
         this._applyToHTML(this.currentLanguage);
-
+        // طبّق الترجمات بعد تحميل الـ DOM
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 this._applyToBody(this.currentLanguage);
                 this._applyTranslations(this.currentLanguage);
-                // راقب تحميل sidebar وأي محتوى جديد
-                this._watchDOM();
             }, { once: true });
         } else {
             this._applyToBody(this.currentLanguage);
             this._applyTranslations(this.currentLanguage);
-            this._watchDOM();
         }
     }
 
-    loadLanguage() {
+    _loadLanguage() {
         try {
             const saved = localStorage.getItem('mad3oom-language');
             if (saved === 'ar' || saved === 'en') return saved;
         } catch(e) {}
         return navigator.language.startsWith('ar') ? 'ar' : 'en';
-    }
-
-    saveLanguage(lang) {
-        try { localStorage.setItem('mad3oom-language', lang); } catch(e) {}
-        this.currentLanguage = lang;
-    }
-
-    setLanguage(lang) {
-        if (lang !== 'ar' && lang !== 'en') return;
-        this.saveLanguage(lang);
-        this._applyToHTML(lang);
-        this._applyToBody(lang);
-        this._applyTranslations(lang);
-        this.notifyListeners();
     }
 
     _applyToHTML(lang) {
@@ -215,35 +186,29 @@ class LanguageManager {
         document.body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     }
 
-    _applyTranslations(lang) {
-        document.querySelectorAll('[data-i18n]').forEach(el => {
+    // يطبق الترجمات على عناصر data-i18n داخل container معين (أو كامل الـ document)
+    _applyTranslations(lang, container) {
+        const root = container || document;
+        root.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             const text = translations[lang]?.[key] || translations['ar'][key] || key;
             el.textContent = text;
         });
     }
 
-    // يراقب إضافة عناصر جديدة للـ DOM (مثل sidebar بعد fetch)
-    // آمن من الـ infinite loop: بيراقب childList فقط (مش characterData)
-    _watchDOM() {
-        if (this._domObserver) return;
-        this._domObserver = new MutationObserver((mutations) => {
-            // بنتحقق إن في عناصر جديدة اتضافت فعلاً (مش مجرد نصوص اتغيرت)
-            const hasNewNodes = mutations.some(m =>
-                m.type === 'childList' && m.addedNodes.length > 0 &&
-                Array.from(m.addedNodes).some(n => n.nodeType === 1) // Element nodes فقط
-            );
-            if (!hasNewNodes) return;
-            // وقف الـ observer مؤقتاً أثناء التطبيق
-            this._domObserver.disconnect();
-            this._applyTranslations(this.currentLanguage);
-            // أعد التشغيل بعد التطبيق
-            this._domObserver.observe(document.body, { childList: true, subtree: true });
-        });
-        this._domObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+    setLanguage(lang) {
+        if (lang !== 'ar' && lang !== 'en') return;
+        try { localStorage.setItem('mad3oom-language', lang); } catch(e) {}
+        this.currentLanguage = lang;
+        this._applyToHTML(lang);
+        this._applyToBody(lang);
+        this._applyTranslations(lang);
+        this.notifyListeners();
+    }
+
+    // يُستدعى من sidebar.js بعد fetch الـ sidebar
+    applyToContainer(container) {
+        this._applyTranslations(this.currentLanguage, container);
     }
 
     translate(key) {
@@ -252,7 +217,7 @@ class LanguageManager {
             || key;
     }
 
-    // legacy
+    // legacy support
     updatePageLanguage(lang) {
         this._applyToHTML(lang);
         this._applyToBody(lang);
@@ -266,6 +231,5 @@ class LanguageManager {
 }
 
 const languageManager = new LanguageManager();
-
 if (typeof window !== 'undefined') window.languageManager = languageManager;
 if (typeof module !== 'undefined' && module.exports) module.exports = languageManager;
