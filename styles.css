@@ -108,7 +108,7 @@ body {
  * السبب: 64px كان زيادة وبيضيق مساحة المحتوى بدون سبب
  */
 .nav-container {
-    width: 100%;
+    width: min(92%, 1200px);
     max-width: 1200px;
     margin: 0 auto;
     padding: 0.625rem var(--container-padding);
