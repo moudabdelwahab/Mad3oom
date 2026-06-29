@@ -1,86 +1,159 @@
 /**
  * Language Manager - إدارة اللغات والترجمات
- * يدير تبديل اللغة بين العربية والإنجليزية
  */
 
 const translations = {
     ar: {
-        'profile': 'الملف الشخصي',
-        'account_settings': 'إعدادات الحساب',
-        'security_settings': 'إعدادات الأمان',
-        'help_support': 'الدعم والمساعدة',
-        'logout': 'تسجيل الخروج',
-        'language': 'اللغة',
-        'change_language': 'تغيير اللغة',
-        'arabic': 'العربية',
-        'english': 'English',
-        'welcome_user': 'مرحباً بك',
-        'customer_dashboard': 'لوحة تحكم العميل',
-        'admin_dashboard': 'لوحة الإدارة',
-        'my_tickets': 'تذاكري',
-        'rewards_points': 'المكافآت والنقاط',
-        'badges': 'الشارات',
-        'live_chat': 'المحادثة الفورية',
-        'community': 'مجتمع مدعوم',
-        'knowledge_base': 'قاعدة المعرفة',
-        'system_status': 'النظام شغال',
-        'notifications': 'الإشعارات',
-        'mark_all_read': 'تحديد الكل كمقروء',
-        'view_all_notifications': 'عرض كل الإشعارات',
-        'no_notifications': 'لا توجد إشعارات',
-        'loading_notifications': 'جاري تحميل الإشعارات...',
-        'failed_load_notifications': 'فشل تحميل الإشعارات',
-        'my_profile': 'ملفي الشخصي',
-        'edit_profile': 'تعديل الملف الشخصي',
-        'account_security': 'أمان الحساب',
-        'privacy_settings': 'إعدادات الخصوصية',
-        'contact_support': 'التواصل مع الدعم',
-        'faq': 'الأسئلة الشائعة',
-        'documentation': 'التوثيق',
-        'admin_panel': 'لوحة الإدارة',
-        'manage_users': 'إدارة المستخدمين',
-        'manage_tickets': 'إدارة التذاكر',
-        'manage_files': 'إدارة الملفات',
-        'system_settings': 'إعدادات النظام',
+        // القائمة الجانبية
+        'sidebar_main_menu': 'القائمة الرئيسية',
+        'sidebar_dashboard': 'لوحة التحكم',
+        'sidebar_tickets': 'إدارة التذاكر',
+        'sidebar_chat': 'المحادثات والبوت',
+        'sidebar_users': 'المستخدمين',
+        'sidebar_super_users': 'Super Users',
+        'sidebar_my_users': 'مستخدميني',
+        'sidebar_banned': 'المحظورين',
+        'sidebar_stats': 'الإحصائيات',
+        'sidebar_activity': 'سجل النشاط',
+        'sidebar_status': 'حالة الخدمات',
+        'sidebar_settings': 'إعدادات المنصة',
+        'sidebar_community': 'مجتمع مدعوم',
+        'sidebar_suggestions': 'إدارة الاقتراحات',
+        'sidebar_send_email': 'إرسال بريد',
+        'sidebar_knowledge': 'قاعدة المعرفة',
+        'sidebar_errors': 'مشاكل الموقع',
+        'sidebar_subscriptions': 'إدارة الاشتراكات',
+        'sidebar_subdomains': 'النطاقات الفرعية',
+        'sidebar_whatsapp': 'واتساب',
+        'sidebar_logout': 'تسجيل الخروج',
+        // الـ navbar
+        'nav_admin_panel': 'لوحة الإدارة',
+        'nav_admin_badge': 'مدير النظام',
+        'nav_notifications': 'الإشعارات',
+        'nav_mark_all_read': 'تحديد الكل كمقروء',
+        'nav_view_all': 'عرض كل الإشعارات',
+        'nav_loading_notif': 'جاري تحميل الإشعارات...',
+        'nav_no_notif_admin': 'لا توجد إشعارات إدارية',
+        'nav_lang_arabic': 'العربية',
+        'nav_lang_english': 'English',
+        // قائمة الأفاتار
+        'avatar_profile': 'الملف الشخصي',
+        'avatar_settings': 'إعدادات الحساب',
+        'avatar_security': 'إعدادات الأمان',
+        'avatar_help': 'الدعم والمساعدة',
+        'avatar_logout': 'تسجيل الخروج',
+        // لوحة التحكم
+        'dashboard_title': 'لوحة التحكم الرئيسية',
+        'dashboard_subtitle': 'إدارة شاملة لجميع أقسام المنصة من مكان واحد',
+        'card_tickets_title': 'إدارة التذاكر',
+        'card_tickets_open': 'المفتوحة',
+        'card_tickets_closed': 'المغلقة',
+        'card_tickets_inprogress': 'قيد المعالجة',
+        'card_tickets_resolved': 'تم الحل',
+        'card_tickets_footer': 'انقر للوصول إلى إدارة التذاكر ←',
+        'card_chat_title': 'المحادثات الفورية',
+        'card_chat_active': 'جارية',
+        'card_chat_closed': 'مغلقة',
+        'card_chat_footer': 'انقر للوصول إلى المحادثات ←',
+        'card_users_title': 'إدارة المستخدمين',
+        'card_users_total': 'إجمالي',
+        'card_users_active': 'نشط',
+        'card_users_footer': 'انقر للوصول إلى المستخدمين ←',
+        'card_forum_title': 'إدارة المنتدى',
+        'card_forum_threads': 'المواضيع',
+        'card_forum_reports': 'البلاغات',
+        'card_forum_footer': 'انقر للوصول إلى المنتدى ←',
+        'card_banned_title': 'المحظورين',
+        'card_banned_count': 'عدد المحظورين',
+        'card_banned_last': 'آخر حظر',
+        'card_banned_footer': 'انقر لعرض المحظورين ←',
+        'card_stats_title': 'الإحصائيات',
+        'card_stats_visits': 'إجمالي الزيارات',
+        'card_stats_response': 'معدل الاستجابة',
+        'card_stats_footer': 'انقر لعرض الإحصائيات ←',
+        'card_activity_title': 'سجل النشاطات',
+        'card_activity_today': 'نشاطات اليوم',
+        'card_activity_last': 'آخر نشاط',
+        'card_activity_footer': 'انقر لعرض سجل النشاطات ←',
+        'card_settings_title': 'الإعدادات',
+        'card_settings_label': 'إعدادات النظام',
+        'card_settings_footer': 'انقر للوصول إلى الإعدادات ←',
     },
     en: {
-        'profile': 'Profile',
-        'account_settings': 'Account Settings',
-        'security_settings': 'Security Settings',
-        'help_support': 'Help & Support',
-        'logout': 'Logout',
-        'language': 'Language',
-        'change_language': 'Change Language',
-        'arabic': 'العربية',
-        'english': 'English',
-        'welcome_user': 'Welcome',
-        'customer_dashboard': 'Customer Dashboard',
-        'admin_dashboard': 'Admin Dashboard',
-        'my_tickets': 'My Tickets',
-        'rewards_points': 'Rewards & Points',
-        'badges': 'Badges',
-        'live_chat': 'Live Chat',
-        'community': 'Mad3oom Community',
-        'knowledge_base': 'Knowledge Base',
-        'system_status': 'System Online',
-        'notifications': 'Notifications',
-        'mark_all_read': 'Mark All as Read',
-        'view_all_notifications': 'View All Notifications',
-        'no_notifications': 'No Notifications',
-        'loading_notifications': 'Loading Notifications...',
-        'failed_load_notifications': 'Failed to Load Notifications',
-        'my_profile': 'My Profile',
-        'edit_profile': 'Edit Profile',
-        'account_security': 'Account Security',
-        'privacy_settings': 'Privacy Settings',
-        'contact_support': 'Contact Support',
-        'faq': 'FAQ',
-        'documentation': 'Documentation',
-        'admin_panel': 'Admin Panel',
-        'manage_users': 'Manage Users',
-        'manage_tickets': 'Manage Tickets',
-        'manage_files': 'Manage Files',
-        'system_settings': 'System Settings',
+        // Sidebar
+        'sidebar_main_menu': 'Main Menu',
+        'sidebar_dashboard': 'Dashboard',
+        'sidebar_tickets': 'Ticket Management',
+        'sidebar_chat': 'Chats & Bot',
+        'sidebar_users': 'Users',
+        'sidebar_super_users': 'Super Users',
+        'sidebar_my_users': 'My Users',
+        'sidebar_banned': 'Banned Users',
+        'sidebar_stats': 'Statistics',
+        'sidebar_activity': 'Activity Log',
+        'sidebar_status': 'Service Status',
+        'sidebar_settings': 'Platform Settings',
+        'sidebar_community': 'Mad3oom Community',
+        'sidebar_suggestions': 'Suggestions',
+        'sidebar_send_email': 'Send Email',
+        'sidebar_knowledge': 'Knowledge Base',
+        'sidebar_errors': 'Site Issues',
+        'sidebar_subscriptions': 'Subscriptions',
+        'sidebar_subdomains': 'Subdomains',
+        'sidebar_whatsapp': 'WhatsApp',
+        'sidebar_logout': 'Logout',
+        // Navbar
+        'nav_admin_panel': 'Admin Panel',
+        'nav_admin_badge': 'System Admin',
+        'nav_notifications': 'Notifications',
+        'nav_mark_all_read': 'Mark All as Read',
+        'nav_view_all': 'View All Notifications',
+        'nav_loading_notif': 'Loading notifications...',
+        'nav_no_notif_admin': 'No admin notifications',
+        'nav_lang_arabic': 'العربية',
+        'nav_lang_english': 'English',
+        // Avatar menu
+        'avatar_profile': 'Profile',
+        'avatar_settings': 'Account Settings',
+        'avatar_security': 'Security Settings',
+        'avatar_help': 'Help & Support',
+        'avatar_logout': 'Logout',
+        // Dashboard
+        'dashboard_title': 'Main Dashboard',
+        'dashboard_subtitle': 'Manage all platform sections from one place',
+        'card_tickets_title': 'Ticket Management',
+        'card_tickets_open': 'Open',
+        'card_tickets_closed': 'Closed',
+        'card_tickets_inprogress': 'In Progress',
+        'card_tickets_resolved': 'Resolved',
+        'card_tickets_footer': 'Click to access ticket management →',
+        'card_chat_title': 'Live Chats',
+        'card_chat_active': 'Active',
+        'card_chat_closed': 'Closed',
+        'card_chat_footer': 'Click to access chats →',
+        'card_users_title': 'User Management',
+        'card_users_total': 'Total',
+        'card_users_active': 'Active',
+        'card_users_footer': 'Click to access users →',
+        'card_forum_title': 'Forum Management',
+        'card_forum_threads': 'Threads',
+        'card_forum_reports': 'Reports',
+        'card_forum_footer': 'Click to access forum →',
+        'card_banned_title': 'Banned Users',
+        'card_banned_count': 'Banned Count',
+        'card_banned_last': 'Last Ban',
+        'card_banned_footer': 'Click to view banned users →',
+        'card_stats_title': 'Statistics',
+        'card_stats_visits': 'Total Visits',
+        'card_stats_response': 'Response Rate',
+        'card_stats_footer': 'Click to view statistics →',
+        'card_activity_title': 'Activity Log',
+        'card_activity_today': "Today's Activities",
+        'card_activity_last': 'Last Activity',
+        'card_activity_footer': 'Click to view activity log →',
+        'card_settings_title': 'Settings',
+        'card_settings_label': 'System Settings',
+        'card_settings_footer': 'Click to access settings →',
     }
 };
 
@@ -92,37 +165,38 @@ class LanguageManager {
     }
 
     init() {
-        // طبّق اللغة فوراً على <html> قبل أي حاجة
+        // طبّق على <html> فوراً
         this._applyToHTML(this.currentLanguage);
 
-        // لما DOM يكون جاهز، طبّق على <body> والعناصر
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 this._applyToBody(this.currentLanguage);
                 this._applyTranslations(this.currentLanguage);
+                // راقب تحميل sidebar وأي محتوى جديد
+                this._watchDOM();
             }, { once: true });
         } else {
             this._applyToBody(this.currentLanguage);
             this._applyTranslations(this.currentLanguage);
+            this._watchDOM();
         }
     }
 
     loadLanguage() {
-        const saved = localStorage.getItem('mad3oom-language');
-        if (saved === 'ar' || saved === 'en') return saved;
+        try {
+            const saved = localStorage.getItem('mad3oom-language');
+            if (saved === 'ar' || saved === 'en') return saved;
+        } catch(e) {}
         return navigator.language.startsWith('ar') ? 'ar' : 'en';
     }
 
     saveLanguage(lang) {
-        localStorage.setItem('mad3oom-language', lang);
+        try { localStorage.setItem('mad3oom-language', lang); } catch(e) {}
         this.currentLanguage = lang;
     }
 
     setLanguage(lang) {
-        if (lang !== 'ar' && lang !== 'en') {
-            console.warn(`Invalid language: ${lang}`);
-            return;
-        }
+        if (lang !== 'ar' && lang !== 'en') return;
         this.saveLanguage(lang);
         this._applyToHTML(lang);
         this._applyToBody(lang);
@@ -130,29 +204,17 @@ class LanguageManager {
         this.notifyListeners();
     }
 
-    /**
-     * يطبّق dir و lang على <html> فقط — بيشتغل حتى لو DOM لسه مش جاهز
-     */
     _applyToHTML(lang) {
-        const html = document.documentElement;
-        html.lang = lang;
-        html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     }
 
-    /**
-     * يطبّق dir على <body> — بس لما body يكون موجود
-     * بيستخدم setAttribute مش style.direction عشان يتوارث صح
-     */
     _applyToBody(lang) {
         if (!document.body) return;
-        // نمسح أي inline style قديم ونسيب الـ dir يتوارث من <html>
         document.body.style.removeProperty('direction');
         document.body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     }
 
-    /**
-     * يترجم كل العناصر اللي عندها data-i18n
-     */
     _applyTranslations(lang) {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
@@ -161,10 +223,17 @@ class LanguageManager {
         });
     }
 
-    // ===== Legacy method — محتفظ بيه عشان كود تاني ممكن يستخدمه =====
-    updatePageLanguage(lang) {
-        this._applyToHTML(lang);
-        this._applyToBody(lang);
+    // يراقب إضافة عناصر جديدة للـ DOM (مثل sidebar بعد fetch)
+    // ويطبق الترجمة عليها تلقائياً
+    _watchDOM() {
+        if (this._domObserver) return;
+        this._domObserver = new MutationObserver(() => {
+            this._applyTranslations(this.currentLanguage);
+        });
+        this._domObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     }
 
     translate(key) {
@@ -173,26 +242,20 @@ class LanguageManager {
             || key;
     }
 
-    onLanguageChange(callback) {
-        this.listeners.push(callback);
+    // legacy
+    updatePageLanguage(lang) {
+        this._applyToHTML(lang);
+        this._applyToBody(lang);
     }
 
-    notifyListeners() {
-        this.listeners.forEach(cb => cb(this.currentLanguage));
-    }
-
+    onLanguageChange(callback) { this.listeners.push(callback); }
+    notifyListeners() { this.listeners.forEach(cb => cb(this.currentLanguage)); }
     getLanguage() { return this.currentLanguage; }
-    isArabic()    { return this.currentLanguage === 'ar'; }
-    isEnglish()   { return this.currentLanguage === 'en'; }
+    isArabic()   { return this.currentLanguage === 'ar'; }
+    isEnglish()  { return this.currentLanguage === 'en'; }
 }
 
-// مثيل عام
 const languageManager = new LanguageManager();
 
-if (typeof window !== 'undefined') {
-    window.languageManager = languageManager;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = languageManager;
-}
+if (typeof window !== 'undefined') window.languageManager = languageManager;
+if (typeof module !== 'undefined' && module.exports) module.exports = languageManager;
