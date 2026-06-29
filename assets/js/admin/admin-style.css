@@ -405,7 +405,7 @@ body {
 /* ==================== Main Content Area ==================== */
 .admin-main {
     flex: 1;
-    padding: 2rem 1.5rem;
+    padding: 1rem 1rem;
     width: 100%;
     box-sizing: border-box;
 }
