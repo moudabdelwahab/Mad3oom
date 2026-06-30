@@ -39,30 +39,6 @@
     </script>
     <link rel="stylesheet" href="subscriptions-styles.css">
     <script src="theme-manager.js" defer></script>
-    <style>
-        .discount-badge {
-            background: var(--color-danger);
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            margin-right: 0.5rem;
-            font-weight: bold;
-        }
-        .limited-time {
-            color: var(--color-danger);
-            font-size: 0.85rem;
-            font-weight: bold;
-            margin-top: 0.5rem;
-            display: block;
-        }
-        .old-price {
-            text-decoration: line-through;
-            color: var(--color-text-secondary);
-            font-size: 1rem;
-            margin-left: 0.5rem;
-        }
-    </style>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -128,10 +104,15 @@
                 </button>
             </div>
 
+            <!-- Launch offer banner -->
+            <p class="launch-offer-banner">
+                * أسعار الإطلاق سارية لمدة 6 أشهر أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب
+            </p>
+
             <!-- Pricing Cards -->
             <div class="pricing-grid">
                 <!-- Free Plan -->
-                <div class="pricing-card free-plan">
+                <div class="pricing-card free-plan" data-plan="free">
                     <div class="plan-header">
                         <h3 class="plan-name">مجاني</h3>
                         <p class="plan-description">مثالي للمبتدئين</p>
@@ -180,55 +161,156 @@
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                             </svg>
-                            <span>API للشات (ربط خارجي)</span>
+                            <span>ربط واتساب أو رد آلي</span>
                         </div>
                     </div>
 
                     <a href="sign-up.html" class="btn btn-secondary btn-full">ابدأ الآن</a>
                 </div>
 
-                <!-- Premium Plan -->
-                <div class="pricing-card premium-plan featured">
-                    <div class="badge">الأكثر شهرة</div>
+                <!-- Support Only Plan -->
+                <div class="pricing-card" data-plan="support">
                     <div class="plan-header">
-                        <h3 class="plan-name">مدفوع</h3>
-                        <p class="plan-description">الخيار الأمثل للمحترفين</p>
+                        <h3 class="plan-name">الدعم الفني</h3>
+                        <p class="plan-description">لإدارة تذاكر الدعم الفني باحترافية</p>
                     </div>
 
                     <div class="plan-price">
                         <span class="currency">$</span>
-                        <span class="amount" id="premiumAmount">15</span>
-                        <span class="period" id="premiumPeriod">/شهر</span>
-                        <span id="premiumOldPrice" class="old-price" style="display: none;">180</span>
-                        <span id="premiumDiscount" class="discount-badge" style="display: none;">خصم 17%</span>
+                        <span class="amount" data-monthly="15" data-yearly="150">15</span>
+                        <span class="period">/شهر</span>
+                        <span class="old-price" data-monthly="25" data-yearly="180">25</span>
+                        <span class="discount-badge" data-monthly="خصم 40%" data-yearly="خصم 17%">خصم 40%</span>
                     </div>
-                    
-                    <span id="limitedTimeOffer" class="limited-time" style="display: none;">* عرض لفترة محدودة</span>
+
+                    <span class="limited-time">* عرض إطلاق لفترة محدودة</span>
 
                     <div class="plan-features">
                         <div class="feature">
                             <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
-                            <span>جميع مميزات الخطة المجانية</span>
+                            <span>عدد لا محدود من التذاكر اليومية</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>نطاق فرعي مجاني (مثل: company.mad3oom.online)</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>مدير واحد مع إمكانية إضافة حتى 25 عضوًا</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>سجل خاص بالأعضاء</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>نظام الإحصائيات المتقدمة</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>سجل نشاط لكل أعضاء الفريق</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-full" data-plan-btn="support">اشترك الآن</button>
+                </div>
+
+                <!-- WhatsApp Plan -->
+                <div class="pricing-card" data-plan="whatsapp">
+                    <div class="plan-header">
+                        <h3 class="plan-name">واتساب</h3>
+                        <p class="plan-description">ربط رقم واتساب الخاص بك بنظام الدعم</p>
+                    </div>
+
+                    <div class="plan-price">
+                        <span class="currency">$</span>
+                        <span class="amount" data-monthly="20" data-yearly="200">20</span>
+                        <span class="period">/شهر</span>
+                        <span class="old-price" data-monthly="30" data-yearly="240">30</span>
+                        <span class="discount-badge" data-monthly="خصم 33%" data-yearly="خصم 17%">خصم 33%</span>
+                    </div>
+
+                    <span class="limited-time">* عرض إطلاق لفترة محدودة</span>
+                    <p class="bonus-note" data-monthly="+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا" data-yearly="+ اشترك بخدمة الرد الآلي واحصل على 3 أشهر إضافية مجانًا">+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا</p>
+
+                    <div class="plan-features">
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>ربط رقم واتساب الخاص بك بالمنصة</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>استقبال وإرسال الرسائل من داخل لوحة التحكم</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>إشعارات فورية بالرسائل الجديدة</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>إمكانية إضافة خدمة الرد الآلي لاحقًا</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-full" data-plan-btn="whatsapp">اشترك الآن</button>
+                </div>
+
+                <!-- Support + WhatsApp Bundle -->
+                <div class="pricing-card bundle-plan featured" data-plan="bundle">
+                    <div class="badge">الأكثر توفيرًا</div>
+                    <div class="plan-header">
+                        <h3 class="plan-name">دعم فني + واتساب</h3>
+                        <p class="plan-description">الباقة الشاملة لكل خدمات الدعم</p>
+                    </div>
+
+                    <div class="plan-price">
+                        <span class="currency">$</span>
+                        <span class="amount" data-monthly="30" data-yearly="330">30</span>
+                        <span class="period">/شهر</span>
+                        <span class="old-price" data-monthly="55" data-yearly="660">55</span>
+                        <span class="discount-badge" data-monthly="خصم 45%" data-yearly="خصم 50%">خصم 45%</span>
+                    </div>
+
+                    <span class="limited-time">* عرض إطلاق لفترة محدودة</span>
+
+                    <div class="plan-features">
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>جميع مميزات خطة الدعم الفني</span>
+                        </div>
+                        <div class="feature">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>جميع مميزات خطة الواتساب</span>
                         </div>
                         <div class="feature">
                             <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
                             <span>دعم أولوية 24/7</span>
-                        </div>
-                        <div class="feature">
-                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>API للشات (ربط بموقعك أو تطبيقك)</span>
-                        </div>
-                        <div class="feature">
-                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>دعم الرد الآلي (البوت) والرد البشري</span>
                         </div>
                         <div class="feature">
                             <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -244,7 +326,7 @@
                         </div>
                     </div>
 
-                    <button id="subscribeBtn" class="btn btn-primary btn-full">اشترك الآن</button>
+                    <button class="btn btn-primary btn-full" data-plan-btn="bundle">اشترك الآن</button>
                 </div>
             </div>
 
@@ -256,32 +338,65 @@
                         <tr>
                             <th>الميزة</th>
                             <th>مجاني</th>
-                            <th>مدفوع</th>
+                            <th>الدعم الفني</th>
+                            <th>واتساب</th>
+                            <th>دعم فني + واتساب</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>نظام التذاكر</td>
                             <td><span class="check">✓</span></td>
-                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓ غير محدود</span></td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="check">✓ غير محدود</span></td>
                         </tr>
                         <tr>
                             <td>المحادثة مع الدعم</td>
                             <td>ساعات العمل فقط</td>
                             <td>24/7</td>
+                            <td>24/7</td>
+                            <td>24/7</td>
                         </tr>
                         <tr>
-                            <td>API للشات (ربط خارجي)</td>
+                            <td>نطاق فرعي مجاني</td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="check">✓</span></td>
                             <td><span class="cross">✗</span></td>
                             <td><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td>الرد الآلي والبشري عبر API</td>
+                            <td>عدد أعضاء الفريق</td>
+                            <td>1</td>
+                            <td>حتى 25 عضوًا</td>
+                            <td>1</td>
+                            <td>حتى 25 عضوًا</td>
+                        </tr>
+                        <tr>
+                            <td>ربط رقم واتساب</td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td>الرد الآلي (إضافة اختيارية)</td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td>سجل نشاط الفريق والإحصائيات المتقدمة</td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="check">✓</span></td>
                             <td><span class="cross">✗</span></td>
                             <td><span class="check">✓</span></td>
                         </tr>
                         <tr>
                             <td>نظام النقاط</td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
                             <td><span class="check">✓</span></td>
                             <td><span class="check">✓ مضاعف</span></td>
                         </tr>
@@ -289,9 +404,13 @@
                             <td>الدعم الأولوي</td>
                             <td><span class="cross">✗</span></td>
                             <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
                         </tr>
                         <tr>
                             <td>شارة خاصة</td>
+                            <td><span class="cross">✗</span></td>
+                            <td><span class="cross">✗</span></td>
                             <td><span class="cross">✗</span></td>
                             <td><span class="check">✓</span></td>
                         </tr>
@@ -383,32 +502,32 @@
                                 <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
                             </linearGradient>
                         </defs>
-                        
+
                         <!-- Building -->
                         <rect x="50" y="100" width="300" height="150" fill="url(#grad1)" rx="10"/>
-                        
+
                         <!-- Windows -->
                         <rect x="70" y="120" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="120" y="120" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="170" y="120" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="220" y="120" width="30" height="30" fill="#0f172a" rx="3"/>
-                        
+
                         <rect x="70" y="170" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="120" y="170" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="170" y="170" width="30" height="30" fill="#0f172a" rx="3"/>
                         <rect x="220" y="170" width="30" height="30" fill="#0f172a" rx="3"/>
-                        
+
                         <!-- Door -->
                         <rect x="175" y="220" width="50" height="60" fill="#a855f7" rx="3"/>
                         <circle cx="220" cy="250" r="3" fill="#0f172a"/>
-                        
+
                         <!-- People -->
                         <circle cx="100" cy="280" r="8" fill="#3b82f6"/>
                         <rect x="95" y="290" width="10" height="15" fill="#3b82f6"/>
-                        
+
                         <circle cx="200" cy="280" r="8" fill="#06b6d4"/>
                         <rect x="195" y="290" width="10" height="15" fill="#06b6d4"/>
-                        
+
                         <circle cx="300" cy="280" r="8" fill="#a855f7"/>
                         <rect x="295" y="290" width="10" height="15" fill="#a855f7"/>
                     </svg>
@@ -439,6 +558,11 @@
                 <div class="faq-item">
                     <h3 class="faq-question">هل يمكنني استخدام النقاط للحصول على خصومات؟</h3>
                     <p class="faq-answer">نعم، يمكنك استخدام النقاط للحصول على خصومات على الخطط المدفوعة والمزايا الإضافية.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3 class="faq-question">ما هي مدة عروض الإطلاق؟</h3>
+                    <p class="faq-answer">أسعار الإطلاق سارية لمدة 6 أشهر من تاريخ الإطلاق أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب.</p>
                 </div>
 
                 <div class="faq-item">
