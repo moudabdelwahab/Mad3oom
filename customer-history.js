@@ -1,6 +1,6 @@
-import * as dataClient from 'api-config.js';
-import { checkAdminAuth, updateAdminUI } from 'assets/js/admin/auth.js';
-import { initSidebar } from 'assets/js/admin/sidebar.js';
+import * as dataClient from '/api-config.js';
+import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+import { initSidebar } from '/assets/js/admin/sidebar.js';
 
 // طبقة الوصول للبيانات - تُستورد من إعدادات المنصة الداخلية فقط
 const db = dataClient.supabase;
