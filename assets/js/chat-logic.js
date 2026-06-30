@@ -1,6 +1,7 @@
 import { supabase } from '/api-config.js';
+import { getBotReply } from '/assets/js/chatbot-engine.js';
 
-console.log("CHAT LOGIC VERSION 3.1 - FIXED WHATSAPP STYLE");
+console.log("CHAT LOGIC VERSION 4.0 - LOCAL BOT ENGINE (NO MODEL DEPENDENCY)");
 
 /**
  * تنقية أي نص قادم من المستخدم (رسائل الشات، الأسماء...) قبل حقنه داخل innerHTML
@@ -40,21 +41,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sendBtn = document.getElementById('sendBtn');
     const searchInput = document.getElementById('searchInput');
     const closeChat = document.getElementById('closeChat');
-    
+
     // Modal Elements
     const settingsBtn = document.getElementById('settingsBtn');
     const settingsModal = document.getElementById('settingsModal');
     const closeSettingsModal = document.getElementById('closeSettingsModal');
     const saveSettings = document.getElementById('saveSettings');
     const cancelSettings = document.getElementById('cancelSettings');
-    
+
     const exportModal = document.getElementById('exportModal');
     const exportExcel = document.getElementById('exportExcel');
     const exportPDF = document.getElementById('exportPDF');
     const archiveChats = document.getElementById('archiveChats');
     const closeExportModal = document.getElementById('closeExportModal');
     const cancelExport = document.getElementById('cancelExport');
-    
+
     const exportSingleModal = document.getElementById('exportSingleModal');
     const exportSingleExcel = document.getElementById('exportSingleExcel');
     const exportSinglePDF = document.getElementById('exportSinglePDF');
@@ -70,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imageUploadBtn = document.getElementById('imageUploadBtn');
     const imageInput = document.getElementById('imageInput');
     const voiceRecordBtn = document.getElementById('voiceRecordBtn');
-    
+
     let mediaRecorder = null;
     let audioChunks = [];
 
@@ -90,9 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = '/sign-in.html';
             return;
         }
-        
+
         currentUser = user;
-        
+
         // التحقق من الدور من البروفايل لضمان الدقة
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
         const role = profile?.role || user.user_metadata?.role || 'customer';
@@ -100,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
         if (!isAdmin) {
-            // تحميل دردشة العميل
+            await loadBotSettings(); // البوت المحلي محتاج إعدادات bot_settings (رسالة الترحيب وتأكيد التذكرة)
             await loadCustomerChat();
             setupCustomerChatEventListeners();
             return;
@@ -182,7 +183,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             chatMessages.innerHTML = '';
             (messages || []).forEach(msg => appendCustomerMessage(msg));
             chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // لو الجلسة جديدة وملهاش رسائل، نخلي البوت يبدأ بترحيب تلقائي
+            if ((messages || []).length === 0) {
+                await sendInitialGreeting();
+            }
         }
+    }
+
+    // ===== INITIAL GREETING (أول ما العميل يفتح الشات) =====
+    async function sendInitialGreeting() {
+        if (!currentSessionId) return;
+        const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
+        const greetingText = `${welcome} تحب أساعدك إزاي؟ تقدر تسألني عن الاشتراكات والأسعار 💳، أو لو عندك مشكلة تقنية قولّي وهافتحلك تذكرة فورًا 🛠️`;
+
+        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'idle' } }).eq('id', currentSessionId);
+
+        await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            sender_id: null,
+            message_text: greetingText,
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
     }
 
     // ===== APPEND CUSTOMER MESSAGE =====
@@ -233,7 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function sendCustomerMessage() {
         const chatInput = document.getElementById('chatInput');
         if (!chatInput) return;
-        
+
         const text = chatInput.value.trim();
         if (!text || !currentSessionId || !currentUser) return;
 
@@ -254,35 +277,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // 2. استدعاء Hugging Face عبر Supabase Edge Function
+        // 2. الرد عن طريق المحرك المحلي (بدون أي اعتماد على موديل خارجي)
         try {
             if (typingIndicator) typingIndicator.style.display = 'block';
-            
-            // جلب السياق من قاعدة البيانات (معلومات عن المنتج أو الخدمة)
-            const context = await fetchBotContext(text);
-            
-            const res = await fetch("https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/huggingface-chatbot", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
-                },
-                body: JSON.stringify({
-                    message: text,
-                    context: context,
-                    session_id: currentSessionId
-                })
-            });
 
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+            // لو الجلسة في وضع "يدوي" (الأدمن بيرد بنفسه)، البوت يسكت
+            if (currentSession?.is_manual_mode) {
+                return;
             }
 
-            const data = await res.json();
-            const reply = data.reply || data.generated_text || "عذراً، لم أتمكن من فهم ذلك.";
+            // جلب أحدث bot_state للجلسة (تحسبًا لتعديل خارجي أو تبويب تاني)
+            const { data: freshSession } = await supabase
+                .from('chat_sessions')
+                .select('bot_state, is_manual_mode')
+                .eq('id', currentSessionId)
+                .single();
 
-            // 3. حفظ رد البوت في قاعدة البيانات
+            if (freshSession?.is_manual_mode) return;
+
+            const { reply } = await getBotReply({
+                text,
+                supabase,
+                sessionId: currentSessionId,
+                userId: currentUser.id,
+                botState: freshSession?.bot_state || {},
+                botSettings
+            });
+
             await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
                 sender_id: null,
@@ -293,36 +314,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } catch (err) {
             console.error("خطأ في البوت:", err);
-            
-            // إرسال رسالة خطأ للمستخدم في الدردشة
+
             await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
                 sender_id: null,
-                message_text: `عذراً، حدث خطأ في معالجة طلبك. الرجاء محاولة لاحقاً أو التواصل مع فريق الدعم. (${err.message})`,
+                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. تقدر تكتب "عندي مشكلة" وهافتحلك تذكرة دعم مباشرة.',
                 is_admin_reply: false,
                 is_bot_reply: true
             });
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
-        }
-    }
-
-    // ===== FETCH BOT CONTEXT =====
-    async function fetchBotContext(userMessage) {
-        try {
-            // يمكن تطوير هذه الدالة لجلب معلومات ذات صلة من قاعدة البيانات
-            // على سبيل المثال: معلومات عن المنتجات، الأسعار، إلخ
-            
-            // للآن، سنرجع رسالة ترحيب أساسية
-            const { data: settings } = await supabase
-                .from('bot_settings')
-                .select('*')
-                .single();
-            
-            return settings?.welcome_message || 'أنت تتحدث مع بوت مساعد من منصة مدعوم';
-        } catch (err) {
-            console.error('خطأ في جلب السياق:', err);
-            return '';
         }
     }
 
@@ -350,13 +351,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== LOAD BOT SETTINGS =====
     async function loadBotSettings() {
         const { data, error } = await supabase.from('bot_settings').select('*').single();
-        
+
         if (error) {
             console.error('Error loading bot settings:', error);
             botSettings = {};
             return;
         }
-        
+
         botSettings = data;
     }
 
@@ -383,15 +384,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderChatsList(sessions) {
         if (!chatsList) return;
         chatsList.innerHTML = '';
-        
+
         sessions.forEach(session => {
             const lastMsg = session.chat_messages?.[session.chat_messages.length - 1];
             const time = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
-            
+
             const item = document.createElement('div');
             item.className = `chat-item ${currentSessionId === session.id ? 'active' : ''}`;
             item.onclick = () => selectChat(session);
-            
+
             item.innerHTML = `
                 <div class="chat-item-avatar">
                     <img src="${sanitizeUrl(session.profiles?.avatar_url) || '/assets/images/default-avatar.png'}" alt="User">
@@ -411,10 +412,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function selectChat(session) {
         currentSessionId = session.id;
         currentSession = session;
-        
+
         if (emptyState) emptyState.style.display = 'none';
         if (chatMain) chatMain.style.display = 'flex';
-        
+
         // Update Header
         const headerName = document.getElementById('chatHeaderName');
         const headerImg = document.getElementById('chatHeaderImg');
@@ -422,7 +423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (headerImg) headerImg.src = session.profiles?.avatar_url || '/assets/images/default-avatar.png';
 
         await loadMessages(session.id);
-        
+
         // Subscribe to changes
         if (messageChannel) supabase.removeChannel(messageChannel);
         messageChannel = supabase.channel(`chat:${session.id}`)
@@ -435,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 appendMessage(payload.new);
             })
             .subscribe();
-            
+
         renderChatsList(allSessions);
     }
 
@@ -447,7 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             .order('created_at', { ascending: true });
 
         if (error) return;
-        
+
         if (messagesContainer) {
             messagesContainer.innerHTML = '';
             data.forEach(msg => appendMessage(msg));
@@ -457,17 +458,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendMessage(msg) {
         if (!messagesContainer) return;
-        
+
         const isOwn = msg.is_admin_reply;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        
+
         const div = document.createElement('div');
         div.className = `msg ${isOwn ? 'sent' : 'received'}`;
         div.innerHTML = `
             <span>${escapeHtml(msg.message_text)}</span>
             <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 4px;">${time}</div>
         `;
-        
+
         messagesContainer.appendChild(div);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
@@ -482,7 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (searchInput) {
             searchInput.oninput = (e) => {
                 const term = e.target.value.toLowerCase();
-                const filtered = allSessions.filter(s => 
+                const filtered = allSessions.filter(s =>
                     (s.profiles?.full_name || '').toLowerCase().includes(term)
                 );
                 renderChatsList(filtered);
@@ -493,9 +494,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text || !currentSessionId) return;
-        
+
         messageInput.value = '';
-        
+
+        // لما الأدمن يرد يدوي، نوقف البوت في الجلسة دي عشان منردش مرتين
+        await supabase.from('chat_sessions').update({ is_manual_mode: true }).eq('id', currentSessionId);
+
         await supabase.from('chat_messages').insert({
             session_id: currentSessionId,
             sender_id: currentUser.id,
