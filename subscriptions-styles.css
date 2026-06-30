@@ -20,7 +20,7 @@
     --color-sidebar-bg: #002244;
     --color-sidebar-active: #0077CC;
     --color-accent-hover: #0055AA;
-    
+
     /* Legacy mappings for compatibility */
     --brand-navy: var(--color-primary);
     --brand-cyan: var(--color-accent);
@@ -41,16 +41,16 @@
     --border-color: var(--color-border);
     --border-color-hover: var(--color-accent);
     --hover-bg: rgba(0, 119, 204, 0.08);
-    
+
     /* Shadows */
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
     --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
-    
+
     /* Input backgrounds */
     --input-bg: #FFFFFF;
     --input-text: var(--color-text);
-    
+
     /* Responsive spacing */
     --container-padding: clamp(1rem, 4vw, 2rem);
     --section-padding: clamp(2rem, 6vw, 4rem);
@@ -76,7 +76,7 @@
     --color-sidebar-bg: #121212;
     --color-sidebar-active: #0088DD;
     --color-accent-hover: #0066AA;
-    
+
     /* Legacy mappings for compatibility */
     --brand-navy: var(--color-primary);
     --brand-cyan: var(--color-accent);
@@ -97,12 +97,12 @@
     --border-color: var(--color-border);
     --border-color-hover: var(--color-accent);
     --hover-bg: rgba(0, 136, 221, 0.15);
-    
+
     /* Shadows */
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
     --shadow-glow: 0 0 20px rgba(0, 136, 221, 0.4);
-    
+
     /* Input backgrounds */
     --input-bg: #242424;
     --input-text: var(--color-text);
@@ -261,7 +261,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 1.5rem;
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
 }
 
 .toggle-label {
@@ -293,6 +293,14 @@ body {
     color: #FFFFFF;
 }
 
+/* ==================== Launch offer banner ==================== */
+.launch-offer-banner {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+}
+
 /* ==================== Pricing Section ==================== */
 .pricing-section {
     padding: var(--section-padding) 0;
@@ -300,9 +308,10 @@ body {
 
 .pricing-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 2rem;
     margin-bottom: 4rem;
+    align-items: stretch;
 }
 
 .pricing-card {
@@ -325,7 +334,6 @@ body {
 .pricing-card.featured {
     border-color: var(--color-accent);
     background: rgba(0, 119, 204, 0.05);
-    transform: scale(1.05);
 }
 
 .badge {
@@ -345,7 +353,7 @@ body {
 }
 
 .plan-name {
-    font-size: clamp(1.5rem, 4vw, 1.8rem);
+    font-size: clamp(1.4rem, 4vw, 1.7rem);
     margin-bottom: 0.5rem;
     color: var(--color-text);
 }
@@ -356,9 +364,10 @@ body {
 }
 
 .plan-price {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
     display: flex;
     align-items: baseline;
+    flex-wrap: wrap;
     gap: 0.5rem;
 }
 
@@ -368,7 +377,7 @@ body {
 }
 
 .amount {
-    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-size: clamp(1.75rem, 5vw, 2.25rem);
     font-weight: bold;
     background: linear-gradient(135deg, var(--color-accent), var(--color-primary-variant));
     -webkit-background-clip: text;
@@ -379,6 +388,38 @@ body {
 .period {
     color: var(--color-text-secondary);
     font-size: 1rem;
+}
+
+.old-price {
+    text-decoration: line-through;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+}
+
+.discount-badge {
+    background: var(--color-danger);
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.limited-time {
+    color: var(--color-danger);
+    font-size: 0.85rem;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.bonus-note {
+    color: var(--color-success);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
 }
 
 .coming-soon-banner {
@@ -400,6 +441,7 @@ body {
 .plan-features {
     flex: 1;
     margin-bottom: 2rem;
+    margin-top: 1rem;
 }
 
 .feature {
@@ -510,6 +552,7 @@ body {
     color: var(--color-text);
     font-weight: 600;
     border-bottom: 2px solid var(--color-border);
+    white-space: nowrap;
 }
 
 .comparison-table td {
@@ -710,55 +753,51 @@ body {
     .hero-title {
         font-size: clamp(1.5rem, 5vw, 2rem);
     }
-    
+
     .section-title {
         font-size: clamp(1.5rem, 5vw, 1.8rem);
     }
-    
+
     .pricing-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
-    
+
     .pricing-card {
         padding: clamp(1.5rem, 4vw, 2rem);
     }
-    
-    .pricing-card.featured {
-        transform: scale(1);
-    }
-    
+
     .amount {
         font-size: clamp(1.75rem, 6vw, 2rem);
     }
-    
+
     .toggle-container {
         flex-direction: column;
         gap: 1rem;
     }
-    
+
     .enterprise-card {
         grid-template-columns: 1fr;
         padding: clamp(1.5rem, 4vw, 2rem);
         gap: 2rem;
     }
-    
+
     .enterprise-title {
         font-size: clamp(1.5rem, 4vw, 1.75rem);
     }
-    
+
     .faq-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .cta-buttons {
         flex-direction: column;
     }
-    
+
     .cta-buttons .btn {
         width: 100%;
     }
-    
+
     .comparison-section {
         padding: clamp(1.25rem, 3vw, 1.5rem);
         overflow-x: auto;
@@ -770,11 +809,11 @@ body {
     .pricing-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .faq-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .enterprise-card {
         grid-template-columns: 1fr;
     }
@@ -785,31 +824,27 @@ body {
     .hero-title {
         font-size: clamp(2rem, 5vw, 2.5rem);
     }
-    
+
     .section-title {
         font-size: clamp(1.8rem, 4vw, 2rem);
     }
-    
+
     .pricing-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
-    .pricing-card.featured {
-        transform: scale(1);
-    }
-    
+
     .enterprise-card {
         grid-template-columns: 1fr;
     }
-    
+
     .faq-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .toggle-container {
         flex-direction: row;
     }
-    
+
     .nav-menu {
         gap: 1rem;
         font-size: clamp(0.875rem, 1.5vw, 0.9rem);
@@ -819,13 +854,13 @@ body {
 /* Large devices (desktops): 992px-1199px */
 @media (min-width: 992px) and (max-width: 1199px) {
     .pricing-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .enterprise-card {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .faq-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -834,13 +869,13 @@ body {
 /* Extra large (wide screens): 1200px+ */
 @media (min-width: 1200px) {
     .pricing-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
     }
-    
+
     .enterprise-card {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .faq-grid {
         grid-template-columns: repeat(3, 1fr);
     }
