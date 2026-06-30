@@ -23,7 +23,7 @@
             <form id="emailForm">
                 <div style="margin-bottom: 1.5rem;">
                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">المستلم</label>
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                             <input type="radio" name="recipient_type" value="single" checked style="cursor: pointer;">
                             <span>مستخدم واحد</span>
@@ -32,9 +32,28 @@
                             <input type="radio" name="recipient_type" value="all" style="cursor: pointer;">
                             <span>كل المستخدمين</span>
                         </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="recipient_type" value="manual" style="cursor: pointer;">
+                            <span>بريد يدوي (خارج المنصة)</span>
+                        </label>
                     </div>
+
                     <select id="userSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
                         <option value="">جاري تحميل المستخدمين...</option>
+                    </select>
+
+                    <div id="manualEmailWrap" style="display: none; gap: 1rem; flex-wrap: wrap;">
+                        <input type="email" id="manualEmail" placeholder="البريد الإلكتروني" style="flex: 1; min-width: 220px; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
+                        <input type="text" id="manualName" placeholder="اسم المستلم (اختياري)" style="flex: 1; min-width: 220px; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="fromSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">الإرسال من</label>
+                    <select id="fromSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
+                        <option value="info@mad3oom.online">info@mad3oom.online</option>
+                        <option value="support@mad3oom.online">support@mad3oom.online</option>
+                        <option value="no-reply@mad3oom.online">no-reply@mad3oom.online</option>
                     </select>
                 </div>
 
@@ -46,6 +65,13 @@
                 <div style="margin-bottom: 1.5rem;">
                     <label for="emailBody" style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">محتوى الرسالة</label>
                     <textarea id="emailBody" required rows="10" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; resize: vertical; background: var(--input-bg); color: var(--color-text);" placeholder="أدخل محتوى الرسالة"></textarea>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="emailAttachment" style="display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--color-text);">إرفاق ملف أو صورة (اختياري)</label>
+                    <input type="file" id="emailAttachment" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" style="width: 100%; padding: 0.6rem; border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: inherit; background: var(--input-bg); color: var(--color-text);">
+                    <div id="attachmentInfo" style="margin-top: 0.5rem; font-size: 0.85em; color: var(--color-text-secondary, #888);"></div>
+                    <div style="font-size: 0.8em; color: var(--color-text-secondary, #888); margin-top: 0.25rem;">الحد الأقصى للملف 5 ميجابايت تقريبًا.</div>
                 </div>
 
                 <div style="display: flex; gap: 1rem; align-items: center;">
@@ -65,6 +91,9 @@
         @keyframes slideUp {
             from { transform: translate(-50%, 20px); opacity: 0; }
             to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        #manualEmailWrap.active {
+            display: flex !important;
         }
     </style>
 
