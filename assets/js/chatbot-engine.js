@@ -1,19 +1,22 @@
 /**
- * chatbot-engine.js
+ * chatbot-engine.js (v2)
  * ------------------------------------------------------------
- * محرك رد آلي محلي 100% (مفيش أي اتصال بموديل ذكاء اصطناعي خارجي).
- * بيتعرف على نية العميل (ترحيب / سؤال عن الاشتراكات / مشكلة) من خلال
- * مطابقة كلمات مفتاحية بالعامية المصرية والفصحى، وبيدير "فلو" بسيط
- * (state machine) لجمع بيانات المشكلة وفتح تذكرة في جدول tickets.
+ * محرك رد آلي محلي 100% (من غير أي اتصال بموديل ذكاء اصطناعي خارجي).
+ * بيتعرف على نية العميل من كلمات مفتاحية بالعامية المصرية، وبيدير فلو بسيط
+ * (state machine) محفوظ في chat_sessions.bot_state عشان "يفتكر" سياق
+ * المحادثة بين رسالة والتانية (هل هو في نص فتح تذكرة، آخر موضوع اتكلم فيه...).
  *
- * مصمم عشان يتركب بسهولة جوه chat-logic.js مكان نداء huggingface-chatbot.
+ * أمان البيانات (مهم جدًا):
+ * - كل استعلام هنا بيتفّلتر صراحةً بـ user_id = صاحب الجلسة (دفاع إضافي
+ *   فوق الـ RLS بتاع قاعدة البيانات اللي بيمنع أصلاً أي عميل يشوف
+ *   بيانات عميل تاني).
+ * - الوصول الكامل لكل البيانات والتعديل عليها متاح بس للحسابين:
+ *   support@mad3oom.online و info@mad3oom.online (عن طريق is_main_admin()
+ *   على مستوى قاعدة البيانات نفسها)، مش من خلال أي كود في الواجهة.
  *
  * إزاي تضيف موديل لاحقًا (اختياري):
- *   - فعّل bot_settings.ai_enabled = true
- *   - في الفانكشن getBotReply تحت، لو محصلش تطابق محلي (fallback) وكان
- *     ai_enabled = true، نادي الـ Edge Function بتاعتك (huggingface-chatbot
- *     أو أي حاجة تانية) وارجع ردها بدل رسالة الـ fallback المحلية.
- *     مكان الإضافة متعلّم بكومنت "MODEL_HOOK" تحت.
+ *   فعّل bot_settings.ai_enabled، وفي مكان "MODEL_HOOK" تحت نادي الـ
+ *   Edge Function بتاعتك وارجع ردها بدل رسالة الـ fallback المحلية.
  * ------------------------------------------------------------
  */
 
@@ -37,10 +40,10 @@ function matchAny(normalizedText, patterns) {
     return patterns.some(p => normalizedText.includes(normalizeArabic(p)));
 }
 
-// ===================== الكلمات المفتاحية الافتراضية =====================
+// ===================== الكلمات المفتاحية =====================
 const DEFAULT_GREETING_PATTERNS = [
     'مرحبا', 'اهلا', 'هاي', 'هلا', 'السلام عليكم', 'صباح الخير', 'مساء الخير',
-    'ezayak', 'ezayek', 'hi', 'hello', 'هاى', 'هاي فيه', 'تمام', 'ايه الاخبار'
+    'ezayak', 'ezayek', 'hi', 'hello', 'هاى', 'ايه الاخبار'
 ];
 
 const THANKS_PATTERNS = [
@@ -53,6 +56,24 @@ const DEFAULT_PROBLEM_PATTERNS = [
     'مشكله', 'عطل', 'مش شغال', 'بلاغ', 'شكوي', 'معطل', 'واقف', 'مش عامل',
     'مش بيشتغل', 'فيه خطا', 'في خطأ', 'error', 'bug', 'problem', 'issue',
     'مش راضي يفتح', 'علق', 'هانج', 'بطئ', 'بطيء', 'مش بيرد'
+];
+
+// نية الاستفسار عن تذكرة قائمة (مش فتح تذكرة جديدة)
+const TICKET_STATUS_PATTERNS = [
+    'حاله تذكرتي', 'حالة تذكرتي', 'تذكرتي وصلت لفين', 'تذكرتي ايه', 'وصلت لفين',
+    'اخر حاله', 'رقم تذكرتي', 'تذاكري', 'متابعه تذكره', 'تذكرتي اتحلت',
+    'ticket status', 'my ticket', 'تذكرتي فين'
+];
+
+// نية الاستفسار عن الاشتراك
+const SUBSCRIPTION_STATUS_PATTERNS = [
+    'اشتراكي', 'باقتي', 'خطتي ايه', 'اشتراكي هيخلص', 'امتي هيخلص', 'امتي ينتهي',
+    'تاريخ الانتهاء', 'اشتراكي شغال', 'subscription status', 'متي ينتهي اشتراكي'
+];
+
+const PLATFORM_INFO_PATTERNS = [
+    'مدعوم ايه', 'ايه هي مدعوم', 'المنصه دي ايه', 'بتقدموا ايه', 'الخدمات بتاعتكم',
+    'what is mad3oom', 'about platform'
 ];
 
 const PRICING_GENERAL_PATTERNS = [
@@ -115,7 +136,27 @@ const PLAN_TEXT = {
 كله متاح شهري أو سنوي بخصم إضافي. تحب أفصّلك خطة معينة؟`
 };
 
-// ===================== التعامل مع نية الاشتراكات =====================
+const PLATFORM_INFO_TEXT = `منصة مدعوم 🌟 هي منصة لإدارة الدعم الفني وواتساب بزنس في مكان واحد:
+• نظام تذاكر لمتابعة مشاكل عملائك
+• ربط رقم واتساب وإدارة الرسائل من لوحة تحكم واحدة
+• رد آلي ذكي على رسائل واتساب
+• محادثة مباشرة (لايف شات) مع العملاء
+• نظام نقاط ومكافآت
+• قاعدة معرفة لمقالات المساعدة
+تحب تعرف أكتر عن خطة معينة، ولا عندك سؤال عن حساب بتاعك؟`;
+
+const TICKET_STATUS_LABELS = {
+    open: 'مفتوحة 🟡',
+    in_progress: 'قيد التنفيذ 🔵',
+    resolved: 'تم الحل ✅',
+    confirmed: 'مؤكدة ✅',
+    rejected: 'مرفوضة ❌'
+};
+
+const SUB_PLAN_LABELS = { support: 'الدعم الفني', whatsapp: 'واتساب', bundle: 'الباقة الشاملة (دعم + واتساب)' };
+const SUB_STATUS_LABELS = { active: 'فعّال ✅', expired: 'منتهي ⛔', pending: 'قيد المراجعة 🕓', rejected: 'مرفوض ❌' };
+
+// ===================== التعامل مع نية الاشتراكات (الخطط العامة) =====================
 function getPricingReply(normalizedText) {
     if (matchAny(normalizedText, ENTERPRISE_PATTERNS)) return PLAN_TEXT.enterprise;
     if (matchAny(normalizedText, COMPARE_PATTERNS)) return PLAN_TEXT.compare;
@@ -132,6 +173,67 @@ function getPricingReply(normalizedText) {
     }
     if (matchAny(normalizedText, PRICING_GENERAL_PATTERNS)) return PLAN_TEXT.general;
     return null;
+}
+
+// ===================== استعلامات بيانات العميل (مفلترة بـ user_id دايمًا) =====================
+async function getMyTicketsReply(supabase, userId) {
+    const { data, error } = await supabase
+        .from('tickets')
+        .select('ticket_number, title, status, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+    if (error) {
+        console.error('خطأ في جلب تذاكر العميل:', error);
+        return 'حصل خطأ بسيط وإحنا بنجيب تذاكرك، جرب تاني كمان شوية 🙏';
+    }
+    if (!data || data.length === 0) {
+        return 'مفيش عندك أي تذاكر مفتوحة دلوقتي. لو عندك مشكلة قولّي "عندي مشكلة" وهافتحلك واحدة فورًا 🛠️';
+    }
+
+    const lines = data.map(t => {
+        const label = TICKET_STATUS_LABELS[t.status] || t.status;
+        const date = new Date(t.created_at).toLocaleDateString('ar-EG');
+        return `• تذكرة #${t.ticket_number} — ${t.title} — الحالة: ${label} (${date})`;
+    });
+
+    return `دي آخر تذاكرك:\n${lines.join('\n')}\n\nتحب تفتح تذكرة جديدة؟`;
+}
+
+async function getMySubscriptionReply(supabase, userId) {
+    const { data, error } = await supabase
+        .from('whatsapp_subscriptions')
+        .select('plan, status, billing_cycle, end_date')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+    if (error) {
+        console.error('خطأ في جلب اشتراك العميل:', error);
+        return 'حصل خطأ بسيط وإحنا بنجيب بيانات اشتراكك، جرب تاني كمان شوية 🙏';
+    }
+    if (!data || data.length === 0) {
+        return 'مش لاقي عندك اشتراك مدفوع حاليًا، يبدو إنك على الخطة المجانية 🆓. تحب تعرف تفاصيل الخطط التانية؟';
+    }
+
+    const lines = data.map(s => {
+        const plan = SUB_PLAN_LABELS[s.plan] || s.plan;
+        const status = SUB_STATUS_LABELS[s.status] || s.status;
+        const cycle = s.billing_cycle === 'yearly' ? 'سنوي' : 'شهري';
+        let dateInfo = '';
+        if (s.end_date) {
+            const end = new Date(s.end_date);
+            const daysLeft = Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24));
+            const dateStr = end.toLocaleDateString('ar-EG');
+            dateInfo = daysLeft > 0
+                ? ` — هينتهي يوم ${dateStr} (باقي ${daysLeft} يوم)`
+                : ` — انتهى يوم ${dateStr}`;
+        }
+        return `• ${plan} (${cycle}) — الحالة: ${status}${dateInfo}`;
+    });
+
+    return `دي بيانات اشتراكك:\n${lines.join('\n')}\n\nأي حاجة تانية تحب تعرفها؟`;
 }
 
 // ===================== الفلو الخاص بفتح تذكرة =====================
@@ -167,10 +269,10 @@ async function saveBotState(supabase, sessionId, newState) {
 /**
  * @param {Object} params
  * @param {string} params.text - رسالة العميل
- * @param {Object} params.supabase - supabase client
+ * @param {Object} params.supabase - supabase client (شغال بصلاحية العميل المسجل دخول، الـ RLS بيمنعه أصلاً من شوفان بيانات غيره)
  * @param {string} params.sessionId - معرف جلسة الشات
- * @param {string} params.userId - معرف العميل
- * @param {Object} params.botState - bot_state الحالي من chat_sessions (كائن JSON)
+ * @param {string} params.userId - معرف العميل (نفس صاحب الجلسة دايمًا)
+ * @param {Object} params.botState - bot_state الحالي من chat_sessions
  * @param {Object} params.botSettings - صف bot_settings (ممكن يكون null)
  * @returns {Promise<{reply: string, ticketCreated?: boolean, ticketNumber?: number}>}
  */
@@ -202,6 +304,7 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
             const result = await createTicket({ supabase, userId, title, description: raw });
             state.flow = 'idle';
             state.ticket_draft = {};
+            state.last_intent = 'ticket_created';
             await saveBotState(supabase, sessionId, state);
 
             if (!result.ok) {
@@ -215,37 +318,68 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         }
     }
 
-    // ---------- 2) لو العميل بيبلغ عن مشكلة (بداية الفلو) ----------
+    // ---------- 2) لو العميل بيبلغ عن مشكلة (بداية فلو فتح تذكرة) ----------
     if (matchAny(normalized, problemPatterns)) {
         state.flow = 'awaiting_ticket_title';
         state.ticket_draft = {};
+        state.last_intent = 'problem';
         await saveBotState(supabase, sessionId, state);
         return { reply: TICKET_TITLE_PROMPT };
     }
 
-    // ---------- 3) سؤال عن الاشتراكات / الأسعار ----------
+    // ---------- 3) استفسار عن تذكرة قائمة (بيانات العميل نفسه بس) ----------
+    if (matchAny(normalized, TICKET_STATUS_PATTERNS)) {
+        const reply = await getMyTicketsReply(supabase, userId);
+        state.last_intent = 'ticket_status';
+        await saveBotState(supabase, sessionId, state);
+        return { reply };
+    }
+
+    // ---------- 4) استفسار عن الاشتراك الحالي (بيانات العميل نفسه بس) ----------
+    if (matchAny(normalized, SUBSCRIPTION_STATUS_PATTERNS)) {
+        const reply = await getMySubscriptionReply(supabase, userId);
+        state.last_intent = 'subscription_status';
+        await saveBotState(supabase, sessionId, state);
+        return { reply };
+    }
+
+    // ---------- 5) سؤال عام عن المنصة ----------
+    if (matchAny(normalized, PLATFORM_INFO_PATTERNS)) {
+        state.last_intent = 'platform_info';
+        await saveBotState(supabase, sessionId, state);
+        return { reply: PLATFORM_INFO_TEXT };
+    }
+
+    // ---------- 6) سؤال عن خطط/أسعار الاشتراكات العامة ----------
     const pricingReply = getPricingReply(normalized);
     if (pricingReply) {
+        state.last_intent = 'pricing';
+        await saveBotState(supabase, sessionId, state);
         return { reply: pricingReply };
     }
 
-    // ---------- 4) شكر ----------
+    // ---------- 7) شكر ----------
     if (matchAny(normalized, THANKS_PATTERNS)) {
         return { reply: 'العفو يا فندم، إحنا موجودين لو احتجت أي حاجة تانية 🌟' };
     }
 
-    // ---------- 5) ترحيب (مرة واحدة بس لكل جلسة) ----------
+    // ---------- 8) ترحيب (مرة واحدة بس لكل جلسة) ----------
     if (matchAny(normalized, greetingPatterns) && !state.greeted) {
         state.greeted = true;
         await saveBotState(supabase, sessionId, state);
         const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
-        return { reply: `${welcome} تحب أساعدك إزاي؟ تقدر تسألني عن الاشتراكات والأسعار 💳، أو لو عندك مشكلة تقنية قولّي وهافتحلك تذكرة فورًا 🛠️` };
+        return { reply: `${welcome} تحب أساعدك إزاي؟ تقدر تسألني عن الاشتراكات والأسعار 💳، حالة تذكرتك أو اشتراكك 📋، أو لو عندك مشكلة تقنية قولّي وهافتحلك تذكرة فورًا 🛠️` };
     }
     if (matchAny(normalized, greetingPatterns) && state.greeted) {
-        return { reply: 'أهلاً بيك تاني 👋 تحب تسأل عن الاشتراكات ولا عندك مشكلة تقنية؟' };
+        return { reply: 'أهلاً بيك تاني 👋 تحب تسأل عن الاشتراكات، حالة تذكرتك، ولا عندك مشكلة تقنية؟' };
     }
 
-    // ---------- 6) MODEL_HOOK (اختياري) ----------
+    // ---------- 9) متابعة سريعة بعد سؤال سابق (سياق بسيط) ----------
+    if (state.last_intent === 'pricing' && (normalized.includes('سنوي') || normalized.includes('yearly'))) {
+        return { reply: 'الأسعار السنوية بتدّيك خصم إضافي: دعم فني 150$ بدل 180$، واتساب 200$ بدل 240$، الباقة الشاملة 330$ بدل 660$ (أكبر وفر!). تحب أفتحلك اشتراك؟' };
+    }
+
+    // ---------- 10) MODEL_HOOK (اختياري) ----------
     // لو حبيت تضيف موديل لاحقًا، فعّل الشرط ده وحط نداء الـ Edge Function هنا
     // بدل رسالة الـ fallback تحت.
     // if (botSettings?.ai_enabled) {
@@ -253,12 +387,12 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
     //     if (aiReply) return { reply: aiReply };
     // }
 
-    // ---------- 7) رد افتراضي ----------
+    // ---------- 11) رد افتراضي ----------
     if (!state.greeted) {
         state.greeted = true;
         await saveBotState(supabase, sessionId, state);
     }
     return {
-        reply: 'مش متأكد إني فهمتك صح 🙏 تقدر تسألني عن الاشتراكات والأسعار، أو تكتب "عندي مشكلة" وهافتحلك تذكرة فورًا مع فريق الدعم.'
+        reply: 'مش متأكد إني فهمتك صح 🙏 تقدر تسألني عن: الاشتراكات والأسعار، حالة تذكرتك، تاريخ انتهاء اشتراكك، أو تكتب "عندي مشكلة" وهافتحلك تذكرة فورًا مع فريق الدعم.'
     };
 }
