@@ -14,7 +14,7 @@ export async function signInAsGuest() {
         isGuest: true,
         profile: {
             id: guestId,
-            role: 'customer',
+            role: 'user',
             full_name: 'زائر',
             is_guest: true
         }
@@ -70,7 +70,7 @@ async function ensureUserProfile(user) {
                     username: userMetadata.username || user.email.split('@')[0],
                     full_name: userMetadata.full_name || userMetadata.first_name || 'مستخدم (بيانات مؤقتة)',
                     user_type: userMetadata.user_type || 'individual',
-                    role: 'customer',
+                    role: 'user',
                     is_temporary: true // علامة تدل على أن البيانات لم تُجلب من قاعدة البيانات
                 }, 
                 error: null 
@@ -94,7 +94,7 @@ async function ensureUserProfile(user) {
             username: userMetadata.username || defaultUsername,
             full_name: userMetadata.full_name || userMetadata.first_name || 'مستخدم جديد',
             user_type: userMetadata.user_type || 'individual',
-            role: 'customer',
+            role: 'user',
             is_verified: false,
             created_at: new Date().toISOString()
         };
@@ -119,7 +119,7 @@ async function ensureUserProfile(user) {
             profile: {
                 id: user.id,
                 email: user.email,
-                role: 'customer',
+                role: 'user',
                 is_fallback: true
             }, 
             error: null 
@@ -551,7 +551,7 @@ export async function requireAuth(requiredRole = null) {
         return null;
     }
 
-    if (requiredRole === 'customer' && isAdmin && !impersonateId) {
+    if (requiredRole === 'user' && isAdmin && !impersonateId) {
         return null;
     }
 
