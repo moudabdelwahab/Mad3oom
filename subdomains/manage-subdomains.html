@@ -124,6 +124,61 @@
   h1 { font-size: 21px; font-weight: 800; margin-bottom: 4px; color: var(--text); }
   .subtitle { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 22px; }
 
+  /* ---------- Page tabs ---------- */
+  .page-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 18px;
+    width: fit-content;
+  }
+
+  .page-tab {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'Cairo';
+  }
+
+  .page-tab:hover { color: var(--text); }
+
+  .page-tab.active {
+    background: var(--background);
+    color: var(--primary-dark);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .tab-count {
+    background: var(--badge-bg);
+    color: var(--primary-dark);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 99px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .page-tab.active .tab-count {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   .search-bar {
     display: flex;
     align-items: center;
@@ -165,7 +220,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: 1fr 1.2fr 100px 130px 1fr 90px;
+    grid-template-columns: 1fr 1.2fr 100px 130px 1fr 110px;
     gap: 10px;
     padding: 15px 18px;
     border-bottom: 1px solid var(--border);
@@ -181,7 +236,31 @@
     font-size: 11.5px;
   }
 
-  .cell-domain { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: right; font-weight: 700; color: var(--primary-dark); }
+  .row.requests-row {
+    grid-template-columns: 1.3fr 1.2fr 110px 1fr 160px;
+  }
+
+  .cell-domain {
+    font-family: 'JetBrains Mono', monospace;
+    direction: ltr;
+    text-align: right;
+    font-weight: 700;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .domain-logo-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
   .cell-client .cc-email { font-weight: 600; color: var(--text); }
   .cell-client .cc-name { color: var(--text-secondary); font-size: 11.5px; margin-top: 2px; }
   .cell-ip { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: right; color: var(--text-secondary); font-size: 12px; }
@@ -199,6 +278,9 @@
   .badge.creating { background: var(--warn-bg); color: var(--warn-text); }
   .badge.propagating { background: var(--warn-bg); color: var(--warn-text); }
   .badge.suspended { background: #EFEFEF; color: #6B6F76; }
+  .badge.pending { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.approved { background: var(--success-bg); color: var(--success-text); }
+  .badge.rejected { background: var(--danger-bg); color: var(--danger); }
 
   .row-actions { display: flex; gap: 6px; justify-content: flex-end; position: relative; }
   .icon-btn {
@@ -214,6 +296,26 @@
   }
   .icon-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--badge-bg); }
   .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+  .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .request-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .request-btn {
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-family: 'Cairo';
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--background);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .request-btn.approve { color: var(--success-text); border-color: #C9EAD4; }
+  .request-btn.approve:hover { background: var(--success-bg); }
+  .request-btn.reject { color: var(--danger); border-color: var(--danger-border); }
+  .request-btn.reject:hover { background: var(--danger-bg); }
+  .request-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .copy-feedback {
     position: absolute;
@@ -303,12 +405,13 @@
   }
   .modal h3 { font-size: 16px; margin-bottom: 14px; color: var(--text); }
   .modal label { display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 7px; font-weight: 700; }
-  .modal input {
+  .modal input, .modal textarea {
     width: 100%; background: var(--surface); border: 1.5px solid var(--border);
     border-radius: 9px; padding: 11px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
     font-size: 14px; direction: ltr; text-align: left; outline: none; margin-bottom: 6px;
   }
-  .modal input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,121,197,0.12); background: var(--background); }
+  .modal textarea { font-family: 'Cairo'; direction: rtl; text-align: right; resize: vertical; min-height: 70px; }
+  .modal input:focus, .modal textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,121,197,0.12); background: var(--background); }
   .modal .modal-error { font-size: 12px; color: var(--danger); margin-bottom: 10px; min-height: 14px; font-weight: 600; }
   .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
   .modal-actions button {
@@ -338,7 +441,7 @@
     .row.head { display: none; }
     .row { padding: 14px; }
     .row > div::before { content: attr(data-label); display: block; color: #A8ACB3; font-size: 10.5px; margin-bottom: 2px; }
-    .row-actions { justify-content: flex-start; margin-top: 6px; }
+    .row-actions, .request-actions { justify-content: flex-start; margin-top: 6px; }
   }
 
   @media (max-width: 560px) {
@@ -368,24 +471,80 @@
 </nav>
 
 <div class="wrap">
-  <h1>النطاقات الفرعية الفعالة</h1>
-  <p class="subtitle">إدارة كل النطاقات الفرعية المرتبطة بالعملاء على منصة مدعوم</p>
+  <h1>النطاقات الفرعية</h1>
+  <p class="subtitle">إدارة كل النطاقات الفرعية وطلباتها المرتبطة بالعملاء على منصة مدعوم</p>
 
-  <div class="search-bar">
-    <input type="text" id="tableSearch" placeholder="ابحث بالنطاق أو إيميل العميل...">
-    <button class="refresh-btn" id="refreshBtn">تحديث</button>
+  <div class="page-tabs">
+    <button class="page-tab active" data-tab="active">
+      النطاقات الفعالة
+    </button>
+    <button class="page-tab" data-tab="pending">
+      قيد الانتشار
+      <span class="tab-count" id="pendingCount">0</span>
+    </button>
+    <button class="page-tab" data-tab="requests">
+      الطلبات
+      <span class="tab-count" id="requestsCount">0</span>
+    </button>
   </div>
 
-  <div class="table-wrap" id="tableWrap">
-    <div class="row head">
-      <div>النطاق</div>
-      <div>العميل</div>
-      <div>الحالة</div>
-      <div>IP التفعيل</div>
-      <div>تاريخ التفعيل</div>
-      <div></div>
+  <!-- ===== Tab: Active domains ===== -->
+  <div class="tab-panel active" id="panel-active">
+    <div class="search-bar">
+      <input type="text" id="tableSearch" placeholder="ابحث بالنطاق أو إيميل العميل...">
+      <button class="refresh-btn" id="refreshBtn">تحديث</button>
     </div>
-    <div id="tableBody"></div>
+
+    <div class="table-wrap" id="tableWrap">
+      <div class="row head">
+        <div>النطاق</div>
+        <div>العميل</div>
+        <div>الحالة</div>
+        <div>IP التفعيل</div>
+        <div>تاريخ التفعيل</div>
+        <div></div>
+      </div>
+      <div id="tableBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== Tab: Pending propagation ===== -->
+  <div class="tab-panel" id="panel-pending">
+    <div class="search-bar">
+      <input type="text" id="pendingSearch" placeholder="ابحث بالنطاق أو إيميل العميل...">
+      <button class="refresh-btn" id="pendingRefreshBtn">تحديث</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="row head">
+        <div>النطاق</div>
+        <div>العميل</div>
+        <div>الحالة</div>
+        <div>IP التفعيل</div>
+        <div>تاريخ الطلب</div>
+        <div></div>
+      </div>
+      <div id="pendingTableBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== Tab: Requests ===== -->
+  <div class="tab-panel" id="panel-requests">
+    <div class="search-bar">
+      <input type="text" id="requestsSearch" placeholder="ابحث بالاسم المطلوب أو إيميل العميل...">
+      <button class="refresh-btn" id="requestsRefreshBtn">تحديث</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="row requests-row head">
+        <div>النطاق المطلوب</div>
+        <div>العميل</div>
+        <div>الحالة</div>
+        <div>تاريخ الطلب</div>
+        <div></div>
+      </div>
+      <div id="requestsTableBody"></div>
+    </div>
   </div>
 </div>
 
@@ -421,6 +580,29 @@
   </div>
 </div>
 
+<!-- Logo Modal -->
+<div class="modal-overlay" id="logoModal">
+  <div class="modal">
+    <h3>شعار الجهة</h3>
+    <div class="logo-modal-row">
+      <div class="logo-preview" id="logoModalPreview">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 16L8.586 11.414A2 2 0 0 1 11.414 11.414L16 16M14 14L15.586 12.414A2 2 0 0 1 18.414 12.414L20 14M4 8H20M4 4H20A1 1 0 0 1 21 5V19A1 1 0 0 1 20 20H4A1 1 0 0 1 3 19V5A1 1 0 0 1 4 4Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="logo-upload-actions">
+        <input type="file" id="logoModalInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <button type="button" class="logo-upload-btn" id="logoModalUploadBtn">اختيار صورة</button>
+        <button type="button" class="logo-remove-btn" id="logoModalRemoveBtn" style="display:none;">إزالة</button>
+      </div>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px; line-height: 1.6;">PNG أو JPG أو SVG، يُفضّل خلفية شفافة، حتى 2MB.</p>
+    <p class="modal-error" id="logoModalError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="logoModal">إلغاء</button>
+      <button class="btn-confirm" id="logoModalSave">حفظ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Suspend/Reactivate Confirm Modal -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
@@ -430,6 +612,23 @@
     <div class="modal-actions">
       <button class="btn-cancel" data-close="confirmModal">إلغاء</button>
       <button class="btn-confirm" id="confirmActionBtn">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Request Modal -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <h3>رفض الطلب</h3>
+    <p style="color: var(--text-secondary); font-size: 13.5px; line-height: 1.7; margin-bottom: 10px;">
+      سيتم رفض طلب <span id="rejectDomainName" style="color: var(--primary-dark); font-weight: 700; font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block;"></span>
+    </p>
+    <label>سبب الرفض (اختياري، سيظهر للعميل)</label>
+    <textarea id="rejectNote" placeholder="مثال: هذا الاسم غير متوافق مع سياسة المنصة..."></textarea>
+    <p class="modal-error" id="rejectError"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close="rejectModal">إلغاء</button>
+      <button class="btn-confirm delete" id="rejectConfirm">تأكيد الرفض</button>
     </div>
   </div>
 </div>
@@ -457,14 +656,13 @@
   const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const MANAGE_FN_URL = `${SUPABASE_URL}/functions/v1/manage-subdomain`;
+  const CHECK_DNS_FN_URL = `${SUPABASE_URL}/functions/v1/check-dns-status`;
 
-  const tableBody = document.getElementById('tableBody');
-  const tableSearch = document.getElementById('tableSearch');
-  const refreshBtn = document.getElementById('refreshBtn');
   const toast = document.getElementById('toast');
-
-  let allItems = [];
+  let allItems = [];        // كل النطاقات (نطاقات subdomain_requests)
+  let allRequests = [];     // طلبات subdomain_request_queue
   let activeRowId = null;
+  let activeRequestId = null;
 
   async function getAccessToken() {
     const { data } = await sb.auth.getSession();
@@ -500,9 +698,11 @@
       failed: ['فشل', 'failed'],
       creating: ['جاري الإنشاء', 'creating'],
       propagating: ['قيد الانتشار', 'propagating'],
-      pending: ['معلّق', 'creating'],
+      pending: ['معلّق', 'pending'],
       suspended: ['معطّل', 'suspended'],
       deleted: ['محذوف', 'failed'],
+      approved: ['تمت الموافقة', 'approved'],
+      rejected: ['مرفوض', 'rejected'],
     };
     const [label, cls] = map[status] || [status, 'creating'];
     return `<span class="badge ${cls}">${label}</span>`;
@@ -518,118 +718,36 @@
     pause: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg>',
     play: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 4L19 12L6 20V4Z" fill="currentColor"/></svg>',
     trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4A2 2 0 0 1 10 2H14A2 2 0 0 1 16 4V6M19 6V20A2 2 0 0 1 17 22H7A2 2 0 0 1 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    image: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    refresh: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 12A9 9 0 1 1 18.36 5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 4V10H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    close: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   function iconSpan(name) {
     return `<span style="display:inline-flex; align-items:center;">${ICONS[name]}</span>`;
   }
 
-  function renderTable(items) {
-    if (!items.length) {
-      tableBody.innerHTML = `<div class="empty-state">لا توجد نطاقات فرعية مطابقة</div>`;
-      return;
-    }
-    tableBody.innerHTML = items.map(item => {
-      const isSuspended = item.status === 'suspended';
-      const toggleAction = isSuspended ? 'reactivate' : 'suspend';
-      const toggleIcon = isSuspended ? iconSpan('play') : iconSpan('pause');
-      const toggleLabel = isSuspended ? 'إعادة تفعيل' : 'تعطيل';
-      const toggleClass = isSuspended ? 'success-action' : 'warn-action';
-
-      return `
-      <div class="row" data-id="${item.id}">
-        <div class="cell-domain" data-label="النطاق">${escapeHtml(item.full_domain)}</div>
-        <div class="cell-client" data-label="العميل">
-          <div class="cc-email">${escapeHtml(item.profiles?.email || 'بدون عميل')}</div>
-          <div class="cc-name">${escapeHtml(item.profiles?.full_name || '')}</div>
-        </div>
-        <div data-label="الحالة">${statusBadge(item.status)}</div>
-        <div class="cell-ip" data-label="IP التفعيل">${escapeHtml(item.created_ip || '—')}</div>
-        <div class="cell-date" data-label="تاريخ التفعيل">${formatDate(item.activated_at || item.created_at)}</div>
-        <div class="row-actions">
-          <button class="icon-btn" title="نسخ الرابط" data-action="copy" data-domain="${escapeHtml(item.full_domain)}">
-            ${iconSpan('copy')}
-            <span class="copy-feedback">تم النسخ</span>
-          </button>
-          <button class="icon-btn" title="فتح الرابط" data-action="open" data-domain="${escapeHtml(item.full_domain)}">${iconSpan('open')}</button>
-          <button class="icon-btn" title="المزيد من الإجراءات" data-action="menu" data-id="${item.id}">${iconSpan('menu')}</button>
-          <div class="actions-menu" data-menu-for="${item.id}">
-            <button data-action="rename" data-id="${item.id}">${iconSpan('rename')} تغيير الاسم</button>
-            <button data-action="reassign" data-id="${item.id}">${iconSpan('user')} تغيير العميل</button>
-            <button class="${toggleClass}" data-action="${toggleAction}" data-id="${item.id}">${toggleIcon} ${toggleLabel}</button>
-            <button class="danger-action" data-action="delete" data-id="${item.id}">${iconSpan('trash')} حذف نهائي</button>
-          </div>
-        </div>
-      </div>
-    `;
-    }).join('');
-
-    // نسخ الرابط
-    tableBody.querySelectorAll('[data-action="copy"]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const domain = btn.dataset.domain;
-        try {
-          await navigator.clipboard.writeText(`https://${domain}`);
-        } catch {
-          // fallback لو الكليبورد API مش متاح
-          const ta = document.createElement('textarea');
-          ta.value = `https://${domain}`;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          ta.remove();
-        }
-        const feedback = btn.querySelector('.copy-feedback');
-        feedback.classList.add('show');
-        setTimeout(() => feedback.classList.remove('show'), 1300);
-      });
+  // =========================================================
+  // Tabs
+  // =========================================================
+  const tabButtons = document.querySelectorAll('.page-tab');
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
     });
+  });
 
-    // فتح الرابط في تاب جديد
-    tableBody.querySelectorAll('[data-action="open"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.open(`https://${btn.dataset.domain}`, '_blank', 'noopener');
-      });
-    });
+  // =========================================================
+  // Tab 1: Active domains (كل الحالات)
+  // =========================================================
+  const tableBody = document.getElementById('tableBody');
+  const tableSearch = document.getElementById('tableSearch');
+  const refreshBtn = document.getElementById('refreshBtn');
 
-    // فتح/إغلاق منيو الإجراءات
-    tableBody.querySelectorAll('[data-action="menu"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        const menu = tableBody.querySelector(`.actions-menu[data-menu-for="${id}"]`);
-        const wasOpen = menu.classList.contains('open');
-        closeAllMenus();
-        if (!wasOpen) menu.classList.add('open');
-      });
-    });
-
-    // إجراءات المنيو
-    tableBody.querySelectorAll('.actions-menu [data-action]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeAllMenus();
-        const id = btn.dataset.id;
-        const action = btn.dataset.action;
-        const item = allItems.find(i => i.id === id);
-        if (action === 'rename') openRenameModal(item);
-        if (action === 'reassign') openReassignModal(item);
-        if (action === 'suspend') openSuspendConfirm(item);
-        if (action === 'reactivate') openReactivateConfirm(item);
-        if (action === 'delete') openDeleteModal(item);
-      });
-    });
-  }
-
-  function closeAllMenus() {
-    document.querySelectorAll('.actions-menu.open').forEach(m => m.classList.remove('open'));
-  }
-
-  document.addEventListener('click', closeAllMenus);
-
-  const CHECK_DNS_FN_URL = `${SUPABASE_URL}/functions/v1/check-dns-status`;
   let propagationPollTimer = null;
 
   async function loadList() {
@@ -638,6 +756,8 @@
       const data = await callFunction({ action: 'list' });
       allItems = data.items || [];
       applyFilter();
+      renderPendingTab();
+      updatePendingCount();
       schedulePropagationCheck();
     } catch (err) {
       tableBody.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
@@ -665,26 +785,201 @@
         }
       }
       if (anyChanged) {
-        loadList(); // يعيد تحميل القائمة كاملة ويعيد جدولة الفحص لو لسه فيه عناصر propagating
+        loadList();
       } else {
-        schedulePropagationCheck(); // كرر الفحص لنفس العناصر لاحقًا
+        schedulePropagationCheck();
       }
     }, 5000);
   }
 
   function applyFilter() {
     const q = tableSearch.value.trim().toLowerCase();
-    if (!q) { renderTable(allItems); return; }
-    const filtered = allItems.filter(i =>
-      i.full_domain?.toLowerCase().includes(q) ||
-      i.profiles?.email?.toLowerCase().includes(q) ||
-      i.profiles?.full_name?.toLowerCase().includes(q)
-    );
-    renderTable(filtered);
+    const list = q
+      ? allItems.filter(i =>
+          i.full_domain?.toLowerCase().includes(q) ||
+          i.profiles?.email?.toLowerCase().includes(q) ||
+          i.profiles?.full_name?.toLowerCase().includes(q)
+        )
+      : allItems;
+    renderTable(tableBody, list, false);
   }
 
   tableSearch.addEventListener('input', applyFilter);
   refreshBtn.addEventListener('click', loadList);
+
+  // =========================================================
+  // Tab 2: Pending propagation (فلتر على نفس allItems)
+  // =========================================================
+  const pendingTableBody = document.getElementById('pendingTableBody');
+  const pendingSearch = document.getElementById('pendingSearch');
+  const pendingRefreshBtn = document.getElementById('pendingRefreshBtn');
+  const pendingCountEl = document.getElementById('pendingCount');
+
+  function updatePendingCount() {
+    const count = allItems.filter(i => i.status === 'propagating').length;
+    pendingCountEl.textContent = count;
+  }
+
+  function renderPendingTab() {
+    const q = pendingSearch.value.trim().toLowerCase();
+    let list = allItems.filter(i => i.status === 'propagating');
+    if (q) {
+      list = list.filter(i =>
+        i.full_domain?.toLowerCase().includes(q) ||
+        i.profiles?.email?.toLowerCase().includes(q) ||
+        i.profiles?.full_name?.toLowerCase().includes(q)
+      );
+    }
+    renderTable(pendingTableBody, list, true);
+  }
+
+  pendingSearch.addEventListener('input', renderPendingTab);
+  pendingRefreshBtn.addEventListener('click', loadList);
+
+  // =========================================================
+  // Render shared table (active + pending tabs)
+  // =========================================================
+  function renderTable(container, items, showRecheckBtn) {
+    if (!items.length) {
+      container.innerHTML = `<div class="empty-state">لا توجد نطاقات مطابقة</div>`;
+      return;
+    }
+    container.innerHTML = items.map(item => {
+      const isSuspended = item.status === 'suspended';
+      const isPropagating = item.status === 'propagating';
+      const toggleAction = isSuspended ? 'reactivate' : 'suspend';
+      const toggleIcon = isSuspended ? iconSpan('play') : iconSpan('pause');
+      const toggleLabel = isSuspended ? 'إعادة تفعيل' : 'تعطيل';
+      const toggleClass = isSuspended ? 'success-action' : 'warn-action';
+
+      return `
+      <div class="row" data-id="${item.id}">
+        <div class="cell-domain" data-label="النطاق">
+          ${item.logo_url ? `<img src="${escapeHtml(item.logo_url)}" alt="" class="domain-logo-thumb">` : ''}
+          <span>${escapeHtml(item.full_domain)}</span>
+        </div>
+        <div class="cell-client" data-label="العميل">
+          <div class="cc-email">${escapeHtml(item.profiles?.email || 'بدون عميل')}</div>
+          <div class="cc-name">${escapeHtml(item.profiles?.full_name || '')}</div>
+        </div>
+        <div data-label="الحالة">${statusBadge(item.status)}</div>
+        <div class="cell-ip" data-label="IP التفعيل">${escapeHtml(item.created_ip || '—')}</div>
+        <div class="cell-date" data-label="تاريخ التفعيل">${formatDate(item.activated_at || item.created_at)}</div>
+        <div class="row-actions">
+          ${isPropagating && showRecheckBtn ? `
+            <button class="icon-btn" title="تحديث الحالة الآن" data-action="recheck" data-id="${item.id}">${iconSpan('refresh')}</button>
+          ` : ''}
+          <button class="icon-btn" title="نسخ الرابط" data-action="copy" data-domain="${escapeHtml(item.full_domain)}">
+            ${iconSpan('copy')}
+            <span class="copy-feedback">تم النسخ</span>
+          </button>
+          <button class="icon-btn" title="فتح الرابط" data-action="open" data-domain="${escapeHtml(item.full_domain)}">${iconSpan('open')}</button>
+          <button class="icon-btn" title="المزيد من الإجراءات" data-action="menu" data-id="${item.id}">${iconSpan('menu')}</button>
+          <div class="actions-menu" data-menu-for="${item.id}">
+            ${isPropagating ? `<button data-action="recheck" data-id="${item.id}">${iconSpan('refresh')} تحديث الحالة</button>` : ''}
+            <button data-action="rename" data-id="${item.id}">${iconSpan('rename')} تغيير الاسم</button>
+            <button data-action="reassign" data-id="${item.id}">${iconSpan('user')} تغيير العميل</button>
+            <button data-action="logo" data-id="${item.id}">${iconSpan('image')} ${item.logo_url ? 'تغيير الشعار' : 'إضافة شعار'}</button>
+            <button class="${toggleClass}" data-action="${toggleAction}" data-id="${item.id}">${toggleIcon} ${toggleLabel}</button>
+            <button class="danger-action" data-action="delete" data-id="${item.id}">${iconSpan('trash')} حذف نهائي</button>
+          </div>
+        </div>
+      </div>
+    `;
+    }).join('');
+
+    bindRowActions(container);
+  }
+
+  function bindRowActions(container) {
+    // نسخ الرابط
+    container.querySelectorAll('[data-action="copy"]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const domain = btn.dataset.domain;
+        try {
+          await navigator.clipboard.writeText(`https://${domain}`);
+        } catch {
+          const ta = document.createElement('textarea');
+          ta.value = `https://${domain}`;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        const feedback = btn.querySelector('.copy-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => feedback.classList.remove('show'), 1300);
+      });
+    });
+
+    // فتح الرابط في تاب جديد
+    container.querySelectorAll('[data-action="open"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(`https://${btn.dataset.domain}`, '_blank', 'noopener');
+      });
+    });
+
+    // فتح/إغلاق منيو الإجراءات
+    container.querySelectorAll('[data-action="menu"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const menu = container.querySelector(`.actions-menu[data-menu-for="${id}"]`);
+        const wasOpen = menu.classList.contains('open');
+        closeAllMenus();
+        if (!wasOpen) menu.classList.add('open');
+      });
+    });
+
+    // تحديث الحالة الفوري (سواء زر مباشر أو من المنيو)
+    container.querySelectorAll('[data-action="recheck"]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        closeAllMenus();
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          const data = await callFunction({ action: 'recheck_propagation', id });
+          if (data.propagated) {
+            showToast(data.message, true);
+            loadList();
+          } else {
+            showToast(data.message || 'النطاق لا يزال قيد الانتشار', false);
+            btn.disabled = false;
+          }
+        } catch (err) {
+          showToast(err.message, false);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // إجراءات المنيو
+    container.querySelectorAll('.actions-menu [data-action]').forEach(btn => {
+      if (btn.dataset.action === 'recheck') return; // تم ربطه بالأعلى
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllMenus();
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        const item = allItems.find(i => i.id === id);
+        if (action === 'rename') openRenameModal(item);
+        if (action === 'reassign') openReassignModal(item);
+        if (action === 'logo') openLogoModal(item);
+        if (action === 'suspend') openSuspendConfirm(item);
+        if (action === 'reactivate') openReactivateConfirm(item);
+        if (action === 'delete') openDeleteModal(item);
+      });
+    });
+  }
+
+  function closeAllMenus() {
+    document.querySelectorAll('.actions-menu.open').forEach(m => m.classList.remove('open'));
+  }
+
+  document.addEventListener('click', closeAllMenus);
 
   function showToast(message, success = true) {
     toast.textContent = message;
@@ -804,6 +1099,113 @@
     }
   });
 
+  // ---------- Logo ----------
+  const LOGO_BUCKET = 'subdomain-logos';
+  const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2MB
+
+  const logoModalPreview = document.getElementById('logoModalPreview');
+  const logoModalInput = document.getElementById('logoModalInput');
+  const logoModalUploadBtn = document.getElementById('logoModalUploadBtn');
+  const logoModalRemoveBtn = document.getElementById('logoModalRemoveBtn');
+  const logoModalError = document.getElementById('logoModalError');
+  const logoModalSave = document.getElementById('logoModalSave');
+  let pendingLogoUrl = null;
+
+  const DEFAULT_LOGO_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 16L8.586 11.414A2 2 0 0 1 11.414 11.414L16 16M14 14L15.586 12.414A2 2 0 0 1 18.414 12.414L20 14M4 8H20M4 4H20A1 1 0 0 1 21 5V19A1 1 0 0 1 20 20H4A1 1 0 0 1 3 19V5A1 1 0 0 1 4 4Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function openLogoModal(item) {
+    activeRowId = item.id;
+    pendingLogoUrl = item.logo_url || null;
+    logoModalError.textContent = '';
+    logoModalInput.value = '';
+
+    if (pendingLogoUrl) {
+      logoModalPreview.innerHTML = `<img src="${pendingLogoUrl}" alt="">`;
+      logoModalPreview.classList.add('has-image');
+      logoModalRemoveBtn.style.display = 'inline-block';
+    } else {
+      logoModalPreview.innerHTML = DEFAULT_LOGO_ICON;
+      logoModalPreview.classList.remove('has-image');
+      logoModalRemoveBtn.style.display = 'none';
+    }
+    logoModalUploadBtn.textContent = pendingLogoUrl ? 'تغيير الصورة' : 'اختيار صورة';
+
+    openModal('logoModal');
+  }
+
+  logoModalUploadBtn.addEventListener('click', () => logoModalInput.click());
+
+  logoModalInput.addEventListener('change', async () => {
+    const file = logoModalInput.files?.[0];
+    if (!file) return;
+
+    logoModalError.textContent = '';
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      logoModalError.textContent = 'صيغة الملف غير مدعومة. استخدم PNG أو JPG أو SVG أو WEBP.';
+      logoModalInput.value = '';
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      logoModalError.textContent = 'حجم الملف كبير جدًا، الحد الأقصى 2MB.';
+      logoModalInput.value = '';
+      return;
+    }
+
+    logoModalUploadBtn.disabled = true;
+    logoModalUploadBtn.textContent = 'جاري الرفع...';
+
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await sb.storage
+        .from(LOGO_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = sb.storage.from(LOGO_BUCKET).getPublicUrl(path);
+      pendingLogoUrl = publicUrlData.publicUrl;
+
+      logoModalPreview.innerHTML = `<img src="${pendingLogoUrl}" alt="">`;
+      logoModalPreview.classList.add('has-image');
+      logoModalRemoveBtn.style.display = 'inline-block';
+      logoModalUploadBtn.textContent = 'تغيير الصورة';
+    } catch (err) {
+      logoModalError.textContent = 'فشل رفع الشعار، حاول مرة أخرى. (' + (err.message || 'خطأ غير معروف') + ')';
+    } finally {
+      logoModalUploadBtn.disabled = false;
+      if (logoModalUploadBtn.textContent === 'جاري الرفع...') logoModalUploadBtn.textContent = 'اختيار صورة';
+    }
+  });
+
+  logoModalRemoveBtn.addEventListener('click', () => {
+    pendingLogoUrl = null;
+    logoModalInput.value = '';
+    logoModalPreview.innerHTML = DEFAULT_LOGO_ICON;
+    logoModalPreview.classList.remove('has-image');
+    logoModalRemoveBtn.style.display = 'none';
+    logoModalUploadBtn.textContent = 'اختيار صورة';
+    logoModalError.textContent = '';
+  });
+
+  logoModalSave.addEventListener('click', async () => {
+    logoModalSave.disabled = true;
+    logoModalError.textContent = '';
+    try {
+      const data = await callFunction({ action: 'update_logo', id: activeRowId, logo_url: pendingLogoUrl });
+      closeModal('logoModal');
+      showToast(data.message, true);
+      loadList();
+    } catch (err) {
+      logoModalError.textContent = err.message;
+    } finally {
+      logoModalSave.disabled = false;
+    }
+  });
+
   // ---------- Delete ----------
   const deleteDomainName = document.getElementById('deleteDomainName');
   const deleteError = document.getElementById('deleteError');
@@ -878,8 +1280,132 @@
     }
   });
 
+  // =========================================================
+  // Tab 3: Requests (طلبات العملاء)
+  // =========================================================
+  const requestsTableBody = document.getElementById('requestsTableBody');
+  const requestsSearch = document.getElementById('requestsSearch');
+  const requestsRefreshBtn = document.getElementById('requestsRefreshBtn');
+  const requestsCountEl = document.getElementById('requestsCount');
+
+  async function loadRequests() {
+    requestsTableBody.innerHTML = `<div class="empty-state">جاري التحميل...</div>`;
+    try {
+      const data = await callFunction({ action: 'list_requests' });
+      allRequests = data.items || [];
+      updateRequestsCount();
+      applyRequestsFilter();
+    } catch (err) {
+      requestsTableBody.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function updateRequestsCount() {
+    const count = allRequests.filter(r => r.status === 'pending').length;
+    requestsCountEl.textContent = count;
+  }
+
+  function applyRequestsFilter() {
+    const q = requestsSearch.value.trim().toLowerCase();
+    const list = q
+      ? allRequests.filter(r =>
+          r.requested_name?.toLowerCase().includes(q) ||
+          r.profiles?.email?.toLowerCase().includes(q) ||
+          r.profiles?.full_name?.toLowerCase().includes(q)
+        )
+      : allRequests;
+    renderRequestsTable(list);
+  }
+
+  requestsSearch.addEventListener('input', applyRequestsFilter);
+  requestsRefreshBtn.addEventListener('click', loadRequests);
+
+  function renderRequestsTable(items) {
+    if (!items.length) {
+      requestsTableBody.innerHTML = `<div class="empty-state">لا توجد طلبات مطابقة</div>`;
+      return;
+    }
+    requestsTableBody.innerHTML = items.map(req => `
+      <div class="row requests-row" data-id="${req.id}">
+        <div class="cell-domain" data-label="النطاق المطلوب">
+          <span>${escapeHtml(req.requested_name)}.mad3oom.online</span>
+        </div>
+        <div class="cell-client" data-label="العميل">
+          <div class="cc-email">${escapeHtml(req.profiles?.email || 'غير معروف')}</div>
+          <div class="cc-name">${escapeHtml(req.profiles?.full_name || '')}</div>
+        </div>
+        <div data-label="الحالة">${statusBadge(req.status)}</div>
+        <div class="cell-date" data-label="تاريخ الطلب">${formatDate(req.created_at)}</div>
+        <div class="request-actions">
+          ${req.status === 'pending' ? `
+            <button class="request-btn approve" data-action="approve" data-id="${req.id}">${iconSpan('check')} قبول</button>
+            <button class="request-btn reject" data-action="reject" data-id="${req.id}">${iconSpan('close')} رفض</button>
+          ` : `<span style="color: var(--text-secondary); font-size: 12px;">${req.status === 'rejected' && req.note ? escapeHtml(req.note) : ''}</span>`}
+        </div>
+      </div>
+    `).join('');
+
+    requestsTableBody.querySelectorAll('[data-action="approve"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          const data = await callFunction({ action: 'approve_request', request_id: id });
+          showToast(data.message, true);
+          loadRequests();
+          loadList();
+        } catch (err) {
+          showToast(err.message, false);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    requestsTableBody.querySelectorAll('[data-action="reject"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const req = allRequests.find(r => r.id === id);
+        openRejectModal(req);
+      });
+    });
+  }
+
+  // ---------- Reject modal ----------
+  const rejectDomainName = document.getElementById('rejectDomainName');
+  const rejectNote = document.getElementById('rejectNote');
+  const rejectError = document.getElementById('rejectError');
+  const rejectConfirm = document.getElementById('rejectConfirm');
+
+  function openRejectModal(req) {
+    activeRequestId = req.id;
+    rejectDomainName.textContent = `${req.requested_name}.mad3oom.online`;
+    rejectNote.value = '';
+    rejectError.textContent = '';
+    openModal('rejectModal');
+  }
+
+  rejectConfirm.addEventListener('click', async () => {
+    rejectConfirm.disabled = true;
+    rejectError.textContent = '';
+    try {
+      const data = await callFunction({
+        action: 'reject_request',
+        request_id: activeRequestId,
+        rejection_note: rejectNote.value.trim(),
+      });
+      closeModal('rejectModal');
+      showToast(data.message, true);
+      loadRequests();
+    } catch (err) {
+      rejectError.textContent = err.message;
+    } finally {
+      rejectConfirm.disabled = false;
+    }
+  });
+
   // ---------- Init ----------
   loadList();
+  loadRequests();
 </script>
 
 </body>
