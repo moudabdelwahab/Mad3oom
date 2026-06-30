@@ -362,47 +362,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== LOAD ALL CHATS (ADMIN) =====
+    // ملحوظة: شيلنا avatar_url من الكويري لأن جدول profiles مفيهوش العمود ده أصلاً،
+    // وده كان سبب فشل الكويري بالكامل وضل شاشة "جاري تحميل المحادثات..." معلقة للأبد.
+    // التصميم نفسه (شكل الواتساب) متغيرش، بس JS بقى مطابق لنفس الكلاسات الموجودة عندك في chat-admin.html
     async function loadAllChats() {
         const { data, error } = await supabase
             .from('chat_sessions')
             .select(`
                 *,
-                profiles:user_id (full_name, avatar_url),
+                profiles:user_id (full_name),
                 chat_messages (message_text, created_at)
             `)
             .order('updated_at', { ascending: false });
 
         if (error) {
             console.error('Error loading chats:', error);
+            if (chatsList) {
+                chatsList.innerHTML = '<div style="padding: 2rem 1rem; text-align: center; color: var(--text-light);">حصل خطأ في تحميل المحادثات، حاول تعمل تحديث للصفحة</div>';
+            }
             return;
         }
 
-        allSessions = data;
-        renderChatsList(data);
+        allSessions = data || [];
+        renderChatsList(allSessions);
+    }
+
+    function getInitial(name) {
+        const trimmed = (name || '').trim();
+        return trimmed ? trimmed.charAt(0) : 'ع';
     }
 
     function renderChatsList(sessions) {
         if (!chatsList) return;
         chatsList.innerHTML = '';
 
+        if (!sessions || sessions.length === 0) {
+            chatsList.innerHTML = '<div style="padding: 2rem 1rem; text-align: center; color: var(--text-light);">لا توجد محادثات حتى الآن</div>';
+            return;
+        }
+
         sessions.forEach(session => {
-            const lastMsg = session.chat_messages?.[session.chat_messages.length - 1];
+            const messages = session.chat_messages || [];
+            const lastMsg = messages.length ? messages[messages.length - 1] : null;
             const time = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
+            const name = session.profiles?.full_name || 'عميل مجهول';
+            const statusClass = session.status === 'closed' ? 'status-closed' : 'status-open';
+            const statusLabel = session.status === 'closed' ? 'مغلقة' : 'نشطة';
 
             const item = document.createElement('div');
             item.className = `chat-item ${currentSessionId === session.id ? 'active' : ''}`;
             item.onclick = () => selectChat(session);
 
             item.innerHTML = `
-                <div class="chat-item-avatar">
-                    <img src="${sanitizeUrl(session.profiles?.avatar_url) || '/assets/images/default-avatar.png'}" alt="User">
-                </div>
-                <div class="chat-item-info">
-                    <div class="chat-item-header">
-                        <span class="chat-item-name">${escapeHtml(session.profiles?.full_name || 'عميل مجهول')}</span>
-                        <span class="chat-item-time">${time}</span>
+                <div class="chat-avatar">${escapeHtml(getInitial(name))}</div>
+                <div class="chat-info">
+                    <div class="chat-header-text">
+                        <span class="chat-name">
+                            ${escapeHtml(name)}
+                            <span class="status-badge ${statusClass}">${statusLabel}</span>
+                        </span>
+                        <span class="chat-time">${time}</span>
                     </div>
-                    <div class="chat-item-last-msg">${escapeHtml(lastMsg?.message_text || 'لا توجد رسائل')}</div>
+                    <div class="chat-preview">${escapeHtml(lastMsg?.message_text || 'لا توجد رسائل')}</div>
                 </div>
             `;
             chatsList.appendChild(item);
@@ -413,14 +434,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentSessionId = session.id;
         currentSession = session;
 
-        if (emptyState) emptyState.style.display = 'none';
-        if (chatMain) chatMain.style.display = 'flex';
+        const emptyStateEl = document.getElementById('emptyState');
+        const chatHeaderEl = document.getElementById('chatHeader');
+        const inputAreaEl = document.getElementById('inputArea');
+        const chatMainEl = document.getElementById('chatMain');
+
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+        if (chatHeaderEl) chatHeaderEl.style.display = 'flex';
+        if (inputAreaEl) inputAreaEl.style.display = 'flex';
+        if (chatMainEl) chatMainEl.classList.add('active'); // لتفعيل وضع الموبايل المعرّف أصلاً في الـ CSS بتاعك
 
         // Update Header
-        const headerName = document.getElementById('chatHeaderName');
-        const headerImg = document.getElementById('chatHeaderImg');
-        if (headerName) headerName.textContent = session.profiles?.full_name || 'عميل مجهول';
-        if (headerImg) headerImg.src = session.profiles?.avatar_url || '/assets/images/default-avatar.png';
+        const name = session.profiles?.full_name || 'عميل مجهول';
+        const headerName = document.getElementById('headerName');
+        const headerAvatar = document.getElementById('headerAvatar');
+        const headerStatus = document.getElementById('headerStatus');
+        if (headerName) headerName.textContent = name;
+        if (headerAvatar) headerAvatar.textContent = getInitial(name);
+        if (headerStatus) headerStatus.textContent = session.status === 'closed' ? 'محادثة مغلقة' : 'نشط الآن';
 
         await loadMessages(session.id);
 
@@ -459,17 +490,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     function appendMessage(msg) {
         if (!messagesContainer) return;
 
+        // is_admin_reply = رد الأدمن (يظهر يمين زي رسائلك انت)، أي حاجة تانية (عميل أو بوت) تظهر شمال
         const isOwn = msg.is_admin_reply;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
-        const div = document.createElement('div');
-        div.className = `msg ${isOwn ? 'sent' : 'received'}`;
-        div.innerHTML = `
-            <span>${escapeHtml(msg.message_text)}</span>
-            <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 4px;">${time}</div>
+        const group = document.createElement('div');
+        group.className = `message-group ${isOwn ? 'sent' : 'received'}`;
+        group.innerHTML = `
+            <div class="message-bubble ${isOwn ? 'sent' : 'received'}">
+                <div>${escapeHtml(msg.message_text)}</div>
+                <div class="message-time">${time}</div>
+            </div>
         `;
 
-        messagesContainer.appendChild(div);
+        messagesContainer.appendChild(group);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
@@ -487,6 +521,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     (s.profiles?.full_name || '').toLowerCase().includes(term)
                 );
                 renderChatsList(filtered);
+            };
+        }
+        if (closeChat) {
+            closeChat.onclick = () => {
+                const emptyStateEl = document.getElementById('emptyState');
+                const chatHeaderEl = document.getElementById('chatHeader');
+                const inputAreaEl = document.getElementById('inputArea');
+                const chatMainEl = document.getElementById('chatMain');
+                if (messageChannel) { supabase.removeChannel(messageChannel); messageChannel = null; }
+                currentSessionId = null;
+                currentSession = null;
+                if (chatHeaderEl) chatHeaderEl.style.display = 'none';
+                if (inputAreaEl) inputAreaEl.style.display = 'none';
+                if (emptyStateEl) emptyStateEl.style.display = 'flex';
+                if (chatMainEl) chatMainEl.classList.remove('active'); // رجوع لوضعية الموبايل (القائمة)
+                renderChatsList(allSessions);
             };
         }
     }
