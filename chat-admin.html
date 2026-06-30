@@ -320,13 +320,15 @@
             color: var(--white);
             border-bottom-right-radius: 2px;
         }
-
-        .message-bubble.received {
-            background: var(--chat-bubble-other);
-            color: var(--text-dark);
-            border-bottom-left-radius: 2px;
-        }
-
+.message-bubble.received {
+    background: var(--chat-bubble-other);
+    color: var(--text-dark);
+    border-bottom-left-radius: 2px;
+    max-width: 55%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
         .message-time {
     font-size: 0.7rem;
     color: var(--text-light);
