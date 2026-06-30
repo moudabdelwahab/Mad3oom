@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>طلب نطاق فرعي | منصة مدعوم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1879C5;
+    --primary-dark: #0F3C6E;
+    --primary-light: #4C97E8;
+    --background: #FFFFFF;
+    --surface: #F7F7F7;
+    --badge-bg: #EAF4FC;
+    --badge-border: #B7D4EB;
+    --text: #2F3136;
+    --text-secondary: #757575;
+    --border: #E5E7EB;
+    --danger: #D64545;
+    --danger-bg: #FCEAEA;
+    --danger-border: #F2C6C6;
+    --success-bg: #EAF8EF;
+    --success-text: #1E9E4F;
+    --warn-bg: #FFF6E5;
+    --warn-text: #B8860B;
+    --radius: 14px;
+    --shadow-md: 0 8px 24px rgba(15, 60, 110, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    min-height: 100vh;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+
+  .wrap { width: 100%; max-width: 460px; }
+
+  h1 { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
+  .subtitle { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 24px; line-height: 1.7; }
+
+  .card {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+  }
+
+  label { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 9px; }
+
+  .input-row {
+    display: flex; align-items: center;
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
+    overflow: hidden; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-row:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,121,197,0.12); background: var(--background); }
+  .input-row input {
+    flex: 1; background: transparent; border: none; outline: none; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 15px; padding: 13px 4px 13px 0;
+    direction: ltr; text-align: left; min-width: 0;
+  }
+  .input-row input::placeholder { color: #A8ACB3; }
+  .domain-suffix { color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; font-size: 13.5px; padding: 13px 14px 13px 0; white-space: nowrap; direction: ltr; }
+
+  .hint { font-size: 12px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6; }
+
+  .availability-status { font-size: 12.5px; margin-top: 8px; display: none; font-weight: 700; align-items: center; gap: 5px; }
+  .availability-status.show { display: flex; }
+  .availability-status.checking { color: var(--text-secondary); }
+  .availability-status.available { color: #1E9E4F; }
+  .availability-status.unavailable { color: var(--danger); }
+
+  .field-error { font-size: 12.5px; color: var(--danger); margin-top: 8px; display: none; font-weight: 600; }
+
+  button.submit {
+    width: 100%; margin-top: 20px;
+    background: linear-gradient(155deg, var(--primary-light), var(--primary)); color: #FFFFFF;
+    border: none; border-radius: 10px; padding: 14px; font-family: 'Cairo'; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 14px rgba(24, 121, 197, 0.28);
+  }
+  button.submit:hover:not(:disabled) { filter: brightness(1.05); }
+  button.submit:active:not(:disabled) { transform: scale(0.99); }
+  button.submit:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+  .result-box { display: none; margin-top: 18px; padding: 16px; border-radius: 10px; text-align: center; }
+  .result-box.success { display: block; background: var(--badge-bg); border: 1px solid var(--badge-border); }
+  .result-box.failure { display: block; background: var(--danger-bg); border: 1px solid var(--danger-border); }
+  .result-domain { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--primary-dark); direction: ltr; margin-bottom: 6px; }
+  .result-msg { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* قائمة طلبات العميل السابقة */
+  .my-requests { margin-top: 28px; }
+  .my-requests h2 { font-size: 14px; font-weight: 800; margin-bottom: 10px; color: var(--text); }
+  .req-item {
+    background: var(--background); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .req-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text); direction: ltr; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge.pending { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.approved { background: var(--success-bg); color: var(--success-text); }
+  .badge.rejected { background: var(--danger-bg); color: var(--danger); }
+  .req-note { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; }
+  .empty-state { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 16px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>طلب نطاق فرعي جديد</h1>
+  <p class="subtitle">اطلب نطاقك الفرعي الخاص على منصة مدعوم، وستتم مراجعة طلبك من الإدارة قريبًا.</p>
+
+  <div class="card">
+    <form id="requestForm">
+      <label for="orgName">اسم النطاق المطلوب (بالإنجليزية)</label>
+      <div class="input-row">
+        <input type="text" id="orgName" placeholder="mtjr" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+        <span class="domain-suffix">.mad3oom.online</span>
+      </div>
+      <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات.</p>
+      <p class="availability-status" id="availabilityStatus"></p>
+      <p class="field-error" id="fieldError"></p>
+
+      <button type="submit" class="submit" id="submitBtn">
+        <span id="submitLabel">إرسال الطلب</span>
+      </button>
+    </form>
+
+    <div class="result-box" id="resultBox">
+      <div class="result-domain" id="resultDomain"></div>
+      <div class="result-msg" id="resultMsg"></div>
+    </div>
+  </div>
+
+  <div class="my-requests">
+    <h2>طلباتك السابقة</h2>
+    <div id="myRequestsList"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://srnelrdpqkcntbgudyto.supabase.co";
+  const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const REQUEST_FN_URL = `${SUPABASE_URL}/functions/v1/request-subdomain`;
+
+  const form = document.getElementById('requestForm');
+  const input = document.getElementById('orgName');
+  const fieldError = document.getElementById('fieldError');
+  const availabilityStatus = document.getElementById('availabilityStatus');
+  const submitBtn = document.getElementById('submitBtn');
+  const submitLabel = document.getElementById('submitLabel');
+  const resultBox = document.getElementById('resultBox');
+  const resultDomain = document.getElementById('resultDomain');
+  const resultMsg = document.getElementById('resultMsg');
+  const myRequestsList = document.getElementById('myRequestsList');
+
+  const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+  async function getAccessToken() {
+    const { data } = await sb.auth.getSession();
+    return data?.session?.access_token || null;
+  }
+
+  function setAvailabilityStatus(state, text) {
+    availabilityStatus.className = `availability-status show ${state}`;
+    const dotColor = state === 'available' ? '#1E9E4F' : (state === 'unavailable' ? '#D64545' : '#9AA0A6');
+    availabilityStatus.innerHTML = `<svg width="9" height="9" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="${dotColor}"/></svg><span>${text}</span>`;
+  }
+  function clearAvailabilityStatus() {
+    availabilityStatus.className = 'availability-status';
+    availabilityStatus.innerHTML = '';
+  }
+
+  // ---------- التحقق من الاسم محليًا (الفنكشن نفسها تتحقق برضو وقت الإرسال) ----------
+  input.addEventListener('input', () => {
+    fieldError.style.display = 'none';
+    const rawName = input.value.trim().toLowerCase();
+    if (!rawName) { clearAvailabilityStatus(); return; }
+    if (!NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
+      setAvailabilityStatus('unavailable', 'صيغة الاسم غير صحيحة');
+      return;
+    }
+    setAvailabilityStatus('checking', 'جاهز للإرسال');
+  });
+
+  function showResult(success, name, message) {
+    resultBox.className = `result-box ${success ? 'success' : 'failure'}`;
+    resultDomain.textContent = `${name}.mad3oom.online`;
+    resultMsg.textContent = message;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rawName = input.value.trim().toLowerCase();
+    fieldError.style.display = 'none';
+    resultBox.className = 'result-box';
+
+    if (!rawName || !NAME_REGEX.test(rawName) || rawName.length < 2 || rawName.length > 63) {
+      fieldError.textContent = 'يرجى إدخال اسم صحيح: حروف إنجليزية صغيرة وأرقام وشرطات فقط.';
+      fieldError.style.display = 'block';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitLabel.textContent = 'جاري الإرسال...';
+
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('يرجى تسجيل الدخول أولًا لإرسال طلب.');
+
+      const res = await fetch(REQUEST_FN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: rawName }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'حدث خطأ غير متوقع');
+
+      showResult(true, rawName, data.message);
+      input.value = '';
+      clearAvailabilityStatus();
+      loadMyRequests();
+    } catch (err) {
+      showResult(false, rawName, err.message);
+    } finally {
+      submitBtn.disabled = false;
+      submitLabel.textContent = 'إرسال الطلب';
+    }
+  });
+
+  // ---------- طلبات العميل السابقة (قراءة مباشرة عبر RLS الخاصة بالعميل) ----------
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  function statusLabel(status) {
+    const map = { pending: 'قيد المراجعة', approved: 'تمت الموافقة', rejected: 'مرفوض' };
+    return map[status] || status;
+  }
+
+  async function loadMyRequests() {
+    myRequestsList.innerHTML = `<div class="empty-state">جاري التحميل...</div>`;
+    const { data: userData } = await sb.auth.getUser();
+    if (!userData?.user) {
+      myRequestsList.innerHTML = `<div class="empty-state">يرجى تسجيل الدخول لعرض طلباتك</div>`;
+      return;
+    }
+
+    const { data, error } = await sb
+      .from('subdomain_request_queue')
+      .select('id, requested_name, status, note, created_at')
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error || !data || !data.length) {
+      myRequestsList.innerHTML = `<div class="empty-state">لا توجد طلبات سابقة</div>`;
+      return;
+    }
+
+    myRequestsList.innerHTML = data.map(req => `
+      <div class="req-item">
+        <div>
+          <div class="req-name">${escapeHtml(req.requested_name)}.mad3oom.online</div>
+          ${req.status === 'rejected' && req.note ? `<div class="req-note">${escapeHtml(req.note)}</div>` : ''}
+        </div>
+        <span class="badge ${req.status}">${statusLabel(req.status)}</span>
+      </div>
+    `).join('');
+  }
+
+  loadMyRequests();
+</script>
+
+</body>
+</html>
