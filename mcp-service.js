@@ -208,7 +208,7 @@ export async function createServer(payload) {
 }
  
 /**
- * تحديث خادم موجود
+ * تحديث خادم موجود (يدعم التحديث الجزئي - partial update)
  */
 export async function updateServer(id, payload) {
     const updates = normalizePayload(payload, false);
@@ -306,7 +306,7 @@ export async function testServer(id) {
         result.message = 'لا يوجد عنوان (URL) أو أمر (command) للاختبار';
     }
  
-    // تحديث الحالة
+    // تحديث الحالة (تحديث جزئي: name/url غير مرسلين عن قصد)
     const newStatus = result.ok ? MCP_STATUSES.CONNECTED : MCP_STATUSES.ERROR;
     await updateServer(id, { status: newStatus, last_checked_at: new Date().toISOString() });
     await logMcpActivity(result.ok ? 'connected' : 'error', id, {
@@ -322,6 +322,7 @@ export async function testServer(id) {
  */
 export async function disconnectServer(id) {
     const server = await fetchServerById(id);
+    // تحديث جزئي: name/url غير مرسلين عن قصد
     await updateServer(id, { status: MCP_STATUSES.DISCONNECTED });
     await logMcpActivity('disconnected', id, { name: server?.name || '' });
 }
@@ -358,23 +359,40 @@ function buildHeaders(server) {
  
 /**
  * تنظيف وتوحيد بيانات الإدخال قبل الحفظ + تحقق من الصحة.
+ *
+ * ملاحظة مهمة: هذه الدالة تُستخدم في وضعين:
+ *   1) isNew = true  → إنشاء خادم جديد، كل الحقول الأساسية (name/url) مطلوبة.
+ *   2) isNew = false → تحديث خادم موجود. قد يكون هذا تحديثاً "جزئياً"
+ *      يُرسل من الكود الداخلي (مثل testServer/disconnectServer) ولا يحتوي
+ *      إلا على status/last_checked_at. لذلك لا نفرض وجود name أو url إلا
+ *      إذا أُرسلا فعلاً ضمن payload.
  */
 function normalizePayload(payload, isNew) {
     const out = {};
  
-    const name = (payload.name || '').trim();
-    if (!name) throw new Error('اسم الخادم مطلوب');
-    out.name = name;
- 
-    out.transport = MCP_TRANSPORTS.includes(payload.transport)
-        ? payload.transport
-        : 'streamable_http';
- 
-    const url = (payload.url || '').trim();
-    if (out.transport !== 'stdio' && !url) {
-        throw new Error('عنوان URL مطلوب لخوادم غير stdio');
+    // الاسم: مطلوب دائماً عند الإنشاء، وعند التعديل فقط إن أُرسل ضمن الحمولة
+    if (isNew || payload.name !== undefined) {
+        const name = (payload.name || '').trim();
+        if (!name) throw new Error('اسم الخادم مطلوب');
+        out.name = name;
     }
-    if (url) out.url = url;
+ 
+    // نوع النقل: يُحدَّد فقط عند الإنشاء أو إن أُرسل صراحة
+    if (isNew || payload.transport !== undefined) {
+        out.transport = MCP_TRANSPORTS.includes(payload.transport)
+            ? payload.transport
+            : 'streamable_http';
+    }
+ 
+    // عنوان URL: نتحقق منه فقط عند الإنشاء أو عند إرساله/تغيير نوع النقل صراحة
+    if (isNew || payload.url !== undefined) {
+        const url = (payload.url || '').trim();
+        const transportForCheck = out.transport || 'streamable_http';
+        if (transportForCheck !== 'stdio' && !url) {
+            throw new Error('عنوان URL مطلوب لخوادم غير stdio');
+        }
+        out.url = url;
+    }
  
     if (payload.command !== undefined) {
         out.command = (payload.command || '').trim();
@@ -402,9 +420,19 @@ function normalizePayload(payload, isNew) {
         if (ak && !ak.includes('••••')) out.api_key = ak;
     }
  
-    out.description = (payload.description || '').trim();
-    out.category = (payload.category || 'general').trim() || 'general';
-    out.enabled = payload.enabled === undefined ? true : Boolean(payload.enabled);
+    if (payload.description !== undefined) {
+        out.description = (payload.description || '').trim();
+    }
+ 
+    if (payload.category !== undefined) {
+        out.category = (payload.category || 'general').trim() || 'general';
+    }
+ 
+    if (payload.enabled !== undefined) {
+        out.enabled = Boolean(payload.enabled);
+    } else if (isNew) {
+        out.enabled = true;
+    }
  
     // قائمة الأدوات إن وُجدت
     if (payload.tools !== undefined) {
@@ -415,6 +443,7 @@ function normalizePayload(payload, isNew) {
  
     if (isNew) {
         out.id = uuid();
+        out.category = out.category || 'general';
         out.status = out.status || MCP_STATUSES.PENDING;
         out.tools = out.tools || [];
         out.created_at = new Date().toISOString();
@@ -447,4 +476,3 @@ function parseKeyValue(input) {
         return obj;
     }
 }
- 
