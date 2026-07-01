@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ربط MCP - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <script src="/theme-manager.js"></script>
+    <script src="/language-manager.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== Layout ==================== */
+        .mcp-container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+ 
+        .page-intro {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 2rem;
+            border-radius: 1.25rem;
+            color: #fff;
+            margin-bottom: 1.75rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(30, 60, 114, 0.3);
+        }
+        .page-intro::before {
+            content: '';
+            position: absolute;
+            top: -60%; left: -30%;
+            width: 160%; height: 220%;
+            background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 65%);
+            pointer-events: none;
+        }
+        .page-intro h1 {
+            margin: 0 0 0.5rem;
+            font-size: clamp(1.3rem, 4vw, 1.9rem);
+            font-weight: 800;
+            position: relative;
+            z-index: 1;
+            display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+        }
+        .page-intro p { margin: 0; opacity: 0.9; font-size: clamp(0.85rem, 2.5vw, 1rem); position: relative; z-index: 1; }
+ 
+        /* ==================== Stats Grid ==================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+        .stat-card {
+            background: var(--color-surface);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border: 1px solid var(--color-border);
+            display: flex; align-items: center; gap: 1rem;
+            transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .stat-icon {
+            width: 48px; height: 48px; min-width: 48px;
+            border-radius: 0.75rem;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+        }
+        .stat-icon svg { width: 24px; height: 24px; }
+        .icon-total { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+        .icon-connected { background: linear-gradient(135deg, #10b981, #059669); }
+        .icon-error { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .icon-tools { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
+        .stat-info .num { font-size: 1.6rem; font-weight: 800; color: var(--color-text); line-height: 1; }
+        .stat-info .lbl { font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 0.3rem; font-weight: 600; }
+ 
+        /* ==================== Toolbar ==================== */
+        .toolbar {
+            background: var(--color-surface);
+            padding: 1rem 1.25rem;
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border: 1px solid var(--color-border);
+        }
+        .field { display: flex; flex-direction: column; gap: 0.35rem; }
+        .field label { font-size: 0.78rem; font-weight: 700; color: var(--color-text-secondary); }
+        .field select, .field input {
+            padding: 0.55rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            color: var(--color-text);
+            font-family: inherit;
+            font-size: 0.9rem;
+            min-width: 140px;
+        }
+        .field select:focus, .field input:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(0,119,204,0.15); }
+        .toolbar-spacer { flex: 1; }
+        .toolbar-actions { display: flex; gap: 0.6rem; }
+ 
+        /* ==================== Buttons ==================== */
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.6rem 1.1rem;
+            border-radius: 0.6rem;
+            border: none;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: var(--color-accent); color: #fff; }
+        .btn-primary:hover { background: var(--color-accent-hover); }
+        .btn-secondary { background: var(--color-muted); color: var(--color-text); }
+        .btn-secondary:hover { background: var(--color-border); }
+        .btn-test { background: #e0f2fe; color: #0369a1; }
+        .btn-test:hover { background: #bae6fd; }
+        .btn-edit { background: #ede9fe; color: #6d28d9; }
+        .btn-edit:hover { background: #ddd6fe; }
+        .btn-disconnect { background: #fef3c7; color: #92400e; }
+        .btn-disconnect:hover { background: #fde68a; }
+        .btn-delete { background: #fee2e2; color: #b91c1c; }
+        .btn-delete:hover { background: #fecaca; }
+ 
+        /* ==================== Servers List ==================== */
+        .servers-list { display: grid; gap: 1rem; }
+        .mcp-card {
+            background: var(--color-surface);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border: 1px solid var(--color-border);
+            transition: all 0.25s;
+            animation: cardIn 0.3s ease-out;
+        }
+        .mcp-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .mcp-card.is-connected { border-right: 4px solid var(--color-success); }
+        .mcp-card.testing { opacity: 0.75; pointer-events: none; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+ 
+        .card-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+        .card-head { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
+        .card-icon {
+            width: 44px; height: 44px; min-width: 44px;
+            border-radius: 0.6rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+        }
+        .card-title-wrap { min-width: 0; }
+        .card-title { font-size: 1.05rem; font-weight: 800; color: var(--color-text); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .card-subtitle { font-size: 0.83rem; color: var(--color-text-secondary); margin-top: 0.2rem; }
+ 
+        .transport-chip { font-size: 0.68rem; font-weight: 800; background: var(--color-muted); color: var(--color-text-secondary); padding: 0.15rem 0.5rem; border-radius: 2rem; }
+        .disabled-chip { font-size: 0.68rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 0.15rem 0.5rem; border-radius: 2rem; }
+ 
+        .card-meta { display: flex; gap: 1rem 1.5rem; flex-wrap: wrap; margin: 1rem 0; font-size: 0.82rem; color: var(--color-text-secondary); }
+        .card-meta code { background: var(--color-muted); padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-size: 0.78rem; color: var(--color-text); }
+ 
+        .card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--color-border); padding-top: 1rem; }
+ 
+        /* ==================== Status Chips ==================== */
+        .status-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem; border-radius: 2rem; font-size: 0.75rem; font-weight: 700; }
+        .status-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .st-connected { background: #dcfce7; color: #166534; }
+        .st-connected .dot { background: #16a34a; animation: pulseDot 1.8s infinite; }
+        .st-disconnected { background: #f1f5f9; color: #475569; }
+        .st-disconnected .dot { background: #94a3b8; }
+        .st-error { background: #fee2e2; color: #991b1b; }
+        .st-error .dot { background: #dc2626; }
+        .st-pending { background: #fef3c7; color: #92400e; }
+        .st-pending .dot { background: #f59e0b; }
+        @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+ 
+        /* ==================== States ==================== */
+        .state-block { text-align: center; padding: 4rem 1rem; background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); }
+        .state-block h3 { margin: 1rem 0 0.5rem; font-size: 1.2rem; color: var(--color-text); }
+        .state-block p { color: var(--color-text-secondary); margin: 0 auto 1.25rem; max-width: 420px; }
+        .state-block.empty svg { color: var(--color-text-secondary); }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--color-muted); border-top-color: var(--color-accent); border-radius: 50%; margin: 0 auto 1rem; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+ 
+        /* ==================== Activity Panel ==================== */
+        .activity-panel {
+            background: var(--color-surface);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            margin-top: 1.75rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border: 1px solid var(--color-border);
+        }
+        .activity-panel h3 { margin: 0 0 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .activity-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; flex-wrap: wrap; }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-tag { font-size: 0.72rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 2rem; }
+        .act-created { background: #dcfce7; color: #166534; }
+        .act-updated { background: #dbeafe; color: #1e40af; }
+        .act-deleted { background: #fee2e2; color: #991b1b; }
+        .act-connected { background: #d1fae5; color: #065f46; }
+        .act-disconnected { background: #f1f5f9; color: #475569; }
+        .act-error { background: #fef3c7; color: #92400e; }
+        .act-tested { background: #e0e7ff; color: #3730a3; }
+        .activity-name { font-weight: 700; color: var(--color-text); }
+        .activity-msg { color: var(--color-text-secondary); flex: 1; min-width: 120px; }
+        .activity-time { font-size: 0.75rem; color: var(--color-text-secondary); margin-inline-start: auto; }
+        .activity-empty { text-align: center; padding: 1.5rem; color: var(--color-text-secondary); font-size: 0.88rem; }
+ 
+        /* ==================== Modal ==================== */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(3px);
+            z-index: 3000;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .modal-overlay.open { display: flex; animation: fadeIn 0.2s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal {
+            background: var(--color-surface);
+            border-radius: 1rem;
+            width: 100%; max-width: 620px;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.25s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; background: var(--color-surface); z-index: 2; border-radius: 1rem 1rem 0 0;
+        }
+        .modal-header h2 { margin: 0; font-size: 1.2rem; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; color: var(--color-text-secondary); cursor: pointer; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.4rem; }
+        .modal-close:hover { background: var(--color-muted); }
+        .modal-body { padding: 1.5rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-size: 0.83rem; font-weight: 700; color: var(--color-text-secondary); }
+        .form-group label .req { color: var(--color-danger); }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 0.65rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            color: var(--color-text);
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        .form-group textarea { resize: vertical; min-height: 70px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.82rem; direction: ltr; }
+        .form-group .hint { font-size: 0.72rem; color: var(--color-text-secondary); }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(0,119,204,0.15); }
+        .checkbox-row { display: flex; align-items: center; gap: 0.5rem; }
+        .checkbox-row input { width: 18px; height: 18px; accent-color: var(--color-accent); }
+        .form-error { display: none; background: #fee2e2; color: #991b1b; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem; border: 1px solid #fecaca; }
+        .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: 0.75rem; position: sticky; bottom: 0; background: var(--color-surface); border-radius: 0 0 1rem 1rem; }
+ 
+        /* ==================== Toast ==================== */
+        .toast-container { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 4000; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast { padding: 0.85rem 1.25rem; border-radius: 0.6rem; color: #fff; font-weight: 600; font-size: 0.88rem; box-shadow: 0 8px 24px rgba(0,0,0,0.2); transform: translateX(-120%); transition: transform 0.3s ease; max-width: 360px; display: flex; align-items: center; gap: 0.5rem; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { background: var(--color-success); }
+        .toast-error { background: var(--color-danger); }
+        .toast-info { background: var(--color-accent); }
+ 
+        /* ==================== Responsive ==================== */
+        @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px) {
+            .mcp-container { padding: 1rem 0.75rem 3rem; }
+            .page-intro { padding: 1.25rem; border-radius: 1rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+            .stat-card { padding: 1rem; }
+            .stat-icon { width: 40px; height: 40px; min-width: 40px; }
+            .stat-info .num { font-size: 1.3rem; }
+            .toolbar { padding: 0.85rem; }
+            .field { flex: 1; min-width: 130px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .card-meta { gap: 0.6rem 1rem; font-size: 0.78rem; }
+            .toast-container { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; }
+            .toast { max-width: none; transform: translateY(120%); }
+            .toast.show { transform: translateY(0); }
+        }
+        @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+ 
+    <main class="admin-main">
+        <div class="mcp-container">
+            <!-- Intro -->
+            <div class="page-intro">
+                <h1>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line><path d="M6 9l2 2 4-4"></path></svg>
+                    <span data-i18n="mcp_page_title">ربط خوادم MCP</span>
+                </h1>
+                <p data-i18n="mcp_page_subtitle">إدارة وربط خوادم Model Context Protocol لأدوات الذكاء الاصطناعي والتكاملات الخارجية</p>
+            </div>
+ 
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon icon-total"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg></div>
+                    <div class="stat-info"><div class="num" id="statTotal">0</div><div class="lbl" data-i18n="mcp_stat_total">إجمالي الخوادم</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-connected"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                    <div class="stat-info"><div class="num" id="statConnected">0</div><div class="lbl" data-i18n="mcp_stat_connected">خوادم متصلة</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-error"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                    <div class="stat-info"><div class="num" id="statError">0</div><div class="lbl" data-i18n="mcp_stat_error">بها أخطاء</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-tools"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></div>
+                    <div class="stat-info"><div class="num" id="statTools">0</div><div class="lbl" data-i18n="mcp_stat_tools">إجمالي الأدوات</div></div>
+                </div>
+            </div>
+ 
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="field">
+                    <label data-i18n="mcp_filter_status">الحالة</label>
+                    <select id="filterStatus">
+                        <option value="all" data-i18n="mcp_status_all">الكل</option>
+                        <option value="connected" data-i18n="mcp_status_connected">متصل</option>
+                        <option value="disconnected" data-i18n="mcp_status_disconnected">غير متصل</option>
+                        <option value="error" data-i18n="mcp_status_error_opt">خطأ</option>
+                        <option value="pending" data-i18n="mcp_status_pending">بانتظار</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label data-i18n="mcp_filter_transport">نوع النقل</label>
+                    <select id="filterTransport">
+                        <option value="all" data-i18n="mcp_status_all">الكل</option>
+                        <option value="streamable_http">HTTP</option>
+                        <option value="sse">SSE</option>
+                        <option value="stdio">stdio</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:1; min-width:200px;">
+                    <label data-i18n="mcp_search">بحث</label>
+                    <input type="text" id="searchInput" placeholder="ابحث بالاسم أو الرابط...">
+                </div>
+                <div class="toolbar-actions">
+                    <button class="btn btn-secondary" id="refreshBtn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        <span data-i18n="mcp_refresh">تحديث</span>
+                    </button>
+                    <button class="btn btn-primary" id="addBtn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span data-i18n="mcp_add">إضافة خادم</span>
+                    </button>
+                </div>
+            </div>
+ 
+            <!-- Servers List -->
+            <div class="servers-list" id="serversList">
+                <div class="state-block">
+                    <div class="spinner"></div>
+                    <p data-i18n="mcp_loading">جاري تحميل خوادم MCP...</p>
+                </div>
+            </div>
+ 
+            <!-- Activity Log -->
+            <div class="activity-panel">
+                <h3>
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    <span data-i18n="mcp_activity_title">آخر النشاطات</span>
+                </h3>
+                <div id="activityList">
+                    <div class="activity-empty" data-i18n="mcp_activity_empty">لا يوجد نشاط مسجّل بعد</div>
+                </div>
+            </div>
+        </div>
+    </main>
+ 
+    <!-- Modal: Add / Edit Server -->
+    <div class="modal-overlay" id="mcpModal">
+        <div class="modal" role="dialog" aria-labelledby="modalTitle">
+            <div class="modal-header">
+                <h2 id="modalTitle">إضافة خادم MCP جديد</h2>
+                <button class="modal-close" id="modalClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-error" id="formError"></div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>اسم الخادم <span class="req">*</span></label>
+                        <input type="text" id="fName" placeholder="مثال: GitHub MCP">
+                    </div>
+                    <div class="form-group">
+                        <label>نوع النقل <span class="req">*</span></label>
+                        <select id="fTransport">
+                            <option value="streamable_http">Streamable HTTP</option>
+                            <option value="sse">Server-Sent Events (SSE)</option>
+                            <option value="stdio">stdio (محلي)</option>
+                        </select>
+                    </div>
+ 
+                    <!-- HTTP / SSE fields -->
+                    <div id="httpFields" class="full" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div class="form-group full" style="grid-column:1/-1;">
+                            <label>عنوان الخادم (URL)</label>
+                            <input type="text" id="fUrl" placeholder="https://mcp.example.com/v1" dir="ltr">
+                        </div>
+                    </div>
+ 
+                    <!-- stdio fields -->
+                    <div id="stdioFields" class="full" style="display:none;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                            <div class="form-group">
+                                <label>أمر التشغيل (command)</label>
+                                <input type="text" id="fCommand" placeholder="npx -y @modelcontextprotocol/server-filesystem" dir="ltr">
+                            </div>
+                            <div class="form-group">
+                                <label>المعاملات (args)</label>
+                                <input type="text" id="fArgs" placeholder="/path/to/dir --option value" dir="ltr">
+                            </div>
+                        </div>
+                    </div>
+ 
+                    <div class="form-group full">
+                        <label>مفتاح API / Token</label>
+                        <input type="password" id="fApiKey" placeholder="••••••••••••" dir="ltr">
+                        <span class="hint" data-i18n="mcp_hint_apikey">يُحفظ بأمان ولا يُعرض بعد الحفظ. اتركه فارغاً عند التعديل للإبقاء على القيمة الحالية.</span>
+                    </div>
+ 
+                    <div class="form-group full">
+                        <label>الترويسات الإضافية (Headers) — JSON</label>
+                        <textarea id="fHeaders" placeholder='{"X-Custom-Header": "value"}' dir="ltr"></textarea>
+                    </div>
+ 
+                    <div class="form-group full" id="envGroup">
+                        <label>متغيرات البيئة (Env) — JSON</label>
+                        <textarea id="fEnv" placeholder='{"API_TOKEN": "xxx"}' dir="ltr"></textarea>
+                    </div>
+ 
+                    <div class="form-group">
+                        <label>التصنيف</label>
+                        <input type="text" id="fCategory" placeholder="general">
+                    </div>
+                    <div class="form-group">
+                        <label>الحالة</label>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="fEnabled" checked>
+                            <label for="fEnabled" style="font-weight:600; color:var(--color-text);">تفعيل الخادم</label>
+                        </div>
+                    </div>
+ 
+                    <div class="form-group full">
+                        <label>الوصف</label>
+                        <input type="text" id="fDescription" placeholder="وصف مختصر لوظيفة الخادم">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBtn" onclick="window.mcpCloseModal()">إلغاء</button>
+                <button class="btn btn-primary" id="saveBtn">حفظ الخادم</button>
+            </div>
+        </div>
+    </div>
+ 
+    <!-- Toasts -->
+    <div class="toast-container" id="toastContainer"></div>
+ 
+    <script type="module" src="/assets/js/admin/mcp.js"></script>
+</body>
+</html>
