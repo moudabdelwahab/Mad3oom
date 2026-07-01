@@ -42,8 +42,7 @@ function uuid() {
 }
  
 /** هل جدول Supabase متاح؟ نكتشف ذلك مرّة واحدة ونخزّن النتيجة */
-let _useSupabase = null;
-async function detectStorageMode() {
+
    let _useSupabase = null;
 
 async function detectStorageMode() {
