@@ -10,133 +10,287 @@
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --mb-radius: 0.65rem;
+            --mb-radius-sm: 0.4rem;
+        }
+
+        .mailbox-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .mailbox-tabs {
+            display: inline-flex;
+            gap: 0.25rem;
+            padding: 0.25rem;
+            background: var(--input-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--mb-radius);
+        }
+        .mailbox-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.1rem;
+            border: none;
+            border-radius: var(--mb-radius-sm);
+            background: transparent;
+            color: var(--color-text-secondary, #888);
+            cursor: pointer;
+            font-weight: 700;
+            font-family: inherit;
+            font-size: 0.92em;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .mailbox-tab svg { width: 17px; height: 17px; flex-shrink: 0; }
+        .mailbox-tab.active {
+            background: var(--color-primary, #007bff);
+            color: #fff;
+        }
+        .mailbox-tab .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 0.4rem;
+            border-radius: 999px;
+            font-size: 0.75em;
+            background: var(--color-danger, #dc3545);
+            color: #fff;
+            font-weight: 700;
+        }
+        .mailbox-tab.active .badge {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-icon svg { width: 16px; height: 16px; }
+
         .mailbox-layout {
             display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 1.25rem;
+            grid-template-columns: 360px 1fr;
+            gap: 1rem;
             align-items: start;
         }
         @media (max-width: 900px) {
             .mailbox-layout { grid-template-columns: 1fr; }
         }
-        .mailbox-tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .mailbox-tab {
-            flex: 1;
-            padding: 0.75rem 1rem;
+
+        .mail-list-wrap {
             border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
+            border-radius: var(--mb-radius);
             background: var(--input-bg);
-            color: var(--color-text);
+            overflow: hidden;
+        }
+        .mail-list-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 0.85em;
+            color: var(--color-text-secondary, #888);
+        }
+        .mail-list-refresh {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--color-border);
+            background: transparent;
+            color: var(--color-text-secondary, #888);
             cursor: pointer;
-            font-weight: 700;
-            font-family: inherit;
+        }
+        .mail-list-refresh:hover { color: var(--color-primary, #007bff); border-color: var(--color-primary, #007bff); }
+        .mail-list-refresh svg { width: 14px; height: 14px; }
+        .mail-list-refresh.spinning svg { animation: mb-spin 0.7s linear infinite; }
+        @keyframes mb-spin { to { transform: rotate(360deg); } }
+
+        .mail-list {
+            max-height: 72vh;
+            overflow-y: auto;
+        }
+        .mail-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            cursor: pointer;
+            position: relative;
+            transition: background 0.12s ease;
+        }
+        .mail-item:last-child { border-bottom: none; }
+        .mail-item:hover { background: rgba(0,123,255,0.05); }
+        .mail-item.selected { background: rgba(0,123,255,0.1); }
+        .mail-item.selected::before {
+            content: '';
+            position: absolute;
+            right: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--color-primary, #007bff);
+        }
+
+        .mail-avatar {
+            flex-shrink: 0;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.4rem;
-        }
-        .mailbox-tab.active {
-            background: var(--color-primary, #007bff);
+            font-weight: 700;
+            font-size: 0.85em;
             color: #fff;
-            border-color: var(--color-primary, #007bff);
+            background: linear-gradient(135deg, var(--color-primary, #007bff), #5aa9ff);
         }
-        .mailbox-tab .badge {
-            background: rgba(255,255,255,0.25);
-            border-radius: 999px;
-            padding: 0.05rem 0.5rem;
-            font-size: 0.75em;
-        }
-        .mailbox-tab:not(.active) .badge {
-            background: var(--color-danger, #dc3545);
-            color: #fff;
-        }
-        .mail-list {
-            max-height: 75vh;
-            overflow-y: auto;
-            border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
-            background: var(--input-bg);
-        }
-        .mail-item {
-            padding: 0.85rem 1rem;
-            border-bottom: 1px solid var(--color-border);
-            cursor: pointer;
-        }
-        .mail-item:last-child { border-bottom: none; }
-        .mail-item:hover { background: rgba(0,123,255,0.06); }
-        .mail-item.selected { background: rgba(0,123,255,0.12); }
-        .mail-item.unread { font-weight: 700; }
-        .mail-item .mi-top {
+        .mail-item-body { flex: 1; min-width: 0; }
+        .mi-top {
             display: flex;
             justify-content: space-between;
+            align-items: baseline;
             gap: 0.5rem;
-            font-size: 0.85em;
-            color: var(--color-text-secondary, #888);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.15rem;
         }
-        .mail-item .mi-from {
+        .mi-from {
             color: var(--color-text);
-            font-weight: 700;
-        }
-        .mail-item .mi-subject {
-            font-size: 0.95em;
+            font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            font-size: 0.92em;
         }
-        .status-pill {
-            display: inline-block;
+        .mail-item.unread .mi-from { font-weight: 800; }
+        .mi-time {
+            flex-shrink: 0;
             font-size: 0.75em;
-            padding: 0.1rem 0.5rem;
+            color: var(--color-text-secondary, #888);
+        }
+        .mi-subject {
+            font-size: 0.88em;
+            color: var(--color-text-secondary, #888);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.35rem;
+        }
+        .mail-item.unread .mi-subject { color: var(--color-text); }
+        .mi-bottom {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .unread-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--color-primary, #007bff);
+            flex-shrink: 0;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.72em;
+            padding: 0.15rem 0.55rem;
             border-radius: 999px;
             font-weight: 700;
         }
-        .status-sent, .status-delivered { background: rgba(40,167,69,0.15); color: #28a745; }
-        .status-received { background: rgba(0,123,255,0.15); color: #007bff; }
-        .status-failed, .status-bounced, .status-complained { background: rgba(220,53,69,0.15); color: #dc3545; }
-        .status-delayed { background: rgba(255,193,7,0.15); color: #b8860b; }
+        .status-pill svg { width: 10px; height: 10px; }
+        .status-sent, .status-delivered { background: rgba(40,167,69,0.14); color: #28a745; }
+        .status-received { background: rgba(0,123,255,0.14); color: #007bff; }
+        .status-failed, .status-bounced, .status-complained { background: rgba(220,53,69,0.14); color: #dc3545; }
+        .status-delayed { background: rgba(184,134,11,0.14); color: #b8860b; }
 
         .mail-detail {
             border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
+            border-radius: var(--mb-radius);
             background: var(--input-bg);
-            padding: 1.5rem;
-            min-height: 75vh;
+            min-height: 72vh;
+            display: flex;
+            flex-direction: column;
         }
         .mail-detail-empty {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 70vh;
+            gap: 0.75rem;
+            height: 72vh;
             color: var(--color-text-secondary, #888);
+            text-align: center;
         }
+        .mail-detail-empty svg { width: 52px; height: 52px; opacity: 0.35; }
+        .mail-detail-empty p { margin: 0; font-size: 0.95em; }
+
         .mail-detail-header {
+            padding: 1.5rem 1.5rem 1.1rem;
             border-bottom: 1px solid var(--color-border);
-            padding-bottom: 1rem;
-            margin-bottom: 1rem;
         }
         .mail-detail-header h2 {
-            margin: 0 0 0.5rem 0;
-            font-size: 1.3em;
+            margin: 0 0 0.9rem 0;
+            font-size: 1.25em;
+            line-height: 1.4;
         }
-        .mail-meta-row {
-            font-size: 0.9em;
+        .mail-parties {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+        .mail-detail-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, var(--color-primary, #007bff), #5aa9ff);
+            flex-shrink: 0;
+        }
+        .mail-party-info { flex: 1; min-width: 0; }
+        .mail-party-info .mp-row {
+            font-size: 0.85em;
             color: var(--color-text-secondary, #888);
-            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.15rem;
         }
+        .mail-party-info .mp-row svg { width: 13px; height: 13px; flex-shrink: 0; }
+        .mail-party-info strong { color: var(--color-text); font-weight: 700; }
+        .mail-detail-meta-right {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.4rem;
+        }
+
+        .mail-body-wrap { padding: 1.25rem 1.5rem; flex: 1; }
         .mail-body-frame {
             width: 100%;
-            min-height: 300px;
-            border: none;
+            min-height: 280px;
+            border: 1px solid var(--color-border);
             background: #fff;
-            border-radius: 0.5rem;
+            border-radius: var(--mb-radius-sm);
         }
+
         .mail-attachments {
-            margin-top: 1rem;
+            margin-top: 1.1rem;
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
@@ -144,34 +298,92 @@
         .attachment-chip {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.4rem 0.75rem;
+            gap: 0.5rem;
+            padding: 0.5rem 0.85rem;
             border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
+            border-radius: var(--mb-radius-sm);
             font-size: 0.85em;
             cursor: pointer;
-            background: var(--color-bg, #f5f5f5);
+            background: var(--color-bg, transparent);
+            transition: border-color 0.15s ease, color 0.15s ease;
         }
+        .attachment-chip:hover { border-color: var(--color-primary, #007bff); color: var(--color-primary, #007bff); }
+        .attachment-chip svg { width: 15px; height: 15px; flex-shrink: 0; }
+        .attachment-chip .att-download { width: 13px; height: 13px; margin-right: auto; opacity: 0.6; }
+
+        .mail-error-box {
+            display: flex;
+            gap: 0.6rem;
+            align-items: flex-start;
+            background: rgba(220,53,69,0.08);
+            color: #dc3545;
+            padding: 0.85rem 1rem;
+            border-radius: var(--mb-radius-sm);
+            margin-top: 1.1rem;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+        .mail-error-box svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 0.1rem; }
+
         .reply-box {
-            margin-top: 1.5rem;
             border-top: 1px solid var(--color-border);
-            padding-top: 1rem;
+            padding: 1.25rem 1.5rem 1.5rem;
         }
+        .reply-box-label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+            font-size: 0.92em;
+        }
+        .reply-box-label svg { width: 15px; height: 15px; }
         .reply-box textarea {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
+            border-radius: var(--mb-radius-sm);
             font-family: inherit;
             background: var(--input-bg);
             color: var(--color-text);
             resize: vertical;
         }
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: var(--color-text-secondary, #888);
+        .reply-box-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-top: 0.85rem;
         }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            padding: 3rem 1.5rem;
+            color: var(--color-text-secondary, #888);
+            text-align: center;
+        }
+        .empty-state svg { width: 40px; height: 40px; opacity: 0.3; }
+        .empty-state p { margin: 0; font-size: 0.9em; }
+
+        .skeleton-item {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            gap: 0.75rem;
+        }
+        .skeleton-item:last-child { border-bottom: none; }
+        .sk-circle, .sk-line {
+            background: linear-gradient(90deg, rgba(128,128,128,0.12) 25%, rgba(128,128,128,0.22) 37%, rgba(128,128,128,0.12) 63%);
+            background-size: 400% 100%;
+            animation: sk-shimmer 1.4s ease infinite;
+            border-radius: 4px;
+        }
+        .sk-circle { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; }
+        .sk-line { height: 10px; margin-bottom: 0.5rem; }
+        @keyframes sk-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
     </style>
 </head>
 <body>
@@ -181,36 +393,48 @@
         <header class="page-header">
             <h1>صندوق البريد</h1>
             <p>إدارة الرسائل الواردة والصادرة</p>
-            <div style="margin-top: 0.75rem;">
-                <a href="/admin/send-email.html" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:0.4rem;">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                    رسالة جديدة
-                </a>
-            </div>
         </header>
 
         <div class="section-card">
-            <div class="mailbox-tabs">
-                <button class="mailbox-tab active" id="tabInbound" data-direction="inbound">
-                    📥 الوارد <span class="badge" id="inboundBadge">0</span>
-                </button>
-                <button class="mailbox-tab" id="tabOutbound" data-direction="outbound">
-                    📤 الصادر
-                </button>
+            <div class="mailbox-toolbar">
+                <div class="mailbox-tabs">
+                    <button class="mailbox-tab active" id="tabInbound" data-direction="inbound">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                        <span>الوارد</span>
+                        <span class="badge" id="inboundBadge" style="display:none;">0</span>
+                    </button>
+                    <button class="mailbox-tab" id="tabOutbound" data-direction="outbound">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        <span>الصادر</span>
+                    </button>
+                </div>
+                <a href="/admin/send-email.html" class="btn btn-primary btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    رسالة جديدة
+                </a>
             </div>
 
             <div class="mailbox-layout">
-                <div class="mail-list" id="mailList">
-                    <div class="empty-state">جاري التحميل...</div>
+                <div class="mail-list-wrap">
+                    <div class="mail-list-header">
+                        <span id="mailListCount">—</span>
+                        <button class="mail-list-refresh" id="refreshBtn" title="تحديث">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        </button>
+                    </div>
+                    <div class="mail-list" id="mailList"></div>
                 </div>
                 <div class="mail-detail" id="mailDetail">
-                    <div class="mail-detail-empty">اختر رسالة لعرض تفاصيلها</div>
+                    <div class="mail-detail-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M22 6 12 13 2 6"/><path d="M22 6H2a1 1 0 0 0-1 1v.2a1 1 0 0 0 .45.83l10 6.67a1 1 0 0 0 1.1 0l10-6.67A1 1 0 0 0 23 7.2V7a1 1 0 0 0-1-1Z"/></svg>
+                        <p>اختر رسالة من القائمة لعرض تفاصيلها</p>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <div id="toast" style="display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--color-success); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 9999; font-weight: 600; animation: slideUp 0.3s ease;"></div>
+    <div id="toast" style="display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--color-success); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 9999; font-weight: 600; animation: slideUp 0.3s ease; display: flex; align-items: center; gap: 0.5rem;"></div>
 
     <style>
         @keyframes slideUp {
