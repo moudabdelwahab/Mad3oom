@@ -1,9 +1,11 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
+import { fetchStats as fetchMcpStats } from '/mcp-service.js';
 
 let user = null;
 let subscriptions = [];
+++ b/dashboard-logic.js
 
 async function init() {
     initSidebar();
@@ -27,7 +29,9 @@ async function loadAllStats() {
         loadBannedStats(),
         loadActivityStats(),
         loadStatsStats(),
-        loadForumStats()
+        loadForumStats(),
+        loadMcpDashboardStats()
+
     ]);
 }
 
@@ -369,6 +373,19 @@ function setupRealtimeSubscriptions() {
     
     console.log('Realtime subscriptions setup complete');
 }
+// إحصائيات خوادم MCP
+async function loadMcpDashboardStats() {
+    try {
+        const stats = await fetchMcpStats();
+        updateElement('mcpTotal', stats.total);
+        updateElement('mcpConnected', stats.connected);
+    } catch (err) {
+        console.error('Error loading MCP stats:', err);
+        updateElement('mcpTotal', '0');
+        updateElement('mcpConnected', '0');
+    }
+}
+++ b/dashboard-logic.js
 
 // دالة مساعدة لتحديث العناصر
 function updateElement(id, value) {
