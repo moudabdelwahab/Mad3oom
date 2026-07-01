@@ -44,19 +44,33 @@ function uuid() {
 /** هل جدول Supabase متاح؟ نكتشف ذلك مرّة واحدة ونخزّن النتيجة */
 let _useSupabase = null;
 async function detectStorageMode() {
+   let _useSupabase = null;
+
+async function detectStorageMode() {
     if (_useSupabase !== null) return _useSupabase;
+
     try {
         const { error } = await supabase
             .from(TABLE)
-            .select('id', { count: 'exact', head: true })
+            .select('id')
             .limit(1);
-        // 0P042 عند وجود الجدول بدون خطأ نستخدمه؛ schema_cache المفقود يعطّل التحوّل
-        _useSupabase = !error;
+
+        if (
+            error &&
+            (
+                error.code === "PGRST205" ||
+                error.message?.includes("schema cache") ||
+                error.message?.includes("Could not find the table")
+            )
+        ) {
+            _useSupabase = false;
+        } else {
+            _useSupabase = !error;
+        }
     } catch {
         _useSupabase = false;
     }
-    if (_useSupabase) console.info('[MCP] Using Supabase storage for MCP servers.');
-    else console.info('[MCP] Supabase table not available, falling back to localStorage.');
+
     return _useSupabase;
 }
  
