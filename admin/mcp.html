@@ -224,7 +224,7 @@
         }
         .modal-overlay.open { display: flex; animation: fadeIn 0.2s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .modal {
+        .mcp-modal-box {
             background: var(--color-surface);
             border-radius: 1rem;
             width: 100%; max-width: 620px;
@@ -233,16 +233,16 @@
             animation: slideUp 0.25s ease-out;
         }
         @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .modal-header {
+        .mcp-modal-header {
             padding: 1.25rem 1.5rem;
             border-bottom: 1px solid var(--color-border);
             display: flex; justify-content: space-between; align-items: center;
             position: sticky; top: 0; background: var(--color-surface); z-index: 2; border-radius: 1rem 1rem 0 0;
         }
-        .modal-header h2 { margin: 0; font-size: 1.2rem; }
-        .modal-close { background: none; border: none; font-size: 1.5rem; color: var(--color-text-secondary); cursor: pointer; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.4rem; }
-        .modal-close:hover { background: var(--color-muted); }
-        .modal-body { padding: 1.5rem; }
+        .mcp-modal-header h2 { margin: 0; font-size: 1.2rem; }
+        .mcp-modal-close { background: none; border: none; font-size: 1.5rem; color: var(--color-text-secondary); cursor: pointer; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.4rem; }
+        .mcp-modal-close:hover { background: var(--color-muted); }
+        .mcp-modal-body { padding: 1.5rem; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
         .form-group.full { grid-column: 1 / -1; }
@@ -263,7 +263,7 @@
         .checkbox-row { display: flex; align-items: center; gap: 0.5rem; }
         .checkbox-row input { width: 18px; height: 18px; accent-color: var(--color-accent); }
         .form-error { display: none; background: #fee2e2; color: #991b1b; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem; border: 1px solid #fecaca; }
-        .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: 0.75rem; position: sticky; bottom: 0; background: var(--color-surface); border-radius: 0 0 1rem 1rem; }
+        .mcp-modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: 0.75rem; position: sticky; bottom: 0; background: var(--color-surface); border-radius: 0 0 1rem 1rem; }
  
         /* ==================== Toast ==================== */
         .toast-container { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 4000; display: flex; flex-direction: column; gap: 0.5rem; }
@@ -387,12 +387,12 @@
  
     <!-- Modal: Add / Edit Server -->
     <div class="modal-overlay" id="mcpModal">
-        <div class="modal" role="dialog" aria-labelledby="modalTitle">
-            <div class="modal-header">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="modalTitle">
+            <div class="mcp-modal-header">
                 <h2 id="modalTitle">إضافة خادم MCP جديد</h2>
-                <button class="modal-close" id="modalClose" aria-label="إغلاق">&times;</button>
+                <button class="mcp-modal-close" id="modalClose" aria-label="إغلاق">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="mcp-modal-body">
                 <div class="form-error" id="formError"></div>
                 <div class="form-grid">
                     <div class="form-group">
@@ -464,7 +464,7 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="mcp-modal-footer">
                 <button class="btn btn-secondary" id="cancelBtn" onclick="window.mcpCloseModal()">إلغاء</button>
                 <button class="btn btn-primary" id="saveBtn">حفظ الخادم</button>
             </div>
