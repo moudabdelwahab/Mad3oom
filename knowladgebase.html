@@ -1,967 +1,841 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قاعدة المعرفة - منصة مدعوم</title>
+    <meta name="description" content="كل ما تحتاج معرفته عن منصة مدعوم: نظام التذاكر، النقاط والمكافآت، الشارات، المحادثة الفورية، الاشتراك عبر واتساب، المجتمع، والأمان.">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
     <script src="/error-tracker.js"></script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>مدعوم | قاعدة المعرفة الاحترافية</title>
-  <meta name="description" content="قاعدة معرفة احترافية لمنصة مدعوم متخصصة في WhatsApp Business API وMeta Verification وCloud API والدعم الفني التقني." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --bg: #020617;
-      --surface: #0f172a;
-      --surface2: #111827;
-      --surface3: #1e293b;
-      --border: #243041;
-      --primary: #00c28b;
-      --primary-light: #2dd4bf;
-      --primary-dark: #009e72;
-      --secondary: #22d3ee;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --danger: #ef4444;
-      --warning: #f59e0b;
-      --success: #10b981;
-      --radius: 24px;
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-    }
-
-    body {
-      background: linear-gradient(to bottom,#020617,#07111f,#020617);
-      color: var(--text);
-      font-family: 'Cairo', sans-serif;
-      line-height: 1.9;
-      overflow-x: hidden;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 999;
-      backdrop-filter: blur(16px);
-      background: rgba(2,6,23,.9);
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-
-    .topbar-inner {
-      max-width: 1400px;
-      margin: auto;
-      padding: 18px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 30px;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .logo-box {
-      width: 52px;
-      height: 52px;
-      border-radius: 18px;
-      background: linear-gradient(135deg,var(--primary),var(--secondary));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: 900;
-      color: #00110b;
-      box-shadow: 0 0 40px rgba(0,194,139,.35);
-    }
-
-    .logo-text h1 {
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .logo-text p {
-      color: var(--muted);
-      font-size: 13px;
-      margin-top: 4px;
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      flex-wrap: wrap;
-    }
-
-    .nav a {
-      color: var(--muted);
-      font-weight: 700;
-      transition: .25s;
-      font-size: 15px;
-    }
-
-    .nav a:hover {
-      color: var(--primary-light);
-    }
-
-    .hero {
-      position: relative;
-      padding: 110px 24px 90px;
-      overflow: hidden;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      width: 800px;
-      height: 800px;
-      border-radius: 50%;
-      background: radial-gradient(circle,rgba(0,194,139,.18),transparent 70%);
-      top: -300px;
-      left: -200px;
-    }
-
-    .hero::after {
-      content: '';
-      position: absolute;
-      width: 700px;
-      height: 700px;
-      border-radius: 50%;
-      background: radial-gradient(circle,rgba(34,211,238,.12),transparent 70%);
-      bottom: -350px;
-      right: -150px;
-    }
-
-    .hero-inner {
-      max-width: 1300px;
-      margin: auto;
-      position: relative;
-      z-index: 2;
-      display: grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 60px;
-      align-items: center;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: rgba(0,194,139,.12);
-      border: 1px solid rgba(0,194,139,.2);
-      color: var(--primary-light);
-      padding: 10px 20px;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 800;
-      margin-bottom: 24px;
-    }
-
-    .hero h2 {
-      font-size: 72px;
-      line-height: 1.15;
-      margin-bottom: 24px;
-      font-weight: 900;
-      letter-spacing: -2px;
-    }
-
-    .hero h2 span {
-      color: var(--primary-light);
-    }
-
-    .hero p {
-      color: #cbd5e1;
-      font-size: 20px;
-      margin-bottom: 40px;
-      max-width: 780px;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      padding: 18px 28px;
-      border-radius: 18px;
-      font-weight: 800;
-      font-size: 16px;
-      transition: .3s;
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg,var(--primary),var(--secondary));
-      color: #00110b;
-      box-shadow: 0 10px 40px rgba(0,194,139,.28);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-4px);
-    }
-
-    .btn-outline {
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.02);
-      color: var(--text);
-    }
-
-    .hero-card {
-      background: linear-gradient(145deg,rgba(15,23,42,.95),rgba(17,24,39,.95));
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 32px;
-      padding: 36px;
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg,rgba(0,194,139,.08),transparent,rgba(34,211,238,.05));
-      pointer-events: none;
-    }
-
-    .hero-card h3 {
-      font-size: 28px;
-      margin-bottom: 24px;
-      position: relative;
-      z-index: 2;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(2,1fr);
-      gap: 20px;
-      position: relative;
-      z-index: 2;
-    }
-
-    .stat {
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 24px;
-      padding: 24px;
-    }
-
-    .stat h4 {
-      font-size: 38px;
-      color: var(--primary-light);
-      margin-bottom: 8px;
-    }
-
-    .stat p {
-      margin: 0;
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .section {
-      padding: 90px 24px;
-    }
-
-    .container {
-      max-width: 1400px;
-      margin: auto;
-    }
-
-    .section-head {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-head span {
-      display: inline-block;
-      padding: 10px 18px;
-      border-radius: 999px;
-      background: rgba(0,194,139,.1);
-      color: var(--primary-light);
-      margin-bottom: 18px;
-      font-weight: 800;
-      font-size: 14px;
-    }
-
-    .section-head h2 {
-      font-size: 54px;
-      margin-bottom: 20px;
-      font-weight: 900;
-    }
-
-    .section-head p {
-      max-width: 800px;
-      margin: auto;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .articles-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(360px,1fr));
-      gap: 28px;
-    }
-
-    .article-card {
-      background: linear-gradient(145deg,#0f172a,#111827);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 32px;
-      overflow: hidden;
-      transition: .35s;
-      position: relative;
-    }
-
-    .article-card:hover {
-      transform: translateY(-8px);
-      border-color: rgba(0,194,139,.35);
-      box-shadow: 0 0 0 1px rgba(0,194,139,.15),0 20px 60px rgba(0,194,139,.12);
-    }
-
-    .article-top {
-      padding: 34px;
-    }
-
-    .category {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0,194,139,.1);
-      color: var(--primary-light);
-      border: 1px solid rgba(0,194,139,.18);
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 13px;
-      font-weight: 800;
-      margin-bottom: 22px;
-    }
-
-    .article-card h3 {
-      font-size: 28px;
-      line-height: 1.4;
-      margin-bottom: 18px;
-      font-weight: 900;
-    }
-
-    .article-card p {
-      color: var(--muted);
-      font-size: 16px;
-      margin-bottom: 28px;
-    }
-
-    .article-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      color: var(--muted);
-      font-size: 14px;
-      flex-wrap: wrap;
-    }
-
-    .knowledge-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      gap: 40px;
-      align-items: start;
-    }
-
-    .sidebar {
-      position: sticky;
-      top: 100px;
-      background: linear-gradient(145deg,#0f172a,#111827);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 30px;
-      padding: 30px;
-    }
-
-    .sidebar h3 {
-      margin-bottom: 20px;
-      font-size: 22px;
-    }
-
-    .sidebar ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .sidebar ul li a {
-      display: block;
-      padding: 14px 18px;
-      border-radius: 16px;
-      background: rgba(255,255,255,.02);
-      border: 1px solid rgba(255,255,255,.04);
-      color: var(--muted);
-      transition: .25s;
-      font-weight: 700;
-    }
-
-    .sidebar ul li a:hover {
-      background: rgba(0,194,139,.08);
-      color: var(--primary-light);
-      border-color: rgba(0,194,139,.2);
-    }
-
-    .content-article {
-      background: linear-gradient(145deg,#0f172a,#111827);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 36px;
-      padding: 60px;
-    }
-
-    .content-article h2 {
-      font-size: 56px;
-      line-height: 1.25;
-      margin-bottom: 26px;
-      font-weight: 900;
-    }
-
-    .content-article h3 {
-      margin-top: 50px;
-      margin-bottom: 20px;
-      color: var(--primary-light);
-      font-size: 34px;
-    }
-
-    .content-article p,
-    .content-article li {
-      color: #cbd5e1;
-      font-size: 18px;
-    }
-
-    .content-article ul,
-    .content-article ol {
-      padding-right: 26px;
-      margin-top: 20px;
-    }
-
-    .content-article li {
-      margin-bottom: 12px;
-    }
-
-    .info-box {
-      margin: 34px 0;
-      padding: 28px;
-      border-radius: 24px;
-      border: 1px solid rgba(0,194,139,.18);
-      background: rgba(0,194,139,.08);
-    }
-
-    .danger-box {
-      margin: 34px 0;
-      padding: 28px;
-      border-radius: 24px;
-      border: 1px solid rgba(239,68,68,.25);
-      background: rgba(239,68,68,.08);
-    }
-
-    .warning-box {
-      margin: 34px 0;
-      padding: 28px;
-      border-radius: 24px;
-      border: 1px solid rgba(245,158,11,.25);
-      background: rgba(245,158,11,.08);
-    }
-
-    .code {
-      background: #020617;
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 24px;
-      padding: 30px;
-      overflow: auto;
-      direction: ltr;
-      margin: 34px 0;
-      font-family: monospace;
-      color: #e2e8f0;
-      line-height: 1.8;
-      font-size: 15px;
-    }
-
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 30px;
-      overflow: hidden;
-      border-radius: 24px;
-    }
-
-    .table th,
-    .table td {
-      padding: 18px;
-      border: 1px solid rgba(255,255,255,.06);
-      text-align: right;
-    }
-
-    .table th {
-      background: rgba(255,255,255,.03);
-    }
-
-    .footer {
-      border-top: 1px solid rgba(255,255,255,.06);
-      margin-top: 100px;
-      padding: 70px 24px 50px;
-    }
-
-    .footer-inner {
-      max-width: 1400px;
-      margin: auto;
-      display: grid;
-      grid-template-columns: repeat(4,1fr);
-      gap: 40px;
-    }
-
-    .footer-col h4 {
-      margin-bottom: 22px;
-      font-size: 22px;
-    }
-
-    .footer-col ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .footer-col ul li a {
-      color: var(--muted);
-      transition: .25s;
-    }
-
-    .footer-col ul li a:hover {
-      color: var(--primary-light);
-    }
-
-    .copyright {
-      text-align: center;
-      margin-top: 60px;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    @media(max-width:1100px){
-      .hero-inner,
-      .knowledge-layout,
-      .footer-inner {
-        grid-template-columns: 1fr;
-      }
-
-      .hero h2 {
-        font-size: 52px;
-      }
-
-      .content-article {
-        padding: 36px;
-      }
-    }
-
-    @media(max-width:700px){
-      .hero h2 {
-        font-size: 42px;
-      }
-
-      .section-head h2,
-      .content-article h2 {
-        font-size: 38px;
-      }
-
-      .topbar-inner {
-        flex-direction: column;
-      }
-
-      .nav {
-        justify-content: center;
-      }
-    }
-  </style>
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+
+        /* ==================== Hero ==================== */
+        .kb-hero {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-variant) 100%);
+            padding: 3.5rem 1.5rem 4.5rem;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .kb-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.12) 0%, transparent 55%);
+        }
+        .kb-hero-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+        .kb-eyebrow {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 0.35rem 1rem;
+            border-radius: 2rem;
+            margin-bottom: 1.25rem;
+        }
+        .kb-hero h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+        }
+        .kb-hero p {
+            font-size: 1.05rem;
+            opacity: 0.92;
+            line-height: 1.7;
+            margin-bottom: 2rem;
+        }
+
+        /* البحث الفوري - العنصر المميز في الصفحة */
+        .kb-search-wrap {
+            position: relative;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+        .kb-search-wrap svg {
+            position: absolute;
+            top: 50%;
+            right: 1.25rem;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            stroke: var(--color-text-secondary);
+            pointer-events: none;
+        }
+        #kbSearchInput {
+            width: 100%;
+            padding: 1rem 3.25rem 1rem 1.25rem;
+            border-radius: 1rem;
+            border: none;
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--color-surface);
+            color: var(--color-text);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        #kbSearchInput:focus {
+            outline: 3px solid rgba(255,255,255,0.5);
+            outline-offset: 2px;
+        }
+        #kbSearchStatus {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.85);
+            min-height: 1.2em;
+        }
+
+        /* ==================== Quick actions ==================== */
+        .kb-quick-actions {
+            max-width: 1100px;
+            margin: -2.5rem auto 0;
+            padding: 0 1.5rem;
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .kb-quick-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            text-decoration: none;
+            color: var(--color-text);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .kb-quick-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--color-accent); }
+        .kb-quick-icon {
+            width: 42px; height: 42px; flex-shrink: 0;
+            border-radius: 0.75rem;
+            background: var(--color-muted);
+            color: var(--color-accent);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kb-quick-card strong { display: block; font-size: 0.95rem; margin-bottom: 0.15rem; }
+        .kb-quick-card span { font-size: 0.8rem; color: var(--color-text-secondary); }
+
+        /* ==================== Layout ==================== */
+        .kb-container {
+            max-width: 1100px;
+            margin: 3rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 2.5rem;
+            align-items: start;
+        }
+        .kb-nav {
+            position: sticky;
+            top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .kb-nav-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            padding: 0 0.75rem;
+        }
+        .kb-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.6rem;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+        .kb-nav a:hover { background: var(--color-muted); color: var(--color-text); }
+        .kb-nav a.active { background: var(--color-accent); color: white; }
+        .kb-nav a svg { width: 17px; height: 17px; flex-shrink: 0; }
+
+        /* ==================== Sections ==================== */
+        .kb-section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+        .kb-section-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+        .kb-section-icon {
+            width: 40px; height: 40px; flex-shrink: 0;
+            border-radius: 0.75rem;
+            background: var(--color-muted);
+            color: var(--color-accent);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kb-section-head h2 { font-size: 1.3rem; font-weight: 800; margin: 0; }
+        .kb-section-head p { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0.15rem 0 0; }
+
+        /* بطاقات أكورديون - details/summary أصلية لضمان الوصولية وعملها بدون جافاسكريبت */
+        .kb-faq {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 0.85rem;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .kb-faq summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 1rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .kb-faq summary::-webkit-details-marker { display: none; }
+        .kb-faq summary .chev { transition: transform 0.2s ease; flex-shrink: 0; color: var(--color-text-secondary); }
+        .kb-faq[open] summary .chev { transform: rotate(180deg); }
+        .kb-faq summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+        .kb-faq-body {
+            padding: 0 1.25rem 1.1rem;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+        .kb-faq-body ul { margin: 0.5rem 0 0; padding-inline-start: 1.25rem; }
+        .kb-faq-body li { margin-bottom: 0.35rem; }
+        .kb-faq-body code {
+            background: var(--color-muted);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.35rem;
+            font-size: 0.85em;
+        }
+        .kb-faq.kb-hidden { display: none; }
+        .kb-section.kb-hidden { display: none; }
+        mark {
+            background: rgba(0, 119, 204, 0.25);
+            color: inherit;
+            border-radius: 0.2rem;
+            padding: 0 0.1rem;
+        }
+
+        /* ==================== Identity band ==================== */
+        .kb-identity {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1.25rem;
+            padding: 2rem;
+        }
+        .kb-identity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        .kb-value-card {
+            background: var(--color-muted);
+            border-radius: 0.85rem;
+            padding: 1.1rem;
+        }
+        .kb-value-card strong { display: block; font-size: 0.95rem; margin-bottom: 0.35rem; }
+        .kb-value-card span { font-size: 0.85rem; color: var(--color-text-secondary); line-height: 1.6; }
+        .kb-name-callout {
+            background: var(--color-muted);
+            border-right: 4px solid var(--color-accent);
+            padding: 1rem 1.25rem;
+            border-radius: 0.6rem;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            margin: 1rem 0 0;
+        }
+        .kb-channels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        .kb-channel {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            background: var(--color-muted);
+            border-radius: 0.75rem;
+        }
+        .kb-channel svg { width: 18px; height: 18px; color: var(--color-accent); flex-shrink: 0; }
+        .kb-channel strong { display: block; font-size: 0.85rem; }
+        .kb-channel span { font-size: 0.8rem; color: var(--color-text-secondary); direction: ltr; display: inline-block; }
+
+        /* ==================== No results ==================== */
+        #kbNoResults {
+            display: none;
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--color-text-secondary);
+        }
+        #kbNoResults svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.4; }
+
+        @media (max-width: 860px) {
+            .kb-container { grid-template-columns: 1fr; }
+            .kb-nav {
+                position: static;
+                flex-direction: row;
+                overflow-x: auto;
+                gap: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+            .kb-nav-title { display: none; }
+            .kb-nav a { white-space: nowrap; }
+        }
+    </style>
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="logo">
-        <div class="logo-box">م</div>
-        <div class="logo-text">
-          <h1>مدعوم</h1>
-          <p>mad3oom.online</p>
+    <!-- ==================== Navbar ==================== -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/index.html" class="nav-logo">
+                <img src="/assets/images/logo.png" alt="مدعوم" class="logo-image">
+                <span>مدعوم</span>
+            </a>
+            <button class="hamburger" id="hamburgerBtn" aria-label="فتح القائمة">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="/customer-dashboard.html">تذاكري</a></li>
+                <li><a href="/chat-customer.html">المحادثة الفورية</a></li>
+                <li><a href="/forum.html">مجتمع مدعوم</a></li>
+                <li><a href="/customer-knowledge-base.html" class="active">قاعدة المعرفة</a></li>
+            </ul>
+            <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل المظهر">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            </button>
         </div>
-      </div>
+    </nav>
 
-      <nav class="nav">
-        <a href="#">الرئيسية</a>
-        <a href="#">قاعدة المعرفة</a>
-        <a href="#">WhatsApp API</a>
-        <a href="#">Meta Verification</a>
-        <a href="#">Cloud API</a>
-        <a href="#">الدعم الفني</a>
-        <a href="#">التواصل</a>
-      </nav>
-    </div>
-  </header>
-
-  <section class="hero">
-    <div class="hero-inner">
-      <div>
-        <div class="hero-badge">
-          منصة دعم تقني احترافية
-        </div>
-
-        <h2>
-          قاعدة معرفة <span>مدعوم</span><br>
-          لواتساب بيزنس و Meta API
-        </h2>
-
-        <p>
-          واجهة معرفية احترافية مصممة خصيصاً لمنصة مدعوم، تحتوي على مقالات تقنية متقدمة حول WhatsApp Business API وMeta Verification وCloud API وأنظمة الدعم الفني والتكاملات البرمجية.
-        </p>
-
-        <div class="hero-actions">
-          <a href="#articles" class="btn btn-primary">استكشف المقالات</a>
-          <a href="#guide" class="btn btn-outline">الدليل الكامل</a>
-        </div>
-      </div>
-
-      <div class="hero-card">
-        <h3>إحصائيات قاعدة المعرفة</h3>
-
-        <div class="stats">
-          <div class="stat">
-            <h4>45+</h4>
-            <p>مقال احترافي</p>
-          </div>
-
-          <div class="stat">
-            <h4>3000+</h4>
-            <p>سطر برمجي</p>
-          </div>
-
-          <div class="stat">
-            <h4>24/7</h4>
-            <p>دعم متواصل</p>
-          </div>
-
-          <div class="stat">
-            <h4>100%</h4>
-            <p>Responsive Design</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="articles">
-    <div class="container">
-      <div class="section-head">
-        <span>Knowledge Base</span>
-        <h2>أحدث المقالات التقنية</h2>
-        <p>
-          مكتبة معرفية غنية تغطي كل ما يخص WhatsApp Business API وMeta وسياسات الحظر والتوثيق والتكاملات البرمجية.
-        </p>
-      </div>
-
-      <div class="articles-grid">
-
-        <div class="article-card">
-          <div class="article-top">
-            <div class="category">WhatsApp Business API</div>
-            <h3>الدليل الكامل لتفعيل WhatsApp Business API خطوة بخطوة</h3>
-            <p>
-              شرح احترافي لتفعيل واتساب بيزنس API وربطه مع Cloud API وMeta Business Manager بدون أخطاء.
-            </p>
-
-            <div class="article-meta">
-              <span>22 دقيقة قراءة</span>
-              <span>محدث حديثاً</span>
+    <!-- ==================== Hero + Search ==================== -->
+    <header class="kb-hero">
+        <div class="kb-hero-inner">
+            <span class="kb-eyebrow">قاعدة المعرفة</span>
+            <h1>كل حاجة عن مدعوم في مكان واحد</h1>
+            <p>دليل شامل لكل ميزة في المنصة، وهوية مدعوم وإيه اللي بتقف عليه. اكتب اللي محتاج تعرفه وهنوصّلك للإجابة على طول.</p>
+            <div class="kb-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" id="kbSearchInput" placeholder="ابحث في قاعدة المعرفة… مثلاً: النقاط، التذاكر، الشارات" autocomplete="off">
             </div>
-          </div>
+            <p id="kbSearchStatus"></p>
         </div>
+    </header>
 
-        <div class="article-card">
-          <div class="article-top">
-            <div class="category">Meta Policies</div>
-            <h3>سياسات Meta التي قد تؤدي إلى حظر رقم واتساب بيزنس</h3>
-            <p>
-              كل ما تحتاج معرفته عن سياسات Meta وأسباب الحظر وطرق حماية الحسابات التجارية.
-            </p>
-
-            <div class="article-meta">
-              <span>25 دقيقة قراءة</span>
-              <span>Trending</span>
+    <!-- ==================== Quick actions ==================== -->
+    <div class="kb-quick-actions">
+        <a href="/customer-dashboard.html" class="kb-quick-card">
+            <div class="kb-quick-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             </div>
-          </div>
-        </div>
-
-        <div class="article-card">
-          <div class="article-top">
-            <div class="category">Template Messages</div>
-            <h3>القوالب الممنوعة في واتساب بيزنس وأسباب رفض الرسائل</h3>
-            <p>
-              أمثلة حقيقية للقوالب المرفوضة وكيف تكتب Template Message احترافي يقبل بسرعة.
-            </p>
-
-            <div class="article-meta">
-              <span>18 دقيقة قراءة</span>
-              <span>Meta Approved</span>
+            <div><strong>افتح تذكرة دعم</strong><span>عندك مشكلة؟ ابدأ من هنا</span></div>
+        </a>
+        <a href="/chat-customer.html" class="kb-quick-card">
+            <div class="kb-quick-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="guide">
-    <div class="container knowledge-layout">
-
-      <aside class="sidebar">
-        <h3>محتويات الدليل</h3>
-
-        <ul>
-          <li><a href="#">ما هو WhatsApp Business API</a></li>
-          <li><a href="#">المتطلبات الأساسية</a></li>
-          <li><a href="#">توثيق Meta Business</a></li>
-          <li><a href="#">ربط Cloud API</a></li>
-          <li><a href="#">إعداد Webhook</a></li>
-          <li><a href="#">سياسات الحظر</a></li>
-          <li><a href="#">القوالب الممنوعة</a></li>
-          <li><a href="#">حماية الرقم</a></li>
-        </ul>
-      </aside>
-
-      <article class="content-article">
-
-        <h2>
-          الدليل الكامل لتفعيل WhatsApp Business API وحماية الرقم من الحظر
-        </h2>
-
-        <p>
-          يعتبر WhatsApp Business API من أقوى حلول التواصل التجاري الحديثة التي توفرها Meta للشركات والمتاجر الإلكترونية ومنصات الدعم الفني.
-        </p>
-
-        <p>
-          بعكس تطبيق واتساب التقليدي، يسمح API بإنشاء أنظمة شات متقدمة وربط واتساب مع أنظمة CRM والرد الآلي وأنظمة التذاكر وCloud API.
-        </p>
-
-        <h3>المتطلبات الأساسية قبل التفعيل</h3>
-
-        <ul>
-          <li>حساب Meta Business Manager احترافي</li>
-          <li>دومين حقيقي مرتبط بالنشاط التجاري</li>
-          <li>بريد إلكتروني احترافي</li>
-          <li>سياسة خصوصية وشروط استخدام</li>
-          <li>رقم هاتف غير مستخدم في واتساب</li>
-          <li>موقع إلكتروني احترافي</li>
-        </ul>
-
-        <div class="info-box">
-          استخدام دومين احترافي وصفحات قانونية حقيقية يرفع فرص قبول Meta وAdSense بشكل كبير.
-        </div>
-
-        <h3>خطوات تفعيل WhatsApp Business API</h3>
-
-        <ol>
-          <li>إنشاء حساب Meta Business Manager.</li>
-          <li>إضافة النشاط التجاري الحقيقي.</li>
-          <li>رفع مستندات التوثيق.</li>
-          <li>إنشاء WhatsApp Business Account.</li>
-          <li>إضافة رقم الهاتف.</li>
-          <li>ربط Cloud API.</li>
-          <li>إنشاء Webhook.</li>
-          <li>اختبار إرسال الرسائل.</li>
-        </ol>
-
-        <h3>ربط Cloud API</h3>
-
-        <div class="code">
-POST https://graph.facebook.com/v20.0/PHONE_NUMBER_ID/messages
-
-Headers:
-Authorization: Bearer ACCESS_TOKEN
-Content-Type: application/json
-
-{
-  "messaging_product": "whatsapp",
-  "to": "201XXXXXXXXX",
-  "type": "text",
-  "text": {
-    "body": "Hello from Mad3oom"
-  }
-}
-        </div>
-
-        <h3>أسباب حظر أرقام WhatsApp Business API</h3>
-
-        <ul>
-          <li>ارتفاع معدل البلاغات Reports</li>
-          <li>الإرسال الجماعي المفاجئ</li>
-          <li>شراء قواعد بيانات أرقام</li>
-          <li>استخدام روابط سبام</li>
-          <li>إرسال رسائل دون Opt-in</li>
-          <li>انخفاض Quality Rating</li>
-        </ul>
-
-        <div class="danger-box">
-          شراء أرقام العملاء أو إرسال رسائل عشوائية يعتبر من أسرع الأسباب التي تؤدي إلى حظر دائم للحساب.
-        </div>
-
-        <h3>القوالب الممنوعة في واتساب بيزنس</h3>
-
-        <p>
-          Meta ترفض القوالب المضللة أو العدوانية أو التي تحتوي على وعود كاذبة أو محتوى مالي خطير.
-        </p>
-
-        <table class="table">
-          <thead>
-            <tr>
-              <th>نوع القالب</th>
-              <th>الحالة</th>
-              <th>السبب</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              <td>مبروك ربحت 5000$</td>
-              <td>مرفوض</td>
-              <td>محتوى مضلل</td>
-            </tr>
-
-            <tr>
-              <td>تم تأكيد طلبك</td>
-              <td>مقبول</td>
-              <td>رسالة خدمية</td>
-            </tr>
-
-            <tr>
-              <td>اضغط فوراً قبل انتهاء الفرصة</td>
-              <td>مرفوض</td>
-              <td>Spam / ضغط تسويقي</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3>أفضل استراتيجية Warmup للرقم</h3>
-
-        <p>
-          يجب تسخين الرقم تدريجياً وعدم البدء بإرسال آلاف الرسائل دفعة واحدة.
-        </p>
-
-        <div class="warning-box">
-          ابدأ بـ 20 رسالة يومياً ثم زد العدد تدريجياً خلال أسبوعين لتقليل خطر الحظر.
-        </div>
-
-        <h3>متابعة Quality Rating</h3>
-
-        <p>
-          تقييم الجودة من أهم مؤشرات استقرار الرقم. انخفاض التقييم يعني ارتفاع احتمالية التقييد أو الحظر.
-        </p>
-
-        <table class="table">
-          <thead>
-            <tr>
-              <th>الحالة</th>
-              <th>المعنى</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              <td>High</td>
-              <td>الحساب مستقر وآمن</td>
-            </tr>
-
-            <tr>
-              <td>Medium</td>
-              <td>يوجد انخفاض في التفاعل</td>
-            </tr>
-
-            <tr>
-              <td>Low</td>
-              <td>خطر الحظر مرتفع</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3>أفضل الممارسات لحماية الرقم</h3>
-
-        <ol>
-          <li>احصل على Opt-in حقيقي من المستخدم.</li>
-          <li>استخدم قوالب نظيفة وواضحة.</li>
-          <li>لا تستخدم روابط خطيرة.</li>
-          <li>تابع Quality Rating يومياً.</li>
-          <li>احترم سياسات Meta بالكامل.</li>
-        </ol>
-
-        <div class="info-box">
-          منصة مدعوم مصممة لتوفير حلول تقنية احترافية تساعد الشركات على إدارة WhatsApp Business API بشكل آمن واحترافي.
-        </div>
-
-      </article>
-    </div>
-  </section>
-
-  <footer class="footer">
-    <div class="footer-inner">
-
-      <div class="footer-col">
-        <h4>مدعوم</h4>
-        <ul>
-          <li><a href="#">الرئيسية</a></li>
-          <li><a href="#">قاعدة المعرفة</a></li>
-          <li><a href="#">الدعم الفني</a></li>
-        </ul>
-      </div>
-
-      <div class="footer-col">
-        <h4>WhatsApp API</h4>
-        <ul>
-          <li><a href="#">Cloud API</a></li>
-          <li><a href="#">Webhook</a></li>
-          <li><a href="#">Templates</a></li>
-        </ul>
-      </div>
-
-      <div class="footer-col">
-        <h4>Meta</h4>
-        <ul>
-          <li><a href="#">Verification</a></li>
-          <li><a href="#">Policies</a></li>
-          <li><a href="#">Business Manager</a></li>
-        </ul>
-      </div>
-
-      <div class="footer-col">
-        <h4>قانوني</h4>
-        <ul>
-          <li><a href="#">Privacy Policy</a></li>
-          <li><a href="#">Terms of Service</a></li>
-          <li><a href="#">Cookie Policy</a></li>
-        </ul>
-      </div>
-
+            <div><strong>تحدث معنا مباشرة</strong><span>محادثة فورية مع الدعم الفني</span></div>
+        </a>
+        <a href="/forum.html" class="kb-quick-card">
+            <div class="kb-quick-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <div><strong>اسأل المجتمع</strong><span>مجتمع مدعوم لتبادل الخبرات</span></div>
+        </a>
     </div>
 
-    <div class="copyright">
-      © 2026 Mad3oom.online — جميع الحقوق محفوظة
-    </div>
-  </footer>
+    <!-- ==================== Main layout ==================== -->
+    <div class="kb-container">
+        <!-- Sticky category nav -->
+        <nav class="kb-nav" id="kbNav" aria-label="أقسام قاعدة المعرفة">
+            <span class="kb-nav-title">الأقسام</span>
+            <a href="#identity" data-target="identity">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                هوية مدعوم
+            </a>
+            <a href="#tickets" data-target="tickets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>
+                نظام التذاكر
+            </a>
+            <a href="#rewards" data-target="rewards">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L6 22l6-3 6 3-2.5-8.5"/></svg>
+                النقاط والمكافآت
+            </a>
+            <a href="#badges" data-target="badges">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                الشارات
+            </a>
+            <a href="#chat" data-target="chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                المحادثة الفورية
+            </a>
+            <a href="#whatsapp" data-target="whatsapp">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+                الاشتراك عبر واتساب
+            </a>
+            <a href="#forum" data-target="forum">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                مجتمع مدعوم
+            </a>
+            <a href="#security" data-target="security">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                الأمان والخصوصية
+            </a>
+            <a href="#emails" data-target="emails">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+                إشعارات البريد
+            </a>
+        </nav>
 
+        <!-- Content -->
+        <div id="kbContent">
+
+            <!-- ============ هوية مدعوم ============ -->
+            <section class="kb-section" id="identity">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </div>
+                    <div>
+                        <h2>هوية مدعوم</h2>
+                        <p>مين إحنا وليه اسمنا مدعوم</p>
+                    </div>
+                </div>
+
+                <div class="kb-identity" data-kb-searchable data-kb-text="هوية مدعوم اسم المنصة معنى الرسالة القيم من نحن">
+                    <p style="line-height: 1.8; margin: 0;">
+                        <strong>مدعوم</strong> اسمها جاي من كلمة "الدعم" — والمعنى مقصود: إنت مش لوحدك في أي مشكلة بتقابلك، فيه فريق وراك بيسندك لحد ما توصل لحل. المنصة اتبنت عشان تجمع كل قنوات الدعم والتفاعل مع العملاء في مكان واحد: تذاكر، محادثة فورية، مجتمع نقاش، ونظام مكافآت بيقدّر مساهمتك.
+                    </p>
+                    <div class="kb-name-callout">
+                        <strong>ليه الاسم "مدعوم"؟</strong><br>
+                        لأن الفكرة الأساسية بسيطة: مفيش عميل بيتسيب لوحده يواجه مشكلة. سواء كنت بتفتح تذكرة، بتسأل في الشات، أو بتدوّر على إجابة في قاعدة المعرفة دي بالذات — إنت مدعوم.
+                    </div>
+
+                    <div class="kb-identity-grid">
+                        <div class="kb-value-card">
+                            <strong>🎯 الوضوح</strong>
+                            <span>كل حالة تذكرة، كل نقطة، وكل رد — واضح ومفهوم من غير لبس.</span>
+                        </div>
+                        <div class="kb-value-card">
+                            <strong>⚡ الاستجابة</strong>
+                            <span>إشعار فوري بالبريد عند إنشاء أو تحديث أي تذكرة، وردود سريعة من فريق الدعم.</span>
+                        </div>
+                        <div class="kb-value-card">
+                            <strong>🤝 المجتمع</strong>
+                            <span>مش بس دعم فردي — فيه مساحة لتبادل الخبرات مع باقي المستخدمين.</span>
+                        </div>
+                        <div class="kb-value-card">
+                            <strong>🔒 الأمان</strong>
+                            <span>حماية بخطوتين (2FA) وإدارة كاملة للأجهزة الموثوقة على حسابك.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ نظام التذاكر ============ -->
+            <section class="kb-section" id="tickets">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>
+                    </div>
+                    <div>
+                        <h2>نظام التذاكر</h2>
+                        <p>إزاي تفتح تذكرة وتتابعها</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أفتح تذكرة دعم جديدة إنشاء تذكرة عنوان وصف أولوية">
+                    <summary>إزاي أفتح تذكرة دعم جديدة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من صفحة <strong>تذاكري</strong>، اضغط على <code>إنشاء تذكرة جديدة</code>، واملأ:
+                        <ul>
+                            <li><strong>العنوان</strong>: وصف مختصر للمشكلة</li>
+                            <li><strong>الوصف</strong>: تفاصيل كاملة تساعد فريق الدعم يفهم المشكلة بسرعة</li>
+                            <li><strong>الأولوية</strong>: منخفضة، متوسطة، أو عالية</li>
+                        </ul>
+                        بعد الإرسال، هتوصلك رسالة تأكيد على بريدك مباشرة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="حالات التذكرة مفتوحة قيد المعالجة محلولة تم الحل status">
+                    <summary>إيه معنى كل حالة من حالات التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>مفتوحة</strong>: التذكرة وصلت وبانتظار مراجعة فريق الدعم</li>
+                            <li><strong>قيد المعالجة</strong>: فريق الدعم شغال عليها دلوقتي</li>
+                            <li><strong>تم الحل / محلولة</strong>: المشكلة اتحلت. لو لسه محتاج مساعدة، اعمل رد على نفس التذكرة وهتترجع تلقائيًا</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إرفاق صورة مرفقات في التذكرة">
+                    <summary>أقدر أرفق صورة مع التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، لو المشكلة محتاجة توضيح بصري (سكرين شوت لخطأ مثلاً)، تقدر ترفق صورة عند إنشاء التذكرة أو ضمن الرد، وهتظهر لفريق الدعم في تفاصيل التذكرة مباشرة.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ النقاط والمكافآت ============ -->
+            <section class="kb-section" id="rewards">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L6 22l6-3 6 3-2.5-8.5"/></svg>
+                    </div>
+                    <div>
+                        <h2>النقاط والمكافآت</h2>
+                        <p>إزاي تكسب نقاط وتستخدمها</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أكسب نقاط تقديم بلاغ مشكلة اقتراح تحسين خطأ برمجي ثغرة أمنية">
+                    <summary>إزاي أكسب نقاط؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من تبويب <strong>المكافآت والنقاط</strong>، قدّم بلاغ عن مشكلة واختار نوعها ودرجة خطورتها:
+                        <ul>
+                            <li>منخفضة — 10 نقاط</li>
+                            <li>متوسطة — 25 نقطة</li>
+                            <li>عالية — 50 نقطة</li>
+                            <li>حرجة — 100 نقطة</li>
+                        </ul>
+                        النقاط بتظهر "قيد المراجعة" لحد ما فريق الدعم يراجع البلاغ ويعتمده.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="فرق بين النقاط المتاحة والمعلقة قيد المراجعة">
+                    <summary>إيه الفرق بين "النقاط المتاحة" و"قيد المراجعة"؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <strong>النقاط المتاحة</strong> هي اللي اتأكدت وجاهزة للاستخدام. <strong>قيد المراجعة</strong> هي نقاط بلاغات لسه ما اتراجعتش من فريق الدعم — بمجرد الاعتماد بتتحول تلقائيًا للرصيد المتاح.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ الشارات ============ -->
+            <section class="kb-section" id="badges">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                    </div>
+                    <div>
+                        <h2>الشارات</h2>
+                        <p>إنجازاتك في المنصة</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ما هي الشارات المتاحة أول تذكرة المستخدم النشط المتفاعل السريع">
+                    <summary>إيه الشارات المتاحة وإزاي أحصل عليها؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li>🎫 <strong>أول تذكرة</strong> — تُمنح تلقائيًا عند إنشاء أول تذكرة دعم</li>
+                            <li>🔥 <strong>المستخدم النشط</strong> — عند إنشاء 10 تذاكر دعم</li>
+                            <li>⚡ <strong>المتفاعل السريع</strong> — عند الرد السريع على التذاكر</li>
+                        </ul>
+                        تقدر تشوف كل الشارات وحالتها (اتحصلت عليها ولا لسه) من تبويب <strong>الشارات</strong> في لوحتك.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ المحادثة الفورية ============ -->
+            <section class="kb-section" id="chat">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    </div>
+                    <div>
+                        <h2>المحادثة الفورية</h2>
+                        <p>تواصل مباشر مع فريق الدعم</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أوقات عمل الدعم الفني ساعات الرد">
+                    <summary>إيه هي أوقات عمل الدعم الفني؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        فريق الدعم متاح يوميًا من الساعة <strong>9 صباحًا</strong> لغاية <strong>6 مساءً</strong> (الأحد للجمعة). لو راسلت برا الأوقات دي، هتترد عليك أول ما فريق الدعم يرجع.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="فرق بين المحادثة الفورية والتذكرة">
+                    <summary>أستخدم المحادثة الفورية ولا أفتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        المحادثة الفورية أنسب للأسئلة السريعة اللي محتاجة رد فوري وقت أوقات العمل. أما التذاكر فأنسب للمشاكل اللي محتاجة متابعة وتوثيق على مدار وقت أطول، وبتفضل محفوظة في حسابك تقدر ترجعلها في أي وقت.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ الاشتراك عبر واتساب ============ -->
+            <section class="kb-section" id="whatsapp">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+                    </div>
+                    <div>
+                        <h2>الاشتراك عبر واتساب</h2>
+                        <p>خطط الدعم عبر واتساب</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="خطط الاشتراك دعم واتساب باقة شهري سنوي">
+                    <summary>إيه هي خطط الاشتراك المتاحة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        متاح 3 أنواع خطط (دعم فقط / واتساب فقط / باقة شاملة)، وكل نوع منها متاح بدورة شهرية أو سنوية. تقدر تشترك من صفحة الاشتراكات وتختار اللي يناسبك.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="حالة الاشتراك pending نشط منتهي مرفوض">
+                    <summary>إيه معنى حالات الاشتراك المختلفة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>نشط</strong>: الاشتراك شغال وممكن تستخدمه</li>
+                            <li><strong>قيد المراجعة</strong>: بانتظار تأكيد من فريق الدعم</li>
+                            <li><strong>منتهي</strong>: محتاج تجديد</li>
+                            <li><strong>مرفوض</strong>: محتاج تتواصل مع الدعم لمعرفة السبب</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ مجتمع مدعوم ============ -->
+            <section class="kb-section" id="forum">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    </div>
+                    <div>
+                        <h2>مجتمع مدعوم</h2>
+                        <p>ناقش وشارك خبرتك</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إنشاء موضوع جديد في المنتدى أقسام وسوم tags">
+                    <summary>إزاي أنشئ موضوع جديد في المنتدى؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من صفحة <strong>مجتمع مدعوم</strong>، اضغط <code>موضوع جديد</code>، اختار القسم المناسب، اكتب عنوان واضح ومحتوى مفصّل، وأضف وسوم (tags) تساعد غيرك يلاقي موضوعك بسهولة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="فرز المواضيع الأحدث الأكثر مشاهدة بدون رد">
+                    <summary>إزاي أفرز المواضيع؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        فيه فلتر فوق المنتدى يخليك تشوف: الأحدث، الأكثر مشاهدة، بدون رد، أو حسب آخر نشاط — وكمان في مربع بحث يفلتر المواضيع باسمها مباشرة.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ الأمان والخصوصية ============ -->
+            <section class="kb-section" id="security">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                        <h2>الأمان والخصوصية</h2>
+                        <p>احمِ حسابك</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تفعيل التحقق بخطوتين 2FA أمان الحساب">
+                    <summary>إزاي أفعّل التحقق بخطوتين (2FA)؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من تبويب <strong>الملف الشخصي</strong> اضغط <code>إعدادات الأمان المتقدمة</code>، وفعّل التحقق بخطوتين. هتحتاج تطبيق مصادقة (زي Google Authenticator) لمسح رمز QR، وهتحصل على أكواد استرجاع احتياطية — احتفظ بيها في مكان آمن، لأنها الطريقة الوحيدة لدخول حسابك لو فقدت جهازك.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الأجهزة الموثوقة إدارة إزالة جهاز">
+                    <summary>إيه هي "الأجهزة الموثوقة" وإزاي أديرها؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        كل جهاز سجّلت دخول منه بيتحفظ في قائمة "الأجهزة الموثوقة" مع تاريخ آخر دخول. لو شكيت في جهاز مش بتاعك، تقدر تزيله من نفس الصفحة فورًا.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تغيير كلمة المرور">
+                    <summary>إزاي أغيّر كلمة المرور؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من نفس تبويب <strong>الملف الشخصي</strong>، هتلاقي نموذج تغيير كلمة المرور — اكتب الكلمة الجديدة وأكّدها واحفظ.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ إشعارات البريد ============ -->
+            <section class="kb-section" id="emails">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+                    </div>
+                    <div>
+                        <h2>إشعارات البريد الإلكتروني</h2>
+                        <p>إمتى بيوصلك إيميل، ومن مين</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إمتى بيوصلني إيميل إشعار تذكرة">
+                    <summary>إمتى بيوصلني إيميل بخصوص تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        بيوصلك إيميل تلقائي في 3 حالات: عند <strong>إنشاء</strong> التذكرة، عند <strong>تغيّر حالتها</strong> (خصوصًا لما تتحل/تتقفل)، وعند وصول <strong>رد جديد</strong> من فريق الدعم عليها.
+                    </div>
+                </details>
+
+                <div class="kb-channels" data-kb-searchable data-kb-text="عناوين البريد الرسمية support tickets info no-reply">
+                    <div class="kb-channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+                        <div><strong>إشعارات التذاكر</strong><span>tickets@mad3oom.online</span></div>
+                    </div>
+                    <div class="kb-channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+                        <div><strong>الدعم الفني</strong><span>support@mad3oom.online</span></div>
+                    </div>
+                    <div class="kb-channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
+                        <div><strong>استفسارات عامة</strong><span>info@mad3oom.online</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- No results state -->
+            <div id="kbNoResults">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <p style="font-weight: 700; margin-bottom: 0.35rem;">مفيش نتائج مطابقة</p>
+                <p style="font-size: 0.9rem;">جرّب كلمة تانية، أو <a href="/customer-dashboard.html" style="color: var(--color-accent);">افتح تذكرة</a> وهنساعدك مباشرة.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© مدعوم — mad3oom.online</p>
+    </footer>
+
+    <script>
+        // ==================== Hamburger (mobile nav) ====================
+        document.getElementById('hamburgerBtn')?.addEventListener('click', function () {
+            this.classList.toggle('active');
+            document.getElementById('navMenu')?.classList.toggle('active');
+        });
+
+        // ==================== تمييز القسم الحالي أثناء التمرير ====================
+        const kbNavLinks = Array.from(document.querySelectorAll('#kbNav a'));
+        const kbSections = kbNavLinks
+            .map(link => document.getElementById(link.dataset.target))
+            .filter(Boolean);
+
+        if ('IntersectionObserver' in window && kbSections.length) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        kbNavLinks.forEach(l => l.classList.remove('active'));
+                        const activeLink = kbNavLinks.find(l => l.dataset.target === entry.target.id);
+                        activeLink?.classList.add('active');
+                    }
+                });
+            }, { rootMargin: '-20% 0px -70% 0px' });
+
+            kbSections.forEach(section => observer.observe(section));
+        }
+
+        // ==================== البحث الفوري ====================
+        const searchInput = document.getElementById('kbSearchInput');
+        const searchStatus = document.getElementById('kbSearchStatus');
+        const noResults = document.getElementById('kbNoResults');
+        const allSections = Array.from(document.querySelectorAll('.kb-section'));
+
+        // نحتفظ بالنص الأصلي لكل عنصر قابل للبحث عشان نقدر نشيل التظليل (highlight) بعد كده من غير ما نفقد المحتوى
+        const searchableItems = Array.from(document.querySelectorAll('[data-kb-searchable]')).map(el => {
+            const summaryEl = el.tagName === 'DETAILS' ? el.querySelector('summary') : null;
+            return {
+                el,
+                parentSection: el.closest('.kb-section'),
+                haystack: (el.dataset.kbText || el.textContent || '').toLowerCase(),
+                summaryEl,
+                originalSummaryHTML: summaryEl ? summaryEl.innerHTML : null,
+            };
+        });
+
+        function clearHighlights() {
+            searchableItems.forEach(item => {
+                if (item.summaryEl && item.originalSummaryHTML !== null) {
+                    item.summaryEl.innerHTML = item.originalSummaryHTML;
+                }
+            });
+        }
+
+        function highlightText(el, query) {
+            if (!el) return;
+            const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            // نطبّق التظليل بس على أول عقدة نصية مباشرة (عنوان السؤال) لتفادي كسر أي عناصر فرعية
+            Array.from(el.childNodes).forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                    const span = document.createElement('span');
+                    span.innerHTML = node.textContent.replace(regex, '<mark>$1</mark>');
+                    node.replaceWith(span);
+                }
+            });
+        }
+
+        function runSearch() {
+            const query = searchInput.value.trim().toLowerCase();
+            clearHighlights();
+
+            if (!query) {
+                searchableItems.forEach(item => item.el.classList.remove('kb-hidden'));
+                allSections.forEach(s => s.classList.remove('kb-hidden'));
+                noResults.style.display = 'none';
+                searchStatus.textContent = '';
+                return;
+            }
+
+            let visibleCount = 0;
+            const sectionsWithMatches = new Set();
+
+            searchableItems.forEach(item => {
+                const matches = item.haystack.includes(query);
+                item.el.classList.toggle('kb-hidden', !matches);
+                if (matches) {
+                    visibleCount++;
+                    if (item.parentSection) sectionsWithMatches.add(item.parentSection);
+                    if (item.el.tagName === 'DETAILS') {
+                        item.el.open = true;
+                        highlightText(item.summaryEl, query);
+                    }
+                }
+            });
+
+            allSections.forEach(section => {
+                section.classList.toggle('kb-hidden', !sectionsWithMatches.has(section));
+            });
+
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+            searchStatus.textContent = visibleCount === 0
+                ? ''
+                : `${visibleCount} نتيجة مطابقة لـ "${searchInput.value.trim()}"`;
+        }
+
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runSearch, 150);
+        });
+    </script>
 </body>
 </html>
