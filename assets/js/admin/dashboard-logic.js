@@ -5,7 +5,6 @@ import { fetchStats as fetchMcpStats } from '/mcp-service.js';
 
 let user = null;
 let subscriptions = [];
-++ b/dashboard-logic.js
 
 async function init() {
     initSidebar();
@@ -373,6 +372,7 @@ function setupRealtimeSubscriptions() {
     
     console.log('Realtime subscriptions setup complete');
 }
+
 // إحصائيات خوادم MCP
 async function loadMcpDashboardStats() {
     try {
@@ -385,7 +385,6 @@ async function loadMcpDashboardStats() {
         updateElement('mcpConnected', '0');
     }
 }
-++ b/dashboard-logic.js
 
 // دالة مساعدة لتحديث العناصر
 function updateElement(id, value) {
