@@ -1,4 +1,3 @@
-
 /**
  * MCP Page Logic - منطق صفحة إدارة خوادم MCP
  * --------------------------------------------------------
@@ -182,12 +181,31 @@ async function loadActivity() {
  
 /* ====================  النماذج (إضافة / تعديل)  ==================== */
  
+/**
+ * الحقول داخل المودال ليست ضمن عنصر <form> فعلي في mcp.html
+ * (مجرد <div>s)، لذلك نصفّرها يدوياً بدل الاعتماد على form.reset().
+ */
+function resetForm() {
+    setValue('fName', '');
+    setValue('fTransport', 'streamable_http');
+    setValue('fUrl', '');
+    setValue('fCommand', '');
+    setValue('fArgs', '');
+    setValue('fEnv', '');
+    setValue('fHeaders', '');
+    setValue('fApiKey', '');
+    setValue('fDescription', '');
+    setValue('fCategory', 'general');
+    const enabledBox = document.getElementById('fEnabled');
+    if (enabledBox) enabledBox.checked = true;
+}
+ 
 function openModal(id = null) {
     editingId = id;
     const modal = document.getElementById('mcpModal');
     const title = document.getElementById('modalTitle');
-    const form = document.getElementById('mcpForm');
-    form.reset();
+ 
+    resetForm();
     clearError();
  
     if (id) {
@@ -196,7 +214,7 @@ function openModal(id = null) {
         if (server) fillForm(server);
     } else {
         title.textContent = 'إضافة خادم MCP جديد';
-        // افتراضيات مناسبة
+        // افتراضيات مناسبة (resetForm بالفعل ضبطتها، لكن نوضّحها هنا)
         document.getElementById('fTransport').value = 'streamable_http';
         document.getElementById('fEnabled').checked = true;
     }
