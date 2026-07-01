@@ -266,7 +266,7 @@ function renderDetail(email) {
             </div>
         </div>
         <div class="mail-body-wrap">
-            <iframe class="mail-body-frame" sandbox="allow-same-origin" srcdoc="${escapeHtml(email.html_body || `<pre style='font-family:inherit;white-space:pre-wrap;'>${escapeHtml(email.text_body || '(بدون محتوى)')}</pre>`)}"></iframe>
+            <div id="mailBodyFrameHolder"></div>
             ${attachmentsHtml}
             ${errorHtml}
         </div>
@@ -281,6 +281,30 @@ function renderDetail(email) {
             </div>
         ` : ''}
     `;
+
+    // نبني الـ iframe عن طريق الكود ونضبط srcdoc كـ property مباشرة (مش كنص جوه attribute)
+    // عشان أي علامات اقتباس " جوه محتوى الإيميل (زي <div dir="auto">) متبوظش الـ HTML
+    const frameHolder = document.getElementById('mailBodyFrameHolder');
+    if (frameHolder) {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'mail-body-frame';
+        iframe.setAttribute('sandbox', 'allow-same-origin');
+        const bodyContent = email.html_body
+            || `<pre style="font-family:inherit;white-space:pre-wrap;margin:0;padding:12px;">${escapeHtml(email.text_body || '(بدون محتوى)')}</pre>`;
+        // نلف المحتوى بترويسة أساسية عشان يبان بشكل نضيف جوه الإطار مهما كان مصدره
+        iframe.srcdoc = `<!DOCTYPE html><html dir="auto"><head><meta charset="UTF-8"><style>body{margin:0;padding:12px;font-family:Cairo,sans-serif;color:#111;line-height:1.6;word-wrap:break-word;}img{max-width:100%;}</style></head><body>${bodyContent}</body></html>`;
+        frameHolder.appendChild(iframe);
+        // نضبط ارتفاع الإطار حسب محتواه الفعلي بعد التحميل
+        iframe.addEventListener('load', () => {
+            try {
+                const doc = iframe.contentDocument;
+                if (doc) {
+                    const h = doc.documentElement.scrollHeight;
+                    iframe.style.height = Math.min(Math.max(h + 20, 160), 700) + 'px';
+                }
+            } catch (_e) { /* تجاهل لو تعذر الوصول */ }
+        });
+    }
 
     mailDetail.querySelectorAll('.attachment-chip').forEach(chip => {
         chip.addEventListener('click', () => {
