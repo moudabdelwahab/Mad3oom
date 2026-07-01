@@ -1,7 +1,7 @@
 import { supabase } from '/api-config.js';
-import { getBotReply } from '/assets/js/chatbot-engine.js';
+import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 
-console.log("CHAT LOGIC VERSION 4.0 - LOCAL BOT ENGINE (NO MODEL DEPENDENCY)");
+console.log("CHAT LOGIC VERSION 5.0 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU");
 
 /**
  * تنقية أي نص قادم من المستخدم (رسائل الشات، الأسماء...) قبل حقنه داخل innerHTML
@@ -187,17 +187,96 @@ document.addEventListener('DOMContentLoaded', async () => {
             // لو الجلسة جديدة وملهاش رسائل، نخلي البوت يبدأ بترحيب تلقائي
             if ((messages || []).length === 0) {
                 await sendInitialGreeting();
+            } else if (!currentSession?.is_manual_mode) {
+                // جلسة قديمة عندها رسائل: نعرض تاني الأزرار المناسبة لآخر حالة فلو
+                // محفوظة (مثلاً لو العميل قفل المتصفح وهو لسه في نص فتح تذكرة)
+                renderQuickOptions(getOptionsForFlow(currentSession?.bot_state?.flow));
             }
         }
+    }
+
+    // ===== QUICK-REPLY OPTIONS (قائمة الاختيارات تحت رسائل البوت) =====
+    // بنحقن الـ CSS بتاعت الأزرار من هنا عشان منلمسش ملف chat.html خالص.
+    function injectQuickOptionsStyles() {
+        if (document.getElementById('botQuickOptionsStyles')) return;
+        const style = document.createElement('style');
+        style.id = 'botQuickOptionsStyles';
+        style.textContent = `
+            .bot-quick-options {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin: 0.25rem 0 0.75rem;
+                align-self: flex-start;
+                max-width: 85%;
+            }
+            .bot-quick-option-btn {
+                background: #ffffff;
+                border: 1.5px solid #003366;
+                color: #003366;
+                padding: 0.5rem 1rem;
+                border-radius: 1.25rem;
+                font-family: 'Cairo', sans-serif;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+            .bot-quick-option-btn:hover {
+                background: #003366;
+                color: #ffffff;
+            }
+            .bot-quick-option-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function clearQuickOptions() {
+        const existing = document.getElementById('botQuickOptions');
+        if (existing) existing.remove();
+    }
+
+    function renderQuickOptions(options) {
+        clearQuickOptions();
+        if (!options || options.length === 0) return;
+
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+
+        injectQuickOptionsStyles();
+
+        const wrap = document.createElement('div');
+        wrap.className = 'bot-quick-options';
+        wrap.id = 'botQuickOptions';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'bot-quick-option-btn';
+            btn.textContent = opt.label;
+            btn.onclick = () => {
+                // تعطيل كل الأزرار فورًا عشان العميل مايضغطش مرتين
+                wrap.querySelectorAll('button').forEach(b => b.disabled = true);
+                sendCustomerMessage(opt.value);
+            };
+            wrap.appendChild(btn);
+        });
+
+        chatMessages.appendChild(wrap);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     // ===== INITIAL GREETING (أول ما العميل يفتح الشات) =====
     async function sendInitialGreeting() {
         if (!currentSessionId) return;
         const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
-        const greetingText = `${welcome} تحب أساعدك إزاي؟ تقدر تسألني عن الاشتراكات والأسعار 💳، أو لو عندك مشكلة تقنية قولّي وهافتحلك تذكرة فورًا 🛠️`;
+        const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
 
-        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'idle' } }).eq('id', currentSessionId);
+        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', currentSessionId);
 
         await supabase.from('chat_messages').insert({
             session_id: currentSessionId,
@@ -206,6 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             is_admin_reply: false,
             is_bot_reply: true
         });
+
+        renderQuickOptions(MAIN_MENU_OPTIONS);
     }
 
     // ===== APPEND CUSTOMER MESSAGE =====
@@ -236,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const endChatBtn = document.getElementById('endChatBtn');
 
         if (sendBtn) {
-            sendBtn.onclick = sendCustomerMessage;
+            sendBtn.onclick = () => sendCustomerMessage();
         }
 
         if (chatInput) {
@@ -253,14 +334,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== SEND CUSTOMER MESSAGE =====
-    async function sendCustomerMessage() {
+    // presetText: لو موجودة (جاية من ضغطة على زرار اختيار)، بتتبعت بدل قراءة قيمة الإنبوت
+    async function sendCustomerMessage(presetText) {
         const chatInput = document.getElementById('chatInput');
-        if (!chatInput) return;
-
-        const text = chatInput.value.trim();
+        const text = (presetText !== undefined ? presetText : chatInput?.value || '').trim();
         if (!text || !currentSessionId || !currentUser) return;
 
-        chatInput.value = '';
+        if (presetText === undefined && chatInput) chatInput.value = '';
+        clearQuickOptions();
         const typingIndicator = document.getElementById('typingIndicator');
 
         // 1. حفظ رسالة المستخدم في قاعدة البيانات
@@ -295,7 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (freshSession?.is_manual_mode) return;
 
-            const { reply } = await getBotReply({
+            const { reply, options } = await getBotReply({
                 text,
                 supabase,
                 sessionId: currentSessionId,
@@ -311,6 +392,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 is_admin_reply: false,
                 is_bot_reply: true
             });
+
+            renderQuickOptions(options);
 
         } catch (err) {
             console.error("خطأ في البوت:", err);
