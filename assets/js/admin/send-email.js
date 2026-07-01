@@ -167,7 +167,7 @@ async function sendToUser(userId, subject, body, fromEmail, attachment) {
     const user = users.find(u => u.id === userId);
     if (!user || !user.email) throw new Error('المستخدم غير موجود');
 
-    await sendEmail(user.email, user.full_name || 'عميلنا العزيز', subject, body, fromEmail, attachment);
+    await sendEmail(user.email, user.full_name || 'عميلنا العزيز', subject, body, fromEmail, attachment, userId);
 }
 
 async function sendToAll(subject, body, fromEmail, attachment) {
@@ -177,7 +177,7 @@ async function sendToAll(subject, body, fromEmail, attachment) {
 
     for (const user of validUsers) {
         try {
-            await sendEmail(user.email, user.full_name || 'عميلنا العزيز', subject, body, fromEmail, attachment);
+            await sendEmail(user.email, user.full_name || 'عميلنا العزيز', subject, body, fromEmail, attachment, user.id);
             sent++;
             statusMessage.textContent = `تم الإرسال: ${sent}/${validUsers.length}`;
         } catch (err) {
@@ -192,7 +192,7 @@ async function sendToAll(subject, body, fromEmail, attachment) {
     }
 }
 
-async function sendEmail(email, name, subject, body, fromEmail, attachment) {
+async function sendEmail(email, name, subject, body, fromEmail, attachment, relatedUserId) {
     const payload = {
         event: 'CUSTOM',
         customer_email: email,
@@ -200,6 +200,7 @@ async function sendEmail(email, name, subject, body, fromEmail, attachment) {
         subject: subject,
         message: body,
         from_email: fromEmail,
+        related_user_id: relatedUserId || null,
     };
 
     if (attachment) {
