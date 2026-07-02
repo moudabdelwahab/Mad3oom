@@ -1,4 +1,3 @@
-
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
 
@@ -466,7 +465,20 @@ export async function logout() {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
 
-    const { error } = await supabase.auth.signOut();
+    // مسح أي نسخة مخزنة من التوكن في sessionStorage أيضاً (بعض المتصفحات/الإضافات
+    // قد تحتفظ بنسخة هناك، ومسحها يمنع أي "استرجاع" غير متوقع للجلسة)
+    const sessionKeysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
+            sessionKeysToRemove.push(key);
+        }
+    }
+    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+
+    // scope: 'global' يلغي الـ refresh token من على سيرفر Supabase نفسه (مش بس محلياً)،
+    // فمنع أي تاب/جهاز تاني فيه نفس التوكن من عمل refresh session بعد الخروج
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
 
     return { error };
 }
