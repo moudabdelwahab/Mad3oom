@@ -20,11 +20,26 @@ import {
 } from './notifications-service.js';
 import { ui } from './ui-service.js';
 
-/**
- * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
- * لمنع هجمات XSS (Cross-Site Scripting).
- * يحوّل الأحرف الخطرة (< > & " ') إلى الكيانات الآمنة المقابلة لها.
- */
+/* =========================================================
+   حماية من bfcache (Back-Forward Cache)
+   =========================================================
+   المشكلة: لو المستخدم سجّل خروج ثم ضغط زرار "رجوع" في المتصفح،
+   بعض المتصفحات (خصوصاً Chrome/Safari) بترجّع "صورة مجمدة" من
+   الصفحة القديمة من الذاكرة (bfcache) من غير ما تعيد تنفيذ كود
+   الصفحة من البداية. النتيجة: الصفحة بتظهر وكأن المستخدم لسه
+   مسجّل دخول، رغم إن الجلسة الحقيقية اتمسحت فعلاً من Supabase
+   ومن localStorage.
+   الحل: لو الصفحة رجعت من bfcache (event.persisted === true)
+   نجبر المتصفح يعمل تحميل حقيقي جديد للصفحة، فيتنفذ كود
+   requireAuth() تاني ويكتشف إنه مفيش جلسة ويحوّل المستخدم
+   لصفحة تسجيل الدخول.
+========================================================= */
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -35,11 +50,6 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-/**
- * تنقية الروابط (URLs) قبل استخدامها في خصائص مثل src/href.
- * يسمح فقط بروابط http/https أو الروابط النسبية، ويرفض أي بروتوكول خطير
- * مثل javascript: أو data: التي قد تُستخدم لتنفيذ كود ضار.
- */
 function sanitizeUrl(url) {
     if (!url) return '';
     const trimmed = String(url).trim();
