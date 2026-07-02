@@ -272,10 +272,13 @@ async function loadCustomRoles() {
 
 async function loadUsers() {
     try {
+        // ملاحظة: الأدوار الفعلية في جدول profiles هي 'user' (عميل) / 'admin' / 'super_user'.
+        // كنا بنستبعد role = 'customer' وهي قيمة مش موجودة أصلاً، فكانت كل حسابات
+        // العملاء بتظهر غلط في صفحة إدارة المستخدمين. الصح إننا نستبعد العملاء (role = 'user').
         const { data: users, error } = await supabase
             .from('profiles')
             .select('*, custom_roles(name)')
-            .not('role', 'eq', 'customer')
+            .neq('role', 'user')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -620,16 +623,54 @@ async function saveWorkingHours() {
     const btn = document.getElementById('saveWorkingHoursBtn');
     setLoading(btn, true);
     try {
-        // Logic to gather and save working hours
-        // ... implementation ...
-        
+        // اجمع بيانات كل يوم من الـ 7 صفوف اللي اترسمت في renderWorkingHours
+        const dayRows = document.querySelectorAll('#workingHoursContainer .working-hours-row');
+        const existingHours = currentSettings.workingHours || [];
+
+        for (const row of dayRows) {
+            const dayOfWeek = parseInt(row.dataset.day, 10);
+            const isWorkingDay = row.querySelector('.wh-toggle').checked;
+            const startTime = row.querySelector('.wh-start').value || '09:00';
+            const endTime = row.querySelector('.wh-end').value || '17:00';
+
+            const payload = {
+                day_of_week: dayOfWeek,
+                is_working_day: isWorkingDay,
+                start_time: startTime,
+                end_time: endTime,
+                updated_at: new Date()
+            };
+
+            const existing = existingHours.find(h => h.day_of_week === dayOfWeek);
+
+            if (existing) {
+                const { error } = await supabase
+                    .from('working_hours')
+                    .update(payload)
+                    .eq('id', existing.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('working_hours')
+                    .insert(payload);
+                if (error) throw error;
+            }
+        }
+
         // Also save after hours settings
         const afterHours = {
             auto_reply: document.getElementById('afterHoursAutoReply').value,
             bot_after_hours: document.getElementById('botAfterHours').checked
         };
         await saveAdvancedSetting('after_hours', afterHours);
-        
+
+        // Refresh cached working hours after save
+        const { data: refreshedHours } = await supabase
+            .from('working_hours')
+            .select('*')
+            .order('day_of_week', { ascending: true });
+        currentSettings.workingHours = refreshedHours || [];
+
         showAlert('تم حفظ ساعات العمل والردود التلقائية', 'success');
     } catch (error) {
         showAlert('خطأ في الحفظ: ' + error.message, 'error');
@@ -800,9 +841,10 @@ async function saveUser() {
     try {
         if (id) {
             // Update existing user profile
+            // ملاحظة: العمود الصحيح في جدول profiles هو custom_role_id مش role_id
             const { error } = await supabase.from('profiles').update({ 
                 full_name: fullName, 
-                role_id: roleId || null 
+                custom_role_id: roleId || null 
             }).eq('id', id);
             if (error) throw error;
         } else {
@@ -846,7 +888,8 @@ async function editUser(id) {
         document.getElementById('userEmail').readOnly = true;
         document.getElementById('userPassword').value = '';
         document.getElementById('userPassword').placeholder = '(اتركه فارغاً للحفاظ على الحالية)';
-        document.getElementById('userRole').value = u.role_id || '';
+        // ملاحظة: العمود الصحيح هو custom_role_id مش role_id
+        document.getElementById('userRole').value = u.custom_role_id || '';
     } catch (error) {
         showAlert('خطأ في تحميل بيانات المستخدم', 'error');
     }
@@ -947,7 +990,7 @@ async function loadActiveDevices() {
                         </div>
                         <div>
                             <h4 style="margin: 0; font-size: 1rem;">${device.device_name || 'جهاز غير معروف'}</h4>
-                            <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر ظهور: ${new Date(device.last_login).toLocaleString('ar-EG')} • IP: ${device.ip_address || 'غير معروف'}</p>
+                            <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر ظهور: ${new Date(device.last_login).toLocaleString('ar-EG')}</p>
                         </div>
                     </div>
                     <button class="btn btn-danger btn-sm" onclick="removeDevice('${device.id}')">حذف</button>
@@ -989,26 +1032,46 @@ function renderWorkingHours() {
     const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     const hours = currentSettings.workingHours || [];
 
+    // ملاحظة: أعمدة جدول working_hours الحقيقية هي start_time / end_time / is_working_day
+    // مش open_time / close_time / is_closed زي ما كان الكود بيفترض قبل كده.
     container.innerHTML = days.map((day, index) => {
-        const dayData = hours.find(h => h.day_of_week === index) || { is_closed: true, open_time: '09:00', close_time: '17:00' };
+        const dayData = hours.find(h => h.day_of_week === index) || { is_working_day: true, start_time: '09:00', end_time: '17:00' };
+        const isWorking = dayData.is_working_day !== false;
+        const startTime = (dayData.start_time || '09:00').substring(0, 5);
+        const endTime = (dayData.end_time || '17:00').substring(0, 5);
         return `
-            <div class="form-row" style="align-items: center; margin-bottom: 1rem; background: var(--color-muted); padding: 0.75rem; border-radius: 0.75rem;">
+            <div class="form-row working-hours-row" data-day="${index}" style="align-items: center; margin-bottom: 1rem; background: var(--color-muted); padding: 0.75rem; border-radius: 0.75rem;">
                 <div style="width: 100px; font-weight: 700;">${day}</div>
                 <div class="time-input-group">
-                    <input type="time" class="form-control" value="${dayData.open_time}" ${dayData.is_closed ? 'disabled' : ''}>
+                    <input type="time" class="form-control wh-start" value="${startTime}" ${!isWorking ? 'disabled' : ''}>
                     <span>إلى</span>
-                    <input type="time" class="form-control" value="${dayData.close_time}" ${dayData.is_closed ? 'disabled' : ''}>
+                    <input type="time" class="form-control wh-end" value="${endTime}" ${!isWorking ? 'disabled' : ''}>
                 </div>
                 <div class="switch-group" style="margin-bottom: 0; padding: 0.25rem 0.75rem; background: transparent;">
                     <label class="switch">
-                        <input type="checkbox" ${!dayData.is_closed ? 'checked' : ''}>
+                        <input type="checkbox" class="wh-toggle" ${isWorking ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
-                    <span style="margin-right: 0.5rem; font-size: 0.85rem;">${dayData.is_closed ? 'مغلق' : 'مفتوح'}</span>
+                    <span class="wh-status-label" style="margin-right: 0.5rem; font-size: 0.85rem;">${isWorking ? 'مفتوح' : 'مغلق'}</span>
                 </div>
             </div>
         `;
     }).join('');
+
+    // فعّل/عطّل حقول الوقت لما يتغير سويتش "مفتوح/مغلق" لكل يوم
+    container.querySelectorAll('.working-hours-row').forEach(row => {
+        const toggle = row.querySelector('.wh-toggle');
+        const startInput = row.querySelector('.wh-start');
+        const endInput = row.querySelector('.wh-end');
+        const label = row.querySelector('.wh-status-label');
+
+        toggle.addEventListener('change', (e) => {
+            const isWorking = e.target.checked;
+            startInput.disabled = !isWorking;
+            endInput.disabled = !isWorking;
+            label.textContent = isWorking ? 'مفتوح' : 'مغلق';
+        });
+    });
 }
 
 function updateAvatarUI(name, url) {
