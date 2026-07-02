@@ -185,25 +185,23 @@ export async function updateTicketStatus(ticketId, status) {
         throw new Error('لم يتم تحديث حالة التذكرة. قد لا تملك صلاحية هذا الإجراء أو أن التذكرة غير موجودة.');
     }
 
-    // جلب بيانات التذكرة لإرسال إشعار للعميل ومعالجة الاشتراكات
+    // جلب بيانات التذكرة لإرسال إشعار للعميل
+    //
+    // ملاحظة مهمة (تم إصلاحها): كان هنا منطق قديم بيطابق عنوان التذكرة نصياً
+    // (كلمات زي "شراء"/"اشتراك"/"واتساب") ولو لقى تطابق وكانت الحالة الجديدة
+    // "resolved"، كان بينادي confirmPurchaseTicket() تلقائياً — حتى لو
+    // التذكرة دي مش طلب اشتراك أصلاً (مثلاً تذكرة دعم عادية عنوانها "مشكلة في
+    // تفعيل الاشتراك"). النتيجة إن حالة التذكرة كانت بتتحول لـ "confirmed"
+    // بدل "resolved" من غير قصد، ومفيش أي صف في whatsapp_subscriptions
+    // بيتغير أصلاً لإن الدالة دي بتدور بـ ticket_id ومش هتلاقي حاجة.
+    //
+    // التحقق الصحيح من كون التذكرة "طلب اشتراك" بقى بيتم فعلياً عبر join على
+    // whatsapp_subscriptions.ticket_id (شوف admin/tickets.js -> showAdminTicketInPanel)،
+    // وتأكيد/رفض الاشتراك بقى بيتم فقط من خلال زرار "تأكيد"/"رفض" الصريحين في
+    // لوحة الإدارة، مش تلقائياً من مجرد تغيير الحالة لـ resolved. فالمنطق ده
+    // اتشال خالص من هنا عشان منمنعش تعارض بين الحالتين.
     const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
     if (ticket) {
-        // إذا كانت التذكرة محلولة (resolved) وهي تذكرة شراء، نقوم بتأكيد الاشتراك تلقائياً
-        if (status === 'resolved') {
-            const isPurchaseTicket = ticket.title.toLowerCase().includes('شراء') || 
-                                     ticket.title.toLowerCase().includes('اشتراك') ||
-                                     ticket.title.toLowerCase().includes('واتساب');
-            
-            if (isPurchaseTicket) {
-                try {
-                    const { confirmPurchaseTicket } = await import('./whatsapp-subscription-service.js');
-                    await confirmPurchaseTicket(ticketId);
-                } catch (subErr) {
-                    console.error('Failed to auto-activate subscription:', subErr);
-                }
-            }
-        }
-
         const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
         // إشعار للعميل فقط عند تغيير حالة تذكرته من قبل الإدارة
         await createNotification({
