@@ -432,13 +432,21 @@
                     <label style="display: block; margin-bottom: 0.5rem;">العنوان</label>
                     <input type="text" id="userTicketTitle" class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem;" required>
                 </div>
-                <div class="form-group" style="margin-bottom: 1rem;">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">الوصف</label>
                     <textarea id="userTicketDescription" class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; min-height: 100px;" required></textarea>
                 </div>
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label style="display: block; margin-bottom: 0.5rem;">الأولوية</label>
-                    <select id="userTicketPriority" class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem;">
+                <!--
+                    تم إخفاء اختيار الأولوية من واجهة العميل: الأولوية أصبحت تُحدَّد فقط
+                    من قبل الإدارة بعد مراجعة التذكرة (انظر admin/tickets.js + tickets-service.js).
+                    السيليكت اتسابت هنا (مخفي) بقيمة افتراضية "medium" فقط عشان أي كود JS
+                    حالي بيقرأ userTicketPriority.value وقت الإرسال يفضل شغال من غير ما نكسره.
+                    ينفع تتشال العنصر ده نهائياً بعد التأكد إن customer-dashboard.js
+                    مش بيعتمد على وجوده.
+                -->
+                <div class="form-group" style="display: none;">
+                    <label>الأولوية</label>
+                    <select id="userTicketPriority" class="form-control">
                         <option value="low">منخفضة</option>
                         <option value="medium" selected>متوسطة</option>
                         <option value="high">عالية</option>
