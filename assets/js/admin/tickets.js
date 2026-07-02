@@ -1,9 +1,9 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
-import { subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, addTicketReply, fetchTicketReplies, closeTicketWithComment } from '/tickets-service.js';
+import { subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, updateTicketPriority, addTicketReply, fetchTicketReplies, closeTicketWithComment } from '/tickets-service.js';
 import { adminImpersonateUser } from '/auth-client.js';
-import { confirmPurchaseTicket, rejectPurchaseTicket } from '/whatsapp-subscription-service.js';
+import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS } from '/whatsapp-subscription-service.js';
 
 /**
  * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
@@ -30,6 +30,20 @@ function sanitizeUrl(url) {
     }
     return '';
 }
+
+const STATUS_MAP = {
+    'open': 'مفتوحة',
+    'in-progress': 'قيد المعالجة',
+    'resolved': 'محلولة',
+    'confirmed': 'مؤكدة',
+    'rejected': 'مرفوضة'
+};
+
+const PRIORITY_MAP = {
+    'high': { label: 'عالية', class: 'priority-high' },
+    'medium': { label: 'متوسطة', class: 'priority-medium' },
+    'low': { label: 'منخفضة', class: 'priority-low' }
+};
 
 let user = null;
 let currentTicketId = null;
@@ -79,7 +93,7 @@ function updateStats() {
     document.getElementById('statInProgress').textContent = stats.inProgress;
     document.getElementById('statResolved').textContent = stats.resolved;
     
-    // تحديث إحصائيات الشراء إذا كانت موجودة
+    // تحديث إحصائيات الشراء إذا كانت موجودة في الصفحة
     const confirmedStat = document.getElementById('statConfirmed');
     const rejectedStat = document.getElementById('statRejected');
     if (confirmedStat) confirmedStat.textContent = stats.confirmed;
@@ -139,30 +153,16 @@ function renderTickets(tickets) {
         return;
     }
 
-    const statusMap = {
-        'open': 'مفتوحة',
-        'in-progress': 'قيد المعالجة',
-        'resolved': 'محلولة',
-        'confirmed': 'مؤكدة',
-        'rejected': 'مرفوضة'
-    };
-
-    const priorityMap = {
-        'high': { label: 'عالية', class: 'priority-high' },
-        'medium': { label: 'متوسطة', class: 'priority-medium' },
-        'low': { label: 'منخفضة', class: 'priority-low' }
-    };
-
     grid.innerHTML = tickets.map(t => {
         const userName = escapeHtml(t.profiles?.full_name || 'مستخدم');
         const userInitial = userName[0].toUpperCase();
-        const priority = priorityMap[t.priority] || priorityMap['low'];
+        const priority = PRIORITY_MAP[t.priority] || PRIORITY_MAP['low'];
 
         return `
             <div class="ticket-card" data-id="${escapeHtml(t.id)}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span style="color: var(--color-text-secondary); font-size: 0.8rem; font-weight: 700;">#${escapeHtml(t.ticket_number || '---')}</span>
-                    <span class="status-badge status-${escapeHtml(t.status)}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${escapeHtml(statusMap[t.status] || t.status)}</span>
+                    <span class="status-badge status-${escapeHtml(t.status)}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${escapeHtml(STATUS_MAP[t.status] || t.status)}</span>
                 </div>
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(t.title)}</h4>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -178,364 +178,33 @@ function renderTickets(tickets) {
     }).join('');
 
     // Add click handlers and show first ticket by default
-    document.querySelectorAll('.ticket-card').forEach((card, index) => {
+    document.querySelectorAll('.ticket-card').forEach((card) => {
         card.addEventListener('click', () => {
-            // Remove selected class from all cards
             document.querySelectorAll('.ticket-card').forEach(c => c.classList.remove('selected'));
-            // Add selected class to clicked card
             card.classList.add('selected');
-            
             showAdminTicketInPanel(card.dataset.id);
         });
     });
     
-    // Auto-select first ticket
-    if (tickets.length > 0) {
-        const firstCard = grid.querySelector('.ticket-card');
-        if (firstCard) {
-            firstCard.classList.add('selected');
-            showAdminTicketInPanel(tickets[0].id);
+    // Auto-select the previously selected ticket if still present, otherwise the first one
+    const toSelectId = (currentTicketId && tickets.some(t => t.id === currentTicketId)) ? currentTicketId : (tickets[0] && tickets[0].id);
+    if (toSelectId) {
+        const cardToSelect = grid.querySelector(`.ticket-card[data-id="${CSS.escape(toSelectId)}"]`);
+        if (cardToSelect) {
+            cardToSelect.classList.add('selected');
         }
+        showAdminTicketInPanel(toSelectId);
     }
 }
 
-async function openTicketModal(ticketId) {
-    currentTicketId = ticketId;
-    const modal = document.getElementById('ticketModal');
-    
-    // Fetch full ticket details
-    const { data: ticket, error } = await supabase
-        .from('tickets')
-        .select('*, profiles(full_name, email)')
-        .eq('id', ticketId)
-        .single();
-
-    if (error || !ticket) {
-        alert('خطأ في جلب بيانات التذكرة');
-        return;
-    }
-
-    // Fill Modal Data
-    document.getElementById('modalTicketTitle').innerText = ticket.title;
-    document.getElementById('modalTicketDesc').innerText = ticket.description;
-    document.getElementById('modalTicketNumber').innerText = `#${ticket.ticket_number}`;
-    document.getElementById('modalTicketUser').innerText = ticket.profiles?.full_name || 'مستخدم';
-    document.getElementById('modalTicketEmail').innerText = ticket.profiles?.email || '';
-    document.getElementById('modalTicketDate').innerText = new Date(ticket.created_at).toLocaleString('ar-EG');
-    
-    const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة' };
-    const statusEl = document.getElementById('modalTicketStatus');
-    statusEl.innerText = statusMap[ticket.status] || ticket.status;
-    statusEl.className = `detail-value status-badge status-${ticket.status}`;
-
-    // Handle Image
-    const imgContainer = document.getElementById('modalTicketImageContainer');
-    if (ticket.image_url) {
-        imgContainer.style.display = 'block';
-        document.getElementById('modalTicketImage').src = ticket.image_url;
-        document.getElementById('modalTicketImageLink').href = ticket.image_url;
-    } else {
-        imgContainer.style.display = 'none';
-    }
-
-    // Impersonate Button
-    document.getElementById('impersonateUserBtn').onclick = () => impersonateUser(ticket.user_id);
-    
-    // التحقق من نوع التذكرة (شراء أم دعم عادي)
-    const isPurchaseTicket = ticket.title.toLowerCase().includes('شراء') || 
-                              ticket.title.toLowerCase().includes('اشتراك') ||
-                              ticket.title.toLowerCase().includes('واتساب');
-
-    // الأزرار حسب نوع التذكرة
-    const resolveBtn = document.getElementById('resolveTicketBtn');
-    
-    if (isPurchaseTicket) {
-        // لتذاكر الشراء: عرض أزرار التأكيد والرفض
-        if (ticket.status === 'open' || ticket.status === 'in-progress') {
-            resolveBtn.style.display = 'none';
-            
-            // إنشاء أزرار التأكيد والرفض إذا لم تكن موجودة
-            if (!document.getElementById('confirmPurchaseBtn')) {
-                const confirmBtn = document.createElement('button');
-                confirmBtn.id = 'confirmPurchaseBtn';
-                confirmBtn.className = 'btn btn-success';
-                confirmBtn.innerText = '✓ تأكيد الشراء';
-                confirmBtn.style.cssText = 'background: #2E8A3A; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-family: Cairo; margin-right: 0.5rem;';
-                confirmBtn.onclick = () => showConfirmPurchaseModal();
-                
-                const rejectBtn = document.createElement('button');
-                rejectBtn.id = 'rejectPurchaseBtn';
-                rejectBtn.className = 'btn btn-danger';
-                rejectBtn.innerText = '✗ رفض الشراء';
-                rejectBtn.style.cssText = 'background: #D9534F; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-family: Cairo;';
-                rejectBtn.onclick = () => showRejectPurchaseModal();
-                
-                resolveBtn.parentElement.insertBefore(confirmBtn, resolveBtn);
-                resolveBtn.parentElement.insertBefore(rejectBtn, resolveBtn);
-            }
-        } else if (ticket.status === 'confirmed') {
-            resolveBtn.style.display = 'none';
-            const statusSpan = document.createElement('span');
-            statusSpan.style.cssText = 'color: #2E8A3A; font-weight: 700; padding: 0.75rem 1.5rem;';
-            statusSpan.innerText = '✓ تم تأكيد الشراء';
-            resolveBtn.parentElement.insertBefore(statusSpan, resolveBtn);
-        } else if (ticket.status === 'rejected') {
-            resolveBtn.style.display = 'none';
-            const statusSpan = document.createElement('span');
-            statusSpan.style.cssText = 'color: #D9534F; font-weight: 700; padding: 0.75rem 1.5rem;';
-            statusSpan.innerText = '✗ تم رفض الشراء';
-            resolveBtn.parentElement.insertBefore(statusSpan, resolveBtn);
-        }
-    } else {
-        // لتذاكر الدعم العادية: الزر العادي
-        if (ticket.status === 'resolved') {
-            resolveBtn.innerText = 'إعادة فتح التذكرة';
-            resolveBtn.onclick = () => changeStatus('open');
-        } else {
-            resolveBtn.innerText = 'إغلاق التذكرة (تم الحل)';
-            resolveBtn.onclick = () => showCloseModal();
-        }
-    }
-
-    // Load Replies
-    loadReplies(ticketId);
-
-    // Subscribe to real-time replies updates
-    if (repliesSubscription) {
-        repliesSubscription.unsubscribe();
-    }
-    repliesSubscription = subscribeToTicketReplies(ticketId, () => {
-        loadReplies(ticketId);
-    });
-
-    modal.style.display = 'block';
-}
-
-async function loadReplies(ticketId) {
-    const container = document.getElementById('ticketRepliesList');
-    container.innerHTML = '<div style="text-align:center; padding:1rem; color:#999;">جاري تحميل الردود...</div>';
-    
-    try {
-        const replies = await fetchTicketReplies(ticketId);
-        if (!replies || replies.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:1rem; color:#999; font-size:0.8rem;">لا توجد ردود بعد.</div>';
-            return;
-        }
-
-        container.innerHTML = replies.map(r => {
-            const isAdmin = r.profiles?.role === 'admin';
-            const typeClass = r.is_internal ? 'reply-internal' : (isAdmin ? 'reply-admin' : 'reply-user');
-            const typeLabel = r.is_internal ? '<span class="internal-tag">ملاحظة داخلية</span>' : '';
-            
-            return `
-                <div class="reply-item ${typeClass}">
-                    <div class="reply-header">
-                        <span style="font-weight:700;">${escapeHtml(r.profiles?.full_name || 'مستخدم')} ${typeLabel}</span>
-                        <span>${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'})}</span>
-                    </div>
-                    <div class="reply-content">${escapeHtml(r.message)}</div>
-                </div>
-            `;
-        }).join('');
-        container.scrollTop = container.scrollHeight;
-    } catch (err) {
-        container.innerHTML = '<div style="color:red; text-align:center;">فشل تحميل الردود</div>';
-    }
-}
-
-async function changeStatus(newStatus) {
-    if (!currentTicketId) return;
-    try {
-        await updateTicketStatus(currentTicketId, newStatus);
-        openTicketModal(currentTicketId); // Refresh modal
-        await loadTickets(); // Refresh list
-    } catch (err) {
-        alert('فشل تحديث الحالة');
-    }
-}
-
-function showCloseModal() {
-    const closeModal = document.getElementById('closeTicketModal');
-    if (closeModal) {
-        closeModal.style.display = 'block';
-        document.getElementById('closeTicketComment').value = '';
-    }
-}
-
-async function closeTicket() {
-    if (!currentTicketId) return;
-    
-    const comment = document.getElementById('closeTicketComment').value.trim();
-    
-    try {
-        await closeTicketWithComment(currentTicketId, comment);
-        document.getElementById('closeTicketModal').style.display = 'none';
-        openTicketModal(currentTicketId); // Refresh modal
-        await loadTickets(); // Refresh list
-    } catch (err) {
-        alert('فشل إغلاق التذكرة: ' + err.message);
-    }
-}
-
-function setupModalEvents() {
-    const modal = document.getElementById('ticketModal');
-    const closeBtn = document.getElementById('closeModal');
-    
-    closeBtn.onclick = () => {
-        modal.style.display = 'none';
-        if (repliesSubscription) {
-            repliesSubscription.unsubscribe();
-
-    // Confirm Purchase Modal
-    const confirmPurchaseModal = document.getElementById('confirmPurchaseModal');
-    if (confirmPurchaseModal) {
-        const confirmBtn = document.getElementById('confirmPurchaseConfirmBtn');
-        const cancelBtn = document.getElementById('confirmPurchaseCancelBtn');
-        
-        if (confirmBtn) {
-            confirmBtn.onclick = async () => {
-                try {
-                    await confirmPurchaseTicket(currentTicketId);
-                    confirmPurchaseModal.style.display = 'none';
-                    await loadTickets();
-                    openTicketModal(currentTicketId);
-                    alert('تم تأكيد الشراء بنجاح!');
-                } catch (err) {
-                    alert('فشل تأكيد الشراء: ' + err.message);
-                }
-            };
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.onclick = () => {
-                confirmPurchaseModal.style.display = 'none';
-            };
-        }
-    }
-
-    // Reject Purchase Modal
-    const rejectPurchaseModal = document.getElementById('rejectPurchaseModal');
-    if (rejectPurchaseModal) {
-        const rejectBtn = document.getElementById('rejectPurchaseConfirmBtn');
-        const cancelBtn = document.getElementById('rejectPurchaseCancelBtn');
-        
-        if (rejectBtn) {
-            rejectBtn.onclick = async () => {
-                try {
-                    const reason = document.getElementById('rejectReason').value.trim();
-                    await rejectPurchaseTicket(currentTicketId, reason);
-                    rejectPurchaseModal.style.display = 'none';
-                    document.getElementById('rejectReason').value = '';
-                    await loadTickets();
-                    openTicketModal(currentTicketId);
-                    alert('تم رفض الشراء بنجاح!');
-                } catch (err) {
-                    alert('فشل رفض الشراء: ' + err.message);
-                }
-            };
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.onclick = () => {
-                rejectPurchaseModal.style.display = 'none';
-                document.getElementById('rejectReason').value = '';
-            };
-        }
-    }
-
-        }
-    };
-    
-    window.onclick = (event) => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
-            if (repliesSubscription) {
-                repliesSubscription.unsubscribe();
-            }
-        }
-    };
-
-    // Send Public Reply
-    document.getElementById('sendPublicReply').onclick = async () => {
-        const text = document.getElementById('replyText').value.trim();
-        if (!text) {
-            alert('الرجاء كتابة رد قبل الإرسال');
-            return;
-        }
-        
-        try {
-            const btn = document.getElementById('sendPublicReply');
-            btn.disabled = true;
-            btn.textContent = 'جاري الإرسال...';
-            
-            await addTicketReply(currentTicketId, text, false);
-            document.getElementById('replyText').value = '';
-            await loadReplies(currentTicketId);
-            await loadTickets();
-            
-            btn.disabled = false;
-            btn.textContent = 'إرسال رد للعميل';
-        } catch (err) {
-            console.error('Error sending reply:', err);
-            alert('فشل إرسال الرد: ' + (err.message || 'حدث خطأ غير متوقع'));
-            const btn = document.getElementById('sendPublicReply');
-            btn.disabled = false;
-            btn.textContent = 'إرسال رد للعميل';
-        }
-    };
-
-    // Send Internal Note
-    document.getElementById('sendInternalNote').onclick = async () => {
-        const text = document.getElementById('replyText').value.trim();
-        if (!text) {
-            alert('الرجاء كتابة ملاحظة قبل الإضافة');
-            return;
-        }
-        
-        try {
-            const btn = document.getElementById('sendInternalNote');
-            btn.disabled = true;
-            btn.textContent = 'جاري الإضافة...';
-            
-            await addTicketReply(currentTicketId, text, true);
-            document.getElementById('replyText').value = '';
-            await loadReplies(currentTicketId);
-            
-            btn.disabled = false;
-            btn.textContent = 'إضافة ملاحظة داخلية';
-        } catch (err) {
-            console.error('Error adding internal note:', err);
-            alert('فشل إضافة الملاحظة: ' + (err.message || 'حدث خطأ غير متوقع'));
-            const btn = document.getElementById('sendInternalNote');
-            btn.disabled = false;
-            btn.textContent = 'إضافة ملاحظة داخلية';
-        }
-    };
-
-    // Close Ticket Modal Events
-    const closeTicketModal = document.getElementById('closeTicketModal');
-    if (closeTicketModal) {
-        const closeCloseBtn = document.getElementById('closeCloseTicketModal');
-        if (closeCloseBtn) {
-            closeCloseBtn.onclick = () => closeTicketModal.style.display = 'none';
-        }
-
-        document.getElementById('confirmCloseTicket').onclick = closeTicket;
-
-        window.onclick = (event) => {
-            if (event.target == closeTicketModal) {
-                closeTicketModal.style.display = 'none';
-            }
-        };
-    }
-}
+/* ==================== Panel: Details + Actions (الواجهة الفعلية المستخدمة) ==================== */
 
 async function showAdminTicketInPanel(ticketId) {
     currentTicketId = ticketId;
     const panel = document.getElementById('adminTicketDetailsContent');
     if (!panel) return;
-    
-    // Fetch full ticket details
+
+    // جلب بيانات التذكرة
     const { data: ticket, error } = await supabase
         .from('tickets')
         .select('*, profiles(full_name, email, id)')
@@ -546,36 +215,29 @@ async function showAdminTicketInPanel(ticketId) {
         panel.innerHTML = '<p style="text-align:center; color:red;">خطأ في جلب بيانات التذكرة</p>';
         return;
     }
-    
-    const statusMap = {
-        'open': 'مفتوحة',
-        'in-progress': 'قيد المعالجة',
-        'resolved': 'محلولة',
-        'confirmed': 'مؤكدة',
-        'rejected': 'مرفوضة'
-    };
-    
-    const priorityMap = {
-        'high': 'عالية',
-        'medium': 'متوسطة',
-        'low': 'منخفضة'
-    };
-    
+
+    // التحقق هل هذه تذكرة طلب اشتراك (مرتبطة بجدول whatsapp_subscriptions) عبر ticket_id،
+    // بدلاً من الاعتماد على مطابقة نصية لعنوان التذكرة (أدق وأكثر ثباتاً).
+    const { data: subscription } = await supabase
+        .from('whatsapp_subscriptions')
+        .select('*')
+        .eq('ticket_id', ticket.id)
+        .maybeSingle();
+
     panel.style.display = 'block';
     panel.style.alignItems = 'flex-start';
     panel.style.justifyContent = 'flex-start';
-    
+
     panel.innerHTML = `
         <div style="width: 100%;">
             <!-- Header -->
             <div style="border-bottom: 2px solid var(--color-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
                     <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${escapeHtml(ticket.title)}</h2>
-                    <span class="status-badge status-${escapeHtml(ticket.status)}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${escapeHtml(statusMap[ticket.status])}</span>
+                    <span class="status-badge status-${escapeHtml(ticket.status)}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${escapeHtml(STATUS_MAP[ticket.status] || ticket.status)}</span>
                 </div>
                 <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary); flex-wrap: wrap;">
                     <span>رقم التذكرة: <strong>#${escapeHtml(ticket.ticket_number || '---')}</strong></span>
-                    <span>الأولوية: <strong style="color: var(--color-accent);">${escapeHtml(priorityMap[ticket.priority])}</strong></span>
                     <span>${new Date(ticket.created_at).toLocaleDateString('ar-EG')}</span>
                 </div>
                 <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--color-muted); border-radius: 0.5rem;">
@@ -584,37 +246,40 @@ async function showAdminTicketInPanel(ticketId) {
                     <div style="font-size: 0.85rem; color: var(--color-text-secondary);">${escapeHtml(ticket.profiles?.email || '')}</div>
                 </div>
             </div>
-            
+
             <!-- Description -->
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">وصف المشكلة</h3>
                 <p style="line-height: 1.6; white-space: pre-wrap;">${escapeHtml(ticket.description)}</p>
             </div>
-            
+
             ${ticket.image_url ? `
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">المرفقات</h3>
                 <img src="${sanitizeUrl(ticket.image_url)}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
             </div>
             ` : ''}
-            
-            <!-- Status Control -->
-            <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--color-muted); border-radius: 0.75rem;">
-                <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem;">تغيير حالة التذكرة</label>
-                <select id="panelStatusSelect" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-weight: 600;">
-                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>مفتوحة</option>
-                    <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>قيد المعالجة</option>
-                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>محلولة</option>
+
+            <!-- Priority Control (الإدارة فقط هي من تحدد الأولوية) -->
+            <div style="margin-bottom: 1rem; padding: 1rem; background: var(--color-muted); border-radius: 0.75rem;">
+                <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem;">أولوية التذكرة</label>
+                <select id="panelPrioritySelect" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-weight: 600;">
+                    <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>منخفضة</option>
+                    <option value="medium" ${ticket.priority === 'medium' ? 'selected' : ''}>متوسطة</option>
+                    <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>عالية</option>
                 </select>
             </div>
-            
+
+            <!-- Status / Purchase Actions -->
+            <div id="panelActionsContainer" style="margin-bottom: 1.5rem;"></div>
+
             <!-- Replies Section -->
             <div style="border-top: 2px solid var(--color-border); padding-top: 1.5rem;">
                 <h3 style="font-size: 1rem; margin-bottom: 1rem;">الردود</h3>
                 <div id="adminPanelRepliesList" style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem; padding-left: 0.5rem;">
                     <div style="text-align:center; padding:1rem; color: var(--color-text-secondary);">جاري تحميل الردود...</div>
                 </div>
-                
+
                 <div>
                     <textarea id="adminPanelReplyText" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-text); font-family: inherit; min-height: 70px; resize: vertical;" placeholder="اكتب ردك هنا..."></textarea>
                     <button id="adminPanelSendReply" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">إرسال الرد</button>
@@ -622,24 +287,28 @@ async function showAdminTicketInPanel(ticketId) {
             </div>
         </div>
     `;
-    
+
+    // بناء منطقة الإجراءات (تأكيد/رفض لتذاكر الاشتراك، أو تغيير الحالة للتذاكر العادية)
+    renderPanelActions(ticket, subscription);
+
     // Load replies
     await loadAdminRepliesInPanel(ticket.id);
-    
-    // Setup status change
-    const statusSelect = document.getElementById('panelStatusSelect');
-    if (statusSelect) {
-        statusSelect.addEventListener('change', async () => {
+
+    // Setup priority change
+    const prioritySelect = document.getElementById('panelPrioritySelect');
+    if (prioritySelect) {
+        prioritySelect.addEventListener('change', async () => {
+            const previousValue = ticket.priority;
             try {
-                await updateTicketStatus(ticket.id, statusSelect.value);
-                // Refresh tickets list to show updated status
+                await updateTicketPriority(ticket.id, prioritySelect.value);
                 await loadTickets();
             } catch (err) {
-                alert('فشل تغيير الحالة: ' + err.message);
+                alert('فشل تغيير الأولوية: ' + err.message);
+                prioritySelect.value = previousValue;
             }
         });
     }
-    
+
     // Setup reply button
     const sendBtn = document.getElementById('adminPanelSendReply');
     const replyInput = document.getElementById('adminPanelReplyText');
@@ -666,6 +335,82 @@ async function showAdminTicketInPanel(ticketId) {
                 sendBtn.textContent = 'إرسال الرد';
             }
         };
+    }
+}
+
+/**
+ * يبني منطقة الإجراءات أسفل بيانات التذكرة:
+ * - لو التذكرة مرتبطة باشتراك pending: زرار "تأكيد" و"رفض"
+ * - لو الاشتراك اتأكد/اترفض بالفعل: badge يوضح الحالة فقط
+ * - لو مش تذكرة اشتراك أصلاً: قائمة تغيير الحالة العادية (مفتوحة/قيد المعالجة/محلولة)
+ */
+function renderPanelActions(ticket, subscription) {
+    const container = document.getElementById('panelActionsContainer');
+    if (!container) return;
+
+    if (subscription) {
+        const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
+        const billingLabel = BILLING_LABELS[subscription.billing_cycle] || subscription.billing_cycle;
+
+        if (subscription.status === 'pending') {
+            container.innerHTML = `
+                <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem;">
+                    <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">
+                        طلب اشتراك: <strong style="color: var(--color-text);">${escapeHtml(planLabel)}</strong> (${escapeHtml(billingLabel)})
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button id="panelConfirmPurchaseBtn" class="btn" style="flex:1; background:#2E8A3A; color:#fff; border:none; padding:0.75rem; border-radius:0.5rem; font-weight:700; cursor:pointer;">✓ تأكيد الاشتراك</button>
+                        <button id="panelRejectPurchaseBtn" class="btn" style="flex:1; background:#D9534F; color:#fff; border:none; padding:0.75rem; border-radius:0.5rem; font-weight:700; cursor:pointer;">✗ رفض الاشتراك</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('panelConfirmPurchaseBtn').onclick = () => showConfirmPurchaseModal();
+            document.getElementById('panelRejectPurchaseBtn').onclick = () => showRejectPurchaseModal();
+        } else if (subscription.status === 'active') {
+            container.innerHTML = `
+                <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: #2E8A3A; font-weight: 700;">
+                    ✓ تم تأكيد الاشتراك (${escapeHtml(planLabel)} - ${escapeHtml(billingLabel)})
+                </div>
+            `;
+        } else if (subscription.status === 'rejected') {
+            container.innerHTML = `
+                <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: #D9534F; font-weight: 700;">
+                    ✗ تم رفض هذا الاشتراك
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: var(--color-text-secondary);">
+                    حالة الاشتراك: ${escapeHtml(subscription.status)}
+                </div>
+            `;
+        }
+        return;
+    }
+
+    // تذكرة دعم عادية (ليست طلب اشتراك): قائمة تغيير الحالة كالمعتاد
+    container.innerHTML = `
+        <label style="display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem;">تغيير حالة التذكرة</label>
+        <select id="panelStatusSelect" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-text); font-weight: 600;">
+            <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>مفتوحة</option>
+            <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>قيد المعالجة</option>
+            <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>محلولة</option>
+        </select>
+    `;
+
+    const statusSelect = document.getElementById('panelStatusSelect');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', async () => {
+            const previousValue = ticket.status;
+            try {
+                await updateTicketStatus(ticket.id, statusSelect.value);
+                await loadTickets();
+            } catch (err) {
+                alert('فشل تغيير الحالة: ' + err.message);
+                statusSelect.value = previousValue;
+            }
+        });
     }
 }
 
@@ -706,43 +451,338 @@ async function impersonateUser(id) {
     location.href = '/customer-dashboard.html';
 }
 
+/* ==================== Legacy modal (ticketModal) — kept for pages that still open it ==================== */
 
-// دوال عرض النوافذ المنبثقة
+async function openTicketModal(ticketId) {
+    currentTicketId = ticketId;
+    const modal = document.getElementById('ticketModal');
+    if (!modal) return;
+    
+    const { data: ticket, error } = await supabase
+        .from('tickets')
+        .select('*, profiles(full_name, email)')
+        .eq('id', ticketId)
+        .single();
+
+    if (error || !ticket) {
+        alert('خطأ في جلب بيانات التذكرة');
+        return;
+    }
+
+    document.getElementById('modalTicketTitle').innerText = ticket.title;
+    document.getElementById('modalTicketDesc').innerText = ticket.description;
+    document.getElementById('modalTicketNumber').innerText = `#${ticket.ticket_number}`;
+    document.getElementById('modalTicketUser').innerText = ticket.profiles?.full_name || 'مستخدم';
+    document.getElementById('modalTicketEmail').innerText = ticket.profiles?.email || '';
+    document.getElementById('modalTicketDate').innerText = new Date(ticket.created_at).toLocaleString('ar-EG');
+    
+    const statusEl = document.getElementById('modalTicketStatus');
+    statusEl.innerText = STATUS_MAP[ticket.status] || ticket.status;
+    statusEl.className = `detail-value status-badge status-${ticket.status}`;
+
+    const imgContainer = document.getElementById('modalTicketImageContainer');
+    if (ticket.image_url) {
+        imgContainer.style.display = 'block';
+        document.getElementById('modalTicketImage').src = ticket.image_url;
+        document.getElementById('modalTicketImageLink').href = ticket.image_url;
+    } else {
+        imgContainer.style.display = 'none';
+    }
+
+    document.getElementById('impersonateUserBtn').onclick = () => impersonateUser(ticket.user_id);
+
+    const resolveBtn = document.getElementById('resolveTicketBtn');
+    if (ticket.status === 'resolved') {
+        resolveBtn.innerText = 'إعادة فتح التذكرة';
+        resolveBtn.onclick = () => changeStatus('open');
+    } else {
+        resolveBtn.innerText = 'إغلاق التذكرة (تم الحل)';
+        resolveBtn.onclick = () => showCloseModal();
+    }
+
+    loadReplies(ticketId);
+
+    if (repliesSubscription) {
+        repliesSubscription.unsubscribe();
+    }
+    repliesSubscription = subscribeToTicketReplies(ticketId, () => {
+        loadReplies(ticketId);
+    });
+
+    modal.style.display = 'block';
+}
+
+async function loadReplies(ticketId) {
+    const container = document.getElementById('ticketRepliesList');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center; padding:1rem; color:#999;">جاري تحميل الردود...</div>';
+    
+    try {
+        const replies = await fetchTicketReplies(ticketId);
+        if (!replies || replies.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:1rem; color:#999; font-size:0.8rem;">لا توجد ردود بعد.</div>';
+            return;
+        }
+
+        container.innerHTML = replies.map(r => {
+            const isAdmin = r.profiles?.role === 'admin';
+            const typeClass = r.is_internal ? 'reply-internal' : (isAdmin ? 'reply-admin' : 'reply-user');
+            const typeLabel = r.is_internal ? '<span class="internal-tag">ملاحظة داخلية</span>' : '';
+            
+            return `
+                <div class="reply-item ${typeClass}">
+                    <div class="reply-header">
+                        <span style="font-weight:700;">${escapeHtml(r.profiles?.full_name || 'مستخدم')} ${typeLabel}</span>
+                        <span>${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'})}</span>
+                    </div>
+                    <div class="reply-content">${escapeHtml(r.message)}</div>
+                </div>
+            `;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    } catch (err) {
+        container.innerHTML = '<div style="color:red; text-align:center;">فشل تحميل الردود</div>';
+    }
+}
+
+async function changeStatus(newStatus) {
+    if (!currentTicketId) return;
+    try {
+        await updateTicketStatus(currentTicketId, newStatus);
+        if (document.getElementById('ticketModal')?.style.display === 'block') {
+            openTicketModal(currentTicketId);
+        }
+        await loadTickets();
+    } catch (err) {
+        alert('فشل تحديث الحالة');
+    }
+}
+
+function showCloseModal() {
+    const closeModal = document.getElementById('closeTicketModal');
+    if (closeModal) {
+        closeModal.style.display = 'block';
+        document.getElementById('closeTicketComment').value = '';
+    }
+}
+
+async function closeTicket() {
+    if (!currentTicketId) return;
+    
+    const comment = document.getElementById('closeTicketComment').value.trim();
+    
+    try {
+        await closeTicketWithComment(currentTicketId, comment);
+        document.getElementById('closeTicketModal').style.display = 'none';
+        if (document.getElementById('ticketModal')?.style.display === 'block') {
+            openTicketModal(currentTicketId);
+        }
+        await loadTickets();
+    } catch (err) {
+        alert('فشل إغلاق التذكرة: ' + err.message);
+    }
+}
+
+/* ==================== Modal events (ticketModal + confirm/reject purchase modals) ====================
+   ملاحظة: كانت هذه الدالة فيها خطأ - كود ربط أزرار تأكيد/رفض الشراء كان
+   محقون جوه closeBtn.onclick بالغلط، يعني ما كانش بيتنفذ إلا لما حد يقفل
+   المودال القديم (اللي أصلاً مش بيتفتح من أي مكان في الواجهة الحالية).
+   اتصلحت هنا بحيث كل زرار بياخد الـ handler بتاعه فوراً عند استدعاء
+   setupModalEvents(). */
+function setupModalEvents() {
+    const modal = document.getElementById('ticketModal');
+    const closeBtn = document.getElementById('closeModal');
+
+    if (modal && closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            if (repliesSubscription) {
+                repliesSubscription.unsubscribe();
+            }
+        };
+
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+                if (repliesSubscription) {
+                    repliesSubscription.unsubscribe();
+                }
+            }
+        });
+    }
+
+    // Confirm Purchase Modal
+    const confirmPurchaseModal = document.getElementById('confirmPurchaseModal');
+    if (confirmPurchaseModal) {
+        const confirmBtn = document.getElementById('confirmPurchaseConfirmBtn');
+        const cancelBtn = document.getElementById('confirmPurchaseCancelBtn');
+
+        if (confirmBtn) {
+            confirmBtn.onclick = async () => {
+                try {
+                    confirmBtn.disabled = true;
+                    confirmBtn.textContent = 'جاري التأكيد...';
+                    await confirmPurchaseTicket(currentTicketId);
+                    confirmPurchaseModal.style.display = 'none';
+                    await loadTickets();
+                    await showAdminTicketInPanel(currentTicketId);
+                    alert('تم تأكيد الاشتراك بنجاح!');
+                } catch (err) {
+                    alert('فشل تأكيد الاشتراك: ' + err.message);
+                } finally {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'تأكيد';
+                }
+            };
+        }
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                confirmPurchaseModal.style.display = 'none';
+            };
+        }
+    }
+
+    // Reject Purchase Modal
+    const rejectPurchaseModal = document.getElementById('rejectPurchaseModal');
+    if (rejectPurchaseModal) {
+        const rejectBtn = document.getElementById('rejectPurchaseConfirmBtn');
+        const cancelBtn = document.getElementById('rejectPurchaseCancelBtn');
+
+        if (rejectBtn) {
+            rejectBtn.onclick = async () => {
+                try {
+                    rejectBtn.disabled = true;
+                    rejectBtn.textContent = 'جاري الرفض...';
+                    const reason = document.getElementById('rejectReason').value.trim();
+                    await rejectPurchaseTicket(currentTicketId, reason);
+                    rejectPurchaseModal.style.display = 'none';
+                    document.getElementById('rejectReason').value = '';
+                    await loadTickets();
+                    await showAdminTicketInPanel(currentTicketId);
+                    alert('تم رفض الاشتراك.');
+                } catch (err) {
+                    alert('فشل رفض الاشتراك: ' + err.message);
+                } finally {
+                    rejectBtn.disabled = false;
+                    rejectBtn.textContent = 'رفض';
+                }
+            };
+        }
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                rejectPurchaseModal.style.display = 'none';
+                document.getElementById('rejectReason').value = '';
+            };
+        }
+    }
+
+    // Legacy modal reply buttons (فقط لو المودال القديم موجود في الصفحة)
+    const sendPublicReplyBtn = document.getElementById('sendPublicReply');
+    if (sendPublicReplyBtn) {
+        sendPublicReplyBtn.onclick = async () => {
+            const text = document.getElementById('replyText').value.trim();
+            if (!text) {
+                alert('الرجاء كتابة رد قبل الإرسال');
+                return;
+            }
+            try {
+                sendPublicReplyBtn.disabled = true;
+                sendPublicReplyBtn.textContent = 'جاري الإرسال...';
+                await addTicketReply(currentTicketId, text, false);
+                document.getElementById('replyText').value = '';
+                await loadReplies(currentTicketId);
+                await loadTickets();
+            } catch (err) {
+                console.error('Error sending reply:', err);
+                alert('فشل إرسال الرد: ' + (err.message || 'حدث خطأ غير متوقع'));
+            } finally {
+                sendPublicReplyBtn.disabled = false;
+                sendPublicReplyBtn.textContent = 'إرسال رد للعميل';
+            }
+        };
+    }
+
+    const sendInternalNoteBtn = document.getElementById('sendInternalNote');
+    if (sendInternalNoteBtn) {
+        sendInternalNoteBtn.onclick = async () => {
+            const text = document.getElementById('replyText').value.trim();
+            if (!text) {
+                alert('الرجاء كتابة ملاحظة قبل الإضافة');
+                return;
+            }
+            try {
+                sendInternalNoteBtn.disabled = true;
+                sendInternalNoteBtn.textContent = 'جاري الإضافة...';
+                await addTicketReply(currentTicketId, text, true);
+                document.getElementById('replyText').value = '';
+                await loadReplies(currentTicketId);
+            } catch (err) {
+                console.error('Error adding internal note:', err);
+                alert('فشل إضافة الملاحظة: ' + (err.message || 'حدث خطأ غير متوقع'));
+            } finally {
+                sendInternalNoteBtn.disabled = false;
+                sendInternalNoteBtn.textContent = 'إضافة ملاحظة داخلية';
+            }
+        };
+    }
+
+    // Close Ticket Modal Events
+    const closeTicketModalEl = document.getElementById('closeTicketModal');
+    if (closeTicketModalEl) {
+        const closeCloseBtn = document.getElementById('closeCloseTicketModal');
+        if (closeCloseBtn) {
+            closeCloseBtn.onclick = () => closeTicketModalEl.style.display = 'none';
+        }
+
+        const confirmCloseBtn = document.getElementById('confirmCloseTicket');
+        if (confirmCloseBtn) {
+            confirmCloseBtn.onclick = closeTicket;
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target === closeTicketModalEl) {
+                closeTicketModalEl.style.display = 'none';
+            }
+        });
+    }
+}
+
+/* دوال عرض النوافذ المنبثقة الخاصة بتأكيد/رفض الاشتراك.
+   بتتنشأ ديناميكياً أول مرة فقط، وبعدين بتتعاد إظهارها فقط. */
 function showConfirmPurchaseModal() {
-    const modal = document.getElementById('confirmPurchaseModal');
+    let modal = document.getElementById('confirmPurchaseModal');
     if (!modal) {
-        // إنشاء النافذة إذا لم تكن موجودة
-        const newModal = document.createElement('div');
-        newModal.id = 'confirmPurchaseModal';
-        newModal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
-        newModal.innerHTML = `
+        modal = document.createElement('div');
+        modal.id = 'confirmPurchaseModal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
+        modal.innerHTML = `
             <div style="background-color: #fefefe; margin: 15% auto; padding: 2rem; border: 1px solid #888; border-radius: 0.5rem; width: 80%; max-width: 400px; font-family: Cairo;">
-                <h2 style="margin-top: 0; color: #003366;">تأكيد الشراء</h2>
-                <p>هل أنت متأكد من تأكيد هذا الشراء؟ سيتم تفعيل خدمة واتساب للعميل لمدة شهر واحد.</p>
+                <h2 style="margin-top: 0; color: #003366;">تأكيد الاشتراك</h2>
+                <p>هل أنت متأكد من تأكيد طلب الاشتراك ده؟ هيتم تفعيل الخطة للعميل فوراً.</p>
                 <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                     <button id="confirmPurchaseCancelBtn" style="padding: 0.5rem 1rem; background: #999; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">إلغاء</button>
                     <button id="confirmPurchaseConfirmBtn" style="padding: 0.5rem 1rem; background: #2E8A3A; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">تأكيد</button>
                 </div>
             </div>
         `;
-        document.body.appendChild(newModal);
+        document.body.appendChild(modal);
         setupModalEvents();
-    } else {
-        modal.style.display = 'block';
     }
+    modal.style.display = 'block';
 }
 
 function showRejectPurchaseModal() {
-    const modal = document.getElementById('rejectPurchaseModal');
+    let modal = document.getElementById('rejectPurchaseModal');
     if (!modal) {
-        // إنشاء النافذة إذا لم تكن موجودة
-        const newModal = document.createElement('div');
-        newModal.id = 'rejectPurchaseModal';
-        newModal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
-        newModal.innerHTML = `
+        modal = document.createElement('div');
+        modal.id = 'rejectPurchaseModal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);';
+        modal.innerHTML = `
             <div style="background-color: #fefefe; margin: 15% auto; padding: 2rem; border: 1px solid #888; border-radius: 0.5rem; width: 80%; max-width: 400px; font-family: Cairo;">
-                <h2 style="margin-top: 0; color: #D9534F;">رفض الشراء</h2>
-                <p>هل أنت متأكد من رفض هذا الشراء؟</p>
+                <h2 style="margin-top: 0; color: #D9534F;">رفض الاشتراك</h2>
+                <p>هل أنت متأكد من رفض طلب الاشتراك ده؟</p>
                 <label style="display: block; margin-bottom: 1rem;">
                     <span style="display: block; margin-bottom: 0.5rem; font-weight: 600;">السبب (اختياري):</span>
                     <textarea id="rejectReason" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem; font-family: Cairo; resize: vertical; min-height: 80px;"></textarea>
@@ -753,12 +793,10 @@ function showRejectPurchaseModal() {
                 </div>
             </div>
         `;
-        document.body.appendChild(newModal);
+        document.body.appendChild(modal);
         setupModalEvents();
-    } else {
-        modal.style.display = 'block';
     }
+    modal.style.display = 'block';
 }
-
 
 init();
