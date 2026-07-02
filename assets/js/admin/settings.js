@@ -173,6 +173,14 @@ async function loadAllSettings() {
         await loadUsers();
         await loadActiveDevices();
 
+        // 12. Load new admin feature settings
+        await loadBranding();
+        await loadTicketDistribution();
+        await loadDataRetention();
+        await loadSlaConfig();
+        loadTelegramAlerts(profile);
+        await loadWebhooks();
+
     } catch (error) {
         console.error('Error loading settings:', error);
         showAlert('حدث خطأ أثناء تحميل الإعدادات', 'error');
@@ -312,6 +320,378 @@ async function loadUsers() {
         });
     } catch (error) {
         console.error('Error loading users:', error);
+    }
+}
+
+// =======================================================================
+// ميزات جديدة: الهوية البصرية / توزيع التذاكر / الاحتفاظ بالبيانات /
+// تنبيهات تيليجرام / SLA / Webhooks
+// =======================================================================
+
+let allAgents = [];
+let allWebhooks = [];
+
+// ---------- 1) هوية المنصة والعلامة التجارية ----------
+async function loadBranding() {
+    try {
+        const { data } = await supabase.from('advanced_settings').select('*').eq('key', 'branding').maybeSingle();
+        const settings = data?.value || {};
+        document.getElementById('brandSiteName').value = settings.site_name || '';
+        document.getElementById('brandPrimaryColor').value = settings.primary_color || '#0077cc';
+
+        const logoPreview = document.getElementById('brandLogoPreview');
+        if (logoPreview) logoPreview.src = settings.logo_url || '/assets/images/logo.png';
+
+        const faviconPreview = document.getElementById('brandFaviconPreview');
+        if (faviconPreview) faviconPreview.src = settings.favicon_url || '/assets/images/logo.png';
+
+        currentSettings.branding = settings;
+    } catch (error) {
+        console.error('Error loading branding:', error);
+    }
+}
+
+async function uploadPlatformAsset(file, prefix) {
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${prefix}/${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from('platform-assets').upload(filePath, file, { upsert: true });
+    if (uploadError) throw uploadError;
+    const { data: { publicUrl } } = supabase.storage.from('platform-assets').getPublicUrl(filePath);
+    return publicUrl;
+}
+
+async function saveBranding() {
+    const btn = document.getElementById('saveBrandingBtn');
+    setLoading(btn, true);
+    try {
+        const settings = { ...(currentSettings.branding || {}) };
+        settings.site_name = document.getElementById('brandSiteName').value;
+        settings.primary_color = document.getElementById('brandPrimaryColor').value;
+
+        const logoFile = document.getElementById('brandLogoInput').files[0];
+        if (logoFile) settings.logo_url = await uploadPlatformAsset(logoFile, 'logo');
+
+        const faviconFile = document.getElementById('brandFaviconInput').files[0];
+        if (faviconFile) settings.favicon_url = await uploadPlatformAsset(faviconFile, 'favicon');
+
+        await saveAdvancedSetting('branding', settings);
+        currentSettings.branding = settings;
+        document.getElementById('brandLogoInput').value = '';
+        document.getElementById('brandFaviconInput').value = '';
+        if (settings.logo_url) document.getElementById('brandLogoPreview').src = settings.logo_url;
+        if (settings.favicon_url) document.getElementById('brandFaviconPreview').src = settings.favicon_url;
+    } catch (error) {
+        showAlert('خطأ في حفظ الهوية البصرية: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ---------- 2) توزيع التذاكر التلقائي على فريق الدعم ----------
+async function loadTicketDistribution() {
+    try {
+        const { data: agents } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, role')
+            .in('role', ['admin', 'super_user'])
+            .order('full_name', { ascending: true });
+
+        allAgents = agents || [];
+
+        const { data: config } = await supabase
+            .from('ticket_distribution_config')
+            .select('*')
+            .eq('method', 'round_robin')
+            .maybeSingle();
+
+        currentSettings.distributionConfig = config || null;
+        const selectedIds = config?.settings?.agent_ids || [];
+
+        const list = document.getElementById('agentsList');
+        if (!list) return;
+
+        if (allAgents.length === 0) {
+            list.innerHTML = '<p style="color: var(--color-text-secondary);">لا يوجد موظفين إداريين لتوزيع التذاكر عليهم بعد.</p>';
+        } else {
+            list.innerHTML = allAgents.map(agent => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="agent-${agent.id}" value="${agent.id}" ${selectedIds.includes(agent.id) ? 'checked' : ''}>
+                    <label for="agent-${agent.id}">${agent.full_name || agent.email}</label>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('ticketDistributionEnabled').checked = config?.is_active || false;
+    } catch (error) {
+        console.error('Error loading ticket distribution config:', error);
+    }
+}
+
+async function saveTicketDistribution() {
+    const btn = document.getElementById('saveTicketDistributionBtn');
+    setLoading(btn, true);
+    try {
+        const isActive = document.getElementById('ticketDistributionEnabled').checked;
+        const agentIds = Array.from(document.querySelectorAll('#agentsList input[type="checkbox"]:checked')).map(cb => cb.value);
+
+        const existing = currentSettings.distributionConfig;
+        const settings = { ...(existing?.settings || {}), agent_ids: agentIds };
+
+        let error;
+        if (existing) {
+            const { error: err } = await supabase
+                .from('ticket_distribution_config')
+                .update({ is_active: isActive, method: 'round_robin', settings, updated_at: new Date() })
+                .eq('id', existing.id);
+            error = err;
+        } else {
+            const { error: err } = await supabase
+                .from('ticket_distribution_config')
+                .insert({ is_active: isActive, method: 'round_robin', settings });
+            error = err;
+        }
+
+        if (error) throw error;
+        showAlert('تم حفظ إعدادات توزيع التذاكر بنجاح', 'success');
+        loadTicketDistribution();
+    } catch (error) {
+        showAlert('خطأ في الحفظ: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ---------- 3) سياسة الاحتفاظ بالبيانات ----------
+async function loadDataRetention() {
+    try {
+        const { data } = await supabase.from('advanced_settings').select('*').eq('key', 'data_retention').maybeSingle();
+        const settings = data?.value || {};
+        document.getElementById('retentionEnabled').checked = settings.enabled || false;
+        document.getElementById('retentionDays').value = settings.ticket_retention_days || 365;
+        document.getElementById('retentionAction').value = settings.action || 'archive';
+
+        const lastRunEl = document.getElementById('retentionLastRun');
+        if (lastRunEl) {
+            lastRunEl.textContent = settings.last_run_at
+                ? `آخر تشغيل: ${new Date(settings.last_run_at).toLocaleString('ar-EG')}`
+                : 'لم يتم التشغيل بعد';
+        }
+    } catch (error) {
+        console.error('Error loading data retention settings:', error);
+    }
+}
+
+async function saveDataRetention() {
+    const settings = {
+        enabled: document.getElementById('retentionEnabled').checked,
+        ticket_retention_days: document.getElementById('retentionDays').value,
+        action: document.getElementById('retentionAction').value
+    };
+    await saveAdvancedSetting('data_retention', settings);
+}
+
+async function runDataRetentionNow() {
+    const btn = document.getElementById('runRetentionNowBtn');
+    setLoading(btn, true);
+    try {
+        const { data, error } = await supabase.rpc('run_data_retention_cleanup');
+        if (error) throw error;
+        if (data?.ran) {
+            showAlert(`تم التشغيل: ${data.affected} تذكرة تم ${data.action === 'delete' ? 'حذفها' : 'أرشفتها'}`, 'success');
+        } else {
+            showAlert('السياسة غير مفعّلة حالياً، فعّلها واحفظ أولاً', 'error');
+        }
+        loadDataRetention();
+    } catch (error) {
+        showAlert('خطأ في التشغيل: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ---------- 4) أهداف زمن الرد (SLA) ----------
+async function loadSlaConfig() {
+    try {
+        const { data } = await supabase.from('advanced_settings').select('*').eq('key', 'sla_config').maybeSingle();
+        const settings = data?.value || {};
+        document.getElementById('slaEnabled').checked = settings.enabled || false;
+        document.getElementById('slaHighHours').value = settings.high_hours || 4;
+        document.getElementById('slaMediumHours').value = settings.medium_hours || 24;
+        document.getElementById('slaLowHours').value = settings.low_hours || 48;
+    } catch (error) {
+        console.error('Error loading SLA settings:', error);
+    }
+}
+
+async function saveSlaConfig() {
+    const settings = {
+        enabled: document.getElementById('slaEnabled').checked,
+        high_hours: document.getElementById('slaHighHours').value,
+        medium_hours: document.getElementById('slaMediumHours').value,
+        low_hours: document.getElementById('slaLowHours').value
+    };
+    await saveAdvancedSetting('sla_config', settings);
+}
+
+// ---------- 5) تنبيهات تيليجرام الشخصية للأدمن ----------
+function loadTelegramAlerts(profile) {
+    const linkedEl = document.getElementById('telegramLinkStatus');
+    if (linkedEl) {
+        linkedEl.textContent = profile.telegram_username
+            ? `متصل بحساب: @${profile.telegram_username}`
+            : 'لسه معملتش ربط بحسابك على تيليجرام (من صفحة تسجيل الدخول بالبوت)';
+        linkedEl.style.color = profile.telegram_username ? '#065f46' : '#991b1b';
+    }
+
+    const events = profile.telegram_alert_events || [];
+    document.getElementById('alertUrgentTicket').checked = events.includes('new_urgent_ticket');
+    document.getElementById('alertSlaBreach').checked = events.includes('sla_breach');
+}
+
+async function saveTelegramAlerts() {
+    const btn = document.getElementById('saveTelegramAlertsBtn');
+    setLoading(btn, true);
+    try {
+        const events = [];
+        if (document.getElementById('alertUrgentTicket').checked) events.push('new_urgent_ticket');
+        if (document.getElementById('alertSlaBreach').checked) events.push('sla_breach');
+
+        const { error } = await supabase.from('profiles').update({ telegram_alert_events: events }).eq('id', user.id);
+        if (error) throw error;
+        showAlert('تم حفظ تفضيلات التنبيهات بنجاح', 'success');
+    } catch (error) {
+        showAlert('خطأ في الحفظ: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function sendTestTelegramAlert() {
+    const btn = document.getElementById('testTelegramAlertBtn');
+    setLoading(btn, true);
+    try {
+        const { data, error } = await supabase.rpc('send_test_telegram_alert');
+        if (error) throw error;
+        if (data?.success) {
+            showAlert('تم إرسال رسالة اختبار على تيليجرام، تأكد من وصولها', 'success');
+        } else {
+            showAlert('لازم تربط حسابك بتيليجرام الأول عشان يوصلك تنبيه', 'error');
+        }
+    } catch (error) {
+        showAlert('خطأ: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ---------- 6) Webhooks خارجية ----------
+async function loadWebhooks() {
+    try {
+        const { data: webhooks } = await supabase.from('webhooks').select('*').order('created_at', { ascending: false });
+        allWebhooks = webhooks || [];
+
+        const body = document.getElementById('webhooksBody');
+        if (!body) return;
+
+        if (allWebhooks.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">لا توجد Webhooks مضافة</td></tr>';
+            return;
+        }
+
+        const eventLabels = {
+            ticket_created: 'إنشاء تذكرة',
+            ticket_status_changed: 'تغيير حالة',
+            ticket_resolved: 'حل التذكرة'
+        };
+
+        body.innerHTML = allWebhooks.map(hook => `
+            <tr>
+                <td>${hook.name}</td>
+                <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hook.url}</td>
+                <td>${(hook.events || []).map(e => eventLabels[e] || e).join('، ')}</td>
+                <td><span class="badge ${hook.is_active ? 'badge-success' : 'badge-warning'}">${hook.is_active ? 'نشط' : 'معطل'}</span></td>
+                <td>
+                    <button class="btn btn-secondary btn-sm edit-webhook-btn" data-webhook-id="${hook.id}">تعديل</button>
+                    <button class="btn btn-danger btn-sm delete-webhook-btn" data-webhook-id="${hook.id}">حذف</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.delete-webhook-btn').forEach(btn => {
+            btn.addEventListener('click', () => deleteWebhook(btn.dataset.webhookId));
+        });
+        document.querySelectorAll('.edit-webhook-btn').forEach(btn => {
+            btn.addEventListener('click', () => editWebhook(btn.dataset.webhookId));
+        });
+    } catch (error) {
+        console.error('Error loading webhooks:', error);
+    }
+}
+
+async function editWebhook(id) {
+    const hook = allWebhooks.find(h => h.id === id);
+    if (!hook) return;
+
+    document.getElementById('webhookFormModal').style.display = 'block';
+    document.getElementById('webhookModalTitle').textContent = 'تعديل Webhook';
+    document.getElementById('editWebhookId').value = hook.id;
+    document.getElementById('webhookName').value = hook.name;
+    document.getElementById('webhookUrl').value = hook.url;
+    document.getElementById('webhookActive').checked = hook.is_active;
+
+    document.querySelectorAll('[id^="webhook-event-"]').forEach(cb => cb.checked = false);
+    (hook.events || []).forEach(evt => {
+        const cb = document.getElementById(`webhook-event-${evt}`);
+        if (cb) cb.checked = true;
+    });
+}
+
+async function saveWebhook() {
+    const btn = document.getElementById('saveWebhookBtn');
+    const id = document.getElementById('editWebhookId').value;
+    const name = document.getElementById('webhookName').value;
+    const url = document.getElementById('webhookUrl').value;
+    const isActive = document.getElementById('webhookActive').checked;
+    const events = Array.from(document.querySelectorAll('[id^="webhook-event-"]:checked')).map(cb => cb.id.replace('webhook-event-', ''));
+
+    if (!name || !url || events.length === 0) {
+        showAlert('لازم تدخل اسم ورابط وتختار حدث واحد على الأقل', 'error');
+        return;
+    }
+
+    setLoading(btn, true);
+    try {
+        let error;
+        if (id) {
+            const { error: err } = await supabase.from('webhooks').update({ name, url, events, is_active: isActive, updated_at: new Date() }).eq('id', id);
+            error = err;
+        } else {
+            // سر عشوائي لتوقيع الحمولة (HMAC) بيتحقق منه السيرفر المستقبِل
+            const secret = crypto.randomUUID().replace(/-/g, '');
+            const { error: err } = await supabase.from('webhooks').insert({ name, url, events, is_active: isActive, secret });
+            error = err;
+        }
+
+        if (error) throw error;
+        showAlert('تم حفظ الـ Webhook بنجاح', 'success');
+        document.getElementById('webhookFormModal').style.display = 'none';
+        loadWebhooks();
+    } catch (error) {
+        showAlert('خطأ في الحفظ: ' + error.message, 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function deleteWebhook(id) {
+    if (!confirm('هل أنت متأكد من حذف هذا الـ Webhook؟')) return;
+    try {
+        const { error } = await supabase.from('webhooks').delete().eq('id', id);
+        if (error) throw error;
+        showAlert('تم حذف الـ Webhook بنجاح', 'success');
+        loadWebhooks();
+    } catch (error) {
+        showAlert('خطأ في الحذف: ' + error.message, 'error');
     }
 }
 
@@ -528,6 +908,48 @@ function setupEventListeners() {
 
     document.getElementById('emergencyModeEnabled')?.addEventListener('change', (e) => {
         document.getElementById('emergencySettings').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // ---- الميزات الجديدة ----
+    document.getElementById('saveBrandingBtn')?.addEventListener('click', saveBranding);
+    document.getElementById('saveTicketDistributionBtn')?.addEventListener('click', saveTicketDistribution);
+
+    document.getElementById('saveDataRetentionBtn')?.addEventListener('click', saveDataRetention);
+    document.getElementById('runRetentionNowBtn')?.addEventListener('click', runDataRetentionNow);
+
+    document.getElementById('saveSlaBtn')?.addEventListener('click', saveSlaConfig);
+
+    document.getElementById('saveTelegramAlertsBtn')?.addEventListener('click', saveTelegramAlerts);
+    document.getElementById('testTelegramAlertBtn')?.addEventListener('click', sendTestTelegramAlert);
+
+    document.getElementById('addWebhookBtn')?.addEventListener('click', () => {
+        document.getElementById('webhookFormModal').style.display = 'block';
+        document.getElementById('webhookModalTitle').textContent = 'إضافة Webhook جديد';
+        document.getElementById('editWebhookId').value = '';
+        document.getElementById('webhookName').value = '';
+        document.getElementById('webhookUrl').value = '';
+        document.getElementById('webhookActive').checked = true;
+        document.querySelectorAll('[id^="webhook-event-"]').forEach(cb => cb.checked = false);
+    });
+    document.getElementById('cancelWebhookBtn')?.addEventListener('click', () => {
+        document.getElementById('webhookFormModal').style.display = 'none';
+    });
+    document.getElementById('saveWebhookBtn')?.addEventListener('click', saveWebhook);
+
+    // معاينة حية للوجو والفافيكون قبل الحفظ
+    document.getElementById('brandLogoInput')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => { document.getElementById('brandLogoPreview').src = ev.target.result; };
+        reader.readAsDataURL(file);
+    });
+    document.getElementById('brandFaviconInput')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => { document.getElementById('brandFaviconPreview').src = ev.target.result; };
+        reader.readAsDataURL(file);
     });
 }
 
