@@ -224,6 +224,21 @@
   .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
+  .btn-outline {
+    width: 100%;
+    padding: 0.7rem;
+    background: #fff;
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+
   .forgot-link {
     display: block; text-align: center;
     font-size: 0.84rem; font-weight: 600;
@@ -510,6 +525,37 @@
     flex-shrink: 0;
   }
   @keyframes pi-spin { to { transform: rotate(360deg); } }
+
+  /* ══ 2FA STEP ══ */
+  .twofa-icon-wrap {
+    display: flex; justify-content: center; margin-bottom: 0.9rem;
+  }
+  .twofa-icon-circle {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(22,119,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary);
+  }
+  .twofa-code-input {
+    width: 100%;
+    padding: 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.5rem;
+    text-align: center;
+    color: var(--text);
+    background: #f8fbff;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .twofa-code-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(22,119,255,0.11);
+    background: #fff;
+  }
 </style>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
@@ -525,92 +571,127 @@
         <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
       </div>
 
-      <h1 class="card-title">تسجيل الدخول</h1>
-      <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
+      <!-- ══ STEP 1: EMAIL/PASSWORD ══ -->
+      <div id="login-step-credentials">
 
-      <div class="subdomain-banner" id="subdomainBanner">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-        </svg>
-        <span id="subdomainBannerText"></span>
-      </div>
+        <h1 class="card-title">تسجيل الدخول</h1>
+        <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
 
-      <form id="login-form" novalidate>
-
-        <div class="form-group">
-          <label class="form-label" for="email">البريد الإلكتروني</label>
-          <div class="input-wrap">
-            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
-              <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-            </svg>
-            <input type="email" id="email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
-          </div>
+        <div class="subdomain-banner" id="subdomainBanner">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span id="subdomainBannerText"></span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="password">كلمة المرور</label>
-          <div class="input-wrap">
-            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="5" y="10" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-              <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
-            </svg>
-            <button type="button" class="input-toggle" id="toggle-pw" aria-label="إظهار كلمة المرور">
-              <svg id="eye-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/>
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <form id="login-form" novalidate>
+
+          <div class="form-group">
+            <label class="form-label" for="email">البريد الإلكتروني</label>
+            <div class="input-wrap">
+              <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
               </svg>
-            </button>
-            <input type="password" id="password" name="password" placeholder="أدخل كلمة المرور" autocomplete="current-password" required>
+              <input type="email" id="email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
+            </div>
           </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">كلمة المرور</label>
+            <div class="input-wrap">
+              <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="5" y="10" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+                <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+              </svg>
+              <button type="button" class="input-toggle" id="toggle-pw" aria-label="إظهار كلمة المرور">
+                <svg id="eye-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                </svg>
+              </button>
+              <input type="password" id="password" name="password" placeholder="أدخل كلمة المرور" autocomplete="current-password" required>
+            </div>
+          </div>
+
+          <label class="remember-row">
+            <input type="checkbox" id="remember" name="remember">
+            <span class="custom-checkbox">
+              <svg width="9" height="7" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="remember-label">تذكرني</span>
+          </label>
+
+          <button type="submit" class="btn-primary">تسجيل الدخول</button>
+
+        </form>
+
+        <a href="#" class="forgot-link">هل نسيت كلمة المرور؟</a>
+
+        <div class="divider" aria-hidden="true">
+          <div class="divider-line"></div>
+          <span class="divider-text">أو</span>
+          <div class="divider-line"></div>
         </div>
 
-        <label class="remember-row">
-          <input type="checkbox" id="remember" name="remember">
-          <span class="custom-checkbox">
-            <svg width="9" height="7" viewBox="0 0 10 8" fill="none" aria-hidden="true">
-              <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span class="remember-label">تذكرني</span>
-        </label>
+        <button type="button" class="btn-google">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#EA4335"/>
+          </svg>
+          تسجيل الدخول باستخدام Google
+        </button>
 
-        <button type="submit" class="btn-primary">تسجيل الدخول</button>
+        <button type="button" class="btn-pi" id="pi-login-btn">
+          <svg width="20" height="20" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <circle cx="20" cy="20" r="20" fill="#f4a726"/>
+            <text x="20" y="27" text-anchor="middle" font-size="22" font-family="Georgia,serif" font-weight="bold" fill="#fff">π</text>
+          </svg>
+          <span id="pi-login-label">المتابعة بـ Pi Network</span>
+          <span class="pi-spinner" id="pi-login-spinner" style="display:none;"></span>
+        </button>
 
-      </form>
+        <p class="register-row">
+          ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
+        </p>
 
-      <a href="#" class="forgot-link">هل نسيت كلمة المرور؟</a>
-
-      <div class="divider" aria-hidden="true">
-        <div class="divider-line"></div>
-        <span class="divider-text">أو</span>
-        <div class="divider-line"></div>
       </div>
 
-      <button type="button" class="btn-google">
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#EA4335"/>
-        </svg>
-        تسجيل الدخول باستخدام Google
-      </button>
+      <!-- ══ STEP 2: 2FA CODE ══ -->
+      <div id="login-step-2fa" style="display:none;">
+        <div class="twofa-icon-wrap">
+          <div class="twofa-icon-circle">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+        </div>
+        <h1 class="card-title">التحقق بخطوتين</h1>
+        <p class="card-subtitle">أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة (Google Authenticator)</p>
 
-      <button type="button" class="btn-pi" id="pi-login-btn">
-        <svg width="20" height="20" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-          <circle cx="20" cy="20" r="20" fill="#f4a726"/>
-          <text x="20" y="27" text-anchor="middle" font-size="22" font-family="Georgia,serif" font-weight="bold" fill="#fff">π</text>
-        </svg>
-        <span id="pi-login-label">المتابعة بـ Pi Network</span>
-        <span class="pi-spinner" id="pi-login-spinner" style="display:none;"></span>
-      </button>
+        <form id="twofa-form" novalidate>
+          <div class="form-group">
+            <input type="text" id="twofa-code" class="twofa-code-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
 
-      <p class="register-row">
-        ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
-      </p>
+          <label class="remember-row">
+            <input type="checkbox" id="twofa-remember-device">
+            <span class="custom-checkbox">
+              <svg width="9" height="7" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="remember-label">تذكر هذا الجهاز لاحقاً</span>
+          </label>
+
+          <button type="submit" class="btn-primary">تأكيد والدخول</button>
+          <button type="button" class="btn-outline" id="twofa-cancel-btn">رجوع لتسجيل الدخول</button>
+        </form>
+      </div>
 
     </article>
   </main>
@@ -832,6 +913,11 @@
   // ══════════════════════════════════════════════════════════════
   let _handlingAuthManually = false;
 
+  // بيانات الدخول اللي وصلت من signInWithPassword، بنحتفظ بيها مؤقتاً
+  // لحد ما يخلص المستخدم خطوة الـ 2FA (أو يلغيها)
+  let _pendingLoginData = null;
+  let _pendingLoginProfile = null;
+
   // ══════════════════════════════════════════════════════════════
   // SUBDOMAIN DETECTION
   // ══════════════════════════════════════════════════════════════
@@ -917,8 +1003,15 @@
   // ══════════════════════════════════════════════════════════════
   // CHECK EXISTING SESSION ON PAGE LOAD
   // يشتغل مرة واحدة عند load — لو في جلسة نشطة يعمل redirect
+  // ✅ بيحترم دلوقتي علامة "just_logged_out" اللي بيحطها auth-client.js
+  //    عشان يمنع أي حالة سباق (race condition) ترجّع المستخدم فورًا
+  //    لحسابه بعد ما يسجل خروج لتوّه.
   // ══════════════════════════════════════════════════════════════
   async function checkExistingSession() {
+    if (sessionStorage.getItem('just_logged_out')) {
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
@@ -1023,6 +1116,144 @@
   }
 
   // ══════════════════════════════════════════════════════════════
+  // DEVICE FINGERPRINT (لغرض "تذكر هذا الجهاز" في الـ 2FA فقط)
+  // ══════════════════════════════════════════════════════════════
+  function getOrCreateDeviceFingerprint() {
+    let fp = localStorage.getItem('device_fingerprint');
+    if (!fp) {
+      fp = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)) + '-' + Date.now();
+      localStorage.setItem('device_fingerprint', fp);
+    }
+    return fp;
+  }
+
+  function getDeviceName() {
+    const ua = navigator.userAgent;
+    if (/iPhone/i.test(ua)) return 'iPhone';
+    if (/iPad/i.test(ua)) return 'iPad';
+    if (/Android/i.test(ua)) return 'جهاز Android';
+    if (/Windows/i.test(ua)) return 'جهاز Windows';
+    if (/Macintosh/i.test(ua)) return 'جهاز Mac';
+    return 'متصفح غير معروف';
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // إكمال عملية الدخول بعد التأكد من هوية المستخدم بالكامل
+  // (سواء ماكانش الـ 2FA مفعّل، أو اتحقق من الكود بنجاح، أو الجهاز موثوق)
+  // ══════════════════════════════════════════════════════════════
+  async function finalizeLogin(userId, accessToken) {
+    if (currentSubdomain) {
+      const check = await checkSubdomainOwnership(accessToken);
+      if (!check.ok) {
+        await supabase.auth.signOut();
+        _handlingAuthManually = false;
+        if (check.status === 403) {
+          const hint = check.hint ? `\n${check.hint}` : '';
+          showToast(`⚠️ فضلاً سجّل الدخول بالحساب المالك لـ ${currentSubdomain}.${ROOT_DOMAIN}${hint}`);
+        } else if (check.status === 404) {
+          showToast('هذا النطاق الفرعي غير موجود أو تم حذفه');
+        } else {
+          showToast(check.message);
+        }
+        return false;
+      }
+    }
+    await redirectByRole(userId);
+    return true;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // إظهار/إخفاء خطوة الـ 2FA
+  // ══════════════════════════════════════════════════════════════
+  function show2FAStep() {
+    document.getElementById('login-step-credentials').style.display = 'none';
+    document.getElementById('login-step-2fa').style.display = 'block';
+    const codeInput = document.getElementById('twofa-code');
+    codeInput.value = '';
+    setTimeout(() => codeInput.focus(), 50);
+  }
+
+  async function cancel2FAStep() {
+    // بما إن الجلسة اتعملها signIn فعلاً على مستوى Supabase، لازم نعمل
+    // signOut فورًا عشان محدش يفضل معاه توكن صالح من غير ما يتحقق من الكود
+    _handlingAuthManually = true;
+    await supabase.auth.signOut();
+    _handlingAuthManually = false;
+    _pendingLoginData = null;
+    _pendingLoginProfile = null;
+
+    document.getElementById('login-step-2fa').style.display = 'none';
+    document.getElementById('login-step-credentials').style.display = 'block';
+    document.getElementById('password').value = '';
+  }
+
+  document.getElementById('twofa-cancel-btn').addEventListener('click', cancel2FAStep);
+
+  // ══════════════════════════════════════════════════════════════
+  // 2FA FORM SUBMIT
+  // ══════════════════════════════════════════════════════════════
+  document.getElementById('twofa-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn  = e.target.querySelector('.btn-primary');
+    const code = document.getElementById('twofa-code').value.trim();
+    const rememberDevice = document.getElementById('twofa-remember-device').checked;
+
+    if (!/^\d{6}$/.test(code)) {
+      showToast('يرجى إدخال رمز مكون من 6 أرقام');
+      return;
+    }
+
+    if (!_pendingLoginData || !_pendingLoginProfile) {
+      showToast('انتهت الجلسة المؤقتة، يرجى تسجيل الدخول من جديد');
+      await cancel2FAStep();
+      return;
+    }
+
+    setLoading(btn, true, 'تأكيد والدخول');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-2fa', {
+        body: {
+          code,
+          tempSecret: _pendingLoginProfile.two_factor_secret
+        }
+      });
+
+      if (error || !data?.verified) {
+        setLoading(btn, false, 'تأكيد والدخول');
+        showToast('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
+        return;
+      }
+
+      // (اختياري) تذكر الجهاز عشان مايتطلبش 2FA تاني منه
+      if (rememberDevice) {
+        try {
+          const fingerprint = getOrCreateDeviceFingerprint();
+          await supabase.from('trusted_devices').insert({
+            user_id: _pendingLoginData.user.id,
+            device_name: getDeviceName(),
+            device_fingerprint: fingerprint,
+            last_login: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn('Failed to save trusted device:', err);
+        }
+      }
+
+      const userId = _pendingLoginData.user.id;
+      const accessToken = _pendingLoginData.session.access_token;
+      _pendingLoginData = null;
+      _pendingLoginProfile = null;
+
+      await finalizeLogin(userId, accessToken);
+    } catch (err) {
+      setLoading(btn, false, 'تأكيد والدخول');
+      showToast('حدث خطأ أثناء التحقق، حاول مرة أخرى');
+      console.error('2FA verify error:', err);
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
   // LOGIN FORM
   // ══════════════════════════════════════════════════════════════
   document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -1048,27 +1279,56 @@
       return;
     }
 
-    // تحقق من ملكية الـ subdomain
-    if (currentSubdomain) {
-      const check = await checkSubdomainOwnership(data.session.access_token);
-      if (!check.ok) {
-        await supabase.auth.signOut();
-        _handlingAuthManually = false;
-        setLoading(btn, false, 'تسجيل الدخول');
-        if (check.status === 403) {
-          const hint = check.hint ? `\n${check.hint}` : '';
-          showToast(`⚠️ فضلاً سجّل الدخول بالحساب المالك لـ ${currentSubdomain}.${ROOT_DOMAIN}${hint}`);
-        } else if (check.status === 404) {
-          showToast('هذا النطاق الفرعي غير موجود أو تم حذفه');
-        } else {
-          showToast(check.message);
-        }
-        return;
-      }
+    // ══════════════════════════════════════════════════════
+    // ✅ فحص التحقق بخطوتين (2FA) — قبل أي redirect
+    // ══════════════════════════════════════════════════════
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('two_factor_enabled, two_factor_secret, role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Failed to load profile for 2FA check:', profileError);
     }
 
-    // نجح كل شيء → redirect (الـ flag مش محتاجين نصفّره لأننا هنغادر الصفحة)
-    await redirectByRole(data.user.id);
+    if (profile?.two_factor_enabled && profile?.two_factor_secret) {
+      // هل الجهاز ده موثوق بالفعل؟
+      const fingerprint = localStorage.getItem('device_fingerprint');
+      let trustedDevice = null;
+
+      if (fingerprint) {
+        const { data: device } = await supabase
+          .from('trusted_devices')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .eq('device_fingerprint', fingerprint)
+          .maybeSingle();
+        trustedDevice = device || null;
+      }
+
+      if (trustedDevice) {
+        // جهاز موثوق → كمّل الدخول من غير طلب كود
+        supabase.from('trusted_devices')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', trustedDevice.id)
+          .then(() => {})
+          .catch(() => {});
+
+        await finalizeLogin(data.user.id, data.session.access_token);
+        return;
+      }
+
+      // مش جهاز موثوق → اطلب كود الـ 2FA
+      _pendingLoginData = data;
+      _pendingLoginProfile = profile;
+      setLoading(btn, false, 'تسجيل الدخول');
+      show2FAStep();
+      return;
+    }
+
+    // مفيش 2FA مفعل → كمّل الدخول عادي
+    await finalizeLogin(data.user.id, data.session.access_token);
   });
 
   // ══════════════════════════════════════════════════════════════
