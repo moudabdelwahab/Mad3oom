@@ -72,11 +72,50 @@ export const CANCEL_OPTIONS = [
     { label: '❌ إلغاء والرجوع للقائمة', value: 'الغاء' }
 ];
 
+// أزرار "إيه نوع المشكلة؟" - أول خطوة في فلو فتح تذكرة مشكلة
+export const PROBLEM_CATEGORY_OPTIONS = [
+    { label: '📱 واتساب', value: 'واتساب' },
+    { label: '🎫 التذاكر', value: 'التذاكر' },
+    { label: '💳 الاشتراك', value: 'الاشتراك' },
+    { label: '🔑 تسجيل الدخول', value: 'تسجيل الدخول' },
+    { label: '❓ حاجة تانية', value: 'حاجة تانية' }
+];
+
+// أزرار خطوة إرفاق الصورة (اختيارية) قبل إنشاء تذكرة المشكلة
+export const IMAGE_STEP_OPTIONS = [
+    { label: '📎 إرفاق صورة', value: '__attach_image__' },
+    { label: '⏭️ تخطي وإنشاء التذكرة', value: 'تخطي' }
+];
+
+/**
+ * تصنيف "نوع المشكلة" اللي اختاره العميل (سواء بالزرار أو بالكتابة الحرة)
+ * لأقرب فئة معروفة، عشان تتخزن في عمود tickets.category بشكل موحّد يسهّل
+ * فلترتها من لوحة الإدارة.
+ */
+const CATEGORY_MAP = [
+    { slug: 'whatsapp', label: 'واتساب', patterns: ['واتساب', 'whatsapp', 'وتساب', 'واتس'] },
+    { slug: 'tickets', label: 'التذاكر', patterns: ['التذاكر', 'تذكره', 'تذاكر', 'ticket', 'تيكت'] },
+    { slug: 'subscription', label: 'الاشتراك', patterns: ['الاشتراك', 'اشتراك', 'باقه', 'subscription', 'فاتوره', 'الدفع'] },
+    { slug: 'login', label: 'تسجيل الدخول', patterns: ['تسجيل الدخول', 'دخول', 'لوجين', 'login', 'باسورد', 'كلمه السر', 'الحساب مقفول'] },
+    { slug: 'other', label: 'حاجة تانية', patterns: ['حاجه تانيه', 'اخرى', 'غير ذلك', 'other'] }
+];
+
+function detectCategory(raw) {
+    const normalized = normalizeArabic(raw);
+    for (const c of CATEGORY_MAP) {
+        if (matchAny(normalized, c.patterns)) return { slug: c.slug, label: c.label };
+    }
+    const fallbackLabel = raw.trim().slice(0, 30) || 'حاجة تانية';
+    return { slug: 'other', label: fallbackLabel };
+}
+
 /**
  * بيرجع الأزرار المناسبة لعرضها حسب حالة الفلو الحالية (للاستخدام في الواجهة
  * لو حابب تعرض الأزرار بعد إعادة تحميل الصفحة من غير ما تبعت رسالة جديدة).
  */
 export function getOptionsForFlow(flow) {
+    if (flow === 'awaiting_problem_category') return PROBLEM_CATEGORY_OPTIONS;
+    if (flow === 'awaiting_problem_image') return IMAGE_STEP_OPTIONS;
     if (flow === 'awaiting_inquiry_text' || flow === 'awaiting_contact_info' || flow === 'awaiting_problem_desc') {
         return CANCEL_OPTIONS;
     }
@@ -305,7 +344,7 @@ async function detectKnownTopic(normalized, { supabase, userId }) {
 }
 
 // ===================== إنشاء التذاكر =====================
-async function createTicket({ supabase, userId, title, description, ticketType, contactInfo }) {
+async function createTicket({ supabase, userId, title, description, ticketType, contactInfo, category, imageUrl }) {
     const payload = {
         user_id: userId,
         title: (title || 'طلب من الشات').slice(0, 200),
@@ -315,6 +354,8 @@ async function createTicket({ supabase, userId, title, description, ticketType, 
         ticket_type: ticketType
     };
     if (contactInfo) payload.contact_info = contactInfo;
+    if (category) payload.category = category;
+    if (imageUrl) payload.image_url = imageUrl;
 
     const { data, error } = await supabase
         .from('tickets')
@@ -336,9 +377,14 @@ async function saveBotState(supabase, sessionId, newState) {
 // ===================== رسائل ثابتة =====================
 const MENU_PROMPT = 'اختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:';
 const INQUIRY_ASK = 'تمام، اكتبلي استفسارك وهحاول أجاوبك فورًا 📝';
-const PROBLEM_ASK = 'تمام، احكيلي مشكلتك بالتفصيل عشان أفتحلك تذكرة وفريق الدعم يتابعها 🔍';
+const PROBLEM_CATEGORY_ASK = 'إيه نوع المشكلة؟ 👇';
+const PROBLEM_ASK = 'تمام، اشرحلي المشكلة بالتفصيل عشان أفتحلك تذكرة وفريق الدعم يتابعها 🔍';
+const PROBLEM_IMAGE_ASK = 'حابب ترفق صورة توضح المشكلة؟ (اختياري) 📎';
 const CONTACT_ASK = 'الاستفسار ده محتاج متابعة من فريق الدعم بنفسه 🙏 ابعتلي رقم موبايلك أو بريدك الإلكتروني عشان نتواصل معاك بخصوصه.';
 const CANCELLED_MSG = 'تمام، رجعناك للقائمة الرئيسية 🙂';
+const IMAGE_UPLOAD_FAILED_MSG = 'حصل خطأ في رفع الصورة 🙏 التذكرة هتتفتح من غيرها، تقدر تبعتها بعدين لفريق الدعم مباشرة.';
+
+const SKIP_PATTERNS = ['تخطي', 'لا شكرا', 'لا مفيش', 'مفيش', 'بدون صوره', 'skip', 'no thanks', 'لأ', 'لا'];
 
 function buildTicketConfirmation(botSettings, ticketType, ticketNumber) {
     const baseMsg = ticketType === 'inquiry'
@@ -358,14 +404,14 @@ function buildTicketConfirmation(botSettings, ticketType, ticketNumber) {
  * @param {Object} params.botSettings - صف bot_settings (ممكن يكون null)
  * @returns {Promise<{reply: string, options?: Array, ticketCreated?: boolean, ticketNumber?: number, ticketType?: string}>}
  */
-export async function getBotReply({ text, supabase, sessionId, userId, botState, botSettings }) {
+export async function getBotReply({ text, supabase, sessionId, userId, botState, botSettings, imageUrl }) {
     const raw = (text || '').trim();
     const normalized = normalizeArabic(raw);
     const state = botState && typeof botState === 'object' ? { ...botState } : {};
     const flow = state.flow || 'idle';
 
     // ---------- إلغاء / رجوع للقائمة (متاح في أي وقت) ----------
-    if (matchAny(normalized, CANCEL_PATTERNS)) {
+    if (!imageUrl && matchAny(normalized, CANCEL_PATTERNS)) {
         state.flow = 'main_menu';
         state.ticket_draft = {};
         await saveBotState(supabase, sessionId, state);
@@ -375,10 +421,10 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
     // ---------- تحويلات سريعة متاحة برة فلوهات جمع البيانات ----------
     const canSwitchMenu = flow === 'idle' || flow === 'main_menu' || flow === 'awaiting_inquiry_text';
     if (canSwitchMenu && matchAny(normalized, MENU_PROBLEM_PATTERNS)) {
-        state.flow = 'awaiting_problem_desc';
+        state.flow = 'awaiting_problem_category';
         state.ticket_draft = {};
         await saveBotState(supabase, sessionId, state);
-        return { reply: PROBLEM_ASK, options: CANCEL_OPTIONS };
+        return { reply: PROBLEM_CATEGORY_ASK, options: PROBLEM_CATEGORY_OPTIONS };
     }
     if (canSwitchMenu && matchAny(normalized, MENU_INQUIRY_PATTERNS)) {
         state.flow = 'awaiting_inquiry_text';
@@ -387,14 +433,40 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         return { reply: INQUIRY_ASK, options: CANCEL_OPTIONS };
     }
 
-    // ---------- فلو: انتظار وصف المشكلة ----------
+    // ---------- فلو: انتظار اختيار نوع المشكلة (خطوة 1) ----------
+    if (flow === 'awaiting_problem_category') {
+        const category = detectCategory(raw);
+        state.flow = 'awaiting_problem_desc';
+        state.ticket_draft = { category };
+        await saveBotState(supabase, sessionId, state);
+        return { reply: PROBLEM_ASK, options: CANCEL_OPTIONS };
+    }
+
+    // ---------- فلو: انتظار وصف المشكلة (خطوة 2) ----------
     if (flow === 'awaiting_problem_desc') {
+        state.flow = 'awaiting_problem_image';
+        state.ticket_draft = { ...state.ticket_draft, description: raw };
+        await saveBotState(supabase, sessionId, state);
+        return { reply: PROBLEM_IMAGE_ASK, options: IMAGE_STEP_OPTIONS };
+    }
+
+    // ---------- فلو: انتظار صورة اختيارية ثم إنشاء التذكرة (خطوة 3+4) ----------
+    if (flow === 'awaiting_problem_image') {
+        const category = state.ticket_draft?.category || { slug: 'other', label: 'حاجة تانية' };
+        const description = state.ticket_draft?.description || 'مشكلة من الشات';
+        const title = `${category.label} - ${description.slice(0, 50)}`;
+        const fullDescription = `نوع المشكلة: ${category.label}\n\n${description}`;
+
+        // لو اتبعتت صورة فعلاً هنرفقها، أي حاجة تانية (تخطي أو أي نص) بنكمل من غيرها
         const result = await createTicket({
             supabase, userId,
-            title: raw.slice(0, 60),
-            description: raw,
-            ticketType: 'problem'
+            title,
+            description: fullDescription,
+            ticketType: 'problem',
+            category: category.slug,
+            imageUrl: imageUrl || undefined
         });
+
         state.flow = 'main_menu';
         state.ticket_draft = {};
         await saveBotState(supabase, sessionId, state);
