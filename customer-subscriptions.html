@@ -28,319 +28,145 @@
             transition: margin-right 0.3s ease;
         }
         @media (max-width: 768px) {
-            .admin-main {
-                margin-right: 0;
-            }
+            .admin-main { margin-right: 0; }
         }
-        .subscription-card {
-            background: var(--color-surface);
-            border-radius: 1.5rem;
-            padding: 3rem;
-            border: 2px solid var(--color-border);
-            text-align: center;
-            max-width: 600px;
-            margin: 2rem auto;
-            box-shadow: var(--shadow-lg);
-        }
-        .whatsapp-icon {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 2rem;
-            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-            border-radius: 2rem;
+
+        /* ==================== Billing Toggle ==================== */
+        #billingToggle {
             display: flex;
-            align-items: center;
             justify-content: center;
-            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.3);
+            gap: 0.25rem;
+            margin: 0 auto 2rem;
+            background: var(--color-muted);
+            padding: 0.4rem;
+            border-radius: 2rem;
+            width: fit-content;
         }
-        .whatsapp-icon svg {
-            width: 70px;
-            height: 70px;
-            fill: white;
+        #billingToggle .toggle-option {
+            padding: 0.5rem 1.75rem;
+            border-radius: 1.5rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.25s;
+            color: var(--color-text-secondary);
         }
-        .service-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 0.5rem;
-            color: var(--color-text);
+        #billingToggle .toggle-option.active {
+            background: var(--color-accent);
+            color: #fff;
         }
-        .service-subtitle {
-            font-size: 1.1rem;
+
+        .launch-offer-banner {
+            text-align: center;
+            font-size: 0.85rem;
             color: var(--color-text-secondary);
             margin-bottom: 2rem;
         }
-        .features-list {
-            text-align: right;
-            margin: 2rem 0;
-            padding: 0;
-            list-style: none;
-        }
-        .features-list li {
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--color-border);
-            line-height: 1.8;
-            color: var(--color-text);
-        }
-        .features-list li:last-child {
-            border-bottom: none;
-        }
-        .features-list strong {
-            color: var(--color-accent);
-            font-weight: 700;
-        }
-        .pricing-section {
+
+        /* ==================== Pricing Grid ==================== */
+        .pricing-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 1.5rem;
-            margin: 2rem 0;
+            margin-bottom: 3rem;
         }
+        @media (max-width: 1100px) {
+            .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 620px) {
+            .pricing-grid { grid-template-columns: 1fr; }
+        }
+
         .pricing-card {
-            background: var(--color-muted);
-            padding: 2rem;
-            border-radius: 1rem;
+            position: relative;
+            background: var(--color-surface);
             border: 2px solid var(--color-border);
-            transition: all 0.3s;
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.25s;
         }
         .pricing-card:hover {
             border-color: var(--color-accent);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
         }
-        .pricing-label {
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
-            margin-bottom: 0.5rem;
+        .pricing-card.featured {
+            border-color: var(--color-accent);
+            box-shadow: var(--shadow-lg);
         }
-        .pricing-amount {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--color-accent);
-            margin-bottom: 0.5rem;
-        }
-        .pricing-period {
-            font-size: 0.85rem;
-            color: var(--color-text-secondary);
-        }
-        .subscribe-btn {
-            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-            color: white;
-            border: none;
-            padding: 1rem 3rem;
-            border-radius: 0.75rem;
-            font-size: 1.1rem;
+        .pricing-card .badge {
+            position: absolute;
+            top: -0.75rem;
+            right: 50%;
+            transform: translateX(50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 0.75rem;
             font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 1rem;
-            width: 100%;
+            padding: 0.3rem 1rem;
+            border-radius: 1rem;
+            white-space: nowrap;
         }
-        .subscribe-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+
+        .plan-name { font-size: 1.15rem; font-weight: 800; margin: 0 0 0.25rem; color: var(--color-text); }
+        .plan-description { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0 0 1rem; min-height: 2.2em; }
+
+        .plan-price { display: flex; align-items: baseline; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 0.25rem; }
+        .plan-price .currency { font-size: 1.1rem; font-weight: 700; color: var(--color-text); }
+        .plan-price .amount { font-size: 2.25rem; font-weight: 800; color: var(--color-accent); line-height: 1; }
+        .plan-price .period { font-size: 0.85rem; color: var(--color-text-secondary); }
+        .plan-price .old-price { font-size: 0.9rem; color: var(--color-text-secondary); text-decoration: line-through; margin-right: 0.25rem; }
+        .discount-badge {
+            display: inline-block;
+            background: #fee2e2;
+            color: #c0392b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.35rem;
         }
-        @media (max-width: 768px) {
-            .pricing-section {
-                grid-template-columns: 1fr;
-            }
-            .subscription-card {
-                padding: 2rem 1.5rem;
-            }
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-        .modal.active {
-            display: flex;
-        }
-        .modal-content {
-            background: var(--color-surface);
-            padding: 2.5rem;
-            border-radius: 1.25rem;
-            width: 100%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--color-border);
-            color: var(--color-text);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid var(--color-border);
-        }
-        .modal-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 800;
-        }
-        .close-modal {
-            font-size: 2rem;
-            cursor: pointer;
-            color: var(--color-text-secondary);
-            background: none;
-            border: none;
-            padding: 0;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-        .close-modal:hover {
-            background: var(--color-muted);
-            color: var(--color-text);
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        .form-group label {
+        .limited-time { display: block; font-size: 0.7rem; color: var(--color-text-secondary); margin-bottom: 0.75rem; }
+        .bonus-note { font-size: 0.75rem; color: var(--color-accent); font-weight: 700; margin-bottom: 1rem; }
+
+        .plan-features { list-style: none; padding: 0; margin: 0 0 1.5rem; flex: 1; }
+        .plan-features .feature { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--color-text); padding: 0.4rem 0; line-height: 1.4; }
+        .plan-features .feature.disabled { color: var(--color-text-secondary); opacity: 0.6; }
+        .plan-features .feature-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 0.15rem; color: var(--color-accent); }
+        .plan-features .feature.disabled .feature-icon { color: var(--color-text-secondary); }
+
+        .btn-full { width: 100%; text-align: center; }
+        .free-badge {
             display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: var(--color-text);
-        }
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
+            text-align: center;
             padding: 0.75rem;
-            border: 1px solid var(--color-border);
             border-radius: 0.5rem;
             background: var(--color-muted);
-            color: var(--color-text);
-            font-family: inherit;
-            font-size: 1rem;
-        }
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        .payment-options {
-            display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: var(--color-muted);
-            border-radius: 0.5rem;
-        }
-        .payment-options.active {
-            display: block;
-        }
-        .btn {
-            padding: 0.75rem 2rem;
-            border: none;
-            border-radius: 0.5rem;
+            color: var(--color-text-secondary);
             font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 1rem;
+            font-size: 0.85rem;
         }
-        .btn-primary {
-            background: var(--color-accent);
-            color: white;
-        }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 119, 204, 0.3);
-        }
-        .btn-secondary {
-            background: var(--color-muted);
-            color: var(--color-text);
-        }
-        .btn-secondary:hover {
-            background: var(--color-border);
-        }
-        .modal-footer {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--color-border);
+
+        /* ==================== Comparison Table ==================== */
+        .comparison-section { margin-bottom: 2rem; }
+        .comparison-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; color: var(--color-text); }
+        .comparison-table { width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: 1rem; overflow: hidden; border: 1px solid var(--color-border); }
+        .comparison-table th, .comparison-table td { padding: 0.85rem 1rem; text-align: center; font-size: 0.85rem; border-bottom: 1px solid var(--color-border); }
+        .comparison-table th:first-child, .comparison-table td:first-child { text-align: right; color: var(--color-text); font-weight: 600; }
+        .comparison-table thead th { background: var(--color-muted); font-weight: 800; color: var(--color-text); }
+        .comparison-table tbody tr:last-child td { border-bottom: none; }
+        .comparison-table .check { color: #16a34a; font-weight: 800; }
+        .comparison-table .cross { color: var(--color-text-secondary); }
+        @media (max-width: 768px) {
+            .comparison-section { overflow-x: auto; }
+            .comparison-table { min-width: 640px; }
         }
     </style>
 </head>
 <body>
     <div id="sidebar-container"></div>
-    
-    <!-- Subscription Modal -->
-    <div id="subscriptionModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>تفاصيل الاشتراك</h2>
-                <button class="close-modal" onclick="closeSubscriptionModal()">&times;</button>
-            </div>
-            
-            <form id="subscriptionForm">
-                <input type="hidden" id="subscriptionPlan" value="">
-                
-                <div class="form-group">
-                    <label>اسم المشروع على واتساب <span style="color: red;">*</span></label>
-                    <input type="text" id="projectName" required placeholder="مثال: شركة التقنية المتقدمة">
-                </div>
-                
-                <div class="form-group">
-                    <label>رقم الجوال <span style="color: red;">*</span></label>
-                    <input type="tel" id="phoneNumber" required placeholder="مثال: +201234567890">
-                </div>
-                
-                <div class="form-group">
-                    <label>العملة <span style="color: red;">*</span></label>
-                    <select id="currency" required onchange="updatePaymentOptions()">
-                        <option value="">اختر العملة</option>
-                        <option value="usd">دولار أمريكي (USD)</option>
-                        <option value="egp">جنيه مصري (EGP)</option>
-                    </select>
-                </div>
-                
-                <div id="usdPaymentOptions" class="payment-options">
-                    <div class="form-group">
-                        <label>طريقة الدفع <span style="color: red;">*</span></label>
-                        <select id="usdPaymentMethod">
-                            <option value="digital_wallet">محفظة رقمية</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div id="egpPaymentOptions" class="payment-options">
-                    <div class="form-group">
-                        <label>طريقة الدفع <span style="color: red;">*</span></label>
-                        <select id="egpPaymentMethod">
-                            <option value="instapay">انستاباي (InstaPay)</option>
-                            <option value="cash_wallet">محفظة كاش</option>
-                            <option value="bank_transfer">تحويل بنكي</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>تفاصيل إضافية</label>
-                    <textarea id="additionalDetails" placeholder="أي معلومات إضافية تود إضافتها..."></textarea>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeSubscriptionModal()">إلغاء</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">إتمام الطلب</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <main class="admin-main">
         <header class="page-header">
@@ -350,252 +176,209 @@
             </div>
         </header>
 
-        <div class="subscription-card">
-            <div class="whatsapp-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-            </div>
+        <!-- Subscription Status Container -->
+        <div id="subscriptionStatusContainer" style="margin: 1.5rem 0;"></div>
 
-            <h2 class="service-title">واتساب أعمال</h2>
-            <p class="service-subtitle">خدمة واتساب أعمال من ميتا</p>
+        <!-- Billing Toggle -->
+        <div id="billingToggle">
+            <span class="toggle-option active" data-period="monthly">شهري</span>
+            <span class="toggle-option" data-period="yearly">سنوي</span>
+        </div>
 
-            <!-- Billing Toggle -->
-            <div id="billingToggle" class="billing-toggle" style="display: flex; justify-content: center; gap: 1rem; margin: 1.5rem 0; background: var(--color-muted); padding: 0.5rem; border-radius: 2rem; width: fit-content; margin-left: auto; margin-right: auto; cursor: pointer;">
-                <div class="toggle-option active" data-period="monthly" style="padding: 0.5rem 1.5rem; border-radius: 1.5rem; font-weight: 700; transition: all 0.3s;">شهري</div>
-                <div class="toggle-option" data-period="yearly" style="padding: 0.5rem 1.5rem; border-radius: 1.5rem; font-weight: 700; transition: all 0.3s;">سنوي</div>
-            </div>
-            <style>
-                .toggle-option.active {
-                    background: var(--color-accent);
-                    color: white;
-                }
-            </style>
+        <p class="launch-offer-banner">* أسعار الإطلاق سارية لمدة 6 أشهر أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب</p>
 
-            <ul class="features-list">
-                <li><strong>حل رسمي من ميتا:</strong> موثوق وآمن بنسبة وصول عالية.</li>
-                <li><strong>إظهار اسم الشركة:</strong> بعد قبول تحقق الحساب من ميتا يظهر اسم شركتك بدلاً من الرقم، مما يعزز الثقة عند العملاء.</li>
-                <li><strong>إرسال رسائل واسع النطاق:</strong><br>
-                    قبل التحقق: 250 رسالة يومياً<br>
-                    بعد التحقق: 2000 رسالة يومياً<br>
-                    يزيد حد الإرسال التدريجي حسب نشاط الحساب.
-                </li>
-                <li><strong>شحن رصيد مرن:</strong> كل نوع رسالة له تكلفة محددة، تُدفع حسب الاستخدام.</li>
-                <li><strong>حسابات متعددة:</strong> حتى 10 حسابات تدير المحادثات في نفس الوقت.</li>
-                <li><strong>ذكاء صناعي للردود:</strong> ردود آلية متقدمة + تخصيص كامل للرسائل.</li>
-                <li><strong>إدارة العملاء بفعالية:</strong> تصنيف وجمع بيانات العملاء مع تقارير تفصيلية.</li>
-                <li><strong>ربط الخدمة API:</strong> ربط سلس مع أنظمة المبيعات والدعم الفني والصفحات والتطبيقات وتكامل مع الـCRM.</li>
-                        </ul>
-            <!-- Subscription Status Container -->
-            <div id="subscriptionStatusContainer" style="margin: 2rem 0;"></div>
-            <div class="pricing-section">
-                <div class="pricing-card">
-                    <div class="pricing-label">الاشتراك الشهري</div>
-                    <div class="pricing-amount">$15</div>
-                    <div class="pricing-period">شهرياً</div>
-                    <button class="subscribe-btn" id="subscribeBtn">اشترك الآن</button>
+        <!-- Pricing Cards -->
+        <div class="pricing-grid">
+            <!-- Free Plan -->
+            <div class="pricing-card" data-plan="free">
+                <h3 class="plan-name">مجاني</h3>
+                <p class="plan-description">مثالي للمبتدئين</p>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount">0</span>
+                    <span class="period">/شهر</span>
                 </div>
-                <div class="pricing-card">
-                    <div class="pricing-label">الاشتراك السنوي</div>
-                    <div class="pricing-amount">$150</div>
-                    <div class="pricing-period">سنوياً (وفر $30)</div>
-                    <button class="subscribe-btn" id="renewSubscriptionBtn" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">تجديد الاشتراك</button>
-                </div>
+                <div style="height: 1.9rem;"></div>
+                <ul class="plan-features">
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>الوصول إلى نظام التذاكر الأساسي</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>محادثة مع فريق الدعم (ساعات العمل)</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>الإبلاغ عن المشاكل والأعطال</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>تجميع النقاط من البلاغات</span></li>
+                    <li class="feature disabled"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>دعم أولوية</span></li>
+                    <li class="feature disabled"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>ربط واتساب أو رد آلي</span></li>
+                </ul>
+                <span class="free-badge">خطتك الافتراضية</span>
             </div>
+
+            <!-- Support Plan -->
+            <div class="pricing-card" data-plan="support">
+                <h3 class="plan-name">الدعم الفني</h3>
+                <p class="plan-description">لإدارة تذاكر الدعم الفني باحترافية</p>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount" data-monthly="15" data-yearly="150">15</span>
+                    <span class="period">/شهر</span>
+                    <span class="old-price" data-monthly="25" data-yearly="180">25</span>
+                </div>
+                <span class="discount-badge" data-monthly="خصم 40%" data-yearly="خصم 17%">خصم 40%</span>
+                <span class="limited-time" style="margin-top:0.5rem;">* عرض إطلاق لفترة محدودة</span>
+                <ul class="plan-features">
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>عدد لا محدود من التذاكر اليومية</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>نطاق فرعي مجاني</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>مدير واحد + حتى 25 عضوًا</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>سجل خاص بالأعضاء</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>نظام الإحصائيات المتقدمة</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>سجل نشاط لكل أعضاء الفريق</span></li>
+                </ul>
+                <button class="btn btn-primary btn-full" data-plan-btn="support">اشترك الآن</button>
+            </div>
+
+            <!-- WhatsApp Plan -->
+            <div class="pricing-card" data-plan="whatsapp">
+                <h3 class="plan-name">واتساب</h3>
+                <p class="plan-description">ربط رقم واتساب الخاص بك بنظام الدعم</p>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount" data-monthly="20" data-yearly="200">20</span>
+                    <span class="period">/شهر</span>
+                    <span class="old-price" data-monthly="30" data-yearly="240">30</span>
+                </div>
+                <span class="discount-badge" data-monthly="خصم 33%" data-yearly="خصم 17%">خصم 33%</span>
+                <span class="limited-time" style="margin-top:0.5rem;">* عرض إطلاق لفترة محدودة</span>
+                <p class="bonus-note" data-monthly="+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا" data-yearly="+ اشترك بخدمة الرد الآلي واحصل على 3 أشهر إضافية مجانًا">+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا</p>
+                <ul class="plan-features">
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>ربط رقم واتساب الخاص بك بالمنصة</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>استقبال وإرسال الرسائل من لوحة التحكم</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>إشعارات فورية بالرسائل الجديدة</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>إمكانية إضافة خدمة الرد الآلي لاحقًا</span></li>
+                </ul>
+                <button class="btn btn-primary btn-full" data-plan-btn="whatsapp">اشترك الآن</button>
+            </div>
+
+            <!-- Bundle Plan -->
+            <div class="pricing-card featured" data-plan="bundle">
+                <span class="badge">الأكثر توفيرًا</span>
+                <h3 class="plan-name">دعم فني + واتساب</h3>
+                <p class="plan-description">الباقة الشاملة لكل خدمات الدعم</p>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount" data-monthly="30" data-yearly="330">30</span>
+                    <span class="period">/شهر</span>
+                    <span class="old-price" data-monthly="55" data-yearly="660">55</span>
+                </div>
+                <span class="discount-badge" data-monthly="خصم 45%" data-yearly="خصم 50%">خصم 45%</span>
+                <span class="limited-time" style="margin-top:0.5rem;">* عرض إطلاق لفترة محدودة</span>
+                <ul class="plan-features">
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>جميع مميزات خطة الدعم الفني</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>جميع مميزات خطة الواتساب</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>دعم أولوية 24/7</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>مكافآت نقاط مضاعفة</span></li>
+                    <li class="feature"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>شارة خاصة على الملف الشخصي</span></li>
+                </ul>
+                <button class="btn btn-primary btn-full" data-plan-btn="bundle">اشترك الآن</button>
+            </div>
+        </div>
+
+        <!-- زر تجديد الاشتراك الحالي (يظهر فقط لو عند العميل اشتراك نشط) -->
+        <button id="renewSubscriptionBtn" class="btn btn-primary" style="display:none; margin-bottom: 2rem;">تجديد الاشتراك الحالي</button>
+
+        <!-- Comparison Table -->
+        <div class="comparison-section">
+            <h3 class="comparison-title">مقارنة الخطط</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>الميزة</th>
+                        <th>مجاني</th>
+                        <th>الدعم الفني</th>
+                        <th>واتساب</th>
+                        <th>دعم فني + واتساب</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>نظام التذاكر</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓ غير محدود</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓ غير محدود</span></td>
+                    </tr>
+                    <tr>
+                        <td>المحادثة مع الدعم</td>
+                        <td>ساعات العمل فقط</td>
+                        <td>24/7</td>
+                        <td>24/7</td>
+                        <td>24/7</td>
+                    </tr>
+                    <tr>
+                        <td>نطاق فرعي مجاني</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>عدد أعضاء الفريق</td>
+                        <td>1</td>
+                        <td>حتى 25 عضوًا</td>
+                        <td>1</td>
+                        <td>حتى 25 عضوًا</td>
+                    </tr>
+                    <tr>
+                        <td>ربط رقم واتساب</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>الرد الآلي (إضافة اختيارية)</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>سجل نشاط الفريق والإحصائيات المتقدمة</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>نظام النقاط</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓ مضاعف</span></td>
+                    </tr>
+                    <tr>
+                        <td>الدعم الأولوي</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>شارة خاصة</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </main>
 
-        <script type="module">
-        import { SUPABASE_CONFIG } from './supabase-config.js';
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-        const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-        
-        // Import subscriptions script
-        import './subscriptions-script.js';
-        
-        // Initialize billing toggle
-        const toggleBtn = document.getElementById('billingToggle');
-        if (toggleBtn) {
-            const options = toggleBtn.querySelectorAll('.toggle-option');
-            if (options.length >= 2) {
-                options[0].classList.add('active');
-            }
-        }
-
-        // Load sidebar and initialize it
+    <script type="module">
+        // تحميل الشريط الجانبي الخاص بالعميل
         import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
         initCustomerSidebar();
-
-        // Subscribe function
-        window.subscribe = async function(plan) {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            if (!user) {
-                alert('يرجى تسجيل الدخول أولاً');
-                window.location.href = '/sign-in.html';
-                return;
-            }
-
-            // Open modal with plan details
-            document.getElementById('subscriptionPlan').value = plan;
-            document.getElementById('subscriptionModal').classList.add('active');
-        }
-
-        // Close modal
-        window.closeSubscriptionModal = function() {
-            document.getElementById('subscriptionModal').classList.remove('active');
-            document.getElementById('subscriptionForm').reset();
-            document.getElementById('usdPaymentOptions').classList.remove('active');
-            document.getElementById('egpPaymentOptions').classList.remove('active');
-        }
-
-        // Update payment options based on currency
-        window.updatePaymentOptions = function() {
-            const currency = document.getElementById('currency').value;
-            const usdOptions = document.getElementById('usdPaymentOptions');
-            const egpOptions = document.getElementById('egpPaymentOptions');
-            
-            usdOptions.classList.remove('active');
-            egpOptions.classList.remove('active');
-            
-            if (currency === 'usd') {
-                usdOptions.classList.add('active');
-            } else if (currency === 'egp') {
-                egpOptions.classList.add('active');
-            }
-        }
-
-        // Handle form submission
-        document.getElementById('subscriptionForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                alert('يرجى تسجيل الدخول أولاً');
-                return;
-            }
-
-            const plan = document.getElementById('subscriptionPlan').value;
-            const projectName = document.getElementById('projectName').value;
-            const phoneNumber = document.getElementById('phoneNumber').value;
-            const currency = document.getElementById('currency').value;
-            const additionalDetails = document.getElementById('additionalDetails').value;
-            
-            let paymentMethod = '';
-            if (currency === 'usd') {
-                paymentMethod = document.getElementById('usdPaymentMethod').value;
-            } else if (currency === 'egp') {
-                paymentMethod = document.getElementById('egpPaymentMethod').value;
-            }
-
-            // Get payment method in Arabic
-            const paymentMethodArabic = {
-                'digital_wallet': 'محفظة رقمية',
-                'instapay': 'انستاباي (InstaPay)',
-                'cash_wallet': 'محفظة كاش',
-                'bank_transfer': 'تحويل بنكي'
-            }[paymentMethod];
-
-            const planArabic = plan === 'monthly' ? 'شهري ($15)' : 'سنوي ($150)';
-            const currencyArabic = currency === 'usd' ? 'دولار أمريكي' : 'جنيه مصري';
-
-            // Create ticket description
-            const ticketDescription = `طلب اشتراك في خدمة واتساب أعمال
-
-📋 تفاصيل الاشتراك:
-━━━━━━━━━━━━━━━━━━━━
-🔹 نوع الاشتراك: ${planArabic}
-🔹 اسم المشروع: ${projectName}
-🔹 رقم الجوال: ${phoneNumber}
-🔹 العملة: ${currencyArabic}
-🔹 طريقة الدفع: ${paymentMethodArabic}
-
-${additionalDetails ? `📝 تفاصيل إضافية:
-${additionalDetails}` : ''}
-
-━━━━━━━━━━━━━━━━━━━━
-⏰ تاريخ الطلب: ${new Date().toLocaleString('ar-EG')}`;
-
-	            try {
-	                // Calculate dates for the subscription record
-	                const startDate = new Date();
-	                const endDate = new Date();
-	                if (plan === 'monthly') {
-	                    endDate.setMonth(endDate.getMonth() + 1);
-	                } else {
-	                    endDate.setFullYear(endDate.getFullYear() + 1);
-	                }
-
-	                // Create ticket
-	                const { data: ticket, error: ticketError } = await supabase
-	                    .from('tickets')
-	                    .insert([{
-	                        user_id: user.id,
-	                        title: `طلب اشتراك واتساب أعمال - ${planArabic}`,
-	                        description: ticketDescription,
-	                        status: 'open',
-	                        priority: 'high'
-	                    }])
-	                    .select()
-	                    .single();
-
-	                if (ticketError) throw ticketError;
-
-	                // Create a pending subscription record to link with the ticket
-	                const { error: subError } = await supabase
-	                    .from('whatsapp_subscriptions')
-	                    .insert([{
-	                        user_id: user.id,
-	                        ticket_id: ticket.id,
-	                        plan_type: plan,
-	                        start_date: startDate.toISOString(),
-	                        end_date: endDate.toISOString(),
-	                        status: 'pending'
-	                    }]);
-
-	                if (subError) {
-	                    console.warn('Could not create subscription record, but ticket was created:', subError);
-	                }
-
-	                // Create notification for admins
-	                const { data: admins } = await supabase
-	                    .from('profiles')
-	                    .select('id')
-	                    .eq('role', 'admin');
-
-                if (admins && admins.length > 0) {
-                    const notifications = admins.map(admin => ({
-                        user_id: admin.id,
-                        title: 'طلب اشتراك جديد',
-                        message: `تم استلام طلب اشتراك جديد في واتساب أعمال من ${projectName}`,
-                        type: 'subscription',
-                        link: `/admin/tickets.html?ticket=${ticket.id}`,
-                        is_read: false
-                    }));
-
-                    await supabase.from('notifications').insert(notifications);
-                }
-
-                alert('✅ تم إرسال طلب الاشتراك بنجاح!\nسيتم التواصل معك قريباً من فريق الدعم.');
-                closeSubscriptionModal();
-                
-                // Redirect to tickets page
-                setTimeout(() => {
-                    window.location.href = '/customer-dashboard.html';
-                }, 1500);
-
-            } catch (error) {
-                console.error('Error creating subscription ticket:', error);
-                alert('حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.');
-            }
-        });
-
-        // Close modal when clicking outside
-        document.getElementById('subscriptionModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeSubscriptionModal();
-            }
-        });
     </script>
+
+    <!-- كل منطق الاشتراك (إنشاء تذكرة، عرض الحالة، التجديد، الأسعار الشهري/سنوي)
+         مشترك مع صفحة الأسعار العامة subscriptions.html -->
+    <script type="module" src="subscriptions-script.js"></script>
 </body>
 </html>
