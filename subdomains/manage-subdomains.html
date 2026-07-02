@@ -240,6 +240,61 @@
     grid-template-columns: 1.3fr 1.2fr 110px 1fr 160px;
   }
 
+  .row.activity-row {
+    grid-template-columns: 1.3fr 1fr 1.2fr 1.2fr 140px;
+  }
+
+  .activity-action-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--surface);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .activity-action-badge.positive { background: var(--success-bg); color: var(--success-text); }
+  .activity-action-badge.negative { background: var(--danger-bg); color: var(--danger); }
+  .activity-action-badge.neutral { background: var(--badge-bg); color: var(--primary-dark); }
+  .activity-action-badge.warn { background: var(--warn-bg); color: var(--warn-text); }
+
+  .activity-performer { font-size: 12.5px; }
+  .activity-performer .ap-email { font-weight: 600; color: var(--text); }
+  .activity-details { font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+
+  .reason-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    transition: all 0.15s ease;
+  }
+  .reason-option:hover { background: var(--surface); }
+  .reason-option.selected {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .reason-option .ro-dot {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .reason-option.selected .ro-dot { border-color: var(--danger); }
+  .reason-option.selected .ro-dot::after {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--danger);
+  }
+
   .cell-domain {
     font-family: 'JetBrains Mono', monospace;
     direction: ltr;
@@ -486,6 +541,9 @@
       الطلبات
       <span class="tab-count" id="requestsCount">0</span>
     </button>
+    <button class="page-tab" data-tab="activity">
+      سجل النشاط
+    </button>
   </div>
 
   <!-- ===== Tab: Active domains ===== -->
@@ -544,6 +602,25 @@
         <div></div>
       </div>
       <div id="requestsTableBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== Tab: Activity Log ===== -->
+  <div class="tab-panel" id="panel-activity">
+    <div class="search-bar">
+      <input type="text" id="activitySearch" placeholder="ابحث بالنطاق أو إيميل الأدمن...">
+      <button class="refresh-btn" id="activityRefreshBtn">تحديث</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="row activity-row head">
+        <div>النطاق</div>
+        <div>الإجراء</div>
+        <div>تم بواسطة</div>
+        <div>العميل المرتبط</div>
+        <div>التاريخ</div>
+      </div>
+      <div id="activityTableBody"></div>
     </div>
   </div>
 </div>
@@ -623,8 +700,9 @@
     <p style="color: var(--text-secondary); font-size: 13.5px; line-height: 1.7; margin-bottom: 10px;">
       سيتم رفض طلب <span id="rejectDomainName" style="color: var(--primary-dark); font-weight: 700; font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block;"></span>
     </p>
-    <label>سبب الرفض (اختياري، سيظهر للعميل)</label>
-    <textarea id="rejectNote" placeholder="مثال: هذا الاسم غير متوافق مع سياسة المنصة..."></textarea>
+    <label>سبب الرفض (سيظهر للعميل)</label>
+    <div id="rejectReasonsList" style="display:flex; flex-direction:column; gap:6px; margin-bottom: 8px;"></div>
+    <textarea id="rejectCustomNote" placeholder="اكتب السبب هنا..." style="display:none;"></textarea>
     <p class="modal-error" id="rejectError"></p>
     <div class="modal-actions">
       <button class="btn-cancel" data-close="rejectModal">إلغاء</button>
@@ -786,6 +864,7 @@
       }
       if (anyChanged) {
         loadList();
+        loadActivityLog();
       } else {
         schedulePropagationCheck();
       }
@@ -945,6 +1024,7 @@
           if (data.propagated) {
             showToast(data.message, true);
             loadList();
+            loadActivityLog();
           } else {
             showToast(data.message || 'النطاق لا يزال قيد الانتشار', false);
             btn.disabled = false;
@@ -1021,6 +1101,7 @@
       closeModal('renameModal');
       showToast(data.message, true);
       loadList();
+      loadActivityLog();
     } catch (err) {
       renameError.textContent = err.message;
     } finally {
@@ -1093,6 +1174,7 @@
       closeModal('reassignModal');
       showToast(data.message, true);
       loadList();
+      loadActivityLog();
     } catch (err) {
       reassignError.textContent = err.message;
       reassignConfirm.disabled = false;
@@ -1199,6 +1281,7 @@
       closeModal('logoModal');
       showToast(data.message, true);
       loadList();
+      loadActivityLog();
     } catch (err) {
       logoModalError.textContent = err.message;
     } finally {
@@ -1226,6 +1309,7 @@
       closeModal('deleteModal');
       showToast(data.message, true);
       loadList();
+      loadActivityLog();
     } catch (err) {
       deleteError.textContent = err.message;
     } finally {
@@ -1273,6 +1357,7 @@
       closeModal('confirmModal');
       showToast(data.message, true);
       loadList();
+      loadActivityLog();
     } catch (err) {
       confirmError.textContent = err.message;
     } finally {
@@ -1354,6 +1439,7 @@
           showToast(data.message, true);
           loadRequests();
           loadList();
+          loadActivityLog();
         } catch (err) {
           showToast(err.message, false);
           btn.disabled = false;
@@ -1371,31 +1457,74 @@
   }
 
   // ---------- Reject modal ----------
+  const REJECTION_REASONS = [
+    'الاسم غير لائق أو مسيء',
+    'الاسم مكرر بشكل مضلل لجهة أخرى',
+    'الاسم يخالف هوية المنصة',
+    'الاسم محجوز للاستخدام الداخلي',
+    'العميل لم يستوفِ شروط الاشتراك',
+    'أخرى',
+  ];
+
   const rejectDomainName = document.getElementById('rejectDomainName');
-  const rejectNote = document.getElementById('rejectNote');
+  const rejectReasonsList = document.getElementById('rejectReasonsList');
+  const rejectCustomNote = document.getElementById('rejectCustomNote');
   const rejectError = document.getElementById('rejectError');
   const rejectConfirm = document.getElementById('rejectConfirm');
+  let selectedRejectReason = null;
+
+  // بناء أزرار الأسباب مرة واحدة
+  rejectReasonsList.innerHTML = REJECTION_REASONS.map(reason => `
+    <div class="reason-option" data-reason="${escapeHtml(reason)}">
+      <span class="ro-dot"></span>
+      <span>${escapeHtml(reason)}</span>
+    </div>
+  `).join('');
+
+  rejectReasonsList.querySelectorAll('.reason-option').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedRejectReason = el.dataset.reason;
+      rejectReasonsList.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      rejectCustomNote.style.display = selectedRejectReason === 'أخرى' ? 'block' : 'none';
+      rejectError.textContent = '';
+    });
+  });
 
   function openRejectModal(req) {
     activeRequestId = req.id;
     rejectDomainName.textContent = `${req.requested_name}.mad3oom.online`;
-    rejectNote.value = '';
+    selectedRejectReason = null;
+    rejectCustomNote.value = '';
+    rejectCustomNote.style.display = 'none';
+    rejectReasonsList.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
     rejectError.textContent = '';
     openModal('rejectModal');
   }
 
   rejectConfirm.addEventListener('click', async () => {
+    if (!selectedRejectReason) {
+      rejectError.textContent = 'يرجى اختيار سبب الرفض';
+      return;
+    }
+    if (selectedRejectReason === 'أخرى' && !rejectCustomNote.value.trim()) {
+      rejectError.textContent = 'يرجى كتابة السبب في الحقل النصي';
+      return;
+    }
+
     rejectConfirm.disabled = true;
     rejectError.textContent = '';
     try {
       const data = await callFunction({
         action: 'reject_request',
         request_id: activeRequestId,
-        rejection_note: rejectNote.value.trim(),
+        rejection_note: selectedRejectReason,
+        custom_note: selectedRejectReason === 'أخرى' ? rejectCustomNote.value.trim() : undefined,
       });
       closeModal('rejectModal');
       showToast(data.message, true);
       loadRequests();
+      loadActivityLog();
     } catch (err) {
       rejectError.textContent = err.message;
     } finally {
@@ -1403,9 +1532,102 @@
     }
   });
 
+  // =========================================================
+  // Tab 4: Activity Log (سجل النشاط)
+  // =========================================================
+  const activityTableBody = document.getElementById('activityTableBody');
+  const activitySearch = document.getElementById('activitySearch');
+  const activityRefreshBtn = document.getElementById('activityRefreshBtn');
+  let allActivity = [];
+
+  const ACTION_LABELS = {
+    created: ['تم الإنشاء', 'positive'],
+    renamed: ['تغيير الاسم', 'neutral'],
+    reassigned: ['تغيير العميل', 'neutral'],
+    suspended: ['تعطيل', 'warn'],
+    reactivated: ['إعادة تفعيل', 'positive'],
+    deleted: ['حذف نهائي', 'negative'],
+    logo_updated: ['تحديث الشعار', 'neutral'],
+    request_approved: ['قبول طلب', 'positive'],
+    request_rejected: ['رفض طلب', 'negative'],
+  };
+
+  function activityActionBadge(action) {
+    const [label, cls] = ACTION_LABELS[action] || [action, 'neutral'];
+    return `<span class="activity-action-badge ${cls}">${label}</span>`;
+  }
+
+  function activityDetailsText(item) {
+    const d = item.details;
+    if (!d) return '';
+    if (item.action === 'renamed' && d.from && d.to) {
+      return `من <span style="direction:ltr; display:inline-block;">${escapeHtml(d.from)}</span> إلى <span style="direction:ltr; display:inline-block;">${escapeHtml(d.to)}</span>`;
+    }
+    if (item.action === 'reassigned' && d.to_email) {
+      return `إلى ${escapeHtml(d.to_email)}`;
+    }
+    if ((item.action === 'request_rejected') && d.reason) {
+      return `السبب: ${escapeHtml(d.reason)}`;
+    }
+    if (item.action === 'logo_updated') {
+      return d.logo_url ? 'تم تعيين شعار جديد' : 'تم إزالة الشعار';
+    }
+    return '';
+  }
+
+  async function loadActivityLog() {
+    activityTableBody.innerHTML = `<div class="empty-state">جاري التحميل...</div>`;
+    try {
+      const data = await callFunction({ action: 'list_activity_log', activity_limit: 150 });
+      allActivity = data.items || [];
+      applyActivityFilter();
+    } catch (err) {
+      activityTableBody.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function applyActivityFilter() {
+    const q = activitySearch.value.trim().toLowerCase();
+    const list = q
+      ? allActivity.filter(a =>
+          a.subdomain_name?.toLowerCase().includes(q) ||
+          a.performed_by_email?.toLowerCase().includes(q) ||
+          a.target_profile?.email?.toLowerCase().includes(q)
+        )
+      : allActivity;
+    renderActivityTable(list);
+  }
+
+  activitySearch.addEventListener('input', applyActivityFilter);
+  activityRefreshBtn.addEventListener('click', loadActivityLog);
+
+  function renderActivityTable(items) {
+    if (!items.length) {
+      activityTableBody.innerHTML = `<div class="empty-state">لا يوجد نشاط مسجّل</div>`;
+      return;
+    }
+    activityTableBody.innerHTML = items.map(item => `
+      <div class="row activity-row">
+        <div class="cell-domain" data-label="النطاق">
+          <span style="font-size:12.5px;">${escapeHtml(item.subdomain_name)}</span>
+        </div>
+        <div data-label="الإجراء">${activityActionBadge(item.action)}</div>
+        <div class="activity-performer" data-label="تم بواسطة">
+          <div class="ap-email">${escapeHtml(item.performed_by_email || 'غير معروف')}</div>
+          <div class="activity-details">${activityDetailsText(item)}</div>
+        </div>
+        <div class="cell-client" data-label="العميل المرتبط">
+          <div class="cc-email">${escapeHtml(item.target_profile?.email || '—')}</div>
+        </div>
+        <div class="cell-date" data-label="التاريخ">${formatDate(item.created_at)}</div>
+      </div>
+    `).join('');
+  }
+
   // ---------- Init ----------
   loadList();
   loadRequests();
+  loadActivityLog();
 </script>
 
 </body>
