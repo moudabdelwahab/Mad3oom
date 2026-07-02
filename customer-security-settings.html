@@ -360,7 +360,7 @@
 
     <script type="module">
         import { supabase } from '/api-config.js';
-        import { generate2FASecret, generateRecoveryCodes, enable2FA, disable2FA } from '/2fa-service.js';
+        import { generate2FASecret, verify2FACode, generateRecoveryCodes, enable2FA, disable2FA } from '/2fa-service.js';
         import { isFacebookLinked, linkFacebookIdentity, unlinkFacebookIdentity } from '/facebook-oauth.js';
 
         /**
@@ -560,30 +560,36 @@
             return;
         }
 
-        // 🔐 توليد السر من السيرفر
-        const { base32, otpauth_url } = await generate2FASecret();
+        try {
+            // 🔐 توليد السر من السيرفر
+            const { base32, otpauth_url } = await generate2FASecret();
 
-        // خزّن السر مؤقتًا (لـ verify)
-        currentSecret = base32;
-        sessionStorage.setItem('temp_2fa_secret', base32);
+            // خزّن السر مؤقتًا (لـ verify)
+            currentSecret = base32;
+            sessionStorage.setItem('temp_2fa_secret', base32);
 
-        // عرض السر
-        document.getElementById('secretKeyDisplay').textContent = base32;
+            // عرض السر
+            document.getElementById('secretKeyDisplay').textContent = base32;
 
-        // عرض QR Code
-        const qrContainer = document.getElementById('qrCodeContainer');
-        qrContainer.innerHTML = `
-            <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth_url)}"
-                alt="QR Code"
-            >
-        `;
+            // عرض QR Code
+            const qrContainer = document.getElementById('qrCodeContainer');
+            qrContainer.innerHTML = `
+                <img
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth_url)}"
+                    alt="QR Code"
+                >
+            `;
 
-        // Reset steps
-        document.getElementById('setupStep1').style.display = 'block';
-        document.getElementById('setupStep2').style.display = 'none';
+            // Reset steps
+            document.getElementById('setupStep1').style.display = 'block';
+            document.getElementById('setupStep2').style.display = 'none';
+            document.getElementById('verificationCode').value = '';
 
-        setupModal.classList.add('active');
+            setupModal.classList.add('active');
+        } catch (error) {
+            console.error('Error generating 2FA secret:', error);
+            showAlert('فشل إنشاء التحقق بخطوتين. حاول مرة أخرى.', 'error');
+        }
     };
 }
 
@@ -599,23 +605,46 @@
         };
 
         document.getElementById('verifyAndEnableBtn').onclick = async () => {
-            const code = document.getElementById('verificationCode').value;
-            if (code.length !== 6) {
+            const verifyBtn = document.getElementById('verifyAndEnableBtn');
+            const code = document.getElementById('verificationCode').value.trim();
+
+            if (code.length !== 6 || !/^\d{6}$/.test(code)) {
                 showAlert('يرجى إدخال رمز مكون من 6 أرقام', 'error');
                 return;
             }
 
-            const recoveryCodes = generateRecoveryCodes();
-            const { error } = await enable2FA(currentUser.id, currentSecret, recoveryCodes);
-            
-            if (error) {
-                showAlert('فشل تفعيل التحقق بخطوتين', 'error');
-            } else {
+            if (!currentSecret) {
+                showAlert('حدث خطأ، يرجى إعادة فتح نافذة الإعداد', 'error');
+                return;
+            }
+
+            try {
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'جاري التحقق...';
+
+                // ✅ التحقق الفعلي من الكود قبل أي تفعيل
+                const { verified } = await verify2FACode(code, currentSecret);
+
+                if (!verified) {
+                    showAlert('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى', 'error');
+                    return;
+                }
+
+                const recoveryCodes = generateRecoveryCodes();
+                await enable2FA(currentUser.id, currentSecret, recoveryCodes);
+
                 setupModal.classList.remove('active');
                 updateTwoFaUI(true);
                 currentRecoveryCodes = recoveryCodes;
+                sessionStorage.removeItem('temp_2fa_secret');
                 showRecoveryCodes();
                 showAlert('تم تفعيل التحقق بخطوتين بنجاح', 'success');
+            } catch (error) {
+                console.error('Error verifying/enabling 2FA:', error);
+                showAlert('فشل تفعيل التحقق بخطوتين', 'error');
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'تأكيد وتفعيل';
             }
         };
 
@@ -638,7 +667,7 @@
 
         function showRecoveryCodes() {
             const grid = document.getElementById('recoveryCodesGrid');
-            grid.innerHTML = currentRecoveryCodes.map(code => `<div class="recovery-code">${code}</div>`).join('');
+            grid.innerHTML = currentRecoveryCodes.map(code => `<div class="recovery-code">${escapeHtml(code)}</div>`).join('');
             recoveryModal.classList.add('active');
         }
 
