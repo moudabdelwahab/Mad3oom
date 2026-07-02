@@ -343,6 +343,7 @@ async function setupSecuritySettings() {
                 // Reset steps
                 document.getElementById('setupStep1').style.display = 'block';
                 document.getElementById('setupStep2').style.display = 'none';
+                document.getElementById('verificationCode').value = '';
 
                 setupModal.classList.add('active');
             } catch (err) {
@@ -354,21 +355,33 @@ async function setupSecuritySettings() {
 
     // Verify and enable 2FA
     document.getElementById('verifyAndEnableBtn')?.addEventListener('click', async () => {
-        const code = document.getElementById('verificationCode').value;
+        const verifyBtn = document.getElementById('verifyAndEnableBtn');
+        const code = document.getElementById('verificationCode').value.trim();
 
-        if (code.length !== 6) {
+        if (code.length !== 6 || !/^\d{6}$/.test(code)) {
             showAlert('يرجى إدخال رمز مكون من 6 أرقام', 'error');
             return;
         }
 
+        if (!currentSecret) {
+            showAlert('حدث خطأ، يرجى إعادة فتح نافذة الإعداد', 'error');
+            return;
+        }
+
         try {
-            // Verify code
-            const { data, error } = await supabase.functions.invoke('verify-2fa-code', {
+            if (verifyBtn) {
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'جاري التحقق...';
+            }
+
+            // ✅ اسم الفنكشن الصحيح هو "verify-2fa" (مش "verify-2fa-code")
+            // ✅ الحقل اللي بترجعه الفنكشن هو "verified" (مش "valid")
+            const { data, error } = await supabase.functions.invoke('verify-2fa', {
                 body: { code, tempSecret: currentSecret }
             });
 
-            if (error || !data.valid) {
-                throw new Error('الرمز غير صحيح');
+            if (error || !data?.verified) {
+                throw new Error('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
             }
 
             // Generate recovery codes
@@ -389,12 +402,18 @@ async function setupSecuritySettings() {
 
             setupModal.classList.remove('active');
             document.getElementById('verificationCode').value = '';
+            sessionStorage.removeItem('temp_2fa_secret');
             await load2FAStatus();
             showRecoveryCodes();
             showAlert('تم تفعيل التحقق بخطوتين بنجاح', 'success');
         } catch (err) {
             console.error('Error enabling 2FA:', err);
             showAlert(err.message || 'فشل تفعيل التحقق بخطوتين', 'error');
+        } finally {
+            if (verifyBtn) {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'تأكيد وتفعيل';
+            }
         }
     });
 
@@ -527,11 +546,12 @@ function updateTwoFaUI(enabled) {
  */
 async function loadTrustedDevices() {
     try {
+        // ✅ العمود الصحيح في جدول trusted_devices هو "last_login" (مش "last_used_at")
         const { data: devices, error } = await supabase
             .from('trusted_devices')
             .select('*')
             .eq('user_id', currentUser.id)
-            .order('last_used_at', { ascending: false });
+            .order('last_login', { ascending: false });
 
         if (error) throw error;
 
@@ -547,10 +567,7 @@ async function loadTrustedDevices() {
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.75rem;">
                 <div style="flex: 1;">
                     <h4 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text);">${device.device_name || 'جهاز بدون اسم'}</h4>
-                    <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--color-text-secondary);">
-                        <span style="display: inline-block; background: var(--color-muted); padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.75rem;">${device.ip_address || 'N/A'}</span>
-                    </p>
-                    <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر استخدام: ${new Date(device.last_used_at).toLocaleString('ar-EG')}</p>
+                    <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر تسجيل دخول: ${device.last_login ? new Date(device.last_login).toLocaleString('ar-EG') : 'غير معروف'}</p>
                 </div>
                 <button onclick="window.removeDevice('${device.id}')" style="padding: 0.5rem 1rem; background: rgba(217, 83, 79, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">إزالة</button>
             </div>
