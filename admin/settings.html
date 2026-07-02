@@ -350,7 +350,7 @@
                 </a>
                 <a href="#ticket-rules" class="nav-link">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-                    قواعد التذاكر
+                     قواعد التذاكر
                 </a>
                 <a href="#communication-control" class="nav-link">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
@@ -388,6 +388,30 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     إعدادات العملاء
                 </a>
+                a href="#branding" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+    الهوية البصرية
+</a>
+<a href="#ticket-distribution" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+    توزيع التذاكر
+</a>
+<a href="#sla-settings" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    أهداف زمن الرد (SLA)
+</a>
+<a href="#telegram-alerts" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+    تنبيهات تيليجرام
+</a>
+<a href="#data-retention" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+    الاحتفاظ بالبيانات
+</a>
+<a href="#webhooks" class="nav-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3 0-1.31.94-2.44 2.24-2.85"></path><path d="M12.5 12.5a3.5 3.5 0 1 1 5.6-4.2"></path><path d="M6.5 15.5A3.5 3.5 0 1 1 9 9.5"></path></svg>
+    Webhooks
+</a>
                 <a href="#device-management" class="nav-link">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
                     إدارة الأجهزة
@@ -430,6 +454,262 @@
                     </div>
                 </section>
 
+<!-- ============ 1) الهوية البصرية ============ -->
+<section id="branding" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>الهوية البصرية والعلامة التجارية</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="saveBrandingBtn">حفظ الهوية</button>
+    </div>
+    <div class="card-body">
+        <div class="form-group">
+            <label for="brandSiteName">اسم المنصة</label>
+            <input type="text" id="brandSiteName" class="form-control" placeholder="مدعوم">
+        </div>
+ 
+        <div class="form-group">
+            <label for="brandPrimaryColor">اللون الأساسي</label>
+            <input type="color" id="brandPrimaryColor" class="form-control" style="height: 48px; padding: 0.4rem;" value="#0077cc">
+        </div>
+ 
+        <hr class="section-divider">
+ 
+        <div class="form-row">
+            <div class="form-group">
+                <label>الشعار (Logo)</label>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <img id="brandLogoPreview" src="/assets/images/logo.png" alt="Logo" style="width:64px;height:64px;object-fit:contain;background:var(--color-muted);border-radius:0.75rem;padding:0.5rem;">
+                    <div>
+                        <input type="file" id="brandLogoInput" accept="image/*" style="display:none;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('brandLogoInput').click()">تغيير الشعار</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>الفافيكون (Favicon)</label>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <img id="brandFaviconPreview" src="/assets/images/logo.png" alt="Favicon" style="width:64px;height:64px;object-fit:contain;background:var(--color-muted);border-radius:0.75rem;padding:0.5rem;">
+                    <div>
+                        <input type="file" id="brandFaviconInput" accept="image/*" style="display:none;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('brandFaviconInput').click()">تغيير الفافيكون</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p style="font-size:0.85rem; color: var(--color-text-secondary);">ملاحظة: تفعيل ظهور اللوجو/اللون في الواجهة الأمامية للمنصة يحتاج ربط من كود الفرونت إند بقراءة هذه القيم من advanced_settings.branding.</p>
+    </div>
+</section>
+ 
+<!-- ============ 2) توزيع التذاكر التلقائي ============ -->
+<section id="ticket-distribution" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>توزيع التذاكر التلقائي على فريق الدعم</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="saveTicketDistributionBtn">حفظ الإعدادات</button>
+    </div>
+    <div class="card-body">
+        <div class="switch-group">
+            <div class="switch-info">
+                <h4>تفعيل التوزيع التلقائي (Round Robin)</h4>
+                <p>كل تذكرة جديدة هتتحول أوتوماتيكياً لأحد الموظفين بالتناوب</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="ticketDistributionEnabled">
+                <span class="slider"></span>
+            </label>
+        </div>
+ 
+        <hr class="section-divider">
+ 
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">الموظفين المشاركين في التوزيع</h3>
+        <div class="checkbox-group" id="agentsList">
+            <p style="text-align:center; padding:1rem;">جاري تحميل الموظفين...</p>
+        </div>
+    </div>
+</section>
+ 
+<!-- ============ 3) أهداف زمن الرد (SLA) ============ -->
+<section id="sla-settings" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>أهداف زمن الرد (SLA)</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="saveSlaBtn">حفظ الأهداف</button>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom:1.5rem; color: var(--color-text-secondary);">
+            لو التذكرة عدّت الوقت المحدد من غير رد من فريق الدعم، هيتبعت تنبيه تيليجرام تلقائياً
+            (لازم تفعّل التنبيه من قسم "تنبيهات تيليجرام").
+        </p>
+ 
+        <div class="switch-group">
+            <div class="switch-info">
+                <h4>تفعيل مراقبة SLA</h4>
+                <p>فحص دوري كل 15 دقيقة على التذاكر المتأخرة</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="slaEnabled">
+                <span class="slider"></span>
+            </label>
+        </div>
+ 
+        <hr class="section-divider">
+ 
+        <div class="form-row">
+            <div class="form-group">
+                <label for="slaHighHours">أولوية عالية (ساعات)</label>
+                <input type="number" id="slaHighHours" class="form-control" value="4" min="1">
+            </div>
+            <div class="form-group">
+                <label for="slaMediumHours">أولوية متوسطة (ساعات)</label>
+                <input type="number" id="slaMediumHours" class="form-control" value="24" min="1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="slaLowHours">أولوية منخفضة (ساعات)</label>
+            <input type="number" id="slaLowHours" class="form-control" value="48" min="1">
+        </div>
+    </div>
+</section>
+ 
+<!-- ============ 4) تنبيهات تيليجرام الشخصية ============ -->
+<section id="telegram-alerts" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>تنبيهات تيليجرام الشخصية</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="saveTelegramAlertsBtn">حفظ التفضيلات</button>
+    </div>
+    <div class="card-body">
+        <p id="telegramLinkStatus" style="font-weight:600; margin-bottom:1.5rem;">جاري التحقق من حالة الربط...</p>
+ 
+        <div class="switch-group">
+            <div class="switch-info">
+                <h4>تذكرة عاجلة جديدة</h4>
+                <p>تنبيه فوري لما تتفتح تذكرة بأولوية عالية</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="alertUrgentTicket">
+                <span class="slider"></span>
+            </label>
+        </div>
+ 
+        <div class="switch-group">
+            <div class="switch-info">
+                <h4>مخالفة هدف زمن الرد (SLA)</h4>
+                <p>تنبيه لما تذكرة تتأخر عن الوقت المحدد بدون رد</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="alertSlaBreach">
+                <span class="slider"></span>
+            </label>
+        </div>
+ 
+        <hr class="section-divider">
+        <button type="button" class="btn btn-secondary" id="testTelegramAlertBtn">إرسال رسالة اختبار</button>
+    </div>
+</section>
+ 
+<!-- ============ 5) سياسة الاحتفاظ بالبيانات ============ -->
+<section id="data-retention" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>سياسة الاحتفاظ بالبيانات</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="saveDataRetentionBtn">حفظ السياسة</button>
+    </div>
+    <div class="card-body">
+        <div class="switch-group">
+            <div class="switch-info">
+                <h4>تفعيل الأرشفة/الحذف التلقائي</h4>
+                <p>فحص يومي الساعة 3 فجراً للتذاكر القديمة المغلقة</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="retentionEnabled">
+                <span class="slider"></span>
+            </label>
+        </div>
+ 
+        <div class="form-row" style="margin-top:1.5rem;">
+            <div class="form-group">
+                <label for="retentionDays">الاحتفاظ بالتذاكر المغلقة لمدة (يوم)</label>
+                <input type="number" id="retentionDays" class="form-control" value="365" min="30">
+            </div>
+            <div class="form-group">
+                <label for="retentionAction">الإجراء بعد انتهاء المدة</label>
+                <select id="retentionAction" class="form-control">
+                    <option value="archive">أرشفة فقط (تفضل محفوظة)</option>
+                    <option value="delete">حذف نهائي</option>
+                </select>
+            </div>
+        </div>
+ 
+        <p id="retentionLastRun" style="color: var(--color-text-secondary); font-size:0.9rem;">لم يتم التشغيل بعد</p>
+        <button type="button" class="btn btn-secondary" id="runRetentionNowBtn">تشغيل الآن يدوياً</button>
+    </div>
+</section>
+ 
+<!-- ============ 6) Webhooks خارجية ============ -->
+<section id="webhooks" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>Webhooks خارجية</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="addWebhookBtn">إضافة Webhook جديد</button>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom:1.5rem; color: var(--color-text-secondary);">
+            هيتبعت طلب POST تلقائي لأي رابط تحدده لما حدث معين يحصل على تذكرة (إنشاء / تغيير حالة / حل).
+            كل طلب بيتوقع بتوقيع HMAC-SHA256 في هيدر <code>X-Mad3oom-Signature</code> عشان تتأكد إنه جاي فعلاً من مدعوم.
+        </p>
+ 
+        <table class="rules-table" id="webhooksTable">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>الرابط</th>
+                    <th>الأحداث</th>
+                    <th>الحالة</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody id="webhooksBody">
+                <tr><td colspan="5" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
+            </tbody>
+        </table>
+ 
+        <div id="webhookFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
+            <h3 style="margin-top: 0;" id="webhookModalTitle">إضافة Webhook جديد</h3>
+            <input type="hidden" id="editWebhookId">
+            <div class="form-group">
+                <label for="webhookName">الاسم</label>
+                <input type="text" id="webhookName" class="form-control" placeholder="مثال: تكامل مع CRM">
+            </div>
+            <div class="form-group">
+                <label for="webhookUrl">الرابط (URL)</label>
+                <input type="url" id="webhookUrl" class="form-control" placeholder="https://example.com/webhook">
+            </div>
+            <div class="form-group">
+                <label>الأحداث</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="webhook-event-ticket_created">
+                        <label for="webhook-event-ticket_created">إنشاء تذكرة</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="webhook-event-ticket_status_changed">
+                        <label for="webhook-event-ticket_status_changed">تغيير حالة التذكرة</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="webhook-event-ticket_resolved">
+                        <label for="webhook-event-ticket_resolved">حل التذكرة</label>
+                    </div>
+                </div>
+            </div>
+            <div class="switch-group">
+                <div class="switch-info"><h4>نشط</h4></div>
+                <label class="switch">
+                    <input type="checkbox" id="webhookActive" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top:1rem;">
+                <button type="button" class="btn btn-primary" id="saveWebhookBtn">حفظ</button>
+                <button type="button" class="btn btn-secondary" id="cancelWebhookBtn">إلغاء</button>
+            </div>
+        </div>
+    </div>
+</section>
                 <!-- Platform Control Section -->
                 <section id="platform-control" class="settings-card" style="display: none;">
                     <div class="card-header">
