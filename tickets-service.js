@@ -74,19 +74,23 @@ export async function fetchUserTickets(filters = {}) {
 
 /**
  * إنشاء تذكرة جديدة
+ *
+ * ملاحظة: الأولوية لم تعد تُحدَّد من قبل العميل. يتم تخزينها بقيمة افتراضية
+ * ('medium') عند الإنشاء، والإدارة فقط هي من تُحدّد/تُعدّل الأولوية الفعلية
+ * لاحقاً عبر updateTicketPriority أدناه (من لوحة الإدارة).
  */
 export async function createTicket({ title, description, priority, image_url = null }) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
-    
+
     // التحقق من صحة المدخلات
     if (!title || !title.trim()) throw new Error('عنوان التذكرة مطلوب');
     if (!description || !description.trim()) throw new Error('وصف المشكلة مطلوب');
-    if (!priority) throw new Error('الأولوية مطلوبة');
-    
-    // التحقق من أن الأولوية قيمة صحيحة
+
+    // الأولوية أصبحت اختيارية من واجهة العميل: نستخدم قيمة افتراضية
+    // إن لم تُرسَل قيمة صحيحة، بدلاً من رفض إنشاء التذكرة.
     const validPriorities = ['low', 'medium', 'high'];
-    if (!validPriorities.includes(priority)) throw new Error('أولوية غير صحيحة');
+    const finalPriority = validPriorities.includes(priority) ? priority : 'medium';
 
     const { data, error } = await supabase
         .from('tickets')
@@ -94,7 +98,7 @@ export async function createTicket({ title, description, priority, image_url = n
             user_id: user.id,
             title: title.trim(),
             description: description.trim(),
-            priority,
+            priority: finalPriority,
             image_url,
             status: 'open'
         })
@@ -212,6 +216,38 @@ export async function updateTicketStatus(ticketId, status) {
     }
 
     await logActivity('ticket_status_update', { ticket_id: ticketId, status });
+}
+
+/**
+ * تحديث أولوية التذكرة (للإدارة فقط)
+ *
+ * العميل لم يعد يختار أولوية تذكرته عند الإنشاء؛ الإدارة وحدها من تحدد
+ * الأولوية الفعلية بعد مراجعة التذكرة. هذه الدالة تتحقق من البيانات
+ * المُرجعة فعلياً (نفس منطق updateTicketStatus) لأن RLS قد يرفض التحديث
+ * بصمت لو نُفذت الدالة من حساب غير مصرح له.
+ *
+ * ملاحظة مهمة: هذه الدالة وحدها لا تكفي لمنع العميل من تعديل الأولوية —
+ * لازم يكون فيه RLS policy على جدول tickets يمنع أي مستخدم غير أدمن من
+ * تحديث عمود priority. تأكد من ضبط الـ policy المناسبة في Supabase.
+ */
+export async function updateTicketPriority(ticketId, priority) {
+    const validPriorities = ['low', 'medium', 'high'];
+    if (!validPriorities.includes(priority)) throw new Error('أولوية غير صحيحة');
+
+    const { data: updated, error } = await supabase
+        .from('tickets')
+        .update({ priority })
+        .eq('id', ticketId)
+        .select('id')
+        .maybeSingle();
+
+    if (error) throw error;
+
+    if (!updated) {
+        throw new Error('لم يتم تحديث أولوية التذكرة. قد لا تملك صلاحية هذا الإجراء أو أن التذكرة غير موجودة.');
+    }
+
+    await logActivity('ticket_priority_update', { ticket_id: ticketId, priority });
 }
 
 /**
