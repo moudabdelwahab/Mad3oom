@@ -9,18 +9,36 @@
  *   <link rel="stylesheet" href="robot.css">
  *   <link rel="stylesheet" href="onboarding-assistant.css">
  *   ...
- *   <script src="robot.js" defer></script>
+ *   <script type="module" src="robot.js"></script>
  *
- * التفعيل التلقائي بعد الاشتراك:
- *   قبل ما توجّه العميل للوحة التحكم بعد نجاح الدفع، سيب صفحة الـ checkout تعمل:
- *     localStorage.setItem('madoum_trigger_onboarding', '1');
- *   والمساعد هيفتح لوحده أول ما الداشبورد تحمّل، ويمسح الفلاج ده تلقائيًا.
+ * ⚠️ ملحوظة مهمة (تحديث): الملف بقى ES module (type="module") عشان يقدر
+ * يستورد supabase ويتحقق من اشتراك العميل. لو استخدمته في صفحة تانية،
+ * لازم الـ <script> تبقى type="module".
+ *
+ * الظهور بقى مشروط باشتراك نشط:
+ *   الروبوت مبقاش يظهر لكل العملاء. أول ما الصفحة تحمّل، بيتحقق هل عند
+ *   العميل الحالي اشتراك نشط (أي خطة: دعم فني / واتساب / باقة) عن طريق
+ *   getActiveSubscription() من whatsapp-subscription-service.js. لو مفيش
+ *   اشتراك نشط، الروبوت ماينبنيش في الـ DOM أصلًا (مفيش أفاتار ولا حاجة).
+ *
+ * التفعيل التلقائي أول مرة يتفعل فيها الاشتراك:
+ *   بنسجّل في localStorage قايمة الاشتراكات اللي العميل شافها قبل كده
+ *   (seenSubscriptionIds). أول مرة نلاقي id اشتراك نشط مش موجود في القايمة
+ *   دي، معناها الاشتراك ده لسه متفعل حديثًا — فالمساعد بيفتح نفسه تلقائيًا.
+ *   الاشتراكات القديمة اللي العميل خلّص onboarding بتاعها مش هتفتح تاني
+ *   لوحدها كل مرة يدخل الداشبورد.
+ *
+ * لسه فيه مفتاح madoum_trigger_onboarding كتفعيل يدوي احتياطي (لو حبينا
+ * مستقبلًا نجبر فتح المساعد من صفحة تانية زي صفحة نجاح الدفع مباشرة).
  *
  * ربط الباك إند لاحقًا:
- *   كل نداءات الشبكة معزولة جوه OnboardingAPI تحت. دلوقتي بترجع بيانات
- *   وهمية (mock) بعد تأخير بسيط عشان تجربة UI متسقة. لما الـ backend يجهز،
- *   استبدل جسم كل دالة بنداء fetch حقيقي (الأماكن متعلّم عليها بـ TODO).
+ *   كل نداءات الشبكة الخاصة بإنشاء بوت تيليجرام معزولة جوه OnboardingAPI
+ *   تحت. دلوقتي بترجع بيانات وهمية (mock) بعد تأخير بسيط عشان تجربة UI
+ *   متسقة. لما الـ backend يجهز، استبدل جسم الدالة بنداء fetch حقيقي.
  */
+
+import { supabase } from '/api-config.js';
+import { getActiveSubscription } from '/whatsapp-subscription-service.js';
 
 (function () {
   'use strict';
@@ -78,9 +96,13 @@
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.seenSubscriptionIds)) parsed.seenSubscriptionIds = [];
+        return parsed;
+      }
     } catch (e) { /* ignore corrupted state */ }
-    return { started: false, completed: false, telegramConnected: false, botUsername: null };
+    return { started: false, completed: false, telegramConnected: false, botUsername: null, seenSubscriptionIds: [] };
   }
 
   function saveState(state) {
@@ -126,9 +148,10 @@
   // ---------------------------------------------------------------------
   // المتحكم الرئيسي
   // ---------------------------------------------------------------------
-  function OnboardingController() {
+  function OnboardingController(activeSubscriptionId) {
     this.userId = getUserId();
     this.state = loadState();
+    this.activeSubscriptionId = activeSubscriptionId || null;
     this.totalStages = 4; // ترحيب -> سؤال تيليجرام -> خطوات الربط -> واتساب/ختام
     this.stage = 0;
     this.bubble = null;
@@ -150,13 +173,24 @@
     this.avatar.addEventListener('click', () => this.toggle());
     document.getElementById('madoumBubbleClose').addEventListener('click', () => this.close());
 
-    // لو لسه محدش بدأ الـ onboarding، حط نقطة تنبيه على الروبوت
-    if (!this.state.started) this.notifyDot.classList.add('show');
+    // أول مرة نشوف الاشتراك النشط ده (يعني اتفعّل حديثًا) -> افتح المساعد
+    // تلقائيًا. لو الاشتراك ده اتشاف قبل كده، سيبه يفضل مقفول واظهر نقطة
+    // التنبيه بس لو العميل لسه معملش onboarding خالص.
+    const isFreshlyActivatedSubscription = this.activeSubscriptionId &&
+      !this.state.seenSubscriptionIds.includes(this.activeSubscriptionId);
 
-    // تفعيل تلقائي بعد الاشتراك (شوف تعليمات أعلى الملف)
+    if (isFreshlyActivatedSubscription) {
+      this.state.seenSubscriptionIds.push(this.activeSubscriptionId);
+      saveState(this.state);
+      setTimeout(() => this.open({ forceRestart: true }), 900);
+    } else if (!this.state.started) {
+      this.notifyDot.classList.add('show');
+    }
+
+    // مفتاح تفعيل يدوي احتياطي (لو صفحة تانية عايزة تجبر فتح المساعد
+    // بغض النظر عن حالة الاشتراك اللي شافها قبل كده)
     if (localStorage.getItem(TRIGGER_KEY) === '1') {
       localStorage.removeItem(TRIGGER_KEY);
-      // نستنى شوية لحد ما الصفحة تستقر بصريًا
       setTimeout(() => this.open({ forceRestart: true }), 900);
     }
   };
@@ -428,21 +462,55 @@
   };
 
   // ---------------------------------------------------------------------
+  // بوابة الأهلية: الروبوت يظهر بس لو عند العميل اشتراك نشط
+  // ---------------------------------------------------------------------
+  let controllerInstance = null;
+
+  async function checkEligibility() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null; // مش مسجل دخول (زائر) -> مفيش روبوت
+
+      // أي خطة نشطة (دعم فني / واتساب / باقة) كافية عشان يظهر الروبوت
+      const activeSubscription = await getActiveSubscription();
+      if (!activeSubscription) return null;
+
+      return activeSubscription;
+    } catch (e) {
+      console.error('[Onboarding] فشل التحقق من الاشتراك:', e);
+      return null;
+    }
+  }
+
+  async function ensureMounted() {
+    if (controllerInstance) return controllerInstance;
+    const activeSubscription = await checkEligibility();
+    if (!activeSubscription) return null;
+    controllerInstance = new OnboardingController(activeSubscription.id);
+    controllerInstance.mount();
+    return controllerInstance;
+  }
+
+  // إتاحة نداء برمجي من أي مكان في المنصة، مثلاً بعد نجاح الدفع مباشرة:
+  //   window.MadoumOnboarding.open({ forceRestart: true });
+  // (هتشتغل بس لو العميل عنده اشتراك نشط فعلًا، غير كده مش هتعمل حاجة)
+  window.MadoumOnboarding = {
+    open: async (opts) => {
+      const c = await ensureMounted();
+      if (c) c.open(opts);
+    },
+    close: () => { if (controllerInstance) controllerInstance.close(); },
+    resetProgress: () => {
+      localStorage.removeItem(STORAGE_KEY);
+      if (controllerInstance) controllerInstance.state = loadState();
+    }
+  };
+
+  // ---------------------------------------------------------------------
   // تهيئة عند تحميل الصفحة
   // ---------------------------------------------------------------------
-  function init() {
-    const controller = new OnboardingController();
-    controller.mount();
-    // إتاحة نداء برمجي من أي مكان في المنصة، مثلاً بعد نجاح الدفع مباشرة:
-    //   window.MadoumOnboarding.open({ forceRestart: true });
-    window.MadoumOnboarding = {
-      open: (opts) => controller.open(opts),
-      close: () => controller.close(),
-      resetProgress: () => {
-        localStorage.removeItem(STORAGE_KEY);
-        controller.state = loadState();
-      }
-    };
+  async function init() {
+    await ensureMounted();
   }
 
   if (document.readyState === 'loading') {
