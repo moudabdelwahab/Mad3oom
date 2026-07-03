@@ -630,7 +630,13 @@ function setupModalEvents() {
                 try {
                     confirmBtn.disabled = true;
                     confirmBtn.textContent = 'جاري التأكيد...';
-                    await confirmPurchaseTicket(currentTicketId);
+                    const result = await confirmPurchaseTicket(currentTicketId);
+
+                    if (!result || result.success !== true) {
+                        alert('فشل تأكيد الاشتراك: ' + ((result && result.error) || 'حدث خطأ غير متوقع'));
+                        return;
+                    }
+
                     confirmPurchaseModal.style.display = 'none';
                     await loadTickets();
                     await showAdminTicketInPanel(currentTicketId);
