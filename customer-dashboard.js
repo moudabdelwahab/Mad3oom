@@ -613,8 +613,17 @@ ${ticket.description}
     if (signOutLink) {
         signOutLink.onclick = async (e) => {
             e.preventDefault();
-            await logout();
-            window.location.replace('login.html');
+            // مهم: نستخدم try/finally هنا. لو حصل أي خطأ أو استثناء جوه
+            // logout() لأي سبب، لازم إعادة التوجيه لصفحة تسجيل الدخول
+            // تحصل برضه، عشان المستخدم ميفضلش عالق في الداشبورد وكأنه
+            // "رجع اتسجل دخول لوحده".
+            try {
+                await logout();
+            } catch (err) {
+                console.error('Logout error (proceeding to redirect anyway):', err);
+            } finally {
+                window.location.replace('login.html');
+            }
         };
     }
 
