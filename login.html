@@ -1003,9 +1003,9 @@
   // ══════════════════════════════════════════════════════════════
   // CHECK EXISTING SESSION ON PAGE LOAD
   // يشتغل مرة واحدة عند load — لو في جلسة نشطة يعمل redirect
-  // ✅ بيحترم دلوقتي علامة "just_logged_out" اللي بيحطها auth-client.js
-  //    عشان يمنع أي حالة سباق (race condition) ترجّع المستخدم فورًا
-  //    لحسابه بعد ما يسجل خروج لتوّه.
+  // بيحترم علامة "just_logged_out" اللي بيحطها auth-client.js
+  // عشان يمنع أي حالة سباق (race condition) ترجّع المستخدم فورًا
+  // لحسابه بعد ما يسجل خروج لتوّه.
   // ══════════════════════════════════════════════════════════════
   async function checkExistingSession() {
     if (sessionStorage.getItem('just_logged_out')) {
@@ -1031,23 +1031,35 @@
   }
 
   // ══════════════════════════════════════════════════════════════
-  // onAuthStateChange — يشتغل فقط لـ OAuth callbacks
-  // (Google redirect بيرجع للصفحة وبيطلق SIGNED_IN event)
-  // Email login بيتعامل معاه يدوياً في form submit
+  // onAuthStateChange — المسؤول عن استكمال تسجيل الدخول عبر Google
+  // (وأي مصدر SIGNED_IN تاني غير الفورم اليدوي)
+  //
+  // ═══════════ ملاحظة مهمة (إصلاح مشكلة Google OAuth) ═══════════
+  // سابقاً كان فيه فحص إضافي بيتأكد إن الرابط (URL) لسه فيه
+  // ?code=... أو #access_token=... عشان "يتأكد" إن ده فعلاً OAuth
+  // callback. المشكلة إن مكتبة supabase-js بتقرا الـ code من
+  // الرابط وتبادله بجلسة، وبعدين *بتنضف الرابط بنفسها* (بتشيل
+  // الـ code) قبل ما تطلق event الـ SIGNED_IN. يعني في أغلب
+  // الأحيان لما الكود كان بيوصل يتأكد من الرابط، يكون اتنضف
+  // بالفعل، فالفحص كان بيرجع false والدالة كانت بترجع (return)
+  // من غير أي redirect — رغم إن الجلسة كانت اتعملت فعلاً في
+  // Supabase. ده بالظبط كان بيسبب "بيرجعني تاني لصفحة تسجيل
+  // الدخول" بعد اختيار حساب Google.
+  //
+  // الحل: مفيش داعي للفحص على الرابط أصلاً. العلم
+  // _handlingAuthManually بيتحط true قبل أي signInWithPassword،
+  // فأي SIGNED_IN بيوصل والعلم false لازم يكون جاي من مصدر تاني
+  // (OAuth عن طريق Google أو أي provider تاني).
   // ══════════════════════════════════════════════════════════════
   supabase.auth.onAuthStateChange(async (event, session) => {
     // تجاهل لو إحنا بنتعامل مع auth يدوياً (email login / signOut)
     if (_handlingAuthManually) return;
 
-    // شغّل فقط لما يكون OAuth redirect (مش email login عادي)
-    // OAuth redirect بيبعت SIGNED_IN فوراً لما الصفحة تتحمل من redirect
+    // شغّل فقط لما يكون فيه جلسة جديدة اتعملت فعلاً (SIGNED_IN)
     if (event !== 'SIGNED_IN' || !session) return;
 
-    // تأكد إن الـ URL فيه OAuth callback parameters (code أو access_token)
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const isOAuthCallback = params.has('code') || hashParams.has('access_token');
-    if (!isOAuthCallback) return; // email login → تجاهل
+    // مسح علامة الخروج عند نجاح الدخول (لو موجودة من جلسة سابقة)
+    sessionStorage.removeItem('just_logged_out');
 
     // إنشاء profile لو مش موجود
     const { data: existing } = await supabase
@@ -1158,6 +1170,8 @@
         return false;
       }
     }
+    sessionStorage.removeItem('just_logged_out');
+    _handlingAuthManually = false;
     await redirectByRole(userId);
     return true;
   }
@@ -1539,6 +1553,8 @@
       }
     }
 
+    sessionStorage.removeItem('just_logged_out');
+    _handlingAuthManually = false;
     const role = data.role || 'user';
     window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
