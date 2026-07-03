@@ -171,7 +171,6 @@ async function loadSubscriptionStatus() {
 
 function updateSubscriptionDisplay() {
     const statusContainer = document.getElementById('subscriptionStatusContainer');
-    const renewButton = document.getElementById('renewSubscriptionBtn');
     if (!statusContainer) return;
 
     if (currentSubscriptionStatus && currentSubscriptionStatus.hasActiveSubscription) {
@@ -180,6 +179,7 @@ function updateSubscriptionDisplay() {
         const planLabel = PLAN_LABELS[sub.plan] || sub.plan;
         const billingLabel = BILLING_LABELS[sub.billing_cycle] || sub.billing_cycle;
 
+        // زرار "تجديد الاشتراك الحالي" بيتولد هنا جوه مربع الاشتراك النشط نفسه
         statusContainer.innerHTML = `
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 1rem; margin-bottom: 2rem;">
                 <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">✓ اشتراك نشط - ${planLabel}</h3>
@@ -192,16 +192,22 @@ function updateSubscriptionDisplay() {
                 <p style="margin: 0.5rem 0; font-size: 0.95rem;">
                     <strong>تاريخ النهاية:</strong> ${new Date(sub.end_date).toLocaleDateString('ar-EG')}
                 </p>
-                <p style="margin: 0.5rem 0; font-size: 0.95rem; color: #ffd700;">
+                <p style="margin: 0.5rem 0 1.25rem 0; font-size: 0.95rem; color: #ffd700;">
                     <strong>الأيام المتبقية:</strong> ${daysRemaining} أيام
                 </p>
+                <button id="renewSubscriptionBtn" data-renew-plan="${sub.plan}"
+                    style="background: white; color: #5a4bda; border: none; padding: 0.7rem 1.75rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;">
+                    تجديد الاشتراك الحالي
+                </button>
             </div>
         `;
 
+        const renewButton = document.getElementById('renewSubscriptionBtn');
         if (renewButton) {
-            renewButton.style.display = 'inline-block';
-            renewButton.dataset.renewPlan = sub.plan;
+            renewButton.addEventListener('click', handleRenew);
         }
+
+        updatePlanButtonsState(sub.plan);
     } else {
         statusContainer.innerHTML = `
             <div style="background: #f0f0f0; color: #333; padding: 2rem; border-radius: 1rem; margin-bottom: 2rem; text-align: center;">
@@ -210,10 +216,25 @@ function updateSubscriptionDisplay() {
             </div>
         `;
 
-        if (renewButton) {
-            renewButton.style.display = 'none';
-        }
+        updatePlanButtonsState(null);
     }
+}
+
+/* ==================== Plan button state (اشترك الآن / مشترك بالفعل) ==================== */
+function updatePlanButtonsState(activePlan) {
+    document.querySelectorAll('[data-plan-btn]').forEach(function (btn) {
+        const isActivePlan = activePlan && btn.dataset.planBtn === activePlan;
+
+        if (isActivePlan) {
+            btn.textContent = 'مشترك بالفعل';
+            btn.disabled = true;
+            btn.classList.add('btn-subscribed');
+        } else {
+            btn.textContent = 'اشترك الآن';
+            btn.disabled = false;
+            btn.classList.remove('btn-subscribed');
+        }
+    });
 }
 
 /* ==================== Plan subscribe buttons ==================== */
@@ -223,11 +244,6 @@ function initPlanButtons() {
             handleSubscribe(btn.dataset.planBtn, btn);
         });
     });
-
-    const renewBtn = document.getElementById('renewSubscriptionBtn');
-    if (renewBtn) {
-        renewBtn.addEventListener('click', handleRenew);
-    }
 }
 
 async function handleSubscribe(plan, buttonEl) {
@@ -297,7 +313,7 @@ async function handleRenew() {
         alert('حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.');
     } finally {
         if (renewBtn) {
-            renewBtn.textContent = originalText || 'تجديد الاشتراك';
+            renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي';
             renewBtn.disabled = false;
         }
     }
