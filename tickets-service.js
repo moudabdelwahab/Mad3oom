@@ -45,7 +45,7 @@ export async function fetchUserTickets(filters = {}) {
 
     let query = supabase
         .from('tickets')
-        .select('*, profiles(full_name, email, role)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, role)')
         .order('created_at', { ascending: false });
 
     // إذا كان المستخدم عميلاً (أو لا يوجد بروفايل بعد)، نفلتر التذاكر الخاصة به فقط
