@@ -399,12 +399,22 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
     }
 
     // تحديث حالة التذكرة إلى 'in-progress' إذا كانت 'open' والرد من الأدمن
+    //
+    // ملاحظة: كان هذا التحديث بيتم من غير أي فحص لقيمة error، فكان أي فشل
+    // (زي عدم تطابق القيمة مع CHECK constraint، أو رفض RLS بصمت) بيمر من
+    // غير ما حد يلاحظه — ولا تذكرة وحدة فعليًا كانت بتوصل لحالة "قيد
+    // المعالجة" نتيجة كده. دلوقتي بنسجل أي فشل في الـ console على الأقل
+    // (من غير ما نكسر إرسال الرد نفسه، لإن الرد اتبعت بنجاح بالفعل).
     if (ticket && ticket.user_id !== user.id) {
-        await supabase
+        const { error: statusUpdateError } = await supabase
             .from('tickets')
             .update({ status: 'in-progress' })
             .eq('id', ticketId)
             .eq('status', 'open');
+
+        if (statusUpdateError) {
+            console.error('Failed to auto-transition ticket to in-progress:', statusUpdateError);
+        }
     }
     
     await logActivity('ticket_reply', { ticket_id: ticketId, is_internal: isInternal });
