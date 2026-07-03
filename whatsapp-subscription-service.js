@@ -536,6 +536,17 @@ export async function activateSubscription(subscriptionId) {
  * super_user لخطط 'support' و'bundle'، وبتبلّغ العميل. Plan-specific
  * entitlement logic لسه موجودة هنا في مكان واحد عشان لو زودنا خطط تانية
  * بعدين يبقى سهل نتحكم فيها.
+ *
+ * حراسة الأمان (idempotency):
+ *   - لو مفيش صف في whatsapp_subscriptions مرتبط بالـ ticket_id ده، العملية
+ *     بتتوقف فورًا وبترجع error واضح — والتذكرة نفسها ما بتتلمسش (تفضل
+ *     زي ما هي، مش confirmed).
+ *   - التفعيل بيحصل فقط لو حالة الاشتراك كانت 'pending' وقت التنفيذ. الـ
+ *     update بيتعمل بشرط .eq('status', 'pending') في نفس الاستعلام، فلو
+ *     الدالة اتنادت مرتين (أو نودّي عليها بالغلط) على نفس التذكرة، المرة
+ *     التانية مش هتلاقي صف يطابق الشرط (لإن الحالة بقت active بالفعل)،
+ *     فمش هتعمل ولا ترقية رتبة ولا تفعيل واتساب ولا إشعار تاني، وهترجع
+ *     error واضح بدل ما تكرر التفعيل بصمت.
  * @param {string} ticketId
  * @returns {Promise<Object>}
  */
@@ -551,30 +562,49 @@ export async function confirmPurchaseTicket(ticketId) {
 
         if (fetchError) throw fetchError;
 
-        if (subscription) {
-            const { error: subUpdateError } = await supabase
-                .from('whatsapp_subscriptions')
-                .update({
-                    status: 'active',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', subscription.id);
+        if (!subscription) {
+            console.error('confirmPurchaseTicket: no whatsapp_subscriptions row linked to ticket', ticketId);
+            return {
+                success: false,
+                error: 'لا يوجد سجل اشتراك مرتبط بهذه التذكرة (whatsapp_subscriptions). لم يتم تأكيد التذكرة.'
+            };
+        }
 
-            if (subUpdateError) throw subUpdateError;
+        // تحديث مشروط بحالة 'pending' حاليًا فقط — لو الصف مش pending دلوقتي
+        // (اتأكد قبل كده، أو مرفوض، أو منتهي)، الشرط مش هيطابق أي صف والـ
+        // update هيرجع بدون صفوف.
+        const { data: updatedSubscription, error: subUpdateError } = await supabase
+            .from('whatsapp_subscriptions')
+            .update({
+                status: 'active',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', subscription.id)
+            .eq('status', 'pending')
+            .select()
+            .maybeSingle();
 
-            // Only plans that include WhatsApp access should flip this flag
-            if (subscription.plan === 'whatsapp' || subscription.plan === 'bundle') {
-                await supabase
-                    .from('profiles')
-                    .update({ whatsapp_enabled: true })
-                    .eq('id', subscription.user_id);
-            }
+        if (subUpdateError) throw subUpdateError;
 
-            // خطط الدعم الفني/الباقة بس هي اللي بترقّي العميل لـ super_user.
-            // خطة واتساب لوحدها ما بتغيرش الرتبة، تفضل user زي ما هي.
-            if (SUPER_USER_PLANS.includes(subscription.plan)) {
-                await upgradeToSuperUserIfEligible(subscription.user_id);
-            }
+        if (!updatedSubscription) {
+            return {
+                success: false,
+                error: `لا يمكن تأكيد هذا الاشتراك لأن حالته الحالية "${subscription.status}" وليست "pending". لم يتم تنفيذ أي تعديل (لا على الرتبة ولا على التذكرة) لتفادي تكرار التفعيل.`
+            };
+        }
+
+        // Only plans that include WhatsApp access should flip this flag
+        if (updatedSubscription.plan === 'whatsapp' || updatedSubscription.plan === 'bundle') {
+            await supabase
+                .from('profiles')
+                .update({ whatsapp_enabled: true })
+                .eq('id', updatedSubscription.user_id);
+        }
+
+        // خطط الدعم الفني/الباقة بس هي اللي بترقّي العميل لـ super_user.
+        // خطة واتساب لوحدها ما بتغيرش الرتبة، تفضل user زي ما هي.
+        if (SUPER_USER_PLANS.includes(updatedSubscription.plan)) {
+            await upgradeToSuperUserIfEligible(updatedSubscription.user_id);
         }
 
         const { error: ticketUpdateError } = await supabase
@@ -586,17 +616,15 @@ export async function confirmPurchaseTicket(ticketId) {
 
         // إشعار العميل بتفعيل اشتراكه — كان مفقود قبل كده، فالعميل ماكانش
         // بيعرف إن طلبه اتأكد غير لو دخل يتابع الصفحة بنفسه.
-        if (subscription) {
-            const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
-            const billingLabel = BILLING_LABELS[subscription.billing_cycle] || subscription.billing_cycle;
-            await createNotification({
-                userId: subscription.user_id,
-                title: '✓ تم تفعيل اشتراكك',
-                message: `تم تأكيد وتفعيل اشتراكك في خطة "${planLabel}" (${billingLabel}).`,
-                type: 'success',
-                link: '/customer-subscriptions.html'
-            });
-        }
+        const planLabel = PLAN_LABELS[updatedSubscription.plan] || updatedSubscription.plan;
+        const billingLabel = BILLING_LABELS[updatedSubscription.billing_cycle] || updatedSubscription.billing_cycle;
+        await createNotification({
+            userId: updatedSubscription.user_id,
+            title: '✓ تم تفعيل اشتراكك',
+            message: `تم تأكيد وتفعيل اشتراكك في خطة "${planLabel}" (${billingLabel}).`,
+            type: 'success',
+            link: '/customer-subscriptions.html'
+        });
 
         return { success: true };
     } catch (error) {
