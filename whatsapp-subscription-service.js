@@ -17,9 +17,17 @@
  * price IDs, no payment links). It only creates a subscription *request*
  * (a ticket + a pending row). Activation happens later via
  * confirmPurchaseTicket() (admin side), once a payment provider is wired up.
+ *
+ * ملاحظة (تحديث): انتهاء الاشتراكات (end_date فات) بقى بيتم تلقائيًا كل ساعة
+ * عبر Postgres function مجدولة بـ pg_cron اسمها expire_stale_subscriptions()
+ * (شوف migration: auto_expire_subscriptions_scheduled_job). الدالة دي بتحول
+ * الحالة لـ 'expired' وتقفل profiles.whatsapp_enabled تلقائيًا لو مفيش
+ * اشتراك واتساب/باقة نشط تاني للعميل، وتبعت إشعار له. expireSubscription()
+ * هنا اتسابت كمان كإجراء يدوي احتياطي من لوحة الإدارة، وبتعمل نفس المنطق.
  */
 
 import { supabase } from '/api-config.js';
+import { createNotification } from '/notifications-service.js';
 
 export const PLANS = ['support', 'whatsapp', 'bundle'];
 export const BILLING_CYCLES = ['monthly', 'yearly'];
@@ -45,6 +53,33 @@ function assertValidBillingCycle(billingCycle) {
     if (!BILLING_CYCLES.includes(billingCycle)) {
         throw new Error(`Invalid billing cycle: ${billingCycle}. Expected one of: ${BILLING_CYCLES.join(', ')}`);
     }
+}
+
+/**
+ * هل عند المستخدم دا اشتراك واتساب/باقة نشط تاني (غير الاشتراك المحدد)؟
+ * تُستخدم قبل قفل profiles.whatsapp_enabled عشان منقفلش وصول عميل عنده
+ * أكتر من اشتراك نشط (نادر، بس ممكن يحصل لو جدد قبل انتهاء القديم).
+ */
+async function hasOtherActiveWhatsappAccess(userId, excludeSubscriptionId) {
+    const now = new Date().toISOString();
+    let query = supabase
+        .from('whatsapp_subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .in('plan', ['whatsapp', 'bundle'])
+        .gt('end_date', now);
+
+    if (excludeSubscriptionId) {
+        query = query.neq('id', excludeSubscriptionId);
+    }
+
+    const { data, error } = await query.limit(1);
+    if (error) {
+        console.error('Error checking other active whatsapp access:', error);
+        return true; // في حالة الشك، منقفلش الوصول تفاديًا لأي أثر جانبي
+    }
+    return !!(data && data.length > 0);
 }
 
 /**
@@ -299,7 +334,10 @@ export async function subscribeToSubscriptionUpdates(callback) {
 /* ==================== Admin functions ==================== */
 
 /**
- * Mark a subscription as expired (admin function).
+ * Mark a subscription as expired (admin function - إجراء يدوي احتياطي).
+ * الانتهاء التلقائي بقى بيتم كل ساعة عبر public.expire_stale_subscriptions()
+ * المجدولة بـ pg_cron، فالدالة دي غالبًا مش هتتحتاج غير لو الأدمن عايز
+ * ينهي اشتراك يدويًا قبل معاده الطبيعي.
  */
 export async function expireSubscription(subscriptionId) {
     try {
@@ -311,6 +349,28 @@ export async function expireSubscription(subscriptionId) {
             .single();
 
         if (error) throw error;
+
+        // قفل whatsapp_enabled بس لو مفيش اشتراك واتساب/باقة نشط تاني للعميل
+        if (subscription && (subscription.plan === 'whatsapp' || subscription.plan === 'bundle')) {
+            const stillHasAccess = await hasOtherActiveWhatsappAccess(subscription.user_id, subscription.id);
+            if (!stillHasAccess) {
+                await supabase
+                    .from('profiles')
+                    .update({ whatsapp_enabled: false })
+                    .eq('id', subscription.user_id);
+            }
+        }
+
+        if (subscription) {
+            await createNotification({
+                userId: subscription.user_id,
+                title: 'انتهى اشتراكك',
+                message: `انتهت صلاحية اشتراكك (${PLAN_LABELS[subscription.plan] || subscription.plan}). يمكنك التجديد من صفحة الاشتراكات.`,
+                type: 'warning',
+                link: '/customer-subscriptions.html'
+            });
+        }
+
         return subscription;
     } catch (error) {
         console.error('Error expiring subscription:', error);
@@ -340,9 +400,10 @@ export async function activateSubscription(subscriptionId) {
 
 /**
  * Confirm a subscription request ticket: activates the subscription and the
- * ticket, and flips profiles.whatsapp_enabled on for plans that include
- * WhatsApp access ('whatsapp' and 'bundle'). Plan-specific entitlement logic
- * lives here so it stays in one place as more plans are added later.
+ * ticket, flips profiles.whatsapp_enabled on for plans that include
+ * WhatsApp access ('whatsapp' and 'bundle'), and notifies the customer.
+ * Plan-specific entitlement logic lives here so it stays in one place as
+ * more plans are added later.
  * @param {string} ticketId
  * @returns {Promise<Object>}
  */
@@ -385,6 +446,20 @@ export async function confirmPurchaseTicket(ticketId) {
 
         if (ticketUpdateError) throw ticketUpdateError;
 
+        // إشعار العميل بتفعيل اشتراكه — كان مفقود قبل كده، فالعميل ماكانش
+        // بيعرف إن طلبه اتأكد غير لو دخل يتابع الصفحة بنفسه.
+        if (subscription) {
+            const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
+            const billingLabel = BILLING_LABELS[subscription.billing_cycle] || subscription.billing_cycle;
+            await createNotification({
+                userId: subscription.user_id,
+                title: '✓ تم تفعيل اشتراكك',
+                message: `تم تأكيد وتفعيل اشتراكك في خطة "${planLabel}" (${billingLabel}).`,
+                type: 'success',
+                link: '/customer-subscriptions.html'
+            });
+        }
+
         return { success: true };
     } catch (error) {
         console.error('Error confirming purchase ticket:', error);
@@ -409,10 +484,36 @@ export async function rejectPurchaseTicket(ticketId, reason = '') {
 
         if (updateTicketError) throw updateTicketError;
 
-        await supabase
+        // نجيب الاشتراك المرتبط بالتذكرة عشان نبعت إشعار مضبوط ونحفظ السبب معاه
+        // (كان السبب بيتاخد من الأدمن في نافذة الرفض وبعدين بيتفقد لإن مفيش
+        // عمود يخزنه أصلاً — rejection_reason اتضاف دلوقتي).
+        const { data: subscription, error: subUpdateError } = await supabase
             .from('whatsapp_subscriptions')
-            .update({ status: 'rejected' })
-            .eq('ticket_id', ticketId);
+            .update({
+                status: 'rejected',
+                rejection_reason: reason || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('ticket_id', ticketId)
+            .select()
+            .maybeSingle();
+
+        if (subUpdateError) {
+            console.error('Failed to update subscription on rejection:', subUpdateError);
+        }
+
+        if (subscription) {
+            const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
+            await createNotification({
+                userId: subscription.user_id,
+                title: 'تم رفض طلب اشتراكك',
+                message: reason
+                    ? `تم رفض طلب اشتراكك في خطة "${planLabel}". السبب: ${reason}`
+                    : `تم رفض طلب اشتراكك في خطة "${planLabel}". تواصل مع الدعم لمزيد من التفاصيل.`,
+                type: 'error',
+                link: '/customer-subscriptions.html'
+            });
+        }
 
         return { success: true };
     } catch (error) {
