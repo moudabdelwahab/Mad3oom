@@ -63,9 +63,15 @@ async function init() {
 }
 
 async function loadTickets() {
+    // ملاحظة: جدول tickets فيه أكتر من foreign key بيربطه بجدول profiles
+    // (tickets_user_profile_fk عبر user_id، وtickets_assigned_to_fkey عبر
+    // assigned_to)، فلازم نحدد صراحة أي علاقة نقصدها وإلا PostgREST هيرفض
+    // الطلب بالكامل (PGRST201: "more than one relationship was found")
+    // وده كان بيمنع ظهور أي تذاكر خالص في لوحة الأدمن. هنا إحنا عايزين
+    // بيانات صاحب التذكرة (العميل)، فنستخدم tickets_user_profile_fk.
     const { data: tickets, error } = await supabase
         .from('tickets')
-        .select('*, profiles(full_name, email)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email)')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -92,7 +98,7 @@ function updateStats() {
     document.getElementById('statOpen').textContent = stats.open;
     document.getElementById('statInProgress').textContent = stats.inProgress;
     document.getElementById('statResolved').textContent = stats.resolved;
-    
+
     // تحديث إحصائيات الشراء إذا كانت موجودة في الصفحة
     const confirmedStat = document.getElementById('statConfirmed');
     const rejectedStat = document.getElementById('statRejected');
@@ -123,7 +129,7 @@ function setupFilters() {
         // فلتر البحث
         const search = searchInput.value.trim().toLowerCase();
         if (search) {
-            filtered = filtered.filter(t => 
+            filtered = filtered.filter(t =>
                 t.title.toLowerCase().includes(search) ||
                 t.description.toLowerCase().includes(search) ||
                 t.profiles?.full_name?.toLowerCase().includes(search) ||
@@ -142,7 +148,7 @@ function setupFilters() {
 
 function renderTickets(tickets) {
     const grid = document.getElementById('ticketsGrid');
-    
+
     if (!tickets || tickets.length === 0) {
         grid.innerHTML = `
             <div class="empty-state">
@@ -185,7 +191,7 @@ function renderTickets(tickets) {
             showAdminTicketInPanel(card.dataset.id);
         });
     });
-    
+
     // Auto-select the previously selected ticket if still present, otherwise the first one
     const toSelectId = (currentTicketId && tickets.some(t => t.id === currentTicketId)) ? currentTicketId : (tickets[0] && tickets[0].id);
     if (toSelectId) {
@@ -204,10 +210,10 @@ async function showAdminTicketInPanel(ticketId) {
     const panel = document.getElementById('adminTicketDetailsContent');
     if (!panel) return;
 
-    // جلب بيانات التذكرة
+    // جلب بيانات التذكرة (نفس ملاحظة تحديد الـ FK الصريح، انظر loadTickets)
     const { data: ticket, error } = await supabase
         .from('tickets')
-        .select('*, profiles(full_name, email, id)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, id)')
         .eq('id', ticketId)
         .single();
 
@@ -319,7 +325,7 @@ async function showAdminTicketInPanel(ticketId) {
                 alert('الرجاء كتابة رد قبل الإرسال');
                 return;
             }
-            
+
             try {
                 sendBtn.disabled = true;
                 sendBtn.textContent = 'جاري الإرسال...';
@@ -418,16 +424,16 @@ function renderPanelActions(ticket, subscription) {
 async function loadAdminRepliesInPanel(ticketId) {
     const list = document.getElementById('adminPanelRepliesList');
     if (!list) return;
-    
+
     list.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--color-text-secondary);">جاري تحميل الردود...</div>';
-    
+
     try {
         const replies = await fetchTicketReplies(ticketId);
         if (replies.length === 0) {
             list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">لا توجد ردود بعد</p>';
             return;
         }
-        
+
         list.innerHTML = replies.map(r => `
             <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.75rem;">
@@ -443,7 +449,7 @@ async function loadAdminRepliesInPanel(ticketId) {
     }
 }
 
-async function impersonateUser(id) { 
+async function impersonateUser(id) {
     if (!id) return alert('لا يمكن الدخول لحساب ضيف');
     const { data: targetUser } = await supabase.from('profiles').select('email').eq('id', id).single();
     const activityModule = await import('/activity-service.js');
@@ -458,10 +464,11 @@ async function openTicketModal(ticketId) {
     currentTicketId = ticketId;
     const modal = document.getElementById('ticketModal');
     if (!modal) return;
-    
+
+    // نفس ملاحظة تحديد الـ FK الصريح (انظر loadTickets)
     const { data: ticket, error } = await supabase
         .from('tickets')
-        .select('*, profiles(full_name, email)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email)')
         .eq('id', ticketId)
         .single();
 
@@ -476,7 +483,7 @@ async function openTicketModal(ticketId) {
     document.getElementById('modalTicketUser').innerText = ticket.profiles?.full_name || 'مستخدم';
     document.getElementById('modalTicketEmail').innerText = ticket.profiles?.email || '';
     document.getElementById('modalTicketDate').innerText = new Date(ticket.created_at).toLocaleString('ar-EG');
-    
+
     const statusEl = document.getElementById('modalTicketStatus');
     statusEl.innerText = STATUS_MAP[ticket.status] || ticket.status;
     statusEl.className = `detail-value status-badge status-${ticket.status}`;
@@ -517,7 +524,7 @@ async function loadReplies(ticketId) {
     const container = document.getElementById('ticketRepliesList');
     if (!container) return;
     container.innerHTML = '<div style="text-align:center; padding:1rem; color:#999;">جاري تحميل الردود...</div>';
-    
+
     try {
         const replies = await fetchTicketReplies(ticketId);
         if (!replies || replies.length === 0) {
@@ -529,7 +536,7 @@ async function loadReplies(ticketId) {
             const isAdmin = r.profiles?.role === 'admin';
             const typeClass = r.is_internal ? 'reply-internal' : (isAdmin ? 'reply-admin' : 'reply-user');
             const typeLabel = r.is_internal ? '<span class="internal-tag">ملاحظة داخلية</span>' : '';
-            
+
             return `
                 <div class="reply-item ${typeClass}">
                     <div class="reply-header">
@@ -569,9 +576,9 @@ function showCloseModal() {
 
 async function closeTicket() {
     if (!currentTicketId) return;
-    
+
     const comment = document.getElementById('closeTicketComment').value.trim();
-    
+
     try {
         await closeTicketWithComment(currentTicketId, comment);
         document.getElementById('closeTicketModal').style.display = 'none';
