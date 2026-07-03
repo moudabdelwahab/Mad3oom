@@ -96,6 +96,23 @@ export async function createSubscriptionTicket(plan, billingCycle) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('User not authenticated');
 
+        // منع إنشاء طلب اشتراك جديد لنفس الخطة لو فيه طلب pending لسه ماتراجعش
+        // (فيه كمان partial unique index على الداتابيز كخط دفاع ثاني، لكن
+        // الفحص هنا بيدّي رسالة عربية واضحة بدل ما يظهر خطأ قاعدة بيانات خام).
+        const { data: existingPending, error: pendingCheckError } = await supabase
+            .from('whatsapp_subscriptions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('plan', plan)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (pendingCheckError) throw pendingCheckError;
+
+        if (existingPending) {
+            throw new Error(`عندك بالفعل طلب اشتراك في خطة "${PLAN_LABELS[plan]}" قيد المراجعة. انتظر رد فريق الدعم قبل إرسال طلب جديد.`);
+        }
+
         const startDate = new Date();
         const endDate = new Date();
         if (billingCycle === 'monthly') {
