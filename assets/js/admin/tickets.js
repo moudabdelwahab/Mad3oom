@@ -377,6 +377,7 @@ function renderPanelActions(ticket, subscription) {
             container.innerHTML = `
                 <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: #D9534F; font-weight: 700;">
                     ✗ تم رفض هذا الاشتراك
+                    ${subscription.rejection_reason ? `<div style="margin-top:0.5rem; font-weight:400; font-size:0.85rem; color: var(--color-text-secondary);">السبب: ${escapeHtml(subscription.rejection_reason)}</div>` : ''}
                 </div>
             `;
         } else {
