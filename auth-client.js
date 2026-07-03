@@ -452,35 +452,61 @@ export async function logout() {
     // تعيين علامة لمنع إعادة التوجيه التلقائي فوراً بعد الخروج
     sessionStorage.setItem('just_logged_out', 'true');
 
-    // مسح جميع بيانات الجلسات المحلية فوراً
-    localStorage.removeItem('mad3oom-guest-session');
-    
-    // مسح أي بيانات أخرى قد تكون متعلقة بالجلسة (Supabase tokens)
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
-            keysToRemove.push(key);
+    /* =========================================================
+       ملاحظة مهمة على الترتيب:
+       =========================================================
+       لازم نستدعي supabase.auth.signOut() *قبل* ما نمسح مفاتيح
+       sb-* من localStorage. لو مسحنا التوكنات الأول، مكتبة
+       supabase-js بتفقد مرجع الجلسة الحالية ومن الممكن ترمي
+       استثناء (AuthSessionMissingError) لأنها مش لاقية جلسة
+       تشتغل عليها. لو ده حصل من غير try/catch، الدالة كلها كانت
+       بتوقف فجأة وترجع الاستثناء لفوق، وده كان بيمنع الكود اللي
+       في customer-dashboard.js من الوصول لسطر إعادة التوجيه
+       (window.location.replace('login.html')) — فيفضل المستخدم
+       واقف على نفس صفحة الداشبورد وكأنه "رجع اتسجل دخول لوحده".
+
+       الحل: signOut الأول، ومسح التخزين المحلي بعده كإجراء
+       احتياطي إضافي، والكل داخل try/catch/finally عشان أي فشل
+       في أي خطوة ميوقفش باقي عملية التنظيف.
+    ========================================================= */
+
+    let signOutError = null;
+    try {
+        // scope: 'global' يلغي الـ refresh token من على سيرفر Supabase نفسه
+        // (مش بس محلياً)، فمنع أي تاب/جهاز تاني فيه نفس التوكن من عمل
+        // refresh session بعد الخروج
+        const { error } = await supabase.auth.signOut({ scope: 'global' });
+        signOutError = error;
+    } catch (err) {
+        console.error('supabase.auth.signOut threw an exception:', err);
+        signOutError = err;
+    } finally {
+        // مسح جميع بيانات الجلسات المحلية — بيحصل دايماً حتى لو signOut
+        // فشلت أو رمت استثناء، عشان نضمن عدم بقاء أي أثر للجلسة القديمة
+        localStorage.removeItem('mad3oom-guest-session');
+
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
+                keysToRemove.push(key);
+            }
         }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
+        keysToRemove.forEach(key => localStorage.removeItem(key));
 
-    // مسح أي نسخة مخزنة من التوكن في sessionStorage أيضاً (بعض المتصفحات/الإضافات
-    // قد تحتفظ بنسخة هناك، ومسحها يمنع أي "استرجاع" غير متوقع للجلسة)
-    const sessionKeysToRemove = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
-            sessionKeysToRemove.push(key);
+        // مسح أي نسخة مخزنة من التوكن في sessionStorage أيضاً (بعض المتصفحات/الإضافات
+        // قد تحتفظ بنسخة هناك، ومسحها يمنع أي "استرجاع" غير متوقع للجلسة)
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && (key.includes('supabase.auth.token') || key.includes('sb-'))) {
+                sessionKeysToRemove.push(key);
+            }
         }
+        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
     }
-    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
 
-    // scope: 'global' يلغي الـ refresh token من على سيرفر Supabase نفسه (مش بس محلياً)،
-    // فمنع أي تاب/جهاز تاني فيه نفس التوكن من عمل refresh session بعد الخروج
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
-
-    return { error };
+    return { error: signOutError };
 }
 
 /* =========================================================
