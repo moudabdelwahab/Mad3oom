@@ -501,6 +501,21 @@ body {
     transform: none;
 }
 
+.btn-subscribed,
+.btn-subscribed:disabled {
+    background: var(--color-success);
+    color: #FFFFFF;
+    opacity: 1;
+    cursor: default;
+    transform: none;
+}
+
+.btn-subscribed:hover {
+    background: var(--color-success);
+    transform: none;
+    box-shadow: none;
+}
+
 .btn-secondary {
     background: transparent;
     color: var(--color-text);
