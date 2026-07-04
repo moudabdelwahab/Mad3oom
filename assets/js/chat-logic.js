@@ -1,7 +1,7 @@
 import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 
-console.log("CHAT LOGIC VERSION 5.0 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU");
+console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
 
 /**
  * تنقية أي نص قادم من المستخدم (رسائل الشات، الأسماء...) قبل حقنه داخل innerHTML
@@ -74,6 +74,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let mediaRecorder = null;
     let audioChunks = [];
+
+    // اسم الـ Storage bucket المستخدم لحفظ صور المشاكل المرفقة من العميل.
+    // لازم يكون موجود في Supabase مع policy تسمح للعميل يرفع في مجلده الخاص
+    // (المسار بيبدأ بـ user.id) وتسمح بقراءة عامة للملفات عشان تُعرض في الشات ولوحة الأدمن.
+    const CHAT_ATTACHMENTS_BUCKET = 'chat-attachments';
+
+    // Input مخفي لاختيار صورة المشكلة (يُستخدم مع زرار "إرفاق صورة" في IMAGE_STEP_OPTIONS)
+    let hiddenImageInput = null;
 
     // State
     let currentUser = null;
@@ -261,6 +269,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.onclick = () => {
                 // تعطيل كل الأزرار فورًا عشان العميل مايضغطش مرتين
                 wrap.querySelectorAll('button').forEach(b => b.disabled = true);
+
+                // زرار "إرفاق صورة" خاص: لازم يفتح نافذة اختيار ملف حقيقية
+                // ويرفعها، مش يبعت قيمته كنص عادي في الشات.
+                if (opt.value === '__attach_image__') {
+                    openImagePicker(wrap);
+                    return;
+                }
+
                 sendCustomerMessage(opt.value);
             };
             wrap.appendChild(btn);
@@ -268,6 +284,92 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         chatMessages.appendChild(wrap);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // ===== إرفاق صورة المشكلة (تكميل الفيتشر) =====
+    function ensureImageInput() {
+        if (hiddenImageInput) return hiddenImageInput;
+        hiddenImageInput = document.createElement('input');
+        hiddenImageInput.type = 'file';
+        hiddenImageInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
+        hiddenImageInput.style.display = 'none';
+        document.body.appendChild(hiddenImageInput);
+        return hiddenImageInput;
+    }
+
+    function openImagePicker(optionsWrapEl) {
+        const input = ensureImageInput();
+        input.value = ''; // يسمح باختيار نفس الملف تاني لو حصل إلغاء قبل كده
+
+        input.onchange = async (e) => {
+            const file = e.target.files && e.target.files[0];
+
+            // العميل فتح نافذة اختيار الملف وقفلها من غير ما يختار صورة
+            if (!file) {
+                renderQuickOptions(getOptionsForFlow('awaiting_problem_image'));
+                return;
+            }
+
+            await handleImageSelected(file);
+        };
+
+        input.click();
+    }
+
+    async function handleImageSelected(file) {
+        const typingIndicator = document.getElementById('typingIndicator');
+        const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+        if (file.size > MAX_SIZE_BYTES) {
+            await appendBotOnlyMessage('الصورة كبيرة عن الحد المسموح (5 ميجا)، جرب صورة أصغر أو دوس "تخطي وإنشاء التذكرة".');
+            renderQuickOptions(getOptionsForFlow('awaiting_problem_image'));
+            return;
+        }
+
+        try {
+            if (typingIndicator) typingIndicator.style.display = 'block';
+
+            const safeExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+            const filePath = `${currentUser.id}/${currentSessionId}-${Date.now()}.${safeExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from(CHAT_ATTACHMENTS_BUCKET)
+                .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+
+            let imageUrl = null;
+            if (uploadError) {
+                console.error('خطأ في رفع صورة المشكلة:', uploadError);
+            } else {
+                const { data: publicData } = supabase.storage
+                    .from(CHAT_ATTACHMENTS_BUCKET)
+                    .getPublicUrl(filePath);
+                imageUrl = publicData?.publicUrl || null;
+            }
+
+            if (!imageUrl) {
+                // فشل الرفع: نكمل إنشاء التذكرة من غير صورة زي ما بيحصل مع "تخطي"،
+                // مع إعلام العميل بالسبب (الرسالة دي كانت جاهزة في المحرك ومش مستخدمة).
+                await appendBotOnlyMessage('حصل خطأ في رفع الصورة، التذكرة هتتفتح من غيرها، تقدر تبعتها بعدين لفريق الدعم مباشرة.');
+                await sendCustomerMessage('تخطي');
+                return;
+            }
+
+            await sendCustomerMessage('تم إرفاق صورة المشكلة', { imageUrl });
+        } finally {
+            if (typingIndicator) typingIndicator.style.display = 'none';
+        }
+    }
+
+    // رسالة بوت مباشرة في الشات من غير ما تعتبر رسالة عميل وتُبعت للمحرك
+    async function appendBotOnlyMessage(text) {
+        if (!currentSessionId) return;
+        await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            sender_id: null,
+            message_text: text,
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
     }
 
     // ===== INITIAL GREETING (أول ما العميل يفتح الشات) =====
@@ -299,9 +401,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
         const text = msg.message_text || '';
 
+        // لو الرسالة فيها صورة مرفقة (image_url)، نعرضها فوق النص بأمان
+        const safeImageUrl = sanitizeUrl(msg.image_url);
+        const imgHtml = safeImageUrl
+            ? `<img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:block;margin-bottom:0.4rem;">`
+            : '';
+
         const messageEl = document.createElement('div');
         messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
         messageEl.innerHTML = `
+            ${imgHtml}
             <span>${escapeHtml(text)}</span>
             <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}</div>
         `;
@@ -335,7 +444,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== SEND CUSTOMER MESSAGE =====
     // presetText: لو موجودة (جاية من ضغطة على زرار اختيار)، بتتبعت بدل قراءة قيمة الإنبوت
-    async function sendCustomerMessage(presetText) {
+    // extra.imageUrl: رابط صورة مرفقة حقيقي (بعد رفعها لـ Storage) بيتحفظ مع الرسالة
+    //                 وبيتمرر لمحرك البوت عشان يربطه بالتذكرة.
+    async function sendCustomerMessage(presetText, extra = {}) {
+        const { imageUrl } = extra;
         const chatInput = document.getElementById('chatInput');
         const text = (presetText !== undefined ? presetText : chatInput?.value || '').trim();
         if (!text || !currentSessionId || !currentUser) return;
@@ -344,13 +456,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearQuickOptions();
         const typingIndicator = document.getElementById('typingIndicator');
 
-        // 1. حفظ رسالة المستخدم في قاعدة البيانات
-        const { error: sendError } = await supabase.from('chat_messages').insert({
+        // 1. حفظ رسالة المستخدم في قاعدة البيانات (مع رابط الصورة لو موجود)
+        const userMessagePayload = {
             session_id: currentSessionId,
             sender_id: currentUser.id,
             message_text: text,
             is_admin_reply: false
-        });
+        };
+        if (imageUrl) userMessagePayload.image_url = imageUrl;
+
+        const { error: sendError } = await supabase.from('chat_messages').insert(userMessagePayload);
 
         if (sendError) {
             console.error('خطأ في إرسال الرسالة:', sendError);
@@ -382,7 +497,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sessionId: currentSessionId,
                 userId: currentUser.id,
                 botState: freshSession?.bot_state || {},
-                botSettings
+                botSettings,
+                imageUrl
             });
 
             await supabase.from('chat_messages').insert({
@@ -577,10 +693,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isOwn = msg.is_admin_reply;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
+        // لو رسالة العميل فيها صورة مرفقة، نعرضها للأدمن كمان في نفس الفقاعة
+        const safeImageUrl = sanitizeUrl(msg.image_url);
+        const imgHtml = safeImageUrl
+            ? `<img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:block;margin-bottom:0.4rem;">`
+            : '';
+
         const group = document.createElement('div');
         group.className = `message-group ${isOwn ? 'sent' : 'received'}`;
         group.innerHTML = `
             <div class="message-bubble ${isOwn ? 'sent' : 'received'}">
+                ${imgHtml}
                 <div>${escapeHtml(msg.message_text)}</div>
                 <div class="message-time">${time}</div>
             </div>
