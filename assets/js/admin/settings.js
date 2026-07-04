@@ -2,7 +2,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { logActivity } from '/activity-service.js';
-
+import * as apiIntegrations from './api-integrations.js';
 let user = null;
 let currentSettings = {};
 let allRoles = [];
