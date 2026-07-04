@@ -1,43 +1,25 @@
 /**
- * chatbot-engine.js (v3)
+ * chatbot-engine.js (v5)
  * ------------------------------------------------------------
  * محرك رد آلي محلي 100% (من غير أي اتصال بموديل ذكاء اصطناعي خارجي).
  *
- * التحديثات في النسخة دي:
- * 1) قائمة اختيارات رئيسية (📝 استفسار / 🛠️ مشكلة) بتتعرض كأزرار تحت رسالة
- *    البوت، وبرضه العميل يقدر يكتبها بإيده في أي وقت.
- * 2) فلو "استفسار": العميل يكتب سؤاله بحرية، والبوت يحاول يتعرف عليه من
- *    مواضيع معروفة عنده (اشتراكات/أسعار/حالة تذكرة/حالة اشتراك/معلومات عن
- *    المنصة...). لو الموضوع معروف بيرد على طول. لو مش عارف الموضوع خالص،
- *    بيطلب بيانات تواصل ويفتح "تذكرة استفسار" (ticket_type = inquiry).
- * 3) فلو "مشكلة": خطوة واحدة بس (وصف المشكلة) وبعدها بيفتح "تذكرة مشكلة"
- *    (ticket_type = problem).
- * 4) فهم أوسع للعامية: تطبيع أشمل + تجميع الحروف المكررة + مرادفات لهجات
- *    مختلفة (مصري/خليجي/شامي) + مصطلحات إنجليزي مختلطة.
+ * الجديد في النسخة دي:
+ * 1) فهم أوسع للكلام: تسامح مع الأخطاء الإملائية البسيطة (Levenshtein على
+ *    مستوى الكلمة) + مرادفات ولهجات أكتر (مصري/خليجي/شامي) + تجاهل ترتيب
+ *    الكلمات في العبارات القصيرة، عشان البوت "يفهم" صياغات أكتر من غير ما
+ *    يحتاج نفس الكلمة بالظبط.
+ * 2) أيقونات SVG بدل الإيموجي التقليدي: النصوص هنا بتستخدم رموز زي
+ *    [[icon:ticket]] بدل 🎫، وده بيتحول لأيقونة SVG حقيقية في واجهة الشات
+ *    عن طريق chat-icons.js (iconize). لو الواجهة مبعتلوش، الرمز هيتشال
+ *    تلقائيًا من غير ما يبوّظ العرض.
  *
- * ⚠️ ملحوظة مهمة عن "نسبة التأكد":
- * البوت ده rule-based (كلمات مفتاحية) مش موديل ذكاء اصطناعي حقيقي، فمفيش
- * نسبة ثقة حسابية زي الموديلات. اللي بيحصل عمليًا: لو الرسالة اتطابقت مع
- * أي موضوع من المواضيع المعروفة عند البوت (detectKnownTopic) بيُعتبر
- * "متأكد" ويرد على طول. لو مفيش تطابق مع أي موضوع معروف خالص، بيُعتبر "مش
- * متأكد" ويحوّل العميل لفلو جمع بيانات التواصل وفتح تذكرة استفسار.
- *
- * أمان البيانات:
- * - كل استعلام بيتفلتر صراحةً بـ user_id بتاع صاحب الجلسة (دفاع إضافي فوق
- *   الـ RLS في قاعدة البيانات اللي أصلاً بيمنع أي عميل يشوف بيانات غيره).
- * - الوصول الكامل والتعديل محصور فعليًا على support@mad3oom.online و
- *   info@mad3oom.online على مستوى قاعدة البيانات نفسها (is_main_admin()).
- *
- * إزاي تضيف موديل لاحقًا (اختياري):
- *   فعّل bot_settings.ai_enabled، وفي مكان "MODEL_HOOK" تحت نادي الـ
- *   Edge Function بتاعتك وارجع ردها بدل رسالة الـ fallback المحلية.
+ * باقي المنطق (القائمة، فتح تذكرة مشكلة بخطواتها، فتح تذكرة استفسار،
+ * الأمان، الاستعلامات) زي ما هو من النسخة اللي فاتت.
  * ------------------------------------------------------------
  */
 
-// ===================== تطبيع النص العربي (للمطابقة فقط) =====================
+// ===================== أدوات المطابقة (تطبيع + فهم تقريبي) =====================
 function collapseRepeatedChars(text) {
-    // "تمااااام" -> "تمام" / "ايوهههه" -> "ايوه" .. بيسهّل مطابقة الكلمات
-    // اللي العميل بيكتبها بمط في الحروف من غير ما يأثر على الكلام العادي.
     return text.replace(/(.)\1{2,}/g, '$1');
 }
 
@@ -47,56 +29,109 @@ function normalizeArabic(text) {
     t = collapseRepeatedChars(t);
     t = t
         .replace(/[\u064B-\u065F\u0670]/g, '')   // إزالة التشكيل
+        .replace(/\u0640/g, '')                   // إزالة التطويل (ـــ)
         .replace(/[إأآا]/g, 'ا')
         .replace(/ى/g, 'ي')
         .replace(/ة/g, 'ه')
         .replace(/ؤ/g, 'و')
         .replace(/ئ/g, 'ي')
-        .replace(/[^\u0600-\u06FFa-z0-9\s]/g, ' ') // شيل علامات الترقيم
+        .replace(/[؟،؛٪]/g, ' ')
+        .replace(/[^\u0600-\u06FFa-z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     return t;
 }
 
+/** مسافة ليفنشتاين بسيطة لمقارنة كلمتين (لتحمّل الأخطاء الإملائية الصغيرة) */
+function levenshtein(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+        const cur = [i];
+        for (let j = 1; j <= b.length; j++) {
+            cur[j] = a[i - 1] === b[j - 1]
+                ? prev[j - 1]
+                : 1 + Math.min(prev[j - 1], prev[j], cur[j - 1]);
+        }
+        prev = cur;
+    }
+    return prev[b.length];
+}
+
+function fuzzyWordMatch(word, target) {
+    if (word === target) return true;
+    if (Math.abs(word.length - target.length) > 2) return false;
+    const threshold = target.length >= 7 ? 2 : 1;
+    return levenshtein(word, target) <= threshold;
+}
+
+/**
+ * بيتحقق لو نمط (كلمة أو عبارة قصيرة) موجود في النص، سواء بالتطابق
+ * الحرفي (الأسرع والأدق)، أو بتطابق تقريبي على مستوى الكلمة الواحدة، أو
+ * بوجود كل كلمات العبارة (تقريبيًا) في أي ترتيب للعبارات من كلمتين/تلاتة.
+ */
+function matchesPattern(normalizedText, rawPattern) {
+    const pattern = normalizeArabic(rawPattern);
+    if (!pattern) return false;
+    if (normalizedText.includes(pattern)) return true;
+
+    const patternWords = pattern.split(' ').filter(Boolean);
+    const textWords = normalizedText.split(' ').filter(Boolean);
+
+    if (patternWords.length === 1 && patternWords[0].length >= 4) {
+        return textWords.some(w => fuzzyWordMatch(w, patternWords[0]));
+    }
+    if (patternWords.length >= 2 && patternWords.length <= 3) {
+        return patternWords.every(pw =>
+            textWords.some(tw => tw === pw || tw.includes(pw) || pw.includes(tw) || fuzzyWordMatch(tw, pw))
+        );
+    }
+    return false;
+}
+
 function matchAny(normalizedText, patterns) {
-    return patterns.some(p => normalizedText.includes(normalizeArabic(p)));
+    return patterns.some(p => matchesPattern(normalizedText, p));
 }
 
 // ===================== قائمة الاختيارات الرئيسية =====================
 export const MAIN_MENU_OPTIONS = [
-    { label: '📝 عندي استفسار', value: 'عندي استفسار' },
-    { label: '🛠️ عندي مشكلة', value: 'عندي مشكلة' }
+    { label: '[[icon:inquiry]] عندي استفسار', value: 'عندي استفسار' },
+    { label: '[[icon:problem]] عندي مشكلة', value: 'عندي مشكلة' }
 ];
 
 export const CANCEL_OPTIONS = [
-    { label: '❌ إلغاء والرجوع للقائمة', value: 'الغاء' }
+    { label: '[[icon:cancel]] إلغاء والرجوع للقائمة', value: 'الغاء' }
 ];
 
-// أزرار "إيه نوع المشكلة؟" - أول خطوة في فلو فتح تذكرة مشكلة
 export const PROBLEM_CATEGORY_OPTIONS = [
-    { label: '📱 واتساب', value: 'واتساب' },
-    { label: '🎫 التذاكر', value: 'التذاكر' },
-    { label: '💳 الاشتراك', value: 'الاشتراك' },
-    { label: '🔑 تسجيل الدخول', value: 'تسجيل الدخول' },
-    { label: '❓ حاجة تانية', value: 'حاجة تانية' }
+    { label: '[[icon:whatsapp]] واتساب', value: 'واتساب' },
+    { label: '[[icon:ticket]] التذاكر', value: 'التذاكر' },
+    { label: '[[icon:subscription]] الاشتراك', value: 'الاشتراك' },
+    { label: '[[icon:login]] تسجيل الدخول', value: 'تسجيل الدخول' },
+    { label: '[[icon:other]] حاجة تانية', value: 'حاجة تانية' }
 ];
 
-// أزرار خطوة إرفاق الصورة (اختيارية) قبل إنشاء تذكرة المشكلة
 export const IMAGE_STEP_OPTIONS = [
-    { label: '📎 إرفاق صورة', value: '__attach_image__' },
-    { label: '⏭️ تخطي وإنشاء التذكرة', value: 'تخطي' }
+    { label: '[[icon:attach]] إرفاق صورة', value: '__attach_image__' },
+    { label: '[[icon:skip]] تخطي وإنشاء التذكرة', value: 'تخطي' }
 ];
 
-/**
- * تصنيف "نوع المشكلة" اللي اختاره العميل (سواء بالزرار أو بالكتابة الحرة)
- * لأقرب فئة معروفة، عشان تتخزن في عمود tickets.category بشكل موحّد يسهّل
- * فلترتها من لوحة الإدارة.
- */
+export function getOptionsForFlow(flow) {
+    if (flow === 'awaiting_problem_category') return PROBLEM_CATEGORY_OPTIONS;
+    if (flow === 'awaiting_problem_image') return IMAGE_STEP_OPTIONS;
+    if (flow === 'awaiting_inquiry_text' || flow === 'awaiting_contact_info' || flow === 'awaiting_problem_desc') {
+        return CANCEL_OPTIONS;
+    }
+    return MAIN_MENU_OPTIONS;
+}
+
 const CATEGORY_MAP = [
-    { slug: 'whatsapp', label: 'واتساب', patterns: ['واتساب', 'whatsapp', 'وتساب', 'واتس'] },
-    { slug: 'tickets', label: 'التذاكر', patterns: ['التذاكر', 'تذكره', 'تذاكر', 'ticket', 'تيكت'] },
-    { slug: 'subscription', label: 'الاشتراك', patterns: ['الاشتراك', 'اشتراك', 'باقه', 'subscription', 'فاتوره', 'الدفع'] },
-    { slug: 'login', label: 'تسجيل الدخول', patterns: ['تسجيل الدخول', 'دخول', 'لوجين', 'login', 'باسورد', 'كلمه السر', 'الحساب مقفول'] },
+    { slug: 'whatsapp', label: 'واتساب', patterns: ['واتساب', 'whatsapp', 'وتساب', 'واتس', 'الواتس', 'رقم الواتساب'] },
+    { slug: 'tickets', label: 'التذاكر', patterns: ['التذاكر', 'تذكره', 'تذاكر', 'ticket', 'تيكت', 'البلاغات', 'بلاغ'] },
+    { slug: 'subscription', label: 'الاشتراك', patterns: ['الاشتراك', 'اشتراك', 'باقه', 'subscription', 'فاتوره', 'الدفع', 'الفلوس اتخصمت'] },
+    { slug: 'login', label: 'تسجيل الدخول', patterns: ['تسجيل الدخول', 'دخول', 'لوجين', 'login', 'باسورد', 'كلمه السر', 'الحساب مقفول', 'نسيت الباسورد'] },
     { slug: 'other', label: 'حاجة تانية', patterns: ['حاجه تانيه', 'اخرى', 'غير ذلك', 'other'] }
 ];
 
@@ -109,123 +144,118 @@ function detectCategory(raw) {
     return { slug: 'other', label: fallbackLabel };
 }
 
-/**
- * بيرجع الأزرار المناسبة لعرضها حسب حالة الفلو الحالية (للاستخدام في الواجهة
- * لو حابب تعرض الأزرار بعد إعادة تحميل الصفحة من غير ما تبعت رسالة جديدة).
- */
-export function getOptionsForFlow(flow) {
-    if (flow === 'awaiting_problem_category') return PROBLEM_CATEGORY_OPTIONS;
-    if (flow === 'awaiting_problem_image') return IMAGE_STEP_OPTIONS;
-    if (flow === 'awaiting_inquiry_text' || flow === 'awaiting_contact_info' || flow === 'awaiting_problem_desc') {
-        return CANCEL_OPTIONS;
-    }
-    return MAIN_MENU_OPTIONS;
-}
-
-// ===================== الكلمات المفتاحية =====================
+// ===================== الكلمات المفتاحية (موسّعة) =====================
 const DEFAULT_GREETING_PATTERNS = [
     'مرحبا', 'اهلا', 'هاي', 'هلا', 'السلام عليكم', 'صباح الخير', 'مساء الخير',
     'ezayak', 'ezayek', 'hi', 'hello', 'هاى', 'ايه الاخبار', 'ازيك', 'عامل ايه',
-    'كيفك', 'شلونك', 'ايش اخبارك'
+    'كيفك', 'شلونك', 'ايش اخبارك', 'هلابيك', 'يعطيك العافيه صباحا', 'صباح النور',
+    'مساء النور', 'اخبارك ايه', 'ايه الاخبار يا معلم', 'تمام يا باشا'
 ];
 
 const THANKS_PATTERNS = [
     'شكرا', 'تسلم', 'مشكور', 'ربنا يخليك', 'thanks', 'thank you', 'يعطيك العافيه',
-    'متشكر', 'الله يعافيك', 'يسلمو', 'مرسي'
+    'متشكر', 'الله يعافيك', 'يسلمو', 'مرسي', 'تسلم ايدك', 'الله يكرمك', 'ثانكس'
 ];
 
 const CANCEL_PATTERNS = [
     'الغاء', 'كانسل', 'cancel', 'سيب', 'بطل', 'مش عايز', 'رجعني', 'رجوع',
-    'القائمه', 'الرئيسيه', 'رجعني للقائمه', 'back', 'menu'
+    'القائمه', 'الرئيسيه', 'رجعني للقائمه', 'back', 'menu', 'رجع تاني',
+    'وقف كده', 'خلاص بطل', 'مش محتاج كده'
 ];
 
 const MENU_INQUIRY_PATTERNS = [
-    'عندي استفسار', 'استفسار', 'سؤال', 'عايز اسال', 'حابب اسال', 'question', '1'
+    'عندي استفسار', 'استفسار', 'سؤال', 'عايز اسال', 'حابب اسال', 'question', '1',
+    'عندي سؤال', 'محتاج اسال', 'ممكن اسال', 'عايز افهم', 'حاب اعرف'
 ];
 
 const MENU_PROBLEM_PATTERNS = [
     'عندي مشكله', 'مشكله', 'عطل', 'مش شغال', 'بلاغ', 'شكوي', 'معطل', 'واقف',
     'مش عامل', 'مش بيشتغل', 'فيه خطا', 'في خطأ', 'error', 'bug', 'problem',
-    'issue', 'مش راضي يفتح', 'علق', 'هانج', 'بطئ', 'بطيء', 'مش بيرد', '2'
+    'issue', 'مش راضي يفتح', 'علق', 'هانج', 'بطئ', 'بطيء', 'مش بيرد', '2',
+    'حصلت مشكله', 'في عطل', 'واجهتني مشكله', 'عندي عطل', 'الموقع فاصل',
+    'مش قادر ادخل', 'مش عارف اعمل كذا', 'حصل ايه', 'خربان', 'مش شغاله'
 ];
 
-// نية الاستفسار عن تذكرة قائمة
 const TICKET_STATUS_PATTERNS = [
     'حاله تذكرتي', 'حالة تذكرتي', 'تذكرتي وصلت لفين', 'تذكرتي ايه', 'وصلت لفين',
     'اخر حاله', 'رقم تذكرتي', 'تذاكري', 'متابعه تذكره', 'تذكرتي اتحلت',
-    'ticket status', 'my ticket', 'تذكرتي فين', 'وصل البلاغ فين', 'تابعت البلاغ'
+    'ticket status', 'my ticket', 'تذكرتي فين', 'وصل البلاغ فين', 'تابعت البلاغ',
+    'فين تذكرتي', 'ايه اخبار تذكرتي', 'البلاغ بتاعي عامل ايه', 'اتحل البلاغ',
+    'حالة البلاغ'
 ];
 
-// نية الاستفسار عن الاشتراك
 const SUBSCRIPTION_STATUS_PATTERNS = [
     'اشتراكي', 'باقتي', 'خطتي ايه', 'اشتراكي هيخلص', 'امتي هيخلص', 'امتي ينتهي',
     'تاريخ الانتهاء', 'اشتراكي شغال', 'subscription status', 'متي ينتهي اشتراكي',
-    'باقتي هتخلص', 'خطتي هتخلص'
+    'باقتي هتخلص', 'خطتي هتخلص', 'فاضلي كام يوم', 'باقتي لسه شغاله',
+    'اشتراكي فعال', 'خطتي دلوقتي ايه'
 ];
 
 const PLATFORM_INFO_PATTERNS = [
     'مدعوم ايه', 'ايه هي مدعوم', 'المنصه دي ايه', 'بتقدموا ايه', 'الخدمات بتاعتكم',
-    'what is mad3oom', 'about platform', 'انتوا بتعملوا ايه', 'الموقع ده بيعمل ايه'
+    'what is mad3oom', 'about platform', 'انتوا بتعملوا ايه', 'الموقع ده بيعمل ايه',
+    'احكيلي عن المنصه', 'عايز اعرف عن الموقع', 'ايه هو مدعوم بالظبط'
 ];
 
 const PRICING_GENERAL_PATTERNS = [
     'اسعار', 'الاسعار', 'سعر', 'الخطط', 'الباقات', 'اشتراك', 'اشتراكات',
-    'فلوس', 'تكلفه', 'price', 'pricing', 'plan', 'plans', 'كام', 'بكام'
+    'فلوس', 'تكلفه', 'price', 'pricing', 'plan', 'plans', 'كام', 'بكام',
+    'عايز اشترك', 'عايز اعرف الاسعار', 'التسعيره', 'اسعاركم كام', 'بتتكلفوا كام'
 ];
 
-const PLAN_FREE_PATTERNS = ['مجاني', 'مجانا', 'فري', 'free', 'بدون مقابل'];
-const PLAN_SUPPORT_PATTERNS = ['دعم فني', 'خطه الدعم', 'تذاكر فقط', 'support plan', 'تيكتس'];
-const PLAN_WHATSAPP_PATTERNS = ['واتساب', 'whatsapp', 'وتساب', 'واتس'];
-const PLAN_BUNDLE_PATTERNS = ['باقه', 'الباقه الشامله', 'bundle', 'الاتنين', 'دعم وواتساب', 'كومبو', 'الشامله'];
-const DISCOUNT_PATTERNS = ['خصم', 'عرض', 'تخفيض', 'offer', 'discount', 'عروض'];
-const ENTERPRISE_PATTERNS = ['شركات', 'شركه', 'enterprise', 'مؤسسه', 'بيزنس'];
-const COMPARE_PATTERNS = ['فرق', 'مقارنه', 'ايه الفرق', 'بين الخطط', 'compare'];
+const PLAN_FREE_PATTERNS = ['مجاني', 'مجانا', 'فري', 'free', 'بدون مقابل', 'من غير فلوس'];
+const PLAN_SUPPORT_PATTERNS = ['دعم فني', 'خطه الدعم', 'تذاكر فقط', 'support plan', 'تيكتس', 'خطه التذاكر'];
+const PLAN_WHATSAPP_PATTERNS = ['واتساب', 'whatsapp', 'وتساب', 'واتس', 'خطه الواتساب'];
+const PLAN_BUNDLE_PATTERNS = ['باقه', 'الباقه الشامله', 'bundle', 'الاتنين', 'دعم وواتساب', 'كومبو', 'الشامله', 'الباقه الكبيره'];
+const DISCOUNT_PATTERNS = ['خصم', 'عرض', 'تخفيض', 'offer', 'discount', 'عروض', 'فيه تخفيضات', 'عروض الاطلاق'];
+const ENTERPRISE_PATTERNS = ['شركات', 'شركه', 'enterprise', 'مؤسسه', 'بيزنس', 'عندي شركه'];
+const COMPARE_PATTERNS = ['فرق', 'مقارنه', 'ايه الفرق', 'بين الخطط', 'compare', 'ايه احسن خطه'];
 
 // ===================== ردود الاشتراكات =====================
 const PLAN_TEXT = {
-    free: `الخطة المجانية 🆓 من غير ما تدفع ولا جنيه:
+    free: `الخطة المجانية [[icon:gift]] من غير ما تدفع ولا جنيه:
 • نظام تذاكر أساسي
 • محادثة مع الدعم في ساعات العمل
 • تقدر تبلغ عن أي مشكلة
 • بتجمع نقاط على كل بلاغ
 متاحة دايمًا من غير ما تنتهي.`,
 
-    support: `خطة "الدعم الفني" 🛠️ بـ 15$/شهر بدل 25$ (خصم 40%)، أو 150$/سنة بدل 180$ (خصم 17%):
+    support: `خطة "الدعم الفني" [[icon:ticket]] بـ 15$/شهر بدل 25$ (خصم 40%)، أو 150$/سنة بدل 180$ (خصم 17%):
 • تذاكر دعم غير محدودة يوميًا
 • نطاق فرعي مجاني زي company.mad3oom.online
 • مدير واحد + لغاية 25 عضو
 • إحصائيات متقدمة وسجل نشاط للفريق`,
 
-    whatsapp: `خطة "واتساب" 💬 بـ 20$/شهر بدل 30$ (خصم 33%)، أو 200$/سنة بدل 240$ (خصم 17%):
+    whatsapp: `خطة "واتساب" [[icon:whatsapp]] بـ 20$/شهر بدل 30$ (خصم 33%)، أو 200$/سنة بدل 240$ (خصم 17%):
 • تربط رقم الواتساب بتاعك بالمنصة
 • تستقبل وترد على رسائل العملاء من لوحة التحكم
 • إشعارات فورية بأي رسالة جديدة
 • تقدر تضيف خدمة الرد الآلي بعدين
-ولو اشتركت بالرد الآلي مع الخطة الشهرية بتاخد 14 يوم إضافي مجانًا، أو 3 شهور زيادة لو سنوي 🎁`,
+ولو اشتركت بالرد الآلي مع الخطة الشهرية بتاخد 14 يوم إضافي مجانًا، أو 3 شهور زيادة لو سنوي [[icon:gift]]`,
 
-    bundle: `الباقة الشاملة "دعم فني + واتساب" 🚀 وهي الأكتر توفيرًا، بـ 30$/شهر بدل 55$ (خصم 45%)، أو 330$/سنة بدل 660$ (خصم 50%):
+    bundle: `الباقة الشاملة "دعم فني + واتساب" [[icon:growth]] وهي الأكتر توفيرًا، بـ 30$/شهر بدل 55$ (خصم 45%)، أو 330$/سنة بدل 660$ (خصم 50%):
 • كل مميزات الدعم الفني + الواتساب مع بعض
 • دعم أولوية 24/7
 • نقاط مكافآت مضاعفة
 • شارة خاصة على بروفايلك`,
 
-    enterprise: `بالنسبة للشركات 🏢 عندنا خطط مخصصة (مستخدمين مش محدودين، دعم مخصص 24/7، API وتكامل مع أنظمتك، SLA). التفاصيل والأسعار هيتم الإعلان عنها قريبًا، تحب أفتحلك تذكرة عشان فريق المبيعات يتواصل معاك؟`,
+    enterprise: `بالنسبة للشركات [[icon:briefcase]] عندنا خطط مخصصة (مستخدمين مش محدودين، دعم مخصص 24/7، API وتكامل مع أنظمتك، SLA). التفاصيل والأسعار هيتم الإعلان عنها قريبًا، تحب أفتحلك تذكرة عشان فريق المبيعات يتواصل معاك؟`,
 
     compare: `هاديلك خلاصة سريعة:
-🆓 مجاني: تذاكر أساسية بس + دعم في ساعات العمل
-🛠️ دعم فني (15$/شهر): تذاكر غير محدودة + نطاق فرعي + فريق لغاية 25 عضو
-💬 واتساب (20$/شهر): ربط رقم واتساب بالمنصة بس من غير نظام تذاكر
-🚀 الباقة الشاملة (30$/شهر): كل حاجة مع بعض + أولوية 24/7 + شارة خاصة وأفضل توفير`,
+[[icon:gift]] مجاني: تذاكر أساسية بس + دعم في ساعات العمل
+[[icon:ticket]] دعم فني (15$/شهر): تذاكر غير محدودة + نطاق فرعي + فريق لغاية 25 عضو
+[[icon:whatsapp]] واتساب (20$/شهر): ربط رقم واتساب بالمنصة بس من غير نظام تذاكر
+[[icon:growth]] الباقة الشاملة (30$/شهر): كل حاجة مع بعض + أولوية 24/7 + شارة خاصة وأفضل توفير`,
 
-    general: `عندنا 4 خطط 👇
-🆓 مجاني — 0$
-🛠️ الدعم الفني — 15$/شهر (بدل 25$)
-💬 واتساب — 20$/شهر (بدل 30$)
-🚀 دعم فني + واتساب (الأشمل) — 30$/شهر (بدل 55$، أكبر خصم وأوفر باقة)
+    general: `عندنا 4 خطط:
+[[icon:gift]] مجاني — 0$
+[[icon:ticket]] الدعم الفني — 15$/شهر (بدل 25$)
+[[icon:whatsapp]] واتساب — 20$/شهر (بدل 30$)
+[[icon:growth]] دعم فني + واتساب (الأشمل) — 30$/شهر (بدل 55$، أكبر خصم وأوفر باقة)
 كله متاح شهري أو سنوي بخصم إضافي.`
 };
 
-const PLATFORM_INFO_TEXT = `منصة مدعوم 🌟 هي منصة لإدارة الدعم الفني وواتساب بزنس في مكان واحد:
+const PLATFORM_INFO_TEXT = `منصة مدعوم [[icon:star]] هي منصة لإدارة الدعم الفني وواتساب بزنس في مكان واحد:
 • نظام تذاكر لمتابعة مشاكل عملائك
 • ربط رقم واتساب وإدارة الرسائل من لوحة تحكم واحدة
 • رد آلي ذكي على رسائل واتساب
@@ -234,15 +264,20 @@ const PLATFORM_INFO_TEXT = `منصة مدعوم 🌟 هي منصة لإدارة 
 • قاعدة معرفة لمقالات المساعدة`;
 
 const TICKET_STATUS_LABELS = {
-    open: 'مفتوحة 🟡',
-    in_progress: 'قيد التنفيذ 🔵',
-    resolved: 'تم الحل ✅',
-    confirmed: 'مؤكدة ✅',
-    rejected: 'مرفوضة ❌'
+    open: 'مفتوحة [[icon:dot-yellow]]',
+    in_progress: 'قيد التنفيذ [[icon:dot-blue]]',
+    resolved: 'تم الحل [[icon:dot-green]]',
+    confirmed: 'مؤكدة [[icon:dot-green]]',
+    rejected: 'مرفوضة [[icon:dot-red]]'
 };
 
 const SUB_PLAN_LABELS = { support: 'الدعم الفني', whatsapp: 'واتساب', bundle: 'الباقة الشاملة (دعم + واتساب)' };
-const SUB_STATUS_LABELS = { active: 'فعّال ✅', expired: 'منتهي ⛔', pending: 'قيد المراجعة 🕓', rejected: 'مرفوض ❌' };
+const SUB_STATUS_LABELS = {
+    active: 'فعّال [[icon:dot-green]]',
+    expired: 'منتهي [[icon:dot-red]]',
+    pending: 'قيد المراجعة [[icon:dot-yellow]]',
+    rejected: 'مرفوض [[icon:dot-red]]'
+};
 
 // ===================== استعلامات بيانات العميل (مفلترة بـ user_id دايمًا) =====================
 async function getMyTicketsReply(supabase, userId) {
@@ -255,7 +290,7 @@ async function getMyTicketsReply(supabase, userId) {
 
     if (error) {
         console.error('خطأ في جلب تذاكر العميل:', error);
-        return 'حصل خطأ بسيط وإحنا بنجيب تذاكرك، جرب تاني كمان شوية 🙏';
+        return 'حصل خطأ بسيط وإحنا بنجيب تذاكرك، جرب تاني كمان شوية [[icon:note]]';
     }
     if (!data || data.length === 0) {
         return 'مفيش عندك أي تذاكر مفتوحة دلوقتي.';
@@ -280,10 +315,10 @@ async function getMySubscriptionReply(supabase, userId) {
 
     if (error) {
         console.error('خطأ في جلب اشتراك العميل:', error);
-        return 'حصل خطأ بسيط وإحنا بنجيب بيانات اشتراكك، جرب تاني كمان شوية 🙏';
+        return 'حصل خطأ بسيط وإحنا بنجيب بيانات اشتراكك، جرب تاني كمان شوية [[icon:note]]';
     }
     if (!data || data.length === 0) {
-        return 'مش لاقي عندك اشتراك مدفوع حاليًا، يبدو إنك على الخطة المجانية 🆓.';
+        return 'مش لاقي عندك اشتراك مدفوع حاليًا، يبدو إنك على الخطة المجانية [[icon:gift]].';
     }
 
     const lines = data.map(s => {
@@ -313,7 +348,7 @@ function getPricingReply(normalizedText) {
     if (matchAny(normalizedText, PLAN_SUPPORT_PATTERNS)) return PLAN_TEXT.support;
     if (matchAny(normalizedText, PLAN_FREE_PATTERNS)) return PLAN_TEXT.free;
     if (matchAny(normalizedText, DISCOUNT_PATTERNS)) {
-        return `عروض الإطلاق الحالية 🔥 (سارية 6 شهور أو لحد ما نوصل لعدد العملاء المستهدف):
+        return `عروض الإطلاق الحالية [[icon:percent]] (سارية 6 شهور أو لحد ما نوصل لعدد العملاء المستهدف):
 • الدعم الفني: خصم 40% شهري / 17% سنوي
 • واتساب: خصم 33% شهري / 17% سنوي
 • الباقة الشاملة: خصم 45% شهري / 50% سنوي (أكبر خصم!)`;
@@ -322,11 +357,6 @@ function getPricingReply(normalizedText) {
     return null;
 }
 
-/**
- * بيحاول يتعرف على "موضوع معروف" في رسالة العميل، ولو لقى تطابق بيرجع الرد
- * جاهز. المواضيع دي هي كل حاجة البوت "متأكد" منها. أي حاجة برة المواضيع
- * دي بتترجم لعدم تأكد (return null) وبالتالي بتودي لفلو تذكرة الاستفسار.
- */
 async function detectKnownTopic(normalized, { supabase, userId }) {
     if (matchAny(normalized, TICKET_STATUS_PATTERNS)) {
         return await getMyTicketsReply(supabase, userId);
@@ -340,7 +370,7 @@ async function detectKnownTopic(normalized, { supabase, userId }) {
     const pricingReply = getPricingReply(normalized);
     if (pricingReply) return pricingReply;
 
-    return null; // مفيش موضوع معروف اتطابق -> "مش متأكد"
+    return null;
 }
 
 // ===================== إنشاء التذاكر =====================
@@ -375,14 +405,14 @@ async function saveBotState(supabase, sessionId, newState) {
 }
 
 // ===================== رسائل ثابتة =====================
-const MENU_PROMPT = 'اختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:';
-const INQUIRY_ASK = 'تمام، اكتبلي استفسارك وهحاول أجاوبك فورًا 📝';
-const PROBLEM_CATEGORY_ASK = 'إيه نوع المشكلة؟ 👇';
-const PROBLEM_ASK = 'تمام، اشرحلي المشكلة بالتفصيل عشان أفتحلك تذكرة وفريق الدعم يتابعها 🔍';
-const PROBLEM_IMAGE_ASK = 'حابب ترفق صورة توضح المشكلة؟ (اختياري) 📎';
-const CONTACT_ASK = 'الاستفسار ده محتاج متابعة من فريق الدعم بنفسه 🙏 ابعتلي رقم موبايلك أو بريدك الإلكتروني عشان نتواصل معاك بخصوصه.';
-const CANCELLED_MSG = 'تمام، رجعناك للقائمة الرئيسية 🙂';
-const IMAGE_UPLOAD_FAILED_MSG = 'حصل خطأ في رفع الصورة 🙏 التذكرة هتتفتح من غيرها، تقدر تبعتها بعدين لفريق الدعم مباشرة.';
+const MENU_PROMPT = 'اختار من الاختيارات دي أو اكتبلي طلبك بحريتك:';
+const INQUIRY_ASK = 'تمام، اكتبلي استفسارك وهحاول أجاوبك فورًا [[icon:inquiry]]';
+const PROBLEM_CATEGORY_ASK = 'إيه نوع المشكلة؟';
+const PROBLEM_ASK = 'تمام، اشرحلي المشكلة بالتفصيل عشان أفتحلك تذكرة وفريق الدعم يتابعها [[icon:search]]';
+const PROBLEM_IMAGE_ASK = 'حابب ترفق صورة توضح المشكلة؟ (اختياري) [[icon:attach]]';
+const CONTACT_ASK = 'الاستفسار ده محتاج متابعة من فريق الدعم بنفسه [[icon:note]] ابعتلي رقم موبايلك أو بريدك الإلكتروني عشان نتواصل معاك بخصوصه.';
+const CANCELLED_MSG = 'تمام، رجعناك للقائمة الرئيسية [[icon:smile]]';
+const IMAGE_UPLOAD_FAILED_MSG = 'حصل خطأ في رفع الصورة [[icon:note]] التذكرة هتتفتح من غيرها، تقدر تبعتها بعدين لفريق الدعم مباشرة.';
 
 const SKIP_PATTERNS = ['تخطي', 'لا شكرا', 'لا مفيش', 'مفيش', 'بدون صوره', 'skip', 'no thanks', 'لأ', 'لا'];
 
@@ -390,7 +420,9 @@ function buildTicketConfirmation(botSettings, ticketType, ticketNumber) {
     const baseMsg = ticketType === 'inquiry'
         ? (botSettings?.ticket_confirmation_message || 'تم تسجيل استفسارك وفريق الدعم هيتواصل معاك في أقرب وقت.')
         : (botSettings?.ticket_message || 'تم فتح تذكرة دعم فني وسيقوم فريقنا بالرد عليك في أقرب وقت.');
-    return ticketNumber ? `${baseMsg} رقم التذكرة بتاعتك هو #${ticketNumber} ✅` : `${baseMsg} ✅`;
+    return ticketNumber
+        ? `${baseMsg} رقم التذكرة بتاعتك هو #${ticketNumber} [[icon:check]]`
+        : `${baseMsg} [[icon:check]]`;
 }
 
 // ===================== نقطة الدخول الرئيسية =====================
@@ -402,6 +434,7 @@ function buildTicketConfirmation(botSettings, ticketType, ticketNumber) {
  * @param {string} params.userId - معرف العميل (نفس صاحب الجلسة دايمًا)
  * @param {Object} params.botState - bot_state الحالي من chat_sessions
  * @param {Object} params.botSettings - صف bot_settings (ممكن يكون null)
+ * @param {string} [params.imageUrl] - رابط صورة اترفعت (في خطوة صورة المشكلة)
  * @returns {Promise<{reply: string, options?: Array, ticketCreated?: boolean, ticketNumber?: number, ticketType?: string}>}
  */
 export async function getBotReply({ text, supabase, sessionId, userId, botState, botSettings, imageUrl }) {
@@ -457,7 +490,6 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         const title = `${category.label} - ${description.slice(0, 50)}`;
         const fullDescription = `نوع المشكلة: ${category.label}\n\n${description}`;
 
-        // لو اتبعتت صورة فعلاً هنرفقها، أي حاجة تانية (تخطي أو أي نص) بنكمل من غيرها
         const result = await createTicket({
             supabase, userId,
             title,
@@ -472,7 +504,7 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         await saveBotState(supabase, sessionId, state);
 
         if (!result.ok) {
-            return { reply: 'حصل خطأ بسيط وإحنا بنفتح التذكرة، حاول تاني كمان شوية 🙏', options: MAIN_MENU_OPTIONS };
+            return { reply: 'حصل خطأ بسيط وإحنا بنفتح التذكرة، حاول تاني كمان شوية [[icon:note]]', options: MAIN_MENU_OPTIONS };
         }
         const confirmation = buildTicketConfirmation(botSettings, 'problem', result.ticketNumber);
         return {
@@ -489,14 +521,12 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         const knownReply = await detectKnownTopic(normalized, { supabase, userId });
 
         if (knownReply) {
-            // البوت "متأكد" لأنه لقى موضوع معروف عنده
             state.flow = 'main_menu';
             state.ticket_draft = {};
             await saveBotState(supabase, sessionId, state);
             return { reply: `${knownReply}\n\n${MENU_PROMPT}`, options: MAIN_MENU_OPTIONS };
         }
 
-        // "مش متأكد" -> نجمع بيانات تواصل ونفتح تذكرة استفسار
         state.flow = 'awaiting_contact_info';
         state.ticket_draft = { inquiry_text: raw };
         await saveBotState(supabase, sessionId, state);
@@ -518,7 +548,7 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         await saveBotState(supabase, sessionId, state);
 
         if (!result.ok) {
-            return { reply: 'حصل خطأ بسيط وإحنا بنسجل استفسارك، حاول تاني كمان شوية 🙏', options: MAIN_MENU_OPTIONS };
+            return { reply: 'حصل خطأ بسيط وإحنا بنسجل استفسارك، حاول تاني كمان شوية [[icon:note]]', options: MAIN_MENU_OPTIONS };
         }
         const confirmation = buildTicketConfirmation(botSettings, 'inquiry', result.ticketNumber);
         return {
@@ -532,7 +562,6 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
 
     // ---------- من هنا وتحت: flow === 'idle' أو 'main_menu' ----------
 
-    // سؤال مباشر عن موضوع معروف حتى لو العميل مفتحش القائمة أصلاً
     const directKnownReply = await detectKnownTopic(normalized, { supabase, userId });
     if (directKnownReply) {
         state.flow = 'main_menu';
@@ -540,34 +569,29 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
         return { reply: `${directKnownReply}\n\n${MENU_PROMPT}`, options: MAIN_MENU_OPTIONS };
     }
 
-    // شكر
     if (matchAny(normalized, THANKS_PATTERNS)) {
-        return { reply: 'العفو يا فندم، إحنا موجودين لو احتجت أي حاجة تانية 🌟', options: MAIN_MENU_OPTIONS };
+        return { reply: 'العفو يا فندم، إحنا موجودين لو احتجت أي حاجة تانية [[icon:star]]', options: MAIN_MENU_OPTIONS };
     }
 
-    // ترحيب (أول مرة بس بيقول أهلاً، بعد كده بيعرض القائمة على طول)
     if (matchAny(normalized, DEFAULT_GREETING_PATTERNS) && !state.greeted) {
         state.greeted = true;
         state.flow = 'main_menu';
         await saveBotState(supabase, sessionId, state);
-        const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
+        const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! [[icon:smile]]';
         return { reply: `${welcome}\n${MENU_PROMPT}`, options: MAIN_MENU_OPTIONS };
     }
 
     // ---------- MODEL_HOOK (اختياري) ----------
-    // لو حبيت تضيف موديل لاحقًا، فعّل الشرط ده وحط نداء الـ Edge Function هنا
-    // بدل رسالة الـ fallback تحت.
     // if (botSettings?.ai_enabled) {
     //     const aiReply = await callExternalModel(raw, { sessionId, userId });
     //     if (aiReply) return { reply: aiReply, options: MAIN_MENU_OPTIONS };
     // }
 
-    // ---------- رد افتراضي: يوجّه للقائمة ----------
     if (!state.greeted) state.greeted = true;
     state.flow = 'main_menu';
     await saveBotState(supabase, sessionId, state);
     return {
-        reply: `مش متأكد إني فهمتك صح 🙏 اختار من الاختيارات دي وهساعدك:`,
+        reply: `مش متأكد إني فهمتك صح [[icon:note]] اختار من الاختيارات دي وهساعدك:`,
         options: MAIN_MENU_OPTIONS
     };
 }
