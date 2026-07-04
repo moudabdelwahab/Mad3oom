@@ -3,6 +3,24 @@
  * تدير المحادثات والرسائل والتقييمات وأوقات العمل
  */
 
+/**
+ * ناقل أحداث بسيط (Event Emitter) قائم على EventTarget، يُستخدم لإخطار
+ * الويدجت لدى العميل ولوحة الإدارة بأحداث مثل انضمام/مغادرة موظف الدعم
+ * للمحادثة. في نسخة إنتاج حقيقية سيُستبدل هذا بـ WebSocket/Server-Sent Events.
+ */
+class ChatEventEmitter extends EventTarget {
+  emit(type, detail) {
+    this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+  on(type, callback) {
+    this.addEventListener(type, (e) => callback(e.detail));
+  }
+}
+
+if (typeof window !== 'undefined' && !window.chatEventEmitter) {
+  window.chatEventEmitter = new ChatEventEmitter();
+}
+
 class ChatService {
   constructor() {
     this.conversations = new Map();
@@ -48,11 +66,10 @@ class ChatService {
     this.workHours = this.initializeWorkHours();
     this.ratings = new Map();
     this.activeAdmins = new Map();
+    // يتتبّع أي موظف دعم منضم حالياً لكل محادثة: conversationId -> { adminId, adminName }
+    this.conversationAdminPresence = new Map();
   }
 
-  /**
-   * تهيئة أوقات العمل الافتراضية
-   */
   initializeWorkHours() {
     const hours = {};
     const workDays = [0, 1, 2, 3, 4, 5]; // الأحد إلى الجمعة
@@ -70,17 +87,11 @@ class ChatService {
     return hours;
   }
 
-  /**
-   * الحصول على اسم اليوم
-   */
   getDayName(dayOfWeek) {
     const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     return days[dayOfWeek];
   }
 
-  /**
-   * التحقق من ما إذا كانت ساعات العمل الحالية
-   */
   isCurrentlyWorkingHours() {
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -94,9 +105,6 @@ class ChatService {
     return currentTime >= todayHours.startTime && currentTime <= todayHours.endTime;
   }
 
-  /**
-   * إنشاء محادثة جديدة
-   */
   createConversation(userId, data) {
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const isOutsideWorkHours = !this.isCurrentlyWorkingHours();
@@ -120,22 +128,15 @@ class ChatService {
     this.conversations.set(conversationId, conversation);
     this.messages.set(conversationId, []);
 
-    // إرسال إشعار للمسؤولين
     this.notifyAdmins('new_conversation', conversation);
 
     return conversation;
   }
 
-  /**
-   * الحصول على محادثة
-   */
   getConversation(conversationId) {
     return this.conversations.get(conversationId);
   }
 
-  /**
-   * الحصول على محادثات المستخدم
-   */
   getUserConversations(userId) {
     const userConversations = [];
     for (const [id, conv] of this.conversations) {
@@ -150,9 +151,6 @@ class ChatService {
     return userConversations.sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  /**
-   * الحصول على المحادثات النشطة
-   */
   getActiveConversations() {
     const active = [];
     for (const [id, conv] of this.conversations) {
@@ -167,9 +165,6 @@ class ChatService {
     return active.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  /**
-   * الحصول على المحادثات المغلقة
-   */
   getClosedConversations() {
     const closed = [];
     for (const [id, conv] of this.conversations) {
@@ -184,9 +179,6 @@ class ChatService {
     return closed.sort((a, b) => b.closedAt - a.closedAt);
   }
 
-  /**
-   * إضافة رسالة
-   */
   addMessage(conversationId, senderId, senderType, content) {
     const message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -203,40 +195,33 @@ class ChatService {
 
     this.messages.get(conversationId).push(message);
 
-    // تحديث وقت آخر تحديث للمحادثة
     const conv = this.conversations.get(conversationId);
     if (conv) {
       conv.updatedAt = new Date();
       conv.messages = this.messages.get(conversationId);
     }
 
-    // إرسال إشعار
     this.notifyUsers(conversationId, 'new_message', message);
 
     return message;
   }
 
-  /**
-   * الحصول على رسائل المحادثة
-   */
   getConversationMessages(conversationId) {
     return this.messages.get(conversationId) || [];
   }
 
-  /**
-   * الحصول على آخر رسالة
-   */
   getLastMessage(conversationId) {
     const msgs = this.messages.get(conversationId) || [];
     return msgs.length > 0 ? msgs[msgs.length - 1].content : null;
   }
 
-  /**
-   * إغلاق محادثة
-   */
   closeConversation(conversationId, adminId) {
     const conv = this.conversations.get(conversationId);
     if (conv) {
+      // إن كان هناك موظف دعم منضم، سجل مغادرته أولاً قبل إغلاق المحادثة
+      if (this.conversationAdminPresence.has(conversationId)) {
+        this.adminLeftConversation(conversationId, adminId);
+      }
       conv.status = 'closed';
       conv.adminId = adminId;
       conv.closedAt = new Date();
@@ -246,21 +231,41 @@ class ChatService {
   }
 
   /**
-   * تعيين محادثة لمسؤول
+   * تعيين محادثة لموظف دعم — يُستخدم أيضاً كإشارة "انضم موظف الدعم للمحادثة"،
+   * وتُبَث كحدث admin_joined حتى تعرضه واجهة العميل كـ"فلان انضم إلى المحادثة".
    */
-  assignToAdmin(conversationId, adminId) {
+  assignToAdmin(conversationId, adminId, adminName) {
     const conv = this.conversations.get(conversationId);
     if (conv) {
       conv.adminId = adminId;
       conv.updatedAt = new Date();
-      this.notifyUsers(conversationId, 'admin_assigned', { adminId });
+      const displayName = adminName || 'موظف الدعم';
+      this.conversationAdminPresence.set(conversationId, { adminId, adminName: displayName });
+      this.notifyUsers(conversationId, 'admin_assigned', { adminId, adminName: displayName });
+      this.notifyGlobal('admin_joined', { conversationId, adminId, adminName: displayName });
     }
     return conv;
   }
 
   /**
-   * إضافة تقييم
+   * تسجيل خروج/مغادرة موظف الدعم للمحادثة (بدون إغلاقها بالضرورة) — تُبَث
+   * كحدث admin_left حتى تعرضه واجهة العميل كـ"فلان غادر المحادثة".
    */
+  adminLeftConversation(conversationId, adminId) {
+    const conv = this.conversations.get(conversationId);
+    const presence = this.conversationAdminPresence.get(conversationId);
+    if (conv && presence) {
+      this.conversationAdminPresence.delete(conversationId);
+      this.notifyUsers(conversationId, 'admin_left', { adminId: adminId || presence.adminId, adminName: presence.adminName });
+      this.notifyGlobal('admin_left', { conversationId, adminId: adminId || presence.adminId, adminName: presence.adminName });
+    }
+    return conv;
+  }
+
+  getAdminPresence(conversationId) {
+    return this.conversationAdminPresence.get(conversationId) || null;
+  }
+
   addRating(conversationId, rating, feedback) {
     const ratingData = {
       id: `rating_${Date.now()}`,
@@ -276,16 +281,8 @@ class ChatService {
     return ratingData;
   }
 
-  /**
-   * الحصول على إحصائيات التقييمات
-   */
   getRatingStats() {
-    const stats = {
-      happy: 0,
-      neutral: 0,
-      unhappy: 0,
-      total: 0
-    };
+    const stats = { happy: 0, neutral: 0, unhappy: 0, total: 0 };
 
     for (const [, rating] of this.ratings) {
       if (rating.rating === 'happy') stats.happy++;
@@ -297,23 +294,14 @@ class ChatService {
     return stats;
   }
 
-  /**
-   * الحصول على الأسئلة المقترحة
-   */
   getSuggestedQuestions() {
     return this.suggestedQuestions;
   }
 
-  /**
-   * الحصول على أوقات العمل
-   */
   getWorkHours() {
     return Object.values(this.workHours);
   }
 
-  /**
-   * تحديث أوقات العمل
-   */
   updateWorkHours(dayOfWeek, startTime, endTime, isWorkDay) {
     this.workHours[dayOfWeek] = {
       dayOfWeek,
@@ -326,9 +314,6 @@ class ChatService {
     return this.workHours[dayOfWeek];
   }
 
-  /**
-   * تسجيل مسؤول نشط
-   */
   registerAdmin(adminId, socketId) {
     this.activeAdmins.set(adminId, {
       id: adminId,
@@ -337,37 +322,33 @@ class ChatService {
     });
   }
 
-  /**
-   * إلغاء تسجيل مسؤول
-   */
   unregisterAdmin(adminId) {
     this.activeAdmins.delete(adminId);
   }
 
-  /**
-   * الحصول على المسؤولين النشطين
-   */
   getActiveAdmins() {
     return Array.from(this.activeAdmins.values());
   }
 
-  /**
-   * إرسال إشعار للمسؤولين
-   */
   notifyAdmins(eventType, data) {
-    // سيتم تنفيذه من خلال WebSocket أو Server-Sent Events
-    if (window.chatEventEmitter) {
+    if (typeof window !== 'undefined' && window.chatEventEmitter) {
       window.chatEventEmitter.emit(`admin:${eventType}`, data);
     }
   }
 
-  /**
-   * إرسال إشعار للمستخدمين
-   */
   notifyUsers(conversationId, eventType, data) {
-    // سيتم تنفيذه من خلال WebSocket أو Server-Sent Events
-    if (window.chatEventEmitter) {
+    if (typeof window !== 'undefined' && window.chatEventEmitter) {
       window.chatEventEmitter.emit(`conversation:${conversationId}:${eventType}`, data);
+    }
+  }
+
+  /**
+   * حدث عام غير مرتبط بمحادثة محددة سلفاً — يُستخدمه ChatWidget للاستماع
+   * لأحداث انضمام/مغادرة الموظف دون معرفة معرّف المحادثة وقت الاشتراك.
+   */
+  notifyGlobal(eventType, data) {
+    if (typeof window !== 'undefined' && window.chatEventEmitter) {
+      window.chatEventEmitter.emit(`global:${eventType}`, data);
     }
   }
 }
