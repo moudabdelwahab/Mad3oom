@@ -1215,23 +1215,178 @@
                 </section>
 
                 <!-- API Keys Section -->
-                <section id="api-keys" class="settings-card" style="display: none;">
-                    <div class="card-header">
-                        <h2>مفاتيح API والربط الخارجي</h2>
-                        <button type="button" class="btn btn-primary btn-sm" id="saveApiKeysBtn">حفظ المفاتيح</button>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="openaiKey">OpenAI API Key</label>
-                            <input type="password" id="openaiKey" class="form-control" placeholder="sk-...">
-                        </div>
+             <!-- ============================================================
+     استبدل قسم <section id="api-keys" ...> القديم بالكامل بهذا القسم.
+     نفس الـ id="api-keys" فضل زي ما هو عشان رابط الـ sidebar
+     (href="#api-keys") يفضل شغال من غير أي تعديل هناك.
+     غيّر فقط النص الظاهر في رابط الـ sidebar من "مفاتيح API"
+     إلى "API والتكاملات" (اختياري، تجميلي فقط).
+     ============================================================ -->
+<section id="api-keys" class="settings-card" style="display: none;">
+    <div class="card-header">
+        <h2>مفاتيح API والتكاملات الخارجية</h2>
+    </div>
+    <div class="card-body" style="padding-bottom: 0.5rem;">
+        <p style="color: var(--color-text-secondary); margin-bottom: 0;">
+            قسمين منفصلين: مفاتيح API الخاصة بمنصة مدعوم نفسها (للوصول لـ APIs التذاكر والواتساب من أنظمة خارجية)،
+            وربط مزوّدي الخدمات الخارجية (ذكاء اصطناعي، تيليجرام، Webhooks) المستخدمة داخل المنصة.
+        </p>
+    </div>
+</section>
 
-                        <div class="form-group">
-                            <label for="telegramBotToken">Telegram Bot Token</label>
-                            <input type="password" id="telegramBotToken" class="form-control" placeholder="123456:ABC-DEF...">
-                        </div>
-                    </div>
-                </section>
+<!-- ============ القسم الأول: Mad3oom API Tokens ============ -->
+<section id="mad3oom-api-tokens" class="settings-card">
+    <div class="card-header">
+        <h2>Mad3oom API Tokens</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="createApiTokenBtn">+ توليد مفتاح جديد</button>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">
+            مفاتيح API تُستخدم من أنظمة خارجية للوصول إلى Ticket System وWhatsApp System وأي APIs مستقبلية.
+            كل مفتاح له <code>API Key</code> ظاهر دائمًا و<code>API Secret</code> يُعرض مرة واحدة فقط عند الإنشاء أو التجديد.
+        </p>
+
+        <table class="rules-table" id="apiTokensTable">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>API Key</th>
+                    <th>السر (آخر 4 خانات)</th>
+                    <th>الصلاحيات</th>
+                    <th>آخر استخدام</th>
+                    <th>تاريخ الإنشاء</th>
+                    <th>الحالة</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody id="apiTokensBody">
+                <tr><td colspan="8" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Create token modal -->
+        <div id="apiTokenFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
+            <h3 style="margin-top: 0;">توليد مفتاح API جديد</h3>
+            <div class="form-group">
+                <label for="apiTokenName">الاسم</label>
+                <input type="text" id="apiTokenName" class="form-control" placeholder="مثال: تكامل CRM الخارجي" maxlength="80">
+            </div>
+            <div class="form-group">
+                <label for="apiTokenDescription">الوصف (اختياري)</label>
+                <input type="text" id="apiTokenDescription" class="form-control" placeholder="وصف مختصر للغرض من هذا المفتاح" maxlength="200">
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-primary" id="confirmCreateApiTokenBtn">توليد</button>
+                <button type="button" class="btn btn-secondary" id="cancelApiTokenBtn">إلغاء</button>
+            </div>
+        </div>
+
+        <!-- One-time secret reveal modal -->
+        <div id="apiSecretRevealModal" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
+            <h3 style="margin-top: 0; color: #92400e;">⚠️ احفظ السر الآن — لن يظهر مرة أخرى</h3>
+            <div class="form-group">
+                <label>API Key</label>
+                <div style="display:flex; gap:0.5rem;">
+                    <input type="text" id="revealedApiKey" class="form-control" readonly>
+                    <button type="button" class="btn btn-secondary btn-sm copy-btn" data-copy-target="revealedApiKey">نسخ</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>API Secret</label>
+                <div style="display:flex; gap:0.5rem;">
+                    <input type="text" id="revealedApiSecret" class="form-control" readonly style="font-family: monospace;">
+                    <button type="button" class="btn btn-secondary btn-sm copy-btn" data-copy-target="revealedApiSecret">نسخ</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="closeSecretRevealBtn">تم الحفظ، إغلاق</button>
+        </div>
+
+        <hr class="section-divider">
+        <h3 style="font-size: 1.05rem; margin-bottom: 1rem;">سجل الاستخدام (Audit Log)</h3>
+        <table class="rules-table" id="apiUsageLogTable">
+            <thead>
+                <tr>
+                    <th>المفتاح</th>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>IP</th>
+                    <th>الوقت</th>
+                </tr>
+            </thead>
+            <tbody id="apiUsageLogBody">
+                <tr><td colspan="6" style="text-align:center; padding:1.5rem;">جاري التحميل...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- ============ القسم الثاني: External Integrations ============ -->
+<section id="external-integrations" class="settings-card">
+    <div class="card-header">
+        <h2>External Integrations</h2>
+        <button type="button" class="btn btn-primary btn-sm" id="addIntegrationBtn">+ إضافة تكامل جديد</button>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">
+            إدارة مزودي الذكاء الاصطناعي وخدمات التواصل الخارجية. بيانات الاعتماد تُشفّر (AES) قبل الحفظ ولا تُعرض مطلقًا بعد الإدخال الأول.
+        </p>
+
+        <div class="form-group">
+            <label for="defaultAiProviderSelect">المزود الافتراضي للذكاء الاصطناعي (شات بوت الموقع)</label>
+            <select id="defaultAiProviderSelect" class="form-control">
+                <option value="">— بدون (الرد الآلي البسيط فقط) —</option>
+            </select>
+        </div>
+
+        <hr class="section-divider">
+
+        <div id="integrationsGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem;">
+            <p style="text-align:center; padding:1rem;">جاري تحميل التكاملات...</p>
+        </div>
+
+        <!-- Add/Edit integration modal -->
+        <div id="integrationFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
+            <h3 style="margin-top: 0;" id="integrationModalTitle">إضافة تكامل جديد</h3>
+            <input type="hidden" id="editIntegrationId">
+
+            <div class="form-group">
+                <label for="integrationProvider">المزوّد</label>
+                <select id="integrationProvider" class="form-control">
+                    <option value="openai">OpenAI</option>
+                    <option value="claude">Claude (Anthropic)</option>
+                    <option value="gemini">Gemini (Google)</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="groq">Groq</option>
+                    <option value="telegram_bot">Telegram Bot</option>
+                    <option value="webhook">Webhook</option>
+                    <option value="custom">مزوّد آخر (Custom)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="integrationDisplayName">اسم العرض</label>
+                <input type="text" id="integrationDisplayName" class="form-control" placeholder="مثال: OpenAI - الحساب الرئيسي">
+            </div>
+
+            <!-- Dynamic credential fields, rendered by JS based on provider -->
+            <div id="integrationCredentialFields"></div>
+
+            <div class="switch-group" style="margin-top: 1rem;">
+                <div class="switch-info"><h4>نشط</h4></div>
+                <label class="switch">
+                    <input type="checkbox" id="integrationIsActive" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button type="button" class="btn btn-primary" id="saveIntegrationBtn">حفظ</button>
+                <button type="button" class="btn btn-secondary" id="cancelIntegrationBtn">إلغاء</button>
+            </div>
+        </div>
+    </div>
+</section>
 
                 <!-- Customer Settings Section -->
                 <section id="customer-settings" class="settings-card" style="display: none;">
