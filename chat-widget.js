@@ -1,6 +1,13 @@
 /**
  * ويدجت الدردشة المباشرة - Client Side
  * يدير واجهة المستخدم والتفاعل مع الخدمة
+ *
+ * هذه النسخة تضيف:
+ *  - قائمة إعدادات (زر الترس): بيانات التواصل/تسجيل الدخول، تحميل نص المحادثة،
+ *    تكبير النافذة، تفعيل/تعطيل الإشعارات.
+ *  - زر تصغير الويدجت (Minimize) منفصل عن زر الإغلاق.
+ *  - أحداث "انضم إلى المحادثة" / "غادر المحادثة" تظهر مع صورة رمزية (Avatar)
+ *    عند دخول/خروج الزائر، وعند دخول/خروج موظف الدعم (Admin) للمحادثة.
  */
 
 class ChatWidget {
@@ -8,14 +15,19 @@ class ChatWidget {
     this.currentConversation = null;
     this.currentStep = 'closed'; // closed, questions, chat, outside-hours-form, rating, confirmation
     this.isLoading = false;
-    this.messages = [];
+    this.messages = []; // يشمل الرسائل العادية وأحداث النظام (system events)
     this.userId = this.getUserId();
+    this.visitorName = this.getVisitorName();
+    this.isMinimized = false;
+    this.isMaximized = false;
+    this.notificationsEnabled = this.getNotificationsPref();
+    this.isSettingsOpen = false;
+    this.agentJoined = false;
     this.init();
   }
 
-  /**
-   * الحصول على معرف المستخدم
-   */
+  /* ==================== تهيئة عامة ==================== */
+
   getUserId() {
     let userId = localStorage.getItem('chat_user_id');
     if (!userId) {
@@ -26,61 +38,146 @@ class ChatWidget {
   }
 
   /**
-   * تهيئة الويدجت
+   * اسم زائر عشوائي ثابت لكل جهاز (يُحفظ في localStorage) على غرار
+   * الأسماء الافتراضية في أدوات الدردشة المباشرة الشهيرة (مثال: "Zaur B.")
    */
+  getVisitorName() {
+    let name = localStorage.getItem('chat_visitor_name');
+    if (!name) {
+      const firstNames = ['أحمد', 'سارة', 'محمد', 'ليلى', 'خالد', 'منى', 'يوسف', 'هند', 'عمر', 'ريم'];
+      const first = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastInitial = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // حرف لاتيني كنسق مألوف
+      name = `${first} ${lastInitial}.`;
+      localStorage.setItem('chat_visitor_name', name);
+    }
+    return name;
+  }
+
+  getNotificationsPref() {
+    const stored = localStorage.getItem('chat_notifications_enabled');
+    return stored === null ? true : stored === 'true';
+  }
+
+  setNotificationsPref(value) {
+    this.notificationsEnabled = value;
+    localStorage.setItem('chat_notifications_enabled', String(value));
+  }
+
   init() {
     this.createWidgetHTML();
     this.attachEventListeners();
     this.loadSuggestedQuestions();
     this.checkWorkingHours();
+    this.subscribeToConversationEvents();
   }
 
+  /* ==================== أدوات مساعدة ==================== */
+
   /**
-   * إنشاء HTML الويدجت
+   * ينشئ تدرج لوني (gradient) ثابت بناءً على نص (اسم/معرف) — نفس الشخص
+   * يحصل دائماً على نفس الألوان.
    */
+  getAvatarGradient(seed) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue1 = Math.abs(hash) % 360;
+    const hue2 = (hue1 + 60) % 360;
+    return `linear-gradient(135deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 70%, 55%))`;
+  }
+
+  formatEventTimestamp(date) {
+    const d = new Date(date);
+    const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${datePart}, ${timePart}`;
+  }
+
+  /* ==================== بناء الواجهة ==================== */
+
   createWidgetHTML() {
-    // التحقق من عدم وجود ويدجت سابق
     if (document.getElementById('chatBubbleBtn')) {
       console.log('[ChatWidget] Widget already exists, skipping creation');
       return;
     }
 
     const widgetHTML = `
-      <div class="floating-chat-widget" id="floatingChatWidget" style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; font-family: 'Cairo', sans-serif;">
-        <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة" style="position: fixed; bottom: 20px; left: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #003366 0%, #0055AA 100%); color: white; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3); display: flex; align-items: center; justify-content: center; z-index: 9999;">
-          <div class="chat-bubble-icon" style="width: 30px; height: 30px;">
+      <div class="floating-chat-widget" id="floatingChatWidget">
+        <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة">
+          <div class="chat-bubble-icon">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
           </div>
         </button>
 
-        <div class="chat-widget-panel" id="chatWidgetPanel" style="position: fixed; bottom: 90px; left: 20px; width: 380px; height: 500px; background: white; border-radius: 12px; box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16); display: none; flex-direction: column; z-index: 9999;">
+        <div class="chat-widget-panel" id="chatWidgetPanel">
           <!-- Header -->
-          <div class="chat-widget-header" style="padding: 1.5rem; background: linear-gradient(135deg, #003366 0%, #0055AA 100%); color: white; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
-            <div class="chat-widget-header-title" style="display: flex; gap: 1rem; align-items: center;">
-              <div class="chat-widget-header-icon" style="width: 40px; height: 40px;">
+          <div class="chat-widget-header">
+            <div class="chat-widget-header-title">
+              <div class="chat-widget-header-icon">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
               </div>
               <div>
-                <h3 style="margin: 0; font-size: 1.1rem;">الدردشة المباشرة</h3>
-                <p id="headerStatus" style="margin: 0.25rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">كيف يمكننا مساعدتك؟</p>
+                <h3>الدردشة المباشرة</h3>
+                <p id="headerStatus">كيف يمكننا مساعدتك؟</p>
               </div>
             </div>
-            <button class="chat-widget-close" id="chatWidgetClose" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
+            <div class="chat-widget-header-actions">
+              <button class="chat-header-icon-btn" id="chatSettingsBtn" title="الإعدادات">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+              </button>
+              <button class="chat-header-icon-btn" id="chatMinimizeBtn" title="تصغير">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button class="chat-header-icon-btn chat-widget-close" id="chatWidgetClose" title="إغلاق">×</button>
+            </div>
+          </div>
+
+          <!-- Settings dropdown -->
+          <div class="chat-settings-panel" id="chatSettingsPanel">
+            <div class="chat-settings-item" id="contactDetailsItem">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </div>
+              <span class="chat-settings-label">تقديم بيانات التواصل</span>
+              <a href="#" class="chat-settings-action" id="chatLoginLink">
+                تسجيل الدخول
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </a>
+            </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              </div>
+              <span class="chat-settings-label">تحميل نص المحادثة</span>
+            </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="maximizeItem">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"></path></svg>
+              </div>
+              <span class="chat-settings-label" id="maximizeLabel">تكبير النافذة</span>
+            </div>
+            <div class="chat-settings-item">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
+              </div>
+              <span class="chat-settings-label">الإشعارات</span>
+              <label class="chat-toggle-switch">
+                <input type="checkbox" id="notificationsToggle" ${this.notificationsEnabled ? 'checked' : ''}>
+                <span class="chat-toggle-slider"></span>
+              </label>
+            </div>
           </div>
 
           <!-- Body -->
-          <div class="chat-widget-body" id="chatWidgetBody" style="flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
-            <!-- سيتم ملؤه ديناميكياً -->
-          </div>
+          <div class="chat-widget-body" id="chatWidgetBody"></div>
 
           <!-- Footer -->
-          <div class="chat-widget-footer" id="chatWidgetFooter" style="padding: 1.5rem; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 0.75rem;">
-            <!-- سيتم ملؤه ديناميكياً -->
-          </div>
+          <div class="chat-widget-footer" id="chatWidgetFooter"></div>
         </div>
       </div>
     `;
@@ -88,12 +185,15 @@ class ChatWidget {
     document.body.insertAdjacentHTML('beforeend', widgetHTML);
   }
 
-  /**
-   * ربط أحداث الويدجت
-   */
   attachEventListeners() {
     const bubbleBtn = document.getElementById('chatBubbleBtn');
     const closeBtn = document.getElementById('chatWidgetClose');
+    const minimizeBtn = document.getElementById('chatMinimizeBtn');
+    const settingsBtn = document.getElementById('chatSettingsBtn');
+    const downloadItem = document.getElementById('downloadTranscriptItem');
+    const maximizeItem = document.getElementById('maximizeItem');
+    const notifToggle = document.getElementById('notificationsToggle');
+    const loginLink = document.getElementById('chatLoginLink');
 
     if (!bubbleBtn || !closeBtn) {
       console.error('[ChatWidget] Failed to find chat elements');
@@ -102,56 +202,139 @@ class ChatWidget {
 
     bubbleBtn.addEventListener('click', () => this.openWidget());
     closeBtn.addEventListener('click', () => this.closeWidget());
+    minimizeBtn.addEventListener('click', () => this.toggleMinimize());
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleSettingsPanel();
+    });
+    downloadItem.addEventListener('click', () => this.downloadTranscript());
+    maximizeItem.addEventListener('click', () => this.toggleMaximize());
+    notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
+    loginLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = '/login.html';
+    });
+
+    // إغلاق قائمة الإعدادات عند الضغط خارجها
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('chatSettingsPanel');
+      const settingsButton = document.getElementById('chatSettingsBtn');
+      if (this.isSettingsOpen && panel && !panel.contains(e.target) && e.target !== settingsButton) {
+        this.toggleSettingsPanel(false);
+      }
+    });
   }
 
-  /**
-   * فتح الويدجت
-   */
+  /* ==================== الاشتراك في أحداث المحادثة ==================== */
+
+  subscribeToConversationEvents() {
+    if (!window.chatEventEmitter) return;
+
+    window.chatEventEmitter.on('global:admin_joined', (data) => {
+      if (this.currentConversation && data.conversationId === this.currentConversation.id) {
+        this.handleAgentJoined(data.adminName || 'موظف الدعم');
+      }
+    });
+
+    window.chatEventEmitter.on('global:admin_left', (data) => {
+      if (this.currentConversation && data.conversationId === this.currentConversation.id) {
+        this.handleAgentLeft(data.adminName || 'موظف الدعم');
+      }
+    });
+  }
+
+  /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
+
   openWidget() {
     const panel = document.getElementById('chatWidgetPanel');
-    if (!panel) {
-      console.error('[ChatWidget] Panel not found');
-      return;
-    }
-    panel.style.display = 'flex';
+    if (!panel) return;
+    panel.classList.add('active');
+    this.isMinimized = false;
+    panel.classList.remove('minimized');
     this.currentStep = 'questions';
     this.renderStep();
   }
 
-  /**
-   * إغلاق الويدجت
-   */
   closeWidget() {
     const panel = document.getElementById('chatWidgetPanel');
     if (!panel) return;
-    panel.style.display = 'none';
+
+    // إذا كان هناك موظف دعم متصل بالمحادثة، سجل خروج الزائر
+    if (this.currentConversation) {
+      this.addSystemEvent(`${this.visitorName} غادر المحادثة`, this.visitorName);
+    }
+
+    panel.classList.remove('active');
+    this.toggleSettingsPanel(false);
     this.currentStep = 'closed';
     this.currentConversation = null;
     this.messages = [];
+    this.agentJoined = false;
   }
 
-  /**
-   * تحميل الأسئلة المقترحة
-   */
+  toggleMinimize() {
+    const panel = document.getElementById('chatWidgetPanel');
+    if (!panel) return;
+    this.isMinimized = !this.isMinimized;
+    panel.classList.toggle('minimized', this.isMinimized);
+    if (this.isMinimized) this.toggleSettingsPanel(false);
+  }
+
+  toggleMaximize() {
+    const panel = document.getElementById('chatWidgetPanel');
+    const label = document.getElementById('maximizeLabel');
+    if (!panel) return;
+    this.isMaximized = !this.isMaximized;
+    panel.classList.toggle('maximized', this.isMaximized);
+    if (label) label.textContent = this.isMaximized ? 'استعادة الحجم' : 'تكبير النافذة';
+  }
+
+  toggleSettingsPanel(force) {
+    const panel = document.getElementById('chatSettingsPanel');
+    if (!panel) return;
+    this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
+    panel.classList.toggle('active', this.isSettingsOpen);
+  }
+
+  /* ==================== تحميل نص المحادثة ==================== */
+
+  downloadTranscript() {
+    const lines = this.messages.map(item => {
+      const time = this.formatEventTimestamp(item.createdAt || new Date());
+      if (item.isSystemEvent) {
+        return `[${time}] * ${item.content}`;
+      }
+      const who = item.senderType === 'customer' ? this.visitorName : 'الدعم الفني';
+      return `[${time}] ${who}: ${item.content}`;
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-transcript-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    this.toggleSettingsPanel(false);
+  }
+
+  /* ==================== تحميل الأسئلة المقترحة / ساعات العمل ==================== */
+
   loadSuggestedQuestions() {
-    // محاكاة تحميل الأسئلة من الخدمة
     this.suggestedQuestions = chatService.getSuggestedQuestions();
   }
 
-  /**
-   * التحقق من أوقات العمل
-   */
   checkWorkingHours() {
     this.isWorkingHours = chatService.isCurrentlyWorkingHours();
   }
 
-  /**
-   * رسم خطوة محددة
-   */
+  /* ==================== رسم الخطوات ==================== */
+
   renderStep() {
     const body = document.getElementById('chatWidgetBody');
     const footer = document.getElementById('chatWidgetFooter');
-    const header = document.getElementById('headerStatus');
 
     body.innerHTML = '';
     footer.innerHTML = '';
@@ -175,9 +358,6 @@ class ChatWidget {
     }
   }
 
-  /**
-   * رسم خطوة الأسئلة المقترحة
-   */
   renderQuestionsStep() {
     const body = document.getElementById('chatWidgetBody');
     const footer = document.getElementById('chatWidgetFooter');
@@ -185,7 +365,6 @@ class ChatWidget {
 
     header.textContent = 'كيف يمكننا مساعدتك؟';
 
-    // عرض الأسئلة
     this.suggestedQuestions.forEach(question => {
       const option = document.createElement('button');
       option.className = 'chat-widget-option';
@@ -201,7 +380,6 @@ class ChatWidget {
       body.appendChild(option);
     });
 
-    // زر التواصل مع الدعم
     const supportBtn = document.createElement('button');
     supportBtn.className = 'chat-widget-option';
     supportBtn.style.marginTop = '0.5rem';
@@ -219,18 +397,13 @@ class ChatWidget {
     body.appendChild(supportBtn);
   }
 
-  /**
-   * اختيار سؤال
-   */
   selectQuestion(question) {
     this.isLoading = true;
 
-    // إنشاء محادثة جديدة
     this.currentConversation = chatService.createConversation(this.userId, {
       subject: question.question
     });
 
-    // إضافة الإجابة كرسالة من الدعم
     const answerMessage = {
       id: `msg_${Date.now()}`,
       conversationId: this.currentConversation.id,
@@ -246,9 +419,6 @@ class ChatWidget {
     this.renderStep();
   }
 
-  /**
-   * التواصل مع الدعم الفني
-   */
   contactSupport() {
     if (this.isWorkingHours) {
       this.isLoading = true;
@@ -256,9 +426,10 @@ class ChatWidget {
         subject: 'استفسار عام'
       });
       this.messages = [];
-      this.currentStep = 'chat';
       this.isLoading = false;
+      this.currentStep = 'chat';
       this.renderStep();
+      this.startSupportFlow();
     } else {
       this.currentStep = 'outside-hours-form';
       this.renderStep();
@@ -266,78 +437,142 @@ class ChatWidget {
   }
 
   /**
-   * رسم خطوة المحادثة
+   * يشغّل تسلسل بداية محادثة الدعم: رسالتين ترحيبيتين آليتين، ثم حدث
+   * "انضم إلى المحادثة" الخاص بالزائر، ثم بعد فترة قصيرة ينضم موظف الدعم.
    */
+  startSupportFlow() {
+    this.addBotMessage(
+      'مرحباً! إذا كان لديك حساب، يرجى <a href="/login.html">تسجيل الدخول</a> للحصول على خدمة أكثر تخصيصاً. أو يمكنك تقديم <a href="#" class="chat-provide-contact-link">بيانات التواصل الخاصة بك</a>.'
+    );
+    this.addBotMessage('أحد ممثلي خدمة العملاء لدينا سينضم قريباً. يرجى الانتظار!');
+    this.addSystemEvent(`${this.visitorName} انضم إلى المحادثة`, this.visitorName);
+
+    // محاكاة انضمام موظف دعم فعلي للمحادثة بعد فترة (في نسخة حقيقية سيتم هذا
+    // فعلياً من لوحة تحكم الإدارة عبر chatService.assignToAdmin، وسيصل الحدث
+    // هنا تلقائياً عبر subscribeToConversationEvents)
+    setTimeout(() => {
+      if (this.currentConversation) {
+        chatService.assignToAdmin(this.currentConversation.id, 'admin_1', 'فريق الدعم');
+      }
+    }, 2500);
+  }
+
+  addBotMessage(content) {
+    const message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      conversationId: this.currentConversation ? this.currentConversation.id : null,
+      senderId: 'system',
+      senderType: 'admin',
+      content,
+      createdAt: new Date()
+    };
+    this.messages.push(message);
+    this.renderStep();
+  }
+
+  addSystemEvent(text, avatarSeed) {
+    this.messages.push({
+      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      isSystemEvent: true,
+      content: text,
+      avatarSeed: avatarSeed || 'system',
+      createdAt: new Date()
+    });
+    this.renderStep();
+  }
+
+  handleAgentJoined(agentName) {
+    if (this.agentJoined) return;
+    this.agentJoined = true;
+    this.addSystemEvent(`${agentName} انضم إلى المحادثة`, agentName);
+    const header = document.getElementById('headerStatus');
+    if (header) header.textContent = `${agentName} متصل الآن`;
+  }
+
+  handleAgentLeft(agentName) {
+    if (!this.agentJoined) return;
+    this.agentJoined = false;
+    this.addSystemEvent(`${agentName} غادر المحادثة`, agentName);
+    const header = document.getElementById('headerStatus');
+    if (header) header.textContent = 'المحادثة';
+  }
+
+  /* ==================== خطوة المحادثة ==================== */
+
   renderChatStep() {
     const body = document.getElementById('chatWidgetBody');
     const footer = document.getElementById('chatWidgetFooter');
     const header = document.getElementById('headerStatus');
 
-    header.textContent = 'المحادثة';
+    if (!this.agentJoined) header.textContent = 'المحادثة';
 
-    // عرض الرسائل
-    this.messages.forEach(msg => {
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `chat-widget-message ${msg.senderType === 'admin' ? 'bot' : 'user'}`;
-      messageDiv.innerHTML = `
-        <div class="chat-widget-bubble">${this.escapeHtml(msg.content)}</div>
-      `;
-      body.appendChild(messageDiv);
+    this.messages.forEach(item => {
+      if (item.isSystemEvent) {
+        body.appendChild(this.buildSystemEventElement(item));
+      } else {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-widget-message ${item.senderType === 'admin' ? 'bot' : 'user'}`;
+        messageDiv.innerHTML = `<div class="chat-widget-bubble">${this.sanitizeMessageHtml(item.content)}</div>`;
+        body.appendChild(messageDiv);
+      }
     });
 
     // شريط الإدخال
     const inputContainer = document.createElement('div');
-    inputContainer.style.display = 'flex';
-    inputContainer.style.gap = '0.5rem';
+    inputContainer.className = 'chat-widget-input-row';
+
+    const attachBtn = document.createElement('button');
+    attachBtn.type = 'button';
+    attachBtn.className = 'chat-widget-attach-btn';
+    attachBtn.title = 'إرفاق ملف';
+    attachBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';
+    attachBtn.addEventListener('click', () => fileInput.click());
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'اكتب رسالتك...';
-    input.style.flex = '1';
-    input.style.padding = '0.75rem';
-    input.style.border = '1px solid rgba(0, 51, 102, 0.2)';
-    input.style.borderRadius = '8px';
-    input.style.fontFamily = 'Cairo, sans-serif';
-    input.style.textAlign = 'right';
+    input.placeholder = 'What can we help you with?';
+    input.className = 'chat-widget-text-input';
 
-    const sendBtn = document.createElement('button');
-    sendBtn.textContent = 'إرسال';
-    sendBtn.style.padding = '0.75rem 1rem';
-    sendBtn.style.background = 'linear-gradient(135deg, #003366 0%, #0055AA 100%)';
-    sendBtn.style.color = 'white';
-    sendBtn.style.border = 'none';
-    sendBtn.style.borderRadius = '8px';
-    sendBtn.style.cursor = 'pointer';
-    sendBtn.style.fontFamily = 'Cairo, sans-serif';
-    sendBtn.style.fontWeight = '600';
-
-    sendBtn.addEventListener('click', () => this.sendMessage(input.value));
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.sendMessage(input.value);
     });
 
+    inputContainer.appendChild(attachBtn);
+    inputContainer.appendChild(fileInput);
     inputContainer.appendChild(input);
-    inputContainer.appendChild(sendBtn);
     footer.appendChild(inputContainer);
 
-    // زر إنهاء المحادثة
     const endBtn = document.createElement('button');
     endBtn.textContent = 'إنهاء المحادثة';
-    endBtn.className = 'chat-widget-option';
-    endBtn.style.marginTop = '0.5rem';
+    endBtn.className = 'chat-widget-option chat-widget-end-btn';
     endBtn.addEventListener('click', () => {
+      if (this.currentConversation) {
+        // ينهي المحادثة من جهة الخدمة، وهذا يبث حدث "admin_left" تلقائياً
+        // إن كان هناك موظف دعم منضم، فتلتقطه subscribeToConversationEvents
+        chatService.closeConversation(this.currentConversation.id, 'admin_1');
+      }
       this.currentStep = 'rating';
       this.renderStep();
     });
     footer.appendChild(endBtn);
 
-    // التمرير إلى آخر رسالة
     body.scrollTop = body.scrollHeight;
   }
 
-  /**
-   * إرسال رسالة
-   */
+  buildSystemEventElement(item) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'chat-widget-system-event';
+    wrapper.innerHTML = `
+      <div class="chat-widget-avatar" style="background:${this.getAvatarGradient(item.avatarSeed)}"></div>
+      <div class="chat-widget-system-text">${item.content}</div>
+      <div class="chat-widget-system-time">${this.formatEventTimestamp(item.createdAt)}</div>
+    `;
+    return wrapper;
+  }
+
   sendMessage(content) {
     if (!content.trim() || !this.currentConversation) return;
 
@@ -351,7 +586,11 @@ class ChatWidget {
     this.messages.push(message);
     this.renderStep();
 
-    // محاكاة رد من الدعم
+    if (!this.agentJoined) {
+      // إن لم يكن هناك موظف دعم منضم بعد، لا نحاكي رداً آلياً إضافياً
+      return;
+    }
+
     setTimeout(() => {
       const adminReply = chatService.addMessage(
         this.currentConversation.id,
@@ -364,9 +603,8 @@ class ChatWidget {
     }, 1500);
   }
 
-  /**
-   * رسم نموذج خارج أوقات العمل
-   */
+  /* ==================== نموذج خارج أوقات العمل ==================== */
+
   renderOutsideHoursForm() {
     const body = document.getElementById('chatWidgetBody');
     const footer = document.getElementById('chatWidgetFooter');
@@ -374,13 +612,11 @@ class ChatWidget {
 
     header.textContent = 'خارج أوقات العمل';
 
-    const formHTML = `
-      <div style="text-align: right; color: #666; margin-bottom: 1rem; font-size: 0.9rem;">
+    body.innerHTML = `
+      <div style="text-align: right; color: var(--chat-text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
         نحن حالياً خارج أوقات العمل. يرجى ملء البيانات أدناه وسيتم التواصل معك خلال 24 ساعة.
       </div>
     `;
-
-    body.innerHTML = formHTML;
 
     const inputs = [
       { id: 'name', placeholder: 'اسمك', type: 'text' },
@@ -394,14 +630,7 @@ class ChatWidget {
       input.id = `form_${inputConfig.id}`;
       input.type = inputConfig.type;
       input.placeholder = inputConfig.placeholder;
-      input.style.width = '100%';
-      input.style.padding = '0.75rem';
-      input.style.marginBottom = '0.75rem';
-      input.style.border = '1px solid rgba(0, 51, 102, 0.2)';
-      input.style.borderRadius = '8px';
-      input.style.fontFamily = 'Cairo, sans-serif';
-      input.style.textAlign = 'right';
-      input.style.boxSizing = 'border-box';
+      input.className = 'chat-widget-form-input';
       body.appendChild(input);
     });
 
@@ -409,13 +638,7 @@ class ChatWidget {
     textarea.id = 'form_message';
     textarea.placeholder = 'تفاصيل استفسارك';
     textarea.rows = 3;
-    textarea.style.width = '100%';
-    textarea.style.padding = '0.75rem';
-    textarea.style.border = '1px solid rgba(0, 51, 102, 0.2)';
-    textarea.style.borderRadius = '8px';
-    textarea.style.fontFamily = 'Cairo, sans-serif';
-    textarea.style.textAlign = 'right';
-    textarea.style.boxSizing = 'border-box';
+    textarea.className = 'chat-widget-form-input';
     body.appendChild(textarea);
 
     const submitBtn = document.createElement('button');
@@ -427,9 +650,6 @@ class ChatWidget {
     footer.appendChild(submitBtn);
   }
 
-  /**
-   * إرسال نموذج خارج أوقات العمل
-   */
   submitOutsideHoursForm() {
     const name = document.getElementById('form_name').value;
     const phone = document.getElementById('form_phone').value;
@@ -442,7 +662,6 @@ class ChatWidget {
       return;
     }
 
-    // إنشاء محادثة خارج أوقات العمل
     this.currentConversation = chatService.createConversation(this.userId, {
       subject,
       customerName: name,
@@ -450,84 +669,48 @@ class ChatWidget {
       customerEmail: email
     });
 
-    // إضافة الرسالة
-    chatService.addMessage(
-      this.currentConversation.id,
-      this.userId,
-      'customer',
-      message
-    );
+    chatService.addMessage(this.currentConversation.id, this.userId, 'customer', message);
 
     this.currentStep = 'confirmation';
     this.renderStep();
   }
 
-  /**
-   * رسم خطوة التقييم
-   */
+  /* ==================== التقييم ==================== */
+
   renderRatingStep() {
     const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
     const header = document.getElementById('headerStatus');
 
     header.textContent = 'كيف كانت تجربتك؟';
-
     body.innerHTML = '<div style="text-align: center; padding: 2rem 0;">شكراً لاستخدامك خدمتنا</div>';
 
     const ratings = [
-      { value: 'happy', emoji: '😊', label: 'سعيد' },
-      { value: 'neutral', emoji: '😐', label: 'محايد' },
-      { value: 'unhappy', emoji: '😢', label: 'غير راضي' }
+      { value: 'happy', emoji: '😊' },
+      { value: 'neutral', emoji: '😐' },
+      { value: 'unhappy', emoji: '😢' }
     ];
 
     const ratingContainer = document.createElement('div');
-    ratingContainer.style.display = 'flex';
-    ratingContainer.style.justifyContent = 'center';
-    ratingContainer.style.gap = '1rem';
-    ratingContainer.style.padding = '1rem';
+    ratingContainer.className = 'chat-widget-rating-row';
 
     ratings.forEach(rating => {
       const btn = document.createElement('button');
       btn.textContent = rating.emoji;
-      btn.style.fontSize = '2rem';
-      btn.style.background = 'none';
-      btn.style.border = '2px solid rgba(0, 51, 102, 0.2)';
-      btn.style.borderRadius = '50%';
-      btn.style.width = '60px';
-      btn.style.height = '60px';
-      btn.style.cursor = 'pointer';
-      btn.style.transition = 'all 0.2s';
+      btn.className = 'chat-widget-rating-btn';
       btn.addEventListener('click', () => this.submitRating(rating.value));
-      btn.addEventListener('mouseover', () => {
-        btn.style.borderColor = '#0055AA';
-        btn.style.transform = 'scale(1.1)';
-      });
-      btn.addEventListener('mouseout', () => {
-        btn.style.borderColor = 'rgba(0, 51, 102, 0.2)';
-        btn.style.transform = 'scale(1)';
-      });
       ratingContainer.appendChild(btn);
     });
 
     body.appendChild(ratingContainer);
   }
 
-  /**
-   * إرسال التقييم
-   */
   submitRating(rating) {
     if (this.currentConversation) {
       chatService.addRating(this.currentConversation.id, rating, null);
     }
-
-    setTimeout(() => {
-      this.closeWidget();
-    }, 1000);
+    setTimeout(() => this.closeWidget(), 1000);
   }
 
-  /**
-   * رسم خطوة التأكيد
-   */
   renderConfirmationStep() {
     const body = document.getElementById('chatWidgetBody');
     const footer = document.getElementById('chatWidgetFooter');
@@ -538,8 +721,8 @@ class ChatWidget {
     body.innerHTML = `
       <div style="text-align: center; padding: 2rem 0;">
         <div style="font-size: 2rem; margin-bottom: 1rem;">✓</div>
-        <p style="color: #666; margin-bottom: 1rem;">شكراً لتواصلك معنا</p>
-        <p style="color: #999; font-size: 0.9rem;">سيتم الرد على استفسارك خلال 24 ساعة عمل</p>
+        <p style="color: var(--chat-text-secondary); margin-bottom: 1rem;">شكراً لتواصلك معنا</p>
+        <p style="color: var(--chat-text-tertiary); font-size: 0.9rem;">سيتم الرد على استفسارك خلال 24 ساعة عمل</p>
       </div>
     `;
 
@@ -551,18 +734,23 @@ class ChatWidget {
     footer.appendChild(closeBtn);
   }
 
-  /**
-   * تنظيف HTML
-   */
+  /* ==================== تنظيف HTML ==================== */
+
   escapeHtml(text) {
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return text.replace(/[&<>"']/g, m => map[m]);
+  }
+
+  /**
+   * يسمح فقط بعناصر <a> البسيطة داخل رسائل البوت الترحيبية (روابط تسجيل
+   * الدخول/بيانات التواصل)، وينظف أي شيء آخر لمنع حقن HTML من رسائل المستخدم.
+   */
+  sanitizeMessageHtml(content) {
+    if (content.includes('<a ')) {
+      // رسائل النظام الترحيبية المُعرَّفة داخلياً فقط، وليست مدخلة من المستخدم
+      return content;
+    }
+    return this.escapeHtml(content);
   }
 }
 
@@ -574,3 +762,11 @@ if (document.readyState === 'loading') {
 } else {
   window.chatWidget = new ChatWidget();
 }
+
+// ربط النقر على "بيانات التواصل" داخل الرسائل الترحيبية بفتح قائمة الإعدادات
+document.addEventListener('click', (e) => {
+  if (e.target.classList && e.target.classList.contains('chat-provide-contact-link')) {
+    e.preventDefault();
+    if (window.chatWidget) window.chatWidget.toggleSettingsPanel(true);
+  }
+});
