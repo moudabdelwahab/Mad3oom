@@ -309,7 +309,7 @@
 }
 
 .chat-toggle-switch input:checked + .chat-toggle-slider::before {
-    transform: translateX(-18px);
+    transform: translateX(18px);
 }
 
 /* ==================== Body ==================== */
