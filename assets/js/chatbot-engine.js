@@ -603,6 +603,17 @@ export async function getBotReply({ text, supabase, sessionId, userId, botState,
     //     if (aiReply) return { reply: aiReply, options: MAIN_MENU_OPTIONS };
     // }
 
+// ---------- fallback ذكي عبر AI (لو مفعّل من المزود الافتراضي) ----------
+    if (botSettings?.ai_enabled && botSettings?.ai_integration_id) {
+        const aiReply = await callAiFallback({ supabase, sessionId, message: raw });
+        if (aiReply) {
+            if (!state.greeted) state.greeted = true;
+            state.flow = 'main_menu';
+            await saveBotState(supabase, sessionId, state);
+            return { reply: aiReply, options: MAIN_MENU_OPTIONS };
+        }
+    }
+
     if (!state.greeted) state.greeted = true;
     state.flow = 'main_menu';
     await saveBotState(supabase, sessionId, state);
