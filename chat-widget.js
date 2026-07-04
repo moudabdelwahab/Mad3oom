@@ -1,57 +1,52 @@
 /**
- * ويدجت الدردشة المباشرة - Client Side
- * يدير واجهة المستخدم والتفاعل مع الخدمة
+ * ويدجت الدردشة المباشرة - Client Side (v2 - موحّد مع chat-customer)
+ * ------------------------------------------------------------
+ * التغييرات الأساسية في النسخة دي مقارنة بالنسخة القديمة:
  *
- * هذه النسخة تضيف:
- *  - قائمة إعدادات (زر الترس): بيانات التواصل/تسجيل الدخول، تحميل نص المحادثة،
- *    تكبير النافذة، تفعيل/تعطيل الإشعارات.
- *  - زر تصغير الويدجت (Minimize) منفصل عن زر الإغلاق.
- *  - أحداث "انضم إلى المحادثة" / "غادر المحادثة" تظهر مع صورة رمزية (Avatar)
- *    عند دخول/خروج الزائر، وعند دخول/خروج موظف الدعم (Admin) للمحادثة.
+ * 1) اتشالت "الأسئلة المقترحة" (suggestedQuestions) بالكامل، وكذلك خطوة
+ *    "questions" اللي كانت بتعرضها.
+ * 2) اتشال الاعتماد الكامل على "chatService" الوهمي (محادثة/تقييم/انضمام
+ *    موظف دعم كله كان simulation محلي من غير أي backend حقيقي).
+ * 3) الويدجت بقى شغال بنفس الـ backend والمنطق بالظبط اللي شغالة بيه صفحة
+ *    الدردشة في لوحة تحكم العميل (chat.html + chat-logic.js):
+ *      - نفس جداول Supabase (chat_sessions / chat_messages)
+ *      - نفس محرك الرد الآلي المحلي (chatbot-engine.js) بكل خطواته
+ *        (القائمة الرئيسية، فتح تذكرة مشكلة بخطواتها الأربعة، فتح تذكرة
+ *        استفسار، الأسئلة الشائعة عن الاشتراك/الأسعار...)
+ *      - نفس آلية رفع صورة المشكلة الاختيارية (bucket "tickets")
+ *      - نفس منطق "الوضع اليدوي" (is_manual_mode) لما موظف الدعم يرد بنفسه
+ *
+ * ⚠️ ملحوظة مهمة: الـ RLS على chat_sessions/chat_messages بيسمح بس للمستخدم
+ * المسجل دخول (auth.uid()) يشوف وينشئ جلسة/رسائل خاصة بيه. يعني الويدجت ده
+ * دلوقتي بيتطلب تسجيل دخول قبل ما يبدأ محادثة حقيقية (بالظبط زي صفحة لوحة
+ * التحكم). فيه عمود "guest_id" موجود في جدول chat_sessions مش مستخدم حاليًا،
+ * يظهر إنه كان معمول لدعم زوار مش مسجلين لاحقًا - لو حابب تفعّل ده، قولّي
+ * عشان نضيف policy مخصوص للزوار ونربطه هنا.
+ * ------------------------------------------------------------
  */
+
+import { supabase } from '/api-config.js';
+import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 
 class ChatWidget {
   constructor() {
-    this.currentConversation = null;
-    this.currentStep = 'closed'; // closed, questions, chat, outside-hours-form, rating, confirmation
-    this.isLoading = false;
+    this.currentSessionId = null;
+    this.currentUser = null;
+    this.botSettings = null;
     this.messages = []; // يشمل الرسائل العادية وأحداث النظام (system events)
-    this.userId = this.getUserId();
-    this.visitorName = this.getVisitorName();
+    this.quickOptions = null; // الأزرار المعروضة حاليًا تحت آخر رسالة بوت
+    this.messageChannel = null; // اشتراك realtime في رسائل الجلسة
+    this.sessionChannel = null; // اشتراك realtime في تغييرات الجلسة (انضمام أدمن)
+    this.currentStep = 'closed'; // closed, loading, login-required, chat, rating
     this.isMinimized = false;
     this.isMaximized = false;
     this.notificationsEnabled = this.getNotificationsPref();
     this.isSettingsOpen = false;
-    this.agentJoined = false;
+    this.adminJoined = false;
     this.init();
   }
 
   /* ==================== تهيئة عامة ==================== */
-
-  getUserId() {
-    let userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('chat_user_id', userId);
-    }
-    return userId;
-  }
-
-  /**
-   * اسم زائر عشوائي ثابت لكل جهاز (يُحفظ في localStorage) على غرار
-   * الأسماء الافتراضية في أدوات الدردشة المباشرة الشهيرة (مثال: "Zaur B.")
-   */
-  getVisitorName() {
-    let name = localStorage.getItem('chat_visitor_name');
-    if (!name) {
-      const firstNames = ['أحمد', 'سارة', 'محمد', 'ليلى', 'خالد', 'منى', 'يوسف', 'هند', 'عمر', 'ريم'];
-      const first = firstNames[Math.floor(Math.random() * firstNames.length)];
-      const lastInitial = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // حرف لاتيني كنسق مألوف
-      name = `${first} ${lastInitial}.`;
-      localStorage.setItem('chat_visitor_name', name);
-    }
-    return name;
-  }
 
   getNotificationsPref() {
     const stored = localStorage.getItem('chat_notifications_enabled');
@@ -66,16 +61,13 @@ class ChatWidget {
   init() {
     this.createWidgetHTML();
     this.attachEventListeners();
-    this.loadSuggestedQuestions();
-    this.checkWorkingHours();
-    this.subscribeToConversationEvents();
   }
 
   /* ==================== أدوات مساعدة ==================== */
 
   /**
-   * ينشئ تدرج لوني (gradient) ثابت بناءً على نص (اسم/معرف) — نفس الشخص
-   * يحصل دائماً على نفس الألوان.
+   * ينشئ تدرج لوني (gradient) ثابت بناءً على نص (اسم/معرف) — نفس الجهة
+   * تحصل دائماً على نفس الألوان.
    */
   getAvatarGradient(seed) {
     let hash = 0;
@@ -92,6 +84,20 @@ class ChatWidget {
     const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     return `${datePart}, ${timePart}`;
+  }
+
+  escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text || '').replace(/[&<>"']/g, m => map[m]);
+  }
+
+  sanitizeUrl(url) {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('./')) {
+      return this.escapeHtml(trimmed);
+    }
+    return '';
   }
 
   /* ==================== بناء الواجهة ==================== */
@@ -143,7 +149,7 @@ class ChatWidget {
               <div class="chat-settings-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
               </div>
-              <span class="chat-settings-label">تقديم بيانات التواصل</span>
+              <span class="chat-settings-label">حسابك</span>
               <a href="#" class="chat-settings-action" id="chatLoginLink">
                 تسجيل الدخول
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -225,24 +231,6 @@ class ChatWidget {
     });
   }
 
-  /* ==================== الاشتراك في أحداث المحادثة ==================== */
-
-  subscribeToConversationEvents() {
-    if (!window.chatEventEmitter) return;
-
-    window.chatEventEmitter.on('global:admin_joined', (data) => {
-      if (this.currentConversation && data.conversationId === this.currentConversation.id) {
-        this.handleAgentJoined(data.adminName || 'موظف الدعم');
-      }
-    });
-
-    window.chatEventEmitter.on('global:admin_left', (data) => {
-      if (this.currentConversation && data.conversationId === this.currentConversation.id) {
-        this.handleAgentLeft(data.adminName || 'موظف الدعم');
-      }
-    });
-  }
-
   /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
 
   openWidget() {
@@ -251,25 +239,29 @@ class ChatWidget {
     panel.classList.add('active');
     this.isMinimized = false;
     panel.classList.remove('minimized');
-    this.currentStep = 'questions';
-    this.renderStep();
+
+    if (this.currentStep === 'closed') {
+      this.startRealChat();
+    } else {
+      this.renderStep();
+    }
   }
 
   closeWidget() {
     const panel = document.getElementById('chatWidgetPanel');
     if (!panel) return;
 
-    // إذا كان هناك موظف دعم متصل بالمحادثة، سجل خروج الزائر
-    if (this.currentConversation) {
-      this.addSystemEvent(`${this.visitorName} غادر المحادثة`, this.visitorName);
-    }
-
     panel.classList.remove('active');
     this.toggleSettingsPanel(false);
+
+    if (this.messageChannel) { supabase.removeChannel(this.messageChannel); this.messageChannel = null; }
+    if (this.sessionChannel) { supabase.removeChannel(this.sessionChannel); this.sessionChannel = null; }
+
     this.currentStep = 'closed';
-    this.currentConversation = null;
+    this.currentSessionId = null;
     this.messages = [];
-    this.agentJoined = false;
+    this.quickOptions = null;
+    this.adminJoined = false;
   }
 
   toggleMinimize() {
@@ -304,7 +296,7 @@ class ChatWidget {
       if (item.isSystemEvent) {
         return `[${time}] * ${item.content}`;
       }
-      const who = item.senderType === 'customer' ? this.visitorName : 'الدعم الفني';
+      const who = item.senderType === 'customer' ? 'أنت' : 'الدعم الفني';
       return `[${time}] ${who}: ${item.content}`;
     });
 
@@ -320,16 +312,6 @@ class ChatWidget {
     this.toggleSettingsPanel(false);
   }
 
-  /* ==================== تحميل الأسئلة المقترحة / ساعات العمل ==================== */
-
-  loadSuggestedQuestions() {
-    this.suggestedQuestions = chatService.getSuggestedQuestions();
-  }
-
-  checkWorkingHours() {
-    this.isWorkingHours = chatService.isCurrentlyWorkingHours();
-  }
-
   /* ==================== رسم الخطوات ==================== */
 
   renderStep() {
@@ -340,134 +322,195 @@ class ChatWidget {
     footer.innerHTML = '';
 
     switch (this.currentStep) {
-      case 'questions':
-        this.renderQuestionsStep();
+      case 'loading':
+        this.renderLoadingStep();
+        break;
+      case 'login-required':
+        this.renderLoginRequiredStep();
         break;
       case 'chat':
         this.renderChatStep();
         break;
-      case 'outside-hours-form':
-        this.renderOutsideHoursForm();
-        break;
       case 'rating':
         this.renderRatingStep();
-        break;
-      case 'confirmation':
-        this.renderConfirmationStep();
         break;
     }
   }
 
-  renderQuestionsStep() {
+  renderLoadingStep() {
     const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
     const header = document.getElementById('headerStatus');
-
-    header.textContent = 'كيف يمكننا مساعدتك؟';
-
-    this.suggestedQuestions.forEach(question => {
-      const option = document.createElement('button');
-      option.className = 'chat-widget-option';
-      option.innerHTML = `
-        <div class="chat-widget-option-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
-          </svg>
-        </div>
-        <div class="chat-widget-option-text">${question.question}</div>
-      `;
-      option.addEventListener('click', () => this.selectQuestion(question));
-      body.appendChild(option);
-    });
-
-    const supportBtn = document.createElement('button');
-    supportBtn.className = 'chat-widget-option';
-    supportBtn.style.marginTop = '0.5rem';
-    supportBtn.innerHTML = `
-      <div class="chat-widget-option-icon">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8l-2 2V4h14v12z"/>
-        </svg>
-      </div>
-      <div class="chat-widget-option-text">
-        ${this.isWorkingHours ? 'التواصل مع الدعم الفني' : 'استفسار خارج أوقات العمل'}
-      </div>
-    `;
-    supportBtn.addEventListener('click', () => this.contactSupport());
-    body.appendChild(supportBtn);
+    header.textContent = 'جاري التحميل...';
+    body.innerHTML = '<div style="text-align:center; padding:2rem 0; color: var(--chat-text-secondary);">جاري تجهيز المحادثة...</div>';
   }
 
-  selectQuestion(question) {
-    this.isLoading = true;
+  renderLoginRequiredStep() {
+    const body = document.getElementById('chatWidgetBody');
+    const header = document.getElementById('headerStatus');
+    header.textContent = 'محتاج تسجيل دخول';
 
-    this.currentConversation = chatService.createConversation(this.userId, {
-      subject: question.question
-    });
+    body.innerHTML = `
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--chat-text-secondary);">
+        <p style="margin-bottom: 1rem;">لازم تسجل دخول الأول عشان تقدر تبدأ محادثة مع فريق الدعم.</p>
+      </div>
+    `;
 
-    const answerMessage = {
-      id: `msg_${Date.now()}`,
-      conversationId: this.currentConversation.id,
-      senderId: 'system',
-      senderType: 'admin',
-      content: question.answer,
-      createdAt: new Date()
-    };
+    const loginBtn = document.createElement('button');
+    loginBtn.textContent = 'تسجيل الدخول';
+    loginBtn.className = 'chat-widget-option';
+    loginBtn.style.width = '100%';
+    loginBtn.addEventListener('click', () => { window.location.href = '/login.html'; });
+    body.appendChild(loginBtn);
+  }
 
-    this.messages = [answerMessage];
+  /* ==================== بدء محادثة حقيقية (Supabase + محرك البوت) ==================== */
+
+  async startRealChat() {
+    this.currentStep = 'loading';
+    this.renderStep();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      this.currentStep = 'login-required';
+      this.renderStep();
+      return;
+    }
+    this.currentUser = user;
+
+    await this.loadBotSettings();
+    await this.loadOrCreateSession();
+    this.subscribeRealtime();
+
     this.currentStep = 'chat';
-    this.isLoading = false;
     this.renderStep();
   }
 
-  contactSupport() {
-    if (this.isWorkingHours) {
-      this.isLoading = true;
-      this.currentConversation = chatService.createConversation(this.userId, {
-        subject: 'استفسار عام'
-      });
+  async loadBotSettings() {
+    const { data, error } = await supabase.from('bot_settings').select('*').single();
+    if (error) {
+      console.error('[ChatWidget] Error loading bot settings:', error);
+      this.botSettings = {};
+      return;
+    }
+    this.botSettings = data;
+  }
+
+  mapDbMessage(row) {
+    return {
+      id: row.id,
+      senderType: this.currentUser && row.sender_id === this.currentUser.id ? 'customer' : 'admin',
+      content: row.message_text || '',
+      imageUrl: row.image_url || null,
+      createdAt: row.created_at
+    };
+  }
+
+  async loadOrCreateSession() {
+    let { data: session, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('user_id', this.currentUser.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !session) {
+      const { data: newSession, error: createError } = await supabase
+        .from('chat_sessions')
+        .insert({ user_id: this.currentUser.id, status: 'active' })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('[ChatWidget] Error creating session:', createError);
+        return;
+      }
+      session = newSession;
+    }
+
+    this.currentSessionId = session.id;
+    this.adminJoined = !!session.is_manual_mode;
+
+    const { data: rows, error: msgError } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', session.id)
+      .order('created_at', { ascending: true });
+
+    if (msgError) {
+      console.error('[ChatWidget] Error loading messages:', msgError);
       this.messages = [];
-      this.isLoading = false;
-      this.currentStep = 'chat';
-      this.renderStep();
-      this.startSupportFlow();
     } else {
-      this.currentStep = 'outside-hours-form';
-      this.renderStep();
+      this.messages = (rows || []).map(r => this.mapDbMessage(r));
+    }
+
+    if (!rows || rows.length === 0) {
+      await this.sendInitialGreeting();
+    } else if (!session.is_manual_mode) {
+      this.quickOptions = getOptionsForFlow(session.bot_state?.flow);
     }
   }
 
   /**
-   * يشغّل تسلسل بداية محادثة الدعم: رسالتين ترحيبيتين آليتين، ثم حدث
-   * "انضم إلى المحادثة" الخاص بالزائر، ثم بعد فترة قصيرة ينضم موظف الدعم.
+   * اشتراك realtime في: (1) رسائل الجلسة الجديدة، (2) تغييرات على الجلسة نفسها
+   * (بالذات is_manual_mode) عشان نعرض حدث "انضم موظف الدعم" فعليًا لما حد من
+   * لوحة التحكم يرد يدوي على المحادثة، مش simulation وهمي زي الأول.
    */
-  startSupportFlow() {
-    this.addBotMessage(
-      'مرحباً! إذا كان لديك حساب، يرجى <a href="/login.html">تسجيل الدخول</a> للحصول على خدمة أكثر تخصيصاً. أو يمكنك تقديم <a href="#" class="chat-provide-contact-link">بيانات التواصل الخاصة بك</a>.'
-    );
-    this.addBotMessage('أحد ممثلي خدمة العملاء لدينا سينضم قريباً. يرجى الانتظار!');
-    this.addSystemEvent(`${this.visitorName} انضم إلى المحادثة`, this.visitorName);
+  subscribeRealtime() {
+    if (this.messageChannel) supabase.removeChannel(this.messageChannel);
+    if (this.sessionChannel) supabase.removeChannel(this.sessionChannel);
 
-    // محاكاة انضمام موظف دعم فعلي للمحادثة بعد فترة (في نسخة حقيقية سيتم هذا
-    // فعلياً من لوحة تحكم الإدارة عبر chatService.assignToAdmin، وسيصل الحدث
-    // هنا تلقائياً عبر subscribeToConversationEvents)
-    setTimeout(() => {
-      if (this.currentConversation) {
-        chatService.assignToAdmin(this.currentConversation.id, 'admin_1', 'فريق الدعم');
-      }
-    }, 2500);
+    this.messageChannel = supabase
+      .channel(`widget-chat:${this.currentSessionId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'chat_messages',
+        filter: `session_id=eq.${this.currentSessionId}`
+      }, payload => {
+        this.messages.push(this.mapDbMessage(payload.new));
+        if (this.currentStep === 'chat') this.renderStep();
+      })
+      .subscribe();
+
+    this.sessionChannel = supabase
+      .channel(`widget-session:${this.currentSessionId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'chat_sessions',
+        filter: `id=eq.${this.currentSessionId}`
+      }, payload => {
+        const wasManual = this.adminJoined;
+        const isManual = !!payload.new.is_manual_mode;
+        if (isManual && !wasManual) {
+          this.adminJoined = true;
+          this.addSystemEvent('فريق الدعم انضم إلى المحادثة', 'admin');
+          const header = document.getElementById('headerStatus');
+          if (header) header.textContent = 'فريق الدعم متصل الآن';
+        } else if (!isManual && wasManual) {
+          this.adminJoined = false;
+          this.addSystemEvent('فريق الدعم غادر المحادثة', 'admin');
+        }
+      })
+      .subscribe();
   }
 
-  addBotMessage(content) {
-    const message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      conversationId: this.currentConversation ? this.currentConversation.id : null,
-      senderId: 'system',
-      senderType: 'admin',
-      content,
-      createdAt: new Date()
-    };
-    this.messages.push(message);
-    this.renderStep();
+  async sendInitialGreeting() {
+    if (!this.currentSessionId) return;
+    const welcome = this.botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
+    const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
+
+    await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', this.currentSessionId);
+    await supabase.from('chat_messages').insert({
+      session_id: this.currentSessionId,
+      sender_id: null,
+      message_text: greetingText,
+      is_admin_reply: false,
+      is_bot_reply: true
+    });
+
+    // بنعرضها يدويًا فورًا لأن اشتراك الـ realtime لسه مبيتفعّلش إلا بعد الرجوع
+    // من startRealChat، فمكانش هيلقط أول رسالة ترحيب.
+    this.messages.push({ id: `local_${Date.now()}`, senderType: 'admin', content: greetingText, createdAt: new Date().toISOString() });
+    this.quickOptions = MAIN_MENU_OPTIONS;
   }
 
   addSystemEvent(text, avatarSeed) {
@@ -478,23 +521,7 @@ class ChatWidget {
       avatarSeed: avatarSeed || 'system',
       createdAt: new Date()
     });
-    this.renderStep();
-  }
-
-  handleAgentJoined(agentName) {
-    if (this.agentJoined) return;
-    this.agentJoined = true;
-    this.addSystemEvent(`${agentName} انضم إلى المحادثة`, agentName);
-    const header = document.getElementById('headerStatus');
-    if (header) header.textContent = `${agentName} متصل الآن`;
-  }
-
-  handleAgentLeft(agentName) {
-    if (!this.agentJoined) return;
-    this.agentJoined = false;
-    this.addSystemEvent(`${agentName} غادر المحادثة`, agentName);
-    const header = document.getElementById('headerStatus');
-    if (header) header.textContent = 'المحادثة';
+    if (this.currentStep === 'chat') this.renderStep();
   }
 
   /* ==================== خطوة المحادثة ==================== */
@@ -504,7 +531,7 @@ class ChatWidget {
     const footer = document.getElementById('chatWidgetFooter');
     const header = document.getElementById('headerStatus');
 
-    if (!this.agentJoined) header.textContent = 'المحادثة';
+    if (!this.adminJoined) header.textContent = 'المحادثة';
 
     this.messages.forEach(item => {
       if (item.isSystemEvent) {
@@ -512,10 +539,43 @@ class ChatWidget {
       } else {
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-widget-message ${item.senderType === 'admin' ? 'bot' : 'user'}`;
-        messageDiv.innerHTML = `<div class="chat-widget-bubble">${this.sanitizeMessageHtml(item.content)}</div>`;
+        const safeImageUrl = this.sanitizeUrl(item.imageUrl);
+        const imageHtml = safeImageUrl
+          ? `<a href="${safeImageUrl}" target="_blank" rel="noopener"><img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:180px;border-radius:0.5rem;display:block;margin-bottom:0.35rem;"></a>`
+          : '';
+        messageDiv.innerHTML = `<div class="chat-widget-bubble">${imageHtml}${this.escapeHtml(item.content)}</div>`;
         body.appendChild(messageDiv);
       }
     });
+
+    // أزرار الاختيارات السريعة (لو موجودة) تحت آخر رسالة
+    if (this.quickOptions && this.quickOptions.length > 0) {
+      const optionsWrap = document.createElement('div');
+      optionsWrap.className = 'chat-widget-quick-options';
+      optionsWrap.style.display = 'flex';
+      optionsWrap.style.flexWrap = 'wrap';
+      optionsWrap.style.gap = '0.5rem';
+      optionsWrap.style.margin = '0.5rem 0';
+
+      this.quickOptions.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chat-widget-option';
+        btn.style.flex = '0 1 auto';
+        btn.textContent = opt.label;
+        btn.addEventListener('click', () => {
+          if (opt.value === '__attach_image__') {
+            this.triggerImageUpload();
+            return;
+          }
+          optionsWrap.querySelectorAll('button').forEach(b => b.disabled = true);
+          this.sendMessage(opt.value);
+        });
+        optionsWrap.appendChild(btn);
+      });
+
+      body.appendChild(optionsWrap);
+    }
 
     // شريط الإدخال
     const inputContainer = document.createElement('div');
@@ -524,39 +584,31 @@ class ChatWidget {
     const attachBtn = document.createElement('button');
     attachBtn.type = 'button';
     attachBtn.className = 'chat-widget-attach-btn';
-    attachBtn.title = 'إرفاق ملف';
+    attachBtn.title = 'إرفاق صورة';
     attachBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.style.display = 'none';
-    attachBtn.addEventListener('click', () => fileInput.click());
+    attachBtn.addEventListener('click', () => this.triggerImageUpload());
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'What can we help you with?';
+    input.placeholder = 'اكتب رسالتك هنا...';
     input.className = 'chat-widget-text-input';
 
     input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.sendMessage(input.value);
+      if (e.key === 'Enter' && input.value.trim()) {
+        const text = input.value;
+        input.value = '';
+        this.sendMessage(text);
+      }
     });
 
     inputContainer.appendChild(attachBtn);
-    inputContainer.appendChild(fileInput);
     inputContainer.appendChild(input);
     footer.appendChild(inputContainer);
 
     const endBtn = document.createElement('button');
     endBtn.textContent = 'إنهاء المحادثة';
     endBtn.className = 'chat-widget-option chat-widget-end-btn';
-    endBtn.addEventListener('click', () => {
-      if (this.currentConversation) {
-        // ينهي المحادثة من جهة الخدمة، وهذا يبث حدث "admin_left" تلقائياً
-        // إن كان هناك موظف دعم منضم، فتلتقطه subscribeToConversationEvents
-        chatService.closeConversation(this.currentConversation.id, 'admin_1');
-      }
-      this.currentStep = 'rating';
-      this.renderStep();
-    });
+    endBtn.addEventListener('click', () => this.endChat());
     footer.appendChild(endBtn);
 
     body.scrollTop = body.scrollHeight;
@@ -567,115 +619,135 @@ class ChatWidget {
     wrapper.className = 'chat-widget-system-event';
     wrapper.innerHTML = `
       <div class="chat-widget-avatar" style="background:${this.getAvatarGradient(item.avatarSeed)}"></div>
-      <div class="chat-widget-system-text">${item.content}</div>
+      <div class="chat-widget-system-text">${this.escapeHtml(item.content)}</div>
       <div class="chat-widget-system-time">${this.formatEventTimestamp(item.createdAt)}</div>
     `;
     return wrapper;
   }
 
-  sendMessage(content) {
-    if (!content.trim() || !this.currentConversation) return;
+  /* ==================== إرسال الرسائل والرد الآلي ==================== */
 
-    const message = chatService.addMessage(
-      this.currentConversation.id,
-      this.userId,
-      'customer',
-      content
-    );
+  async sendMessage(text) {
+    const content = (text || '').trim();
+    if (!content || !this.currentSessionId || !this.currentUser) return;
 
-    this.messages.push(message);
-    this.renderStep();
+    this.quickOptions = null;
+    this.renderStep(); // نشيل الأزرار فورًا لحد ما يوصل الرد
 
-    if (!this.agentJoined) {
-      // إن لم يكن هناك موظف دعم منضم بعد، لا نحاكي رداً آلياً إضافياً
+    const { error: sendError } = await supabase.from('chat_messages').insert({
+      session_id: this.currentSessionId,
+      sender_id: this.currentUser.id,
+      message_text: content,
+      is_admin_reply: false
+    });
+
+    if (sendError) {
+      console.error('[ChatWidget] Error sending message:', sendError);
       return;
     }
 
-    setTimeout(() => {
-      const adminReply = chatService.addMessage(
-        this.currentConversation.id,
-        'admin_1',
-        'admin',
-        'شكراً لتواصلك معنا. سيتم الرد على استفسارك قريباً.'
-      );
-      this.messages.push(adminReply);
+    await this.triggerBotReply({ text: content });
+  }
+
+  /**
+   * بيحسب رد البوت (لو مفيش موظف دعم واخد الجلسة يدويًا حاليًا) وبيسجله،
+   * وده نفس المنطق المستخدم في صفحة لوحة تحكم العميل بالظبط.
+   */
+  async triggerBotReply({ text = '', imageUrl = null } = {}) {
+    try {
+      const { data: freshSession } = await supabase
+        .from('chat_sessions')
+        .select('bot_state, is_manual_mode')
+        .eq('id', this.currentSessionId)
+        .single();
+
+      if (freshSession?.is_manual_mode) return; // موظف الدعم واخد بال، البوت يسكت
+
+      const { reply, options } = await getBotReply({
+        text,
+        supabase,
+        sessionId: this.currentSessionId,
+        userId: this.currentUser.id,
+        botState: freshSession?.bot_state || {},
+        botSettings: this.botSettings,
+        imageUrl
+      });
+
+      await supabase.from('chat_messages').insert({
+        session_id: this.currentSessionId,
+        sender_id: null,
+        message_text: reply,
+        is_admin_reply: false,
+        is_bot_reply: true
+      });
+
+      this.quickOptions = options;
       this.renderStep();
-    }, 1500);
-  }
-
-  /* ==================== نموذج خارج أوقات العمل ==================== */
-
-  renderOutsideHoursForm() {
-    const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
-    const header = document.getElementById('headerStatus');
-
-    header.textContent = 'خارج أوقات العمل';
-
-    body.innerHTML = `
-      <div style="text-align: right; color: var(--chat-text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
-        نحن حالياً خارج أوقات العمل. يرجى ملء البيانات أدناه وسيتم التواصل معك خلال 24 ساعة.
-      </div>
-    `;
-
-    const inputs = [
-      { id: 'name', placeholder: 'اسمك', type: 'text' },
-      { id: 'phone', placeholder: 'رقم الموبايل', type: 'tel' },
-      { id: 'email', placeholder: 'البريد الإلكتروني', type: 'email' },
-      { id: 'subject', placeholder: 'موضوع الاستفسار', type: 'text' }
-    ];
-
-    inputs.forEach(inputConfig => {
-      const input = document.createElement('input');
-      input.id = `form_${inputConfig.id}`;
-      input.type = inputConfig.type;
-      input.placeholder = inputConfig.placeholder;
-      input.className = 'chat-widget-form-input';
-      body.appendChild(input);
-    });
-
-    const textarea = document.createElement('textarea');
-    textarea.id = 'form_message';
-    textarea.placeholder = 'تفاصيل استفسارك';
-    textarea.rows = 3;
-    textarea.className = 'chat-widget-form-input';
-    body.appendChild(textarea);
-
-    const submitBtn = document.createElement('button');
-    submitBtn.textContent = 'إرسال';
-    submitBtn.className = 'chat-widget-option';
-    submitBtn.style.width = '100%';
-    submitBtn.style.marginTop = '1rem';
-    submitBtn.addEventListener('click', () => this.submitOutsideHoursForm());
-    footer.appendChild(submitBtn);
-  }
-
-  submitOutsideHoursForm() {
-    const name = document.getElementById('form_name').value;
-    const phone = document.getElementById('form_phone').value;
-    const email = document.getElementById('form_email').value;
-    const subject = document.getElementById('form_subject').value;
-    const message = document.getElementById('form_message').value;
-
-    if (!name || !phone || !email || !subject || !message) {
-      alert('يرجى ملء جميع الحقول');
-      return;
+    } catch (err) {
+      console.error('[ChatWidget] Bot reply error:', err);
     }
+  }
 
-    this.currentConversation = chatService.createConversation(this.userId, {
-      subject,
-      customerName: name,
-      customerPhone: phone,
-      customerEmail: email
-    });
+  /* ==================== إرفاق صورة (خطوة اختيارية في فتح تذكرة مشكلة) ==================== */
 
-    chatService.addMessage(this.currentConversation.id, this.userId, 'customer', message);
+  triggerImageUpload() {
+    let input = document.getElementById('widgetImageFileInput');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.id = 'widgetImageFileInput';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+    }
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      input.value = '';
+      if (file) this.handleImageFileSelected(file);
+    };
+    input.click();
+  }
 
-    this.currentStep = 'confirmation';
+  async handleImageFileSelected(file) {
+    if (!file || !this.currentUser || !this.currentSessionId) return;
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${this.currentUser.id}/${this.currentSessionId}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage.from('tickets').upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: pub } = supabase.storage.from('tickets').getPublicUrl(path);
+
+      await supabase.from('chat_messages').insert({
+        session_id: this.currentSessionId,
+        sender_id: this.currentUser.id,
+        message_text: '📎 صورة مرفقة',
+        image_url: pub.publicUrl,
+        is_admin_reply: false
+      });
+
+      this.quickOptions = null;
+      this.renderStep();
+      await this.triggerBotReply({ text: '', imageUrl: pub.publicUrl });
+    } catch (err) {
+      console.error('[ChatWidget] Image upload error:', err);
+      alert('حصل خطأ في رفع الصورة، تقدر تجرب تاني أو تكمل من غيرها');
+    }
+  }
+
+  /* ==================== إنهاء المحادثة والتقييم ==================== */
+
+  async endChat() {
+    if (this.currentSessionId) {
+      await supabase.from('chat_sessions').update({ status: 'closed' }).eq('id', this.currentSessionId);
+    }
+    if (this.messageChannel) { supabase.removeChannel(this.messageChannel); this.messageChannel = null; }
+    if (this.sessionChannel) { supabase.removeChannel(this.sessionChannel); this.sessionChannel = null; }
+
+    this.currentStep = 'rating';
     this.renderStep();
   }
-
-  /* ==================== التقييم ==================== */
 
   renderRatingStep() {
     const body = document.getElementById('chatWidgetBody');
@@ -705,52 +777,11 @@ class ChatWidget {
   }
 
   submitRating(rating) {
-    if (this.currentConversation) {
-      chatService.addRating(this.currentConversation.id, rating, null);
-    }
+    // ⚠️ التقييم هنا شكلي فقط حاليًا ومش بيتخزن في قاعدة البيانات، بالظبط
+    // زي حالة نافذة التقييم في صفحة لوحة تحكم العميل دلوقتي. لو حابب نفعّله
+    // فعليًا (تخزينه في تذكرة أو جدول تقييمات) قولّي عشان نضيفه للاتنين مع بعض.
+    console.log('[ChatWidget] Rating selected (not persisted yet):', rating);
     setTimeout(() => this.closeWidget(), 1000);
-  }
-
-  renderConfirmationStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
-    const header = document.getElementById('headerStatus');
-
-    header.textContent = 'تم استقبال استفسارك';
-
-    body.innerHTML = `
-      <div style="text-align: center; padding: 2rem 0;">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">✓</div>
-        <p style="color: var(--chat-text-secondary); margin-bottom: 1rem;">شكراً لتواصلك معنا</p>
-        <p style="color: var(--chat-text-tertiary); font-size: 0.9rem;">سيتم الرد على استفسارك خلال 24 ساعة عمل</p>
-      </div>
-    `;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'إغلاق';
-    closeBtn.className = 'chat-widget-option';
-    closeBtn.style.width = '100%';
-    closeBtn.addEventListener('click', () => this.closeWidget());
-    footer.appendChild(closeBtn);
-  }
-
-  /* ==================== تنظيف HTML ==================== */
-
-  escapeHtml(text) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return text.replace(/[&<>"']/g, m => map[m]);
-  }
-
-  /**
-   * يسمح فقط بعناصر <a> البسيطة داخل رسائل البوت الترحيبية (روابط تسجيل
-   * الدخول/بيانات التواصل)، وينظف أي شيء آخر لمنع حقن HTML من رسائل المستخدم.
-   */
-  sanitizeMessageHtml(content) {
-    if (content.includes('<a ')) {
-      // رسائل النظام الترحيبية المُعرَّفة داخلياً فقط، وليست مدخلة من المستخدم
-      return content;
-    }
-    return this.escapeHtml(content);
   }
 }
 
@@ -762,11 +793,3 @@ if (document.readyState === 'loading') {
 } else {
   window.chatWidget = new ChatWidget();
 }
-
-// ربط النقر على "بيانات التواصل" داخل الرسائل الترحيبية بفتح قائمة الإعدادات
-document.addEventListener('click', (e) => {
-  if (e.target.classList && e.target.classList.contains('chat-provide-contact-link')) {
-    e.preventDefault();
-    if (window.chatWidget) window.chatWidget.toggleSettingsPanel(true);
-  }
-});
