@@ -1,315 +1,27 @@
-/* تحسينات إضافية لويدجت الدردشة */
+/* تحسينات إضافية لويدجت الدردشة
+   ملاحظة: الويدجت أصبح يستخدم لوحة ألوان داكنة ثابتة خاصة به (متغيرات
+   --chat-* المعرّفة في chat-widget.css) بدلاً من الاعتماد على متغيرات
+   ثيم الصفحة المضيفة (--color-*)، وذلك ليطابق التصميم الاحترافي المطلوب
+   بغض النظر عن الوضع الليلي/النهاري لصفحة العميل. لذلك هذا الملف الآن
+   يقتصر على تحسينات الوصول (accessibility) وتفاصيل صغيرة فقط. */
 
-/* تحسينات الألوان والمظهر */
-.chat-widget-panel {
-    background: var(--color-surface, white);
-    border: 1px solid var(--color-border, rgba(0, 51, 102, 0.08));
-}
-
-.chat-widget-header {
-    background: linear-gradient(135deg, var(--color-primary, #003366) 0%, var(--color-primary-dark, #0055AA) 100%);
-}
-
-.chat-widget-body {
-    background: var(--color-muted, #f8f9fa);
-}
-
-.chat-widget-message.bot .chat-widget-bubble {
-    background: var(--color-surface, white);
-    color: var(--color-text, #333);
-    border: 1px solid var(--color-border, rgba(0, 51, 102, 0.08));
-}
-
-.chat-widget-message.user .chat-widget-bubble {
-    background: linear-gradient(135deg, var(--color-primary, #003366) 0%, var(--color-primary-dark, #0055AA) 100%);
-    color: white;
-}
-
-.chat-widget-option {
-    background: var(--color-surface, white);
-    border: 1.5px solid var(--color-border, rgba(0, 51, 102, 0.12));
-    color: var(--color-text, #333);
-}
-
-.chat-widget-option:hover {
-    background: var(--color-muted, rgba(0, 51, 102, 0.05));
-    border-color: var(--color-primary, rgba(0, 51, 102, 0.25));
-}
-
-/* دعم الوضع الليلي */
-[data-theme="dark"] .chat-widget-panel {
-    background: #1e1e1e;
-    border-color: #333;
-}
-
-[data-theme="dark"] .chat-widget-body {
-    background: #2a2a2a;
-}
-
-[data-theme="dark"] .chat-widget-message.bot .chat-widget-bubble {
-    background: #333;
-    color: #e0e0e0;
-    border-color: #444;
-}
-
-[data-theme="dark"] .chat-widget-option {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .chat-widget-option:hover {
-    background: #333;
-    border-color: #0055AA;
-}
-
-/* تحسينات الاستجابة للأجهزة الصغيرة */
-@media (max-width: 480px) {
-    .chat-widget-panel {
-        width: calc(100vw - 1.5rem);
-        max-height: 80vh;
-        bottom: 70px;
-    }
-
-    .chat-widget-header {
-        padding: 1rem;
-    }
-
-    .chat-widget-body {
-        padding: 1rem;
-    }
-
-    .chat-widget-footer {
-        padding: 1rem;
-    }
-
-    .chat-widget-bubble {
-        max-width: 90%;
-        font-size: 0.85rem;
-    }
-}
-
-/* تحسينات الوصول (Accessibility) */
-.chat-bubble-btn:focus,
-.chat-widget-option:focus,
-.chat-widget-close:focus {
-    outline: 2px solid var(--color-primary, #0055AA);
+.chat-bubble-btn:focus-visible,
+.chat-widget-option:focus-visible,
+.chat-header-icon-btn:focus-visible,
+.chat-widget-text-input:focus-visible,
+.chat-widget-attach-btn:focus-visible {
+    outline: 2px solid #7ea6ff;
     outline-offset: 2px;
 }
 
-/* تحسينات الحركة */
-@media (prefers-reduced-motion: reduce) {
-    .chat-widget-panel,
-    .chat-widget-message,
-    .chat-bubble-btn {
-        animation: none !important;
-        transition: none !important;
-    }
-}
-
-/* تحسينات الخطوط */
-.chat-widget-header h3,
-.chat-widget-header p,
-.chat-widget-message,
-.chat-widget-option {
-    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-/* تحسينات الظلال */
-.chat-widget-panel {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.16),
-                0 0 0 1px rgba(0, 0, 0, 0.08);
-}
-
-.chat-bubble-btn:hover {
-    box-shadow: 0 8px 32px rgba(0, 51, 102, 0.3),
-                0 0 0 1px rgba(0, 51, 102, 0.1);
-}
-
-/* تحسينات الزوايا المستديرة */
-.chat-widget-panel {
-    border-radius: 20px;
-}
-
-.chat-widget-header {
-    border-radius: 20px 20px 0 0;
-}
-
-.chat-widget-bubble {
-    border-radius: 16px;
-}
-
-.chat-widget-option {
-    border-radius: 12px;
-}
-
-/* تحسينات الحشوة والمسافات */
-.chat-widget-body {
-    padding: 1.5rem;
-    gap: 1rem;
-}
-
-.chat-widget-footer {
-    padding: 1.5rem;
-    gap: 1rem;
-}
-
-/* تحسينات شريط التمرير */
-.chat-widget-body::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-widget-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chat-widget-body::-webkit-scrollbar-thumb {
-    background: rgba(0, 51, 102, 0.2);
+.chat-widget-bubble code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.2rem 0.4rem;
     border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
 }
 
-.chat-widget-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 51, 102, 0.4);
-}
-
-/* تحسينات الأيقونات */
-.chat-widget-header-icon,
-.chat-widget-option-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.chat-widget-header-icon svg,
-.chat-widget-option-icon svg {
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-/* تحسينات الزر العائم */
-.chat-bubble-btn {
-    box-shadow: 0 4px 12px rgba(0, 51, 102, 0.25),
-                0 0 0 1px rgba(0, 51, 102, 0.1);
-}
-
-.chat-bubble-btn::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-/* تحسينات الحالات الخاصة */
-.chat-widget-message.system .chat-widget-bubble {
-    background: #f0f2f5;
-    color: #666;
-    text-align: center;
-    font-size: 0.85rem;
-}
-
-/* تحسينات الرسائل المكتوبة */
-.chat-widget-typing {
-    display: flex;
-    gap: 4px;
-    padding: 0.85rem 1rem;
-}
-
-.chat-widget-typing-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #999;
-    animation: typing 1.4s infinite;
-}
-
-.chat-widget-typing-dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.chat-widget-typing-dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes typing {
-    0%, 60%, 100% {
-        opacity: 0.5;
-        transform: translateY(0);
-    }
-    30% {
-        opacity: 1;
-        transform: translateY(-10px);
-    }
-}
-
-/* تحسينات الزر الثابت */
-.floating-chat-widget {
-    font-family: 'Cairo', sans-serif;
-}
-
-.chat-bubble-btn {
-    font-family: 'Cairo', sans-serif;
-}
-
-/* تحسينات الحد الأدنى للارتفاع */
-.chat-widget-panel {
-    min-height: 400px;
-}
-
-.chat-widget-body {
-    min-height: 200px;
-}
-
-/* تحسينات الخلفية */
-.chat-widget-panel {
-    background-clip: padding-box;
-}
-
-/* تحسينات الانتقالات */
-.chat-widget-option {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.chat-bubble-btn {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* تحسينات الحالات المعطلة */
-.chat-widget-option:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.chat-widget-option:disabled:hover {
-    background: var(--color-surface, white);
-    border-color: var(--color-border, rgba(0, 51, 102, 0.12));
-    transform: none;
-}
-
-/* تحسينات الرسائل الطويلة */
-.chat-widget-bubble {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-}
-
-/* تحسينات الروابط في الرسائل */
-.chat-widget-bubble a {
-    color: inherit;
-    text-decoration: underline;
-    opacity: 0.8;
-}
-
-.chat-widget-message.user .chat-widget-bubble a {
-    opacity: 1;
-}
-
-/* تحسينات الصور في الرسائل */
 .chat-widget-bubble img {
     max-width: 100%;
     height: auto;
@@ -317,15 +29,24 @@
     margin-top: 0.5rem;
 }
 
-/* تحسينات الأكواد في الرسائل */
-.chat-widget-bubble code {
-    background: rgba(0, 0, 0, 0.1);
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
+.chat-widget-typing {
+    display: flex;
+    gap: 4px;
+    padding: 0.6rem 0.2rem;
 }
 
-.chat-widget-message.user .chat-widget-bubble code {
-    background: rgba(255, 255, 255, 0.2);
+.chat-widget-typing-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--chat-text-tertiary, #7d818a);
+    animation: chatTypingDot 1.4s infinite;
+}
+
+.chat-widget-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-widget-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes chatTypingDot {
+    0%, 60%, 100% { opacity: 0.4; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-6px); }
 }
