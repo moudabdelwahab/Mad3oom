@@ -409,6 +409,35 @@ async function saveBotState(supabase, sessionId, newState) {
     await supabase.from('chat_sessions').update({ bot_state: newState }).eq('id', sessionId);
 }
 
+// ===== استدعاء الرد الذكي (fallback) لما مفيش تطابق مع أي فلو/كلمة مفتاحية =====
+// بيتصل بإيدج فانكشن generate-ai-chat-reply، اللي بيقرأ المزود الافتراضي من
+// bot_settings ويفك تشفير مفاتيحه وينادي المزود (OpenAI/Claude/Gemini/...).
+// لو حصل أي خطأ (المزود متعطل، مفيش نت، تايم اوت...) بترجع null والمحرك
+// المحلي بيكمل بالسلوك القديم (رسالة "مش متأكد إني فهمتك صح").
+async function callAiFallback({ supabase, sessionId, message }) {
+    try {
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
+        const invokePromise = supabase.functions.invoke('generate-ai-chat-reply', {
+            body: { sessionId, message },
+        });
+
+        const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+
+        if (error) {
+            console.warn('[AI-FALLBACK] الفانكشن رجّعت خطأ:', error);
+            return null;
+        }
+        if (!data?.reply) {
+            console.warn('[AI-FALLBACK] مفيش reply في الرد:', data);
+            return null;
+        }
+
+        return data.reply;
+    } catch (err) {
+        console.warn('[AI-FALLBACK] استثناء أثناء النداء:', err?.message || err);
+        return null;
+    }
+}
 // ===================== رسائل ثابتة =====================
 const MENU_PROMPT = 'اختار من الاختيارات دي أو اكتبلي طلبك بحريتك:';
 const INQUIRY_ASK = 'تمام، اكتبلي استفسارك وهحاول أجاوبك فورًا [[icon:inquiry]]';
