@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدعوم | نظام عربي يقلل ضغط فريق الدعم</title>
+<meta name="description" content="مدعوم لا يبيع تذاكر أو محادثات. هو نظام يستقبل عملاءك، يجمع تفاصيل مشاكلهم، وينظّم عمل فريقك تلقائياً — حتى يتفرغوا لما يستحق وقتهم فعلاً.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ Tokens ============ */
+:root{
+  --bg-void:#060B14;
+  --bg-surface:#0D1622;
+  --bg-elevated:#121F30;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.09);
+  --primary:#0077CC;
+  --primary-deep:#00234A;
+  --accent:#4DA3FF;
+  --accent-soft:#8FC7FF;
+  --success:#22C58B;
+  --danger:#FF6B6B;
+  --whatsapp:#25D366;
+  --text-1:#F3F6FB;
+  --text-2:#94A6C2;
+  --text-3:#5A6A82;
+  --radius-lg:1.5rem;
+  --radius-md:1rem;
+  --radius-sm:.6rem;
+  --shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --font-display:'Cairo',sans-serif;
+  --font-body:'IBM Plex Sans Arabic',sans-serif;
+  --font-data:'Space Grotesk',sans-serif;
+  --container:1240px;
+  --pad:clamp(1.25rem,4vw,3rem);
+  /* real product surface (light UI, matches actual app) */
+  --ui-bg:#F3F6FC;
+  --ui-card:#FFFFFF;
+  --ui-ink:#101B2E;
+  --ui-ink-2:#66738B;
+  --ui-border:#E7ECF5;
+  --pill-green-bg:#DCFCE7;--pill-green-text:#16A34A;
+  --pill-amber-bg:#FEF3C7;--pill-amber-text:#B45309;
+  --pill-blue-bg:#DBEAFE;--pill-blue-text:#2563EB;
+  --pill-gray-bg:#EEF1F6;--pill-gray-text:#64748B;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-1);line-height:1.75;overflow-x:hidden;position:relative;}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.22), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 20%, rgba(77,163,255,.12), transparent 55%),
+    var(--bg-void);}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+a{color:inherit;text-decoration:none;}
+img{max-width:100%;display:block;}
+ul{list-style:none;}
+button{font-family:inherit;}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;letter-spacing:-.01em;}
+::selection{background:var(--primary);color:#fff;}
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
+.container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.25rem;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.section{padding:clamp(4rem,9vw,7rem) 0;}
+.section-head{max-width:660px;margin:0 auto 3rem;text-align:center;}
+.section-head h2{font-size:clamp(1.75rem,3.6vw,2.6rem);margin-bottom:1rem;}
+.section-head p{color:var(--text-2);font-size:1.05rem;}
+.gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(0,119,204,.7);}
+.btn-outline{background:rgba(255,255,255,.03);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
+.btn-sm{padding:.55rem 1.1rem;font-size:.82rem;border-radius:.6rem;}
+.btn-block{width:100%;}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .8s ease, transform .8s ease;}
+.reveal.in{opacity:1;transform:translateY(0);}
+
+/* ============ Navbar ============ */
+.navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:1rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
+.navbar.scrolled{background:rgba(6,11,20,.75);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.65rem;}
+.brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;}
+.brand-mark svg{width:24px;height:24px;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1.05rem;}
+.brand-text small{font-size:.62rem;color:var(--text-2);font-weight:500;}
+.nav-links{display:flex;align-items:center;gap:2rem;}
+.nav-links a{font-size:.92rem;color:var(--text-2);font-weight:500;transition:color .2s;}
+.nav-links a:hover{color:var(--text-1);}
+.nav-cta{display:flex;align-items:center;gap:.75rem;}
+.nav-login{font-size:.9rem;font-weight:600;color:var(--text-2);}
+.nav-login:hover{color:var(--text-1);}
+.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:.4rem;}
+.hamburger span{width:22px;height:2px;background:var(--text-1);border-radius:2px;}
+.mobile-menu{display:none;}
+@media (max-width:900px){
+  .nav-links{display:none;} .nav-login{display:none;} .hamburger{display:flex;}
+  .mobile-menu{position:fixed;inset:0;background:rgba(6,11,20,.98);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;}
+  .mobile-menu.open{transform:translateY(0);}
+  .mobile-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;}
+  .mobile-menu a{display:block;padding:1rem 0;font-size:1.15rem;font-weight:600;border-bottom:1px solid var(--glass-border);}
+  .mobile-menu .btn{margin-top:1.5rem;}
+  .close-btn{background:none;border:none;color:var(--text-1);font-size:1.6rem;cursor:pointer;}
+}
+
+/* ============ Circuit backdrop (identity motif) ============ */
+.circuit-bg{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.35;}
+.circuit-bg svg{width:100%;height:100%;}
+.circuit-bg path{stroke:url(#circuitGrad);stroke-width:1;fill:none;stroke-dasharray:6 10;animation:dashMove 12s linear infinite;}
+.circuit-bg circle{fill:var(--accent-soft);opacity:.7;}
+@keyframes dashMove{to{stroke-dashoffset:-320;}}
+
+/* ============ Hero V2 ============ */
+.hero{padding:clamp(8rem,14vw,10.5rem) 0 3rem;position:relative;}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:3rem;align-items:center;position:relative;z-index:1;}
+.hero-copy h1{font-size:clamp(2rem,4.4vw,3.15rem);margin-bottom:1.4rem;}
+.problem-lines{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.6rem;}
+.problem-lines li{display:flex;align-items:flex-start;gap:.6rem;color:var(--text-2);font-size:1.02rem;}
+.problem-lines svg{width:18px;height:18px;color:var(--danger);flex-shrink:0;margin-top:.25rem;}
+.solution-line{font-family:var(--font-display);font-weight:800;font-size:clamp(1.2rem,2.4vw,1.6rem);margin-bottom:1.8rem;}
+.hero-actions{display:flex;gap:1rem;flex-wrap:wrap;}
+
+.hero-robot-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;}
+.robot-halo{position:absolute;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle, rgba(0,119,204,.4), transparent 70%);filter:blur(20px);animation:halo 5s ease-in-out infinite;}
+@keyframes halo{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+.robot-ring{position:absolute;width:230px;height:230px;border-radius:50%;border:1px dashed rgba(77,163,255,.35);animation:spin 30s linear infinite;}
+.robot-ring.r2{width:300px;height:300px;border-color:rgba(77,163,255,.18);animation-duration:45s;animation-direction:reverse;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.robot-core{position:relative;width:150px;height:150px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);animation:floaty 6s ease-in-out infinite;}
+@keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+.robot-core svg{width:78px;height:78px;color:#fff;}
+.orbit-chip{position:absolute;display:flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);padding:.5rem .8rem;border-radius:99px;font-size:.75rem;font-weight:700;backdrop-filter:blur(10px);animation:chipFloat 4s ease-in-out infinite;}
+.orbit-chip svg{width:15px;height:15px;color:var(--accent-soft);}
+.chip-1{top:6%;right:4%;animation-delay:0s;}
+.chip-2{bottom:16%;right:-2%;animation-delay:.7s;}
+.chip-3{bottom:4%;left:14%;animation-delay:1.4s;}
+.chip-4{top:20%;left:-4%;animation-delay:2.1s;}
+@keyframes chipFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+@media (max-width:900px){.hero-grid{grid-template-columns:1fr;}.hero-robot-wrap{order:-1;min-height:300px;}}
+
+/* ============ Philosophy strip ============ */
+.mission{padding:clamp(3rem,7vw,5rem) 0;}
+.mission-inner{max-width:920px;margin:0 auto;text-align:center;}
+.mission p{font-family:var(--font-display);font-weight:700;font-size:clamp(1.3rem,3vw,2rem);line-height:1.6;}
+.mission .not-line{color:var(--text-3);font-weight:600;font-size:clamp(1rem,2vw,1.2rem);margin-bottom:1rem;text-decoration:line-through;text-decoration-color:var(--danger);text-decoration-thickness:2px;}
+
+/* ============ Journey (signature) ============ */
+.journey-section{position:relative;}
+.journey-wrap{position:relative;max-width:760px;margin:3rem auto 0;padding-inline-end:2.5rem;}
+.journey-track{position:absolute;top:0;bottom:0;right:26px;width:3px;background:rgba(255,255,255,.08);border-radius:3px;}
+.journey-fill{position:absolute;top:0;right:26px;width:3px;height:0%;background:linear-gradient(180deg,var(--accent),var(--accent-soft));border-radius:3px;box-shadow:0 0 12px var(--accent);transition:height .1s linear;}
+.journey-robot{position:absolute;right:12px;top:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(77,163,255,.7);transform:translateY(-50%);transition:top .1s linear;z-index:3;}
+.journey-robot svg{width:18px;height:18px;color:#fff;}
+.journey-step{position:relative;padding:0 3.2rem 3rem 0;opacity:.35;transition:opacity .4s ease;}
+.journey-step.active{opacity:1;}
+.journey-step:last-child{padding-bottom:0;}
+.journey-dot{position:absolute;right:15px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;transition:border-color .4s, background .4s;z-index:2;}
+.journey-step.active .journey-dot{border-color:var(--accent-soft);background:var(--primary-deep);}
+.journey-dot svg{width:12px;height:12px;color:var(--text-3);transition:color .4s;}
+.journey-step.active .journey-dot svg{color:var(--accent-soft);}
+.journey-step h4{font-size:1.1rem;margin-bottom:.4rem;}
+.journey-step p{color:var(--text-2);font-size:.92rem;max-width:480px;}
+@media (max-width:600px){.journey-wrap{padding-inline-end:1.2rem;}.journey-step{padding-inline-end:2.5rem;}}
+
+/* ============ Product Showcase — real UI recreation ============ */
+.showcase-row{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:center;}
+.showcase-row.reverse .showcase-copy{order:2;}
+.showcase-row + .showcase-row{margin-top:clamp(4rem,8vw,6rem);}
+.showcase-copy .num{font-family:var(--font-data);color:var(--accent-soft);font-weight:700;font-size:.85rem;margin-bottom:.6rem;display:block;}
+.showcase-copy h3{font-size:clamp(1.4rem,2.6vw,1.9rem);margin-bottom:1rem;}
+.showcase-copy p{color:var(--text-2);font-size:1rem;margin-bottom:.9rem;}
+.showcase-copy p strong{color:var(--text-1);}
+@media (max-width:900px){.showcase-row, .showcase-row.reverse{grid-template-columns:1fr;}.showcase-row.reverse .showcase-copy{order:0;}}
+
+.frame-wrap{position:relative;}
+.product-frame{border-radius:1.1rem;overflow:hidden;background:var(--ui-card);box-shadow:var(--shadow-lg);border:1px solid var(--glass-border);}
+.frame-topbar{background:linear-gradient(90deg,#0A1B3D,#122a5e);display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;gap:.5rem;}
+.frame-icons{display:flex;align-items:center;gap:.4rem;}
+.frame-icons .ic{width:26px;height:26px;border-radius:.5rem;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
+.frame-icons .ic svg{width:13px;height:13px;color:#cfe0ff;}
+.frame-icons .ic .badge{position:absolute;top:-4px;left:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;font-size:.5rem;color:#fff;display:flex;align-items:center;justify-content:center;}
+.frame-pill{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.62rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;display:flex;align-items:center;gap:.3rem;flex-shrink:0;}
+.frame-pill svg{width:10px;height:10px;}
+.frame-brand{display:flex;align-items:center;gap:.4rem;}
+.frame-brand-mark{width:20px;height:20px;border-radius:.4rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;}
+.frame-brand-mark svg{width:12px;height:12px;color:#fff;}
+.frame-brand span{font-size:.65rem;color:#cfe0ff;font-weight:700;}
+.frame-body{background:var(--ui-bg);padding:1rem;color:var(--ui-ink);}
+
+/* dashboard mini-grid */
+.ui-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;}
+.ui-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.7rem;}
+.ui-card .ic-badge{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;}
+.ui-card .ic-badge svg{width:13px;height:13px;color:#fff;}
+.ui-card h5{font-size:.72rem;font-weight:700;margin-bottom:.15rem;color:var(--ui-ink);}
+.ui-card small{font-size:.6rem;color:var(--ui-ink-2);}
+.activity-card{grid-column:span 3;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.8rem;margin-top:.6rem;}
+.activity-card .a-title{font-size:.7rem;font-weight:700;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem;}
+.activity-card .a-title .live-dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:pulseDot 1.6s infinite;}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,138,.6);}70%{box-shadow:0 0 0 7px rgba(34,197,138,0);}}
+.activity-row{display:flex;align-items:center;gap:.55rem;padding:.35rem 0;font-size:.66rem;color:var(--ui-ink-2);animation:scanPulse 7s ease-in-out infinite;}
+.activity-row .ic{width:20px;height:20px;border-radius:.4rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.activity-row .ic svg{width:11px;height:11px;color:#fff;}
+.activity-row strong{color:var(--ui-ink);}
+@keyframes scanPulse{0%,85%,100%{opacity:.4;transform:translateX(0);}8%{opacity:1;transform:translateX(-3px);}}
+
+/* ticket management mini */
+.ui-tickets{display:grid;grid-template-columns:.9fr 1.4fr;gap:.6rem;}
+.ui-tstats{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;margin-bottom:.5rem;}
+.ui-stat-chip{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;text-align:center;}
+.ui-stat-chip b{display:block;font-family:var(--font-data);font-size:.85rem;}
+.ui-stat-chip span{font-size:.55rem;color:var(--ui-ink-2);}
+.ticket-list-mini{display:flex;flex-direction:column;gap:.4rem;}
+.ticket-row{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;font-size:.62rem;}
+.ticket-row.active{border-color:var(--accent-soft);box-shadow:0 0 0 2px rgba(77,163,255,.15);}
+.ticket-row .status{display:inline-block;font-size:.52rem;font-weight:700;padding:.1rem .4rem;border-radius:99px;margin-bottom:.25rem;}
+.status.open{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
+.status.progress{background:var(--pill-amber-bg);color:var(--pill-amber-text);}
+.status.closed{background:var(--pill-green-bg);color:var(--pill-green-text);}
+.ticket-detail{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.7rem;display:flex;flex-direction:column;gap:.4rem;}
+.ticket-detail .msg-bubble{background:var(--ui-bg);border-radius:.5rem;padding:.5rem .6rem;font-size:.6rem;color:var(--ui-ink-2);}
+.morph-arrow{display:flex;align-items:center;justify-content:center;color:var(--accent-soft);}
+.morph-arrow svg{width:16px;height:16px;animation:morphMove 2.4s ease-in-out infinite;}
+@keyframes morphMove{0%,100%{transform:translateX(0);opacity:.6;}50%{transform:translateX(-6px);opacity:1;}}
+
+/* live chat mini */
+.ui-chat{display:grid;grid-template-columns:1.3fr 1fr;gap:.6rem;}
+.chat-window-mini{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.6rem;display:flex;flex-direction:column;gap:.4rem;min-height:150px;}
+.chat-window-mini .bmsg{max-width:78%;padding:.4rem .6rem;border-radius:.5rem;font-size:.62rem;}
+.chat-window-mini .bmsg.in{background:var(--ui-bg);color:var(--ui-ink);}
+.chat-window-mini .bmsg.out{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;margin-right:auto;}
+.chat-tag{display:inline-flex;align-items:center;gap:.25rem;font-size:.52rem;font-weight:700;padding:.15rem .45rem;border-radius:99px;margin-bottom:.3rem;width:fit-content;}
+.chat-tag.bot{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
+.chat-tag.agent{background:var(--pill-green-bg);color:var(--pill-green-text);animation:tagSwap 5s ease-in-out infinite;}
+@keyframes tagSwap{0%,60%,100%{opacity:0;transform:translateY(4px);}70%,95%{opacity:1;transform:translateY(0);}}
+.convo-list-mini{display:flex;flex-direction:column;gap:.35rem;}
+.convo-row{display:flex;align-items:center;gap:.4rem;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;}
+.convo-avatar{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.5rem;font-weight:700;color:#fff;flex-shrink:0;}
+.convo-row .meta{font-size:.58rem;color:var(--ui-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.convo-row strong{display:block;font-size:.62rem;color:var(--ui-ink);}
+
+/* analytics mini */
+.ui-analytics{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.6rem;}
+.an-chip{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;text-align:center;}
+.an-chip b{display:block;font-family:var(--font-data);font-size:.95rem;}
+.an-chip span{font-size:.52rem;color:var(--ui-ink-2);}
+.an-chip .up{color:var(--success);font-size:.5rem;font-weight:700;}
+.ui-charts{display:grid;grid-template-columns:1.1fr .9fr;gap:.6rem;}
+.bar-card, .donut-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.6rem;}
+.bar-card h6, .donut-card h6{font-size:.6rem;font-weight:700;margin-bottom:.5rem;}
+.bars{display:flex;align-items:flex-end;gap:.5rem;height:64px;}
+.bars .bar{flex:1;border-radius:.25rem .25rem 0 0;position:relative;}
+.bars .bar span{position:absolute;top:-14px;left:0;right:0;text-align:center;font-size:.55rem;font-weight:700;color:var(--ui-ink);}
+.donut{width:64px;height:64px;border-radius:50%;margin:0 auto .4rem;background:conic-gradient(var(--primary) 0% 60%, var(--success) 60% 92%, var(--accent-soft) 92% 100%);position:relative;}
+.donut::after{content:"";position:absolute;inset:14px;background:var(--ui-card);border-radius:50%;}
+.donut-legend{display:flex;justify-content:center;gap:.5rem;font-size:.5rem;color:var(--ui-ink-2);}
+.donut-legend span{display:inline-flex;align-items:center;gap:.2rem;}
+.donut-legend i{width:6px;height:6px;border-radius:50%;display:inline-block;}
+
+/* subdomains mini */
+.ui-subdomain-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.ui-subdomain-header .btn-mini{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.58rem;font-weight:700;padding:.3rem .6rem;border-radius:.4rem;}
+.domain-table{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;overflow:hidden;}
+.domain-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:.4rem;align-items:center;padding:.55rem .7rem;font-size:.6rem;border-bottom:1px solid var(--ui-border);}
+.domain-row:last-child{border-bottom:none;}
+.domain-row .url{font-family:var(--font-data);color:var(--pill-blue-text);font-weight:600;}
+.domain-row .sub{display:block;color:var(--ui-ink-2);font-size:.54rem;}
+
+/* callouts */
+.callout{position:absolute;background:rgba(6,11,20,.92);border:1px solid var(--glass-border);color:var(--text-1);font-size:.72rem;font-weight:600;padding:.45rem .8rem;border-radius:.6rem;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.4rem;z-index:4;}
+.callout svg{width:13px;height:13px;color:var(--accent-soft);flex-shrink:0;}
+.callout::after{content:"";position:absolute;width:9px;height:9px;background:inherit;border-inline-end:1px solid var(--glass-border);border-block-end:1px solid var(--glass-border);}
+@media (max-width:1050px){.callout{display:none;}}
+
+/* ============ Comparison ============ */
+.compare-cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;}
+.compare-col{border-radius:var(--radius-lg);padding:1.8rem;border:1px solid var(--glass-border);}
+.compare-col.without{background:linear-gradient(160deg, rgba(255,107,107,.06), transparent 60%);}
+.compare-col.with{background:linear-gradient(160deg, rgba(34,197,138,.08), transparent 60%);}
+.compare-col h3{font-size:1.05rem;margin-bottom:.3rem;}
+.compare-col .total{font-size:.82rem;color:var(--text-2);margin-bottom:1.5rem;}
+.compare-col.without .total strong{color:var(--danger);}
+.compare-col.with .total strong{color:var(--success);}
+.tl-item{position:relative;padding-inline-end:1.6rem;padding-bottom:1.4rem;border-inline-end:2px solid var(--glass-border);}
+.tl-item:last-child{border-color:transparent;padding-bottom:0;}
+.tl-item::before{content:"";position:absolute;right:-5px;top:2px;width:9px;height:9px;border-radius:50%;background:var(--text-3);}
+.without .tl-item::before{background:var(--danger);}
+.with .tl-item::before{background:var(--success);}
+.tl-time{font-family:var(--font-data);font-size:.78rem;color:var(--text-2);font-weight:600;margin-bottom:.2rem;}
+.tl-desc{font-size:.9rem;color:var(--text-1);}
+@media (max-width:800px){.compare-cols{grid-template-columns:1fr;}}
+
+/* ============ Pricing / FAQ (reused) ============ */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;align-items:stretch;}
+.price-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:2rem;display:flex;flex-direction:column;position:relative;}
+.price-card.featured{border-color:rgba(77,163,255,.5);background:linear-gradient(160deg, rgba(0,119,204,.14), rgba(255,255,255,.03));box-shadow:var(--shadow-glow);}
+.price-ribbon{position:absolute;top:-13px;right:2rem;background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.72rem;font-weight:700;padding:.35rem .9rem;border-radius:99px;}
+.price-card h3{font-size:1.2rem;margin-bottom:.4rem;}
+.price-card .tag{color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem;}
+.price-card ul{margin-bottom:1.8rem;flex:1;}
+.price-card li{display:flex;gap:.55rem;align-items:flex-start;font-size:.88rem;color:var(--text-2);margin-bottom:.75rem;}
+.price-card li svg{width:16px;height:16px;color:var(--success);flex-shrink:0;margin-top:.2rem;}
+@media (max-width:900px){.pricing-grid{grid-template-columns:1fr;}}
+.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:.8rem;}
+.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;}
+.faq-item summary{list-style:none;cursor:pointer;padding:1.2rem 1.5rem;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:.98rem;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item summary .chev{transition:transform .3s;flex-shrink:0;color:var(--accent-soft);}
+.faq-item summary .chev svg{width:18px;height:18px;}
+.faq-item[open] summary .chev{transform:rotate(180deg);}
+.faq-item .faq-body{padding:0 1.5rem 1.3rem;color:var(--text-2);font-size:.92rem;}
+
+/* ============ Final CTA ============ */
+.final-cta{border-radius:var(--radius-lg);padding:clamp(2.5rem,6vw,4.5rem);text-align:center;background:linear-gradient(135deg, var(--primary-deep), var(--bg-void) 60%), radial-gradient(50rem 20rem at 50% 0%, rgba(0,119,204,.4), transparent 70%);border:1px solid var(--glass-border);position:relative;overflow:hidden;}
+.final-cta h2{font-size:clamp(1.8rem,4vw,2.7rem);margin-bottom:1rem;}
+.final-cta p{color:var(--text-2);max-width:520px;margin:0 auto 2rem;font-size:1.05rem;}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:var(--bg-surface);}
+.footer-grid{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:2rem;margin-bottom:3rem;}
+.footer-brand p{color:var(--text-3);font-size:.88rem;margin-top:1rem;max-width:260px;}
+.footer-col h5{font-size:.9rem;margin-bottom:1.1rem;color:var(--text-1);}
+.footer-col a{display:block;color:var(--text-3);font-size:.88rem;margin-bottom:.75rem;transition:color .2s;}
+.footer-col a:hover{color:var(--accent-soft);}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;padding-top:2rem;border-top:1px solid var(--glass-border);color:var(--text-3);font-size:.82rem;}
+@media (max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:560px){.footer-grid{grid-template-columns:1fr;}}
+
+/* ============ Floating robot helper ============ */
+.robot-helper{position:fixed;bottom:1.5rem;left:1.5rem;z-index:150;}
+.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;}
+.robot-helper-btn svg{width:28px;height:28px;color:#fff;}
+.robot-bubble{position:absolute;bottom:70px;left:0;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(14px);padding:1rem 1.2rem;border-radius:1rem;width:230px;font-size:.85rem;color:var(--text-1);display:none;box-shadow:var(--shadow-lg);}
+.robot-bubble.open{display:block;}
+.robot-bubble strong{display:block;margin-bottom:.3rem;color:var(--accent-soft);}
+@media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<linearGradient id="circuitGrad" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#4DA3FF" stop-opacity="0"/>
+  <stop offset="0.5" stop-color="#4DA3FF" stop-opacity="0.9"/>
+  <stop offset="1" stop-color="#4DA3FF" stop-opacity="0"/>
+</linearGradient>
+<symbol id="robot-face" viewBox="0 0 64 64">
+  <circle cx="32" cy="10" r="4" fill="currentColor"/>
+  <line x1="32" y1="14" x2="32" y2="20" stroke="currentColor" stroke-width="3"/>
+  <rect x="8" y="20" width="48" height="38" rx="19" fill="currentColor"/>
+  <ellipse cx="23" cy="38" rx="4.2" ry="5.2" fill="#fff"/>
+  <ellipse cx="41" cy="38" rx="4.2" ry="5.2" fill="#fff"/>
+  <path d="M22 47q10 8 20 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+</symbol>
+</defs>
+</svg>
+
+<!-- ============ Navbar ============ -->
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="#" class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span>
+      <span class="brand-text"><strong>مدعوم</strong><small>منصة الدعم الفني الذكي</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="#journey">الرحلة</a>
+      <a href="#showcase">المنتج</a>
+      <a href="#compare">الفرق</a>
+      <a href="#pricing">الأسعار</a>
+      <a href="#faq">الأسئلة الشائعة</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#" class="nav-login">تسجيل الدخول</a>
+      <a href="#" class="btn btn-primary btn-sm">ابدأ مجاناً</a>
+    </div>
+    <button class="hamburger" id="hamburgerBtn" aria-label="فتح القائمة"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-top">
+    <a href="#" class="brand"><span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span><span class="brand-text"><strong>مدعوم</strong></span></a>
+    <button class="close-btn" id="closeMenuBtn" aria-label="إغلاق القائمة">✕</button>
+  </div>
+  <a href="#journey">الرحلة</a>
+  <a href="#showcase">المنتج</a>
+  <a href="#compare">الفرق</a>
+  <a href="#pricing">الأسعار</a>
+  <a href="#faq">الأسئلة الشائعة</a>
+  <a href="#">تسجيل الدخول</a>
+  <a href="#" class="btn btn-primary btn-block">ابدأ مجاناً</a>
+</div>
+
+<!-- ============ Hero ============ -->
+<header class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy reveal">
+      <ul class="problem-lines">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يقضي فريق الدعم ساعات كل يوم في الرد على نفس الأسئلة؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يضيع الموظف وقتاً في جمع بيانات المشكلة قبل أن يبدأ الحل؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين واتساب والبريد والتذاكر؟</li>
+      </ul>
+      <h1>مدعوم <span class="gradient-text">يحل هذه المشكلة</span></h1>
+      <p class="solution-line" style="font-family:var(--font-body);font-weight:400;color:var(--text-2);font-size:1.05rem;">نظام عربي واحد يستقبل عملاءك، يفهم مشاكلهم، وينظّم عمل فريقك تلقائياً — قبل أن تصل المشكلة لموظف الدعم أصلاً.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary">ابدأ تجربتك المجانية</a>
+        <a href="#journey" class="btn btn-outline">شاهد كيف يعمل النظام</a>
+      </div>
+    </div>
+
+    <div class="hero-robot-wrap reveal">
+      <div class="robot-halo"></div>
+      <div class="robot-ring"></div>
+      <div class="robot-ring r2"></div>
+      <div class="robot-core"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></div>
+      <div class="orbit-chip chip-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> محادثة</div>
+      <div class="orbit-chip chip-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> تذكرة</div>
+      <div class="orbit-chip chip-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> واتساب</div>
+      <div class="orbit-chip chip-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg> بريد</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ Philosophy ============ -->
+<section class="mission">
+  <div class="container mission-inner reveal">
+    <div class="not-line">مدعوم لا يبيع تذاكر، أو محادثات، أو واتساب، أو بوت محادثة</div>
+    <p>مدعوم يبيع <span class="gradient-text">راحة فريق الدعم</span> — الوقت الذي يستعيده كل موظف عندما تصله المشكلة جاهزة، لا صفحة فارغة.</p>
+  </div>
+</section>
+
+<!-- ============ Journey (Signature) ============ -->
+<section class="section journey-section" id="journey">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> رحلة العميل داخل مدعوم</div>
+      <h2>من أول رسالة، إلى مشكلة محلولة</h2>
+      <p>مدعوم لا ينتظر أن يتدخل أحد. تابع الرحلة وهي تتحرك بنفسها.</p>
+    </div>
+
+    <div class="journey-wrap" id="journeyWrap">
+      <div class="journey-track"></div>
+      <div class="journey-fill" id="journeyFill"></div>
+      <div class="journey-robot" id="journeyRobot"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></div>
+
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
+        <h4>العميل</h4>
+        <p>يبدأ محادثة من الموقع أو واتساب، في أي وقت.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></div>
+        <h4>Chatbot</h4>
+        <p>يستقبله فوراً بدون انتظار دور أو ساعات عمل.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18h6M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg></div>
+        <h4>Collect Information</h4>
+        <p>يسأل الأسئلة الصحيحة ويجمع كل تفاصيل المشكلة.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+        <h4>Knowledge Base</h4>
+        <p>يبحث أولاً عن حل جاهز قبل أن يزعج أحداً من الفريق.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+        <h4>Create Ticket</h4>
+        <p>إن لم يجد حلاً، ينشئ تذكرة كاملة البيانات تلقائياً.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg></div>
+        <h4>Email Notification</h4>
+        <p>إشعار فوري للعميل، وآخر لفريق الدعم المعني.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <h4>Support Team</h4>
+        <p>يستلم الموظف تذكرة جاهزة، لا صفحة فارغة يبدأ منها.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h4>Resolved</h4>
+        <p>المشكلة تُحل أسرع، والعميل يشعر أنه أُخذ على محمل الجد.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Product Showcase ============ -->
+<section class="section" id="showcase">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> هذا هو المنتج الحقيقي</div>
+      <h2>ليست Mockups من الخيال — <span class="gradient-text">هذا ما يستخدمه فريقك فعلاً</span></h2>
+    </div>
+
+    <!-- Section 1: Dashboard -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">01 — لوحة التحكم</span>
+        <h3>كل قسم من المنصة، من مكان واحد</h3>
+        <p>لا داعي للتنقل بين خمس أدوات مختلفة. <strong>لوحة تحكم مدعوم</strong> تجمع المستخدمين، المحادثات، التذاكر، والإحصائيات في شاشة واحدة تعكس ما يحدث فعلياً الآن.</p>
+        <p>وفي الخلفية، يعمل النظام بنفسه: رسالة تصل، البوت يرد، تُجمع البيانات، تُنشأ التذكرة، ويصل الإشعار — كل هذا قبل أن يفتح موظف الدعم شاشته.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:8%;left:-8%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> بيانات حقيقية محدثة لحظياً</div>
+        <div class="callout" style="bottom:6%;right:-6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> النظام يعمل حتى بلا تدخل</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#robot-face" style="display:none"/><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>لوحة الإدارة</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-grid">
+              <div class="ui-card"><div class="ic-badge" style="background:#3B82F6;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><h5>إدارة المستخدمين</h5><small>25 مستخدم — 18 نشط</small></div>
+              <div class="ui-card"><div class="ic-badge" style="background:#EC4899;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><h5>المحادثات الفورية</h5><small>2 جارية — 16 مغلقة</small></div>
+              <div class="ui-card"><div class="ic-badge" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h5>إدارة التذاكر</h5><small>10 مفتوحة — 12 مغلقة</small></div>
+              <div class="activity-card">
+                <div class="a-title"><span class="live-dot"></span> نشاط حي الآن</div>
+                <div class="activity-row"><span class="ic" style="background:#3B82F6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></span> رسالة جديدة من <strong>عميل 04</strong></div>
+                <div class="activity-row"><span class="ic" style="background:#0077CC;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span> البوت بدأ يجمع تفاصيل المشكلة</div>
+                <div class="activity-row"><span class="ic" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span> تم إنشاء <strong>تذكرة #0032</strong> تلقائياً</div>
+                <div class="activity-row"><span class="ic" style="background:#F97316;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg></span> إشعار أُرسل لفريق الدعم</div>
+                <div class="activity-row"><span class="ic" style="background:#10B981;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg></span> بريد تأكيد وصل للعميل</div>
+                <div class="activity-row"><span class="ic" style="background:#2563EB;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <strong>أحمد</strong> استلم التذكرة وبدأ العمل</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Ticket Management -->
+    <div class="showcase-row reverse reveal">
+      <div class="showcase-copy">
+        <span class="num">02 — إدارة التذاكر</span>
+        <h3>كل رسالة مهمة تتحول إلى مهمة يمكن تتبعها</h3>
+        <p>محادثة العميل لا تضيع في سجل قديم. بمجرد أن يحتاج الأمر متابعة فعلية، <strong>تتحول المحادثة نفسها إلى تذكرة</strong> — بنفس الرسائل، ونفس السياق، بلا نسخ ولصق يدوي.</p>
+        <p>فريقك يرى فوراً ما هو مفتوح، وما قيد المعالجة، وما تم حله — بلا ملفات إكسل ولا رسائل متفرقة.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:-6%;right:6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة → تذكرة، تلقائياً</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>إدارة التذاكر</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-tstats">
+              <div class="ui-stat-chip"><b>15</b><span>مفتوحة</span></div>
+              <div class="ui-stat-chip"><b>29</b><span>الإجمالي</span></div>
+            </div>
+            <div class="ui-tickets">
+              <div class="ticket-list-mini">
+                <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — دعم + واتساب</strong></div></div>
+                <div class="ticket-row"><span class="status progress">قيد المعالجة</span><div>مشكلة في الوصول للوحة التحكم</div></div>
+                <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
+              </div>
+              <div class="ticket-detail">
+                <div class="msg-bubble">أريد الاشتراك في باقة الدعم الفني + واتساب الشهرية، ما الخطوات؟</div>
+                <div class="morph-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></div>
+                <div class="msg-bubble" style="background:var(--pill-blue-bg);color:var(--pill-blue-text);font-weight:700;">تذكرة #0001 — القسم: المبيعات — الأولوية: متوسطة</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Live Chat -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">03 — المحادثة الفورية</span>
+        <h3>البوت لا يرد فقط — بل يقرر متى يحتاج العميل إنساناً</h3>
+        <p>كل محادثة تبدأ مع Chatbot يجيب فوراً على الأسئلة المتكررة. لكن حين يتطلب الأمر حكماً بشرياً، <strong>تنتقل المحادثة لموظف حقيقي بضغطة واحدة</strong>، مع كامل السياق أمامه.</p>
+        <p>لا العميل يكرر كلامه، ولا الموظف يبدأ من الصفر.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="bottom:-6%;left:2%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تحويل فوري لموظف عند الحاجة</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>المحادثات</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-chat">
+              <div class="chat-window-mini">
+                <span class="chat-tag bot">Chatbot يرد</span>
+                <div class="bmsg in">هل يمكنكم مساعدتي في تفعيل الخدمة؟</div>
+                <div class="bmsg out">بالتأكيد، هل يمكنك مشاركة رقم الطلب؟</div>
+                <span class="chat-tag agent">تم التحويل لموظف</span>
+              </div>
+              <div class="convo-list-mini">
+                <div class="convo-row"><span class="convo-avatar" style="background:#0077CC;">ع</span><div><strong>عميل جديد</strong><span class="meta">جديدة</span></div></div>
+                <div class="convo-row"><span class="convo-avatar" style="background:#22C58B;">C2</span><div><strong>Customer 02</strong><span class="meta">نشطة</span></div></div>
+                <div class="convo-row"><span class="convo-avatar" style="background:#8B5CF6;">S1</span><div><strong>Store 01</strong><span class="meta">معلقة</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Analytics -->
+    <div class="showcase-row reverse reveal">
+      <div class="showcase-copy">
+        <span class="num">04 — الإحصائيات</span>
+        <h3>مدير الدعم يرى الصورة الكاملة، بلا تقارير يدوية</h3>
+        <p>متوسط وقت الاستجابة، متوسط وقت الحل، وتوزيع الفريق حسب الصلاحيات — كلها في مكان واحد يتحدث عن نفسه، بدل تجميع أرقام من جداول متفرقة كل أسبوع.</p>
+        <p>هذه الأرقام <strong>حقيقية من لوحة تحكم عميل فعلي</strong> — لا تقديرات تسويقية.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:4%;left:-8%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تحسّن %18 في وقت الاستجابة</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>الإحصائيات</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-analytics">
+              <div class="an-chip"><b>1.4<small style="font-size:.5rem;">ساعة</small></b><span>وقت الاستجابة</span><div class="up">↑ 18%</div></div>
+              <div class="an-chip"><b>5.2<small style="font-size:.5rem;">ساعة</small></b><span>وقت الحل</span><div class="up">↑ 12%</div></div>
+              <div class="an-chip"><b>29</b><span>إجمالي التذاكر</span></div>
+              <div class="an-chip"><b>8</b><span>تم حلها</span></div>
+            </div>
+            <div class="ui-charts">
+              <div class="bar-card">
+                <h6>حالة التذاكر (آخر 7 أيام)</h6>
+                <div class="bars">
+                  <div class="bar" style="height:60%;background:#8B5CF6;"><span>15</span></div>
+                  <div class="bar" style="height:32%;background:#10B981;"><span>8</span></div>
+                  <div class="bar" style="height:48%;background:#3B82F6;"><span>12</span></div>
+                </div>
+              </div>
+              <div class="donut-card">
+                <h6>توزيع الفريق</h6>
+                <div class="donut"></div>
+                <div class="donut-legend">
+                  <span><i style="background:#0077CC;"></i>60%</span>
+                  <span><i style="background:#22C58B;"></i>32%</span>
+                  <span><i style="background:#8FC7FF;"></i>8%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Subdomains -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">05 — النطاقات الفرعية</span>
+        <h3 style="display:flex;align-items:center;gap:.6rem;">منصة دعم خاصة، باسمك أنت <span class="eyebrow" style="margin:0;">Premium</span></h3>
+        <p>في الباقة الاحترافية، تحصل شركتك على نطاقها الخاص — مثل <strong>company.mad3oom.online</strong> — وتديرين من خلاله عملاءك، تذاكرك، فريق الدعم، وقاعدة المعرفة، وكأنها منصتك المستقلة بالكامل.</p>
+        <p>لا يشعر عملاؤك أبداً أنهم يتعاملون مع أداة خارجية.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="bottom:-6%;right:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاقك الخاص، مفعّل الآن</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>النطاقات الفرعية</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-subdomain-header"><h5 style="font-size:.75rem;">النطاقات الفرعية — إجمالي 2</h5><span class="btn-mini">+ إضافة نطاق</span></div>
+            <div class="domain-table">
+              <div class="domain-row">
+                <div><span class="url">company.mad3oom.online</span><span class="sub">النطاق الرئيسي</span></div>
+                <div><span class="status closed" style="font-size:.55rem;">مفعّل</span></div>
+                <div style="color:var(--ui-ink-2);">customer@example.com</div>
+              </div>
+              <div class="domain-row">
+                <div><span class="url">support.mad3oom.online</span><span class="sub">الدعم الفني</span></div>
+                <div><span class="status closed" style="font-size:.55rem;">مفعّل</span></div>
+                <div style="color:var(--ui-ink-2);">support@example.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Comparison ============ -->
+<section class="section" id="compare">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> يوم عمل حقيقي</div>
+      <h2>نفس المشكلة، فرق النتيجة</h2>
+      <p>تخيّل رسالة عميل تصل الساعة 9:00 صباحاً — هذا ما يحدث في الحالتين.</p>
+    </div>
+    <div class="compare-cols">
+      <div class="compare-col without reveal">
+        <h3>يوم عمل بدون مدعوم</h3>
+        <p class="total">إجمالي وقت الحل: <strong>15+ دقيقة</strong> لمجرد فتح تذكرة</p>
+        <div class="tl-item"><div class="tl-time">9:00</div><div class="tl-desc">رسالة تصل من العميل عبر واتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:03</div><div class="tl-desc">الموظف يرى الرسالة، يسأل عن رقم الطلب</div></div>
+        <div class="tl-item"><div class="tl-time">9:07</div><div class="tl-desc">يجمع البيانات يدوياً من عدة أماكن</div></div>
+        <div class="tl-item"><div class="tl-time">9:12</div><div class="tl-desc">ينشئ Ticket يدوياً في جدول منفصل</div></div>
+        <div class="tl-item"><div class="tl-time">9:15</div><div class="tl-desc">يرسل Email للعميل يدوياً</div></div>
+      </div>
+      <div class="compare-col with reveal">
+        <h3>يوم عمل مع مدعوم</h3>
+        <p class="total">إجمالي وقت الحل: <strong>أقل من دقيقتين</strong> حتى بدء العمل الفعلي</p>
+        <div class="tl-item"><div class="tl-time">9:00:00</div><div class="tl-desc">رسالة تصل من العميل عبر واتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:00:04</div><div class="tl-desc">Chatbot يرد فوراً ويبدأ جمع البيانات</div></div>
+        <div class="tl-item"><div class="tl-time">9:00:40</div><div class="tl-desc">يتم إنشاء Ticket تلقائياً بكل التفاصيل</div></div>
+        <div class="tl-item"><div class="tl-time">9:01:00</div><div class="tl-desc">إشعار وEmail يُرسلان تلقائياً للطرفين</div></div>
+        <div class="tl-item"><div class="tl-time">9:01:30</div><div class="tl-desc">الموظف يبدأ العمل الفعلي على الحل</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Pricing ============ -->
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> باقات مرنة</div>
+      <h2>باقة تناسب حجم فريقك</h2>
+      <p>ابدأ صغيراً، ووسّع نطاق الأتمتة كلما نما فريقك.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <h3>أساسية</h3>
+        <p class="tag">لفرق الدعم الناشئة</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نظام تذاكر كامل</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة فورية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> رقم واتساب واحد</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> حتى 3 أعضاء فريق</li>
+        </ul>
+        <a href="#" class="btn btn-outline btn-block">ابدأ مجاناً</a>
+      </div>
+      <div class="price-card featured reveal">
+        <div class="price-ribbon">الأكثر طلباً</div>
+        <h3>احترافية</h3>
+        <p class="tag">لفرق الدعم المتنامية</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> كل مزايا الباقة الأساسية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Chatbot وأتمتة كاملة للرحلة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاق فرعي خاص بشركتك</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إحصائيات وصلاحيات متقدمة</li>
+        </ul>
+        <a href="#" class="btn btn-primary btn-block">جرّب الباقة الاحترافية</a>
+      </div>
+      <div class="price-card reveal">
+        <h3>أعمال</h3>
+        <p class="tag">للشركات وفرق الدعم الكبيرة</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> كل مزايا الباقة الاحترافية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> أرقام واتساب متعددة ونطاقات متعددة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مدير حساب مخصص</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> اتفاقية مستوى خدمة SLA</li>
+        </ul>
+        <a href="#" class="btn btn-outline btn-block">تواصل مع المبيعات</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-head reveal"><h2>الأسئلة الشائعة</h2></div>
+    <div class="faq-list reveal">
+      <details class="faq-item" open>
+        <summary>هل مدعوم مجرد بوت رد آلي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div>
+      </details>
+      <details class="faq-item">
+        <summary>كيف تتحول المحادثة إلى تذكرة فعلياً؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body">بمجرد أن يحدد البوت أن الأمر يحتاج متابعة، يُنشئ تذكرة تلقائياً بنفس محتوى المحادثة، فلا يحتاج فريقك لإعادة كتابة أي شيء يدوياً.</div>
+      </details>
+      <details class="faq-item">
+        <summary>هل يمكن تخصيص النطاق الفرعي باسم شركتي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body">نعم، في الباقة الاحترافية وما فوقها تحصل على نطاق فرعي خاص مثل company.mad3oom.online بهويتك وشعارك.</div>
+      </details>
+      <details class="faq-item">
+        <summary>هل أحتاج خبرة تقنية لإعداد المنصة؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Final CTA ============ -->
+<section class="section">
+  <div class="container">
+    <div class="final-cta reveal">
+      <h2>هل فريقك جاهز لدعم أقل فوضى؟</h2>
+      <p>ابدأ اليوم، وشاهد أول تذكرة تُنشئ نفسها بنفسها.</p>
+      <div class="hero-actions" style="justify-content:center;">
+        <a href="#" class="btn btn-primary">ابدأ تجربتك المجانية</a>
+        <a href="#" class="btn btn-outline">تحدث مع فريق المبيعات</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Footer ============ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="brand"><span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span><span class="brand-text"><strong>مدعوم</strong></span></a>
+        <p>نظام عربي متكامل يقلل ضغط فريق الدعم، ويؤتمت رحلة العميل من أول رسالة حتى الحل.</p>
+      </div>
+      <div class="footer-col"><h5>المنتج</h5><a href="#showcase">لوحة التحكم</a><a href="#showcase">إدارة التذاكر</a><a href="#pricing">الأسعار</a></div>
+      <div class="footer-col"><h5>الشركة</h5><a href="#">حول مدعوم</a><a href="#">تواصل معنا</a></div>
+      <div class="footer-col"><h5>الدعم</h5><a href="#">مركز المساعدة</a><a href="#faq">الأسئلة الشائعة</a></div>
+      <div class="footer-col"><h5>قانوني</h5><a href="#">شروط الاستخدام</a><a href="#">سياسة الخصوصية</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> مدعوم. جميع الحقوق محفوظة.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ Floating robot helper ============ -->
+<div class="robot-helper">
+  <div class="robot-bubble" id="robotBubble"><strong>أهلاً 👋</strong>أنا روبوت مدعوم — نفس الروبوت اللي بيرحب بعملائك ويجمع تفاصيل مشاكلهم تلقائياً.</div>
+  <button class="robot-helper-btn" id="robotBtn" aria-label="مساعد مدعوم"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></button>
+</div>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => navbar.classList.toggle('scrolled', window.scrollY > 20), { passive:true });
+
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const closeMenuBtn = document.getElementById('closeMenuBtn');
+const mobileMenu = document.getElementById('mobileMenu');
+hamburgerBtn.addEventListener('click', () => mobileMenu.classList.add('open'));
+closeMenuBtn.addEventListener('click', () => mobileMenu.classList.remove('open'));
+mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => mobileMenu.classList.remove('open')));
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in'); revealObserver.unobserve(entry.target); } });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// Robot helper bubble
+const robotBtn = document.getElementById('robotBtn');
+const robotBubble = document.getElementById('robotBubble');
+robotBtn.addEventListener('click', () => robotBubble.classList.toggle('open'));
+document.addEventListener('click', (e) => {
+  if (!robotBtn.contains(e.target) && !robotBubble.contains(e.target)) robotBubble.classList.remove('open');
+});
+
+// FAQ single-open
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('toggle', () => {
+    if (item.open) document.querySelectorAll('.faq-item').forEach(o => { if (o !== item) o.removeAttribute('open'); });
+  });
+});
+
+// Scroll-linked journey story
+const journeyWrap = document.getElementById('journeyWrap');
+const journeyFill = document.getElementById('journeyFill');
+const journeyRobot = document.getElementById('journeyRobot');
+const journeySteps = document.querySelectorAll('.journey-step');
+
+function updateJourney() {
+  const rect = journeyWrap.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const total = rect.height;
+  // progress: 0 when top of wrap at bottom of viewport, 1 when bottom of wrap reaches ~40% viewport
+  const start = vh * 0.85;
+  const end = vh * 0.35;
+  let progress = (start - rect.top) / (rect.top - rect.bottom + total + (start - end));
+  progress = (start - rect.top) / (total + (start - end));
+  progress = Math.max(0, Math.min(1, progress));
+  const pct = progress * 100;
+  journeyFill.style.height = pct + '%';
+  journeyRobot.style.top = pct + '%';
+  const activeCount = Math.round(progress * journeySteps.length);
+  journeySteps.forEach((step, i) => step.classList.toggle('active', i < activeCount));
+}
+window.addEventListener('scroll', () => requestAnimationFrame(updateJourney), { passive:true });
+window.addEventListener('resize', () => requestAnimationFrame(updateJourney));
+updateJourney();
+</script>
+</body>
+</html>
