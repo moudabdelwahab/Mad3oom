@@ -29,6 +29,49 @@ function sanitizeUrl(url) {
     return '';
 }
 
+/**
+ * محول الرموز [[icon:name]] لأيقونات SVG حقيقية.
+ * ده بديل محلي لملف chat-icons.js (iconize) المذكور في تعليقات chatbot-engine.js
+ * والغير موجود فعليًا، فكان الرمز بيظهر كنص خام للعميل بدل ما يتحول لأيقونة.
+ * لازم يُستخدم دايمًا بعد escapeHtml (النص بعد التنقية لسه فيه [[icon:...]] عادي
+ * لأن التنقية مبتلمسش الأقواس المربعة أو النقطتين).
+ */
+const ICON_SVG_MAP = {
+    inquiry: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1.4.9-1.4 1.9"></path><circle cx="12" cy="17" r="0.5" fill="currentColor"></circle></svg>',
+    problem: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"></path><path d="M12 10v4"></path><circle cx="12" cy="17" r="0.5" fill="currentColor"></circle></svg>',
+    cancel: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg>',
+    whatsapp: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19L4 20z"></path><path d="M9 10s.5 3 3 4"></path></svg>',
+    ticket: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="1.5"></rect><path d="M9 7v10" stroke-dasharray="2 2"></path></svg>',
+    subscription: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10h18"></path></svg>',
+    login: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path><path d="M10 8l4 4-4 4"></path><path d="M14 12H3"></path></svg>',
+    other: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>',
+    attach: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.5l-8.5 8.5a4 4 0 1 1-5.7-5.7l9-9a2.7 2.7 0 1 1 3.8 3.8l-8.5 8.5a1.3 1.3 0 1 1-1.9-1.9l7.4-7.4"></path></svg>',
+    skip: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l7 7-7 7"></path><path d="M13 5l7 7-7 7"></path></svg>',
+    gift: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="9" width="18" height="12" rx="1"></rect><path d="M3 9h18v4H3z"></path><path d="M12 9v12"></path><path d="M12 9c-1.5-4-6-4-6-1s4.5 1 6 1c1.5 0 6.5 2 6-1s-4.5-3-6 1z"></path></svg>',
+    growth: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l5-5 4 4 7-7"></path><path d="M15 8h5v5"></path></svg>',
+    star: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3l2.6 5.9 6.4.6-4.9 4.2 1.5 6.3L12 16.9 6.4 20l1.5-6.3-4.9-4.2 6.4-.6z"></path></svg>',
+    briefcase: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="12" rx="1.5"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.5 2.5L16 9"></path></svg>',
+    note: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v0.5"></path><path d="M12 11v5"></path></svg>',
+    smile: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><path d="M8.5 9.5h.5M15 9.5h.5"></path></svg>',
+    search: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M20 20l-4.6-4.6"></path></svg>',
+    percent: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19L19 5"></path><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>',
+    'dot-yellow': '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#eab308;"></span>',
+    'dot-blue': '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b82f6;"></span>',
+    'dot-green': '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>',
+    'dot-red': '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>'
+};
+
+function iconize(text) {
+    if (!text) return '';
+    return String(text).replace(/\[\[icon:([a-z-]+)\]\]/g, (match, name) => {
+        const svg = ICON_SVG_MAP[name];
+        // لو الأيقونة معروفة نعرضها، ولو مش معروفة نشيل الرمز بس (زي ما كان متوقع
+        // في التصميم الأصلي) عشان النص مايبقاش فيه رموز خام تظهر للعميل.
+        return svg ? `<span style="display:inline-flex;vertical-align:middle;margin:0 2px;">${svg}</span>` : '';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
     const chatsList = document.getElementById('chatsList');
@@ -102,10 +145,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         currentUser = user;
 
-        // التحقق من الدور من البروفايل لضمان الدقة
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        const role = profile?.role || user.user_metadata?.role || 'customer';
-        isAdmin = role === 'admin' || role === 'support' || role === 'super_user' || user.email.includes('admin');
+        // لو الصفحة دي هي صفحة شات العميل المخصّصة (chat.html بتحدد الفلاج ده)،
+        // نضمن إنها تتعامل كصفحة عميل دايمًا، حتى لو المستخدم دوره أدمن أو إيميله
+        // فيه كلمة "admin" — عشان منستخدمش عناصر DOM بتاعة صفحة الأدمن
+        // (زي messageInput) اللي مش موجودة في الصفحة دي أصلاً.
+        if (window.isCustomerChat) {
+            isAdmin = false;
+        } else {
+            // التحقق من الدور من البروفايل لضمان الدقة (لصفحة الأدمن فقط)
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+            const role = profile?.role || user.user_metadata?.role || 'customer';
+            isAdmin = role === 'admin' || role === 'support' || role === 'super_user' || user.email.includes('admin');
+        }
 
         // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
         if (!isAdmin) {
@@ -265,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'bot-quick-option-btn';
-            btn.textContent = opt.label;
+            btn.innerHTML = iconize(escapeHtml(opt.label));
             btn.onclick = () => {
                 // تعطيل كل الأزرار فورًا عشان العميل مايضغطش مرتين
                 wrap.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -411,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
         messageEl.innerHTML = `
             ${imgHtml}
-            <span>${escapeHtml(text)}</span>
+            <span>${iconize(escapeHtml(text))}</span>
             <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}</div>
         `;
 
@@ -622,7 +673,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </span>
                         <span class="chat-time">${time}</span>
                     </div>
-                    <div class="chat-preview">${escapeHtml(lastMsg?.message_text || 'لا توجد رسائل')}</div>
+                    <div class="chat-preview">${iconize(escapeHtml(lastMsg?.message_text || 'لا توجد رسائل'))}</div>
                 </div>
             `;
             chatsList.appendChild(item);
@@ -704,7 +755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         group.innerHTML = `
             <div class="message-bubble ${isOwn ? 'sent' : 'received'}">
                 ${imgHtml}
-                <div>${escapeHtml(msg.message_text)}</div>
+                <div>${iconize(escapeHtml(msg.message_text))}</div>
                 <div class="message-time">${time}</div>
             </div>
         `;
@@ -714,7 +765,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function setupEventListeners() {
-        if (sendBtn) sendBtn.onclick = sendMessage;
+        // حماية إضافية: sendMessage (نسخة الأدمن) بتعتمد على messageInput.
+        // لو العنصر ده مش موجود في الصفحة الحالية (زي صفحة شات العميل)، منربطش
+        // الدالة دي أصلاً عشان منوصلش لخطأ "Cannot read properties of null".
+        if (sendBtn && messageInput) sendBtn.onclick = sendMessage;
         if (messageInput) {
             messageInput.onkeypress = (e) => {
                 if (e.key === 'Enter') sendMessage();
