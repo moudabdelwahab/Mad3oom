@@ -1191,25 +1191,6 @@ async function saveAdsSettings() {
 }
 
 
-        const { data: existing } = await supabase.from('api_keys').select('id').limit(1).maybeSingle();
-        let error;
-        if (existing) {
-            const { error: err } = await supabase.from('api_keys').update(keys).eq('id', existing.id);
-            error = err;
-        } else {
-            const { error: err } = await supabase.from('api_keys').insert(keys);
-            error = err;
-        }
-
-        if (error) throw error;
-        showAlert('تم حفظ مفاتيح API بنجاح', 'success');
-    } catch (error) {
-        showAlert('خطأ في الحفظ: ' + error.message, 'error');
-    } finally {
-        setLoading(btn, false);
-    }
-}
-
 async function saveRole() {
     const btn = document.getElementById('saveRoleBtn');
     const id = document.getElementById('editRoleId').value;
