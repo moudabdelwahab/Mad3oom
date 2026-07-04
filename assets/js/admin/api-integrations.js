@@ -316,12 +316,18 @@ function populateDefaultAiProviderSelect() {
 
 async function loadDefaultAiProviderSetting() {
     try {
-        const { data } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
             .from('bot_settings')
             .select('id, ai_integration_id')
+            .eq('user_id', user.id)
             .is('phone_number_id', null)
             .limit(1)
             .maybeSingle();
+        if (error) throw error;
+
         const select = document.getElementById('defaultAiProviderSelect');
         if (select && data?.ai_integration_id) select.value = data.ai_integration_id;
     } catch (err) {
@@ -332,21 +338,39 @@ async function loadDefaultAiProviderSetting() {
 export async function saveDefaultAiProvider(showAlert) {
     const select = document.getElementById('defaultAiProviderSelect');
     const value = select.value || null;
+
     try {
-        const { data: existing } = await supabase
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) throw new Error('يجب تسجيل الدخول أولاً');
+
+        const { data: existing, error: fetchError } = await supabase
             .from('bot_settings')
             .select('id')
+            .eq('user_id', user.id)
             .is('phone_number_id', null)
             .limit(1)
             .maybeSingle();
+        if (fetchError) throw fetchError;
 
         let error;
         if (existing) {
-            ({ error } = await supabase.from('bot_settings').update({ ai_integration_id: value, ai_enabled: !!value }).eq('id', existing.id));
+            ({ error } = await supabase
+                .from('bot_settings')
+                .update({ ai_integration_id: value, ai_enabled: !!value })
+                .eq('id', existing.id)
+                .eq('user_id', user.id)); // حماية إضافية بجانب RLS
         } else {
-            ({ error } = await supabase.from('bot_settings').insert({ ai_integration_id: value, ai_enabled: !!value }));
+            ({ error } = await supabase
+                .from('bot_settings')
+                .insert({
+                    user_id: user.id,
+                    phone_number_id: null,
+                    ai_integration_id: value,
+                    ai_enabled: !!value,
+                }));
         }
         if (error) throw error;
+
         showAlert('تم حفظ المزود الافتراضي للذكاء الاصطناعي', 'success');
     } catch (err) {
         showAlert('خطأ: ' + err.message, 'error');
