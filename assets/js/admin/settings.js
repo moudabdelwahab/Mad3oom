@@ -159,13 +159,10 @@ async function loadAllSettings() {
             document.getElementById('adsContent').value = adsSettings.content || '';
             document.getElementById('adsLink').value = adsSettings.link || '';
         }
-
-        // 10. Load API Keys
-        const { data: apiKeys } = await supabase.from('api_keys').select('*').limit(1).maybeSingle();
-        if (apiKeys) {
-            document.getElementById('openaiKey').value = apiKeys.openai_key || '';
-            document.getElementById('telegramBotToken').value = apiKeys.telegram_token || '';
-        }
+// 10. Load API Integrations
+await apiIntegrations.loadApiTokens(showAlert);
+await apiIntegrations.loadApiUsageLogs();
+await apiIntegrations.loadExternalIntegrations(showAlert);
 
         // 11. Load Rules, Roles & Users
         await loadRules();
@@ -830,8 +827,41 @@ function setupEventListeners() {
     document.getElementById('saveWorkingHoursBtn')?.addEventListener('click', saveWorkingHours);
     document.getElementById('saveBotBtn')?.addEventListener('click', saveBotSettings);
     document.getElementById('saveAdsBtn')?.addEventListener('click', saveAdsSettings);
-    document.getElementById('saveApiKeysBtn')?.addEventListener('click', saveApiKeys);
+document.getElementById('createApiTokenBtn')?.addEventListener('click', () => {
+    document.getElementById('apiTokenFormModal').style.display = 'block';
+});
 
+document.getElementById('cancelApiTokenBtn')?.addEventListener('click', () => {
+    document.getElementById('apiTokenFormModal').style.display = 'none';
+});
+
+document.getElementById('confirmCreateApiTokenBtn')?.addEventListener('click', () =>
+    apiIntegrations.createApiToken(showAlert)
+);
+
+document.getElementById('closeSecretRevealBtn')?.addEventListener('click', () => {
+    document.getElementById('apiSecretRevealModal').style.display = 'none';
+    document.getElementById('revealedApiKey').value = '';
+    document.getElementById('revealedApiSecret').value = '';
+});
+
+document.getElementById('addIntegrationBtn')?.addEventListener('click', apiIntegrations.openAddIntegration);
+
+document.getElementById('cancelIntegrationBtn')?.addEventListener('click', () => {
+    document.getElementById('integrationFormModal').style.display = 'none';
+});
+
+document.getElementById('saveIntegrationBtn')?.addEventListener('click', () =>
+    apiIntegrations.saveIntegration(showAlert)
+);
+
+document.getElementById('integrationProvider')?.addEventListener('change', (e) =>
+    apiIntegrations.renderCredentialFields(e.target.value)
+);
+
+document.getElementById('defaultAiProviderSelect')?.addEventListener('change', () =>
+    apiIntegrations.saveDefaultAiProvider(showAlert)
+);
     document.getElementById('logoutAllDevicesBtn')?.addEventListener('click', async () => {
         if (confirm('هل أنت متأكد من رغبتك في تسجيل الخروج من جميع الأجهزة الأخرى؟')) {
             try {
@@ -1160,15 +1190,6 @@ async function saveAdsSettings() {
     }
 }
 
-async function saveApiKeys() {
-    const btn = document.getElementById('saveApiKeysBtn');
-    setLoading(btn, true);
-    try {
-        const keys = {
-            openai_key: document.getElementById('openaiKey').value,
-            telegram_token: document.getElementById('telegramBotToken').value,
-            updated_at: new Date()
-        };
 
         const { data: existing } = await supabase.from('api_keys').select('id').limit(1).maybeSingle();
         let error;
