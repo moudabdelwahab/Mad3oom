@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('theme-preference');
+    if(t !== 'light' && t !== 'dark'){ t = 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
 <title>مدعوم | نظام عربي يقلل ضغط فريق الدعم</title>
 <meta name="description" content="مدعوم لا يبيع تذاكر أو محادثات. هو نظام يستقبل عملاءك، يجمع تفاصيل مشاكلهم، وينظّم عمل فريقك تلقائياً — حتى يتفرغوا لما يستحق وقتهم فعلاً.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
@@ -80,7 +91,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;white-space:nowrap;}
 .btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(0,119,204,.7);}
-.btn-outline{background:rgba(255,255,255,.03);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
 .btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
 .btn-sm{padding:.55rem 1.1rem;font-size:.82rem;border-radius:.6rem;}
 .btn-block{width:100%;}
@@ -89,7 +100,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 
 /* ============ Navbar ============ */
 .navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:1rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
-.navbar.scrolled{background:rgba(6,11,20,.75);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
+.navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
 .brand{display:flex;align-items:center;gap:.65rem;}
 .brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;}
@@ -108,13 +119,23 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .mobile-menu{display:none;}
 @media (max-width:900px){
   .nav-links{display:none;} .nav-login{display:none;} .hamburger{display:flex;}
-  .mobile-menu{position:fixed;inset:0;background:rgba(6,11,20,.98);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;}
+  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;}
   .mobile-menu.open{transform:translateY(0);}
   .mobile-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;}
   .mobile-menu a{display:block;padding:1rem 0;font-size:1.15rem;font-weight:600;border-bottom:1px solid var(--glass-border);}
   .mobile-menu .btn{margin-top:1.5rem;}
   .close-btn{background:none;border:none;color:var(--text-1);font-size:1.6rem;cursor:pointer;}
 }
+
+/* ============ Theme toggle ============ */
+.theme-toggle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:background .2s ease, border-color .2s ease;}
+.theme-toggle:hover{border-color:var(--accent-soft);}
+.theme-toggle svg{width:18px;height:18px;}
+.theme-toggle .sun-icon{display:block;}
+.theme-toggle .moon-icon{display:none;}
+[data-theme="light"] .theme-toggle .sun-icon{display:none;}
+[data-theme="light"] .theme-toggle .moon-icon{display:block;}
+.mobile-theme-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--glass-border);font-size:1.15rem;font-weight:600;}
 
 /* ============ Circuit backdrop (identity motif) ============ */
 .circuit-bg{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.35;}
@@ -160,7 +181,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 /* ============ Journey (signature) ============ */
 .journey-section{position:relative;}
 .journey-wrap{position:relative;max-width:760px;margin:3rem auto 0;padding-inline-end:2.5rem;}
-.journey-track{position:absolute;top:0;bottom:0;right:26px;width:3px;background:rgba(255,255,255,.08);border-radius:3px;}
+.journey-track{position:absolute;top:0;bottom:0;right:26px;width:3px;background:var(--glass-border);border-radius:3px;}
 .journey-fill{position:absolute;top:0;right:26px;width:3px;height:0%;background:linear-gradient(180deg,var(--accent),var(--accent-soft));border-radius:3px;box-shadow:0 0 12px var(--accent);transition:height .1s linear;}
 .journey-robot{position:absolute;right:12px;top:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(77,163,255,.7);transform:translateY(-50%);transition:top .1s linear;z-index:3;}
 .journey-robot svg{width:18px;height:18px;color:#fff;}
@@ -303,25 +324,44 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .tl-desc{font-size:.9rem;color:var(--text-1);}
 @media (max-width:800px){.compare-cols{grid-template-columns:1fr;}}
 
-/* ============ Pricing / FAQ (reused) ============ */
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;align-items:stretch;}
-.price-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:2rem;display:flex;flex-direction:column;position:relative;}
-.price-card.featured{border-color:rgba(77,163,255,.5);background:linear-gradient(160deg, rgba(0,119,204,.14), rgba(255,255,255,.03));box-shadow:var(--shadow-glow);}
-.price-ribbon{position:absolute;top:-13px;right:2rem;background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.72rem;font-weight:700;padding:.35rem .9rem;border-radius:99px;}
-.price-card h3{font-size:1.2rem;margin-bottom:.4rem;}
-.price-card .tag{color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem;}
-.price-card ul{margin-bottom:1.8rem;flex:1;}
-.price-card li{display:flex;gap:.55rem;align-items:flex-start;font-size:.88rem;color:var(--text-2);margin-bottom:.75rem;}
-.price-card li svg{width:16px;height:16px;color:var(--success);flex-shrink:0;margin-top:.2rem;}
-@media (max-width:900px){.pricing-grid{grid-template-columns:1fr;}}
-.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:.8rem;}
-.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;}
-.faq-item summary{list-style:none;cursor:pointer;padding:1.2rem 1.5rem;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:.98rem;}
-.faq-item summary::-webkit-details-marker{display:none;}
-.faq-item summary .chev{transition:transform .3s;flex-shrink:0;color:var(--accent-soft);}
-.faq-item summary .chev svg{width:18px;height:18px;}
-.faq-item[open] summary .chev{transform:rotate(180deg);}
-.faq-item .faq-body{padding:0 1.5rem 1.3rem;color:var(--text-2);font-size:.92rem;}
+/* ============ Pricing (plans from subscriptions.html) ============ */
+.billing-toggle-wrap{display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:.75rem;flex-wrap:wrap;}
+.billing-toggle-label{font-size:.9rem;color:var(--text-2);font-weight:600;}
+.billing-toggle{display:inline-flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:99px;padding:.25rem;gap:.25rem;}
+.billing-toggle button{border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:.85rem;padding:.5rem 1.1rem;border-radius:99px;cursor:pointer;transition:background .2s ease,color .2s ease;}
+.billing-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;}
+.launch-offer-banner{text-align:center;color:var(--text-3);font-size:.82rem;margin-bottom:2.25rem;}
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;align-items:stretch;}
+.plan-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:1.75rem 1.5rem;display:flex;flex-direction:column;position:relative;}
+.plan-card.featured{border-color:rgba(77,163,255,.5);background:linear-gradient(160deg, rgba(0,119,204,.14), rgba(255,255,255,.03));box-shadow:var(--shadow-glow);}
+.plan-ribbon{position:absolute;top:-13px;right:1.5rem;background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.68rem;font-weight:700;padding:.3rem .8rem;border-radius:99px;}
+.plan-card h3{font-size:1.1rem;margin-bottom:.3rem;}
+.plan-card .plan-desc{color:var(--text-3);font-size:.82rem;margin-bottom:1.25rem;}
+.plan-price-row{display:flex;align-items:baseline;gap:.35rem;flex-wrap:wrap;margin-bottom:.2rem;}
+.plan-price-row .currency{font-size:1rem;font-weight:700;color:var(--text-2);}
+.plan-price-row .amount{font-family:var(--font-data);font-size:2.1rem;font-weight:700;color:var(--text-1);}
+.plan-price-row .period{font-size:.85rem;color:var(--text-3);}
+.plan-price-row .old-price{font-size:.85rem;color:var(--text-3);text-decoration:line-through;}
+.plan-discount-badge{display:inline-block;background:rgba(34,197,138,.12);color:var(--success);font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:99px;margin-bottom:.5rem;width:fit-content;}
+.plan-limited{display:block;color:var(--danger);font-size:.72rem;font-weight:600;margin-bottom:.5rem;}
+.plan-bonus{color:var(--accent-soft);font-size:.75rem;font-weight:600;margin-bottom:1rem;}
+.plan-card ul{margin-bottom:1.5rem;flex:1;}
+.plan-card li{display:flex;gap:.5rem;align-items:flex-start;font-size:.84rem;color:var(--text-2);margin-bottom:.65rem;}
+.plan-card li svg{width:15px;height:15px;color:var(--success);flex-shrink:0;margin-top:.2rem;}
+.plan-card li.disabled{color:var(--text-3);}
+.plan-card li.disabled svg{color:var(--text-3);}
+@media (max-width:1050px){.plan-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:600px){.plan-grid{grid-template-columns:1fr;}}
+
+.plan-comparison{margin-top:4rem;overflow-x:auto;}
+.plan-comparison h3{text-align:center;font-size:1.3rem;margin-bottom:1.75rem;}
+.plan-comparison table{width:100%;border-collapse:collapse;min-width:640px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;}
+.plan-comparison th,.plan-comparison td{padding:.85rem 1rem;text-align:center;font-size:.85rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);}
+.plan-comparison th{color:var(--text-1);font-weight:700;background:var(--glass-strong);}
+.plan-comparison td:first-child,.plan-comparison th:first-child{text-align:right;color:var(--text-1);font-weight:600;}
+.plan-comparison tr:last-child td{border-bottom:none;}
+.plan-comparison .yes{color:var(--success);font-weight:700;}
+.plan-comparison .no{color:var(--text-3);}
 
 /* ============ Final CTA ============ */
 .final-cta{border-radius:var(--radius-lg);padding:clamp(2.5rem,6vw,4.5rem);text-align:center;background:linear-gradient(135deg, var(--primary-deep), var(--bg-void) 60%), radial-gradient(50rem 20rem at 50% 0%, rgba(0,119,204,.4), transparent 70%);border:1px solid var(--glass-border);position:relative;overflow:hidden;}
@@ -347,6 +387,32 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 .robot-bubble.open{display:block;}
 .robot-bubble strong{display:block;margin-bottom:.3rem;color:var(--accent-soft);}
 @media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}}
+
+/* ============ Light theme overrides ============ */
+:root{
+  --scrim:rgba(6,11,20,.75);
+  --scrim-strong:rgba(6,11,20,.98);
+  --btn-outline-bg:rgba(255,255,255,.03);
+  --dot-color:rgba(255,255,255,.05);
+}
+[data-theme="light"]{
+  --bg-void:#F3F6FC;
+  --bg-surface:#FFFFFF;
+  --bg-elevated:#EDF2FA;
+  --glass:rgba(16,27,46,.035);
+  --glass-strong:rgba(16,27,46,.06);
+  --glass-border:rgba(16,27,46,.09);
+  --text-1:#101B2E;
+  --text-2:#4B5A72;
+  --text-3:#8493AA;
+  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.22);
+  --scrim:rgba(255,255,255,.85);
+  --scrim-strong:rgba(255,255,255,.98);
+  --btn-outline-bg:rgba(16,27,46,.035);
+  --dot-color:rgba(16,27,46,.05);
+}
+body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);}
 </style>
 </head>
 <body>
@@ -386,7 +452,11 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
       <a href="#faq">الأسئلة الشائعة</a>
     </div>
     <div class="nav-cta">
-      <a href="#" class="nav-login">تسجيل الدخول</a>
+      <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <a href="login.html" class="nav-login">حسابي</a>
       <a href="#" class="btn btn-primary btn-sm">ابدأ مجاناً</a>
     </div>
     <button class="hamburger" id="hamburgerBtn" aria-label="فتح القائمة"><span></span><span></span><span></span></button>
@@ -405,7 +475,14 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   <a href="#compare">الفرق</a>
   <a href="#pricing">الأسعار</a>
   <a href="#faq">الأسئلة الشائعة</a>
-  <a href="#">تسجيل الدخول</a>
+  <a href="login.html">حسابي</a>
+  <div class="mobile-theme-row">
+    <span>الوضع الليلي/النهاري</span>
+    <button class="theme-toggle" id="themeToggleBtnMobile" aria-label="تبديل الوضع الليلي/النهاري">
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </div>
   <a href="#" class="btn btn-primary btn-block">ابدأ مجاناً</a>
 </div>
 
@@ -759,45 +836,193 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 <section class="section" id="pricing">
   <div class="container">
     <div class="section-head reveal">
-      <div class="eyebrow"><span class="dot"></span> باقات مرنة</div>
-      <h2>باقة تناسب حجم فريقك</h2>
-      <p>ابدأ صغيراً، ووسّع نطاق الأتمتة كلما نما فريقك.</p>
+      <div class="eyebrow"><span class="dot"></span> باقات وأسعار</div>
+      <h2>خطة تناسب حجم فريقك</h2>
+      <p>ابدأ مجاناً، ووسّع نطاق الأتمتة كلما نما فريقك.</p>
     </div>
-    <div class="pricing-grid">
-      <div class="price-card reveal">
-        <h3>أساسية</h3>
-        <p class="tag">لفرق الدعم الناشئة</p>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نظام تذاكر كامل</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة فورية</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> رقم واتساب واحد</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> حتى 3 أعضاء فريق</li>
-        </ul>
-        <a href="#" class="btn btn-outline btn-block">ابدأ مجاناً</a>
+
+    <div class="billing-toggle-wrap reveal">
+      <span class="billing-toggle-label">الفترة:</span>
+      <div class="billing-toggle" id="billingToggle">
+        <button type="button" class="active" data-period="monthly">شهري</button>
+        <button type="button" data-period="yearly">سنوي</button>
       </div>
-      <div class="price-card featured reveal">
-        <div class="price-ribbon">الأكثر طلباً</div>
-        <h3>احترافية</h3>
-        <p class="tag">لفرق الدعم المتنامية</p>
+    </div>
+    <p class="launch-offer-banner reveal">* أسعار الإطلاق سارية لمدة 6 أشهر أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب</p>
+
+    <div class="plan-grid">
+      <!-- Free -->
+      <div class="plan-card reveal">
+        <h3>مجاني</h3>
+        <p class="plan-desc">مثالي للمبتدئين</p>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount">0</span>
+          <span class="period">/شهر</span>
+        </div>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> كل مزايا الباقة الأساسية</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Chatbot وأتمتة كاملة للرحلة</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاق فرعي خاص بشركتك</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إحصائيات وصلاحيات متقدمة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> الوصول إلى نظام التذاكر الأساسي</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة مع فريق الدعم (ساعات العمل)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> الإبلاغ عن المشاكل والأعطال</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تجميع النقاط من البلاغات</li>
+          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ربط واتساب أو رد آلي</li>
         </ul>
-        <a href="#" class="btn btn-primary btn-block">جرّب الباقة الاحترافية</a>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">ابدأ الآن</a>
       </div>
-      <div class="price-card reveal">
-        <h3>أعمال</h3>
-        <p class="tag">للشركات وفرق الدعم الكبيرة</p>
+
+      <!-- Support -->
+      <div class="plan-card reveal">
+        <h3>الدعم الفني</h3>
+        <p class="plan-desc">لإدارة تذاكر الدعم الفني باحترافية</p>
+        <span class="plan-discount-badge" data-monthly="خصم 40%" data-yearly="خصم 17%">خصم 40%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="15" data-yearly="150">15</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="25" data-yearly="180">25</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> كل مزايا الباقة الاحترافية</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> أرقام واتساب متعددة ونطاقات متعددة</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مدير حساب مخصص</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> اتفاقية مستوى خدمة SLA</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> عدد لا محدود من التذاكر اليومية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاق فرعي مجاني (مثل company.mad3oom.online)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مدير واحد مع إمكانية إضافة حتى 25 عضوًا</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نظام الإحصائيات المتقدمة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> سجل نشاط لكل أعضاء الفريق</li>
         </ul>
-        <a href="#" class="btn btn-outline btn-block">تواصل مع المبيعات</a>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">اشترك الآن</a>
       </div>
+
+      <!-- WhatsApp -->
+      <div class="plan-card reveal">
+        <h3>واتساب</h3>
+        <p class="plan-desc">ربط رقم واتساب الخاص بك بنظام الدعم</p>
+        <span class="plan-discount-badge" data-monthly="خصم 33%" data-yearly="خصم 17%">خصم 33%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="20" data-yearly="200">20</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="30" data-yearly="240">30</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
+        <p class="plan-bonus" data-monthly="+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا" data-yearly="+ اشترك بخدمة الرد الآلي واحصل على 3 أشهر إضافية مجانًا">+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> ربط رقم واتساب الخاص بك بالمنصة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> استقبال وإرسال الرسائل من داخل لوحة التحكم</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إشعارات فورية بالرسائل الجديدة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إمكانية إضافة خدمة الرد الآلي لاحقًا</li>
+        </ul>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">اشترك الآن</a>
+      </div>
+
+      <!-- Bundle -->
+      <div class="plan-card featured reveal">
+        <div class="plan-ribbon">الأكثر توفيرًا</div>
+        <h3>دعم فني + واتساب</h3>
+        <p class="plan-desc">الباقة الشاملة لكل خدمات الدعم</p>
+        <span class="plan-discount-badge" data-monthly="خصم 45%" data-yearly="خصم 50%">خصم 45%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="30" data-yearly="330">30</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="55" data-yearly="660">55</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> جميع مميزات خطة الدعم الفني</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> جميع مميزات خطة الواتساب</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> دعم أولوية 24/7</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مكافآت نقاط مضاعفة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> شارة خاصة على الملف الشخصي</li>
+        </ul>
+        <a href="subscriptions.html" class="btn btn-primary btn-block">اشترك الآن</a>
+      </div>
+    </div>
+
+    <div class="plan-comparison reveal">
+      <h3>مقارنة الخطط</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>الميزة</th>
+            <th>مجاني</th>
+            <th>الدعم الفني</th>
+            <th>واتساب</th>
+            <th>دعم فني + واتساب</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>نظام التذاكر</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓ غير محدود</td>
+            <td class="no">✗</td>
+            <td class="yes">✓ غير محدود</td>
+          </tr>
+          <tr>
+            <td>المحادثة مع الدعم</td>
+            <td>ساعات العمل فقط</td>
+            <td>24/7</td>
+            <td>24/7</td>
+            <td>24/7</td>
+          </tr>
+          <tr>
+            <td>نطاق فرعي مجاني</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>عدد أعضاء الفريق</td>
+            <td>1</td>
+            <td>حتى 25 عضوًا</td>
+            <td>1</td>
+            <td>حتى 25 عضوًا</td>
+          </tr>
+          <tr>
+            <td>ربط رقم واتساب</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>الرد الآلي (إضافة اختيارية)</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>سجل نشاط الفريق والإحصائيات المتقدمة</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>نظام النقاط</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓ مضاعف</td>
+          </tr>
+          <tr>
+            <td>الدعم الأولوي</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>شارة خاصة</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -909,7 +1134,6 @@ function updateJourney() {
   const rect = journeyWrap.getBoundingClientRect();
   const vh = window.innerHeight;
   const total = rect.height;
-  // progress: 0 when top of wrap at bottom of viewport, 1 when bottom of wrap reaches ~40% viewport
   const start = vh * 0.85;
   const end = vh * 0.35;
   let progress = (start - rect.top) / (rect.top - rect.bottom + total + (start - end));
@@ -924,6 +1148,37 @@ function updateJourney() {
 window.addEventListener('scroll', () => requestAnimationFrame(updateJourney), { passive:true });
 window.addEventListener('resize', () => requestAnimationFrame(updateJourney));
 updateJourney();
+
+// ============ Theme toggle (dark/light) ============
+(function(){
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('theme-preference', t); }catch(e){}
+  }
+  function toggleTheme(){
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  }
+  const btn = document.getElementById('themeToggleBtn');
+  const btnMobile = document.getElementById('themeToggleBtnMobile');
+  if (btn) btn.addEventListener('click', toggleTheme);
+  if (btnMobile) btnMobile.addEventListener('click', toggleTheme);
+})();
+
+// ============ Pricing: monthly/yearly billing toggle ============
+(function(){
+  const toggle = document.getElementById('billingToggle');
+  if (!toggle) return;
+  const buttons = toggle.querySelectorAll('button');
+  function setPeriod(period){
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.period === period));
+    document.querySelectorAll('#pricing [data-monthly]').forEach(el => {
+      const val = period === 'yearly' ? el.dataset.yearly : el.dataset.monthly;
+      if (val !== undefined) el.textContent = val;
+    });
+  }
+  buttons.forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.period)));
+})();
 </script>
 </body>
 </html>
