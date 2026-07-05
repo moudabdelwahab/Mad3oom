@@ -150,7 +150,7 @@ export async function fetchServers(filters = {}) {
     // إخفاء الحقول الحساسة قبل الإرجاع
     servers = servers.map((s) => ({
         ...s,
-        api_key: s.api_key ? maskSecret(s.api_key) : '',
+        api_key_encrypted: s.api_key_encrypted ? maskSecret(s.api_key_encrypted) : '',
         headers: s.headers,
     }));
  
@@ -179,7 +179,7 @@ export async function fetchServerById(id) {
     if (useDb) {
         const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).maybeSingle();
         if (error) throw error;
-        if (data) data.api_key = data.api_key ? maskSecret(data.api_key) : '';
+        if (data) data.api_key_encrypted = data.api_key_encrypted ? maskSecret(data.api_key_encrypted) : '';
         return data;
     }
     return readLocal().find((s) => s.id === id) || null;
@@ -415,9 +415,9 @@ export async function fetchStats() {
 function buildHeaders(server) {
     const headers = {};
 
-    if (server.api_key && server.api_secret) {
+    if (server.api_key_encrypted && server.api_secret) {
         headers.Authorization =
-            `Bearer ${server.api_key}.${server.api_secret}`;
+            `Bearer ${server.api_key_encrypted}.${server.api_secret}`;
     }
 
     if (server.headers && typeof server.headers === "object") {
@@ -485,9 +485,9 @@ function normalizePayload(payload, isNew) {
     }
  
     // نحتفظ بالمفتاح فقط إذا قُدّم ولم يكن قناعاً (يحتوي على •••)
-    if (payload.api_key !== undefined) {
-        const ak = String(payload.api_key);
-        if (ak && !ak.includes('••••')) out.api_key = ak;
+    if (payload.api_key_encrypted !== undefined) {
+        const ak = String(payload.api_key_encrypted);
+        if (ak && !ak.includes('••••')) out.api_key_encrypted = ak;
     }
  
     if (payload.description !== undefined) {
