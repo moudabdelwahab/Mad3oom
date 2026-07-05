@@ -9,6 +9,13 @@
  *    ليعمل دون الحاجة لإعداد قاعدة بيانات مسبق.
  *
  * أنواع النقل المدعومة: stdio | sse | streamable_http
+ *
+ * بيانات الاعتماد (api_key / api_secret):
+ *  - لا تُشفَّر أو تُفَك أبداً في هذا الملف (متصفح).
+ *  - الحفظ: تُرسل صريحة مرة واحدة لدالة Edge Function
+ *    "save-mcp-credentials" التي تشفّرها وتخزّنها (AES-GCM, MCP_ENC_KEY).
+ *  - الاختبار: "test-mcp-server" تفك التشفير وتُجري الاتصال بالكامل من
+ *    جهة الخادم، وتُرجع نتيجة مُعقَّمة فقط (بدون أي قيمة مفكوكة أو مشفّرة).
  */
  
 import { supabase } from '/api-config.js';
@@ -85,12 +92,6 @@ function writeLocal(servers) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
 }
  
-/** تشفير بسيط للحقول الحساسة (مفاتيح API / tokens) لتجنّب التخزين كنص صريح */
-function maskSecret(value) {
-    if (!value) return value;
-    return value.replace(/(.{4}).+(.{4})$/, '$1••••••••$2');
-}
- 
 /* =========================================================
  *  سجل النشاط (Activity Log) - محلي دائماً
  * ========================================================= */
@@ -137,22 +138,17 @@ export async function fetchServers(filters = {}) {
  
     let servers;
     if (useDb) {
+        // نستثني العمودين المشفّرين عمداً - لا سبب لإرسالهما للمتصفح إطلاقاً،
+        // لا كنص صريح ولا حتى كنص مشفّر (لا فائدة تُعرض منه في الواجهة).
         const { data, error } = await supabase
             .from(TABLE)
-            .select('*')
+            .select('id, name, transport, url, command, args, env, headers, description, category, enabled, status, tools, created_by, created_at, updated_at, last_checked_at')
             .order('created_at', { ascending: false });
         if (error) throw error;
         servers = data || [];
     } else {
         servers = readLocal();
     }
- 
-    // إخفاء الحقول الحساسة قبل الإرجاع
-    servers = servers.map((s) => ({
-        ...s,
-        api_key_encrypted: s.api_key_encrypted ? maskSecret(s.api_key_encrypted) : '',
-        headers: s.headers,
-    }));
  
     // تطبيق الفلاتر
     return applyFilters(servers, filters);
@@ -172,17 +168,34 @@ function applyFilters(servers, { status, transport, search } = {}) {
 }
  
 /**
- * جلب خادم واحد عبر المعرّف
+ * جلب خادم واحد عبر المعرّف (بدون أي حقول اعتماد - نفس منطق fetchServers)
  */
 export async function fetchServerById(id) {
     const useDb = await detectStorageMode();
     if (useDb) {
-        const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).maybeSingle();
+        const { data, error } = await supabase
+            .from(TABLE)
+            .select('id, name, transport, url, command, args, env, headers, description, category, enabled, status, tools, created_by, created_at, updated_at, last_checked_at')
+            .eq('id', id)
+            .maybeSingle();
         if (error) throw error;
-        if (data) data.api_key_encrypted = data.api_key_encrypted ? maskSecret(data.api_key_encrypted) : '';
         return data;
     }
     return readLocal().find((s) => s.id === id) || null;
+}
+
+/**
+ * يبعت المفتاح/السر الصريحين (لو وُجدا) لدالة save-mcp-credentials
+ * لتشفيرهم وحفظهم مباشرة على الخادم (service_role + AES-GCM هناك فقط).
+ * لا يحدث أي تشفير أو تمرير لنص صريح غير هذا النداء.
+ */
+async function persistCredentials(serverId, { api_key, api_secret } = {}) {
+    if (!api_key && !api_secret) return;
+    const { data, error } = await supabase.functions.invoke('save-mcp-credentials', {
+        body: { server_id: serverId, api_key: api_key || '', api_secret: api_secret || '' },
+    });
+    if (error) throw new Error('فشل حفظ بيانات الاعتماد بأمان: ' + error.message);
+    if (data?.error) throw new Error(data.error);
 }
  
 /**
@@ -190,16 +203,26 @@ export async function fetchServerById(id) {
  * @param {object} payload
  */
 export async function createServer(payload) {
-    const record = normalizePayload(payload, true);
+    // api_key_encrypted هنا نص صريح قادم من النموذج (اسم الحقل قديم من الواجهة)،
+    // وapi_secret نص صريح أيضاً. كلاهما لا يُخزَّن أبداً كنص صريح في قاعدة
+    // البيانات أو في هذا الملف؛ يُرسلان فقط لـ save-mcp-credentials بعد
+    // إنشاء الصف بدونهما، وهي التي تُشفّرهم وتكتبهم في عمودَي *_encrypted.
+    const { api_key_encrypted: apiKeyPlain, api_secret: apiSecretPlain, ...rest } = payload;
+    const record = normalizePayload(rest, true);
  
     const useDb = await detectStorageMode();
     if (useDb) {
         const { data, error } = await supabase.from(TABLE).insert(record).select().single();
         if (error) throw error;
+        await persistCredentials(data.id, { api_key: apiKeyPlain, api_secret: apiSecretPlain });
         await logMcpActivity('created', data.id, { name: data.name });
         return data;
     }
  
+    // وضع localStorage (تطوير محلي بدون Supabase): لا توجد دالة خلفية
+    // لتشفير البيانات في هذه الحالة، فنحتفظ بالسلوك السابق كما هو.
+    if (apiKeyPlain) record.api_key_encrypted = apiKeyPlain;
+    if (apiSecretPlain) record.api_secret_encrypted = apiSecretPlain;
     const servers = readLocal();
     servers.unshift(record);
     writeLocal(servers);
@@ -211,7 +234,8 @@ export async function createServer(payload) {
  * تحديث خادم موجود (يدعم التحديث الجزئي - partial update)
  */
 export async function updateServer(id, payload) {
-    const updates = normalizePayload(payload, false);
+    const { api_key_encrypted: apiKeyPlain, api_secret: apiSecretPlain, ...rest } = payload;
+    const updates = normalizePayload(rest, false);
  
     const useDb = await detectStorageMode();
     if (useDb) {
@@ -222,6 +246,7 @@ export async function updateServer(id, payload) {
             .select()
             .single();
         if (error) throw error;
+        await persistCredentials(id, { api_key: apiKeyPlain, api_secret: apiSecretPlain });
         await logMcpActivity('updated', id, { name: data.name });
         return data;
     }
@@ -229,7 +254,8 @@ export async function updateServer(id, payload) {
     const servers = readLocal();
     const idx = servers.findIndex((s) => s.id === id);
     if (idx === -1) throw new Error('الخادم غير موجود');
-    // لا نستبدل الحقول الحساسة بقيم فارغة
+    if (apiKeyPlain) updates.api_key_encrypted = apiKeyPlain;
+    if (apiSecretPlain) updates.api_secret_encrypted = apiSecretPlain;
     servers[idx] = { ...servers[idx], ...updates, updated_at: new Date().toISOString() };
     writeLocal(servers);
     await logMcpActivity('updated', id, { name: servers[idx].name });
@@ -262,125 +288,34 @@ export async function deleteServer(id) {
  
 /**
  * اختبار الاتصال بخادم MCP.
- * - لخوادم HTTP/SSE نحاول إجراء fetch بسيط إلى نقطة النهاية.
- * - لخوادم stdio نتحقق فقط من صحة الإعداد (لا يمكن تشغيل عملية محلية من المتصفح).
+ * الاختبار بالكامل (فك التشفير + initialize + tools/list) يحدث الآن
+ * داخل دالة Edge Function "test-mcp-server" فقط. هذا الملف لا يعمل
+ * fetch مباشر لأي خادم MCP بعيد، ولا يبني Authorization header، ولا
+ * يرى أي قيمة مفكوكة أو مشفّرة - فقط نتيجة الاختبار النهائية.
  */
 export async function testServer(id) {
     const server = await fetchServerById(id);
-
- console.log("SERVER:", server);
-console.log("api_key_encrypted:", server.api_key_encrypted);
-console.log("api_secret:", server.api_secret);
     if (!server) throw new Error('الخادم غير موجود');
 
-    const result = {
-        ok: false,
-        latency: null,
-        message: '',
-        tools: 0
-    };
-
-    const start = performance.now();
-
-    if (server.transport === 'stdio') {
-        if (!server.command) {
-            result.message = 'أمر التشغيل (command) غير محدد';
-        } else {
-            result.ok = true;
-            result.message = 'الإعداد صحيح (stdio يتطلب التشغيل من جهة الخادم)';
-            result.tools = Array.isArray(server.tools) ? server.tools.length : 0;
-        }
-    } else if (server.url) {
-        try {
-            const headers = {
-                "Content-Type": "application/json",
-                ...buildHeaders(server)
-            };
-
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
-
-            // الخطوة الأولى: initialize
-            const initRes = await fetch(server.url, {
-                method: "POST",
-                headers,
-                signal: controller.signal,
-                body: JSON.stringify({
-                    jsonrpc: "2.0",
-                    id: 1,
-                    method: "initialize",
-                    params: {
-                        protocolVersion: "2025-03-26",
-                        capabilities: {},
-                        clientInfo: {
-                            name: "Mad3oom",
-                            version: "1.0.0"
-                        }
-                    }
-                })
-            });
-
-            if (!initRes.ok) {
-                throw new Error(`Initialize failed (${initRes.status})`);
-            }
-
-            const initData = await initRes.json();
-
-            if (initData.error) {
-                throw new Error(initData.error.message);
-            }
-
-            // الخطوة الثانية: tools/list
-            const toolsRes = await fetch(server.url, {
-                method: "POST",
-                headers,
-                signal: controller.signal,
-                body: JSON.stringify({
-                    jsonrpc: "2.0",
-                    id: 2,
-                    method: "tools/list"
-                })
-            });
-
-            clearTimeout(timeout);
-
-            if (!toolsRes.ok) {
-                throw new Error(`tools/list failed (${toolsRes.status})`);
-            }
-
-            const toolsData = await toolsRes.json();
-
-            result.ok = true;
-            result.latency = Math.round(performance.now() - start);
-            result.tools = toolsData.result?.tools?.length ?? 0;
-
-            result.message =
-                `تم الاتصال بخادم MCP بنجاح (${result.tools} أداة)`;
-
-        } catch (err) {
-            result.message = err.message || "فشل الاتصال";
-        }
-    } else {
-        result.message = "لا يوجد عنوان (URL) أو أمر (command) للاختبار";
+    const useDb = await detectStorageMode();
+    if (!useDb) {
+        // وضع localStorage: لا توجد دالة خلفية لفك التشفير/الاتصال، فلا يوجد
+        // اختبار اتصال حقيقي متاح في هذا الوضع (بيئة تطوير بدون Supabase).
+        throw new Error('اختبار الاتصال متاح فقط عند استخدام Supabase (localStorage غير مدعوم لهذه العملية)');
     }
 
-    const newStatus = result.ok
-        ? MCP_STATUSES.CONNECTED
-        : MCP_STATUSES.ERROR;
-
-    await updateServer(id, {
-        status: newStatus,
-        last_checked_at: new Date().toISOString()
+    const { data, error } = await supabase.functions.invoke('test-mcp-server', {
+        body: { server_id: id },
     });
 
-    await logMcpActivity(
-        result.ok ? "connected" : "error",
-        id,
-        {
-            name: server.name,
-            message: result.message
-        }
-    );
+    const result = error || data?.error
+        ? { ok: false, message: (data?.error) || error.message || 'فشل الاتصال', tools: 0 }
+        : data;
+
+    await logMcpActivity(result.ok ? 'connected' : 'error', id, {
+        name: server.name,
+        message: result.message,
+    });
 
     return result;
 }
@@ -415,30 +350,19 @@ export async function fetchStats() {
 /* =========================================================
  *  أدوات داخلية: التحقق والتجهيز
  * ========================================================= */
-function buildHeaders(server) {
-    const headers = {};
-
-    if (server.api_key_encrypted && server.api_secret) {
-        headers.Authorization =
-            `Bearer ${server.api_key_encrypted}.${server.api_secret}`;
-    }
-
-    if (server.headers && typeof server.headers === "object") {
-        Object.assign(headers, server.headers);
-    }
-
-    return headers;
-}
  
 /**
  * تنظيف وتوحيد بيانات الإدخال قبل الحفظ + تحقق من الصحة.
+ * ملاحظة: بيانات الاعتماد (api_key / api_secret) لا تُعالَج هنا أبداً -
+ * تُستثنى في createServer/updateServer قبل الوصول لهذه الدالة، وتُمرَّر
+ * لـ persistCredentials بشكل منفصل تماماً.
  *
  * ملاحظة مهمة: هذه الدالة تُستخدم في وضعين:
  *   1) isNew = true  → إنشاء خادم جديد، كل الحقول الأساسية (name/url) مطلوبة.
  *   2) isNew = false → تحديث خادم موجود. قد يكون هذا تحديثاً "جزئياً"
- *      يُرسل من الكود الداخلي (مثل testServer/disconnectServer) ولا يحتوي
- *      إلا على status/last_checked_at. لذلك لا نفرض وجود name أو url إلا
- *      إذا أُرسلا فعلاً ضمن payload.
+ *      يُرسل من الكود الداخلي (مثل disconnectServer) ولا يحتوي إلا على
+ *      status/last_checked_at. لذلك لا نفرض وجود name أو url إلا إذا
+ *      أُرسلا فعلاً ضمن payload.
  */
 function normalizePayload(payload, isNew) {
     const out = {};
@@ -485,12 +409,6 @@ function normalizePayload(payload, isNew) {
     if (payload.headers !== undefined) {
         if (payload.headers && typeof payload.headers === 'object') out.headers = payload.headers;
         else out.headers = parseKeyValue(payload.headers);
-    }
- 
-    // نحتفظ بالمفتاح فقط إذا قُدّم ولم يكن قناعاً (يحتوي على •••)
-    if (payload.api_key_encrypted !== undefined) {
-        const ak = String(payload.api_key_encrypted);
-        if (ak && !ak.includes('••••')) out.api_key_encrypted = ak;
     }
  
     if (payload.description !== undefined) {
