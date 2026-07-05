@@ -34,6 +34,23 @@
  *   - لو الاشتراك انتهى (expired) ومفيش اشتراك support/bundle نشط تاني
  *     للعميل، الرتبة بترجع تلقائيًا لـ user (بس لو كانت super_user
  *     بالظبط، عشان منلمسش أدمن).
+ *
+ * ملاحظة (تحديث جديد - معالجة التواريخ + تتبع الموظف):
+ *   كان start_date/end_date بيتسجلوا وقت إنشاء طلب الاشتراك (createSubscriptionTicket)
+ *   نفسه، يعني العميل كان بيبدأ ياخد من عمر اشتراكه وهو لسه pending ومستني
+ *   موافقة الإدارة. اتصلح المنطق بحيث:
+ *     - وقت إنشاء الطلب: بنسجل بس duration_days (ومدة تقديرية placeholder
+ *       في start_date/end_date لإن العمود مطلوب)، وبنعلّم الطلب لو تجديد
+ *       (is_renewal) مع تاريخ انتهاء الاشتراك الحالي (previous_end_date).
+ *     - وقت التأكيد (confirmPurchaseTicket): بنحسب start_date/end_date
+ *       الحقيقيين دلوقتي فقط:
+ *         * اشتراك جديد -> من لحظة التأكيد.
+ *         * تجديد -> من previous_end_date لو لسه في المستقبل (تمديد فعلي)،
+ *           أو من لحظة التأكيد لو الاشتراك القديم خلص بالفعل قبل ما حد يراجع
+ *           الطلب.
+ *   وكمان بقى بيتسجل reviewed_by/reviewed_at (هوية الموظف اللي أكّد أو رفض)
+ *   على whatsapp_subscriptions، و last_updated_by/last_updated_at على
+ *   tickets، عشان يظهر اسم موظف الدعم في لوحة الإدارة.
  */
 
 import { supabase } from '/api-config.js';
@@ -66,6 +83,28 @@ function assertValidBillingCycle(billingCycle) {
     if (!BILLING_CYCLES.includes(billingCycle)) {
         throw new Error(`Invalid billing cycle: ${billingCycle}. Expected one of: ${BILLING_CYCLES.join(', ')}`);
     }
+}
+
+/**
+ * عدد الأيام التقريبي لكل نوع فترة - قيمة معلوماتية بس (duration_days)،
+ * الاحتساب الفعلي لتاريخ النهاية بيتم بإضافة شهر/سنة تقويميًا كاملاً
+ * (انظر addBillingPeriod) مش بجمع عدد أيام ثابت.
+ */
+function getDurationDays(billingCycle) {
+    return billingCycle === 'yearly' ? 365 : 30;
+}
+
+/**
+ * يضيف فترة اشتراك واحدة (شهر أو سنة تقويميًا) لتاريخ معين ويرجع تاريخ جديد.
+ */
+function addBillingPeriod(baseDate, billingCycle) {
+    const d = new Date(baseDate);
+    if (billingCycle === 'yearly') {
+        d.setFullYear(d.getFullYear() + 1);
+    } else {
+        d.setMonth(d.getMonth() + 1);
+    }
+    return d;
 }
 
 /**
@@ -193,11 +232,17 @@ async function downgradeFromSuperUserIfNoAccessLeft(userId, excludeSubscriptionI
  * Create a subscription request ticket for any plan.
  * @param {string} plan - 'support' | 'whatsapp' | 'bundle'
  * @param {string} billingCycle - 'monthly' | 'yearly'
+ * @param {Object} [options]
+ * @param {boolean} [options.isRenewal=false] - لو true، بيتم اعتباره طلب تجديد
+ *        وبيتم تمديد المدة من تاريخ انتهاء الاشتراك النشط الحالي لنفس الخطة
+ *        (لو موجود) بدلاً من احتسابها من الآن.
  * @returns {Promise<Object>} - { success, ticket, subscription }
  */
-export async function createSubscriptionTicket(plan, billingCycle) {
+export async function createSubscriptionTicket(plan, billingCycle, options = {}) {
     assertValidPlan(plan);
     assertValidBillingCycle(billingCycle);
+
+    const isRenewal = !!options.isRenewal;
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -220,24 +265,45 @@ export async function createSubscriptionTicket(plan, billingCycle) {
             throw new Error(`عندك بالفعل طلب اشتراك في خطة "${PLAN_LABELS[plan]}" قيد المراجعة. انتظر رد فريق الدعم قبل إرسال طلب جديد.`);
         }
 
-        const startDate = new Date();
-        const endDate = new Date();
-        if (billingCycle === 'monthly') {
-            endDate.setMonth(endDate.getMonth() + 1);
-        } else {
-            endDate.setFullYear(endDate.getFullYear() + 1);
+        // لو تجديد: نجيب الاشتراك النشط الحالي لنفس الخطة عشان نعرف من امتى
+        // هنمدد. لو مفيش اشتراك نشط فعلاً، الطلب هيتعامل معاه كاشتراك جديد
+        // عادي عند التأكيد (هيبدأ من تاريخ التأكيد).
+        let previousEndDate = null;
+        if (isRenewal) {
+            const activeSub = await getActiveSubscription(plan);
+            if (activeSub && activeSub.end_date) {
+                previousEndDate = new Date(activeSub.end_date);
+            }
         }
 
+        const durationDays = getDurationDays(billingCycle);
         const planLabel = PLAN_LABELS[plan];
         const billingLabel = BILLING_LABELS[billingCycle];
+        const durationLabel = billingCycle === 'yearly' ? 'سنة واحدة' : 'شهر واحد';
+
+        // ملاحظة مهمة: start_date/end_date هنا قيم مبدئية (placeholder) فقط
+        // لإن عمود end_date مطلوب (NOT NULL) في قاعدة البيانات. التواريخ
+        // الحقيقية بتتحدد فعليًا فقط عند تأكيد الطلب في confirmPurchaseTicket،
+        // فمفيش أي عميل بيكسب أيام من عمر اشتراكه وهو لسه pending.
+        const placeholderStart = new Date();
+        const placeholderEnd = addBillingPeriod(placeholderStart, billingCycle);
+
+        let description;
+        if (isRenewal && previousEndDate) {
+            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nاشتراكك الحالي ينتهي في: ${previousEndDate.toLocaleString('ar-EG')}\nسيتم تمديد الاشتراك لمدة ${durationLabel} إضافية بدءًا من تاريخ الانتهاء الحالي عند تأكيد الطلب من فريق الدعم.`;
+        } else if (isRenewal) {
+            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nملاحظة: لم يتم العثور على اشتراك نشط حالي لهذه الخطة، سيتم احتساب المدة من تاريخ تأكيد الطلب.`;
+        } else {
+            description = `طلب اشتراك جديد\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nسيتم احتساب تاريخ البداية والنهاية الفعلي عند تأكيد الطلب من فريق الدعم.`;
+        }
 
         // Create a support ticket for the subscription request
         const { data: ticket, error: ticketError } = await supabase
             .from('tickets')
             .insert({
                 user_id: user.id,
-                title: `طلب اشتراك - ${planLabel} (${billingLabel})`,
-                description: `طلب اشتراك جديد\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nتاريخ البداية: ${startDate.toLocaleString('ar-EG')}\nتاريخ النهاية: ${endDate.toLocaleString('ar-EG')}`,
+                title: `${isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك'} - ${planLabel} (${billingLabel})`,
+                description,
                 status: 'open',
                 priority: 'high'
             })
@@ -254,9 +320,12 @@ export async function createSubscriptionTicket(plan, billingCycle) {
                 ticket_id: ticket.id,
                 plan,
                 billing_cycle: billingCycle,
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
-                status: 'pending'
+                start_date: placeholderStart.toISOString(),
+                end_date: placeholderEnd.toISOString(),
+                status: 'pending',
+                is_renewal: isRenewal,
+                duration_days: durationDays,
+                previous_end_date: previousEndDate ? previousEndDate.toISOString() : null
             })
             .select()
             .single();
@@ -377,7 +446,9 @@ export function calculateDaysRemaining(endDate) {
 }
 
 /**
- * Renew a subscription by creating a new request ticket.
+ * Renew a subscription by creating a new request ticket marked as a renewal.
+ * المدة الجديدة هتتحسب (عند التأكيد) من تاريخ انتهاء الاشتراك النشط الحالي
+ * لنفس الخطة، مش من تاريخ التأكيد نفسه - إلا لو الاشتراك القديم خلص فعلاً.
  * @param {string} plan - 'support' | 'whatsapp' | 'bundle'
  * @param {string} billingCycle - 'monthly' | 'yearly'
  * @returns {Promise<Object>}
@@ -387,7 +458,7 @@ export async function renewSubscription(plan, billingCycle) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('User not authenticated');
 
-        return await createSubscriptionTicket(plan, billingCycle);
+        return await createSubscriptionTicket(plan, billingCycle, { isRenewal: true });
     } catch (error) {
         console.error('Error renewing subscription:', error);
         throw error;
@@ -537,6 +608,14 @@ export async function activateSubscription(subscriptionId) {
  * entitlement logic لسه موجودة هنا في مكان واحد عشان لو زودنا خطط تانية
  * بعدين يبقى سهل نتحكم فيها.
  *
+ * التواريخ الفعلية (start_date/end_date) بيتم احتسابها هنا فقط - وقت
+ * التأكيد - مش وقت إنشاء الطلب:
+ *   - اشتراك جديد (is_renewal = false): من لحظة التأكيد دلوقتي.
+ *   - تجديد (is_renewal = true) مع previous_end_date في المستقبل: من
+ *     previous_end_date نفسه (تمديد فعلي للمدة المتبقية + المدة الجديدة).
+ *   - تجديد لكن previous_end_date فات بالفعل قبل ما حد يراجع الطلب: من
+ *     لحظة التأكيد (زي الاشتراك الجديد بالظبط).
+ *
  * حراسة الأمان (idempotency):
  *   - لو مفيش صف في whatsapp_subscriptions مرتبط بالـ ticket_id ده، العملية
  *     بتتوقف فورًا وبترجع error واضح — والتذكرة نفسها ما بتتلمسش (تفضل
@@ -554,6 +633,8 @@ export async function confirmPurchaseTicket(ticketId) {
     try {
         console.log('Confirming purchase ticket:', ticketId);
 
+        const { data: { user: adminUser } } = await supabase.auth.getUser();
+
         const { data: subscription, error: fetchError } = await supabase
             .from('whatsapp_subscriptions')
             .select('*')
@@ -570,6 +651,15 @@ export async function confirmPurchaseTicket(ticketId) {
             };
         }
 
+        // احتساب التواريخ الفعلية دلوقتي (وقت التأكيد)، مش وقت إنشاء الطلب
+        const now = new Date();
+        let actualStart = now;
+        if (subscription.is_renewal && subscription.previous_end_date) {
+            const prevEnd = new Date(subscription.previous_end_date);
+            actualStart = prevEnd > now ? prevEnd : now;
+        }
+        const actualEnd = addBillingPeriod(actualStart, subscription.billing_cycle);
+
         // تحديث مشروط بحالة 'pending' حاليًا فقط — لو الصف مش pending دلوقتي
         // (اتأكد قبل كده، أو مرفوض، أو منتهي)، الشرط مش هيطابق أي صف والـ
         // update هيرجع بدون صفوف.
@@ -577,7 +667,11 @@ export async function confirmPurchaseTicket(ticketId) {
             .from('whatsapp_subscriptions')
             .update({
                 status: 'active',
-                updated_at: new Date().toISOString()
+                start_date: actualStart.toISOString(),
+                end_date: actualEnd.toISOString(),
+                reviewed_by: adminUser ? adminUser.id : null,
+                reviewed_at: now.toISOString(),
+                updated_at: now.toISOString()
             })
             .eq('id', subscription.id)
             .eq('status', 'pending')
@@ -609,19 +703,22 @@ export async function confirmPurchaseTicket(ticketId) {
 
         const { error: ticketUpdateError } = await supabase
             .from('tickets')
-            .update({ status: 'confirmed' })
+            .update({
+                status: 'confirmed',
+                last_updated_by: adminUser ? adminUser.id : null,
+                last_updated_at: now.toISOString()
+            })
             .eq('id', ticketId);
 
         if (ticketUpdateError) throw ticketUpdateError;
 
-        // إشعار العميل بتفعيل اشتراكه — كان مفقود قبل كده، فالعميل ماكانش
-        // بيعرف إن طلبه اتأكد غير لو دخل يتابع الصفحة بنفسه.
+        // إشعار العميل بتفعيل اشتراكه، بما فيه تاريخ الانتهاء الفعلي الجديد
         const planLabel = PLAN_LABELS[updatedSubscription.plan] || updatedSubscription.plan;
         const billingLabel = BILLING_LABELS[updatedSubscription.billing_cycle] || updatedSubscription.billing_cycle;
         await createNotification({
             userId: updatedSubscription.user_id,
             title: '✓ تم تفعيل اشتراكك',
-            message: `تم تأكيد وتفعيل اشتراكك في خطة "${planLabel}" (${billingLabel}).`,
+            message: `تم تأكيد وتفعيل اشتراكك في خطة "${planLabel}" (${billingLabel}). ينتهي في: ${actualEnd.toLocaleDateString('ar-EG')}.`,
             type: 'success',
             link: '/customer-subscriptions.html'
         });
@@ -643,22 +740,30 @@ export async function rejectPurchaseTicket(ticketId, reason = '') {
     try {
         console.log('Rejecting purchase ticket:', ticketId, reason);
 
+        const { data: { user: adminUser } } = await supabase.auth.getUser();
+        const nowIso = new Date().toISOString();
+
         const { error: updateTicketError } = await supabase
             .from('tickets')
-            .update({ status: 'rejected' })
+            .update({
+                status: 'rejected',
+                last_updated_by: adminUser ? adminUser.id : null,
+                last_updated_at: nowIso
+            })
             .eq('id', ticketId);
 
         if (updateTicketError) throw updateTicketError;
 
-        // نجيب الاشتراك المرتبط بالتذكرة عشان نبعت إشعار مضبوط ونحفظ السبب معاه
-        // (كان السبب بيتاخد من الأدمن في نافذة الرفض وبعدين بيتفقد لإن مفيش
-        // عمود يخزنه أصلاً — rejection_reason اتضاف دلوقتي).
+        // نجيب الاشتراك المرتبط بالتذكرة عشان نبعت إشعار مضبوط ونحفظ السبب
+        // وهوية الموظف اللي رفض معاه
         const { data: subscription, error: subUpdateError } = await supabase
             .from('whatsapp_subscriptions')
             .update({
                 status: 'rejected',
                 rejection_reason: reason || null,
-                updated_at: new Date().toISOString()
+                reviewed_by: adminUser ? adminUser.id : null,
+                reviewed_at: nowIso,
+                updated_at: nowIso
             })
             .eq('ticket_id', ticketId)
             .select()
