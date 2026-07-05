@@ -297,6 +297,7 @@ export async function testServer(id) {
             const timeout = setTimeout(() => controller.abort(), 8000);
 
             // الخطوة الأولى: initialize
+         console.log(headers);
             const initRes = await fetch(server.url, {
                 method: "POST",
                 headers,
