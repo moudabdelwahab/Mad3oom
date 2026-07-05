@@ -414,7 +414,7 @@ export async function fetchStats() {
 /* =========================================================
  *  أدوات داخلية: التحقق والتجهيز
  * ========================================================= */
- 
+ console.log(server.api_key_encrypted);
 function buildHeaders(server) {
     const headers = {};
 
