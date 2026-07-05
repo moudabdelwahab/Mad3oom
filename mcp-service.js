@@ -267,6 +267,7 @@ export async function deleteServer(id) {
  */
 export async function testServer(id) {
     const server = await fetchServerById(id);
+
  console.log("SERVER:", server);
 console.log("api_key_encrypted:", server.api_key_encrypted);
 console.log("api_secret:", server.api_secret);
@@ -414,7 +415,6 @@ export async function fetchStats() {
 /* =========================================================
  *  أدوات داخلية: التحقق والتجهيز
  * ========================================================= */
- console.log(server.api_key_encrypted);
 function buildHeaders(server) {
     const headers = {};
 
