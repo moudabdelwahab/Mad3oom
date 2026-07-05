@@ -268,52 +268,116 @@ export async function deleteServer(id) {
 export async function testServer(id) {
     const server = await fetchServerById(id);
     if (!server) throw new Error('الخادم غير موجود');
- 
-    const result = { ok: false, latency: null, message: '', tools: 0 };
- 
+
+    const result = {
+        ok: false,
+        latency: null,
+        message: '',
+        tools: 0
+    };
+
     const start = performance.now();
- 
+
     if (server.transport === 'stdio') {
-        // stdio لا يمكن اختباره من المتصفح؛ نتحقق من اكتمال الإعداد فقط
         if (!server.command) {
             result.message = 'أمر التشغيل (command) غير محدد';
         } else {
             result.ok = true;
-            result.message = 'الإعداد صحيح (stdio يتطلب تشغيل من جهة الخادم)';
+            result.message = 'الإعداد صحيح (stdio يتطلب التشغيل من جهة الخادم)';
             result.tools = Array.isArray(server.tools) ? server.tools.length : 0;
         }
     } else if (server.url) {
         try {
-            const headers = buildHeaders(server);
+            const headers = {
+                "Content-Type": "application/json",
+                ...buildHeaders(server)
+            };
+
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
-            const res = await fetch(server.url, {
-                method: 'GET',
+
+            // الخطوة الأولى: initialize
+            const initRes = await fetch(server.url, {
+                method: "POST",
                 headers,
                 signal: controller.signal,
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 1,
+                    method: "initialize",
+                    params: {
+                        protocolVersion: "2025-03-26",
+                        capabilities: {},
+                        clientInfo: {
+                            name: "Mad3oom",
+                            version: "1.0.0"
+                        }
+                    }
+                })
             });
+
+            if (!initRes.ok) {
+                throw new Error(`Initialize failed (${initRes.status})`);
+            }
+
+            const initData = await initRes.json();
+
+            if (initData.error) {
+                throw new Error(initData.error.message);
+            }
+
+            // الخطوة الثانية: tools/list
+            const toolsRes = await fetch(server.url, {
+                method: "POST",
+                headers,
+                signal: controller.signal,
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 2,
+                    method: "tools/list"
+                })
+            });
+
             clearTimeout(timeout);
+
+            if (!toolsRes.ok) {
+                throw new Error(`tools/list failed (${toolsRes.status})`);
+            }
+
+            const toolsData = await toolsRes.json();
+
+            result.ok = true;
             result.latency = Math.round(performance.now() - start);
-            result.ok = res.ok || res.status === 405; // 405 شائع لخوادم MCP على GET
-            result.message = result.ok
-                ? `تم الاستجابة بنجاح (${res.status})`
-                : `فشل الاستجابة (${res.status})`;
-            result.tools = Array.isArray(server.tools) ? server.tools.length : 0;
+            result.tools = toolsData.result?.tools?.length ?? 0;
+
+            result.message =
+                `تم الاتصال بخادم MCP بنجاح (${result.tools} أداة)`;
+
         } catch (err) {
-            result.message = `تعذّر الاتصال: ${err.message || err.name}`;
+            result.message = err.message || "فشل الاتصال";
         }
     } else {
-        result.message = 'لا يوجد عنوان (URL) أو أمر (command) للاختبار';
+        result.message = "لا يوجد عنوان (URL) أو أمر (command) للاختبار";
     }
- 
-    // تحديث الحالة (تحديث جزئي: name/url غير مرسلين عن قصد)
-    const newStatus = result.ok ? MCP_STATUSES.CONNECTED : MCP_STATUSES.ERROR;
-    await updateServer(id, { status: newStatus, last_checked_at: new Date().toISOString() });
-    await logMcpActivity(result.ok ? 'connected' : 'error', id, {
-        name: server.name,
-        message: result.message,
+
+    const newStatus = result.ok
+        ? MCP_STATUSES.CONNECTED
+        : MCP_STATUSES.ERROR;
+
+    await updateServer(id, {
+        status: newStatus,
+        last_checked_at: new Date().toISOString()
     });
- 
+
+    await logMcpActivity(
+        result.ok ? "connected" : "error",
+        id,
+        {
+            name: server.name,
+            message: result.message
+        }
+    );
+
     return result;
 }
  
