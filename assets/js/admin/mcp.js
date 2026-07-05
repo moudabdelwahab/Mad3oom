@@ -194,6 +194,7 @@ function resetForm() {
     setValue('fEnv', '');
     setValue('fHeaders', '');
     setValue('fApiKey', '');
+    setValue('fApiSecret', '');
     setValue('fDescription', '');
     setValue('fCategory', 'general');
     const enabledBox = document.getElementById('fEnabled');
@@ -236,26 +237,34 @@ function fillForm(s) {
     setValue('fArgs', Array.isArray(s.args) ? s.args.join(' ') : '');
     setValue('fEnv', s.env ? JSON.stringify(s.env, null, 2) : '');
     setValue('fHeaders', s.headers ? JSON.stringify(s.headers, null, 2) : '');
-    setValue('fApiKey', ''); // لا نملأ المفتاح للحرص الأمني
+    // لا نملأ المفتاح أو السر أبداً - غير متاحين للمتصفح إطلاقاً بعد التشفير.
+    // اتركهما فارغين يعني "احتفظ بالقيمة الحالية".
+    setValue('fApiKey', '');
+    setValue('fApiSecret', '');
     setValue('fDescription', s.description || '');
     setValue('fCategory', s.category || 'general');
     document.getElementById('fEnabled').checked = s.enabled !== false;
 }
  
 function collectForm() {
-    return {
-        name: document.getElementById('fName').value,
-        transport: document.getElementById('fTransport').value,
-        url: document.getElementById('fUrl').value,
-        command: document.getElementById('fCommand').value,
-        args: document.getElementById('fArgs').value,
-        env: document.getElementById('fEnv').value,
-        headers: document.getElementById('fHeaders').value,
-        api_key: document.getElementById('fApiKey').value,
-        description: document.getElementById('fDescription').value,
-        category: document.getElementById('fCategory').value,
-        enabled: document.getElementById('fEnabled').checked,
-    };
+  return {
+    name: document.getElementById('fName').value,
+    transport: document.getElementById('fTransport').value,
+    url: document.getElementById('fUrl').value,
+    command: document.getElementById('fCommand').value,
+    args: document.getElementById('fArgs').value,
+    env: document.getElementById('fEnv').value,
+    headers: document.getElementById('fHeaders').value,
+
+    // نصّان صريحان يُرسلان لدالة save-mcp-credentials فقط للتشفير والحفظ؛
+    // لا يُخزَّنان أبداً كنص صريح، ولا يُقرآن مرة أخرى بعد الحفظ.
+    api_key_encrypted: document.getElementById('fApiKey').value,
+    api_secret: document.getElementById('fApiSecret').value,
+
+    description: document.getElementById('fDescription').value,
+    category: document.getElementById('fCategory').value,
+    enabled: document.getElementById('fEnabled').checked,
+};
 }
  
 async function submitForm() {
@@ -300,7 +309,8 @@ async function handleTest(id) {
         toast('جاري اختبار الاتصال...', 'info');
         const result = await testServer(id);
         if (result.ok) {
-            toast(`${result.message} • زمن الاستجابة ${result.latency ?? '—'} مللي ثانية`, 'success');
+            const extra = result.serverName ? ` • ${result.serverName}${result.serverVersion ? ' v' + result.serverVersion : ''}` : '';
+            toast(`${result.message} • زمن الاستجابة ${result.latency ?? '—'} مللي ثانية${extra}`, 'success');
         } else {
             toast(result.message || 'فشل الاتصال', 'error');
         }
