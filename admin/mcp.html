@@ -291,6 +291,34 @@
             .toast.show { transform: translateY(0); }
         }
         @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } }
+
+        /* ==================== Tools & Dynamic Auth (added) ==================== */
+        .btn-tools { background: #e0e7ff; color: #3730a3; }
+        .btn-tools:hover { background: #c7d2fe; }
+        .card-error { background: #fef2f2; color: #b91c1c; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+
+        /* قسم المصادقة الديناميكي */
+        .auth-section { border: 1px dashed var(--color-border); border-radius: 0.6rem; padding: 1rem; margin-top: 0.5rem; }
+        .oauth-field-row { display: flex; gap: 0.5rem; align-items: center; }
+        .oauth-field-row input[readonly] { background: var(--color-muted); cursor: text; }
+        .btn-copy { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
+        .oauth-status-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.75rem 0; }
+
+        /* مودال الأدوات */
+        .tools-toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center; }
+        .tools-toolbar input { flex: 1; padding: 0.55rem 0.85rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); }
+        .tools-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 50vh; overflow-y: auto; }
+        .tool-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: 0.6rem; background: var(--color-surface); }
+        .tool-name { font-weight: 700; color: var(--color-text); font-size: 0.9rem; }
+        .tool-desc { font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.15rem; }
+        .tools-empty { text-align: center; padding: 2rem; color: var(--color-text-secondary); }
+
+        .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--color-muted); border-radius: 24px; transition: 0.2s; }
+        .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+        .toggle-switch input:checked + .toggle-slider { background: var(--color-success, #16a34a); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(-20px); }
     </style>
 </head>
 <body>
@@ -407,16 +435,14 @@
                             <option value="stdio">stdio (محلي)</option>
                         </select>
                     </div>
- 
-                    <!-- HTTP / SSE fields -->
-                    <div id="httpFields" class="full" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-                        <div class="form-group full" style="grid-column:1/-1;">
+
+                    <div id="httpFields" class="full" style="display:grid; grid-template-columns:1fr; gap:1rem;">
+                        <div class="form-group full">
                             <label>عنوان الخادم (URL)</label>
                             <input type="text" id="fUrl" placeholder="https://mcp.example.com/v1" dir="ltr">
                         </div>
                     </div>
- 
-                    <!-- stdio fields -->
+
                     <div id="stdioFields" class="full" style="display:none;">
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                             <div class="form-group">
@@ -429,29 +455,100 @@
                             </div>
                         </div>
                     </div>
- 
+
+                    <!-- نوع المصادقة - Dynamic Form -->
                     <div class="form-group full">
-                        <label>مفتاح API / Token</label>
-                        <input type="password" id="fApiKey" placeholder="••••••••••••" dir="ltr">
-                        <span class="hint" data-i18n="mcp_hint_apikey">يُحفظ بأمان ولا يُعرض بعد الحفظ. اتركه فارغاً عند التعديل للإبقاء على القيمة الحالية.</span>
+                        <label>نوع المصادقة (Authentication Type)</label>
+                        <select id="fAuthType" onchange="window.mcpOnAuthTypeChange()">
+                            <option value="none">بدون (None)</option>
+                            <option value="api_key">API Key</option>
+                            <option value="bearer">Bearer Token</option>
+                            <option value="oauth2">OAuth 2.0</option>
+                            <option value="custom">Custom Headers</option>
+                        </select>
                     </div>
- 
-<div class="form-group full">
-    <label>API Secret</label>
-    <input type="password" id="fApiSecret" placeholder="••••••••••••" dir="ltr">
-    <span class="hint">يُشفَّر على الخادم (Edge Function) قبل الحفظ، ولا يُخزَّن أو يُعرض كنص صريح أبداً. اتركه فارغاً عند التعديل للإبقاء على القيمة الحالية.</span>
-</div>
- 
+
+                    <!-- API Key -->
+                    <div id="authSectionApiKey" class="form-group full auth-section" style="display:none;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" id="fApiKey" placeholder="••••••••••••" dir="ltr">
+                            </div>
+                            <div class="form-group">
+                                <label>API Secret</label>
+                                <input type="password" id="fApiSecret" placeholder="••••••••••••" dir="ltr">
+                            </div>
+                        </div>
+                        <span class="hint">يُشفَّران على الخادم قبل الحفظ. اتركهما فارغين عند التعديل للإبقاء على القيمة الحالية.</span>
+                    </div>
+
+                    <!-- Bearer Token -->
+                    <div id="authSectionBearer" class="form-group full auth-section" style="display:none;">
+                        <label>Bearer Token</label>
+                        <input type="password" id="fBearerToken" placeholder="••••••••••••" dir="ltr">
+                        <span class="hint">يُشفَّر على الخادم قبل الحفظ. اتركه فارغاً عند التعديل للإبقاء على القيمة الحالية.</span>
+                    </div>
+
+                    <!-- Custom Headers -->
+                    <div id="authSectionCustom" class="form-group full auth-section" style="display:none;">
+                        <label>Custom Headers (JSON)</label>
+                        <textarea id="fCustomConfig" placeholder='{"X-Api-Key": "xxx", "X-Client-Id": "yyy"}' dir="ltr"></textarea>
+                        <span class="hint">يُشفَّر ككتلة واحدة على الخادم. يُدمج كـ headers وقت الاتصال الفعلي.</span>
+                    </div>
+
+                    <!-- OAuth 2.0 -->
+                    <div id="authSectionOauth" class="form-group full auth-section" style="display:none;">
+                        <div class="oauth-status-row">
+                            <strong>حالة الاتصال:</strong>
+                            <span id="oauthStatusBadge"></span>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Client ID</label>
+                                <input type="text" id="fOauthClientId" dir="ltr">
+                            </div>
+                            <div class="form-group">
+                                <label>Client Secret</label>
+                                <input type="password" id="fOauthClientSecret" placeholder="••••••••••••" dir="ltr">
+                            </div>
+                            <div class="form-group">
+                                <label>Authorization URL</label>
+                                <input type="text" id="fOauthAuthorizeUrl" placeholder="https://provider.com/oauth/authorize" dir="ltr">
+                            </div>
+                            <div class="form-group">
+                                <label>Token URL</label>
+                                <input type="text" id="fOauthTokenUrl" placeholder="https://provider.com/oauth/token" dir="ltr">
+                            </div>
+                            <div class="form-group full">
+                                <label>Scope</label>
+                                <input type="text" id="fOauthScope" placeholder="read write" dir="ltr">
+                            </div>
+                            <div class="form-group full">
+                                <label>Redirect URI</label>
+                                <div class="oauth-field-row">
+                                    <input type="text" id="fOauthRedirectUri" readonly dir="ltr">
+                                    <button type="button" class="btn btn-secondary btn-copy" onclick="window.mcpCopyRedirectUri()">نسخ</button>
+                                </div>
+                                <span class="hint">سجّل هذا الرابط كـ Authorized Redirect URI عند مزود الـ OAuth.</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="oauthConnectBtn" onclick="window.mcpConnectOAuth()" style="margin-top:0.75rem;">
+                            ربط عبر OAuth (Connect via OAuth)
+                        </button>
+                    </div>
+
                     <div class="form-group full">
-                        <label>الترويسات الإضافية (Headers) — JSON</label>
+                        <label>الترويسات الإضافية العامة (Headers) — JSON</label>
                         <textarea id="fHeaders" placeholder='{"X-Custom-Header": "value"}' dir="ltr"></textarea>
+                        <span class="hint">تُضاف فوق أي auth headers أعلاه، لأي احتياج إضافي.</span>
                     </div>
- 
+
                     <div class="form-group full" id="envGroup">
-                        <label>متغيرات البيئة (Env) — JSON</label>
+                        <label>متغيرات البيئة (Env) — JSON (لخوادم stdio فقط)</label>
                         <textarea id="fEnv" placeholder='{"API_TOKEN": "xxx"}' dir="ltr"></textarea>
                     </div>
- 
+
                     <div class="form-group">
                         <label>التصنيف</label>
                         <input type="text" id="fCategory" placeholder="general">
@@ -463,7 +560,7 @@
                             <label for="fEnabled" style="font-weight:600; color:var(--color-text);">تفعيل الخادم</label>
                         </div>
                     </div>
- 
+
                     <div class="form-group full">
                         <label>الوصف</label>
                         <input type="text" id="fDescription" placeholder="وصف مختصر لوظيفة الخادم">
@@ -477,6 +574,26 @@
         </div>
     </div>
  
+    <!-- Modal: إدارة الأدوات -->
+    <div class="modal-overlay" id="toolsModal">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="toolsModalTitle">
+            <div class="mcp-modal-header">
+                <h2 id="toolsModalTitle">إدارة الأدوات</h2>
+                <button class="mcp-modal-close" id="toolsModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body">
+                <div class="tools-toolbar">
+                    <input type="text" id="toolsSearchInput" placeholder="ابحث في الأدوات بالاسم أو الوصف...">
+                    <button class="btn btn-secondary" id="syncToolsBtn">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        مزامنة الأدوات
+                    </button>
+                </div>
+                <div class="tools-list" id="toolsList"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toasts -->
     <div class="toast-container" id="toastContainer"></div>
  
