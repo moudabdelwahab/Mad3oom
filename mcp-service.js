@@ -414,10 +414,16 @@ export async function fetchStats() {
  
 function buildHeaders(server) {
     const headers = {};
-    if (server.api_key) headers['Authorization'] = `Bearer ${server.api_key}`;
-    if (server.headers && typeof server.headers === 'object') {
+
+    if (server.api_key && server.api_secret) {
+        headers.Authorization =
+            `Bearer ${server.api_key}.${server.api_secret}`;
+    }
+
+    if (server.headers && typeof server.headers === "object") {
         Object.assign(headers, server.headers);
     }
+
     return headers;
 }
  
