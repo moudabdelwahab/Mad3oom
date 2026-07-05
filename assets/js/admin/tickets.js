@@ -65,10 +65,10 @@ async function init() {
 async function loadTickets() {
     // ملاحظة: جدول tickets فيه أكتر من foreign key بيربطه بجدول profiles
     // (tickets_user_profile_fk عبر user_id، وtickets_assigned_to_fkey عبر
-    // assigned_to)، فلازم نحدد صراحة أي علاقة نقصدها وإلا PostgREST هيرفض
-    // الطلب بالكامل (PGRST201: "more than one relationship was found")
-    // وده كان بيمنع ظهور أي تذاكر خالص في لوحة الأدمن. هنا إحنا عايزين
-    // بيانات صاحب التذكرة (العميل)، فنستخدم tickets_user_profile_fk.
+    // assigned_to، وtickets_last_updated_by_fkey عبر last_updated_by)، فلازم
+    // نحدد صراحة أي علاقة نقصدها وإلا PostgREST هيرفض الطلب بالكامل
+    // (PGRST201: "more than one relationship was found") وده كان بيمنع ظهور
+    // أي تذاكر خالص في لوحة الأدمن.
     const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*, profiles!tickets_user_profile_fk(full_name, email)')
@@ -210,10 +210,11 @@ async function showAdminTicketInPanel(ticketId) {
     const panel = document.getElementById('adminTicketDetailsContent');
     if (!panel) return;
 
-    // جلب بيانات التذكرة (نفس ملاحظة تحديد الـ FK الصريح، انظر loadTickets)
+    // جلب بيانات التذكرة، بالإضافة لاسم آخر موظف عدّل عليها (last_updated_by)
+    // (نفس ملاحظة تحديد الـ FK الصريح، انظر loadTickets)
     const { data: ticket, error } = await supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email, id)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, id), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)')
         .eq('id', ticketId)
         .single();
 
@@ -224,15 +225,20 @@ async function showAdminTicketInPanel(ticketId) {
 
     // التحقق هل هذه تذكرة طلب اشتراك (مرتبطة بجدول whatsapp_subscriptions) عبر ticket_id،
     // بدلاً من الاعتماد على مطابقة نصية لعنوان التذكرة (أدق وأكثر ثباتاً).
+    // بنجيب كمان اسم الموظف اللي راجع الطلب (reviewed_by) لو موجود.
     const { data: subscription } = await supabase
         .from('whatsapp_subscriptions')
-        .select('*')
+        .select('*, reviewed_by_profile:profiles!whatsapp_subscriptions_reviewed_by_fkey(full_name)')
         .eq('ticket_id', ticket.id)
         .maybeSingle();
 
     panel.style.display = 'block';
     panel.style.alignItems = 'flex-start';
     panel.style.justifyContent = 'flex-start';
+
+    const lastUpdatedLine = ticket.last_updated_by
+        ? `<div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary);">آخر تعديل بواسطة: <strong style="color: var(--color-text);">${escapeHtml(ticket.last_updated_by_profile?.full_name || 'موظف دعم')}</strong>${ticket.last_updated_at ? ' - ' + new Date(ticket.last_updated_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'}) : ''}</div>`
+        : '';
 
     panel.innerHTML = `
         <div style="width: 100%;">
@@ -246,6 +252,7 @@ async function showAdminTicketInPanel(ticketId) {
                     <span>رقم التذكرة: <strong>#${escapeHtml(ticket.ticket_number || '---')}</strong></span>
                     <span>${new Date(ticket.created_at).toLocaleDateString('ar-EG')}</span>
                 </div>
+                ${lastUpdatedLine}
                 <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--color-muted); border-radius: 0.5rem;">
                     <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">العميل</div>
                     <div style="font-weight: 700;">${escapeHtml(ticket.profiles?.full_name || 'مستخدم')}</div>
@@ -346,8 +353,10 @@ async function showAdminTicketInPanel(ticketId) {
 
 /**
  * يبني منطقة الإجراءات أسفل بيانات التذكرة:
- * - لو التذكرة مرتبطة باشتراك pending: زرار "تأكيد" و"رفض"
- * - لو الاشتراك اتأكد/اترفض بالفعل: badge يوضح الحالة فقط
+ * - لو التذكرة مرتبطة باشتراك pending: زرار "تأكيد" و"رفض" + badge "تجديد"
+ *   لو الطلب تجديد، مع توضيح من امتى هيتم التمديد.
+ * - لو الاشتراك اتأكد/اترفض بالفعل: badge يوضح الحالة + التواريخ الفعلية
+ *   واسم الموظف اللي راجع الطلب.
  * - لو مش تذكرة اشتراك أصلاً: قائمة تغيير الحالة العادية (مفتوحة/قيد المعالجة/محلولة)
  */
 function renderPanelActions(ticket, subscription) {
@@ -358,13 +367,30 @@ function renderPanelActions(ticket, subscription) {
         const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
         const billingLabel = BILLING_LABELS[subscription.billing_cycle] || subscription.billing_cycle;
 
+        const renewalBadge = subscription.is_renewal
+            ? `<span style="display:inline-block; margin-right:0.5rem; padding:0.15rem 0.5rem; border-radius:1rem; font-size:0.7rem; font-weight:700; background:#E0F2F1; color:#00796B;">تجديد</span>`
+            : '';
+
+        const reviewerName = subscription.reviewed_by_profile?.full_name;
+        const reviewedAtLabel = subscription.reviewed_at
+            ? new Date(subscription.reviewed_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'})
+            : null;
+        const reviewerLine = reviewerName
+            ? `<div style="margin-top:0.5rem; font-size:0.8rem; color: var(--color-text-secondary);">بواسطة: <strong style="color: var(--color-text);">${escapeHtml(reviewerName)}</strong>${reviewedAtLabel ? ' - ' + reviewedAtLabel : ''}</div>`
+            : '';
+
         if (subscription.status === 'pending') {
+            const previousEndLabel = (subscription.is_renewal && subscription.previous_end_date)
+                ? `<div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">الاشتراك الحالي ينتهي في: <strong style="color: var(--color-text);">${new Date(subscription.previous_end_date).toLocaleString('ar-EG')}</strong> — سيتم التمديد من هذا التاريخ عند التأكيد (أو من تاريخ التأكيد لو كان منتهيًا بالفعل).</div>`
+                : '';
+
             container.innerHTML = `
                 <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem;">
-                    <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">
-                        طلب اشتراك: <strong style="color: var(--color-text);">${escapeHtml(planLabel)}</strong> (${escapeHtml(billingLabel)})
+                    <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">
+                        ${renewalBadge}طلب اشتراك: <strong style="color: var(--color-text);">${escapeHtml(planLabel)}</strong> (${escapeHtml(billingLabel)})
                     </div>
-                    <div style="display: flex; gap: 0.75rem;">
+                    ${previousEndLabel}
+                    <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
                         <button id="panelConfirmPurchaseBtn" class="btn" style="flex:1; background:#2E8A3A; color:#fff; border:none; padding:0.75rem; border-radius:0.5rem; font-weight:700; cursor:pointer;">✓ تأكيد الاشتراك</button>
                         <button id="panelRejectPurchaseBtn" class="btn" style="flex:1; background:#D9534F; color:#fff; border:none; padding:0.75rem; border-radius:0.5rem; font-weight:700; cursor:pointer;">✗ رفض الاشتراك</button>
                     </div>
@@ -376,14 +402,19 @@ function renderPanelActions(ticket, subscription) {
         } else if (subscription.status === 'active') {
             container.innerHTML = `
                 <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: #2E8A3A; font-weight: 700;">
-                    ✓ تم تأكيد الاشتراك (${escapeHtml(planLabel)} - ${escapeHtml(billingLabel)})
+                    ${renewalBadge}✓ تم تأكيد الاشتراك (${escapeHtml(planLabel)} - ${escapeHtml(billingLabel)})
+                    <div style="font-weight:400; margin-top:0.35rem; font-size:0.85rem; color: var(--color-text-secondary);">
+                        من ${new Date(subscription.start_date).toLocaleDateString('ar-EG')} إلى ${new Date(subscription.end_date).toLocaleDateString('ar-EG')}
+                    </div>
+                    ${reviewerLine}
                 </div>
             `;
         } else if (subscription.status === 'rejected') {
             container.innerHTML = `
                 <div style="padding: 1rem; background: var(--color-muted); border-radius: 0.75rem; color: #D9534F; font-weight: 700;">
-                    ✗ تم رفض هذا الاشتراك
+                    ${renewalBadge}✗ تم رفض هذا الاشتراك
                     ${subscription.rejection_reason ? `<div style="margin-top:0.5rem; font-weight:400; font-size:0.85rem; color: var(--color-text-secondary);">السبب: ${escapeHtml(subscription.rejection_reason)}</div>` : ''}
+                    ${reviewerLine}
                 </div>
             `;
         } else {
@@ -434,15 +465,26 @@ async function loadAdminRepliesInPanel(ticketId) {
             return;
         }
 
-        list.innerHTML = replies.map(r => `
-            <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
+        // بنعرض اسم الموظف الحقيقي (full_name) لأي رد من الأدمن، مع تاج
+        // "(فريق الدعم)" بجانب اسمه، بدل ما كان بيظهر لقب عام "الدعم الفني"
+        // يخفي هوية الموظف اللي رد فعليًا.
+        list.innerHTML = replies.map(r => {
+            const isAdminReply = r.profiles?.role === 'admin';
+            const displayName = escapeHtml(r.profiles?.full_name || (isAdminReply ? 'فريق الدعم' : 'العميل'));
+            const roleTag = isAdminReply
+                ? ' <span style="font-weight:400; color: var(--color-text-secondary);">(فريق الدعم)</span>'
+                : '';
+
+            return `
+            <div class="reply-item ${isAdminReply ? 'reply-admin' : 'reply-user'}" style="margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.75rem;">
-                    <strong style="color: var(--color-accent);">${r.profiles?.role === 'admin' ? 'الدعم الفني' : escapeHtml(r.profiles?.full_name || 'العميل')}</strong>
+                    <strong style="color: var(--color-accent);">${displayName}${roleTag}</strong>
                     <span style="color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG', {hour:'2-digit', minute:'2-digit', day: 'numeric', month: 'short'})}</span>
                 </div>
                 <div style="font-size: 0.85rem; line-height: 1.5;">${escapeHtml(r.message)}</div>
             </div>
-        `).join('');
+        `;
+        }).join('');
         list.scrollTop = list.scrollHeight;
     } catch (err) {
         list.innerHTML = '<p style="text-align:center; color:red;">فشل تحميل الردود</p>';
@@ -774,7 +816,7 @@ function showConfirmPurchaseModal() {
         modal.innerHTML = `
             <div style="background-color: #fefefe; margin: 15% auto; padding: 2rem; border: 1px solid #888; border-radius: 0.5rem; width: 80%; max-width: 400px; font-family: Cairo;">
                 <h2 style="margin-top: 0; color: #003366;">تأكيد الاشتراك</h2>
-                <p>هل أنت متأكد من تأكيد طلب الاشتراك ده؟ هيتم تفعيل الخطة للعميل فوراً.</p>
+                <p>هل أنت متأكد من تأكيد طلب الاشتراك ده؟ هيتم تفعيل الخطة للعميل فوراً وحساب تاريخ الانتهاء من الآن (أو من تاريخ انتهاء الاشتراك الحالي لو كان طلب تجديد).</p>
                 <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                     <button id="confirmPurchaseCancelBtn" style="padding: 0.5rem 1rem; background: #999; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">إلغاء</button>
                     <button id="confirmPurchaseConfirmBtn" style="padding: 0.5rem 1rem; background: #2E8A3A; color: white; border: none; border-radius: 0.25rem; cursor: pointer; font-family: Cairo;">تأكيد</button>
