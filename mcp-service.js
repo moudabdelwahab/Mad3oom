@@ -406,3 +406,186 @@ function parseKeyValue(input) {
         return obj;
     }
 }
+
+/* =========================================================
+ *  Mad3oom API Tokens (نُقلت هنا من صفحة الإعدادات - مصدر واحد فقط)
+ *  التشفير/الهاش والتحقق من الصلاحيات كلها في الـ Edge Functions فقط:
+ *   - create-api-token
+ *   - regenerate-api-token-secret
+ *  التفعيل/التعطيل والحذف عمليات مباشرة على الجدول (RLS يضمن الملكية) -
+ *  بدون أي تغيير في منطق المصادقة أو قاعدة البيانات.
+ * ========================================================= */
+
+const API_TOKENS_TABLE = 'api_tokens';
+const API_USAGE_LOGS_TABLE = 'api_token_usage_logs';
+
+/** القائمة المسموحة فعلياً من create-api-token - هنا للعرض فقط، التحقق الحقيقي في السيرفر */
+export const API_TOKEN_ALLOWED_SCOPES = [
+    'tickets:read', 'tickets:write', 'tickets:delete',
+    'knowledge_base:read', 'knowledge_base:write',
+    'customers:read', 'customers:write',
+    'whatsapp:read', 'whatsapp:send',
+    'analytics:read',
+    'settings:manage',
+    'oauth:manage',
+    'mcp:connect',
+    'chatbot:read',
+    'admin:full',
+];
+
+export const API_TOKEN_DEFAULT_SCOPES = ['tickets:read', 'tickets:write', 'whatsapp:send', 'whatsapp:read', 'chatbot:read'];
+
+export async function fetchApiTokens() {
+    const { data, error } = await supabase
+        .from(API_TOKENS_TABLE)
+        .select('id, name, description, api_key, secret_last_four, bearer_last_four, credential_type, credential_group_id, scopes, is_active, last_used_at, usage_count, expires_at, created_at')
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function fetchApiUsageLogs(limit = 50) {
+    const { data, error } = await supabase
+        .from(API_USAGE_LOGS_TABLE)
+        .select('*, api_tokens(name)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    if (error) throw error;
+    return data || [];
+}
+
+/**
+ * payload: { name, description, credential_type: 'api_key_secret'|'bearer'|'both', scopes: string[], expires_at?: string|null }
+ * الرد بيختلف حسب credential_type:
+ *  - api_key_secret → { token, secret }
+ *  - bearer         → { token, bearer_token }
+ *  - both           → { credential_group_id, api_key_secret: {token, secret}, bearer: {token, bearer_token} }
+ */
+export async function createApiToken(payload) {
+    const { data, error } = await supabase.functions.invoke('create-api-token', { body: payload });
+    if (error) throw new Error('فشل إنشاء المفتاح: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
+/** الرد: { token, secret } أو { token, bearer_token } حسب credential_type المخزّن للصف */
+export async function regenerateApiTokenSecret(tokenId) {
+    const { data, error } = await supabase.functions.invoke('regenerate-api-token-secret', { body: { token_id: tokenId } });
+    if (error) throw new Error('فشل تجديد السر: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
+export async function toggleApiToken(tokenId, currentlyActive) {
+    const { error } = await supabase
+        .from(API_TOKENS_TABLE)
+        .update({ is_active: !currentlyActive, revoked_at: currentlyActive ? new Date().toISOString() : null })
+        .eq('id', tokenId);
+    if (error) throw error;
+}
+
+export async function deleteApiToken(tokenId) {
+    const { error } = await supabase.from(API_TOKENS_TABLE).delete().eq('id', tokenId);
+    if (error) throw error;
+}
+
+/* =========================================================
+ *  External Integrations (نُقلت هنا من صفحة الإعدادات - مصدر واحد فقط)
+ *  التشفير (AES-GCM) وفك التشفير والاختبار الفعلي كلها في:
+ *   - manage-external-integration (create/update/delete)
+ *   - test-integration-connection
+ *  بدون أي تغيير في منطق المصادقة أو قاعدة البيانات.
+ * ========================================================= */
+
+const EXTERNAL_INTEGRATIONS_TABLE = 'external_integrations';
+
+export const INTEGRATION_PROVIDERS = ['openai', 'claude', 'gemini', 'openrouter', 'groq', 'telegram_bot', 'webhook', 'custom'];
+
+export const INTEGRATION_PROVIDER_LABELS = {
+    openai: 'OpenAI', claude: 'Claude (Anthropic)', gemini: 'Gemini (Google)',
+    openrouter: 'OpenRouter', groq: 'Groq', telegram_bot: 'Telegram Bot',
+    webhook: 'Webhook', custom: 'مزوّد آخر',
+};
+
+export const INTEGRATION_CREDENTIAL_FIELDS = {
+    openai: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'sk-...' }],
+    claude: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'sk-ant-...' }],
+    gemini: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'AIza...' }],
+    openrouter: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'sk-or-...' }],
+    groq: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'gsk_...' }],
+    telegram_bot: [{ key: 'bot_token', label: 'Bot Token', type: 'password', placeholder: '123456:ABC-DEF...' }],
+    webhook: [{ key: 'url', label: 'Webhook URL', type: 'url', placeholder: 'https://example.com/webhook' }],
+    custom: [
+        { key: 'api_key', label: 'API Key (اختياري)', type: 'password', placeholder: '' },
+        { key: 'url', label: 'Base URL (اختياري)', type: 'url', placeholder: '' },
+    ],
+};
+
+export const AI_INTEGRATION_PROVIDERS = ['openai', 'claude', 'gemini', 'openrouter', 'groq'];
+
+/** فقط تكاملات نطاق platform (إدارة المنصة) - نفس نطاق صفحة الإعدادات القديمة */
+export async function fetchExternalIntegrations() {
+    const { data, error } = await supabase
+        .from(EXTERNAL_INTEGRATIONS_TABLE)
+        .select('*')
+        .eq('owner_scope', 'platform')
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+/** action محسوبة تلقائياً من وجود id */
+export async function saveExternalIntegration({ id, provider, display_name, is_active, credentials, credentials_meta }) {
+    const payload = id
+        ? { action: 'update', id, display_name, is_active, credentials, credentials_meta }
+        : { action: 'create', provider, owner_scope: 'platform', display_name, is_active, credentials, credentials_meta };
+
+    const { data, error } = await supabase.functions.invoke('manage-external-integration', { body: payload });
+    if (error) throw new Error('فشل حفظ التكامل: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data.integration;
+}
+
+export async function deleteExternalIntegration(id) {
+    const { data, error } = await supabase.functions.invoke('manage-external-integration', { body: { action: 'delete', id } });
+    if (error) throw new Error('فشل حذف التكامل: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+}
+
+export async function testExternalIntegration(id) {
+    const { data, error } = await supabase.functions.invoke('test-integration-connection', { body: { id } });
+    if (error) throw new Error('فشل اختبار الاتصال: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data; // { success, message }
+}
+
+/** المزود الافتراضي للذكاء الاصطناعي في شات بوت الموقع - صف bot_settings حيث phone_number_id IS NULL */
+export async function fetchDefaultAiProvider() {
+    const { data, error } = await supabase
+        .from('bot_settings')
+        .select('id, ai_integration_id')
+        .is('phone_number_id', null)
+        .limit(1)
+        .maybeSingle();
+    if (error) throw error;
+    return data?.ai_integration_id || '';
+}
+
+export async function saveDefaultAiProvider(integrationId) {
+    const value = integrationId || null;
+    const { data: existing, error: fetchErr } = await supabase
+        .from('bot_settings')
+        .select('id')
+        .is('phone_number_id', null)
+        .limit(1)
+        .maybeSingle();
+    if (fetchErr) throw fetchErr;
+
+    if (existing) {
+        const { error } = await supabase.from('bot_settings').update({ ai_integration_id: value, ai_enabled: !!value }).eq('id', existing.id);
+        if (error) throw error;
+    } else {
+        const { error } = await supabase.from('bot_settings').insert({ ai_integration_id: value, ai_enabled: !!value });
+        if (error) throw error;
+    }
+}
