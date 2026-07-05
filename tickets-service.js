@@ -45,7 +45,7 @@ export async function fetchUserTickets(filters = {}) {
 
     let query = supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email, role)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)')
         .order('created_at', { ascending: false });
 
     // إذا كان المستخدم عميلاً (أو لا يوجد بروفايل بعد)، نفلتر التذاكر الخاصة به فقط
@@ -170,11 +170,20 @@ export async function fetchTicketStats() {
  * خسر صلاحيته في نفس الجلسة أو لو التذكرة غير موجودة. الاعتماد على غياب
  * الخطأ فقط هنا قد يؤدي لإرسال إشعار "تم تغيير الحالة" بينما الحالة
  * الفعلية في قاعدة البيانات لم تتغير.
+ *
+ * كمان بنسجل last_updated_by/last_updated_at بهوية الموظف اللي نفّذ
+ * التعديل، عشان يظهر اسمه في لوحة الإدارة (تتبع أي تعديل يتم على التذكرة).
  */
 export async function updateTicketStatus(ticketId, status) {
+    const currentUser = await getCurrentUser();
+
     const { data: updated, error } = await supabase
         .from('tickets')
-        .update({ status })
+        .update({
+            status,
+            last_updated_by: currentUser ? currentUser.id : null,
+            last_updated_at: new Date().toISOString()
+        })
         .eq('id', ticketId)
         .select('id')
         .maybeSingle();
@@ -227,14 +236,23 @@ export async function updateTicketStatus(ticketId, status) {
  * ملاحظة مهمة: هذه الدالة وحدها لا تكفي لمنع العميل من تعديل الأولوية —
  * لازم يكون فيه RLS policy على جدول tickets يمنع أي مستخدم غير أدمن من
  * تحديث عمود priority. تأكد من ضبط الـ policy المناسبة في Supabase.
+ *
+ * كمان بنسجل last_updated_by/last_updated_at بهوية الموظف اللي غيّر
+ * الأولوية.
  */
 export async function updateTicketPriority(ticketId, priority) {
     const validPriorities = ['low', 'medium', 'high'];
     if (!validPriorities.includes(priority)) throw new Error('أولوية غير صحيحة');
 
+    const currentUser = await getCurrentUser();
+
     const { data: updated, error } = await supabase
         .from('tickets')
-        .update({ priority })
+        .update({
+            priority,
+            last_updated_by: currentUser ? currentUser.id : null,
+            last_updated_at: new Date().toISOString()
+        })
         .eq('id', ticketId)
         .select('id')
         .maybeSingle();
@@ -404,11 +422,17 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
     // (زي عدم تطابق القيمة مع CHECK constraint، أو رفض RLS بصمت) بيمر من
     // غير ما حد يلاحظه — ولا تذكرة وحدة فعليًا كانت بتوصل لحالة "قيد
     // المعالجة" نتيجة كده. دلوقتي بنسجل أي فشل في الـ console على الأقل
-    // (من غير ما نكسر إرسال الرد نفسه، لإن الرد اتبعت بنجاح بالفعل).
+    // (من غير ما نكسر إرسال الرد نفسه، لإن الرد اتبعت بنجاح بالفعل)، وكمان
+    // بنسجل last_updated_by بهوية الأدمن اللي رد لإن الرد نفسه سبب التحول
+    // التلقائي للحالة.
     if (ticket && ticket.user_id !== user.id) {
         const { error: statusUpdateError } = await supabase
             .from('tickets')
-            .update({ status: 'in-progress' })
+            .update({
+                status: 'in-progress',
+                last_updated_by: user.id,
+                last_updated_at: new Date().toISOString()
+            })
             .eq('id', ticketId)
             .eq('status', 'open');
 
