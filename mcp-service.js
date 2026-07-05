@@ -267,6 +267,9 @@ export async function deleteServer(id) {
  */
 export async function testServer(id) {
     const server = await fetchServerById(id);
+ console.log("SERVER:", server);
+console.log("api_key_encrypted:", server.api_key_encrypted);
+console.log("api_secret:", server.api_secret);
     if (!server) throw new Error('الخادم غير موجود');
 
     const result = {
@@ -297,7 +300,6 @@ export async function testServer(id) {
             const timeout = setTimeout(() => controller.abort(), 8000);
 
             // الخطوة الأولى: initialize
-         console.log(headers);
             const initRes = await fetch(server.url, {
                 method: "POST",
                 headers,
