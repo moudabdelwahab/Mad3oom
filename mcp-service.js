@@ -1,44 +1,43 @@
 /**
  * MCP Service - إدارة خوادم Model Context Protocol (MCP)
  * --------------------------------------------------------
- * يوفر طبقة منطق وتخزين نظيفة لخوادم MCP المرتبطة بمنصة مدعوم.
+ * تعريف الخادم (mcp_servers) منفصل عن بيانات الاعتماد وحالة الاتصال
+ * (mcp_server_connections) - كل مستخدم (أدمن) له اتصاله الخاص بنفس
+ * تعريف الخادم، بأي auth_type: none | api_key | bearer | oauth2 | custom.
  *
- * التخزين:
- *  - يحاول استخدام جدول Supabase `mcp_servers` أولاً (إذا وُجد وسمح RLS).
- *  - وإلا يلجأ تلقائياً إلى localStorage لمفتاح `mad3oom_mcp_servers`
- *    ليعمل دون الحاجة لإعداد قاعدة بيانات مسبق.
+ * لا تشفير أو فك تشفير هنا إطلاقاً. كل التعامل مع الأسرار عبر:
+ *  - save-mcp-credentials  → يشفّر ويخزّن (api_key/secret/bearer/custom/oauth app config)
+ *  - mcp-oauth-start       → يرجّع رابط authorize كامل
+ *  - mcp-oauth-callback    → يُستدعى مباشرة من مزود الـ OAuth (خارج هذا الملف)
+ *  - test-mcp-server       → يفك التشفير ويتصل بالخادم الفعلي، يرجّع نتيجة مُعقَّمة فقط
  *
- * أنواع النقل المدعومة: stdio | sse | streamable_http
- *
- * بيانات الاعتماد (api_key / api_secret):
- *  - لا تُشفَّر أو تُفَك أبداً في هذا الملف (متصفح).
- *  - الحفظ: تُرسل صريحة مرة واحدة لدالة Edge Function
- *    "save-mcp-credentials" التي تشفّرها وتخزّنها (AES-GCM, MCP_ENC_KEY).
- *  - الاختبار: "test-mcp-server" تفك التشفير وتُجري الاتصال بالكامل من
- *    جهة الخادم، وتُرجع نتيجة مُعقَّمة فقط (بدون أي قيمة مفكوكة أو مشفّرة).
+ * الواجهة لا ترى ولا تعيد قراءة أي access_token / refresh_token / secret أبداً.
  */
- 
+
 import { supabase } from '/api-config.js';
- 
+
 const STORAGE_KEY = 'mad3oom_mcp_servers';
 const ACTIVITY_KEY = 'mad3oom_mcp_activity';
 const TABLE = 'mcp_servers';
- 
-/** أنواع النقل المدعومة */
+const CONN_TABLE = 'mcp_server_connections';
+
 export const MCP_TRANSPORTS = ['stdio', 'sse', 'streamable_http'];
- 
-/** الحالات الممكنة للخادم */
+export const MCP_AUTH_TYPES = ['none', 'api_key', 'bearer', 'oauth2', 'custom'];
+
 export const MCP_STATUSES = {
     CONNECTED: 'connected',
     DISCONNECTED: 'disconnected',
     ERROR: 'error',
     PENDING: 'pending',
 };
- 
+
+/** رابط الـ OAuth callback الثابت - نفس القيمة المسجَّلة عند أي مزود OAuth */
+export const MCP_OAUTH_REDIRECT_URI = `${supabase.supabaseUrl}/functions/v1/mcp-oauth-callback`;
+
 /* =========================================================
  *  أدوات مساعدة داخلية
  * ========================================================= */
- 
+
 function uuid() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -47,28 +46,14 @@ function uuid() {
         return v.toString(16);
     });
 }
- 
-/** هل جدول Supabase متاح؟ نكتشف ذلك مرّة واحدة ونخزّن النتيجة */
 
-   let _useSupabase = null;
+let _useSupabase = null;
 
 async function detectStorageMode() {
     if (_useSupabase !== null) return _useSupabase;
-
     try {
-        const { error } = await supabase
-            .from(TABLE)
-            .select('id')
-            .limit(1);
-
-        if (
-            error &&
-            (
-                error.code === "PGRST205" ||
-                error.message?.includes("schema cache") ||
-                error.message?.includes("Could not find the table")
-            )
-        ) {
+        const { error } = await supabase.from(TABLE).select('id').limit(1);
+        if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.message?.includes('Could not find the table'))) {
             _useSupabase = false;
         } else {
             _useSupabase = !error;
@@ -76,84 +61,94 @@ async function detectStorageMode() {
     } catch {
         _useSupabase = false;
     }
-
     return _useSupabase;
 }
- 
+
 function readLocal() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-        return [];
-    }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
- 
 function writeLocal(servers) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
 }
- 
+
 /* =========================================================
- *  سجل النشاط (Activity Log) - محلي دائماً
+ *  سجل النشاط (محلي دائماً)
  * ========================================================= */
- 
+
 export async function logMcpActivity(action, serverId, details = {}) {
-    const entry = {
-        id: uuid(),
-        action,            // created | updated | deleted | connected | disconnected | error | tested
-        server_id: serverId,
-        details,
-        created_at: new Date().toISOString(),
-    };
+    const entry = { id: uuid(), action, server_id: serverId, details, created_at: new Date().toISOString() };
     try {
         const log = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '[]');
         log.unshift(entry);
-        // نحتفظ بآخر 100 حدث فقط
         localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log.slice(0, 100)));
     } catch (e) {
         console.warn('[MCP] Failed to log activity:', e);
     }
     return entry;
 }
- 
+
 export async function fetchMcpActivity(limit = 50) {
     try {
         const log = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '[]');
         return log.slice(0, limit);
-    } catch {
-        return [];
-    }
+    } catch { return []; }
 }
- 
+
 /* =========================================================
- *  العمليات الأساسية (CRUD)
+ *  دمج تعريف الخادم مع اتصال المستخدم الحالي
  * ========================================================= */
- 
-/**
- * جلب كل خوادم MCP المسجّلة.
- * @param {object} filters - { status, transport, search }
- * @returns {Promise<Array>}
- */
+
+function mergeServerWithConnection(server, connection) {
+    return {
+        ...server,
+        connection_id: connection?.id || null,
+        auth_type: connection?.auth_type || 'none',
+        oauth_client_id: connection?.oauth_client_id || '',
+        oauth_authorize_url: connection?.oauth_authorize_url || '',
+        oauth_token_url: connection?.oauth_token_url || '',
+        oauth_scope: connection?.oauth_scope || '',
+        oauth_token_expires_at: connection?.oauth_token_expires_at || null,
+        status: connection?.status || MCP_STATUSES.PENDING,
+        tools: Array.isArray(connection?.tools) ? connection.tools : [],
+        last_checked_at: connection?.last_checked_at || null,
+        last_error: connection?.last_error || null,
+    };
+}
+
+const CONNECTION_SAFE_COLUMNS =
+    'id, server_id, auth_type, oauth_client_id, oauth_authorize_url, oauth_token_url, oauth_scope, oauth_token_expires_at, status, tools, last_checked_at, last_error';
+
+const SERVER_BASE_COLUMNS =
+    'id, name, transport, url, command, args, env, headers, description, category, enabled, created_by, created_at, updated_at';
+
+/* =========================================================
+ *  CRUD تعريف الخادم
+ * ========================================================= */
+
 export async function fetchServers(filters = {}) {
     const useDb = await detectStorageMode();
- 
     let servers;
+
     if (useDb) {
-        // نستثني العمودين المشفّرين عمداً - لا سبب لإرسالهما للمتصفح إطلاقاً،
-        // لا كنص صريح ولا حتى كنص مشفّر (لا فائدة تُعرض منه في الواجهة).
-        const { data, error } = await supabase
-            .from(TABLE)
-            .select('id, name, transport, url, command, args, env, headers, description, category, enabled, status, tools, created_by, created_at, updated_at, last_checked_at')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        servers = data || [];
+        const { data: { user } } = await supabase.auth.getUser();
+        const [{ data: baseRows, error: baseErr }, connResult] = await Promise.all([
+            supabase.from(TABLE).select(SERVER_BASE_COLUMNS).order('created_at', { ascending: false }),
+            user
+                ? supabase.from(CONN_TABLE).select(CONNECTION_SAFE_COLUMNS).eq('owner_id', user.id)
+                : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (baseErr) throw baseErr;
+        if (connResult.error) throw connResult.error;
+
+        const connByServer = new Map((connResult.data || []).map((c) => [c.server_id, c]));
+        servers = (baseRows || []).map((s) => mergeServerWithConnection(s, connByServer.get(s.id)));
     } else {
         servers = readLocal();
     }
- 
-    // تطبيق الفلاتر
+
     return applyFilters(servers, filters);
 }
- 
+
 function applyFilters(servers, { status, transport, search } = {}) {
     return servers.filter((s) => {
         if (status && status !== 'all' && s.status !== status) return false;
@@ -166,105 +161,59 @@ function applyFilters(servers, { status, transport, search } = {}) {
         return true;
     });
 }
- 
-/**
- * جلب خادم واحد عبر المعرّف (بدون أي حقول اعتماد - نفس منطق fetchServers)
- */
+
 export async function fetchServerById(id) {
     const useDb = await detectStorageMode();
     if (useDb) {
-        const { data, error } = await supabase
-            .from(TABLE)
-            .select('id, name, transport, url, command, args, env, headers, description, category, enabled, status, tools, created_by, created_at, updated_at, last_checked_at')
-            .eq('id', id)
-            .maybeSingle();
-        if (error) throw error;
-        return data;
+        const { data: { user } } = await supabase.auth.getUser();
+        const [{ data: server, error: sErr }, { data: connection, error: cErr }] = await Promise.all([
+            supabase.from(TABLE).select(SERVER_BASE_COLUMNS).eq('id', id).maybeSingle(),
+            user
+                ? supabase.from(CONN_TABLE).select(CONNECTION_SAFE_COLUMNS).eq('server_id', id).eq('owner_id', user.id).maybeSingle()
+                : Promise.resolve({ data: null, error: null }),
+        ]);
+        if (sErr) throw sErr;
+        if (cErr) throw cErr;
+        if (!server) return null;
+        return mergeServerWithConnection(server, connection);
     }
     return readLocal().find((s) => s.id === id) || null;
 }
 
-/**
- * يبعت المفتاح/السر الصريحين (لو وُجدا) لدالة save-mcp-credentials
- * لتشفيرهم وحفظهم مباشرة على الخادم (service_role + AES-GCM هناك فقط).
- * لا يحدث أي تشفير أو تمرير لنص صريح غير هذا النداء.
- */
-async function persistCredentials(serverId, { api_key, api_secret } = {}) {
-    if (!api_key && !api_secret) return;
-    const { data, error } = await supabase.functions.invoke('save-mcp-credentials', {
-        body: { server_id: serverId, api_key: api_key || '', api_secret: api_secret || '' },
-    });
-    if (error) throw new Error('فشل حفظ بيانات الاعتماد بأمان: ' + error.message);
-    if (data?.error) throw new Error(data.error);
-}
- 
-/**
- * إنشاء خادم MCP جديد
- * @param {object} payload
- */
 export async function createServer(payload) {
-    // api_key_encrypted هنا نص صريح قادم من النموذج (اسم الحقل قديم من الواجهة)،
-    // وapi_secret نص صريح أيضاً. كلاهما لا يُخزَّن أبداً كنص صريح في قاعدة
-    // البيانات أو في هذا الملف؛ يُرسلان فقط لـ save-mcp-credentials بعد
-    // إنشاء الصف بدونهما، وهي التي تُشفّرهم وتكتبهم في عمودَي *_encrypted.
-    const { api_key_encrypted: apiKeyPlain, api_secret: apiSecretPlain, ...rest } = payload;
-    const record = normalizePayload(rest, true);
- 
+    const record = normalizePayload(payload, true);
     const useDb = await detectStorageMode();
     if (useDb) {
         const { data, error } = await supabase.from(TABLE).insert(record).select().single();
         if (error) throw error;
-        await persistCredentials(data.id, { api_key: apiKeyPlain, api_secret: apiSecretPlain });
         await logMcpActivity('created', data.id, { name: data.name });
         return data;
     }
- 
-    // وضع localStorage (تطوير محلي بدون Supabase): لا توجد دالة خلفية
-    // لتشفير البيانات في هذه الحالة، فنحتفظ بالسلوك السابق كما هو.
-    if (apiKeyPlain) record.api_key_encrypted = apiKeyPlain;
-    if (apiSecretPlain) record.api_secret_encrypted = apiSecretPlain;
     const servers = readLocal();
     servers.unshift(record);
     writeLocal(servers);
     await logMcpActivity('created', record.id, { name: record.name });
     return record;
 }
- 
-/**
- * تحديث خادم موجود (يدعم التحديث الجزئي - partial update)
- */
+
 export async function updateServer(id, payload) {
-    const { api_key_encrypted: apiKeyPlain, api_secret: apiSecretPlain, ...rest } = payload;
-    const updates = normalizePayload(rest, false);
- 
+    const updates = normalizePayload(payload, false);
     const useDb = await detectStorageMode();
     if (useDb) {
-        const { data, error } = await supabase
-            .from(TABLE)
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single();
+        const { data, error } = await supabase.from(TABLE).update(updates).eq('id', id).select().single();
         if (error) throw error;
-        await persistCredentials(id, { api_key: apiKeyPlain, api_secret: apiSecretPlain });
         await logMcpActivity('updated', id, { name: data.name });
         return data;
     }
- 
     const servers = readLocal();
     const idx = servers.findIndex((s) => s.id === id);
     if (idx === -1) throw new Error('الخادم غير موجود');
-    if (apiKeyPlain) updates.api_key_encrypted = apiKeyPlain;
-    if (apiSecretPlain) updates.api_secret_encrypted = apiSecretPlain;
     servers[idx] = { ...servers[idx], ...updates, updated_at: new Date().toISOString() };
     writeLocal(servers);
     await logMcpActivity('updated', id, { name: servers[idx].name });
     return servers[idx];
 }
- 
-/**
- * حذف خادم
- */
+
 export async function deleteServer(id) {
     const useDb = await detectStorageMode();
     let name = '';
@@ -281,59 +230,101 @@ export async function deleteServer(id) {
     }
     await logMcpActivity('deleted', id, { name });
 }
- 
+
 /* =========================================================
- *  اختبار الاتصال والحالة
+ *  بيانات الاعتماد (كل الأنواع) - عبر save-mcp-credentials فقط
  * ========================================================= */
- 
+
 /**
- * اختبار الاتصال بخادم MCP.
- * الاختبار بالكامل (فك التشفير + initialize + tools/list) يحدث الآن
- * داخل دالة Edge Function "test-mcp-server" فقط. هذا الملف لا يعمل
- * fetch مباشر لأي خادم MCP بعيد، ولا يبني Authorization header، ولا
- * يرى أي قيمة مفكوكة أو مشفّرة - فقط نتيجة الاختبار النهائية.
+ * payload حسب auth_type:
+ *  none      → { auth_type: 'none' }
+ *  api_key   → { auth_type: 'api_key', api_key, api_secret }
+ *  bearer    → { auth_type: 'bearer', bearer_token }
+ *  custom    → { auth_type: 'custom', custom_config } (object أو نص JSON)
+ *  oauth2    → { auth_type: 'oauth2', oauth_client_id, oauth_client_secret,
+ *                oauth_authorize_url, oauth_token_url, oauth_scope }
+ * أي حقل سر فاضي = "سيبه زي ما هو" (نفس سلوك النسخة القديمة).
  */
+export async function saveCredentials(serverId, payload) {
+    const { data, error } = await supabase.functions.invoke('save-mcp-credentials', {
+        body: { server_id: serverId, ...payload },
+    });
+    if (error) throw new Error('فشل حفظ بيانات الاعتماد: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
+/** يرجّع { authorize_url, redirect_uri } - الواجهة تعمل location.href = authorize_url */
+export async function startOAuth(serverId) {
+    const { data, error } = await supabase.functions.invoke('mcp-oauth-start', {
+        body: { server_id: serverId },
+    });
+    if (error) throw new Error('فشل بدء ربط OAuth: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
+/* =========================================================
+ *  اختبار الاتصال / مزامنة الأدوات (نفس الـ Endpoint بالظبط)
+ * ========================================================= */
+
 export async function testServer(id) {
     const server = await fetchServerById(id);
     if (!server) throw new Error('الخادم غير موجود');
 
     const useDb = await detectStorageMode();
-    if (!useDb) {
-        // وضع localStorage: لا توجد دالة خلفية لفك التشفير/الاتصال، فلا يوجد
-        // اختبار اتصال حقيقي متاح في هذا الوضع (بيئة تطوير بدون Supabase).
-        throw new Error('اختبار الاتصال متاح فقط عند استخدام Supabase (localStorage غير مدعوم لهذه العملية)');
-    }
+    if (!useDb) throw new Error('اختبار الاتصال متاح فقط عند استخدام Supabase');
 
     const { data, error } = await supabase.functions.invoke('test-mcp-server', {
         body: { server_id: id },
     });
 
     const result = error || data?.error
-        ? { ok: false, message: (data?.error) || error.message || 'فشل الاتصال', tools: 0 }
+        ? { ok: false, message: data?.error || error.message || 'فشل الاتصال', tools: 0 }
         : data;
 
-    await logMcpActivity(result.ok ? 'connected' : 'error', id, {
-        name: server.name,
-        message: result.message,
-    });
-
+    await logMcpActivity(result.ok ? 'connected' : 'error', id, { name: server.name, message: result.message });
     return result;
 }
- 
-/**
- * فصل (إيقاف اتصال) خادم - تغيير الحالة فقط
- */
+
+/** نفس منطق testServer بالظبط (تحديث + دمج الأدوات مع الحفاظ على enabled) - تسمية دلالية بس */
+export const syncTools = testServer;
+
+/* =========================================================
+ *  تفعيل/تعطيل أداة واحدة - تحديث مباشر (بيانات غير حساسة)
+ * ========================================================= */
+
+export async function setToolEnabled(connectionId, toolName, enabled) {
+    if (!connectionId) throw new Error('لا يوجد اتصال محفوظ لهذا الخادم بعد - اعمل اختبار اتصال أولاً');
+
+    const { data: conn, error: fetchErr } = await supabase
+        .from(CONN_TABLE)
+        .select('tools')
+        .eq('id', connectionId)
+        .single();
+    if (fetchErr) throw fetchErr;
+
+    const tools = Array.isArray(conn.tools) ? conn.tools : [];
+    const updated = tools.map((t) => (t.name === toolName ? { ...t, enabled } : t));
+
+    const { error: updErr } = await supabase.from(CONN_TABLE).update({ tools: updated }).eq('id', connectionId);
+    if (updErr) throw updErr;
+    return updated;
+}
+
 export async function disconnectServer(id) {
     const server = await fetchServerById(id);
-    // تحديث جزئي: name/url غير مرسلين عن قصد
-    await updateServer(id, { status: MCP_STATUSES.DISCONNECTED });
+    if (server?.connection_id) {
+        const { error } = await supabase.from(CONN_TABLE).update({ status: MCP_STATUSES.DISCONNECTED }).eq('id', server.connection_id);
+        if (error) throw error;
+    }
     await logMcpActivity('disconnected', id, { name: server?.name || '' });
 }
- 
+
 /* =========================================================
- *  إحصائيات سريعة للوحة المعلومات
+ *  إحصائيات
  * ========================================================= */
- 
+
 export async function fetchStats() {
     const servers = await fetchServers();
     const tools = servers.reduce((sum, s) => sum + (Array.isArray(s.tools) ? s.tools.length : 0), 0);
@@ -346,124 +337,72 @@ export async function fetchStats() {
         tools,
     };
 }
- 
+
 /* =========================================================
- *  أدوات داخلية: التحقق والتجهيز
+ *  تحقق وتوحيد بيانات تعريف الخادم (بدون أي بيانات اعتماد)
  * ========================================================= */
- 
-/**
- * تنظيف وتوحيد بيانات الإدخال قبل الحفظ + تحقق من الصحة.
- * ملاحظة: بيانات الاعتماد (api_key / api_secret) لا تُعالَج هنا أبداً -
- * تُستثنى في createServer/updateServer قبل الوصول لهذه الدالة، وتُمرَّر
- * لـ persistCredentials بشكل منفصل تماماً.
- *
- * ملاحظة مهمة: هذه الدالة تُستخدم في وضعين:
- *   1) isNew = true  → إنشاء خادم جديد، كل الحقول الأساسية (name/url) مطلوبة.
- *   2) isNew = false → تحديث خادم موجود. قد يكون هذا تحديثاً "جزئياً"
- *      يُرسل من الكود الداخلي (مثل disconnectServer) ولا يحتوي إلا على
- *      status/last_checked_at. لذلك لا نفرض وجود name أو url إلا إذا
- *      أُرسلا فعلاً ضمن payload.
- */
+
 function normalizePayload(payload, isNew) {
     const out = {};
- 
-    // الاسم: مطلوب دائماً عند الإنشاء، وعند التعديل فقط إن أُرسل ضمن الحمولة
+
     if (isNew || payload.name !== undefined) {
         const name = (payload.name || '').trim();
         if (!name) throw new Error('اسم الخادم مطلوب');
         out.name = name;
     }
- 
-    // نوع النقل: يُحدَّد فقط عند الإنشاء أو إن أُرسل صراحة
+
     if (isNew || payload.transport !== undefined) {
-        out.transport = MCP_TRANSPORTS.includes(payload.transport)
-            ? payload.transport
-            : 'streamable_http';
+        out.transport = MCP_TRANSPORTS.includes(payload.transport) ? payload.transport : 'streamable_http';
     }
- 
-    // عنوان URL: نتحقق منه فقط عند الإنشاء أو عند إرساله/تغيير نوع النقل صراحة
+
     if (isNew || payload.url !== undefined) {
         const url = (payload.url || '').trim();
         const transportForCheck = out.transport || 'streamable_http';
-        if (transportForCheck !== 'stdio' && !url) {
-            throw new Error('عنوان URL مطلوب لخوادم غير stdio');
-        }
+        if (transportForCheck !== 'stdio' && !url) throw new Error('عنوان URL مطلوب لخوادم غير stdio');
         out.url = url;
     }
- 
-    if (payload.command !== undefined) {
-        out.command = (payload.command || '').trim();
-    }
- 
+
+    if (payload.command !== undefined) out.command = (payload.command || '').trim();
+
     if (payload.args !== undefined) {
-        // نص مفصول بمسافات أو مصفوفة
-        if (Array.isArray(payload.args)) out.args = payload.args;
-        else out.args = String(payload.args).split(/\s+/).filter(Boolean);
+        out.args = Array.isArray(payload.args) ? payload.args : String(payload.args).split(/\s+/).filter(Boolean);
     }
- 
+
     if (payload.env !== undefined) {
-        if (payload.env && typeof payload.env === 'object') out.env = payload.env;
-        else out.env = parseKeyValue(payload.env);
+        out.env = payload.env && typeof payload.env === 'object' ? payload.env : parseKeyValue(payload.env);
     }
- 
+
     if (payload.headers !== undefined) {
-        if (payload.headers && typeof payload.headers === 'object') out.headers = payload.headers;
-        else out.headers = parseKeyValue(payload.headers);
+        out.headers = payload.headers && typeof payload.headers === 'object' ? payload.headers : parseKeyValue(payload.headers);
     }
- 
-    if (payload.description !== undefined) {
-        out.description = (payload.description || '').trim();
-    }
- 
-    if (payload.category !== undefined) {
-        out.category = (payload.category || 'general').trim() || 'general';
-    }
- 
-    if (payload.enabled !== undefined) {
-        out.enabled = Boolean(payload.enabled);
-    } else if (isNew) {
-        out.enabled = true;
-    }
- 
-    // قائمة الأدوات إن وُجدت
-    if (payload.tools !== undefined) {
-        out.tools = Array.isArray(payload.tools) ? payload.tools : [];
-    }
- 
-    if (payload.status) out.status = payload.status;
- 
+
+    if (payload.description !== undefined) out.description = (payload.description || '').trim();
+    if (payload.category !== undefined) out.category = (payload.category || 'general').trim() || 'general';
+
+    if (payload.enabled !== undefined) out.enabled = Boolean(payload.enabled);
+    else if (isNew) out.enabled = true;
+
     if (isNew) {
         out.id = uuid();
         out.category = out.category || 'general';
-        out.status = out.status || MCP_STATUSES.PENDING;
-        out.tools = out.tools || [];
         out.created_at = new Date().toISOString();
         out.updated_at = out.created_at;
-        out.last_checked_at = null;
     } else {
         out.updated_at = new Date().toISOString();
-        if (payload.last_checked_at !== undefined) out.last_checked_at = payload.last_checked_at;
     }
- 
+
     return out;
 }
- 
-/** تحويل نص "KEY=VALUE\nKEY2=VALUE2" أو JSON إلى كائن */
+
 function parseKeyValue(input) {
     if (!input) return {};
     if (typeof input === 'object') return input;
-    try {
-        return JSON.parse(input);
-    } catch {
+    try { return JSON.parse(input); } catch {
         const obj = {};
-        String(input)
-            .split(/\r?\n/)
-            .map((l) => l.trim())
-            .filter(Boolean)
-            .forEach((line) => {
-                const i = line.indexOf('=');
-                if (i > -1) obj[line.slice(0, i).trim()] = line.slice(i + 1).trim();
-            });
+        String(input).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((line) => {
+            const i = line.indexOf('=');
+            if (i > -1) obj[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+        });
         return obj;
     }
 }
