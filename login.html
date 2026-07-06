@@ -907,20 +907,22 @@
   const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ══════════════════════════════════════════════════════════════
-  // FLAG: يمنع onAuthStateChange من يتدخل لما login/register form
-  // بيشتغلوا بنفسهم — بيتصفر تاني لو عملنا signOut
-  // ══════════════════════════════════════════════════════════════
   let _handlingAuthManually = false;
-
-  // بيانات الدخول اللي وصلت من signInWithPassword، بنحتفظ بيها مؤقتاً
-  // لحد ما يخلص المستخدم خطوة الـ 2FA (أو يلغيها)
   let _pendingLoginData = null;
   let _pendingLoginProfile = null;
 
   // ══════════════════════════════════════════════════════════════
-  // SUBDOMAIN DETECTION
+  // ✅ جديد: أي عملية Supabase بتاخد وقت أطول من المسموح بترفض
+  // بدل ما تفضل عالقة للأبد (سبب مشكلة "جاري التحميل" العالقة)
   // ══════════════════════════════════════════════════════════════
+  function withTimeout(promise, ms = 10000, label = 'العملية') {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`استغرقت ${label} وقتاً أطول من المتوقع. تحقق من الاتصال وحاول مرة أخرى.`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  }
+
   const ROOT_DOMAIN      = 'mad3oom.online';
   const hostname         = window.location.hostname;
   const isSubdomain      = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
@@ -932,9 +934,6 @@
     banner.classList.add('show');
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // SUBDOMAIN LOGO INJECTION
-  // ══════════════════════════════════════════════════════════════
   const LOGO_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/subdomain-logos`;
 
   async function loadSubdomainLogo() {
@@ -968,17 +967,18 @@
 
   loadSubdomainLogo();
 
-  // ══════════════════════════════════════════════════════════════
-  // SUBDOMAIN OWNERSHIP CHECK
-  // ══════════════════════════════════════════════════════════════
   async function checkSubdomainOwnership(accessToken) {
     if (!currentSubdomain) return { ok: true };
     try {
-      const res  = await fetch(`${SUPABASE_URL}/functions/v1/subdomain-auth-check`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subdomain: currentSubdomain }),
-      });
+      const res  = await withTimeout(
+        fetch(`${SUPABASE_URL}/functions/v1/subdomain-auth-check`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subdomain: currentSubdomain }),
+        }),
+        8000,
+        'التحقق من النطاق الفرعي'
+      );
       const data = await res.json();
       if (!res.ok) return { ok: false, status: res.status, message: data.error || 'حدث خطأ في التحقق', hint: data.owner_hint || null };
       return { ok: true };
@@ -987,26 +987,16 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // ROLE-BASED REDIRECT
-  // ══════════════════════════════════════════════════════════════
   async function redirectByRole(userId) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    const { data: profile } = await withTimeout(
+      supabase.from('profiles').select('role').eq('id', userId).single(),
+      8000,
+      'تحديد نوع الحساب'
+    );
     const role = profile?.role || 'user';
     window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // CHECK EXISTING SESSION ON PAGE LOAD
-  // يشتغل مرة واحدة عند load — لو في جلسة نشطة يعمل redirect
-  // بيحترم علامة "just_logged_out" اللي بيحطها auth-client.js
-  // عشان يمنع أي حالة سباق (race condition) ترجّع المستخدم فورًا
-  // لحسابه بعد ما يسجل خروج لتوّه.
-  // ══════════════════════════════════════════════════════════════
   async function checkExistingSession() {
     if (sessionStorage.getItem('just_logged_out')) {
       return;
@@ -1030,38 +1020,12 @@
     await redirectByRole(session.user.id);
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // onAuthStateChange — المسؤول عن استكمال تسجيل الدخول عبر Google
-  // (وأي مصدر SIGNED_IN تاني غير الفورم اليدوي)
-  //
-  // ═══════════ ملاحظة مهمة (إصلاح مشكلة Google OAuth) ═══════════
-  // سابقاً كان فيه فحص إضافي بيتأكد إن الرابط (URL) لسه فيه
-  // ?code=... أو #access_token=... عشان "يتأكد" إن ده فعلاً OAuth
-  // callback. المشكلة إن مكتبة supabase-js بتقرا الـ code من
-  // الرابط وتبادله بجلسة، وبعدين *بتنضف الرابط بنفسها* (بتشيل
-  // الـ code) قبل ما تطلق event الـ SIGNED_IN. يعني في أغلب
-  // الأحيان لما الكود كان بيوصل يتأكد من الرابط، يكون اتنضف
-  // بالفعل، فالفحص كان بيرجع false والدالة كانت بترجع (return)
-  // من غير أي redirect — رغم إن الجلسة كانت اتعملت فعلاً في
-  // Supabase. ده بالظبط كان بيسبب "بيرجعني تاني لصفحة تسجيل
-  // الدخول" بعد اختيار حساب Google.
-  //
-  // الحل: مفيش داعي للفحص على الرابط أصلاً. العلم
-  // _handlingAuthManually بيتحط true قبل أي signInWithPassword،
-  // فأي SIGNED_IN بيوصل والعلم false لازم يكون جاي من مصدر تاني
-  // (OAuth عن طريق Google أو أي provider تاني).
-  // ══════════════════════════════════════════════════════════════
   supabase.auth.onAuthStateChange(async (event, session) => {
-    // تجاهل لو إحنا بنتعامل مع auth يدوياً (email login / signOut)
     if (_handlingAuthManually) return;
-
-    // شغّل فقط لما يكون فيه جلسة جديدة اتعملت فعلاً (SIGNED_IN)
     if (event !== 'SIGNED_IN' || !session) return;
 
-    // مسح علامة الخروج عند نجاح الدخول (لو موجودة من جلسة سابقة)
     sessionStorage.removeItem('just_logged_out');
 
-    // إنشاء profile لو مش موجود
     const { data: existing } = await supabase
       .from('profiles')
       .select('id, role')
@@ -1077,7 +1041,6 @@
       });
     }
 
-    // تحقق من الـ subdomain للـ OAuth
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(session.access_token);
       if (!check.ok) {
@@ -1093,12 +1056,8 @@
     window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   });
 
-  // استدعي checkExistingSession بعد ما listener اتسجّل
   checkExistingSession();
 
-  // ══════════════════════════════════════════════════════════════
-  // TOAST
-  // ══════════════════════════════════════════════════════════════
   function showToast(msg, type = 'error') {
     let toast = document.getElementById('auth-toast');
     if (!toast) {
@@ -1127,9 +1086,6 @@
     btn.textContent  = loading ? 'جاري التحميل...' : label;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // DEVICE FINGERPRINT (لغرض "تذكر هذا الجهاز" في الـ 2FA فقط)
-  // ══════════════════════════════════════════════════════════════
   function getOrCreateDeviceFingerprint() {
     let fp = localStorage.getItem('device_fingerprint');
     if (!fp) {
@@ -1149,10 +1105,6 @@
     return 'متصفح غير معروف';
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // إكمال عملية الدخول بعد التأكد من هوية المستخدم بالكامل
-  // (سواء ماكانش الـ 2FA مفعّل، أو اتحقق من الكود بنجاح، أو الجهاز موثوق)
-  // ══════════════════════════════════════════════════════════════
   async function finalizeLogin(userId, accessToken) {
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(accessToken);
@@ -1176,9 +1128,6 @@
     return true;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // إظهار/إخفاء خطوة الـ 2FA
-  // ══════════════════════════════════════════════════════════════
   function show2FAStep() {
     document.getElementById('login-step-credentials').style.display = 'none';
     document.getElementById('login-step-2fa').style.display = 'block';
@@ -1188,11 +1137,14 @@
   }
 
   async function cancel2FAStep() {
-    // بما إن الجلسة اتعملها signIn فعلاً على مستوى Supabase، لازم نعمل
-    // signOut فورًا عشان محدش يفضل معاه توكن صالح من غير ما يتحقق من الكود
     _handlingAuthManually = true;
-    await supabase.auth.signOut();
-    _handlingAuthManually = false;
+    try {
+      await withTimeout(supabase.auth.signOut(), 6000, 'تسجيل الخروج');
+    } catch (err) {
+      console.error('cancel2FA signOut error:', err);
+    } finally {
+      _handlingAuthManually = false;
+    }
     _pendingLoginData = null;
     _pendingLoginProfile = null;
 
@@ -1203,9 +1155,6 @@
 
   document.getElementById('twofa-cancel-btn').addEventListener('click', cancel2FAStep);
 
-  // ══════════════════════════════════════════════════════════════
-  // 2FA FORM SUBMIT
-  // ══════════════════════════════════════════════════════════════
   document.getElementById('twofa-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn  = e.target.querySelector('.btn-primary');
@@ -1226,29 +1175,32 @@
     setLoading(btn, true, 'تأكيد والدخول');
 
     try {
-      const { data, error } = await supabase.functions.invoke('verify-2fa', {
-        body: {
-          code,
-          tempSecret: _pendingLoginProfile.two_factor_secret
-        }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('verify-2fa', {
+          body: { code, tempSecret: _pendingLoginProfile.two_factor_secret }
+        }),
+        10000,
+        'التحقق من الرمز'
+      );
 
       if (error || !data?.verified) {
-        setLoading(btn, false, 'تأكيد والدخول');
         showToast('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
         return;
       }
 
-      // (اختياري) تذكر الجهاز عشان مايتطلبش 2FA تاني منه
       if (rememberDevice) {
         try {
           const fingerprint = getOrCreateDeviceFingerprint();
-          await supabase.from('trusted_devices').insert({
-            user_id: _pendingLoginData.user.id,
-            device_name: getDeviceName(),
-            device_fingerprint: fingerprint,
-            last_login: new Date().toISOString()
-          });
+          await withTimeout(
+            supabase.from('trusted_devices').insert({
+              user_id: _pendingLoginData.user.id,
+              device_name: getDeviceName(),
+              device_fingerprint: fingerprint,
+              last_login: new Date().toISOString()
+            }),
+            6000,
+            'حفظ الجهاز الموثوق'
+          );
         } catch (err) {
           console.warn('Failed to save trusted device:', err);
         }
@@ -1259,16 +1211,20 @@
       _pendingLoginData = null;
       _pendingLoginProfile = null;
 
-      await finalizeLogin(userId, accessToken);
+      await withTimeout(finalizeLogin(userId, accessToken), 10000, 'تسجيل الدخول');
     } catch (err) {
-      setLoading(btn, false, 'تأكيد والدخول');
-      showToast('حدث خطأ أثناء التحقق، حاول مرة أخرى');
       console.error('2FA verify error:', err);
+      showToast(err.message || 'حدث خطأ أثناء التحقق، حاول مرة أخرى');
+    } finally {
+      setLoading(btn, false, 'تأكيد والدخول');
     }
   });
 
   // ══════════════════════════════════════════════════════════════
-  // LOGIN FORM
+  // ✅ LOGIN FORM — النسخة المُصلَحة
+  // كل الخطوات دلوقتي جوه try/catch/finally وملفوفة بـ withTimeout،
+  // عشان مفيش أي سيناريو يسيب الزرار عالق على "جاري التحميل" بدون
+  // ما ياخد المستخدم رسالة واضحة تقوله يعمل إيه.
   // ══════════════════════════════════════════════════════════════
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1277,72 +1233,84 @@
     const pw    = document.getElementById('password').value;
 
     setLoading(btn, true, 'تسجيل الدخول');
-    _handlingAuthManually = true; // أوقف onAuthStateChange
+    _handlingAuthManually = true;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    try {
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password: pw }),
+        10000,
+        'تسجيل الدخول'
+      );
 
-    if (error) {
-      _handlingAuthManually = false;
-      setLoading(btn, false, 'تسجيل الدخول');
-      const msgs = {
-        'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-        'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',
-        'Too many requests': 'محاولات كثيرة، يرجى الانتظار قليلاً',
-      };
-      showToast(msgs[error.message] || error.message);
-      return;
-    }
-
-    // ══════════════════════════════════════════════════════
-    // ✅ فحص التحقق بخطوتين (2FA) — قبل أي redirect
-    // ══════════════════════════════════════════════════════
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('two_factor_enabled, two_factor_secret, role')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Failed to load profile for 2FA check:', profileError);
-    }
-
-    if (profile?.two_factor_enabled && profile?.two_factor_secret) {
-      // هل الجهاز ده موثوق بالفعل؟
-      const fingerprint = localStorage.getItem('device_fingerprint');
-      let trustedDevice = null;
-
-      if (fingerprint) {
-        const { data: device } = await supabase
-          .from('trusted_devices')
-          .select('*')
-          .eq('user_id', data.user.id)
-          .eq('device_fingerprint', fingerprint)
-          .maybeSingle();
-        trustedDevice = device || null;
-      }
-
-      if (trustedDevice) {
-        // جهاز موثوق → كمّل الدخول من غير طلب كود
-        supabase.from('trusted_devices')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', trustedDevice.id)
-          .then(() => {})
-          .catch(() => {});
-
-        await finalizeLogin(data.user.id, data.session.access_token);
+      if (error) {
+        const msgs = {
+          'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+          'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',
+          'Too many requests': 'محاولات كثيرة، يرجى الانتظار قليلاً',
+        };
+        showToast(msgs[error.message] || error.message);
         return;
       }
 
-      // مش جهاز موثوق → اطلب كود الـ 2FA
-      _pendingLoginData = data;
-      _pendingLoginProfile = profile;
-      setLoading(btn, false, 'تسجيل الدخول');
-      show2FAStep();
-      return;
-    }
+      const { data: profile, error: profileError } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('two_factor_enabled, two_factor_secret, role')
+          .eq('id', data.user.id)
+          .single(),
+        8000,
+        'تحميل بيانات الحساب'
+      );
 
-    // مفيش 2FA مفعل → كمّل الدخول عادي
-    await finalizeLogin(data.user.id, data.session.access_token);
+      if (profileError) {
+        console.error('Failed to load profile for 2FA check:', profileError);
+      }
+
+      if (profile?.two_factor_enabled && profile?.two_factor_secret) {
+        const fingerprint = localStorage.getItem('device_fingerprint');
+        let trustedDevice = null;
+
+        if (fingerprint) {
+          const { data: device } = await withTimeout(
+            supabase
+              .from('trusted_devices')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .eq('device_fingerprint', fingerprint)
+              .maybeSingle(),
+            8000,
+            'التحقق من الجهاز الموثوق'
+          );
+          trustedDevice = device || null;
+        }
+
+        if (trustedDevice) {
+          supabase.from('trusted_devices')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', trustedDevice.id)
+            .then(() => {})
+            .catch(() => {});
+
+          await withTimeout(finalizeLogin(data.user.id, data.session.access_token), 10000, 'تسجيل الدخول');
+          return;
+        }
+
+        _pendingLoginData = data;
+        _pendingLoginProfile = profile;
+        setLoading(btn, false, 'تسجيل الدخول');
+        show2FAStep();
+        return;
+      }
+
+      await withTimeout(finalizeLogin(data.user.id, data.session.access_token), 10000, 'تسجيل الدخول');
+
+    } catch (err) {
+      console.error('Login flow error:', err);
+      showToast(err.message || 'حدث خطأ غير متوقع، حاول مرة أخرى');
+    } finally {
+      _handlingAuthManually = false;
+      setLoading(btn, false, 'تسجيل الدخول');
+    }
   });
 
   // ══════════════════════════════════════════════════════════════
@@ -1374,36 +1342,48 @@
     setLoading(btn, true, 'إنشاء الحساب');
     _handlingAuthManually = true;
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: pw,
-      options: { data: { full_name: name } }
-    });
+    try {
+      const { data, error } = await withTimeout(
+        supabase.auth.signUp({
+          email,
+          password: pw,
+          options: { data: { full_name: name } }
+        }),
+        10000,
+        'إنشاء الحساب'
+      );
 
-    if (error) {
+      if (error) {
+        const msgs = {
+          'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
+          'Password should be at least 6 characters': 'كلمة المرور قصيرة جداً',
+        };
+        showToast(msgs[error.message] || error.message);
+        return;
+      }
+
+      if (data.user) {
+        await withTimeout(
+          supabase.from('profiles').upsert({
+            id: data.user.id,
+            email,
+            full_name: name,
+            role: 'user'
+          }, { onConflict: 'id' }),
+          8000,
+          'إنشاء الملف الشخصي'
+        );
+      }
+
+      showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
+      setTimeout(() => swapToLogin(), 2200);
+    } catch (err) {
+      console.error('Register flow error:', err);
+      showToast(err.message || 'حدث خطأ غير متوقع، حاول مرة أخرى');
+    } finally {
       _handlingAuthManually = false;
       setLoading(btn, false, 'إنشاء الحساب');
-      const msgs = {
-        'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
-        'Password should be at least 6 characters': 'كلمة المرور قصيرة جداً',
-      };
-      showToast(msgs[error.message] || error.message);
-      return;
     }
-
-    if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        full_name: name,
-        role: 'user'
-      }, { onConflict: 'id' });
-    }
-
-    _handlingAuthManually = false;
-    setLoading(btn, false, 'إنشاء الحساب');
-    showToast('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
-    setTimeout(() => swapToLogin(), 2200);
   });
 
   // ══════════════════════════════════════════════════════════════
@@ -1522,11 +1502,15 @@
     const EDGE_URL = `${SUPABASE_URL}/functions/v1/pi-auth`;
     let res, data;
     try {
-      res  = await fetch(EDGE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: piResult.accessToken }),
-      });
+      res  = await withTimeout(
+        fetch(EDGE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: piResult.accessToken }),
+        }),
+        10000,
+        'التحقق من حساب Pi Network'
+      );
       data = await res.json();
     } catch (err) {
       throw new Error('تعذّر الاتصال بالخادم: ' + err.message);
@@ -1535,10 +1519,14 @@
     if (!res.ok || !data?.session) throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
 
     _handlingAuthManually = true;
-    const { error: setErr } = await supabase.auth.setSession({
-      access_token:  data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    });
+    const { error: setErr } = await withTimeout(
+      supabase.auth.setSession({
+        access_token:  data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      }),
+      8000,
+      'إنشاء الجلسة'
+    );
     if (setErr) {
       _handlingAuthManually = false;
       throw new Error('فشل إنشاء الجلسة: ' + setErr.message);
