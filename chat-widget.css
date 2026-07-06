@@ -502,6 +502,109 @@
     height: 18px;
 }
 
+.chat-widget-send-btn {
+    background: var(--chat-accent);
+    border: none;
+    color: white;
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+}
+
+.chat-widget-send-btn:hover {
+    background: var(--chat-accent-hover);
+}
+
+.chat-widget-send-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.chat-widget-msg-time {
+    font-size: 0.7rem;
+    opacity: 0.65;
+    margin-top: 0.3rem;
+    text-align: left;
+}
+
+/* Bot quick-reply option buttons (رسائل البوت: عندي استفسار / عندي مشكلة...) */
+.bot-quick-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-self: flex-start;
+    max-width: 90%;
+    margin-top: 0.25rem;
+}
+
+.bot-quick-option-btn {
+    background: var(--chat-bg-elevated);
+    border: 1.5px solid var(--chat-accent);
+    color: var(--chat-text);
+    padding: 0.5rem 1rem;
+    border-radius: 1.25rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.bot-quick-option-btn:hover {
+    background: var(--chat-accent);
+    color: white;
+}
+
+.bot-quick-option-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* حالات وسط الجسم (تحميل / خطأ / تسجيل دخول / انتهاء المحادثة) */
+.chat-widget-center-state {
+    margin: auto;
+    text-align: center;
+    color: var(--chat-text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    padding: 1rem;
+}
+
+.chat-widget-primary-link {
+    display: inline-block;
+    margin-top: 0.85rem;
+    background: var(--chat-accent);
+    color: white !important;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 0.6rem 1.5rem;
+    border-radius: 999px;
+    transition: background 0.15s ease;
+}
+
+.chat-widget-primary-link:hover {
+    background: var(--chat-accent-hover);
+}
+
+.chat-settings-provide-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.chat-widget-typing-row {
+    padding: 0 1.25rem 0.5rem;
+    flex-shrink: 0;
+}
+
 .chat-widget-text-input {
     flex: 1;
     background: none;
