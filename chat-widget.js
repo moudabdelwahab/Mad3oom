@@ -1,114 +1,106 @@
 /**
- * ويدجت الدردشة المباشرة - Client Side (v2 - موحّد مع chat-customer)
+ * ويدجت الدردشة المباشرة العائم (الفقاعة) - Client Side
  * ------------------------------------------------------------
- * التغييرات الأساسية في النسخة دي مقارنة بالنسخة القديمة:
+ * ملاحظة مهمة: النسخة دي بقت بتستخدم بالظبط نفس المنطق والجداول اللي
+ * بيستخدمها chat-customer.html (chat_sessions / chat_messages / محرك
+ * الردود المحلي chatbot-engine.js عبر Supabase)، بدل الـ chatService
+ * الوهمي (in-memory) اللي كان بيشتغل ببيانات تجريبية بس.
  *
- * 1) اتشالت "الأسئلة المقترحة" (suggestedQuestions) بالكامل، وكذلك خطوة
- *    "questions" اللي كانت بتعرضها.
- * 2) اتشال الاعتماد الكامل على "chatService" الوهمي (محادثة/تقييم/انضمام
- *    موظف دعم كله كان simulation محلي من غير أي backend حقيقي).
- * 3) الويدجت بقى شغال بنفس الـ backend والمنطق بالظبط اللي شغالة بيه صفحة
- *    الدردشة في لوحة تحكم العميل (chat.html + chat-logic.js):
- *      - نفس جداول Supabase (chat_sessions / chat_messages)
- *      - نفس محرك الرد الآلي المحلي (chatbot-engine.js) بكل خطواته
- *        (القائمة الرئيسية، فتح تذكرة مشكلة بخطواتها الأربعة، فتح تذكرة
- *        استفسار، الأسئلة الشائعة عن الاشتراك/الأسعار...)
- *      - نفس آلية رفع صورة المشكلة الاختيارية (bucket "tickets")
- *      - نفس منطق "الوضع اليدوي" (is_manual_mode) لما موظف الدعم يرد بنفسه
- *
- * ⚠️ ملحوظة مهمة: الـ RLS على chat_sessions/chat_messages بيسمح بس للمستخدم
- * المسجل دخول (auth.uid()) يشوف وينشئ جلسة/رسائل خاصة بيه. يعني الويدجت ده
- * دلوقتي بيتطلب تسجيل دخول قبل ما يبدأ محادثة حقيقية (بالظبط زي صفحة لوحة
- * التحكم). فيه عمود "guest_id" موجود في جدول chat_sessions مش مستخدم حاليًا،
- * يظهر إنه كان معمول لدعم زوار مش مسجلين لاحقًا - لو حابب تفعّل ده، قولّي
- * عشان نضيف policy مخصوص للزوار ونربطه هنا.
+ * هذا الملف الآن ES Module، فلازم يتحمّل بـ:
+ *   <script type="module" src="chat-widget.js"></script>
+ * (بدل <script src="chat-widget.js" defer></script> القديمة)
  * ------------------------------------------------------------
  */
 
 import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 
+/**
+ * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class ChatWidget {
-  constructor() {
-    this.currentSessionId = null;
-    this.currentUser = null;
-    this.botSettings = null;
-    this.messages = []; // يشمل الرسائل العادية وأحداث النظام (system events)
-    this.quickOptions = null; // الأزرار المعروضة حاليًا تحت آخر رسالة بوت
-    this.messageChannel = null; // اشتراك realtime في رسائل الجلسة
-    this.sessionChannel = null; // اشتراك realtime في تغييرات الجلسة (انضمام أدمن)
-    this.currentStep = 'closed'; // closed, loading, login-required, chat, rating
-    this.isMinimized = false;
-    this.isMaximized = false;
-    this.notificationsEnabled = this.getNotificationsPref();
-    this.isSettingsOpen = false;
-    this.adminJoined = false;
-    this.init();
-  }
+    constructor() {
+        this.currentUser = null;
+        this.userProfile = null;
+        this.currentSessionId = null;
+        this.currentSession = null;
+        this.botSettings = null;
+        this.messageChannel = null;
 
-  /* ==================== تهيئة عامة ==================== */
+        this.chatInitialized = false; // هل بدأنا تحميل الجلسة فعلاً؟
+        this.isLoggedIn = false;
+        this.agentJoined = false; // هل فريق الدعم منضم للمحادثة حالياً (is_manual_mode)؟
 
-  getNotificationsPref() {
-    const stored = localStorage.getItem('chat_notifications_enabled');
-    return stored === null ? true : stored === 'true';
-  }
+        this.isMinimized = false;
+        this.isMaximized = false;
+        this.isSettingsOpen = false;
+        this.notificationsEnabled = this.getNotificationsPref();
 
-  setNotificationsPref(value) {
-    this.notificationsEnabled = value;
-    localStorage.setItem('chat_notifications_enabled', String(value));
-  }
+        this.transcriptLines = []; // لتحميل نص المحادثة كاملاً لاحقاً
 
-  init() {
-    this.createWidgetHTML();
-    this.attachEventListeners();
-  }
-
-  /* ==================== أدوات مساعدة ==================== */
-
-  /**
-   * ينشئ تدرج لوني (gradient) ثابت بناءً على نص (اسم/معرف) — نفس الجهة
-   * تحصل دائماً على نفس الألوان.
-   */
-  getAvatarGradient(seed) {
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const hue1 = Math.abs(hash) % 360;
-    const hue2 = (hue1 + 60) % 360;
-    return `linear-gradient(135deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 70%, 55%))`;
-  }
-
-  formatEventTimestamp(date) {
-    const d = new Date(date);
-    const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return `${datePart}, ${timePart}`;
-  }
-
-  escapeHtml(text) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return String(text || '').replace(/[&<>"']/g, m => map[m]);
-  }
-
-  sanitizeUrl(url) {
-    if (!url) return '';
-    const trimmed = String(url).trim();
-    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('./')) {
-      return this.escapeHtml(trimmed);
-    }
-    return '';
-  }
-
-  /* ==================== بناء الواجهة ==================== */
-
-  createWidgetHTML() {
-    if (document.getElementById('chatBubbleBtn')) {
-      console.log('[ChatWidget] Widget already exists, skipping creation');
-      return;
+        this.init();
     }
 
-    const widgetHTML = `
+    /* ==================== إعدادات محلية (تخص الجهاز، مش الباك إند) ==================== */
+
+    getNotificationsPref() {
+        const stored = localStorage.getItem('chat_notifications_enabled');
+        return stored === null ? true : stored === 'true';
+    }
+
+    setNotificationsPref(value) {
+        this.notificationsEnabled = value;
+        localStorage.setItem('chat_notifications_enabled', String(value));
+    }
+
+    getAvatarGradient(seed) {
+        let hash = 0;
+        const s = String(seed || 'system');
+        for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+        const hue1 = Math.abs(hash) % 360;
+        const hue2 = (hue1 + 60) % 360;
+        return `linear-gradient(135deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 70%, 55%))`;
+    }
+
+    formatEventTimestamp(date) {
+        const d = new Date(date);
+        const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        return `${datePart}, ${timePart}`;
+    }
+
+    /* ==================== تهيئة عامة (بتحصل مرة واحدة عند تحميل الصفحة) ==================== */
+
+    async init() {
+        this.createWidgetHTML();
+        this.attachEventListeners();
+
+        // نتحقق بدري (بدون فتح الشات) من حالة تسجيل الدخول عشان نظبط
+        // زرار "تسجيل الدخول" / "تقديم" في قائمة الإعدادات من أول لحظة
+        const { data: { user } } = await supabase.auth.getUser();
+        this.isLoggedIn = !!user;
+        this.updateContactDetailsUI();
+    }
+
+    /* ==================== بناء الواجهة ==================== */
+
+    createWidgetHTML() {
+        if (document.getElementById('chatBubbleBtn')) {
+            console.log('[ChatWidget] Widget already exists, skipping creation');
+            return;
+        }
+
+        const widgetHTML = `
       <div class="floating-chat-widget" id="floatingChatWidget">
         <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة">
           <div class="chat-bubble-icon">
@@ -149,11 +141,12 @@ class ChatWidget {
               <div class="chat-settings-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
               </div>
-              <span class="chat-settings-label">حسابك</span>
-              <a href="#" class="chat-settings-action" id="chatLoginLink">
+              <span class="chat-settings-label">تقديم بيانات التواصل</span>
+              <a href="/sign-in.html" class="chat-settings-action" id="chatLoginLink">
                 تسجيل الدخول
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </a>
+              <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">تقديم</button>
             </div>
             <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem">
               <div class="chat-settings-icon">
@@ -182,614 +175,632 @@ class ChatWidget {
           <!-- Body -->
           <div class="chat-widget-body" id="chatWidgetBody"></div>
 
+          <div id="chatWidgetTyping" class="chat-widget-typing-row" style="display:none;">
+            <div class="chat-widget-typing">
+              <span class="chat-widget-typing-dot"></span>
+              <span class="chat-widget-typing-dot"></span>
+              <span class="chat-widget-typing-dot"></span>
+            </div>
+          </div>
+
           <!-- Footer -->
           <div class="chat-widget-footer" id="chatWidgetFooter"></div>
         </div>
       </div>
     `;
 
-    document.body.insertAdjacentHTML('beforeend', widgetHTML);
-  }
-
-  attachEventListeners() {
-    const bubbleBtn = document.getElementById('chatBubbleBtn');
-    const closeBtn = document.getElementById('chatWidgetClose');
-    const minimizeBtn = document.getElementById('chatMinimizeBtn');
-    const settingsBtn = document.getElementById('chatSettingsBtn');
-    const downloadItem = document.getElementById('downloadTranscriptItem');
-    const maximizeItem = document.getElementById('maximizeItem');
-    const notifToggle = document.getElementById('notificationsToggle');
-    const loginLink = document.getElementById('chatLoginLink');
-
-    if (!bubbleBtn || !closeBtn) {
-      console.error('[ChatWidget] Failed to find chat elements');
-      return;
+        document.body.insertAdjacentHTML('beforeend', widgetHTML);
     }
 
-    bubbleBtn.addEventListener('click', () => this.openWidget());
-    closeBtn.addEventListener('click', () => this.closeWidget());
-    minimizeBtn.addEventListener('click', () => this.toggleMinimize());
-    settingsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleSettingsPanel();
-    });
-    downloadItem.addEventListener('click', () => this.downloadTranscript());
-    maximizeItem.addEventListener('click', () => this.toggleMaximize());
-    notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
-    loginLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = '/login.html';
-    });
+    attachEventListeners() {
+        const bubbleBtn = document.getElementById('chatBubbleBtn');
+        const closeBtn = document.getElementById('chatWidgetClose');
+        const minimizeBtn = document.getElementById('chatMinimizeBtn');
+        const settingsBtn = document.getElementById('chatSettingsBtn');
+        const downloadItem = document.getElementById('downloadTranscriptItem');
+        const maximizeItem = document.getElementById('maximizeItem');
+        const notifToggle = document.getElementById('notificationsToggle');
+        const provideBtn = document.getElementById('chatProvideBtn');
 
-    // إغلاق قائمة الإعدادات عند الضغط خارجها
-    document.addEventListener('click', (e) => {
-      const panel = document.getElementById('chatSettingsPanel');
-      const settingsButton = document.getElementById('chatSettingsBtn');
-      if (this.isSettingsOpen && panel && !panel.contains(e.target) && e.target !== settingsButton) {
+        if (!bubbleBtn || !closeBtn) {
+            console.error('[ChatWidget] Failed to find chat elements');
+            return;
+        }
+
+        bubbleBtn.addEventListener('click', () => this.openWidget());
+        closeBtn.addEventListener('click', () => this.closeWidget());
+        minimizeBtn.addEventListener('click', () => this.toggleMinimize());
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleSettingsPanel();
+        });
+        downloadItem.addEventListener('click', () => this.downloadTranscript());
+        maximizeItem.addEventListener('click', () => this.toggleMaximize());
+        notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
+        provideBtn.addEventListener('click', () => this.submitContactDetails());
+
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('chatSettingsPanel');
+            const settingsButton = document.getElementById('chatSettingsBtn');
+            if (this.isSettingsOpen && panel && !panel.contains(e.target) && e.target !== settingsButton) {
+                this.toggleSettingsPanel(false);
+            }
+        });
+    }
+
+    /**
+     * يظهر زر "تسجيل الدخول" لو مفيش مستخدم داخل، أو زر "تقديم" (اللي بيبعت
+     * بيانات العميل تلقائيًا في الشات) لو هو مسجل دخول فعلاً.
+     */
+    updateContactDetailsUI() {
+        const loginLink = document.getElementById('chatLoginLink');
+        const provideBtn = document.getElementById('chatProvideBtn');
+        if (!loginLink || !provideBtn) return;
+        loginLink.style.display = this.isLoggedIn ? 'none' : 'flex';
+        provideBtn.style.display = this.isLoggedIn ? 'flex' : 'none';
+    }
+
+    /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
+
+    async openWidget() {
+        const panel = document.getElementById('chatWidgetPanel');
+        if (!panel) return;
+        panel.classList.add('active');
+        this.isMinimized = false;
+        panel.classList.remove('minimized');
+
+        if (!this.chatInitialized) {
+            this.chatInitialized = true;
+            await this.startChat();
+        }
+    }
+
+    closeWidget() {
+        const panel = document.getElementById('chatWidgetPanel');
+        if (!panel) return;
+        panel.classList.remove('active');
         this.toggleSettingsPanel(false);
-      }
-    });
-  }
-
-  /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
-
-  openWidget() {
-    const panel = document.getElementById('chatWidgetPanel');
-    if (!panel) return;
-    panel.classList.add('active');
-    this.isMinimized = false;
-    panel.classList.remove('minimized');
-
-    if (this.currentStep === 'closed') {
-      this.startRealChat();
-    } else {
-      this.renderStep();
+        // ملاحظة: إغلاق النافذة مايقفلش المحادثة نفسها - الجلسة تفضل شغالة
+        // ولو العميل فتح الويدجت تاني هيكمل من نفس مكانه.
     }
-  }
 
-  closeWidget() {
-    const panel = document.getElementById('chatWidgetPanel');
-    if (!panel) return;
-
-    panel.classList.remove('active');
-    this.toggleSettingsPanel(false);
-
-    if (this.messageChannel) { supabase.removeChannel(this.messageChannel); this.messageChannel = null; }
-    if (this.sessionChannel) { supabase.removeChannel(this.sessionChannel); this.sessionChannel = null; }
-
-    this.currentStep = 'closed';
-    this.currentSessionId = null;
-    this.messages = [];
-    this.quickOptions = null;
-    this.adminJoined = false;
-  }
-
-  toggleMinimize() {
-    const panel = document.getElementById('chatWidgetPanel');
-    if (!panel) return;
-    this.isMinimized = !this.isMinimized;
-    panel.classList.toggle('minimized', this.isMinimized);
-    if (this.isMinimized) this.toggleSettingsPanel(false);
-  }
-
-  toggleMaximize() {
-    const panel = document.getElementById('chatWidgetPanel');
-    const label = document.getElementById('maximizeLabel');
-    if (!panel) return;
-    this.isMaximized = !this.isMaximized;
-    panel.classList.toggle('maximized', this.isMaximized);
-    if (label) label.textContent = this.isMaximized ? 'استعادة الحجم' : 'تكبير النافذة';
-  }
-
-  toggleSettingsPanel(force) {
-    const panel = document.getElementById('chatSettingsPanel');
-    if (!panel) return;
-    this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
-    panel.classList.toggle('active', this.isSettingsOpen);
-  }
-
-  /* ==================== تحميل نص المحادثة ==================== */
-
-  downloadTranscript() {
-    const lines = this.messages.map(item => {
-      const time = this.formatEventTimestamp(item.createdAt || new Date());
-      if (item.isSystemEvent) {
-        return `[${time}] * ${item.content}`;
-      }
-      const who = item.senderType === 'customer' ? 'أنت' : 'الدعم الفني';
-      return `[${time}] ${who}: ${item.content}`;
-    });
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat-transcript-${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    this.toggleSettingsPanel(false);
-  }
-
-  /* ==================== رسم الخطوات ==================== */
-
-  renderStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
-
-    body.innerHTML = '';
-    footer.innerHTML = '';
-
-    switch (this.currentStep) {
-      case 'loading':
-        this.renderLoadingStep();
-        break;
-      case 'login-required':
-        this.renderLoginRequiredStep();
-        break;
-      case 'chat':
-        this.renderChatStep();
-        break;
-      case 'rating':
-        this.renderRatingStep();
-        break;
+    toggleMinimize() {
+        const panel = document.getElementById('chatWidgetPanel');
+        if (!panel) return;
+        this.isMinimized = !this.isMinimized;
+        panel.classList.toggle('minimized', this.isMinimized);
+        if (this.isMinimized) this.toggleSettingsPanel(false);
     }
-  }
 
-  renderLoadingStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const header = document.getElementById('headerStatus');
-    header.textContent = 'جاري التحميل...';
-    body.innerHTML = '<div style="text-align:center; padding:2rem 0; color: var(--chat-text-secondary);">جاري تجهيز المحادثة...</div>';
-  }
+    toggleMaximize() {
+        const panel = document.getElementById('chatWidgetPanel');
+        const label = document.getElementById('maximizeLabel');
+        if (!panel) return;
+        this.isMaximized = !this.isMaximized;
+        panel.classList.toggle('maximized', this.isMaximized);
+        if (label) label.textContent = this.isMaximized ? 'استعادة الحجم' : 'تكبير النافذة';
+    }
 
-  renderLoginRequiredStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const header = document.getElementById('headerStatus');
-    header.textContent = 'محتاج تسجيل دخول';
+    toggleSettingsPanel(force) {
+        const panel = document.getElementById('chatSettingsPanel');
+        if (!panel) return;
+        this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
+        panel.classList.toggle('active', this.isSettingsOpen);
+    }
 
-    body.innerHTML = `
-      <div style="text-align: center; padding: 2rem 1rem; color: var(--chat-text-secondary);">
-        <p style="margin-bottom: 1rem;">لازم تسجل دخول الأول عشان تقدر تبدأ محادثة مع فريق الدعم.</p>
+    /* ==================== تحميل نص المحادثة ==================== */
+
+    downloadTranscript() {
+        const blob = new Blob([this.transcriptLines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-transcript-${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        this.toggleSettingsPanel(false);
+    }
+
+    /* ==================== بدء / تحميل المحادثة الحقيقية (Supabase) ==================== */
+
+    async startChat() {
+        this.renderLoadingState();
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            this.isLoggedIn = false;
+            this.updateContactDetailsUI();
+            this.renderLoggedOutState();
+            return;
+        }
+
+        this.currentUser = user;
+        this.isLoggedIn = true;
+        this.updateContactDetailsUI();
+
+        await Promise.all([this.loadProfile(), this.loadBotSettings()]);
+        await this.loadOrCreateSession();
+        if (!this.currentSessionId) {
+            this.renderErrorState();
+            return;
+        }
+
+        // نشترك في التحديثات الفورية *قبل* أي إرسال رسائل (تحسبًا لرسالة
+        // الترحيب الأولى)، عشان محدش يفوتنا.
+        this.subscribeRealtime();
+        await this.loadMessages();
+    }
+
+    async loadProfile() {
+        if (!this.currentUser) return;
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name, first_name, last_name, email, phone, created_at')
+            .eq('id', this.currentUser.id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('خطأ في جلب بيانات البروفايل:', error);
+            return;
+        }
+        this.userProfile = data;
+    }
+
+    async loadBotSettings() {
+        const { data, error } = await supabase.from('bot_settings').select('*').single();
+        if (error) {
+            console.error('خطأ في جلب إعدادات البوت:', error);
+            this.botSettings = {};
+            return;
+        }
+        this.botSettings = data;
+    }
+
+    async loadOrCreateSession() {
+        let { data: session, error } = await supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('user_id', this.currentUser.id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error || !session) {
+            const { data: newSession, error: createError } = await supabase
+                .from('chat_sessions')
+                .insert({ user_id: this.currentUser.id, status: 'active' })
+                .select()
+                .single();
+
+            if (createError) {
+                console.error('خطأ في إنشاء جلسة دردشة:', createError);
+                return;
+            }
+            session = newSession;
+        }
+
+        this.currentSessionId = session.id;
+        this.currentSession = session;
+        this.agentJoined = !!session.is_manual_mode;
+    }
+
+    subscribeRealtime() {
+        if (this.messageChannel) supabase.removeChannel(this.messageChannel);
+
+        this.messageChannel = supabase
+            .channel(`chat-widget:${this.currentSessionId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'chat_messages',
+                filter: `session_id=eq.${this.currentSessionId}`
+            }, payload => this.appendMessage(payload.new))
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'chat_sessions',
+                filter: `id=eq.${this.currentSessionId}`
+            }, payload => this.handleSessionUpdate(payload.new))
+            .subscribe();
+    }
+
+    async loadMessages() {
+        const { data: messages, error } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('session_id', this.currentSessionId)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('خطأ في جلب الرسائل:', error);
+            this.renderErrorState();
+            return;
+        }
+
+        this.renderChatShell();
+        const body = document.getElementById('chatWidgetBody');
+        body.innerHTML = '';
+        this.transcriptLines = [];
+
+        (messages || []).forEach(msg => this.renderMessageBubble(msg));
+        body.scrollTop = body.scrollHeight;
+
+        if (!messages || messages.length === 0) {
+            await this.sendInitialGreeting();
+        } else if (!this.currentSession?.is_manual_mode) {
+            this.renderQuickOptions(getOptionsForFlow(this.currentSession?.bot_state?.flow));
+        }
+
+        if (this.agentJoined) {
+            const headerStatus = document.getElementById('headerStatus');
+            if (headerStatus) headerStatus.textContent = 'فريق الدعم متصل الآن';
+        }
+    }
+
+    async sendInitialGreeting() {
+        if (!this.currentSessionId) return;
+        const welcome = this.botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
+        const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
+
+        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', this.currentSessionId);
+
+        // الإدراج هيوصل عن طريق الاشتراك الفوري (subscribeRealtime) ويتعرض تلقائياً
+        await supabase.from('chat_messages').insert({
+            session_id: this.currentSessionId,
+            sender_id: null,
+            message_text: greetingText,
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
+
+        this.renderQuickOptions(MAIN_MENU_OPTIONS);
+    }
+
+    /* ==================== أحداث الجلسة الفورية (انضمام/مغادرة فريق الدعم) ==================== */
+
+    handleSessionUpdate(newSession) {
+        const wasManual = !!this.currentSession?.is_manual_mode;
+        this.currentSession = newSession;
+
+        if (!wasManual && newSession.is_manual_mode) {
+            this.markAgentJoined();
+        }
+        if (newSession.status === 'closed' && this.agentJoined) {
+            this.markAgentLeft();
+        }
+    }
+
+    markAgentJoined() {
+        if (this.agentJoined) return;
+        this.agentJoined = true;
+        this.appendSystemEvent('فريق الدعم انضم إلى المحادثة');
+        const headerStatus = document.getElementById('headerStatus');
+        if (headerStatus) headerStatus.textContent = 'فريق الدعم متصل الآن';
+    }
+
+    markAgentLeft() {
+        if (!this.agentJoined) return;
+        this.agentJoined = false;
+        this.appendSystemEvent('فريق الدعم غادر المحادثة');
+        const headerStatus = document.getElementById('headerStatus');
+        if (headerStatus) headerStatus.textContent = 'المحادثة';
+    }
+
+    /* ==================== عرض الرسائل ==================== */
+
+    renderMessageBubble(msg) {
+        const body = document.getElementById('chatWidgetBody');
+        if (!body) return;
+
+        const isOwn = this.currentUser && msg.sender_id === this.currentUser.id;
+        const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        const text = msg.message_text || '';
+
+        const div = document.createElement('div');
+        div.className = `chat-widget-message ${isOwn ? 'user' : 'bot'}`;
+        div.innerHTML = `
+      <div class="chat-widget-bubble">
+        ${escapeHtml(text).replace(/\n/g, '<br>')}
+        <div class="chat-widget-msg-time">${time}</div>
       </div>
     `;
+        body.appendChild(div);
 
-    const loginBtn = document.createElement('button');
-    loginBtn.textContent = 'تسجيل الدخول';
-    loginBtn.className = 'chat-widget-option';
-    loginBtn.style.width = '100%';
-    loginBtn.addEventListener('click', () => { window.location.href = '/login.html'; });
-    body.appendChild(loginBtn);
-  }
-
-  /* ==================== بدء محادثة حقيقية (Supabase + محرك البوت) ==================== */
-
-  async startRealChat() {
-    this.currentStep = 'loading';
-    this.renderStep();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      this.currentStep = 'login-required';
-      this.renderStep();
-      return;
-    }
-    this.currentUser = user;
-
-    await this.loadBotSettings();
-    await this.loadOrCreateSession();
-    this.subscribeRealtime();
-
-    this.currentStep = 'chat';
-    this.renderStep();
-  }
-
-  async loadBotSettings() {
-    const { data, error } = await supabase.from('bot_settings').select('*').single();
-    if (error) {
-      console.error('[ChatWidget] Error loading bot settings:', error);
-      this.botSettings = {};
-      return;
-    }
-    this.botSettings = data;
-  }
-
-  mapDbMessage(row) {
-    return {
-      id: row.id,
-      senderType: this.currentUser && row.sender_id === this.currentUser.id ? 'customer' : 'admin',
-      content: row.message_text || '',
-      imageUrl: row.image_url || null,
-      createdAt: row.created_at
-    };
-  }
-
-  async loadOrCreateSession() {
-    let { data: session, error } = await supabase
-      .from('chat_sessions')
-      .select('*')
-      .eq('user_id', this.currentUser.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !session) {
-      const { data: newSession, error: createError } = await supabase
-        .from('chat_sessions')
-        .insert({ user_id: this.currentUser.id, status: 'active' })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('[ChatWidget] Error creating session:', createError);
-        return;
-      }
-      session = newSession;
+        const who = isOwn ? 'أنا' : (msg.is_admin_reply ? 'الدعم الفني' : 'البوت');
+        this.transcriptLines.push(`[${time}] ${who}: ${text}`);
     }
 
-    this.currentSessionId = session.id;
-    this.adminJoined = !!session.is_manual_mode;
+    /**
+     * الرسالة الجاية من الاشتراك الفوري (realtime) - بترندر البابل، وكمان
+     * بتكتشف أول رد بشري (is_admin_reply) عشان تظهر حدث "انضم إلى المحادثة".
+     */
+    appendMessage(msg) {
+        if (msg.is_admin_reply) this.markAgentJoined();
 
-    const { data: rows, error: msgError } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', session.id)
-      .order('created_at', { ascending: true });
-
-    if (msgError) {
-      console.error('[ChatWidget] Error loading messages:', msgError);
-      this.messages = [];
-    } else {
-      this.messages = (rows || []).map(r => this.mapDbMessage(r));
+        this.renderMessageBubble(msg);
+        const body = document.getElementById('chatWidgetBody');
+        if (body) body.scrollTop = body.scrollHeight;
     }
 
-    if (!rows || rows.length === 0) {
-      await this.sendInitialGreeting();
-    } else if (!session.is_manual_mode) {
-      this.quickOptions = getOptionsForFlow(session.bot_state?.flow);
-    }
-  }
+    appendSystemEvent(text) {
+        const body = document.getElementById('chatWidgetBody');
+        if (!body) return;
 
-  /**
-   * اشتراك realtime في: (1) رسائل الجلسة الجديدة، (2) تغييرات على الجلسة نفسها
-   * (بالذات is_manual_mode) عشان نعرض حدث "انضم موظف الدعم" فعليًا لما حد من
-   * لوحة التحكم يرد يدوي على المحادثة، مش simulation وهمي زي الأول.
-   */
-  subscribeRealtime() {
-    if (this.messageChannel) supabase.removeChannel(this.messageChannel);
-    if (this.sessionChannel) supabase.removeChannel(this.sessionChannel);
-
-    this.messageChannel = supabase
-      .channel(`widget-chat:${this.currentSessionId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'chat_messages',
-        filter: `session_id=eq.${this.currentSessionId}`
-      }, payload => {
-        this.messages.push(this.mapDbMessage(payload.new));
-        if (this.currentStep === 'chat') this.renderStep();
-      })
-      .subscribe();
-
-    this.sessionChannel = supabase
-      .channel(`widget-session:${this.currentSessionId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'chat_sessions',
-        filter: `id=eq.${this.currentSessionId}`
-      }, payload => {
-        const wasManual = this.adminJoined;
-        const isManual = !!payload.new.is_manual_mode;
-        if (isManual && !wasManual) {
-          this.adminJoined = true;
-          this.addSystemEvent('فريق الدعم انضم إلى المحادثة', 'admin');
-          const header = document.getElementById('headerStatus');
-          if (header) header.textContent = 'فريق الدعم متصل الآن';
-        } else if (!isManual && wasManual) {
-          this.adminJoined = false;
-          this.addSystemEvent('فريق الدعم غادر المحادثة', 'admin');
-        }
-      })
-      .subscribe();
-  }
-
-  async sendInitialGreeting() {
-    if (!this.currentSessionId) return;
-    const welcome = this.botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
-    const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
-
-    await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', this.currentSessionId);
-    await supabase.from('chat_messages').insert({
-      session_id: this.currentSessionId,
-      sender_id: null,
-      message_text: greetingText,
-      is_admin_reply: false,
-      is_bot_reply: true
-    });
-
-    // بنعرضها يدويًا فورًا لأن اشتراك الـ realtime لسه مبيتفعّلش إلا بعد الرجوع
-    // من startRealChat، فمكانش هيلقط أول رسالة ترحيب.
-    this.messages.push({ id: `local_${Date.now()}`, senderType: 'admin', content: greetingText, createdAt: new Date().toISOString() });
-    this.quickOptions = MAIN_MENU_OPTIONS;
-  }
-
-  addSystemEvent(text, avatarSeed) {
-    this.messages.push({
-      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      isSystemEvent: true,
-      content: text,
-      avatarSeed: avatarSeed || 'system',
-      createdAt: new Date()
-    });
-    if (this.currentStep === 'chat') this.renderStep();
-  }
-
-  /* ==================== خطوة المحادثة ==================== */
-
-  renderChatStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const footer = document.getElementById('chatWidgetFooter');
-    const header = document.getElementById('headerStatus');
-
-    if (!this.adminJoined) header.textContent = 'المحادثة';
-
-    this.messages.forEach(item => {
-      if (item.isSystemEvent) {
-        body.appendChild(this.buildSystemEventElement(item));
-      } else {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-widget-message ${item.senderType === 'admin' ? 'bot' : 'user'}`;
-        const safeImageUrl = this.sanitizeUrl(item.imageUrl);
-        const imageHtml = safeImageUrl
-          ? `<a href="${safeImageUrl}" target="_blank" rel="noopener"><img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:180px;border-radius:0.5rem;display:block;margin-bottom:0.35rem;"></a>`
-          : '';
-        messageDiv.innerHTML = `<div class="chat-widget-bubble">${imageHtml}${this.escapeHtml(item.content)}</div>`;
-        body.appendChild(messageDiv);
-      }
-    });
-
-    // أزرار الاختيارات السريعة (لو موجودة) تحت آخر رسالة
-    if (this.quickOptions && this.quickOptions.length > 0) {
-      const optionsWrap = document.createElement('div');
-      optionsWrap.className = 'chat-widget-quick-options';
-      optionsWrap.style.display = 'flex';
-      optionsWrap.style.flexWrap = 'wrap';
-      optionsWrap.style.gap = '0.5rem';
-      optionsWrap.style.margin = '0.5rem 0';
-
-      this.quickOptions.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chat-widget-option';
-        btn.style.flex = '0 1 auto';
-        btn.textContent = opt.label;
-        btn.addEventListener('click', () => {
-          if (opt.value === '__attach_image__') {
-            this.triggerImageUpload();
-            return;
-          }
-          optionsWrap.querySelectorAll('button').forEach(b => b.disabled = true);
-          this.sendMessage(opt.value);
-        });
-        optionsWrap.appendChild(btn);
-      });
-
-      body.appendChild(optionsWrap);
-    }
-
-    // شريط الإدخال
-    const inputContainer = document.createElement('div');
-    inputContainer.className = 'chat-widget-input-row';
-
-    const attachBtn = document.createElement('button');
-    attachBtn.type = 'button';
-    attachBtn.className = 'chat-widget-attach-btn';
-    attachBtn.title = 'إرفاق صورة';
-    attachBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
-    attachBtn.addEventListener('click', () => this.triggerImageUpload());
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'اكتب رسالتك هنا...';
-    input.className = 'chat-widget-text-input';
-
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        const text = input.value;
-        input.value = '';
-        this.sendMessage(text);
-      }
-    });
-
-    inputContainer.appendChild(attachBtn);
-    inputContainer.appendChild(input);
-    footer.appendChild(inputContainer);
-
-    const endBtn = document.createElement('button');
-    endBtn.textContent = 'إنهاء المحادثة';
-    endBtn.className = 'chat-widget-option chat-widget-end-btn';
-    endBtn.addEventListener('click', () => this.endChat());
-    footer.appendChild(endBtn);
-
-    body.scrollTop = body.scrollHeight;
-  }
-
-  buildSystemEventElement(item) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'chat-widget-system-event';
-    wrapper.innerHTML = `
-      <div class="chat-widget-avatar" style="background:${this.getAvatarGradient(item.avatarSeed)}"></div>
-      <div class="chat-widget-system-text">${this.escapeHtml(item.content)}</div>
-      <div class="chat-widget-system-time">${this.formatEventTimestamp(item.createdAt)}</div>
+        const time = new Date();
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chat-widget-system-event';
+        wrapper.innerHTML = `
+      <div class="chat-widget-avatar" style="background:${this.getAvatarGradient('agent')}"></div>
+      <div class="chat-widget-system-text">${escapeHtml(text)}</div>
+      <div class="chat-widget-system-time">${this.formatEventTimestamp(time)}</div>
     `;
-    return wrapper;
-  }
+        body.appendChild(wrapper);
+        body.scrollTop = body.scrollHeight;
 
-  /* ==================== إرسال الرسائل والرد الآلي ==================== */
-
-  async sendMessage(text) {
-    const content = (text || '').trim();
-    if (!content || !this.currentSessionId || !this.currentUser) return;
-
-    this.quickOptions = null;
-    this.renderStep(); // نشيل الأزرار فورًا لحد ما يوصل الرد
-
-    const { error: sendError } = await supabase.from('chat_messages').insert({
-      session_id: this.currentSessionId,
-      sender_id: this.currentUser.id,
-      message_text: content,
-      is_admin_reply: false
-    });
-
-    if (sendError) {
-      console.error('[ChatWidget] Error sending message:', sendError);
-      return;
+        this.transcriptLines.push(`[${this.formatEventTimestamp(time)}] * ${text}`);
     }
 
-    await this.triggerBotReply({ text: content });
-  }
+    /* ==================== الأزرار السريعة (Quick replies) ==================== */
 
-  /**
-   * بيحسب رد البوت (لو مفيش موظف دعم واخد الجلسة يدويًا حاليًا) وبيسجله،
-   * وده نفس المنطق المستخدم في صفحة لوحة تحكم العميل بالظبط.
-   */
-  async triggerBotReply({ text = '', imageUrl = null } = {}) {
-    try {
-      const { data: freshSession } = await supabase
-        .from('chat_sessions')
-        .select('bot_state, is_manual_mode')
-        .eq('id', this.currentSessionId)
-        .single();
-
-      if (freshSession?.is_manual_mode) return; // موظف الدعم واخد بال، البوت يسكت
-
-      const { reply, options } = await getBotReply({
-        text,
-        supabase,
-        sessionId: this.currentSessionId,
-        userId: this.currentUser.id,
-        botState: freshSession?.bot_state || {},
-        botSettings: this.botSettings,
-        imageUrl
-      });
-
-      await supabase.from('chat_messages').insert({
-        session_id: this.currentSessionId,
-        sender_id: null,
-        message_text: reply,
-        is_admin_reply: false,
-        is_bot_reply: true
-      });
-
-      this.quickOptions = options;
-      this.renderStep();
-    } catch (err) {
-      console.error('[ChatWidget] Bot reply error:', err);
+    clearQuickOptions() {
+        const existing = document.getElementById('botQuickOptions');
+        if (existing) existing.remove();
     }
-  }
 
-  /* ==================== إرفاق صورة (خطوة اختيارية في فتح تذكرة مشكلة) ==================== */
+    renderQuickOptions(options) {
+        this.clearQuickOptions();
+        if (!options || options.length === 0) return;
 
-  triggerImageUpload() {
-    let input = document.getElementById('widgetImageFileInput');
-    if (!input) {
-      input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.id = 'widgetImageFileInput';
-      input.style.display = 'none';
-      document.body.appendChild(input);
+        const body = document.getElementById('chatWidgetBody');
+        if (!body) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'bot-quick-options';
+        wrap.id = 'botQuickOptions';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'bot-quick-option-btn';
+            btn.textContent = opt.label;
+            btn.addEventListener('click', () => {
+                wrap.querySelectorAll('button').forEach(b => (b.disabled = true));
+                this.sendMessage(opt.value);
+            });
+            wrap.appendChild(btn);
+        });
+
+        body.appendChild(wrap);
+        body.scrollTop = body.scrollHeight;
     }
-    input.onchange = (e) => {
-      const file = e.target.files?.[0];
-      input.value = '';
-      if (file) this.handleImageFileSelected(file);
-    };
-    input.click();
-  }
 
-  async handleImageFileSelected(file) {
-    if (!file || !this.currentUser || !this.currentSessionId) return;
-    try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `${this.currentUser.id}/${this.currentSessionId}-${Date.now()}.${ext}`;
+    /* ==================== إرسال رسالة (عبر محرك البوت المحلي) ==================== */
 
-      const { error: uploadError } = await supabase.storage.from('tickets').upload(path, file, { upsert: false });
-      if (uploadError) throw uploadError;
+    async sendMessage(presetText) {
+        const input = document.getElementById('chatWidgetTextInput');
+        const text = (presetText !== undefined ? presetText : input?.value || '').trim();
+        if (!text || !this.currentSessionId || !this.currentUser) return;
 
-      const { data: pub } = supabase.storage.from('tickets').getPublicUrl(path);
+        if (presetText === undefined && input) input.value = '';
+        this.clearQuickOptions();
+        const typingIndicator = document.getElementById('chatWidgetTyping');
 
-      await supabase.from('chat_messages').insert({
-        session_id: this.currentSessionId,
-        sender_id: this.currentUser.id,
-        message_text: '📎 صورة مرفقة',
-        image_url: pub.publicUrl,
-        is_admin_reply: false
-      });
+        const { error: sendError } = await supabase.from('chat_messages').insert({
+            session_id: this.currentSessionId,
+            sender_id: this.currentUser.id,
+            message_text: text,
+            is_admin_reply: false
+        });
 
-      this.quickOptions = null;
-      this.renderStep();
-      await this.triggerBotReply({ text: '', imageUrl: pub.publicUrl });
-    } catch (err) {
-      console.error('[ChatWidget] Image upload error:', err);
-      alert('حصل خطأ في رفع الصورة، تقدر تجرب تاني أو تكمل من غيرها');
+        if (sendError) {
+            console.error('خطأ في إرسال الرسالة:', sendError);
+            return;
+        }
+
+        try {
+            if (typingIndicator) typingIndicator.style.display = 'flex';
+
+            if (this.currentSession?.is_manual_mode) return;
+
+            const { data: freshSession } = await supabase
+                .from('chat_sessions')
+                .select('bot_state, is_manual_mode')
+                .eq('id', this.currentSessionId)
+                .single();
+
+            if (freshSession?.is_manual_mode) return;
+
+            const { reply, options } = await getBotReply({
+                text,
+                supabase,
+                sessionId: this.currentSessionId,
+                userId: this.currentUser.id,
+                botState: freshSession?.bot_state || {},
+                botSettings: this.botSettings
+            });
+
+            await supabase.from('chat_messages').insert({
+                session_id: this.currentSessionId,
+                sender_id: null,
+                message_text: reply,
+                is_admin_reply: false,
+                is_bot_reply: true
+            });
+
+            this.renderQuickOptions(options);
+        } catch (err) {
+            console.error('خطأ في البوت:', err);
+            await supabase.from('chat_messages').insert({
+                session_id: this.currentSessionId,
+                sender_id: null,
+                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. تقدر تكتب "عندي مشكلة" وهافتحلك تذكرة دعم مباشرة.',
+                is_admin_reply: false,
+                is_bot_reply: true
+            });
+        } finally {
+            if (typingIndicator) typingIndicator.style.display = 'none';
+        }
     }
-  }
 
-  /* ==================== إنهاء المحادثة والتقييم ==================== */
+    /* ==================== تقديم بيانات التواصل تلقائياً ==================== */
 
-  async endChat() {
-    if (this.currentSessionId) {
-      await supabase.from('chat_sessions').update({ status: 'closed' }).eq('id', this.currentSessionId);
+    async submitContactDetails() {
+        if (!this.currentUser) return;
+
+        if (!this.userProfile) await this.loadProfile();
+        const p = this.userProfile || {};
+
+        const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || 'غير محدد';
+        const email = p.email || this.currentUser.email || 'غير متوفر';
+        const phone = p.phone || 'غير متوفر';
+        const joinedDate = p.created_at
+            ? new Date(p.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
+            : 'غير متوفر';
+
+        const text = `بيانات التواصل الخاصة بي:\nالاسم: ${name}\nالبريد الإلكتروني: ${email}\nرقم الهاتف: ${phone}\nتاريخ التسجيل: ${joinedDate}`;
+
+        if (!this.currentSessionId) {
+            // لو المستخدم فتح الإعدادات قبل ما تخلص تهيئة المحادثة، ننتظرها
+            await this.startChat();
+        }
+        if (!this.currentSessionId) return;
+
+        const { error } = await supabase.from('chat_messages').insert({
+            session_id: this.currentSessionId,
+            sender_id: this.currentUser.id,
+            message_text: text,
+            is_admin_reply: false
+        });
+
+        if (error) console.error('خطأ في إرسال بيانات التواصل:', error);
+
+        this.toggleSettingsPanel(false);
     }
-    if (this.messageChannel) { supabase.removeChannel(this.messageChannel); this.messageChannel = null; }
-    if (this.sessionChannel) { supabase.removeChannel(this.sessionChannel); this.sessionChannel = null; }
 
-    this.currentStep = 'rating';
-    this.renderStep();
-  }
+    /* ==================== إنهاء المحادثة ==================== */
 
-  renderRatingStep() {
-    const body = document.getElementById('chatWidgetBody');
-    const header = document.getElementById('headerStatus');
+    async endChat() {
+        if (!this.currentSessionId) return;
+        if (!confirm('هل تريد إنهاء المحادثة؟')) return;
 
-    header.textContent = 'كيف كانت تجربتك؟';
-    body.innerHTML = '<div style="text-align: center; padding: 2rem 0;">شكراً لاستخدامك خدمتنا</div>';
+        const { error } = await supabase
+            .from('chat_sessions')
+            .update({ status: 'closed' })
+            .eq('id', this.currentSessionId);
 
-    const ratings = [
-      { value: 'happy', emoji: '😊' },
-      { value: 'neutral', emoji: '😐' },
-      { value: 'unhappy', emoji: '😢' }
-    ];
+        if (error) {
+            console.error('خطأ في إنهاء المحادثة:', error);
+            return;
+        }
 
-    const ratingContainer = document.createElement('div');
-    ratingContainer.className = 'chat-widget-rating-row';
+        if (this.agentJoined) this.markAgentLeft();
+        this.renderEndedState();
 
-    ratings.forEach(rating => {
-      const btn = document.createElement('button');
-      btn.textContent = rating.emoji;
-      btn.className = 'chat-widget-rating-btn';
-      btn.addEventListener('click', () => this.submitRating(rating.value));
-      ratingContainer.appendChild(btn);
-    });
+        if (this.messageChannel) {
+            supabase.removeChannel(this.messageChannel);
+            this.messageChannel = null;
+        }
+        this.chatInitialized = false;
+        this.currentSessionId = null;
+        this.currentSession = null;
+    }
 
-    body.appendChild(ratingContainer);
-  }
+    /* ==================== حالات عرض مختلفة (تحميل / خروج / خطأ / إنهاء) ==================== */
 
-  submitRating(rating) {
-    // ⚠️ التقييم هنا شكلي فقط حاليًا ومش بيتخزن في قاعدة البيانات، بالظبط
-    // زي حالة نافذة التقييم في صفحة لوحة تحكم العميل دلوقتي. لو حابب نفعّله
-    // فعليًا (تخزينه في تذكرة أو جدول تقييمات) قولّي عشان نضيفه للاتنين مع بعض.
-    console.log('[ChatWidget] Rating selected (not persisted yet):', rating);
-    setTimeout(() => this.closeWidget(), 1000);
-  }
+    renderLoadingState() {
+        const body = document.getElementById('chatWidgetBody');
+        const footer = document.getElementById('chatWidgetFooter');
+        if (body) body.innerHTML = `<div class="chat-widget-center-state">جاري تحميل المحادثة...</div>`;
+        if (footer) footer.innerHTML = '';
+    }
+
+    renderLoggedOutState() {
+        const body = document.getElementById('chatWidgetBody');
+        const footer = document.getElementById('chatWidgetFooter');
+        const header = document.getElementById('headerStatus');
+        if (header) header.textContent = 'يجب تسجيل الدخول';
+
+        if (body) {
+            body.innerHTML = `
+        <div class="chat-widget-center-state">
+          <p>محتاج تسجّل دخولك الأول عشان تقدر تبدأ محادثة مع فريق الدعم.</p>
+          <a href="/sign-in.html" class="chat-widget-primary-link">تسجيل الدخول</a>
+        </div>
+      `;
+        }
+        if (footer) footer.innerHTML = '';
+    }
+
+    renderErrorState() {
+        const body = document.getElementById('chatWidgetBody');
+        const footer = document.getElementById('chatWidgetFooter');
+        if (body) body.innerHTML = `<div class="chat-widget-center-state">حصل خطأ في تحميل المحادثة، جرب تقفل وتفتح الويدجت تاني.</div>`;
+        if (footer) footer.innerHTML = '';
+    }
+
+    renderEndedState() {
+        const body = document.getElementById('chatWidgetBody');
+        const footer = document.getElementById('chatWidgetFooter');
+        const header = document.getElementById('headerStatus');
+        if (header) header.textContent = 'انتهت المحادثة';
+        if (body) {
+            const div = document.createElement('div');
+            div.className = 'chat-widget-center-state';
+            div.innerHTML = `<p>تم إنهاء المحادثة 🌟<br>شكراً لتواصلك معنا.</p>`;
+            body.appendChild(div);
+            body.scrollTop = body.scrollHeight;
+        }
+        if (footer) footer.innerHTML = '';
+    }
+
+    renderChatShell() {
+        const header = document.getElementById('headerStatus');
+        if (header && !this.agentJoined) header.textContent = 'المحادثة';
+
+        const footer = document.getElementById('chatWidgetFooter');
+        if (!footer) return;
+        footer.innerHTML = '';
+
+        const row = document.createElement('div');
+        row.className = 'chat-widget-input-row';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'chatWidgetTextInput';
+        input.className = 'chat-widget-text-input';
+        input.placeholder = 'اكتب رسالتك هنا...';
+        input.autocomplete = 'off';
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendMessage();
+        });
+
+        const sendBtn = document.createElement('button');
+        sendBtn.type = 'button';
+        sendBtn.className = 'chat-widget-send-btn';
+        sendBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`;
+        sendBtn.addEventListener('click', () => this.sendMessage());
+
+        row.appendChild(input);
+        row.appendChild(sendBtn);
+        footer.appendChild(row);
+
+        const endBtn = document.createElement('button');
+        endBtn.type = 'button';
+        endBtn.textContent = 'إنهاء المحادثة';
+        endBtn.className = 'chat-widget-end-btn';
+        endBtn.addEventListener('click', () => this.endChat());
+        footer.appendChild(endBtn);
+    }
 }
 
 // تهيئة الويدجت عند تحميل الصفحة
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    window.chatWidget = new ChatWidget();
-  });
+    document.addEventListener('DOMContentLoaded', () => {
+        window.chatWidget = new ChatWidget();
+    });
 } else {
-  window.chatWidget = new ChatWidget();
+    window.chatWidget = new ChatWidget();
 }
