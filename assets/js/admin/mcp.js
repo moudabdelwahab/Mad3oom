@@ -11,7 +11,8 @@ import {
     fetchServers, fetchServerById, createServer, updateServer, deleteServer,
     saveCredentials, startOAuth, testServer, syncTools, setToolEnabled, disconnectServer,
     fetchStats, fetchMcpActivity, MCP_STATUSES, MCP_TRANSPORTS, MCP_AUTH_TYPES,
-    MCP_OAUTH_REDIRECT_URI,
+    MCP_OAUTH_REDIRECT_URI,fetchMcpServerInfo, setMcpServerToolEnabled,
+
     fetchApiTokens, fetchApiUsageLogs, createApiToken, regenerateApiTokenSecret,
     toggleApiToken, deleteApiToken, API_TOKEN_ALLOWED_SCOPES, API_TOKEN_DEFAULT_SCOPES,
     fetchExternalIntegrations, saveExternalIntegration, deleteExternalIntegration,
@@ -528,9 +529,11 @@ function switchDevTab(tab) {
     document.getElementById('devSectionMcp').classList.toggle('active', tab === 'mcp');
     document.getElementById('devSectionApiTokens').classList.toggle('active', tab === 'apitokens');
     document.getElementById('devSectionIntegrations').classList.toggle('active', tab === 'integrations');
+    document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
 
     if (tab === 'apitokens' && !apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
     if (tab === 'integrations' && !integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
+    if (tab === 'mcpserver' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
 }
 
 let apiTokensLoadedOnce = false;
@@ -538,6 +541,128 @@ let integrationsLoadedOnce = false;
 let allApiTokens = [];
 let allIntegrations = [];
 let pendingCreateApiTokenResult = null;
+
+/* ====================  Mad3oom كـ MCP Server (Phase 3)  ==================== */
+
+let mcpServerLoadedOnce = false;
+
+/** خريطة تسميات فقط للعرض - أي مفتاح جديد في capabilities من الباك إند
+ *  بيتعرض تلقائياً حتى لو مش موجود هنا (بيرجع اسم المفتاح نفسه كـ fallback) */
+function capabilityLabel(key) {
+    return { tools: 'Tools', resources: 'Resources', prompts: 'Prompts', streaming: 'Streaming', oauth: 'OAuth' }[key] || key;
+}
+
+/** true → شارة "مدعومة" فعلية (أخضر). false → "Coming Soon" مميزة بصريًا بوضوح - مش بتتعرض كأنها شغالة */
+function renderCapabilityBadge(key, supported) {
+    return supported
+        ? `<span class="status-chip st-connected"><span class="dot"></span>${capabilityLabel(key)}</span>`
+        : `<span class="status-chip st-pending"><span class="dot"></span>${capabilityLabel(key)} — Coming Soon</span>`;
+}
+
+function authMethodLabel(m) {
+    return { api_key_secret: 'API Key + Secret', bearer: 'Bearer Token' }[m] || m;
+}
+
+async function loadMcpServerSection() {
+    const card = document.getElementById('mcpServerStatusCard');
+    card.innerHTML = loadingHtml();
+    try {
+        const info = await fetchMcpServerInfo('status');
+        renderMcpServerStatus(info);
+        renderMcpServerTools(info.tools || []);
+    } catch (err) {
+        card.innerHTML = errorHtml(err.message);
+    }
+}
+
+function renderMcpServerStatus(info) {
+    const card = document.getElementById('mcpServerStatusCard');
+
+    // Capabilities: بيانات-محورة بالكامل - أي مفتاح جديد يُضاف من الباك إند
+    // مستقبلاً (resources/prompts/streaming حقيقية) بيتعرض تلقائياً هنا
+    // بدون أي تعديل في هذا الملف.
+    const capBadges = Object.entries(info.capabilities || {})
+        .map(([k, v]) => renderCapabilityBadge(k, v)).join(' ');
+
+    const authBadges = (info.authentication_methods || [])
+        .map((m) => `<span class="transport-chip">${escapeHtml(authMethodLabel(m))}</span>`).join(' ');
+
+    // Resources معلوماتية فقط - مميّزة بشارة "Info Only" واضحة، ومش جوه capabilities
+    const resourcesHtml = (info.resources_info || []).map((r) => `
+        <div class="tool-row">
+            <div class="tool-info">
+                <div class="tool-name">${escapeHtml(r.name)} <span class="disabled-chip" style="background:#e0e7ff;color:#3730a3;">Info Only</span></div>
+                <div class="tool-desc">${escapeHtml(r.description)}</div>
+            </div>
+        </div>`).join('');
+
+    card.innerHTML = `
+        <div class="card-row">
+            <div class="card-head">
+                <div class="card-icon">
+                    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect></svg>
+                </div>
+                <div class="card-title-wrap">
+                    <div class="card-title">
+                        ${escapeHtml(info.server_info?.name || 'Mad3oom MCP Server')}
+                        <span class="status-chip st-connected"><span class="dot"></span>Online</span>
+                    </div>
+                    <div class="card-subtitle">Version ${escapeHtml(info.server_info?.version || '—')}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card-meta">
+            <span title="Endpoint">🔗 <code dir="ltr">${escapeHtml(info.endpoint)}</code>
+                <button class="btn btn-secondary btn-copy" style="padding:2px 8px;font-size:0.72rem" onclick="window.mcpCopyText('${escapeHtml(info.endpoint)}')">نسخ</button></span>
+            <span title="Protocol Version">📡 ${escapeHtml(info.protocol_version)}</span>
+            <span title="Transport">🔌 ${escapeHtml(info.transport)}</span>
+        </div>
+        <div class="card-meta" style="margin-top:-0.5rem">${authBadges}</div>
+        <div class="card-actions" style="border-top:none;flex-wrap:wrap;">${capBadges}</div>
+        ${resourcesHtml ? `<div class="tools-list" style="margin-top:1rem">${resourcesHtml}</div>` : ''}
+    `;
+}
+
+function renderMcpServerTools(tools) {
+    const list = document.getElementById('mcpServerToolsList');
+    if (!tools.length) { list.innerHTML = `<div class="tools-empty">لا توجد أدوات معرّفة.</div>`; return; }
+    list.innerHTML = tools.map((t) => `
+        <div class="tool-row">
+            <div class="tool-info">
+                <div class="tool-name">${escapeHtml(t.name)} <span class="transport-chip">${escapeHtml(t.scope)}</span></div>
+                <div class="tool-desc">${escapeHtml(t.description || '—')}</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" ${t.enabled ? 'checked' : ''} onchange="window.mcpServerToggleTool('${escapeHtml(t.name)}', this.checked)">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>`).join('');
+}
+
+async function handleMcpServerToggleTool(toolName, enabled) {
+    try {
+        const result = await setMcpServerToolEnabled(toolName, enabled);
+        renderMcpServerTools(result.tools || []);
+        toast(enabled ? `تم تفعيل "${toolName}" لكل عملاء MCP` : `تم تعطيل "${toolName}" لكل عملاء MCP`, 'success');
+    } catch (err) {
+        toast(err.message || 'فشل تحديث حالة الأداة', 'error');
+        loadMcpServerSection();
+    }
+}
+
+async function handleTestMcpServer() {
+    const btn = document.getElementById('testMcpServerBtn');
+    btn.disabled = true; btn.textContent = 'جاري الاختبار...';
+    try {
+        await fetchMcpServerInfo('test');
+        toast('الخادم شغال بشكل صحيح ✅', 'success');
+        await loadMcpServerSection();
+    } catch (err) {
+        toast(err.message || 'فشل الاختبار', 'error');
+    } finally {
+        btn.disabled = false; btn.textContent = 'اختبار الاتصال';
+    }
+}
 
 /* ====================  Mad3oom API Tokens  ==================== */
 
@@ -958,6 +1083,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.mcpReload = loadServers;
     window.mcpCloseModal = closeModal;
     window.mcpSubmit = submitForm;
+        window.mcpServerToggleTool = handleMcpServerToggleTool;
+
     window.mcpOnTransportChange = onTransportChange;
     window.mcpOnAuthTypeChange = onAuthTypeChange;
     window.mcpConnectOAuth = handleConnectOAuth;
@@ -996,6 +1123,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('toolsModal').addEventListener('click', (e) => { if (e.target.id === 'toolsModal') closeToolsModal(); });
     document.getElementById('toolsModalClose').addEventListener('click', closeToolsModal);
     document.getElementById('syncToolsBtn').addEventListener('click', handleSyncTools);
+    document.getElementById('devTabMcpServer')
+    .addEventListener('click', () => switchDevTab('mcpserver'));
+    document.getElementById('testMcpServerBtn')
+    .addEventListener('click', handleTestMcpServer);
     document.getElementById('toolsSearchInput').addEventListener('input', debounce((e) => {
         toolsSearchQuery = e.target.value;
         renderToolsModal();
