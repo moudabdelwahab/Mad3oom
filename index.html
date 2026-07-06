@@ -213,8 +213,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .journey-wrap{position:relative;max-width:760px;margin:3rem auto 0;padding-inline-end:2.5rem;}
 .journey-track{position:absolute;top:0;bottom:0;right:26px;width:3px;background:var(--glass-border);border-radius:3px;}
 .journey-fill{position:absolute;top:0;right:26px;width:3px;height:0%;background:linear-gradient(180deg,var(--accent),var(--accent-soft));border-radius:3px;box-shadow:0 0 12px var(--accent);transition:height .1s linear;}
-.journey-robot{position:absolute;right:12px;top:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(77,163,255,.7);transform:translateY(-50%);transition:top .1s linear;z-index:3;}
-.journey-robot svg{width:18px;height:18px;color:#fff;}
+.journey-robot{position:absolute;right:12px;top:0;width:34px;height:34px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(77,163,255,.7);transform:translateY(-50%);transition:top .1s linear;z-index:3;overflow:hidden;}
+.journey-robot img{width:100%;height:100%;object-fit:cover;}
 .journey-step{position:relative;padding:0 3.2rem 3rem 0;opacity:.35;transition:opacity .4s ease;}
 .journey-step.active{opacity:1;}
 .journey-step:last-child{padding-bottom:0;}
@@ -256,8 +256,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .frame-pill svg{width:10px;height:10px;}
 .frame-pill.mcp{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));}
 .frame-brand{display:flex;align-items:center;gap:.4rem;}
-.frame-brand-mark{width:20px;height:20px;border-radius:.4rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;}
-.frame-brand-mark svg{width:12px;height:12px;color:#fff;}
+.frame-brand-mark{width:20px;height:20px;border-radius:.4rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.frame-brand-mark img{width:100%;height:100%;object-fit:cover;}
 .frame-brand span{font-size:.65rem;color:#cfe0ff;font-weight:700;}
 .frame-body{background:var(--ui-bg);padding:1rem;color:var(--ui-ink);}
 
@@ -481,16 +481,44 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 @media (max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;}}
 @media (max-width:560px){.footer-grid{grid-template-columns:1fr;}}
 
-/* ============ Floating robot helper ============ */
+/* ============ Floating robot helper / interactive tour ============ */
 .robot-helper{position:fixed;bottom:1.5rem;left:1.5rem;z-index:150;}
-.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;overflow:hidden;transition:transform var(--dur-fast) var(--ease-bounce);}
+.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;overflow:hidden;transition:transform var(--dur-fast) var(--ease-bounce);position:relative;}
 .robot-helper-btn:hover{transform:scale(1.1) rotate(-6deg);animation-play-state:paused;}
 .robot-helper-btn:active{transform:scale(.94);}
-.robot-helper-btn svg{width:28px;height:28px;color:#fff;}
-.robot-bubble{position:absolute;bottom:70px;left:0;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(14px);padding:1rem 1.2rem;border-radius:1rem;width:230px;font-size:.85rem;color:var(--text-1);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(10px) scale(.94);transform-origin:bottom left;pointer-events:none;visibility:hidden;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce), visibility 0s var(--dur-med);}
-.robot-bubble.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;visibility:visible;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce);}
-.robot-bubble strong{display:block;margin-bottom:.3rem;color:var(--accent-soft);}
-@media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}}
+.robot-helper-btn img{width:100%;height:100%;object-fit:cover;}
+.robot-ping{position:absolute;top:-3px;left:-3px;width:16px;height:16px;border-radius:50%;background:var(--success);border:2px solid var(--bg-void);z-index:2;}
+.robot-ping::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--success);animation:pingWave 1.8s ease-out infinite;}
+@keyframes pingWave{0%{transform:scale(1);opacity:.7;}100%{transform:scale(2.4);opacity:0;}}
+.robot-helper.tour-open .robot-ping{display:none;}
+
+.robot-tour{position:absolute;bottom:70px;left:0;width:290px;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(16px);border-radius:1.1rem;box-shadow:var(--shadow-lg);padding:1.1rem 1.1rem .9rem;opacity:0;transform:translateY(14px) scale(.94);transform-origin:bottom left;pointer-events:none;visibility:hidden;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce), visibility 0s var(--dur-med);}
+.robot-helper.tour-open .robot-tour{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;visibility:visible;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce);}
+.robot-tour-close{position:absolute;top:.6rem;left:.6rem;width:22px;height:22px;border-radius:50%;border:none;background:var(--glass);color:var(--text-2);cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center;transition:background var(--dur-fast) ease,color var(--dur-fast) ease;}
+.robot-tour-close:hover{background:rgba(255,107,107,.15);color:var(--danger);}
+.robot-tour-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;}
+.robot-tour-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid var(--accent-soft);}
+.robot-tour-avatar img{width:100%;height:100%;object-fit:cover;}
+.robot-tour-head span{font-size:.72rem;color:var(--text-3);font-weight:600;}
+.robot-tour-track{position:relative;min-height:118px;}
+.robot-tour-slide{display:none;}
+.robot-tour-slide.active{display:block;animation:slideFadeIn .4s var(--ease-snap);}
+@keyframes slideFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.robot-tour-slide .rt-icon{width:34px;height:34px;border-radius:.6rem;background:linear-gradient(135deg,var(--accent-soft),var(--primary));display:flex;align-items:center;justify-content:center;margin-bottom:.6rem;}
+.robot-tour-slide .rt-icon svg{width:18px;height:18px;color:#fff;}
+.robot-tour-slide h5{font-size:.92rem;margin-bottom:.4rem;color:var(--text-1);}
+.robot-tour-slide p{font-size:.8rem;color:var(--text-2);line-height:1.65;}
+.robot-tour-cta{display:inline-flex;margin-top:.6rem;}
+.robot-tour-dots{display:flex;justify-content:center;gap:.35rem;margin:.85rem 0 .7rem;}
+.robot-tour-dots button{width:6px;height:6px;border-radius:50%;background:var(--glass-border);border:none;padding:0;cursor:pointer;transition:transform var(--dur-fast) var(--ease-bounce), background var(--dur-fast) ease, width var(--dur-med) ease;}
+.robot-tour-dots button.active{background:var(--accent);width:16px;border-radius:4px;}
+.robot-tour-actions{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.rt-nav{background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.76rem;font-weight:700;padding:.45rem .85rem;border-radius:.6rem;cursor:pointer;transition:background var(--dur-fast) ease,color var(--dur-fast) ease,transform var(--dur-fast) var(--ease-snap),opacity var(--dur-fast) ease;}
+.rt-nav:hover{color:var(--text-1);transform:translateY(-1px);}
+.rt-nav:active{transform:scale(.95);}
+.rt-nav.primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;border-color:transparent;}
+.rt-nav[disabled]{opacity:.35;cursor:default;pointer-events:none;}
+@media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}.robot-tour{width:min(80vw,290px);}}
 
 /* ============ Light theme overrides ============ */
 :root{
@@ -528,14 +556,6 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
   <stop offset="0.5" stop-color="#4DA3FF" stop-opacity="0.9"/>
   <stop offset="1" stop-color="#4DA3FF" stop-opacity="0"/>
 </linearGradient>
-<symbol id="robot-face" viewBox="0 0 64 64">
-  <circle cx="32" cy="10" r="4" fill="currentColor"/>
-  <line x1="32" y1="14" x2="32" y2="20" stroke="currentColor" stroke-width="3"/>
-  <rect x="8" y="20" width="48" height="38" rx="19" fill="currentColor"/>
-  <ellipse cx="23" cy="38" rx="4.2" ry="5.2" fill="#fff"/>
-  <ellipse cx="41" cy="38" rx="4.2" ry="5.2" fill="#fff"/>
-  <path d="M22 47q10 8 20 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
-</symbol>
 <symbol id="icon-mcp-plug" viewBox="0 0 24 24">
   <path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </symbol>
@@ -644,7 +664,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     <div class="journey-wrap" id="journeyWrap">
       <div class="journey-track"></div>
       <div class="journey-fill" id="journeyFill"></div>
-      <div class="journey-robot" id="journeyRobot"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></div>
+      <div class="journey-robot" id="journeyRobot"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></div>
 
       <div class="journey-step">
         <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
@@ -718,7 +738,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>
               <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="frame-brand"><span>لوحة الإدارة</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>لوحة الإدارة</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="frame-body">
             <div class="ui-grid">
@@ -757,7 +777,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
               <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="frame-brand"><span>إدارة التذاكر</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>إدارة التذاكر</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="frame-body">
             <div class="ui-tstats">
@@ -798,7 +818,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
               <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="frame-brand"><span>المحادثات</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>المحادثات</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="frame-body">
             <div class="ui-chat">
@@ -836,7 +856,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
               <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="frame-brand"><span>الإحصائيات</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>الإحصائيات</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="frame-body">
             <div class="ui-analytics">
@@ -886,7 +906,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
               <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="frame-brand"><span>النطاقات الفرعية</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>النطاقات الفرعية</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="frame-body">
             <div class="ui-subdomain-header"><h5 style="font-size:.75rem;">النطاقات الفرعية — إجمالي 2</h5><span class="btn-mini">+ إضافة نطاق</span></div>
@@ -930,7 +950,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
               <span class="frame-pill mcp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><use href="#icon-mcp-plug"/></svg>MCP متصل</span>
             </div>
-            <div class="frame-brand"><span>بوت مدعوم</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+            <div class="frame-brand"><span>بوت مدعوم</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
           <div class="mcp-body">
             <div class="mcp-msg-row">
@@ -1008,7 +1028,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
           <div class="frame-icons">
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-mcp-plug"/></svg></span>
           </div>
-          <div class="frame-brand"><span>بوت مدعوم — جلسة MCP</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+          <div class="frame-brand"><span>بوت مدعوم — جلسة MCP</span><span class="frame-brand-mark"><img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
         </div>
         <div class="mcp-body" style="min-height:auto;">
           <div class="mcp-msg-row">
@@ -1326,10 +1346,59 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
   </div>
 </footer>
 
-<!-- ============ Floating robot helper ============ -->
-<div class="robot-helper">
-  <div class="robot-bubble" id="robotBubble"><strong>أهلاً 👋</strong>أنا روبوت مدعوم — نفس الروبوت اللي بيرحب بعملائك ويجمع تفاصيل مشاكلهم تلقائياً.</div>
-  <button class="robot-helper-btn" id="robotBtn" aria-label="مساعد مدعوم"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></button>
+<!-- ============ Floating robot helper / interactive tour ============ -->
+<div class="robot-helper" id="robotHelper">
+  <div class="robot-tour" id="robotTour" role="dialog" aria-label="جولة تعريفية بمنصة مدعوم">
+    <button class="robot-tour-close" id="robotTourClose" aria-label="إغلاق">✕</button>
+    <div class="robot-tour-head">
+      <span class="robot-tour-avatar"><img src="/assets/images/mad3oom-robot.png" alt="روبوت مدعوم"></span>
+      <span>روبوت مدعوم يشرحلك المنصة</span>
+    </div>
+
+    <div class="robot-tour-track" id="robotTourTrack">
+      <div class="robot-tour-slide active" data-slide="0">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
+        <h5>أهلاً، أنا روبوت مدعوم 👋</h5>
+        <p>خلّيني أوريك بسرعة إزاي المنصة بتشتغل وبتوفّر وقت فريق الدعم بتاعك.</p>
+      </div>
+      <div class="robot-tour-slide" data-slide="1">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <h5>أستقبل عملاءك أول ما يكتبوا</h5>
+        <p>من الموقع أو واتساب، في أي وقت، من غير ما ينتظروا حد يرد عليهم.</p>
+      </div>
+      <div class="robot-tour-slide" data-slide="2">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+        <h5>أجمع التفاصيل وأفتح تذكرة</h5>
+        <p>لو المشكلة احتاجت متابعة، بجمع كل بياناتها وأنشئ تذكرة كاملة تلقائيًا.</p>
+      </div>
+      <div class="robot-tour-slide" data-slide="3">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <h5>أحوّلك لموظف فورًا لو احتجت إنسان</h5>
+        <p>مع كل سياق المحادثة قدامه، فمفيش تكرار كلام ولا بداية من الصفر.</p>
+      </div>
+      <div class="robot-tour-slide" data-slide="4">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"/></svg></div>
+        <h5>وبدعم MCP كمان</h5>
+        <p>تقدر تتكلم مع حسابك بلغة عادية، وأنا أنفّذ فعليًا داخل لوحة تحكمك.</p>
+      </div>
+      <div class="robot-tour-slide" data-slide="5">
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h5>جاهز تجرب مدعوم؟</h5>
+        <p>ابدأ تجربتك المجانية دلوقتي وشوف الفرق في أول رسالة تجيلك.</p>
+        <a href="#" class="btn btn-primary btn-sm robot-tour-cta">ابدأ مجاناً</a>
+      </div>
+    </div>
+
+    <div class="robot-tour-dots" id="robotTourDots"></div>
+    <div class="robot-tour-actions">
+      <button class="rt-nav" id="rtPrev">السابق</button>
+      <button class="rt-nav primary" id="rtNext">التالي</button>
+    </div>
+  </div>
+  <button class="robot-helper-btn" id="robotBtn" aria-label="مساعد مدعوم">
+    <span class="robot-ping" id="robotPing"></span>
+    <img src="/assets/images/mad3oom-robot.png" alt="بوت مدعوم">
+  </button>
 </div>
 
 <script>
@@ -1430,12 +1499,75 @@ const revealObserver = new IntersectionObserver((entries) => {
 document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
 // Robot helper bubble
-const robotBtn = document.getElementById('robotBtn');
-const robotBubble = document.getElementById('robotBubble');
-robotBtn.addEventListener('click', () => robotBubble.classList.toggle('open'));
-document.addEventListener('click', (e) => {
-  if (!robotBtn.contains(e.target) && !robotBubble.contains(e.target)) robotBubble.classList.remove('open');
-});
+// ============ Robot interactive tour ============
+(function(){
+  const helper = document.getElementById('robotHelper');
+  const btn = document.getElementById('robotBtn');
+  const tour = document.getElementById('robotTour');
+  const closeBtn = document.getElementById('robotTourClose');
+  const track = document.getElementById('robotTourTrack');
+  const dotsWrap = document.getElementById('robotTourDots');
+  const prevBtn = document.getElementById('rtPrev');
+  const nextBtn = document.getElementById('rtNext');
+  if (!helper || !btn || !tour) return;
+
+  const slides = Array.from(track.querySelectorAll('.robot-tour-slide'));
+  let current = 0;
+
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.setAttribute('aria-label', 'الخطوة ' + (i + 1));
+    if (i === 0) dot.classList.add('active');
+    dot.addEventListener('click', () => goTo(i));
+    dotsWrap.appendChild(dot);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  function render(){
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    prevBtn.disabled = current === 0;
+    nextBtn.textContent = current === slides.length - 1 ? 'من جديد' : 'التالي';
+  }
+  function goTo(i){
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    render();
+  }
+  prevBtn.addEventListener('click', () => goTo(current - 1));
+  nextBtn.addEventListener('click', () => {
+    if (current === slides.length - 1) goTo(0);
+    else goTo(current + 1);
+  });
+
+  function openTour(){
+    helper.classList.add('tour-open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  function closeTour(){
+    helper.classList.remove('tour-open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  btn.addEventListener('click', () => {
+    helper.classList.contains('tour-open') ? closeTour() : openTour();
+  });
+  closeBtn.addEventListener('click', closeTour);
+  document.addEventListener('click', (e) => {
+    if (!helper.contains(e.target)) closeTour();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTour();
+  });
+
+  // Hero robot also opens the tour
+  const heroRobot = document.querySelector('.robot-core');
+  if (heroRobot){
+    heroRobot.style.cursor = 'pointer';
+    heroRobot.setAttribute('title', 'اضغط لتعرف على مدعوم');
+    heroRobot.addEventListener('click', () => { goTo(0); openTour(); });
+  }
+
+  render();
+})();
 
 // FAQ single-open
 document.querySelectorAll('.faq-item').forEach(item => {
