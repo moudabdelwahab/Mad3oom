@@ -112,7 +112,7 @@ class ChatWidget {
 
         <div class="chat-widget-panel" id="chatWidgetPanel">
           <!-- Header -->
-          <div class="chat-widget-header">
+          <div class="chat-widget-header" id="chatWidgetHeader">
             <div class="chat-widget-header-title">
               <div class="chat-widget-header-icon">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
@@ -226,6 +226,87 @@ class ChatWidget {
                 this.toggleSettingsPanel(false);
             }
         });
+
+        this.setupDragging();
+    }
+
+    /**
+     * يسمح بسحب نافذة الشات بالماوس (أو باللمس على الموبايل) من أي مكان في
+     * الهيدر (ما عدا الأزرار نفسها: الإعدادات/تصغير/إغلاق) وتحريكها لأي
+     * مكان في الصفحة. آخر موضع بيتفظ ويتطبّق تاني لو العميل قفل وفتح
+     * الويدجت من غير ما يعمل ريفريش للصفحة.
+     */
+    setupDragging() {
+        const panel = document.getElementById('chatWidgetPanel');
+        const header = document.getElementById('chatWidgetHeader');
+        if (!panel || !header) return;
+
+        this.dragPosition = null; // { left, top } بالبكسل لو اتسحبت قبل كده
+        let dragging = false;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+
+        const isOnActionButton = (target) => !!target.closest('.chat-header-icon-btn');
+
+        const beginDrag = (clientX, clientY, target) => {
+            if (isOnActionButton(target)) return;
+            const rect = panel.getBoundingClientRect();
+            dragging = true;
+            startX = clientX;
+            startY = clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+
+            // نحوّل من التموضع الافتراضي (absolute جوه floating-chat-widget) إلى
+            // fixed بإحداثيات مطلقة على الشاشة عشان تقدر تتحرك لأي مكان بحرية
+            panel.style.position = 'fixed';
+            panel.style.left = `${startLeft}px`;
+            panel.style.top = `${startTop}px`;
+            panel.style.bottom = 'auto';
+            panel.style.right = 'auto';
+            panel.classList.add('dragging');
+        };
+
+        const moveDrag = (clientX, clientY) => {
+            if (!dragging) return;
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            const maxLeft = window.innerWidth - panel.offsetWidth - 8;
+            const maxTop = window.innerHeight - panel.offsetHeight - 8;
+            const newLeft = Math.min(Math.max(8, startLeft + deltaX), Math.max(8, maxLeft));
+            const newTop = Math.min(Math.max(8, startTop + deltaY), Math.max(8, maxTop));
+
+            panel.style.left = `${newLeft}px`;
+            panel.style.top = `${newTop}px`;
+            this.dragPosition = { left: newLeft, top: newTop };
+        };
+
+        const endDrag = () => {
+            if (!dragging) return;
+            dragging = false;
+            panel.classList.remove('dragging');
+        };
+
+        header.addEventListener('mousedown', (e) => {
+            beginDrag(e.clientX, e.clientY, e.target);
+            if (dragging) e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+        document.addEventListener('mouseup', endDrag);
+
+        header.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            beginDrag(touch.clientX, touch.clientY, e.target);
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+            if (!dragging) return;
+            const touch = e.touches[0];
+            moveDrag(touch.clientX, touch.clientY);
+        }, { passive: true });
+        document.addEventListener('touchend', endDrag);
     }
 
     /**
