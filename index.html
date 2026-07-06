@@ -19,7 +19,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============ Tokens ============ */
 :root{
@@ -36,8 +36,8 @@
   --success:#22C58B;
   --danger:#FF6B6B;
   --whatsapp:#25D366;
-  --mcp:#B98CFF;
-  --mcp-soft:#D9C4FF;
+  --mcp-color:#B45FE0;
+  --mcp-soft:#D9B3F5;
   --text-1:#F3F6FB;
   --text-2:#94A6C2;
   --text-3:#5A6A82;
@@ -49,7 +49,6 @@
   --font-display:'Cairo',sans-serif;
   --font-body:'IBM Plex Sans Arabic',sans-serif;
   --font-data:'Space Grotesk',sans-serif;
-  --font-mono:'JetBrains Mono',monospace;
   --container:1240px;
   --pad:clamp(1.25rem,4vw,3rem);
   /* real product surface (light UI, matches actual app) */
@@ -61,17 +60,21 @@
   --pill-green-bg:#DCFCE7;--pill-green-text:#16A34A;
   --pill-amber-bg:#FEF3C7;--pill-amber-text:#B45309;
   --pill-blue-bg:#DBEAFE;--pill-blue-text:#2563EB;
-  --pill-purple-bg:#F1E8FF;--pill-purple-text:#7C3AED;
+  --pill-purple-bg:#F3E8FF;--pill-purple-text:#9333EA;
   --pill-gray-bg:#EEF1F6;--pill-gray-text:#64748B;
-  /* terminal surface (dark, matches real MCP/CLI look regardless of theme) */
-  --term-bg:#0B0F17;
-  --term-border:#1E2A3D;
-  --term-ink:#D7E1EE;
-  --term-ink-2:#7C8CA6;
+  /* motion tokens */
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-fast:.18s;
+  --dur-med:.35s;
+  --dur-slow:.6s;
+  /* dark terminal surface for MCP chat mock */
+  --term-bg:#0B1220;
+  --term-card:#131C2E;
+  --term-border:#22304A;
+  --term-ink:#E7ECF7;
+  --term-ink-2:#8493AA;
   --term-green:#22C58B;
-  --term-blue:#4DA3FF;
-  --term-purple:#B98CFF;
-  --term-amber:#F5B942;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -84,7 +87,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-2;background:
     radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.22), transparent 60%),
     radial-gradient(50rem 35rem at -10% 20%, rgba(77,163,255,.12), transparent 55%),
     var(--bg-void);}
-body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
 a{color:inherit;text-decoration:none;}
 img{max-width:100%;display:block;}
 ul{list-style:none;}
@@ -94,21 +97,24 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 :focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
 .container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);}
 .eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.25rem;}
-.eyebrow.mcp-eyebrow{color:var(--mcp-soft);background:rgba(185,140,255,.12);border-color:rgba(185,140,255,.3);}
 .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
-.eyebrow.mcp-eyebrow .dot{background:var(--mcp);box-shadow:0 0 8px var(--mcp);}
+.eyebrow.mcp{color:var(--mcp-soft);background:rgba(180,95,224,.12);border-color:rgba(180,95,224,.3);}
+.eyebrow.mcp .dot{background:var(--mcp-color);box-shadow:0 0 8px var(--mcp-color);}
 .section{padding:clamp(4rem,9vw,7rem) 0;}
 .section-head{max-width:660px;margin:0 auto 3rem;text-align:center;}
 .section-head h2{font-size:clamp(1.75rem,3.6vw,2.6rem);margin-bottom:1rem;}
 .section-head p{color:var(--text-2);font-size:1.05rem;}
 .gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-.gradient-text.mcp-gradient{background:linear-gradient(90deg,var(--mcp-soft),var(--mcp),#8FC7FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.gradient-text.mcp{background:linear-gradient(90deg,var(--mcp-soft),var(--mcp-color),#8FC7FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 .glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;white-space:nowrap;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) var(--ease-snap), background var(--dur-fast) ease, border-color var(--dur-fast) ease;white-space:nowrap;position:relative;overflow:hidden;will-change:transform;}
+.btn:active{transform:translateY(1px) scale(.97);transition-duration:.08s;}
 .btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(0,119,204,.7);}
+.btn-primary::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,#fff,transparent);opacity:0;transition:opacity var(--dur-med) ease;pointer-events:none;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 20px 40px -10px rgba(0,119,204,.75);}
+.btn-primary:hover::after{opacity:.08;}
 .btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
-.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);transform:translateY(-2px);}
 .btn-sm{padding:.55rem 1.1rem;font-size:.82rem;border-radius:.6rem;}
 .btn-block{width:100%;}
 .reveal{opacity:0;transform:translateY(24px);transition:opacity .8s ease, transform .8s ease;}
@@ -119,14 +125,17 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
 .brand{display:flex;align-items:center;gap:.65rem;}
-.brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;}
+.brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;overflow:hidden;}
 .brand-mark svg{width:24px;height:24px;}
+.brand-mark img{width:100%;height:100%;object-fit:cover;}
 .brand-text{display:flex;flex-direction:column;line-height:1.15;}
 .brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1.05rem;}
 .brand-text small{font-size:.62rem;color:var(--text-2);font-weight:500;}
 .nav-links{display:flex;align-items:center;gap:2rem;}
-.nav-links a{font-size:.92rem;color:var(--text-2);font-weight:500;transition:color .2s;}
+.nav-links a{position:relative;font-size:.92rem;color:var(--text-2);font-weight:500;transition:color var(--dur-fast) ease;padding-bottom:.2rem;}
+.nav-links a::after{content:"";position:absolute;right:0;bottom:0;width:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-soft));border-radius:2px;transition:width var(--dur-med) var(--ease-snap);}
 .nav-links a:hover{color:var(--text-1);}
+.nav-links a:hover::after{width:100%;}
 .nav-cta{display:flex;align-items:center;gap:.75rem;}
 .nav-login{font-size:.9rem;font-weight:600;color:var(--text-2);}
 .nav-login:hover{color:var(--text-1);}
@@ -135,7 +144,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .mobile-menu{display:none;}
 @media (max-width:900px){
   .nav-links{display:none;} .nav-login{display:none;} .hamburger{display:flex;}
-  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;overflow-y:auto;}
+  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;}
   .mobile-menu.open{transform:translateY(0);}
   .mobile-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;}
   .mobile-menu a{display:block;padding:1rem 0;font-size:1.15rem;font-weight:600;border-bottom:1px solid var(--glass-border);}
@@ -144,13 +153,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 }
 
 /* ============ Theme toggle ============ */
-.theme-toggle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:background .2s ease, border-color .2s ease;}
-.theme-toggle:hover{border-color:var(--accent-soft);}
-.theme-toggle svg{width:18px;height:18px;}
+.theme-toggle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);}
+.theme-toggle:hover{border-color:var(--accent-soft);transform:rotate(-12deg) scale(1.06);}
+.theme-toggle:active{transform:scale(.92);}
+.theme-toggle svg{width:18px;height:18px;transition:transform var(--dur-slow) var(--ease-bounce), opacity var(--dur-med) ease;}
 .theme-toggle .sun-icon{display:block;}
 .theme-toggle .moon-icon{display:none;}
 [data-theme="light"] .theme-toggle .sun-icon{display:none;}
 [data-theme="light"] .theme-toggle .moon-icon{display:block;}
+.theme-toggle.spin svg{transform:rotate(180deg);}
 .mobile-theme-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--glass-border);font-size:1.15rem;font-weight:600;}
 
 /* ============ Circuit backdrop (identity motif) ============ */
@@ -166,7 +177,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .hero-copy h1{font-size:clamp(2rem,4.4vw,3.15rem);margin-bottom:1.4rem;}
 .problem-lines{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.6rem;}
 .problem-lines li{display:flex;align-items:flex-start;gap:.6rem;color:var(--text-2);font-size:1.02rem;}
-.problem-lines li svg{width:18px;height:18px;flex-shrink:0;margin-top:.25rem;stroke:var(--accent-soft);}
+.problem-lines svg{width:18px;height:18px;color:var(--accent-soft);flex-shrink:0;margin-top:.25rem;}
 .solution-line{font-family:var(--font-display);font-weight:800;font-size:clamp(1.2rem,2.4vw,1.6rem);margin-bottom:1.8rem;}
 .hero-actions{display:flex;gap:1rem;flex-wrap:wrap;}
 
@@ -179,8 +190,11 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .robot-core{position:relative;width:150px;height:150px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);animation:floaty 6s ease-in-out infinite;overflow:hidden;}
 @keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
 .robot-core svg{width:78px;height:78px;color:#fff;}
-.orbit-chip{position:absolute;display:flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);padding:.5rem .8rem;border-radius:99px;font-size:.75rem;font-weight:700;backdrop-filter:blur(10px);animation:chipFloat 4s ease-in-out infinite;}
-.orbit-chip svg{width:15px;height:15px;color:var(--accent-soft);}
+.robot-core img{width:100%;height:100%;object-fit:cover;}
+.orbit-chip{position:absolute;display:flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);padding:.5rem .8rem;border-radius:99px;font-size:.75rem;font-weight:700;backdrop-filter:blur(10px);animation:chipFloat 4s ease-in-out infinite;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease, background var(--dur-fast) ease;cursor:default;}
+.orbit-chip svg{width:15px;height:15px;color:var(--accent-soft);transition:transform var(--dur-med) var(--ease-bounce);}
+.orbit-chip:hover{animation-play-state:paused;transform:scale(1.12) translateY(-2px) !important;border-color:var(--accent-soft);background:rgba(77,163,255,.14);}
+.orbit-chip:hover svg{transform:rotate(-10deg) scale(1.15);}
 .chip-1{top:6%;right:4%;animation-delay:0s;}
 .chip-2{bottom:16%;right:-2%;animation-delay:.7s;}
 .chip-3{bottom:4%;left:14%;animation-delay:1.4s;}
@@ -192,8 +206,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .mission{padding:clamp(3rem,7vw,5rem) 0;}
 .mission-inner{max-width:920px;margin:0 auto;text-align:center;}
 .mission p{font-family:var(--font-display);font-weight:700;font-size:clamp(1.3rem,3vw,2rem);line-height:1.6;}
-.mission .not-line{display:inline-block;font-weight:600;font-size:clamp(1rem,2vw,1.2rem);margin-bottom:1rem;position:relative;background:linear-gradient(90deg,var(--accent-soft),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-.mission .not-line::after{content:"";position:absolute;inset-inline:0;top:50%;height:2px;background:var(--danger);border-radius:2px;}
+.mission .not-line{color:var(--text-2);font-weight:600;font-size:clamp(1rem,2vw,1.2rem);margin-bottom:1rem;text-decoration:line-through;text-decoration-color:var(--danger);text-decoration-thickness:2px;}
 
 /* ============ Journey (signature) ============ */
 .journey-section{position:relative;}
@@ -205,7 +218,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .journey-step{position:relative;padding:0 3.2rem 3rem 0;opacity:.35;transition:opacity .4s ease;}
 .journey-step.active{opacity:1;}
 .journey-step:last-child{padding-bottom:0;}
-.journey-dot{position:absolute;right:15px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;transition:border-color .4s, background .4s;z-index:2;}
+.journey-dot{position:absolute;right:15px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;transition:border-color .4s, background .4s, transform var(--dur-fast) var(--ease-bounce);z-index:2;cursor:default;}
+.journey-step:hover .journey-dot{transform:scale(1.2);}
 .journey-step.active .journey-dot{border-color:var(--accent-soft);background:var(--primary-deep);}
 .journey-dot svg{width:12px;height:12px;color:var(--text-3);transition:color .4s;}
 .journey-step.active .journey-dot svg{color:var(--accent-soft);}
@@ -218,13 +232,21 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .showcase-row.reverse .showcase-copy{order:2;}
 .showcase-row + .showcase-row{margin-top:clamp(4rem,8vw,6rem);}
 .showcase-copy .num{font-family:var(--font-data);color:var(--accent-soft);font-weight:700;font-size:.85rem;margin-bottom:.6rem;display:block;}
+.showcase-copy .num.mcp{color:var(--mcp-soft);}
 .showcase-copy h3{font-size:clamp(1.4rem,2.6vw,1.9rem);margin-bottom:1rem;}
 .showcase-copy p{color:var(--text-2);font-size:1rem;margin-bottom:.9rem;}
 .showcase-copy p strong{color:var(--text-1);}
+.mcp-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem;}
+.mcp-tag{display:inline-flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);color:var(--text-2);font-size:.78rem;font-weight:600;padding:.4rem .75rem;border-radius:99px;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease, background var(--dur-fast) ease, color var(--dur-fast) ease;cursor:default;}
+.mcp-tag svg{width:13px;height:13px;color:var(--mcp-soft);transition:transform var(--dur-med) var(--ease-bounce);}
+.mcp-tag:hover{transform:translateY(-3px);border-color:var(--mcp-soft);background:rgba(180,95,224,.1);color:var(--text-1);}
+.mcp-tag:hover svg{transform:scale(1.2) rotate(-8deg);}
 @media (max-width:900px){.showcase-row, .showcase-row.reverse{grid-template-columns:1fr;}.showcase-row.reverse .showcase-copy{order:0;}}
 
-.frame-wrap{position:relative;}
-.product-frame{border-radius:1.1rem;overflow:hidden;background:var(--ui-card);box-shadow:var(--shadow-lg);border:1px solid var(--glass-border);}
+.frame-wrap{position:relative;perspective:1400px;}
+.product-frame{border-radius:1.1rem;overflow:hidden;background:var(--ui-card);box-shadow:var(--shadow-lg);border:1px solid var(--glass-border);transition:transform var(--dur-med) var(--ease-snap), box-shadow var(--dur-med) ease;transform-style:preserve-3d;will-change:transform;}
+.product-frame.tilt-active{transition:none;}
+.frame-wrap:hover .product-frame{box-shadow:0 40px 90px -25px rgba(0,8,25,.8);}
 .frame-topbar{background:linear-gradient(90deg,#0A1B3D,#122a5e);display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;gap:.5rem;}
 .frame-icons{display:flex;align-items:center;gap:.4rem;}
 .frame-icons .ic{width:26px;height:26px;border-radius:.5rem;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
@@ -232,6 +254,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .frame-icons .ic .badge{position:absolute;top:-4px;left:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;font-size:.5rem;color:#fff;display:flex;align-items:center;justify-content:center;}
 .frame-pill{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.62rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;display:flex;align-items:center;gap:.3rem;flex-shrink:0;}
 .frame-pill svg{width:10px;height:10px;}
+.frame-pill.mcp{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));}
 .frame-brand{display:flex;align-items:center;gap:.4rem;}
 .frame-brand-mark{width:20px;height:20px;border-radius:.4rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;}
 .frame-brand-mark svg{width:12px;height:12px;color:#fff;}
@@ -240,8 +263,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 
 /* dashboard mini-grid */
 .ui-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;}
-.ui-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.7rem;}
-.ui-card .ic-badge{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;}
+.ui-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.7rem;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) ease;}
+.ui-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px -10px rgba(16,27,46,.18);}
+.ui-card:hover .ic-badge{transform:scale(1.1) rotate(-6deg);}
+.ui-card .ic-badge{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;transition:transform var(--dur-med) var(--ease-bounce);}
 .ui-card .ic-badge svg{width:13px;height:13px;color:#fff;}
 .ui-card h5{font-size:.72rem;font-weight:700;margin-bottom:.15rem;color:var(--ui-ink);}
 .ui-card small{font-size:.6rem;color:var(--ui-ink-2);}
@@ -262,12 +287,14 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .ui-stat-chip b{display:block;font-family:var(--font-data);font-size:.85rem;}
 .ui-stat-chip span{font-size:.55rem;color:var(--ui-ink-2);}
 .ticket-list-mini{display:flex;flex-direction:column;gap:.4rem;}
-.ticket-row{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;font-size:.62rem;}
+.ticket-row{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;font-size:.62rem;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.ticket-row:hover{transform:translateX(-3px);border-color:var(--accent-soft);}
 .ticket-row.active{border-color:var(--accent-soft);box-shadow:0 0 0 2px rgba(77,163,255,.15);}
 .ticket-row .status{display:inline-block;font-size:.52rem;font-weight:700;padding:.1rem .4rem;border-radius:99px;margin-bottom:.25rem;}
 .status.open{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
 .status.progress{background:var(--pill-amber-bg);color:var(--pill-amber-text);}
 .status.closed{background:var(--pill-green-bg);color:var(--pill-green-text);}
+.status.purple{background:var(--pill-purple-bg);color:var(--pill-purple-text);}
 .ticket-detail{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.7rem;display:flex;flex-direction:column;gap:.4rem;}
 .ticket-detail .msg-bubble{background:var(--ui-bg);border-radius:.5rem;padding:.5rem .6rem;font-size:.6rem;color:var(--ui-ink-2);}
 .morph-arrow{display:flex;align-items:center;justify-content:center;color:var(--accent-soft);}
@@ -285,7 +312,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .chat-tag.agent{background:var(--pill-green-bg);color:var(--pill-green-text);animation:tagSwap 5s ease-in-out infinite;}
 @keyframes tagSwap{0%,60%,100%{opacity:0;transform:translateY(4px);}70%,95%{opacity:1;transform:translateY(0);}}
 .convo-list-mini{display:flex;flex-direction:column;gap:.35rem;}
-.convo-row{display:flex;align-items:center;gap:.4rem;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;}
+.convo-row{display:flex;align-items:center;gap:.4rem;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.convo-row:hover{transform:translateX(-3px);border-color:var(--accent-soft);}
+.convo-row:hover .convo-avatar{transform:scale(1.12);}
+.convo-avatar{transition:transform var(--dur-med) var(--ease-bounce);}
 .convo-avatar{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.5rem;font-weight:700;color:#fff;flex-shrink:0;}
 .convo-row .meta{font-size:.58rem;color:var(--ui-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .convo-row strong{display:block;font-size:.62rem;color:var(--ui-ink);}
@@ -312,53 +342,48 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .ui-subdomain-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
 .ui-subdomain-header .btn-mini{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.58rem;font-weight:700;padding:.3rem .6rem;border-radius:.4rem;}
 .domain-table{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;overflow:hidden;}
-.domain-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:.4rem;align-items:center;padding:.55rem .7rem;font-size:.6rem;border-bottom:1px solid var(--ui-border);}
+.domain-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:.4rem;align-items:center;padding:.55rem .7rem;font-size:.6rem;border-bottom:1px solid var(--ui-border);transition:background var(--dur-fast) ease;}
+.domain-row:hover{background:rgba(0,119,204,.04);}
 .domain-row:last-child{border-bottom:none;}
 .domain-row .url{font-family:var(--font-data);color:var(--pill-blue-text);font-weight:600;}
 .domain-row .sub{display:block;color:var(--ui-ink-2);font-size:.54rem;}
 
-/* ============ MCP terminal recreation (section 06) ============ */
-.mcp-frame{border-radius:1.1rem;overflow:hidden;background:var(--term-bg);box-shadow:var(--shadow-lg);border:1px solid var(--term-border);}
-.mcp-topbar{background:#0F1522;display:flex;align-items:center;justify-content:space-between;padding:.6rem .9rem;border-bottom:1px solid var(--term-border);}
-.mcp-dots{display:flex;gap:.4rem;}
-.mcp-dots span{width:9px;height:9px;border-radius:50%;display:block;}
-.mcp-dots span:nth-child(1){background:#FF5F57;}
-.mcp-dots span:nth-child(2){background:#FEBC2E;}
-.mcp-dots span:nth-child(3){background:#28C840;}
-.mcp-title{font-family:var(--font-mono);font-size:.68rem;color:var(--term-ink-2);display:flex;align-items:center;gap:.4rem;}
-.mcp-title svg{width:12px;height:12px;color:var(--term-purple);}
-.mcp-body{padding:1rem 1.1rem 1.2rem;font-family:var(--font-mono);font-size:.72rem;line-height:1.85;color:var(--term-ink);direction:ltr;text-align:left;max-height:420px;overflow-y:auto;}
-.mcp-body::-webkit-scrollbar{width:6px;}
-.mcp-body::-webkit-scrollbar-thumb{background:var(--term-border);border-radius:3px;}
-.mcp-line{margin-bottom:.55rem;white-space:pre-wrap;word-break:break-word;}
-.mcp-prompt{color:var(--term-blue);font-weight:600;}
-.mcp-comment{color:var(--term-ink-2);}
-.mcp-user{color:#fff;background:rgba(77,163,255,.12);border:1px solid rgba(77,163,255,.25);padding:.5rem .7rem;border-radius:.5rem;margin-bottom:.7rem;display:block;}
-.mcp-tool{display:inline-flex;align-items:center;gap:.4rem;background:rgba(185,140,255,.12);border:1px solid rgba(185,140,255,.3);color:var(--term-purple);padding:.3rem .6rem;border-radius:.4rem;font-size:.68rem;font-weight:600;margin-bottom:.4rem;}
-.mcp-tool svg{width:11px;height:11px;}
-.mcp-cmd{background:#050810;border:1px solid var(--term-border);border-radius:.5rem;padding:.5rem .7rem;margin-bottom:.7rem;color:#B9F5D0;}
-.mcp-result{display:flex;align-items:flex-start;gap:.4rem;color:var(--term-green);font-weight:600;margin-bottom:.7rem;}
-.mcp-result svg{width:13px;height:13px;flex-shrink:0;margin-top:.15rem;}
-.mcp-json{background:#050810;border:1px solid var(--term-border);border-radius:.5rem;padding:.6rem .7rem;margin-bottom:.9rem;color:var(--term-ink-2);}
-.mcp-json b{color:var(--term-ink);font-weight:600;}
-.mcp-divider{border:none;border-top:1px dashed var(--term-border);margin:.8rem 0;}
+/* ===== MCP terminal-chat mock (dark, matches screenshot) ===== */
+.mcp-frame{border-radius:1.1rem;overflow:hidden;background:var(--term-bg);box-shadow:var(--shadow-lg);border:1px solid var(--term-border);transition:transform var(--dur-med) var(--ease-snap), box-shadow var(--dur-med) ease;transform-style:preserve-3d;will-change:transform;}
+.mcp-frame.tilt-active{transition:none;}
+.frame-wrap:hover .mcp-frame{box-shadow:0 40px 90px -25px rgba(0,8,25,.85);}
+.mcp-frame .frame-topbar{background:linear-gradient(90deg,#0A1220,#101B30);}
+.mcp-body{background:var(--term-bg);padding:.85rem;color:var(--term-ink);display:flex;flex-direction:column;gap:.55rem;min-height:300px;}
+.mcp-msg-row{display:flex;flex-direction:column;gap:.3rem;}
+.mcp-author{font-size:.66rem;font-weight:700;color:var(--term-green);}
+.mcp-bubble{background:var(--term-card);border:1px solid var(--term-border);border-radius:.6rem;padding:.55rem .7rem;font-size:.62rem;color:var(--term-ink-2);line-height:1.6;}
+.mcp-bubble strong{color:var(--term-ink);}
+.mcp-bubble ol,.mcp-bubble ul{margin:.3rem 0 0;padding-inline-start:1.1rem;}
+.mcp-bubble li{margin-bottom:.15rem;}
+.mcp-code{background:#0E1626;border:1px solid var(--term-border);border-radius:.4rem;padding:.35rem .55rem;font-family:var(--font-data);font-size:.6rem;color:var(--mcp-soft);display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-top:.3rem;}
+.mcp-code svg{width:12px;height:12px;color:var(--term-ink-2);flex-shrink:0;}
+.mcp-check{display:inline-flex;align-items:center;gap:.3rem;color:var(--term-green);font-weight:700;}
+.mcp-check svg{width:11px;height:11px;}
+.mcp-step-badge{position:absolute;bottom:-14px;inset-inline:0;display:flex;justify-content:center;z-index:5;}
+.mcp-step-pill{display:inline-flex;align-items:center;gap:.5rem;background:var(--mcp-color);color:#fff;font-size:.78rem;font-weight:700;padding:.5rem 1rem;border-radius:99px;box-shadow:0 10px 24px -8px rgba(180,95,224,.6);}
+.mcp-step-num{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:.7rem;}
 
-.mcp-tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:1.5rem;}
-.mcp-tool-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1rem 1.1rem;}
-.mcp-tool-card .n{font-family:var(--font-data);color:var(--mcp-soft);font-weight:700;font-size:.75rem;margin-bottom:.4rem;}
-.mcp-tool-card code{display:block;font-family:var(--font-mono);font-size:.82rem;color:var(--text-1);margin-bottom:.35rem;}
-.mcp-tool-card p{font-size:.8rem;color:var(--text-2);margin:0;}
-@media (max-width:900px){.mcp-tools-grid{grid-template-columns:1fr 1fr;}}
-@media (max-width:560px){.mcp-tools-grid{grid-template-columns:1fr;}}
-
-.mcp-badge-row{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.2rem 0 1.6rem;}
-.mcp-badge-row .mb{display:inline-flex;align-items:center;gap:.4rem;background:var(--glass);border:1px solid var(--glass-border);padding:.45rem .8rem;border-radius:99px;font-size:.78rem;font-weight:600;color:var(--text-2);}
-.mcp-badge-row .mb svg{width:14px;height:14px;color:var(--mcp-soft);}
+/* MCP mini-steps strip under the mock */
+.mcp-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-top:2.5rem;}
+.mcp-flow-step{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1rem .9rem;text-align:center;position:relative;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease;}
+.mcp-flow-step:hover{transform:translateY(-6px);border-color:rgba(180,95,224,.4);}
+.mcp-flow-step:hover .fnum{transform:scale(1.15) rotate(-8deg);}
+.mcp-flow-step .fnum{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto .6rem;transition:transform var(--dur-med) var(--ease-bounce);}
+.mcp-flow-step h5{font-size:.8rem;margin-bottom:.3rem;color:var(--text-1);}
+.mcp-flow-step p{font-size:.72rem;color:var(--text-3);line-height:1.5;}
+.mcp-flow-arrow{display:none;position:absolute;top:13px;left:-1.1rem;color:var(--text-3);}
+@media (min-width:701px){.mcp-flow-step:not(:first-child) .mcp-flow-arrow{display:block;}}
+@media (max-width:700px){.mcp-flow{grid-template-columns:1fr;}}
 
 /* callouts */
 .callout{position:absolute;background:rgba(6,11,20,.92);border:1px solid var(--glass-border);color:var(--text-1);font-size:.72rem;font-weight:600;padding:.45rem .8rem;border-radius:.6rem;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.4rem;z-index:4;}
 .callout svg{width:13px;height:13px;color:var(--accent-soft);flex-shrink:0;}
-.callout.mcp-callout svg{color:var(--mcp-soft);}
+.callout.mcp svg{color:var(--mcp-soft);}
 .callout::after{content:"";position:absolute;width:9px;height:9px;background:inherit;border-inline-end:1px solid var(--glass-border);border-block-end:1px solid var(--glass-border);}
 @media (max-width:1050px){.callout{display:none;}}
 
@@ -384,12 +409,18 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .billing-toggle-wrap{display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:.75rem;flex-wrap:wrap;}
 .billing-toggle-label{font-size:.9rem;color:var(--text-2);font-weight:600;}
 .billing-toggle{display:inline-flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:99px;padding:.25rem;gap:.25rem;}
-.billing-toggle button{border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:.85rem;padding:.5rem 1.1rem;border-radius:99px;cursor:pointer;transition:background .2s ease,color .2s ease;}
+.billing-toggle button{border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:.85rem;padding:.5rem 1.1rem;border-radius:99px;cursor:pointer;transition:background var(--dur-fast) ease,color var(--dur-fast) ease,transform var(--dur-fast) var(--ease-snap);}
+.billing-toggle button:not(.active):hover{color:var(--text-1);transform:translateY(-1px);}
 .billing-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;}
+.billing-toggle button:active{transform:scale(.95);}
 .launch-offer-banner{text-align:center;color:var(--text-3);font-size:.82rem;margin-bottom:2.25rem;}
 .plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;align-items:stretch;}
-.plan-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:1.75rem 1.5rem;display:flex;flex-direction:column;position:relative;}
+.plan-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:1.75rem 1.5rem;display:flex;flex-direction:column;position:relative;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease, box-shadow var(--dur-med) ease;}
+.plan-card:hover{transform:translateY(-8px);border-color:rgba(77,163,255,.4);box-shadow:0 30px 60px -25px rgba(0,20,50,.5);}
 .plan-card.featured{border-color:rgba(77,163,255,.5);background:linear-gradient(160deg, rgba(0,119,204,.14), rgba(255,255,255,.03));box-shadow:var(--shadow-glow);}
+.plan-card.featured:hover{transform:translateY(-10px) scale(1.015);box-shadow:0 0 90px -10px rgba(0,119,204,.45);}
+.plan-card li{transition:transform var(--dur-fast) ease, color var(--dur-fast) ease;}
+.plan-card:hover li{transform:translateX(-2px);}
 .plan-ribbon{position:absolute;top:-13px;right:1.5rem;background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.68rem;font-weight:700;padding:.3rem .8rem;border-radius:99px;}
 .plan-card h3{font-size:1.1rem;margin-bottom:.3rem;}
 .plan-card .plan-desc{color:var(--text-3);font-size:.82rem;margin-bottom:1.25rem;}
@@ -412,27 +443,32 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .plan-comparison{margin-top:4rem;overflow-x:auto;}
 .plan-comparison h3{text-align:center;font-size:1.3rem;margin-bottom:1.75rem;}
 .plan-comparison table{width:100%;border-collapse:collapse;min-width:640px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;}
-.plan-comparison th,.plan-comparison td{padding:.85rem 1rem;text-align:center;font-size:.85rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);}
+.plan-comparison th,.plan-comparison td{padding:.85rem 1rem;text-align:center;font-size:.85rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);transition:background var(--dur-fast) ease;}
+.plan-comparison tbody tr:hover td{background:rgba(0,119,204,.05);}
 .plan-comparison th{color:var(--text-1);font-weight:700;background:var(--glass-strong);}
 .plan-comparison td:first-child,.plan-comparison th:first-child{text-align:right;color:var(--text-1);font-weight:600;}
 .plan-comparison tr:last-child td{border-bottom:none;}
 .plan-comparison .yes{color:var(--success);font-weight:700;}
 .plan-comparison .no{color:var(--text-3);}
 
+/* ============ FAQ ============ */
+.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:.75rem;}
+.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:.3rem .3rem;overflow:hidden;transition:border-color var(--dur-fast) ease;}
+.faq-item:hover{border-color:rgba(77,163,255,.3);}
+.faq-item summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;cursor:pointer;font-weight:700;font-size:.98rem;transition:color var(--dur-fast) ease;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item:hover summary{color:var(--accent-soft);}
+.faq-item .chev svg{width:18px;height:18px;color:var(--text-2);transition:transform var(--dur-med) var(--ease-snap);}
+.faq-item[open] .chev svg{transform:rotate(180deg);}
+.faq-body-inner{padding:0 1.1rem 1.1rem;color:var(--text-2);font-size:.92rem;line-height:1.8;}
+.faq-body{display:grid !important;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--dur-med) var(--ease-snap), opacity var(--dur-fast) ease;}
+.faq-body > div{overflow:hidden;}
+.faq-item[open] .faq-body{grid-template-rows:1fr;opacity:1;}
+
 /* ============ Final CTA ============ */
 .final-cta{border-radius:var(--radius-lg);padding:clamp(2.5rem,6vw,4.5rem);text-align:center;background:linear-gradient(135deg, var(--primary-deep), var(--bg-void) 60%), radial-gradient(50rem 20rem at 50% 0%, rgba(0,119,204,.4), transparent 70%);border:1px solid var(--glass-border);position:relative;overflow:hidden;}
 .final-cta h2{font-size:clamp(1.8rem,4vw,2.7rem);margin-bottom:1rem;}
 .final-cta p{color:var(--text-2);max-width:520px;margin:0 auto 2rem;font-size:1.05rem;}
-
-/* ============ FAQ ============ */
-.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:.75rem;}
-.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:.3rem 1.25rem;}
-.faq-item summary{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 0;font-weight:700;font-size:1rem;cursor:pointer;list-style:none;color:var(--text-1);}
-.faq-item summary::-webkit-details-marker{display:none;}
-.faq-item .chev{display:flex;color:var(--text-2);transition:transform .25s ease;}
-.faq-item .chev svg{width:18px;height:18px;}
-.faq-item[open] .chev{transform:rotate(180deg);}
-.faq-body{padding:0 0 1.2rem;color:var(--text-2);font-size:.92rem;line-height:1.8;}
 
 /* ============ Footer ============ */
 footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:var(--bg-surface);}
@@ -447,10 +483,12 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 
 /* ============ Floating robot helper ============ */
 .robot-helper{position:fixed;bottom:1.5rem;left:1.5rem;z-index:150;}
-.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;}
+.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;overflow:hidden;transition:transform var(--dur-fast) var(--ease-bounce);}
+.robot-helper-btn:hover{transform:scale(1.1) rotate(-6deg);animation-play-state:paused;}
+.robot-helper-btn:active{transform:scale(.94);}
 .robot-helper-btn svg{width:28px;height:28px;color:#fff;}
-.robot-bubble{position:absolute;bottom:70px;left:0;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(14px);padding:1rem 1.2rem;border-radius:1rem;width:230px;font-size:.85rem;color:var(--text-1);display:none;box-shadow:var(--shadow-lg);}
-.robot-bubble.open{display:block;}
+.robot-bubble{position:absolute;bottom:70px;left:0;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(14px);padding:1rem 1.2rem;border-radius:1rem;width:230px;font-size:.85rem;color:var(--text-1);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(10px) scale(.94);transform-origin:bottom left;pointer-events:none;visibility:hidden;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce), visibility 0s var(--dur-med);}
+.robot-bubble.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;visibility:visible;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce);}
 .robot-bubble strong{display:block;margin-bottom:.3rem;color:var(--accent-soft);}
 @media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}}
 
@@ -478,6 +516,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   --btn-outline-bg:rgba(16,27,46,.035);
   --dot-color:rgba(16,27,46,.05);
 }
+body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);}
 </style>
 </head>
 <body>
@@ -497,14 +536,20 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   <ellipse cx="41" cy="38" rx="4.2" ry="5.2" fill="#fff"/>
   <path d="M22 47q10 8 20 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
 </symbol>
+<symbol id="icon-mcp-plug" viewBox="0 0 24 24">
+  <path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</symbol>
 </defs>
 </svg>
+
+<!-- ============ Scroll progress ============ -->
+<div id="scrollProgress" style="position:fixed;top:0;right:0;left:0;height:3px;z-index:300;background:linear-gradient(90deg,var(--accent),var(--accent-soft));transform-origin:right;transform:scaleX(0);transition:transform .08s linear;"></div>
 
 <!-- ============ Navbar ============ -->
 <nav class="navbar" id="navbar">
   <div class="container nav-inner">
     <a href="#" class="brand">
-      <span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span>
+      <span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span>
       <span class="brand-text"><strong>مدعوم</strong><small>منصة الدعم الفني الذكي</small></span>
     </a>
     <div class="nav-links">
@@ -517,8 +562,8 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
     </div>
     <div class="nav-cta">
       <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
-        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
       </button>
       <a href="login.html" class="nav-login">حسابي</a>
       <a href="#" class="btn btn-primary btn-sm">ابدأ مجاناً</a>
@@ -529,7 +574,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 
 <div class="mobile-menu" id="mobileMenu">
   <div class="mobile-menu-top">
-    <a href="#" class="brand"><span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span><span class="brand-text"><strong>مدعوم</strong></span></a>
+    <a href="#" class="brand"><span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span><span class="brand-text"><strong>مدعوم</strong></span></a>
     <button class="close-btn" id="closeMenuBtn" aria-label="إغلاق القائمة">✕</button>
   </div>
   <a href="#journey">الرحلة</a>
@@ -542,8 +587,8 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   <div class="mobile-theme-row">
     <span>الوضع الليلي/النهاري</span>
     <button class="theme-toggle" id="themeToggleBtnMobile" aria-label="تبديل الوضع الليلي/النهاري">
-      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
     </button>
   </div>
   <a href="#" class="btn btn-primary btn-block">ابدأ مجاناً</a>
@@ -554,9 +599,9 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   <div class="container hero-grid">
     <div class="hero-copy reveal">
       <ul class="problem-lines">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يقضي فريق الدعم ساعات كل يوم في الرد على نفس الأسئلة؟</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يضيع الموظف وقتاً في جمع بيانات المشكلة قبل أن يبدأ الحل؟</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين واتساب والبريد والتذاكر؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يقضي فريق الدعم ساعات كل يوم في الرد على نفس الأسئلة؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يضيع الموظف وقتاً في جمع بيانات المشكلة قبل أن يبدأ الحل؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين واتساب والبريد والتذاكر؟</li>
       </ul>
       <h1>مدعوم <span class="gradient-text">يحل هذه المشكلة</span></h1>
       <p class="solution-line" style="font-family:var(--font-body);font-weight:400;color:var(--text-2);font-size:1.05rem;">نظام عربي واحد يستقبل عملاءك، يفهم مشاكلهم، وينظّم عمل فريقك تلقائياً — قبل أن تصل المشكلة لموظف الدعم أصلاً.</p>
@@ -570,11 +615,11 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
       <div class="robot-halo"></div>
       <div class="robot-ring"></div>
       <div class="robot-ring r2"></div>
-      <div class="robot-core"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></div>
-      <div class="orbit-chip chip-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> محادثة</div>
-      <div class="orbit-chip chip-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> تذكرة</div>
-      <div class="orbit-chip chip-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> واتساب</div>
-      <div class="orbit-chip chip-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg> بريد</div>
+      <div class="robot-core"><img src="/logo.png" alt="مدعوم"></div>
+      <div class="orbit-chip chip-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> محادثة</div>
+      <div class="orbit-chip chip-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> تذكرة</div>
+      <div class="orbit-chip chip-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> واتساب</div>
+      <div class="orbit-chip chip-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg> بريد</div>
     </div>
   </div>
 </header>
@@ -828,7 +873,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
     <div class="showcase-row reveal">
       <div class="showcase-copy">
         <span class="num">05 — النطاقات الفرعية</span>
-        <h3 style="display:flex;align-items:center;gap:.6rem;">منصة دعم خاصة، باسمك أنت <span class="eyebrow" style="margin:0;">Premium</span></h3>
+        <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">منصة دعم خاصة، باسمك أنت <span class="eyebrow" style="margin:0;">Premium</span></h3>
         <p>في الباقة الاحترافية، تحصل شركتك على نطاقها الخاص — مثل <strong>company.mad3oom.online</strong> — وتديرين من خلاله عملاءك، تذاكرك، فريق الدعم، وقاعدة المعرفة، وكأنها منصتك المستقلة بالكامل.</p>
         <p>لا يشعر عملاؤك أبداً أنهم يتعاملون مع أداة خارجية.</p>
       </div>
@@ -862,61 +907,127 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
       </div>
     </div>
 
-    <!-- Section 6: MCP support (new) -->
-    <div class="showcase-row reverse reveal" id="mcp">
+    <!-- Section 6: MCP Support (NEW) -->
+    <div class="showcase-row reverse reveal" id="mcp-showcase-inline">
       <div class="showcase-copy">
-        <span class="num">06 — دعم MCP</span>
-        <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">وصّل مدعوم بأي وكيل ذكاء اصطناعي <span class="eyebrow mcp-eyebrow" style="margin:0;">جديد</span></h3>
-        <p>مدعوم يتحدث بروتوكول <strong>MCP</strong> (Model Context Protocol) — يعني أي وكيل ذكاء اصطناعي يقدر يتصل مباشرة بمنصتك وينفّذ عمليات حقيقية: ينشئ تذكرة، يعدّلها، يجلب بيانات عميل، أو يرسل رسالة واتساب، من غير ما يفتح حد لوحة التحكم يدوياً.</p>
-        <p>في المثال المجاور، محادثة تيليجرام حقيقية مع بوت مدعوم تنفّذ <strong>create_ticket</strong> عبر MCP، وتتأكد من نجاح العملية بأمر <strong>get_ticket</strong> — والتذكرة تظهر فوراً في لوحة التحكم.</p>
-        <div class="mcp-badge-row">
-          <span class="mb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> 9 أدوات جاهزة الآن</span>
-          <span class="mb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg> يعمل مع أي عميل MCP</span>
-          <span class="mb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> صلاحيات Bearer Token</span>
+        <span class="num mcp">06 — دعم MCP</span>
+        <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">تحدّث مع منصتك بلغتك، وهي تنفّذ فعلياً <span class="eyebrow mcp" style="margin:0;">جديد</span></h3>
+        <p>مدعوم يدعم <strong>Model Context Protocol (MCP)</strong> — بروتوكول يتيح لأي مساعد ذكي متصل (مثل Claude) أن ينشئ تذاكر، يجلب بياناتها، ويحدّث حالتها مباشرة داخل منصتك، بأوامر عربية عادية بدل التنقل بين الشاشات.</p>
+        <p>كل ما يحدث يبقى <strong>محكوماً بصلاحياتك</strong> ومسجلاً في سجل النشاط، فلا تفقد الرقابة على ما يجري.</p>
+        <div class="mcp-tags">
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> إنشاء وتحديث التذاكر</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> جلب بيانات العملاء</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> إرسال رسائل واتساب</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg> إحصائيات فورية</span>
         </div>
       </div>
       <div class="frame-wrap">
-        <div class="callout mcp-callout" style="top:-6%;left:4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إنشاء تذكرة عبر MCP مباشرة</div>
-        <div class="callout mcp-callout" style="bottom:-5%;right:2%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تظهر فوراً في لوحة التحكم</div>
+        <div class="callout mcp" style="top:-8%;right:4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> 9 أدوات MCP مفعّلة الآن</div>
         <div class="mcp-frame">
-          <div class="mcp-topbar">
-            <div class="mcp-dots"><span></span><span></span><span></span></div>
-            <div class="mcp-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg> mad3oom-mcp · بوت مدعوم</div>
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-mcp-plug"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+              <span class="frame-pill mcp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><use href="#icon-mcp-plug"/></svg>MCP متصل</span>
+            </div>
+            <div class="frame-brand"><span>بوت مدعوم</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
           </div>
           <div class="mcp-body">
-            <span class="mcp-user">أنشئ تذكرة دعم بعنوان "تجربة باستخدام hermes mcp" باستخدام صلاحيات Bearer Token بدل التوكن الطويل كله بسنتاكس heredoc.</span>
+            <div class="mcp-msg-row">
+              <div class="mcp-bubble"><strong>الأدوات المتاحة الآن من منصة مدعوم (9/9 مفعّلة):</strong>
+                <ol>
+                  <li><strong>create_ticket</strong> — إنشاء تذكرة دعم جديدة</li>
+                  <li><strong>update_ticket</strong> — تعديل تذكرة موجودة</li>
+                  <li><strong>get_ticket</strong> — جلب تفاصيل تذكرة</li>
+                  <li><strong>get_dashboard_stats</strong> — إحصائيات لوحة التحكم</li>
+                  <li><strong>send_whatsapp</strong> — إرسال رسالة واتساب</li>
+                </ol>
+              </div>
+            </div>
+            <div class="mcp-msg-row">
+              <span class="mcp-author">Mahmoud Abdelwahab</span>
+              <div class="mcp-bubble">أنشئ تذكرة دعم جديدة — العنوان: تجربة باستخدام hermes mcp</div>
+            </div>
+            <div class="mcp-msg-row">
+              <div class="mcp-bubble">
+                <span class="mcp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> تم إنشاء التذكرة بنجاح على منصة مدعوم</span>
+                <div class="mcp-code"><span>رقم التذكرة #0032 · الأولوية: متوسطة · الحالة: open</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:14px;"></div>
+        </div>
+        <div class="mcp-step-badge"><span class="mcp-step-pill"><span class="mcp-step-num">✓</span> تذكرة أُنشئت من محادثة نصية مباشرة</span></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-            <div class="mcp-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> create_ticket</div>
-            <div class="mcp-cmd">cd ~/mad3oom.online && BEARER=$(grep ... /tmp/mcp_create_ticket3.json)</div>
+<!-- ============ MCP dedicated section ============ -->
+<section class="section" id="mcp">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow mcp"><span class="dot"></span> دعم MCP</div>
+      <h2><span class="gradient-text mcp">منصتك، لكن يمكن التحدث معها الآن</span></h2>
+      <p>مدعوم يوفّر خادم MCP جاهزاً يربط لوحة تحكمك بأي مساعد ذكي يدعم البروتوكول — فتتحول الأوامر النصية العادية إلى إجراءات فعلية داخل حسابك.</p>
+    </div>
 
-            <div class="mcp-result"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> تم إنشاء التذكرة بنجاح على منصة مدعوم</div>
+    <div class="mcp-flow reveal">
+      <div class="mcp-flow-step">
+        <div class="fnum">1</div>
+        <h5>اسأل عن الأدوات المتاحة</h5>
+        <p>تطلب من المساعد عرض كل الأدوات المفعّلة على حسابك في مدعوم — بدون فتح أي شاشة.</p>
+      </div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">2</div>
+        <h5>اطلب الإجراء بجملة عادية</h5>
+        <p>"أنشئ تذكرة دعم جديدة بعنوان..." — المساعد يستدعي أداة create_ticket تلقائياً بنفس صلاحيات حسابك.</p>
+      </div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">3</div>
+        <h5>مدعوم ينفّذ ويؤكد</h5>
+        <p>التذكرة تُنشأ فعلياً على المنصة، ويصلك رقمها وحالتها وأولويتها في نفس الرد.</p>
+      </div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">4</div>
+        <h5>تظهر في لوحتك فوراً</h5>
+        <p>تفتح لوحة تحكم مدعوم فتجد التذكرة موجودة بكل تفاصيلها، جاهزة لمتابعة فريق الدعم.</p>
+      </div>
+    </div>
 
-            <span class="mcp-line mcp-comment">هل تحب أن تتأكد منها داخل لوحة تحكم مدعوم؟ أو نكمل بتجربة أدوات مباشرة؟</span>
-
-            <hr class="mcp-divider">
-
-            <div class="mcp-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> get_ticket</div>
-            <div class="mcp-cmd">get_ticket [مخفي]</div>
-            <div class="mcp-result"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> تم جلب التذكرة بنجاح</div>
-            <div class="mcp-json"><b>العنوان:</b> تجربة باستخدام hermes mcp<br><b>الحالة:</b> open · <b>الأولوية:</b> medium<br><b>النوع:</b> تجربة إنشاء هذه الصفحة عبر hermes agent</div>
-
-            <span class="mcp-line mcp-comment">عايز تعدل عليها أو نعمل إجراء تاني؟</span>
+    <div class="section-head reveal" style="margin-top:4rem;margin-bottom:1.5rem;">
+      <div class="eyebrow mcp"><span class="dot"></span> مثال حقيقي</div>
+      <h2 style="font-size:clamp(1.4rem,2.8vw,2rem);">من محادثة نصية، إلى تذكرة في لوحة التحكم</h2>
+    </div>
+    <div class="frame-wrap reveal" style="max-width:900px;margin:0 auto;">
+      <div class="mcp-frame">
+        <div class="frame-topbar">
+          <div class="frame-icons">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-mcp-plug"/></svg></span>
+          </div>
+          <div class="frame-brand"><span>بوت مدعوم — جلسة MCP</span><span class="frame-brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span></div>
+        </div>
+        <div class="mcp-body" style="min-height:auto;">
+          <div class="mcp-msg-row">
+            <span class="mcp-author">Mahmoud Abdelwahab</span>
+            <div class="mcp-bubble">جلب تفاصيل التذكرة get_ticket [مخفي]</div>
+          </div>
+          <div class="mcp-msg-row">
+            <div class="mcp-bubble">
+              <span class="mcp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> تم جلب التذكرة بنجاح</span>
+              <div style="margin-top:.4rem;">تجربة باستخدام hermes mcp — الوصف: تم إنشاء هذه الصفحة عبر hermes agent تجربة ناجحة لدي مدعوم. الحالة: <strong>open</strong> — الأولوية: <strong>medium</strong></div>
+            </div>
+          </div>
+          <div class="mcp-msg-row">
+            <div class="mcp-bubble" style="border-color:var(--mcp-color);">عاوز تعدّل عليها أو نعمل إجراء تاني؟</div>
           </div>
         </div>
       </div>
     </div>
-
-    <div class="mcp-tools-grid reveal">
-      <div class="mcp-tool-card"><span class="n">01</span><code>create_ticket</code><p>إنشاء تذكرة دعم جديدة بكل تفاصيلها.</p></div>
-      <div class="mcp-tool-card"><span class="n">02</span><code>update_ticket</code><p>تعديل تذكرة موجودة — الحالة، الأولوية، أو المحتوى.</p></div>
-      <div class="mcp-tool-card"><span class="n">03</span><code>close_ticket</code><p>إغلاق تذكرة بعد حل المشكلة.</p></div>
-      <div class="mcp-tool-card"><span class="n">04</span><code>list_tickets</code><p>عرض كل التذاكر مع إمكانية الفلترة.</p></div>
-      <div class="mcp-tool-card"><span class="n">05</span><code>get_ticket</code><p>جلب تفاصيل تذكرة محددة برقمها.</p></div>
-      <div class="mcp-tool-card"><span class="n">06</span><code>get_dashboard_stats</code><p>سحب إحصائيات لوحة التحكم لحظياً.</p></div>
-      <div class="mcp-tool-card"><span class="n">07</span><code>get_customer</code><p>جلب بيانات عميل معيّن من قاعدة البيانات.</p></div>
-      <div class="mcp-tool-card"><span class="n">08</span><code>list_customers</code><p>عرض قائمة كل العملاء المسجّلين.</p></div>
-      <div class="mcp-tool-card"><span class="n">09</span><code>send_whatsapp</code><p>إرسال رسالة واتساب مباشرة من خلال الأداة.</p></div>
-    </div>
+    <p style="text-align:center;color:var(--text-3);font-size:.85rem;margin-top:1rem;">* صورة توضيحية من جلسة MCP فعلية على منصة مدعوم لغرض العرض التوضيحي.</p>
   </div>
 </section>
 
@@ -997,7 +1108,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
         <div class="plan-price-row">
           <span class="currency">$</span>
           <span class="amount" data-monthly="15" data-yearly="150">15</span>
-          <span class="period" data-monthly="/شهر" data-yearly="/سنة">/شهر</span>
+          <span class="period">/شهر</span>
           <span class="old-price" data-monthly="25" data-yearly="180">25</span>
         </div>
         <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
@@ -1019,7 +1130,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
         <div class="plan-price-row">
           <span class="currency">$</span>
           <span class="amount" data-monthly="20" data-yearly="200">20</span>
-          <span class="period" data-monthly="/شهر" data-yearly="/سنة">/شهر</span>
+          <span class="period">/شهر</span>
           <span class="old-price" data-monthly="30" data-yearly="240">30</span>
         </div>
         <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
@@ -1042,7 +1153,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
         <div class="plan-price-row">
           <span class="currency">$</span>
           <span class="amount" data-monthly="30" data-yearly="330">30</span>
-          <span class="period" data-monthly="/شهر" data-yearly="/سنة">/شهر</span>
+          <span class="period">/شهر</span>
           <span class="old-price" data-monthly="55" data-yearly="420">55</span>
         </div>
         <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
@@ -1120,13 +1231,6 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
             <td class="yes">✓</td>
           </tr>
           <tr>
-            <td>الوصول عبر MCP للوكلاء الذكية</td>
-            <td class="no">✗</td>
-            <td class="yes">✓</td>
-            <td class="no">✗</td>
-            <td class="yes">✓</td>
-          </tr>
-          <tr>
             <td>نظام النقاط</td>
             <td class="yes">✓</td>
             <td class="yes">✓</td>
@@ -1147,6 +1251,13 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
             <td class="no">✗</td>
             <td class="yes">✓</td>
           </tr>
+          <tr>
+            <td>دعم MCP (الأدوات الذكية)</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -1160,23 +1271,23 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
     <div class="faq-list reveal">
       <details class="faq-item" open>
         <summary>هل مدعوم مجرد بوت رد آلي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div>
+        <div class="faq-body"><div class="faq-body-inner">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div></div>
       </details>
       <details class="faq-item">
         <summary>كيف تتحول المحادثة إلى تذكرة فعلياً؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body">بمجرد أن يحدد البوت أن الأمر يحتاج متابعة، يُنشئ تذكرة تلقائياً بنفس محتوى المحادثة، فلا يحتاج فريقك لإعادة كتابة أي شيء يدوياً.</div>
+        <div class="faq-body"><div class="faq-body-inner">بمجرد أن يحدد البوت أن الأمر يحتاج متابعة، يُنشئ تذكرة تلقائياً بنفس محتوى المحادثة، فلا يحتاج فريقك لإعادة كتابة أي شيء يدوياً.</div></div>
       </details>
       <details class="faq-item">
-        <summary>ما هو دعم MCP، ولمن يفيد فعلياً؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body">MCP بروتوكول مفتوح يسمح لأي وكيل ذكاء اصطناعي (مثل مساعد داخلي أو أداة أتمتة) بالتحدث مباشرة مع منصة مدعوم: إنشاء تذاكر، تعديلها، جلب بيانات عميل، أو إرسال واتساب، بدون المرور بلوحة التحكم يدوياً. مفيد للفرق التقنية التي تريد ربط مدعوم بأنظمتها الداخلية أو ببوتات مخصصة.</div>
+        <summary>ما هو دعم MCP، وكيف أستخدمه؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">MCP هو بروتوكول يسمح لمساعد ذكي متصل (مثل Claude) بتنفيذ إجراءات فعلية داخل حسابك على مدعوم — كإنشاء تذكرة أو جلب إحصائية — بمجرد كتابة أمر بلغة عادية، بدل التنقل بين شاشات لوحة التحكم. تفعّله من إعدادات حسابك في قسم "أدوات MCP".</div></div>
       </details>
       <details class="faq-item">
         <summary>هل يمكن تخصيص النطاق الفرعي باسم شركتي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body">نعم، في الباقة الاحترافية وما فوقها تحصل على نطاق فرعي خاص مثل company.mad3oom.online بهويتك وشعارك.</div>
+        <div class="faq-body"><div class="faq-body-inner">نعم، في الباقة الاحترافية وما فوقها تحصل على نطاق فرعي خاص مثل company.mad3oom.online بهويتك وشعارك.</div></div>
       </details>
       <details class="faq-item">
         <summary>هل أحتاج خبرة تقنية لإعداد المنصة؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</div>
+        <div class="faq-body"><div class="faq-body-inner">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</div></div>
       </details>
     </div>
   </div>
@@ -1201,7 +1312,7 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a href="#" class="brand"><span class="brand-mark"><svg viewBox="0 0 64 64"><use href="#robot-face"/></svg></span><span class="brand-text"><strong>مدعوم</strong></span></a>
+        <a href="#" class="brand"><span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span><span class="brand-text"><strong>مدعوم</strong></span></a>
         <p>نظام عربي متكامل يقلل ضغط فريق الدعم، ويؤتمت رحلة العميل من أول رسالة حتى الحل.</p>
       </div>
       <div class="footer-col"><h5>المنتج</h5><a href="#showcase">لوحة التحكم</a><a href="#showcase">إدارة التذاكر</a><a href="#mcp">دعم MCP</a><a href="#pricing">الأسعار</a></div>
@@ -1226,6 +1337,85 @@ document.getElementById('year').textContent = new Date().getFullYear();
 
 const navbar = document.getElementById('navbar');
 window.addEventListener('scroll', () => navbar.classList.toggle('scrolled', window.scrollY > 20), { passive:true });
+
+// ============ Scroll progress bar ============
+const scrollProgress = document.getElementById('scrollProgress');
+function updateScrollProgress(){
+  const h = document.documentElement;
+  const scrolled = h.scrollTop;
+  const max = h.scrollHeight - h.clientHeight;
+  const pct = max > 0 ? scrolled / max : 0;
+  scrollProgress.style.transform = `scaleX(${pct})`;
+}
+window.addEventListener('scroll', () => requestAnimationFrame(updateScrollProgress), { passive:true });
+updateScrollProgress();
+
+// ============ Tilt effect on product frames ============
+(function(){
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+  document.querySelectorAll('.frame-wrap').forEach(wrap => {
+    const frame = wrap.querySelector('.product-frame, .mcp-frame');
+    if (!frame) return;
+    let raf = null;
+    wrap.addEventListener('mousemove', (e) => {
+      const rect = wrap.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        frame.classList.add('tilt-active');
+        frame.style.transform = `rotateY(${x * 6}deg) rotateX(${-y * 6}deg) translateZ(0)`;
+      });
+    });
+    wrap.addEventListener('mouseleave', () => {
+      frame.classList.remove('tilt-active');
+      frame.style.transform = '';
+    });
+  });
+})();
+
+// ============ Number count-up on scroll into view ============
+(function(){
+  const targets = document.querySelectorAll('.an-chip b, .ui-stat-chip b');
+  const seen = new WeakSet();
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting || seen.has(entry.target)) return;
+      seen.add(entry.target);
+      const el = entry.target;
+      const raw = el.childNodes[0] ? el.childNodes[0].textContent.trim() : el.textContent.trim();
+      const match = raw.match(/^(\d+(?:\.\d+)?)/);
+      if (!match) return;
+      const end = parseFloat(match[1]);
+      const suffix = raw.slice(match[1].length);
+      const isFloat = match[1].includes('.');
+      const dur = 900;
+      const start = performance.now();
+      const extra = el.querySelector('small');
+      function tick(now){
+        const p = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = end * eased;
+        el.childNodes[0].textContent = (isFloat ? val.toFixed(1) : Math.round(val)) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+        else if (extra) el.appendChild(extra);
+      }
+      if (el.childNodes[0]) requestAnimationFrame(tick);
+    });
+  }, { threshold: 0.4 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+// ============ Stagger reveal timing within shared containers ============
+(function(){
+  const groups = document.querySelectorAll('.plan-grid');
+  groups.forEach(group => {
+    Array.from(group.children).filter(c => c.classList.contains('reveal')).forEach((child, i) => {
+      child.style.transitionDelay = (i * 0.08) + 's';
+    });
+  });
+})();
 
 const hamburgerBtn = document.getElementById('hamburgerBtn');
 const closeMenuBtn = document.getElementById('closeMenuBtn');
@@ -1262,8 +1452,8 @@ const journeySteps = document.querySelectorAll('.journey-step');
 
 function updateJourney() {
   const rect = journeyWrap.getBoundingClientRect();
-  const total = rect.height;
   const vh = window.innerHeight;
+  const total = rect.height;
   const start = vh * 0.85;
   const end = vh * 0.35;
   let progress = (start - rect.top) / (total + (start - end));
@@ -1284,14 +1474,18 @@ updateJourney();
     document.documentElement.setAttribute('data-theme', t);
     try{ localStorage.setItem('theme-preference', t); }catch(e){}
   }
-  function toggleTheme(){
+  function toggleTheme(btnEl){
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (btnEl){
+      btnEl.classList.add('spin');
+      setTimeout(() => btnEl.classList.remove('spin'), 600);
+    }
   }
   const btn = document.getElementById('themeToggleBtn');
   const btnMobile = document.getElementById('themeToggleBtnMobile');
-  if (btn) btn.addEventListener('click', toggleTheme);
-  if (btnMobile) btnMobile.addEventListener('click', toggleTheme);
+  if (btn) btn.addEventListener('click', () => toggleTheme(btn));
+  if (btnMobile) btnMobile.addEventListener('click', () => toggleTheme(btnMobile));
 })();
 
 // ============ Pricing: monthly/yearly billing toggle ============
