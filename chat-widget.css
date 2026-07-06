@@ -112,6 +112,13 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    cursor: move;
+    user-select: none;
+}
+
+.chat-widget-panel.dragging {
+    transition: none !important;
+    animation: none !important;
 }
 
 .chat-widget-header-title {
