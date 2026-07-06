@@ -4,7 +4,7 @@
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ربط MCP - منصة مدعوم</title>
+    <title>مركز المطورين - منصة مدعوم</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
@@ -44,9 +44,9 @@
         }
         .page-intro p { margin: 0; opacity: 0.9; font-size: clamp(0.85rem, 2.5vw, 1rem); position: relative; z-index: 1; }
 
-        /* ==================== Section Tabs (تبويب: خوادم MCP / API والتكاملات) ==================== */
-        .dev-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 1rem; padding: 0.4rem; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-        .dev-tab { flex: 1; text-align: center; padding: 0.75rem 1rem; border-radius: 0.7rem; border: none; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        /* ==================== Section Tabs ==================== */
+        .dev-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 1rem; padding: 0.4rem; box-shadow: 0 2px 12px rgba(0,0,0,0.07); flex-wrap: wrap; }
+        .dev-tab { flex: 1; min-width: 140px; text-align: center; padding: 0.75rem 1rem; border-radius: 0.7rem; border: none; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
         .dev-tab:hover { background: var(--color-muted); color: var(--color-text); }
         .dev-tab.active { background: var(--color-accent); color: #fff; }
         .dev-section { display: none; }
@@ -169,7 +169,8 @@
         .transport-chip { font-size: 0.68rem; font-weight: 800; background: var(--color-muted); color: var(--color-text-secondary); padding: 0.15rem 0.5rem; border-radius: 2rem; }
         .disabled-chip { font-size: 0.68rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 0.15rem 0.5rem; border-radius: 2rem; }
  
-        .card-meta { display: flex; gap: 1rem 1.5rem; flex-wrap: wrap; margin: 1rem 0; font-size: 0.82rem; color: var(--color-text-secondary); }
+        .card-meta { display: flex; gap: 1rem 1.5rem; flex-wrap: wrap; margin: 1rem 0; font-size: 0.82rem; color: var(--color-text-secondary); align-items: center; }
+        .card-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
         .card-meta code { background: var(--color-muted); padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-size: 0.78rem; color: var(--color-text); }
  
         .card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--color-border); padding-top: 1rem; }
@@ -301,24 +302,22 @@
         }
         @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } }
 
-        /* ==================== Tools & Dynamic Auth (added) ==================== */
+        /* ==================== Tools & Dynamic Auth ==================== */
         .btn-tools { background: #e0e7ff; color: #3730a3; }
         .btn-tools:hover { background: #c7d2fe; }
-        .card-error { background: #fef2f2; color: #b91c1c; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .card-error { background: #fef2f2; color: #b91c1c; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; margin: 0.5rem 0; display: flex; align-items: center; gap: 0.4rem; }
 
-        /* قسم المصادقة الديناميكي */
         .auth-section { border: 1px dashed var(--color-border); border-radius: 0.6rem; padding: 1rem; margin-top: 0.5rem; }
         .oauth-field-row { display: flex; gap: 0.5rem; align-items: center; }
         .oauth-field-row input[readonly] { background: var(--color-muted); cursor: text; }
         .btn-copy { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
         .oauth-status-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.75rem 0; }
 
-        /* مودال الأدوات */
         .tools-toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center; }
         .tools-toolbar input { flex: 1; padding: 0.55rem 0.85rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); }
         .tools-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 50vh; overflow-y: auto; }
         .tool-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: 0.6rem; background: var(--color-surface); }
-        .tool-name { font-weight: 700; color: var(--color-text); font-size: 0.9rem; }
+        .tool-name { font-weight: 700; color: var(--color-text); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .tool-desc { font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.15rem; }
         .tools-empty { text-align: center; padding: 2rem; color: var(--color-text-secondary); }
 
@@ -329,7 +328,7 @@
         .toggle-switch input:checked + .toggle-slider { background: var(--color-success, #16a34a); }
         .toggle-switch input:checked + .toggle-slider::before { transform: translateX(-20px); }
 
-        /* ==================== API Tokens / External Integrations (منقولة من الإعدادات) ==================== */
+        /* ==================== API Tokens / External Integrations / MCP Server ==================== */
         .scopes-grid { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; padding: 0.75rem; background: var(--color-muted); border-radius: 0.6rem; }
         .credtype-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
         .credtype-row label { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
@@ -337,6 +336,7 @@
         .secret-reveal-box h3 { margin: 0 0 1rem; color: #92400e; font-size: 1.05rem; }
         .integrations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
         .credtype-chip { font-size: 0.68rem; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 0.15rem 0.5rem; border-radius: 2rem; }
+        .info-only-chip { font-size: 0.62rem; font-weight: 800; background: #e0e7ff; color: #3730a3; padding: 0.1rem 0.5rem; border-radius: 2rem; }
     </style>
 </head>
 <body>
@@ -350,10 +350,10 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line><path d="M6 9l2 2 4-4"></path></svg>
                     <span data-i18n="mcp_page_title">مركز المطورين</span>
                 </h1>
-                <p data-i18n="mcp_page_subtitle">خوادم MCP، مفاتيح API الخاصة بمنصة مدعوم، وربط مزوّدي الذكاء الاصطناعي والخدمات الخارجية — كل ذلك من مكان واحد</p>
+                <p data-i18n="mcp_page_subtitle">خوادم MCP، مفاتيح API الخاصة بمنصة مدعوم، ربط مزوّدي الذكاء الاصطناعي، ومدعوم كـ MCP Server — كل ذلك من مكان واحد</p>
             </div>
 
-            <!-- تبويب رئيسي: خوادم MCP / مفاتيح API والتكاملات -->
+            <!-- تبويب رئيسي -->
             <div class="dev-tabs">
                 <button class="dev-tab active" data-devtab="mcp" id="devTabMcp">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
@@ -367,9 +367,13 @@
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
                     External Integrations
                 </button>
+                <button class="dev-tab" data-devtab="mcpserver" id="devTabMcpServer">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                    MCP Server
+                </button>
             </div>
 
-            <!-- ═══════════════ قسم 1: خوادم MCP (الأصلي بالكامل) ═══════════════ -->
+            <!-- ═══════════════ قسم 1: خوادم MCP (Client) ═══════════════ -->
             <div class="dev-section active" id="devSectionMcp">
 
             <!-- Stats -->
@@ -449,7 +453,7 @@
             </div>
             </div><!-- /devSectionMcp -->
 
-            <!-- ═══════════════ قسم 2: Mad3oom API Tokens (منقول من الإعدادات) ═══════════════ -->
+            <!-- ═══════════════ قسم 2: Mad3oom API Tokens ═══════════════ -->
             <div class="dev-section" id="devSectionApiTokens">
                 <div class="toolbar">
                     <div class="field" style="flex:1">
@@ -483,7 +487,7 @@
                 </div>
             </div><!-- /devSectionApiTokens -->
 
-            <!-- ═══════════════ قسم 3: External Integrations (منقول من الإعدادات) ═══════════════ -->
+            <!-- ═══════════════ قسم 3: External Integrations ═══════════════ -->
             <div class="dev-section" id="devSectionIntegrations">
                 <div class="toolbar">
                     <div class="field" style="flex:1">
@@ -508,6 +512,34 @@
                     <div class="state-block"><div class="spinner"></div><p>جاري تحميل التكاملات...</p></div>
                 </div>
             </div><!-- /devSectionIntegrations -->
+
+            <!-- ═══════════════ قسم 4: مدعوم كـ MCP Server ═══════════════ -->
+            <div class="dev-section" id="devSectionMcpServer">
+                <div class="toolbar">
+                    <div class="field" style="flex:1">
+                        <label>مدعوم كـ MCP Server</label>
+                        <span style="font-size:0.82rem;color:var(--color-text-secondary)">هذا الـ Endpoint يقدر أي عميل MCP خارجي (Claude، Cursor، أي عميل يدعم Streamable HTTP) يتصل بيه مباشرة عبر مفتاح API من تبويب "Mad3oom API Tokens" أعلاه.</span>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button class="btn btn-secondary" id="testMcpServerBtn">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                            اختبار الاتصال
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mcp-card" id="mcpServerStatusCard">
+                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل معلومات الخادم...</p></div>
+                </div>
+
+                <div class="activity-panel" style="margin-top:1.5rem">
+                    <h3>
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        <span>الأدوات المتاحة (Available Tools)</span>
+                    </h3>
+                    <div class="tools-list" id="mcpServerToolsList"></div>
+                </div>
+            </div><!-- /devSectionMcpServer -->
 
         </div>
     </main>
@@ -673,7 +705,7 @@
         </div>
     </div>
  
-    <!-- Modal: إدارة الأدوات -->
+    <!-- Modal: إدارة الأدوات (خوادم خارجية - MCP Client) -->
     <div class="modal-overlay" id="toolsModal">
         <div class="mcp-modal-box" role="dialog" aria-labelledby="toolsModalTitle">
             <div class="mcp-modal-header">
@@ -740,7 +772,7 @@
     <div class="modal-overlay" id="apiSecretRevealModal">
         <div class="mcp-modal-box" role="dialog">
             <div class="mcp-modal-header">
-                <h2>⚠️ احفظ البيانات الآن — لن تظهر مرة أخرى</h2>
+                <h2>احفظ البيانات الآن — لن تظهر مرة أخرى</h2>
             </div>
             <div class="mcp-modal-body">
                 <div class="secret-reveal-box" id="secretRevealContent"></div>
