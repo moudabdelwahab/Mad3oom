@@ -589,3 +589,29 @@ export async function saveDefaultAiProvider(integrationId) {
         if (error) throw error;
     }
 }
+
+/* =========================================================
+ *  Mad3oom كـ MCP Server (Phase 3) - قراءة/تحكم فقط، بدون منطق مكرر
+ *  البيانات كلها قادمة من mcp-server-info (نفس TOOLS المستخدمة فعليًا
+ *  في mcp/index.ts). أي capability جديدة تُضاف مستقبلاً من الباك إند
+ *  فقط، والواجهة تعرضها تلقائياً بدون أي تعديل هنا.
+ * ========================================================= */
+
+export const MCP_ENDPOINT_URL = `${supabase.supabaseUrl}/functions/v1/mcp`;
+
+export async function fetchMcpServerInfo(action = 'status') {
+    const { data, error } = await supabase.functions.invoke('mcp-server-info', { body: { action } });
+    if (error) throw new Error('فشل جلب معلومات MCP Server: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data; // { status, endpoint, protocol_version, transport, authentication_methods, capabilities, tools, resources_info, server_info }
+}
+
+/** enabled=false يعطّل الأداة على مستوى المنصة كلها لأي عميل MCP خارجي */
+export async function setMcpServerToolEnabled(toolName, enabled) {
+    const { data, error } = await supabase.functions.invoke('mcp-server-info', {
+        body: { action: 'set_tool', tool_name: toolName, enabled },
+    });
+    if (error) throw new Error('فشل تحديث حالة الأداة: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data; // { success, tools }
+}
