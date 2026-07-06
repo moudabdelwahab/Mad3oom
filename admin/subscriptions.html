@@ -3,44 +3,693 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>إدارة الاشتراكات</title>
+<title>إدارة الاشتراكات | مدعوم</title>
+<link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{font-family:Arial;background:#f5f7fb;padding:20px}
-.header{background:#0d47a1;color:#fff;padding:20px;border-radius:16px;margin-bottom:20px}
-.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:15px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
-.item{display:flex;justify-content:space-between;align-items:center}
-.btn{background:#0d47a1;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none}
+/* ==================== Page-specific layout ====================
+   Built on top of the platform's styles.css design tokens
+   (--color-*, --shadow*, --input-bg, --container-padding, etc.)
+   so this page inherits the same light/dark theme automatically. */
+
+body{
+    background: var(--color-background);
+}
+
+.admin-shell{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem var(--container-padding) 4rem;
+}
+
+/* ---- Top bar ---- */
+.admin-topbar{
+    background: var(--color-primary);
+    border-radius: 1rem;
+    padding: 1.75rem var(--container-padding);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.admin-topbar h1{
+    color: #fff;
+    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.admin-topbar p{
+    color: rgba(255,255,255,0.75);
+    font-size: 0.9rem;
+}
+
+.topbar-actions{
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.icon-btn{
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.icon-btn:hover{ background: rgba(255,255,255,0.22); }
+.icon-btn svg{ width: 18px; height: 18px; }
+.icon-btn.spinning svg{ animation: spin 0.8s linear infinite; }
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+.sun-icon{ display:none; }
+[data-theme='dark'] .sun-icon{ display:block; }
+[data-theme='dark'] .moon-icon{ display:none; }
+
+/* ---- Stat cards ---- */
+.stats-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-card .stat-label{
+    color: var(--color-text-secondary);
+    font-size: 0.82rem;
+    margin-bottom: 0.4rem;
+}
+
+.stat-card .stat-value{
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.stat-card .stat-value.accent{ color: var(--color-accent); }
+.stat-card .stat-value.success{ color: var(--color-success); }
+.stat-card .stat-value.warning{ color: var(--color-warning); }
+
+/* ---- Controls bar ---- */
+.controls-bar{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.search-wrap{
+    position: relative;
+    flex: 1 1 240px;
+}
+
+.search-wrap svg{
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+}
+
+.search-wrap input{
+    padding-right: 2.5rem;
+}
+
+.status-select{
+    width: auto;
+    min-width: 160px;
+}
+
+/* ---- Type tabs ---- */
+.type-tabs{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.type-tab{
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.type-tab .count{
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+}
+
+.type-tab.active{
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+.type-tab.active .count{
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+}
+
+/* ---- Subscription cards ---- */
+.sub-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.sub-card{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+.sub-card:hover{
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow);
+}
+
+.sub-card-top{
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.sub-avatar{
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--color-sidebar-active);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.sub-identity{ min-width: 0; }
+.sub-name{
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sub-username{
+    color: var(--color-text-secondary);
+    font-size: 0.82rem;
+}
+
+.sub-meta{
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+.sub-meta-row{ display:flex; align-items:center; gap:0.4rem; }
+.sub-meta-row svg{ width:14px; height:14px; flex-shrink:0; }
+
+.badge-row{
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge::before{
+    content:'';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.badge-type{ background: var(--color-muted); color: var(--color-primary-variant); }
+.badge-status-active{ background: rgba(46,138,58,0.12); color: var(--color-success); }
+.badge-status-warning{ background: rgba(224,168,0,0.14); color: var(--color-warning); }
+.badge-status-danger{ background: rgba(217,83,79,0.12); color: var(--color-danger); }
+.badge-status-neutral{ background: var(--color-muted); color: var(--color-text-secondary); }
+
+.sub-card-footer{
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.85rem;
+}
+
+.sub-date{ font-size: 0.78rem; color: var(--color-text-secondary); }
+
+/* ---- Empty / error / loading states ---- */
+.state-box{
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: 1rem;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+}
+.state-box h3{ color: var(--color-text); margin-bottom: 0.5rem; font-size: 1.05rem; }
+.state-box.error{ border-color: var(--color-danger); color: var(--color-danger); }
+.state-box.error h3{ color: var(--color-danger); }
+
+.skeleton-card{
+    height: 168px;
+    border-radius: 1rem;
+    background: linear-gradient(90deg, var(--color-muted) 25%, var(--color-border) 37%, var(--color-muted) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer{
+    0%{ background-position: 100% 0; }
+    100%{ background-position: 0 0; }
+}
+
+@media (max-width: 640px){
+    .controls-bar{ flex-direction: column; align-items: stretch; }
+    .status-select{ width: 100%; }
+}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>إدارة اشتراكات واتساب</h1>
-<p>عرض جميع الاشتراكات المرتبطة بالتذاكر المقبولة</p>
+
+<div class="admin-shell">
+
+    <div class="admin-topbar">
+        <div>
+            <h1>إدارة الاشتراكات</h1>
+            <p>كل الاشتراكات المرتبطة بالمنصة في مكان واحد — واتساب وأي نوع اشتراك تاني</p>
+        </div>
+        <div class="topbar-actions">
+            <button class="icon-btn" id="refreshBtn" title="تحديث البيانات">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+            <button class="icon-btn" id="themeToggle" title="تبديل الوضع الداكن/الفاتح">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid">
+        <!-- populated by JS -->
+    </div>
+
+    <div class="type-tabs" id="typeTabs"></div>
+
+    <div class="controls-bar">
+        <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="searchInput" class="form-control" placeholder="ابحث بالاسم، اسم المستخدم، رقم الهاتف، أو رقم التذكرة...">
+        </div>
+        <select id="statusSelect" class="form-control status-select">
+            <option value="all">كل الحالات</option>
+        </select>
+    </div>
+
+    <div id="content">
+        <div class="sub-grid">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>
+    </div>
+
 </div>
-<div id="subscriptions"></div>
+
 <script>
-const supabaseUrl='https://srnelrdpqkcntbgudyto.supabase.co';
-const supabaseKey='sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
-const client=supabase.createClient(supabaseUrl,supabaseKey);
-async function loadSubscriptions(){
-const container=document.getElementById('subscriptions');
-container.innerHTML='<div class="card">جاري التحميل...</div>';
-const {data,error}=await client.from('whatsapp_subscriptions').select(`*,tickets(ticket_number,title),profiles(full_name,username,phone)`).order('created_at',{ascending:false});
-if(error){container.innerHTML=`<div class="card">${error.message}</div>`;return;}
-container.innerHTML=data.map(sub=>`
-<div class="card">
-<div class="item">
-<div>
-<h3>${sub.profiles?.full_name || 'بدون اسم'}</h3>
-<p>التذكرة #${sub.tickets?.ticket_number || '-'}</p>
-<p>الحالة: ${sub.status}</p>
-</div>
-<a class="btn" href="/admin/subscription-details.html?id=${sub.id}">عرض التفاصيل</a>
-</div>
-</div>`).join('');
+/* ==================== Supabase setup ==================== */
+const supabaseUrl = 'https://srnelrdpqkcntbgudyto.supabase.co';
+const supabaseKey = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
+const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+/* ====================================================================
+   SUBSCRIPTION SOURCES CONFIG
+   -------------------------------------------------------------------
+   Every subscription type on the platform is defined here as a
+   "source". Each source knows how to fetch its rows from Supabase and
+   how to normalize a row into the common shape the UI understands.
+
+   To wire up a NEW subscription type, add another object to this
+   array — you don't need to touch any rendering code below.
+
+   If a source's table doesn't exist yet (or the query errors), it is
+   silently skipped instead of breaking the whole page, so this file
+   works whether subscriptions live in separate tables per type or in
+   one unified table.
+==================================================================== */
+const SUBSCRIPTION_SOURCES = [
+    {
+        key: 'whatsapp',
+        label: 'واتساب',
+        table: 'whatsapp_subscriptions',
+        select: '*,tickets(ticket_number,title),profiles(full_name,username,phone)',
+        normalize: (row) => ({
+            id: `whatsapp-${row.id}`,
+            rawId: row.id,
+            type: 'whatsapp',
+            typeLabel: 'واتساب',
+            table: 'whatsapp_subscriptions',
+            name: row.profiles?.full_name || 'بدون اسم',
+            username: row.profiles?.username ? '@' + row.profiles.username : '',
+            phone: row.profiles?.phone || '',
+            ticketNumber: row.tickets?.ticket_number || null,
+            ticketTitle: row.tickets?.title || null,
+            status: row.status || 'غير محدد',
+            createdAt: row.created_at,
+            detailsUrl: `/admin/subscription-details.html?id=${row.id}&type=whatsapp`
+        })
+    },
+    {
+        // Generic fallback source: a unified `subscriptions` table with a
+        // `type` column, in case other subscription types (premium,
+        // email, sms, ...) are stored this way rather than in their own
+        // dedicated table. Safely skipped if this table doesn't exist.
+        key: 'unified',
+        label: null, // label comes from each row's own `type` column
+        table: 'subscriptions',
+        select: '*,profiles(full_name,username,phone)',
+        normalize: (row) => ({
+            id: `sub-${row.id}`,
+            rawId: row.id,
+            type: row.type || 'other',
+            typeLabel: row.type_label || row.type || 'اشتراك آخر',
+            table: 'subscriptions',
+            name: row.profiles?.full_name || 'بدون اسم',
+            username: row.profiles?.username ? '@' + row.profiles.username : '',
+            phone: row.profiles?.phone || '',
+            ticketNumber: row.ticket_number || null,
+            ticketTitle: row.ticket_title || null,
+            status: row.status || 'غير محدد',
+            createdAt: row.created_at,
+            detailsUrl: `/admin/subscription-details.html?id=${row.id}&type=${row.type || 'other'}`
+        })
+    }
+];
+
+/* ==================== State ==================== */
+let allItems = [];
+let sourceErrors = [];
+let activeType = 'all';
+let activeStatus = 'all';
+let searchQuery = '';
+
+/* ==================== Helpers ==================== */
+function initials(name){
+    if(!name || name === 'بدون اسم') return '؟';
+    const parts = name.trim().split(/\s+/);
+    return (parts[0][0] || '') + (parts[1] ? parts[1][0] : '');
 }
-loadSubscriptions();
+
+function statusClass(status){
+    const s = (status || '').toString().trim().toLowerCase();
+    const activeWords = ['active', 'نشط', 'مفعل', 'مقبول'];
+    const warningWords = ['pending', 'قيد الانتظار', 'معلق', 'انتظار'];
+    const dangerWords = ['cancelled', 'canceled', 'ملغي', 'ملغى', 'منتهي', 'expired', 'rejected', 'مرفوض'];
+    if (activeWords.some(w => s.includes(w))) return 'badge-status-active';
+    if (warningWords.some(w => s.includes(w))) return 'badge-status-warning';
+    if (dangerWords.some(w => s.includes(w))) return 'badge-status-danger';
+    return 'badge-status-neutral';
+}
+
+function formatDate(dateStr){
+    if(!dateStr) return '—';
+    try{
+        return new Intl.DateTimeFormat('ar-EG', { day:'numeric', month:'short', year:'numeric' }).format(new Date(dateStr));
+    }catch(e){ return dateStr; }
+}
+
+function escapeHtml(str){
+    return (str ?? '').toString()
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ==================== Data loading ==================== */
+async function loadAllSources(){
+    allItems = [];
+    sourceErrors = [];
+
+    const results = await Promise.all(SUBSCRIPTION_SOURCES.map(async (source) => {
+        try{
+            const { data, error } = await client
+                .from(source.table)
+                .select(source.select)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            return (data || []).map(source.normalize);
+        }catch(err){
+            // Table might not exist for this platform yet — skip quietly,
+            // but keep a record in case every single source fails.
+            console.warn(`تعذر تحميل بيانات المصدر "${source.table}":`, err.message || err);
+            sourceErrors.push({ table: source.table, message: err.message || String(err) });
+            return [];
+        }
+    }));
+
+    allItems = results.flat().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+/* ==================== Rendering ==================== */
+function renderStats(){
+    const total = allItems.length;
+    const byType = {};
+    const byStatus = { active: 0, warning: 0, danger: 0, neutral: 0 };
+
+    allItems.forEach(item => {
+        byType[item.type] = (byType[item.type] || 0) + 1;
+        const cls = statusClass(item.status);
+        if (cls === 'badge-status-active') byStatus.active++;
+        else if (cls === 'badge-status-warning') byStatus.warning++;
+        else if (cls === 'badge-status-danger') byStatus.danger++;
+        else byStatus.neutral++;
+    });
+
+    const grid = document.getElementById('statsGrid');
+    grid.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-label">إجمالي الاشتراكات</div>
+            <div class="stat-value accent">${total}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">نشطة</div>
+            <div class="stat-value success">${byStatus.active}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">قيد الانتظار</div>
+            <div class="stat-value warning">${byStatus.warning}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">أنواع الاشتراكات</div>
+            <div class="stat-value">${Object.keys(byType).length}</div>
+        </div>
+    `;
+}
+
+function renderTypeTabs(){
+    const byType = {};
+    allItems.forEach(item => {
+        byType[item.type] = byType[item.type] || { label: item.typeLabel, count: 0 };
+        byType[item.type].count++;
+    });
+
+    const tabsHtml = [`
+        <button class="type-tab ${activeType === 'all' ? 'active' : ''}" data-type="all">
+            الكل <span class="count">${allItems.length}</span>
+        </button>
+    `];
+
+    Object.entries(byType).forEach(([type, info]) => {
+        tabsHtml.push(`
+            <button class="type-tab ${activeType === type ? 'active' : ''}" data-type="${escapeHtml(type)}">
+                ${escapeHtml(info.label)} <span class="count">${info.count}</span>
+            </button>
+        `);
+    });
+
+    const container = document.getElementById('typeTabs');
+    container.innerHTML = tabsHtml.join('');
+    container.querySelectorAll('.type-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeType = btn.dataset.type;
+            renderTypeTabs();
+            renderList();
+        });
+    });
+}
+
+function renderStatusOptions(){
+    const statuses = [...new Set(allItems.map(i => i.status).filter(Boolean))];
+    const select = document.getElementById('statusSelect');
+    const current = select.value;
+    select.innerHTML = `<option value="all">كل الحالات</option>` +
+        statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    select.value = statuses.includes(current) ? current : 'all';
+}
+
+function getFilteredItems(){
+    const q = searchQuery.trim().toLowerCase();
+    return allItems.filter(item => {
+        if (activeType !== 'all' && item.type !== activeType) return false;
+        if (activeStatus !== 'all' && item.status !== activeStatus) return false;
+        if (q){
+            const haystack = [item.name, item.username, item.phone, item.ticketNumber, item.ticketTitle]
+                .join(' ').toLowerCase();
+            if (!haystack.includes(q)) return false;
+        }
+        return true;
+    });
+}
+
+function renderList(){
+    const content = document.getElementById('content');
+    const items = getFilteredItems();
+
+    if (allItems.length === 0 && sourceErrors.length === SUBSCRIPTION_SOURCES.length){
+        content.innerHTML = `
+            <div class="state-box error">
+                <h3>تعذر تحميل أي بيانات</h3>
+                <p>${escapeHtml(sourceErrors[0]?.message || 'حدث خطأ غير متوقع')}</p>
+            </div>`;
+        return;
+    }
+
+    if (items.length === 0){
+        content.innerHTML = `
+            <div class="state-box">
+                <h3>لا توجد اشتراكات مطابقة</h3>
+                <p>جرّب تغيير الفلتر أو مسح كلمة البحث</p>
+            </div>`;
+        return;
+    }
+
+    content.innerHTML = `<div class="sub-grid">${items.map(renderCard).join('')}</div>`;
+}
+
+function renderCard(item){
+    const sCls = statusClass(item.status);
+    return `
+    <div class="sub-card">
+        <div class="sub-card-top">
+            <div class="sub-avatar">${escapeHtml(initials(item.name))}</div>
+            <div class="sub-identity">
+                <div class="sub-name">${escapeHtml(item.name)}</div>
+                <div class="sub-username">${escapeHtml(item.username || item.phone || '')}</div>
+            </div>
+        </div>
+
+        <div class="badge-row">
+            <span class="badge badge-type">${escapeHtml(item.typeLabel)}</span>
+            <span class="badge ${sCls}">${escapeHtml(item.status)}</span>
+        </div>
+
+        <div class="sub-meta">
+            ${item.ticketNumber ? `
+            <div class="sub-meta-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8V7l-3 2-2-2-2 2-2-2-2 2-2-2-3 2v1a2 2 0 0 0 2 2v6a2 2 0 0 1-2 2v1l3-2 2 2 2-2 2 2 2-2 2 2 3-2v-1a2 2 0 0 1-2-2v-6a2 2 0 0 0 2-2z"/></svg>
+                <span>تذكرة #${escapeHtml(item.ticketNumber)}${item.ticketTitle ? ' — ' + escapeHtml(item.ticketTitle) : ''}</span>
+            </div>` : ''}
+        </div>
+
+        <div class="sub-card-footer">
+            <span class="sub-date">${formatDate(item.createdAt)}</span>
+            <a class="btn btn-outline btn-sm" href="${item.detailsUrl}">عرض التفاصيل</a>
+        </div>
+    </div>`;
+}
+
+/* ==================== Full refresh ==================== */
+async function refreshAll(){
+    const refreshBtn = document.getElementById('refreshBtn');
+    refreshBtn.classList.add('spinning');
+    document.getElementById('content').innerHTML = `
+        <div class="sub-grid">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>`;
+
+    await loadAllSources();
+    renderStats();
+    renderTypeTabs();
+    renderStatusOptions();
+    renderList();
+
+    refreshBtn.classList.remove('spinning');
+}
+
+/* ==================== Event wiring ==================== */
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    renderList();
+});
+
+document.getElementById('statusSelect').addEventListener('change', (e) => {
+    activeStatus = e.target.value;
+    renderList();
+});
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+    const root = document.documentElement;
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+});
+
+/* ==================== Init ==================== */
+refreshAll();
 </script>
 </body>
 </html>
