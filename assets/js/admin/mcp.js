@@ -12,6 +12,11 @@ import {
     saveCredentials, startOAuth, testServer, syncTools, setToolEnabled, disconnectServer,
     fetchStats, fetchMcpActivity, MCP_STATUSES, MCP_TRANSPORTS, MCP_AUTH_TYPES,
     MCP_OAUTH_REDIRECT_URI,
+    fetchApiTokens, fetchApiUsageLogs, createApiToken, regenerateApiTokenSecret,
+    toggleApiToken, deleteApiToken, API_TOKEN_ALLOWED_SCOPES, API_TOKEN_DEFAULT_SCOPES,
+    fetchExternalIntegrations, saveExternalIntegration, deleteExternalIntegration,
+    testExternalIntegration, fetchDefaultAiProvider, saveDefaultAiProvider,
+    INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
 } from '/mcp-service.js';
 
 let allServers = [];
@@ -513,6 +518,431 @@ function copyRedirectUri() {
     navigator.clipboard.writeText(MCP_OAUTH_REDIRECT_URI).then(() => toast('تم نسخ الرابط', 'success'));
 }
 
+/* ============================================================
+ *  تبويب رئيسي: خوادم MCP / Mad3oom API Tokens / External Integrations
+ *  (منقول بالكامل من صفحة الإعدادات - مصدر واحد فقط لإدارة الـ API)
+ * ============================================================ */
+
+function switchDevTab(tab) {
+    document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
+    document.getElementById('devSectionMcp').classList.toggle('active', tab === 'mcp');
+    document.getElementById('devSectionApiTokens').classList.toggle('active', tab === 'apitokens');
+    document.getElementById('devSectionIntegrations').classList.toggle('active', tab === 'integrations');
+
+    if (tab === 'apitokens' && !apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
+    if (tab === 'integrations' && !integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
+}
+
+let apiTokensLoadedOnce = false;
+let integrationsLoadedOnce = false;
+let allApiTokens = [];
+let allIntegrations = [];
+let pendingCreateApiTokenResult = null;
+
+/* ====================  Mad3oom API Tokens  ==================== */
+
+function credentialTypeLabel(t) {
+    return { api_key_secret: '🔑 API Key + Secret', bearer: '🎫 Bearer Token' }[t] || t;
+}
+
+async function loadApiTokensSection() {
+    const list = document.getElementById('apiTokensList');
+    list.innerHTML = loadingHtml();
+    try {
+        allApiTokens = await fetchApiTokens();
+        renderApiTokens();
+        await loadApiUsageLog();
+    } catch (err) {
+        console.error('[MCP] loadApiTokensSection failed:', err);
+        list.innerHTML = errorHtml(err.message);
+    }
+}
+
+function renderApiTokens() {
+    const list = document.getElementById('apiTokensList');
+    if (!allApiTokens.length) {
+        list.innerHTML = `<div class="state-block empty">
+            <h3>لا توجد مفاتيح API بعد</h3>
+            <p>ولّد أول مفتاح API للوصول إلى Ticket System وWhatsApp System من أنظمة خارجية.</p>
+            <button class="btn btn-primary" onclick="window.mcpAddToken()">+ توليد أول مفتاح</button>
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = allApiTokens.map((t) => {
+        const scopesHtml = (t.scopes || []).map((s) => `<span class="transport-chip">${escapeHtml(s)}</span>`).join(' ');
+        const keyLine = t.api_key && t.credential_type === 'api_key_secret'
+            ? `<span title="API Key">🔑 <code dir="ltr">${escapeHtml(t.api_key)}</code>
+                 <button class="btn btn-secondary btn-copy" style="padding:2px 8px;font-size:0.72rem" onclick="window.mcpCopyText('${escapeHtml(t.api_key)}')">نسخ</button></span>`
+            : '';
+        const secretHint = t.credential_type === 'bearer'
+            ? `<span title="آخر 4 خانات">🎫 ••••${escapeHtml(t.bearer_last_four || '----')}</span>`
+            : `<span title="آخر 4 خانات">🔒 ••••${escapeHtml(t.secret_last_four || '----')}</span>`;
+        const lastUsed = t.last_used_at ? new Date(t.last_used_at).toLocaleString('ar-EG') : 'لم يُستخدم بعد';
+        const expiresChip = t.expires_at ? `<span title="ينتهي في">⏳ ${new Date(t.expires_at).toLocaleDateString('ar-EG')}</span>` : '';
+        const groupNote = t.credential_group_id ? `<span title="مرتبط بمفتاح آخر ضمن نفس مجموعة الإنشاء">🔗 مجموعة مزدوجة</span>` : '';
+
+        return `
+        <div class="mcp-card ${t.is_active ? 'is-connected' : ''}" data-token-id="${t.id}">
+            <div class="card-row">
+                <div class="card-head">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
+                    </div>
+                    <div class="card-title-wrap">
+                        <div class="card-title">
+                            ${escapeHtml(t.name)}
+                            <span class="credtype-chip">${credentialTypeLabel(t.credential_type)}</span>
+                            ${t.is_active ? '' : '<span class="disabled-chip">معطّل</span>'}
+                        </div>
+                        <div class="card-subtitle">${escapeHtml(t.description || '—')}</div>
+                    </div>
+                </div>
+                <div class="card-actions-top">${t.is_active ? statusBadge(MCP_STATUSES.CONNECTED) : statusBadge(MCP_STATUSES.DISCONNECTED)}</div>
+            </div>
+            <div class="card-meta">
+                ${keyLine}
+                ${secretHint}
+                <span title="عدد مرات الاستخدام">📊 ${t.usage_count ?? 0} استدعاء</span>
+                <span title="آخر استخدام">🕒 ${lastUsed}</span>
+                ${expiresChip}
+                ${groupNote}
+                <span title="تاريخ الإنشاء">📅 ${new Date(t.created_at).toLocaleDateString('ar-EG')}</span>
+            </div>
+            <div class="card-meta" style="margin-top:-0.5rem">${scopesHtml}</div>
+            <div class="card-actions">
+                <button class="btn btn-test" onclick="window.mcpRegenToken('${t.id}')">
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"></path></svg>
+                    تجديد السر
+                </button>
+                <button class="btn ${t.is_active ? 'btn-disconnect' : 'btn-edit'}" onclick="window.mcpToggleToken('${t.id}', ${t.is_active})">
+                    ${t.is_active ? 'تعطيل' : 'تفعيل'}
+                </button>
+                <button class="btn btn-delete" onclick="window.mcpDeleteToken('${t.id}')">حذف</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function loadApiUsageLog() {
+    const container = document.getElementById('apiUsageLogList');
+    if (!container) return;
+    try {
+        const logs = await fetchApiUsageLogs(30);
+        if (!logs.length) { container.innerHTML = '<div class="activity-empty">لا يوجد استخدام مسجّل بعد</div>'; return; }
+        container.innerHTML = logs.map((l) => `
+            <div class="activity-item">
+                <span class="activity-tag act-tested">${escapeHtml(l.method || '-')}</span>
+                <span class="activity-name">${escapeHtml(l.api_tokens?.name || '—')}</span>
+                <span class="activity-msg"><code dir="ltr">${escapeHtml(l.endpoint || '-')}</code> • ${l.status_code ?? '-'}${l.ip_address ? ' • ' + escapeHtml(l.ip_address) : ''}</span>
+                <span class="activity-time">${new Date(l.created_at).toLocaleString('ar-EG')}</span>
+            </div>`).join('');
+    } catch (err) { console.warn('[MCP] usage log failed:', err); }
+}
+
+function renderScopesGrid() {
+    const grid = document.getElementById('scopesGrid');
+    grid.innerHTML = API_TOKEN_ALLOWED_SCOPES.map((s) => `
+        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;font-weight:600;cursor:pointer">
+            <input type="checkbox" class="scope-cb" value="${s}" ${API_TOKEN_DEFAULT_SCOPES.includes(s) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--color-accent)">
+            ${s}
+        </label>`).join('');
+}
+
+function openApiTokenModal() {
+    document.getElementById('tName').value = '';
+    document.getElementById('tDescription').value = '';
+    document.getElementById('tExpiresAt').value = '';
+    document.querySelector('input[name="credType"][value="api_key_secret"]').checked = true;
+    renderScopesGrid();
+    document.getElementById('apiTokenFormError').style.display = 'none';
+    document.getElementById('apiTokenModal').classList.add('open');
+}
+function closeApiTokenModal() { document.getElementById('apiTokenModal').classList.remove('open'); }
+
+async function handleCreateApiToken() {
+    const name = document.getElementById('tName').value.trim();
+    const description = document.getElementById('tDescription').value.trim();
+    const credential_type = document.querySelector('input[name="credType"]:checked').value;
+    const scopes = Array.from(document.querySelectorAll('.scope-cb:checked')).map((cb) => cb.value);
+    const expiresAtRaw = document.getElementById('tExpiresAt').value;
+    const errBox = document.getElementById('apiTokenFormError');
+    errBox.style.display = 'none';
+
+    if (!name) { errBox.textContent = 'الاسم مطلوب'; errBox.style.display = 'block'; return; }
+    if (!scopes.length) { errBox.textContent = 'اختر صلاحية واحدة على الأقل'; errBox.style.display = 'block'; return; }
+
+    const btn = document.getElementById('confirmCreateApiTokenBtn');
+    btn.disabled = true; btn.textContent = 'جاري التوليد...';
+    try {
+        const result = await createApiToken({
+            name, description: description || undefined, credential_type, scopes,
+            expires_at: expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null,
+        });
+        closeApiTokenModal();
+        showSecretReveal(result);
+        toast('تم توليد المفتاح بنجاح', 'success');
+        await loadApiTokensSection();
+    } catch (err) {
+        errBox.textContent = err.message || 'حدث خطأ أثناء التوليد';
+        errBox.style.display = 'block';
+    } finally {
+        btn.disabled = false; btn.textContent = 'توليد';
+    }
+}
+
+/** result شكله يختلف حسب credential_type - شوف تعليق create-api-token */
+function showSecretReveal(result) {
+    const box = document.getElementById('secretRevealContent');
+    let html = '';
+
+    const row = (label, value) => `
+        <div class="form-group full" style="margin-bottom:0.85rem">
+            <label>${label}</label>
+            <div class="oauth-field-row">
+                <input type="text" class="reveal-field" readonly dir="ltr" value="${escapeHtml(value)}">
+                <button type="button" class="btn btn-secondary btn-copy" onclick="window.mcpCopyText('${escapeHtml(value)}')">نسخ</button>
+            </div>
+        </div>`;
+
+    if (result.credential_group_id) {
+        html += `<h3>API Key + Secret</h3>${row('API Key', result.api_key_secret.token.api_key)}${row('API Secret', result.api_key_secret.secret)}`;
+        html += `<h3 style="margin-top:1rem">Bearer Token</h3>${row('Bearer Token', result.bearer.bearer_token)}`;
+    } else if (result.secret) {
+        html += row('API Key', result.token.api_key) + row('API Secret', result.secret);
+    } else if (result.bearer_token) {
+        html += row('Bearer Token', result.bearer_token);
+    }
+
+    box.innerHTML = html;
+    document.getElementById('apiSecretRevealModal').classList.add('open');
+}
+
+async function handleRegenToken(tokenId) {
+    if (!confirm('تجديد السر سيُلغي صلاحية السر القديم فورًا. متابعة؟')) return;
+    try {
+        const result = await regenerateApiTokenSecret(tokenId);
+        showSecretReveal(result);
+        toast('تم تجديد السر بنجاح', 'success');
+        await loadApiTokensSection();
+    } catch (err) { toast(err.message || 'فشل التجديد', 'error'); }
+}
+
+async function handleToggleToken(tokenId, currentlyActive) {
+    try {
+        await toggleApiToken(tokenId, currentlyActive);
+        toast(currentlyActive ? 'تم تعطيل المفتاح' : 'تم تفعيل المفتاح', 'success');
+        await loadApiTokensSection();
+    } catch (err) { toast(err.message || 'فشل تحديث الحالة', 'error'); }
+}
+
+async function handleDeleteToken(tokenId) {
+    if (!confirm('حذف هذا المفتاح نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    try {
+        await deleteApiToken(tokenId);
+        toast('تم حذف المفتاح', 'success');
+        await loadApiTokensSection();
+    } catch (err) { toast(err.message || 'فشل الحذف', 'error'); }
+}
+
+function copyText(value) {
+    navigator.clipboard.writeText(value).then(() => toast('تم النسخ', 'success')).catch(() => toast('تعذّر النسخ', 'error'));
+}
+
+/* ====================  External Integrations  ==================== */
+
+async function loadIntegrationsSection() {
+    const grid = document.getElementById('integrationsGrid');
+    grid.innerHTML = loadingHtml();
+    try {
+        allIntegrations = await fetchExternalIntegrations();
+        renderIntegrations();
+        await populateDefaultAiProviderSelect();
+    } catch (err) {
+        console.error('[MCP] loadIntegrationsSection failed:', err);
+        grid.innerHTML = errorHtml(err.message);
+    }
+}
+
+function renderIntegrations() {
+    const grid = document.getElementById('integrationsGrid');
+    if (!allIntegrations.length) {
+        grid.innerHTML = `<div class="state-block empty">
+            <h3>لا توجد تكاملات مضافة بعد</h3>
+            <p>أضف مزوّد ذكاء اصطناعي أو بوت تيليجرام أو Webhook لاستخدامه داخل المنصة.</p>
+            <button class="btn btn-primary" onclick="window.mcpAddIntegration()">+ إضافة تكامل جديد</button>
+        </div>`;
+        return;
+    }
+
+    grid.innerHTML = allIntegrations.map((i) => {
+        const testChip = i.last_test_status === 'success' ? '<span class="status-chip st-connected"><span class="dot"></span>آخر اختبار: نجح</span>'
+            : i.last_test_status === 'failed' ? '<span class="status-chip st-error"><span class="dot"></span>آخر اختبار: فشل</span>'
+            : '<span class="status-chip st-pending"><span class="dot"></span>لم يُختبر بعد</span>';
+
+        return `
+        <div class="mcp-card ${i.is_active ? 'is-connected' : ''}" data-integration-id="${i.id}">
+            <div class="card-row">
+                <div class="card-head">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
+                    </div>
+                    <div class="card-title-wrap">
+                        <div class="card-title">${escapeHtml(i.display_name)} ${i.is_active ? '' : '<span class="disabled-chip">معطّل</span>'}</div>
+                        <div class="card-subtitle">${INTEGRATION_PROVIDER_LABELS[i.provider] || i.provider}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-meta">${testChip}</div>
+            ${i.last_test_message ? `<div class="card-meta" style="margin-top:-0.5rem">${escapeHtml(i.last_test_message)}</div>` : ''}
+            <div class="card-actions">
+                <button class="btn btn-test" onclick="window.mcpTestIntegration('${i.id}')">اختبار الاتصال</button>
+                <button class="btn btn-edit" onclick="window.mcpEditIntegration('${i.id}')">تعديل</button>
+                <button class="btn ${i.is_active ? 'btn-disconnect' : 'btn-edit'}" onclick="window.mcpToggleIntegration('${i.id}', ${i.is_active})">${i.is_active ? 'تعطيل' : 'تفعيل'}</button>
+                <button class="btn btn-delete" onclick="window.mcpDeleteIntegration('${i.id}')">حذف</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function populateDefaultAiProviderSelect() {
+    const select = document.getElementById('defaultAiProviderSelect');
+    const activeAi = allIntegrations.filter((i) => AI_INTEGRATION_PROVIDERS.includes(i.provider) && i.is_active);
+    select.innerHTML = '<option value="">— بدون (الرد الآلي البسيط فقط) —</option>' +
+        activeAi.map((i) => `<option value="${i.id}">${escapeHtml(i.display_name)} (${INTEGRATION_PROVIDER_LABELS[i.provider]})</option>`).join('');
+    try {
+        const current = await fetchDefaultAiProvider();
+        if (current) select.value = current;
+    } catch (err) { console.warn('[MCP] fetchDefaultAiProvider failed:', err); }
+}
+
+function renderIntegrationCredentialFields(provider, prefillMeta = {}) {
+    const container = document.getElementById('integrationCredentialFields');
+    const fields = INTEGRATION_CREDENTIAL_FIELDS[provider] || [];
+    container.innerHTML = fields.map((f) => `
+        <div class="form-group full">
+            <label>${f.label}</label>
+            <input type="${f.type}" id="cred-${f.key}" placeholder="${f.placeholder}" dir="ltr">
+        </div>`).join('') + (fields.length ? `<span class="hint">اترك الحقل فارغًا عند التعديل للإبقاء على القيمة الحالية.</span>` : '');
+
+    if (AI_INTEGRATION_PROVIDERS.includes(provider)) {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="form-group full">
+                <label>الموديل (اختياري)</label>
+                <input type="text" id="cred-meta-model" placeholder="مثال: gpt-4o-mini" value="${escapeHtml(prefillMeta.model || '')}">
+            </div>`);
+    }
+}
+
+function openAddIntegrationModal() {
+    document.getElementById('integrationModalTitle').textContent = 'إضافة تكامل جديد';
+    document.getElementById('editIntegrationId').value = '';
+    document.getElementById('integrationProvider').value = 'openai';
+    document.getElementById('integrationProvider').disabled = false;
+    document.getElementById('integrationDisplayName').value = '';
+    document.getElementById('integrationIsActive').checked = true;
+    document.getElementById('integrationFormError').style.display = 'none';
+    renderIntegrationCredentialFields('openai');
+    document.getElementById('integrationModal').classList.add('open');
+}
+
+function openEditIntegrationModal(id) {
+    const integ = allIntegrations.find((i) => i.id === id);
+    if (!integ) return;
+    document.getElementById('integrationModalTitle').textContent = 'تعديل التكامل';
+    document.getElementById('editIntegrationId').value = integ.id;
+    document.getElementById('integrationProvider').value = integ.provider;
+    document.getElementById('integrationProvider').disabled = true;
+    document.getElementById('integrationDisplayName').value = integ.display_name;
+    document.getElementById('integrationIsActive').checked = integ.is_active;
+    document.getElementById('integrationFormError').style.display = 'none';
+    renderIntegrationCredentialFields(integ.provider, integ.credentials_meta || {});
+    document.getElementById('integrationModal').classList.add('open');
+}
+
+function closeIntegrationModal() { document.getElementById('integrationModal').classList.remove('open'); }
+
+async function handleSaveIntegration() {
+    const id = document.getElementById('editIntegrationId').value || undefined;
+    const provider = document.getElementById('integrationProvider').value;
+    const display_name = document.getElementById('integrationDisplayName').value.trim();
+    const is_active = document.getElementById('integrationIsActive').checked;
+    const errBox = document.getElementById('integrationFormError');
+    errBox.style.display = 'none';
+
+    if (!display_name) { errBox.textContent = 'اسم العرض مطلوب'; errBox.style.display = 'block'; return; }
+
+    const fields = INTEGRATION_CREDENTIAL_FIELDS[provider] || [];
+    const credentials = {};
+    let hasAnyCred = false;
+    fields.forEach((f) => {
+        const el = document.getElementById(`cred-${f.key}`);
+        if (el && el.value.trim()) { credentials[f.key] = el.value.trim(); hasAnyCred = true; }
+    });
+
+    if (!id && !hasAnyCred && provider !== 'custom') {
+        errBox.textContent = 'بيانات الاعتماد مطلوبة عند إنشاء تكامل جديد';
+        errBox.style.display = 'block';
+        return;
+    }
+
+    const credentials_meta = {};
+    const modelInput = document.getElementById('cred-meta-model');
+    if (modelInput && modelInput.value.trim()) credentials_meta.model = modelInput.value.trim();
+
+    const btn = document.getElementById('saveIntegrationBtn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+    try {
+        await saveExternalIntegration({
+            id, provider, display_name, is_active,
+            credentials: hasAnyCred ? credentials : undefined,
+            credentials_meta,
+        });
+        closeIntegrationModal();
+        toast(id ? 'تم تحديث التكامل' : 'تم إضافة التكامل بنجاح', 'success');
+        await loadIntegrationsSection();
+    } catch (err) {
+        errBox.textContent = err.message || 'حدث خطأ أثناء الحفظ';
+        errBox.style.display = 'block';
+    } finally {
+        btn.disabled = false; btn.textContent = 'حفظ';
+    }
+}
+
+async function handleToggleIntegration(id, currentlyActive) {
+    try {
+        await saveExternalIntegration({ id, is_active: !currentlyActive });
+        toast(currentlyActive ? 'تم تعطيل التكامل' : 'تم تفعيل التكامل', 'success');
+        await loadIntegrationsSection();
+    } catch (err) { toast(err.message || 'فشل تحديث الحالة', 'error'); }
+}
+
+async function handleDeleteIntegration(id) {
+    if (!confirm('حذف هذا التكامل نهائيًا؟ أي ميزة تعتمد عليه (مثل رد الذكاء الاصطناعي) ستتوقف.')) return;
+    try {
+        await deleteExternalIntegration(id);
+        toast('تم حذف التكامل', 'success');
+        await loadIntegrationsSection();
+    } catch (err) { toast(err.message || 'فشل الحذف', 'error'); }
+}
+
+async function handleTestIntegration(id) {
+    try {
+        toast('جاري اختبار الاتصال...', 'info');
+        const result = await testExternalIntegration(id);
+        toast(result.message, result.success ? 'success' : 'error');
+        await loadIntegrationsSection();
+    } catch (err) { toast(err.message || 'فشل الاختبار', 'error'); }
+}
+
+async function handleSaveDefaultAiProvider() {
+    const value = document.getElementById('defaultAiProviderSelect').value;
+    try {
+        await saveDefaultAiProvider(value);
+        toast('تم حفظ المزود الافتراضي للذكاء الاصطناعي', 'success');
+    } catch (err) { toast(err.message || 'فشل الحفظ', 'error'); }
+}
+
 /* ====================  التهيئة  ==================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -537,6 +967,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.mcpToggleTool = handleToggleTool;
     window.mcpSyncTools = handleSyncTools;
 
+    // Mad3oom API Tokens
+    window.mcpAddToken = openApiTokenModal;
+    window.mcpRegenToken = handleRegenToken;
+    window.mcpToggleToken = handleToggleToken;
+    window.mcpDeleteToken = handleDeleteToken;
+    window.mcpCopyText = copyText;
+
+    // External Integrations
+    window.mcpAddIntegration = openAddIntegrationModal;
+    window.mcpEditIntegration = openEditIntegrationModal;
+    window.mcpToggleIntegration = handleToggleIntegration;
+    window.mcpDeleteIntegration = handleDeleteIntegration;
+    window.mcpTestIntegration = handleTestIntegration;
+
     document.getElementById('addBtn').addEventListener('click', () => openModal());
     document.getElementById('refreshBtn').addEventListener('click', loadServers);
     document.getElementById('saveBtn').addEventListener('click', submitForm);
@@ -557,7 +1001,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderToolsModal();
     }, 250));
 
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeToolsModal(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal(); } });
+
+    // تبويب Developer Center
+    document.getElementById('devTabMcp').addEventListener('click', () => switchDevTab('mcp'));
+    document.getElementById('devTabApiTokens').addEventListener('click', () => switchDevTab('apitokens'));
+    document.getElementById('devTabIntegrations').addEventListener('click', () => switchDevTab('integrations'));
+
+    // Mad3oom API Tokens - أحداث
+    document.getElementById('addTokenBtn').addEventListener('click', openApiTokenModal);
+    document.getElementById('refreshTokensBtn').addEventListener('click', loadApiTokensSection);
+    document.getElementById('cancelApiTokenBtn').addEventListener('click', closeApiTokenModal);
+    document.getElementById('apiTokenModalClose').addEventListener('click', closeApiTokenModal);
+    document.getElementById('confirmCreateApiTokenBtn').addEventListener('click', handleCreateApiToken);
+    document.getElementById('closeSecretRevealBtn').addEventListener('click', () => {
+        document.getElementById('apiSecretRevealModal').classList.remove('open');
+        document.getElementById('secretRevealContent').innerHTML = '';
+    });
+    document.getElementById('apiTokenModal').addEventListener('click', (e) => { if (e.target.id === 'apiTokenModal') closeApiTokenModal(); });
+
+    // External Integrations - أحداث
+    document.getElementById('addIntegrationBtn').addEventListener('click', openAddIntegrationModal);
+    document.getElementById('refreshIntegrationsBtn').addEventListener('click', loadIntegrationsSection);
+    document.getElementById('cancelIntegrationBtn').addEventListener('click', closeIntegrationModal);
+    document.getElementById('integrationModalClose').addEventListener('click', closeIntegrationModal);
+    document.getElementById('saveIntegrationBtn').addEventListener('click', handleSaveIntegration);
+    document.getElementById('integrationProvider').addEventListener('change', (e) => renderIntegrationCredentialFields(e.target.value));
+    document.getElementById('defaultAiProviderSelect').addEventListener('change', handleSaveDefaultAiProvider);
+    document.getElementById('integrationModal').addEventListener('click', (e) => { if (e.target.id === 'integrationModal') closeIntegrationModal(); });
 
     handleOauthReturn();
     await loadServers();
