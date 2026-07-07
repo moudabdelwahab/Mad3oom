@@ -765,7 +765,7 @@
       keysToRemove.forEach(key => localStorage.removeItem(key));
       
       await supabase.auth.signOut();
-      window.location.replace('/sign-in.html');
+      window.location.replace('/login.html');
     } catch (error) {
       console.error('Logout error:', error);
       alert('حدث خطأ أثناء تسجيل الخروج');
