@@ -249,7 +249,7 @@ function initPlanButtons() {
 async function handleSubscribe(plan, buttonEl) {
     if (!currentUser) {
         alert('يرجى تسجيل الدخول أولاً');
-        window.location.href = '/sign-in.html';
+        window.location.href = '/login.html';
         return;
     }
 
@@ -281,7 +281,7 @@ async function handleSubscribe(plan, buttonEl) {
 async function handleRenew() {
     if (!currentUser) {
         alert('يرجى تسجيل الدخول أولاً');
-        window.location.href = '/sign-in.html';
+        window.location.href = '/login.html';
         return;
     }
 
