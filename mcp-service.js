@@ -408,7 +408,7 @@ function parseKeyValue(input) {
 }
 
 /* =========================================================
- *  Mad3oom API Tokens (نُقلت هنا من صفحة الإعدادات - مصدر واحد فقط)
+ *  مفاتيح API (نُقلت هنا من صفحة الإعدادات - مصدر واحد فقط)
  *  التشفير/الهاش والتحقق من الصلاحيات كلها في الـ Edge Functions فقط:
  *   - create-api-token
  *   - regenerate-api-token-secret
