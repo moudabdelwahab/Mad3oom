@@ -9,385 +9,377 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* تصميم البطاقات */
-        .tickets-grid {
-            /* Grid removed - now using flex column */
+        /* ============================================================
+           ثيم مطابق لتصميم index.html (خلفية داكنة + زجاجية + تدرجات)
+           معرّف محلياً في هذه الصفحة فقط، بدون التأثير على باقي لوحة الإدارة.
+           ============================================================ */
+        :root,
+        :root[data-theme='light'],
+        :root[data-theme='dark']{
+            --color-primary:#00234A;
+            --color-primary-variant:#0077CC;
+            --color-accent:#0077CC;
+            --color-accent-2:#4DA3FF;
+            --color-background:#060B14;
+            --color-surface:#0D1622;
+            --color-surface-2:#121F30;
+            --color-text:#F3F6FB;
+            --color-text-secondary:#94A6C2;
+            --color-text-3:#5A6A82;
+            --color-muted:#101B2C;
+            --color-success:#22C58B;
+            --color-warning:#F5A623;
+            --color-danger:#FF6B6B;
+            --color-border:rgba(255,255,255,.09);
+            --color-sidebar-bg:#050912;
+            --color-sidebar-active:#0077CC;
+            --input-bg:#0F1A2A;
+            --modal-overlay:rgba(3,7,15,.75);
+            --shadow:0 30px 80px -25px rgba(0,8,25,.7);
+            --shadow-sm:0 10px 24px -12px rgba(0,8,25,.6);
+            --shadow-lg:0 25px 60px -20px rgba(0,8,25,.75);
+            --shadow-glow:0 0 50px -12px rgba(0,119,204,.5);
+        }
+        body{
+            font-family:'IBM Plex Sans Arabic','Cairo',sans-serif;
+            position:relative;
+        }
+        body::before{
+            content:"";position:fixed;inset:0;z-index:-2;
+            background:
+                radial-gradient(60rem 40rem at 90% -10%, rgba(0,119,204,.20), transparent 60%),
+                radial-gradient(50rem 35rem at -10% 30%, rgba(77,163,255,.10), transparent 55%),
+                var(--color-background);
+        }
+        body::after{
+            content:"";position:fixed;inset:0;z-index:-1;
+            background-image:radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px);
+            background-size:32px 32px;
+            mask-image:radial-gradient(60rem 60rem at 70% 0%, black, transparent 70%);
+            opacity:.6;
+        }
+        h1,h2,h3,h4{font-family:'Cairo',sans-serif;}
+
+        .gradient-text{
+            background:linear-gradient(90deg,#8FC7FF,#4DA3FF,#B9DCFF);
+            -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+        }
+        .page-header{
+            display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;
+        }
+        .page-header h1{font-size:clamp(1.5rem,3vw,2rem);}
+        .eyebrow{
+            display:inline-flex;align-items:center;gap:.5rem;font-size:.75rem;font-weight:700;
+            color:#8FC7FF;background:rgba(0,119,204,.14);border:1px solid rgba(77,163,255,.25);
+            padding:.3rem .85rem;border-radius:99px;margin-bottom:.6rem;
+        }
+        .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--color-accent-2);box-shadow:0 0 8px var(--color-accent-2);}
+
+        /* ---------- Glass surfaces ---------- */
+        .glass-card{
+            background:rgba(255,255,255,.04);
+            border:1px solid var(--color-border);
+            backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+            border-radius:1.1rem;
         }
 
-        .ticket-card {
-            background: var(--color-muted);
-            padding: 1rem;
-            border-radius: 0.75rem;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 0.5rem;
+        /* ---------- Stats ---------- */
+        .stats-grid{
+            display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+            gap:1rem;margin:1.5rem 0 1.75rem;
+        }
+        .stat-card{
+            padding:1.15rem 1.25rem;display:flex;align-items:center;gap:1rem;
+            transition:transform .25s var(--ease,ease), border-color .25s ease;
+        }
+        .stat-card:hover{transform:translateY(-3px);border-color:rgba(77,163,255,.35);}
+        .stat-icon{
+            width:44px;height:44px;min-width:44px;border-radius:.85rem;
+            display:flex;align-items:center;justify-content:center;font-size:1.2rem;
+            background:rgba(0,119,204,.15);color:#8FC7FF;
+        }
+        .stat-icon.warn{background:rgba(245,166,35,.15);color:#F5A623;}
+        .stat-icon.info{background:rgba(77,163,255,.15);color:#4DA3FF;}
+        .stat-icon.ok{background:rgba(34,197,139,.15);color:#22C58B;}
+        .stat-icon.danger{background:rgba(255,107,107,.15);color:#FF6B6B;}
+        .stat-info .stat-label{font-size:.78rem;color:var(--color-text-secondary);font-weight:600;}
+        .stat-info .stat-value{font-size:1.5rem;font-weight:800;color:var(--color-text);font-family:'Space Grotesk',sans-serif;}
+
+        /* ---------- Toolbar ---------- */
+        .toolbar{
+            display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;
+            padding:.85rem 1rem;margin-bottom:1.25rem;
+        }
+        .toolbar .filter-select, .toolbar .search-input{
+            padding:.55rem .9rem;border:1px solid var(--color-border);border-radius:.65rem;
+            background:var(--input-bg);color:var(--color-text);font-family:inherit;font-size:.85rem;
+        }
+        .toolbar .search-input{min-width:220px;flex:1;}
+        .toolbar .filter-select:focus, .toolbar .search-input:focus{outline:2px solid rgba(77,163,255,.4);border-color:var(--color-accent-2);}
+        .toolbar-spacer{flex:1;}
+        .icon-btn{
+            display:inline-flex;align-items:center;gap:.4rem;padding:.55rem .9rem;border-radius:.65rem;
+            border:1px solid var(--color-border);background:rgba(255,255,255,.03);color:var(--color-text);
+            font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s ease;font-family:inherit;
+        }
+        .icon-btn:hover{border-color:var(--color-accent-2);background:rgba(77,163,255,.1);}
+
+        /* ---------- Layout ---------- */
+        .tickets-layout{display:grid;grid-template-columns:420px 1fr;gap:1.25rem;align-items:start;}
+
+        .tickets-panel{overflow:hidden;display:flex;flex-direction:column;height:calc(100vh - 340px);min-height:480px;}
+        .tickets-panel-header{
+            padding:.9rem 1.1rem;border-bottom:1px solid var(--color-border);
+            display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.02);
+        }
+        .tickets-panel-header h3{font-size:.95rem;font-weight:800;color:var(--color-text);}
+        .bulk-bar{
+            display:none;align-items:center;gap:.6rem;padding:.6rem 1.1rem;
+            background:rgba(0,119,204,.12);border-bottom:1px solid var(--color-border);font-size:.8rem;flex-wrap:wrap;
+        }
+        .bulk-bar.active{display:flex;}
+        .bulk-bar select, .bulk-bar button{font-family:inherit;font-size:.78rem;}
+
+        #ticketsGrid{overflow-y:auto;flex:1;padding:.6rem;}
+        #ticketsGrid::-webkit-scrollbar{width:6px;}
+        #ticketsGrid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px;}
+
+        .ticket-card{
+            position:relative;background:rgba(255,255,255,.025);padding:.9rem 1rem .9rem 2.1rem;
+            border-radius:.85rem;border:1px solid transparent;cursor:pointer;
+            transition:all .18s ease;margin-bottom:.5rem;
+        }
+        .ticket-card:hover{background:rgba(255,255,255,.05);border-color:rgba(77,163,255,.25);}
+        .ticket-card.selected{background:rgba(0,119,204,.12);border-color:var(--color-accent-2);box-shadow:0 0 0 1px rgba(77,163,255,.25) inset;}
+        .ticket-checkbox{
+            position:absolute;top:.95rem;right:.7rem;width:15px;height:15px;accent-color:var(--color-accent-2);cursor:pointer;
+        }
+        .ticket-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;gap:.5rem;}
+        .ticket-num{color:var(--color-text-secondary);font-size:.72rem;font-weight:700;font-family:'Space Grotesk',sans-serif;}
+        .ticket-title{font-size:.92rem;font-weight:700;line-height:1.35;margin-bottom:.5rem;color:var(--color-text);
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .ticket-badges{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.55rem;}
+        .ticket-user-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;}
+        .ticket-footer-row{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--color-text-secondary);}
+
+        .avatar-chip{
+            width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+            font-size:.65rem;font-weight:800;color:#fff;flex-shrink:0;
         }
 
-        .ticket-card:hover {
-            background: var(--color-surface);
-            border-color: var(--color-accent);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .ticket-card.selected {
-            background: var(--color-surface);
-            border-color: var(--color-accent);
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-        }
+        /* ---------- Badges (pills) ---------- */
+        .pill{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:99px;font-size:.68rem;font-weight:700;white-space:nowrap;}
+        .pill-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+        .status-open{background:rgba(77,163,255,.14);color:#6EB4FF;}
+        .status-in-progress{background:rgba(245,166,35,.16);color:#F5A623;}
+        .status-resolved{background:rgba(34,197,139,.16);color:#22C58B;}
+        .status-confirmed{background:rgba(34,197,139,.16);color:#22C58B;}
+        .status-rejected{background:rgba(255,107,107,.16);color:#FF6B6B;}
 
-        .ticket-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--color-border);
-        }
+        .priority-high{background:rgba(255,107,107,.14);color:#FF6B6B;}
+        .priority-medium{background:rgba(245,166,35,.14);color:#F5A623;}
+        .priority-low{background:rgba(148,166,194,.14);color:#94A6C2;}
 
-        .ticket-number {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            font-weight: 700;
-        }
+        .cat-whatsapp{background:rgba(37,211,102,.14);color:#25D366;}
+        .cat-tickets{background:rgba(77,163,255,.14);color:#4DA3FF;}
+        .cat-subscription{background:rgba(180,95,224,.14);color:#B45FE0;}
+        .cat-login{background:rgba(255,107,107,.14);color:#FF6B6B;}
+        .cat-other{background:rgba(148,166,194,.14);color:#94A6C2;}
 
-        .ticket-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: var(--color-text);
-            line-height: 1.4;
-        }
+        .type-problem{background:rgba(255,107,107,.12);color:#FF9B9B;}
+        .type-inquiry{background:rgba(77,163,255,.12);color:#8FC7FF;}
 
-        .ticket-description {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        .sla-ok{background:rgba(34,197,139,.14);color:#22C58B;}
+        .sla-warn{background:rgba(245,166,35,.16);color:#F5A623;}
+        .sla-breach{background:rgba(255,107,107,.18);color:#FF6B6B;animation:slaPulse 2s infinite;}
+        @keyframes slaPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,.4);}50%{box-shadow:0 0 0 5px rgba(255,107,107,0);}}
+
+        /* ---------- Details panel ---------- */
+        .details-panel{height:calc(100vh - 340px);min-height:480px;overflow-y:auto;padding:1.6rem;}
+        .details-panel::-webkit-scrollbar{width:6px;}
+        .details-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px;}
+        .details-empty{height:100%;display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);text-align:center;}
+
+        .detail-block{background:rgba(255,255,255,.03);border:1px solid var(--color-border);border-radius:.85rem;padding:1rem;margin-bottom:1rem;}
+        .detail-block label{display:block;font-size:.78rem;font-weight:700;color:var(--color-text-secondary);margin-bottom:.5rem;}
+        .detail-block select, .detail-block textarea{
+            width:100%;padding:.7rem;border-radius:.6rem;border:1px solid var(--color-border);
+            background:var(--input-bg);color:var(--color-text);font-family:inherit;font-weight:600;
         }
 
-        .ticket-user-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: var(--color-muted);
-            border-radius: 0.5rem;
+        .reply-item{padding:.8rem;border-radius:.7rem;margin-bottom:.7rem;border:1px solid var(--color-border);background:rgba(255,255,255,.025);}
+        .reply-user{border-right:3px solid var(--color-accent-2);}
+        .reply-admin{border-right:3px solid var(--color-success);}
+        .reply-internal{border-right:3px solid var(--color-warning);background:rgba(245,166,35,.06);}
+        .internal-tag{background:var(--color-warning);color:#1a1305;padding:2px 7px;border-radius:5px;font-size:.62rem;font-weight:800;}
+
+        .canned-replies{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;}
+        .canned-chip{
+            padding:.3rem .7rem;border-radius:99px;border:1px dashed var(--color-border);
+            background:transparent;color:var(--color-text-secondary);font-size:.72rem;cursor:pointer;
+            font-family:inherit;transition:all .15s ease;
         }
+        .canned-chip:hover{border-color:var(--color-accent-2);color:#8FC7FF;background:rgba(77,163,255,.08);}
 
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--color-accent);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
+        .btn{font-family:inherit;}
+        .btn-primary{background:linear-gradient(135deg,#4DA3FF,#0077CC);border:none;box-shadow:0 10px 24px -10px rgba(0,119,204,.6);}
+        .btn-primary:hover{box-shadow:0 16px 34px -10px rgba(0,119,204,.8);transform:translateY(-1px);}
+        .btn-outline{background:transparent;border:1px solid var(--color-border);color:var(--color-text);}
+        .btn-outline:hover{border-color:var(--color-accent-2);background:rgba(77,163,255,.08);}
+
+        /* toast */
+        #toastHost{position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);z-index:5000;display:flex;flex-direction:column;gap:.5rem;align-items:center;}
+        .toast{
+            padding:.7rem 1.1rem;border-radius:.7rem;background:rgba(13,22,34,.95);border:1px solid var(--color-border);
+            color:var(--color-text);font-size:.85rem;font-weight:600;box-shadow:var(--shadow-lg);
+            animation:toastIn .2s ease-out; display:flex; align-items:center; gap:.5rem;
         }
+        .toast.success{border-color:rgba(34,197,139,.4);}
+        .toast.error{border-color:rgba(255,107,107,.4);}
+        @keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
-        .user-details {
-            flex: 1;
+        .empty-state{text-align:center;padding:3rem 1.5rem;color:var(--color-text-secondary);}
+        .empty-state-icon{font-size:3rem;margin-bottom:.75rem;opacity:.35;}
+
+        @media (max-width: 992px){
+            .tickets-layout{grid-template-columns:1fr;}
+            .tickets-panel, .details-panel{height:auto;max-height:70vh;}
         }
-
-        .user-name {
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: var(--color-text);
-        }
-
-        .user-email {
-            font-size: 0.75rem;
-            color: var(--color-text-secondary);
-        }
-
-        .ticket-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--color-border);
-        }
-
-        .ticket-date {
-            font-size: 0.75rem;
-            color: var(--color-text-secondary);
-        }
-
-        .priority-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-
-        .priority-high {
-            background: #fee;
-            color: #c33;
-        }
-
-        .priority-medium {
-            background: #ffeaa7;
-            color: #d63031;
-        }
-
-        .priority-low {
-            background: #dfe6e9;
-            color: #636e72;
-        }
-
-        /* فلاتر البحث */
-        .filters-section {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .filter-select {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
-            background: var(--color-surface);
-            color: var(--color-text);
-            font-family: 'Cairo', sans-serif;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-
-        .search-input {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
-            background: var(--color-surface);
-            color: var(--color-text);
-            font-family: 'Cairo', sans-serif;
-            font-size: 0.9rem;
-            min-width: 250px;
-        }
-
-        /* إحصائيات */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--color-surface);
-            padding: 1.5rem;
-            border-radius: 1rem;
-            border: 1px solid var(--color-border);
-            text-align: center;
-        }
-
-        .stat-label {
-            color: var(--color-text-secondary);
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--color-accent);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--color-text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        @media (max-width: 768px) {
-            .tickets-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .filters-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-input {
-                min-width: 100%;
-            }
+        @media (max-width: 768px){
+            .stats-grid{grid-template-columns:repeat(2,1fr);}
         }
     </style>
 </head>
 <body>
     <div id="sidebar-container"></div>
+    <div id="toastHost"></div>
 
     <main class="admin-main">
         <header class="page-header">
-            <h1>إدارة التذاكر</h1>
-            <p>عرض ومتابعة جميع تذاكر الدعم الفني في النظام</p>
+            <div>
+                <span class="eyebrow"><span class="dot"></span> نظام التذاكر</span>
+                <h1>إدارة <span class="gradient-text">التذاكر</span></h1>
+                <p style="color:var(--color-text-secondary); margin-top:.35rem;">عرض ومتابعة وتوزيع جميع تذاكر الدعم الفني في النظام</p>
+            </div>
+            <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+                <button id="exportCsvBtn" class="icon-btn">⬇️ تصدير CSV</button>
+                <button id="refreshTicketsBtn" class="icon-btn">🔄 تحديث</button>
+            </div>
         </header>
 
         <!-- الإحصائيات -->
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">إجمالي التذاكر</div>
-                <div id="statTotal" class="stat-value">0</div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon info">📋</div>
+                <div class="stat-info"><div class="stat-label">إجمالي التذاكر</div><div id="statTotal" class="stat-value">0</div></div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">المفتوحة</div>
-                <div id="statOpen" class="stat-value" style="color: #f39c12;">0</div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon">🆕</div>
+                <div class="stat-info"><div class="stat-label">المفتوحة</div><div id="statOpen" class="stat-value">0</div></div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">قيد المعالجة</div>
-                <div id="statInProgress" class="stat-value" style="color: #3498db;">0</div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon warn">⏳</div>
+                <div class="stat-info"><div class="stat-label">قيد المعالجة</div><div id="statInProgress" class="stat-value">0</div></div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">المحلولة</div>
-                <div id="statResolved" class="stat-value" style="color: #27ae60;">0</div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon ok">✅</div>
+                <div class="stat-info"><div class="stat-label">المحلولة</div><div id="statResolved" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon danger">⚠️</div>
+                <div class="stat-info"><div class="stat-label">مخالفة SLA</div><div id="statSlaBreach" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon">🙋</div>
+                <div class="stat-info"><div class="stat-label">غير معيّنة</div><div id="statUnassigned" class="stat-value">0</div></div>
             </div>
         </div>
 
-        <!-- الفلاتر -->
-        <div class="filters-section">
-            <div class="filter-group">
-                <label style="font-weight: 600; font-size: 0.9rem;">الحالة:</label>
-                <select id="filterStatus" class="filter-select">
-                    <option value="all">الكل</option>
-                    <option value="open">مفتوحة</option>
-                    <option value="in-progress">قيد المعالجة</option>
-                    <option value="resolved">محلولة</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label style="font-weight: 600; font-size: 0.9rem;">الأولوية:</label>
-                <select id="filterPriority" class="filter-select">
-                    <option value="all">الكل</option>
-                    <option value="high">عالية</option>
-                    <option value="medium">متوسطة</option>
-                    <option value="low">منخفضة</option>
-                </select>
-            </div>
-            <input type="text" id="searchInput" class="search-input" placeholder="ابحث في التذاكر...">
+        <!-- الفلاتر والأدوات -->
+        <div class="toolbar glass-card">
+            <select id="filterStatus" class="filter-select">
+                <option value="all">كل الحالات</option>
+                <option value="open">مفتوحة</option>
+                <option value="in-progress">قيد المعالجة</option>
+                <option value="resolved">محلولة</option>
+                <option value="confirmed">مؤكدة</option>
+                <option value="rejected">مرفوضة</option>
+            </select>
+            <select id="filterPriority" class="filter-select">
+                <option value="all">كل الأولويات</option>
+                <option value="high">عالية</option>
+                <option value="medium">متوسطة</option>
+                <option value="low">منخفضة</option>
+            </select>
+            <select id="filterCategory" class="filter-select">
+                <option value="all">كل التصنيفات</option>
+                <option value="whatsapp">واتساب</option>
+                <option value="tickets">تذاكر</option>
+                <option value="subscription">اشتراك</option>
+                <option value="login">تسجيل الدخول</option>
+                <option value="other">أخرى</option>
+            </select>
+            <select id="filterAssignee" class="filter-select">
+                <option value="all">كل الموظفين</option>
+                <option value="unassigned">غير معيّنة</option>
+                <option value="me">تذاكري</option>
+            </select>
+            <select id="sortBy" class="filter-select">
+                <option value="newest">الأحدث أولاً</option>
+                <option value="oldest">الأقدم أولاً</option>
+                <option value="priority">حسب الأولوية</option>
+                <option value="sla">الأكثر إلحاحاً (SLA)</option>
+            </select>
+            <input type="text" id="searchInput" class="search-input" placeholder="ابحث برقم التذكرة، العنوان، اسم العميل...">
         </div>
 
-        <!-- Tickets Layout: Vertical List + Details Panel -->
-        <div style="display: grid; grid-template-columns: 450px 1fr; gap: 1.5rem; height: 650px; margin-top: 2rem;">
-            <!-- Tickets List (Right Side) -->
-            <div style="background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; display: flex; flex-direction: column;">
-                <div style="padding: 1rem; border-bottom: 1px solid var(--color-border); background: var(--color-muted);">
-                    <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">قائمة التذاكر</h3>
+        <!-- التخطيط: قائمة + تفاصيل -->
+        <div class="tickets-layout">
+            <div class="tickets-panel glass-card">
+                <div class="tickets-panel-header">
+                    <h3>قائمة التذاكر</h3>
+                    <label style="display:flex; align-items:center; gap:.4rem; font-size:.75rem; color:var(--color-text-secondary); cursor:pointer; font-weight:600;">
+                        <input type="checkbox" id="selectAllTickets" style="accent-color:var(--color-accent-2);"> تحديد الكل
+                    </label>
                 </div>
-                <div id="ticketsGrid" style="overflow-y: auto; flex: 1; padding: 0.5rem;">
+                <div id="bulkBar" class="bulk-bar">
+                    <span id="bulkCount" style="font-weight:700;">0 محددة</span>
+                    <select id="bulkStatusSelect" class="filter-select" style="padding:.35rem .6rem;">
+                        <option value="">تغيير الحالة إلى...</option>
+                        <option value="open">مفتوحة</option>
+                        <option value="in-progress">قيد المعالجة</option>
+                        <option value="resolved">محلولة</option>
+                    </select>
+                    <select id="bulkAssignSelect" class="filter-select" style="padding:.35rem .6rem;">
+                        <option value="">تعيين إلى...</option>
+                    </select>
+                    <button id="clearSelectionBtn" class="icon-btn" style="padding:.35rem .7rem;">إلغاء التحديد</button>
+                </div>
+                <div id="ticketsGrid">
                     <div class="empty-state">
                         <div class="empty-state-icon">📋</div>
                         <p>جاري تحميل التذاكر...</p>
                     </div>
                 </div>
             </div>
-            
-            <!-- Ticket Details Panel (Left Side) -->
-            <div id="adminTicketDetailsPanel" style="background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; display: flex; flex-direction: column;">
-                <div id="adminTicketDetailsContent" style="flex: 1; overflow-y: auto; padding: 2rem; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);">
-                    <div style="text-align: center;">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
+
+            <div id="adminTicketDetailsPanel" class="details-panel glass-card">
+                <div id="adminTicketDetailsContent" class="details-empty">
+                    <div>
+                        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 1rem; opacity:.5;">
                             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
-                        <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
-                        <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
+                        <p style="font-size:1.05rem; font-weight:700; color:var(--color-text);">اختر تذكرة لعرض التفاصيل</p>
+                        <p style="font-size:.85rem; margin-top:.4rem;">انقر على أي تذكرة من القائمة</p>
                     </div>
                 </div>
             </div>
         </div>
     </main>
-
-    <!-- Ticket View Modal -->
-    <div id="ticketModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTicketTitle">تفاصيل التذكرة</h2>
-                <span class="close-modal" id="closeModal">&times;</span>
-            </div>
-            <div class="ticket-details-grid">
-                <div class="ticket-info-section">
-                    <div class="detail-item">
-                        <div class="detail-label">وصف المشكلة</div>
-                        <div id="modalTicketDesc" class="detail-value" style="white-space: pre-wrap; font-weight: 400; line-height: 1.6;"></div>
-                    </div>
-                    
-                    <div id="modalTicketImageContainer" class="detail-item" style="display:none;">
-                        <div class="detail-label">المرفقات</div>
-                        <a id="modalTicketImageLink" target="_blank">
-                            <img id="modalTicketImage" style="max-width: 100%; border-radius: 8px; border: 1px solid #eee; margin-top: 0.5rem;">
-                        </a>
-                    </div>
-
-                    <div class="replies-container">
-                        <h3 style="font-size: 1rem; margin-bottom: 1rem;">المحادثة والردود</h3>
-                        <div id="ticketRepliesList">
-                            <!-- Replies will be loaded here -->
-                        </div>
-                    </div>
-
-                    <div class="reply-form">
-                        <textarea id="replyText" class="reply-textarea" placeholder="اكتب ردك هنا..."></textarea>
-                        <div class="reply-actions">
-                            <div class="reply-btns">
-                                <button id="sendPublicReply" class="btn btn-success">إرسال رد للعميل</button>
-                                <button id="sendInternalNote" class="btn btn-warning">إضافة ملاحظة داخلية</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ticket-meta-section">
-                    <div class="detail-item">
-                        <div class="detail-label">رقم التذكرة</div>
-                        <div id="modalTicketNumber" class="detail-value">#0</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">الحالة الحالية</div>
-                        <div id="modalTicketStatus" class="detail-value"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">صاحب التذكرة</div>
-                        <div id="modalTicketUser" class="detail-value"></div>
-                        <div id="modalTicketEmail" style="font-size: 0.75rem; color: #666;"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">تاريخ الإنشاء</div>
-                        <div id="modalTicketDate" class="detail-value"></div>
-                    </div>
-                    
-                    <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                        <button id="resolveTicketBtn" class="btn btn-primary" style="width: 100%;">إغلاق التذكرة (تم الحل)</button>
-                        <button id="impersonateUserBtn" class="btn btn-outline" style="width: 100%;">دخول لحساب العميل</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Close Ticket Modal -->
     <div id="closeTicketModal" class="close-ticket-modal">
