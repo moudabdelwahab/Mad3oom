@@ -11,7 +11,7 @@ import {
     fetchServers, fetchServerById, createServer, updateServer, deleteServer,
     saveCredentials, startOAuth, testServer, syncTools, setToolEnabled, disconnectServer,
     fetchStats, fetchMcpActivity, MCP_STATUSES, MCP_TRANSPORTS, MCP_AUTH_TYPES,
-    MCP_OAUTH_REDIRECT_URI,fetchMcpServerInfo, setMcpServerToolEnabled,
+    MCP_OAUTH_REDIRECT_URI,fetchMcpServerInfo, setMcpServerToolEnabled, fetchOAuthConfig,
 
     fetchApiTokens, fetchApiUsageLogs, createApiToken, regenerateApiTokenSecret,
     toggleApiToken, deleteApiToken, API_TOKEN_ALLOWED_SCOPES, API_TOKEN_DEFAULT_SCOPES,
@@ -574,6 +574,90 @@ async function loadMcpServerSection() {
     } catch (err) {
         card.innerHTML = errorHtml(err.message);
     }
+    await loadOAuthConfigSection();
+}
+
+/* ====================  إعدادات OAuth (Phase 4) - عرض تلقائي بالكامل  ==================== */
+
+async function loadOAuthConfigSection() {
+    const card = document.getElementById('oauthConfigCard');
+    if (!card) return;
+    card.innerHTML = loadingHtml();
+    try {
+        const cfg = await fetchOAuthConfig();
+        renderOAuthConfig(cfg);
+    } catch (err) {
+        card.innerHTML = errorHtml(err.message || 'تعذّر تحميل إعدادات OAuth');
+    }
+}
+
+function oauthStatusBadge(cfg) {
+    return cfg.status === 'connected'
+        ? '<span class="status-chip st-connected"><span class="dot"></span>مفعّل ويعمل (Active)</span>'
+        : '<span class="status-chip st-error"><span class="dot"></span>غير متاح حاليًا</span>';
+}
+
+/** صف حقل بقيمة للقراءة فقط + زر نسخ - نفس نمط secret-reveal-box الموجود بالفعل، بدون تكرار CSS جديد */
+function oauthCopyRow(label, value) {
+    return `
+        <div class="form-group full" style="margin-bottom:0.85rem">
+            <label>${label}</label>
+            <div class="oauth-field-row">
+                <input type="text" class="reveal-field" readonly dir="ltr" value="${escapeHtml(value || '—')}">
+                <button type="button" class="btn btn-secondary btn-copy" onclick="window.mcpCopyText('${escapeHtml(value || '')}')">نسخ</button>
+            </div>
+        </div>`;
+}
+
+function renderOAuthConfig(cfg) {
+    const card = document.getElementById('oauthConfigCard');
+    const statusHtml = oauthStatusBadge(cfg);
+
+    if (cfg.status !== 'connected') {
+        card.innerHTML = `
+            <div class="card-row">
+                <div class="card-head">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </div>
+                    <div class="card-title-wrap">
+                        <div class="card-title">إعدادات OAuth 2.1 ${statusHtml}</div>
+                        <div class="card-subtitle">لربط ChatGPT وأي عميل MCP آخر تلقائيًا</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-error">⚠️ ${escapeHtml(cfg.error || 'تعذّر الاتصال بخدمات OAuth')}</div>
+            ${oauthCopyRow('رابط اكتشاف OAuth (Discovery URL)', cfg.discovery_url)}
+            ${oauthCopyRow('رابط بيانات المورد المحمي (Protected Resource Metadata URL)', cfg.protected_resource_metadata_url)}
+        `;
+        return;
+    }
+
+    card.innerHTML = `
+        <div class="card-row">
+            <div class="card-head">
+                <div class="card-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <div class="card-title-wrap">
+                    <div class="card-title">إعدادات OAuth 2.1 (ChatGPT / عملاء MCP) ${statusHtml}</div>
+                    <div class="card-subtitle">تُجلب تلقائيًا من الخادم في كل مرة - انسخ أي رابط تحتاجه مباشرة، بدون كتابة يدوية.</div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:1rem">
+            ${oauthCopyRow('Issuer', cfg.issuer)}
+            ${oauthCopyRow('رابط التفويض (Authorization URL)', cfg.authorization_endpoint)}
+            ${oauthCopyRow('رابط الحصول على التوكن (Token URL)', cfg.token_endpoint)}
+            ${oauthCopyRow('رابط تسجيل العملاء تلقائيًا (Registration URL - DCR)', cfg.registration_endpoint)}
+            ${oauthCopyRow('رابط اكتشاف OAuth (Discovery URL)', cfg.discovery_url)}
+            ${oauthCopyRow('رابط بيانات المورد المحمي (Protected Resource Metadata URL)', cfg.protected_resource_metadata_url)}
+        </div>
+        <div class="card-meta" style="margin-top:0.25rem">
+            <span title="طريقة PKCE المدعومة">🔐 PKCE المدعوم: ${(cfg.code_challenge_methods_supported || []).join(', ') || '—'}</span>
+            <span title="طرق مصادقة عميل التوكن المدعومة">🔑 مصادقة العميل: ${(cfg.token_endpoint_auth_methods_supported || []).join(', ') || '—'}</span>
+        </div>
+    `;
 }
 
 function renderMcpServerStatus(info) {
@@ -582,7 +666,10 @@ function renderMcpServerStatus(info) {
     // Capabilities: بيانات-محورة بالكامل - أي مفتاح جديد يُضاف من الباك إند
     // مستقبلاً (resources/prompts/streaming حقيقية) بيتعرض تلقائياً هنا
     // بدون أي تعديل في هذا الملف.
+    // 'oauth' مستبعد هنا عمدًا: العلم الثابت القادم من mcp-server-info قديم ولا يعكس التنفيذ
+    // الفعلي - الحالة الحقيقية بتتعرض دلوقتي في قسم "إعدادات OAuth" المستقل تحت (loadOAuthConfigSection).
     const capBadges = Object.entries(info.capabilities || {})
+        .filter(([k]) => k !== 'oauth')
         .map(([k, v]) => renderCapabilityBadge(k, v)).join(' ');
 
     const authBadges = (info.authentication_methods || [])
