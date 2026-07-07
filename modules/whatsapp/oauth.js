@@ -37,21 +37,6 @@ const OAuthService = (() => {
 
     FB.login(
       function(response) {
-        console.log('[OAuth] FB.login raw response:', response);
-        console.log(
-   "AUTH RESPONSE",
-   response.authResponse
-);
-
-console.log(
-   "SESSION INFO",
-   response.authResponse?.sessionInfo
-);
-        console.log(
-    "SESSION INFO:",
-    response.authResponse?.sessionInfo
-);
-
         if (response.authResponse) {
           const code = response.authResponse.code;
           
@@ -67,8 +52,6 @@ console.log(
             }
 
             if (sessionInfo) {
-              console.log('[OAuth] Parsed sessionInfo:', sessionInfo);
-              
               // 1. محاولة استخراج المعرفات المباشرة
               wabaId = sessionInfo.waba_id;
               phoneId = sessionInfo.phone_number_id;
@@ -84,8 +67,6 @@ console.log(
           } catch (e) {
             console.error('[OAuth] Error parsing sessionInfo:', e);
           }
-
-          console.log('[OAuth] Final extracted IDs to send:', { phoneId, wabaId });
 
           _exchangeCode(code, { phoneId, wabaId })
             .catch(error => {
@@ -143,12 +124,6 @@ console.log(
       const session = await SupabaseIntegration.getCurrentSession();
       const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
 
-      console.log('[OAuth] Sending to exchange endpoint:', { 
-        hasCode: !!code, 
-        phoneId: providedIds.phoneId, 
-        wabaId: providedIds.wabaId 
-      });
-
       const response = await fetch(CONFIG.EXCHANGE_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -169,7 +144,6 @@ console.log(
       }
 
       const data = await response.json();
-      console.log('[OAuth] Exchange successful, received data:', data);
 
       if (session?.user?.id) {
         await SupabaseIntegration.saveIntegration({
