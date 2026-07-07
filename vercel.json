@@ -19,10 +19,10 @@
     {
       "source": "/oauth/token",
       "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-token"
+    },
+    {
+      "source": "/mcp",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/mcp"
     }
   ]
-}
-{
-  "source": "/mcp",
-  "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/mcp"
 }
