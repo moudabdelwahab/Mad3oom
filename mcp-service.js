@@ -498,6 +498,7 @@ export async function deleteApiToken(tokenId) {
  * ========================================================= */
 
 const EXTERNAL_INTEGRATIONS_TABLE = 'external_integrations';
+const EXTERNAL_INTEGRATION_MODELS_TABLE = 'external_integration_models';
 
 export const INTEGRATION_PROVIDERS = ['openai', 'claude', 'gemini', 'openrouter', 'groq', 'telegram_bot', 'webhook', 'custom'];
 
@@ -523,6 +524,9 @@ export const INTEGRATION_CREDENTIAL_FIELDS = {
 
 export const AI_INTEGRATION_PROVIDERS = ['openai', 'claude', 'gemini', 'openrouter', 'groq'];
 
+/** المزودين المتوافقين مع OpenAI فقط - بيسمحوا بحقل Base URL اختياري (استضافة ذاتية/بروكسي/نسخة متوافقة) */
+export const OPENAI_COMPATIBLE_PROVIDERS = ['openai', 'groq', 'openrouter'];
+
 /** فقط تكاملات نطاق platform (إدارة المنصة) - نفس نطاق صفحة الإعدادات القديمة */
 export async function fetchExternalIntegrations() {
     const { data, error } = await supabase
@@ -534,11 +538,11 @@ export async function fetchExternalIntegrations() {
     return data || [];
 }
 
-/** action محسوبة تلقائياً من وجود id */
-export async function saveExternalIntegration({ id, provider, display_name, is_active, credentials, credentials_meta }) {
+/** action محسوبة تلقائياً من وجود id. priority اختياري (رقم) - يُترك بدون تغيير لو undefined */
+export async function saveExternalIntegration({ id, provider, display_name, is_active, priority, credentials, credentials_meta }) {
     const payload = id
-        ? { action: 'update', id, display_name, is_active, credentials, credentials_meta }
-        : { action: 'create', provider, owner_scope: 'platform', display_name, is_active, credentials, credentials_meta };
+        ? { action: 'update', id, display_name, is_active, priority, credentials, credentials_meta }
+        : { action: 'create', provider, owner_scope: 'platform', display_name, is_active, priority, credentials, credentials_meta };
 
     const { data, error } = await supabase.functions.invoke('manage-external-integration', { body: payload });
     if (error) throw new Error('فشل حفظ التكامل: ' + error.message);
@@ -552,11 +556,24 @@ export async function deleteExternalIntegration(id) {
     if (data?.error) throw new Error(data.error);
 }
 
+/** الرد الآن قد يتضمن أيضاً models (لو المزود بيدعم اكتشاف موديلات) - راجع fetchIntegrationModels لقراءتها من الجدول مباشرة أي وقت */
 export async function testExternalIntegration(id) {
     const { data, error } = await supabase.functions.invoke('test-integration-connection', { body: { id } });
     if (error) throw new Error('فشل اختبار الاتصال: ' + error.message);
     if (data?.error) throw new Error(data.error);
-    return data; // { success, message }
+    return data; // { success, message, models? }
+}
+
+/** الموديلات المكتشفة/المحفوظة لتكامل معيّن (external_integration_models) - RLS بيسمح بالقراءة فقط لنفس نطاق التكامل */
+export async function fetchIntegrationModels(integrationId) {
+    if (!integrationId) return [];
+    const { data, error } = await supabase
+        .from(EXTERNAL_INTEGRATION_MODELS_TABLE)
+        .select('id, model_id, display_name, supports_chat, supports_vision, supports_tools, supports_streaming, context_window, max_output_tokens, input_price, output_price, is_default, is_enabled')
+        .eq('integration_id', integrationId)
+        .order('display_name', { ascending: true });
+    if (error) throw error;
+    return data || [];
 }
 
 /** المزود الافتراضي للذكاء الاصطناعي في شات بوت الموقع - صف bot_settings حيث phone_number_id IS NULL */
