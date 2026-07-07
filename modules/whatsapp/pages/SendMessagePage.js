@@ -449,6 +449,7 @@ export class SendMessagePage {
             document.getElementById('sending-modal').style.display = 'flex';
             let success = 0;
             let failed = 0;
+            const sendResults = []; // نتيجة كل رقم على حدة (لحفظها لاحقًا في التقرير الفعلي)
 
             const staticVariableInputs = Array.from(document.querySelectorAll('.template-var-input'));
             const mappingSelects = Array.from(document.querySelectorAll('.mapping-var-select'));
@@ -480,6 +481,8 @@ export class SendMessagePage {
                     components.push({ type: 'body', parameters });
                 }
 
+                let itemSucceeded = false;
+                let itemError = null;
                 try {
                     const res = await WhatsAppAPI.sendTemplate({
                         to: phone,
@@ -487,26 +490,35 @@ export class SendMessagePage {
                         languageCode: this.selectedTemplate.language || 'ar',
                         components: components
                     });
-                    if (res.messages || res.id) success++;
-                    else failed++;
+                    if (res.messages || res.id) {
+                        success++;
+                        itemSucceeded = true;
+                    } else {
+                        failed++;
+                        itemError = res.error?.message || 'فشل الإرسال';
+                    }
                 } catch (e) {
                     console.error(e);
                     failed++;
+                    itemError = e.message || 'فشل الإرسال';
                 }
+
+                sendResults.push({ phone, success: itemSucceeded, error: itemError });
                 
                 const progress = Math.round(((i + 1) / this.recipients.length) * 100);
                 document.getElementById('sending-progress-bar').style.width = progress + '%';
                 document.getElementById('sending-progress-text').textContent = `${i + 1}/${this.recipients.length}`;
-                document.getElementById('sending-log').innerHTML = `إرسال إلى ${phone}: ${failed === 0 ? 'نجاح' : 'فشل'}<br>` + document.getElementById('sending-log').innerHTML;
+                document.getElementById('sending-log').innerHTML = `إرسال إلى ${phone}: ${itemSucceeded ? 'نجاح' : 'فشل'}<br>` + document.getElementById('sending-log').innerHTML;
             }
 
             try {
                 const { WhatsAppReports } = await import('../services/whatsapp-reports.js');
-                const campaignReports = this.recipients.map((r, idx) => {
-                    const contact = (this.contactsData || []).find(c => c.phone === r) || { variables: {} };
+                const campaignReports = sendResults.map((r) => {
+                    const contact = (this.contactsData || []).find(c => c.phone === r.phone) || { variables: {} };
                     return {
-                        recipient: r,
-                        status: 'success',
+                        recipient: r.phone,
+                        status: r.success ? 'success' : 'failed',
+                        error: r.error,
                         metadata: {
                             variables: contact.variables,
                             import_source: this.importer.headers.length > 0 ? 'file' : 'manual'
