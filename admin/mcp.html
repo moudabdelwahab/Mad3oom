@@ -365,7 +365,7 @@
                 </button>
                 <button class="dev-tab" data-devtab="integrations" id="devTabIntegrations">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
-                    External Integrations
+                    التكاملات الخارجية
                 </button>
                 <button class="dev-tab" data-devtab="mcpserver" id="devTabMcpServer">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
@@ -810,6 +810,11 @@
                     <div class="form-group">
                         <label>اسم العرض</label>
                         <input type="text" id="integrationDisplayName" placeholder="مثال: OpenAI - الحساب الرئيسي">
+                    </div>
+                    <div class="form-group">
+                        <label>الأولوية <span class="req">*</span></label>
+                        <input type="number" id="integrationPriority" value="100" step="1">
+                        <span class="hint">رقم أصغر = أولوية أعلى عند وجود أكثر من مزود فعّال (يُستخدم مستقبلاً في التبديل الذكي بين المزودين).</span>
                     </div>
                     <div class="form-group full" id="integrationCredentialFields"></div>
                     <div class="form-group full">
