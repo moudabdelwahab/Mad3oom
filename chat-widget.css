@@ -1,16 +1,16 @@
-/* Floating Chat Widget Styles - Professional dark widget (Tawk-style) */
+/* Floating Chat Widget Styles - مطابق لهوية منصة مدعوم (نفس ألوان chat-customer.html) */
 
 .floating-chat-widget {
-    --chat-bg: #1c1e21;
-    --chat-bg-elevated: #26282c;
-    --chat-border: rgba(255, 255, 255, 0.08);
-    --chat-text: #f2f3f5;
-    --chat-text-secondary: #b8bcc4;
-    --chat-text-tertiary: #7d818a;
-    --chat-accent: #5b6eae;
-    --chat-accent-hover: #6d7fbe;
-    --chat-bubble-bot: #2d3035;
-    --chat-bubble-user: #375a9e;
+    --chat-bg: #ffffff;
+    --chat-bg-elevated: #f4f6f8;
+    --chat-border: rgba(0, 51, 102, 0.1);
+    --chat-text: #23272b;
+    --chat-text-secondary: #5c6570;
+    --chat-text-tertiary: #8a94a0;
+    --chat-accent: #003366;
+    --chat-accent-hover: #0055AA;
+    --chat-bubble-bot: #f1f0f0;
+    --chat-bubble-user: #003366;
     --chat-success: #22c55e;
 
     position: fixed;
@@ -240,7 +240,7 @@
 }
 
 .chat-settings-item-clickable:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(0, 51, 102, 0.05);
 }
 
 .chat-settings-icon {
