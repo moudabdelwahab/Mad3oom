@@ -21,10 +21,38 @@ import {
     INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
 } from '/mcp-service.js';
 
+/** عنوان ربط مدعوم كـ MCP Connector (OAuth) - نفس الرابط اللي يتضاف كـ Connector في Claude أو أي عميل MCP يدعم Streamable HTTP */
+const MCP_CONNECTOR_URL = 'https://mad3oom.online/mcp';
+
 let allServers = [];
 let editingId = null;
 let toolsModalServerId = null;
 let toolsSearchQuery = '';
+
+/* ====================  أيقونات SVG صغيرة (بديل الإيموجي)  ==================== */
+function ic(inner) {
+    return `<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex-shrink:0">${inner}</svg>`;
+}
+const ICN = {
+    link: ic('<path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5"></path><path d="M14 11a5 5 0 0 0-7.07 0L5 12.93a5 5 0 0 0 7.07 7.07L13.5 18.5"></path>'),
+    gear: ic('<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'),
+    tools: ic('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>'),
+    clock: ic('<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>'),
+    tag: ic('<path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12.99V2h10.99l8.6 8.6a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>'),
+    alert: ic('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>'),
+    lock: ic('<rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>'),
+    key: ic('<circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path>'),
+    ticket: ic('<path d="M3 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"></path><line x1="13" y1="5" x2="13" y2="19"></line>'),
+    signal: ic('<circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.48M7.76 16.24a6 6 0 0 1 0-8.48M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path>'),
+    barChart: ic('<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>'),
+    calendar: ic('<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>'),
+    cpu: ic('<rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line>'),
+    globe: ic('<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"></path>'),
+    target: ic('<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>'),
+    eye: ic('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle>'),
+    zap: ic('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>'),
+    hourglass: ic('<path d="M6 2h12M6 22h12M8 2v4a4 4 0 0 0 8 0V2M8 22v-4a4 4 0 0 1 8 0v4"></path>'),
+};
 
 /* ====================  العرض - قائمة الخوادم  ==================== */
 
@@ -105,13 +133,13 @@ function renderServers(servers) {
             </div>
 
             <div class="card-meta">
-                ${s.url ? `<span title="عنوان الخادم">🔗 <code dir="ltr">${escapeHtml(s.url)}</code></span>` : ''}
-                ${s.command ? `<span title="أمر التشغيل">⚙️ <code dir="ltr">${escapeHtml(s.command)}</code></span>` : ''}
-                <span title="الأدوات المفعّلة/الإجمالي">🛠️ ${enabledCount}/${toolCount} أداة مفعّلة</span>
-                <span title="آخر فحص">🕒 ${lastChecked}</span>
-                ${s.category ? `<span title="التصنيف">🏷️ ${escapeHtml(s.category)}</span>` : ''}
+                ${s.url ? `<span title="عنوان الخادم">${ICN.link} <code dir="ltr">${escapeHtml(s.url)}</code></span>` : ''}
+                ${s.command ? `<span title="أمر التشغيل">${ICN.gear} <code dir="ltr">${escapeHtml(s.command)}</code></span>` : ''}
+                <span title="الأدوات المفعّلة/الإجمالي">${ICN.tools} ${enabledCount}/${toolCount} أداة مفعّلة</span>
+                <span title="آخر فحص">${ICN.clock} ${lastChecked}</span>
+                ${s.category ? `<span title="التصنيف">${ICN.tag} ${escapeHtml(s.category)}</span>` : ''}
             </div>
-            ${s.last_error ? `<div class="card-error">⚠️ ${escapeHtml(s.last_error)}</div>` : ''}
+            ${s.last_error ? `<div class="card-error">${ICN.alert} ${escapeHtml(s.last_error)}</div>` : ''}
 
             <div class="card-actions">
                 <button class="btn btn-test" onclick="window.mcpTest('${s.id}')">
@@ -521,7 +549,7 @@ function copyRedirectUri() {
 }
 
 /* ============================================================
- *  تبويب رئيسي: خوادم MCP / Mad3oom API Tokens / External Integrations
+ *  تبويب رئيسي: خوادم MCP / مفاتيح API / External Integrations
  *  (منقول بالكامل من صفحة الإعدادات - مصدر واحد فقط لإدارة الـ API)
  * ============================================================ */
 
@@ -626,7 +654,8 @@ function renderOAuthConfig(cfg) {
                     </div>
                 </div>
             </div>
-            <div class="card-error">⚠️ ${escapeHtml(cfg.error || 'تعذّر الاتصال بخدمات OAuth')}</div>
+            <div class="card-error">${ICN.alert} ${escapeHtml(cfg.error || 'تعذّر الاتصال بخدمات OAuth')}</div>
+            ${oauthCopyRow('عنوان ربط MCP (استخدمه عند إضافة مدعوم كـ Connector في Claude أو أي عميل MCP)', MCP_CONNECTOR_URL)}
             ${oauthCopyRow('رابط اكتشاف OAuth (Discovery URL)', cfg.discovery_url)}
             ${oauthCopyRow('رابط بيانات المورد المحمي (Protected Resource Metadata URL)', cfg.protected_resource_metadata_url)}
         `;
@@ -646,6 +675,7 @@ function renderOAuthConfig(cfg) {
             </div>
         </div>
         <div style="margin-top:1rem">
+            ${oauthCopyRow('عنوان ربط MCP (استخدمه عند إضافة مدعوم كـ Connector في Claude أو أي عميل MCP)', MCP_CONNECTOR_URL)}
             ${oauthCopyRow('Issuer', cfg.issuer)}
             ${oauthCopyRow('رابط التفويض (Authorization URL)', cfg.authorization_endpoint)}
             ${oauthCopyRow('رابط الحصول على التوكن (Token URL)', cfg.token_endpoint)}
@@ -654,8 +684,8 @@ function renderOAuthConfig(cfg) {
             ${oauthCopyRow('رابط بيانات المورد المحمي (Protected Resource Metadata URL)', cfg.protected_resource_metadata_url)}
         </div>
         <div class="card-meta" style="margin-top:0.25rem">
-            <span title="طريقة PKCE المدعومة">🔐 PKCE المدعوم: ${(cfg.code_challenge_methods_supported || []).join(', ') || '—'}</span>
-            <span title="طرق مصادقة عميل التوكن المدعومة">🔑 مصادقة العميل: ${(cfg.token_endpoint_auth_methods_supported || []).join(', ') || '—'}</span>
+            <span title="طريقة PKCE المدعومة">${ICN.lock} PKCE المدعوم: ${(cfg.code_challenge_methods_supported || []).join(', ') || '—'}</span>
+            <span title="طرق مصادقة عميل التوكن المدعومة">${ICN.key} مصادقة العميل: ${(cfg.token_endpoint_auth_methods_supported || []).join(', ') || '—'}</span>
         </div>
     `;
 }
@@ -700,10 +730,10 @@ function renderMcpServerStatus(info) {
             </div>
         </div>
         <div class="card-meta">
-            <span title="Endpoint">🔗 <code dir="ltr">${escapeHtml(info.endpoint)}</code>
+            <span title="Endpoint">${ICN.link} <code dir="ltr">${escapeHtml(info.endpoint)}</code>
                 <button class="btn btn-secondary btn-copy" style="padding:2px 8px;font-size:0.72rem" onclick="window.mcpCopyText('${escapeHtml(info.endpoint)}')">نسخ</button></span>
-            <span title="Protocol Version">📡 ${escapeHtml(info.protocol_version)}</span>
-            <span title="Transport">🔌 ${escapeHtml(info.transport)}</span>
+            <span title="Protocol Version">${ICN.signal} ${escapeHtml(info.protocol_version)}</span>
+            <span title="Transport">${ICN.zap} ${escapeHtml(info.transport)}</span>
         </div>
         <div class="card-meta" style="margin-top:-0.5rem">${authBadges}</div>
         <div class="card-actions" style="border-top:none;flex-wrap:wrap;">${capBadges}</div>
@@ -743,7 +773,7 @@ async function handleTestMcpServer() {
     btn.disabled = true; btn.textContent = 'جاري الاختبار...';
     try {
         await fetchMcpServerInfo('test');
-        toast('الخادم شغال بشكل صحيح ✅', 'success');
+        toast('الخادم شغال بشكل صحيح', 'success');
         await loadMcpServerSection();
     } catch (err) {
         toast(err.message || 'فشل الاختبار', 'error');
@@ -752,10 +782,10 @@ async function handleTestMcpServer() {
     }
 }
 
-/* ====================  Mad3oom API Tokens  ==================== */
+/* ====================  مفاتيح API  ==================== */
 
 function credentialTypeLabel(t) {
-    return { api_key_secret: '🔑 API Key + Secret', bearer: '🎫 Bearer Token' }[t] || t;
+    return { api_key_secret: `${ICN.key} API Key + Secret`, bearer: `${ICN.ticket} Bearer Token` }[t] || t;
 }
 
 async function loadApiTokensSection() {
@@ -785,15 +815,15 @@ function renderApiTokens() {
     list.innerHTML = allApiTokens.map((t) => {
         const scopesHtml = (t.scopes || []).map((s) => `<span class="transport-chip">${escapeHtml(s)}</span>`).join(' ');
         const keyLine = t.api_key && t.credential_type === 'api_key_secret'
-            ? `<span title="API Key">🔑 <code dir="ltr">${escapeHtml(t.api_key)}</code>
+            ? `<span title="API Key">${ICN.key} <code dir="ltr">${escapeHtml(t.api_key)}</code>
                  <button class="btn btn-secondary btn-copy" style="padding:2px 8px;font-size:0.72rem" onclick="window.mcpCopyText('${escapeHtml(t.api_key)}')">نسخ</button></span>`
             : '';
         const secretHint = t.credential_type === 'bearer'
-            ? `<span title="آخر 4 خانات">🎫 ••••${escapeHtml(t.bearer_last_four || '----')}</span>`
-            : `<span title="آخر 4 خانات">🔒 ••••${escapeHtml(t.secret_last_four || '----')}</span>`;
+            ? `<span title="آخر 4 خانات">${ICN.ticket} ••••${escapeHtml(t.bearer_last_four || '----')}</span>`
+            : `<span title="آخر 4 خانات">${ICN.lock} ••••${escapeHtml(t.secret_last_four || '----')}</span>`;
         const lastUsed = t.last_used_at ? new Date(t.last_used_at).toLocaleString('ar-EG') : 'لم يُستخدم بعد';
-        const expiresChip = t.expires_at ? `<span title="ينتهي في">⏳ ${new Date(t.expires_at).toLocaleDateString('ar-EG')}</span>` : '';
-        const groupNote = t.credential_group_id ? `<span title="مرتبط بمفتاح آخر ضمن نفس مجموعة الإنشاء">🔗 مجموعة مزدوجة</span>` : '';
+        const expiresChip = t.expires_at ? `<span title="ينتهي في">${ICN.hourglass} ${new Date(t.expires_at).toLocaleDateString('ar-EG')}</span>` : '';
+        const groupNote = t.credential_group_id ? `<span title="مرتبط بمفتاح آخر ضمن نفس مجموعة الإنشاء">${ICN.link} مجموعة مزدوجة</span>` : '';
 
         return `
         <div class="mcp-card ${t.is_active ? 'is-connected' : ''}" data-token-id="${t.id}">
@@ -816,11 +846,11 @@ function renderApiTokens() {
             <div class="card-meta">
                 ${keyLine}
                 ${secretHint}
-                <span title="عدد مرات الاستخدام">📊 ${t.usage_count ?? 0} استدعاء</span>
-                <span title="آخر استخدام">🕒 ${lastUsed}</span>
+                <span title="عدد مرات الاستخدام">${ICN.barChart} ${t.usage_count ?? 0} استدعاء</span>
+                <span title="آخر استخدام">${ICN.clock} ${lastUsed}</span>
                 ${expiresChip}
                 ${groupNote}
-                <span title="تاريخ الإنشاء">📅 ${new Date(t.created_at).toLocaleDateString('ar-EG')}</span>
+                <span title="تاريخ الإنشاء">${ICN.calendar} ${new Date(t.created_at).toLocaleDateString('ar-EG')}</span>
             </div>
             <div class="card-meta" style="margin-top:-0.5rem">${scopesHtml}</div>
             <div class="card-actions">
@@ -996,8 +1026,8 @@ function renderIntegrations() {
             : i.last_test_status === 'failed' ? '<span class="status-chip st-error"><span class="dot"></span>آخر اختبار: فشل</span>'
             : '<span class="status-chip st-pending"><span class="dot"></span>لم يُختبر بعد</span>';
 
-        const modelChip = i.credentials_meta?.model ? `<span title="الموديل الحالي">🧠 <code dir="ltr">${escapeHtml(i.credentials_meta.model)}</code></span>` : '';
-        const baseUrlChip = i.credentials_meta?.base_url ? `<span title="Base URL مخصّص">🌐 <code dir="ltr">${escapeHtml(i.credentials_meta.base_url)}</code></span>` : '';
+        const modelChip = i.credentials_meta?.model ? `<span title="الموديل الحالي">${ICN.cpu} <code dir="ltr">${escapeHtml(i.credentials_meta.model)}</code></span>` : '';
+        const baseUrlChip = i.credentials_meta?.base_url ? `<span title="Base URL مخصّص">${ICN.globe} <code dir="ltr">${escapeHtml(i.credentials_meta.base_url)}</code></span>` : '';
 
         return `
         <div class="mcp-card ${i.is_active ? 'is-connected' : ''}" data-integration-id="${i.id}">
@@ -1014,7 +1044,7 @@ function renderIntegrations() {
             </div>
             <div class="card-meta">
                 ${testChip}
-                <span title="الأولوية (الأصغر = أعلى أولوية عند وجود أكثر من مزود)">🎯 أولوية: ${i.priority ?? 100}</span>
+                <span title="الأولوية (الأصغر = أعلى أولوية عند وجود أكثر من مزود)">${ICN.target} أولوية: ${i.priority ?? 100}</span>
                 ${modelChip}
                 ${baseUrlChip}
             </div>
@@ -1101,9 +1131,9 @@ async function loadModelChoicesForIntegration(integrationId, currentModel) {
 
         select.innerHTML = '<option value="">— اختر من الموديلات المكتشفة —</option>' + models.map((m) => {
             const badges = [
-                m.supports_vision ? '👁️ Vision' : '',
-                m.supports_tools ? '🛠️ Tools' : '',
-                m.supports_streaming ? '⚡ Streaming' : '',
+                m.supports_vision ? `${ICN.eye} Vision` : '',
+                m.supports_tools ? `${ICN.tools} Tools` : '',
+                m.supports_streaming ? `${ICN.zap} Streaming` : '',
             ].filter(Boolean).join(' • ');
             const selected = m.model_id === currentModel ? 'selected' : '';
             return `<option value="${escapeHtml(m.model_id)}" ${selected}>${escapeHtml(m.display_name || m.model_id)}${badges ? ' — ' + badges : ''}</option>`;
@@ -1280,7 +1310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.mcpToggleTool = handleToggleTool;
     window.mcpSyncTools = handleSyncTools;
 
-    // Mad3oom API Tokens
+    // مفاتيح API
     window.mcpAddToken = openApiTokenModal;
     window.mcpRegenToken = handleRegenToken;
     window.mcpToggleToken = handleToggleToken;
@@ -1325,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('devTabApiTokens').addEventListener('click', () => switchDevTab('apitokens'));
     document.getElementById('devTabIntegrations').addEventListener('click', () => switchDevTab('integrations'));
 
-    // Mad3oom API Tokens - أحداث
+    // مفاتيح API - أحداث
     document.getElementById('addTokenBtn').addEventListener('click', openApiTokenModal);
     document.getElementById('refreshTokensBtn').addEventListener('click', loadApiTokensSection);
     document.getElementById('cancelApiTokenBtn').addEventListener('click', closeApiTokenModal);
