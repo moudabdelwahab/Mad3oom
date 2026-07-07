@@ -1,15 +1,22 @@
 import { SupabaseIntegration } from '../supabase-integration.js';
 
 const TABLE = 'messages';
+// ملاحظة: هذه القائمة يجب أن تطابق أعمدة جدول public.messages الفعلية في Supabase.
+// لا يوجد عمود media_id أو media_url أو metadata في الجدول - الأعمدة الصحيحة هي
+// file_url و attachment_type و raw_data (jsonb). أي اسم عمود غير موجود يتسبب في
+// فشل عملية insert/update بالكامل (وليس فقط تجاهل الحقل)، فيسقط الكود لمحاولة
+// أضعف تفقد معلومات المرفق كلها.
 const FULL_INSERT_COLUMNS = [
   'user_id', 'from_number', 'to_number', 'message_text', 'message_type',
-  'direction', 'status', 'delivery_status', 'timestamp', 'media_id',
-  'media_url', 'mime_type', 'file_name', 'file_size', 'wa_message_id',
-  'client_id', 'metadata', 'read_at',
+  'direction', 'status', 'delivery_status', 'timestamp', 'file_url',
+  'attachment_type', 'mime_type', 'file_name', 'file_size', 'wa_message_id',
+  'client_id', 'raw_data', 'read_at',
 ];
 const REQUIRED_OUTBOUND_COLUMNS = [
-  'user_id', 'from_number', 'to_number', 'message_text', 'direction',
-  'status', 'timestamp',
+  'user_id', 'from_number', 'to_number', 'message_text', 'message_type',
+  'direction', 'status', 'delivery_status', 'timestamp', 'file_url',
+  'attachment_type', 'mime_type', 'file_name', 'file_size', 'wa_message_id',
+  'client_id',
 ];
 const LEGACY_COLUMNS = ['user_id', 'from_number', 'to_number', 'message_text', 'timestamp'];
 
@@ -18,6 +25,32 @@ function pick(object, keys) {
     if (object[key] !== undefined) result[key] = object[key];
     return result;
   }, {});
+}
+
+// يحوّل الحقول القديمة/غير المطابقة (media_url, media_id, metadata, type) إلى
+// أسماء الأعمدة الحقيقية في جدول messages قبل أي إدخال أو تحديث.
+function normalizeRowForDb(message) {
+  const row = { ...message };
+
+  if (row.media_url && !row.file_url) row.file_url = row.media_url;
+  if (row.media && row.media.url && !row.file_url) row.file_url = row.media.url;
+
+  if (!row.attachment_type && row.type && row.type !== 'text') {
+    row.attachment_type = row.type;
+  }
+
+  // لا يوجد عمود media_id في الجدول، فنحتفظ به داخل raw_data (jsonb) كمرجع فقط.
+  const extraMeta = { ...(row.metadata || {}) };
+  if (row.media_id) extraMeta.media_id = row.media_id;
+  if (Object.keys(extraMeta).length) row.raw_data = { ...(row.raw_data || {}), ...extraMeta };
+
+  delete row.media_url;
+  delete row.media_id;
+  delete row.metadata;
+  delete row.media;
+  delete row.type;
+
+  return row;
 }
 
 export class SupabaseMessageHelper {
@@ -55,7 +88,7 @@ export class SupabaseMessageHelper {
     const userId = await this.currentUserId();
     if (!userId) return { ...message, id: message.client_id };
 
-    const row = { user_id: userId, ...message };
+    const row = normalizeRowForDb({ user_id: userId, ...message });
     
     // Try to update existing message first (by client_id or wa_message_id)
     if (message.client_id || message.wa_message_id) {
