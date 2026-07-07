@@ -22,3 +22,7 @@
     }
   ]
 }
+{
+  "source": "/mcp",
+  "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/mcp"
+}
