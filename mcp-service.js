@@ -616,6 +616,65 @@ export async function saveDefaultAiProvider(integrationId) {
 
 export const MCP_ENDPOINT_URL = `${supabase.supabaseUrl}/functions/v1/mcp`;
 
+/* =========================================================
+ *  إعدادات OAuth 2.1 (Phase 4) - تُجلب تلقائيًا من الخادم فقط
+ *  عبر oauth-discovery (RFC 8414) وoauth-protected-resource (RFC 9728).
+ *  لا تُكتب أي قيمة يدويًا هنا - أي تغيير مستقبلي في الخادم (رابط، PKCE،
+ *  طريقة مصادقة جديدة...) ينعكس تلقائيًا في الواجهة بدون أي تعديل هنا.
+ * ========================================================= */
+
+/** الروابط العامة الثابتة (Reverse Proxy عبر mad3oom.online) - لا تتغيّر حتى لو تغيّر مشروع Supabase */
+export const OAUTH_DISCOVERY_URL = 'https://mad3oom.online/.well-known/oauth-authorization-server';
+export const OAUTH_PROTECTED_RESOURCE_URL = 'https://mad3oom.online/.well-known/oauth-protected-resource';
+
+/**
+ * يرجّع كل إعدادات OAuth تلقائيًا للعرض في لوحة التحكم:
+ * { status: 'connected'|'error', issuer, authorization_endpoint, token_endpoint,
+ *   registration_endpoint, discovery_url, protected_resource_metadata_url,
+ *   code_challenge_methods_supported, token_endpoint_auth_methods_supported,
+ *   scopes_supported, resource, authorization_servers, error? }
+ */
+export async function fetchOAuthConfig() {
+    try {
+        const [discoveryRes, resourceRes] = await Promise.all([
+            supabase.functions.invoke('oauth-discovery'),
+            supabase.functions.invoke('oauth-protected-resource'),
+        ]);
+
+        if (discoveryRes.error) throw new Error('فشل جلب OAuth Discovery: ' + discoveryRes.error.message);
+        if (resourceRes.error) throw new Error('فشل جلب Protected Resource Metadata: ' + resourceRes.error.message);
+
+        const discovery = discoveryRes.data || {};
+        const resource = resourceRes.data || {};
+
+        if (discovery.error || resource.error) {
+            throw new Error(discovery.error_description || resource.error_description || 'رد غير متوقع من خدمات OAuth');
+        }
+
+        return {
+            status: 'connected',
+            issuer: discovery.issuer || '',
+            authorization_endpoint: discovery.authorization_endpoint || '',
+            token_endpoint: discovery.token_endpoint || '',
+            registration_endpoint: discovery.registration_endpoint || '',
+            discovery_url: OAUTH_DISCOVERY_URL,
+            protected_resource_metadata_url: OAUTH_PROTECTED_RESOURCE_URL,
+            code_challenge_methods_supported: discovery.code_challenge_methods_supported || [],
+            token_endpoint_auth_methods_supported: discovery.token_endpoint_auth_methods_supported || [],
+            scopes_supported: discovery.scopes_supported || [],
+            resource: resource.resource || '',
+            authorization_servers: resource.authorization_servers || [],
+        };
+    } catch (err) {
+        return {
+            status: 'error',
+            error: err.message || 'تعذّر الاتصال بخدمات OAuth',
+            discovery_url: OAUTH_DISCOVERY_URL,
+            protected_resource_metadata_url: OAUTH_PROTECTED_RESOURCE_URL,
+        };
+    }
+}
+
 export async function fetchMcpServerInfo(action = 'status') {
     const { data, error } = await supabase.functions.invoke('mcp-server-info', { body: { action } });
     if (error) throw new Error('فشل جلب معلومات MCP Server: ' + error.message);
