@@ -1027,6 +1027,22 @@
       'تحديد نوع الحساب'
     );
     const role = profile?.role || 'user';
+
+    // إضافة بحتة: لو فيه وجهة عودة محفوظة (مثلاً صفحة موافقة OAuth mcp)، اتّبعها بدل اللوحة الافتراضية.
+    // المفتاح ده بيتحطّ بس من صفحات معيّنة (زي admin/oauth-consent.html) قبل ما تحوّل المستخدم هنا،
+    // فأي تدفق تسجيل دخول عادي (بدون الصفحة دي) يفضل شغّال بالظبط زي ما كان.
+    const returnTo = sessionStorage.getItem('mad3oom_post_login_redirect');
+    if (returnTo) {
+      sessionStorage.removeItem('mad3oom_post_login_redirect');
+      try {
+        const target = new URL(returnTo, window.location.origin);
+        if (target.origin === window.location.origin) {
+          window.location.href = target.pathname + target.search;
+          return;
+        }
+      } catch { /* رابط غير صالح - نتجاهله ونكمل بالسلوك الافتراضي تحت */ }
+    }
+
     window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
