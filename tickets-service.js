@@ -267,6 +267,102 @@ export async function updateTicketPriority(ticketId, priority) {
 }
 
 /**
+ * تعيين التذكرة لموظف دعم معيّن (أو إلغاء التعيين لو agentId = null)
+ * (للإدارة فقط - RLS يجب أن يمنع غير الأدمن من التعديل)
+ */
+export async function updateTicketAssignee(ticketId, agentId) {
+    const currentUser = await getCurrentUser();
+
+    const { data: updated, error } = await supabase
+        .from('tickets')
+        .update({
+            assigned_to: agentId || null,
+            last_updated_by: currentUser ? currentUser.id : null,
+            last_updated_at: new Date().toISOString()
+        })
+        .eq('id', ticketId)
+        .select('id')
+        .maybeSingle();
+
+    if (error) throw error;
+
+    if (!updated) {
+        throw new Error('لم يتم تحديث المسؤول عن التذكرة. قد لا تملك صلاحية هذا الإجراء أو أن التذكرة غير موجودة.');
+    }
+
+    if (agentId) {
+        await createNotification({
+            userId: agentId,
+            title: 'تم تعيين تذكرة لك',
+            message: 'تم تعيينك كمسؤول عن متابعة تذكرة دعم',
+            type: 'info',
+            link: `admin/tickets.html?ticket=${ticketId}`
+        });
+    }
+
+    await logActivity('ticket_assignee_update', { ticket_id: ticketId, assigned_to: agentId });
+}
+
+/**
+ * جلب قائمة موظفي الدعم (أدمن/دعم/مسؤول) الصالحين لتعيين التذاكر لهم
+ */
+export async function fetchSupportAgents() {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .in('role', ['admin', 'support', 'super_user'])
+        .order('full_name', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+}
+
+/**
+ * تحديث عدة تذاكر دفعة واحدة (إجراءات جماعية من لوحة الإدارة)
+ * يُرجع عدد التذاكر التي تم تحديثها فعلياً.
+ */
+export async function bulkUpdateTicketStatus(ticketIds, status) {
+    if (!ticketIds || ticketIds.length === 0) return 0;
+    const currentUser = await getCurrentUser();
+
+    const { data, error } = await supabase
+        .from('tickets')
+        .update({
+            status,
+            last_updated_by: currentUser ? currentUser.id : null,
+            last_updated_at: new Date().toISOString()
+        })
+        .in('id', ticketIds)
+        .select('id');
+
+    if (error) throw error;
+    await logActivity('ticket_bulk_status_update', { ticket_ids: ticketIds, status });
+    return data ? data.length : 0;
+}
+
+/**
+ * تعيين عدة تذاكر لموظف دعم دفعة واحدة
+ */
+export async function bulkUpdateTicketAssignee(ticketIds, agentId) {
+    if (!ticketIds || ticketIds.length === 0) return 0;
+    const currentUser = await getCurrentUser();
+
+    const { data, error } = await supabase
+        .from('tickets')
+        .update({
+            assigned_to: agentId || null,
+            last_updated_by: currentUser ? currentUser.id : null,
+            last_updated_at: new Date().toISOString()
+        })
+        .in('id', ticketIds)
+        .select('id');
+
+    if (error) throw error;
+    await logActivity('ticket_bulk_assignee_update', { ticket_ids: ticketIds, assigned_to: agentId });
+    return data ? data.length : 0;
+}
+
+/**
  * إغلاق التذكرة مع تعليق (للأدمن)
  */
 export async function closeTicketWithComment(ticketId, comment) {
