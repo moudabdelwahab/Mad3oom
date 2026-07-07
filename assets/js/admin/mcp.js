@@ -17,6 +17,7 @@ import {
     toggleApiToken, deleteApiToken, API_TOKEN_ALLOWED_SCOPES, API_TOKEN_DEFAULT_SCOPES,
     fetchExternalIntegrations, saveExternalIntegration, deleteExternalIntegration,
     testExternalIntegration, fetchDefaultAiProvider, saveDefaultAiProvider,
+    fetchIntegrationModels, OPENAI_COMPATIBLE_PROVIDERS,
     INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
 } from '/mcp-service.js';
 
@@ -900,10 +901,16 @@ function renderIntegrations() {
         return;
     }
 
-    grid.innerHTML = allIntegrations.map((i) => {
+    // ترتيب العرض حسب priority (الأصغر أولاً) - نفس الترتيب اللي هيستخدمه AI Router مستقبلاً
+    const sorted = [...allIntegrations].sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100));
+
+    grid.innerHTML = sorted.map((i) => {
         const testChip = i.last_test_status === 'success' ? '<span class="status-chip st-connected"><span class="dot"></span>آخر اختبار: نجح</span>'
             : i.last_test_status === 'failed' ? '<span class="status-chip st-error"><span class="dot"></span>آخر اختبار: فشل</span>'
             : '<span class="status-chip st-pending"><span class="dot"></span>لم يُختبر بعد</span>';
+
+        const modelChip = i.credentials_meta?.model ? `<span title="الموديل الحالي">🧠 <code dir="ltr">${escapeHtml(i.credentials_meta.model)}</code></span>` : '';
+        const baseUrlChip = i.credentials_meta?.base_url ? `<span title="Base URL مخصّص">🌐 <code dir="ltr">${escapeHtml(i.credentials_meta.base_url)}</code></span>` : '';
 
         return `
         <div class="mcp-card ${i.is_active ? 'is-connected' : ''}" data-integration-id="${i.id}">
@@ -918,7 +925,12 @@ function renderIntegrations() {
                     </div>
                 </div>
             </div>
-            <div class="card-meta">${testChip}</div>
+            <div class="card-meta">
+                ${testChip}
+                <span title="الأولوية (الأصغر = أعلى أولوية عند وجود أكثر من مزود)">🎯 أولوية: ${i.priority ?? 100}</span>
+                ${modelChip}
+                ${baseUrlChip}
+            </div>
             ${i.last_test_message ? `<div class="card-meta" style="margin-top:-0.5rem">${escapeHtml(i.last_test_message)}</div>` : ''}
             <div class="card-actions">
                 <button class="btn btn-test" onclick="window.mcpTestIntegration('${i.id}')">اختبار الاتصال</button>
@@ -941,21 +953,100 @@ async function populateDefaultAiProviderSelect() {
     } catch (err) { console.warn('[MCP] fetchDefaultAiProvider failed:', err); }
 }
 
-function renderIntegrationCredentialFields(provider, prefillMeta = {}) {
+/**
+ * فورم بيانات الاعتماد الديناميكي + (جديد) Base URL اختياري للمزودين المتوافقين
+ * مع OpenAI + اختيار الموديل: قائمة تُجلب تلقائيًا من الموديلات المكتشفة (external_integration_models)
+ * لو فيه integrationId، مع fallback دايمًا لإدخال يدوي (زر "إدخال يدوي" / "رجوع لقائمة الموديلات").
+ */
+function renderIntegrationCredentialFields(provider, prefillMeta = {}, integrationId = null) {
     const container = document.getElementById('integrationCredentialFields');
     const fields = INTEGRATION_CREDENTIAL_FIELDS[provider] || [];
-    container.innerHTML = fields.map((f) => `
+
+    let html = fields.map((f) => `
         <div class="form-group full">
             <label>${f.label}</label>
             <input type="${f.type}" id="cred-${f.key}" placeholder="${f.placeholder}" dir="ltr">
         </div>`).join('') + (fields.length ? `<span class="hint">اترك الحقل فارغًا عند التعديل للإبقاء على القيمة الحالية.</span>` : '');
 
-    if (AI_INTEGRATION_PROVIDERS.includes(provider)) {
-        container.insertAdjacentHTML('beforeend', `
+    if (OPENAI_COMPATIBLE_PROVIDERS.includes(provider)) {
+        html += `
             <div class="form-group full">
-                <label>الموديل (اختياري)</label>
+                <label>Base URL (اختياري - لاستضافة ذاتية أو بروكسي متوافق مع OpenAI)</label>
+                <input type="text" id="cred-meta-base-url" placeholder="https://api.example.com/v1" dir="ltr" value="${escapeHtml(prefillMeta.base_url || '')}">
+                <span class="hint">اتركه فارغًا لاستخدام الرابط الرسمي للمزود.</span>
+            </div>`;
+    }
+
+    if (AI_INTEGRATION_PROVIDERS.includes(provider)) {
+        html += `
+            <div class="form-group full">
+                <label>
+                    الموديل (اختياري)
+                    <button type="button" id="modelManualToggleBtn" class="btn btn-secondary btn-copy" style="margin-inline-start:0.5rem; display:none; padding:0.2rem 0.6rem; font-size:0.72rem;">إدخال يدوي</button>
+                </label>
+                <select id="cred-meta-model-select" style="display:none"></select>
                 <input type="text" id="cred-meta-model" placeholder="مثال: gpt-4o-mini" value="${escapeHtml(prefillMeta.model || '')}">
-            </div>`);
+                <span class="hint" id="cred-meta-model-hint">${integrationId ? 'جاري تحميل الموديلات المكتشفة...' : 'هيظهر اختيار تلقائي للموديلات بعد أول اختبار اتصال ناجح لهذا التكامل.'}</span>
+            </div>`;
+    }
+
+    container.innerHTML = html;
+
+    if (AI_INTEGRATION_PROVIDERS.includes(provider) && integrationId) {
+        loadModelChoicesForIntegration(integrationId, prefillMeta.model || '');
+    }
+}
+
+/** يجلب الموديلات المكتشفة (external_integration_models) ويحوّل الحقل لقائمة اختيار مع فallback يدوي */
+async function loadModelChoicesForIntegration(integrationId, currentModel) {
+    const select = document.getElementById('cred-meta-model-select');
+    const manualInput = document.getElementById('cred-meta-model');
+    const hint = document.getElementById('cred-meta-model-hint');
+    const toggleBtn = document.getElementById('modelManualToggleBtn');
+    if (!select || !manualInput || !hint) return;
+
+    try {
+        const models = await fetchIntegrationModels(integrationId);
+        if (!models.length) {
+            hint.textContent = 'مفيش موديلات مكتشفة بعد - اعمل "اختبار الاتصال" أولاً لجلبها تلقائيًا، أو اكتب اسم الموديل يدويًا.';
+            return;
+        }
+
+        select.innerHTML = '<option value="">— اختر من الموديلات المكتشفة —</option>' + models.map((m) => {
+            const badges = [
+                m.supports_vision ? '👁️ Vision' : '',
+                m.supports_tools ? '🛠️ Tools' : '',
+                m.supports_streaming ? '⚡ Streaming' : '',
+            ].filter(Boolean).join(' • ');
+            const selected = m.model_id === currentModel ? 'selected' : '';
+            return `<option value="${escapeHtml(m.model_id)}" ${selected}>${escapeHtml(m.display_name || m.model_id)}${badges ? ' — ' + badges : ''}</option>`;
+        }).join('');
+
+        const foundCurrent = models.some((m) => m.model_id === currentModel);
+        select.style.display = 'block';
+        manualInput.style.display = 'none';
+        toggleBtn.style.display = 'inline-flex';
+        toggleBtn.textContent = 'إدخال يدوي';
+        hint.textContent = 'القائمة مبنية على الموديلات المكتشفة فعليًا من آخر اختبار اتصال ناجح.';
+        if (foundCurrent) manualInput.value = currentModel;
+
+        select.addEventListener('change', () => { manualInput.value = select.value; });
+
+        toggleBtn.addEventListener('click', () => {
+            const usingManual = manualInput.style.display !== 'none';
+            if (usingManual) {
+                manualInput.style.display = 'none';
+                select.style.display = 'block';
+                toggleBtn.textContent = 'إدخال يدوي';
+            } else {
+                manualInput.style.display = 'block';
+                select.style.display = 'none';
+                toggleBtn.textContent = 'رجوع لقائمة الموديلات المكتشفة';
+            }
+        });
+    } catch (err) {
+        console.warn('[MCP] loadModelChoicesForIntegration failed:', err);
+        hint.textContent = 'تعذّر تحميل قائمة الموديلات - تقدر تكتب اسم الموديل يدويًا.';
     }
 }
 
@@ -965,6 +1056,7 @@ function openAddIntegrationModal() {
     document.getElementById('integrationProvider').value = 'openai';
     document.getElementById('integrationProvider').disabled = false;
     document.getElementById('integrationDisplayName').value = '';
+    document.getElementById('integrationPriority').value = 100;
     document.getElementById('integrationIsActive').checked = true;
     document.getElementById('integrationFormError').style.display = 'none';
     renderIntegrationCredentialFields('openai');
@@ -979,9 +1071,10 @@ function openEditIntegrationModal(id) {
     document.getElementById('integrationProvider').value = integ.provider;
     document.getElementById('integrationProvider').disabled = true;
     document.getElementById('integrationDisplayName').value = integ.display_name;
+    document.getElementById('integrationPriority').value = integ.priority ?? 100;
     document.getElementById('integrationIsActive').checked = integ.is_active;
     document.getElementById('integrationFormError').style.display = 'none';
-    renderIntegrationCredentialFields(integ.provider, integ.credentials_meta || {});
+    renderIntegrationCredentialFields(integ.provider, integ.credentials_meta || {}, integ.id);
     document.getElementById('integrationModal').classList.add('open');
 }
 
@@ -992,10 +1085,13 @@ async function handleSaveIntegration() {
     const provider = document.getElementById('integrationProvider').value;
     const display_name = document.getElementById('integrationDisplayName').value.trim();
     const is_active = document.getElementById('integrationIsActive').checked;
+    const priorityRaw = document.getElementById('integrationPriority').value;
+    const priority = priorityRaw !== '' ? Number(priorityRaw) : undefined;
     const errBox = document.getElementById('integrationFormError');
     errBox.style.display = 'none';
 
     if (!display_name) { errBox.textContent = 'اسم العرض مطلوب'; errBox.style.display = 'block'; return; }
+    if (priority !== undefined && !Number.isFinite(priority)) { errBox.textContent = 'الأولوية لازم تكون رقم'; errBox.style.display = 'block'; return; }
 
     const fields = INTEGRATION_CREDENTIAL_FIELDS[provider] || [];
     const credentials = {};
@@ -1014,12 +1110,14 @@ async function handleSaveIntegration() {
     const credentials_meta = {};
     const modelInput = document.getElementById('cred-meta-model');
     if (modelInput && modelInput.value.trim()) credentials_meta.model = modelInput.value.trim();
+    const baseUrlInput = document.getElementById('cred-meta-base-url');
+    if (baseUrlInput && baseUrlInput.value.trim()) credentials_meta.base_url = baseUrlInput.value.trim();
 
     const btn = document.getElementById('saveIntegrationBtn');
     btn.disabled = true; btn.textContent = 'جاري الحفظ...';
     try {
         await saveExternalIntegration({
-            id, provider, display_name, is_active,
+            id, provider, display_name, is_active, priority,
             credentials: hasAnyCred ? credentials : undefined,
             credentials_meta,
         });
@@ -1055,7 +1153,8 @@ async function handleTestIntegration(id) {
     try {
         toast('جاري اختبار الاتصال...', 'info');
         const result = await testExternalIntegration(id);
-        toast(result.message, result.success ? 'success' : 'error');
+        const modelsNote = Array.isArray(result.models) && result.models.length ? ` • تم اكتشاف ${result.models.length} موديل` : '';
+        toast((result.message || '') + modelsNote, result.success ? 'success' : 'error');
         await loadIntegrationsSection();
     } catch (err) { toast(err.message || 'فشل الاختبار', 'error'); }
 }
