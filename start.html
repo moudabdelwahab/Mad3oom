@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('theme-preference');
+    if(t !== 'light' && t !== 'dark'){ t = 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<title>جاهز تبدأ؟ | مدعوم</title>
+<meta name="description" content="خطوة واحدة، وتقدر تنشئ حسابك على مدعوم. راجع سياسة الخصوصية وشروط الاستخدام قبل ما تبدأ.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ Tokens (matching mad3oom design system) ============ */
+:root{
+  --bg-void:#060B14;
+  --bg-surface:#0D1622;
+  --bg-elevated:#121F30;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.09);
+  --primary:#0077CC;
+  --primary-deep:#00234A;
+  --accent:#4DA3FF;
+  --accent-soft:#8FC7FF;
+  --success:#22C58B;
+  --danger:#FF6B6B;
+  --text-1:#F3F6FB;
+  --text-2:#94A6C2;
+  --text-3:#5A6A82;
+  --radius-lg:1.5rem;
+  --radius-md:1rem;
+  --radius-sm:.6rem;
+  --shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --font-display:'Cairo',sans-serif;
+  --font-body:'IBM Plex Sans Arabic',sans-serif;
+  --font-data:'Space Grotesk',sans-serif;
+  --container:1240px;
+  --pad:clamp(1.25rem,4vw,3rem);
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-fast:.18s;
+  --dur-med:.35s;
+  --dur-slow:.6s;
+  --scrim:rgba(6,11,20,.75);
+  --scrim-strong:rgba(6,11,20,.98);
+  --btn-outline-bg:rgba(255,255,255,.03);
+  --dot-color:rgba(255,255,255,.05);
+}
+[data-theme="light"]{
+  --bg-void:#F3F6FC;
+  --bg-surface:#FFFFFF;
+  --bg-elevated:#EDF2FA;
+  --glass:rgba(16,27,46,.035);
+  --glass-strong:rgba(16,27,46,.06);
+  --glass-border:rgba(16,27,46,.09);
+  --text-1:#101B2E;
+  --text-2:#4B5A72;
+  --text-3:#8493AA;
+  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.22);
+  --scrim:rgba(255,255,255,.85);
+  --scrim-strong:rgba(255,255,255,.98);
+  --btn-outline-bg:rgba(16,27,46,.035);
+  --dot-color:rgba(16,27,46,.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-1);line-height:1.75;overflow-x:hidden;position:relative;min-height:100vh;display:flex;flex-direction:column;}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.22), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 20%, rgba(77,163,255,.12), transparent 55%),
+    var(--bg-void);}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+.ambient-glow{position:fixed;border-radius:50%;filter:blur(60px);pointer-events:none;z-index:-1;opacity:.55;}
+.ambient-glow.g1{width:26rem;height:26rem;top:-8rem;right:-6rem;background:radial-gradient(circle, rgba(0,119,204,.35), transparent 70%);animation:driftA 16s ease-in-out infinite;}
+.ambient-glow.g2{width:22rem;height:22rem;bottom:-8rem;left:-6rem;background:radial-gradient(circle, rgba(77,163,255,.25), transparent 70%);animation:driftB 20s ease-in-out infinite;}
+@keyframes driftA{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-2rem,2rem) scale(1.12);}}
+@keyframes driftB{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(2rem,-1.5rem) scale(1.08);}}
+.particle{position:fixed;border-radius:50%;background:var(--accent-soft);opacity:0;pointer-events:none;z-index:-1;animation:particleFloat linear infinite;}
+@keyframes particleFloat{
+  0%{transform:translateY(0) translateX(0);opacity:0;}
+  10%{opacity:.5;}
+  90%{opacity:.35;}
+  100%{transform:translateY(-90vh) translateX(var(--drift,20px));opacity:0;}
+}
+a{color:inherit;text-decoration:none;}
+img{max-width:100%;display:block;}
+ul{list-style:none;}
+button{font-family:inherit;}
+h1,h2,h3{font-family:var(--font-display);font-weight:800;line-height:1.25;letter-spacing:-.01em;}
+::selection{background:var(--primary);color:#fff;}
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
+.container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);width:100%;}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.25rem;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:dotPulse 1.8s ease-in-out infinite;}
+@keyframes dotPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+.gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF,var(--accent-soft));background-size:300% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:gradientDrift 6s linear infinite;}
+@keyframes gradientDrift{0%{background-position:0% 50%;}100%{background-position:300% 50%;}}
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.reveal{opacity:0;transform:translateY(24px) scale(.98);filter:blur(6px);transition:opacity .8s var(--ease-snap), transform .8s var(--ease-snap), filter .8s var(--ease-snap);}
+.reveal.in{opacity:1;transform:translateY(0) scale(1);filter:blur(0);}
+@keyframes childRise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+.gate-card.in > .gate-head{animation:childRise .6s var(--ease-snap) both;animation-delay:.05s;}
+.gate-card.in > h1{animation:childRise .6s var(--ease-snap) both;animation-delay:.12s;}
+.gate-card.in > p.lead{animation:childRise .6s var(--ease-snap) both;animation-delay:.19s;}
+.gate-card.in > .legal-list{animation:childRise .6s var(--ease-snap) both;animation-delay:.26s;}
+.gate-card.in > .agree-row{animation:childRise .6s var(--ease-snap) both;animation-delay:.33s;}
+.gate-card.in > .gate-actions{animation:childRise .6s var(--ease-snap) both;animation-delay:.4s;}
+.gate-card.in > .gate-back-link{animation:childRise .6s var(--ease-snap) both;animation-delay:.46s;}
+.gate-card.in .legal-item:nth-child(1){animation:childRise .5s var(--ease-snap) both;animation-delay:.32s;}
+.gate-card.in .legal-item:nth-child(2){animation:childRise .5s var(--ease-snap) both;animation-delay:.4s;}
+
+/* ============ Buttons ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) var(--ease-snap), background var(--dur-fast) ease, border-color var(--dur-fast) ease, opacity var(--dur-fast) ease;white-space:nowrap;position:relative;overflow:hidden;}
+.btn:active{transform:translateY(1px) scale(.97);transition-duration:.08s;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
+.btn-primary::before{content:"";position:absolute;top:0;bottom:0;width:40%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg) translateX(-160%);transition:transform .7s ease;}
+.btn-primary:not([aria-disabled="true"]):hover::before{transform:skewX(-20deg) translateX(320%);}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 20px 40px -10px rgba(0,119,204,.75);}
+.btn-primary[disabled]{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;filter:grayscale(.3);}
+.btn-primary.pulse-once{animation:pulseOnce .6s var(--ease-bounce);}
+@keyframes pulseOnce{0%{transform:scale(1);}40%{transform:scale(1.06);}100%{transform:scale(1);}}
+.btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);transform:translateY(-2px);}
+.btn-lg{padding:1.05rem 2.2rem;font-size:1.02rem;}
+.btn-block{width:100%;}
+
+/* ============ Navbar ============ */
+.navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:1rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
+.navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.65rem;}
+.brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;overflow:hidden;}
+.brand-mark img{width:100%;height:100%;object-fit:cover;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1.05rem;}
+.brand-text small{font-size:.62rem;color:var(--text-2);font-weight:500;}
+.nav-cta{display:flex;align-items:center;gap:.9rem;}
+.nav-back{display:inline-flex;align-items:center;gap:.4rem;font-size:.9rem;font-weight:600;color:var(--text-2);transition:color var(--dur-fast) ease,transform var(--dur-fast) var(--ease-snap);}
+.nav-back:hover{color:var(--text-1);transform:translateX(3px);}
+.nav-back svg{width:16px;height:16px;}
+.theme-toggle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);}
+.theme-toggle:hover{border-color:var(--accent-soft);transform:rotate(-12deg) scale(1.06);}
+.theme-toggle:active{transform:scale(.92);}
+.theme-toggle svg{width:18px;height:18px;transition:transform var(--dur-slow) var(--ease-bounce), opacity var(--dur-med) ease;}
+.theme-toggle .sun-icon{display:block;}
+.theme-toggle .moon-icon{display:none;}
+[data-theme="light"] .theme-toggle .sun-icon{display:none;}
+[data-theme="light"] .theme-toggle .moon-icon{display:block;}
+
+/* ============ Gate section ============ */
+main{flex:1;display:flex;align-items:center;padding:clamp(7rem,12vw,8rem) 0 3rem;}
+.gate-wrap{max-width:640px;margin:0 auto;width:100%;}
+.gate-card{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);border-radius:var(--radius-lg);padding:clamp(1.75rem,5vw,3rem);box-shadow:var(--shadow-lg);position:relative;overflow:hidden;}
+.gate-card::before{content:"";position:absolute;inset:0;background:radial-gradient(40rem 20rem at 100% 0%, rgba(0,119,204,.14), transparent 60%);pointer-events:none;}
+.gate-head{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;position:relative;z-index:1;}
+.gate-avatar{width:56px;height:56px;border-radius:50%;overflow:hidden;border:2px solid var(--accent-soft);box-shadow:var(--shadow-glow);flex-shrink:0;animation:floaty 5s ease-in-out infinite;transition:transform var(--dur-fast) var(--ease-bounce);cursor:default;position:relative;}
+.gate-avatar::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:1.5px solid var(--accent-soft);opacity:0;animation:avatarPing 3.4s ease-out infinite;}
+@keyframes avatarPing{0%{transform:scale(.9);opacity:.55;}100%{transform:scale(1.5);opacity:0;}}
+.gate-avatar:hover{transform:scale(1.12);}
+.gate-avatar.wave{animation:floaty 5s ease-in-out infinite, waveTilt 1s var(--ease-bounce);}
+@keyframes waveTilt{0%,100%{transform:rotate(0deg);}25%{transform:rotate(-12deg);}50%{transform:rotate(8deg);}75%{transform:rotate(-6deg);}}
+.gate-avatar img{width:100%;height:100%;object-fit:cover;}
+@keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+.gate-card h1{font-size:clamp(1.5rem,3.4vw,2.1rem);margin-bottom:.3rem;position:relative;z-index:1;}
+.gate-card > p.lead{color:var(--text-2);font-size:1rem;margin-bottom:1.8rem;position:relative;z-index:1;}
+
+.legal-list{display:flex;flex-direction:column;gap:.85rem;margin-bottom:1.8rem;position:relative;z-index:1;}
+.legal-item{display:flex;align-items:center;gap:.9rem;background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1rem 1.1rem;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease, background var(--dur-fast) ease;}
+.legal-item:hover{transform:translateX(-4px);border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
+.legal-icon{width:42px;height:42px;border-radius:.7rem;background:linear-gradient(135deg,var(--accent-soft),var(--primary));display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform var(--dur-med) var(--ease-bounce);}
+.legal-item:hover .legal-icon{transform:scale(1.08) rotate(-4deg);}
+.legal-icon svg{width:20px;height:20px;color:#fff;}
+.legal-body{flex:1;min-width:0;}
+.legal-body strong{display:block;font-size:.95rem;margin-bottom:.15rem;color:var(--text-1);}
+.legal-body span{font-size:.82rem;color:var(--text-3);}
+.legal-arrow{color:var(--text-3);flex-shrink:0;transition:transform var(--dur-fast) var(--ease-snap), color var(--dur-fast) ease;}
+.legal-item:hover .legal-arrow{transform:translateX(-4px);color:var(--accent-soft);}
+.legal-arrow svg{width:16px;height:16px;}
+
+.agree-row{display:flex;align-items:flex-start;gap:.7rem;background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1rem 1.1rem;margin-bottom:1.6rem;cursor:pointer;transition:border-color var(--dur-fast) ease, background var(--dur-fast) ease;position:relative;z-index:1;}
+.agree-row:hover{border-color:rgba(77,163,255,.35);}
+.agree-row input{appearance:none;width:20px;height:20px;border-radius:.4rem;border:2px solid var(--glass-border);background:var(--bg-surface);flex-shrink:0;margin-top:.1rem;cursor:pointer;position:relative;transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-bounce);}
+.agree-row input:checked{background:linear-gradient(135deg,var(--accent),var(--primary));border-color:transparent;transform:scale(1.05);}
+.agree-row input:checked::after{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/60% no-repeat;}
+.agree-row label{font-size:.9rem;color:var(--text-2);cursor:pointer;line-height:1.7;}
+.agree-row label a{color:var(--accent-soft);font-weight:700;text-decoration:underline;text-decoration-color:rgba(143,199,255,.35);transition:color var(--dur-fast) ease;}
+.agree-row label a:hover{color:var(--text-1);}
+
+.gate-actions{display:flex;flex-direction:column;gap:.75rem;position:relative;z-index:1;}
+.gate-hint{font-size:.78rem;color:var(--text-3);text-align:center;min-height:1.2em;transition:opacity var(--dur-fast) ease;}
+.gate-back-link{display:block;text-align:center;font-size:.86rem;color:var(--text-3);margin-top:1.4rem;transition:color var(--dur-fast) ease;}
+.gate-back-link:hover{color:var(--accent-soft);}
+
+@media (max-width:560px){
+  .gate-head{flex-direction:column;text-align:center;}
+  .legal-item{flex-wrap:wrap;}
+}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--glass-border);padding:2rem 0;background:var(--bg-surface);}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;color:var(--text-3);font-size:.82rem;}
+.footer-bottom .flinks{display:flex;gap:1.2rem;}
+.footer-bottom .flinks a{color:var(--text-3);transition:color var(--dur-fast) ease;}
+.footer-bottom .flinks a:hover{color:var(--accent-soft);}
+</style>
+</head>
+<body>
+
+<div class="ambient-glow g1"></div>
+<div class="ambient-glow g2"></div>
+<div id="particleField"></div>
+
+<!-- ============ Navbar ============ -->
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span>
+      <span class="brand-text"><strong>مدعوم</strong><small>منصة الدعم الفني الذكي</small></span>
+    </a>
+    <div class="nav-cta">
+      <a href="index.html" class="nav-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        رجوع للرئيسية
+      </a>
+      <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ Gate content ============ -->
+<main>
+  <div class="container">
+    <div class="gate-wrap">
+      <div class="gate-card reveal">
+        <div class="gate-head">
+          <span class="gate-avatar"><img src="assets/images/mad3oom-robot.png" alt="روبوت مدعوم"></span>
+          <div>
+            <div class="eyebrow" style="margin-bottom:.5rem;"><span class="dot"></span> قبل ما تبدأ</div>
+          </div>
+        </div>
+        <h1>خطوة واحدة، وتكون <span class="gradient-text">جاهز تستخدم مدعوم</span></h1>
+        <p class="lead">هنجهّز حسابك في دقيقة. بس الأول حابين نتأكد إنك عارف تفاصيل تعاملك معنا — اتفضل راجعهم في أي وقت:</p>
+
+        <div class="legal-list">
+          <a href="privacy.html" class="legal-item">
+            <span class="legal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+            <span class="legal-body"><strong>سياسة الخصوصية</strong><span>إزاي بنجمع وبنحمي بياناتك وبيانات عملاءك</span></span>
+            <span class="legal-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L4 12l7 7M4 12h16" transform="scale(-1,1) translate(-24,0)"/></svg></span>
+          </a>
+          <a href="terms.html" class="legal-item">
+            <span class="legal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
+            <span class="legal-body"><strong>شروط الاستخدام</strong><span>القواعد والحقوق والواجبات بينك وبين مدعوم</span></span>
+            <span class="legal-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L4 12l7 7M4 12h16" transform="scale(-1,1) translate(-24,0)"/></svg></span>
+          </a>
+        </div>
+
+        <div class="agree-row" id="agreeRow">
+          <input type="checkbox" id="agreeCheck">
+          <label for="agreeCheck">قرأت وموافق على <a href="privacy.html">سياسة الخصوصية</a> و<a href="terms.html">شروط الاستخدام</a> الخاصة بمدعوم.</label>
+        </div>
+
+        <div class="gate-actions">
+          <a href="login.html" class="btn btn-primary btn-lg btn-block" id="startBtn" aria-disabled="true">جاهز تبدأ</a>
+          <p class="gate-hint" id="gateHint">لازم توافق على الشروط والخصوصية الأول 👆</p>
+        </div>
+
+        <a href="index.html" class="gate-back-link">لسه مش متأكد؟ رجوع للصفحة الرئيسية</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ Footer ============ -->
+<footer>
+  <div class="container footer-bottom">
+    <span>© <span id="year"></span> مدعوم. جميع الحقوق محفوظة.</span>
+    <div class="flinks">
+      <a href="privacy.html">سياسة الخصوصية</a>
+      <a href="terms.html">شروط الاستخدام</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => navbar.classList.toggle('scrolled', window.scrollY > 20), { passive:true });
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in'); revealObserver.unobserve(entry.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ============ Theme toggle ============
+(function(){
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('theme-preference', t); }catch(e){}
+  }
+  function toggleTheme(btnEl){
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (btnEl){
+      btnEl.style.transform = 'rotate(180deg)';
+      setTimeout(() => { btnEl.style.transform = ''; }, 600);
+    }
+  }
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.addEventListener('click', () => toggleTheme(btn));
+})();
+
+// ============ Gate: require agreement before enabling "جاهز تبدأ" ============
+(function(){
+  const check = document.getElementById('agreeCheck');
+  const startBtn = document.getElementById('startBtn');
+  const hint = document.getElementById('gateHint');
+
+  function sync(justChecked){
+    if (check.checked){
+      startBtn.removeAttribute('aria-disabled');
+      startBtn.removeAttribute('disabled');
+      startBtn.style.pointerEvents = 'auto';
+      startBtn.style.opacity = '1';
+      startBtn.style.filter = 'none';
+      hint.style.opacity = '0';
+      if (justChecked){
+        startBtn.classList.remove('pulse-once');
+        void startBtn.offsetWidth; // restart animation
+        startBtn.classList.add('pulse-once');
+      }
+    } else {
+      startBtn.setAttribute('aria-disabled', 'true');
+      startBtn.style.pointerEvents = 'none';
+      startBtn.style.opacity = '.45';
+      startBtn.style.filter = 'grayscale(.4)';
+      hint.style.opacity = '1';
+    }
+  }
+  check.addEventListener('change', () => sync(check.checked));
+  sync(false);
+})();
+
+// ============ Robot avatar: periodic friendly wave ============
+(function(){
+  const avatar = document.querySelector('.gate-avatar');
+  if (!avatar) return;
+  function wave(){
+    avatar.classList.add('wave');
+    setTimeout(() => avatar.classList.remove('wave'), 1000);
+  }
+  setTimeout(wave, 1200);
+  setInterval(wave, 6000);
+  avatar.addEventListener('click', wave);
+})();
+
+// ============ Ambient floating particles ============
+(function(){
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const field = document.getElementById('particleField');
+  if (!field || reduceMotion) return;
+  function spawn(){
+    const p = document.createElement('span');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 3;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.top = '100vh';
+    p.style.setProperty('--drift', (Math.random() * 60 - 30) + 'px');
+    const dur = 10 + Math.random() * 8;
+    p.style.animationDuration = dur + 's';
+    field.appendChild(p);
+    setTimeout(() => p.remove(), dur * 1000);
+  }
+  for (let i = 0; i < 6; i++) setTimeout(spawn, i * 900);
+  setInterval(spawn, 2200);
+})();
+</script>
+</body>
+</html>
