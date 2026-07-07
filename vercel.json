@@ -1,0 +1,24 @@
+{
+  "rewrites": [
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-discovery"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-protected-resource"
+    },
+    {
+      "source": "/oauth/register",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-register"
+    },
+    {
+      "source": "/oauth/authorize",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-authorize"
+    },
+    {
+      "source": "/oauth/token",
+      "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-token"
+    }
+  ]
+}
