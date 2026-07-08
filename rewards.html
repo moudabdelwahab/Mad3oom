@@ -4,315 +4,159 @@
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- SEO Meta Tags -->
-    <title>نظام المكافآت - منصة مدعوم</title>
-    <meta name="description" content="نظام المكافآت والنقاط لمنصة مدعوم - اجمع النقاط من خلال الإبلاغ عن المشاكل واستمتع بالمزايا الحصرية">
-    <meta property="og:title" content="نظام المكافآت - منصة مدعوم">
-    <meta property="og:description" content="نظام المكافآت والنقاط لمنصة مدعوم">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://mad3oom.online/assets/images/logo.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="نظام المكافآت - منصة مدعوم">
+    <title>إدارة المكافآت - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    
-    <!-- Theme script must load BEFORE CSS to prevent FOUC -->
-    <script>
-        (function() {
-            try {
-                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                document.documentElement.setAttribute('data-theme', theme);
-            } catch(e) {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
-        })();
-    </script>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="rewards-styles.css">
-    <script src="theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
-        .reward-feature-card {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: 1rem;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
+        :root, :root[data-theme='light'], :root[data-theme='dark']{
+            --color-primary:#00234A; --color-primary-variant:#0077CC; --color-accent:#0077CC; --color-accent-2:#4DA3FF;
+            --color-background:#060B14; --color-surface:#0D1622; --color-surface-2:#121F30;
+            --color-text:#F3F6FB; --color-text-secondary:#94A6C2; --color-text-3:#5A6A82; --color-muted:#101B2C;
+            --color-success:#22C58B; --color-warning:#F5A623; --color-danger:#FF6B6B; --color-border:rgba(255,255,255,.09);
+            --input-bg:#0F1A2A; --shadow-lg:0 25px 60px -20px rgba(0,8,25,.75);
         }
-        .reward-feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: var(--shadow);
-            border-color: var(--color-accent);
+        body{ font-family:'IBM Plex Sans Arabic','Cairo',sans-serif; position:relative; }
+        body::before{
+            content:""; position:fixed; inset:0; z-index:-2;
+            background: radial-gradient(60rem 40rem at 90% -10%, rgba(0,119,204,.20), transparent 60%),
+                        radial-gradient(50rem 35rem at -10% 30%, rgba(77,163,255,.10), transparent 55%),
+                        var(--color-background);
         }
-        .reward-icon-wrapper {
-            width: 80px;
-            height: 80px;
-            background: var(--hover-bg);
-            color: var(--color-accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-        }
-        .reward-icon-wrapper svg {
-            width: 40px;
-            height: 40px;
-        }
-        .pro-badge-preview {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            color: white;
-            padding: 2rem;
-            border-radius: 1.5rem;
-            margin-top: 3rem;
-            display: flex;
-            align-items: center;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-        .pro-badge-icon {
-            width: 100px;
-            height: 100px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-        }
-        @media (max-width: 768px) {
-            .pro-badge-preview {
-                flex-direction: column;
-                text-align: center;
-            }
-        }
+        h1,h2,h3,h4{font-family:'Cairo',sans-serif;}
+        .gradient-text{ background:linear-gradient(90deg,#8FC7FF,#4DA3FF,#B9DCFF); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+        .eyebrow{ display:inline-flex; align-items:center; gap:.5rem; font-size:.75rem; font-weight:700; color:#8FC7FF; background:rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.25); padding:.3rem .85rem; border-radius:99px; margin-bottom:.6rem; }
+        .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--color-accent-2); box-shadow:0 0 8px var(--color-accent-2); }
+        .glass-card{ background:rgba(255,255,255,.04); border:1px solid var(--color-border); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:1.1rem; }
+        .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1rem; margin:1.5rem 0 1.75rem; }
+        .stat-card{ padding:1.15rem 1.25rem; display:flex; align-items:center; gap:1rem; }
+        .stat-icon{ width:44px; height:44px; min-width:44px; border-radius:.85rem; display:flex; align-items:center; justify-content:center; background:rgba(0,119,204,.15); color:#8FC7FF; }
+        .stat-icon.warn{background:rgba(245,166,35,.15); color:#F5A623;}
+        .stat-icon.ok{background:rgba(34,197,139,.15); color:#22C58B;}
+        .stat-icon.danger{background:rgba(255,107,107,.15); color:#FF6B6B;}
+        .stat-info .stat-label{ font-size:.78rem; color:var(--color-text-secondary); font-weight:600; }
+        .stat-info .stat-value{ font-size:1.5rem; font-weight:800; color:var(--color-text); font-family:'Space Grotesk',sans-serif; }
+        .toolbar{ display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; padding:.85rem 1rem; margin-bottom:1.25rem; }
+        .toolbar input, .toolbar select{ padding:.55rem .9rem; border:1px solid var(--color-border); border-radius:.65rem; background:var(--input-bg); color:var(--color-text); font-family:inherit; font-size:.85rem; }
+        .toolbar input{ min-width:240px; flex:1; }
+        .table-wrap{ overflow-x:auto; padding:.5rem; }
+        table.rewards-table{ width:100%; border-collapse:collapse; min-width:820px; }
+        table.rewards-table th{ text-align:right; font-size:.75rem; color:var(--color-text-secondary); padding:.7rem .85rem; border-bottom:1px solid var(--color-border); white-space:nowrap; }
+        table.rewards-table td{ padding:.8rem .85rem; border-bottom:1px solid var(--color-border); font-size:.85rem; color:var(--color-text); vertical-align:top; }
+        table.rewards-table tbody tr:hover{ background:rgba(255,255,255,.03); }
+        .status-badge{ display:inline-block; padding:.25rem .75rem; border-radius:99px; font-size:.72rem; font-weight:700; }
+        .status-pending{ background:rgba(245,166,35,.16); color:#F5A623; }
+        .status-approved{ background:rgba(34,197,139,.16); color:#22C58B; }
+        .status-rejected{ background:rgba(255,107,107,.16); color:#FF6B6B; }
+        .btn{ font-family:inherit; cursor:pointer; }
+        .btn-primary{ background:linear-gradient(135deg,#4DA3FF,#0077CC); border:none; color:#fff; padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-secondary{ background:var(--color-muted); color:var(--color-text); border:1px solid var(--color-border); padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-danger{ background:var(--color-danger); color:#fff; border:none; padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-sm{ padding:.35rem .8rem; font-size:.78rem; border-radius:.5rem; font-weight:700; }
+        .form-group{ margin-bottom:1rem; }
+        .form-group label{ display:block; font-size:.82rem; font-weight:700; color:var(--color-text); margin-bottom:.4rem; }
+        .form-control{ width:100%; padding:.65rem .8rem; border-radius:.6rem; border:1px solid var(--color-border); background:var(--input-bg); color:var(--color-text); font-family:inherit; font-size:.85rem; box-sizing:border-box; }
+        .not-authorized{ text-align:center; padding:4rem 1.5rem; color:var(--color-text-secondary); }
+        @keyframes slideInNotification{ from{opacity:0; transform:translateX(20px);} to{opacity:1; transform:translateX(0);} }
+        @keyframes slideOutNotification{ from{opacity:1; transform:translateX(0);} to{opacity:0; transform:translateX(20px);} }
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-logo">
-                <img src="/assets/images/logo.png" alt="Logo" class="logo-image">
-                <span>منصة مدعوم</span>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header" style="margin-bottom:.5rem;">
+            <div>
+                <span class="eyebrow"><span class="dot"></span> نظام المكافآت</span>
+                <h1>إدارة <span class="gradient-text">المكافآت والبلاغات</span></h1>
+                <p style="color:var(--color-text-secondary); margin-top:.35rem;">مراجعة بلاغات العملاء والموافقة عليها أو رفضها</p>
             </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <button class="theme-toggle" aria-label="Toggle theme" title="تبديل الوضع الليلي/النهاري">
-                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                </button>
-                <ul class="nav-menu">
-                    <li><a href="index.html">الرئيسية</a></li>
-                    <li><a href="about.html">حول</a></li>
-                    <li><a href="rewards.html" class="active">المكافآت</a></li>
-                    <li style="position: relative;">
-                        <button id="accountMenuBtn" style="background: none; border: none; color: var(--color-nav-text); cursor: pointer; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.3s; display: flex; align-items: center; gap: 0.5rem;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                            <span>حسابي</span>
-                        </button>
-                        <div id="accountDropdown" style="display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.5rem; box-shadow: var(--shadow); min-width: 200px; z-index: 1000; margin-top: 0.5rem;">
-                            <a href="sign-in.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
-                                تسجيل الدخول
-                            </a>
-                            <a href="sign-up.html" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); transition: all 0.3s;">
-                                إنشاء حساب
-                            </a>
-                            <a href="sign-in.html" id="guestLoginLink" style="display: block; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; transition: all 0.3s;">
-                                الدخول كضيف
-                            </a>
-                        </div>
-                    </li>
-                </ul>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card glass-card">
+                <div class="stat-icon warn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات معلقة</div><div id="admPendingReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon ok">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 12 5 5L20 7"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات موافق عليها</div><div id="admApprovedReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon danger">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات مرفوضة</div><div id="admRejectedReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">أعضاء Pro</div><div id="admProUsers" class="stat-value">0</div></div>
             </div>
         </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="hero-title">نظام المكافآت والنقاط</h1>
-            <p class="hero-subtitle">نحن نقدر مساهمتك في تحسين منصتنا. اكتشف كيف يمكنك كسب النقاط واستبدالها بمزايا حصرية.</p>
-            <div style="margin-top: 2rem;">
-                <a href="sign-up.html" class="btn btn-primary">ابدأ الآن واجمع النقاط</a>
-            </div>
+        <div class="toolbar glass-card">
+            <input type="text" id="reportsSearch" placeholder="ابحث بعنوان البلاغ أو وصفه...">
+            <select id="reportsStatusFilter">
+                <option value="all">كل الحالات</option>
+                <option value="pending">معلقة</option>
+                <option value="approved">موافق عليها</option>
+                <option value="rejected">مرفوضة</option>
+            </select>
         </div>
-    </section>
 
-    <!-- Main Content -->
-    <div class="container" style="padding-bottom: 5rem;">
-        
-        <!-- How it works -->
-        <section style="margin-top: 4rem;">
-            <h2 class="section-title">كيف يعمل النظام؟</h2>
-            <p class="section-subtitle">خطوات بسيطة تفصلك عن الحصول على مكافآتك الأولى</p>
-            
-            <div class="wallet-grid">
-                <div class="reward-feature-card">
-                    <div class="reward-icon-wrapper">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    </div>
-                    <h3>اكتشف مشكلة</h3>
-                    <p>أثناء استخدامك للمنصة، إذا واجهت أي خطأ برمجي أو مشكلة في الأداء أو الواجهة.</p>
-                </div>
-                
-                <div class="reward-feature-card">
-                    <div class="reward-icon-wrapper">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                    </div>
-                    <h3>أبلغ عنها</h3>
-                    <p>قم بتقديم بلاغ تفصيلي من خلال لوحة التحكم الخاصة بك مع تحديد درجة الخطورة.</p>
-                </div>
-                
-                <div class="reward-feature-card">
-                    <div class="reward-icon-wrapper">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    </div>
-                    <h3>احصل على النقاط</h3>
-                    <p>بمجرد مراجعة البلاغ والموافقة عليه، ستضاف النقاط تلقائياً إلى محفظتك.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Points System -->
-        <section style="margin-top: 4rem;">
-            <h2 class="section-title">نظام النقاط</h2>
-            <p class="section-subtitle">تعتمد النقاط المكتسبة على مدى خطورة وأهمية المشكلة المبلغ عنها</p>
-            
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: 1rem; overflow: hidden; box-shadow: var(--shadow-sm);">
+        <div id="rewardsMainArea" class="glass-card">
+            <div class="table-wrap">
+                <table class="rewards-table">
                     <thead>
-                        <tr style="background: var(--color-primary); color: white; text-align: right;">
-                            <th style="padding: 1.5rem;">درجة الخطورة</th>
-                            <th style="padding: 1.5rem;">النقاط المكتسبة</th>
-                            <th style="padding: 1.5rem;">أمثلة</th>
+                        <tr>
+                            <th>العميل</th>
+                            <th>العنوان</th>
+                            <th>النوع</th>
+                            <th>الخطورة</th>
+                            <th>الحالة</th>
+                            <th>النقاط</th>
+                            <th>التاريخ</th>
+                            <th>إجراءات</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr style="border-bottom: 1px solid var(--color-border);">
-                            <td style="padding: 1.5rem; font-weight: 600; color: var(--color-success);">منخفضة</td>
-                            <td style="padding: 1.5rem;">10 نقاط</td>
-                            <td style="padding: 1.5rem; color: var(--color-text-secondary);">أخطاء إملائية، مشاكل بسيطة في التنسيق.</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid var(--color-border);">
-                            <td style="padding: 1.5rem; font-weight: 600; color: var(--color-accent);">متوسطة</td>
-                            <td style="padding: 1.5rem;">25 نقطة</td>
-                            <td style="padding: 1.5rem; color: var(--color-text-secondary);">وظيفة لا تعمل كما هو متوقع، بطء في الاستجابة.</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid var(--color-border);">
-                            <td style="padding: 1.5rem; font-weight: 600; color: var(--color-warning);">عالية</td>
-                            <td style="padding: 1.5rem;">50 نقطة</td>
-                            <td style="padding: 1.5rem; color: var(--color-text-secondary);">توقف جزء أساسي من الخدمة، فقدان بيانات غير حرج.</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 1.5rem; font-weight: 600; color: var(--color-danger);">حرجة</td>
-                            <td style="padding: 1.5rem;">100 نقطة</td>
-                            <td style="padding: 1.5rem; color: var(--color-text-secondary);">ثغرات أمنية، توقف كامل للمنصة، تسريب بيانات.</td>
-                        </tr>
+                    <tbody id="reportsTableBody">
+                        <tr><td colspan="8" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
                     </tbody>
                 </table>
             </div>
-        </section>
-
-        <!-- Pro Badge Info -->
-        <section style="margin-top: 4rem;">
-            <div class="pro-badge-preview">
-                <div class="pro-badge-icon">⭐</div>
-                <div style="flex: 1;">
-                    <h2 style="margin-bottom: 0.5rem;">شارة المحترفين (Pro Badge)</h2>
-                    <p style="font-size: 1.1rem; opacity: 0.9;">عند وصولك إلى 1000 نقطة، ستحصل تلقائياً على شارة Pro التي تمنحك الأولوية في الدعم الفني، والوصول المبكر للميزات الجديدة، وخصومات حصرية على الاشتراكات.</p>
-                </div>
-                <a href="sign-up.html" class="btn" style="background: white; color: #f59e0b; font-weight: bold;">انضم إلينا الآن</a>
-            </div>
-        </section>
-
-        <!-- Membership Levels -->
-        <section style="margin-top: 4rem;">
-            <h2 class="section-title">مستويات العضوية</h2>
-            <p class="section-subtitle">كلما زادت نقاطك، ارتفع مستوى عضويتك وزادت ثقتنا بك</p>
-            
-            <div class="wallet-grid">
-                <div class="reward-feature-card" style="border-top: 4px solid var(--color-text-secondary);">
-                    <h3>عضو جديد</h3>
-                    <p>0 - 100 نقطة</p>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 1rem;">بداية رحلتك معنا في تحسين المنصة.</p>
-                </div>
-                <div class="reward-feature-card" style="border-top: 4px solid var(--color-accent);">
-                    <h3>عضو نشط</h3>
-                    <p>101 - 300 نقطة</p>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 1rem;">مساهم فعال ومعروف بدقة بلاغاته.</p>
-                </div>
-                <div class="reward-feature-card" style="border-top: 4px solid #fbbf24;">
-                    <h3>خبير</h3>
-                    <p>301 - 500 نقطة</p>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 1rem;">أحد أعمدة مجتمع مدعوم التقني.</p>
-                </div>
-                <div class="reward-feature-card" style="border-top: 4px solid #f59e0b;">
-                    <h3>محترف (Pro)</h3>
-                    <p>أكثر من 1000 نقطة</p>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 1rem;">النخبة التي تساهم في رسم مستقبل المنصة.</p>
-                </div>
-            </div>
-        </section>
-
-    </div>
-
-    <!-- Footer -->
-    <footer style="background: var(--color-primary); color: white; padding: 3rem 0; margin-top: 5rem;">
-        <div class="container" style="text-align: center;">
-            <img src="/assets/images/logo.png" alt="Logo" style="width: 60px; margin-bottom: 1rem;">
-            <h3>منصة مدعوم</h3>
-            <p style="opacity: 0.7; margin-top: 0.5rem;">نحو تجربة دعم فني أفضل وأكثر ذكاءً</p>
-            <div style="margin-top: 2rem; display: flex; justify-content: center; gap: 2rem;">
-                <a href="privacy.html" style="color: white; text-decoration: none; opacity: 0.8;">سياسة الخصوصية</a>
-                <a href="terms.html" style="color: white; text-decoration: none; opacity: 0.8;">شروط الاستخدام</a>
-                <a href="about.html" style="color: white; text-decoration: none; opacity: 0.8;">من نحن</a>
-            </div>
-            <p style="margin-top: 2rem; opacity: 0.5; font-size: 0.9rem;">&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
         </div>
-    </footer>
+    </main>
 
+    <script type="module">
+        import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+        import { initSidebar } from '/assets/js/admin/sidebar.js';
+        import { initAdminRewards } from '/admin-rewards.js';
 
-    <script>
-        // قائمة حسابي المنسدلة
-        const accountMenuBtn = document.getElementById('accountMenuBtn');
-        const accountDropdown = document.getElementById('accountDropdown');
-        const guestLoginLink = document.getElementById('guestLoginLink');
-
-        if (accountMenuBtn && accountDropdown) {
-            accountMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isVisible = accountDropdown.style.display === 'block';
-                accountDropdown.style.display = isVisible ? 'none' : 'block';
-            });
-
-            document.addEventListener('click', () => {
-                accountDropdown.style.display = 'none';
-            });
-
-            const dropdownLinks = accountDropdown.querySelectorAll('a');
-            dropdownLinks.forEach(link => {
-                link.addEventListener('mouseover', () => {
-                    link.style.background = 'var(--hover-bg)';
-                });
-                link.addEventListener('mouseout', () => {
-                    link.style.background = 'transparent';
-                });
-            });
+        initSidebar();
+        const user = await checkAdminAuth();
+        if (user) {
+            updateAdminUI(user);
+            // مراجعة/الموافقة على البلاغات صلاحية أدمن فقط (يطابق فحص الأدمن
+            // في الخادم عبر approve_reward_report/reject_reward_report RPC)
+            if (user.profile?.role === 'admin') {
+                initAdminRewards();
+            } else {
+                document.getElementById('rewardsMainArea').innerHTML = `
+                    <div class="not-authorized">
+                        <p style="font-size:1.05rem; font-weight:700; color:var(--color-text);">هذه الصفحة متاحة للأدمن فقط</p>
+                        <p style="font-size:.85rem; margin-top:.4rem;">مراجعة بلاغات المكافآت والموافقة عليها تتطلب صلاحية أدمن كاملة.</p>
+                    </div>`;
+            }
         }
     </script>
 </body>
