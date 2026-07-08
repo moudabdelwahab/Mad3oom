@@ -74,6 +74,10 @@ const translations = {
         'card_settings_title': 'الإعدادات',
         'card_settings_label': 'إعدادات النظام',
         'card_settings_footer': 'انقر للوصول إلى الإعدادات ←',
+        'card_mcp_title': 'خوادم MCP',
+        'card_mcp_total': 'الخوادم',
+        'card_mcp_connected': 'المتصلة',
+        'card_mcp_footer': 'انقر لإدارة خوادم MCP ←',
 
         // ==================== صفحة MCP ====================
         mcp_page_title: "إدارة خوادم MCP",
@@ -171,6 +175,10 @@ const translations = {
         'card_settings_title': 'Settings',
         'card_settings_label': 'System Settings',
         'card_settings_footer': 'Click to access settings →',
+        'card_mcp_title': 'MCP Servers',
+        'card_mcp_total': 'Servers',
+        'card_mcp_connected': 'Connected',
+        'card_mcp_footer': 'Click to manage MCP servers →',
 
         // ==================== MCP Page ====================
         mcp_page_title: "MCP Servers Management",
