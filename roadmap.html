@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خارطة الطريق - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <style>
+        .roadmap-container {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .roadmap-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            border-radius: 2rem;
+            color: white;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .roadmap-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="10" cy="10" r="2" fill="white" opacity="0.1"/></svg>');
+            background-size: 20px 20px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--color-accent); }
+
+        /* SIE highlighted note */
+        .sie-note {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-right: 5px solid var(--color-warning);
+            border-radius: 1.25rem;
+            padding: 1.75rem 2rem;
+            margin-bottom: 3rem;
+            box-shadow: var(--shadow-sm);
+        }
+        [dir="rtl"] .sie-note { border-right: 1px solid var(--color-border); border-left: 5px solid var(--color-warning); }
+        .sie-note .icon-wrap {
+            flex-shrink: 0;
+            width: 56px;
+            height: 56px;
+            border-radius: 1rem;
+            background: rgba(224, 168, 0, 0.12);
+            color: var(--color-warning);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sie-note h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1.15rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .sie-note p { margin: 0; color: var(--color-text-secondary); line-height: 1.8; }
+
+        /* Status legend */
+        .status-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 3rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* Roadmap groups */
+        .roadmap-group { margin-bottom: 3rem; }
+        .roadmap-group-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+        }
+        .group-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .group-shipped .group-dot { background: var(--color-success); }
+        .group-progress .group-dot { background: var(--color-warning); }
+        .group-planned .group-dot { background: var(--color-accent); }
+
+        .roadmap-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+        .roadmap-item {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1.25rem;
+            padding: 1.5rem 1.5rem;
+            transition: all 0.25s ease;
+        }
+        .roadmap-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-sm);
+            border-color: var(--color-accent);
+        }
+        .roadmap-item h4 {
+            margin: 0 0 0.5rem;
+            font-size: 1.02rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .roadmap-item p { margin: 0; color: var(--color-text-secondary); font-size: 0.92rem; line-height: 1.7; }
+        .status-badge {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.25rem 0.7rem;
+            border-radius: 2rem;
+            margin-bottom: 0.75rem;
+        }
+        .badge-shipped { background: rgba(46, 138, 58, 0.12); color: var(--color-success); }
+        .badge-progress { background: rgba(224, 168, 0, 0.14); color: var(--color-warning); }
+        .badge-planned { background: rgba(0, 119, 204, 0.12); color: var(--color-accent); }
+
+        .roadmap-item.featured {
+            border: 1px solid var(--color-warning);
+            background: rgba(224, 168, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <div class="roadmap-container">
+            <a href="community.html" class="back-link">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                العودة إلى مجتمع مدعوم
+            </a>
+
+            <div class="roadmap-header">
+                <h1 style="font-size: 2.6rem; font-weight: 800; margin-bottom: 1rem;">خارطة طريق مدعوم</h1>
+                <p style="font-size: 1.15rem; opacity: 0.9; max-width: 700px; margin: 0 auto;">كل ما تم إنجازه، وما يعمل عليه فريقنا الآن، وما هو قادم لمنصتك.</p>
+            </div>
+
+            <!-- SIE Important Note -->
+            <div class="sie-note">
+                <div class="icon-wrap">
+                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                </div>
+                <div>
+                    <h3>Support Intelligence Engine (SIE) <span class="status-badge badge-progress" style="margin:0;">قيد التطوير</span></h3>
+                    <p>
+                        محرك الذكاء الخاص بمدعوم — الذي يفهم مشكلة العميل، يشخّصها، يقرر الإجراء المناسب، ينفّذه، ثم يتعلّم من كل تجربة — قيد التطوير حاليًا وضمن خطة التحديثات القادمة رسميًا.
+                        سيتم الإعلان عن كل مرحلة من مراحل إطلاقه أولاً بأول هنا في هذه الصفحة، وستصلك الإشعارات فور تفعيل أي جزء منه على حسابك.
+                    </p>
+                </div>
+            </div>
+
+            <div class="status-legend">
+                <div class="legend-item"><span class="legend-dot" style="background: var(--color-success);"></span> تم الإطلاق</div>
+                <div class="legend-item"><span class="legend-dot" style="background: var(--color-warning);"></span> قيد التطوير</div>
+                <div class="legend-item"><span class="legend-dot" style="background: var(--color-accent);"></span> قادم قريبًا</div>
+            </div>
+
+            <!-- Shipped -->
+            <div class="roadmap-group group-shipped">
+                <div class="roadmap-group-title"><span class="group-dot"></span> تم الإطلاق</div>
+                <div class="roadmap-items">
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>نظام إدارة التذاكر</h4>
+                        <p>دورة حياة كاملة للتذكرة: مفتوحة، قيد المعالجة، محلولة، مؤكدة، أو مرفوضة — مع إمكانية التعيين وإعادة التوزيع على الفريق.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>محرك SLA التلقائي</h4>
+                        <p>تحديد زمن الحل المستهدف تلقائيًا حسب الأولوية (مرتفعة، متوسطة، منخفضة) مع إمكانية تحويل التذكرة إلى قضية عند الحاجة لوقت أطول.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>محرك الإشعارات</h4>
+                        <p>إشعارات فورية داخل المنصة، عبر البريد الإلكتروني، وعبر Telegram عند إنشاء أو حل أي تذكرة.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>تصنيف التذاكر</h4>
+                        <p>تصنيفات جاهزة مثل واتساب، الاشتراكات، المشكلات، والاستفسارات، مع إمكانية إضافة تصنيفات جديدة دون التأثير على بنية النظام.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>أدوات إنتاجية الفريق</h4>
+                        <p>الوسوم، الردود الجاهزة، تصدير التذاكر بصيغة CSV، وتقارير أداء مبنية على مؤشرات SLA.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>تكامل MCP (استهلاك وتوفير)</h4>
+                        <p>ربط مدعوم بأدوات خارجية مثل Google Drive وSupabase وGitHub وNotion، بالإضافة إلى فتح إمكانيات مدعوم نفسها لأي عميل ذكاء اصطناعي يدعم MCP مثل Claude وChatGPT.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>النطاقات الفرعية الخاصة</h4>
+                        <p>نطاق مستقل لكل شركة (مثل company.mad3oom.online) لإدارة العملاء والتذاكر وقاعدة المعرفة تحت هويتها الخاصة.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-shipped">تم الإطلاق</span>
+                        <h4>قاعدة المعرفة والمنتدى</h4>
+                        <p>مساحة مجتمعية للنقاش، ومقالات تعليمية تنمو تلقائيًا مع كل تذكرة تُحل وتُراجع من الفريق.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In progress -->
+            <div class="roadmap-group group-progress">
+                <div class="roadmap-group-title"><span class="group-dot"></span> قيد التطوير</div>
+                <div class="roadmap-items">
+                    <div class="roadmap-item featured">
+                        <span class="status-badge badge-progress">قيد التطوير</span>
+                        <h4>Support Intelligence Engine (SIE)</h4>
+                        <p>العقل المركزي القادم لمدعوم، بخمس مراحل: Understand → Diagnose → Decide → Act → Learn، ليقرر وينفّذ بدل أن يكون Chatbot تقليديًا فقط.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-progress">قيد التطوير</span>
+                        <h4>التشخيص الذاتي من قاعدة المعرفة</h4>
+                        <p>تحسين قدرة النظام على تحديد السبب الأكثر احتمالًا لمشكلة العميل تلقائيًا بالاعتماد على الحالات المشابهة السابقة.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-progress">قيد التطوير</span>
+                        <h4>تنفيذ الإجراءات عبر MCP تلقائيًا</h4>
+                        <p>تمكين SIE من اختيار وتنفيذ أداة MCP المناسبة بنفسه أثناء محادثة العميل، دون الحاجة لتدخل يدوي من الفريق.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Planned -->
+            <div class="roadmap-group group-planned">
+                <div class="roadmap-group-title"><span class="group-dot"></span> قادم قريبًا</div>
+                <div class="roadmap-items">
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-planned">قادم قريبًا</span>
+                        <h4>إشعارات واتساب</h4>
+                        <p>دعم إرسال إشعارات إنشاء وحل التذاكر مباشرة عبر واتساب، بجانب البريد الإلكتروني وTelegram الحاليين.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-planned">قادم قريبًا</span>
+                        <h4>محادثة SIE المباشرة مع العميل</h4>
+                        <p>تفعيل قدرة العميل على بدء محادثة مباشرة مع SIE قبل إنشاء أي تذكرة، ليحاول حل المشكلة فور وصولها.</p>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="status-badge badge-planned">قادم قريبًا</span>
+                        <h4>تصنيفات وأدوات MCP إضافية</h4>
+                        <p>توسيع قائمة التصنيفات المتاحة للتذاكر، وربط المزيد من أدوات وWorkflows الشركات الخارجية.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { requireAuth } from './auth-client.js';
+        import { initCustomerSidebar } from './assets/js/customer-sidebar.js';
+        import { initSidebar as initAdminSidebar } from './assets/js/admin/sidebar.js';
+
+        async function init() {
+            try {
+                const user = await requireAuth();
+                if (!user) return;
+
+                if (user.role === 'admin') {
+                    initAdminSidebar();
+                } else {
+                    initCustomerSidebar();
+                }
+            } catch (err) {
+                console.error('Initialization error:', err);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
