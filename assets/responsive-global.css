@@ -1,0 +1,79 @@
+/* =====================================================================
+   MAD3OOM — Global Responsive Baseline
+   Injected on every page. Mobile-first safety net.
+   Does NOT alter colors, fonts, or component logic — only layout/sizing
+   rules needed so nothing overflows or breaks on small screens.
+   ===================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, svg, video, canvas, picture, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Any element that scrolls a table horizontally instead of overflowing the page */
+.mad3oom-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.mad3oom-table-scroll > table { min-width: 560px; }
+
+table { max-width: 100%; }
+
+pre, code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+input, select, textarea, button {
+  max-width: 100%;
+}
+
+/* Touch-friendly tap targets on phones */
+@media (max-width: 768px) {
+  button, .btn, a.btn, [role="button"], input[type="submit"], input[type="button"] {
+    min-height: 44px;
+  }
+}
+
+/* Modals / dialogs / popovers: never exceed the viewport on phones */
+@media (max-width: 768px) {
+  .modal, .modal-content, .dialog, .popup, .popover, [class*="modal"], [class*="Modal"] {
+    max-width: 94vw !important;
+  }
+  .modal, .dialog, [class*="modal"], [class*="Modal"] {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* Generic containers/wrappers: never force a fixed width wider than the screen */
+@media (max-width: 768px) {
+  .container, .wrapper, .content, .page, .main, .layout {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Fallback: any flex row that hasn't declared wrapping gets it on very small screens
+   so items don't get crushed. Safe because flex items already size via their own CSS. */
+@media (max-width: 480px) {
+  body [style*="display:flex"], body [style*="display: flex"] {
+    flex-wrap: wrap;
+  }
+}
+
+/* Horizontal scroll safety valve: nothing should ever be able to push the
+   page wider than the viewport, no matter the source. */
+@media (max-width: 768px) {
+  html, body { width: 100%; }
+}
