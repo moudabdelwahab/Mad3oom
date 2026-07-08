@@ -42,7 +42,17 @@
             z-index: 1;
             display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
         }
-        .page-intro p { margin: 0; opacity: 0.9; font-size: clamp(0.85rem, 2.5vw, 1rem); position: relative; z-index: 1; }
+        .page-intro p { margin: 0; opacity: 0.9; font-size: clamp(0.85rem, 2.5vw, 1rem); position: relative; z-index: 1; max-width: 760px; }
+        .page-eyebrow {
+            position: relative; z-index: 1;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em;
+            color: #fff; background: rgba(255,255,255,0.14);
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 0.35rem 0.9rem; border-radius: 99px; margin-bottom: 0.9rem;
+            direction: ltr;
+        }
+        .page-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: #B45FE0; box-shadow: 0 0 8px #B45FE0; }
 
         /* ==================== Section Tabs ==================== */
         .dev-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 1rem; padding: 0.4rem; box-shadow: 0 2px 12px rgba(0,0,0,0.07); flex-wrap: wrap; }
@@ -52,6 +62,52 @@
         .dev-section { display: none; }
         .dev-section.active { display: block; animation: cardIn 0.25s ease-out; }
  
+        /* ==================== Direction Switch (صادر / وارد) ==================== */
+        .direction-switch { margin-bottom: 1.75rem; }
+        .direction-switch-track {
+            display: flex; align-items: stretch; gap: 0.5rem;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 1.1rem;
+            padding: 0.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        }
+        .direction-pill {
+            flex: 1; display: flex; align-items: center; gap: 0.7rem;
+            padding: 0.75rem 1rem; border-radius: 0.85rem;
+            border: 1px solid transparent; background: transparent;
+            cursor: pointer; text-align: right; font-family: inherit;
+            transition: all 0.2s;
+        }
+        .direction-pill:hover { background: var(--color-muted); }
+        .direction-pill.active { background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(180,95,224,0.1)); border-color: rgba(99,102,241,0.25); }
+        .direction-pill-icon {
+            width: 34px; height: 34px; min-width: 34px; border-radius: 0.6rem;
+            display: flex; align-items: center; justify-content: center; color: #fff;
+        }
+        .direction-pill-icon.out { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+        .direction-pill-icon.in { background: linear-gradient(135deg, #B45FE0, #7c3aed); }
+        .direction-pill-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+        .direction-pill-text b { font-size: 0.92rem; color: var(--color-text); }
+        .direction-pill-text small { font-size: 0.74rem; color: var(--color-text-secondary); font-weight: 600; white-space: normal; }
+        .direction-switch-connector { display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); opacity: 0.5; }
+        .direction-panel { display: none; }
+        .direction-panel.active { display: block; animation: cardIn 0.25s ease-out; }
+
+        .subsection-header { display: flex; align-items: flex-start; gap: 0.85rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .subsection-icon { width: 40px; height: 40px; min-width: 40px; border-radius: 0.7rem; display: flex; align-items: center; justify-content: center; color: #fff; }
+        .subsection-icon.out { background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 4px 14px rgba(99,102,241,0.3); }
+        .subsection-icon.in { background: linear-gradient(135deg, #B45FE0, #7c3aed); box-shadow: 0 4px 14px rgba(180,95,224,0.3); }
+        .subsection-header h2 { margin: 0 0 0.2rem; font-size: 1.1rem; font-weight: 800; color: var(--color-text); }
+        .subsection-header p { margin: 0; font-size: 0.83rem; color: var(--color-text-secondary); max-width: 560px; }
+
+        @media (max-width: 640px) {
+            .direction-switch-track { flex-direction: column; }
+            .direction-switch-connector { display: none; }
+            .subsection-header { flex-direction: column; }
+            .subsection-header .btn { margin-inline-start: 0 !important; }
+        }
+
         /* ==================== Stats Grid ==================== */
         .stats-grid {
             display: grid;
@@ -346,18 +402,22 @@
         <div class="mcp-container">
             <!-- Intro -->
             <div class="page-intro">
+                <span class="page-eyebrow">
+                    <span class="dot"></span>
+                    Model Context Protocol
+                </span>
                 <h1>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line><path d="M6 9l2 2 4-4"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
                     <span data-i18n="mcp_page_title">مركز المطورين</span>
                 </h1>
-                <p data-i18n="mcp_page_subtitle">خوادم MCP، مفاتيح API الخاصة بمنصة مدعوم، ربط مزوّدي الذكاء الاصطناعي، ومدعوم كـ MCP Server — كل ذلك من مكان واحد</p>
+                <p data-i18n="mcp_page_subtitle">إدارة كاملة لشبكة MCP الخاصة بمنصة مدعوم: اتصال صادر بخوادم خارجية، واتصال وارد يفتح أدواتك لعملاء MCP آخرين — بالإضافة لمفاتيح API وتكاملات الذكاء الاصطناعي، كل ذلك من مكان واحد</p>
             </div>
 
             <!-- تبويب رئيسي -->
             <div class="dev-tabs">
                 <button class="dev-tab active" data-devtab="mcp" id="devTabMcp">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
-                    خوادم MCP
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
+                    شبكة MCP
                 </button>
                 <button class="dev-tab" data-devtab="apitokens" id="devTabApiTokens">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
@@ -367,13 +427,9 @@
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
                     التكاملات الخارجية
                 </button>
-                <button class="dev-tab" data-devtab="mcpserver" id="devTabMcpServer">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-                    MCP Server
-                </button>
             </div>
 
-            <!-- ═══════════════ قسم 1: خوادم MCP (Client) ═══════════════ -->
+            <!-- ═══════════════ قسم 1: شبكة MCP — اتجاهين (Client صادر + Server وارد) ═══════════════ -->
             <div class="dev-section active" id="devSectionMcp">
 
             <!-- Stats -->
@@ -395,7 +451,41 @@
                     <div class="stat-info"><div class="num" id="statTools">0</div><div class="lbl" data-i18n="mcp_stat_tools">إجمالي الأدوات</div></div>
                 </div>
             </div>
- 
+
+            <!-- Direction Switcher: صادر (Client) / وارد (Server) -->
+            <div class="direction-switch">
+                <div class="direction-switch-track">
+                    <button class="direction-pill active" data-direction="outbound" id="dirBtnOutbound">
+                        <span class="direction-pill-icon out"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></span>
+                        <span class="direction-pill-text">
+                            <b>صادر</b>
+                            <small>مدعوم كعميل يتصل بخوادم MCP خارجية</small>
+                        </span>
+                    </button>
+                    <span class="direction-switch-connector" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    </span>
+                    <button class="direction-pill" data-direction="inbound" id="dirBtnInbound">
+                        <span class="direction-pill-icon in"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></span>
+                        <span class="direction-pill-text">
+                            <b>وارد</b>
+                            <small>مدعوم نفسه يعمل كخادم MCP لعملاء خارجيين</small>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ─── صادر: الخوادم المتصلة (Outbound / Client) ─── -->
+            <div class="direction-panel active" id="directionOutbound">
+
+            <div class="subsection-header">
+                <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></span>
+                <div>
+                    <h2>الخوادم المتصلة</h2>
+                    <p>خوادم MCP خارجية يتصل بها مدعوم كعميل (Client) لاستخدام أدواتها</p>
+                </div>
+            </div>
+
             <!-- Toolbar -->
             <div class="toolbar">
                 <div class="field">
@@ -451,6 +541,41 @@
                     <div class="activity-empty" data-i18n="mcp_activity_empty">لا يوجد نشاط مسجّل بعد</div>
                 </div>
             </div>
+            </div><!-- /directionOutbound -->
+
+            <!-- ─── وارد: مدعوم كخادم MCP (Inbound / Server) ─── -->
+            <div class="direction-panel" id="directionInbound">
+
+            <div class="subsection-header">
+                <span class="subsection-icon in"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></span>
+                <div>
+                    <h2>مدعوم كخادم MCP</h2>
+                    <p>هذا الـ Endpoint يقدر أي عميل MCP خارجي (Claude، Cursor، أي عميل يدعم Streamable HTTP) يتصل بيه مباشرة عبر مفتاح API من تبويب "مفاتيح API"</p>
+                </div>
+                <button class="btn btn-secondary" id="testMcpServerBtn" style="margin-inline-start:auto">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    اختبار الاتصال
+                </button>
+            </div>
+
+            <div class="mcp-card" id="mcpServerStatusCard">
+                <div class="state-block"><div class="spinner"></div><p>جاري تحميل معلومات الخادم...</p></div>
+            </div>
+
+            <!-- OAuth Configuration - تلقائي بالكامل من الخادم، بدون أي إدخال يدوي -->
+            <div class="mcp-card" id="oauthConfigCard" style="margin-top:1.5rem">
+                <div class="state-block"><div class="spinner"></div><p>جاري تحميل إعدادات OAuth...</p></div>
+            </div>
+
+            <div class="activity-panel" style="margin-top:1.5rem">
+                <h3>
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    <span>الأدوات المتاحة (Available Tools)</span>
+                </h3>
+                <div class="tools-list" id="mcpServerToolsList"></div>
+            </div>
+            </div><!-- /directionInbound -->
+
             </div><!-- /devSectionMcp -->
 
             <!-- ═══════════════ قسم 2: مفاتيح API ═══════════════ -->
@@ -512,39 +637,6 @@
                     <div class="state-block"><div class="spinner"></div><p>جاري تحميل التكاملات...</p></div>
                 </div>
             </div><!-- /devSectionIntegrations -->
-
-            <!-- ═══════════════ قسم 4: مدعوم كـ MCP Server ═══════════════ -->
-            <div class="dev-section" id="devSectionMcpServer">
-                <div class="toolbar">
-                    <div class="field" style="flex:1">
-                        <label>مدعوم كـ MCP Server</label>
-                        <span style="font-size:0.82rem;color:var(--color-text-secondary)">هذا الـ Endpoint يقدر أي عميل MCP خارجي (Claude، Cursor، أي عميل يدعم Streamable HTTP) يتصل بيه مباشرة عبر مفتاح API من تبويب "مفاتيح API" أعلاه.</span>
-                    </div>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-secondary" id="testMcpServerBtn">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                            اختبار الاتصال
-                        </button>
-                    </div>
-                </div>
-
-                <div class="mcp-card" id="mcpServerStatusCard">
-                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل معلومات الخادم...</p></div>
-                </div>
-
-                <!-- OAuth Configuration - تلقائي بالكامل من الخادم، بدون أي إدخال يدوي -->
-                <div class="mcp-card" id="oauthConfigCard" style="margin-top:1.5rem">
-                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل إعدادات OAuth...</p></div>
-                </div>
-
-                <div class="activity-panel" style="margin-top:1.5rem">
-                    <h3>
-                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-                        <span>الأدوات المتاحة (Available Tools)</span>
-                    </h3>
-                    <div class="tools-list" id="mcpServerToolsList"></div>
-                </div>
-            </div><!-- /devSectionMcpServer -->
 
         </div>
     </main>
