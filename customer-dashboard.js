@@ -59,6 +59,84 @@ function sanitizeUrl(url) {
     return '';
 }
 
+/* ================= Labels & Badge Helpers (مشتركة بين القائمة ولوحة التفاصيل) ================= */
+
+const STATUS_LABELS = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم الحل', confirmed: 'مؤكدة', rejected: 'مرفوضة' };
+const PRIORITY_LABELS = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
+const CATEGORY_LABELS = { whatsapp: 'واتساب', tickets: 'تذاكر', subscription: 'اشتراك', login: 'تسجيل دخول', other: 'أخرى' };
+const CATEGORY_CLASS = { whatsapp: 'cat-whatsapp', tickets: 'cat-tickets', subscription: 'cat-subscription', login: 'cat-login', other: 'cat-other' };
+
+function statusBadge(status) {
+    return `<span class="pill status-${escapeHtml(status)}"><span class="pill-dot"></span>${escapeHtml(STATUS_LABELS[status] || status)}</span>`;
+}
+
+function priorityBadge(priority, { onlyHigh = false } = {}) {
+    if (!priority) return '';
+    if (onlyHigh && priority !== 'high') return '';
+    return `<span class="pill priority-${escapeHtml(priority)}">${escapeHtml(PRIORITY_LABELS[priority] || priority)}</span>`;
+}
+
+function categoryBadge(category) {
+    if (!category || !CATEGORY_LABELS[category]) return '';
+    return `<span class="pill ${CATEGORY_CLASS[category]}">${escapeHtml(CATEGORY_LABELS[category])}</span>`;
+}
+
+/**
+ * نص ودود يوضح للعميل توقع الرد، بدل مصطلحات SLA التقنية المستخدمة في لوحة الإدارة.
+ * يُعرض فقط لو التذكرة لسه محتاجة أول رد ومفيش رد اتبعت لحد دلوقتي.
+ */
+function slaFriendlyHint(ticket) {
+    if (ticket.first_response_at) return '';
+    if (!['open', 'in-progress'].includes(ticket.status)) return '';
+    if (!ticket.sla_response_due_at) return '';
+
+    const due = new Date(ticket.sla_response_due_at);
+    const now = new Date();
+    const diffMs = due - now;
+    const diffHours = Math.round(diffMs / 3600000);
+
+    if (diffMs > 0) {
+        const text = diffHours <= 1 ? 'متوقع الرد خلال أقل من ساعة' : `متوقع الرد خلال ${diffHours} ساعة تقريباً`;
+        return `<div class="ticket-sla-hint sla-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${text}</div>`;
+    }
+    return `<div class="ticket-sla-hint sla-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>فريقنا يعمل على تذكرتك، شكراً لصبرك</div>`;
+}
+
+/** أيقونة/معاينة مناسبة للمرفق حسب نوعه */
+function attachmentPreview(att) {
+    const isImage = (att.mime_type || '').startsWith('image/');
+    if (isImage) {
+        return `<img src="${sanitizeUrl(att.file_url)}" alt="${escapeHtml(att.file_name || '')}" loading="lazy">`;
+    }
+    return `<span class="att-file-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span>`;
+}
+
+function timeAgo(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'الآن';
+    if (mins < 60) return `منذ ${mins} دقيقة`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `منذ ${hours} ساعة`;
+    const days = Math.floor(hours / 24);
+    return `منذ ${days} يوم`;
+}
+
+// نفس القيم الفعلية المخزّنة في عمود action_type بجدول ticket_activity (متوافقة مع admin/tickets.js)
+const ACTIVITY_LABELS = {
+    'create': 'تم إنشاء التذكرة',
+    'status_change': 'تم تحديث حالة التذكرة',
+    'priority_change': 'تم تحديث الأولوية',
+    'category_change': 'تم تحديث تصنيف التذكرة',
+    'reopen': 'تم إعادة فتح التذكرة',
+    'reply': 'رد جديد',
+    'tag_add': 'تمت إضافة وسم',
+    'tag_remove': 'تمت إزالة وسم',
+    'rating': 'تم إضافة تقييم'
+};
+// أنواع داخلية خاصة بفريق الدعم فقط، لا تُعرض للعميل (تعيين الموظفين والملاحظات الداخلية)
+const CUSTOMER_HIDDEN_ACTIVITY_TYPES = new Set(['assignee_change', 'internal_note']);
+
 (async function () {
 
     /* ================= AUTH ================= */
@@ -164,6 +242,7 @@ function sanitizeUrl(url) {
         const stats = await fetchTicketStats();
         const elements = {
             'userTotalTickets': stats.total,
+            'userOpenTickets': stats.open,
             'userInProgressTickets': stats.inProgress,
             'userResolvedTickets': stats.resolved
         };
@@ -190,36 +269,43 @@ function sanitizeUrl(url) {
         }
     }
 
-    async function renderTickets(filters = {}) {
+    let currentFilters = { status: 'all', search: '' };
+
+    async function renderTickets(filters = currentFilters) {
         const list = document.getElementById('userTicketsList');
         if (!list) return;
 
         const tickets = await fetchUserTickets(filters);
-        
+
         if (!tickets.length) {
-            list.innerHTML = `<p style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">لا توجد تذاكر حتى الآن</p>`;
+            list.innerHTML = `
+                <div style="text-align: center; padding: 2.5rem 1rem; color: var(--color-text-secondary);">
+                    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 0.75rem; opacity: .5;"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <p style="font-weight: 600; color: var(--color-text);">${filters.status !== 'all' || filters.search ? 'لا توجد نتائج مطابقة' : 'لا توجد تذاكر حتى الآن'}</p>
+                </div>`;
             return;
         }
 
-        const statusLabels = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم الحل' };
-        const priorityLabels = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
-
         list.innerHTML = tickets.map(t => `
             <div class="ticket-card" data-id="${t.id}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="color: var(--color-text-secondary); font-size: 0.8rem; font-weight: 700;">#${t.ticket_number || '---'}</span>
-                    <span class="status-badge status-${t.status}" style="padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem;">${statusLabels[t.status] || t.status}</span>
+                <div class="ticket-card-top">
+                    <span class="ticket-num">#${t.ticket_number || '---'}</span>
+                    ${statusBadge(t.status)}
                 </div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(t.title)}</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--color-text-secondary);">
-                    <span>أولوية: ${priorityLabels[t.priority] || t.priority}</span>
+                <h4 class="ticket-title">${escapeHtml(t.title)}</h4>
+                <div class="ticket-badges-row">
+                    ${priorityBadge(t.priority, { onlyHigh: true })}
+                    ${categoryBadge(t.category)}
+                </div>
+                <div class="ticket-footer-row">
                     <span>${new Date(t.created_at).toLocaleDateString('ar-EG', {month: 'short', day: 'numeric'})}</span>
                 </div>
+                ${slaFriendlyHint(t)}
             </div>
         `).join('');
 
         // Add click handlers and show first ticket by default
-        list.querySelectorAll('.ticket-card').forEach((card, index) => {
+        list.querySelectorAll('.ticket-card').forEach((card) => {
             card.onclick = () => {
                 // Remove selected class from all cards
                 list.querySelectorAll('.ticket-card').forEach(c => c.classList.remove('selected'));
@@ -241,69 +327,53 @@ function sanitizeUrl(url) {
         }
     }
 
-    async function openTicketDetail(ticket) {
-        currentTicketId = ticket.id;
-        const modal = document.getElementById('ticketDetailModal');
-        if (!modal) return;
-
-        document.getElementById('detailTicketTitle').textContent = ticket.title;
-        document.getElementById('detailTicketNumber').textContent = `#${ticket.ticket_number}`;
-        document.getElementById('detailTicketDesc').textContent = ticket.description;
-        document.getElementById('detailTicketDate').textContent = new Date(ticket.created_at).toLocaleString('ar-EG');
-        
-        const statusEl = document.getElementById('detailTicketStatus');
-        const statusLabels = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم الحل' };
-        statusEl.textContent = statusLabels[ticket.status] || ticket.status;
-        statusEl.className = `status-badge status-${ticket.status}`;
-        statusEl.style.display = 'inline-block';
-        statusEl.style.fontWeight = '700';
-
-        // Image handling
-        const imgContainer = document.getElementById('detailTicketImageContainer');
-        const imgEl = document.getElementById('detailTicketImage');
-        if (ticket.image_url) {
-            imgContainer.style.display = 'block';
-            imgEl.src = ticket.image_url;
-        } else {
-            imgContainer.style.display = 'none';
-        }
-
-        // Rating section
-        const ratingSection = document.getElementById('ratingSection');
-        if (ratingSection) {
-            ratingSection.style.display = ticket.status === 'resolved' ? 'block' : 'none';
-        }
-
-        modal.classList.add('active');
-        await loadReplies(ticket.id);
-    }
-
     // New function to show ticket details in the side panel
     async function showTicketInPanel(ticket) {
         currentTicketId = ticket.id;
         const panel = document.getElementById('ticketDetailsContent');
         if (!panel) return;
-        
-        const statusLabels = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم الحل' };
-        const priorityLabels = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
-        
+
         panel.style.display = 'block';
         panel.style.alignItems = 'flex-start';
         panel.style.justifyContent = 'flex-start';
-        
+
+        // جلب البيانات الإضافية (مرفقات، وسوم، سجل نشاط، تقييم سابق إن وُجد) دفعة واحدة
+        let attachments = [], tags = [], activity = [], existingRating = null;
+        try {
+            [attachments, tags, activity, existingRating] = await Promise.all([
+                fetchTicketAttachments(ticket.id).catch(() => []),
+                fetchTicketTags(ticket.id).catch(() => []),
+                fetchTicketActivity(ticket.id).catch(() => []),
+                ticket.status === 'resolved' ? fetchTicketRating(ticket.id).catch(() => null) : Promise.resolve(null)
+            ]);
+        } catch (err) {
+            console.error('Error loading ticket extras:', err);
+        }
+
+        // توافقاً مع تذاكر قديمة كانت تخزن صورة واحدة فقط في image_url قبل إضافة جدول المرفقات
+        const legacyImage = (ticket.image_url && !attachments.some(a => a.file_url === ticket.image_url))
+            ? [{ file_url: ticket.image_url, file_name: 'مرفق', mime_type: 'image/*' }]
+            : [];
+        const allAttachments = [...attachments, ...legacyImage];
+
         panel.innerHTML = `
             <div style="width: 100%;">
                 <!-- Header -->
                 <div style="border-bottom: 2px solid var(--color-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem; gap: 1rem;">
                         <h2 style="margin: 0; font-size: 1.3rem; line-height: 1.4;">${escapeHtml(ticket.title)}</h2>
-                        <span class="status-badge status-${escapeHtml(ticket.status)}" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; white-space: nowrap;">${escapeHtml(statusLabels[ticket.status])}</span>
+                        ${statusBadge(ticket.status)}
+                    </div>
+                    <div class="ticket-badges-row" style="margin-bottom: .6rem;">
+                        ${priorityBadge(ticket.priority)}
+                        ${categoryBadge(ticket.category)}
+                        ${tags.map(t => `<span class="tag-chip" style="background:${t.color}22;color:${t.color}">${escapeHtml(t.name)}</span>`).join('')}
                     </div>
                     <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary); flex-wrap: wrap;">
                         <span>رقم التذكرة: <strong>#${ticket.ticket_number || '---'}</strong></span>
-                        <span>الأولوية: <strong style="color: var(--color-accent);">${priorityLabels[ticket.priority]}</strong></span>
                         <span>${new Date(ticket.created_at).toLocaleDateString('ar-EG')}</span>
                     </div>
+                    ${slaFriendlyHint(ticket)}
                 </div>
                 
                 <!-- Description -->
@@ -311,11 +381,62 @@ function sanitizeUrl(url) {
                     <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">وصف المشكلة</h3>
                     <p style="line-height: 1.6; white-space: pre-wrap;">${escapeHtml(ticket.description)}</p>
                 </div>
-                
-                ${ticket.image_url ? `
+
+                ${allAttachments.length ? `
                 <div style="margin-bottom: 1.5rem;">
-                    <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">المرفقات</h3>
-                    <img src="${sanitizeUrl(ticket.image_url)}" style="max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border);">
+                    <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">المرفقات (${allAttachments.length})</h3>
+                    <div class="attachments-grid">
+                        ${allAttachments.map(a => `
+                            <a class="attachment-item" href="${sanitizeUrl(a.file_url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(a.file_name || '')}">
+                                ${attachmentPreview(a)}
+                                <span class="att-name">${escapeHtml(a.file_name || 'مرفق')}</span>
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Rating Widget (تظهر فقط بعد حل التذكرة) -->
+                ${ticket.status === 'resolved' ? `
+                <div class="rating-widget glass-card" style="padding: 1.1rem 1.25rem; margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.6rem;">تقييمك للخدمة</h3>
+                    <div id="ratingContainer">
+                        ${existingRating ? `
+                            <div class="rating-submitted">
+                                <span style="color:#F5A623;">${'★'.repeat(existingRating.rating)}${'☆'.repeat(5 - existingRating.rating)}</span>
+                                <span>شكراً لتقييمك</span>
+                            </div>
+                            ${existingRating.comment ? `<p style="margin-top:.5rem; color: var(--color-text-secondary); font-size: .85rem; white-space: pre-wrap;">${escapeHtml(existingRating.comment)}</p>` : ''}
+                        ` : `
+                            <div class="star-rating" id="panelStarRating">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                            <textarea id="panelRatingComment" placeholder="أضف تعليقاً (اختياري)..."></textarea>
+                            <button id="panelSubmitRating" class="btn btn-primary" style="margin-top:.6rem;" disabled>إرسال التقييم</button>
+                        `}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Activity Timeline -->
+                ${activity.filter(a => !CUSTOMER_HIDDEN_ACTIVITY_TYPES.has(a.action_type)).length ? `
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">سجل التذكرة</h3>
+                    <div class="activity-timeline">
+                        ${activity.filter(a => !CUSTOMER_HIDDEN_ACTIVITY_TYPES.has(a.action_type)).slice(0, 8).map(a => `
+                            <div class="activity-item">
+                                <span class="activity-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
+                                <div>
+                                    <div class="activity-text">${escapeHtml(ACTIVITY_LABELS[a.action_type] || a.action_type)}${a.action_type === 'status_change' && a.to_value ? ` — ${escapeHtml(STATUS_LABELS[a.to_value] || a.to_value)}` : ''}</div>
+                                    <div class="activity-time">${timeAgo(a.created_at)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
                 ` : ''}
                 
@@ -327,7 +448,7 @@ function sanitizeUrl(url) {
                     </div>
                     
                     <div>
-                        <textarea id="panelReplyText" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-text); font-family: inherit; min-height: 70px; resize: vertical;" placeholder="اكتب ردك هنا..."></textarea>
+                        <textarea id="panelReplyText" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--input-bg); color: var(--color-text); font-family: inherit; min-height: 70px; resize: vertical;" placeholder="اكتب ردك هنا..."></textarea>
                         <button id="panelSendReply" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">إرسال الرد</button>
                     </div>
                 </div>
@@ -348,6 +469,49 @@ function sanitizeUrl(url) {
         
         // Load replies
         await loadRepliesInPanel(ticket.id);
+
+        // Setup rating widget (نجوم قابلة للاختيار + تعليق اختياري)
+        const starRatingEl = document.getElementById('panelStarRating');
+        const submitRatingBtn = document.getElementById('panelSubmitRating');
+        if (starRatingEl && submitRatingBtn) {
+            let selectedRating = 0;
+            const stars = starRatingEl.querySelectorAll('.star');
+            const paintStars = (value) => {
+                stars.forEach(s => s.classList.toggle('active', Number(s.dataset.value) <= value));
+            };
+            stars.forEach(star => {
+                star.addEventListener('mouseenter', () => paintStars(Number(star.dataset.value)));
+                star.addEventListener('mouseleave', () => paintStars(selectedRating));
+                star.addEventListener('click', () => {
+                    selectedRating = Number(star.dataset.value);
+                    paintStars(selectedRating);
+                    submitRatingBtn.disabled = false;
+                });
+            });
+            submitRatingBtn.onclick = async () => {
+                if (!selectedRating) return;
+                const comment = document.getElementById('panelRatingComment')?.value.trim() || '';
+                try {
+                    submitRatingBtn.disabled = true;
+                    submitRatingBtn.textContent = 'جاري الإرسال...';
+                    await submitTicketRating(ticket.id, selectedRating, comment);
+                    const container = document.getElementById('ratingContainer');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="rating-submitted">
+                                <span style="color:#F5A623;">${'★'.repeat(selectedRating)}${'☆'.repeat(5 - selectedRating)}</span>
+                                <span>شكراً لتقييمك</span>
+                            </div>
+                            ${comment ? `<p style="margin-top:.5rem; color: var(--color-text-secondary); font-size: .85rem; white-space: pre-wrap;">${escapeHtml(comment)}</p>` : ''}
+                        `;
+                    }
+                } catch (err) {
+                    alert('فشل إرسال التقييم: ' + (err.message || 'حدث خطأ غير متوقع'));
+                    submitRatingBtn.disabled = false;
+                    submitRatingBtn.textContent = 'إرسال التقييم';
+                }
+            };
+        }
         
         // Setup WhatsApp follow-up button
         const whatsappBtn = document.getElementById('followUpWhatsApp');
@@ -359,8 +523,7 @@ function sanitizeUrl(url) {
 *تفاصيل التذكرة #${ticket.ticket_number}*
 
 *العنوان:* ${ticket.title}
-*الحالة:* ${statusLabels[ticket.status]}
-*الأولوية:* ${priorityLabels[ticket.priority]}
+*الحالة:* ${STATUS_LABELS[ticket.status] || ticket.status}
 *تاريخ الإنشاء:* ${new Date(ticket.created_at).toLocaleDateString('ar-EG')}
 
 *الوصف:*
@@ -430,10 +593,10 @@ ${ticket.description}
                         if (panel) {
                             panel.innerHTML = `
                                 <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
-                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem;">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: .5;">
                                         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                                     </svg>
-                                    <p style="font-size: 1.1rem; font-weight: 600;">اختر تذكرة لعرض التفاصيل</p>
+                                    <p style="font-size: 1.1rem; font-weight: 600; color: var(--color-text);">اختر تذكرة لعرض التفاصيل</p>
                                     <p style="font-size: 0.9rem; margin-top: 0.5rem;">انقر على أي تذكرة من القائمة</p>
                                 </div>
                             `;
@@ -516,31 +679,25 @@ ${ticket.description}
         }
     }
 
-    async function loadReplies(ticketId) {
-        const list = document.getElementById('detailRepliesList');
-        if (!list) return;
-        
-        list.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--color-text-secondary);">جاري تحميل الردود...</div>';
-        
-        try {
-            const replies = await fetchTicketReplies(ticketId);
-            if (replies.length === 0) {
-                list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">لا توجد ردود بعد</p>';
-                return;
-            }
-            
-            list.innerHTML = replies.map(r => `
-                <div class="reply-item ${r.profiles?.role === 'admin' ? 'reply-admin' : 'reply-user'}" style="padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: var(--color-muted); border-right: 4px solid ${r.profiles?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-success)'};">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <strong style="font-size: 0.9rem;">${escapeHtml(r.profiles?.full_name || 'مستخدم')}</strong>
-                        <span style="font-size: 0.75rem; color: var(--color-text-secondary);">${new Date(r.created_at).toLocaleString('ar-EG')}</span>
-                    </div>
-                    <p style="margin: 0.5rem 0 0 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${escapeHtml(r.message)}</p>
-                </div>
-            `).join('');
-        } catch (err) {
-            list.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); font-size: 0.85rem; padding: 1rem;">فشل تحميل الردود</p>';
-        }
+    // Tickets search & filter toolbar
+    const ticketFilterStatus = document.getElementById('ticketFilterStatus');
+    const ticketSearchInput = document.getElementById('ticketSearchInput');
+    let searchDebounce = null;
+
+    if (ticketFilterStatus) {
+        ticketFilterStatus.addEventListener('change', () => {
+            currentFilters = { ...currentFilters, status: ticketFilterStatus.value };
+            renderTickets(currentFilters);
+        });
+    }
+    if (ticketSearchInput) {
+        ticketSearchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                currentFilters = { ...currentFilters, search: ticketSearchInput.value.trim() };
+                renderTickets(currentFilters);
+            }, 350);
+        });
     }
 
     // Create Ticket Form Handler
