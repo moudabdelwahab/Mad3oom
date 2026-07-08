@@ -64,7 +64,13 @@ export async function fetchUserTickets(filters = {}) {
     }
 
     if (filters.search) {
-        query = query.ilike('title', `%${filters.search}%`);
+        const term = filters.search.trim();
+        const asNumber = Number(term);
+        if (term && !Number.isNaN(asNumber) && /^\d+$/.test(term)) {
+            query = query.or(`title.ilike.%${term}%,ticket_number.eq.${asNumber}`);
+        } else if (term) {
+            query = query.ilike('title', `%${term}%`);
+        }
     }
 
     const { data, error } = await query;
