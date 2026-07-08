@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المكافآت - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root, :root[data-theme='light'], :root[data-theme='dark']{
+            --color-primary:#00234A; --color-primary-variant:#0077CC; --color-accent:#0077CC; --color-accent-2:#4DA3FF;
+            --color-background:#060B14; --color-surface:#0D1622; --color-surface-2:#121F30;
+            --color-text:#F3F6FB; --color-text-secondary:#94A6C2; --color-text-3:#5A6A82; --color-muted:#101B2C;
+            --color-success:#22C58B; --color-warning:#F5A623; --color-danger:#FF6B6B; --color-border:rgba(255,255,255,.09);
+            --input-bg:#0F1A2A; --shadow-lg:0 25px 60px -20px rgba(0,8,25,.75);
+        }
+        body{ font-family:'IBM Plex Sans Arabic','Cairo',sans-serif; position:relative; }
+        body::before{
+            content:""; position:fixed; inset:0; z-index:-2;
+            background: radial-gradient(60rem 40rem at 90% -10%, rgba(0,119,204,.20), transparent 60%),
+                        radial-gradient(50rem 35rem at -10% 30%, rgba(77,163,255,.10), transparent 55%),
+                        var(--color-background);
+        }
+        h1,h2,h3,h4{font-family:'Cairo',sans-serif;}
+        .gradient-text{ background:linear-gradient(90deg,#8FC7FF,#4DA3FF,#B9DCFF); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+        .eyebrow{ display:inline-flex; align-items:center; gap:.5rem; font-size:.75rem; font-weight:700; color:#8FC7FF; background:rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.25); padding:.3rem .85rem; border-radius:99px; margin-bottom:.6rem; }
+        .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--color-accent-2); box-shadow:0 0 8px var(--color-accent-2); }
+        .glass-card{ background:rgba(255,255,255,.04); border:1px solid var(--color-border); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:1.1rem; }
+        .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1rem; margin:1.5rem 0 1.75rem; }
+        .stat-card{ padding:1.15rem 1.25rem; display:flex; align-items:center; gap:1rem; }
+        .stat-icon{ width:44px; height:44px; min-width:44px; border-radius:.85rem; display:flex; align-items:center; justify-content:center; background:rgba(0,119,204,.15); color:#8FC7FF; }
+        .stat-icon.warn{background:rgba(245,166,35,.15); color:#F5A623;}
+        .stat-icon.ok{background:rgba(34,197,139,.15); color:#22C58B;}
+        .stat-icon.danger{background:rgba(255,107,107,.15); color:#FF6B6B;}
+        .stat-info .stat-label{ font-size:.78rem; color:var(--color-text-secondary); font-weight:600; }
+        .stat-info .stat-value{ font-size:1.5rem; font-weight:800; color:var(--color-text); font-family:'Space Grotesk',sans-serif; }
+        .toolbar{ display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; padding:.85rem 1rem; margin-bottom:1.25rem; }
+        .toolbar input, .toolbar select{ padding:.55rem .9rem; border:1px solid var(--color-border); border-radius:.65rem; background:var(--input-bg); color:var(--color-text); font-family:inherit; font-size:.85rem; }
+        .toolbar input{ min-width:240px; flex:1; }
+        .table-wrap{ overflow-x:auto; padding:.5rem; }
+        table.rewards-table{ width:100%; border-collapse:collapse; min-width:820px; }
+        table.rewards-table th{ text-align:right; font-size:.75rem; color:var(--color-text-secondary); padding:.7rem .85rem; border-bottom:1px solid var(--color-border); white-space:nowrap; }
+        table.rewards-table td{ padding:.8rem .85rem; border-bottom:1px solid var(--color-border); font-size:.85rem; color:var(--color-text); vertical-align:top; }
+        table.rewards-table tbody tr:hover{ background:rgba(255,255,255,.03); }
+        .status-badge{ display:inline-block; padding:.25rem .75rem; border-radius:99px; font-size:.72rem; font-weight:700; }
+        .status-pending{ background:rgba(245,166,35,.16); color:#F5A623; }
+        .status-approved{ background:rgba(34,197,139,.16); color:#22C58B; }
+        .status-rejected{ background:rgba(255,107,107,.16); color:#FF6B6B; }
+        .btn{ font-family:inherit; cursor:pointer; }
+        .btn-primary{ background:linear-gradient(135deg,#4DA3FF,#0077CC); border:none; color:#fff; padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-secondary{ background:var(--color-muted); color:var(--color-text); border:1px solid var(--color-border); padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-danger{ background:var(--color-danger); color:#fff; border:none; padding:.65rem 1.5rem; border-radius:.6rem; font-weight:700; }
+        .btn-sm{ padding:.35rem .8rem; font-size:.78rem; border-radius:.5rem; font-weight:700; }
+        .form-group{ margin-bottom:1rem; }
+        .form-group label{ display:block; font-size:.82rem; font-weight:700; color:var(--color-text); margin-bottom:.4rem; }
+        .form-control{ width:100%; padding:.65rem .8rem; border-radius:.6rem; border:1px solid var(--color-border); background:var(--input-bg); color:var(--color-text); font-family:inherit; font-size:.85rem; box-sizing:border-box; }
+        .not-authorized{ text-align:center; padding:4rem 1.5rem; color:var(--color-text-secondary); }
+        @keyframes slideInNotification{ from{opacity:0; transform:translateX(20px);} to{opacity:1; transform:translateX(0);} }
+        @keyframes slideOutNotification{ from{opacity:1; transform:translateX(0);} to{opacity:0; transform:translateX(20px);} }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header" style="margin-bottom:.5rem;">
+            <div>
+                <span class="eyebrow"><span class="dot"></span> نظام المكافآت</span>
+                <h1>إدارة <span class="gradient-text">المكافآت والبلاغات</span></h1>
+                <p style="color:var(--color-text-secondary); margin-top:.35rem;">مراجعة بلاغات العملاء والموافقة عليها أو رفضها</p>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card glass-card">
+                <div class="stat-icon warn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات معلقة</div><div id="admPendingReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon ok">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 12 5 5L20 7"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات موافق عليها</div><div id="admApprovedReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon danger">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">بلاغات مرفوضة</div><div id="admRejectedReports" class="stat-value">0</div></div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>
+                </div>
+                <div class="stat-info"><div class="stat-label">أعضاء Pro</div><div id="admProUsers" class="stat-value">0</div></div>
+            </div>
+        </div>
+
+        <div class="toolbar glass-card">
+            <input type="text" id="reportsSearch" placeholder="ابحث بعنوان البلاغ أو وصفه...">
+            <select id="reportsStatusFilter">
+                <option value="all">كل الحالات</option>
+                <option value="pending">معلقة</option>
+                <option value="approved">موافق عليها</option>
+                <option value="rejected">مرفوضة</option>
+            </select>
+        </div>
+
+        <div id="rewardsMainArea" class="glass-card">
+            <div class="table-wrap">
+                <table class="rewards-table">
+                    <thead>
+                        <tr>
+                            <th>العميل</th>
+                            <th>العنوان</th>
+                            <th>النوع</th>
+                            <th>الخطورة</th>
+                            <th>الحالة</th>
+                            <th>النقاط</th>
+                            <th>التاريخ</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                        <tr><td colspan="8" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+        import { initSidebar } from '/assets/js/admin/sidebar.js';
+        import { initAdminRewards } from '/admin-rewards.js';
+
+        initSidebar();
+        const user = await checkAdminAuth();
+        if (user) {
+            updateAdminUI(user);
+            // مراجعة/الموافقة على البلاغات صلاحية أدمن فقط (يطابق فحص الأدمن
+            // في الخادم عبر approve_reward_report/reject_reward_report RPC)
+            if (user.profile?.role === 'admin') {
+                initAdminRewards();
+            } else {
+                document.getElementById('rewardsMainArea').innerHTML = `
+                    <div class="not-authorized">
+                        <p style="font-size:1.05rem; font-weight:700; color:var(--color-text);">هذه الصفحة متاحة للأدمن فقط</p>
+                        <p style="font-size:.85rem; margin-top:.4rem;">مراجعة بلاغات المكافآت والموافقة عليها تتطلب صلاحية أدمن كاملة.</p>
+                    </div>`;
+            }
+        }
+    </script>
+</body>
+</html>
