@@ -73,7 +73,9 @@ export async function submitReport(userId, reportData) {
     try {
         const estimatedPoints = SEVERITY_POINTS[reportData.severity] || 0;
 
-        // إنشاء البلاغ
+        // إنشاء البلاغ. ملاحظة أمنية: النقاط المعلقة (pending_points) بتتضاف
+        // للمحفظة تلقائياً من خلال trigger على الخادم (trg_handle_new_reward_report)،
+        // مش من هنا. ده عشان العميل ما يقدرش يعدّل رصيد محفظته مباشرة من الـ JS.
         const { data: report, error: reportError } = await supabase
             .from('user_reports')
             .insert([{
@@ -90,32 +92,6 @@ export async function submitReport(userId, reportData) {
             .single();
 
         if (reportError) throw reportError;
-
-        // تحديث المحفظة - إضافة النقاط المعلقة
-        let wallet;
-        try {
-            wallet = await getUserWallet(userId);
-        } catch (e) {
-            // إذا لم تكن هناك محفظة، نقوم بإنشائها
-            const { data: newWallet, error: createError } = await supabase
-                .from('user_wallets')
-                .insert([{ user_id: userId, pending_points: estimatedPoints }])
-                .select()
-                .single();
-            if (createError) console.error('Error creating wallet:', createError);
-            wallet = newWallet;
-        }
-
-        if (wallet && wallet.id) {
-            const { error: walletError } = await supabase
-                .from('user_wallets')
-                .update({
-                    pending_points: (wallet.pending_points || 0) + estimatedPoints
-                })
-                .eq('user_id', userId);
-
-            if (walletError) console.error('Error updating wallet:', walletError);
-        }
 
         // إشعار للمسؤولين عند تقديم بلاغ جديد
         const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
@@ -165,66 +141,23 @@ export async function getUserReports(userId) {
 // ==================== الموافقة على البلاغ وإضافة النقاط ====================
 export async function approveReport(reportId, actualPoints) {
     try {
-        // الحصول على البلاغ
+        // نجيب عنوان البلاغ الأول للإشعار (القراءة مسموحة للأدمن حسب RLS)
         const { data: report, error: reportError } = await supabase
             .from('user_reports')
             .select('*')
             .eq('id', reportId)
             .single();
-
         if (reportError) throw reportError;
 
-        // تحديث حالة البلاغ
-        const { error: updateError } = await supabase
-            .from('user_reports')
-            .update({
-                status: 'approved',
-                actual_points: actualPoints,
-                approved_at: new Date().toISOString()
-            })
-            .eq('id', reportId);
-
-        if (updateError) throw updateError;
-
-        // الحصول على المحفظة الحالية (مباشرة من الجدول لضمان أحدث البيانات)
-        const { data: wallet, error: walletFetchError } = await supabase
-            .from('user_wallets')
-            .select('*')
-            .eq('user_id', report.user_id)
-            .single();
-
-        if (walletFetchError) throw walletFetchError;
-
-        // تحديث المحفظة
-        const newTotalPoints = (wallet.total_points || 0) + actualPoints;
-        const newAvailablePoints = (wallet.available_points || 0) + actualPoints;
-        const newPendingPoints = Math.max(0, (wallet.pending_points || 0) - (report.estimated_points || 0));
-        const newMembershipLevel = calculateMembershipLevel(newTotalPoints);
-        const isPro = newTotalPoints >= 1000;
-
-        const { error: walletUpdateError } = await supabase
-            .from('user_wallets')
-            .update({
-                total_points: newTotalPoints,
-                available_points: newAvailablePoints,
-                pending_points: newPendingPoints,
-                membership_level: newMembershipLevel,
-                is_pro: isPro,
-                pro_badge_earned_at: isPro && !wallet.is_pro ? new Date().toISOString() : wallet.pro_badge_earned_at
-            })
-            .eq('user_id', report.user_id);
-
-        if (walletUpdateError) throw walletUpdateError;
-
-        // تحديث ملف المستخدم
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-                points: newTotalPoints
-            })
-            .eq('id', report.user_id);
-
-        if (profileError) throw profileError;
+        // كل التحديثات الحساسة (حالة البلاغ + نقاط المحفظة + مستوى العضوية +
+        // شارة Pro) بتتم داخل دالة واحدة على الخادم (SECURITY DEFINER) بشكل ذرّي.
+        // الدالة بتتحقق بنفسها إن المستخدم أدمن فعلاً من جدول profiles، وترفض
+        // التنفيذ لغير ذلك - مفيش تعديل مباشر من الـ JS على المحفظة بعد كده.
+        const { data: result, error: rpcError } = await supabase.rpc('approve_reward_report', {
+            p_report_id: reportId,
+            p_actual_points: actualPoints
+        });
+        if (rpcError) throw rpcError;
 
         // إشعار للعميل عند الموافقة على البلاغ
         await createNotification({
@@ -235,21 +168,11 @@ export async function approveReport(reportId, actualPoints) {
             link: `customer-dashboard.html?tab=rewards`
         });
 
-        // تسجيل النشاط
-        await logRewardActivity(report.user_id, 'report_approved', {
-            reportId: reportId,
-            actualPoints: actualPoints,
-            totalPoints: newTotalPoints
-        });
-
         return {
-            report,
+            report: { ...report, status: 'approved', actual_points: actualPoints },
             wallet: {
-                total_points: newTotalPoints,
-                available_points: newAvailablePoints,
-                pending_points: newPendingPoints,
-                membership_level: newMembershipLevel,
-                is_pro: isPro
+                total_points: result.total_points,
+                is_pro: result.is_pro
             }
         };
     } catch (error) {
@@ -261,47 +184,20 @@ export async function approveReport(reportId, actualPoints) {
 // ==================== رفض البلاغ ====================
 export async function rejectReport(reportId, reason) {
     try {
-        // الحصول على البلاغ
+        // كل التحديثات (حالة البلاغ + خصم النقاط المعلقة) بتتم داخل دالة واحدة
+        // على الخادم بعد التحقق من صلاحية الأدمن من جدول profiles.
+        const { data: result, error: rpcError } = await supabase.rpc('reject_reward_report', {
+            p_report_id: reportId,
+            p_reason: reason
+        });
+        if (rpcError) throw rpcError;
+
         const { data: report, error: reportError } = await supabase
             .from('user_reports')
             .select('*')
             .eq('id', reportId)
             .single();
-
         if (reportError) throw reportError;
-
-        // تحديث حالة البلاغ
-        const { error: updateError } = await supabase
-            .from('user_reports')
-            .update({
-                status: 'rejected',
-                rejection_reason: reason,
-                approved_at: new Date().toISOString()
-            })
-            .eq('id', reportId);
-
-        if (updateError) throw updateError;
-
-        // الحصول على المحفظة الحالية
-        const wallet = await getUserWallet(report.user_id);
-
-        // تحديث المحفظة - إزالة النقاط المعلقة
-        const newPendingPoints = Math.max(0, wallet.pending_points - report.estimated_points);
-
-        const { error: walletError } = await supabase
-            .from('user_wallets')
-            .update({
-                pending_points: newPendingPoints
-            })
-            .eq('user_id', report.user_id);
-
-        if (walletError) throw walletError;
-
-        // تسجيل النشاط
-        await logRewardActivity(report.user_id, 'report_rejected', {
-            reportId: reportId,
-            reason: reason
-        });
 
         return report;
     } catch (error) {
