@@ -549,6 +549,7 @@ export async function fetchTicketReplies(ticketId) {
 
     // جلب البروفايل لمعرفة الدور
     const profile = await getCurrentProfile(user.id);
+    const isStaff = profile && ['admin', 'support', 'super_user'].includes(profile.role);
 
     let query = supabase
         .from('ticket_replies')
@@ -556,8 +557,8 @@ export async function fetchTicketReplies(ticketId) {
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true });
 
-    // إذا كان المستخدم ليس أدمن، نفلتر الملاحظات الداخلية
-    if (!profile || profile.role !== 'admin') {
+    // إذا كان المستخدم ليس موظف دعم/أدمن، نفلتر الملاحظات الداخلية
+    if (!isStaff) {
         query = query.eq('is_internal', false);
     }
 
@@ -565,4 +566,259 @@ export async function fetchTicketReplies(ticketId) {
 
     if (error) throw error;
     return data;
+}
+
+/* ==================== الردود الجاهزة (Canned Responses) ==================== */
+
+export async function fetchCannedResponses() {
+    const { data, error } = await supabase
+        .from('canned_responses')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('title', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createCannedResponse({ title, content, category = null, shortcut = null }) {
+    const user = await getCurrentUser();
+    if (!title || !title.trim()) throw new Error('عنوان الرد الجاهز مطلوب');
+    if (!content || !content.trim()) throw new Error('محتوى الرد مطلوب');
+
+    const { data, error } = await supabase
+        .from('canned_responses')
+        .insert({
+            title: title.trim(),
+            content: content.trim(),
+            category: category ? category.trim() : null,
+            shortcut: shortcut ? shortcut.trim() : null,
+            created_by: user ? user.id : null
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    await logActivity('canned_response_create', { canned_response_id: data.id });
+    return data;
+}
+
+export async function updateCannedResponse(id, { title, content, category, shortcut }) {
+    const { data, error } = await supabase
+        .from('canned_responses')
+        .update({
+            title: title?.trim(),
+            content: content?.trim(),
+            category: category ? category.trim() : null,
+            shortcut: shortcut ? shortcut.trim() : null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function deleteCannedResponse(id) {
+    const { error } = await supabase.from('canned_responses').delete().eq('id', id);
+    if (error) throw error;
+}
+
+/* ==================== الوسوم (Tags) ==================== */
+
+export async function fetchTags() {
+    const { data, error } = await supabase.from('ticket_tags').select('*').order('name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createTag(name, color = '#4DA3FF') {
+    const user = await getCurrentUser();
+    if (!name || !name.trim()) throw new Error('اسم الوسم مطلوب');
+
+    const { data, error } = await supabase
+        .from('ticket_tags')
+        .insert({ name: name.trim(), color, created_by: user ? user.id : null })
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function deleteTag(id) {
+    const { error } = await supabase.from('ticket_tags').delete().eq('id', id);
+    if (error) throw error;
+}
+
+export async function fetchTicketTags(ticketId) {
+    const { data, error } = await supabase
+        .from('ticket_tag_links')
+        .select('tag_id, ticket_tags(id, name, color)')
+        .eq('ticket_id', ticketId);
+    if (error) throw error;
+    return (data || []).map(r => r.ticket_tags).filter(Boolean);
+}
+
+/**
+ * جلب كل الوسوم لكل التذاكر دفعة واحدة (لتفادي استدعاء منفصل لكل تذكرة عند العرض في القائمة)
+ */
+export async function fetchAllTicketTagLinks() {
+    const { data, error } = await supabase
+        .from('ticket_tag_links')
+        .select('ticket_id, tag_id, ticket_tags(id, name, color)');
+    if (error) throw error;
+    return data || [];
+}
+
+export async function addTagToTicket(ticketId, tagId) {
+    const { error } = await supabase.from('ticket_tag_links').insert({ ticket_id: ticketId, tag_id: tagId });
+    if (error) throw error;
+}
+
+export async function removeTagFromTicket(ticketId, tagId) {
+    const { error } = await supabase.from('ticket_tag_links').delete().eq('ticket_id', ticketId).eq('tag_id', tagId);
+    if (error) throw error;
+}
+
+/* ==================== مرفقات متعددة ==================== */
+
+/**
+ * رفع مرفق واحد للتذكرة (يُستدعى مرة لكل ملف عند اختيار عدة ملفات)
+ * يخزن الملف في bucket "tickets" الموجود مسبقاً، ويربطه بصف في ticket_attachments.
+ */
+export async function uploadTicketAttachment(ticketId, file, replyId = null) {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${ticketId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+
+    const { error: uploadError } = await supabase.storage.from('tickets').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || undefined
+    });
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabase.storage.from('tickets').getPublicUrl(path);
+
+    const { data, error } = await supabase
+        .from('ticket_attachments')
+        .insert({
+            ticket_id: ticketId,
+            reply_id: replyId,
+            file_url: publicUrlData.publicUrl,
+            file_name: file.name,
+            file_size: file.size,
+            mime_type: file.type || null,
+            uploaded_by: user.id
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function fetchTicketAttachments(ticketId) {
+    const { data, error } = await supabase
+        .from('ticket_attachments')
+        .select('*')
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+/* ==================== سجل النشاط (Activity Timeline) ==================== */
+
+export async function fetchTicketActivity(ticketId) {
+    const { data, error } = await supabase
+        .from('ticket_activity')
+        .select('*, profiles(full_name, role)')
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+/* ==================== تقييم العميل بعد الإغلاق ==================== */
+
+export async function submitTicketRating(ticketId, rating, comment = '') {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+    if (!rating || rating < 1 || rating > 5) throw new Error('التقييم يجب أن يكون بين 1 و 5');
+
+    const { data, error } = await supabase
+        .from('ticket_ratings')
+        .insert({ ticket_id: ticketId, user_id: user.id, rating, comment: comment?.trim() || null })
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function fetchTicketRating(ticketId) {
+    const { data, error } = await supabase
+        .from('ticket_ratings')
+        .select('*')
+        .eq('ticket_id', ticketId)
+        .maybeSingle();
+    if (error) throw error;
+    return data;
+}
+
+export async function fetchAllTicketRatings() {
+    const { data, error } = await supabase.from('ticket_ratings').select('*');
+    if (error) throw error;
+    return data || [];
+}
+
+/* ==================== فلاتر بحث محفوظة ==================== */
+
+export async function fetchSavedFilters() {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+    const { data, error } = await supabase
+        .from('saved_ticket_filters')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createSavedFilter(name, filters) {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+    if (!name || !name.trim()) throw new Error('اسم الفلتر مطلوب');
+
+    const { data, error } = await supabase
+        .from('saved_ticket_filters')
+        .insert({ user_id: user.id, name: name.trim(), filters })
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function deleteSavedFilter(id) {
+    const { error } = await supabase.from('saved_ticket_filters').delete().eq('id', id);
+    if (error) throw error;
+}
+
+/* ==================== لوحة الإحصائيات (Analytics) ==================== */
+
+/**
+ * يحسب مؤشرات أداء نظام التذاكر: متوسط زمن الحل، نسبة مخالفة SLA،
+ * توزيع التذاكر حسب الموظف/التصنيف/الأولوية، ومتوسط تقييم رضا العملاء (CSAT).
+ * الحساب يتم في الواجهة الأمامية من نفس البيانات المجلوبة أصلاً (allTickets)
+ * تفادياً لاستدعاءات إضافية، وهذه الدالة تجلب فقط ما لا يتوفر أصلاً (التقييمات).
+ */
+export async function fetchTicketAnalyticsExtras() {
+    const [ratings, agents] = await Promise.all([
+        fetchAllTicketRatings(),
+        fetchSupportAgents()
+    ]);
+    return { ratings, agents };
 }
