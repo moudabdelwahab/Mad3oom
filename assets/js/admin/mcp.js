@@ -558,11 +558,18 @@ function switchDevTab(tab) {
     document.getElementById('devSectionMcp').classList.toggle('active', tab === 'mcp');
     document.getElementById('devSectionApiTokens').classList.toggle('active', tab === 'apitokens');
     document.getElementById('devSectionIntegrations').classList.toggle('active', tab === 'integrations');
-    document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
 
     if (tab === 'apitokens' && !apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
     if (tab === 'integrations' && !integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
-    if (tab === 'mcpserver' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
+}
+
+/** تبديل اتجاه شبكة MCP داخل التبويب الموحّد: صادر (Client) / وارد (Server) */
+function switchDirection(direction) {
+    document.querySelectorAll('.direction-pill').forEach((b) => b.classList.toggle('active', b.dataset.direction === direction));
+    document.getElementById('directionOutbound').classList.toggle('active', direction === 'outbound');
+    document.getElementById('directionInbound').classList.toggle('active', direction === 'inbound');
+
+    if (direction === 'inbound' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
 }
 
 let apiTokensLoadedOnce = false;
@@ -1339,8 +1346,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('toolsModal').addEventListener('click', (e) => { if (e.target.id === 'toolsModal') closeToolsModal(); });
     document.getElementById('toolsModalClose').addEventListener('click', closeToolsModal);
     document.getElementById('syncToolsBtn').addEventListener('click', handleSyncTools);
-    document.getElementById('devTabMcpServer')
-    .addEventListener('click', () => switchDevTab('mcpserver'));
+    document.getElementById('dirBtnOutbound')
+    .addEventListener('click', () => switchDirection('outbound'));
+    document.getElementById('dirBtnInbound')
+    .addEventListener('click', () => switchDirection('inbound'));
     document.getElementById('testMcpServerBtn')
     .addEventListener('click', handleTestMcpServer);
     document.getElementById('toolsSearchInput').addEventListener('input', debounce((e) => {
