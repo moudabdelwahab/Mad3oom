@@ -62,7 +62,7 @@ async function init() {
         }
 
         // Load appropriate sidebar
-        if (currentUser.role === 'admin') {
+        if (currentUser.profile?.role === 'admin') {
             initAdminSidebar();
         } else {
             initCustomerSidebar();
@@ -359,10 +359,30 @@ async function openThread(threadId) {
 
     if (error) throw error;
 
-    renderThreadDetail(thread);
+    // نجيب كل الإعجابات على ردود الموضوع في استعلام واحد، ونحسب منها
+    // عدد الإعجابات لكل رد + هل المستخدم الحالي معجب بيه (زي فيسبوك بالضبط)
+    const replyIds = (thread.replies || []).map(r => r.id);
+    const likesCountMap = new Map();
+    const likedByMeSet = new Set();
+
+    if (replyIds.length > 0) {
+        const { data: likesRows, error: likesError } = await supabaseClient
+            .from('forum_likes')
+            .select('reply_id, user_id')
+            .in('reply_id', replyIds);
+
+        if (!likesError && likesRows) {
+            likesRows.forEach(row => {
+                likesCountMap.set(row.reply_id, (likesCountMap.get(row.reply_id) || 0) + 1);
+                if (currentUser && row.user_id === currentUser.id) likedByMeSet.add(row.reply_id);
+            });
+        }
+    }
+
+    renderThreadDetail(thread, likesCountMap, likedByMeSet);
 }
 
-function renderThreadDetail(thread) {
+function renderThreadDetail(thread, likesCountMap, likedByMeSet) {
     let html = `
         <div class="breadcrumb" style="margin-bottom: 1.5rem; font-size: 0.95rem;">
             <a href="#" onclick="window.forum.loadCategories(); return false;" style="color: var(--color-accent); text-decoration: none;">الرئيسية</a> &raquo; <span style="color: var(--color-text-secondary);">${escapeHtml(thread.title)}</span>
@@ -380,7 +400,7 @@ function renderThreadDetail(thread) {
                     <div class="post-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 1rem;">
                         <span class="post-date" style="font-size: 0.85rem; color: var(--color-text-secondary);">${formatDate(thread.created_at)}</span>
                         <div class="post-actions">
-                            ${currentUser.id === thread.author_id || currentUser.role === 'admin' ? `
+                            ${currentUser.id === thread.author_id || currentUser.profile?.role === 'admin' ? `
                                 <button onclick="window.forum.editThread('${escapeHtml(thread.id)}')" style="background:none; border:none; color:var(--color-accent); cursor:pointer; font-size:0.9rem;">تعديل</button>
                             ` : ''}
                         </div>
@@ -392,40 +412,132 @@ function renderThreadDetail(thread) {
                 </div>
             </div>
 
-            <div class="replies-section" style="display: flex; flex-direction: column; gap: 1rem;">
-                <h3 style="margin: 1rem 0;">الردود (${thread.replies?.length || 0})</h3>
-                ${thread.replies?.map(reply => `
-                    <div class="post-item reply-item" id="reply-${escapeHtml(reply.id)}" style="display: flex; background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden;">
-                        <div class="post-sidebar" style="width: 150px; background: var(--color-muted); padding: 1rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 1px solid var(--color-border);">
-                            <div class="author-avatar-small" style="width: 50px; height: 50px; border-radius: 50%; background: var(--color-surface); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--color-primary); border: 2px solid var(--color-border);">
-                                ${reply.author?.avatar_url ? `<img src="${sanitizeUrl(reply.author.avatar_url)}" alt="" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : escapeHtml(reply.author?.full_name?.charAt(0) || 'U')}
-                            </div>
-                            <div class="author-name" style="font-size: 0.9rem; font-weight: 600; text-align: center;">${escapeHtml(reply.author?.full_name || 'مستخدم مجهول')}</div>
-                        </div>
-                        <div class="post-content-wrapper" style="flex: 1; padding: 1rem;">
-                            <div class="post-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
-                                <span class="post-date" style="font-size: 0.8rem; color: var(--color-text-secondary);">${formatDate(reply.created_at)}</span>
-                                <div class="post-actions">
-                                    <button onclick="window.forum.quoteReply('${escapeHtml(reply.id)}')" style="background:none; border:none; color:var(--color-accent); cursor:pointer; font-size:0.85rem;">اقتباس</button>
-                                </div>
-                            </div>
-                            <div class="post-body">
-                                <div class="content" style="line-height: 1.5;">${sanitizeForumHtml(reply.content)}</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('') || '<p class="empty-msg" style="text-align: center; padding: 2rem; background: var(--color-muted); border-radius: 1rem;">لا توجد ردود بعد. كن أول من يعلق!</p>'}
-            </div>
-
-            <div class="quick-reply" style="background: var(--color-surface); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--color-border); margin-top: 1rem;">
-                <h3 style="margin-bottom: 1rem;">أضف رداً</h3>
-                <div id="replyEditor" contenteditable="true" class="rich-editor" style="min-height: 150px; padding: 1rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-muted);" placeholder="اكتب ردك هنا..."></div>
-                <button onclick="window.forum.submitReply()" class="btn btn-primary" style="margin-top:1rem; padding: 0.8rem 2.5rem;">إرسال الرد</button>
-            </div>
+            ${renderCommentsSection(thread, likesCountMap, likedByMeSet)}
         </div>
     `;
     forumContent.innerHTML = html;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleComposerInput();
+}
+
+/* ============================================================
+   نظام التعليقات بنمط فيسبوك
+   ============================================================ */
+
+/**
+ * يبني شجرة التعليقات: كل رد مبني على parent_id، لكن العرض بيتم
+ * بمستوى تعشيش واحد فقط بالظبط زي فيسبوك (أي رد على رد بيتحط
+ * تحت التعليق الرئيسي مباشرة، مش متعشش أكتر من مستوى).
+ */
+function buildCommentTree(replies) {
+    const list = replies || [];
+    const byId = new Map(list.map(r => [r.id, r]));
+    const topLevel = [];
+    const childrenMap = new Map();
+
+    function findRootId(reply) {
+        let cur = reply;
+        const seen = new Set();
+        while (cur.parent_id && byId.has(cur.parent_id) && !seen.has(cur.id)) {
+            seen.add(cur.id);
+            cur = byId.get(cur.parent_id);
+        }
+        return cur.id;
+    }
+
+    list.forEach(r => {
+        if (!r.parent_id || !byId.has(r.parent_id)) topLevel.push(r);
+    });
+    list.forEach(r => {
+        if (r.parent_id && byId.has(r.parent_id)) {
+            const rootId = findRootId(r);
+            if (!childrenMap.has(rootId)) childrenMap.set(rootId, []);
+            childrenMap.get(rootId).push(r);
+        }
+    });
+
+    topLevel.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    childrenMap.forEach(arr => arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+
+    return { topLevel, childrenMap };
+}
+
+function avatarHtml(profile) {
+    if (profile?.avatar_url) return `<img src="${sanitizeUrl(profile.avatar_url)}" alt="">`;
+    return escapeHtml(profile?.full_name?.charAt(0) || 'U');
+}
+
+function renderComment(reply, likesCountMap, likedByMeSet) {
+    const count = likesCountMap.get(reply.id) || 0;
+    const liked = likedByMeSet.has(reply.id);
+    const id = escapeHtml(reply.id);
+
+    return `
+    <div class="fb-comment" id="comment-${id}">
+        <div class="fb-comment-avatar">${avatarHtml(reply.author)}</div>
+        <div class="fb-comment-body">
+            <div class="fb-comment-bubble">
+                <div class="fb-comment-author">${escapeHtml(reply.author?.full_name || 'مستخدم مجهول')}</div>
+                <div class="fb-comment-text">${sanitizeForumHtml(reply.content)}</div>
+                <div class="fb-like-pill" id="like-pill-${id}" style="${count > 0 ? '' : 'display:none;'}">👍 <span class="like-pill-count">${count}</span></div>
+            </div>
+            <div class="fb-comment-actions">
+                <button class="like-btn ${liked ? 'liked' : ''}" id="like-btn-${id}" data-count="${count}" onclick="window.forum.toggleLike('${id}')">إعجاب</button>
+                <button onclick="window.forum.showReplyBox('${id}')">رد</button>
+                <span class="fb-comment-time" title="${formatDate(reply.created_at)}">${timeAgo(reply.created_at)}</span>
+            </div>
+            <div class="fb-reply-box-container" id="reply-box-${id}"></div>
+        </div>
+    </div>`;
+}
+
+function renderRepliesForRoot(rootId, childrenMap, likesCountMap, likedByMeSet) {
+    const children = childrenMap.get(rootId) || [];
+    if (children.length === 0) return '';
+
+    const visibleCount = 2;
+    const visible = children.slice(0, visibleCount);
+    const hidden = children.slice(visibleCount);
+
+    let html = `<div class="fb-replies">`;
+    html += visible.map(c => renderComment(c, likesCountMap, likedByMeSet)).join('');
+    if (hidden.length > 0) {
+        const chevron = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>`;
+        html += `<button class="fb-view-more" id="view-more-${escapeHtml(rootId)}" onclick="window.forum.toggleMoreReplies('${escapeHtml(rootId)}')">${chevron} عرض ${hidden.length} ${hidden.length === 1 ? 'رد آخر' : 'ردود أخرى'}</button>`;
+        html += `<div class="fb-replies" id="hidden-replies-${escapeHtml(rootId)}" style="display:none; padding-inline-end:0;">${hidden.map(c => renderComment(c, likesCountMap, likedByMeSet)).join('')}</div>`;
+    }
+    html += `</div>`;
+    return html;
+}
+
+function renderCommentsSection(thread, likesCountMap, likedByMeSet) {
+    const { topLevel, childrenMap } = buildCommentTree(thread.replies);
+    const totalCount = thread.replies?.length || 0;
+
+    const commentsHtml = topLevel.length
+        ? topLevel.map(c => `
+            <div class="fb-comment-thread">
+                ${renderComment(c, likesCountMap, likedByMeSet)}
+                ${renderRepliesForRoot(c.id, childrenMap, likesCountMap, likedByMeSet)}
+            </div>`).join('')
+        : '<p class="fb-empty-comments">لا توجد تعليقات بعد. كن أول من يعلق!</p>';
+
+    return `
+    <div class="fb-comments-wrap">
+        <div class="fb-comments-header">التعليقات (${totalCount})</div>
+        <div id="fbCommentsList" style="display:flex; flex-direction:column; gap:1rem;">
+            ${commentsHtml}
+        </div>
+        <div class="fb-composer">
+            <div class="fb-comment-avatar">${avatarHtml(currentUser.profile)}</div>
+            <div class="fb-composer-input-wrap">
+                <div class="fb-composer-input" contenteditable="true" id="replyEditor" data-placeholder="اكتب تعليقاً..." oninput="window.forum.handleComposerInput()" onkeydown="window.forum.handleComposerKeydown(event)"></div>
+                <button class="fb-send-btn" id="composerSendBtn" onclick="window.forum.submitReply()" title="إرسال">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="transform:scaleX(-1);"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>`;
 }
 
 async function submitReply() {
@@ -447,6 +559,163 @@ async function submitReply() {
         editor.innerHTML = '';
         openThread(currentThreadId); // Refresh
     }
+}
+
+/**
+ * تبديل الإعجاب (Like/Unlike) على رد معين — نفس سلوك زر "إعجاب" في فيسبوك،
+ * بتحديث فوري للواجهة (optimistic update) قبل تأكيد الحفظ في القاعدة،
+ * مع التراجع عن التحديث لو فشل الطلب.
+ */
+async function toggleLike(replyId) {
+    const btn = document.getElementById(`like-btn-${replyId}`);
+    if (!btn || !currentUser) return;
+
+    const pill = document.getElementById(`like-pill-${replyId}`);
+    const countSpan = pill?.querySelector('.like-pill-count');
+    const wasLiked = btn.classList.contains('liked');
+    let count = parseInt(btn.dataset.count || '0', 10);
+
+    const applyState = (isLiked, newCount) => {
+        btn.classList.toggle('liked', isLiked);
+        btn.dataset.count = String(newCount);
+        if (pill) {
+            if (newCount > 0) { pill.style.display = 'flex'; if (countSpan) countSpan.textContent = newCount; }
+            else pill.style.display = 'none';
+        }
+    };
+
+    // تحديث متفائل فوري
+    applyState(!wasLiked, wasLiked ? Math.max(0, count - 1) : count + 1);
+
+    try {
+        if (wasLiked) {
+            const { error } = await supabaseClient.from('forum_likes').delete().eq('reply_id', replyId).eq('user_id', currentUser.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabaseClient.from('forum_likes').insert([{ reply_id: replyId, user_id: currentUser.id }]);
+            if (error) throw error;
+        }
+    } catch (err) {
+        console.error('Error toggling like:', err);
+        // تراجع عن التحديث المتفائل عند فشل الطلب
+        applyState(wasLiked, count);
+    }
+}
+
+/**
+ * يفتح صندوق رد مصغّر تحت أي تعليق (رئيسي أو فرعي) — بالضبط زي الضغط
+ * على "رد" تحت تعليق في فيسبوك. يقفل أي صندوق رد آخر مفتوح قبل كده.
+ */
+function showReplyBox(parentId) {
+    document.querySelectorAll('.fb-reply-box-container').forEach(el => {
+        if (el.id !== `reply-box-${parentId}`) el.innerHTML = '';
+    });
+
+    const container = document.getElementById(`reply-box-${parentId}`);
+    if (!container) return;
+
+    if (container.innerHTML.trim()) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="fb-reply-box">
+            <div class="fb-comment-avatar">${avatarHtml(currentUser.profile)}</div>
+            <div class="fb-reply-input-wrap">
+                <div class="fb-reply-input" contenteditable="true" data-placeholder="اكتب رداً..." id="reply-input-${parentId}" onkeydown="window.forum.handleReplyKeydown(event, '${parentId}')"></div>
+            </div>
+        </div>
+        <div class="fb-reply-box-actions" style="padding-inline-start:2.9rem;">
+            <button class="btn btn-secondary btn-sm" onclick="window.forum.cancelReplyBox('${parentId}')">إلغاء</button>
+            <button class="btn btn-primary btn-sm" onclick="window.forum.submitNestedReply('${parentId}')">رد</button>
+        </div>`;
+
+    document.getElementById(`reply-input-${parentId}`)?.focus();
+}
+
+function cancelReplyBox(parentId) {
+    const container = document.getElementById(`reply-box-${parentId}`);
+    if (container) container.innerHTML = '';
+}
+
+/**
+ * إرسال رد متعشش على تعليق معين (parent_id) — بيحدّث الموضوع كامل بعد
+ * الإرسال عشان يضمن دقة الترتيب والتعشيش وعداد الإعجابات.
+ */
+async function submitNestedReply(parentId) {
+    const input = document.getElementById(`reply-input-${parentId}`);
+    if (!input) return;
+    const content = sanitizeForumHtml(input.innerHTML);
+    if (!content.trim() || content === '<br>') return;
+
+    const { error } = await supabaseClient
+        .from('forum_replies')
+        .insert([{
+            thread_id: currentThreadId,
+            author_id: currentUser.id,
+            parent_id: parentId,
+            content
+        }]);
+
+    if (error) {
+        alert('خطأ في إرسال الرد: ' + error.message);
+    } else {
+        openThread(currentThreadId);
+    }
+}
+
+function toggleMoreReplies(rootId) {
+    const hiddenDiv = document.getElementById(`hidden-replies-${rootId}`);
+    const btn = document.getElementById(`view-more-${rootId}`);
+    if (hiddenDiv) hiddenDiv.style.display = 'flex';
+    if (btn) btn.style.display = 'none';
+}
+
+function handleComposerInput() {
+    const editor = document.getElementById('replyEditor');
+    const btn = document.getElementById('composerSendBtn');
+    if (!editor || !btn) return;
+    btn.classList.toggle('active', editor.innerText.trim().length > 0);
+}
+
+function handleComposerKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitReply();
+    }
+}
+
+function handleReplyKeydown(e, parentId) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitNestedReply(parentId);
+    }
+}
+
+/**
+ * تنسيق وقت نسبي بالعربية (منذ 5 دقائق، منذ ساعتين...) بنفس أسلوب فيسبوك
+ * بدل عرض التاريخ الكامل مباشرة (التاريخ الكامل لسه متاح عبر title عند التحويم).
+ */
+function timeAgo(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 60) return 'الآن';
+
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `منذ ${min} ${min === 1 ? 'دقيقة' : min === 2 ? 'دقيقتين' : min <= 10 ? 'دقائق' : 'دقيقة'}`;
+
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `منذ ${hr} ${hr === 1 ? 'ساعة' : hr === 2 ? 'ساعتين' : hr <= 10 ? 'ساعات' : 'ساعة'}`;
+
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `منذ ${day} ${day === 1 ? 'يوم' : day === 2 ? 'يومين' : day <= 10 ? 'أيام' : 'يوم'}`;
+
+    const month = Math.floor(day / 30);
+    if (month < 12) return `منذ ${month} ${month === 1 ? 'شهر' : month === 2 ? 'شهرين' : month <= 10 ? 'أشهر' : 'شهر'}`;
+
+    const year = Math.floor(month / 12);
+    return `منذ ${year} ${year === 1 ? 'سنة' : year === 2 ? 'سنتين' : year <= 10 ? 'سنوات' : 'سنة'}`;
 }
 
 // --- Helpers ---
@@ -515,13 +784,14 @@ window.forum = {
     openThread,
     submitReply,
     editThread: (id) => console.log('Edit', id),
-    quoteReply: (id) => {
-        const replyContent = document.querySelector(`#reply-${id} .content`).innerHTML;
-        const editor = document.getElementById('replyEditor');
-        editor.innerHTML = `<blockquote style="border-right: 4px solid var(--color-accent); padding-right: 15px; margin-bottom: 15px; color: var(--color-text-secondary); background: rgba(0,0,0,0.05); padding: 10px;">${replyContent}</blockquote><br>`;
-        editor.focus();
-        editor.scrollIntoView({ behavior: 'smooth' });
-    }
+    toggleLike,
+    showReplyBox,
+    cancelReplyBox,
+    submitNestedReply,
+    toggleMoreReplies,
+    handleComposerInput,
+    handleComposerKeydown,
+    handleReplyKeydown
 };
 
 // Start initialization when DOM is ready
