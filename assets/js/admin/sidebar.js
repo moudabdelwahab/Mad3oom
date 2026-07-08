@@ -276,6 +276,8 @@ async function checkAdminForErrorTracker() {
         if (profile && profile.role === 'admin') {
             const errorLink = document.getElementById('errorTrackerLink');
             if (errorLink) errorLink.style.display = 'flex';
+            const rewardsLink = document.getElementById('rewardsLink');
+            if (rewardsLink) rewardsLink.style.display = 'flex';
         }
     }
 }
