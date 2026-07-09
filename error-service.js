@@ -44,17 +44,28 @@ export const errorService = {
     },
 
     /**
-     * Subscribe to real-time error updates
+     * Subscribe to real-time error updates.
+     * onInsert: fired when a new error is reported.
+     * onUpdate: fired instantly when an error's status changes
+     *           (e.g. resolved/archived), so the UI can drop it
+     *           from the "current errors" view immediately.
      */
-    subscribeToErrors(callback) {
+    subscribeToErrors(onInsert, onUpdate) {
         return supabase
             .channel('site_errors_realtime')
-            .on('postgres_changes', { 
-                event: 'INSERT', 
-                schema: 'public', 
-                table: 'site_errors' 
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'site_errors'
             }, payload => {
-                callback(payload.new);
+                if (onInsert) onInsert(payload.new);
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'site_errors'
+            }, payload => {
+                if (onUpdate) onUpdate(payload.new, payload.old);
             })
             .subscribe();
     }
