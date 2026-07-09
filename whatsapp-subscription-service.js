@@ -76,20 +76,14 @@ export const BILLING_LABELS = {
 // ومراجعة من فريق الدعم خلال ساعة كحد أقصى.
 export const PAYMENT_METHODS = [
     'bank_transfer',
-    'vodafone_cash',
-    'etisalat_cash',
-    'we_cash',
-    'orange_cash',
+    'cash_wallet',
     'instapay',
     'gateway'
 ];
 
 export const PAYMENT_METHOD_LABELS = {
     bank_transfer: 'تحويل بنكي',
-    vodafone_cash: 'فودافون كاش',
-    etisalat_cash: 'اتصالات كاش',
-    we_cash: 'وي كاش',
-    orange_cash: 'أورانج كاش',
+    cash_wallet: 'محفظة كاش',
     instapay: 'إنستاباي',
     gateway: 'بوابة دفع إلكترونية (داخلية)'
 };
