@@ -174,6 +174,11 @@ function renderServers(servers) {
 
 /* ====================  MCP Client Marketplace (جديد)  ==================== */
 
+function connectorIconSvg(iconPaths, fallbackInitial) {
+    if (!iconPaths) return escapeHtml(fallbackInitial || '?');
+    return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths}</svg>`;
+}
+
 function renderCategoryChips() {
     const container = document.getElementById('mcpCategoryChips');
     if (!container) return;
@@ -238,7 +243,7 @@ function renderConnectorGrid() {
         return `
         <div class="connector-card ${isConnected ? 'is-connected' : ''}">
             <div class="connector-card-top">
-                <div class="connector-icon" style="background:${c.brandColor}">${escapeHtml(c.initial)}</div>
+                <div class="connector-icon" style="background:${c.brandColor}">${connectorIconSvg(c.icon, c.initial)}</div>
                 <div class="connector-name-wrap">
                     <div class="connector-name">${escapeHtml(c.name)}</div>
                     <div class="connector-desc">${escapeHtml(c.description)}</div>
@@ -262,7 +267,7 @@ function renderConnectorGrid() {
         return `
         <div class="connector-card ${isConnected ? 'is-connected' : ''}">
             <div class="connector-card-top">
-                <div class="connector-icon" style="background:#64748b">${escapeHtml((s.name || '?').trim().charAt(0).toUpperCase())}</div>
+                <div class="connector-icon" style="background:#64748b">${connectorIconSvg('<rect x="2" y="3" width="20" height="8" rx="2"></rect><rect x="2" y="13" width="20" height="8" rx="2"></rect><line x1="6" y1="7" x2="6.01" y2="7"></line><line x1="6" y1="17" x2="6.01" y2="17"></line>', (s.name || '?').trim().charAt(0).toUpperCase())}</div>
                 <div class="connector-name-wrap">
                     <div class="connector-name">${escapeHtml(s.name)}</div>
                     <div class="connector-desc">${escapeHtml(s.description || 'خادم مخصّص مُضاف يدويًا')}</div>
