@@ -68,6 +68,16 @@ async function init() {
             initCustomerSidebar();
         }
 
+        // تعبئة أفاتار المستخدم في شريط الكتابة العلوي وفي نافذة النشر
+        // + تحميل أزرار اختيار القسم السريعة
+        const composerAvatar = document.getElementById('composerAvatar');
+        if (composerAvatar) composerAvatar.innerHTML = avatarHtml(currentUser.profile);
+        const modalComposerAvatar = document.getElementById('modalComposerAvatar');
+        if (modalComposerAvatar) modalComposerAvatar.innerHTML = avatarHtml(currentUser.profile);
+        const modalComposerName = document.getElementById('modalComposerName');
+        if (modalComposerName) modalComposerName.textContent = currentUser.profile?.full_name || 'مستخدم';
+        loadComposerCategories();
+
         setupEventListeners();
         await loadCategories();
         setupRealtime();
@@ -94,7 +104,7 @@ function setupEventListeners() {
                 return;
             }
             loadSubforumsForModal();
-            threadModal.classList.add('active');
+            threadModal.classList.add('active'); updateThreadSubmitState();
         });
     }
 
@@ -107,6 +117,11 @@ function setupEventListeners() {
     if (threadForm) {
         threadForm.addEventListener('submit', handleThreadSubmit);
     }
+
+    const threadTitleInput = document.getElementById('threadTitle');
+    const threadContentInput = document.getElementById('threadContent');
+    if (threadTitleInput) threadTitleInput.addEventListener('input', updateThreadSubmitState);
+    if (threadContentInput) threadContentInput.addEventListener('input', updateThreadSubmitState);
 
     if (forumSearch) {
         forumSearch.addEventListener('input', debounce(() => {
@@ -333,8 +348,22 @@ async function handleThreadSubmit(e) {
         threadModal.classList.remove('active');
         threadForm.reset();
         document.getElementById('threadContent').innerHTML = '';
+        updateThreadSubmitState();
         openThread(data.id);
     }
+}
+
+/**
+ * يفعّل زر "نشر" فقط لما يكون في عنوان ومحتوى فعلي — زي زرار "Post"
+ * في فيسبوك اللي بيفضل رمادي لحد ما تكتب حاجة.
+ */
+function updateThreadSubmitState() {
+    const submitBtn = document.getElementById('threadSubmitBtn');
+    const title = document.getElementById('threadTitle');
+    const content = document.getElementById('threadContent');
+    if (!submitBtn || !title || !content) return;
+    const hasContent = content.innerText.trim().length > 0;
+    submitBtn.disabled = !(title.value.trim().length > 0 && hasContent);
 }
 
 async function openThread(threadId) {
@@ -720,6 +749,47 @@ function timeAgo(dateStr) {
 
 // --- Helpers ---
 
+/**
+ * يحمّل أزرار اختيار القسم السريعة في شريط الكتابة العلوي (أيقونة لكل قسم)
+ * — نفس فكرة أيقونات "صورة/فيديو/شعور" في منشور فيسبوك، لكن هنا لاختيار
+ * القسم المناسب للموضوع قبل فتح نافذة الكتابة.
+ */
+async function loadComposerCategories() {
+    const container = document.getElementById('composerCategories');
+    if (!container) return;
+
+    const { data, error } = await supabaseClient
+        .from('forum_subforums')
+        .select('id, name')
+        .order('display_order');
+
+    if (error || !data) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const chatIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    container.innerHTML = data.map(sub => `
+        <button type="button" class="fb-category-pick" onclick="window.forum.openComposerWithSubforum('${escapeHtml(sub.id)}')">
+            ${chatIcon}${escapeHtml(sub.name)}
+        </button>`).join('') || '';
+}
+
+/**
+ * يفتح نافذة إنشاء موضوع جديد مع تحديد القسم مسبقاً (من أيقونة القسم
+ * في شريط الكتابة العلوي).
+ */
+async function openComposerWithSubforum(subforumId) {
+    if (!currentUser) {
+        alert('يرجى تسجيل الدخول أولاً');
+        return;
+    }
+    await loadSubforumsForModal();
+    const select = document.getElementById('threadSubforum');
+    if (select) select.value = subforumId;
+    threadModal.classList.add('active'); updateThreadSubmitState();
+}
+
 async function loadSubforumsForModal() {
     const select = document.getElementById('threadSubforum');
     if (!select) return;
@@ -791,7 +861,8 @@ window.forum = {
     toggleMoreReplies,
     handleComposerInput,
     handleComposerKeydown,
-    handleReplyKeydown
+    handleReplyKeydown,
+    openComposerWithSubforum
 };
 
 // Start initialization when DOM is ready
