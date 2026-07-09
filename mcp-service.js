@@ -725,10 +725,10 @@ export const MCP_CLIENT_CATALOG = [
         transport: 'streamable_http',
         url: 'https://mcp.supabase.com/mcp',
         auth_type: 'oauth2',
-        oauth_authorize_url: '',
-        oauth_token_url: '',
+        oauth_authorize_url: 'https://api.supabase.com/v1/oauth/authorize',
+        oauth_token_url: 'https://api.supabase.com/v1/oauth/token',
         oauth_scope: '',
-        setup_note: 'يبدأ Supabase تدفق OAuth تلقائيًا عند الربط عبر المتصفح - لا حاجة لإدخال رابط Authorize/Token يدويًا.',
+        setup_note: 'Supabase يتطلب تسجيل "OAuth App" خاص بك من إعدادات المنظمة على Supabase أولاً (Client ID/Secret) - راجع "Build a Supabase Integration" في توثيق Supabase وتأكد من رابطي Authorize/Token قبل الحفظ.',
         docs_url: 'https://supabase.com/docs/guides/getting-started/mcp',
     },
     {
