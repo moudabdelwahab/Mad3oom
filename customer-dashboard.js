@@ -11,7 +11,11 @@ import {
     fetchTicketReplies,
     addTicketReply,
     subscribeToTickets,
-    deleteTicket
+    deleteTicket,
+    fetchTicketAttachments,
+    fetchTicketTags,
+    fetchTicketActivity,
+    fetchTicketRating
 } from './tickets-service.js';
 import {
     fetchNotifications,
