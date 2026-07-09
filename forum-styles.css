@@ -543,3 +543,260 @@
     color: var(--color-text-secondary);
     font-size: 0.9rem;
 }
+
+/* ============================================================
+   شريط الكتابة العلوي بنمط فيسبوك (Facebook-style post composer)
+   يستبدل البانر الأزرق القديم + زرار "موضوع جديد" المنفصل.
+   ============================================================ */
+
+.forum-page-title {
+    margin-bottom: 1.25rem;
+}
+.forum-page-title h1 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--color-text);
+    margin: 0 0 0.3rem;
+}
+.forum-page-title p {
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.fb-composer-bar {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.fb-composer-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.fb-composer-trigger {
+    flex: 1;
+    text-align: right;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.75rem 1.1rem;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.fb-composer-trigger:hover {
+    background: var(--color-border);
+    border-color: var(--color-accent);
+}
+
+.fb-composer-divider {
+    height: 1px;
+    background: var(--color-border);
+    margin: 0.9rem 0 0.75rem;
+}
+
+.fb-composer-categories {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.fb-category-pick {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+.fb-category-pick svg { flex-shrink: 0; color: var(--color-accent); }
+.fb-category-pick:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+@media (max-width: 600px) {
+    .fb-composer-trigger { font-size: 0.85rem; padding: 0.65rem 0.9rem; }
+    .fb-category-pick { font-size: 0.76rem; padding: 0.4rem 0.7rem; }
+}
+
+/* ============================================================
+   نافذة إنشاء موضوع جديد بنمط "منشور فيسبوك" (Facebook post composer)
+   ============================================================ */
+
+.fb-post-modal { padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 88vh; }
+
+.fb-post-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+}
+.fb-post-modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.fb-modal-close {
+    position: absolute;
+    inset-inline-end: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--color-muted);
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fb-modal-close:hover { background: var(--color-border); color: var(--color-text); }
+
+#threadForm { display: flex; flex-direction: column; gap: 0.85rem; padding: 1rem 1.25rem 1.25rem; overflow-y: auto; }
+
+.fb-post-author-row { display: flex; align-items: center; gap: 0.65rem; }
+.fb-post-author-name { font-weight: 700; font-size: 0.95rem; color: var(--color-text); }
+
+.fb-post-category-picker {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.5rem;
+    margin-top: 0.2rem;
+    color: var(--color-text-secondary);
+}
+.fb-post-category-picker select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding-inline-end: 0.9rem;
+    cursor: pointer;
+}
+.fb-post-category-chevron { pointer-events: none; margin-inline-start: -0.75rem; }
+
+.fb-post-title-input {
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-text);
+    font-family: inherit;
+    padding: 0.2rem 0;
+}
+.fb-post-title-input::placeholder { color: var(--color-text-secondary); font-weight: 700; }
+
+.fb-post-body-input {
+    min-height: 130px;
+    max-height: 320px;
+    overflow-y: auto;
+    outline: none;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text);
+}
+.fb-post-body-input:empty:before {
+    content: attr(data-placeholder);
+    color: var(--color-text-secondary);
+}
+.fb-post-body-input pre {
+    direction: ltr;
+    text-align: left;
+    background: var(--color-muted);
+    border-radius: 0.5rem;
+    padding: 0.6rem;
+    overflow-x: auto;
+}
+
+.fb-post-tags-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 0.7rem;
+    padding: 0.5rem 0.8rem;
+    color: var(--color-text-secondary);
+}
+.fb-post-tags-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: none;
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--color-text);
+}
+.fb-post-tags-input::placeholder { color: var(--color-text-secondary); }
+
+.fb-post-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--color-border);
+    border-radius: 0.8rem;
+    padding: 0.6rem 0.9rem;
+}
+.fb-post-toolbar-label { font-size: 0.82rem; font-weight: 700; color: var(--color-text); }
+.fb-post-toolbar-icons { display: flex; gap: 0.35rem; }
+.fb-post-toolbar-icons button {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+}
+.fb-post-toolbar-icons button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+.fb-post-submit-btn {
+    width: 100%;
+    padding: 0.7rem;
+    border: none;
+    border-radius: 0.6rem;
+    background: var(--color-accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+.fb-post-submit-btn:hover:not(:disabled) { background: var(--color-accent-hover, var(--color-primary-variant)); }
+.fb-post-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+    .fb-post-title-input { font-size: 1.05rem; }
+    .fb-post-body-input { min-height: 100px; }
+}
