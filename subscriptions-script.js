@@ -3,11 +3,24 @@ import { supabase } from '/api-config.js';
 import {
     PLAN_LABELS,
     BILLING_LABELS,
+    PAYMENT_METHODS,
+    PAYMENT_METHOD_LABELS,
+    EXTERNAL_PAYMENT_METHODS,
     createSubscriptionTicket,
     getSubscriptionStatus,
     renewSubscription,
     subscribeToSubscriptionUpdates
 } from '/whatsapp-subscription-service.js';
+
+// ⚠️ عدّل البيانات دي ببيانات الحسابات/المحافظ الحقيقية قبل الإطلاق
+const EXTERNAL_PAYMENT_INSTRUCTIONS = {
+    bank_transfer: 'اسم البنك: (أدخل هنا)\nاسم صاحب الحساب: (أدخل هنا)\nرقم الحساب / IBAN: (أدخل هنا)',
+    vodafone_cash: 'حوّل على رقم فودافون كاش: (01274000741)',
+    etisalat_cash: 'حوّل على رقم اتصالات كاش: (01274000741)',
+    we_cash: 'حوّل على رقم وي كاش: (01274000741)',
+    orange_cash: 'حوّل على رقم أورانج كاش: (01274000741)',
+    instapay: 'حوّل عبر إنستاباي على: (mahmoudvf24ca)'
+};
 
 let currentUser = null;
 let currentSubscriptionStatus = null;
@@ -237,7 +250,145 @@ function updatePlanButtonsState(activePlan) {
     });
 }
 
-/* ==================== Plan subscribe buttons ==================== */
+/* ==================== Payment method modal ==================== */
+/**
+ * يفتح مودال اختيار وسيلة الدفع (إلزامي) قبل إرسال طلب اشتراك/تجديد.
+ * - تحويل بنكي خارجي: يتطلب إرفاق صورة/PDF لإثبات التحويل (إلزامي)، ومراجعته
+ *   من فريق الدعم خلال ساعة كحد أقصى.
+ * - بوابة دفع داخلية: لا يتطلب أي مرفق حاليًا (لحد ما تُفعّل البوابة فعليًا).
+ * @returns {Promise<{paymentMethod: string, paymentReference: string, proofFile: File|null}|null>}
+ *          null لو العميل ألغى العملية.
+ */
+function openPaymentMethodModal() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; padding: 1rem;
+        `;
+
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: var(--color-surface); color: var(--color-text);
+            border: 1px solid var(--color-border); border-radius: 1rem;
+            padding: 1.75rem; width: 100%; max-width: 460px; max-height: 90vh;
+            overflow-y: auto; box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,.3));
+        `;
+
+        box.innerHTML = `
+            <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">اختر وسيلة الدفع</h3>
+            <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary);">
+                اختيار وسيلة الدفع إلزامي قبل إرسال طلب الاشتراك.
+            </p>
+
+            <div id="pmMethodsList">
+                ${PAYMENT_METHODS.map((method, idx) => `
+                    <label style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.85rem; border:2px solid var(--color-border); border-radius:0.75rem; margin-bottom:0.6rem; cursor:pointer;" data-method-option="${method}">
+                        <input type="radio" name="pm_method" value="${method}" ${idx === 0 ? 'checked' : ''} style="margin-top:0.2rem;">
+                        <span>
+                            <strong>${PAYMENT_METHOD_LABELS[method]}</strong>
+                            <div style="font-size:0.8rem; color:var(--color-text-secondary); margin-top:0.2rem;">
+                                ${EXTERNAL_PAYMENT_METHODS.includes(method)
+                                    ? 'تحويل خارجي - يتطلب إرفاق صورة أو PDF لإثبات التحويل. ستتم المراجعة خلال ساعة كحد أقصى.'
+                                    : 'قيد الإضافة حاليًا. سيتم إرسال طلبك وسيتواصل معك فريق الدعم لإتمام الدفع.'}
+                            </div>
+                        </span>
+                    </label>
+                `).join('')}
+            </div>
+
+            <div id="pmExternalDetails" style="background:var(--color-muted); border-radius:0.75rem; padding:0.85rem; margin-bottom:1rem; font-size:0.82rem; line-height:1.9; white-space:pre-line;"></div>
+
+            <div id="pmProofField" style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.85rem; font-weight:700; margin-bottom:0.4rem;">صورة أو PDF لإثبات التحويل <span style="color:#e11d48;">*</span></label>
+                <input type="file" id="pmProofInput" accept="image/*,application/pdf" style="width:100%;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.85rem; font-weight:700; margin-bottom:0.4rem;">رقم/مرجع التحويل (اختياري)</label>
+                <input type="text" id="pmReferenceInput" placeholder="مثال: رقم العملية أو آخر 4 أرقام" style="width:100%; padding:0.6rem; border-radius:0.5rem; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text);">
+            </div>
+
+            <p id="pmErrorMsg" style="display:none; color:#e11d48; font-size:0.82rem; margin:0 0 1rem;"></p>
+
+            <div style="display:flex; gap:0.6rem;">
+                <button id="pmCancelBtn" class="btn" style="flex:1;">إلغاء</button>
+                <button id="pmConfirmBtn" class="btn btn-primary" style="flex:1;">متابعة</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const radios = box.querySelectorAll('input[name="pm_method"]');
+        const externalDetailsEl = box.querySelector('#pmExternalDetails');
+        const proofFieldEl = box.querySelector('#pmProofField');
+        const proofInputEl = box.querySelector('#pmProofInput');
+        const referenceInputEl = box.querySelector('#pmReferenceInput');
+        const errorEl = box.querySelector('#pmErrorMsg');
+
+        function updateVisibility() {
+            const selected = box.querySelector('input[name="pm_method"]:checked').value;
+            const isExternal = EXTERNAL_PAYMENT_METHODS.includes(selected);
+            externalDetailsEl.style.display = isExternal ? 'block' : 'none';
+            externalDetailsEl.textContent = isExternal ? (EXTERNAL_PAYMENT_INSTRUCTIONS[selected] || '') : '';
+            proofFieldEl.style.display = isExternal ? 'block' : 'none';
+        }
+        radios.forEach((r) => r.addEventListener('change', updateVisibility));
+        updateVisibility();
+
+        function cleanup(result) {
+            overlay.remove();
+            resolve(result);
+        }
+
+        box.querySelector('#pmCancelBtn').addEventListener('click', () => cleanup(null));
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) cleanup(null);
+        });
+
+        box.querySelector('#pmConfirmBtn').addEventListener('click', () => {
+            const selected = box.querySelector('input[name="pm_method"]:checked').value;
+            errorEl.style.display = 'none';
+
+            if (!PAYMENT_METHODS.includes(selected)) {
+                errorEl.textContent = 'يجب اختيار وسيلة الدفع.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            let proofFile = null;
+            if (EXTERNAL_PAYMENT_METHODS.includes(selected)) {
+                proofFile = proofInputEl.files && proofInputEl.files[0] ? proofInputEl.files[0] : null;
+                if (!proofFile) {
+                    errorEl.textContent = `إرفاق صورة أو PDF لإثبات التحويل إلزامي لوسيلة "${PAYMENT_METHOD_LABELS[selected]}".`;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                const isImage = proofFile.type && proofFile.type.startsWith('image/');
+                const isPdf = proofFile.type === 'application/pdf';
+                if (!isImage && !isPdf) {
+                    errorEl.textContent = 'الملف يجب أن يكون صورة أو PDF فقط.';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                if (proofFile.size > 8 * 1024 * 1024) {
+                    errorEl.textContent = 'حجم الملف كبير جدًا. الحد الأقصى 8 ميجابايت.';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+            }
+
+            cleanup({
+                paymentMethod: selected,
+                paymentReference: referenceInputEl.value || '',
+                proofFile
+            });
+        });
+    });
+}
+
 function initPlanButtons() {
     document.querySelectorAll('[data-plan-btn]').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -253,6 +404,9 @@ async function handleSubscribe(plan, buttonEl) {
         return;
     }
 
+    const paymentInfo = await openPaymentMethodModal();
+    if (!paymentInfo) return; // العميل ألغى العملية
+
     const billingCycle = getActiveBillingCycle();
     const originalText = buttonEl ? buttonEl.textContent : '';
 
@@ -262,14 +416,17 @@ async function handleSubscribe(plan, buttonEl) {
             buttonEl.disabled = true;
         }
 
-        const result = await createSubscriptionTicket(plan, billingCycle);
+        const result = await createSubscriptionTicket(plan, billingCycle, paymentInfo);
 
-        alert(`تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.`);
+        const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
+            ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
+            : '';
+        alert(`تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
 
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error creating subscription:', error);
-        alert('حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.');
+        alert(error.message || 'حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.');
     } finally {
         if (buttonEl) {
             buttonEl.textContent = originalText;
@@ -294,6 +451,9 @@ async function handleRenew() {
         return;
     }
 
+    const paymentInfo = await openPaymentMethodModal();
+    if (!paymentInfo) return; // العميل ألغى العملية
+
     const billingCycle = getActiveBillingCycle();
     const originalText = renewBtn ? renewBtn.textContent : '';
 
@@ -303,14 +463,17 @@ async function handleRenew() {
             renewBtn.disabled = true;
         }
 
-        const result = await renewSubscription(plan, billingCycle);
+        const result = await renewSubscription(plan, billingCycle, paymentInfo);
 
-        alert(`تم إرسال طلب التجديد بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.`);
+        const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
+            ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
+            : '';
+        alert(`تم إرسال طلب التجديد بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
 
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error renewing subscription:', error);
-        alert('حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.');
+        alert(error.message || 'حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.');
     } finally {
         if (renewBtn) {
             renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي';
