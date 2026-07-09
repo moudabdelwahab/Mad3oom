@@ -177,6 +177,29 @@ function setupEventListeners() {
 
 // --- Core Functions ---
 
+/**
+ * مجموعة أيقونات وألوان متنوعة بتتحدد بشكل ثابت (Hash) لكل قسم فرعي،
+ * عشان كل قسم يبان بشخصية بصرية مختلفة بدل ما كل الأقسام تاخد نفس
+ * الأيقونة الرمادية زي التصميم القديم.
+ */
+const SUBFORUM_ICONS = [
+    `<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`,
+    `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
+    `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
+    `<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>`,
+    `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+    `<path d="M12 2v4"/><path d="m6.41 6.41 2.83 2.83"/><path d="M2 12h4"/><path d="m6.41 17.59 2.83-2.83"/><path d="M12 18v4"/><path d="m14.76 14.76 2.83 2.83"/><path d="M18 12h4"/><path d="m14.76 9.24 2.83-2.83"/><circle cx="12" cy="12" r="4"/>`,
+];
+const SUBFORUM_COLORS = ['#0077CC', '#22C58B', '#B45FE0', '#F5A623', '#FF6B6B', '#25D366'];
+
+function hashString(str) {
+    let hash = 0;
+    for (const ch of String(str)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return hash;
+}
+function subforumIcon(id) { return SUBFORUM_ICONS[hashString(id) % SUBFORUM_ICONS.length]; }
+function subforumColor(id) { return SUBFORUM_COLORS[hashString(id) % SUBFORUM_COLORS.length]; }
+
 async function loadCategories() {
     currentView = 'categories';
     forumContent.innerHTML = '<div class="loading-spinner" style="padding: 3rem; text-align: center;">جاري تحميل الأقسام...</div>';
@@ -191,42 +214,58 @@ async function loadCategories() {
 
     if (error) throw error;
 
+    renderHeroStats(categories);
     renderCategories(categories);
+}
+
+/**
+ * يحسب إحصائيات المنتدى الإجمالية (من نفس بيانات الأقسام المجلوبة أصلاً،
+ * بدون استعلام إضافي) ويعرضها كشرائح صغيرة داخل الهيدر.
+ */
+function renderHeroStats(categories) {
+    const el = document.getElementById('forumHeroStats');
+    if (!el) return;
+    const allSubforums = categories.flatMap(c => c.forum_subforums || []);
+    const totalThreads = allSubforums.reduce((sum, s) => sum + (s.threads_count || 0), 0);
+    const totalPosts = allSubforums.reduce((sum, s) => sum + (s.posts_count || 0), 0);
+
+    el.innerHTML = `
+        <div class="forum-hero-stat"><strong>${categories.length}</strong><span>أقسام</span></div>
+        <div class="forum-hero-stat"><strong>${allSubforums.length}</strong><span>أقسام فرعية</span></div>
+        <div class="forum-hero-stat"><strong>${totalThreads}</strong><span>موضوع</span></div>
+        <div class="forum-hero-stat"><strong>${totalPosts}</strong><span>مشاركة</span></div>
+    `;
 }
 
 function renderCategories(categories) {
     let html = '';
-    categories.forEach(cat => {
+    categories.forEach((cat, catIndex) => {
         html += `
-            <section class="category-section">
-                <h2 class="category-title">${escapeHtml(cat.name)}</h2>
-                <div class="subforum-list">
-                    ${cat.forum_subforums.map(sub => `
-                        <div class="subforum-card" onclick="window.forum.openSubforum('${escapeHtml(sub.id)}')">
-                            <div class="subforum-icon">
-                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <section class="category-block">
+                <div class="category-block-header">
+                    <span class="category-index">${String(catIndex + 1).padStart(2, '0')}</span>
+                    <h2>${escapeHtml(cat.name)}</h2>
+                </div>
+                <div class="subforum-grid">
+                    ${cat.forum_subforums.map(sub => {
+                        const color = subforumColor(sub.id);
+                        return `
+                        <div class="subforum-tile" onclick="window.forum.openSubforum('${escapeHtml(sub.id)}')" style="--tile-color:${color};">
+                            <div class="subforum-tile-icon" style="background:${color}1F; color:${color};">
+                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">${subforumIcon(sub.id)}</svg>
                             </div>
-                            <div class="subforum-info">
-                                <h3>${escapeHtml(sub.name)}</h3>
-                                <p>${escapeHtml(sub.description || '')}</p>
-                            </div>
-                            <div class="subforum-stats">
-                                <div class="stat-item">
-                                    <span>${sub.threads_count || 0}</span>
-                                    <label>موضوع</label>
+                            <h3>${escapeHtml(sub.name)}</h3>
+                            <p>${escapeHtml(sub.description || '')}</p>
+                            <div class="subforum-tile-footer">
+                                <div class="subforum-tile-stats">
+                                    <span><strong>${sub.threads_count || 0}</strong> موضوع</span>
+                                    <span class="dot-sep">•</span>
+                                    <span><strong>${sub.posts_count || 0}</strong> مشاركة</span>
                                 </div>
-                                <div class="stat-item">
-                                    <span>${sub.posts_count || 0}</span>
-                                    <label>مشاركة</label>
-                                </div>
+                                <span class="subforum-tile-activity">${sub.last_activity_at ? timeAgo(sub.last_activity_at) : 'لا يوجد نشاط'}</span>
                             </div>
-                            <div class="subforum-last-post">
-                                ${sub.last_activity_at ? `
-                                    <span class="last-post-meta">آخر نشاط: ${formatDate(sub.last_activity_at)}</span>
-                                ` : '<span class="last-post-meta">لا توجد نشاطات بعد</span>'}
-                            </div>
-                        </div>
-                    `).join('')}
+                        </div>`;
+                    }).join('')}
                 </div>
             </section>
         `;
@@ -275,40 +314,48 @@ async function loadSubforumThreads(subforumId, subforumName) {
 
 function renderThreads(threads, subforumName) {
     let html = `
-        <div class="breadcrumb" style="margin-bottom: 1.5rem; font-size: 0.95rem;">
-            <a href="#" onclick="window.forum.loadCategories(); return false;" style="color: var(--color-accent); text-decoration: none;">الرئيسية</a> &raquo; <span style="color: var(--color-text-secondary);">${escapeHtml(subforumName)}</span>
+        <div class="breadcrumb-v2">
+            <a href="#" onclick="window.forum.loadCategories(); return false;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                الرئيسية
+            </a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">${escapeHtml(subforumName)}</span>
         </div>
-        <div class="thread-list" style="background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden;">
-            ${threads.map(thread => `
-                <div class="thread-card ${thread.is_pinned ? 'pinned' : ''}" onclick="window.forum.openThread('${escapeHtml(thread.id)}')" style="cursor: pointer; display: flex; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); transition: background 0.2s;">
-                    <div class="thread-main" style="flex: 1; display: flex; gap: 1rem; align-items: flex-start;">
-                        <div class="author-avatar" style="width: 45px; height: 45px; border-radius: 50%; background: var(--color-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--color-primary);">
-                            ${thread.author?.avatar_url ? `<img src="${sanitizeUrl(thread.author.avatar_url)}" alt="" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : escapeHtml(thread.author?.full_name?.charAt(0) || 'U')}
-                        </div>
-                        <div class="thread-details">
-                            <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; color: var(--color-text);">
-                                ${thread.is_pinned ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-left:5px; color: var(--color-accent);"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>' : ''}
-                                ${escapeHtml(thread.title)}
-                            </h3>
-                            <div class="thread-meta" style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--color-text-secondary);">
-                                <span>بواسطة: ${escapeHtml(thread.author?.full_name || 'مستخدم مجهول')}</span>
-                                <span>${formatDate(thread.created_at)}</span>
-                                ${thread.tags && thread.tags.length > 0 ? `<div class="tags" style="display:flex; gap:0.5rem;">${thread.tags.map(t => `<span class="tag" style="background:var(--color-muted); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-                            </div>
-                        </div>
+        <div class="thread-list-v2">
+            ${threads.map(thread => {
+                const tagsHtml = thread.tags && thread.tags.length > 0
+                    ? `<div class="thread-row-tags">${thread.tags.map(t => `<span class="thread-tag-pill">#${escapeHtml(t)}</span>`).join('')}</div>`
+                    : '';
+                return `
+                <div class="thread-row-v2 ${thread.is_pinned ? 'pinned' : ''}" onclick="window.forum.openThread('${escapeHtml(thread.id)}')">
+                    <div class="thread-row-avatar">
+                        ${thread.author?.avatar_url ? `<img src="${sanitizeUrl(thread.author.avatar_url)}" alt="">` : escapeHtml(thread.author?.full_name?.charAt(0) || 'U')}
                     </div>
-                    <div class="thread-stats" style="display: flex; gap: 1.5rem; margin-right: 2rem; color: var(--color-text-secondary);">
-                        <div class="thread-stat" style="display: flex; align-items: center; gap: 0.4rem;">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <div class="thread-row-body">
+                        <h3 class="thread-row-title">
+                            ${thread.is_pinned ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="pin-icon"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>` : ''}
+                            ${escapeHtml(thread.title)}
+                        </h3>
+                        <div class="thread-row-meta">
+                            <span>${escapeHtml(thread.author?.full_name || 'مستخدم مجهول')}</span>
+                            <span class="dot-sep">•</span>
+                            <span>${timeAgo(thread.created_at)}</span>
+                        </div>
+                        ${tagsHtml}
+                    </div>
+                    <div class="thread-row-stats">
+                        <div class="thread-stat-pill">
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             ${thread.replies_count}
                         </div>
-                        <div class="thread-stat" style="display: flex; align-items: center; gap: 0.4rem;">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <div class="thread-stat-pill">
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             ${thread.views_count}
                         </div>
                     </div>
-                </div>
-            `).join('')}
+                </div>`;
+            }).join('')}
         </div>
     `;
     forumContent.innerHTML = html || '<p class="empty-msg" style="text-align: center; padding: 3rem;">لا توجد مواضيع في هذا القسم بعد.</p>';
