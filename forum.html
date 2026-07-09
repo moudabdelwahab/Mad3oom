@@ -48,17 +48,20 @@
 
     <main class="admin-main">
         <div class="forum-container">
-            <!-- Forum Header -->
-            <div class="forum-header">
-                <div class="header-content">
-                    <h1>منتدى النقاش</h1>
-                    <p>المكان الأمثل لتبادل الخبرات وحل المشكلات التقنية</p>
+            <div class="forum-page-title">
+                <h1>منتدى النقاش</h1>
+                <p>المكان الأمثل لتبادل الخبرات وحل المشكلات التقنية</p>
+            </div>
+
+            <!-- Facebook-style Composer -->
+            <div class="fb-composer-bar">
+                <div class="fb-composer-top">
+                    <div class="fb-comment-avatar" id="composerAvatar" style="width:44px; height:44px; font-size:1.1rem;">U</div>
+                    <button type="button" id="createNewThread" class="fb-composer-trigger">بماذا تفكر؟ شارك سؤالك أو مشكلتك التقنية...</button>
                 </div>
-                <div class="header-actions">
-                    <button id="createNewThread" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.5rem;">
-                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        <span>موضوع جديد</span>
-                    </button>
+                <div class="fb-composer-divider"></div>
+                <div class="fb-composer-categories" id="composerCategories">
+                    <span style="font-size:.8rem; color:var(--color-text-secondary);">جاري تحميل الأقسام...</span>
                 </div>
             </div>
 
@@ -88,40 +91,54 @@
 
     <!-- Create Thread Modal -->
     <div id="threadModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content fb-post-modal">
+            <div class="fb-post-modal-header">
                 <h2>إنشاء موضوع جديد</h2>
-                <button class="close-modal">&times;</button>
+                <button class="close-modal fb-modal-close" aria-label="إغلاق">&times;</button>
             </div>
             <form id="threadForm">
-                <div class="form-group">
-                    <label>عنوان الموضوع</label>
-                    <input type="text" id="threadTitle" class="form-control" required placeholder="عنوان واضح ومختصر">
-                </div>
-                <div class="form-group">
-                    <label>القسم</label>
-                    <select id="threadSubforum" class="form-control" required></select>
-                </div>
-                <div class="form-group">
-                    <label>المحتوى</label>
-                    <div id="editor-toolbar" class="editor-toolbar">
-                        <button type="button" data-cmd="bold"><b>B</b></button>
-                        <button type="button" data-cmd="italic"><i>I</i></button>
-                        <button type="button" data-cmd="insertUnorderedList">List</button>
-                        <button type="button" data-cmd="createLink">Link</button>
-                        <button type="button" id="insertCode">Code</button>
-                        <button type="button" id="uploadImg">Image</button>
+                <div class="fb-post-author-row">
+                    <div class="fb-comment-avatar" id="modalComposerAvatar" style="width:44px; height:44px; font-size:1.1rem;">U</div>
+                    <div class="fb-post-author-info">
+                        <div class="fb-post-author-name" id="modalComposerName">مستخدم</div>
+                        <div class="fb-post-category-picker">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <select id="threadSubforum" required></select>
+                            <svg class="fb-post-category-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
                     </div>
-                    <div id="threadContent" contenteditable="true" class="rich-editor" required></div>
                 </div>
-                <div class="form-group">
-                    <label>الوسوم (Tags)</label>
-                    <input type="text" id="threadTags" class="form-control" placeholder="وسوم مفصولة بفاصلة">
+
+                <input type="text" id="threadTitle" class="fb-post-title-input" required placeholder="عنوان الموضوع...">
+
+                <div id="threadContent" contenteditable="true" class="fb-post-body-input" data-placeholder="بماذا تفكر؟ شارك سؤالك أو مشكلتك بالتفصيل هنا..." required></div>
+
+                <div class="fb-post-tags-wrap">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.59 2.59 20 10a2 2 0 0 1 0 2.83l-6.17 6.17a2 2 0 0 1-2.83 0L3 11V3h8Z"/><circle cx="6.5" cy="6.5" r="1"/></svg>
+                    <input type="text" id="threadTags" class="fb-post-tags-input" placeholder="أضف وسوماً (مفصولة بفاصلة)...">
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">إلغاء</button>
-                    <button type="submit" class="btn btn-primary">نشر الموضوع</button>
+
+                <div class="fb-post-toolbar">
+                    <span class="fb-post-toolbar-label">أضف إلى موضوعك</span>
+                    <div class="fb-post-toolbar-icons editor-toolbar">
+                        <button type="button" data-cmd="bold" title="غامق"><b>B</b></button>
+                        <button type="button" data-cmd="italic" title="مائل"><i>I</i></button>
+                        <button type="button" data-cmd="insertUnorderedList" title="قائمة نقطية">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        </button>
+                        <button type="button" data-cmd="createLink" title="رابط">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        </button>
+                        <button type="button" id="insertCode" title="كود">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        </button>
+                        <button type="button" id="uploadImg" title="صورة">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                        </button>
+                    </div>
                 </div>
+
+                <button type="submit" id="threadSubmitBtn" class="fb-post-submit-btn" disabled>نشر</button>
             </form>
         </div>
     </div>
