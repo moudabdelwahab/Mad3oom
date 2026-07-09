@@ -817,15 +817,29 @@ export const MCP_CLIENT_CATALOG = [{
     initial: '+',
     isCustomBlank: true
 }
-];];
-findConnectedServerForCatalogEntry()
-invokeMcpTool()
-export function findConnectedServerForCatalogEntry(entry, servers = []) {
-    return servers.find(s =>
-        (s.url || '').replace(/\/$/, '') === (entry.url || '').replace(/\/$/, '')
-    ) || null;
-}
+];
 
-export async function invokeMcpTool() {
-    throw new Error('invokeMcpTool غير منفذة بعد');
+
+export function findConnectedServerForCatalogEntry(entry, servers = []) {
+
+    return servers.find(server => {
+
+        if (entry.key && server.provider === entry.key)
+            return true;
+
+        if (entry.url && server.url) {
+
+            return entry.url.replace(/\/$/, '') ===
+                   server.url.replace(/\/$/, '');
+
+        }
+
+        return false;
+
+    }) || null;
+
+}
+export async function invokeMcpTool(toolName, args = {}) {console.log(toolName, args);
+
+    throw new Error('Not implemented');
 }
