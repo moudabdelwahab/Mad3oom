@@ -144,8 +144,8 @@
                 <div class="filter-group">
                     <label>الحالة</label>
                     <select id="filterStatus">
+                        <option value="new" selected>جديد (الحالية فقط)</option>
                         <option value="all">الكل</option>
-                        <option value="new">جديد</option>
                         <option value="resolved">تم الحل</option>
                         <option value="archived">مؤرشف</option>
                     </select>
@@ -244,31 +244,59 @@
         }
 
         function setupRealtime() {
-            errorService.subscribeToErrors((newError) => {
-                const statusBadge = document.getElementById('realtimeStatus');
-                const statusText = statusBadge.querySelector('span');
-                
-                // Visual feedback for new error
-                statusBadge.style.background = 'var(--color-danger)';
-                statusText.textContent = 'خطأ جديد تم رصده!';
-                
-                // Add to list if it matches current filters
-                const currentType = document.getElementById('filterType').value;
-                const currentStatus = document.getElementById('filterStatus').value;
-                
-                if ((currentType === 'all' || currentType === newError.type) && 
-                    (currentStatus === 'all' || currentStatus === newError.status)) {
-                    
-                    currentErrors.unshift(newError);
-                    if (currentErrors.length > 50) currentErrors.pop();
-                    renderErrors(currentErrors, true);
-                }
+            errorService.subscribeToErrors(
+                // --- New error reported ---
+                (newError) => {
+                    const statusBadge = document.getElementById('realtimeStatus');
+                    const statusText = statusBadge.querySelector('span');
 
-                setTimeout(() => {
-                    statusBadge.style.background = 'var(--color-success)';
-                    statusText.textContent = 'متصل بالبث المباشر';
-                }, 5000);
-            });
+                    // Visual feedback for new error
+                    statusBadge.style.background = 'var(--color-danger)';
+                    statusText.textContent = 'خطأ جديد تم رصده!';
+
+                    // Add to list if it matches current filters
+                    const currentType = document.getElementById('filterType').value;
+                    const currentStatus = document.getElementById('filterStatus').value;
+
+                    if ((currentType === 'all' || currentType === newError.type) &&
+                        (currentStatus === 'all' || currentStatus === newError.status)) {
+
+                        currentErrors.unshift(newError);
+                        if (currentErrors.length > 50) currentErrors.pop();
+                        renderErrors(currentErrors, true);
+                    }
+
+                    setTimeout(() => {
+                        statusBadge.style.background = 'var(--color-success)';
+                        statusText.textContent = 'متصل بالبث المباشر';
+                    }, 5000);
+                },
+                // --- Existing error's status changed (resolved/archived/reopened) ---
+                (updatedError) => {
+                    const currentStatus = document.getElementById('filterStatus').value;
+                    const currentType = document.getElementById('filterType').value;
+                    const errorIndex = currentErrors.findIndex(e => e.id === updatedError.id);
+
+                    const matchesFilters =
+                        (currentType === 'all' || currentType === updatedError.type) &&
+                        (currentStatus === 'all' || currentStatus === updatedError.status);
+
+                    if (matchesFilters) {
+                        // Update it in place (or add it if it just started matching)
+                        if (errorIndex !== -1) {
+                            currentErrors[errorIndex] = updatedError;
+                        } else {
+                            currentErrors.unshift(updatedError);
+                        }
+                    } else if (errorIndex !== -1) {
+                        // No longer matches (e.g. it was resolved while
+                        // viewing "current" errors) -> remove it instantly
+                        currentErrors.splice(errorIndex, 1);
+                    }
+
+                    renderErrors(currentErrors);
+                }
+            );
         }
 
         // Global window functions for HTML access
