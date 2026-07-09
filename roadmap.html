@@ -438,11 +438,12 @@
             let progress = total > 0 ? (startPoint - rect.top) / (startPoint - endPoint) : 0;
             progress = Math.max(0, Math.min(1, progress));
 
-            // Safety net: whatever the geometry says, if the user has reached the
-            // actual bottom of the page, the timeline must read as fully complete —
-            // keeps it in sync with the browser's own scrollbar.
+            // Safety nets: whatever the geometry math says, the two ends must always
+            // match the browser's own scroll extremes exactly.
             const doc = document.documentElement;
+            const atPageTop = window.scrollY <= 2;
             const atPageBottom = (window.scrollY + vh) >= (doc.scrollHeight - 2);
+            if (atPageTop) progress = 0;
             if (atPageBottom) progress = 1;
 
             const pct = progress * 100;
