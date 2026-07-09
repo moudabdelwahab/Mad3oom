@@ -8,7 +8,9 @@
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <script>
         (function() {
             try {
@@ -20,272 +22,358 @@
         })();
     </script>
     <style>
-        .roadmap-container {
-            max-width: 1100px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+        :root{
+            --rm-green: #22C58B;
+            --rm-amber: #E0A800;
+            --rm-blue: var(--color-accent);
+            --rm-glow-rgb: 0,119,204;
         }
-        .roadmap-header {
-            text-align: center;
-            margin-bottom: 2.5rem;
-            padding: 4rem 2rem;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-            border-radius: 2rem;
-            color: white;
-            box-shadow: var(--shadow-lg);
-            position: relative;
-            overflow: hidden;
-        }
-        .roadmap-header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="10" cy="10" r="2" fill="white" opacity="0.1"/></svg>');
-            background-size: 20px 20px;
-        }
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: var(--color-text-secondary);
-            text-decoration: none;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            transition: color 0.2s;
-        }
-        .back-link:hover { color: var(--color-accent); }
+        [data-theme="dark"]{ --rm-glow-rgb: 0,136,221; }
 
-        /* SIE highlighted note */
-        .sie-note {
-            display: flex;
-            gap: 1.25rem;
-            align-items: flex-start;
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-right: 5px solid var(--color-warning);
-            border-radius: 1.25rem;
-            padding: 1.75rem 2rem;
-            margin-bottom: 3rem;
-            box-shadow: var(--shadow-sm);
+        .rm-page{ position: relative; }
+        .rm-page::before{
+            content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+            background:
+                radial-gradient(45rem 30rem at 90% -5%, rgba(var(--rm-glow-rgb),.10), transparent 60%),
+                radial-gradient(40rem 28rem at -10% 30%, rgba(139,92,246,.06), transparent 55%);
         }
-        [dir="rtl"] .sie-note { border-right: 1px solid var(--color-border); border-left: 5px solid var(--color-warning); }
-        .sie-note .icon-wrap {
+
+        .rm-container{ max-width: 880px; margin: 0 auto; padding: 2rem 1rem 6rem; }
+
+        .rm-back{
+            display:inline-flex; align-items:center; gap:.4rem;
+            color: var(--color-text-secondary); text-decoration:none; font-weight:600;
+            margin-bottom: 2rem; transition: color .2s, transform .2s;
+        }
+        .rm-back:hover{ color: var(--color-accent); transform: translateX(-3px); }
+        [dir="rtl"] .rm-back:hover{ transform: translateX(3px); }
+
+        /* ===== Hero ===== */
+        .rm-hero{ text-align:center; padding: 2.5rem 1rem 4rem; position: relative; }
+        .rm-eyebrow{
+            display:inline-flex; align-items:center; gap:.5rem;
+            font-size:.8rem; font-weight:700; color: var(--color-accent);
+            background: rgba(var(--rm-glow-rgb),.1);
+            border:1px solid rgba(var(--rm-glow-rgb),.25);
+            padding:.4rem 1rem; border-radius:99px; margin-bottom:1.5rem;
+        }
+        .rm-eyebrow .dot{ width:6px; height:6px; border-radius:50%; background: var(--color-accent); box-shadow: 0 0 8px var(--color-accent); }
+        .rm-hero h1{ font-size: clamp(2.1rem, 5vw, 3.2rem); font-weight: 900; margin-bottom: 1.1rem; letter-spacing: -.01em; }
+        .rm-hero .gradient-text{ background: linear-gradient(90deg, var(--rm-green), var(--rm-amber), var(--rm-blue)); background-size: 200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation: rmShine 4s linear infinite; }
+        @keyframes rmShine{ to{ background-position: -200% center; } }
+        .rm-hero p{ color: var(--color-text-secondary); font-size: 1.1rem; max-width: 560px; margin: 0 auto; }
+        .rm-updated{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; color: var(--color-text-secondary); margin-top: 1.5rem; opacity:.8; }
+        .rm-updated svg{ width:14px; height:14px; }
+
+        /* ===== Phase legend rail ===== */
+        .rm-phaserail{ display:flex; justify-content:center; gap: 2rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .rm-phaserail span{ display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color: var(--color-text-secondary); }
+        .rm-phaserail i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+        /* ===== Timeline spine ===== */
+        .rm-timeline{ position: relative; margin-top: 2rem; padding-inline-end: 2.75rem; }
+        .rm-track{
+            position:absolute; top: 0; bottom: 0; right: 22px; width: 3px; border-radius:3px;
+            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 28%, var(--rm-amber) 40%, var(--rm-amber) 55%, var(--rm-blue) 68%, var(--rm-blue) 100%);
+            opacity: .22;
+        }
+        .rm-fill{
+            position:absolute; top:0; right:22px; width:3px; height:0%; border-radius:3px;
+            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 28%, var(--rm-amber) 40%, var(--rm-amber) 55%, var(--rm-blue) 68%, var(--rm-blue) 100%);
+            box-shadow: 0 0 14px rgba(var(--rm-glow-rgb),.5);
+            transition: height .1s linear;
+        }
+        .rm-core{
+            position:absolute; right: 8px; top:0; width: 30px; height: 30px; border-radius:50%;
+            background: radial-gradient(circle at 35% 30%, #fff, var(--rm-blue) 60%);
+            box-shadow: 0 0 22px rgba(var(--rm-glow-rgb),.65);
+            transform: translateY(-50%);
+            transition: top .1s linear;
+            z-index: 3;
+        }
+        .rm-core::after{
+            content:''; position:absolute; inset:-6px; border-radius:50%;
+            border: 1px dashed rgba(var(--rm-glow-rgb),.4);
+            animation: rmSpin 10s linear infinite;
+        }
+        @keyframes rmSpin{ to{ transform: rotate(360deg); } }
+
+        /* ===== Phase headers along the spine ===== */
+        .rm-phase{ position: relative; margin: 3.5rem 0 2rem; }
+        .rm-phase:first-child{ margin-top: 0; }
+        .rm-phase-marker{
+            position:absolute; right: 8px; top: 0; width: 30px; height: 30px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            border: 2px solid var(--color-border); background: var(--color-background, var(--color-surface));
+            z-index: 2;
+        }
+        .rm-phase-marker svg{ width:14px; height:14px; }
+        .rm-phase.done .rm-phase-marker{ border-color: var(--rm-green); color: var(--rm-green); }
+        .rm-phase.now .rm-phase-marker{ border-color: var(--rm-amber); color: var(--rm-amber); }
+        .rm-phase.next .rm-phase-marker{ border-color: var(--rm-blue); color: var(--rm-blue); }
+        .rm-phase h2{ padding-inline-end: 3.2rem; font-size: 1.5rem; font-weight: 800; }
+        .rm-phase p.rm-phase-sub{ padding-inline-end: 3.2rem; color: var(--color-text-secondary); font-size: .95rem; margin-top: .35rem; max-width: 480px; }
+
+        /* ===== Steps ===== */
+        .rm-step{
+            position: relative; padding: 0 3.2rem 2.4rem 0;
+            opacity: .3; transition: opacity .5s ease;
+        }
+        .rm-step.in{ opacity: 1; }
+        .rm-step:last-child{ padding-bottom: 0; }
+        .rm-dot{
+            position:absolute; right: 14px; top: 3px; width: 20px; height: 20px; border-radius:50%;
+            background: var(--color-background, var(--color-surface));
+            border: 2px solid var(--color-border);
+            display:flex; align-items:center; justify-content:center;
+            transition: border-color .4s ease, background .4s ease, transform .3s cubic-bezier(.34,1.56,.64,1);
+            z-index: 2;
+        }
+        .rm-step.in .rm-dot{ transform: scale(1.1); }
+        .rm-step.done .rm-dot{ border-color: var(--rm-green); }
+        .rm-step.now .rm-dot{ border-color: var(--rm-amber); }
+        .rm-step.next .rm-dot{ border-color: var(--rm-blue); }
+        .rm-dot svg{ width: 10px; height: 10px; }
+        .rm-step.done .rm-dot svg{ color: var(--rm-green); }
+        .rm-step.now .rm-dot svg{ color: var(--rm-amber); }
+        .rm-step.next .rm-dot svg{ color: var(--rm-blue); }
+        .rm-step h4{ font-size: 1.05rem; margin-bottom: .4rem; display:flex; align-items:center; gap:.6rem; flex-wrap: wrap; }
+        .rm-step p{ color: var(--color-text-secondary); font-size: .92rem; max-width: 500px; line-height: 1.75; }
+        .rm-pill{
+            font-size: .66rem; font-weight: 800; padding: .18rem .6rem; border-radius: 99px;
+        }
+        .rm-pill.done{ background: rgba(34,197,139,.12); color: var(--rm-green); }
+        .rm-pill.now{ background: rgba(224,168,0,.14); color: var(--rm-amber); }
+        .rm-pill.next{ background: rgba(var(--rm-glow-rgb),.12); color: var(--rm-blue); }
+
+        /* ===== SIE spotlight (the "now" milestone) ===== */
+        .rm-spotlight{
+            position: relative; padding: 1.6rem 1.8rem 1.6rem 0; margin: 0 0 1rem;
+        }
+        .rm-spotlight::before{
+            content:''; position:absolute; inset: 0 -1.8rem 0 -1.8rem; z-index:-1; border-radius: 1.5rem;
+            background: linear-gradient(135deg, rgba(224,168,0,.09), transparent 70%);
+        }
+        .rm-spotlight h4{ font-size: 1.15rem; margin-bottom: .5rem; }
+        .rm-spotlight p{ color: var(--color-text-secondary); font-size: .95rem; line-height: 1.8; max-width: 560px; }
+        .rm-here-tag{
+            display:inline-flex; align-items:center; gap:.4rem;
+            font-size:.7rem; font-weight:800; color: var(--rm-amber);
+            background: rgba(224,168,0,.13); border:1px solid rgba(224,168,0,.3);
+            padding:.25rem .7rem; border-radius:99px;
+        }
+        .rm-here-tag .pulse{ width:6px; height:6px; border-radius:50%; background: var(--rm-amber); animation: rmPulse 1.4s ease-in-out infinite; }
+        @keyframes rmPulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:.4; transform:scale(1.6);} }
+
+        /* Mini process chain for SIE stages */
+        .rm-chain{ display:flex; align-items:center; flex-wrap: wrap; gap: 0; margin-top: 1.4rem; max-width: 560px; }
+        .rm-chain-item{ display:flex; align-items:center; gap:.5rem; }
+        .rm-chain-node{
+            display:flex; flex-direction:column; align-items:center; gap:.4rem; text-align:center; width: 68px;
+        }
+        .rm-chain-icon{
+            width: 38px; height: 38px; border-radius: 50%; display:flex; align-items:center; justify-content:center;
+            background: rgba(224,168,0,.12); color: var(--rm-amber); border: 1px solid rgba(224,168,0,.3);
             flex-shrink: 0;
-            width: 56px;
-            height: 56px;
-            border-radius: 1rem;
-            background: rgba(224, 168, 0, 0.12);
-            color: var(--color-warning);
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
-        .sie-note h3 {
-            margin: 0 0 0.5rem;
-            font-size: 1.15rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-        }
-        .sie-note p { margin: 0; color: var(--color-text-secondary); line-height: 1.8; }
+        .rm-chain-icon svg{ width: 17px; height: 17px; }
+        .rm-chain-node span{ font-size: .68rem; font-weight: 700; color: var(--color-text-secondary); }
+        .rm-chain-arrow{ color: var(--color-text-secondary); opacity: .5; flex-shrink: 0; margin: 0 .15rem 1.2rem; }
+        .rm-chain-arrow svg{ width: 14px; height: 14px; }
+        @media (max-width: 560px){ .rm-chain{ gap: .3rem; } .rm-chain-node{ width: 54px; } .rm-chain-arrow{ display:none; } }
 
-        /* Status legend */
-        .status-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            justify-content: center;
-            margin-bottom: 3rem;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--color-text-secondary);
-        }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-        /* Roadmap groups */
-        .roadmap-group { margin-bottom: 3rem; }
-        .roadmap-group-title {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.4rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-        }
-        .group-dot { width: 12px; height: 12px; border-radius: 50%; }
-        .group-shipped .group-dot { background: var(--color-success); }
-        .group-progress .group-dot { background: var(--color-warning); }
-        .group-planned .group-dot { background: var(--color-accent); }
-
-        .roadmap-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
-        .roadmap-item {
+        /* ===== Closing CTA (ties roadmap back into the community) ===== */
+        .rm-cta{
+            margin-top: 4rem; text-align:center; padding: 3rem 1.5rem;
+            border-radius: 1.75rem; border: 1px solid var(--color-border);
             background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: 1.25rem;
-            padding: 1.5rem 1.5rem;
-            transition: all 0.25s ease;
+            position: relative; overflow: hidden;
         }
-        .roadmap-item:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-sm);
-            border-color: var(--color-accent);
+        .rm-cta::before{
+            content:''; position:absolute; inset:0; z-index:0;
+            background: radial-gradient(40rem 18rem at 50% -30%, rgba(var(--rm-glow-rgb),.12), transparent 60%);
         }
-        .roadmap-item h4 {
-            margin: 0 0 0.5rem;
-            font-size: 1.02rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        .rm-cta > *{ position: relative; z-index: 1; }
+        .rm-cta h3{ font-size: 1.4rem; font-weight: 800; margin-bottom: .6rem; }
+        .rm-cta p{ color: var(--color-text-secondary); margin-bottom: 1.6rem; }
+        .rm-cta a.btn{
+            display:inline-flex; align-items:center; gap:.5rem;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            color:#fff; font-weight:700; padding: .85rem 2rem; border-radius: .9rem; text-decoration:none;
+            transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease;
+            box-shadow: 0 12px 26px -10px rgba(var(--rm-glow-rgb),.5);
         }
-        .roadmap-item p { margin: 0; color: var(--color-text-secondary); font-size: 0.92rem; line-height: 1.7; }
-        .status-badge {
-            display: inline-block;
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 0.25rem 0.7rem;
-            border-radius: 2rem;
-            margin-bottom: 0.75rem;
-        }
-        .badge-shipped { background: rgba(46, 138, 58, 0.12); color: var(--color-success); }
-        .badge-progress { background: rgba(224, 168, 0, 0.14); color: var(--color-warning); }
-        .badge-planned { background: rgba(0, 119, 204, 0.12); color: var(--color-accent); }
+        .rm-cta a.btn:hover{ transform: translateY(-3px); box-shadow: 0 18px 34px -10px rgba(var(--rm-glow-rgb),.6); }
 
-        .roadmap-item.featured {
-            border: 1px solid var(--color-warning);
-            background: rgba(224, 168, 0, 0.05);
+        @media (max-width: 620px){
+            .rm-timeline{ padding-inline-end: 2.1rem; }
+            .rm-step{ padding-inline-end: 2.4rem; }
+            .rm-phase h2, .rm-phase p.rm-phase-sub{ padding-inline-end: 2.4rem; }
+            .rm-track, .rm-fill{ right: 15px; }
+            .rm-core{ right: 1px; width:26px; height:26px; }
+            .rm-phase-marker{ right: 1px; width:26px; height:26px; }
+            .rm-dot{ right: 7px; }
         }
     </style>
 </head>
-<body>
+<body class="rm-page">
     <div id="sidebar-container"></div>
 
     <main class="admin-main">
-        <div class="roadmap-container">
-            <a href="community.html" class="back-link">
+        <div class="rm-container">
+            <a href="community.html" class="rm-back">
                 <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                 العودة إلى مجتمع مدعوم
             </a>
 
-            <div class="roadmap-header">
-                <h1 style="font-size: 2.6rem; font-weight: 800; margin-bottom: 1rem;">خارطة طريق مدعوم</h1>
-                <p style="font-size: 1.15rem; opacity: 0.9; max-width: 700px; margin: 0 auto;">كل ما تم إنجازه، وما يعمل عليه فريقنا الآن، وما هو قادم لمنصتك.</p>
-            </div>
-
-            <!-- SIE Important Note -->
-            <div class="sie-note">
-                <div class="icon-wrap">
-                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                </div>
-                <div>
-                    <h3>Support Intelligence Engine (SIE) <span class="status-badge badge-progress" style="margin:0;">قيد التطوير</span></h3>
-                    <p>
-                        محرك الذكاء الخاص بمدعوم — الذي يفهم مشكلة العميل، يشخّصها، يقرر الإجراء المناسب، ينفّذه، ثم يتعلّم من كل تجربة — قيد التطوير حاليًا وضمن خطة التحديثات القادمة رسميًا.
-                        سيتم الإعلان عن كل مرحلة من مراحل إطلاقه أولاً بأول هنا في هذه الصفحة، وستصلك الإشعارات فور تفعيل أي جزء منه على حسابك.
-                    </p>
+            <!-- Hero -->
+            <div class="rm-hero">
+                <div class="rm-eyebrow"><span class="dot"></span> خارطة الطريق</div>
+                <h1>من أين بدأنا، <span class="gradient-text">وإلى أين نتجه</span></h1>
+                <p>رحلة مدعوم الكاملة على خط زمني واحد: ما تم إنجازه فعلًا، ما يعمل عليه الفريق الآن، وما هو قادم على الطريق.</p>
+                <div class="rm-updated">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    آخر تحديث لهذه الخارطة: يوليو 2026
                 </div>
             </div>
 
-            <div class="status-legend">
-                <div class="legend-item"><span class="legend-dot" style="background: var(--color-success);"></span> تم الإطلاق</div>
-                <div class="legend-item"><span class="legend-dot" style="background: var(--color-warning);"></span> قيد التطوير</div>
-                <div class="legend-item"><span class="legend-dot" style="background: var(--color-accent);"></span> قادم قريبًا</div>
+            <div class="rm-phaserail">
+                <span><i style="background:var(--rm-green);"></i> تم إنجازه</span>
+                <span><i style="background:var(--rm-amber);"></i> يعمل عليه الفريق الآن</span>
+                <span><i style="background:var(--rm-blue);"></i> على الطريق</span>
             </div>
 
-            <!-- Shipped -->
-            <div class="roadmap-group group-shipped">
-                <div class="roadmap-group-title"><span class="group-dot"></span> تم الإطلاق</div>
-                <div class="roadmap-items">
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>نظام إدارة التذاكر</h4>
-                        <p>دورة حياة كاملة للتذكرة: مفتوحة، قيد المعالجة، محلولة، مؤكدة، أو مرفوضة — مع إمكانية التعيين وإعادة التوزيع على الفريق.</p>
+            <!-- Timeline -->
+            <div class="rm-timeline" id="rmTimeline">
+                <div class="rm-track"></div>
+                <div class="rm-fill" id="rmFill"></div>
+                <div class="rm-core" id="rmCore"></div>
+
+                <!-- PHASE: DONE -->
+                <div class="rm-phase done">
+                    <div class="rm-phase-marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h2>تم إنجازه</h2>
+                    <p class="rm-phase-sub">الأساس الذي تعمل عليه منصتك اليوم، ويستخدمه فريقك وعملاؤك يوميًا.</p>
+                </div>
+
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>نظام إدارة التذاكر <span class="rm-pill done">مكتمل</span></h4>
+                    <p>دورة حياة كاملة للتذكرة بين مفتوحة، قيد المعالجة، محلولة، مؤكدة، أو مرفوضة — مع تعيين وإعادة توزيع فوري على الفريق.</p>
+                </div>
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>محرك SLA التلقائي <span class="rm-pill done">مكتمل</span></h4>
+                    <p>تحديد زمن الحل المستهدف تلقائيًا حسب أولوية التذكرة، وتحويلها إلى قضية عند الحاجة لوقت أطول من المتوقع.</p>
+                </div>
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>محرك الإشعارات <span class="rm-pill done">مكتمل</span></h4>
+                    <p>إشعارات فورية داخل المنصة، عبر البريد الإلكتروني، وعبر Telegram عند إنشاء أو حل أي تذكرة.</p>
+                </div>
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>تكامل MCP Client / Server <span class="rm-pill done">مكتمل</span></h4>
+                    <p>ربط مدعوم بأدوات خارجية مثل Google Drive وSupabase وGitHub، وفي الوقت نفسه فتح إمكانيات مدعوم نفسها لأي عميل ذكاء اصطناعي يدعم MCP مثل Claude وChatGPT.</p>
+                </div>
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>قاعدة المعرفة والمنتدى <span class="rm-pill done">مكتمل</span></h4>
+                    <p>مساحة مجتمعية حية، وقاعدة معرفة تنمو تلقائيًا مع كل تذكرة تُحل وتُراجع من الفريق.</p>
+                </div>
+                <div class="rm-step done">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <h4>النطاقات الفرعية الخاصة <span class="rm-pill done">مكتمل</span></h4>
+                    <p>نطاق مستقل لكل شركة لإدارة عملائها وتذاكرها وقاعدة معرفتها تحت هويتها الخاصة بالكامل.</p>
+                </div>
+
+                <!-- PHASE: NOW -->
+                <div class="rm-phase now">
+                    <div class="rm-phase-marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></div>
+                    <h2>يعمل عليه الفريق الآن</h2>
+                    <p class="rm-phase-sub">القفزة الأكبر في تطور مدعوم — تحويله من نظام دعم إلى عقل مركزي يقرر وينفّذ.</p>
+                </div>
+
+                <div class="rm-step now">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/></svg></div>
+                    <div class="rm-spotlight">
+                        <span class="rm-here-tag"><span class="pulse"></span> أنت هنا الآن</span>
+                        <h4 style="margin-top:.7rem;">Support Intelligence Engine (SIE)</h4>
+                        <p>
+                            محرك الذكاء المركزي لمدعوم — ليس Chatbot تقليديًا، بل محرك يفهم مشكلة العميل، يشخّصها، يقرر الإجراء الأنسب، ينفّذه، ثم يتعلّم من كل تجربة ليصبح أذكى في المرة القادمة. رسميًا قيد التطوير الآن وضمن خطة التحديثات القادمة، وسيتم الإعلان عن كل مرحلة إطلاق أولاً بأول هنا.
+                        </p>
+                        <div class="rm-chain">
+                            <div class="rm-chain-node">
+                                <div class="rm-chain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                                <span>فهم</span>
+                            </div>
+                            <div class="rm-chain-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 5l-7 7 7 7"/></svg></div>
+                            <div class="rm-chain-node">
+                                <div class="rm-chain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v10a2 2 0 01-2 2H9m0-14v14m0 0H5a2 2 0 01-2-2v-4"/></svg></div>
+                                <span>تشخيص</span>
+                            </div>
+                            <div class="rm-chain-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 5l-7 7 7 7"/></svg></div>
+                            <div class="rm-chain-node">
+                                <div class="rm-chain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+                                <span>قرار</span>
+                            </div>
+                            <div class="rm-chain-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 5l-7 7 7 7"/></svg></div>
+                            <div class="rm-chain-node">
+                                <div class="rm-chain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+                                <span>تنفيذ</span>
+                            </div>
+                            <div class="rm-chain-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 5l-7 7 7 7"/></svg></div>
+                            <div class="rm-chain-node">
+                                <div class="rm-chain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+                                <span>تعلّم</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>محرك SLA التلقائي</h4>
-                        <p>تحديد زمن الحل المستهدف تلقائيًا حسب الأولوية (مرتفعة، متوسطة، منخفضة) مع إمكانية تحويل التذكرة إلى قضية عند الحاجة لوقت أطول.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>محرك الإشعارات</h4>
-                        <p>إشعارات فورية داخل المنصة، عبر البريد الإلكتروني، وعبر Telegram عند إنشاء أو حل أي تذكرة.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>تصنيف التذاكر</h4>
-                        <p>تصنيفات جاهزة مثل واتساب، الاشتراكات، المشكلات، والاستفسارات، مع إمكانية إضافة تصنيفات جديدة دون التأثير على بنية النظام.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>أدوات إنتاجية الفريق</h4>
-                        <p>الوسوم، الردود الجاهزة، تصدير التذاكر بصيغة CSV، وتقارير أداء مبنية على مؤشرات SLA.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>تكامل MCP (استهلاك وتوفير)</h4>
-                        <p>ربط مدعوم بأدوات خارجية مثل Google Drive وSupabase وGitHub وNotion، بالإضافة إلى فتح إمكانيات مدعوم نفسها لأي عميل ذكاء اصطناعي يدعم MCP مثل Claude وChatGPT.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>النطاقات الفرعية الخاصة</h4>
-                        <p>نطاق مستقل لكل شركة (مثل company.mad3oom.online) لإدارة العملاء والتذاكر وقاعدة المعرفة تحت هويتها الخاصة.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-shipped">تم الإطلاق</span>
-                        <h4>قاعدة المعرفة والمنتدى</h4>
-                        <p>مساحة مجتمعية للنقاش، ومقالات تعليمية تنمو تلقائيًا مع كل تذكرة تُحل وتُراجع من الفريق.</p>
-                    </div>
+                </div>
+
+                <div class="rm-step now">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/></svg></div>
+                    <h4>التشخيص الذاتي من قاعدة المعرفة <span class="rm-pill now">قيد التطوير</span></h4>
+                    <p>تحسين قدرة النظام على تحديد السبب الأكثر احتمالًا لمشكلة العميل تلقائيًا، بالاعتماد على حالات مشابهة سبق حلها.</p>
+                </div>
+                <div class="rm-step now">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/></svg></div>
+                    <h4>تنفيذ الإجراءات عبر MCP تلقائيًا <span class="rm-pill now">قيد التطوير</span></h4>
+                    <p>تمكين SIE من اختيار وتنفيذ أداة MCP المناسبة بنفسه أثناء محادثة العميل، دون الحاجة لتدخل يدوي من الفريق.</p>
+                </div>
+
+                <!-- PHASE: NEXT -->
+                <div class="rm-phase next">
+                    <div class="rm-phase-marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+                    <h2>على الطريق</h2>
+                    <p class="rm-phase-sub">الخطوات التالية بعد اكتمال SIE، مبنية على ما تعلمناه من مرحلة التطوير الحالية.</p>
+                </div>
+
+                <div class="rm-step next">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4>محادثة SIE المباشرة مع العميل <span class="rm-pill next">قادم</span></h4>
+                    <p>تفعيل قدرة العميل على بدء محادثة مباشرة مع SIE قبل إنشاء أي تذكرة، ليحاول حل المشكلة فور وصولها.</p>
+                </div>
+                <div class="rm-step next">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4>إشعارات واتساب <span class="rm-pill next">قادم</span></h4>
+                    <p>دعم إرسال إشعارات إنشاء وحل التذاكر مباشرة عبر واتساب، إلى جانب البريد الإلكتروني وTelegram الحاليين.</p>
+                </div>
+                <div class="rm-step next">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4>تصنيفات وأدوات MCP إضافية <span class="rm-pill next">قادم</span></h4>
+                    <p>توسيع قائمة التصنيفات المتاحة للتذاكر، وربط المزيد من أدوات وWorkflows الشركات الخارجية مثل Notion.</p>
                 </div>
             </div>
 
-            <!-- In progress -->
-            <div class="roadmap-group group-progress">
-                <div class="roadmap-group-title"><span class="group-dot"></span> قيد التطوير</div>
-                <div class="roadmap-items">
-                    <div class="roadmap-item featured">
-                        <span class="status-badge badge-progress">قيد التطوير</span>
-                        <h4>Support Intelligence Engine (SIE)</h4>
-                        <p>العقل المركزي القادم لمدعوم، بخمس مراحل: Understand → Diagnose → Decide → Act → Learn، ليقرر وينفّذ بدل أن يكون Chatbot تقليديًا فقط.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-progress">قيد التطوير</span>
-                        <h4>التشخيص الذاتي من قاعدة المعرفة</h4>
-                        <p>تحسين قدرة النظام على تحديد السبب الأكثر احتمالًا لمشكلة العميل تلقائيًا بالاعتماد على الحالات المشابهة السابقة.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-progress">قيد التطوير</span>
-                        <h4>تنفيذ الإجراءات عبر MCP تلقائيًا</h4>
-                        <p>تمكين SIE من اختيار وتنفيذ أداة MCP المناسبة بنفسه أثناء محادثة العميل، دون الحاجة لتدخل يدوي من الفريق.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Planned -->
-            <div class="roadmap-group group-planned">
-                <div class="roadmap-group-title"><span class="group-dot"></span> قادم قريبًا</div>
-                <div class="roadmap-items">
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-planned">قادم قريبًا</span>
-                        <h4>إشعارات واتساب</h4>
-                        <p>دعم إرسال إشعارات إنشاء وحل التذاكر مباشرة عبر واتساب، بجانب البريد الإلكتروني وTelegram الحاليين.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-planned">قادم قريبًا</span>
-                        <h4>محادثة SIE المباشرة مع العميل</h4>
-                        <p>تفعيل قدرة العميل على بدء محادثة مباشرة مع SIE قبل إنشاء أي تذكرة، ليحاول حل المشكلة فور وصولها.</p>
-                    </div>
-                    <div class="roadmap-item">
-                        <span class="status-badge badge-planned">قادم قريبًا</span>
-                        <h4>تصنيفات وأدوات MCP إضافية</h4>
-                        <p>توسيع قائمة التصنيفات المتاحة للتذاكر، وربط المزيد من أدوات وWorkflows الشركات الخارجية.</p>
-                    </div>
-                </div>
+            <!-- Closing CTA -->
+            <div class="rm-cta">
+                <h3>عندك فكرة تستحق تكون على هذه الخارطة؟</h3>
+                <p>مجتمع مدعوم هو من يوجّه أولوياتنا القادمة — شاركنا اقتراحك وقد يكون هو المحطة التالية.</p>
+                <a href="community.html" class="btn">
+                    اقترح فكرة
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </a>
             </div>
         </div>
     </main>
@@ -315,6 +403,30 @@
         } else {
             init();
         }
+
+        // Scroll-linked timeline (signature motif, mirrors index.html's journey section)
+        const rmTimeline = document.getElementById('rmTimeline');
+        const rmFill = document.getElementById('rmFill');
+        const rmCore = document.getElementById('rmCore');
+        const rmSteps = document.querySelectorAll('.rm-step');
+
+        function updateRoadmap() {
+            const rect = rmTimeline.getBoundingClientRect();
+            const vh = window.innerHeight;
+            const total = rect.height;
+            const start = vh * 0.85;
+            const end = vh * 0.35;
+            let progress = (start - rect.top) / (total + (start - end));
+            progress = Math.max(0, Math.min(1, progress));
+            const pct = progress * 100;
+            rmFill.style.height = pct + '%';
+            rmCore.style.top = pct + '%';
+            const activeCount = Math.round(progress * rmSteps.length);
+            rmSteps.forEach((step, i) => step.classList.toggle('in', i < activeCount));
+        }
+        window.addEventListener('scroll', () => requestAnimationFrame(updateRoadmap), { passive: true });
+        window.addEventListener('resize', () => requestAnimationFrame(updateRoadmap));
+        updateRoadmap();
     </script>
 </body>
 </html>
