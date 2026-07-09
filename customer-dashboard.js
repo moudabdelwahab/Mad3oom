@@ -15,7 +15,8 @@ import {
     fetchTicketAttachments,
     fetchTicketTags,
     fetchTicketActivity,
-    fetchTicketRating
+    fetchTicketRating,
+    submitTicketRating
 } from './tickets-service.js';
 import {
     fetchNotifications,
