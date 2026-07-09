@@ -62,38 +62,7 @@
         .dev-section { display: none; }
         .dev-section.active { display: block; animation: cardIn 0.25s ease-out; }
  
-        /* ==================== Direction Switch (صادر / وارد) ==================== */
-        .direction-switch { margin-bottom: 1.75rem; }
-        .direction-switch-track {
-            display: flex; align-items: stretch; gap: 0.5rem;
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: 1.1rem;
-            padding: 0.5rem;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-        }
-        .direction-pill {
-            flex: 1; display: flex; align-items: center; gap: 0.7rem;
-            padding: 0.75rem 1rem; border-radius: 0.85rem;
-            border: 1px solid transparent; background: transparent;
-            cursor: pointer; text-align: right; font-family: inherit;
-            transition: all 0.2s;
-        }
-        .direction-pill:hover { background: var(--color-muted); }
-        .direction-pill.active { background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(180,95,224,0.1)); border-color: rgba(99,102,241,0.25); }
-        .direction-pill-icon {
-            width: 34px; height: 34px; min-width: 34px; border-radius: 0.6rem;
-            display: flex; align-items: center; justify-content: center; color: #fff;
-        }
-        .direction-pill-icon.out { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-        .direction-pill-icon.in { background: linear-gradient(135deg, #B45FE0, #7c3aed); }
-        .direction-pill-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-        .direction-pill-text b { font-size: 0.92rem; color: var(--color-text); }
-        .direction-pill-text small { font-size: 0.74rem; color: var(--color-text-secondary); font-weight: 600; white-space: normal; }
-        .direction-switch-connector { display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); opacity: 0.5; }
-        .direction-panel { display: none; }
-        .direction-panel.active { display: block; animation: cardIn 0.25s ease-out; }
-
+        /* ==================== Subsection header (Servers / خادم MCP tabs) ==================== */
         .subsection-header { display: flex; align-items: flex-start; gap: 0.85rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .subsection-icon { width: 40px; height: 40px; min-width: 40px; border-radius: 0.7rem; display: flex; align-items: center; justify-content: center; color: #fff; }
         .subsection-icon.out { background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 4px 14px rgba(99,102,241,0.3); }
@@ -101,9 +70,64 @@
         .subsection-header h2 { margin: 0 0 0.2rem; font-size: 1.1rem; font-weight: 800; color: var(--color-text); }
         .subsection-header p { margin: 0; font-size: 0.83rem; color: var(--color-text-secondary); max-width: 560px; }
 
+        /* ==================== MCP Client Marketplace (جديد) ==================== */
+        .mcp-search-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
+        .mcp-search-box {
+            flex: 1; min-width: 220px; display: flex; align-items: center; gap: 0.6rem;
+            background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.75rem;
+            padding: 0.65rem 1rem; color: var(--color-text-secondary);
+        }
+        .mcp-search-box input { flex: 1; border: none; background: transparent; outline: none; color: var(--color-text); font-family: inherit; font-size: 0.9rem; }
+        .mcp-category-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .mcp-chip {
+            padding: 0.5rem 1rem; border-radius: 2rem; border: 1px solid var(--color-border);
+            background: var(--color-surface); color: var(--color-text-secondary);
+            font-family: inherit; font-weight: 700; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .mcp-chip:hover { background: var(--color-muted); }
+        .mcp-chip.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+        .connector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .connector-card {
+            background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 1rem;
+            padding: 1.25rem; display: flex; flex-direction: column; gap: 0.9rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .connector-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.09); }
+        .connector-card.is-connected { border-color: rgba(22,163,74,0.35); }
+        .connector-card-top { display: flex; align-items: flex-start; gap: 0.85rem; }
+        .connector-icon {
+            width: 46px; height: 46px; min-width: 46px; border-radius: 0.85rem;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 800; font-size: 1.05rem; flex-shrink: 0;
+        }
+        .connector-name-wrap { min-width: 0; flex: 1; }
+        .connector-name { font-weight: 800; color: var(--color-text); font-size: 1rem; }
+        .connector-desc { font-size: 0.82rem; color: var(--color-text-secondary); margin-top: 0.2rem; line-height: 1.5; }
+        .connector-meta-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--color-text-secondary); }
+        .connector-actions { display: flex; gap: 0.5rem; margin-top: auto; }
+        .connector-actions .btn { flex: 1; }
+        .connector-setup-note {
+            font-size: 0.76rem; color: var(--color-text-secondary); background: var(--color-muted);
+            border-radius: 0.5rem; padding: 0.5rem 0.7rem; line-height: 1.5;
+        }
+
+        /* ==================== Tool Explorer ==================== */
+        .tool-run-panel { display: none; margin-top: 0.75rem; border-top: 1px dashed var(--color-border); padding-top: 0.75rem; }
+        .tool-run-panel.open { display: block; }
+        .tool-run-panel textarea {
+            width: 100%; min-height: 90px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.82rem;
+            direction: ltr; padding: 0.6rem; border-radius: 0.5rem; border: 1px solid var(--color-border);
+            background: var(--color-background); color: var(--color-text); resize: vertical;
+        }
+        .tool-run-result {
+            margin-top: 0.6rem; padding: 0.75rem; border-radius: 0.5rem; font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.8rem; direction: ltr; text-align: left; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow-y: auto;
+        }
+        .tool-run-result.success { background: #f0fdf4; color: #14532d; border: 1px solid #bbf7d0; }
+        .tool-run-result.error { background: #fef2f2; color: #7f1d1d; border: 1px solid #fecaca; }
+
         @media (max-width: 640px) {
-            .direction-switch-track { flex-direction: column; }
-            .direction-switch-connector { display: none; }
             .subsection-header { flex-direction: column; }
             .subsection-header .btn { margin-inline-start: 0 !important; }
         }
@@ -415,9 +439,17 @@
 
             <!-- تبويب رئيسي -->
             <div class="dev-tabs">
-                <button class="dev-tab active" data-devtab="mcp" id="devTabMcp">
+                <button class="dev-tab active" data-devtab="mcpclient" id="devTabMcpClient">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                    MCP العميل
+                </button>
+                <button class="dev-tab" data-devtab="servers" id="devTabServers">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
-                    شبكة MCP
+                    Servers
+                </button>
+                <button class="dev-tab" data-devtab="mcpserver" id="devTabMcpServer">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                    خادم MCP
                 </button>
                 <button class="dev-tab" data-devtab="apitokens" id="devTabApiTokens">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
@@ -429,8 +461,38 @@
                 </button>
             </div>
 
-            <!-- ═══════════════ قسم 1: شبكة MCP — اتجاهين (Client صادر + Server وارد) ═══════════════ -->
-            <div class="dev-section active" id="devSectionMcp">
+            <!-- ═══════════════ قسم 0: MCP العميل — Marketplace (جديد) ═══════════════ -->
+            <div class="dev-section active" id="devSectionMcpClient">
+
+                <div class="mcp-search-row">
+                    <div class="mcp-search-box">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="mcpMarketSearch" placeholder="ابحث عن Supabase، GitHub، Notion...">
+                    </div>
+                    <div class="mcp-category-chips" id="mcpCategoryChips"></div>
+                </div>
+
+                <div class="connector-grid" id="connectorGrid">
+                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل الموصلات...</p></div>
+                </div>
+
+                <!-- Tool Explorer -->
+                <div class="activity-panel" style="margin-top:1.75rem">
+                    <h3>
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        <span>مستكشف الأدوات (Tool Explorer)</span>
+                    </h3>
+                    <p style="margin:0 0 1rem;font-size:0.83rem;color:var(--color-text-secondary)">كل أداة متاحة من موصلاتك المتصلة - شغّلها مباشرة من هنا لتجربتها قبل استخدامها في أي مكان آخر.</p>
+                    <div class="tools-toolbar">
+                        <input type="text" id="explorerSearchInput" placeholder="ابحث في الأدوات بالاسم أو الموصل...">
+                    </div>
+                    <div class="tools-list" id="toolExplorerList"></div>
+                </div>
+
+            </div><!-- /devSectionMcpClient -->
+
+            <!-- ═══════════════ قسم 1: Servers — إضافة خادم MCP مخصّص (منقول كما هو من "شبكة MCP") ═══════════════ -->
+            <div class="dev-section" id="devSectionServers">
 
             <!-- Stats -->
             <div class="stats-grid">
@@ -452,31 +514,7 @@
                 </div>
             </div>
 
-            <!-- Direction Switcher: صادر (Client) / وارد (Server) -->
-            <div class="direction-switch">
-                <div class="direction-switch-track">
-                    <button class="direction-pill active" data-direction="outbound" id="dirBtnOutbound">
-                        <span class="direction-pill-icon out"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></span>
-                        <span class="direction-pill-text">
-                            <b>صادر</b>
-                            <small>مدعوم كعميل يتصل بخوادم MCP خارجية</small>
-                        </span>
-                    </button>
-                    <span class="direction-switch-connector" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                    </span>
-                    <button class="direction-pill" data-direction="inbound" id="dirBtnInbound">
-                        <span class="direction-pill-icon in"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></span>
-                        <span class="direction-pill-text">
-                            <b>وارد</b>
-                            <small>مدعوم نفسه يعمل كخادم MCP لعملاء خارجيين</small>
-                        </span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- ─── صادر: الخوادم المتصلة (Outbound / Client) ─── -->
-            <div class="direction-panel active" id="directionOutbound">
+            <!-- ─── الخوادم المتصلة (إضافة/تعديل خادم MCP مخصّص) ─── -->
 
             <div class="subsection-header">
                 <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></span>
@@ -541,10 +579,11 @@
                     <div class="activity-empty" data-i18n="mcp_activity_empty">لا يوجد نشاط مسجّل بعد</div>
                 </div>
             </div>
-            </div><!-- /directionOutbound -->
 
-            <!-- ─── وارد: مدعوم كخادم MCP (Inbound / Server) ─── -->
-            <div class="direction-panel" id="directionInbound">
+            </div><!-- /devSectionServers -->
+
+            <!-- ═══════════════ قسم 2: خادم MCP — مدعوم كخادم (منقول كما هو، Inbound سابقًا) ═══════════════ -->
+            <div class="dev-section" id="devSectionMcpServer">
 
             <div class="subsection-header">
                 <span class="subsection-icon in"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></span>
@@ -574,9 +613,8 @@
                 </h3>
                 <div class="tools-list" id="mcpServerToolsList"></div>
             </div>
-            </div><!-- /directionInbound -->
 
-            </div><!-- /devSectionMcp -->
+            </div><!-- /devSectionMcpServer -->
 
             <!-- ═══════════════ قسم 2: مفاتيح API ═══════════════ -->
             <div class="dev-section" id="devSectionApiTokens">
