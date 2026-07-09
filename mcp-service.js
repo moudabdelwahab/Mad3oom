@@ -33,40 +33,7 @@ export const MCP_STATUSES = {
 
 /** رابط الـ OAuth callback الثابت - نفس القيمة المسجَّلة عند أي مزود OAuth */
 export const MCP_OAUTH_REDIRECT_URI = `${supabase.supabaseUrl}/functions/v1/mcp-oauth-callback`;
-export const MCP_CATALOG_CATEGORIES = [
-    {
-        key: 'all',
-        label: 'الكل'
-    },
-    {
-        key: 'database',
-        label: 'قواعد البيانات'
-    },
-    {
-        key: 'development',
-        label: 'التطوير'
-    },
-    {
-        key: 'ai',
-        label: 'الذكاء الاصطناعي'
-    },
-    {
-        key: 'storage',
-        label: 'التخزين'
-    },
-    {
-        key: 'productivity',
-        label: 'الإنتاجية'
-    },
-    {
-        key: 'communication',
-        label: 'التواصل'
-    },
-    {
-        key: 'custom',
-        label: 'مخصص'
-    }
-];
+
 /* =========================================================
  *  أدوات مساعدة داخلية
  * ========================================================= */
