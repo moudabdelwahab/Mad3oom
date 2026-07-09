@@ -817,7 +817,7 @@ export const MCP_CLIENT_CATALOG = [{
     initial: '+',
     isCustomBlank: true
 }
-];
+;
 
 
 export function findConnectedServerForCatalogEntry(entry, servers = []) {
