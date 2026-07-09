@@ -755,6 +755,7 @@
             </svg>
             <input type="text" id="reg-username" name="username" placeholder="اسم مستخدم فريد (حروف إنجليزية وأرقام و_)" autocomplete="username" required>
           </div>
+          <small id="username-availability" style="display:block; margin-top:0.35rem; font-size:0.78rem;"></small>
         </div>
 
         <div class="form-group">
@@ -767,18 +768,6 @@
             <input type="tel" id="reg-phone" name="phone" placeholder="مثال: 01012345678 أو +201012345678" autocomplete="tel" required>
           </div>
         </div>
-
-        <div class="form-group">
-          <label class="form-label" for="reg-dob">تاريخ الميلاد</label>
-          <div class="input-wrap">
-            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
-              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.8"/>
-            </svg>
-            <input type="date" id="reg-dob" name="dob" autocomplete="bday" required>
-          </div>
 
         <div class="form-group">
           <label class="form-label" for="reg-email">البريد الإلكتروني</label>
@@ -1421,7 +1410,6 @@
     const name  = document.getElementById('reg-name').value.trim();
     const username = document.getElementById('reg-username').value.trim();
     const phone = document.getElementById('reg-phone').value.trim().replace(/[\s\-()]/g, '');
-    const dob   = document.getElementById('reg-dob').value;
     const email = document.getElementById('reg-email').value.trim();
     const pw    = document.getElementById('reg-password').value;
     const cpw   = document.getElementById('reg-confirm').value;
@@ -1436,18 +1424,6 @@
     // ── التحقق من رقم الهاتف ──
     if (!validatePhone(phone)) {
       showToast('رقم الهاتف غير صحيح');
-      return;
-    }
-
-    // ── التحقق من تاريخ الميلاد (لازم يكون موجود، في الماضي، وعمر معقول) ──
-    if (!dob) {
-      showToast('يرجى إدخال تاريخ الميلاد');
-      return;
-    }
-    const dobDate = new Date(dob);
-    const age = (Date.now() - dobDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-    if (dobDate > new Date() || age < 13 || age > 120) {
-      showToast('تاريخ الميلاد غير صحيح');
       return;
     }
 
@@ -1496,7 +1472,7 @@
         supabase.auth.signUp({
           email,
           password: pw,
-          options: { data: { full_name: name, username, phone, date_of_birth: dob } }
+          options: { data: { full_name: name, username, phone } }
         }),
         10000,
         'إنشاء الحساب'
@@ -1519,7 +1495,6 @@
             full_name: name,
             username,
             phone,
-            date_of_birth: dob,
             role: 'user'
           }, { onConflict: 'id' }),
           8000,
@@ -1537,6 +1512,57 @@
       setLoading(btn, false, 'إنشاء الحساب');
     }
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // ✅ التحقق اللحظي من توفر اسم المستخدم أثناء الكتابة (Debounced)
+  // ══════════════════════════════════════════════════════════════
+  {
+    const usernameInput = document.getElementById('reg-username');
+    const availabilityEl = document.getElementById('username-availability');
+    const usernameRegex = /^[A-Za-z0-9_]{3,20}$/;
+    let debounceTimer = null;
+    let requestToken = 0;
+
+    function setAvailability(text, color) {
+      availabilityEl.textContent = text;
+      availabilityEl.style.color = color;
+    }
+
+    usernameInput.addEventListener('input', () => {
+      const value = usernameInput.value.trim();
+      clearTimeout(debounceTimer);
+
+      if (!value) {
+        setAvailability('', '');
+        return;
+      }
+      if (!usernameRegex.test(value)) {
+        setAvailability('3-20 حرفًا، حروف إنجليزية وأرقام و_ فقط', '#ef4444');
+        return;
+      }
+
+      setAvailability('جارٍ التحقق...', 'var(--text-secondary, #888)');
+      const myToken = ++requestToken;
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          const { data: rows, error } = await supabase.rpc('get_email_by_username', { p_username: value });
+          if (myToken !== requestToken) return; // نتيجة قديمة، تجاهلها
+          if (error) {
+            setAvailability('', '');
+            return;
+          }
+          if (rows?.[0]?.email) {
+            setAvailability('اسم المستخدم مستخدم بالفعل', '#ef4444');
+          } else {
+            setAvailability('اسم المستخدم متاح ✓', '#16a34a');
+          }
+        } catch {
+          if (myToken === requestToken) setAvailability('', '');
+        }
+      }, 450);
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════
   // GOOGLE LOGIN
