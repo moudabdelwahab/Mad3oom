@@ -278,8 +278,8 @@ async function loadCustomRoles() {
 async function loadUsers() {
     try {
         // ملاحظة: الأدوار الفعلية في جدول profiles هي 'user' (عميل) / 'admin' / 'super_user'.
-        // كنا بنستبعد role = 'customer' وهي قيمة مش موجودة أصلاً، فكانت كل حسابات
-        // العملاء بتظهر غلط في صفحة إدارة المستخدمين. الصح إننا نستبعد العملاء (role = 'user').
+        // العميل العادي بيتسجل دايمًا بـ role = 'user' (من trigger التسجيل)، فكل ما
+        // علينا نستبعده هنا عشان الصفحة دي تعرض الموظفين (admin/support/super_user) بس.
         const { data: users, error } = await supabase
             .from('profiles')
             .select('*, custom_roles(name)')
