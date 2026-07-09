@@ -429,12 +429,22 @@
             const rect = rmTimeline.getBoundingClientRect();
             const vh = window.innerHeight;
             const total = rect.height;
-            // "Read line" fixed near the top of the viewport. Progress is 0 until the
-            // timeline's top actually reaches it (so the line starts empty at page load),
-            // and reaches 1 once the timeline's bottom has passed it.
-            const readLine = vh * 0.22;
-            let progress = total > 0 ? (readLine - rect.top) / total : 0;
+            // Element enters when its top reaches the bottom of the viewport, and
+            // finishes once its bottom has settled comfortably in the upper part
+            // of the viewport (~40% down) — reachable without needing extra scroll
+            // room after the timeline.
+            const startPoint = vh;
+            const endPoint = (vh * 0.4) - total;
+            let progress = total > 0 ? (startPoint - rect.top) / (startPoint - endPoint) : 0;
             progress = Math.max(0, Math.min(1, progress));
+
+            // Safety net: whatever the geometry says, if the user has reached the
+            // actual bottom of the page, the timeline must read as fully complete —
+            // keeps it in sync with the browser's own scrollbar.
+            const doc = document.documentElement;
+            const atPageBottom = (window.scrollY + vh) >= (doc.scrollHeight - 2);
+            if (atPageBottom) progress = 1;
+
             const pct = progress * 100;
             rmFill.style.height = pct + '%';
             rmCore.style.top = pct + '%';
