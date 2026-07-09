@@ -607,13 +607,13 @@
         <form id="login-form" novalidate>
 
           <div class="form-group">
-            <label class="form-label" for="email">البريد الإلكتروني</label>
+            <label class="form-label" for="email">البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم</label>
             <div class="input-wrap">
               <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
                 <path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
               </svg>
-              <input type="email" id="email" name="email" placeholder="أدخل بريدك الإلكتروني" autocomplete="email" required>
+              <input type="text" id="email" name="email" placeholder="البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم" autocomplete="username" required>
             </div>
           </div>
 
@@ -745,6 +745,40 @@
             <input type="text" id="reg-name" name="name" placeholder="أدخل اسمك الكامل" autocomplete="name" required>
           </div>
         </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-username">اسم المستخدم</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+            <input type="text" id="reg-username" name="username" placeholder="اسم مستخدم فريد (حروف إنجليزية وأرقام و_)" autocomplete="username" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">رقم الهاتف</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <line x1="11" y1="18" x2="13" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <input type="tel" id="reg-phone" name="phone" placeholder="مثال: 01012345678 أو +201012345678" autocomplete="tel" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-dob">تاريخ الميلاد</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+            <input type="date" id="reg-dob" name="dob" autocomplete="bday" required>
+          </div>
 
         <div class="form-group">
           <label class="form-label" for="reg-email">البريد الإلكتروني</label>
@@ -935,6 +969,7 @@
 
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  import { validateEmail, validatePhone } from './auth-validation.js';
 
   const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
@@ -1027,22 +1062,6 @@
       'تحديد نوع الحساب'
     );
     const role = profile?.role || 'user';
-
-    // إضافة بحتة: لو فيه وجهة عودة محفوظة (مثلاً صفحة موافقة OAuth mcp)، اتّبعها بدل اللوحة الافتراضية.
-    // المفتاح ده بيتحطّ بس من صفحات معيّنة (زي admin/oauth-consent.html) قبل ما تحوّل المستخدم هنا،
-    // فأي تدفق تسجيل دخول عادي (بدون الصفحة دي) يفضل شغّال بالظبط زي ما كان.
-    const returnTo = sessionStorage.getItem('mad3oom_post_login_redirect');
-    if (returnTo) {
-      sessionStorage.removeItem('mad3oom_post_login_redirect');
-      try {
-        const target = new URL(returnTo, window.location.origin);
-        if (target.origin === window.location.origin) {
-          window.location.href = target.pathname + target.search;
-          return;
-        }
-      } catch { /* رابط غير صالح - نتجاهله ونكمل بالسلوك الافتراضي تحت */ }
-    }
-
     window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
@@ -1278,13 +1297,44 @@
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn   = e.target.querySelector('.btn-primary');
-    const email = document.getElementById('email').value.trim();
+    const identifier = document.getElementById('email').value.trim();
     const pw    = document.getElementById('password').value;
 
     setLoading(btn, true, 'تسجيل الدخول');
     _handlingAuthManually = true;
 
     try {
+      // ── تحديد نوع المُدخل (إيميل / رقم هاتف / اسم مستخدم) وتحويله
+      // لإيميل فعلي قبل تسجيل الدخول، عن طريق دوال RPC آمنة (نتيجة
+      // واحدة فقط لكل استعلام - لا يمكن سحب قائمة المستخدمين) ──
+      let email = identifier;
+
+      if (!validateEmail(identifier)) {
+        if (validatePhone(identifier)) {
+          const { data: rows, error: lookupError } = await withTimeout(
+            supabase.rpc('get_email_by_phone', { p_phone: identifier.replace(/[\s\-()]/g, '') }),
+            10000,
+            'البحث عن رقم الهاتف'
+          );
+          if (lookupError || !rows?.[0]?.email) {
+            showToast('لا يوجد حساب مرتبط بهذا الرقم');
+            return;
+          }
+          email = rows[0].email;
+        } else {
+          const { data: rows, error: lookupError } = await withTimeout(
+            supabase.rpc('get_email_by_username', { p_username: identifier }),
+            10000,
+            'البحث عن اسم المستخدم'
+          );
+          if (lookupError || !rows?.[0]?.email) {
+            showToast('اسم المستخدم غير موجود');
+            return;
+          }
+          email = rows[0].email;
+        }
+      }
+
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email, password: pw }),
         10000,
@@ -1369,9 +1419,37 @@
     e.preventDefault();
     const btn   = e.target.querySelector('.btn-primary');
     const name  = document.getElementById('reg-name').value.trim();
+    const username = document.getElementById('reg-username').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim().replace(/[\s\-()]/g, '');
+    const dob   = document.getElementById('reg-dob').value;
     const email = document.getElementById('reg-email').value.trim();
     const pw    = document.getElementById('reg-password').value;
     const cpw   = document.getElementById('reg-confirm').value;
+
+    // ── التحقق من اسم المستخدم ──
+    const usernameRegex = /^[A-Za-z0-9_]{3,20}$/;
+    if (!usernameRegex.test(username)) {
+      showToast('اسم المستخدم يجب أن يكون 3-20 حرفًا (حروف إنجليزية وأرقام و_ فقط)');
+      return;
+    }
+
+    // ── التحقق من رقم الهاتف ──
+    if (!validatePhone(phone)) {
+      showToast('رقم الهاتف غير صحيح');
+      return;
+    }
+
+    // ── التحقق من تاريخ الميلاد (لازم يكون موجود، في الماضي، وعمر معقول) ──
+    if (!dob) {
+      showToast('يرجى إدخال تاريخ الميلاد');
+      return;
+    }
+    const dobDate = new Date(dob);
+    const age = (Date.now() - dobDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    if (dobDate > new Date() || age < 13 || age > 120) {
+      showToast('تاريخ الميلاد غير صحيح');
+      return;
+    }
 
     const confirmInput = document.getElementById('reg-confirm');
     if (pw !== cpw) {
@@ -1392,11 +1470,33 @@
     _handlingAuthManually = true;
 
     try {
+      // ── تحقق مسبق من توفر اسم المستخدم ورقم الهاتف (تجربة أفضل من
+      // انتظار فشل إنشاء الحساب بسبب تعارض على مستوى قاعدة البيانات) ──
+      const { data: usernameRows } = await withTimeout(
+        supabase.rpc('get_email_by_username', { p_username: username }),
+        8000,
+        'التحقق من اسم المستخدم'
+      );
+      if (usernameRows?.[0]?.email) {
+        showToast('اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر');
+        return;
+      }
+
+      const { data: phoneRows } = await withTimeout(
+        supabase.rpc('get_email_by_phone', { p_phone: phone }),
+        8000,
+        'التحقق من رقم الهاتف'
+      );
+      if (phoneRows?.[0]?.email) {
+        showToast('رقم الهاتف مسجل بحساب آخر بالفعل');
+        return;
+      }
+
       const { data, error } = await withTimeout(
         supabase.auth.signUp({
           email,
           password: pw,
-          options: { data: { full_name: name } }
+          options: { data: { full_name: name, username, phone, date_of_birth: dob } }
         }),
         10000,
         'إنشاء الحساب'
@@ -1417,6 +1517,9 @@
             id: data.user.id,
             email,
             full_name: name,
+            username,
+            phone,
+            date_of_birth: dob,
             role: 'user'
           }, { onConflict: 'id' }),
           8000,
