@@ -12,14 +12,21 @@ import {
     subscribeToSubscriptionUpdates
 } from '/whatsapp-subscription-service.js';
 
-// ⚠️ عدّل البيانات دي ببيانات الحسابات/المحافظ الحقيقية قبل الإطلاق
+// بيانات الحسابات/المحافظ الحقيقية لاستقبال التحويلات
 const EXTERNAL_PAYMENT_INSTRUCTIONS = {
-    bank_transfer: 'اسم البنك: (أدخل هنا)\nاسم صاحب الحساب: (أدخل هنا)\nرقم الحساب / IBAN: (أدخل هنا)',
-    vodafone_cash: 'حوّل على رقم فودافون كاش: (01274000741)',
-    etisalat_cash: 'حوّل على رقم اتصالات كاش: (01274000741)',
-    we_cash: 'حوّل على رقم وي كاش: (01274000741)',
-    orange_cash: 'حوّل على رقم أورانج كاش: (01274000741)',
-    instapay: 'حوّل عبر إنستاباي على: (mahmoudvf24ca)'
+    bank_transfer: `
+        <div>البنك: كريدي أجريكول مصر</div>
+        <div>رقم الحساب (IBAN): EG100036000100011258180417829</div>
+        <div>اسم المستفيد: Mahmoud Abdelwahab</div>
+    `,
+    cash_wallet: 'حوّل على رقم محفظة كاش: 01274000741',
+    instapay: `
+        <div style="margin-bottom:0.65rem;">حوّل على حساب إنستاباي: mahmoudvf24ca@instapay</div>
+        <a href="https://ipn.eg/S/mahmoudvf24ca/instapay/7y4Xc0" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex; align-items:center; justify-content:center; gap:0.4rem; background:#6f2f8f; color:#fff; text-decoration:none; font-weight:700; padding:0.6rem 1.2rem; border-radius:0.6rem; font-size:0.85rem;">
+            الدفع عبر إنستاباي
+        </a>
+    `
 };
 
 let currentUser = null;
@@ -332,7 +339,7 @@ function openPaymentMethodModal() {
             const selected = box.querySelector('input[name="pm_method"]:checked').value;
             const isExternal = EXTERNAL_PAYMENT_METHODS.includes(selected);
             externalDetailsEl.style.display = isExternal ? 'block' : 'none';
-            externalDetailsEl.textContent = isExternal ? (EXTERNAL_PAYMENT_INSTRUCTIONS[selected] || '') : '';
+            externalDetailsEl.innerHTML = isExternal ? (EXTERNAL_PAYMENT_INSTRUCTIONS[selected] || '') : '';
             proofFieldEl.style.display = isExternal ? 'block' : 'none';
         }
         radios.forEach((r) => r.addEventListener('change', updateVisibility));
