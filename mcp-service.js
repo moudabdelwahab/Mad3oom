@@ -682,6 +682,16 @@ export async function fetchMcpServerInfo(action = 'status') {
     return data; // { status, endpoint, protocol_version, transport, authentication_methods, capabilities, tools, resources_info, server_info }
 }
 
+/** enabled=false يعطّل الأداة على مستوى المنصة كلها لأي عميل MCP خارجي */
+export async function setMcpServerToolEnabled(toolName, enabled) {
+    const { data, error } = await supabase.functions.invoke('mcp-server-info', {
+        body: { action: 'set_tool', tool_name: toolName, enabled },
+    });
+    if (error) throw new Error('فشل تحديث حالة الأداة: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data; // { success, tools }
+}
+
 /* ============================================================
  *  MCP Client Marketplace (Phase 5) - كتالوج ثابت في الواجهة فقط
  *  ------------------------------------------------------------
