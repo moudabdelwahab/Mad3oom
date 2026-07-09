@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>قاعدة المعرفة - منصة مدعوم</title>
-    <meta name="description" content="كل ما تحتاج معرفته عن منصة مدعوم: نظام التذاكر، النقاط والمكافآت، الشارات، المحادثة الفورية، الاشتراك عبر واتساب، المجتمع، والأمان.">
+    <meta name="description" content="كل ما تحتاج معرفته عن منصة مدعوم: نظام التذاكر، النقاط والمكافآت، الشارات، المحادثة الفورية، الاشتراكات والباقات، النطاق الفرعي، API والتكاملات، المجتمع، والأمان.">
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -321,6 +321,33 @@
         .kb-channel strong { display: block; font-size: 0.85rem; }
         .kb-channel span { font-size: 0.8rem; color: var(--color-text-secondary); direction: ltr; display: inline-block; }
 
+        /* ==================== Plans Grid (اشتراكات وباقات) ==================== */
+        .kb-plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.25rem 0;
+        }
+        .kb-plan-card {
+            position: relative;
+            background: var(--color-muted);
+            border: 1px solid var(--color-border);
+            border-radius: 0.85rem;
+            padding: 1.1rem 1.1rem 1.25rem;
+        }
+        .kb-plan-card.featured { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent) inset; }
+        .kb-plan-badge {
+            position: absolute; top: -0.6rem; right: 1rem;
+            background: var(--color-accent); color: #fff;
+            font-size: 0.68rem; font-weight: 700;
+            padding: 0.15rem 0.6rem; border-radius: 99px;
+        }
+        .kb-plan-card strong.kb-plan-name { display: block; font-size: 0.95rem; margin-bottom: 0.3rem; }
+        .kb-plan-price { font-size: 1.4rem; font-weight: 800; margin-bottom: 0.15rem; }
+        .kb-plan-price small { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
+        .kb-plan-price .kb-old-price { font-size: 0.8rem; color: var(--color-text-secondary); text-decoration: line-through; font-weight: 600; margin-inline-start: 0.35rem; }
+        .kb-plan-card ul { margin: 0.6rem 0 0; padding-inline-start: 1.1rem; font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.7; }
+
         /* ==================== No results ==================== */
         #kbNoResults {
             display: none;
@@ -403,6 +430,12 @@
             </div>
             <div><strong>اسأل المجتمع</strong><span>مجتمع مدعوم لتبادل الخبرات</span></div>
         </a>
+        <a href="/subscriptions.html" class="kb-quick-card">
+            <div class="kb-quick-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            </div>
+            <div><strong>شوف الباقات</strong><span>اختار الخطة اللي تناسبك</span></div>
+        </a>
     </div>
 
     <!-- ==================== Main layout ==================== -->
@@ -437,6 +470,18 @@
             <a href="#forum" data-target="forum">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 مجتمع مدعوم
+            </a>
+            <a href="#subscriptions" data-target="subscriptions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                الاشتراكات والباقات
+            </a>
+            <a href="#subdomain" data-target="subdomain">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                النطاق الفرعي
+            </a>
+            <a href="#api" data-target="api">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                API والتكاملات
             </a>
             <a href="#security" data-target="security">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -676,7 +721,7 @@
                 <details class="kb-faq" data-kb-searchable data-kb-text="خطط الاشتراك دعم واتساب باقة شهري سنوي">
                     <summary>إيه هي خطط الاشتراك المتاحة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        متاح 3 أنواع خطط (دعم فقط / واتساب فقط / باقة شاملة)، وكل نوع منها متاح بدورة شهرية أو سنوية. تقدر تشترك من صفحة الاشتراكات وتختار اللي يناسبك.
+                        متاح 3 أنواع خطط (دعم فقط / واتساب فقط / باقة شاملة)، وكل نوع منها متاح بدورة شهرية أو سنوية. الأسعار والتفاصيل الكاملة لكل خطة تلاقيها في قسم <a href="#subscriptions" style="color: var(--color-accent); font-weight: 700;">الاشتراكات والباقات</a> فوق.
                     </div>
                 </details>
 
@@ -716,6 +761,180 @@
                     <summary>إزاي أفرز المواضيع؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
                         فيه فلتر فوق المنتدى يخليك تشوف: الأحدث، الأكثر مشاهدة، بدون رد، أو حسب آخر نشاط — وكمان في مربع بحث يفلتر المواضيع باسمها مباشرة.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ الاشتراكات والباقات ============ -->
+            <section class="kb-section" id="subscriptions">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <div>
+                        <h2>الاشتراكات والباقات</h2>
+                        <p>اختار الخطة المناسبة لك ولفريقك</p>
+                    </div>
+                </div>
+
+                <div data-kb-searchable data-kb-text="خطط الاشتراك مجاني الدعم الفني واتساب الباقة الشاملة الأسعار خصم إطلاق">
+                    <p style="line-height: 1.8; margin: 0 0 0.5rem;">
+                        مدعوم بيقدّم 4 خطط: خطة مجانية دايمة، وخطتين مدفوعتين منفصلتين (الدعم الفني، وواتساب بيزنس)، وباقة شاملة بتجمع الاتنين بسعر أوفر. كل الخطط المدفوعة متاحة بدورة <strong>شهرية</strong> أو <strong>سنوية</strong> (السنوية بتوفّر أكتر).
+                    </p>
+
+                    <div class="kb-plans-grid">
+                        <div class="kb-plan-card">
+                            <strong class="kb-plan-name">مجاني</strong>
+                            <div class="kb-plan-price">$0 <small>/شهر</small></div>
+                            <ul>
+                                <li>نظام التذاكر الأساسي</li>
+                                <li>محادثة فورية (ساعات العمل)</li>
+                                <li>الإبلاغ عن المشاكل وتجميع النقاط</li>
+                            </ul>
+                        </div>
+                        <div class="kb-plan-card">
+                            <strong class="kb-plan-name">الدعم الفني</strong>
+                            <div class="kb-plan-price">$15 <span class="kb-old-price">$25</span><small>/شهر</small></div>
+                            <ul>
+                                <li>تذاكر يومية غير محدودة</li>
+                                <li>نطاق فرعي مجاني (name.mad3oom.online)</li>
+                                <li>مدير + حتى 25 عضو فريق</li>
+                                <li>إحصائيات متقدمة وسجل نشاط</li>
+                            </ul>
+                        </div>
+                        <div class="kb-plan-card">
+                            <strong class="kb-plan-name">واتساب بيزنس</strong>
+                            <div class="kb-plan-price">$20 <span class="kb-old-price">$30</span><small>/شهر</small></div>
+                            <ul>
+                                <li>ربط رقم واتساب الخاص بيك بالمنصة</li>
+                                <li>استقبال وإرسال الرسائل من لوحة التحكم</li>
+                                <li>إمكانية إضافة رد آلي لاحقًا</li>
+                            </ul>
+                        </div>
+                        <div class="kb-plan-card featured">
+                            <span class="kb-plan-badge">الأكثر توفيرًا</span>
+                            <strong class="kb-plan-name">دعم فني + واتساب</strong>
+                            <div class="kb-plan-price">$30 <span class="kb-old-price">$55</span><small>/شهر</small></div>
+                            <ul>
+                                <li>كل مميزات الخطتين مع بعض</li>
+                                <li>دعم أولوية 24/7</li>
+                                <li>نقاط مضاعفة + شارة خاصة على الملف الشخصي</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.78rem; color: var(--color-text-secondary); margin: 0.25rem 0 0;">* أسعار الإطلاق أعلاه سارية لفترة محدودة، وتقدر تشوف السعر الحالي والعروض النشطة من صفحة الاشتراكات مباشرة.</p>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تغيير الخطة لاحقاً ترقية تخفيض">
+                    <summary>أقدر أغيّر خطتي بعد الاشتراك؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، تقدر تغيّر خطتك (ترقية أو تخفيض) في أي وقت من صفحة <strong>الاشتراكات</strong>. التغيير بينعكس على دورة الفوترة الجاية.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="طرق الدفع بطاقة ائتمان تحويل بنكي محفظة رقمية">
+                    <summary>إيه طرق الدفع المتاحة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        بنقبل بطاقات الائتمان، التحويلات البنكية، والمحافظ الرقمية. مفيش أي عقد أو التزام طويل الأجل — تقدر تلغي اشتراكك في أي وقت.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="استخدام النقاط للحصول على خصم على الاشتراك">
+                    <summary>أقدر أستخدم نقاطي في خصم على الاشتراك؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، النقاط اللي بتجمعها من البلاغات (شوف قسم <strong>النقاط والمكافآت</strong>) تقدر تستبدلها بخصومات على الخطط المدفوعة والمزايا الإضافية.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ النطاق الفرعي ============ -->
+            <section class="kb-section" id="subdomain">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                    </div>
+                    <div>
+                        <h2>النطاق الفرعي الخاص بيك</h2>
+                        <p>هوية مستقلة لشركتك على مدعوم</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إيه هو النطاق الفرعي subdomain اسم الشركة مجاني">
+                    <summary>إيه هو "النطاق الفرعي" وليه محتاجه؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        هو رابط خاص بشركتك أو نشاطك على منصة مدعوم، بالشكل ده: <code>yourname.mad3oom.online</code>. بيدّي عملاءك تجربة دعم مخصصة باسمك، وبييجي مجانًا مع خطة <strong>الدعم الفني</strong> أو الباقة الشاملة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أطلب نطاق فرعي جديد request-subdomain">
+                    <summary>إزاي أطلب نطاقي الفرعي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من صفحة <strong>طلب نطاق فرعي جديد</strong>، اكتب الاسم اللي عايزه (حروف إنجليزية صغيرة وأرقام وشرطات بس، من غير مسافات) وابعت الطلب. هيتراجع من فريق مدعوم وتقدر تتابع حالته من نفس الصفحة تحت "طلباتك السابقة".
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="حالات طلب النطاق قيد المراجعة تمت الموافقة مرفوض">
+                    <summary>إيه معنى حالات طلب النطاق؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>قيد المراجعة</strong>: طلبك وصل وبانتظار مراجعة الإدارة</li>
+                            <li><strong>تمت الموافقة</strong>: نطاقك جاهز ومفعّل، تقدر تستخدمه فورًا</li>
+                            <li><strong>مرفوض</strong>: غالبًا لأن الاسم متكرر أو مخالف — تقدر تطلب اسم تاني</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تنبيه تيليجرام عند فتح تذكرة جديدة من النطاق">
+                    <summary>أقدر أتنبّه فورًا لما حد يفتح تذكرة من نطاقي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، تقدر تربط بوت تيليجرام خاص بنطاقك عشان يوصلك تنبيه فوري كل ما عميل يفتح تذكرة جديدة من صفحتك — من غير ما تفضل فاتح لوحة التحكم طول الوقت.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ API والتكاملات ============ -->
+            <section class="kb-section" id="api">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </div>
+                    <div>
+                        <h2>API والتكاملات</h2>
+                        <p>اربط مدعوم بتطبيقاتك وأدوات الذكاء الاصطناعي</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أنشئ مفتاح API token مصادقة Bearer">
+                    <summary>إزاي أنشئ مفتاح API؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من صفحة <strong>إدارة API</strong> تقدر تنشئ مفتاح (Token) خاص بيك، وتستخدمه للمصادقة على كل الطلبات بإرساله في ترويسة الطلب:
+                        <br><code>Authorization: Bearer YOUR_API_KEY</code>
+                        <br>المفتاح بيتخزن مشفّر (hash) عندنا، فاحتفظ بنسخة منه أول ما تتولد — مش هتقدر تشوفه تاني كامل بعد كده.
+                    </div>
+                </details>
+
+                <div class="kb-channels" data-kb-searchable data-kb-text="نقاط اتصال API endpoints chat send whatsapp session send">
+                    <div class="kb-channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                        <div><strong>إرسال رسالة للشات</strong><span>POST /chat/send</span></div>
+                    </div>
+                    <div class="kb-channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+                        <div><strong>إرسال رسالة واتساب</strong><span>POST /whatsapp/session/send</span></div>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مدعوم كخادم MCP Model Context Protocol Claude ChatGPT اتصال وكيل ذكاء اصطناعي">
+                    <summary>مدعوم بيتكامل مع Claude وChatGPT إزاي؟ (MCP)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        مدعوم بيدعم بروتوكول <strong>MCP (Model Context Protocol)</strong> في اتجاهين: تقدر تربط حسابك بخوادم MCP خارجية (مدعوم كعميل)، أو تسمح لعملاء ذكاء اصطناعي زي <strong>Claude</strong> و<strong>ChatGPT</strong> يتصلوا مباشرة بمدعوم (مدعوم كخادم) عن طريق تفويض OAuth آمن، عشان يقدروا يستخدموا أدواتك وبياناتك على المنصة داخل المحادثة. الإعداد كله من تبويب <strong>شبكة MCP</strong> في لوحة الإدارة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="webhooks تنبيهات خارجية أحداث التذاكر">
+                    <summary>أقدر أستقبل تنبيهات خارجية (Webhooks) لما حاجة تحصل في تذاكري؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، تقدر تسجّل رابط (Webhook URL) خاص بيك عشان يتنادى تلقائيًا عند إنشاء تذكرة، تغيّر حالتها، أو حلّها — مفيد لو عايز تربط مدعوم بنظام داخلي عندك زي Slack أو CRM.
                     </div>
                 </details>
             </section>
