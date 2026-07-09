@@ -55,6 +55,7 @@
 
 import { supabase } from '/api-config.js';
 import { createNotification } from '/notifications-service.js';
+import { uploadTicketAttachment } from '/tickets-service.js';
 
 export const PLANS = ['support', 'whatsapp', 'bundle'];
 export const BILLING_CYCLES = ['monthly', 'yearly'];
@@ -70,6 +71,41 @@ export const BILLING_LABELS = {
     yearly: 'سنوي'
 };
 
+// وسائل الدفع المتاحة لطلب الاشتراك
+// كل وسيلة غير "gateway" تعتبر "تحويل خارجي": تتطلب إثبات (صورة/PDF) إلزامي
+// ومراجعة من فريق الدعم خلال ساعة كحد أقصى.
+export const PAYMENT_METHODS = [
+    'bank_transfer',
+    'vodafone_cash',
+    'etisalat_cash',
+    'we_cash',
+    'orange_cash',
+    'instapay',
+    'gateway'
+];
+
+export const PAYMENT_METHOD_LABELS = {
+    bank_transfer: 'تحويل بنكي',
+    vodafone_cash: 'فودافون كاش',
+    etisalat_cash: 'اتصالات كاش',
+    we_cash: 'وي كاش',
+    orange_cash: 'أورانج كاش',
+    instapay: 'إنستاباي',
+    gateway: 'بوابة دفع إلكترونية (داخلية)'
+};
+
+// وسائل التحويل الخارجي (كلها بتتطلب إثبات + مراجعة خلال ساعة)، مقابل
+// "gateway" اللي هي الوسيلة الداخلية الوحيدة ومش بتتطلب إثبات حاليًا.
+export const EXTERNAL_PAYMENT_METHODS = PAYMENT_METHODS.filter((m) => m !== 'gateway');
+
+// أنواع الملفات المسموح بها كإثبات تحويل، وحجمها الأقصى
+const PROOF_ALLOWED_MIME_PREFIXES = ['image/'];
+const PROOF_ALLOWED_MIME_EXACT = ['application/pdf'];
+const PROOF_MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
+
+// أقصى مدة مسموح بها لمراجعة أي طلب تحويل خارجي (بنكي أو محفظة) قبل التأكيد/الرفض
+const EXTERNAL_PAYMENT_REVIEW_SLA_MS = 60 * 60 * 1000; // ساعة واحدة
+
 // الخطط اللي بتستحق ترقية super_user
 const SUPER_USER_PLANS = ['support', 'bundle'];
 
@@ -82,6 +118,41 @@ function assertValidPlan(plan) {
 function assertValidBillingCycle(billingCycle) {
     if (!BILLING_CYCLES.includes(billingCycle)) {
         throw new Error(`Invalid billing cycle: ${billingCycle}. Expected one of: ${BILLING_CYCLES.join(', ')}`);
+    }
+}
+
+/**
+ * يتأكد إن وسيلة الدفع محددة وصحيحة. اختيار وسيلة الدفع إلزامي لأي طلب اشتراك
+ * (جديد أو تجديد) - مفيش قيمة افتراضية.
+ */
+function assertValidPaymentMethod(paymentMethod) {
+    if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
+        throw new Error('يجب اختيار وسيلة الدفع (تحويل بنكي خارجي أو بوابة دفع داخلية) قبل إرسال طلب الاشتراك.');
+    }
+}
+
+/**
+ * لو وسيلة الدفع "تحويل بنكي خارجي"، إرفاق صورة أو PDF لإثبات التحويل إلزامي.
+ * وسيلة "بوابة الدفع الداخلية" لسه مش شرط ليها إثبات (لحد ما تتفعّل فعليًا).
+ */
+function assertValidProofFile(paymentMethod, proofFile) {
+    if (!EXTERNAL_PAYMENT_METHODS.includes(paymentMethod)) return;
+
+    if (!proofFile) {
+        throw new Error('التحويل البنكي الخارجي يتطلب إرفاق صورة أو ملف PDF لإثبات التحويل.');
+    }
+
+    const mimeType = proofFile.type || '';
+    const isAllowedType =
+        PROOF_ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix)) ||
+        PROOF_ALLOWED_MIME_EXACT.includes(mimeType);
+
+    if (!isAllowedType) {
+        throw new Error('إثبات التحويل يجب أن يكون صورة (JPG/PNG...) أو ملف PDF فقط.');
+    }
+
+    if (proofFile.size > PROOF_MAX_SIZE_BYTES) {
+        throw new Error('حجم ملف إثبات التحويل كبير جدًا. الحد الأقصى 8 ميجابايت.');
     }
 }
 
@@ -232,17 +303,29 @@ async function downgradeFromSuperUserIfNoAccessLeft(userId, excludeSubscriptionI
  * Create a subscription request ticket for any plan.
  * @param {string} plan - 'support' | 'whatsapp' | 'bundle'
  * @param {string} billingCycle - 'monthly' | 'yearly'
- * @param {Object} [options]
+ * @param {Object} options
  * @param {boolean} [options.isRenewal=false] - لو true، بيتم اعتباره طلب تجديد
  *        وبيتم تمديد المدة من تاريخ انتهاء الاشتراك النشط الحالي لنفس الخطة
  *        (لو موجود) بدلاً من احتسابها من الآن.
+ * @param {string} options.paymentMethod - إحدى قيم PAYMENT_METHODS (إلزامي).
+ * @param {string} [options.paymentReference] - رقم/مرجع التحويل أو ملاحظة اختيارية من العميل.
+ * @param {File} [options.proofFile] - صورة أو PDF لإثبات التحويل. إلزامي لو
+ *        أي وسيلة غير 'gateway' (تحويل خارجي)، ويُتجاهل تمامًا لو 'gateway'.
  * @returns {Promise<Object>} - { success, ticket, subscription }
  */
 export async function createSubscriptionTicket(plan, billingCycle, options = {}) {
     assertValidPlan(plan);
     assertValidBillingCycle(billingCycle);
+    assertValidPaymentMethod(options.paymentMethod);
+    assertValidProofFile(options.paymentMethod, options.proofFile);
 
     const isRenewal = !!options.isRenewal;
+    const paymentMethod = options.paymentMethod;
+    const paymentReference = options.paymentReference ? String(options.paymentReference).trim().slice(0, 500) : null;
+    const proofFile = EXTERNAL_PAYMENT_METHODS.includes(paymentMethod) ? options.proofFile : null;
+
+    let createdTicketId = null;
+    let createdSubscriptionId = null;
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -280,6 +363,7 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
         const planLabel = PLAN_LABELS[plan];
         const billingLabel = BILLING_LABELS[billingCycle];
         const durationLabel = billingCycle === 'yearly' ? 'سنة واحدة' : 'شهر واحد';
+        const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethod];
 
         // ملاحظة مهمة: start_date/end_date هنا قيم مبدئية (placeholder) فقط
         // لإن عمود end_date مطلوب (NOT NULL) في قاعدة البيانات. التواريخ
@@ -290,27 +374,45 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
 
         let description;
         if (isRenewal && previousEndDate) {
-            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nاشتراكك الحالي ينتهي في: ${previousEndDate.toLocaleString('ar-EG')}\nسيتم تمديد الاشتراك لمدة ${durationLabel} إضافية بدءًا من تاريخ الانتهاء الحالي عند تأكيد الطلب من فريق الدعم.`;
+            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nوسيلة الدفع: ${paymentMethodLabel}\nاشتراكك الحالي ينتهي في: ${previousEndDate.toLocaleString('ar-EG')}\nسيتم تمديد الاشتراك لمدة ${durationLabel} إضافية بدءًا من تاريخ الانتهاء الحالي عند تأكيد الطلب من فريق الدعم.`;
         } else if (isRenewal) {
-            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nملاحظة: لم يتم العثور على اشتراك نشط حالي لهذه الخطة، سيتم احتساب المدة من تاريخ تأكيد الطلب.`;
+            description = `طلب تجديد اشتراك\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nوسيلة الدفع: ${paymentMethodLabel}\nملاحظة: لم يتم العثور على اشتراك نشط حالي لهذه الخطة، سيتم احتساب المدة من تاريخ تأكيد الطلب.`;
         } else {
-            description = `طلب اشتراك جديد\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nسيتم احتساب تاريخ البداية والنهاية الفعلي عند تأكيد الطلب من فريق الدعم.`;
+            description = `طلب اشتراك جديد\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nوسيلة الدفع: ${paymentMethodLabel}\nسيتم احتساب تاريخ البداية والنهاية الفعلي عند تأكيد الطلب من فريق الدعم.`;
+        }
+
+        if (paymentReference) {
+            description += `\nمرجع التحويل: ${paymentReference}`;
+        }
+
+        const now = new Date();
+        const ticketPayload = {
+            user_id: user.id,
+            title: `${isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك'} - ${planLabel} (${billingLabel})`,
+            description,
+            status: 'open',
+            priority: 'high'
+        };
+
+        // طلبات التحويل البنكي الخارجي لازم تُراجع خلال ساعة كحد أقصى، بغض
+        // النظر عن مهلة الـ SLA الافتراضية للأولوية العالية (4 ساعات). القيمة
+        // دي بتتحدد صراحةً هنا عشان الـ trigger set_ticket_sla() ما يغيّرهاش
+        // (بيتفعّل بس لو العمود NULL وقت الإدراج).
+        if (EXTERNAL_PAYMENT_METHODS.includes(paymentMethod)) {
+            ticketPayload.sla_response_due_at = new Date(now.getTime() + EXTERNAL_PAYMENT_REVIEW_SLA_MS).toISOString();
+            description += `\n\n⚠️ طلب تحويل خارجي (${paymentMethodLabel}) - يجب مراجعته وتأكيده أو رفضه خلال ساعة كحد أقصى من فريق الدعم.`;
+            ticketPayload.description = description;
         }
 
         // Create a support ticket for the subscription request
         const { data: ticket, error: ticketError } = await supabase
             .from('tickets')
-            .insert({
-                user_id: user.id,
-                title: `${isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك'} - ${planLabel} (${billingLabel})`,
-                description,
-                status: 'open',
-                priority: 'high'
-            })
+            .insert(ticketPayload)
             .select()
             .single();
 
         if (ticketError) throw ticketError;
+        createdTicketId = ticket.id;
 
         // Create subscription record with pending status (no payment taken yet)
         const { data: subscription, error: subError } = await supabase
@@ -325,12 +427,30 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
                 status: 'pending',
                 is_renewal: isRenewal,
                 duration_days: durationDays,
-                previous_end_date: previousEndDate ? previousEndDate.toISOString() : null
+                previous_end_date: previousEndDate ? previousEndDate.toISOString() : null,
+                payment_method: paymentMethod,
+                payment_reference: paymentReference
             })
             .select()
             .single();
 
         if (subError) throw subError;
+        createdSubscriptionId = subscription.id;
+
+        // إثبات التحويل (لو تحويل بنكي خارجي) بيتخزن كمرفق عادي على نفس
+        // التذكرة، فيظهر تلقائيًا في لوحة الإدارة زي أي مرفق تذكرة تاني.
+        if (proofFile) {
+            try {
+                await uploadTicketAttachment(ticket.id, proofFile);
+            } catch (uploadError) {
+                console.error('Error uploading subscription payment proof, rolling back:', uploadError);
+                // تراجع (rollback) عن التذكرة والاشتراك اللي اتعملوا عشان منسيبش
+                // طلب تحويل بنكي بدون إثبات معلّق في النظام.
+                await supabase.from('whatsapp_subscriptions').delete().eq('id', createdSubscriptionId);
+                await supabase.from('tickets').delete().eq('id', createdTicketId);
+                throw new Error('فشل رفع صورة/ملف إثبات التحويل. حاول مرة أخرى.');
+            }
+        }
 
         return {
             success: true,
@@ -451,14 +571,18 @@ export function calculateDaysRemaining(endDate) {
  * لنفس الخطة، مش من تاريخ التأكيد نفسه - إلا لو الاشتراك القديم خلص فعلاً.
  * @param {string} plan - 'support' | 'whatsapp' | 'bundle'
  * @param {string} billingCycle - 'monthly' | 'yearly'
+ * @param {Object} paymentInfo - نفس خيارات الدفع المطلوبة في createSubscriptionTicket
+ * @param {string} paymentInfo.paymentMethod - إحدى قيم PAYMENT_METHODS (إلزامي)
+ * @param {string} [paymentInfo.paymentReference]
+ * @param {File} [paymentInfo.proofFile] - إلزامي لأي وسيلة تحويل خارجي (كل شيء عدا 'gateway')
  * @returns {Promise<Object>}
  */
-export async function renewSubscription(plan, billingCycle) {
+export async function renewSubscription(plan, billingCycle, paymentInfo = {}) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('User not authenticated');
 
-        return await createSubscriptionTicket(plan, billingCycle, { isRenewal: true });
+        return await createSubscriptionTicket(plan, billingCycle, { ...paymentInfo, isRenewal: true });
     } catch (error) {
         console.error('Error renewing subscription:', error);
         throw error;
