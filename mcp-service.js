@@ -696,3 +696,23 @@ export async function setMcpServerToolEnabled(toolName, enabled) {
     if (data?.error) throw new Error(data.error);
     return data; // { success, tools }
 }
+export const MCP_CATALOG_CATEGORIES = [
+    { key: 'all', label: 'الكل' },
+    { key: 'database', label: 'قواعد البيانات' },
+    { key: 'development', label: 'أدوات المطورين' },
+    { key: 'communication', label: 'التواصل' },
+    { key: 'productivity', label: 'الإنتاجية' },
+    { key: 'custom', label: 'مخصص' }
+];
+
+export const MCP_CLIENT_CATALOG = [];
+
+export function findConnectedServerForCatalogEntry(entry, servers = []) {
+    return servers.find(s =>
+        (s.url || '').replace(/\/$/, '') === (entry.url || '').replace(/\/$/, '')
+    ) || null;
+}
+
+export async function invokeMcpTool() {
+    throw new Error('invokeMcpTool غير منفذة بعد');
+}
