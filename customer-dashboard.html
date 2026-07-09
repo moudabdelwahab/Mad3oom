@@ -153,6 +153,17 @@
         .view-ticket-btn { margin-top: 1rem; width: 100%; }
         .menu-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: var(--color-text); text-decoration: none; transition: all 0.2s; font-size: 0.9rem; font-weight: 600; }
         .menu-item:hover { background: var(--hover-bg); color: var(--color-accent); }
+
+        /* ==================== Badges ==================== */
+        .badge-card { padding: 1.75rem 1.25rem; text-align: center; position: relative; transition: transform .2s ease, box-shadow .2s ease; }
+        .badge-card.locked { opacity: 0.45; filter: grayscale(1); }
+        .badge-card.earned { border-color: rgba(34,197,139,.35); box-shadow: 0 0 0 1px rgba(34,197,139,.15) inset; }
+        .badge-card.earned:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.25), 0 0 0 1px rgba(34,197,139,.2) inset; }
+        .badge-card .badge-icon { font-size: 2.75rem; margin-bottom: .85rem; line-height: 1; }
+        .badge-card h3 { margin-bottom: .4rem; font-size: 1rem; }
+        .badge-card p { font-size: .82rem; color: var(--color-text-secondary); line-height: 1.5; }
+        .badge-card .badge-earned-date { margin-top: .7rem; font-size: .72rem; color: #22C58B; font-weight: 700; }
+        .badge-card .badge-locked-tag { position: absolute; top: .7rem; left: .7rem; font-size: .7rem; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; position: relative; }
         .status-dot::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; animation: statusPulse 2s infinite; }
         .status-online { background-color: #22c55e; }
@@ -414,31 +425,18 @@
 
         <!-- Badges Tab -->
         <div id="badgesTabContent" class="tab-content">
-            <div style="margin-bottom: 2rem;">
-                <h1>شاراتي</h1>
-                <p style="color: var(--color-text-secondary);">اجمع الشارات من خلال تفاعلك مع الدعم الفني</p>
+            <div style="margin-bottom: 2rem; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+                <div>
+                    <h1>شاراتي</h1>
+                    <p style="color: var(--color-text-secondary);">اجمع الشارات من خلال تفاعلك مع منصة مدعوم</p>
+                </div>
+                <div id="badgesProgressSummary" style="font-size:0.9rem; color: var(--color-text-secondary);"></div>
             </div>
             <div id="badgesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem;">
-                <!-- Badge: First Ticket -->
-                <div class="badge-card glass-card" id="badge-first-ticket" style="padding: 2rem; text-align: center; opacity: 0.4; filter: grayscale(1); transition: all 0.3s;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🎫</div>
-                    <h3 style="margin-bottom: 0.5rem;">أول تذكرة</h3>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary);">تم الحصول عليها عند إنشاء أول تذكرة دعم</p>
-                </div>
-                <!-- Badge: 10 Tickets -->
-                <div class="badge-card glass-card" id="badge-ten-tickets" style="padding: 2rem; text-align: center; opacity: 0.4; filter: grayscale(1); transition: all 0.3s;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔥</div>
-                    <h3 style="margin-bottom: 0.5rem;">المستخدم النشط</h3>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary);">تم الحصول عليها عند إنشاء 10 تذاكر دعم</p>
-                </div>
-                <!-- Badge: Fast Responder -->
-                <div class="badge-card glass-card" id="badge-fast-responder" style="padding: 2rem; text-align: center; opacity: 0.4; filter: grayscale(1); transition: all 0.3s;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
-                    <h3 style="margin-bottom: 0.5rem;">المتفاعل السريع</h3>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary);">تم الحصول عليها عند الرد السريع على التذاكر</p>
-                </div>
+                <p class="empty-state">جاري تحميل الشارات...</p>
             </div>
         </div>
+
 
         <!-- Profile Tab -->
         <div id="profileTabContent" class="tab-content">
