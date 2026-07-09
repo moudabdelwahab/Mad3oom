@@ -11,12 +11,7 @@ import {
     fetchTicketReplies,
     addTicketReply,
     subscribeToTickets,
-    deleteTicket,
-    fetchTicketAttachments,
-    fetchTicketTags,
-    fetchTicketActivity,
-    fetchTicketRating,
-    submitTicketRating
+    deleteTicket
 } from './tickets-service.js';
 import {
     fetchNotifications,
@@ -24,6 +19,7 @@ import {
     subscribeToNotifications
 } from './notifications-service.js';
 import { ui } from './ui-service.js';
+import { supabase } from './api-config.js';
 
 /* =========================================================
    حماية من bfcache (Back-Forward Cache)
@@ -751,6 +747,90 @@ ${ticket.description}
         }
     }
 
+    /* ================= BADGES LOGIC ================= */
+
+    async function renderBadges() {
+        const grid = document.getElementById('badgesGrid');
+        const summaryEl = document.getElementById('badgesProgressSummary');
+        if (!grid) return;
+
+        if (isGuest) {
+            grid.innerHTML = '<p class="empty-state">سجّل الدخول لتتمكن من جمع الشارات ومتابعة إنجازاتك.</p>';
+            if (summaryEl) summaryEl.textContent = '';
+            return;
+        }
+
+        try {
+            // نطلب من السيرفر تقييم شارات المستخدم فورًا (بأمان، تعمل فقط على نفس المستخدم المسجّل دخوله)
+            // بحيث لو استحق شارة جديدة بس السيرفر لسه ما فعّلهاش (مثال: عميل مخلص بعد مرور شهر)، تتفعل فورًا هنا.
+            await supabase.rpc('evaluate_customer_badges', { p_user_id: user.id });
+        } catch (err) {
+            console.warn('[Badges] evaluate_customer_badges failed (non-blocking):', err?.message || err);
+        }
+
+        try {
+            const [{ data: definitions, error: defError }, { data: earned, error: earnedError }] = await Promise.all([
+                supabase
+                    .from('badge_definitions')
+                    .select('id, key, name, description, icon, sort_order')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }),
+                supabase
+                    .from('customer_badges')
+                    .select('badge_id, earned_at')
+                    .eq('user_id', user.id)
+            ]);
+
+            if (defError) throw defError;
+            if (earnedError) throw earnedError;
+
+            const earnedMap = new Map((earned || []).map(e => [e.badge_id, e.earned_at]));
+
+            if (!definitions || !definitions.length) {
+                grid.innerHTML = '<p class="empty-state">لا توجد شارات متاحة حاليًا.</p>';
+                if (summaryEl) summaryEl.textContent = '';
+                return;
+            }
+
+            if (summaryEl) {
+                summaryEl.textContent = `حصلت على ${earnedMap.size} من ${definitions.length} شارة`;
+            }
+
+            grid.innerHTML = definitions.map(badge => {
+                const earnedAt = earnedMap.get(badge.id);
+                const isEarned = !!earnedAt;
+                const dateLabel = isEarned
+                    ? new Date(earnedAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : '';
+
+                return `
+                    <div class="badge-card glass-card ${isEarned ? 'earned' : 'locked'}" data-badge-key="${escapeHtml(badge.key)}" title="${isEarned ? 'شارة مكتسبة' : 'شارة غير مكتسبة بعد'}">
+                        ${!isEarned ? '<span class="badge-locked-tag">🔒</span>' : ''}
+                        <div class="badge-icon">${escapeHtml(badge.icon || '🏆')}</div>
+                        <h3>${escapeHtml(badge.name)}</h3>
+                        <p>${escapeHtml(badge.description)}</p>
+                        ${isEarned ? `<div class="badge-earned-date">✓ حصلت عليها في ${dateLabel}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('[Badges] Error loading badges:', err);
+            grid.innerHTML = '<p class="empty-state">حدث خطأ أثناء تحميل الشارات، حاول تحديث الصفحة.</p>';
+        }
+    }
+
+    // تحميل الشارات عند فتح تبويب "الشارات" لأول مرة (Lazy Load)
+    let badgesLoadedOnce = false;
+    const badgesTabEl = document.querySelector('.nav-tab[data-tab="badges"]');
+    if (badgesTabEl) {
+        badgesTabEl.addEventListener('click', () => {
+            if (!badgesLoadedOnce) {
+                badgesLoadedOnce = true;
+                renderBadges();
+            }
+        });
+    }
+
     /* ================= INIT ================= */
 
     await Promise.all([renderStats(), renderTickets(), renderNotifications()]);
@@ -763,6 +843,7 @@ ${ticket.description}
             // Run stats and tickets fetch in parallel
             Promise.all([renderStats(), renderTickets()]);
             if (currentTicketId) loadRepliesInPanel(currentTicketId);
+            if (badgesLoadedOnce) renderBadges();
         });
         subscribeToNotifications(user.id, (newNotification) => {
             console.log('[Customer Dashboard] Notification callback triggered:', newNotification);
