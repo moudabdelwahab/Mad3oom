@@ -19,7 +19,12 @@ import {
     testExternalIntegration, fetchDefaultAiProvider, saveDefaultAiProvider,
     fetchIntegrationModels, OPENAI_COMPATIBLE_PROVIDERS,
     INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
+    MCP_CLIENT_CATALOG, MCP_CATALOG_CATEGORIES, invokeMcpTool, findConnectedServerForCatalogEntry,
 } from '/mcp-service.js';
+
+let mcpMarketCategory = 'all';
+let mcpMarketSearchQuery = '';
+let explorerSearchQuery = '';
 
 /** عنوان ربط مدعوم كـ MCP Connector (OAuth) - نفس الرابط اللي يتضاف كـ Connector في Claude أو أي عميل MCP يدعم Streamable HTTP */
 const MCP_CONNECTOR_URL = 'https://mad3oom.online/mcp';
@@ -96,6 +101,9 @@ async function loadServers() {
         renderServers(allServers);
         await loadStats();
         await loadActivity();
+        // البيانات مشتركة مع تبويب "MCP العميل" الجديد - نحدّثه كل ما يتغيّر allServers هنا
+        if (document.getElementById('connectorGrid')) renderConnectorGrid();
+        if (document.getElementById('toolExplorerList')) renderToolExplorer();
     } catch (err) {
         console.error('[MCP] loadServers failed:', err);
         list.innerHTML = errorHtml(err.message);
@@ -163,6 +171,214 @@ function renderServers(servers) {
         </div>`;
     }).join('');
 }
+
+/* ====================  MCP Client Marketplace (جديد)  ==================== */
+
+function renderCategoryChips() {
+    const container = document.getElementById('mcpCategoryChips');
+    if (!container) return;
+    container.innerHTML = MCP_CATALOG_CATEGORIES.map((c) => `
+        <button type="button" class="mcp-chip ${mcpMarketCategory === c.key ? 'active' : ''}" data-cat="${c.key}">${escapeHtml(c.label)}</button>
+    `).join('');
+    container.querySelectorAll('.mcp-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            mcpMarketCategory = btn.dataset.cat;
+            renderConnectorGrid();
+            renderCategoryChips();
+        });
+    });
+}
+
+async function loadMcpClientMarketplace() {
+    renderCategoryChips();
+    if (!allServers.length) await loadServers(); // loadServers نفسه بينادي renderConnectorGrid/renderToolExplorer في النهاية
+    else { renderConnectorGrid(); renderToolExplorer(); }
+}
+
+function connectorStatusChip(server) {
+    if (!server) return '<span class="status-chip st-disconnected"><span class="dot"></span>غير متصل</span>';
+    return statusBadge(server.status);
+}
+
+function renderConnectorGrid() {
+    const grid = document.getElementById('connectorGrid');
+    if (!grid) return;
+
+    const q = mcpMarketSearchQuery.trim().toLowerCase();
+    const catalogFiltered = MCP_CLIENT_CATALOG.filter((c) => {
+        if (mcpMarketCategory !== 'all' && c.category !== mcpMarketCategory) return false;
+        if (q && !(c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))) return false;
+        return true;
+    });
+
+    // أي خادم مضاف يدويًا (من تبويب Servers) ولا يطابق أي عنصر كتالوج - نعرضه كبطاقة مخصّصة كمان
+    const catalogUrls = new Set(MCP_CLIENT_CATALOG.map((c) => (c.url || '').trim().toLowerCase().replace(/\/+$/, '')));
+    const extraServers = allServers.filter((s) => !catalogUrls.has((s.url || '').trim().toLowerCase().replace(/\/+$/, '')));
+
+    if (!catalogFiltered.length && !extraServers.length) {
+        grid.innerHTML = `<div class="state-block empty"><p>لا توجد نتائج مطابقة للبحث/التصنيف المحدد.</p></div>`;
+        return;
+    }
+
+    const catalogCards = catalogFiltered.map((c) => {
+        const server = c.isCustomBlank ? null : findConnectedServerForCatalogEntry(c, allServers);
+        const isConnected = server && server.status === MCP_STATUSES.CONNECTED;
+        const toolCount = server && Array.isArray(server.tools) ? server.tools.length : 0;
+
+        const actions = c.isCustomBlank
+            ? `<button class="btn btn-primary" onclick="window.mcpAdd()">+ إضافة خادم مخصّص</button>`
+            : server
+                ? `
+                    <button class="btn btn-tools" onclick="window.mcpOpenTools('${server.id}')">الأدوات (${toolCount})</button>
+                    <button class="btn btn-edit" onclick="window.mcpEdit('${server.id}')">إدارة</button>
+                    ${isConnected ? `<button class="btn btn-disconnect" onclick="window.mcpDisconnect('${server.id}')">فصل</button>` : ''}
+                  `
+                : `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">ربط (Connect)</button>`;
+
+        return `
+        <div class="connector-card ${isConnected ? 'is-connected' : ''}">
+            <div class="connector-card-top">
+                <div class="connector-icon" style="background:${c.brandColor}">${escapeHtml(c.initial)}</div>
+                <div class="connector-name-wrap">
+                    <div class="connector-name">${escapeHtml(c.name)}</div>
+                    <div class="connector-desc">${escapeHtml(c.description)}</div>
+                </div>
+            </div>
+            <div class="connector-meta-row">
+                ${connectorStatusChip(server)}
+                ${server ? `<span>🛠️ ${toolCount} أداة</span>` : ''}
+            </div>
+            ${!server && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}</div>` : ''}
+            <div class="connector-actions">${actions}</div>
+        </div>`;
+    }).join('');
+
+    const extraCards = (mcpMarketCategory === 'all' || mcpMarketCategory === 'custom') ? extraServers.filter((s) => {
+        if (!q) return true;
+        return (s.name || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q);
+    }).map((s) => {
+        const isConnected = s.status === MCP_STATUSES.CONNECTED;
+        const toolCount = Array.isArray(s.tools) ? s.tools.length : 0;
+        return `
+        <div class="connector-card ${isConnected ? 'is-connected' : ''}">
+            <div class="connector-card-top">
+                <div class="connector-icon" style="background:#64748b">${escapeHtml((s.name || '?').trim().charAt(0).toUpperCase())}</div>
+                <div class="connector-name-wrap">
+                    <div class="connector-name">${escapeHtml(s.name)}</div>
+                    <div class="connector-desc">${escapeHtml(s.description || 'خادم مخصّص مُضاف يدويًا')}</div>
+                </div>
+            </div>
+            <div class="connector-meta-row">${connectorStatusChip(s)}<span>🛠️ ${toolCount} أداة</span></div>
+            <div class="connector-actions">
+                <button class="btn btn-tools" onclick="window.mcpOpenTools('${s.id}')">الأدوات (${toolCount})</button>
+                <button class="btn btn-edit" onclick="window.mcpEdit('${s.id}')">إدارة</button>
+                ${isConnected ? `<button class="btn btn-disconnect" onclick="window.mcpDisconnect('${s.id}')">فصل</button>` : ''}
+            </div>
+        </div>`;
+    }).join('') : '';
+
+    grid.innerHTML = catalogCards + extraCards;
+}
+
+/** يفتح نفس مودال "إضافة خادم" الموجود بالفعل، ويملأ الحقول بقيم الكتالوج الافتراضية فقط - العملية الفعلية
+ *  (createServer/saveCredentials/startOAuth) هي نفسها تمامًا بدون أي تعديل. */
+window.mcpConnectCatalog = function (catalogKey) {
+    const entry = MCP_CLIENT_CATALOG.find((c) => c.key === catalogKey);
+    if (!entry) return;
+
+    openModal(null);
+    document.getElementById('modalTitle').textContent = `ربط ${entry.name}`;
+    setValue('fName', entry.name);
+    setValue('fTransport', entry.transport || 'streamable_http');
+    setValue('fUrl', entry.url || '');
+    setValue('fCategory', entry.category || 'general');
+    setValue('fDescription', entry.description || '');
+    setValue('fAuthType', entry.auth_type || 'none');
+    if (entry.auth_type === 'oauth2') {
+        setValue('fOauthAuthorizeUrl', entry.oauth_authorize_url || '');
+        setValue('fOauthTokenUrl', entry.oauth_token_url || '');
+        setValue('fOauthScope', entry.oauth_scope || '');
+    }
+    // نعيد استدعاء نفس دوال إظهار/إخفاء الحقول الموجودة بالفعل عشان تعكس القيم الجديدة
+    if (typeof onTransportChange === 'function') onTransportChange();
+    if (typeof onAuthTypeChange === 'function') onAuthTypeChange();
+
+    if (entry.needsManualUrl && !entry.url) {
+        toast('هذا الموصل يحتاج رابط خادم خاص بإعدادك - راجع التوثيق قبل الحفظ', 'info');
+    }
+};
+
+/* ====================  Tool Explorer (جديد) - تشغيل أي أداة مباشرة من الواجهة  ==================== */
+
+function renderToolExplorer() {
+    const list = document.getElementById('toolExplorerList');
+    if (!list) return;
+
+    const q = explorerSearchQuery.trim().toLowerCase();
+    const rows = [];
+    allServers.forEach((server) => {
+        if (server.status !== MCP_STATUSES.CONNECTED || !Array.isArray(server.tools)) return;
+        server.tools.forEach((t) => {
+            if (!t.enabled) return;
+            if (q && !(t.name.toLowerCase().includes(q) || (server.name || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))) return;
+            rows.push({ server, tool: t });
+        });
+    });
+
+    if (!rows.length) {
+        list.innerHTML = `<div class="tools-empty">لا توجد أدوات مفعّلة من موصلات متصلة بعد. اربط موصلًا من فوق وفعّل أدواته.</div>`;
+        return;
+    }
+
+    list.innerHTML = rows.map(({ server, tool }, idx) => {
+        const rowId = `explorer_${idx}_${server.id}_${sanitizeId(tool.name)}`;
+        return `
+        <div class="tool-row" style="flex-direction:column;align-items:stretch;gap:0.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+                <div class="tool-info">
+                    <div class="tool-name">${escapeHtml(tool.name)} <span class="transport-chip">${escapeHtml(server.name)}</span></div>
+                    <div class="tool-desc">${escapeHtml(tool.description || '—')}</div>
+                </div>
+                <button class="btn btn-test" onclick="window.mcpToggleRunPanel('${rowId}')">▶ تشغيل</button>
+            </div>
+            <div class="tool-run-panel" id="panel_${rowId}">
+                <label style="font-size:0.78rem;font-weight:700;color:var(--color-text-secondary)">المعاملات (JSON)</label>
+                <textarea id="args_${rowId}" placeholder="{}">{}</textarea>
+                <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                    <button class="btn btn-primary" onclick="window.mcpRunTool('${rowId}', '${escapeHtml(tool.name)}')">تشغيل الأداة</button>
+                </div>
+                <div id="result_${rowId}"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function sanitizeId(str) { return String(str).replace(/[^a-zA-Z0-9_]/g, '_'); }
+
+window.mcpToggleRunPanel = function (rowId) {
+    const panel = document.getElementById(`panel_${rowId}`);
+    if (panel) panel.classList.toggle('open');
+};
+
+window.mcpRunTool = async function (rowId, toolName) {
+    const textarea = document.getElementById(`args_${rowId}`);
+    const resultBox = document.getElementById(`result_${rowId}`);
+    let args = {};
+    try {
+        args = textarea.value.trim() ? JSON.parse(textarea.value) : {};
+    } catch {
+        resultBox.innerHTML = `<div class="tool-run-result error">المعاملات مش JSON صالح - تأكد من الصيغة.</div>`;
+        return;
+    }
+
+    resultBox.innerHTML = `<div class="tool-run-result">جاري التنفيذ...</div>`;
+    try {
+        const res = await invokeMcpTool(toolName, args);
+        resultBox.innerHTML = `<div class="tool-run-result success">${escapeHtml(JSON.stringify(res.result ?? res, null, 2))}</div>`;
+    } catch (err) {
+        resultBox.innerHTML = `<div class="tool-run-result error">${escapeHtml(err.message || 'فشل تنفيذ الأداة')}</div>`;
+    }
+};
 
 /* ====================  الإحصائيات والنشاط  ==================== */
 
@@ -555,22 +771,19 @@ function copyRedirectUri() {
 
 function switchDevTab(tab) {
     document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
-    document.getElementById('devSectionMcp').classList.toggle('active', tab === 'mcp');
+    document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
+    document.getElementById('devSectionServers').classList.toggle('active', tab === 'servers');
+    document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
     document.getElementById('devSectionApiTokens').classList.toggle('active', tab === 'apitokens');
     document.getElementById('devSectionIntegrations').classList.toggle('active', tab === 'integrations');
 
+    if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
+    if (tab === 'mcpserver' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
     if (tab === 'apitokens' && !apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
     if (tab === 'integrations' && !integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
 }
 
-/** تبديل اتجاه شبكة MCP داخل التبويب الموحّد: صادر (Client) / وارد (Server) */
-function switchDirection(direction) {
-    document.querySelectorAll('.direction-pill').forEach((b) => b.classList.toggle('active', b.dataset.direction === direction));
-    document.getElementById('directionOutbound').classList.toggle('active', direction === 'outbound');
-    document.getElementById('directionInbound').classList.toggle('active', direction === 'inbound');
-
-    if (direction === 'inbound' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
-}
+let mcpClientMarketLoadedOnce = false;
 
 let apiTokensLoadedOnce = false;
 let integrationsLoadedOnce = false;
@@ -1346,10 +1559,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('toolsModal').addEventListener('click', (e) => { if (e.target.id === 'toolsModal') closeToolsModal(); });
     document.getElementById('toolsModalClose').addEventListener('click', closeToolsModal);
     document.getElementById('syncToolsBtn').addEventListener('click', handleSyncTools);
-    document.getElementById('dirBtnOutbound')
-    .addEventListener('click', () => switchDirection('outbound'));
-    document.getElementById('dirBtnInbound')
-    .addEventListener('click', () => switchDirection('inbound'));
     document.getElementById('testMcpServerBtn')
     .addEventListener('click', handleTestMcpServer);
     document.getElementById('toolsSearchInput').addEventListener('input', debounce((e) => {
@@ -1360,9 +1569,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal(); } });
 
     // تبويب Developer Center
-    document.getElementById('devTabMcp').addEventListener('click', () => switchDevTab('mcp'));
+    document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
+    document.getElementById('devTabServers').addEventListener('click', () => switchDevTab('servers'));
+    document.getElementById('devTabMcpServer').addEventListener('click', () => switchDevTab('mcpserver'));
     document.getElementById('devTabApiTokens').addEventListener('click', () => switchDevTab('apitokens'));
     document.getElementById('devTabIntegrations').addEventListener('click', () => switchDevTab('integrations'));
+
+    // MCP Client Marketplace - أحداث البحث والتصنيفات ومستكشف الأدوات
+    document.getElementById('mcpMarketSearch').addEventListener('input', debounce((e) => {
+        mcpMarketSearchQuery = e.target.value;
+        renderConnectorGrid();
+    }, 250));
+    document.getElementById('explorerSearchInput').addEventListener('input', debounce((e) => {
+        explorerSearchQuery = e.target.value;
+        renderToolExplorer();
+    }, 250));
+
 
     // مفاتيح API - أحداث
     document.getElementById('addTokenBtn').addEventListener('click', openApiTokenModal);
@@ -1388,4 +1610,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     handleOauthReturn();
     await loadServers();
+    mcpClientMarketLoadedOnce = true;
+    await loadMcpClientMarketplace();
 });
