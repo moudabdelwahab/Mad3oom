@@ -230,15 +230,21 @@ function renderConnectorGrid() {
         const isConnected = server && server.status === MCP_STATUSES.CONNECTED;
         const toolCount = server && Array.isArray(server.tools) ? server.tools.length : 0;
 
+        const isOauthType = c.auth_type === 'oauth2';
+        const readyForQuickLogin = isOauthType && server && server.auth_type === 'oauth2' && server.oauth_client_id && !isConnected;
+
         const actions = c.isCustomBlank
             ? `<button class="btn btn-primary" onclick="window.mcpAdd()">+ إضافة خادم مخصّص</button>`
             : server
                 ? `
+                    ${readyForQuickLogin ? `<button class="btn btn-primary" onclick="window.mcpQuickOAuthLogin('${server.id}')">🔐 تسجيل الدخول</button>` : ''}
                     <button class="btn btn-tools" onclick="window.mcpOpenTools('${server.id}')">الأدوات (${toolCount})</button>
                     <button class="btn btn-edit" onclick="window.mcpEdit('${server.id}')">إدارة</button>
                     ${isConnected ? `<button class="btn btn-disconnect" onclick="window.mcpDisconnect('${server.id}')">فصل</button>` : ''}
                   `
-                : `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">ربط (Connect)</button>`;
+                : isOauthType
+                    ? `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">🔐 ربط الحساب (تسجيل الدخول)</button>`
+                    : `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">ربط (Connect)</button>`;
 
         return `
         <div class="connector-card ${isConnected ? 'is-connected' : ''}">
@@ -253,7 +259,7 @@ function renderConnectorGrid() {
                 ${connectorStatusChip(server)}
                 ${server ? `<span>🛠️ ${toolCount} أداة</span>` : ''}
             </div>
-            ${!server && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}</div>` : ''}
+            ${!isConnected && !readyForQuickLogin && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}</div>` : ''}
             <div class="connector-actions">${actions}</div>
         </div>`;
     }).join('');
@@ -310,6 +316,17 @@ window.mcpConnectCatalog = function (catalogKey) {
 
     if (entry.needsManualUrl && !entry.url) {
         toast('هذا الموصل يحتاج رابط خادم خاص بإعدادك - راجع التوثيق قبل الحفظ', 'info');
+    }
+};
+
+/** لموصلات OAuth اللي عندها Client ID محفوظ بالفعل - يحوّل المتصفح مباشرة لصفحة تسجيل الدخول
+ *  الحقيقية عند المزوّد، بنفس آلية startOAuth/mcp-oauth-start الموجودة (بدون أي تعديل بها). */
+window.mcpQuickOAuthLogin = async function (serverId) {
+    try {
+        const { authorize_url } = await startOAuth(serverId);
+        window.location.href = authorize_url;
+    } catch (err) {
+        toast(err.message || 'فشل بدء تسجيل الدخول', 'error');
     }
 };
 
