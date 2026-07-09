@@ -156,17 +156,18 @@ export async function signIn(identifier, password, options = {}) {
         if (!normalizedIdentifier.includes('@')) {
             console.log('Searching username:', normalizedIdentifier);
 
-            const { data: profile, error: profileLookupError } = await withTimeout(
-                supabase
-                    .from('username_lookup')
-                    .select('email')
-                    .ilike('username', normalizedIdentifier.trim())
-                    .maybeSingle(),
+            // ملاحظة أمنية: كانت view مفتوحة تسمح بسحب usernames/emails
+            // كل المستخدمين دفعة واحدة. استبدلناها بدالة RPC آمنة (كانت
+            // موجودة بالفعل بدون استخدام: get_email_by_username) تُرجع
+            // نتيجة واحدة فقط لاسم مستخدم واحد بالظبط.
+            const { data: lookupRows, error: profileLookupError } = await withTimeout(
+                supabase.rpc('get_email_by_username', {
+                    p_username: normalizedIdentifier.trim()
+                }),
                 10000,
                 'البحث عن اسم المستخدم'
             );
 
-            console.log('profile =', profile);
             console.log('profileLookupError =', profileLookupError);
 
             if (profileLookupError) {
@@ -180,7 +181,9 @@ export async function signIn(identifier, password, options = {}) {
                 };
             }
 
-            if (!profile?.email) {
+            const lookedUpEmail = lookupRows?.[0]?.email;
+
+            if (!lookedUpEmail) {
                 return {
                     data: null,
                     error: {
@@ -189,7 +192,7 @@ export async function signIn(identifier, password, options = {}) {
                 };
             }
 
-            email = profile.email.trim().toLowerCase();
+            email = lookedUpEmail.trim().toLowerCase();
 
         } else {
             email = normalizedIdentifier.trim().toLowerCase();
