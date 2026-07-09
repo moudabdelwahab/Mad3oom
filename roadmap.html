@@ -21,6 +21,7 @@
             }
         })();
     </script>
+    <script src="theme-manager.js" defer></script>
     <style>
         :root{
             --rm-green: #22C58B;
@@ -71,7 +72,7 @@
         .rm-phaserail i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
 
         /* ===== Timeline spine ===== */
-        .rm-timeline{ position: relative; margin-top: 2rem; padding-inline-end: 2.75rem; }
+        .rm-timeline{ position: relative; margin-top: 2rem; padding-right: 2.75rem; box-sizing: border-box; }
         .rm-track{
             position:absolute; top: 0; bottom: 0; right: 22px; width: 3px; border-radius:3px;
             background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 28%, var(--rm-amber) 40%, var(--rm-amber) 55%, var(--rm-blue) 68%, var(--rm-blue) 100%);
@@ -111,8 +112,8 @@
         .rm-phase.done .rm-phase-marker{ border-color: var(--rm-green); color: var(--rm-green); }
         .rm-phase.now .rm-phase-marker{ border-color: var(--rm-amber); color: var(--rm-amber); }
         .rm-phase.next .rm-phase-marker{ border-color: var(--rm-blue); color: var(--rm-blue); }
-        .rm-phase h2{ padding-inline-end: 3.2rem; font-size: 1.5rem; font-weight: 800; }
-        .rm-phase p.rm-phase-sub{ padding-inline-end: 3.2rem; color: var(--color-text-secondary); font-size: .95rem; margin-top: .35rem; max-width: 480px; }
+        .rm-phase h2{ padding-right: 3.2rem; font-size: 1.5rem; font-weight: 800; box-sizing: border-box; }
+        .rm-phase p.rm-phase-sub{ padding-right: 3.2rem; color: var(--color-text-secondary); font-size: .95rem; margin-top: .35rem; max-width: 480px; box-sizing: border-box; }
 
         /* ===== Steps ===== */
         .rm-step{
@@ -206,13 +207,27 @@
         .rm-cta a.btn:hover{ transform: translateY(-3px); box-shadow: 0 18px 34px -10px rgba(var(--rm-glow-rgb),.6); }
 
         @media (max-width: 620px){
-            .rm-timeline{ padding-inline-end: 2.1rem; }
-            .rm-step{ padding-inline-end: 2.4rem; }
-            .rm-phase h2, .rm-phase p.rm-phase-sub{ padding-inline-end: 2.4rem; }
-            .rm-track, .rm-fill{ right: 15px; }
-            .rm-core{ right: 1px; width:26px; height:26px; }
-            .rm-phase-marker{ right: 1px; width:26px; height:26px; }
-            .rm-dot{ right: 7px; }
+            .rm-timeline{ padding-right: 2.1rem; }
+            .rm-step{ padding-right: 2.1rem; box-sizing: border-box; }
+            .rm-phase h2, .rm-phase p.rm-phase-sub{ padding-right: 2.1rem; box-sizing: border-box; }
+            .rm-track, .rm-fill{ right: 13px; }
+            .rm-core{ right: 0px; width:26px; height:26px; }
+            .rm-phase-marker{ right: 0px; width:26px; height:26px; }
+            .rm-dot{ right: 5px; }
+        }
+
+        @media (max-width: 400px){
+            .rm-container{ padding-inline: .75rem; }
+            .rm-timeline{ padding-right: 1.7rem; }
+            .rm-step{ padding-right: 1.7rem; }
+            .rm-phase h2, .rm-phase p.rm-phase-sub{ padding-right: 1.7rem; }
+            .rm-phase h2{ font-size: 1.25rem; }
+            .rm-track, .rm-fill{ right: 10px; }
+            .rm-core{ right: -1px; width: 22px; height: 22px; }
+            .rm-core::after{ inset: -4px; }
+            .rm-phase-marker{ right: -1px; width: 22px; height: 22px; }
+            .rm-phase-marker svg{ width: 12px; height: 12px; }
+            .rm-dot{ right: 3px; width: 17px; height: 17px; }
         }
     </style>
 </head>
@@ -414,9 +429,11 @@
             const rect = rmTimeline.getBoundingClientRect();
             const vh = window.innerHeight;
             const total = rect.height;
-            const start = vh * 0.85;
-            const end = vh * 0.35;
-            let progress = (start - rect.top) / (total + (start - end));
+            // "Read line" fixed near the top of the viewport. Progress is 0 until the
+            // timeline's top actually reaches it (so the line starts empty at page load),
+            // and reaches 1 once the timeline's bottom has passed it.
+            const readLine = vh * 0.22;
+            let progress = total > 0 ? (readLine - rect.top) / total : 0;
             progress = Math.max(0, Math.min(1, progress));
             const pct = progress * 100;
             rmFill.style.height = pct + '%';
