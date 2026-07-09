@@ -33,7 +33,40 @@ export const MCP_STATUSES = {
 
 /** رابط الـ OAuth callback الثابت - نفس القيمة المسجَّلة عند أي مزود OAuth */
 export const MCP_OAUTH_REDIRECT_URI = `${supabase.supabaseUrl}/functions/v1/mcp-oauth-callback`;
-
+export const MCP_CATALOG_CATEGORIES = [
+    {
+        key: 'all',
+        label: 'الكل'
+    },
+    {
+        key: 'database',
+        label: 'قواعد البيانات'
+    },
+    {
+        key: 'development',
+        label: 'التطوير'
+    },
+    {
+        key: 'ai',
+        label: 'الذكاء الاصطناعي'
+    },
+    {
+        key: 'storage',
+        label: 'التخزين'
+    },
+    {
+        key: 'productivity',
+        label: 'الإنتاجية'
+    },
+    {
+        key: 'communication',
+        label: 'التواصل'
+    },
+    {
+        key: 'custom',
+        label: 'مخصص'
+    }
+];
 /* =========================================================
  *  أدوات مساعدة داخلية
  * ========================================================= */
@@ -705,8 +738,121 @@ export const MCP_CATALOG_CATEGORIES = [
     { key: 'custom', label: 'مخصص' }
 ];
 
-export const MCP_CLIENT_CATALOG = [];
-
+export const MCP_CLIENT_CATALOG = [{
+    key: 'github',
+    name: 'GitHub',
+    category: 'development',
+    description: 'Repositories, Issues, Pull Requests',
+    transport: 'streamable_http',
+    auth_type: 'oauth2',
+    brandColor: '#24292f',
+    initial: 'G',
+    url: '',
+    oauth_scope: 'repo read:user',
+    needsManualUrl: false,
+    setup_note: 'سجل الدخول بحساب GitHub.'
+},
+                                  {
+    key: 'supabase',
+    name: 'Supabase',
+    category: 'database',
+    description: 'Postgres, Storage, Edge Functions',
+    transport: 'streamable_http',
+    auth_type: 'oauth2',
+    brandColor: '#3ECF8E',
+    initial: 'S',
+    url: '',
+    oauth_scope: '',
+    needsManualUrl: false
+},{
+    key: 'google_drive',
+    name: 'Google Drive',
+    category: 'storage',
+    description: 'Read and manage Drive files',
+    transport: 'streamable_http',
+    auth_type: 'oauth2',
+    brandColor: '#4285F4',
+    initial: 'D',
+    url: '',
+    oauth_scope: '',
+    needsManualUrl: false
+},{
+    key: 'notion',
+    name: 'Notion',
+    category: 'productivity',
+    description: 'Pages and databases',
+    transport: 'streamable_http',
+    auth_type: 'oauth2',
+    brandColor: '#000',
+    initial: 'N',
+    url: '',
+    needsManualUrl: false
+},{
+    key: 'slack',
+    name: 'Slack',
+    category: 'communication',
+    description: 'Channels and messages',
+    transport: 'streamable_http',
+    auth_type: 'oauth2',
+    brandColor: '#611f69',
+    initial: 'S',
+    url: ''
+},{
+    key: 'discord',
+    name: 'Discord',
+    category: 'communication',
+    description: 'Discord Bot',
+    transport: 'streamable_http',
+    auth_type: 'bearer',
+    brandColor: '#5865F2',
+    initial: 'D',
+    url: '',
+    setup_note: 'ضع Bot Token.'
+},{
+    key: 'openai',
+    name: 'OpenAI',
+    category: 'ai',
+    description: 'Chat Completions & Responses',
+    transport: 'streamable_http',
+    auth_type: 'api_key',
+    brandColor: '#10a37f',
+    initial: 'O',
+    url: '',
+    setup_note: 'أدخل API Key.'
+},{
+    key: 'claude',
+    name: 'Claude',
+    category: 'ai',
+    description: 'Anthropic API',
+    transport: 'streamable_http',
+    auth_type: 'api_key',
+    brandColor: '#D97706',
+    initial: 'C',
+    url: ''
+},{
+    key: 'gemini',
+    name: 'Gemini',
+    category: 'ai',
+    description: 'Google Gemini',
+    transport: 'streamable_http',
+    auth_type: 'api_key',
+    brandColor: '#4285F4',
+    initial: 'G',
+    url: ''
+},{
+    key: 'custom',
+    name: 'Custom MCP Server',
+    category: 'custom',
+    description: 'ربط أي MCP Server',
+    transport: 'streamable_http',
+    auth_type: 'none',
+    brandColor: '#64748b',
+    initial: '+',
+    isCustomBlank: true
+}
+];];
+findConnectedServerForCatalogEntry()
+invokeMcpTool()
 export function findConnectedServerForCatalogEntry(entry, servers = []) {
     return servers.find(s =>
         (s.url || '').replace(/\/$/, '') === (entry.url || '').replace(/\/$/, '')
