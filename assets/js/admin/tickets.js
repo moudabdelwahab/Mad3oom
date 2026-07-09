@@ -12,7 +12,7 @@ import {
     fetchSavedFilters, createSavedFilter, deleteSavedFilter
 } from '/tickets-service.js';
 import { adminImpersonateUser } from '/auth-client.js';
-import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS } from '/whatsapp-subscription-service.js';
+import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
 
 /**
@@ -1039,10 +1039,30 @@ function renderPanelActions(ticket, subscription) {
             const previousEndLabel = (subscription.is_renewal && subscription.previous_end_date)
                 ? `<div style="font-size:.78rem; color:var(--color-text-secondary); margin-bottom:.5rem;">الاشتراك الحالي ينتهي في: <strong style="color:var(--color-text);">${new Date(subscription.previous_end_date).toLocaleString('ar-EG')}</strong></div>` : '';
 
+            const paymentMethodLabel = subscription.payment_method
+                ? (PAYMENT_METHOD_LABELS[subscription.payment_method] || subscription.payment_method)
+                : 'غير محدد';
+            const paymentMethodLine = `<div style="font-size:.82rem; margin-bottom:.35rem;">وسيلة الدفع: <strong style="color:var(--color-text);">${escapeHtml(paymentMethodLabel)}</strong></div>`;
+            const paymentReferenceLine = subscription.payment_reference
+                ? `<div style="font-size:.78rem; color:var(--color-text-secondary); margin-bottom:.5rem;">مرجع التحويل: <strong style="color:var(--color-text);">${escapeHtml(subscription.payment_reference)}</strong></div>` : '';
+
+            let slaLine = '';
+            if (EXTERNAL_PAYMENT_METHODS.includes(subscription.payment_method) && ticket.sla_response_due_at) {
+                const dueAt = new Date(ticket.sla_response_due_at);
+                const isOverdue = dueAt.getTime() < Date.now();
+                slaLine = `
+                    <div style="font-size:.8rem; font-weight:700; margin-bottom:.6rem; padding:.5rem .7rem; border-radius:.5rem; background:${isOverdue ? 'rgba(255,107,107,.14)' : 'rgba(245,166,35,.14)'}; color:${isOverdue ? '#FF6B6B' : '#F5A623'};">
+                        ⚠️ تحويل خارجي - ${isOverdue ? 'تجاوز مهلة المراجعة (ساعة)!' : 'يجب المراجعة قبل'} ${dueAt.toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                    </div>`;
+            }
+
             container.innerHTML = `
                 <div class="detail-block">
                     <div style="font-size:.82rem; color:var(--color-text-secondary); margin-bottom:.5rem;">${renewalBadge}طلب اشتراك: <strong style="color:var(--color-text);">${escapeHtml(planLabel)}</strong> (${escapeHtml(billingLabel)})</div>
                     ${previousEndLabel}
+                    ${paymentMethodLine}
+                    ${paymentReferenceLine}
+                    ${slaLine}
                     <div style="display:flex; gap:.6rem; margin-top:.5rem;">
                         <button id="panelConfirmPurchaseBtn" class="icon-btn" style="flex:1; justify-content:center; background:rgba(34,197,139,.14); color:#22C58B; border-color:rgba(34,197,139,.3);">${ICONS.confirmCheck} تأكيد الاشتراك</button>
                         <button id="panelRejectPurchaseBtn" class="icon-btn" style="flex:1; justify-content:center; background:rgba(255,107,107,.14); color:#FF6B6B; border-color:rgba(255,107,107,.3);">${ICONS.reject} رفض الاشتراك</button>
