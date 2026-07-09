@@ -70,6 +70,7 @@
             animation: cmFloat 7s ease-in-out infinite;
         }
         @keyframes cmFloat{ 0%,100%{ transform: translateY(0) scale(1);} 50%{ transform: translateY(18px) scale(1.06);} }
+        @keyframes rmPulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:.4; transform:scale(1.5);} }
         .cm-eyebrow{
             display:inline-flex; align-items:center; gap:.5rem;
             font-size:.8rem; font-weight:700;
@@ -81,24 +82,19 @@
         }
         .cm-eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:#fff; box-shadow:0 0 8px #fff; }
 
-        .cm-stats{
-            display:flex; flex-wrap:wrap; justify-content:center; gap:1rem;
+        .cm-status-banner{
+            display:inline-flex; align-items:center; gap:.6rem; flex-wrap: wrap; justify-content:center;
             margin-top: 2.5rem; position: relative; z-index: 1;
-        }
-        .cm-stat{
-            display:flex; align-items:center; gap:.7rem;
             background: rgba(255,255,255,.12);
             border: 1px solid rgba(255,255,255,.22);
             backdrop-filter: blur(8px);
-            padding: .85rem 1.3rem;
+            padding: .85rem 1.5rem;
             border-radius: 1.1rem;
-            min-width: 150px;
-            transition: transform .25s var(--cm-ease-snap), background .25s ease;
+            font-size: .9rem; font-weight: 600;
+            max-width: 640px;
         }
-        .cm-stat:hover{ transform: translateY(-4px); background: rgba(255,255,255,.18); }
-        .cm-stat svg{ width:22px; height:22px; flex-shrink:0; }
-        .cm-stat strong{ display:block; font-family:'Space Grotesk', 'Cairo', sans-serif; font-size:1.35rem; line-height:1.1; }
-        .cm-stat span{ display:block; font-size:.72rem; opacity:.85; margin-top:.15rem; }
+        .cm-status-dot{ width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 8px #fff; flex-shrink:0; animation: rmPulse 1.6s ease-in-out infinite; }
+
 
         /* ===== Section head ===== */
         .cm-section{ margin-top: 4.5rem; }
@@ -161,54 +157,11 @@
         .btn-community svg{ width:16px; height:16px; transition: transform .25s ease; }
         .btn-community:hover svg{ transform: translateX(-3px); }
 
-        /* ===== Contributors ===== */
-        .cm-contributors{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 1.25rem; }
-        .cm-contrib-card{
-            background: var(--color-surface); border: 1px solid var(--color-border);
-            border-radius: 1.25rem; padding: 1.4rem 1.2rem;
-            display:flex; align-items:center; gap: 1rem;
-            transition: all .25s var(--cm-ease-snap);
+        /* ===== Empty states (honest placeholders, no fabricated data) ===== */
+        .cm-empty-state{
+            background: var(--color-surface); border: 1px dashed var(--color-border);
+            border-radius: 1.5rem; padding: 3rem 2rem; text-align: center;
         }
-        .cm-contrib-card:hover{ transform: translateY(-5px); border-color: var(--color-accent); box-shadow: var(--color-shadow-sm, var(--shadow-sm)); }
-        .cm-avatar{
-            width:52px; height:52px; border-radius:50%; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-weight:800; color:#fff; font-size:1.05rem;
-        }
-        .cm-contrib-info h4{ font-size:.98rem; margin-bottom:.2rem; }
-        .cm-contrib-info .cm-badge{
-            display:inline-block; font-size:.66rem; font-weight:700;
-            padding:.15rem .55rem; border-radius:99px;
-            background: rgba(var(--cm-accent-rgb),.12); color: var(--color-accent);
-            margin-bottom:.35rem;
-        }
-        .cm-contrib-info small{ display:block; color: var(--color-text-secondary); font-size:.78rem; }
-
-        /* ===== Latest discussions ===== */
-        .cm-discussions{ display:flex; flex-direction:column; gap: 1rem; }
-        .cm-discussion-row{
-            display:flex; align-items:center; gap:1.25rem;
-            background: var(--color-surface); border:1px solid var(--color-border);
-            border-radius: 1.1rem; padding: 1.15rem 1.4rem;
-            text-decoration:none; color: inherit;
-            transition: all .22s var(--cm-ease-snap);
-        }
-        .cm-discussion-row:hover{ border-color: var(--color-accent); transform: translateX(-4px); box-shadow: var(--shadow-sm); }
-        [dir="rtl"] .cm-discussion-row:hover{ transform: translateX(4px); }
-        .cm-tag{
-            flex-shrink:0; font-size:.7rem; font-weight:700; padding:.3rem .7rem; border-radius:99px;
-        }
-        .cm-tag.q{ background: rgba(59,130,246,.12); color:#3B82F6; }
-        .cm-tag.f{ background: rgba(139,92,246,.12); color:#8B5CF6; }
-        .cm-tag.g{ background: rgba(34,197,139,.12); color: var(--color-success); }
-        .cm-discussion-body{ flex:1; min-width:0; }
-        .cm-discussion-body h4{ font-size:.98rem; margin-bottom:.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .cm-discussion-meta{ font-size:.8rem; color: var(--color-text-secondary); display:flex; gap:1rem; flex-wrap:wrap; }
-        .cm-discussion-meta span{ display:inline-flex; align-items:center; gap:.3rem; }
-        .cm-discussion-meta svg{ width:14px; height:14px; }
-        .cm-chevron{ flex-shrink:0; color: var(--color-text-secondary); transition: transform .22s ease; }
-        .cm-discussion-row:hover .cm-chevron{ transform: translateX(-4px); color: var(--color-accent); }
-        [dir="rtl"] .cm-discussion-row:hover .cm-chevron{ transform: translateX(4px); }
 
         /* ===== Guidelines ===== */
         .cm-guidelines{ display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1.25rem; }
@@ -247,7 +200,7 @@
 
         @media (max-width: 640px){
             .community-header{ padding: 3rem 1.25rem; }
-            .cm-stat{ min-width: 130px; }
+            .cm-status-banner{ font-size: .82rem; padding: .75rem 1.1rem; }
         }
     </style>
 </head>
@@ -263,23 +216,9 @@
                 <h1 style="font-size: 2.8rem; font-weight: 800; margin-bottom: 1rem;">مجتمع مدعوم</h1>
                 <p style="font-size: 1.25rem; opacity: 0.9; max-width: 700px; margin: 0 auto;">تواصل، تعلم، وتطور مع نخبة من الخبراء والمستخدمين في منصة مدعوم</p>
 
-                <div class="cm-stats">
-                    <div class="cm-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-                        <div><strong>1,240+</strong><span>عضو نشط</span></div>
-                    </div>
-                    <div class="cm-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                        <div><strong>3,860+</strong><span>موضوع نقاش</span></div>
-                    </div>
-                    <div class="cm-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a4 4 0 00-4-4H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a4 4 0 014-4h6z"/></svg>
-                        <div><strong>180+</strong><span>مقالة معرفية</span></div>
-                    </div>
-                    <div class="cm-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                        <div><strong>95+</strong><span>اقتراح تم تنفيذه</span></div>
-                    </div>
+                <div class="cm-status-banner">
+                    <span class="cm-status-dot"></span>
+                    المنصة والمجتمع لا يزالان في مرحلة التطوير والنمو — انضم الآن وكن من أوائل المساهمين في تشكيل مجتمع مدعوم.
                 </div>
             </div>
 
@@ -316,46 +255,19 @@
                 </div>
             </div>
 
-            <!-- Top contributors -->
+            <!-- Be among the first -->
             <div class="cm-section cm-reveal">
                 <div class="cm-section-head">
                     <div class="cm-eyebrow-light"><span class="dot"></span> نجوم المجتمع</div>
-                    <h2>أكثر الأعضاء تفاعلاً هذا الشهر</h2>
-                    <p>أعضاء ساهموا في مساعدة غيرهم بإجابات وحلول داخل المنتدى وقاعدة المعرفة.</p>
+                    <h2>كن أول نجوم مجتمع مدعوم</h2>
+                    <p>المجتمع لسه في بداياته، ولسه محدّش احتل قائمة الأعضاء الأكثر تفاعلاً. أول إجابة تقدمها أو نقاش تبدأه ممكن تكون نقطة انطلاقك.</p>
                 </div>
-                <div class="cm-contributors">
-                    <div class="cm-contrib-card">
-                        <div class="cm-avatar" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);">م</div>
-                        <div class="cm-contrib-info">
-                            <span class="cm-badge">خبير مدعوم</span>
-                            <h4>محمود عبدالوهاب</h4>
-                            <small>42 إجابة مفيدة</small>
-                        </div>
+                <div class="cm-empty-state">
+                    <div class="card-icon-wrapper icon-forum" style="margin:0 auto 1rem;">
+                        <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     </div>
-                    <div class="cm-contrib-card">
-                        <div class="cm-avatar" style="background:linear-gradient(135deg,#EC4899,#BE185D);">س</div>
-                        <div class="cm-contrib-info">
-                            <span class="cm-badge">عضو نشط</span>
-                            <h4>سارة أحمد</h4>
-                            <small>29 إجابة مفيدة</small>
-                        </div>
-                    </div>
-                    <div class="cm-contrib-card">
-                        <div class="cm-avatar" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);">ي</div>
-                        <div class="cm-contrib-info">
-                            <span class="cm-badge">عضو نشط</span>
-                            <h4>يوسف الشريف</h4>
-                            <small>21 إجابة مفيدة</small>
-                        </div>
-                    </div>
-                    <div class="cm-contrib-card">
-                        <div class="cm-avatar" style="background:linear-gradient(135deg,#22C58B,#0E9F6E);">ر</div>
-                        <div class="cm-contrib-info">
-                            <span class="cm-badge">صاعد بسرعة</span>
-                            <h4>رنا محمد</h4>
-                            <small>17 إجابة مفيدة</small>
-                        </div>
-                    </div>
+                    <p style="margin:0 0 1.25rem; color: var(--color-text-secondary);">قائمة الأعضاء الأكثر تفاعلاً هتظهر هنا تلقائيًا بمجرد ما ينشط المجتمع بمساهمات حقيقية.</p>
+                    <a href="forum.html" class="btn btn-primary" style="display:inline-flex; padding:.75rem 2rem;">ابدأ أول مساهمة</a>
                 </div>
             </div>
 
@@ -364,42 +276,14 @@
                 <div class="cm-section-head">
                     <div class="cm-eyebrow-light"><span class="dot"></span> نشاط حي</div>
                     <h2>أحدث النقاشات في المنتدى</h2>
-                    <p>اطّلع على آخر المواضيع التي يتفاعل معها المجتمع الآن.</p>
+                    <p>هتظهر هنا أحدث المواضيع فور ما تُنشر في المنتدى.</p>
                 </div>
-                <div class="cm-discussions">
-                    <a href="forum.html" class="cm-discussion-row">
-                        <span class="cm-tag q">استفسار</span>
-                        <div class="cm-discussion-body">
-                            <h4>كيف أفعّل إشعارات Telegram لفريق الدعم؟</h4>
-                            <div class="cm-discussion-meta">
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> 12 رد</span>
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> آخر رد منذ ساعتين</span>
-                            </div>
-                        </div>
-                        <svg class="cm-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                    </a>
-                    <a href="forum.html" class="cm-discussion-row">
-                        <span class="cm-tag f">اقتراح</span>
-                        <div class="cm-discussion-body">
-                            <h4>اقتراح: دعم تعدد اللغات داخل قاعدة المعرفة</h4>
-                            <div class="cm-discussion-meta">
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> 8 ردود</span>
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> آخر رد منذ 5 ساعات</span>
-                            </div>
-                        </div>
-                        <svg class="cm-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                    </a>
-                    <a href="forum.html" class="cm-discussion-row">
-                        <span class="cm-tag g">عام</span>
-                        <div class="cm-discussion-body">
-                            <h4>شاركونا: أفضل ممارساتكم في تنظيم الوسوم (Tags)</h4>
-                            <div class="cm-discussion-meta">
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> 15 ردًا</span>
-                                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> آخر رد أمس</span>
-                            </div>
-                        </div>
-                        <svg class="cm-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                    </a>
+                <div class="cm-empty-state">
+                    <div class="card-icon-wrapper icon-kb" style="margin:0 auto 1rem;">
+                        <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+                    <p style="margin:0 0 1.25rem; color: var(--color-text-secondary);">مفيش نقاشات لسه — يلا ابدأ أول موضوع في المنتدى.</p>
+                    <a href="forum.html" class="btn btn-primary" style="display:inline-flex; padding:.75rem 2rem;">دخول المنتدى</a>
                 </div>
             </div>
 
