@@ -839,7 +839,24 @@ export function findConnectedServerForCatalogEntry(entry, servers = []) {
     }) || null;
 
 }
-export async function invokeMcpTool(toolName, args = {}) {console.log(toolName, args);
-
-    throw new Error('Not implemented');
+export async function invokeMcpTool(toolName, args = {}) {
+    const { data, error } = await supabase.functions.invoke('mcp-invoke-tool', {
+        body: { tool_name: toolName, args },
+    });
+ 
+    if (error) {
+        // خطأ نقل/HTTP (مثال: 401 لو الجلسة منتهية، 500 لو خطأ غير متوقع بالسيرفر)
+        throw new Error('فشل استدعاء الأداة: ' + error.message);
+    }
+ 
+    // الـ Edge Function نفسها بترجع { ok:false, error: '...' } لحالات منطقية
+    // زي "الأداة غير موجودة" أو "موصل OAuth REST مش بيدعم استدعاء مباشر"
+    if (data?.ok === false) {
+        throw new Error(data.error || 'فشل تنفيذ الأداة');
+    }
+    if (data?.error) {
+        throw new Error(data.error);
+    }
+ 
+    return data; // { ok: true, toolName, serverName, result }
 }
