@@ -439,6 +439,8 @@ export const API_TOKEN_ALLOWED_SCOPES = [
     'mcp:connect',
     'chatbot:read',
     'admin:full',
+    'subscriptions:read', 'subscriptions:write', 'subscriptions:renew', 'subscriptions:cancel', 'subscriptions:plans',
+    'notifications:read', 'notifications:send', 'notifications:manage',
 ];
 
 export const API_TOKEN_DEFAULT_SCOPES = ['tickets:read', 'tickets:write', 'whatsapp:send', 'whatsapp:read', 'chatbot:read'];
