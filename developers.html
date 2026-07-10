@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('theme-preference');
+    if(t !== 'light' && t !== 'dark'){ t = 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<title>توثيق المطورين | API · MCP · OAuth 2.1 — مدعوم</title>
+<meta name="description" content="التوثيق الكامل لمفاتيح API، خادم MCP، وتدفق OAuth 2.1 في منصة مدعوم — مبني مباشرة من الكود الفعلي.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ Tokens (identical to index.html) ============ */
+:root{
+  --bg-void:#060B14;
+  --bg-surface:#0D1622;
+  --bg-elevated:#121F30;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.09);
+  --primary:#0077CC;
+  --primary-deep:#00234A;
+  --accent:#4DA3FF;
+  --accent-soft:#8FC7FF;
+  --success:#22C58B;
+  --danger:#FF6B6B;
+  --warn:#F5A524;
+  --mcp-color:#B45FE0;
+  --mcp-soft:#D9B3F5;
+  --text-1:#F3F6FB;
+  --text-2:#94A6C2;
+  --text-3:#5A6A82;
+  --radius-lg:1.5rem;
+  --radius-md:1rem;
+  --radius-sm:.6rem;
+  --shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --font-display:'Cairo',sans-serif;
+  --font-body:'IBM Plex Sans Arabic',sans-serif;
+  --font-data:'Space Grotesk',monospace;
+  --container:1240px;
+  --pad:clamp(1.25rem,4vw,3rem);
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-fast:.18s;
+  --dur-med:.35s;
+  --term-bg:#0B1220;
+  --term-card:#131C2E;
+  --term-border:#22304A;
+  --term-ink:#E7ECF7;
+  --term-ink-2:#8493AA;
+  --term-green:#22C58B;
+  --scrim:rgba(6,11,20,.75);
+  --scrim-strong:rgba(6,11,20,.98);
+  --btn-outline-bg:rgba(255,255,255,.03);
+  --dot-color:rgba(255,255,255,.05);
+}
+[data-theme="light"]{
+  --bg-void:#F3F6FC;
+  --bg-surface:#FFFFFF;
+  --bg-elevated:#EDF2FA;
+  --glass:rgba(16,27,46,.035);
+  --glass-strong:rgba(16,27,46,.06);
+  --glass-border:rgba(16,27,46,.09);
+  --text-1:#101B2E;
+  --text-2:#4B5A72;
+  --text-3:#8493AA;
+  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.22);
+  --scrim:rgba(255,255,255,.85);
+  --scrim-strong:rgba(255,255,255,.98);
+  --btn-outline-bg:rgba(16,27,46,.035);
+  --dot-color:rgba(16,27,46,.05);
+  --term-bg:#0E1626;
+  --term-card:#0B1220;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-1);line-height:1.75;overflow-x:hidden;position:relative;}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.18), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 20%, rgba(180,95,224,.10), transparent 55%),
+    var(--bg-void);}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+a{color:inherit;text-decoration:none;}
+ul,ol{list-style:none;}
+button{font-family:inherit;}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.3;letter-spacing:-.01em;}
+code, pre, kbd{font-family:var(--font-data);}
+::selection{background:var(--primary);color:#fff;}
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
+.container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);}
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.1rem;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.eyebrow.mcp{color:var(--mcp-soft);background:rgba(180,95,224,.12);border-color:rgba(180,95,224,.3);}
+.eyebrow.mcp .dot{background:var(--mcp-color);box-shadow:0 0 8px var(--mcp-color);}
+.eyebrow.fixed{color:var(--success);background:rgba(34,197,138,.12);border-color:rgba(34,197,138,.3);}
+.eyebrow.fixed .dot{background:var(--success);box-shadow:0 0 8px var(--success);}
+.gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.gradient-text.mcp{background:linear-gradient(90deg,var(--mcp-soft),var(--mcp-color),#8FC7FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.4rem;border-radius:.75rem;font-weight:700;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) var(--ease-snap), background var(--dur-fast) ease, border-color var(--dur-fast) ease;white-space:nowrap;}
+.btn:active{transform:translateY(1px) scale(.97);}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(0,119,204,.7);}
+.btn-mcp{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;box-shadow:0 12px 30px -10px rgba(180,95,224,.5);}
+.btn-mcp:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(180,95,224,.65);}
+.btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
+.btn-sm{padding:.5rem 1rem;font-size:.78rem;border-radius:.6rem;}
+
+/* ============ Navbar ============ */
+.navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:.85rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
+.navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.55rem 0;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.65rem;}
+.brand-mark{width:38px;height:38px;border-radius:.75rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;}
+.brand-mark svg{width:20px;height:20px;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1rem;}
+.brand-text small{font-size:.62rem;color:var(--text-2);font-weight:600;}
+.nav-cta{display:flex;align-items:center;gap:.6rem;}
+.theme-toggle{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.theme-toggle:hover{border-color:var(--accent-soft);transform:rotate(-12deg) scale(1.06);}
+.theme-toggle svg{width:17px;height:17px;}
+.theme-toggle .sun-icon{display:block;}
+.theme-toggle .moon-icon{display:none;}
+[data-theme="light"] .theme-toggle .sun-icon{display:none;}
+[data-theme="light"] .theme-toggle .moon-icon{display:block;}
+
+/* ============ Doc hero ============ */
+.doc-hero{padding:clamp(6.5rem,10vw,8rem) 0 2.5rem;position:relative;}
+.doc-hero h1{font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:1rem;max-width:760px;}
+.doc-hero p{color:var(--text-2);font-size:1.02rem;max-width:640px;margin-bottom:1.5rem;}
+.doc-hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.75rem;}
+.meta-chip{display:inline-flex;align-items:center;gap:.4rem;background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.76rem;font-weight:600;padding:.4rem .8rem;border-radius:99px;}
+.meta-chip svg{width:13px;height:13px;color:var(--accent-soft);}
+.doc-hero-actions{display:flex;gap:.75rem;flex-wrap:wrap;}
+
+/* ============ Layout: sidebar + content ============ */
+.doc-layout{display:grid;grid-template-columns:240px 1fr;gap:2.5rem;align-items:start;padding-bottom:6rem;}
+.doc-sidebar{position:sticky;top:5.5rem;max-height:calc(100vh - 7rem);overflow-y:auto;padding-inline-end:.5rem;}
+.doc-sidebar::-webkit-scrollbar{width:4px;}
+.doc-sidebar::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:4px;}
+.doc-nav-group{margin-bottom:1.5rem;}
+.doc-nav-group h6{font-size:.68rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.6rem;padding-inline-start:.85rem;}
+.doc-nav-group a{display:block;padding:.45rem .85rem;font-size:.85rem;color:var(--text-2);border-inline-start:2px solid transparent;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease, background var(--dur-fast) ease;border-radius:0 .5rem .5rem 0;font-weight:600;}
+.doc-nav-group a:hover{color:var(--text-1);background:var(--glass);}
+.doc-nav-group a.active{color:var(--accent-soft);border-inline-start-color:var(--accent);background:var(--glass);}
+.doc-nav-group a.mcp.active{color:var(--mcp-soft);border-inline-start-color:var(--mcp-color);}
+@media (max-width:980px){.doc-layout{grid-template-columns:1fr;}.doc-sidebar{position:static;max-height:none;display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.5rem;}.doc-nav-group{margin-bottom:0;display:flex;gap:.4rem;}.doc-nav-group h6{display:none;}.doc-nav-group a{white-space:nowrap;border-inline-start:none;border-bottom:2px solid transparent;}.doc-nav-group a.active{border-bottom-color:var(--accent);}}
+
+.doc-main{min-width:0;}
+.doc-section{padding-bottom:3.5rem;margin-bottom:1rem;border-bottom:1px solid var(--glass-border);scroll-margin-top:5.5rem;}
+.doc-section:last-child{border-bottom:none;}
+.doc-section-head{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;}
+.doc-num{font-family:var(--font-data);font-size:.78rem;font-weight:700;color:var(--text-3);}
+.doc-section h2{font-size:clamp(1.35rem,2.6vw,1.75rem);}
+.doc-section > p.lead{color:var(--text-2);font-size:.98rem;margin-bottom:1.5rem;max-width:760px;}
+.doc-section h3{font-size:1.05rem;margin:1.75rem 0 .85rem;color:var(--text-1);}
+.doc-section p{color:var(--text-2);font-size:.92rem;margin-bottom:.9rem;max-width:760px;}
+.doc-section p strong{color:var(--text-1);}
+
+/* ============ Cards & callouts ============ */
+.card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.25rem 1.4rem;margin-bottom:1rem;}
+.card h4{font-size:.92rem;margin-bottom:.5rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;}
+.callout{display:flex;gap:.75rem;background:rgba(245,165,36,.08);border:1px solid rgba(245,165,36,.28);border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.25rem 0;}
+.callout svg{width:18px;height:18px;color:var(--warn);flex-shrink:0;margin-top:.15rem;}
+.callout.danger{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.28);}
+.callout.danger svg{color:var(--danger);}
+.callout.success{background:rgba(34,197,138,.08);border-color:rgba(34,197,138,.28);}
+.callout.success svg{color:var(--success);}
+.callout p{margin:0;font-size:.86rem;color:var(--text-2);}
+.callout p strong{color:var(--text-1);}
+
+/* ============ Architecture diagram ============ */
+.arch-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.5rem 0 2rem;}
+.arch-box{background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem;text-align:center;position:relative;}
+.arch-box.center{border-color:rgba(77,163,255,.4);box-shadow:0 0 0 1px rgba(77,163,255,.15) inset;}
+.arch-box .arch-ic{width:34px;height:34px;border-radius:.6rem;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;margin:0 auto .6rem;}
+.arch-box.center .arch-ic{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));}
+.arch-box .arch-ic svg{width:17px;height:17px;color:#fff;}
+.arch-box h5{font-size:.82rem;margin-bottom:.3rem;}
+.arch-box p{font-size:.72rem;color:var(--text-3);margin:0;}
+@media (max-width:700px){.arch-flow{grid-template-columns:1fr;}}
+
+/* ============ Code blocks (terminal style, matches MCP mock in index.html) ============ */
+.code-block{background:var(--term-bg);border:1px solid var(--term-border);border-radius:var(--radius-md);overflow:hidden;margin:1.1rem 0;box-shadow:var(--shadow-lg);}
+.code-block-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;background:linear-gradient(90deg,#0A1220,#101B30);border-bottom:1px solid var(--term-border);}
+.code-block-dots{display:flex;gap:.35rem;}
+.code-block-dots span{width:9px;height:9px;border-radius:50%;background:var(--glass-border);}
+.code-block-label{font-family:var(--font-data);font-size:.7rem;color:var(--term-ink-2);font-weight:600;}
+.code-block-copy{background:none;border:1px solid var(--term-border);color:var(--term-ink-2);font-size:.65rem;font-weight:700;padding:.25rem .6rem;border-radius:.4rem;cursor:pointer;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease;}
+.code-block-copy:hover{color:var(--accent-soft);border-color:var(--accent-soft);}
+.code-block pre{margin:0;padding:1rem 1.1rem;overflow-x:auto;font-size:.78rem;line-height:1.7;color:var(--term-ink);direction:ltr;text-align:left;}
+.code-block code{color:var(--term-ink);}
+.tok-key{color:var(--mcp-soft);}
+.tok-str{color:var(--term-green);}
+.tok-num{color:var(--accent-soft);}
+.tok-com{color:var(--term-ink-2);}
+.tok-fn{color:#F5A524;}
+
+/* ============ Tables ============ */
+.doc-table-wrap{overflow-x:auto;margin:1.1rem 0;border-radius:var(--radius-md);border:1px solid var(--glass-border);}
+table.doc-table{width:100%;border-collapse:collapse;min-width:520px;background:var(--glass);}
+table.doc-table th, table.doc-table td{padding:.7rem 1rem;text-align:right;font-size:.82rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);vertical-align:top;}
+table.doc-table th{color:var(--text-1);font-weight:700;background:var(--glass-strong);font-size:.78rem;}
+table.doc-table tr:last-child td{border-bottom:none;}
+table.doc-table tbody tr:hover td{background:rgba(77,163,255,.04);}
+table.doc-table code{background:var(--glass-strong);padding:.1rem .4rem;border-radius:.3rem;font-size:.76rem;color:var(--accent-soft);}
+.scope-pill{display:inline-block;background:rgba(180,95,224,.12);color:var(--mcp-soft);font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:99px;font-family:var(--font-data);margin:.1rem;}
+.method-pill{display:inline-flex;align-items:center;font-family:var(--font-data);font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:.35rem;}
+.method-post{background:rgba(34,197,138,.14);color:var(--success);}
+.method-get{background:rgba(77,163,255,.14);color:var(--accent-soft);}
+
+/* ============ Endpoint rows ============ */
+.endpoint-row{display:flex;align-items:center;gap:.7rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:.65rem;padding:.65rem .9rem;margin-bottom:.5rem;flex-wrap:wrap;}
+.endpoint-row code{font-family:var(--font-data);font-size:.82rem;color:var(--text-1);}
+.endpoint-row .arrow{color:var(--text-3);}
+.endpoint-row .dest{font-size:.76rem;color:var(--text-3);font-family:var(--font-data);}
+
+/* ============ Steps (OAuth flow) ============ */
+.step-list{counter-reset:step;margin:1.25rem 0;}
+.step-item{position:relative;padding-inline-start:2.75rem;padding-bottom:1.5rem;border-inline-start:2px solid var(--glass-border);}
+.step-item:last-child{border-color:transparent;padding-bottom:0;}
+.step-item::before{counter-increment:step;content:counter(step);position:absolute;inline-size:1.9rem;block-size:1.9rem;inset-inline-start:-1rem;top:0;background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;font-family:var(--font-data);}
+.step-item h5{font-size:.92rem;margin-bottom:.35rem;}
+.step-item p{font-size:.85rem;margin-bottom:.5rem;}
+
+/* ============ Function reference grid ============ */
+.fn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem;margin:1.25rem 0;}
+.fn-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:.7rem;padding:.9rem 1rem;}
+.fn-card .fn-name{font-family:var(--font-data);font-size:.8rem;color:var(--accent-soft);font-weight:700;margin-bottom:.3rem;word-break:break-all;}
+.fn-card .fn-desc{font-size:.76rem;color:var(--text-3);}
+.fn-card .fn-jwt{display:inline-block;margin-top:.4rem;font-size:.62rem;font-weight:700;padding:.1rem .45rem;border-radius:99px;}
+.fn-jwt.on{background:rgba(34,197,138,.14);color:var(--success);}
+.fn-jwt.off{background:rgba(255,107,107,.14);color:var(--danger);}
+
+/* ============ Back to top ============ */
+.back-top{position:fixed;bottom:1.5rem;left:1.5rem;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;opacity:0;pointer-events:none;transition:opacity var(--dur-med) ease, transform var(--dur-fast) var(--ease-bounce);z-index:150;}
+.back-top.show{opacity:1;pointer-events:auto;}
+.back-top:hover{transform:translateY(-3px);}
+.back-top svg{width:18px;height:18px;color:#fff;}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--glass-border);padding:2.5rem 0;background:var(--bg-surface);text-align:center;color:var(--text-3);font-size:.82rem;}
+footer a{color:var(--accent-soft);font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-mark"><img src="/logo.png" alt="مدعوم" style="width:100%;height:100%;object-fit:cover;border-radius:.75rem;"></span>
+      <span class="brand-text"><strong>مدعوم</strong><small>توثيق المطورين</small></span>
+    </a>
+    <div class="nav-cta">
+      <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <a href="mcp.html" class="btn btn-mcp btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"></path></svg>
+        لوحة MCP
+      </a>
+    </div>
+  </div>
+</div>
+
+<header class="doc-hero">
+  <div class="container">
+    <span class="eyebrow mcp"><span class="dot"></span>API Reference · MCP · OAuth 2.1</span>
+    <h1>توثيق <span class="gradient-text mcp">المطورين</span> — مدعوم</h1>
+    <p>كل ما تحتاجه للاتصال بمنصة مدعوم برمجيًا: مفاتيح API، خادم MCP الموحّد (JSON-RPC)، وتدفق OAuth 2.1 الكامل مع Dynamic Client Registration. هذا التوثيق مبني مباشرة من كود الـ Edge Functions الفعلي على Supabase.</p>
+    <div class="doc-hero-meta">
+      <span class="meta-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> آخر تحديث: يوليو 2026</span>
+      <span class="meta-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect></svg> mcp function v21</span>
+      <span class="meta-chip" style="color:var(--success);border-color:rgba(34,197,138,.3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg> تتبع الاستخدام تم إصلاحه</span>
+    </div>
+    <div class="doc-hero-actions">
+      <a href="#quickstart" class="btn btn-primary">ابدأ الاستخدام</a>
+      <a href="mcp.html" class="btn btn-outline">فتح لوحة مفاتيح API</a>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+<div class="doc-layout">
+
+  <!-- ============ Sidebar ============ -->
+  <nav class="doc-sidebar" id="docSidebar">
+    <div class="doc-nav-group">
+      <h6>البداية</h6>
+      <a href="#overview" class="doc-link">نظرة عامة على البنية</a>
+      <a href="#quickstart" class="doc-link">بداية سريعة</a>
+    </div>
+    <div class="doc-nav-group">
+      <h6>مفاتيح API</h6>
+      <a href="#api-tokens" class="doc-link">مفاتيح API</a>
+      <a href="#scopes" class="doc-link">الصلاحيات (Scopes)</a>
+    </div>
+    <div class="doc-nav-group">
+      <h6>MCP</h6>
+      <a href="#mcp-server" class="doc-link mcp">مدعوم كخادم MCP</a>
+      <a href="#tools" class="doc-link mcp">الأدوات المتاحة</a>
+      <a href="#mcp-client" class="doc-link mcp">مدعوم كعميل MCP</a>
+    </div>
+    <div class="doc-nav-group">
+      <h6>OAuth 2.1</h6>
+      <a href="#oauth" class="doc-link">التدفق الكامل</a>
+      <a href="#oauth-security" class="doc-link">التفاصيل الأمنية</a>
+    </div>
+    <div class="doc-nav-group">
+      <h6>التشغيل</h6>
+      <a href="#usage-tracking" class="doc-link">تتبع الاستخدام</a>
+      <a href="#routing" class="doc-link">توجيه Vercel</a>
+      <a href="#functions" class="doc-link">مرجع الوظائف</a>
+    </div>
+  </nav>
+
+  <!-- ============ Main content ============ -->
+  <main class="doc-main">
+
+    <!-- 1. Overview -->
+    <section class="doc-section" id="overview">
+      <div class="doc-section-head"><span class="doc-num">01</span><h2>نظرة عامة على البنية</h2></div>
+      <p class="lead">جدول <code>api_tokens</code> هو مصدر الهوية الوحيد لكل شيء — سواء تولّد يدويًا من لوحة "مفاتيح API"، أو صدر تلقائيًا عبر تدفق OAuth 2.1 لعميل مثل Claude أو ChatGPT.</p>
+
+      <div class="arch-flow">
+        <div class="arch-box">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5"></path></svg></div>
+          <h5>توليد يدوي</h5>
+          <p>من لوحة مفاتيح API<br><code style="font-size:.68rem">create-api-token</code></p>
+        </div>
+        <div class="arch-box center">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg></div>
+          <h5>api_tokens</h5>
+          <p>مصدر الهوية الموحّد<br>لكل طلب API/MCP</p>
+        </div>
+        <div class="arch-box">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"></path></svg></div>
+          <h5>توليد تلقائي</h5>
+          <p>عبر OAuth 2.1<br><code style="font-size:.68rem">oauth-token</code></p>
+        </div>
+      </div>
+
+      <p>كل طلب — سواء بمفتاح API ثابت أو Access Token صادر من OAuth — يصل في النهاية لنفس نقطة الدخول: <code>POST /mcp</code>، بروتوكول JSON-RPC 2.0 واحد يغطي كل الأدوات.</p>
+    </section>
+
+    <!-- 2. Quickstart -->
+    <section class="doc-section" id="quickstart">
+      <div class="doc-section-head"><span class="doc-num">02</span><h2>بداية سريعة</h2></div>
+      <p class="lead">أسرع طريقة للاتصال: ولّد مفتاح API من لوحة المطورين، ثم استدعِ <code>/mcp</code> مباشرة.</p>
+
+      <div class="step-list">
+        <div class="step-item">
+          <h5>ولّد مفتاح من لوحة "مفاتيح API"</h5>
+          <p>اختر <code>credential_type</code> واحدة: <code>api_key_secret</code> أو <code>bearer</code>. السر يُعرض مرة واحدة فقط — احفظه فورًا.</p>
+        </div>
+        <div class="step-item">
+          <h5>نادِ <code>initialize</code> لبدء الجلسة</h5>
+          <p>الرد يحمل هيدر <code>Mcp-Session-Id</code> ونسخة البروتوكول المتفق عليها.</p>
+        </div>
+        <div class="step-item">
+          <h5>اسحب قائمة الأدوات المتاحة لك</h5>
+          <p><code>tools/list</code> بترجع بس الأدوات اللي صلاحياتها (scopes) موجودة في مفتاحك، وغير معطّلة إداريًا.</p>
+        </div>
+        <div class="step-item">
+          <h5>نفّذ أي أداة عبر <code>tools/call</code></h5>
+          <p>مرّر <code>name</code> و<code>arguments</code> — النتيجة بترجع كـ JSON نصي داخل <code>content</code>.</p>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block-head">
+          <div class="code-block-dots"><span></span><span></span><span></span></div>
+          <span class="code-block-label">curl — تدفق كامل</span>
+          <button class="code-block-copy" onclick="copyCode(this)">نسخ</button>
+        </div>
+        <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
+  -H "<span class="tok-key">Content-Type</span>: application/json" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">initialize</span>"}'
+
+<span class="tok-com"># tools/list</span>
+curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">2</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/list</span>"}'
+
+<span class="tok-com"># tools/call</span>
+curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
+  -d '{
+    "<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">3</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>",
+    "<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">list_tickets</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">status</span>":"<span class="tok-str">open</span>","<span class="tok-key">limit</span>":<span class="tok-num">10</span>}}
+  }'</code></pre>
+      </div>
+    </section>
+
+    <!-- 3. API Tokens -->
+    <section class="doc-section" id="api-tokens">
+      <div class="doc-section-head"><span class="doc-num">03</span><h2>مفاتيح API</h2></div>
+      <p class="lead">جدول <code>api_tokens</code> يخزّن <strong>SHA-256</strong> فقط لكل سر — لا يوجد أي استرجاع للسر الأصلي بعد الإنشاء، فقط تجديد كامل.</p>
+
+      <h3>أنواع بيانات الاعتماد</h3>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>credential_type</th><th>تنسيق المفتاح</th><th>الرد عند الإنشاء</th></tr></thead>
+          <tbody>
+            <tr><td><code>api_key_secret</code></td><td><code>mad3oom_pk_...</code> + <code>mad3oom_sk_...</code></td><td><code>{ token: {api_key}, secret }</code></td></tr>
+            <tr><td><code>bearer</code></td><td><code>mad3oom_bt_...</code> (256-bit)</td><td><code>{ token, bearer_token }</code></td></tr>
+            <tr><td><code>both</code></td><td>صفّان مرتبطان بـ <code>credential_group_id</code></td><td><code>{ api_key_secret: {...}, bearer: {...} }</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>الاستخدام في هيدر Authorization</h3>
+      <div class="code-block">
+        <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">تمييز النوع من التوكن نفسه</span></div>
+        <pre><code><span class="tok-com">// api_key_secret → فيه نقطة فاصلة بين الاثنين</span>
+<span class="tok-key">Authorization</span>: Bearer mad3oom_pk_XXXX<span class="tok-fn">.</span>mad3oom_sk_YYYY
+
+<span class="tok-com">// bearer → توكن واحد بدون نقطة</span>
+<span class="tok-key">Authorization</span>: Bearer mad3oom_bt_ZZZZZZZZ</code></pre>
+      </div>
+
+      <div class="callout danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <p><strong>السر يُعرض مرة واحدة فقط.</strong> لو ضاع أو اتقفل المودال بالغلط، الحل الوحيد هو تجديد السر عبر <code>regenerate-api-token-secret</code> — مفيش استرجاع لنص السر الأصلي لأن القاعدة بتخزّن الهاش بس.</p>
+      </div>
+    </section>
+
+    <!-- 4. Scopes -->
+    <section class="doc-section" id="scopes">
+      <div class="doc-section-head"><span class="doc-num">04</span><h2>الصلاحيات (Scopes)</h2></div>
+      <p class="lead">كل مفتاح له مصفوفة <code>scopes</code> — الأداة اللي محتاجة scope غير موجود عند المفتاح ببساطة مش هتظهر في <code>tools/list</code>، ومحاولة استدعائها في <code>tools/call</code> بترجع خطأ 403 (JSON-RPC code <code>-32003</code>).</p>
+
+      <h3>الصلاحيات المستهلَكة فعليًا من أدوات MCP</h3>
+      <div style="margin:1rem 0">
+        <span class="scope-pill">tickets:read</span><span class="scope-pill">tickets:write</span>
+        <span class="scope-pill">whatsapp:send</span>
+        <span class="scope-pill">subscriptions:read</span><span class="scope-pill">subscriptions:write</span>
+        <span class="scope-pill">subscriptions:renew</span><span class="scope-pill">subscriptions:cancel</span><span class="scope-pill">subscriptions:plans</span>
+        <span class="scope-pill">notifications:read</span><span class="scope-pill">notifications:send</span><span class="scope-pill">notifications:manage</span>
+      </div>
+
+      <h3>الصلاحيات الافتراضية (لو ماتحددتش صراحة)</h3>
+      <div style="margin:.5rem 0 1.25rem">
+        <span class="scope-pill">tickets:read</span><span class="scope-pill">tickets:write</span><span class="scope-pill">whatsapp:send</span><span class="scope-pill">whatsapp:read</span><span class="scope-pill">chatbot:read</span>
+      </div>
+
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4M12 16h.01"></path><circle cx="12" cy="12" r="10"></circle></svg>
+        <p>الصلاحيات التالية معرّفة ومسموح بيها لكن <strong>لا توجد أي أداة MCP تستهلكها حاليًا</strong>: <code>tickets:delete</code>, <code>knowledge_base:*</code>, <code>customers:write</code>, <code>whatsapp:read</code>, <code>analytics:read</code>, <code>settings:manage</code>, <code>oauth:manage</code>, <code>mcp:connect</code>, <code>chatbot:read</code>, <code>admin:full</code>. جاهزة للاستخدام المستقبلي عند إضافة أدوات جديدة.</p>
+      </div>
+    </section>
+
+    <!-- 5. MCP Server -->
+    <section class="doc-section" id="mcp-server">
+      <div class="doc-section-head"><span class="doc-num">05</span><h2>مدعوم كخادم MCP</h2></div>
+      <p class="lead">نقطة JSON-RPC 2.0 واحدة تخدم كل عملاء MCP الخارجيين (Claude, ChatGPT, Cursor...) عبر Streamable HTTP.</p>
+
+      <div class="endpoint-row">
+        <span class="method-pill method-post">POST</span>
+        <code>https://mad3oom.online/mcp</code>
+        <span class="arrow">→</span>
+        <span class="dest">functions/v1/mcp (Vercel rewrite)</span>
+      </div>
+
+      <h3>دورة حياة الجلسة</h3>
+      <div class="code-block">
+        <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">initialize → tools/list → tools/call</span></div>
+        <pre><code><span class="tok-com">// 1) initialize — يرجع Mcp-Session-Id في الهيدر</span>
+→ {"<span class="tok-key">method</span>":"<span class="tok-fn">initialize</span>","<span class="tok-key">params</span>":{"<span class="tok-key">protocolVersion</span>":"<span class="tok-str">2025-06-18</span>"}}
+← {"<span class="tok-key">result</span>":{"<span class="tok-key">protocolVersion</span>":"<span class="tok-str">2025-06-18</span>","<span class="tok-key">serverInfo</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">mad3oom-mcp</span>","<span class="tok-key">version</span>":"<span class="tok-str">1.1.0</span>"}}}
+
+<span class="tok-com">// 2) tools/list — مفلترة حسب scopes التوكن + الأدوات المعطّلة إداريًا</span>
+→ {"<span class="tok-key">method</span>":"<span class="tok-fn">tools/list</span>"}
+← {"<span class="tok-key">result</span>":{"<span class="tok-key">tools</span>":[{"<span class="tok-key">name</span>":"<span class="tok-str">list_tickets</span>", ...}]}}
+
+<span class="tok-com">// 3) tools/call</span>
+→ {"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">list_tickets</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">status</span>":"<span class="tok-str">open</span>"}}}
+← {"<span class="tok-key">result</span>":{"<span class="tok-key">content</span>":[{"<span class="tok-key">type</span>":"<span class="tok-str">text</span>","<span class="tok-key">text</span>":"<span class="tok-str">[...]</span>"}]}}</code></pre>
+      </div>
+
+      <div class="callout success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+        <p>كتالوج الأدوات بقى Live من جدول <code>mcp_tools_catalog</code> بدل ما يكون ثابت في الكود — أي أداة جديدة أو تعديل وصف بيتحدّث من قاعدة البيانات مباشرة (Cache محلي 30 ثانية داخل الدالة).</p>
+      </div>
+    </section>
+
+    <!-- 6. Tools -->
+    <section class="doc-section" id="tools">
+      <div class="doc-section-head"><span class="doc-num">06</span><h2>الأدوات المتاحة</h2></div>
+      <p class="lead">18 أداة موزّعة على 5 مجموعات — كل أداة مربوطة بـ scope واحد محدد.</p>
+
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>الأداة</th><th>Scope</th><th>الوصف</th></tr></thead>
+          <tbody>
+            <tr><td><code>create_ticket</code></td><td><span class="scope-pill">tickets:write</span></td><td>إنشاء تذكرة نيابةً عن صاحب المفتاح</td></tr>
+            <tr><td><code>update_ticket</code></td><td><span class="scope-pill">tickets:write</span></td><td>تعديل — الأدمن أي حقل عبر RPC، العميل أرشفة فقط</td></tr>
+            <tr><td><code>close_ticket</code></td><td><span class="scope-pill">tickets:write</span></td><td>إغلاق (أدمن فقط حاليًا)</td></tr>
+            <tr><td><code>list_tickets</code></td><td><span class="scope-pill">tickets:read</span></td><td>فلترة بالحالة + limit/offset (حد أقصى 100)</td></tr>
+            <tr><td><code>get_ticket</code></td><td><span class="scope-pill">tickets:read</span></td><td>تذكرة واحدة</td></tr>
+            <tr><td><code>get_dashboard_stats</code></td><td><span class="scope-pill">tickets:read</span></td><td>إحصائيات حسب الحالة</td></tr>
+            <tr><td><code>get_customer</code> / <code>list_customers</code></td><td><span class="scope-pill">tickets:read</span></td><td>بيانات العملاء المرئيين لصاحب المفتاح</td></tr>
+            <tr><td><code>send_whatsapp</code></td><td><span class="scope-pill">whatsapp:send</span></td><td>نصي أو تمبلت عبر WhatsApp Graph API</td></tr>
+            <tr><td><code>list_subscriptions</code> / <code>get_subscription</code></td><td><span class="scope-pill">subscriptions:read</span></td><td>فلترة بالحالة/الخطة أو اشتراك واحد</td></tr>
+            <tr><td><code>create_subscription</code></td><td><span class="scope-pill">subscriptions:write</span></td><td>طلب جديد (تذكرة + صف pending)</td></tr>
+            <tr><td><code>renew_subscription</code></td><td><span class="scope-pill">subscriptions:renew</span></td><td>طلب تجديد</td></tr>
+            <tr><td><code>cancel_subscription</code></td><td><span class="scope-pill">subscriptions:cancel</span></td><td>إلغاء طلب pending فقط</td></tr>
+            <tr><td><code>list_subscription_plans</code></td><td><span class="scope-pill">subscriptions:plans</span></td><td>الخطط النشطة + مزاياها</td></tr>
+            <tr><td><code>list_notifications</code></td><td><span class="scope-pill">notifications:read</span></td><td>إشعارات صاحب المفتاح نفسه فقط</td></tr>
+            <tr><td><code>send_notification</code></td><td><span class="scope-pill">notifications:send</span></td><td>لمستخدم ضمن حدود الرؤية</td></tr>
+            <tr><td><code>manage_notification</code></td><td><span class="scope-pill">notifications:manage</span></td><td>تحديد كمقروء / حذف</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>نموذج الصلاحيات (Actor-based)</h3>
+      <p>كل أداة تمر بـ <code>getActor(userId)</code> لتحديد: أدمن رئيسي (بريد ثابت)، أدمن (<code>profiles.role='admin'</code>)، أو مستخدم فرعي. الأدمن يرى كل شيء في التذاكر والاشتراكات، العميل العادي يرى نفسه ومستخدميه الفرعيين فقط. الإشعارات استثناء — مقصورة على صاحب المفتاح نفسه حتى لو كان أدمن.</p>
+    </section>
+
+    <!-- 7. MCP Client -->
+    <section class="doc-section" id="mcp-client">
+      <div class="doc-section-head"><span class="doc-num">07</span><h2>مدعوم كعميل MCP</h2></div>
+      <p class="lead">عكس الاتجاه السابق — هنا مدعوم بيتصل بخوادم MCP خارجية (Supabase, GitHub, Notion...) نيابةً عن الأدمن، عبر جدولين منفصلين.</p>
+
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>الجدول</th><th>الغرض</th></tr></thead>
+          <tbody>
+            <tr><td><code>mcp_servers</code></td><td>تعريف الخادم — مشترك بين كل الأدمنز</td></tr>
+            <tr><td><code>mcp_server_connections</code></td><td>اتصال كل أدمن — معزول بـ RLS على <code>owner_id</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>التشفير</h3>
+      <p>كل الأسرار (<code>api_key_encrypted</code>, <code>bearer_token_encrypted</code>, <code>oauth_access_token_encrypted</code>...) مشفّرة بـ <strong>AES-GCM</strong> حقيقي (IV عشوائي 12 بايت + ciphertext). لا يوجد أي مسار في الكود يعيد فك هذه القيم للواجهة — فقط تُستخدم داخليًا وقت الاستدعاء الفعلي.</p>
+
+      <h3>أنواع المصادقة المدعومة</h3>
+      <div style="margin:.5rem 0 1rem"><span class="scope-pill">none</span><span class="scope-pill">api_key</span><span class="scope-pill">bearer</span><span class="scope-pill">custom</span><span class="scope-pill">oauth2</span></div>
+      <p>لكل نوع <code>oauth2</code>، الدالة <code>ensureFreshAccessToken</code> بتجدّد access_token تلقائيًا لو باقي أقل من 60 ثانية على انتهائه، قبل بناء الهيدر.</p>
+    </section>
+
+    <!-- 8. OAuth -->
+    <section class="doc-section" id="oauth">
+      <div class="doc-section-head"><span class="doc-num">08</span><h2>تدفق OAuth 2.1 الكامل</h2></div>
+      <p class="lead">هذا المسار تستخدمه Claude/ChatGPT/أي عميل يدعم Dynamic Client Registration + PKCE، عوضًا عن مفتاح API ثابت.</p>
+
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>الوظيفة</th><th>Public URL</th></tr></thead>
+          <tbody>
+            <tr><td>Discovery (RFC 8414)</td><td><code>GET /.well-known/oauth-authorization-server</code></td></tr>
+            <tr><td>Protected Resource (RFC 9728)</td><td><code>GET /.well-known/oauth-protected-resource</code></td></tr>
+            <tr><td>تسجيل عميل تلقائي</td><td><code>POST /oauth/register</code></td></tr>
+            <tr><td>بدء التفويض</td><td><code>GET /oauth/authorize</code></td></tr>
+            <tr><td>إصدار/تجديد Token</td><td><code>POST /oauth/token</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="step-list">
+        <div class="step-item"><h5>تسجيل العميل (DCR)</h5><p>Claude يبعت <code>client_name</code> و<code>redirect_uris</code> → يرجع <code>client_id</code> (و<code>client_secret</code> لو مطلوب).</p></div>
+        <div class="step-item"><h5>بناء رابط PKCE والتحويل</h5><p><code>code_challenge_method=S256</code> إجباري. يتحقق من rate limit ومطابقة <code>redirect_uri</code> المسجّل، ثم يحوّل لصفحة موافقة المستخدم.</p></div>
+        <div class="step-item"><h5>موافقة المستخدم</h5><p>بعد تسجيل الدخول، ينشئ <code>authorization_code</code> صالح لـ 60 ثانية فقط.</p></div>
+        <div class="step-item"><h5>تبادل الكود بـ Access Token</h5><p>Claude يتحقق من <code>code_verifier</code> مقابل <code>code_challenge</code> المخزّن، وينشئ صف <code>api_tokens</code> جديد (<code>credential_type=bearer</code>) + <code>oauth_refresh_tokens</code> مرتبط به.</p></div>
+        <div class="step-item"><h5>الاستخدام والتجديد</h5><p>Access token يُستخدم كـ Bearer عادي على <code>/mcp</code>. Refresh token يُدوَّر بالكامل (rotation) عند كل استخدام.</p></div>
+      </div>
+    </section>
+
+    <!-- 9. OAuth Security -->
+    <section class="doc-section" id="oauth-security">
+      <div class="doc-section-head"><span class="doc-num">09</span><h2>التفاصيل الأمنية لـ OAuth</h2></div>
+
+      <div class="fn-grid">
+        <div class="card" style="margin:0"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-soft)"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> أعمار التوكنات</h4><p style="font-size:.82rem;color:var(--text-2)">Access token: ساعة واحدة (3600s)<br>Refresh token: 30 يوم، يُدوَّر بالكامل عند كل استخدام</p></div>
+        <div class="card" style="margin:0"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--mcp-soft)"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg> PKCE إجباري</h4><p style="font-size:.82rem;color:var(--text-2)"><code>S256</code> فقط — لا يوجد مسار بدون <code>code_challenge</code></p></div>
+        <div class="card" style="margin:0"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--warn)"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Rate Limiting مستقل</h4><p style="font-size:.82rem;color:var(--text-2)">authorize: 60/د لكل IP، 20/د لكل client<br>token: 40/د لكل IP، 15/د لكل client<br>register: 5/ساعة لكل IP</p></div>
+        <div class="card" style="margin:0"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success)"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg> تسجيل شامل</h4><p style="font-size:.82rem;color:var(--text-2)">كل محاولة تسجيل عميل (ناجحة أو فاشلة) تُسجَّل في <code>oauth_client_registrations_log</code> مع IP وUser-Agent</p></div>
+      </div>
+    </section>
+
+    <!-- 10. Usage tracking — FIXED -->
+    <section class="doc-section" id="usage-tracking">
+      <div class="doc-section-head"><span class="doc-num">10</span><h2>تتبع الاستخدام</h2></div>
+      <span class="eyebrow fixed"><span class="dot"></span>تم الإصلاح — mcp function v21</span>
+      <p class="lead">تسجيل كل طلب موثّق في <code>api_token_usage_logs</code> + عدّاد <code>usage_count</code> على <code>api_tokens</code>. كانت فيه 3 فجوات حقيقية في الكود، اتصلحت الثلاثة في نفس الإصدار.</p>
+
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>الفجوة</th><th>قبل</th><th>بعد</th></tr></thead>
+          <tbody>
+            <tr><td><code>endpoint</code></td><td>ثابت دايمًا: <code>"/mcp:unknown"</code></td><td>ديناميكي: <code>/mcp:tools/call:list_tickets</code> مثلاً</td></tr>
+            <tr><td><code>status_code</code></td><td><code>NULL</code> في كل الصفوف</td><td>الـ status الفعلي للرد (200 / 400 / 403 / 500...)</td></tr>
+            <tr><td><code>usage_count</code></td><td>صفر دائمًا — مفيش كود بيزوّده</td><td>يتزود أتوميك عبر RPC <code>increment_api_token_usage</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>كيف اتصلحت</h3>
+      <p>التسجيل انتقل من بداية الطلب (داخل <code>verifyApiToken</code>) لنهايته، بعد معرفة الـ method واسم الأداة والـ Response النهائي فعليًا — عبر دالة <code>withLogging()</code> بتلف كل مسارات الرد في <code>index.ts</code>.</p>
+
+      <div class="code-block">
+        <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">index.ts — منطق التسجيل الجديد</span></div>
+        <pre><code><span class="tok-key">function</span> <span class="tok-fn">withLogging</span>(response) {
+  <span class="tok-fn">logApiUsage</span>({
+    tokenId: auth.token.id,
+    endpoint: endpointLabel, <span class="tok-com">// ديناميكي حسب method/الأداة</span>
+    statusCode: response.status, <span class="tok-com">// من الـ Response الفعلي</span>
+    ip, userAgent,
+  });
+  <span class="tok-key">return</span> response;
+}
+<span class="tok-com">// كل return في الملف بقى: return withLogging(httpJson(...))</span></code></pre>
+      </div>
+
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4M12 16h.01"></path><circle cx="12" cy="12" r="10"></circle></svg>
+        <p><strong>تريد-أوف واعي:</strong> حد الـ rate limit (60 طلب/دقيقة) لسه بيتحسب بعدّ سجلات آخر 60 ثانية قبل معالجة الطلب — زي الأول بالظبط. لكن بما إن الإدراج الفعلي بقى في النهاية مش البداية، هامش الـ race بين عدد كبير من الطلبات المتزامنة جدًا لنفس التوكن في نفس اللحظة بقى أوسع شوية من قبل. تريد-أوف مقبول مقابل تسجيل <code>status_code</code> و<code>endpoint</code> صحيحين.</p>
+      </div>
+    </section>
+
+    <!-- 11. Routing -->
+    <section class="doc-section" id="routing">
+      <div class="doc-section-head"><span class="doc-num">11</span><h2>توجيه Vercel</h2></div>
+      <p class="lead">كل الروابط العامة rewrites (مش redirects) — العميل يرى دومين <code>mad3oom.online</code> فقط طول الوقت، وهو مطلوب لتطابق <code>issuer</code> في RFC 8414/9728.</p>
+
+      <div class="endpoint-row"><code>/.well-known/oauth-authorization-server</code><span class="arrow">→</span><span class="dest">oauth-discovery</span></div>
+      <div class="endpoint-row"><code>/.well-known/oauth-protected-resource</code><span class="arrow">→</span><span class="dest">oauth-protected-resource</span></div>
+      <div class="endpoint-row"><code>/oauth/register</code><span class="arrow">→</span><span class="dest">oauth-register</span></div>
+      <div class="endpoint-row"><code>/oauth/authorize</code><span class="arrow">→</span><span class="dest">oauth-authorize</span></div>
+      <div class="endpoint-row"><code>/oauth/token</code><span class="arrow">→</span><span class="dest">oauth-token</span></div>
+      <div class="endpoint-row"><code>/mcp</code><span class="arrow">→</span><span class="dest">mcp</span></div>
+    </section>
+
+    <!-- 12. Function reference -->
+    <section class="doc-section" id="functions">
+      <div class="doc-section-head"><span class="doc-num">12</span><h2>مرجع الوظائف</h2></div>
+      <p class="lead"><code>verify_jwt: false</code> على <code>mcp</code> و<code>oauth-*</code> إجباري — المصادقة عندهم مخصّصة (api_tokens / client credentials)، مش JWT قياسي.</p>
+
+      <div class="fn-grid">
+        <div class="fn-card"><div class="fn-name">mcp</div><div class="fn-desc">نقطة JSON-RPC الرئيسية — كل أدوات MCP</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">mcp-server-info</div><div class="fn-desc">حالة الخادم + تفعيل/تعطيل الأدوات عالميًا</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">create-api-token</div><div class="fn-desc">توليد مفتاح API جديد</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">regenerate-api-token-secret</div><div class="fn-desc">تجديد سر/Bearer لمفتاح موجود</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-discovery</div><div class="fn-desc">RFC 8414 metadata</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-protected-resource</div><div class="fn-desc">RFC 9728 metadata</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-register</div><div class="fn-desc">Dynamic Client Registration</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-authorize</div><div class="fn-desc">بداية تدفق PKCE</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-authorize-approve</div><div class="fn-desc">تنفيذ موافقة/رفض المستخدم</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-token</div><div class="fn-desc">تبادل code/refresh_token بـ access_token</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">save-mcp-credentials</div><div class="fn-desc">تشفير وحفظ بيانات اعتماد خادم MCP خارجي</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">mcp-invoke-tool</div><div class="fn-desc">تنفيذ أداة على خادم MCP خارجي متصل</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">test-mcp-server</div><div class="fn-desc">اختبار اتصال + مزامنة أدوات خادم خارجي</div><span class="fn-jwt on">verify_jwt: true</span></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<button class="back-top" id="backTop" aria-label="العودة لأعلى">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+</button>
+
+<footer>
+  <div class="container">
+    للإدارة والتحكم في المفاتيح والخوادم: <a href="mcp.html">لوحة MCP</a> — للعودة للصفحة الرئيسية: <a href="index.html">مدعوم</a>
+  </div>
+</footer>
+
+<script>
+// ---------- Theme toggle ----------
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try{ localStorage.setItem('theme-preference', t); }catch(e){}
+}
+document.getElementById('themeToggleBtn').addEventListener('click', function(){
+  var current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// ---------- Navbar scroll state ----------
+var navbar = document.getElementById('navbar');
+function onScroll(){
+  if(window.scrollY > 30) navbar.classList.add('scrolled'); else navbar.classList.remove('scrolled');
+  var backTop = document.getElementById('backTop');
+  if(window.scrollY > 500) backTop.classList.add('show'); else backTop.classList.remove('show');
+}
+window.addEventListener('scroll', onScroll, { passive:true });
+onScroll();
+
+document.getElementById('backTop').addEventListener('click', function(){
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+
+// ---------- Sidebar active-link scrollspy ----------
+var sections = Array.from(document.querySelectorAll('.doc-section'));
+var links = Array.from(document.querySelectorAll('.doc-nav-group a'));
+function setActive(id){
+  links.forEach(function(l){ l.classList.toggle('active', l.getAttribute('href') === '#' + id); });
+}
+var observer = new IntersectionObserver(function(entries){
+  entries.forEach(function(entry){
+    if(entry.isIntersecting) setActive(entry.target.id);
+  });
+}, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+sections.forEach(function(s){ observer.observe(s); });
+
+// ---------- Copy code buttons ----------
+function copyCode(btn){
+  var pre = btn.closest('.code-block').querySelector('pre');
+  var text = pre.innerText;
+  navigator.clipboard.writeText(text).then(function(){
+    var original = btn.textContent;
+    btn.textContent = 'تم النسخ ✓';
+    setTimeout(function(){ btn.textContent = original; }, 1500);
+  });
+}
+</script>
+</body>
+</html>
