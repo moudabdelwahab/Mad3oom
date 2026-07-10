@@ -228,36 +228,49 @@ function renderConnectorGrid() {
     const catalogCards = catalogFiltered.map((c) => {
         const server = c.isCustomBlank ? null : findConnectedServerForCatalogEntry(c, allServers);
         const isConnected = server && server.status === MCP_STATUSES.CONNECTED;
-        const toolCount = server && Array.isArray(server.tools) ? server.tools.length : 0;
+        const isOauthConnector = c.connector_type === 'oauth_connector';
+        const toolCount = !isOauthConnector && server && Array.isArray(server.tools) ? server.tools.length : 0;
 
         const isOauthType = c.auth_type === 'oauth2';
         const readyForQuickLogin = isOauthType && server && server.auth_type === 'oauth2' && server.oauth_client_id && !isConnected;
+
+        const manageButtons = isOauthConnector
+            ? `<button class="btn btn-edit" onclick="window.mcpEdit('${server?.id}')">إدارة</button>`
+            : `
+                <button class="btn btn-tools" onclick="window.mcpOpenTools('${server?.id}')">الأدوات (${toolCount})</button>
+                <button class="btn btn-edit" onclick="window.mcpEdit('${server?.id}')">إدارة</button>
+              `;
 
         const actions = c.isCustomBlank
             ? `<button class="btn btn-primary" onclick="window.mcpAdd()">+ إضافة خادم مخصّص</button>`
             : server
                 ? `
                     ${readyForQuickLogin ? `<button class="btn btn-primary" onclick="window.mcpQuickOAuthLogin('${server.id}')">🔐 تسجيل الدخول</button>` : ''}
-                    <button class="btn btn-tools" onclick="window.mcpOpenTools('${server.id}')">الأدوات (${toolCount})</button>
-                    <button class="btn btn-edit" onclick="window.mcpEdit('${server.id}')">إدارة</button>
+                    ${manageButtons}
                     ${isConnected ? `<button class="btn btn-disconnect" onclick="window.mcpDisconnect('${server.id}')">فصل</button>` : ''}
                   `
                 : isOauthType
                     ? `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">🔐 ربط الحساب (تسجيل الدخول)</button>`
                     : `<button class="btn btn-primary" onclick="window.mcpConnectCatalog('${c.key}')">ربط (Connect)</button>`;
 
+        const metaExtra = !server
+            ? ''
+            : isOauthConnector
+                ? `<span title="OAuth Connector - REST فقط">🔐 OAuth فقط (بدون أدوات MCP)</span>`
+                : `<span>🛠️ ${toolCount} أداة</span>`;
+
         return `
         <div class="connector-card ${isConnected ? 'is-connected' : ''}">
             <div class="connector-card-top">
                 <div class="connector-icon" style="background:${c.brandColor}">${connectorIconSvg(c.icon, c.initial)}</div>
                 <div class="connector-name-wrap">
-                    <div class="connector-name">${escapeHtml(c.name)}</div>
+                    <div class="connector-name">${escapeHtml(c.name)} ${!c.isCustomBlank ? `<span class="transport-chip">${isOauthConnector ? 'OAuth Connector' : 'MCP Server'}</span>` : ''}</div>
                     <div class="connector-desc">${escapeHtml(c.description)}</div>
                 </div>
             </div>
             <div class="connector-meta-row">
                 ${connectorStatusChip(server)}
-                ${server ? `<span>🛠️ ${toolCount} أداة</span>` : ''}
+                ${metaExtra}
             </div>
             ${!isConnected && !readyForQuickLogin && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}</div>` : ''}
             <div class="connector-actions">${actions}</div>
@@ -269,19 +282,21 @@ function renderConnectorGrid() {
         return (s.name || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q);
     }).map((s) => {
         const isConnected = s.status === MCP_STATUSES.CONNECTED;
-        const toolCount = Array.isArray(s.tools) ? s.tools.length : 0;
+        const isOauthConnector = s.connector_type === 'oauth_connector';
+        const toolCount = !isOauthConnector && Array.isArray(s.tools) ? s.tools.length : 0;
+        const metaExtra = isOauthConnector ? `<span title="OAuth Connector - REST فقط">🔐 OAuth فقط (بدون أدوات MCP)</span>` : `<span>🛠️ ${toolCount} أداة</span>`;
         return `
         <div class="connector-card ${isConnected ? 'is-connected' : ''}">
             <div class="connector-card-top">
                 <div class="connector-icon" style="background:#64748b">${connectorIconSvg('<rect x="2" y="3" width="20" height="8" rx="2"></rect><rect x="2" y="13" width="20" height="8" rx="2"></rect><line x1="6" y1="7" x2="6.01" y2="7"></line><line x1="6" y1="17" x2="6.01" y2="17"></line>', (s.name || '?').trim().charAt(0).toUpperCase())}</div>
                 <div class="connector-name-wrap">
-                    <div class="connector-name">${escapeHtml(s.name)}</div>
+                    <div class="connector-name">${escapeHtml(s.name)} <span class="transport-chip">${isOauthConnector ? 'OAuth Connector' : 'MCP Server'}</span></div>
                     <div class="connector-desc">${escapeHtml(s.description || 'خادم مخصّص مُضاف يدويًا')}</div>
                 </div>
             </div>
-            <div class="connector-meta-row">${connectorStatusChip(s)}<span>🛠️ ${toolCount} أداة</span></div>
+            <div class="connector-meta-row">${connectorStatusChip(s)}${metaExtra}</div>
             <div class="connector-actions">
-                <button class="btn btn-tools" onclick="window.mcpOpenTools('${s.id}')">الأدوات (${toolCount})</button>
+                ${isOauthConnector ? '' : `<button class="btn btn-tools" onclick="window.mcpOpenTools('${s.id}')">الأدوات (${toolCount})</button>`}
                 <button class="btn btn-edit" onclick="window.mcpEdit('${s.id}')">إدارة</button>
                 ${isConnected ? `<button class="btn btn-disconnect" onclick="window.mcpDisconnect('${s.id}')">فصل</button>` : ''}
             </div>
@@ -300,6 +315,10 @@ window.mcpConnectCatalog = function (catalogKey) {
     openModal(null);
     document.getElementById('modalTitle').textContent = `ربط ${entry.name}`;
     setValue('fName', entry.name);
+    const connectorType = entry.connector_type === 'oauth_connector' ? 'oauth_connector' : 'mcp_server';
+    const radio = document.querySelector(`input[name="connectorType"][value="${connectorType}"]`);
+    if (radio) radio.checked = true;
+    onConnectorTypeChange();
     setValue('fTransport', entry.transport || 'streamable_http');
     setValue('fUrl', entry.url || '');
     setValue('fCategory', entry.category || 'general');
@@ -339,6 +358,7 @@ function renderToolExplorer() {
     const q = explorerSearchQuery.trim().toLowerCase();
     const rows = [];
     allServers.forEach((server) => {
+        if (server.connector_type === 'oauth_connector') return; // OAuth Connector - بدون أدوات MCP بالتصميم
         if (server.status !== MCP_STATUSES.CONNECTED || !Array.isArray(server.tools)) return;
         server.tools.forEach((t) => {
             if (!t.enabled) return;
@@ -454,6 +474,9 @@ function resetForm() {
     document.getElementById('fEnabled').checked = true;
     document.getElementById('oauthStatusBadge').innerHTML = '';
     document.getElementById('oauthConnectBtn').disabled = false;
+    const mcpRadio = document.querySelector('input[name="connectorType"][value="mcp_server"]');
+    if (mcpRadio) mcpRadio.checked = true;
+    onConnectorTypeChange();
 }
 
 function openModal(id = null) {
@@ -489,6 +512,11 @@ function fillForm(s) {
     setValue('fDescription', s.description || ''); setValue('fCategory', s.category || 'general');
     document.getElementById('fEnabled').checked = s.enabled !== false;
 
+    const connectorType = s.connector_type === 'oauth_connector' ? 'oauth_connector' : 'mcp_server';
+    const radio = document.querySelector(`input[name="connectorType"][value="${connectorType}"]`);
+    if (radio) radio.checked = true;
+    onConnectorTypeChange();
+
     setValue('fAuthType', s.auth_type || 'none');
     // لا نملأ أي سر أبداً (api_key/secret/bearer/custom/client_secret) - فاضي = "سيبه زي ما هو"
     setValue('fOauthClientId', s.oauth_client_id || '');
@@ -517,6 +545,22 @@ function onTransportChange() {
     document.getElementById('stdioFields').style.display = t === 'stdio' ? 'block' : 'none';
 }
 
+/** خادم MCP: JSON-RPC كامل (initialize/tools/list/tools/call) - يحتاج نوع نقل.
+ *  OAuth Connector: تسجيل دخول + REST فقط - نوع النقل مش له معنى فبيتخفي، وبيتثبّت
+ *  transport='streamable_http' تلقائيًا في الحفظ (قيمة غير مستخدمة فعليًا لهذا النوع). */
+function onConnectorTypeChange() {
+    const type = document.querySelector('input[name="connectorType"]:checked')?.value || 'mcp_server';
+    const isOauthConnector = type === 'oauth_connector';
+    document.getElementById('fTransportGroup').style.display = isOauthConnector ? 'none' : 'block';
+    document.getElementById('httpFields').style.display = isOauthConnector ? 'none' : (document.getElementById('fTransport').value === 'stdio' ? 'none' : 'block');
+    document.getElementById('stdioFields').style.display = isOauthConnector ? 'none' : (document.getElementById('fTransport').value === 'stdio' ? 'block' : 'none');
+
+    const hint = document.getElementById('connectorTypeHint');
+    hint.textContent = isOauthConnector
+        ? 'بعد نجاح تسجيل الدخول (OAuth) هيتم حفظ Access/Refresh Token بس - مفيش استدعاء لـ initialize أو tools/list. الأدوات لهذا النوع هتتاح لاحقًا عبر Adapters مخصّصة.'
+        : 'خادم MCP حقيقي بيدعم initialize وtools/list وtools/call - الأدوات هتتحمّل تلقائيًا عند اختبار الاتصال.';
+}
+
 /** إظهار/إخفاء قسم المصادقة المناسب فقط - Dynamic Form */
 function onAuthTypeChange() {
     const t = document.getElementById('fAuthType').value;
@@ -529,6 +573,7 @@ function onAuthTypeChange() {
 function collectBaseForm() {
     return {
         name: document.getElementById('fName').value,
+        connector_type: document.querySelector('input[name="connectorType"]:checked')?.value || 'mcp_server',
         transport: document.getElementById('fTransport').value,
         url: document.getElementById('fUrl').value,
         command: document.getElementById('fCommand').value,
@@ -1544,6 +1589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.mcpServerToggleTool = handleMcpServerToggleTool;
 
     window.mcpOnTransportChange = onTransportChange;
+    window.mcpOnConnectorTypeChange = onConnectorTypeChange;
     window.mcpOnAuthTypeChange = onAuthTypeChange;
     window.mcpConnectOAuth = handleConnectOAuth;
     window.mcpCopyRedirectUri = copyRedirectUri;
