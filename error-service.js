@@ -44,6 +44,36 @@ export const errorService = {
     },
 
     /**
+     * Get accurate error counts by status (not limited to the
+     * currently loaded page of results), used to power the
+     * stats dashboard cards.
+     */
+    async getStats() {
+        const countQuery = (filters = {}) => {
+            let q = supabase.from('site_errors').select('*', { count: 'exact', head: true });
+            Object.entries(filters).forEach(([key, val]) => { q = q.eq(key, val); });
+            return q;
+        };
+
+        const [totalRes, newRes, resolvedRes, archivedRes] = await Promise.all([
+            countQuery(),
+            countQuery({ status: 'new' }),
+            countQuery({ status: 'resolved' }),
+            countQuery({ status: 'archived' })
+        ]);
+
+        const firstError = [totalRes, newRes, resolvedRes, archivedRes].find(r => r.error);
+        if (firstError) throw firstError.error;
+
+        return {
+            total: totalRes.count || 0,
+            new: newRes.count || 0,
+            resolved: resolvedRes.count || 0,
+            archived: archivedRes.count || 0
+        };
+    },
+
+    /**
      * Subscribe to real-time error updates.
      * onInsert: fired when a new error is reported.
      * onUpdate: fired instantly when an error's status changes
