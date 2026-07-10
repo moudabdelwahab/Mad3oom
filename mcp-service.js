@@ -24,6 +24,10 @@ const CONN_TABLE = 'mcp_server_connections';
 export const MCP_TRANSPORTS = ['stdio', 'sse', 'streamable_http'];
 export const MCP_AUTH_TYPES = ['none', 'api_key', 'bearer', 'oauth2', 'custom'];
 
+/** mcp_server = JSON-RPC كامل (initialize/tools/list/tools/call). oauth_connector = OAuth فقط لحفظ
+ *  access/refresh token، بدون أي استدعاء MCP - REST APIs مباشرة (Google Drive/Sheets مثلاً). */
+export const MCP_CONNECTOR_TYPES = ['mcp_server', 'oauth_connector'];
+
 export const MCP_STATUSES = {
     CONNECTED: 'connected',
     DISCONNECTED: 'disconnected',
@@ -119,7 +123,7 @@ const CONNECTION_SAFE_COLUMNS =
     'id, server_id, auth_type, oauth_client_id, oauth_authorize_url, oauth_token_url, oauth_scope, oauth_token_expires_at, status, tools, last_checked_at, last_error';
 
 const SERVER_BASE_COLUMNS =
-    'id, name, transport, url, command, args, env, headers, description, category, enabled, created_by, created_at, updated_at';
+    'id, name, transport, url, command, args, env, headers, description, category, enabled, connector_type, created_by, created_at, updated_at';
 
 /* =========================================================
  *  CRUD تعريف الخادم
@@ -355,6 +359,10 @@ function normalizePayload(payload, isNew) {
         out.transport = MCP_TRANSPORTS.includes(payload.transport) ? payload.transport : 'streamable_http';
     }
 
+    if (isNew || payload.connector_type !== undefined) {
+        out.connector_type = MCP_CONNECTOR_TYPES.includes(payload.connector_type) ? payload.connector_type : 'mcp_server';
+    }
+
     if (isNew || payload.url !== undefined) {
         const url = (payload.url || '').trim();
         const transportForCheck = out.transport || 'streamable_http';
@@ -431,11 +439,6 @@ export const API_TOKEN_ALLOWED_SCOPES = [
     'mcp:connect',
     'chatbot:read',
     'admin:full',
-    // أدوات MCP الجديدة: الاشتراكات والإشعارات (نفس القائمة المضافة في
-    // create-api-token/index.ts و oauth-authorize-approve/index.ts و
-    // oauth-discovery/index.ts)
-    'subscriptions:read', 'subscriptions:write', 'subscriptions:renew', 'subscriptions:cancel', 'subscriptions:plans',
-    'notifications:read', 'notifications:send', 'notifications:manage',
 ];
 
 export const API_TOKEN_DEFAULT_SCOPES = ['tickets:read', 'tickets:write', 'whatsapp:send', 'whatsapp:read', 'chatbot:read'];
@@ -696,187 +699,172 @@ export async function setMcpServerToolEnabled(toolName, enabled) {
     if (data?.error) throw new Error(data.error);
     return data; // { success, tools }
 }
+
+/* ============================================================
+ *  MCP Client Marketplace (Phase 5) - كتالوج ثابت في الواجهة فقط
+ *  ------------------------------------------------------------
+ *  لا يوجد جدول "كتالوج" في قاعدة البيانات - كل عنصر هنا مجرد قيم
+ *  افتراضية (اسم/تصنيف/transport/auth_type/روابط) تُستخدم لتعبئة نفس
+ *  فورم "إضافة خادم" الموجود بالفعل (createServer/saveCredentials/
+ *  startOAuth) - بدون أي منطق جديد في الخادم. الإدارة تقدر تغيّر أي
+ *  قيمة قبل الحفظ. مطابقة "متصل/غير متصل" تتم بمقارنة url (أو الاسم
+ *  احتياطيًا) مع الخوادم الموجودة فعليًا في mcp_servers - مطابقة عرض
+ *  فقط، لا تُغيّر ولا تُنشئ أي شيء بمفردها.
+ * ============================================================ */
+
 export const MCP_CATALOG_CATEGORIES = [
     { key: 'all', label: 'الكل' },
     { key: 'database', label: 'قواعد البيانات' },
-    { key: 'development', label: 'أدوات المطورين' },
-    { key: 'communication', label: 'التواصل' },
+    { key: 'dev', label: 'أدوات المطورين' },
     { key: 'productivity', label: 'الإنتاجية' },
-    { key: 'custom', label: 'مخصص' }
+    { key: 'communication', label: 'التواصل' },
+    { key: 'custom', label: 'مخصّص' },
 ];
 
-
 export const MCP_CLIENT_CATALOG = [
-    {
-        key: 'github',
-        name: 'GitHub',
-        category: 'development',
-        description: 'Repositories, Issues, Pull Requests',
-        transport: 'streamable_http',
-        auth_type: 'oauth2',
-        brandColor: '#24292f',
-        initial: 'G',
-        url: '',
-        oauth_authorize_url: 'https://github.com/login/oauth/authorize',
-        oauth_token_url: 'https://github.com/login/oauth/access_token',
-        oauth_scope: 'repo read:user',
-        needsManualUrl: false,
-        setup_note: 'سجل الدخول بحساب GitHub.'
-    },
     {
         key: 'supabase',
         name: 'Supabase',
         category: 'database',
-        description: 'Postgres, Storage, Edge Functions',
-        transport: 'streamable_http',
-        auth_type: 'oauth2',
+        connector_type: 'mcp_server',
+        description: 'قراءة والتحكم في مشاريع Supabase الخاصة بك: الجداول، الاستعلامات، والدوال.',
         brandColor: '#3ECF8E',
         initial: 'S',
-        url: '',
+        icon: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="#fff" stroke="none"/>',
+        transport: 'streamable_http',
+        url: 'https://mcp.supabase.com/mcp',
+        auth_type: 'oauth2',
         oauth_authorize_url: 'https://api.supabase.com/v1/oauth/authorize',
         oauth_token_url: 'https://api.supabase.com/v1/oauth/token',
         oauth_scope: '',
-        needsManualUrl: false
+        setup_note: 'Supabase يتطلب تسجيل "OAuth App" خاص بك من إعدادات المنظمة على Supabase أولاً (Client ID/Secret) - راجع "Build a Supabase Integration" في توثيق Supabase وتأكد من رابطي Authorize/Token قبل الحفظ.',
+        docs_url: 'https://supabase.com/docs/guides/getting-started/mcp',
     },
     {
-        key: 'google_drive',
-        name: 'Google Drive',
-        category: 'storage',
-        description: 'Read and manage Drive files',
+        key: 'github',
+        name: 'GitHub',
+        category: 'dev',
+        connector_type: 'mcp_server',
+        description: 'البحث في المستودعات، إدارة الـ Issues وPull Requests، ومتابعة CI/CD.',
+        brandColor: '#24292F',
+        initial: 'G',
+        icon: '<polyline points="9 18 4 12 9 6"></polyline><polyline points="15 6 20 12 15 18"></polyline>',
         transport: 'streamable_http',
-        auth_type: 'oauth2',
-        brandColor: '#4285F4',
-        initial: 'D',
-        url: '',
-        oauth_authorize_url: 'https://accounts.google.com/o/oauth2/v2/auth',
-        oauth_token_url: 'https://oauth2.googleapis.com/token',
-        oauth_scope: 'https://www.googleapis.com/auth/drive.readonly',
-        needsManualUrl: false
+        url: 'https://api.githubcopilot.com/mcp/',
+        auth_type: 'bearer',
+        setup_note: 'أسهل طريقة: أنشئ Personal Access Token من GitHub والصقه كـ Bearer Token. GitHub يدعم OAuth أيضًا لو تفضّل ربط أعمق.',
+        docs_url: 'https://github.com/github/github-mcp-server',
     },
     {
         key: 'notion',
         name: 'Notion',
         category: 'productivity',
-        description: 'Pages and databases',
-        transport: 'streamable_http',
-        auth_type: 'oauth2',
-        brandColor: '#000',
+        connector_type: 'mcp_server',
+        description: 'البحث في صفحات وقواعد بيانات Notion وإنشاء/تعديل المحتوى.',
+        brandColor: '#000000',
         initial: 'N',
-        url: '',
+        icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        transport: 'streamable_http',
+        url: 'https://mcp.notion.com/mcp',
+        auth_type: 'oauth2',
         oauth_authorize_url: 'https://api.notion.com/v1/oauth/authorize',
         oauth_token_url: 'https://api.notion.com/v1/oauth/token',
-        needsManualUrl: false
+        oauth_scope: '',
+        setup_note: 'Notion يدعم OAuth فقط (بدون مفتاح API مباشر) - تحتاج تسجيل تطبيق OAuth خاص بك من صفحة My Integrations في Notion أولاً.',
+        docs_url: 'https://developers.notion.com/guides/mcp/get-started-with-mcp',
     },
     {
         key: 'slack',
         name: 'Slack',
         category: 'communication',
-        description: 'Channels and messages',
+        connector_type: 'mcp_server',
+        description: 'البحث في الرسائل والقنوات، وإرسال رسائل نيابة عنك.',
+        brandColor: '#4A154B',
+        initial: 'Sl',
+        icon: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
         transport: 'streamable_http',
+        url: 'https://mcp.slack.com/mcp',
         auth_type: 'oauth2',
-        brandColor: '#611f69',
-        initial: 'S',
-        url: '',
         oauth_authorize_url: 'https://slack.com/oauth/v2/authorize',
         oauth_token_url: 'https://slack.com/api/oauth.v2.access',
+        oauth_scope: '',
+        setup_note: 'Slack لا يدعم التسجيل التلقائي للعميل (DCR) - سجّل تطبيق Slack خاص بك أولاً وأدخل Client ID/Secret منه هنا.',
+        docs_url: 'https://slack.com/help/articles/messaging-with-mcp',
     },
     {
-        key: 'discord',
-        name: 'Discord',
-        category: 'communication',
-        description: 'Discord Bot',
-        transport: 'streamable_http',
-        auth_type: 'bearer',
-        brandColor: '#5865F2',
-        initial: 'D',
-        url: '',
-        setup_note: 'ضع Bot Token.'
-    },
-    {
-        key: 'openai',
-        name: 'OpenAI',
-        category: 'ai',
-        description: 'Chat Completions & Responses',
-        transport: 'streamable_http',
-        auth_type: 'api_key',
-        brandColor: '#10a37f',
-        initial: 'O',
-        url: '',
-        setup_note: 'أدخل API Key.'
-    },
-    {
-        key: 'claude',
-        name: 'Claude',
-        category: 'ai',
-        description: 'Anthropic API',
-        transport: 'streamable_http',
-        auth_type: 'api_key',
-        brandColor: '#D97706',
-        initial: 'C',
-        url: ''
-    },
-    {
-        key: 'gemini',
-        name: 'Gemini',
-        category: 'ai',
-        description: 'Google Gemini',
-        transport: 'streamable_http',
-        auth_type: 'api_key',
+        key: 'google_drive',
+        name: 'Google Drive',
+        category: 'productivity',
+        connector_type: 'oauth_connector',
+        description: 'البحث عن الملفات وقراءة محتواها من Google Drive.',
         brandColor: '#4285F4',
-        initial: 'G',
-        url: ''
+        initial: 'D',
+        icon: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+        transport: 'streamable_http',
+        url: '',
+        auth_type: 'oauth2',
+        oauth_authorize_url: 'https://accounts.google.com/o/oauth2/v2/auth',
+        oauth_token_url: 'https://oauth2.googleapis.com/token',
+        oauth_scope: 'https://www.googleapis.com/auth/drive.readonly',
+        setup_note: 'رابط الخادم الخاص بمشروعك على Google Cloud يختلف حسب إعدادك - راجع توثيق Google لعنوان drivemcp.googleapis.com المناسب لمشروعك، وأدخله هنا يدويًا.',
+        docs_url: 'https://developers.google.com/workspace/drive/api/guides/configure-mcp-server',
+        needsManualUrl: true,
+    },
+    {
+        key: 'google_sheets',
+        name: 'Google Sheets',
+        category: 'productivity',
+        connector_type: 'oauth_connector',
+        description: 'قراءة وتحديث بيانات جداول Google Sheets.',
+        brandColor: '#0F9D58',
+        initial: 'Sh',
+        icon: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+        transport: 'streamable_http',
+        url: '',
+        auth_type: 'oauth2',
+        oauth_authorize_url: 'https://accounts.google.com/o/oauth2/v2/auth',
+        oauth_token_url: 'https://oauth2.googleapis.com/token',
+        oauth_scope: 'https://www.googleapis.com/auth/spreadsheets',
+        setup_note: 'لا يوجد رابط استضافة رسمي واحد لجداول Google Sheets حتى الآن - استخدم خادم MCP مستضاف من طرف ثالث أو شغّل واحدًا بنفسك ثم أدخل رابطه هنا.',
+        docs_url: '',
+        needsManualUrl: true,
     },
     {
         key: 'custom',
-        name: 'Custom MCP Server',
+        name: 'خادم مخصّص',
         category: 'custom',
-        description: 'ربط أي MCP Server',
-        transport: 'streamable_http',
-        auth_type: 'none',
+        connector_type: 'mcp_server',
+        description: 'أضف أي خادم MCP آخر لا يظهر في القائمة - عبر رابطه مباشرة.',
         brandColor: '#64748b',
         initial: '+',
-        isCustomBlank: true
-    }
+        icon: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+        transport: 'streamable_http',
+        url: '',
+        auth_type: 'none',
+        setup_note: '',
+        docs_url: '',
+        isCustomBlank: true,
+    },
 ];
- 
 
-export function findConnectedServerForCatalogEntry(entry, servers = []) {
-
-    return servers.find(server => {
-
-        if (entry.key && server.provider === entry.key)
-            return true;
-
-        if (entry.url && server.url) {
-
-            return entry.url.replace(/\/$/, '') ===
-                   server.url.replace(/\/$/, '');
-
-        }
-
-        return false;
-
-    }) || null;
-
-}
+/** تنفيذ أداة حقيقية على خادم متصل - نفس مسار الاختبار اليدوي (mcp-invoke-tool)
+ *  المستخدم فعليًا في الباك إند؛ يمر بنفس طبقة الصلاحيات (can_use_mcp_client). */
 export async function invokeMcpTool(toolName, args = {}) {
     const { data, error } = await supabase.functions.invoke('mcp-invoke-tool', {
         body: { tool_name: toolName, args },
     });
- 
-    if (error) {
-        // خطأ نقل/HTTP (مثال: 401 لو الجلسة منتهية، 500 لو خطأ غير متوقع بالسيرفر)
-        throw new Error('فشل استدعاء الأداة: ' + error.message);
+    if (error) throw new Error('فشل استدعاء الأداة: ' + error.message);
+    if (data?.error) throw new Error(data.error);
+    return data; // { ok, toolName, serverName, result }
+}
+
+/** مطابقة عرض فقط بين عنصر الكتالوج وخوادم mcp_servers الفعلية - بالـ url أولاً ثم الاسم احتياطيًا */
+export function findConnectedServerForCatalogEntry(catalogEntry, servers) {
+    if (!Array.isArray(servers)) return null;
+    const normalize = (u) => (u || '').trim().replace(/\/+$/, '').toLowerCase();
+    if (catalogEntry.url) {
+        const byUrl = servers.find((s) => normalize(s.url) === normalize(catalogEntry.url));
+        if (byUrl) return byUrl;
     }
- 
-    // الـ Edge Function نفسها بترجع { ok:false, error: '...' } لحالات منطقية
-    // زي "الأداة غير موجودة" أو "موصل OAuth REST مش بيدعم استدعاء مباشر"
-    if (data?.ok === false) {
-        throw new Error(data.error || 'فشل تنفيذ الأداة');
-    }
-    if (data?.error) {
-        throw new Error(data.error);
-    }
- 
-    return data; // { ok: true, toolName, serverName, result }
+    return servers.find((s) => (s.name || '').trim().toLowerCase() === catalogEntry.name.trim().toLowerCase()) || null;
 }
