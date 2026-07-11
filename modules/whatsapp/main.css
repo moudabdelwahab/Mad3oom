@@ -168,7 +168,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 /* ─── Sidebar ─── */
 .sidebar {
   width: var(--sidebar-width);
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-sidebar);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -188,6 +188,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   align-items: center;
   gap: var(--space-3);
   min-height: var(--header-height);
+  flex-shrink: 0;
 }
 
 .sidebar-logo {
@@ -330,6 +331,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .sidebar-footer {
   padding: var(--space-4);
   border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .user-card {
@@ -811,6 +813,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   transition: background 0.2s;
 }
 .dropdown-menu a:hover { background: rgba(255, 255, 255, 0.05); }
+.dropdown-menu.show { display: block; }
 
 /* ─── حقل بحث بأيقونة ─── */
 .input-icon-wrap { position: relative; }
