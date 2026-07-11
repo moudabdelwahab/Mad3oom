@@ -868,13 +868,23 @@ function openCreateWorkflowModal() {
     document.getElementById('wfModalCreate').addEventListener('click', async () => {
         const name = document.getElementById('wfNewName').value.trim();
         if (!name) { toast('اكتب اسمًا للـ Workflow', 'error'); return; }
-        const desc = document.getElementById('wfNewDesc').value.trim();
-        try {
-            const row = await DataLayer.createWorkflow({
-                name, description: desc || null, status: 'draft',
-                currentDraft.version_number.definition: { nodes: [], edges: [] }, currentDraft.variables: {}, currentDraft.trigger_config: {},
-                created_by: appState.currentUser?.id || null
-            });
+      const desc = document.getElementById('wfNewDesc').value.trim();
+
+try {
+    const row = await DataLayer.createWorkflow({
+        name,
+        description: desc || null,
+        created_by: appState.currentUser?.id || null
+    });
+
+    appState.workflows.unshift(row);
+    close();
+    openWorkflowInBuilder(row.id, row);
+    toast('تم إنشاء الـ Workflow — ابدأ بإضافة مشغّل (Trigger)', 'success');
+} catch (err) {
+    console.error(err);
+    toast('تعذّر إنشاء الـ Workflow: ' + (err.message || ''), 'error');
+}
             appState.workflows.unshift(row);
             close();
             openWorkflowInBuilder(row.id, row);
