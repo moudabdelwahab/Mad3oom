@@ -204,7 +204,7 @@ html[data-theme="light"] .wf-shell{
 .wf-save-state{font-size:.68rem;color:var(--wf-text-3);display:flex;align-items:center;gap:.35rem;}
 .wf-save-state.wf-unsaved{color:var(--wf-pill-amber-text);}
 
-/* Body: sidebar / canvas / inspector / version sidebar */
+/* Body: sidebar / canvas / inspector / currentDraft.version_number sidebar */
 .wf-builder-body{flex:1;display:flex;min-height:0;position:relative;}
 .wf-panel{background:var(--wf-bg-elevated);border-inline-start:1px solid var(--wf-glass-border);display:flex;flex-direction:column;flex-shrink:0;}
 .wf-panel.wf-panel-start{border-inline-start:none;border-inline-end:1px solid var(--wf-glass-border);}
@@ -295,17 +295,17 @@ html[data-theme="light"] .wf-shell{
 .wf-tags-wrap{display:flex;flex-wrap:wrap;padding:.3rem;border:1px solid var(--wf-glass-border);border-radius:.6rem;background:var(--wf-glass);gap:0;}
 .wf-tags-wrap input{border:none;background:none;color:var(--wf-text-1);font-size:.78rem;padding:.25rem;flex:1;min-width:60px;outline:none;}
 
-/* Version sidebar */
-.wf-version-panel{width:280px;}
-.wf-version-tabs{display:flex;border-bottom:1px solid var(--wf-glass-border);}
-.wf-version-tab{flex:1;text-align:center;padding:.65rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
-.wf-version-tab.wf-version-tab-active{color:var(--wf-text-1);border-color:var(--wf-accent);}
-.wf-version-body{flex:1;overflow-y:auto;padding:.85rem;}
-.wf-version-item{padding:.75rem;border-radius:.65rem;border:1px solid var(--wf-glass-border);margin-bottom:.6rem;}
-.wf-version-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem;}
-.wf-version-item .wf-vnum{font-family:var(--wf-font-data);font-weight:700;font-size:.82rem;}
-.wf-version-meta{font-size:.66rem;color:var(--wf-text-3);display:flex;flex-direction:column;gap:.15rem;margin-bottom:.5rem;}
-.wf-version-actions{display:flex;gap:.35rem;}
+/* currentDraft.version_number sidebar */
+.wf-currentDraft.version_number-panel{width:280px;}
+.wf-currentDraft.version_number-tabs{display:flex;border-bottom:1px solid var(--wf-glass-border);}
+.wf-currentDraft.version_number-tab{flex:1;text-align:center;padding:.65rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
+.wf-currentDraft.version_number-tab.wf-currentDraft.version_number-tab-active{color:var(--wf-text-1);border-color:var(--wf-accent);}
+.wf-currentDraft.version_number-body{flex:1;overflow-y:auto;padding:.85rem;}
+.wf-currentDraft.version_number-item{padding:.75rem;border-radius:.65rem;border:1px solid var(--wf-glass-border);margin-bottom:.6rem;}
+.wf-currentDraft.version_number-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem;}
+.wf-currentDraft.version_number-item .wf-vnum{font-family:var(--wf-font-data);font-weight:700;font-size:.82rem;}
+.wf-currentDraft.version_number-meta{font-size:.66rem;color:var(--wf-text-3);display:flex;flex-direction:column;gap:.15rem;margin-bottom:.5rem;}
+.wf-currentDraft.version_number-actions{display:flex;gap:.35rem;}
 .wf-readonly-banner{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .85rem;background:rgba(224,168,0,.1);border:1px solid rgba(224,168,0,.3);border-radius:.65rem;font-size:.72rem;color:var(--wf-pill-amber-text);margin:.75rem;line-height:1.7;}
 .wf-readonly-banner svg{width:16px;height:16px;flex-shrink:0;margin-top:.1rem;}
 
@@ -345,7 +345,7 @@ html[data-theme="light"] .wf-shell{
 @keyframes wfSpin{to{transform:rotate(360deg);}}
 
 @media (max-width: 1100px){
-  .wf-inspector,.wf-version-panel{position:absolute;top:0;bottom:0;inset-inline-end:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
+  .wf-inspector,.wf-currentDraft.version_number-panel{position:absolute;top:0;bottom:0;inset-inline-end:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
   .wf-lib{position:absolute;top:0;bottom:0;inset-inline-start:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
 }
 @media (prefers-reduced-motion: reduce){
@@ -428,7 +428,7 @@ html[data-theme="light"] .wf-shell{
                     </button>
                     <div class="wf-toolbar-spacer"></div>
                     <span class="wf-save-state" id="wfSaveState">محفوظ</span>
-                    <button class="wf-btn wf-btn-sm" id="wfToggleVersions" title="سجل الإصدارات">
+                    <button class="wf-btn wf-btn-sm" id="wfTogglecurrentDraft.version_numbers" title="سجل الإصدارات">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
                         الإصدارات
                     </button>
@@ -490,13 +490,13 @@ html[data-theme="light"] .wf-shell{
                         <div id="wfInspectorContent"></div>
                     </aside>
 
-                    <!-- Version sidebar -->
-                    <aside class="wf-panel wf-version-panel wf-hidden" id="wfVersionPanel">
-                        <div class="wf-version-tabs">
-                            <div class="wf-version-tab wf-version-tab-active" data-vtab="current">الحالي</div>
-                            <div class="wf-version-tab" data-vtab="history">السجل</div>
+                    <!-- currentDraft.version_number sidebar -->
+                    <aside class="wf-panel wf-currentDraft.version_number-panel wf-hidden" id="wfcurrentDraft.version_numberPanel">
+                        <div class="wf-currentDraft.version_number-tabs">
+                            <div class="wf-currentDraft.version_number-tab wf-currentDraft.version_number-tab-active" data-vtab="current">الحالي</div>
+                            <div class="wf-currentDraft.version_number-tab" data-vtab="history">السجل</div>
                         </div>
-                        <div class="wf-version-body wf-scrollbar" id="wfVersionBody"></div>
+                        <div class="wf-currentDraft.version_number-body wf-scrollbar" id="wfcurrentDraft.version_numberBody"></div>
                     </aside>
                 </div>
 
@@ -663,7 +663,7 @@ const DataLayer = {
 
 /* استخراج تصنيف مشتق للعرض في قائمة الـ Workflows (لا يوجد عمود category في الجدول، فنشتقه من نوع المشغّل) */
 function deriveWorkflowCategory(workflow) {
-    const nodes = workflow?.definition?.nodes || [];
+    const nodes = workflow?.currentDraft.version_number.definition?.nodes || [];
     const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return 'بدون مشغّل';
     const key = trigger.type;
@@ -676,7 +676,7 @@ function deriveWorkflowCategory(workflow) {
 }
 
 function triggerSummary(workflow) {
-    const nodes = workflow?.definition?.nodes || [];
+    const nodes = workflow?.currentDraft.version_number.definition?.nodes || [];
     const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return 'بدون مشغّل بعد';
     const nt = appState.nodeTypesByKey[trigger.type];
@@ -758,10 +758,10 @@ function renderWorkflowList() {
 }
 
 function workflowCardHtml(w) {
-    const nodesCount = (w.definition?.nodes || []).length;
+    const nodesCount = (w.currentDraft.version_number.definition?.nodes || []).length;
     const category = deriveWorkflowCategory(w);
     const trig = triggerSummary(w);
-    const icon = nodesCount ? (appState.nodeTypesByKey[(w.definition.nodes.find(n => (n.type || '').startsWith('trigger.')) || {}).type]?.icon || '⚡') : '🧩';
+    const icon = nodesCount ? (appState.nodeTypesByKey[(w.currentDraft.version_number.definition.nodes.find(n => (n.type || '').startsWith('trigger.')) || {}).type]?.icon || '⚡') : '🧩';
     return `
     <div class="wf-card wf-wf-card" data-id="${w.id}">
         <div class="wf-wf-card-top">
@@ -786,7 +786,7 @@ function workflowCardHtml(w) {
         </div>
         <div class="wf-wf-meta">
             <span title="آخر تحديث">🕓 ${timeAgo(w.updated_at)}</span>
-            <span title="الإصدار المنشور">${w.status === 'active' ? `📌 v${w.version}` : '— لم يُنشر بعد'}</span>
+            <span title="الإصدار المنشور">${w.status === 'active' ? `📌 v${w.currentDraft.version_number}` : '— لم يُنشر بعد'}</span>
         </div>
         <div class="wf-wf-actions">
             <button class="wf-btn wf-btn-sm wf-card-edit">فتح</button>
@@ -872,7 +872,7 @@ function openCreateWorkflowModal() {
         try {
             const row = await DataLayer.createWorkflow({
                 name, description: desc || null, status: 'draft',
-                definition: { nodes: [], edges: [] }, variables: {}, trigger_config: {},
+                currentDraft.version_number.definition: { nodes: [], edges: [] }, currentDraft.variables: {}, currentDraft.trigger_config: {},
                 created_by: appState.currentUser?.id || null
             });
             appState.workflows.unshift(row);
@@ -894,7 +894,7 @@ async function duplicateWorkflow(id) {
     try {
         const row = await DataLayer.createWorkflow({
             name: `${w.name} (نسخة)`, description: w.description, status: 'draft',
-            definition: w.definition, variables: w.variables || {}, trigger_config: w.trigger_config || {},
+            currentDraft.version_number.definition: w.currentDraft.version_number.definition, currentDraft.variables: w.currentDraft.variables || {}, currentDraft.trigger_config: w.currentDraft.trigger_config || {},
             created_by: appState.currentUser?.id || null
         });
         appState.workflows.unshift(row);
@@ -960,21 +960,21 @@ document.getElementById('wfBackToList')?.addEventListener('click', () => showVie
    جلسات الـ Workflow (Tabs)
    ===================================================================== */
 function createSession(workflowRow, isNew) {
-    const def = workflowRow.definition && Array.isArray(workflowRow.definition.nodes)
-        ? workflowRow.definition : { nodes: [], edges: [] };
+    const def = workflowRow.currentDraft.version_number.definition && Array.isArray(workflowRow.currentDraft.version_number.definition.nodes)
+        ? workflowRow.currentDraft.version_number.definition : { nodes: [], edges: [] };
     return {
         id: workflowRow.id,
         isNew: !!isNew,
         name: workflowRow.name || 'Workflow بدون اسم',
         description: workflowRow.description || '',
         status: workflowRow.status || 'draft',
-        version: workflowRow.version || 1,
-        trigger_config: workflowRow.trigger_config || {},
-        variables: workflowRow.variables || {},
+        currentDraft.version_number: workflowRow.currentDraft.version_number || 1,
+        currentDraft.trigger_config: workflowRow.currentDraft.trigger_config || {},
+        currentDraft.variables: workflowRow.currentDraft.variables || {},
         created_by: workflowRow.created_by || null,
         updated_at: workflowRow.updated_at,
         created_at: workflowRow.created_at,
-        definition: JSON.parse(JSON.stringify(def)),
+        currentDraft.version_number.definition: JSON.parse(JSON.stringify(def)),
         savedSnapshot: JSON.stringify(def),
         history: [JSON.stringify(def)],
         historyIndex: 0,
@@ -982,7 +982,7 @@ function createSession(workflowRow, isNew) {
         selection: { nodeIds: new Set(), edgeId: null },
         view: { pan: { x: 60, y: 60 }, zoom: 1 },
         get readOnly() { return this.status === 'active' || this.status === 'archived'; },
-        get hasUnsaved() { return JSON.stringify(this.definition) !== this.savedSnapshot; }
+        get hasUnsaved() { return JSON.stringify(this.currentDraft.version_number.definition) !== this.savedSnapshot; }
     };
 }
 
@@ -1096,12 +1096,12 @@ function mountActiveSession() {
 
     document.getElementById('wfSaveDraftBtn').disabled = s.readOnly;
     document.getElementById('wfPublishBtn').textContent = s.status === 'active' ? 'محدَّث ✓' : 'نشر';
-    document.getElementById('wfPublishBtn').disabled = s.status === 'active' && !s.hasUnsaved && (s.definition.nodes || []).length === 0;
+    document.getElementById('wfPublishBtn').disabled = s.status === 'active' && !s.hasUnsaved && (s.currentDraft.version_number.definition.nodes || []).length === 0;
 
     renderNodeLibrary();
     Canvas.mount(s);
     renderInspector();
-    renderVersionPanel();
+    rendercurrentDraft.version_numberPanel();
     renderBottomPanel();
 
     appState.currentWorkflowWebhooks = [];
@@ -1132,17 +1132,17 @@ document.getElementById('wfNameInput')?.addEventListener('input', (e) => {
 async function saveDraft(silent) {
     const s = activeSession();
     if (!s || s.readOnly) return;
-    const issues = validateDefinition(s.definition);
+    const issues = validatecurrentDraft.version_number.definition(s.currentDraft.version_number.definition);
     const errorCount = issues.filter(i => i.level === 'error').length;
     try {
         const row = await DataLayer.updateWorkflow(s.id, {
             name: s.name || 'Workflow بدون اسم',
             description: s.description,
-            definition: s.definition,
-            trigger_config: s.trigger_config,
-            variables: s.variables
+            currentDraft.version_number.definition: s.currentDraft.version_number.definition,
+            currentDraft.trigger_config: s.currentDraft.trigger_config,
+            currentDraft.variables: s.currentDraft.variables
         });
-        s.savedSnapshot = JSON.stringify(s.definition);
+        s.savedSnapshot = JSON.stringify(s.currentDraft.version_number.definition);
         s.updated_at = row.updated_at;
         const cached = appState.workflows.find(w => w.id === s.id);
         if (cached) Object.assign(cached, row);
@@ -1158,7 +1158,7 @@ document.getElementById('wfSaveDraftBtn')?.addEventListener('click', () => saveD
 async function publishWorkflow() {
     const s = activeSession();
     if (!s) return;
-    const issues = validateDefinition(s.definition);
+    const issues = validatecurrentDraft.version_number.definition(s.currentDraft.version_number.definition);
     const errors = issues.filter(i => i.level === 'error');
     if (errors.length) {
         toast(`لا يمكن النشر — يوجد ${errors.length} خطأ يجب إصلاحه أولًا (راجع لوحة "التحقق" أسفل الشاشة)`, 'error');
@@ -1170,18 +1170,18 @@ async function publishWorkflow() {
         const row = await DataLayer.updateWorkflow(s.id, {
             name: s.name || 'Workflow بدون اسم',
             description: s.description,
-            definition: s.definition,
-            trigger_config: s.trigger_config,
-            variables: s.variables,
+            currentDraft.version_number.definition: s.currentDraft.version_number.definition,
+            currentDraft.trigger_config: s.currentDraft.trigger_config,
+            currentDraft.variables: s.currentDraft.variables,
             status: 'active',
-            version: (s.version || 1) + 1
+            currentDraft.version_number: (s.currentDraft.version_number || 1) + 1
         });
-        Object.assign(s, { status: row.status, version: row.version, updated_at: row.updated_at });
-        s.savedSnapshot = JSON.stringify(s.definition);
+        Object.assign(s, { status: row.status, currentDraft.version_number: row.currentDraft.version_number, updated_at: row.updated_at });
+        s.savedSnapshot = JSON.stringify(s.currentDraft.version_number.definition);
         const cached = appState.workflows.find(w => w.id === s.id);
         if (cached) Object.assign(cached, row);
         mountActiveSession(); renderTabbar();
-        toast(`تم النشر — الإصدار v${row.version} نشط الآن`, 'success');
+        toast(`تم النشر — الإصدار v${row.currentDraft.version_number} نشط الآن`, 'success');
     } catch (err) {
         console.error(err);
         toast('تعذّر النشر: ' + (err.message || ''), 'error');
@@ -1195,7 +1195,7 @@ async function duplicateAsDraftFromBuilder() {
     try {
         const row = await DataLayer.createWorkflow({
             name: `${s.name} (نسخة قابلة للتعديل)`, description: s.description, status: 'draft',
-            definition: s.definition, variables: s.variables, trigger_config: s.trigger_config,
+            currentDraft.version_number.definition: s.currentDraft.version_number.definition, currentDraft.variables: s.currentDraft.variables, currentDraft.trigger_config: s.currentDraft.trigger_config,
             created_by: appState.currentUser?.id || null
         });
         appState.workflows.unshift(row);
@@ -1361,8 +1361,8 @@ const Canvas = (() => {
     /* ---------------- Rendering ---------------- */
     function render() {
         if (!session) return;
-        const nodes = session.definition.nodes || [];
-        const issues = validateDefinition(session.definition);
+        const nodes = session.currentDraft.version_number.definition.nodes || [];
+        const issues = validatecurrentDraft.version_number.definition(session.currentDraft.version_number.definition);
         const issuesByNode = {};
         issues.forEach(i => { if (i.nodeId) (issuesByNode[i.nodeId] = issuesByNode[i.nodeId] || []).push(i); });
 
@@ -1411,8 +1411,8 @@ const Canvas = (() => {
     }
 
     function updateEdgePaths() {
-        const nodes = session.definition.nodes || [];
-        const edges = session.definition.edges || [];
+        const nodes = session.currentDraft.version_number.definition.nodes || [];
+        const edges = session.currentDraft.version_number.definition.edges || [];
         const byId = {}; nodes.forEach(n => byId[n.id] = n);
 
         let maxX = 400, maxY = 300;
@@ -1451,7 +1451,7 @@ const Canvas = (() => {
 
     function renderMinimap() {
         const inner = document.getElementById('wfMinimapInner');
-        const nodes = session.definition.nodes || [];
+        const nodes = session.currentDraft.version_number.definition.nodes || [];
         if (!nodes.length) { inner.innerHTML = ''; return; }
         const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
         const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
@@ -1472,9 +1472,9 @@ const Canvas = (() => {
         inner.innerHTML = html;
     }
     document.getElementById('wfMinimap')?.addEventListener('click', (e) => {
-        if (!session || !(session.definition.nodes || []).length) return;
+        if (!session || !(session.currentDraft.version_number.definition.nodes || []).length) return;
         const rect = e.currentTarget.getBoundingClientRect();
-        const nodes = session.definition.nodes;
+        const nodes = session.currentDraft.version_number.definition.nodes;
         const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
         const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
         const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + NODE_H_APPROX + 40;
@@ -1507,7 +1507,7 @@ const Canvas = (() => {
             const startX = e.clientX, startY = e.clientY;
             const startPositions = {};
             session.selection.nodeIds.forEach(nid => {
-                const n = session.definition.nodes.find(x => x.id === nid);
+                const n = session.currentDraft.version_number.definition.nodes.find(x => x.id === nid);
                 if (n) startPositions[nid] = { x: n.position.x, y: n.position.y };
             });
             dragState = { mode: 'node', startX, startY, startPositions, moved: false };
@@ -1569,7 +1569,7 @@ const Canvas = (() => {
             const wd = screenDeltaToWorld(e.clientX - dragState.startX, e.clientY - dragState.startY);
             if (Math.abs(wd.x) + Math.abs(wd.y) > 2) dragState.moved = true;
             Object.keys(dragState.startPositions).forEach(nid => {
-                const n = session.definition.nodes.find(x => x.id === nid);
+                const n = session.currentDraft.version_number.definition.nodes.find(x => x.id === nid);
                 if (!n) return;
                 n.position.x = Math.round(dragState.startPositions[nid].x + wd.x);
                 n.position.y = Math.round(dragState.startPositions[nid].y + wd.y);
@@ -1596,7 +1596,7 @@ const Canvas = (() => {
         }
         const fromEl = nodesLayer.querySelector(`.wf-node[data-id="${linkingFrom.nodeId}"]`);
         if (!fromEl) return;
-        const n = session.definition.nodes.find(x => x.id === linkingFrom.nodeId);
+        const n = session.currentDraft.version_number.definition.nodes.find(x => x.id === linkingFrom.nodeId);
         const x1 = n.position.x + NODE_W, y1 = n.position.y + fromEl.offsetHeight / 2;
         const wrapRect = canvasWrap.getBoundingClientRect();
         const x2 = (e.clientX - wrapRect.left - session.view.pan.x) / session.view.zoom;
@@ -1657,8 +1657,8 @@ const Canvas = (() => {
         zoomAt(canvasWrap.clientWidth / 2, canvasWrap.clientHeight / 2, factor);
     }
     function zoomToFit() {
-        if (!session || !(session.definition.nodes || []).length) { session.view.pan = { x: 60, y: 60 }; session.view.zoom = 1; applyTransform(); return; }
-        const nodes = session.definition.nodes;
+        if (!session || !(session.currentDraft.version_number.definition.nodes || []).length) { session.view.pan = { x: 60, y: 60 }; session.view.zoom = 1; applyTransform(); return; }
+        const nodes = session.currentDraft.version_number.definition.nodes;
         const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
         const minX = Math.min(...xs), maxX = Math.max(...xs) + NODE_W;
         const minY = Math.min(...ys), maxY = Math.max(...ys) + NODE_H_APPROX;
@@ -1694,7 +1694,7 @@ const Canvas = (() => {
         const config = {};
         (nt.config_schema?.fields || []).forEach(f => { if (f.default !== undefined) config[f.key] = f.default; });
         const node = { id: uid('n'), type: typeKey, position: { x: Math.round(x), y: Math.round(y) }, config };
-        session.definition.nodes.push(node);
+        session.currentDraft.version_number.definition.nodes.push(node);
         pushRecent(typeKey);
         session.selection.nodeIds = new Set([node.id]);
         session.selection.edgeId = null;
@@ -1704,7 +1704,7 @@ const Canvas = (() => {
 
     function addEdge(sourceId, targetId) {
         if (sourceId === targetId) return;
-        const edges = session.definition.edges;
+        const edges = session.currentDraft.version_number.definition.edges;
         if (edges.some(e => e.source === sourceId && e.target === targetId)) return;
         edges.push({ id: uid('e'), source: sourceId, target: targetId, source_port: 'default', type: 'sequential', condition: null });
         pushHistory();
@@ -1716,13 +1716,13 @@ const Canvas = (() => {
         if (!session || session.readOnly) return;
         let changed = false;
         if (session.selection.edgeId) {
-            session.definition.edges = session.definition.edges.filter(e => e.id !== session.selection.edgeId);
+            session.currentDraft.version_number.definition.edges = session.currentDraft.version_number.definition.edges.filter(e => e.id !== session.selection.edgeId);
             session.selection.edgeId = null; changed = true;
         }
         if (session.selection.nodeIds.size) {
             const ids = session.selection.nodeIds;
-            session.definition.nodes = session.definition.nodes.filter(n => !ids.has(n.id));
-            session.definition.edges = session.definition.edges.filter(e => !ids.has(e.source) && !ids.has(e.target));
+            session.currentDraft.version_number.definition.nodes = session.currentDraft.version_number.definition.nodes.filter(n => !ids.has(n.id));
+            session.currentDraft.version_number.definition.edges = session.currentDraft.version_number.definition.edges.filter(e => !ids.has(e.source) && !ids.has(e.target));
             session.selection.nodeIds = new Set();
             changed = true;
         }
@@ -1733,17 +1733,17 @@ const Canvas = (() => {
         if (!session || session.readOnly || !session.selection.nodeIds.size) return;
         const idMap = {};
         const newNodes = [];
-        session.definition.nodes.forEach(n => {
+        session.currentDraft.version_number.definition.nodes.forEach(n => {
             if (session.selection.nodeIds.has(n.id)) {
                 const newId = uid('n');
                 idMap[n.id] = newId;
                 newNodes.push({ ...n, id: newId, position: { x: n.position.x + 30, y: n.position.y + 30 }, config: JSON.parse(JSON.stringify(n.config || {})) });
             }
         });
-        session.definition.nodes.push(...newNodes);
-        session.definition.edges.forEach(e => {
+        session.currentDraft.version_number.definition.nodes.push(...newNodes);
+        session.currentDraft.version_number.definition.edges.forEach(e => {
             if (idMap[e.source] && idMap[e.target]) {
-                session.definition.edges.push({ ...e, id: uid('e'), source: idMap[e.source], target: idMap[e.target] });
+                session.currentDraft.version_number.definition.edges.push({ ...e, id: uid('e'), source: idMap[e.source], target: idMap[e.target] });
             }
         });
         session.selection.nodeIds = new Set(Object.values(idMap));
@@ -1752,8 +1752,8 @@ const Canvas = (() => {
 
     /* ---------------- Auto layout (layered BFS) ---------------- */
     function autoLayout() {
-        if (!session || session.readOnly || !session.definition.nodes.length) return;
-        const nodes = session.definition.nodes, edges = session.definition.edges;
+        if (!session || session.readOnly || !session.currentDraft.version_number.definition.nodes.length) return;
+        const nodes = session.currentDraft.version_number.definition.nodes, edges = session.currentDraft.version_number.definition.edges;
         const outgoing = {}; nodes.forEach(n => outgoing[n.id] = []);
         edges.forEach(e => { if (outgoing[e.source]) outgoing[e.source].push(e.target); });
         const incomingCount = {}; nodes.forEach(n => incomingCount[n.id] = 0);
@@ -1787,7 +1787,7 @@ const Canvas = (() => {
 
     /* ---------------- Undo / redo ---------------- */
     function pushHistory() {
-        const snap = JSON.stringify(session.definition);
+        const snap = JSON.stringify(session.currentDraft.version_number.definition);
         if (session.history[session.historyIndex] === snap) return;
         session.history = session.history.slice(0, session.historyIndex + 1);
         session.history.push(snap);
@@ -1797,14 +1797,14 @@ const Canvas = (() => {
     function undo() {
         if (!session || session.historyIndex <= 0) return;
         session.historyIndex--;
-        session.definition = JSON.parse(session.history[session.historyIndex]);
+        session.currentDraft.version_number.definition = JSON.parse(session.history[session.historyIndex]);
         session.selection = { nodeIds: new Set(), edgeId: null };
         render(); renderInspector(); updateSaveState(); renderTabbar();
     }
     function redo() {
         if (!session || session.historyIndex >= session.history.length - 1) return;
         session.historyIndex++;
-        session.definition = JSON.parse(session.history[session.historyIndex]);
+        session.currentDraft.version_number.definition = JSON.parse(session.history[session.historyIndex]);
         session.selection = { nodeIds: new Set(), edgeId: null };
         render(); renderInspector(); updateSaveState(); renderTabbar();
     }
@@ -1818,7 +1818,7 @@ const Canvas = (() => {
         const meta = e.ctrlKey || e.metaKey;
         if ((e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelection(); }
         else if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
-        else if (meta && e.key.toLowerCase() === 'a') { e.preventDefault(); session.selection.nodeIds = new Set(session.definition.nodes.map(n => n.id)); document.querySelectorAll('.wf-node').forEach(el => el.classList.add('wf-node-selected')); renderInspector(); }
+        else if (meta && e.key.toLowerCase() === 'a') { e.preventDefault(); session.selection.nodeIds = new Set(session.currentDraft.version_number.definition.nodes.map(n => n.id)); document.querySelectorAll('.wf-node').forEach(el => el.classList.add('wf-node-selected')); renderInspector(); }
         else if (meta && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); redo(); }
         else if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
         else if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
@@ -1830,7 +1830,7 @@ const Canvas = (() => {
             const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
             const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
             session.selection.nodeIds.forEach(id => {
-                const n = session.definition.nodes.find(x => x.id === id);
+                const n = session.currentDraft.version_number.definition.nodes.find(x => x.id === id);
                 if (n) { n.position.x += dx; n.position.y += dy; }
             });
             updateEdgePaths(); renderMinimap();
@@ -1843,9 +1843,9 @@ const Canvas = (() => {
     return { init, mount, render, addNodeAtCenter, deleteSelection, duplicateSelection, pushHistory, updateEdgePaths, get session() { return session; } };
 })();
 /* =====================================================================
-   VALIDATION ENGINE (حقيقي — يعمل بالكامل على الـ definition الحالي، بدون Executor)
+   VALIDATION ENGINE (حقيقي — يعمل بالكامل على الـ currentDraft.version_number.definition الحالي، بدون Executor)
    ===================================================================== */
-function validateDefinition(def) {
+function validatecurrentDraft.version_number.definition(def) {
     const issues = [];
     const nodes = def.nodes || [], edges = def.edges || [];
     if (!nodes.length) { issues.push({ level: 'error', msg: 'أضف عناصر (Nodes) إلى الـ Workflow لتتمكن من نشره', nodeId: null }); return issues; }
@@ -1897,8 +1897,8 @@ function updateValidationCount(issues) {
 /* =====================================================================
    INSPECTOR — نماذج تتولّد ديناميكيًا بالكامل من config_schema (لا نماذج ثابتة)
    ===================================================================== */
-function getUpstreamVariables(session, nodeId) {
-    const edges = session.definition.edges, nodes = session.definition.nodes;
+function getUpstreamcurrentDraft.variables(session, nodeId) {
+    const edges = session.currentDraft.version_number.definition.edges, nodes = session.currentDraft.version_number.definition.nodes;
     const byId = {}; nodes.forEach(n => byId[n.id] = n);
     const incoming = {}; edges.forEach(e => { (incoming[e.target] = incoming[e.target] || []).push(e.source); });
     const visited = new Set(), queue = [nodeId], ancestors = [];
@@ -1912,7 +1912,7 @@ function getUpstreamVariables(session, nodeId) {
         const nt = appState.nodeTypesByKey[n.type]; if (!nt) return;
         (nt.output_vars || []).forEach(v => vars.push({ v, from: n.label || nt.name_ar || nt.name_en }));
     });
-    Object.keys(session.variables || {}).forEach(k => vars.push({ v: k, from: 'متغيرات الـ Workflow' }));
+    Object.keys(session.currentDraft.variables || {}).forEach(k => vars.push({ v: k, from: 'متغيرات الـ Workflow' }));
     return vars;
 }
 
@@ -1949,10 +1949,10 @@ function renderInspector() {
 }
 
 function renderEdgeInspector(s, wrap) {
-    const edge = s.definition.edges.find(e => e.id === s.selection.edgeId);
+    const edge = s.currentDraft.version_number.definition.edges.find(e => e.id === s.selection.edgeId);
     if (!edge) { wrap.innerHTML = ''; return; }
-    const sourceNode = s.definition.nodes.find(n => n.id === edge.source);
-    const targetNode = s.definition.nodes.find(n => n.id === edge.target);
+    const sourceNode = s.currentDraft.version_number.definition.nodes.find(n => n.id === edge.source);
+    const targetNode = s.currentDraft.version_number.definition.nodes.find(n => n.id === edge.target);
     wrap.innerHTML = `
     <div class="wf-inspector-head"><h3>الاتصال (Edge)</h3></div>
     <div class="wf-inspector-body">
@@ -1964,10 +1964,10 @@ function renderEdgeInspector(s, wrap) {
 }
 
 function renderWorkflowInspector(s, wrap) {
-    const varsEntries = Object.entries(s.variables || {});
+    const varsEntries = Object.entries(s.currentDraft.variables || {});
     wrap.innerHTML = `
     <div class="wf-inspector-head"><div class="wf-node-icon" style="background:var(--wf-primary)">⚡</div>
-        <div><h3>إعدادات الـ Workflow</h3><p>${(s.definition.nodes || []).length} عنصر</p></div>
+        <div><h3>إعدادات الـ Workflow</h3><p>${(s.currentDraft.version_number.definition.nodes || []).length} عنصر</p></div>
     </div>
     <div class="wf-inspector-body">
         <div class="wf-field"><label>الوصف</label><textarea class="wf-textarea" id="wfDescField" ${s.readOnly ? 'disabled' : ''}>${escapeHtml(s.description || '')}</textarea></div>
@@ -1996,16 +1996,16 @@ function renderWorkflowInspector(s, wrap) {
             const v = row.querySelector('[data-role="val"]').value;
             if (k) obj[k] = v;
         });
-        s.variables = obj;
+        s.currentDraft.variables = obj;
         updateSaveState(); renderTabbar();
     }
     wrap.querySelectorAll('#wfWorkflowVars input').forEach(inp => inp.addEventListener('blur', collectVars));
     wrap.querySelectorAll('[data-role="rm"]').forEach(btn => btn.addEventListener('click', (e) => { e.target.closest('.wf-kv-row').remove(); collectVars(); renderWorkflowInspector(s, wrap); }));
-    document.getElementById('wfAddVar')?.addEventListener('click', () => { s.variables = { ...(s.variables || {}), ['متغير_جديد']: '' }; renderWorkflowInspector(s, wrap); });
+    document.getElementById('wfAddVar')?.addEventListener('click', () => { s.currentDraft.variables = { ...(s.currentDraft.variables || {}), ['متغير_جديد']: '' }; renderWorkflowInspector(s, wrap); });
 }
 
 function renderNodeInspector(s, wrap, nodeId) {
-    const node = s.definition.nodes.find(n => n.id === nodeId);
+    const node = s.currentDraft.version_number.definition.nodes.find(n => n.id === nodeId);
     if (!node) { wrap.innerHTML = ''; return; }
     const nt = appState.nodeTypesByKey[node.type];
     if (!nt) {
@@ -2016,7 +2016,7 @@ function renderNodeInspector(s, wrap, nodeId) {
         return;
     }
 
-    const upstream = getUpstreamVariables(s, node.id);
+    const upstream = getUpstreamcurrentDraft.variables(s, node.id);
     const fields = nt.config_schema?.fields || [];
 
     wrap.innerHTML = `
@@ -2056,7 +2056,7 @@ function buildFieldControl(session, node, nt, field, upstream) {
     let control;
     const commit = (skipCanvasRender) => commitInspectorChange(!skipCanvasRender);
 
-    if (field.supports_variables) {
+    if (field.supports_currentDraft.variables) {
         const varBtn = document.createElement('button');
         varBtn.className = 'wf-var-btn'; varBtn.type = 'button'; varBtn.textContent = '{{ }} إدراج متغير';
         varBtn.disabled = disabled;
@@ -2283,14 +2283,14 @@ function renderBottomPanel() {
 }
 
 function renderValidationTab(s, content) {
-    const issues = validateDefinition(s.definition);
+    const issues = validatecurrentDraft.version_number.definition(s.currentDraft.version_number.definition);
     updateValidationCount(issues);
     if (!issues.length) {
         content.innerHTML = `<div class="wf-empty" style="padding:1.2rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;font-size:1.1rem;">✅</div><h4 style="font-size:.8rem;">لا توجد مشاكل</h4><p style="font-size:.72rem;">الـ Workflow جاهز للنشر من ناحية صحة الإعدادات.</p></div>`;
         return;
     }
     content.innerHTML = issues.map(i => {
-        const nt = i.nodeId ? appState.nodeTypesByKey[(s.definition.nodes.find(n => n.id === i.nodeId) || {}).type] : null;
+        const nt = i.nodeId ? appState.nodeTypesByKey[(s.currentDraft.version_number.definition.nodes.find(n => n.id === i.nodeId) || {}).type] : null;
         return `<div class="wf-issue-row wf-issue-${i.level}" data-node="${i.nodeId || ''}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
             <div><div>${escapeHtml(i.msg)}</div>${nt ? `<div style="color:var(--wf-text-3);font-size:.65rem;">${escapeHtml(nt.name_ar)}</div>` : ''}</div>
@@ -2325,34 +2325,34 @@ function renderRunsTab(s, content) {
         <div class="wf-run-row">
             <span class="wf-badge ${RUN_STATUS_BADGE[r.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${RUN_STATUS_LABEL[r.status] || r.status}</span>
             <span style="color:var(--wf-text-3);font-family:var(--wf-font-data);">${new Date(r.started_at).toLocaleString('ar-EG')}</span>
-            <span style="margin-inline-start:auto;color:var(--wf-text-3);">v${r.workflow_version ?? '—'}</span>
+            <span style="margin-inline-start:auto;color:var(--wf-text-3);">v${r.workflow_currentDraft.version_number ?? '—'}</span>
         </div>`).join('');
 }
 
 /* =====================================================================
-   VERSION SIDEBAR
+   currentDraft.version_number SIDEBAR
    ===================================================================== */
-let versionActiveTab = 'current';
-document.getElementById('wfToggleVersions')?.addEventListener('click', () => {
-    document.getElementById('wfVersionPanel').classList.toggle('wf-hidden');
+let currentDraft.version_numberActiveTab = 'current';
+document.getElementById('wfTogglecurrentDraft.version_numbers')?.addEventListener('click', () => {
+    document.getElementById('wfcurrentDraft.version_numberPanel').classList.toggle('wf-hidden');
 });
-document.querySelectorAll('.wf-version-tab').forEach(t => t.addEventListener('click', () => {
-    document.querySelectorAll('.wf-version-tab').forEach(x => x.classList.remove('wf-version-tab-active'));
-    t.classList.add('wf-version-tab-active');
-    versionActiveTab = t.dataset.vtab;
-    renderVersionPanel();
+document.querySelectorAll('.wf-currentDraft.version_number-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.wf-currentDraft.version_number-tab').forEach(x => x.classList.remove('wf-currentDraft.version_number-tab-active'));
+    t.classList.add('wf-currentDraft.version_number-tab-active');
+    currentDraft.version_numberActiveTab = t.dataset.vtab;
+    rendercurrentDraft.version_numberPanel();
 }));
 
-function renderVersionPanel() {
+function rendercurrentDraft.version_numberPanel() {
     const s = activeSession();
-    const body = document.getElementById('wfVersionBody');
+    const body = document.getElementById('wfcurrentDraft.version_numberBody');
     if (!s) { body.innerHTML = ''; return; }
 
-    if (versionActiveTab === 'history') {
+    if (currentDraft.version_numberActiveTab === 'history') {
         body.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;">
             <div class="wf-empty-icon" style="width:36px;height:36px;font-size:1.1rem;">🗂️</div>
             <h4 style="font-size:.8rem;">السجل الكامل قريبًا</h4>
-            <p style="font-size:.72rem;">نظام الإصدارات غير القابلة للتغيير (Immutable Versioning) لا يزال بانتظار مواصفته الأصلية ليُبنى بدقة بدل اختراعه من الصفر (كما هو موضّح في مراجعة معمارية الـ Workflow Engine). حاليًا، كل نشر يزيد رقم الإصدار الظاهر في تبويب "الحالي".</p>
+            <p style="font-size:.72rem;">نظام الإصدارات غير القابلة للتغيير (Immutable currentDraft.version_numbering) لا يزال بانتظار مواصفته الأصلية ليُبنى بدقة بدل اختراعه من الصفر (كما هو موضّح في مراجعة معمارية الـ Workflow Engine). حاليًا، كل نشر يزيد رقم الإصدار الظاهر في تبويب "الحالي".</p>
         </div>`;
         return;
     }
@@ -2360,35 +2360,35 @@ function renderVersionPanel() {
     const authorName = appState.staff.find(p => p.id === s.created_by)?.full_name || 'فريق العمل';
     let actionsHtml = '';
     if (s.status === 'draft') {
-        actionsHtml = `<button class="wf-btn wf-btn-primary wf-btn-sm" id="wfVersionPublish" style="width:100%;">نشر هذا الإصدار</button>`;
+        actionsHtml = `<button class="wf-btn wf-btn-primary wf-btn-sm" id="wfcurrentDraft.version_numberPublish" style="width:100%;">نشر هذا الإصدار</button>`;
     } else if (s.status === 'active' || s.status === 'paused') {
         actionsHtml = `
             <div class="wf-readonly-banner">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
                 <span>هذا الإصدار منشور ومُقفل للتعديل المباشر. للتعديل، أنشئ نسخة مسودة جديدة.</span>
             </div>
-            <button class="wf-btn wf-btn-sm" id="wfVersionDuplicate" style="width:100%;margin-bottom:.5rem;">📄 تكرار كمسودة للتعديل</button>
-            <button class="wf-btn wf-btn-sm" id="wfVersionPauseToggle" style="width:100%;">${s.status === 'active' ? '⏸️ إيقاف مؤقت' : '▶️ استئناف'}</button>
+            <button class="wf-btn wf-btn-sm" id="wfcurrentDraft.version_numberDuplicate" style="width:100%;margin-bottom:.5rem;">📄 تكرار كمسودة للتعديل</button>
+            <button class="wf-btn wf-btn-sm" id="wfcurrentDraft.version_numberPauseToggle" style="width:100%;">${s.status === 'active' ? '⏸️ إيقاف مؤقت' : '▶️ استئناف'}</button>
         `;
     }
 
     body.innerHTML = `
-        <div class="wf-version-item">
-            <div class="wf-version-item-head">
-                <span class="wf-vnum">v${s.version}</span>
+        <div class="wf-currentDraft.version_number-item">
+            <div class="wf-currentDraft.version_number-item-head">
+                <span class="wf-vnum">v${s.currentDraft.version_number}</span>
                 <span class="wf-badge ${STATUS_BADGE_CLASS[s.status] || 'wf-badge-gray'}">${STATUS_LABEL[s.status] || s.status}</span>
             </div>
-            <div class="wf-version-meta">
+            <div class="wf-currentDraft.version_number-meta">
                 <span>👤 ${escapeHtml(authorName)}</span>
                 <span>🕓 آخر تحديث: ${timeAgo(s.updated_at)}</span>
-                <span>🧩 ${(s.definition.nodes || []).length} عنصر</span>
+                <span>🧩 ${(s.currentDraft.version_number.definition.nodes || []).length} عنصر</span>
             </div>
-            <div class="wf-version-actions" style="flex-direction:column;">${actionsHtml}</div>
+            <div class="wf-currentDraft.version_number-actions" style="flex-direction:column;">${actionsHtml}</div>
         </div>`;
 
-    document.getElementById('wfVersionPublish')?.addEventListener('click', publishWorkflow);
-    document.getElementById('wfVersionDuplicate')?.addEventListener('click', duplicateAsDraftFromBuilder);
-    document.getElementById('wfVersionPauseToggle')?.addEventListener('click', async () => {
+    document.getElementById('wfcurrentDraft.version_numberPublish')?.addEventListener('click', publishWorkflow);
+    document.getElementById('wfcurrentDraft.version_numberDuplicate')?.addEventListener('click', duplicateAsDraftFromBuilder);
+    document.getElementById('wfcurrentDraft.version_numberPauseToggle')?.addEventListener('click', async () => {
         const newStatus = s.status === 'active' ? 'paused' : 'active';
         try {
             const row = await DataLayer.updateWorkflow(s.id, { status: newStatus });
