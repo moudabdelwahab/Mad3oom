@@ -117,6 +117,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await updateConnectionStatus();
     await updateDashboard();
     await loadActivityFeed();
+    await loadPhoneSwitcher();
 
     OAuthService.subscribe((state) => {
       console.log('[App] OAuth state changed:', state);
@@ -764,6 +765,64 @@ window.cleanupUsersPage = async function() {
   }
 };
 
+// ─── Phone Number Switcher (الشريط العلوي) ────────────
+
+async function loadPhoneSwitcher() {
+  try {
+    const wrap  = document.getElementById('phone-switcher');
+    const menu  = document.getElementById('phone-switcher-menu');
+    const label = document.getElementById('phone-switcher-label');
+    if (!wrap || !menu || !label) return;
+
+    const channels = await SupabaseIntegration.getWhatsAppChannels();
+
+    if (!channels || channels.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    const activeId = localStorage.getItem('mad3oom_wa_phone_id');
+    const active = channels.find(c => c.metadata?.phone_number_id === activeId) || channels[0];
+    const activeIdResolved = active?.metadata?.phone_number_id || '';
+
+    label.textContent = active?.metadata?.phone_number || activeIdResolved || 'اختر رقم';
+
+    menu.innerHTML = channels.map(c => {
+      const id = c.metadata?.phone_number_id || '';
+      const name = c.metadata?.phone_number || id || '—';
+      const isActive = id === activeIdResolved;
+      return `
+        <a href="#" onclick="window.selectActivePhone('${id}'); return false;" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <span>${name}</span>
+          ${isActive ? `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" style="color: var(--brand-primary); flex-shrink: 0;"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}
+        </a>
+      `;
+    }).join('');
+
+    wrap.style.display = 'block';
+  } catch (error) {
+    console.error('[App] loadPhoneSwitcher failed:', error);
+  }
+}
+
+window.loadPhoneSwitcher = loadPhoneSwitcher;
+
+window.togglePhoneSwitcher = function(event) {
+  event.stopPropagation();
+  document.getElementById('phone-switcher-menu')?.classList.toggle('show');
+};
+
+window.selectActivePhone = function(phoneId) {
+  if (!phoneId) return;
+  localStorage.setItem('mad3oom_wa_phone_id', phoneId);
+  document.getElementById('phone-switcher-menu')?.classList.remove('show');
+  location.reload();
+};
+
+document.addEventListener('click', () => {
+  document.getElementById('phone-switcher-menu')?.classList.remove('show');
+});
+
 // ─── Connection Status ────────────────────────────────
 
 async function updateConnectionStatus() {
@@ -951,6 +1010,7 @@ function handleOAuthStateChange(state) {
     setTimeout(() => {
       updateConnectionStatus();
       updateDashboard();
+      loadPhoneSwitcher();
     }, 1000);
 
   } else if (state.status === 'error') {
@@ -989,6 +1049,7 @@ window.handleDisconnect = function(phoneId = null) {
         closeDeleteModal();
         updateConnectionStatus();
         updateDashboard();
+        loadPhoneSwitcher();
       } else {
         throw new Error(result.error);
       }
