@@ -260,6 +260,78 @@ table.doc-table code{background:var(--glass-strong);padding:.1rem .4rem;border-r
 /* ============ Footer ============ */
 footer{border-top:1px solid var(--glass-border);padding:2.5rem 0;background:var(--bg-surface);text-align:center;color:var(--text-3);font-size:.82rem;}
 footer a{color:var(--accent-soft);font-weight:600;}
+
+
+/* ============ Code tabs (curl / JS / Python) ============ */
+.code-tabs-head{display:flex;align-items:center;justify-content:space-between;padding:.4rem .5rem .4rem .9rem;background:linear-gradient(90deg,#0A1220,#101B30);border-bottom:1px solid var(--term-border);}
+.code-tab-btns{display:flex;gap:.25rem;}
+.code-tab-btn{background:none;border:none;color:var(--term-ink-2);font-family:var(--font-data);font-size:.72rem;font-weight:700;padding:.4rem .8rem;border-radius:.4rem;cursor:pointer;transition:color var(--dur-fast) ease, background var(--dur-fast) ease;}
+.code-tab-btn:hover{color:var(--term-ink);}
+.code-tab-btn.active{background:var(--glass-strong);color:var(--accent-soft);}
+.code-tab-panel{display:none;}
+.code-tab-panel.active{display:block;}
+
+/* ============ Try API console ============ */
+.try-api-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;}
+@media (max-width:900px){.try-api-grid{grid-template-columns:1fr;}}
+.try-field{margin-bottom:.9rem;}
+.try-field label{display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:.4rem;}
+.try-field input, .try-field select, .try-field textarea{
+  width:100%;padding:.65rem .85rem;border-radius:.6rem;border:1px solid var(--glass-border);
+  background:var(--bg-elevated);color:var(--text-1);font-family:var(--font-data);font-size:.82rem;direction:ltr;text-align:left;
+}
+.try-field textarea{min-height:90px;resize:vertical;}
+.try-field select{font-family:var(--font-body);direction:rtl;text-align:right;}
+.try-field input:focus, .try-field select:focus, .try-field textarea:focus{outline:none;border-color:var(--accent-soft);box-shadow:0 0 0 3px rgba(77,163,255,.15);}
+.try-field .hint{font-size:.72rem;color:var(--text-3);margin-top:.3rem;}
+.try-presets{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem;}
+.try-preset-btn{background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.72rem;font-weight:700;padding:.35rem .75rem;border-radius:99px;cursor:pointer;transition:border-color var(--dur-fast) ease, color var(--dur-fast) ease;}
+.try-preset-btn:hover{border-color:var(--mcp-soft);color:var(--text-1);}
+.try-send-btn{width:100%;margin-top:.4rem;}
+.try-response{background:var(--term-bg);border:1px solid var(--term-border);border-radius:var(--radius-md);min-height:220px;display:flex;flex-direction:column;overflow:hidden;}
+.try-response-head{display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;border-bottom:1px solid var(--term-border);background:linear-gradient(90deg,#0A1220,#101B30);}
+.try-status-badge{font-family:var(--font-data);font-size:.7rem;font-weight:800;padding:.2rem .6rem;border-radius:.4rem;}
+.try-status-badge.s2xx{background:rgba(34,197,138,.15);color:var(--success);}
+.try-status-badge.s4xx{background:rgba(245,165,36,.15);color:var(--warn);}
+.try-status-badge.s5xx{background:rgba(255,107,107,.15);color:var(--danger);}
+.try-status-badge.pending{background:var(--glass-strong);color:var(--term-ink-2);}
+.try-response pre{margin:0;padding:1rem 1.1rem;overflow:auto;font-size:.78rem;line-height:1.7;color:var(--term-ink);direction:ltr;text-align:left;flex:1;}
+.try-response-empty{color:var(--term-ink-2);font-size:.82rem;padding:1rem 1.1rem;}
+.try-privacy-note{display:flex;gap:.5rem;font-size:.72rem;color:var(--text-3);margin-top:.7rem;}
+.try-privacy-note svg{width:14px;height:14px;flex-shrink:0;margin-top:.1rem;color:var(--text-3);}
+
+/* ============ Auth flow diagram ============ */
+.flow-diagram{margin:1.5rem 0 2rem;}
+.flow-diagram h3{font-size:.88rem;color:var(--text-1);margin-bottom:1rem;}
+.flow-track{display:flex;align-items:stretch;gap:.5rem;overflow-x:auto;padding-bottom:.5rem;}
+.flow-node{flex:1;min-width:150px;background:var(--glass);border:1px solid var(--glass-border);border-radius:.75rem;padding:.9rem;text-align:center;position:relative;}
+.flow-node.accent{border-color:rgba(77,163,255,.4);background:rgba(77,163,255,.06);}
+.flow-node.mcp-accent{border-color:rgba(180,95,224,.4);background:rgba(180,95,224,.06);}
+.flow-node .flow-ic{width:30px;height:30px;border-radius:.55rem;background:var(--glass-strong);display:flex;align-items:center;justify-content:center;margin:0 auto .5rem;color:var(--accent-soft);}
+.flow-node.mcp-accent .flow-ic{color:var(--mcp-soft);}
+.flow-node .flow-ic svg{width:15px;height:15px;}
+.flow-node h6{font-size:.76rem;font-weight:800;color:var(--text-1);margin-bottom:.25rem;}
+.flow-node p{font-size:.66rem;color:var(--text-3);margin:0;line-height:1.5;}
+.flow-connector{display:flex;align-items:center;color:var(--text-3);flex-shrink:0;}
+.flow-connector svg{width:16px;height:16px;}
+@media (max-width:700px){.flow-track{flex-direction:column;}.flow-connector{transform:rotate(90deg);align-self:center;}}
+
+/* ============ Rate limit meters ============ */
+.rate-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem 1.25rem;margin-bottom:.9rem;}
+.rate-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;gap:.5rem;flex-wrap:wrap;}
+.rate-card-head h5{font-size:.86rem;color:var(--text-1);}
+.rate-value{font-family:var(--font-data);font-size:.78rem;font-weight:700;color:var(--accent-soft);}
+.rate-bar-track{height:6px;border-radius:99px;background:var(--glass-strong);overflow:hidden;}
+.rate-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--mcp-color));}
+.rate-card p{font-size:.78rem;color:var(--text-3);margin:.5rem 0 0;}
+
+/* ============ Status code badges ============ */
+.status-badge{display:inline-flex;align-items:center;font-family:var(--font-data);font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:.4rem;min-width:3.2rem;justify-content:center;}
+.status-2xx{background:rgba(34,197,138,.14);color:var(--success);}
+.status-4xx{background:rgba(245,165,36,.14);color:var(--warn);}
+.status-40x-danger{background:rgba(255,107,107,.14);color:var(--danger);}
+.status-5xx{background:rgba(255,107,107,.14);color:var(--danger);}
+
 </style>
 </head>
 <body>
@@ -295,6 +367,10 @@ footer a{color:var(--accent-soft);font-weight:600;}
     </div>
     <div class="doc-hero-actions">
       <a href="#quickstart" class="btn btn-primary">ابدأ الاستخدام</a>
+      <a href="#try-api" class="btn btn-mcp">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        جرّب الـ API الآن
+      </a>
       <a href="/admin/mcp.html" class="btn btn-outline">فتح لوحة مفاتيح API</a>
     </div>
   </div>
@@ -309,6 +385,8 @@ footer a{color:var(--accent-soft);font-weight:600;}
       <h6>البداية</h6>
       <a href="#overview" class="doc-link">نظرة عامة على البنية</a>
       <a href="#quickstart" class="doc-link">بداية سريعة</a>
+      <a href="#auth-flow" class="doc-link">تدفق المصادقة (رسم)</a>
+      <a href="#try-api" class="doc-link mcp">جرّب الـ API</a>
     </div>
     <div class="doc-nav-group">
       <h6>مفاتيح API</h6>
@@ -327,7 +405,9 @@ footer a{color:var(--accent-soft);font-weight:600;}
       <a href="#oauth-security" class="doc-link">التفاصيل الأمنية</a>
     </div>
     <div class="doc-nav-group">
-      <h6>التشغيل</h6>
+      <h6>المرجع التقني</h6>
+      <a href="#rate-limits" class="doc-link">حدود الاستخدام (Rate Limits)</a>
+      <a href="#errors" class="doc-link">أكواد الأخطاء</a>
       <a href="#usage-tracking" class="doc-link">تتبع الاستخدام</a>
       <a href="#routing" class="doc-link">توجيه Vercel</a>
       <a href="#functions" class="doc-link">مرجع الوظائف</a>
