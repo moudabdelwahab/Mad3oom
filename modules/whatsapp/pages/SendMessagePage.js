@@ -29,8 +29,8 @@ export class SendMessagePage {
 
     async load() {
         this.container.innerHTML = `
-            <div style="padding: 40px; text-align: center;">
-                <div class="spinner" style="margin: 0 auto 15px;"></div>
+            <div class="page-loading-state">
+                <div class="spinner"></div>
                 جاري تحميل البيانات...
             </div>
         `;
@@ -38,10 +38,14 @@ export class SendMessagePage {
             const stats = await SupabaseIntegration.getDashboardStats();
             if (!stats) {
                 this.container.innerHTML = `
-                    <div style="text-align: center; padding: 60px 20px;">
-                        <div style="font-size: 48px; margin-bottom: 20px;">🔌</div>
-                        <h3 style="margin-bottom: 10px;">لا يوجد رقم مرتبط</h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 24px;">يرجى ربط رقم واتساب أولاً لإرسال الرسائل.</p>
+                    <div class="page-empty-state">
+                        <div class="icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 0 18.8-4.3M22 12.5a10 10 0 0 0-18.8 4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>لا يوجد رقم مرتبط</h3>
+                        <p>يرجى ربط رقم واتساب أولاً لإرسال الرسائل.</p>
                         <button class="btn btn-primary" onclick="navigateTo('connect', document.querySelector('[data-page=connect]'))">ربط رقم الآن</button>
                     </div>
                 `;
@@ -66,8 +70,15 @@ export class SendMessagePage {
             this.setupWindowChecks();
         } catch (error) {
             this.container.innerHTML = `
-                <div style="padding: 40px; text-align: center;">
-                    <div style="color: var(--status-error); margin-bottom: 15px;">❌ خطأ في تحميل البيانات: ${error.message}</div>
+                <div class="page-loading-state">
+                    <div class="flex items-center justify-center gap-2" style="color: var(--status-error); margin-bottom: 15px;">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="18" height="18">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        خطأ في تحميل البيانات: ${error.message}
+                    </div>
                     <button class="btn btn-secondary btn-sm" onclick="window.loadSendMessage ? window.loadSendMessage() : location.reload()">إعادة المحاولة</button>
                 </div>
             `;
@@ -92,9 +103,13 @@ export class SendMessagePage {
             <div class="send-message-page">
                 <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px;">
                     <div class="send-message-main">
-                        <div id="billing-alert" class="section-card" style="display: none; border: 1px solid var(--status-error); background: rgba(239, 68, 68, 0.05); margin-bottom: 24px;">
-                            <div class="section-card-body" style="display: flex; align-items: center; gap: 16px; padding: 16px;">
-                                <div style="font-size: 24px;">⚠️</div>
+                        <div id="billing-alert" class="section-card danger mb-6" style="display: none;">
+                            <div class="section-card-body flex items-center gap-4" style="padding: 16px;">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="color: var(--status-error); flex-shrink: 0;">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
                                 <div style="flex: 1;">
                                     <div style="font-weight: 700; color: var(--status-error); margin-bottom: 4px;">تنبيه: لم يتم ربط وسيلة دفع</div>
                                     <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">حساب WhatsApp Business الخاص بك لا يحتوي على وسيلة دفع مرتبطة. قد يتم قبول طلبات الإرسال من قبل ميتا ولكن لن يتم تسليمها فعلياً للهواتف.</div>
@@ -103,7 +118,7 @@ export class SendMessagePage {
                             </div>
                         </div>
 
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title">
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -130,7 +145,7 @@ export class SendMessagePage {
                             </div>
                         </div>
 
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title">
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -147,7 +162,7 @@ export class SendMessagePage {
                             </div>
                         </div>
 
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title">
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -164,20 +179,20 @@ export class SendMessagePage {
 
                         <div class="section-card">
                             <div class="section-card-body" style="display: flex; gap: 12px; flex-direction: column;">
-                                <button class="btn btn-primary" id="send-btn" onclick="window.sendMessages ? window.sendMessages() : alert('جاري التحضير...')" style="width: 100%; padding: 12px; font-size: 15px; font-weight: 700;">
+                                <button class="btn btn-primary btn-block" id="send-btn" onclick="window.sendMessages ? window.sendMessages() : alert('جاري التحضير...')" style="padding: 12px; font-size: 15px; font-weight: 700;">
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-left: 8px;">
                                         <path d="M16 21H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                         <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                     إرسال الرسائل
                                 </button>
-                                <button class="btn btn-secondary" onclick="window.resetSendForm ? window.resetSendForm() : location.reload()" style="width: 100%; padding: 12px; font-size: 15px;">إعادة تعيين</button>
+                                <button class="btn btn-secondary btn-block" onclick="window.resetSendForm ? window.resetSendForm() : location.reload()" style="padding: 12px; font-size: 15px;">إعادة تعيين</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="send-message-sidebar">
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title" style="font-size: 14px;">معاينة الرسالة</div>
                             </div>
@@ -186,31 +201,31 @@ export class SendMessagePage {
                             </div>
                         </div>
 
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title" style="font-size: 14px;">إحصائيات الحملة</div>
                             </div>
-                            <div class="section-card-body" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
-                                    <span style="font-size: 13px; color: var(--text-secondary);">إجمالي الأرقام</span>
-                                    <span style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="stats-total">0</span>
+                            <div class="section-card-body flex flex-col gap-3">
+                                <div class="split-row">
+                                    <span class="label">إجمالي الأرقام</span>
+                                    <span class="value" id="stats-total">0</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
-                                    <span style="font-size: 13px; color: var(--status-success);">أرقام صحيحة</span>
-                                    <span style="font-size: 16px; font-weight: 700; color: var(--status-success);" id="stats-valid">0</span>
+                                <div class="split-row success">
+                                    <span class="label">أرقام صحيحة</span>
+                                    <span class="value success" id="stats-valid">0</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
-                                    <span style="font-size: 13px; color: var(--status-error);">أرقام خاطئة</span>
-                                    <span style="font-size: 16px; font-weight: 700; color: var(--status-error);" id="stats-invalid">0</span>
+                                <div class="split-row danger">
+                                    <span class="label">أرقام خاطئة</span>
+                                    <span class="value danger" id="stats-invalid">0</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-md);">
-                                    <span style="font-size: 13px; color: var(--text-secondary);">التكلفة المتوقعة</span>
-                                    <span style="font-size: 16px; font-weight: 700; color: var(--brand-primary);" id="stats-cost">$0.00</span>
+                                <div class="split-row">
+                                    <span class="label">التكلفة المتوقعة</span>
+                                    <span class="value primary" id="stats-cost">$0.00</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="section-card" style="margin-bottom: 24px;">
+                        <div class="section-card mb-6">
                             <div class="section-card-header">
                                 <div class="section-card-title" style="font-size: 14px;">سجل الحملات الأخيرة</div>
                             </div>
@@ -221,25 +236,33 @@ export class SendMessagePage {
                     </div>
                 </div>
 
-                <div id="sending-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
-                    <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%;">
-                        <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">جاري إرسال الرسائل...</h3>
-                        <div class="progress-bar-wrap" style="margin-bottom: 16px;">
-                            <div class="progress-bar-fill" id="sending-progress-bar" style="width: 0%;"></div>
+                <div id="sending-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal">
+                        <div class="modal-body">
+                            <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">جاري إرسال الرسائل...</h3>
+                            <div class="progress-bar-wrap mb-4">
+                                <div class="progress-bar-fill" id="sending-progress-bar" style="width: 0%;"></div>
+                            </div>
+                            <div style="text-align: center; margin-bottom: 16px; font-size: 14px;">
+                                <span id="sending-progress-text">0/0</span>
+                            </div>
+                            <div id="sending-log" style="background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); max-height: 150px; overflow-y: auto; font-family: monospace;"></div>
                         </div>
-                        <div style="text-align: center; margin-bottom: 16px; font-size: 14px;">
-                            <span id="sending-progress-text">0/0</span>
-                        </div>
-                        <div id="sending-log" style="background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); max-height: 150px; overflow-y: auto; font-family: monospace;"></div>
                     </div>
                 </div>
 
-                <div id="success-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
-                    <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px; max-width: 500px; width: 90%; text-align: center;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
-                        <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">تم إرسال الرسائل</h3>
-                        <p id="success-count-text" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
-                        <button class="btn btn-primary" onclick="document.getElementById('success-modal').style.display = 'none'; window.resetSendForm ? window.resetSendForm() : location.reload();" style="width: 100%;">حسناً</button>
+                <div id="success-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal">
+                        <div class="modal-body" style="text-align: center;">
+                            <div class="report-stat-icon success" style="width: 56px; height: 56px; margin: 0 auto 16px;">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">تم إرسال الرسائل</h3>
+                            <p id="success-count-text" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
+                            <button class="btn btn-primary btn-block" onclick="document.getElementById('success-modal').style.display = 'none'; window.resetSendForm ? window.resetSendForm() : location.reload();">حسناً</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -252,28 +275,31 @@ export class SendMessagePage {
         let html = '';
         
         if (approved.length > 0) {
-            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">✅ قوالب موافق عليها</div>`;
+            html += `<div class="mb-5"><div class="flex items-center gap-2" style="font-size: 12px; font-weight: 700; color: var(--status-success); margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                قوالب موافق عليها</div>`;
             html += approved.map(t => `
-                <div style="padding: 12px; margin-bottom: 8px; border: 2px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition);" 
-                     onmouseover="this.style.borderColor='var(--brand-primary)'; this.style.background='var(--bg-elevated)'"
-                     onmouseout="this.style.borderColor='var(--border-subtle)'; this.style.background='transparent'"
-                     onclick="window.selectTemplate && window.selectTemplate('${t.name}')">
-                    <div style="font-weight: 600; margin-bottom: 4px;">${t.name}</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">${t.category}</div>
+                <div class="template-select-item" onclick="window.selectTemplate && window.selectTemplate('${t.name}')">
+                    <div class="t-name">${t.name}</div>
+                    <div class="t-cat">${t.category}</div>
                 </div>
             `).join('');
             html += '</div>';
         }
 
         if (pending.length > 0) {
-            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--status-warning); margin-bottom: 8px;">⏳ قيد المراجعة</div>`;
-            html += pending.map(t => `<div style="padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); opacity: 0.6;">${t.name}</div>`).join('');
+            html += `<div class="mb-5"><div class="flex items-center gap-2" style="font-size: 12px; font-weight: 700; color: var(--status-warning); margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                قيد المراجعة</div>`;
+            html += pending.map(t => `<div class="template-select-item disabled">${t.name}</div>`).join('');
             html += '</div>';
         }
 
         if (rejected.length > 0) {
-            html += `<div style="margin-bottom: 20px;"><div style="font-size: 12px; font-weight: 700; color: var(--status-error); margin-bottom: 8px;">❌ مرفوضة</div>`;
-            html += rejected.map(t => `<div style="padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); opacity: 0.6;">${t.name}</div>`).join('');
+            html += `<div class="mb-5"><div class="flex items-center gap-2" style="font-size: 12px; font-weight: 700; color: var(--status-error); margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                مرفوضة</div>`;
+            html += rejected.map(t => `<div class="template-select-item disabled">${t.name}</div>`).join('');
             html += '</div>';
         }
 
@@ -284,7 +310,7 @@ export class SendMessagePage {
         return `
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: flex; gap: 8px;">
-                    <input type="text" id="manual-phone-input" placeholder="أدخل رقم هاتف..." style="flex: 1; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary);">
+                    <input type="text" id="manual-phone-input" class="form-input" placeholder="أدخل رقم هاتف..." style="flex: 1;">
                     <button class="btn btn-secondary" onclick="window.addManualPhone && window.addManualPhone()" style="padding: 10px 16px;">إضافة</button>
                 </div>
                 <button class="btn btn-secondary" style="width: 100%; padding: 10px;" onclick="document.getElementById('manual-import-container').style.display = document.getElementById('manual-import-container').style.display === 'none' ? 'block' : 'none';">استيراد من ملف</button>
@@ -409,11 +435,11 @@ export class SendMessagePage {
                     if (badgeEl) {
                         badgeEl.dataset.checked = 'true';
                         if (windowInfo.isOpen) {
-                            badgeEl.innerHTML = '✅ نافذة مفتوحة (مجاني)';
-                            badgeEl.style.color = 'var(--status-success)';
+                            badgeEl.classList.add('open');
+                            badgeEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="12" height="12" style="vertical-align:-1px;"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> نافذة مفتوحة (مجاني)`;
                         } else {
-                            badgeEl.innerHTML = '🔒 نافذة مغلقة (مدفوع)';
-                            badgeEl.style.color = 'var(--status-error)';
+                            badgeEl.classList.add('closed');
+                            badgeEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="12" height="12" style="vertical-align:-1px;"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> نافذة مغلقة (مدفوع)`;
                         }
                     }
                 }
@@ -566,7 +592,7 @@ export class SendMessagePage {
                 return `
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 12px; font-weight: 600;">المتغير {{${num}}}</label>
-                        <input type="text" class="template-var-input" data-var="${num}" placeholder="قيمة افتراضية..." oninput="window.updateTemplatePreviewWithVars()" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                        <input type="text" class="template-var-input form-input" data-var="${num}" placeholder="قيمة افتراضية..." oninput="window.updateTemplatePreviewWithVars()">
                     </div>`;
             }).join('');
             
@@ -590,7 +616,7 @@ export class SendMessagePage {
         let html = `
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <label style="font-size: 12px; font-weight: 600;">عمود رقم الهاتف</label>
-                <select id="mapping-phone-select" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                <select id="mapping-phone-select" class="form-select">
                     ${headers.map(h => `<option value="${h}" ${h === phoneColumn ? 'selected' : ''}>${h}</option>`).join('')}
                 </select>
             </div>
@@ -610,7 +636,7 @@ export class SendMessagePage {
                 return `
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 12px;">المتغير {{${num}}}</label>
-                        <select class="mapping-var-select" data-var="${num}" style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-surface); color: var(--text-primary);">
+                        <select class="mapping-var-select form-select" data-var="${num}">
                             <option value="">-- قيمة ثابتة من المدخلات أعلاه --</option>
                             ${headers.map(h => `<option value="${h}" ${h === guessedCol ? 'selected' : ''}>من عمود: ${h}</option>`).join('')}
                         </select>
@@ -651,9 +677,9 @@ export class SendMessagePage {
         }
         container.style.display = 'block';
         list.innerHTML = this.recipients.map(n => `
-            <div class="recipient-item" data-phone="${n}" style="font-size: 12px; padding: 8px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <div class="recipient-item" data-phone="${n}">
                 <span>${n}</span>
-                <span class="window-badge" style="font-size: 10px; font-weight: 600; color: var(--text-muted);">جاري فحص النافذة...</span>
+                <span class="window-badge">جاري فحص النافذة...</span>
             </div>
         `).join('');
         
