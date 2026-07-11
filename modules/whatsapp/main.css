@@ -415,6 +415,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 }
 
 .icon-btn:hover { background: var(--bg-card-hover); border-color: var(--border-default); color: var(--text-primary); }
+.icon-btn svg { width: 20px; height: 20px; }
 
 .notif-dot {
   position: absolute;
@@ -470,7 +471,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   gap: var(--space-4);
 }
 
-.page-header-text h2 { font-size: var(--font-size-xl); color: var(--text-primary); }
+.page-header-text h2 { font-size: var(--font-size-xl); font-weight: 800; letter-spacing: -0.5px; color: var(--text-primary); }
 .page-header-text p { font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px; }
 
 /* ─── Cards ─── */
@@ -595,6 +596,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
   white-space: nowrap;
 }
 
+.btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
 .btn-primary {
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   color: #FFFFFF;
@@ -635,6 +638,8 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 .btn-danger:hover { background: rgba(255, 71, 87, 0.2); }
 
 .btn-sm { padding: 7px var(--space-3); font-size: var(--font-size-xs); }
+.btn-sm svg { width: 14px; height: 14px; }
+.btn-block { width: 100%; justify-content: center; }
 .btn-lg { padding: 14px var(--space-8); font-size: var(--font-size-base); }
 .btn-full { width: 100%; justify-content: center; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
@@ -712,9 +717,9 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 
 .table th {
   background: var(--bg-elevated);
-  padding: 12px var(--space-5);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
+  padding: 16px var(--space-6);
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -723,7 +728,7 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 }
 
 .table td {
-  padding: 14px var(--space-5);
+  padding: 18px var(--space-6);
   font-size: var(--font-size-sm);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -732,6 +737,178 @@ p { line-height: 1.7; color: var(--text-secondary); font-size: var(--font-size-b
 
 .table tr:last-child td { border-bottom: none; }
 .table tbody tr:hover td { background: var(--bg-elevated); }
+
+/* ─── Section Card (كان مستخدم كـ class بدون تعريف، والتنسيق كله inline) ─── */
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.section-card-header {
+  padding: 16px var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.section-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.section-card-title svg { width: 18px; height: 18px; color: var(--brand-primary); }
+.section-card.danger { border: 1px solid var(--status-error); background: rgba(239, 68, 68, 0.05); }
+.section-card-body { padding: var(--space-6); }
+.section-card-body.no-padding { padding: 0; }
+
+/* ─── Tag (نفس class المستخدم بالفعل في صفحات التقارير) ─── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.tag-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.tag-primary { background: rgba(0, 119, 204, 0.1); color: var(--brand-primary); border-color: rgba(0, 119, 204, 0.2); }
+.tag-success { background: rgba(76, 175, 80, 0.1); color: var(--status-success); }
+.tag-success .tag-dot { background: var(--status-success); }
+.tag-danger { background: rgba(244, 67, 54, 0.1); color: var(--status-error); }
+
+/* ─── Dropdown menu ─── */
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  min-width: 180px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 100;
+  display: none;
+}
+.dropdown-menu a {
+  display: block;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+.dropdown-menu a:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* ─── حقل بحث بأيقونة ─── */
+.input-icon-wrap { position: relative; }
+.input-icon-wrap .form-input { padding-inline-end: 40px; }
+.inp-icon {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  display: flex;
+  pointer-events: none;
+}
+.inp-icon svg { width: 18px; height: 18px; }
+
+/* ─── Segmented tabs (فلتر الحالة في تفاصيل الحملة) ─── */
+.segment-tabs { background: var(--bg-elevated); padding: 4px; border-radius: 10px; display: flex; gap: 4px; }
+.seg-tab { padding: 6px 16px; font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all var(--transition); color: var(--text-secondary); }
+
+/* ─── بطاقات إحصائيات تقرير الحملة ─── */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
+.report-stat-card {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+.report-stat-card.accent-success { border-inline-end: 4px solid var(--status-success); }
+.report-stat-card.accent-danger { border-inline-end: 4px solid var(--status-error); }
+.report-stat-card-head { display: flex; justify-content: space-between; align-items: center; }
+.report-stat-card-head span { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.report-stat-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.report-stat-icon svg { width: 18px; height: 18px; }
+.report-stat-icon.primary { background: rgba(0, 119, 204, 0.1); color: var(--brand-primary); }
+.report-stat-icon.success { background: rgba(76, 175, 80, 0.1); color: var(--status-success); }
+.report-stat-icon.danger { background: rgba(244, 67, 54, 0.1); color: var(--status-error); }
+.report-stat-icon.info { background: rgba(0, 136, 221, 0.1); color: var(--status-info); }
+.report-stat-value { font-size: 28px; font-weight: 800; color: var(--text-primary); }
+.report-stat-value.success { color: var(--status-success); }
+.report-stat-value.danger { color: var(--status-error); }
+.report-stat-value.primary { color: var(--brand-primary); }
+
+/* ─── صف بيانات بسيط (مستخدم في الشريط الجانبي لإرسال الرسائل) ─── */
+.split-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+.split-row .label { font-size: 13px; color: var(--text-secondary); }
+.split-row .value { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.split-row .value.success { color: var(--status-success); }
+.split-row .value.danger { color: var(--status-error); }
+.split-row .value.primary { color: var(--brand-primary); }
+.split-row.success .label { color: var(--status-success); }
+.split-row.danger .label { color: var(--status-error); }
+
+/* ─── عناصر قائمة الأرقام المستلمة ─── */
+.recipient-item {
+  font-size: 12px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.window-badge { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+.window-badge.open { color: var(--status-success); }
+.window-badge.closed { color: var(--status-error); }
+
+/* ─── بطاقة اختيار قالب (بدلاً من onmouseover/onmouseout) ─── */
+.template-select-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+  background: transparent;
+}
+.template-select-item:hover { border-color: var(--brand-primary); background: var(--bg-elevated); }
+.template-select-item .t-name { font-weight: 600; margin-bottom: 4px; }
+.template-select-item .t-cat { font-size: 12px; color: var(--text-secondary); }
+.template-select-item.disabled { border: 1px solid var(--border-subtle); opacity: 0.6; cursor: default; }
+
+/* ─── حالات فارغة / تحميل داخل الصفحة ─── */
+.page-loading-state { padding: 40px; text-align: center; color: var(--text-secondary); }
+.page-loading-state .spinner { margin: 0 auto 15px; }
+.page-empty-state { text-align: center; padding: 60px 20px; }
+.page-empty-state .icon { width: 48px; height: 48px; margin: 0 auto 20px; color: var(--text-muted); }
+.page-empty-state .icon svg { width: 100%; height: 100%; }
+.page-empty-state h3 { font-size: 18px; color: var(--text-primary); margin-bottom: 8px; }
+.page-empty-state p { color: var(--text-secondary); max-width: 320px; margin: 0 auto 20px; }
 
 /* ─── Toast Notifications ─── */
 #toast-container {
