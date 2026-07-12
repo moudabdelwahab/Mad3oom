@@ -2110,6 +2110,42 @@ function updateValidationCount(issues) {
 /* =====================================================================
    INSPECTOR — نماذج تتولّد ديناميكيًا بالكامل من config_schema (لا نماذج ثابتة)
    ===================================================================== */
+/* تبسيط أسماء المتغيرات التقنية (dot-notation) إلى تسميات عربية بسيطة تناسب
+   المستخدم العادي — بدل عرض "subscription.user_id" نعرض "معرّف المستخدم".
+   يعمل حصرًا على العرض (label)؛ القيمة الفعلية المُدرَجة في الحقل تبقى {{subscription.user_id}} كما هي. */
+const VAR_WORD_MAP = {
+    user: 'المستخدم', customer: 'العميل', ticket: 'التذكرة', subscription: 'الاشتراك',
+    order: 'الطلب', payment: 'الدفعة', invoice: 'الفاتورة', agent: 'الموظف', staff: 'الموظف',
+    email: 'البريد الإلكتروني', phone: 'الهاتف', name: 'الاسم', full: 'الكامل',
+    plan: 'الخطة', status: 'الحالة', amount: 'المبلغ', total: 'الإجمالي', price: 'السعر',
+    reason: 'السبب', reference: 'المرجع', number: 'الرقم', code: 'الرمز', title: 'العنوان',
+    content: 'المحتوى', body: 'النص', type: 'النوع', category: 'التصنيف', priority: 'الأولوية',
+    subject: 'الموضوع', message: 'الرسالة', url: 'الرابط', link: 'الرابط', channel: 'القناة',
+    notification: 'الإشعار'
+};
+function humanizeVarKey(key) {
+    const lastSeg = String(key || '').split('.').pop();
+    const tokens = lastSeg.split('_').filter(Boolean).map(t => t.toLowerCase());
+    if (!tokens.length) return null;
+    const last = tokens[tokens.length - 1];
+    if (tokens.length > 1 && last === 'id') {
+        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
+        return base ? `معرّف ${base}` : 'المعرّف';
+    }
+    if (tokens.length > 1 && (last === 'date' || last === 'at')) {
+        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
+        return base ? `تاريخ ${base}` : 'التاريخ';
+    }
+    const mapped = tokens.map(t => VAR_WORD_MAP[t]).filter(Boolean);
+    return mapped.length ? mapped.join(' ') : null;
+}
+/* التسمية النهائية المعروضة للمستخدم لخيار متغيّر — تُخفي الاسم التقني تمامًا؛
+   إن تعذّرت الترجمة تُعرض فقط تسمية العنصر المصدر (from) دون أي صياغة تقنية */
+function friendlyVarLabel(u) {
+    const humanized = humanizeVarKey(u.v);
+    return humanized ? `${humanized} — ${u.from}` : u.from;
+}
+
 function getUpstreamVariables(session, nodeId) {
     const edges = session.definition.edges, nodes = session.definition.nodes;
     const byId = {}; nodes.forEach(n => byId[n.id] = n);
@@ -2244,8 +2280,8 @@ function renderNodeInspector(s, wrap, nodeId) {
         ${!fields.length ? '<div class="wf-field-hint">لا توجد إعدادات إضافية لهذا العنصر.</div>' : '<div class="wf-inspector-section-title">الإعدادات</div>'}
         <div id="wfFieldsContainer"></div>
         ${nt.output_vars?.length ? `
-        <div class="wf-inspector-section-title">المخرجات (متاحة للعناصر التالية)</div>
-        <div>${nt.output_vars.map(v => `<span class="wf-tag-chip" style="font-family:var(--wf-font-data);">{{${escapeHtml(v)}}}</span>`).join('')}</div>` : ''}
+        <div class="wf-inspector-section-title">البيانات المتاحة لاستخدامها لاحقًا</div>
+        <div>${nt.output_vars.map(v => `<span class="wf-tag-chip" title="${escapeHtml(v)}">${escapeHtml(humanizeVarKey(v) || (nt.name_ar || nt.name_en))}</span>`).join('')}</div>` : ''}
         <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteNode" style="width:100%;margin-top:1.2rem;" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف العنصر</button>
     </div>`;
 
@@ -2271,7 +2307,9 @@ function buildFieldControl(session, node, nt, field, upstream) {
 
     if (field.supports_variables) {
         const varBtn = document.createElement('button');
-        varBtn.className = 'wf-var-btn'; varBtn.type = 'button'; varBtn.textContent = '{{ }} إدراج متغير';
+        varBtn.className = 'wf-var-btn'; varBtn.type = 'button';
+        varBtn.style.display = 'inline-flex'; varBtn.style.alignItems = 'center'; varBtn.style.gap = '.25rem';
+        varBtn.innerHTML = `${ic('tag', 11)} إدراج بيانات`;
         varBtn.disabled = disabled;
         varBtn.addEventListener('click', (e) => openVarMenu(e, upstream, (chosen) => {
             const el = wrapDiv.querySelector('textarea,input[type=text]');
@@ -2322,13 +2360,13 @@ function buildFieldControl(session, node, nt, field, upstream) {
         case 'variable_picker': {
             control = document.createElement('select');
             control.className = 'wf-select'; control.disabled = disabled;
-            control.innerHTML = '<option value="">— اختر متغيّرًا —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(u.v)} — ${escapeHtml(u.from)}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
+            control.innerHTML = '<option value="">— اختر —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(friendlyVarLabel(u))}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
             const current = node.config[field.key] ?? '';
             if (upstream.some(u => `{{${u.v}}}` === current) || current === '') control.value = current;
             else control.value = '__manual__';
             control.addEventListener('change', () => {
                 if (control.value === '__manual__') {
-                    const manual = prompt('اكتب القيمة أو اسم المتغيّر يدويًا:', current || '');
+                    const manual = prompt('اكتب القيمة يدويًا:', current || '');
                     if (manual !== null) { node.config[field.key] = manual; }
                 } else node.config[field.key] = control.value;
                 commit();
@@ -2461,8 +2499,8 @@ function openVarMenu(e, upstream, onPick) {
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
     menu.style.insetInlineStart = (rect.left + window.scrollX) + 'px';
     menu.innerHTML = upstream.length
-        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(u.v)} <span style="color:var(--wf-text-3);">— ${escapeHtml(u.from)}</span></button>`).join('')
-        : '<div class="wf-var-empty">لا توجد متغيرات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
+        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('')
+        : '<div class="wf-var-empty">لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
     document.body.appendChild(menu);
     menu.addEventListener('click', (ev) => { const v = ev.target.closest('button')?.dataset.v; if (v) { onPick(v); menu.remove(); } });
     setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
