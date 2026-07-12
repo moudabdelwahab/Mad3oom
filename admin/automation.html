@@ -785,6 +785,7 @@ const DataLayer = {
             .insert({
                 workflow_id: workflowId, version_number: publishedRow.version_number + 1, status: 'draft',
                 definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
+                trigger_event_key: publishedRow.trigger_event_key || null,
                 created_by: created_by || null
             })
             .select().single();
@@ -821,11 +822,22 @@ const DataLayer = {
    نشتق مفتاحًا مبدئيًا من نوع الـ node نفسه (بإزالة بادئة "trigger."). هذه القيمة
    تُخزَّن فقط في wf_workflows.trigger_event_key / wf_workflow_versions.trigger_event_key
    كإشارة أولية، ويجب مراجعتها عند بناء الـ Dispatcher الفعلي. */
-function extractTriggerEventKey(definition) {
+/* دالة مشتركة واحدة لإيجاد مشغّل الـ Workflow — إن وُجد أكثر من مشغّل، يُعتمد الأول
+   دائمًا (بنفس القاعدة في كل مكان: هنا، في validateDefinition، وفي عرض الملخص) */
+function findTriggerNode(definition) {
     const nodes = definition?.nodes || [];
-    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    return nodes.find(n => (n.type || '').startsWith('trigger.')) || null;
+}
+function extractTriggerEventKey(definition) {
+    const trigger = findTriggerNode(definition);
     if (!trigger) return null;
     return trigger.type.replace(/^trigger\./, '');
+}
+/* استخراج إعدادات المشغّل الفعلية (node.config) لحفظها في عمود trigger_config —
+   سابقًا كان trigger_config يبقى {} دائمًا لأن لا شيء كان يربطه بإعدادات الـ node نفسه */
+function extractTriggerConfig(definition) {
+    const trigger = findTriggerNode(definition);
+    return trigger ? (trigger.config || {}) : {};
 }
 
 /* استخراج تصنيف/ملخص مشغّل مشتق للعرض في قائمة الـ Workflows (لا يوجد عمود category،
@@ -834,8 +846,7 @@ function primaryDefinitionSource(workflow) {
     return workflow?.published_version || workflow?.draft_version || null;
 }
 function deriveWorkflowCategory(workflow) {
-    const nodes = primaryDefinitionSource(workflow)?.definition?.nodes || [];
-    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
     if (!trigger) return 'بدون مشغّل';
     const key = trigger.type;
     if (key.startsWith('trigger.ticket')) return 'التذاكر';
@@ -847,8 +858,7 @@ function deriveWorkflowCategory(workflow) {
 }
 
 function triggerSummary(workflow) {
-    const nodes = primaryDefinitionSource(workflow)?.definition?.nodes || [];
-    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
     if (!trigger) return 'بدون مشغّل بعد';
     const nt = appState.nodeTypesByKey[trigger.type];
     return nt ? (nt.name_ar || nt.name_en) : trigger.type;
@@ -856,8 +866,7 @@ function triggerSummary(workflow) {
 
 /* نفس فكرة triggerSummary لكن تعمل مباشرة على تعريف جلسة مفتوحة في الـ Builder (session.definition) */
 function sessionTriggerSummary(s) {
-    const nodes = s.definition?.nodes || [];
-    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    const trigger = findTriggerNode(s.definition);
     if (!trigger) return 'بدون مشغّل بعد';
     const nt = appState.nodeTypesByKey[trigger.type];
     return nt ? (nt.name_ar || nt.name_en) : trigger.type;
@@ -1328,6 +1337,9 @@ async function saveDraft(silent) {
         });
         let verRow = null;
         if (s.draftVersionId) {
+            // إعدادات المشغّل الفعلية تعيش داخل node.config على الـ canvas، وليس في حقل منفصل —
+            // نشتقها من التعريف الحالي في كل حفظ بدل الاعتماد على s.triggerConfig الذي لا يُحدَّث أبدًا لولا هذا
+            s.triggerConfig = extractTriggerConfig(s.definition);
             verRow = await DataLayer.updateDraftVersion(s.draftVersionId, {
                 definition: s.definition,
                 variables: s.variables,
@@ -1359,9 +1371,8 @@ async function publishWorkflow() {
     }
     if (!confirm('نشر هذا الإصدار سيجعله حيًّا الآن. سيتم فتح مسودة جديدة تلقائيًا لمتابعة التعديل بعد النشر. متابعة؟')) return;
     try {
-        // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور
+        // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور (يشمل مزامنة trigger_config)
         await saveDraft(true);
-        s.triggerConfig = s.triggerConfig || {};
         const eventKey = extractTriggerEventKey(s.definition);
         if (eventKey) {
             await DataLayer.updateDraftVersion(s.draftVersionId, { trigger_event_key: eventKey });
@@ -2047,7 +2058,14 @@ function validateDefinition(def) {
 
     const triggers = nodes.filter(n => (n.type || '').startsWith('trigger.'));
     if (!triggers.length) issues.push({ level: 'error', msg: 'يجب أن يحتوي الـ Workflow على مشغّل (Trigger) واحد على الأقل', nodeId: null });
-    if (triggers.length > 1) issues.push({ level: 'warn', msg: 'يوجد أكثر من مشغّل (Trigger) واحد — تأكد أن هذا مقصود', nodeId: null });
+    if (triggers.length > 1) {
+        // النظام الحالي يخزّن مشغّلًا واحدًا فقط لكل Workflow (trigger_event_key) — أي مشغّل إضافي
+        // يُضاف على الـ canvas يُعرض هنا بوضوح كأنه سيُتجاهل تمامًا عند النشر، بدل تحذير عام غامض
+        triggers.slice(1).forEach(t => {
+            const ntName = appState.nodeTypesByKey[t.type]?.name_ar || appState.nodeTypesByKey[t.type]?.name_en || t.type;
+            issues.push({ level: 'warn', msg: `يوجد أكثر من مشغّل واحد — سيُعتمد المشغّل الأول فقط عند النشر، وسيتم تجاهل "${ntName}" ولن يُشغّل الـ Workflow`, nodeId: t.id });
+        });
+    }
 
     const incoming = {}; edges.forEach(e => { incoming[e.target] = (incoming[e.target] || 0) + 1; });
     const nodeIds = new Set(nodes.map(n => n.id));
