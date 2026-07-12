@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الأتمتة (Workflow Builder) | لوحة الإدارة</title>
+<link rel="icon" type="image/png" href="/assets/images/logo.png">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   Workflow Builder (automation.html) — Design tokens
+   مُستخرجة حرفيًا من index.html (نفس القيم بالضبط) — Dark افتراضي + Light overrides
+   عبر نفس آلية [data-theme] المستخدمة في باقي المنصة (theme-manager.js)
+   ===================================================================== */
+.wf-shell{
+  --wf-bg-void:#060B14;
+  --wf-bg-surface:#0D1622;
+  --wf-bg-elevated:#121F30;
+  --wf-glass:rgba(255,255,255,.045);
+  --wf-glass-strong:rgba(255,255,255,.07);
+  --wf-glass-border:rgba(255,255,255,.09);
+  --wf-primary:#0077CC;
+  --wf-primary-deep:#00234A;
+  --wf-accent:#4DA3FF;
+  --wf-accent-soft:#8FC7FF;
+  --wf-success:#22C58B;
+  --wf-danger:#FF6B6B;
+  --wf-whatsapp:#25D366;
+  --wf-mcp:#B45FE0;
+  --wf-text-1:#F3F6FB;
+  --wf-text-2:#94A6C2;
+  --wf-text-3:#5A6A82;
+  --wf-radius-lg:1.5rem;
+  --wf-radius-md:1rem;
+  --wf-radius-sm:.6rem;
+  --wf-shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --wf-shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --wf-font-display:'Cairo',sans-serif;
+  --wf-font-body:'IBM Plex Sans Arabic',sans-serif;
+  --wf-font-data:'Space Grotesk',sans-serif;
+  --wf-ease-snap:cubic-bezier(.2,.8,.2,1);
+  --wf-ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --wf-dur-fast:.15s;
+  --wf-dur-med:.3s;
+  --wf-pill-green-bg:#DCFCE7;--wf-pill-green-text:#16A34A;
+  --wf-pill-amber-bg:#FEF3C7;--wf-pill-amber-text:#B45309;
+  --wf-pill-blue-bg:#DBEAFE;--wf-pill-blue-text:#2563EB;
+  --wf-pill-purple-bg:#F3E8FF;--wf-pill-purple-text:#9333EA;
+  --wf-pill-gray-bg:#EEF1F6;--wf-pill-gray-text:#64748B;
+  --wf-pill-red-bg:#FEE2E2;--wf-pill-red-text:#DC2626;
+  --wf-card:var(--wf-bg-elevated);
+  --wf-canvas-dot:rgba(255,255,255,.06);
+  --wf-canvas-bg:#080E19;
+}
+html[data-theme="light"] .wf-shell{
+  --wf-bg-void:#F3F6FC;
+  --wf-bg-surface:#FFFFFF;
+  --wf-bg-elevated:#FFFFFF;
+  --wf-glass:rgba(16,27,46,.035);
+  --wf-glass-strong:rgba(16,27,46,.06);
+  --wf-glass-border:rgba(16,27,46,.10);
+  --wf-text-1:#101B2E;
+  --wf-text-2:#4B5A72;
+  --wf-text-3:#8493AA;
+  --wf-shadow-lg:0 20px 60px -25px rgba(16,27,46,.18);
+  --wf-shadow-glow:0 0 50px -10px rgba(0,119,204,.18);
+  --wf-card:#FFFFFF;
+  --wf-canvas-dot:rgba(16,27,46,.08);
+  --wf-canvas-bg:#EDF1F9;
+}
+
+/* =====================================================================
+   Shell / layout
+   ===================================================================== */
+.wf-shell{
+  font-family:var(--wf-font-body);
+  background:var(--wf-bg-void);
+  color:var(--wf-text-1);
+  min-height:100vh;
+  border-radius:var(--wf-radius-lg);
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  box-shadow:var(--wf-shadow-lg);
+}
+.wf-shell *{box-sizing:border-box;}
+.wf-shell h1,.wf-shell h2,.wf-shell h3,.wf-shell h4{font-family:var(--wf-font-display);font-weight:800;letter-spacing:-.01em;margin:0;}
+.wf-shell button{font-family:inherit;}
+.wf-shell ::selection{background:var(--wf-primary);color:#fff;}
+.wf-hidden{display:none !important;}
+
+.wf-glass{background:var(--wf-glass);border:1px solid var(--wf-glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+
+.wf-eyebrow{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--wf-accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.3rem .75rem;border-radius:99px;}
+.wf-eyebrow .wf-dot{width:6px;height:6px;border-radius:50%;background:var(--wf-accent);box-shadow:0 0 8px var(--wf-accent);}
+
+/* Buttons (local wf- variants, coexist with existing .btn classes) */
+.wf-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1.05rem;border-radius:.7rem;font-weight:700;font-size:.82rem;cursor:pointer;border:1px solid transparent;transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-med) ease, background var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease, opacity var(--wf-dur-fast) ease;white-space:nowrap;background:var(--wf-glass);color:var(--wf-text-1);border-color:var(--wf-glass-border);}
+.wf-btn:hover{transform:translateY(-1px);border-color:var(--wf-accent-soft);}
+.wf-btn:active{transform:translateY(0) scale(.97);}
+.wf-btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none;}
+.wf-btn-primary{background:linear-gradient(135deg,var(--wf-accent),var(--wf-primary));color:#fff;border-color:transparent;box-shadow:0 10px 24px -10px rgba(0,119,204,.6);}
+.wf-btn-primary:hover{box-shadow:0 16px 32px -10px rgba(0,119,204,.75);}
+.wf-btn-danger{background:rgba(255,107,107,.12);color:var(--wf-danger);border-color:rgba(255,107,107,.3);}
+.wf-btn-danger:hover{background:rgba(255,107,107,.2);}
+.wf-btn-icon{padding:.5rem;width:2.15rem;height:2.15rem;}
+.wf-btn-sm{padding:.35rem .7rem;font-size:.72rem;border-radius:.55rem;}
+.wf-btn svg{width:15px;height:15px;flex-shrink:0;}
+
+.wf-input,.wf-select,.wf-textarea{
+  width:100%;background:var(--wf-glass);border:1px solid var(--wf-glass-border);color:var(--wf-text-1);
+  border-radius:.6rem;padding:.55rem .8rem;font-size:.82rem;font-family:inherit;transition:border-color var(--wf-dur-fast) ease, background var(--wf-dur-fast) ease;
+}
+.wf-input::placeholder,.wf-textarea::placeholder{color:var(--wf-text-3);}
+.wf-input:focus,.wf-select:focus,.wf-textarea:focus{outline:none;border-color:var(--wf-accent-soft);background:var(--wf-glass-strong);}
+.wf-textarea{resize:vertical;min-height:4.5rem;line-height:1.6;}
+.wf-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.9rem;}
+.wf-field label{font-size:.74rem;font-weight:700;color:var(--wf-text-2);display:flex;align-items:center;justify-content:space-between;gap:.4rem;}
+.wf-field-hint{font-size:.68rem;color:var(--wf-text-3);}
+
+.wf-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:800;padding:.22rem .55rem;border-radius:99px;line-height:1.4;white-space:nowrap;}
+.wf-badge-green{background:var(--wf-pill-green-bg);color:var(--wf-pill-green-text);}
+.wf-badge-amber{background:var(--wf-pill-amber-bg);color:var(--wf-pill-amber-text);}
+.wf-badge-blue{background:var(--wf-pill-blue-bg);color:var(--wf-pill-blue-text);}
+.wf-badge-purple{background:var(--wf-pill-purple-bg);color:var(--wf-pill-purple-text);}
+.wf-badge-gray{background:var(--wf-pill-gray-bg);color:var(--wf-pill-gray-text);}
+.wf-badge-red{background:var(--wf-pill-red-bg);color:var(--wf-pill-red-text);}
+.wf-badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+.wf-card{background:var(--wf-card);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease;}
+.wf-scrollbar::-webkit-scrollbar{width:8px;height:8px;}
+.wf-scrollbar::-webkit-scrollbar-thumb{background:var(--wf-glass-strong);border-radius:99px;}
+.wf-scrollbar::-webkit-scrollbar-track{background:transparent;}
+
+/* Empty states */
+.wf-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.6rem;padding:3rem 1.5rem;color:var(--wf-text-2);}
+.wf-empty .wf-empty-icon{width:52px;height:52px;border-radius:1rem;background:var(--wf-glass);border:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:.3rem;}
+.wf-empty h4{color:var(--wf-text-1);font-size:.95rem;}
+.wf-empty p{font-size:.78rem;max-width:340px;line-height:1.7;}
+
+/* =====================================================================
+   Top-level view switching
+   ===================================================================== */
+.wf-view{display:none;flex-direction:column;flex:1;min-height:0;}
+.wf-view.wf-active{display:flex;}
+
+/* =====================================================================
+   Workflow List view
+   ===================================================================== */
+.wf-list-header{padding:1.75rem clamp(1.25rem,3vw,2.25rem) 1.1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--wf-glass-border);}
+.wf-list-header h1{font-size:clamp(1.35rem,2.4vw,1.7rem);background:linear-gradient(90deg,var(--wf-text-1),var(--wf-accent-soft));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.wf-list-header p{color:var(--wf-text-2);font-size:.85rem;margin-top:.35rem;max-width:520px;}
+.wf-toolbar{padding:1rem clamp(1.25rem,3vw,2.25rem);display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--wf-glass-border);}
+.wf-search{position:relative;flex:1;min-width:220px;max-width:360px;}
+.wf-search svg{position:absolute;inset-inline-start:.75rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--wf-text-3);pointer-events:none;}
+.wf-search input{padding-inline-start:2.15rem;}
+.wf-filter-group{display:flex;gap:.5rem;flex-wrap:wrap;}
+.wf-filter-group .wf-select{width:auto;min-width:130px;}
+.wf-list-body{flex:1;overflow-y:auto;padding:1.25rem clamp(1.25rem,3vw,2.25rem) 2rem;}
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;}
+.wf-wf-card{padding:1.15rem;display:flex;flex-direction:column;gap:.7rem;cursor:pointer;}
+.wf-wf-card:hover{transform:translateY(-3px);border-color:var(--wf-accent-soft);box-shadow:var(--wf-shadow-lg);}
+.wf-wf-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;}
+.wf-wf-icon{width:38px;height:38px;border-radius:.7rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;background:var(--wf-glass);}
+.wf-wf-card h3{font-size:.92rem;font-weight:700;font-family:var(--wf-font-body);}
+.wf-wf-card .wf-wf-desc{font-size:.75rem;color:var(--wf-text-2);line-height:1.6;min-height:2.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-wf-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;font-size:.68rem;color:var(--wf-text-3);}
+.wf-wf-meta span{display:inline-flex;align-items:center;gap:.25rem;}
+.wf-wf-actions{display:flex;gap:.35rem;margin-top:auto;padding-top:.6rem;border-top:1px solid var(--wf-glass-border);}
+.wf-wf-actions .wf-btn{flex:1;}
+.wf-menu-btn{position:relative;}
+.wf-dropdown{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;box-shadow:var(--wf-shadow-lg);min-width:170px;z-index:60;overflow:hidden;padding:.35rem;}
+.wf-dropdown button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.5rem .6rem;font-size:.78rem;border-radius:.45rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;}
+.wf-dropdown button:hover{background:var(--wf-glass);}
+.wf-dropdown button.wf-danger-item{color:var(--wf-danger);}
+.wf-dropdown hr{border:none;border-top:1px solid var(--wf-glass-border);margin:.3rem 0;}
+
+/* =====================================================================
+   Builder view — Tabs
+   ===================================================================== */
+.wf-tabbar{display:flex;align-items:flex-end;gap:2px;padding:.5rem .75rem 0;background:var(--wf-bg-surface);border-bottom:1px solid var(--wf-glass-border);overflow-x:auto;flex-shrink:0;}
+.wf-tab{display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-radius:.65rem .65rem 0 0;background:var(--wf-glass);border:1px solid var(--wf-glass-border);border-bottom:none;font-size:.76rem;font-weight:600;color:var(--wf-text-2);cursor:pointer;max-width:190px;position:relative;top:1px;}
+.wf-tab.wf-tab-active{background:var(--wf-bg-elevated);color:var(--wf-text-1);border-color:var(--wf-glass-border);box-shadow:0 -2px 0 var(--wf-accent) inset;}
+.wf-tab .wf-tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.wf-tab .wf-tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px;}
+.wf-tab .wf-tab-close{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.6;}
+.wf-tab .wf-tab-close:hover{opacity:1;background:rgba(255,107,107,.2);color:var(--wf-danger);}
+.wf-tab-pin{opacity:.7;}
+.wf-tab-add{padding:.5rem;color:var(--wf-text-2);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.wf-tab-add:hover{background:var(--wf-glass);color:var(--wf-text-1);}
+
+/* Toolbar */
+.wf-builder-toolbar{display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem;background:var(--wf-bg-elevated);border-bottom:1px solid var(--wf-glass-border);flex-wrap:wrap;flex-shrink:0;}
+.wf-wf-name-input{background:transparent;border:1px solid transparent;color:var(--wf-text-1);font-weight:800;font-family:var(--wf-font-display);font-size:.95rem;padding:.3rem .5rem;border-radius:.5rem;min-width:120px;max-width:260px;}
+.wf-wf-name-input:hover{border-color:var(--wf-glass-border);}
+.wf-wf-name-input:focus{outline:none;border-color:var(--wf-accent-soft);background:var(--wf-glass);}
+.wf-toolbar-sep{width:1px;align-self:stretch;background:var(--wf-glass-border);margin:0 .2rem;}
+.wf-toolbar-spacer{flex:1;}
+.wf-save-state{font-size:.68rem;color:var(--wf-text-3);display:flex;align-items:center;gap:.35rem;}
+.wf-save-state.wf-unsaved{color:var(--wf-pill-amber-text);}
+
+/* Body: sidebar / canvas / inspector / version sidebar */
+.wf-builder-body{flex:1;display:flex;min-height:0;position:relative;}
+.wf-panel{background:var(--wf-bg-elevated);border-inline-start:1px solid var(--wf-glass-border);display:flex;flex-direction:column;flex-shrink:0;}
+.wf-panel.wf-panel-start{border-inline-start:none;border-inline-end:1px solid var(--wf-glass-border);}
+
+/* Node Library */
+.wf-lib{width:250px;}
+.wf-lib-search{padding:.75rem;border-bottom:1px solid var(--wf-glass-border);}
+.wf-lib-tabs{display:flex;gap:.3rem;padding:0 .75rem;border-bottom:1px solid var(--wf-glass-border);}
+.wf-lib-tab{padding:.5rem .3rem;font-size:.7rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
+.wf-lib-tab.wf-lib-tab-active{color:var(--wf-accent-soft);border-color:var(--wf-accent);}
+.wf-lib-body{flex:1;overflow-y:auto;padding:.5rem;}
+.wf-lib-cat{margin-bottom:.4rem;}
+.wf-lib-cat-head{display:flex;align-items:center;gap:.4rem;padding:.45rem .5rem;font-size:.7rem;font-weight:800;color:var(--wf-text-2);cursor:pointer;border-radius:.5rem;}
+.wf-lib-cat-head:hover{background:var(--wf-glass);}
+.wf-lib-cat-head svg.wf-chev{width:11px;height:11px;transition:transform var(--wf-dur-fast) ease;margin-inline-start:auto;}
+.wf-lib-cat.wf-collapsed .wf-chev{transform:rotate(-90deg);}
+.wf-lib-cat.wf-collapsed .wf-lib-cat-items{display:none;}
+.wf-lib-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .55rem;border-radius:.6rem;cursor:grab;font-size:.76rem;color:var(--wf-text-1);border:1px solid transparent;}
+.wf-lib-item:hover{background:var(--wf-glass);border-color:var(--wf-glass-border);}
+.wf-lib-item:active{cursor:grabbing;}
+.wf-lib-item .wf-lib-icon{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;}
+.wf-lib-item .wf-lib-fav{margin-inline-start:auto;opacity:.35;flex-shrink:0;cursor:pointer;}
+.wf-lib-item .wf-lib-fav.wf-fav-on{opacity:1;color:#F5B300;}
+.wf-lib-item:hover .wf-lib-fav{opacity:.7;}
+
+/* Canvas */
+.wf-canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--wf-canvas-bg);min-width:0;}
+.wf-canvas-viewport{position:absolute;inset:0;cursor:grab;touch-action:none;background-image:radial-gradient(var(--wf-canvas-dot) 1.5px, transparent 1.5px);background-size:26px 26px;}
+.wf-canvas-viewport.wf-panning{cursor:grabbing;}
+.wf-canvas-world{position:absolute;top:0;left:0;transform-origin:0 0;}
+.wf-edges-svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
+.wf-edge-path{fill:none;stroke:var(--wf-text-3);stroke-width:2;transition:stroke var(--wf-dur-fast) ease;}
+.wf-edge-path.wf-edge-selected{stroke:var(--wf-accent);stroke-width:2.5;}
+.wf-edge-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;}
+.wf-edge-arrow{fill:var(--wf-text-3);}
+
+.wf-node{position:absolute;width:220px;background:var(--wf-card);border:1.5px solid var(--wf-glass-border);border-radius:.85rem;box-shadow:0 8px 20px -10px rgba(0,8,25,.45);user-select:none;cursor:grab;}
+.wf-node:hover{border-color:var(--wf-accent-soft);}
+.wf-node.wf-node-selected{border-color:var(--wf-accent);box-shadow:0 0 0 3px rgba(77,163,255,.25), 0 8px 20px -10px rgba(0,8,25,.45);}
+.wf-node.wf-node-dragging{cursor:grabbing;opacity:.9;z-index:50;}
+.wf-node-head{display:flex;align-items:center;gap:.5rem;padding:.55rem .65rem;border-bottom:1px solid var(--wf-glass-border);}
+.wf-node-icon{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;color:#fff;}
+.wf-node-title{font-size:.76rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.wf-node-body{padding:.55rem .65rem .65rem;font-size:.66rem;color:var(--wf-text-2);min-height:1.2rem;line-height:1.55;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-node-foot{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem .5rem;}
+.wf-port{width:11px;height:11px;border-radius:50%;background:var(--wf-bg-void);border:2px solid var(--wf-text-3);position:absolute;top:50%;transform:translateY(-50%);cursor:crosshair;}
+.wf-port:hover{border-color:var(--wf-accent);background:var(--wf-accent);}
+.wf-port-in{inset-inline-start:-6px;}
+.wf-port-out{inset-inline-end:-6px;}
+.wf-port.wf-port-linking{background:var(--wf-accent);border-color:var(--wf-accent);}
+
+.wf-marquee{position:absolute;border:1px dashed var(--wf-accent);background:rgba(77,163,255,.1);pointer-events:none;z-index:40;}
+
+.wf-canvas-controls{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;flex-direction:column;gap:.4rem;z-index:30;}
+.wf-canvas-controls .wf-btn{background:var(--wf-bg-elevated);}
+.wf-zoom-group{display:flex;flex-direction:column;border-radius:.7rem;overflow:hidden;border:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);}
+.wf-zoom-group .wf-btn{border:none;border-radius:0;box-shadow:none;}
+.wf-zoom-group .wf-btn:not(:last-child){border-bottom:1px solid var(--wf-glass-border);}
+.wf-zoom-level{text-align:center;font-size:.62rem;color:var(--wf-text-3);padding:.15rem 0;font-family:var(--wf-font-data);}
+
+.wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:170px;height:110px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);}
+.wf-minimap-inner{position:relative;width:100%;height:100%;}
+.wf-minimap-node{position:absolute;border-radius:2px;}
+.wf-minimap-viewport{position:absolute;border:1px solid var(--wf-accent);background:rgba(77,163,255,.12);border-radius:2px;}
+
+.wf-canvas-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+
+/* Inspector */
+.wf-inspector{width:300px;}
+.wf-inspector-head{padding:.85rem 1rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;gap:.6rem;}
+.wf-inspector-head .wf-node-icon{width:30px;height:30px;font-size:.9rem;}
+.wf-inspector-head h3{font-size:.82rem;}
+.wf-inspector-head p{font-size:.66rem;color:var(--wf-text-3);}
+.wf-inspector-body{flex:1;overflow-y:auto;padding:1rem;}
+.wf-inspector-section-title{font-size:.68rem;font-weight:800;color:var(--wf-text-3);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .5rem;}
+.wf-inspector-section-title:first-child{margin-top:0;}
+.wf-var-btn{background:var(--wf-glass);border:1px solid var(--wf-glass-border);color:var(--wf-accent-soft);font-size:.62rem;font-weight:700;border-radius:.4rem;padding:.15rem .4rem;cursor:pointer;flex-shrink:0;}
+.wf-var-btn:hover{background:var(--wf-glass-strong);}
+.wf-var-menu{position:absolute;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.6rem;box-shadow:var(--wf-shadow-lg);z-index:80;max-height:220px;overflow-y:auto;min-width:200px;padding:.3rem;}
+.wf-var-menu button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.4rem .55rem;font-size:.72rem;border-radius:.4rem;cursor:pointer;font-family:var(--wf-font-data);}
+.wf-var-menu button:hover{background:var(--wf-glass);}
+.wf-var-empty{padding:.5rem;font-size:.7rem;color:var(--wf-text-3);}
+
+.wf-kv-row{display:flex;gap:.4rem;margin-bottom:.4rem;}
+.wf-kv-row .wf-input{flex:1;}
+.wf-tag-chip{display:inline-flex;align-items:center;gap:.3rem;background:var(--wf-glass);border:1px solid var(--wf-glass-border);border-radius:99px;padding:.2rem .6rem;font-size:.68rem;margin:.15rem;}
+.wf-tag-chip button{background:none;border:none;color:var(--wf-text-3);cursor:pointer;padding:0;display:flex;}
+.wf-tags-wrap{display:flex;flex-wrap:wrap;padding:.3rem;border:1px solid var(--wf-glass-border);border-radius:.6rem;background:var(--wf-glass);gap:0;}
+.wf-tags-wrap input{border:none;background:none;color:var(--wf-text-1);font-size:.78rem;padding:.25rem;flex:1;min-width:60px;outline:none;}
+
+/* Versions sidebar */
+.wf-version-panel{width:280px;}
+.wf-version-tabs{display:flex;border-bottom:1px solid var(--wf-glass-border);}
+.wf-version-tab{flex:1;text-align:center;padding:.65rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
+.wf-version-tab.wf-version-tab-active{color:var(--wf-text-1);border-color:var(--wf-accent);}
+.wf-version-body{flex:1;overflow-y:auto;padding:.85rem;}
+.wf-version-item{padding:.75rem;border-radius:.65rem;border:1px solid var(--wf-glass-border);margin-bottom:.6rem;}
+.wf-version-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem;}
+.wf-version-item .wf-vnum{font-family:var(--wf-font-data);font-weight:700;font-size:.82rem;}
+.wf-version-meta{font-size:.66rem;color:var(--wf-text-3);display:flex;flex-direction:column;gap:.15rem;margin-bottom:.5rem;}
+.wf-version-actions{display:flex;gap:.35rem;}
+.wf-readonly-banner{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .85rem;background:rgba(224,168,0,.1);border:1px solid rgba(224,168,0,.3);border-radius:.65rem;font-size:.72rem;color:var(--wf-pill-amber-text);margin:.75rem;line-height:1.7;}
+.wf-readonly-banner svg{width:16px;height:16px;flex-shrink:0;margin-top:.1rem;}
+
+/* Bottom panel */
+.wf-bottom{border-top:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);flex-shrink:0;display:flex;flex-direction:column;height:230px;transition:height var(--wf-dur-med) var(--wf-ease-snap);}
+.wf-bottom.wf-bottom-collapsed{height:38px;}
+.wf-bottom-tabs{display:flex;align-items:center;gap:.2rem;padding:0 .75rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);}
+.wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;gap:.4rem;}
+.wf-bottom-tab.wf-bottom-tab-active{color:var(--wf-text-1);background:var(--wf-glass);}
+.wf-bottom-tab .wf-count{background:var(--wf-glass-strong);border-radius:99px;font-size:.6rem;padding:.05rem .4rem;}
+.wf-bottom-tab .wf-count.wf-count-error{background:var(--wf-pill-red-bg);color:var(--wf-pill-red-text);}
+.wf-bottom-toggle{margin-inline-start:auto;cursor:pointer;color:var(--wf-text-3);padding:.35rem;}
+.wf-bottom-content{flex:1;overflow-y:auto;padding:.75rem 1rem;}
+.wf-bottom.wf-bottom-collapsed .wf-bottom-content{display:none;}
+.wf-issue-row{display:flex;align-items:flex-start;gap:.55rem;padding:.55rem;border-radius:.55rem;font-size:.76rem;cursor:pointer;margin-bottom:.3rem;}
+.wf-issue-row:hover{background:var(--wf-glass);}
+.wf-issue-row.wf-issue-error svg{color:var(--wf-danger);}
+.wf-issue-row.wf-issue-warn svg{color:var(--wf-pill-amber-text);}
+.wf-issue-row svg{width:15px;height:15px;flex-shrink:0;margin-top:.1rem;}
+.wf-run-row{display:flex;align-items:center;gap:.7rem;padding:.5rem .3rem;border-bottom:1px solid var(--wf-glass-border);font-size:.75rem;}
+.wf-run-row:last-child{border-bottom:none;}
+
+/* Modal (create workflow) */
+.wf-modal-overlay{position:fixed;inset:0;background:rgba(6,11,20,.6);backdrop-filter:blur(3px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.wf-modal{background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);width:min(480px,100%);box-shadow:var(--wf-shadow-lg);}
+.wf-modal-head{padding:1.1rem 1.25rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:space-between;}
+.wf-modal-body{padding:1.25rem;max-height:60vh;overflow-y:auto;}
+.wf-modal-foot{padding:1rem 1.25rem;border-top:1px solid var(--wf-glass-border);display:flex;justify-content:flex-end;gap:.6rem;}
+
+.wf-toast-wrap{position:fixed;bottom:1.25rem;inset-inline-end:1.25rem;z-index:900;display:flex;flex-direction:column;gap:.5rem;}
+.wf-toast{background:var(--wf-bg-elevated);color:var(--wf-text-1);border:1px solid var(--wf-glass-border);border-radius:.7rem;padding:.7rem 1rem;font-size:.8rem;box-shadow:var(--wf-shadow-lg);display:flex;align-items:center;gap:.55rem;min-width:220px;animation:wfToastIn .25s var(--wf-ease-snap);}
+.wf-toast.wf-toast-error{border-color:rgba(255,107,107,.4);}
+.wf-toast.wf-toast-success{border-color:rgba(34,197,139,.4);}
+@keyframes wfToastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.wf-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--wf-glass-border);border-top-color:var(--wf-accent);animation:wfSpin .7s linear infinite;}
+@keyframes wfSpin{to{transform:rotate(360deg);}}
+
+@media (max-width: 1100px){
+  .wf-inspector,.wf-version-panel{position:absolute;top:0;bottom:0;inset-inline-end:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
+  .wf-lib{position:absolute;top:0;bottom:0;inset-inline-start:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
+}
+@media (prefers-reduced-motion: reduce){
+  .wf-shell *{transition-duration:.001ms !important;animation-duration:.001ms !important;}
+}
+
+</style>
+</head>
+<body>
+    <script src="/theme-manager.js"></script>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <div class="wf-shell" id="wfShell">
+
+            <!-- ============ Auth / loading gate ============ -->
+            <div class="wf-empty" id="wfAuthGate" style="min-height:60vh;">
+                <div class="wf-spinner"></div>
+                <h4 style="margin-top:1rem;">جاري التحقق من الصلاحيات...</h4>
+            </div>
+
+            <!-- ============ VIEW 1 : Workflow List ============ -->
+            <section class="wf-view" id="wfListView">
+                <div class="wf-list-header">
+                    <div>
+                        <h1>الأتمتة</h1>
+                        <p>أنشئ Workflows تلقائية تراقب أحداث النظام (تذاكر، واتساب، اشتراكات) وتنفّذ إجراءات نيابة عن فريقك.</p>
+                    </div>
+                    <button class="wf-btn wf-btn-primary" id="wfCreateBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        إنشاء Workflow جديد
+                    </button>
+                </div>
+
+                <div class="wf-toolbar">
+                    <div class="wf-search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" class="wf-input" id="wfSearchInput" placeholder="ابحث بالاسم أو الوصف...">
+                    </div>
+                    <div class="wf-filter-group">
+                        <select class="wf-select" id="wfFilterCategory">
+                            <option value="">كل التصنيفات</option>
+                        </select>
+                        <select class="wf-select" id="wfFilterStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="draft">مسودة</option>
+                            <option value="active">نشط (منشور)</option>
+                            <option value="paused">متوقف مؤقتًا</option>
+                            <option value="archived">مؤرشف</option>
+                        </select>
+                        <select class="wf-select" id="wfSortBy">
+                            <option value="updated_desc">آخر تحديث (الأحدث أولًا)</option>
+                            <option value="name_asc">الاسم (أ-ي)</option>
+                            <option value="created_desc">تاريخ الإنشاء (الأحدث أولًا)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="wf-list-body wf-scrollbar" id="wfListBody">
+                    <div class="wf-empty"><div class="wf-spinner"></div></div>
+                </div>
+            </section>
+
+            <!-- ============ VIEW 2 : Workflow Builder ============ -->
+            <section class="wf-view" id="wfBuilderView">
+                <div class="wf-tabbar wf-scrollbar" id="wfTabbar"></div>
+
+                <div class="wf-builder-toolbar">
+                    <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfBackToList" title="عودة لقائمة الـ Workflows">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    </button>
+                    <input type="text" class="wf-wf-name-input" id="wfNameInput" placeholder="اسم الـ Workflow">
+                    <span class="wf-badge wf-badge-gray" id="wfStatusBadge">مسودة</span>
+                    <div class="wf-toolbar-sep"></div>
+                    <button class="wf-btn wf-btn-sm" id="wfUndoBtn" title="تراجع (Ctrl+Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
+                    <button class="wf-btn wf-btn-sm" id="wfRedoBtn" title="إعادة (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg></button>
+                    <button class="wf-btn wf-btn-sm" id="wfAutoLayoutBtn" title="ترتيب تلقائي">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                        ترتيب تلقائي
+                    </button>
+                    <div class="wf-toolbar-spacer"></div>
+                    <span class="wf-save-state" id="wfSaveState">محفوظ</span>
+                    <button class="wf-btn wf-btn-sm" id="wfToggleVersions" title="سجل الإصدارات">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                        الإصدارات
+                    </button>
+                    <button class="wf-btn wf-btn-sm" id="wfSaveDraftBtn">حفظ كمسودة</button>
+                    <button class="wf-btn wf-btn-primary wf-btn-sm" id="wfPublishBtn">نشر</button>
+                </div>
+
+                <div class="wf-builder-body">
+                    <!-- Node Library -->
+                    <aside class="wf-panel wf-panel-start wf-lib" id="wfLibPanel">
+                        <div class="wf-lib-search">
+                            <input type="text" class="wf-input" id="wfLibSearch" placeholder="ابحث عن Node...">
+                        </div>
+                        <div class="wf-lib-tabs">
+                            <div class="wf-lib-tab wf-lib-tab-active" data-libtab="all">الكل</div>
+                            <div class="wf-lib-tab" data-libtab="favorites">المفضلة</div>
+                            <div class="wf-lib-tab" data-libtab="recent">الأخيرة</div>
+                        </div>
+                        <div class="wf-lib-body wf-scrollbar" id="wfLibBody"></div>
+                    </aside>
+
+                    <!-- Canvas -->
+                    <div class="wf-canvas-wrap" id="wfCanvasWrap">
+                        <div class="wf-canvas-viewport" id="wfViewport">
+                            <div class="wf-canvas-world" id="wfWorld">
+                                <svg class="wf-edges-svg" id="wfEdgesSvg" width="1" height="1">
+                                    <defs>
+                                        <marker id="wfArrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto">
+                                            <path d="M0,0 L8,4 L0,8 Z" class="wf-edge-arrow"></path>
+                                        </marker>
+                                    </defs>
+                                    <g id="wfEdgesGroup"></g>
+                                </svg>
+                                <div id="wfNodesLayer"></div>
+                            </div>
+                        </div>
+                        <div class="wf-canvas-empty wf-hidden" id="wfCanvasEmpty">
+                            <div class="wf-empty">
+                                <div class="wf-empty-icon" style="color:var(--wf-accent-soft);">
+                                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                                </div>
+                                <h4>ابدأ ببناء الـ Workflow</h4>
+                                <p>اسحب Node من المكتبة على اليمين وأفلته هنا. ابدأ بمشغّل (Trigger) لتحديد الحدث الذي يشغّل الأتمتة.</p>
+                            </div>
+                        </div>
+                        <div class="wf-canvas-controls">
+                            <div class="wf-zoom-group">
+                                <button class="wf-btn wf-btn-icon" id="wfZoomIn" title="تكبير"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                                <div class="wf-zoom-level" id="wfZoomLevel">100%</div>
+                                <button class="wf-btn wf-btn-icon" id="wfZoomOut" title="تصغير"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                            </div>
+                            <button class="wf-btn wf-btn-icon" id="wfZoomFit" title="ملاءمة الكل">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3"/><path d="M21 8V5a2 2 0 00-2-2h-3"/><path d="M3 16v3a2 2 0 002 2h3"/><path d="M16 21h3a2 2 0 002-2v-3"/></svg>
+                            </button>
+                        </div>
+                        <div class="wf-minimap" id="wfMinimap"><div class="wf-minimap-inner" id="wfMinimapInner"></div></div>
+                    </div>
+
+                    <!-- Inspector -->
+                    <aside class="wf-panel wf-inspector" id="wfInspectorPanel">
+                        <div id="wfInspectorContent"></div>
+                    </aside>
+
+                    <!-- Versions sidebar -->
+                    <aside class="wf-panel wf-version-panel wf-hidden" id="wfVersionPanel">
+                        <div class="wf-version-tabs">
+                            <div class="wf-version-tab wf-version-tab-active" data-vtab="current">الحالي</div>
+                            <div class="wf-version-tab" data-vtab="history">السجل</div>
+                        </div>
+                        <div class="wf-version-body wf-scrollbar" id="wfVersionBody"></div>
+                    </aside>
+                </div>
+
+                <!-- Bottom panel -->
+                <div class="wf-bottom" id="wfBottomPanel">
+                    <div class="wf-bottom-tabs">
+                        <div class="wf-bottom-tab wf-bottom-tab-active" data-bottomtab="validation">التحقق <span class="wf-count" id="wfValidationCount">0</span></div>
+                        <div class="wf-bottom-tab" data-bottomtab="runs">سجل التشغيل</div>
+                        <div class="wf-bottom-tab" data-bottomtab="logs">السجلات (Logs)</div>
+                        <div class="wf-bottom-tab" data-bottomtab="timeline">الجدول الزمني</div>
+                        <div class="wf-bottom-tab" data-bottomtab="metrics">المقاييس</div>
+                        <div class="wf-bottom-toggle" id="wfBottomToggle" title="طي/فتح" role="button" tabindex="0" aria-label="طي أو فتح لوحة الأسفل">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                        </div>
+                    </div>
+                    <div class="wf-bottom-content wf-scrollbar" id="wfBottomContent"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div class="wf-toast-wrap" id="wfToastWrap"></div>
+
+    <script type="module">
+import { supabase } from '/api-config.js';
+import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+import { initSidebar } from '/assets/js/admin/sidebar.js';
+
+/* =====================================================================
+   ثوابت وخرائط عرض (Category labels / colors) — مطابقة لقيد wf_node_types.category
+   ===================================================================== */
+const CATEGORY_LABELS = {
+    trigger: 'المشغلات', condition: 'الشروط', action: 'الإجراءات', ai: 'الذكاء الاصطناعي',
+    api: 'API وتكاملات', database: 'قاعدة البيانات', delay: 'التأخير', loop: 'التكرار', control: 'التحكم'
+};
+const CATEGORY_ORDER = ['trigger', 'condition', 'action', 'ai', 'api', 'database', 'delay', 'loop', 'control'];
+const CATEGORY_ACCENT = {
+    trigger: '#22C55E', condition: '#3B82F6', action: '#0EA5E9', ai: '#A855F7',
+    api: '#6366F1', database: '#14B8A6', delay: '#F97316', loop: '#F97316', control: '#EF4444'
+};
+/* الحالة على مستوى wf_workflows.status (حالة تشغيلية) */
+const STATUS_LABEL = { draft: 'مسودة', active: 'نشط (منشور)', paused: 'متوقف مؤقتًا', archived: 'مؤرشف' };
+const STATUS_BADGE_CLASS = { draft: 'wf-badge-gray', active: 'wf-badge-green', paused: 'wf-badge-amber', archived: 'wf-badge-red' };
+/* الحالة على مستوى wf_workflow_versions.status (حالة الإصدار نفسه) */
+const VERSION_STATUS_LABEL = { draft: 'مسودة', published: 'منشور', archived: 'مؤرشف' };
+const NODE_W = 220, NODE_H_APPROX = 90;
+const LIB_FAV_KEY = 'wf_lib_favorites';
+const LIB_RECENT_KEY = 'wf_lib_recent';
+
+/* =====================================================================
+   حالة عامة
+   ===================================================================== */
+const appState = {
+    currentUser: null,
+    workflows: [],            // wf_workflows rows (list view cache), كل صف يحمل draft_version/published_version المضمَّنة
+    nodeTypes: [],            // wf_node_types rows
+    nodeTypesByKey: {},
+    mcpTools: [],
+    staff: [],
+    integrations: [],
+    currentWorkflowWebhooks: [],
+    openTabs: [],             // جلسات الـ workflow المفتوحة داخل الـ Builder (تدعم تعدد التابات)
+    activeTabId: null,
+    view: 'list'              // 'list' | 'builder'
+};
+
+function uid(prefix) {
+    return (prefix || 'id') + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+}
+
+function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'الآن';
+    if (mins < 60) return `منذ ${mins} د`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `منذ ${hrs} س`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `منذ ${days} يوم`;
+    return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function toast(message, type) {
+    const wrap = document.getElementById('wfToastWrap');
+    if (!wrap) return;
+    const el = document.createElement('div');
+    el.className = 'wf-toast' + (type ? ` wf-toast-${type}` : '');
+    const iconName = type === 'error' ? 'alertTriangle' : type === 'success' ? 'checkCircle' : 'info';
+    const iconColor = type === 'error' ? 'var(--wf-danger)' : type === 'success' ? 'var(--wf-success)' : 'var(--wf-accent-soft)';
+    el.innerHTML = `<span style="display:flex;color:${iconColor}">${ic(iconName, 16)}</span><span>${escapeHtml(message)}</span>`;
+    wrap.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s ease'; setTimeout(() => el.remove(), 300); }, 3800);
+}
+
+function isStaffFieldOptional(field) {
+    if (!field) return true;
+    if (field.optional === true) return true;
+    if (field.default !== undefined && field.default !== null && field.default !== '') return true;
+    if (typeof field.label === 'string' && field.label.includes('اختياري')) return true;
+    return false;
+}
+
+/* =====================================================================
+   مكتبة أيقونات SVG (بدلًا من الإيموجي) — أسلوب Feather-icons، متسقة مع
+   الأيقونات الثابتة الموجودة أصلًا في الـ HTML (stroke=currentColor, viewBox 0 0 24 24)
+   ملاحظة: أيقونات أنواع الـ Nodes (nt.icon/nt.color) تأتي من قاعدة البيانات
+   (wf_node_types) وتبقى كما هي — هذه المكتبة تغطي فقط الرموز المكتوبة يدويًا في الكود.
+   ===================================================================== */
+const ICON_PATHS = {
+    box: '<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+    alertTriangle: '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    tag: '<path d="M20.59 13.41L13.42 20.58a2 2 0 01-2.83 0L2.41 12.4A2 2 0 012 11V4a2 2 0 012-2h7a2 2 0 011.41.59l8.18 8.18a2 2 0 010 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
+    play: '<polygon points="5 3 19 12 5 21 5 3"/>',
+    pause: '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>',
+    archive: '<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>',
+    barChart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    fileText: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    user: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    tool: '<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    checkCircle: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+    edit: '<path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>',
+    trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',
+    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
+    undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>',
+    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+};
+/* أيقونة outline (الشكل الافتراضي): ترث currentColor لتتلوّن حسب أب العنصر */
+function ic(name, size) {
+    size = size || 14;
+    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;">${ICON_PATHS[name] || ''}</svg>`;
+}
+/* أيقونة معبّأة (للتشغيل/الإيقاف/النجمة المفعّلة) */
+function icFilled(name, size) {
+    size = size || 14;
+    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" stroke="none" style="flex-shrink:0;vertical-align:-2px;">${ICON_PATHS[name] || ''}</svg>`;
+}
+
+/* =====================================================================
+   طبقة البيانات (Supabase) — كل الجداول والأعمدة أدناه مطابقة فعليًا لِـ Schema الحالي
+   (wf_workflows + wf_workflow_versions هما مصدر الحقيقة لنموذج الإصدارات؛
+   لا يوجد أي عمود definition/variables/trigger_config قابل للتحرير مباشرة
+   على wf_workflows نفسها - هذه الأعمدة الثلاثة تعيش فقط داخل wf_workflow_versions).
+   ===================================================================== */
+const DataLayer = {
+    // يضم draft_version و published_version عبر FK embedding (بدون أي View جديد)
+    async listWorkflows() {
+        const { data, error } = await supabase
+            .from('wf_workflows')
+            .select(`*,
+                draft_version:wf_workflow_versions!wf_workflows_current_draft_version_id_fkey(*),
+                published_version:wf_workflow_versions!wf_workflows_published_version_id_fkey(*)
+            `)
+            .order('updated_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
+    async getWorkflow(id) {
+        const { data, error } = await supabase
+            .from('wf_workflows')
+            .select(`*,
+                draft_version:wf_workflow_versions!wf_workflows_current_draft_version_id_fkey(*),
+                published_version:wf_workflow_versions!wf_workflows_published_version_id_fkey(*)
+            `)
+            .eq('id', id).maybeSingle();
+        if (error) throw error;
+        return data;
+    },
+    async listNodeTypes() {
+        const { data, error } = await supabase.from('wf_node_types').select('*').eq('is_active', true).order('category').order('sort_order');
+        if (error) throw error;
+        return data || [];
+    },
+    async listMcpTools() {
+        const { data, error } = await supabase.from('mcp_tools_catalog').select('name, scope, description').order('sort_order');
+        if (error) { console.warn('mcp_tools_catalog fetch failed', error); return []; }
+        return data || [];
+    },
+    async listStaff() {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, email, role').in('role', ['admin', 'support']);
+        if (error) { console.warn('staff fetch failed', error); return []; }
+        return data || [];
+    },
+    async listIntegrations() {
+        const { data, error } = await supabase.from('external_integrations').select('id, provider, display_name').eq('is_active', true);
+        if (error) { console.warn('integrations fetch failed', error); return []; }
+        return data || [];
+    },
+    async listWebhooks(workflowId) {
+        const { data, error } = await supabase.from('wf_webhook_endpoints').select('*').eq('workflow_id', workflowId);
+        if (error) { console.warn('webhooks fetch failed', error); return []; }
+        return data || [];
+    },
+    async listRuns(workflowId, limit = 25) {
+        const { data, error } = await supabase.from('wf_runs').select('*').eq('workflow_id', workflowId).order('started_at', { ascending: false }).limit(limit);
+        if (error) { console.warn('runs fetch failed', error); return []; }
+        return data || [];
+    },
+    async listVersions(workflowId) {
+        const { data, error } = await supabase.from('wf_workflow_versions').select('*').eq('workflow_id', workflowId).order('version_number', { ascending: false });
+        if (error) { console.warn('versions fetch failed', error); return []; }
+        return data || [];
+    },
+
+    // ينشئ صف wf_workflows + أول صف wf_workflow_versions (v1, draft) ثم يربطهما عبر current_draft_version_id
+    async createWorkflow({ name, description, created_by }) {
+        const { data: wf, error: e1 } = await supabase.from('wf_workflows')
+            .insert({ name, description: description || null, created_by: created_by || null })
+            .select().single();
+        if (e1) throw e1;
+        const { data: ver, error: e2 } = await supabase.from('wf_workflow_versions')
+            .insert({
+                workflow_id: wf.id, version_number: 1, status: 'draft',
+                definition: { nodes: [], edges: [] }, trigger_config: {}, variables: {},
+                created_by: created_by || null
+            })
+            .select().single();
+        if (e2) throw e2;
+        const { data: wf2, error: e3 } = await supabase.from('wf_workflows')
+            .update({ current_draft_version_id: ver.id })
+            .eq('id', wf.id).select().single();
+        if (e3) throw e3;
+        return { ...wf2, draft_version: ver, published_version: null };
+    },
+
+    // يكرر Workflow بالكامل كصف جديد + إصدار v1 مسودة، بمحتوى منسوخ من مصدر (draft أو published)
+    async duplicateWorkflow(sourceFull, newName, created_by) {
+        const srcVersion = sourceFull.draft_version || sourceFull.published_version || { definition: { nodes: [], edges: [] }, trigger_config: {}, variables: {} };
+        const { data: wf, error: e1 } = await supabase.from('wf_workflows')
+            .insert({ name: newName, description: sourceFull.description || null, created_by: created_by || null })
+            .select().single();
+        if (e1) throw e1;
+        const { data: ver, error: e2 } = await supabase.from('wf_workflow_versions')
+            .insert({
+                workflow_id: wf.id, version_number: 1, status: 'draft',
+                definition: srcVersion.definition || { nodes: [], edges: [] },
+                trigger_config: srcVersion.trigger_config || {},
+                variables: srcVersion.variables || {},
+                created_by: created_by || null
+            })
+            .select().single();
+        if (e2) throw e2;
+        const { data: wf2, error: e3 } = await supabase.from('wf_workflows')
+            .update({ current_draft_version_id: ver.id })
+            .eq('id', wf.id).select().single();
+        if (e3) throw e3;
+        return { ...wf2, draft_version: ver, published_version: null };
+    },
+
+    async updateWorkflowMeta(id, patch) {
+        const { data, error } = await supabase.from('wf_workflows').update(patch).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    async updateDraftVersion(versionId, patch) {
+        const { data, error } = await supabase.from('wf_workflow_versions').update(patch).eq('id', versionId).select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    // ينشر المسودة الحالية (تصبح published/immutable) ثم يفتح مسودة جديدة (version_number+1) لمتابعة التعديل
+    async publishWorkflow(workflowId, draftVersionId, created_by) {
+        const { data: publishedRow, error: e1 } = await supabase.from('wf_workflow_versions')
+            .update({ status: 'published', published_at: new Date().toISOString() })
+            .eq('id', draftVersionId).select().single();
+        if (e1) throw e1;
+        const { data: newDraft, error: e2 } = await supabase.from('wf_workflow_versions')
+            .insert({
+                workflow_id: workflowId, version_number: publishedRow.version_number + 1, status: 'draft',
+                definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
+                trigger_event_key: publishedRow.trigger_event_key || null,
+                created_by: created_by || null
+            })
+            .select().single();
+        if (e2) throw e2;
+        const { data: wf, error: e3 } = await supabase.from('wf_workflows')
+            .update({
+                status: 'active',
+                published_version_id: publishedRow.id,
+                current_draft_version_id: newDraft.id,
+                trigger_event_key: publishedRow.trigger_event_key || null,
+                trigger_config: publishedRow.trigger_config || {},
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', workflowId).select().single();
+        if (e3) throw e3;
+        return { workflow: wf, publishedVersion: publishedRow, draftVersion: newDraft };
+    },
+
+    // يستعيد محتوى إصدار قديم داخل صف المسودة الحالي (لأن المسودة قابلة للتحرير طالما لم تُنشر)
+    async restoreVersionIntoDraft(draftVersionId, versionRow) {
+        return this.updateDraftVersion(draftVersionId, {
+            definition: versionRow.definition, trigger_config: versionRow.trigger_config, variables: versionRow.variables
+        });
+    },
+
+    async deleteWorkflow(id) {
+        const { error } = await supabase.from('wf_workflows').delete().eq('id', id);
+        if (error) throw error;
+    }
+};
+
+/* TODO: لا يوجد حاليًا عمود صريح لـ "event key" لكل نوع Trigger داخل wf_node_types.
+   إلى أن يُعرَّف Trigger Dispatcher الفعلي (وربط كل trigger.* بمفتاح حدث رسمي)،
+   نشتق مفتاحًا مبدئيًا من نوع الـ node نفسه (بإزالة بادئة "trigger."). هذه القيمة
+   تُخزَّن فقط في wf_workflows.trigger_event_key / wf_workflow_versions.trigger_event_key
+   كإشارة أولية، ويجب مراجعتها عند بناء الـ Dispatcher الفعلي. */
+/* دالة مشتركة واحدة لإيجاد مشغّل الـ Workflow — إن وُجد أكثر من مشغّل، يُعتمد الأول
+   دائمًا (بنفس القاعدة في كل مكان: هنا، في validateDefinition، وفي عرض الملخص) */
+function findTriggerNode(definition) {
+    const nodes = definition?.nodes || [];
+    return nodes.find(n => (n.type || '').startsWith('trigger.')) || null;
+}
+function extractTriggerEventKey(definition) {
+    const trigger = findTriggerNode(definition);
+    if (!trigger) return null;
+    return trigger.type.replace(/^trigger\./, '');
+}
+/* استخراج إعدادات المشغّل الفعلية (node.config) لحفظها في عمود trigger_config —
+   سابقًا كان trigger_config يبقى {} دائمًا لأن لا شيء كان يربطه بإعدادات الـ node نفسه */
+function extractTriggerConfig(definition) {
+    const trigger = findTriggerNode(definition);
+    return trigger ? (trigger.config || {}) : {};
+}
+
+/* استخراج تصنيف/ملخص مشغّل مشتق للعرض في قائمة الـ Workflows (لا يوجد عمود category،
+   فنشتقه من تعريف الإصدار المنشور، أو من المسودة إن لم يوجد إصدار منشور بعد) */
+function primaryDefinitionSource(workflow) {
+    return workflow?.published_version || workflow?.draft_version || null;
+}
+function deriveWorkflowCategory(workflow) {
+    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
+    if (!trigger) return 'بدون مشغّل';
+    const key = trigger.type;
+    if (key.startsWith('trigger.ticket')) return 'التذاكر';
+    if (key.startsWith('trigger.whatsapp')) return 'واتساب';
+    if (key.startsWith('trigger.subscription')) return 'الاشتراكات';
+    if (key === 'trigger.webhook_inbound') return 'Webhook';
+    if (key === 'trigger.schedule_cron') return 'مجدول (Cron)';
+    return 'عام';
+}
+
+function triggerSummary(workflow) {
+    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
+    if (!trigger) return 'بدون مشغّل بعد';
+    const nt = appState.nodeTypesByKey[trigger.type];
+    return nt ? (nt.name_ar || nt.name_en) : trigger.type;
+}
+
+/* نفس فكرة triggerSummary لكن تعمل مباشرة على تعريف جلسة مفتوحة في الـ Builder (session.definition) */
+function sessionTriggerSummary(s) {
+    const trigger = findTriggerNode(s.definition);
+    if (!trigger) return 'بدون مشغّل بعد';
+    const nt = appState.nodeTypesByKey[trigger.type];
+    return nt ? (nt.name_ar || nt.name_en) : trigger.type;
+}
+/* =====================================================================
+   VIEW: Workflow List
+   ===================================================================== */
+function populateCategoryFilter() {
+    const sel = document.getElementById('wfFilterCategory');
+    const cats = new Set(appState.workflows.map(deriveWorkflowCategory));
+    sel.innerHTML = '<option value="">كل التصنيفات</option>' +
+        [...cats].sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+}
+
+function getFilteredWorkflows() {
+    const q = (document.getElementById('wfSearchInput')?.value || '').trim().toLowerCase();
+    const cat = document.getElementById('wfFilterCategory')?.value || '';
+    const status = document.getElementById('wfFilterStatus')?.value || '';
+    const sort = document.getElementById('wfSortBy')?.value || 'updated_desc';
+
+    let list = appState.workflows.filter(w => {
+        if (q && !(`${w.name} ${w.description || ''}`.toLowerCase().includes(q))) return false;
+        if (cat && deriveWorkflowCategory(w) !== cat) return false;
+        if (status && w.status !== status) return false;
+        return true;
+    });
+
+    if (sort === 'name_asc') list = list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    else if (sort === 'created_desc') list = list.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    else list = list.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    return list;
+}
+
+function renderWorkflowList() {
+    const body = document.getElementById('wfListBody');
+    const list = getFilteredWorkflows();
+
+    if (!appState.workflows.length) {
+        body.innerHTML = `
+            <div class="wf-empty" style="min-height:50vh;">
+                <div class="wf-empty-icon" style="color:var(--wf-accent-soft);">${ic('zap', 24)}</div>
+                <h4>لا توجد Workflows بعد</h4>
+                <p>الأتمتة تساعدك على تنفيذ إجراءات تلقائية عند حدوث أحداث معيّنة — مثل إرسال رسالة واتساب عند إنشاء تذكرة جديدة. أنشئ أول Workflow لتبدأ.</p>
+                <button class="wf-btn wf-btn-primary" style="margin-top:.5rem;" id="wfEmptyCreateBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    إنشاء أول Workflow
+                </button>
+            </div>`;
+        document.getElementById('wfEmptyCreateBtn')?.addEventListener('click', openCreateWorkflowModal);
+        return;
+    }
+
+    if (!list.length) {
+        body.innerHTML = `
+            <div class="wf-empty" style="min-height:40vh;">
+                <div class="wf-empty-icon">${ic('search', 22)}</div>
+                <h4>لا توجد نتائج</h4>
+                <p>جرّب تغيير كلمات البحث أو إزالة بعض الفلاتر.</p>
+            </div>`;
+        return;
+    }
+
+    body.innerHTML = `<div class="wf-grid">${list.map(workflowCardHtml).join('')}</div>`;
+
+    body.querySelectorAll('.wf-wf-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.wf-menu-btn')) return;
+            openWorkflowInBuilder(card.dataset.id);
+        });
+    });
+    body.querySelectorAll('.wf-menu-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCardMenu(btn);
+        });
+    });
+}
+
+function workflowCardHtml(w) {
+    const defSource = primaryDefinitionSource(w);
+    const nodes = defSource?.definition?.nodes || [];
+    const nodesCount = nodes.length;
+    const category = deriveWorkflowCategory(w);
+    const trig = triggerSummary(w);
+    const triggerNode = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    const icon = triggerNode ? (appState.nodeTypesByKey[triggerNode.type]?.icon || ic('zap', 17)) : ic('box', 17);
+    return `
+    <div class="wf-card wf-wf-card" data-id="${w.id}">
+        <div class="wf-wf-card-top">
+            <div class="wf-wf-icon">${icon}</div>
+            <div style="display:flex;align-items:center;gap:.35rem;">
+                <span class="wf-badge ${STATUS_BADGE_CLASS[w.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${STATUS_LABEL[w.status] || w.status}</span>
+                <div class="wf-menu-btn">
+                    <button class="wf-btn wf-btn-icon wf-btn-sm" title="خيارات إضافية">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div>
+            <h3>${escapeHtml(w.name || 'بدون اسم')}</h3>
+            <div class="wf-wf-desc">${escapeHtml(w.description || 'بدون وصف')}</div>
+        </div>
+        <div class="wf-wf-meta">
+            <span title="التصنيف">${ic('tag', 12)} ${escapeHtml(category)}</span>
+            <span title="المشغّل">${ic('zap', 12)} ${escapeHtml(trig)}</span>
+            <span title="عدد العناصر">${ic('box', 12)} ${nodesCount} عنصر</span>
+        </div>
+        <div class="wf-wf-meta">
+            <span title="آخر تحديث">${ic('clock', 12)} ${timeAgo(w.updated_at)}</span>
+            <span title="الإصدار المنشور">${w.published_version ? `${ic('pin', 12)} v${w.published_version.version_number}` : '— لم يُنشر بعد'}</span>
+        </div>
+        <div class="wf-wf-actions">
+            <button class="wf-btn wf-btn-sm wf-card-edit">فتح</button>
+            <button class="wf-btn wf-btn-sm wf-card-duplicate">تكرار</button>
+        </div>
+    </div>`;
+}
+
+function toggleCardMenu(btn) {
+    document.querySelectorAll('.wf-dropdown').forEach(d => d.remove());
+    const card = btn.closest('.wf-wf-card');
+    const w = appState.workflows.find(x => x.id === card.dataset.id);
+    if (!w) return;
+    const menu = document.createElement('div');
+    menu.className = 'wf-dropdown';
+    const pauseLabel = w.status === 'active' ? `${ic('pause', 13)} إيقاف مؤقت` : (w.status === 'paused' ? `${ic('play', 13)} استئناف` : null);
+    menu.innerHTML = `
+        <button data-act="edit">${ic('edit', 13)} فتح للتعديل</button>
+        <button data-act="duplicate">${ic('copy', 13)} تكرار</button>
+        ${pauseLabel ? `<button data-act="pause">${pauseLabel}</button>` : ''}
+        ${w.status !== 'archived' ? `<button data-act="archive">${ic('archive', 13)} أرشفة</button>` : ''}
+        <hr>
+        <button data-act="delete" class="wf-danger-item">${ic('trash', 13)} حذف نهائي</button>
+    `;
+    btn.closest('.wf-menu-btn').appendChild(menu);
+    menu.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const act = e.target.closest('button')?.dataset.act;
+        if (!act) return;
+        menu.remove();
+        if (act === 'edit') openWorkflowInBuilder(w.id);
+        if (act === 'duplicate') await duplicateWorkflow(w.id);
+        if (act === 'pause') await togglePauseWorkflow(w);
+        if (act === 'archive') await archiveWorkflow(w.id);
+        if (act === 'delete') await deleteWorkflowConfirm(w);
+    });
+    setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
+}
+
+async function refreshWorkflowsList() {
+    try {
+        appState.workflows = await DataLayer.listWorkflows();
+        populateCategoryFilter();
+        renderWorkflowList();
+    } catch (err) {
+        console.error(err);
+        document.getElementById('wfListBody').innerHTML = `<div class="wf-empty"><div class="wf-empty-icon" style="color:var(--wf-danger);">${ic('alertTriangle', 22)}</div><h4>تعذّر تحميل الـ Workflows</h4><p>${escapeHtml(err.message || '')}</p></div>`;
+    }
+}
+
+['wfSearchInput', 'wfFilterCategory', 'wfFilterStatus', 'wfSortBy'].forEach(id => {
+    document.addEventListener('input', (e) => { if (e.target.id === id) renderWorkflowList(); });
+    document.addEventListener('change', (e) => { if (e.target.id === id) renderWorkflowList(); });
+});
+
+/* ---------- Create workflow modal ---------- */
+function openCreateWorkflowModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'wf-modal-overlay';
+    overlay.innerHTML = `
+        <div class="wf-modal">
+            <div class="wf-modal-head"><h3 style="font-size:1rem;">Workflow جديد</h3>
+                <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfModalClose">${ic('x', 14)}</button>
+            </div>
+            <div class="wf-modal-body">
+                <div class="wf-field"><label>الاسم</label><input class="wf-input" id="wfNewName" placeholder="مثال: ترحيب بالعملاء الجدد" autofocus></div>
+                <div class="wf-field"><label>الوصف <span class="wf-field-hint">(اختياري)</span></label><textarea class="wf-textarea" id="wfNewDesc" placeholder="ماذا يفعل هذا الـ Workflow؟"></textarea></div>
+            </div>
+            <div class="wf-modal-foot">
+                <button class="wf-btn wf-btn-sm" id="wfModalCancel">إلغاء</button>
+                <button class="wf-btn wf-btn-primary wf-btn-sm" id="wfModalCreate">إنشاء وفتح المحرر</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('wfModalClose').addEventListener('click', close);
+    document.getElementById('wfModalCancel').addEventListener('click', close);
+    document.getElementById('wfModalCreate').addEventListener('click', async () => {
+        const name = document.getElementById('wfNewName').value.trim();
+        if (!name) { toast('اكتب اسمًا للـ Workflow', 'error'); return; }
+        const desc = document.getElementById('wfNewDesc').value.trim();
+        try {
+            const row = await DataLayer.createWorkflow({
+                name,
+                description: desc || null,
+                created_by: appState.currentUser?.id || null
+            });
+            appState.workflows.unshift(row);
+            close();
+            openWorkflowInBuilder(row.id, row);
+            toast('تم إنشاء الـ Workflow — ابدأ بإضافة مشغّل (Trigger)', 'success');
+        } catch (err) {
+            console.error(err);
+            toast('تعذّر إنشاء الـ Workflow: ' + (err.message || ''), 'error');
+        }
+    });
+}
+document.getElementById('wfCreateBtn')?.addEventListener('click', openCreateWorkflowModal);
+
+/* ---------- Quick actions ---------- */
+async function duplicateWorkflow(id) {
+    let full = appState.workflows.find(x => x.id === id);
+    if (!full) full = await DataLayer.getWorkflow(id);
+    if (!full) return;
+    try {
+        const row = await DataLayer.duplicateWorkflow(full, `${full.name} (نسخة)`, appState.currentUser?.id || null);
+        appState.workflows.unshift(row);
+        renderWorkflowList();
+        toast('تم إنشاء نسخة كمسودة', 'success');
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر تكرار الـ Workflow: ' + (err.message || ''), 'error');
+    }
+}
+
+async function togglePauseWorkflow(w) {
+    const newStatus = w.status === 'active' ? 'paused' : 'active';
+    try {
+        const row = await DataLayer.updateWorkflowMeta(w.id, { status: newStatus, updated_at: new Date().toISOString() });
+        Object.assign(w, row);
+        renderWorkflowList();
+        toast(newStatus === 'paused' ? 'تم إيقاف الـ Workflow مؤقتًا' : 'تم استئناف الـ Workflow', 'success');
+    } catch (err) {
+        toast('تعذّر تنفيذ العملية: ' + (err.message || ''), 'error');
+    }
+}
+
+async function archiveWorkflow(id) {
+    try {
+        const row = await DataLayer.updateWorkflowMeta(id, { status: 'archived', updated_at: new Date().toISOString() });
+        const w = appState.workflows.find(x => x.id === id);
+        if (w) Object.assign(w, row);
+        renderWorkflowList();
+        toast('تم أرشفة الـ Workflow', 'success');
+    } catch (err) {
+        toast('تعذّر الأرشفة: ' + (err.message || ''), 'error');
+    }
+}
+
+async function deleteWorkflowConfirm(w) {
+    if (!confirm(`هل أنت متأكد من حذف "${w.name}" نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    try {
+        await DataLayer.deleteWorkflow(w.id);
+        appState.workflows = appState.workflows.filter(x => x.id !== w.id);
+        renderWorkflowList();
+        toast('تم الحذف', 'success');
+    } catch (err) {
+        console.error(err);
+        const msg = /foreign key|violates/i.test(err.message || '')
+            ? 'لا يمكن حذف Workflow له إصدارات أو سجل تشغيل سابق (Versions/Runs) — استخدم الأرشفة بدلًا من الحذف.'
+            : ('تعذّر الحذف: ' + (err.message || ''));
+        toast(msg, 'error');
+    }
+}
+/* =====================================================================
+   VIEW SWITCHING
+   ===================================================================== */
+function showView(view) {
+    appState.view = view;
+    document.getElementById('wfListView').classList.toggle('wf-active', view === 'list');
+    document.getElementById('wfBuilderView').classList.toggle('wf-active', view === 'builder');
+    if (view === 'list') refreshWorkflowsList();
+}
+document.getElementById('wfBackToList')?.addEventListener('click', () => showView('list'));
+
+/* =====================================================================
+   جلسات الـ Workflow (Tabs)
+   كل جلسة تتتبّع: بيانات wf_workflows الأساسية + الإصدار الحالي (draft_version)
+   الذي يُحرَّر فعليًا على الـ Canvas، بالإضافة لمرجع للإصدار المنشور إن وُجد.
+   ===================================================================== */
+function createSession(workflowFull, isNew) {
+    const draft = workflowFull.draft_version || { id: null, version_number: 1, status: 'draft', definition: { nodes: [], edges: [] }, trigger_config: {}, variables: {} };
+    const def = draft.definition && Array.isArray(draft.definition.nodes) && Array.isArray(draft.definition.edges)
+        ? draft.definition : { nodes: [], edges: [] };
+    const vars = draft.variables && typeof draft.variables === 'object' ? draft.variables : {};
+    const triggerConfig = draft.trigger_config && typeof draft.trigger_config === 'object' ? draft.trigger_config : {};
+    return {
+        id: workflowFull.id,
+        isNew: !!isNew,
+        name: workflowFull.name || 'Workflow بدون اسم',
+        description: workflowFull.description || '',
+        status: workflowFull.status || 'draft',
+        createdBy: workflowFull.created_by || null,
+        updatedAt: workflowFull.updated_at,
+        createdAt: workflowFull.created_at,
+        draftVersionId: draft.id,
+        draftVersionNumber: draft.version_number || 1,
+        publishedVersion: workflowFull.published_version || null,
+        definition: JSON.parse(JSON.stringify(def)),
+        variables: JSON.parse(JSON.stringify(vars)),
+        triggerConfig: JSON.parse(JSON.stringify(triggerConfig)),
+        savedSnapshot: JSON.stringify({ definition: def, variables: vars }),
+        history: [JSON.stringify(def)],
+        historyIndex: 0,
+        pinned: false,
+        selection: { nodeIds: new Set(), edgeId: null },
+        view: { pan: { x: 60, y: 60 }, zoom: 1 },
+        runsCache: undefined,
+        // مؤرشف فقط = للقراءة. مسودة/نشط/متوقف مؤقتًا كلها قابلة للتحرير عبر إصدار المسودة الحالي
+        // (لا علاقة لذلك بتشغيل الإصدار المنشور فعليًا - current_draft_version_id لا يُستخدم أبدًا في التنفيذ).
+        get readOnly() { return this.status === 'archived'; },
+        get hasUnsaved() { return JSON.stringify({ definition: this.definition, variables: this.variables }) !== this.savedSnapshot; }
+    };
+}
+
+async function openWorkflowInBuilder(id, preloadedRow) {
+    let existing = appState.openTabs.find(t => t.id === id);
+    if (!existing) {
+        let row = preloadedRow;
+        if (!row) {
+            try { row = await DataLayer.getWorkflow(id); }
+            catch (err) { toast('تعذّر فتح الـ Workflow: ' + (err.message || ''), 'error'); return; }
+        }
+        if (!row) { toast('الـ Workflow غير موجود', 'error'); return; }
+        existing = createSession(row);
+        appState.openTabs.push(existing);
+    }
+    appState.activeTabId = existing.id;
+    showView('builder');
+    renderTabbar();
+    mountActiveSession();
+}
+
+function closeTab(id, force) {
+    const tab = appState.openTabs.find(t => t.id === id);
+    if (!tab) return;
+    if (!force && tab.hasUnsaved) {
+        if (!confirm(`لديك تغييرات غير محفوظة في "${tab.name}". هل تريد إغلاق التاب على أي حال؟`)) return;
+    }
+    appState.openTabs = appState.openTabs.filter(t => t.id !== id);
+    if (appState.activeTabId === id) {
+        const next = appState.openTabs[appState.openTabs.length - 1];
+        appState.activeTabId = next ? next.id : null;
+    }
+    if (!appState.openTabs.length) { showView('list'); return; }
+    renderTabbar();
+    mountActiveSession();
+}
+
+function activeSession() {
+    return appState.openTabs.find(t => t.id === appState.activeTabId) || null;
+}
+
+function renderTabbar() {
+    const bar = document.getElementById('wfTabbar');
+    bar.innerHTML = appState.openTabs.map(t => {
+        const dotColor = t.status === 'active' ? 'var(--wf-pill-green-text)' : (t.hasUnsaved ? 'var(--wf-pill-amber-text)' : 'var(--wf-text-3)');
+        return `
+        <div class="wf-tab ${t.id === appState.activeTabId ? 'wf-tab-active' : ''}" data-tab="${t.id}" title="${escapeHtml(t.name)}">
+            ${t.pinned ? `<span title="مثبّت" style="display:flex;color:var(--wf-accent);">${ic('pin', 12)}</span>` : `<span class="wf-tab-dot" style="background:${dotColor}"></span>`}
+            <span class="wf-tab-title">${escapeHtml(t.name)}</span>
+            ${t.hasUnsaved ? '<span title="تغييرات غير محفوظة" style="color:var(--wf-pill-amber-text);">•</span>' : ''}
+            <span class="wf-tab-close" data-close="${t.id}">${ic('x', 11)}</span>
+        </div>`;
+    }).join('') + `<div class="wf-tab-add" id="wfTabAdd" title="Workflow جديد">${ic('plus', 14)}</div>`;
+
+    bar.querySelectorAll('.wf-tab').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.dataset.close) return;
+            appState.activeTabId = el.dataset.tab;
+            renderTabbar(); mountActiveSession();
+        });
+        el.addEventListener('dblclick', () => {
+            const t = appState.openTabs.find(x => x.id === el.dataset.tab);
+            if (t) { t.pinned = !t.pinned; renderTabbar(); }
+        });
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const t = appState.openTabs.find(x => x.id === el.dataset.tab);
+            if (!t) return;
+            const menu = document.createElement('div');
+            menu.className = 'wf-dropdown';
+            menu.style.position = 'fixed'; menu.style.top = e.clientY + 'px'; menu.style.insetInlineStart = e.clientX + 'px';
+            menu.innerHTML = `
+                <button data-a="pin">${ic('pin', 13)} ${t.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</button>
+                <button data-a="dup">${ic('copy', 13)} تكرار</button>
+                <button data-a="close">${ic('x', 13)} إغلاق</button>`;
+            document.body.appendChild(menu);
+            menu.addEventListener('click', async (ev) => {
+                const a = ev.target.closest('button')?.dataset.a;
+                menu.remove();
+                if (a === 'pin') { t.pinned = !t.pinned; renderTabbar(); }
+                if (a === 'dup') await duplicateWorkflow(t.id);
+                if (a === 'close') closeTab(t.id);
+            });
+            setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
+        });
+    });
+    bar.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); closeTab(el.dataset.close); }));
+    document.getElementById('wfTabAdd')?.addEventListener('click', () => { showView('list'); openCreateWorkflowModal(); });
+}
+
+/* =====================================================================
+   تركيب الجلسة النشطة في الـ Builder
+   ===================================================================== */
+function mountActiveSession() {
+    const s = activeSession();
+    if (!s) return;
+
+    const nameInput = document.getElementById('wfNameInput');
+    nameInput.value = s.name;
+    nameInput.disabled = s.readOnly;
+
+    const statusBadge = document.getElementById('wfStatusBadge');
+    statusBadge.textContent = STATUS_LABEL[s.status] || s.status;
+    statusBadge.className = 'wf-badge ' + (STATUS_BADGE_CLASS[s.status] || 'wf-badge-gray');
+
+    updateSaveState();
+
+    document.getElementById('wfSaveDraftBtn').disabled = s.readOnly;
+    document.getElementById('wfPublishBtn').textContent = s.publishedVersion ? 'نشر التحديثات' : 'نشر';
+    document.getElementById('wfPublishBtn').disabled = s.readOnly || (s.definition.nodes || []).length === 0;
+
+    renderNodeLibrary();
+    Canvas.mount(s);
+    renderInspector();
+    renderVersionsPanel();
+    renderBottomPanel();
+
+    appState.currentWorkflowWebhooks = [];
+    DataLayer.listWebhooks(s.id).then(hooks => {
+        appState.currentWorkflowWebhooks = hooks;
+        if (activeSession() === s && s.selection.nodeIds.size === 1) renderInspector();
+    });
+}
+
+function updateSaveState() {
+    const s = activeSession();
+    const el = document.getElementById('wfSaveState');
+    if (!s) return;
+    if (s.readOnly) { el.textContent = 'مؤرشف — للقراءة فقط'; el.classList.remove('wf-unsaved'); return; }
+    if (s.hasUnsaved) { el.textContent = 'تغييرات غير محفوظة'; el.classList.add('wf-unsaved'); }
+    else { el.textContent = 'محفوظ'; el.classList.remove('wf-unsaved'); }
+}
+
+document.getElementById('wfNameInput')?.addEventListener('input', (e) => {
+    const s = activeSession(); if (!s || s.readOnly) return;
+    s.name = e.target.value;
+    renderTabbar();
+});
+
+/* =====================================================================
+   حفظ / نشر
+   ===================================================================== */
+async function saveDraft(silent) {
+    const s = activeSession();
+    if (!s || s.readOnly) return;
+    const issues = validateDefinition(s.definition);
+    const errorCount = issues.filter(i => i.level === 'error').length;
+    try {
+        const wfRow = await DataLayer.updateWorkflowMeta(s.id, {
+            name: s.name || 'Workflow بدون اسم',
+            description: s.description,
+            updated_at: new Date().toISOString()
+        });
+        let verRow = null;
+        if (s.draftVersionId) {
+            // إعدادات المشغّل الفعلية تعيش داخل node.config على الـ canvas، وليس في حقل منفصل —
+            // نشتقها من التعريف الحالي في كل حفظ بدل الاعتماد على s.triggerConfig الذي لا يُحدَّث أبدًا لولا هذا
+            s.triggerConfig = extractTriggerConfig(s.definition);
+            verRow = await DataLayer.updateDraftVersion(s.draftVersionId, {
+                definition: s.definition,
+                variables: s.variables,
+                trigger_config: s.triggerConfig
+            });
+        }
+        s.savedSnapshot = JSON.stringify({ definition: s.definition, variables: s.variables });
+        s.updatedAt = wfRow.updated_at;
+        const cached = appState.workflows.find(w => w.id === s.id);
+        if (cached) { Object.assign(cached, wfRow); if (verRow) cached.draft_version = verRow; }
+        renderTabbar(); updateSaveState();
+        if (!silent) toast(errorCount ? `تم الحفظ كمسودة (${errorCount} ملاحظة تحتاج مراجعة)` : 'تم الحفظ كمسودة', errorCount ? undefined : 'success');
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر الحفظ: ' + (err.message || ''), 'error');
+    }
+}
+document.getElementById('wfSaveDraftBtn')?.addEventListener('click', () => saveDraft(false));
+
+async function publishWorkflow() {
+    const s = activeSession();
+    if (!s || s.readOnly) return;
+    const issues = validateDefinition(s.definition);
+    const errors = issues.filter(i => i.level === 'error');
+    if (errors.length) {
+        toast(`لا يمكن النشر — يوجد ${errors.length} خطأ يجب إصلاحه أولًا (راجع لوحة "التحقق" أسفل الشاشة)`, 'error');
+        openBottomTab('validation');
+        return;
+    }
+    if (!confirm('نشر هذا الإصدار سيجعله حيًّا الآن. سيتم فتح مسودة جديدة تلقائيًا لمتابعة التعديل بعد النشر. متابعة؟')) return;
+    try {
+        // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور (يشمل مزامنة trigger_config)
+        await saveDraft(true);
+        const eventKey = extractTriggerEventKey(s.definition);
+        if (eventKey) {
+            await DataLayer.updateDraftVersion(s.draftVersionId, { trigger_event_key: eventKey });
+        }
+        const result = await DataLayer.publishWorkflow(s.id, s.draftVersionId, appState.currentUser?.id || null);
+        s.status = result.workflow.status;
+        s.publishedVersion = result.publishedVersion;
+        s.draftVersionId = result.draftVersion.id;
+        s.draftVersionNumber = result.draftVersion.version_number;
+        s.updatedAt = result.workflow.updated_at;
+        s.savedSnapshot = JSON.stringify({ definition: s.definition, variables: s.variables });
+        const cached = appState.workflows.find(w => w.id === s.id);
+        if (cached) { Object.assign(cached, result.workflow); cached.draft_version = result.draftVersion; cached.published_version = result.publishedVersion; }
+        mountActiveSession(); renderTabbar();
+        toast(`تم النشر — الإصدار v${result.publishedVersion.version_number} نشط الآن`, 'success');
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر النشر: ' + (err.message || ''), 'error');
+    }
+}
+document.getElementById('wfPublishBtn')?.addEventListener('click', publishWorkflow);
+
+async function duplicateAsDraftFromBuilder() {
+    const s = activeSession();
+    if (!s) return;
+    try {
+        const full = appState.workflows.find(w => w.id === s.id) || await DataLayer.getWorkflow(s.id);
+        const row = await DataLayer.duplicateWorkflow(full, `${s.name} (نسخة قابلة للتعديل)`, appState.currentUser?.id || null);
+        appState.workflows.unshift(row);
+        openWorkflowInBuilder(row.id, row);
+        toast('تم إنشاء نسخة قابلة للتعديل — تابع التعديل عليها ثم انشرها', 'success');
+    } catch (err) {
+        toast('تعذّر إنشاء نسخة: ' + (err.message || ''), 'error');
+    }
+}
+
+/* حفظ تلقائي دوري بسيط للمسودات (كل 45 ثانية إن وُجد تغيير) */
+setInterval(() => {
+    const s = activeSession();
+    if (s && !s.readOnly && s.hasUnsaved) saveDraft(true);
+}, 45000);
+
+window.addEventListener('beforeunload', (e) => {
+    const hasUnsaved = appState.openTabs.some(t => !t.readOnly && t.hasUnsaved);
+    if (hasUnsaved) { e.preventDefault(); e.returnValue = ''; }
+});
+/* =====================================================================
+   Node Library
+   ===================================================================== */
+let libActiveTab = 'all';
+let libCollapsedCats = new Set();
+
+function getFavorites() { try { return JSON.parse(localStorage.getItem(LIB_FAV_KEY) || '[]'); } catch { return []; } }
+function setFavorites(arr) { localStorage.setItem(LIB_FAV_KEY, JSON.stringify(arr)); }
+function toggleFavorite(key) {
+    const favs = getFavorites();
+    const i = favs.indexOf(key);
+    if (i === -1) favs.push(key); else favs.splice(i, 1);
+    setFavorites(favs);
+}
+function getRecent() { try { return JSON.parse(localStorage.getItem(LIB_RECENT_KEY) || '[]'); } catch { return []; } }
+function pushRecent(key) {
+    let r = getRecent().filter(k => k !== key);
+    r.unshift(key);
+    r = r.slice(0, 8);
+    localStorage.setItem(LIB_RECENT_KEY, JSON.stringify(r));
+}
+
+function renderNodeLibrary() {
+    const body = document.getElementById('wfLibBody');
+    const q = (document.getElementById('wfLibSearch')?.value || '').trim().toLowerCase();
+    const favs = getFavorites();
+    let types = appState.nodeTypes.filter(nt => !q || `${nt.name_ar} ${nt.name_en} ${nt.key}`.toLowerCase().includes(q));
+
+    if (libActiveTab === 'favorites') types = types.filter(nt => favs.includes(nt.key));
+    if (libActiveTab === 'recent') {
+        const recent = getRecent();
+        types = types.filter(nt => recent.includes(nt.key)).sort((a, b) => recent.indexOf(a.key) - recent.indexOf(b.key));
+    }
+
+    if (!types.length) {
+        body.innerHTML = `<div class="wf-empty" style="padding:2rem 1rem;">
+            <div class="wf-empty-icon">${ic('tool', 20)}</div>
+            <h4 style="font-size:.8rem;">${libActiveTab === 'favorites' ? 'لا مفضلات بعد' : libActiveTab === 'recent' ? 'لم تُستخدم عناصر بعد' : 'لا نتائج'}</h4>
+            <p style="font-size:.7rem;display:flex;align-items:center;justify-content:center;gap:.25rem;flex-wrap:wrap;">${libActiveTab === 'favorites' ? `اضغط ${ic('star', 11)} بجانب أي عنصر لإضافته هنا.` : 'جرّب كلمة بحث مختلفة.'}</p>
+        </div>`;
+        return;
+    }
+
+    if (libActiveTab !== 'all') {
+        body.innerHTML = types.map(nt => libItemHtml(nt, favs)).join('');
+    } else {
+        const byCat = {};
+        types.forEach(nt => { (byCat[nt.category] = byCat[nt.category] || []).push(nt); });
+        body.innerHTML = CATEGORY_ORDER.filter(c => byCat[c]?.length).map(cat => `
+            <div class="wf-lib-cat ${libCollapsedCats.has(cat) ? 'wf-collapsed' : ''}" data-cat="${cat}">
+                <div class="wf-lib-cat-head">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${CATEGORY_ACCENT[cat]}"></span>
+                    ${CATEGORY_LABELS[cat] || cat} <span style="opacity:.6;font-weight:600;">(${byCat[cat].length})</span>
+                    <svg class="wf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="wf-lib-cat-items">${byCat[cat].map(nt => libItemHtml(nt, favs)).join('')}</div>
+            </div>`).join('');
+    }
+
+    body.querySelectorAll('.wf-lib-cat-head').forEach(h => h.addEventListener('click', () => {
+        const cat = h.parentElement.dataset.cat;
+        if (libCollapsedCats.has(cat)) libCollapsedCats.delete(cat); else libCollapsedCats.add(cat);
+        renderNodeLibrary();
+    }));
+    body.querySelectorAll('.wf-lib-fav').forEach(f => f.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavorite(f.dataset.key);
+        renderNodeLibrary();
+    }));
+    body.querySelectorAll('.wf-lib-item').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/wf-node-type', item.dataset.key);
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+        item.addEventListener('dblclick', () => {
+            const s = activeSession(); if (!s || s.readOnly) return;
+            Canvas.addNodeAtCenter(item.dataset.key);
+        });
+    });
+}
+
+function libItemHtml(nt, favs) {
+    const isFav = favs.includes(nt.key);
+    return `
+    <div class="wf-lib-item" draggable="true" data-key="${nt.key}" title="${escapeHtml(nt.description || nt.name_ar)}">
+        <div class="wf-lib-icon" style="background:${nt.color}22;color:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(nt.name_ar || nt.name_en)}</span>
+        <span class="wf-lib-fav ${isFav ? 'wf-fav-on' : ''}" data-key="${nt.key}" style="display:flex;">${isFav ? icFilled('star', 13) : ic('star', 13)}</span>
+    </div>`;
+}
+
+document.querySelectorAll('.wf-lib-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.wf-lib-tab').forEach(x => x.classList.remove('wf-lib-tab-active'));
+    t.classList.add('wf-lib-tab-active');
+    libActiveTab = t.dataset.libtab;
+    renderNodeLibrary();
+}));
+document.getElementById('wfLibSearch')?.addEventListener('input', renderNodeLibrary);
+/* =====================================================================
+   CANVAS ENGINE
+   ===================================================================== */
+const Canvas = (() => {
+    let session = null;
+    let viewport, world, edgesSvg, edgesGroup, nodesLayer, canvasWrap;
+    let dragState = null;      // { mode: 'pan'|'node'|'marquee'|'link', ... }
+    let linkingFrom = null;    // { nodeId } while dragging a new edge from an output port
+
+    function init() {
+        viewport = document.getElementById('wfViewport');
+        world = document.getElementById('wfWorld');
+        edgesSvg = document.getElementById('wfEdgesSvg');
+        edgesGroup = document.getElementById('wfEdgesGroup');
+        nodesLayer = document.getElementById('wfNodesLayer');
+        canvasWrap = document.getElementById('wfCanvasWrap');
+        canvasWrap.setAttribute('dir', 'ltr'); // إحداثيات المخطط دائمًا LTR (يمين=مخرج، يسار=مدخل) بصرف النظر عن اتجاه الواجهة
+
+        viewport.addEventListener('pointerdown', onViewportPointerDown);
+        viewport.addEventListener('contextmenu', (e) => e.preventDefault());
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        viewport.addEventListener('wheel', onWheel, { passive: false });
+        viewport.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        viewport.addEventListener('drop', onDrop);
+        document.addEventListener('keydown', onKeyDown);
+
+        document.getElementById('wfZoomIn').addEventListener('click', () => zoomBy(1.2));
+        document.getElementById('wfZoomOut').addEventListener('click', () => zoomBy(1 / 1.2));
+        document.getElementById('wfZoomFit').addEventListener('click', zoomToFit);
+        document.getElementById('wfUndoBtn').addEventListener('click', undo);
+        document.getElementById('wfRedoBtn').addEventListener('click', redo);
+        document.getElementById('wfAutoLayoutBtn').addEventListener('click', autoLayout);
+    }
+
+    function mount(s) {
+        session = s;
+        applyTransform();
+        render();
+    }
+
+    function applyTransform() {
+        world.style.transform = `translate(${session.view.pan.x}px, ${session.view.pan.y}px) scale(${session.view.zoom})`;
+        document.getElementById('wfZoomLevel').textContent = Math.round(session.view.zoom * 100) + '%';
+    }
+
+    /* ---------------- Rendering ---------------- */
+    function render() {
+        if (!session) return;
+        const nodes = session.definition.nodes || [];
+        const issues = validateDefinition(session.definition);
+        const issuesByNode = {};
+        issues.forEach(i => { if (i.nodeId) (issuesByNode[i.nodeId] = issuesByNode[i.nodeId] || []).push(i); });
+
+        document.getElementById('wfCanvasEmpty').classList.toggle('wf-hidden', nodes.length > 0);
+
+        nodesLayer.innerHTML = nodes.map(n => nodeHtml(n, issuesByNode[n.id])).join('');
+        nodesLayer.querySelectorAll('.wf-node').forEach(bindNodeEvents);
+        updateEdgePaths();
+        renderMinimap();
+        updateValidationCount(issues);
+        renderBottomPanel();
+    }
+
+    function nodeHtml(n, nodeIssues) {
+        const nt = appState.nodeTypesByKey[n.type];
+        const selected = session.selection.nodeIds.has(n.id);
+        const hasError = (nodeIssues || []).some(i => i.level === 'error');
+        const hasWarn = (nodeIssues || []).some(i => i.level === 'warn');
+        const badge = nodeStatusBadge(n, nt, hasError);
+        if (!nt) {
+            return `<div class="wf-node wf-node-selected" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;border-color:var(--wf-danger)">
+                <div class="wf-node-head"><div class="wf-node-icon" style="background:var(--wf-danger)">${ic('alertTriangle', 14)}</div><div class="wf-node-title">نوع غير معروف: ${escapeHtml(n.type)}</div></div>
+                <span class="wf-port wf-port-in"></span><span class="wf-port wf-port-out"></span>
+            </div>`;
+        }
+        return `
+        <div class="wf-node ${selected ? 'wf-node-selected' : ''}" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;">
+            <div class="wf-node-head">
+                <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+                <div class="wf-node-title">${escapeHtml(n.label || nt.name_ar || nt.name_en)}</div>
+                ${hasError ? '<span title="يوجد خطأ في الإعدادات" style="color:var(--wf-danger)">●</span>' : (hasWarn ? '<span title="ملاحظة" style="color:var(--wf-pill-amber-text)">●</span>' : '')}
+            </div>
+            <div class="wf-node-body">${escapeHtml(nt.description || '')}</div>
+            <div class="wf-node-foot">${badge}<span style="font-size:.6rem;color:var(--wf-text-3);font-family:var(--wf-font-data)">${CATEGORY_LABELS[nt.category] || nt.category}</span></div>
+            ${nt.category !== 'trigger' ? '<span class="wf-port wf-port-in" data-port="in"></span>' : ''}
+            <span class="wf-port wf-port-out" data-port="out"></span>
+        </div>`;
+    }
+
+    function nodeStatusBadge(n, nt, hasError) {
+        if (hasError) return '<span class="wf-badge wf-badge-red"><span class="wf-badge-dot"></span>خطأ</span>';
+        if (!nt) return '';
+        if (!nt.handler_type) return '<span class="wf-badge wf-badge-amber"><span class="wf-badge-dot"></span>بانتظار التنفيذ</span>';
+        if (session.status === 'active') return '<span class="wf-badge wf-badge-green"><span class="wf-badge-dot"></span>منشور</span>';
+        return '<span class="wf-badge wf-badge-blue"><span class="wf-badge-dot"></span>جاهز</span>';
+    }
+
+    function updateEdgePaths() {
+        const nodes = session.definition.nodes || [];
+        const edges = session.definition.edges || [];
+        const byId = {}; nodes.forEach(n => byId[n.id] = n);
+
+        let maxX = 400, maxY = 300;
+        nodesLayer.querySelectorAll('.wf-node').forEach(el => {
+            const id = el.dataset.id; const n = byId[id]; if (!n) return;
+            maxX = Math.max(maxX, n.position.x + el.offsetWidth + 200);
+            maxY = Math.max(maxY, n.position.y + el.offsetHeight + 200);
+        });
+        edgesSvg.setAttribute('width', maxX);
+        edgesSvg.setAttribute('height', maxY);
+
+        edgesGroup.innerHTML = edges.map(e => {
+            const s = byId[e.source], t = byId[e.target];
+            if (!s || !t) return '';
+            const sEl = nodesLayer.querySelector(`.wf-node[data-id="${e.source}"]`);
+            const tEl = nodesLayer.querySelector(`.wf-node[data-id="${e.target}"]`);
+            const sh = sEl ? sEl.offsetHeight : 90, th = tEl ? tEl.offsetHeight : 90;
+            const x1 = s.position.x + NODE_W, y1 = s.position.y + sh / 2;
+            const x2 = t.position.x, y2 = t.position.y + th / 2;
+            const dx = Math.max(60, Math.abs(x2 - x1) * 0.5);
+            const d = `M ${x1},${y1} C ${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+            const selected = session.selection.edgeId === e.id;
+            return `<path class="wf-edge-hit" data-edge="${e.id}" d="${d}"></path>
+                    <path class="wf-edge-path ${selected ? 'wf-edge-selected' : ''}" d="${d}" marker-end="url(#wfArrow)" data-edge-visual="${e.id}"></path>`;
+        }).join('');
+
+        edgesGroup.querySelectorAll('.wf-edge-hit').forEach(p => {
+            p.addEventListener('click', (e) => {
+                e.stopPropagation();
+                session.selection.edgeId = p.dataset.edge;
+                session.selection.nodeIds.clear();
+                render(); renderInspector();
+            });
+        });
+    }
+
+    function renderMinimap() {
+        const inner = document.getElementById('wfMinimapInner');
+        const nodes = session.definition.nodes || [];
+        if (!nodes.length) { inner.innerHTML = ''; return; }
+        const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
+        const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
+        const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + NODE_H_APPROX + 40;
+        const spanX = Math.max(200, maxX - minX), spanY = Math.max(140, maxY - minY);
+        const scale = Math.min(170 / spanX, 110 / spanY);
+
+        let html = nodes.map(n => {
+            const nt = appState.nodeTypesByKey[n.type];
+            const x = (n.position.x - minX) * scale, y = (n.position.y - minY) * scale;
+            return `<div class="wf-minimap-node" style="left:${x}px;top:${y}px;width:${NODE_W * scale}px;height:${20 * scale + 4}px;background:${nt ? nt.color : '#888'}"></div>`;
+        }).join('');
+
+        const vpW = canvasWrap.clientWidth / session.view.zoom, vpH = canvasWrap.clientHeight / session.view.zoom;
+        const vpX = (-session.view.pan.x / session.view.zoom - minX) * scale;
+        const vpY = (-session.view.pan.y / session.view.zoom - minY) * scale;
+        html += `<div class="wf-minimap-viewport" style="left:${vpX}px;top:${vpY}px;width:${vpW * scale}px;height:${vpH * scale}px;"></div>`;
+        inner.innerHTML = html;
+    }
+    document.getElementById('wfMinimap')?.addEventListener('click', (e) => {
+        if (!session || !(session.definition.nodes || []).length) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const nodes = session.definition.nodes;
+        const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
+        const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
+        const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + NODE_H_APPROX + 40;
+        const spanX = Math.max(200, maxX - minX), spanY = Math.max(140, maxY - minY);
+        const scale = Math.min(170 / spanX, 110 / spanY);
+        const clickX = (e.clientX - rect.left) / scale + minX;
+        const clickY = (e.clientY - rect.top) / scale + minY;
+        session.view.pan.x = -(clickX * session.view.zoom) + canvasWrap.clientWidth / 2;
+        session.view.pan.y = -(clickY * session.view.zoom) + canvasWrap.clientHeight / 2;
+        applyTransform(); renderMinimap();
+    });
+
+    /* ---------------- Node events (drag / select) ---------------- */
+    function bindNodeEvents(el) {
+        el.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.wf-port')) return;
+            e.stopPropagation();
+            const id = el.dataset.id;
+            if (!session.selection.nodeIds.has(id)) {
+                if (!e.shiftKey) session.selection.nodeIds.clear();
+                session.selection.nodeIds.add(id);
+            } else if (e.shiftKey) {
+                session.selection.nodeIds.delete(id);
+            }
+            session.selection.edgeId = null;
+            document.querySelectorAll('.wf-node').forEach(nEl => nEl.classList.toggle('wf-node-selected', session.selection.nodeIds.has(nEl.dataset.id)));
+            renderInspector();
+            if (session.readOnly) return;
+
+            const startX = e.clientX, startY = e.clientY;
+            const startPositions = {};
+            session.selection.nodeIds.forEach(nid => {
+                const n = session.definition.nodes.find(x => x.id === nid);
+                if (n) startPositions[nid] = { x: n.position.x, y: n.position.y };
+            });
+            dragState = { mode: 'node', startX, startY, startPositions, moved: false };
+            el.classList.add('wf-node-dragging');
+            el.setPointerCapture?.(e.pointerId);
+        });
+
+        el.querySelector('.wf-port-out')?.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            if (session.readOnly) return;
+            linkingFrom = { nodeId: el.dataset.id };
+            dragState = { mode: 'link', startX: e.clientX, startY: e.clientY };
+        });
+        el.querySelector('.wf-port-in')?.addEventListener('pointerup', (e) => {
+            if (linkingFrom && linkingFrom.nodeId !== el.dataset.id) {
+                addEdge(linkingFrom.nodeId, el.dataset.id);
+            }
+        });
+    }
+
+    function screenDeltaToWorld(dx, dy) { return { x: dx / session.view.zoom, y: dy / session.view.zoom }; }
+
+    /* ---------------- Viewport-level pointer handling (pan / marquee) ---------------- */
+    let marqueeEl = null;
+    let spaceHeld = false;
+    document.addEventListener('keydown', (e) => { if (e.code === 'Space') spaceHeld = true; });
+    document.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceHeld = false; });
+
+    function onViewportPointerDown(e) {
+        if (e.target.closest('.wf-node')) return;
+        if (!session) return;
+        session.selection.nodeIds.clear();
+        session.selection.edgeId = null;
+        document.querySelectorAll('.wf-node').forEach(nEl => nEl.classList.remove('wf-node-selected'));
+        renderInspector();
+
+        if (e.button === 1 || spaceHeld || e.button === 2) {
+            e.preventDefault();
+            dragState = { mode: 'pan', startX: e.clientX, startY: e.clientY, startPan: { ...session.view.pan } };
+            viewport.classList.add('wf-panning');
+        } else {
+            const rect = canvasWrap.getBoundingClientRect();
+            dragState = { mode: 'marquee', startX: e.clientX, startY: e.clientY, rect, shift: e.shiftKey };
+            marqueeEl = document.createElement('div');
+            marqueeEl.className = 'wf-marquee';
+            canvasWrap.appendChild(marqueeEl);
+        }
+    }
+
+    function onPointerMove(e) {
+        if (!dragState) {
+            if (linkingFrom) renderTempLink(e);
+            return;
+        }
+        if (dragState.mode === 'pan') {
+            session.view.pan.x = dragState.startPan.x + (e.clientX - dragState.startX);
+            session.view.pan.y = dragState.startPan.y + (e.clientY - dragState.startY);
+            applyTransform(); renderMinimap();
+        } else if (dragState.mode === 'node') {
+            const wd = screenDeltaToWorld(e.clientX - dragState.startX, e.clientY - dragState.startY);
+            if (Math.abs(wd.x) + Math.abs(wd.y) > 2) dragState.moved = true;
+            Object.keys(dragState.startPositions).forEach(nid => {
+                const n = session.definition.nodes.find(x => x.id === nid);
+                if (!n) return;
+                n.position.x = Math.round(dragState.startPositions[nid].x + wd.x);
+                n.position.y = Math.round(dragState.startPositions[nid].y + wd.y);
+                const el = nodesLayer.querySelector(`.wf-node[data-id="${nid}"]`);
+                if (el) { el.style.left = n.position.x + 'px'; el.style.top = n.position.y + 'px'; }
+            });
+            updateEdgePaths(); renderMinimap();
+        } else if (dragState.mode === 'marquee') {
+            const x1 = Math.min(dragState.startX, e.clientX) - dragState.rect.left;
+            const y1 = Math.min(dragState.startY, e.clientY) - dragState.rect.top;
+            const w = Math.abs(e.clientX - dragState.startX), h = Math.abs(e.clientY - dragState.startY);
+            Object.assign(marqueeEl.style, { left: x1 + 'px', top: y1 + 'px', width: w + 'px', height: h + 'px' });
+        } else if (dragState.mode === 'link') {
+            renderTempLink(e);
+        }
+    }
+
+    function renderTempLink(e) {
+        let tmp = document.getElementById('wfTempLink');
+        if (!tmp) {
+            tmp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            tmp.id = 'wfTempLink'; tmp.setAttribute('class', 'wf-edge-path'); tmp.style.strokeDasharray = '5,4';
+            edgesGroup.appendChild(tmp);
+        }
+        const fromEl = nodesLayer.querySelector(`.wf-node[data-id="${linkingFrom.nodeId}"]`);
+        if (!fromEl) return;
+        const n = session.definition.nodes.find(x => x.id === linkingFrom.nodeId);
+        const x1 = n.position.x + NODE_W, y1 = n.position.y + fromEl.offsetHeight / 2;
+        const wrapRect = canvasWrap.getBoundingClientRect();
+        const x2 = (e.clientX - wrapRect.left - session.view.pan.x) / session.view.zoom;
+        const y2 = (e.clientY - wrapRect.top - session.view.pan.y) / session.view.zoom;
+        tmp.setAttribute('d', `M ${x1},${y1} L ${x2},${y2}`);
+    }
+
+    function onPointerUp(e) {
+        if (dragState?.mode === 'pan') viewport.classList.remove('wf-panning');
+        if (dragState?.mode === 'node' && dragState.moved) pushHistory();
+        if (dragState?.mode === 'marquee') {
+            const x1 = Math.min(dragState.startX, e.clientX), x2 = Math.max(dragState.startX, e.clientX);
+            const y1 = Math.min(dragState.startY, e.clientY), y2 = Math.max(dragState.startY, e.clientY);
+            if (Math.abs(x2 - x1) > 4 || Math.abs(y2 - y1) > 4) {
+                if (!dragState.shift) session.selection.nodeIds.clear();
+                nodesLayer.querySelectorAll('.wf-node').forEach(el => {
+                    const r = el.getBoundingClientRect();
+                    if (r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1) session.selection.nodeIds.add(el.dataset.id);
+                });
+                document.querySelectorAll('.wf-node').forEach(nEl => nEl.classList.toggle('wf-node-selected', session.selection.nodeIds.has(nEl.dataset.id)));
+                renderInspector();
+            }
+            marqueeEl?.remove(); marqueeEl = null;
+        }
+        if (dragState?.mode === 'link') {
+            document.getElementById('wfTempLink')?.remove();
+            linkingFrom = null;
+        }
+        nodesLayer.querySelectorAll('.wf-node-dragging').forEach(el => el.classList.remove('wf-node-dragging'));
+        dragState = null;
+    }
+
+    function onWheel(e) {
+        if (!session) return;
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+            const rect = canvasWrap.getBoundingClientRect();
+            const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+            const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+            zoomAt(cx, cy, factor);
+        } else {
+            session.view.pan.x -= e.deltaX;
+            session.view.pan.y -= e.deltaY;
+            applyTransform(); renderMinimap();
+        }
+    }
+
+    function zoomAt(cx, cy, factor) {
+        const oldZoom = session.view.zoom;
+        const newZoom = Math.min(2, Math.max(0.2, oldZoom * factor));
+        session.view.pan.x = cx - ((cx - session.view.pan.x) / oldZoom) * newZoom;
+        session.view.pan.y = cy - ((cy - session.view.pan.y) / oldZoom) * newZoom;
+        session.view.zoom = newZoom;
+        applyTransform(); renderMinimap();
+    }
+    function zoomBy(factor) {
+        if (!session) return;
+        zoomAt(canvasWrap.clientWidth / 2, canvasWrap.clientHeight / 2, factor);
+    }
+    function zoomToFit() {
+        if (!session || !(session.definition.nodes || []).length) { session.view.pan = { x: 60, y: 60 }; session.view.zoom = 1; applyTransform(); return; }
+        const nodes = session.definition.nodes;
+        const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs) + NODE_W;
+        const minY = Math.min(...ys), maxY = Math.max(...ys) + NODE_H_APPROX;
+        const spanX = Math.max(200, maxX - minX + 120), spanY = Math.max(150, maxY - minY + 120);
+        const zoom = Math.min(1.3, Math.max(0.3, Math.min(canvasWrap.clientWidth / spanX, canvasWrap.clientHeight / spanY)));
+        session.view.zoom = zoom;
+        session.view.pan.x = -minX * zoom + 60;
+        session.view.pan.y = -minY * zoom + 60;
+        applyTransform(); renderMinimap();
+    }
+
+    /* ---------------- Drop from library ---------------- */
+    function onDrop(e) {
+        e.preventDefault();
+        const key = e.dataTransfer.getData('text/wf-node-type');
+        if (!key || !session || session.readOnly) return;
+        const rect = canvasWrap.getBoundingClientRect();
+        const x = (e.clientX - rect.left - session.view.pan.x) / session.view.zoom - NODE_W / 2;
+        const y = (e.clientY - rect.top - session.view.pan.y) / session.view.zoom - 40;
+        addNode(key, x, y);
+    }
+
+    function addNodeAtCenter(key) {
+        if (!session || session.readOnly) return;
+        const x = (canvasWrap.clientWidth / 2 - session.view.pan.x) / session.view.zoom - NODE_W / 2;
+        const y = (canvasWrap.clientHeight / 2 - session.view.pan.y) / session.view.zoom - 40;
+        addNode(key, x, y);
+    }
+
+    function addNode(typeKey, x, y) {
+        const nt = appState.nodeTypesByKey[typeKey];
+        if (!nt) return;
+        const config = {};
+        (nt.config_schema?.fields || []).forEach(f => { if (f.default !== undefined) config[f.key] = f.default; });
+        const node = { id: uid('n'), type: typeKey, position: { x: Math.round(x), y: Math.round(y) }, config };
+        session.definition.nodes.push(node);
+        pushRecent(typeKey);
+        session.selection.nodeIds = new Set([node.id]);
+        session.selection.edgeId = null;
+        pushHistory();
+        render(); renderInspector(); updateSaveState(); renderTabbar();
+    }
+
+    function addEdge(sourceId, targetId) {
+        if (sourceId === targetId) return;
+        const edges = session.definition.edges;
+        if (edges.some(e => e.source === sourceId && e.target === targetId)) return;
+        edges.push({ id: uid('e'), source: sourceId, target: targetId, source_port: 'default', type: 'sequential', condition: null });
+        pushHistory();
+        render(); updateSaveState(); renderTabbar();
+    }
+
+    /* ---------------- Delete / duplicate selection ---------------- */
+    function deleteSelection() {
+        if (!session || session.readOnly) return;
+        let changed = false;
+        if (session.selection.edgeId) {
+            session.definition.edges = session.definition.edges.filter(e => e.id !== session.selection.edgeId);
+            session.selection.edgeId = null; changed = true;
+        }
+        if (session.selection.nodeIds.size) {
+            const ids = session.selection.nodeIds;
+            session.definition.nodes = session.definition.nodes.filter(n => !ids.has(n.id));
+            session.definition.edges = session.definition.edges.filter(e => !ids.has(e.source) && !ids.has(e.target));
+            session.selection.nodeIds = new Set();
+            changed = true;
+        }
+        if (changed) { pushHistory(); render(); renderInspector(); updateSaveState(); renderTabbar(); }
+    }
+
+    function duplicateSelection() {
+        if (!session || session.readOnly || !session.selection.nodeIds.size) return;
+        const idMap = {};
+        const newNodes = [];
+        session.definition.nodes.forEach(n => {
+            if (session.selection.nodeIds.has(n.id)) {
+                const newId = uid('n');
+                idMap[n.id] = newId;
+                newNodes.push({ ...n, id: newId, position: { x: n.position.x + 30, y: n.position.y + 30 }, config: JSON.parse(JSON.stringify(n.config || {})) });
+            }
+        });
+        session.definition.nodes.push(...newNodes);
+        session.definition.edges.forEach(e => {
+            if (idMap[e.source] && idMap[e.target]) {
+                session.definition.edges.push({ ...e, id: uid('e'), source: idMap[e.source], target: idMap[e.target] });
+            }
+        });
+        session.selection.nodeIds = new Set(Object.values(idMap));
+        pushHistory(); render(); renderInspector(); updateSaveState(); renderTabbar();
+    }
+
+    /* ---------------- Auto layout (layered BFS) ---------------- */
+    function autoLayout() {
+        if (!session || session.readOnly || !session.definition.nodes.length) return;
+        const nodes = session.definition.nodes, edges = session.definition.edges;
+        const outgoing = {}; nodes.forEach(n => outgoing[n.id] = []);
+        edges.forEach(e => { if (outgoing[e.source]) outgoing[e.source].push(e.target); });
+        const incomingCount = {}; nodes.forEach(n => incomingCount[n.id] = 0);
+        edges.forEach(e => { if (incomingCount[e.target] !== undefined) incomingCount[e.target]++; });
+
+        const layer = {};
+        const roots = nodes.filter(n => incomingCount[n.id] === 0);
+        (roots.length ? roots : nodes.slice(0, 1)).forEach(r => layer[r.id] = 0);
+        let queue = roots.length ? roots.map(r => r.id) : [nodes[0].id];
+        const visited = new Set(queue);
+        while (queue.length) {
+            const id = queue.shift();
+            (outgoing[id] || []).forEach(t => {
+                const nl = layer[id] + 1;
+                if (layer[t] === undefined || nl > layer[t]) layer[t] = nl;
+                if (!visited.has(t)) { visited.add(t); queue.push(t); }
+            });
+        }
+        nodes.forEach(n => { if (layer[n.id] === undefined) layer[n.id] = 0; });
+
+        const byLayer = {};
+        nodes.forEach(n => { (byLayer[layer[n.id]] = byLayer[layer[n.id]] || []).push(n); });
+        const COL_GAP = 300, ROW_GAP = 130;
+        Object.keys(byLayer).sort((a, b) => a - b).forEach(l => {
+            byLayer[l].forEach((n, i) => {
+                n.position = { x: Number(l) * COL_GAP + 40, y: i * ROW_GAP + 40 };
+            });
+        });
+        pushHistory(); render(); zoomToFit(); updateSaveState(); renderTabbar();
+    }
+
+    /* ---------------- Undo / redo ---------------- */
+    function pushHistory() {
+        const snap = JSON.stringify(session.definition);
+        if (session.history[session.historyIndex] === snap) return;
+        session.history = session.history.slice(0, session.historyIndex + 1);
+        session.history.push(snap);
+        session.historyIndex = session.history.length - 1;
+        updateSaveState(); renderTabbar();
+    }
+    function undo() {
+        if (!session || session.historyIndex <= 0) return;
+        session.historyIndex--;
+        session.definition = JSON.parse(session.history[session.historyIndex]);
+        session.selection = { nodeIds: new Set(), edgeId: null };
+        render(); renderInspector(); updateSaveState(); renderTabbar();
+    }
+    function redo() {
+        if (!session || session.historyIndex >= session.history.length - 1) return;
+        session.historyIndex++;
+        session.definition = JSON.parse(session.history[session.historyIndex]);
+        session.selection = { nodeIds: new Set(), edgeId: null };
+        render(); renderInspector(); updateSaveState(); renderTabbar();
+    }
+
+    /* ---------------- Keyboard shortcuts ---------------- */
+    function onKeyDown(e) {
+        if (appState.view !== 'builder' || !session) return;
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+        const meta = e.ctrlKey || e.metaKey;
+        if ((e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelection(); }
+        else if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
+        else if (meta && e.key.toLowerCase() === 'a') { e.preventDefault(); session.selection.nodeIds = new Set(session.definition.nodes.map(n => n.id)); document.querySelectorAll('.wf-node').forEach(el => el.classList.add('wf-node-selected')); renderInspector(); }
+        else if (meta && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); redo(); }
+        else if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+        else if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+        else if (meta && e.key.toLowerCase() === 's') { e.preventDefault(); if (!session.readOnly) saveDraft(false); }
+        else if (e.key === 'Escape') { session.selection = { nodeIds: new Set(), edgeId: null }; document.querySelectorAll('.wf-node').forEach(el => el.classList.remove('wf-node-selected')); renderInspector(); }
+        else if (e.key.startsWith('Arrow') && session.selection.nodeIds.size && !session.readOnly) {
+            e.preventDefault();
+            const step = e.shiftKey ? 20 : 5;
+            const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+            const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+            session.selection.nodeIds.forEach(id => {
+                const n = session.definition.nodes.find(x => x.id === id);
+                if (n) { n.position.x += dx; n.position.y += dy; }
+            });
+            updateEdgePaths(); renderMinimap();
+        }
+    }
+    document.addEventListener('keyup', (e) => {
+        if (e.key.startsWith('Arrow') && session && !session.readOnly) pushHistory();
+    });
+
+    return { init, mount, render, addNodeAtCenter, deleteSelection, duplicateSelection, pushHistory, updateEdgePaths, get session() { return session; } };
+})();
+/* =====================================================================
+   VALIDATION ENGINE (حقيقي — يعمل بالكامل على تعريف الـ canvas الحالي، بدون Executor)
+   ===================================================================== */
+function validateDefinition(def) {
+    const issues = [];
+    const nodes = def.nodes || [], edges = def.edges || [];
+    if (!nodes.length) { issues.push({ level: 'error', msg: 'أضف عناصر (Nodes) إلى الـ Workflow لتتمكن من نشره', nodeId: null }); return issues; }
+
+    const triggers = nodes.filter(n => (n.type || '').startsWith('trigger.'));
+    if (!triggers.length) issues.push({ level: 'error', msg: 'يجب أن يحتوي الـ Workflow على مشغّل (Trigger) واحد على الأقل', nodeId: null });
+    if (triggers.length > 1) {
+        // النظام الحالي يخزّن مشغّلًا واحدًا فقط لكل Workflow (trigger_event_key) — أي مشغّل إضافي
+        // يُضاف على الـ canvas يُعرض هنا بوضوح كأنه سيُتجاهل تمامًا عند النشر، بدل تحذير عام غامض
+        triggers.slice(1).forEach(t => {
+            const ntName = appState.nodeTypesByKey[t.type]?.name_ar || appState.nodeTypesByKey[t.type]?.name_en || t.type;
+            issues.push({ level: 'warn', msg: `يوجد أكثر من مشغّل واحد — سيُعتمد المشغّل الأول فقط عند النشر، وسيتم تجاهل "${ntName}" ولن يُشغّل الـ Workflow`, nodeId: t.id });
+        });
+    }
+
+    const incoming = {}; edges.forEach(e => { incoming[e.target] = (incoming[e.target] || 0) + 1; });
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const seenIds = new Set();
+
+    nodes.forEach(n => {
+        if (seenIds.has(n.id)) issues.push({ level: 'error', msg: 'يوجد معرّف Node مكرر', nodeId: n.id });
+        seenIds.add(n.id);
+
+        const nt = appState.nodeTypesByKey[n.type];
+        if (!nt) { issues.push({ level: 'error', msg: `نوع Node غير معروف أو غير نشط: ${n.type}`, nodeId: n.id }); return; }
+
+        const fields = nt.config_schema?.fields || [];
+        fields.forEach(f => {
+            if (isStaffFieldOptional(f)) return;
+            const val = (n.config || {})[f.key];
+            if (val === undefined || val === null || val === '' || (Array.isArray(val) && !val.length)) {
+                issues.push({ level: 'error', msg: `حقل "${f.label || f.key}" مطلوب في "${nt.name_ar || nt.name_en}"`, nodeId: n.id });
+            }
+        });
+
+        if (!n.type.startsWith('trigger.') && !incoming[n.id]) {
+            issues.push({ level: 'warn', msg: `العنصر "${nt.name_ar || nt.name_en}" غير متصل بأي مسار سابق`, nodeId: n.id });
+        }
+    });
+
+    edges.forEach(e => {
+        if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) {
+            issues.push({ level: 'error', msg: 'اتصال (Edge) يشير إلى عنصر غير موجود على المخطط', nodeId: null });
+        }
+    });
+
+    return issues;
+}
+
+function updateValidationCount(issues) {
+    const errCount = issues.filter(i => i.level === 'error').length;
+    const el = document.getElementById('wfValidationCount');
+    if (el) { el.textContent = String(issues.length); el.classList.toggle('wf-count-error', errCount > 0); }
+}
+
+/* =====================================================================
+   INSPECTOR — نماذج تتولّد ديناميكيًا بالكامل من config_schema (لا نماذج ثابتة)
+   ===================================================================== */
+/* تبسيط أسماء المتغيرات التقنية (dot-notation) إلى تسميات عربية بسيطة تناسب
+   المستخدم العادي — بدل عرض "subscription.user_id" نعرض "معرّف المستخدم".
+   يعمل حصرًا على العرض (label)؛ القيمة الفعلية المُدرَجة في الحقل تبقى {{subscription.user_id}} كما هي. */
+const VAR_WORD_MAP = {
+    user: 'المستخدم', customer: 'العميل', ticket: 'التذكرة', subscription: 'الاشتراك',
+    order: 'الطلب', payment: 'الدفعة', invoice: 'الفاتورة', agent: 'الموظف', staff: 'الموظف',
+    email: 'البريد الإلكتروني', phone: 'الهاتف', name: 'الاسم', full: 'الكامل',
+    plan: 'الخطة', status: 'الحالة', amount: 'المبلغ', total: 'الإجمالي', price: 'السعر',
+    reason: 'السبب', reference: 'المرجع', number: 'الرقم', code: 'الرمز', title: 'العنوان',
+    content: 'المحتوى', body: 'النص', type: 'النوع', category: 'التصنيف', priority: 'الأولوية',
+    subject: 'الموضوع', message: 'الرسالة', url: 'الرابط', link: 'الرابط', channel: 'القناة',
+    notification: 'الإشعار', id: 'الرقم', end: 'الانتهاء', start: 'البدء',
+    created: 'الإنشاء', updated: 'التحديث'
+};
+function humanizeVarKey(key) {
+    const lastSeg = String(key || '').split('.').pop();
+    const tokens = lastSeg.split('_').filter(Boolean).map(t => t.toLowerCase());
+    if (!tokens.length) return null;
+    const last = tokens[tokens.length - 1];
+    if (tokens.length > 1 && last === 'id') {
+        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
+        return base ? `معرّف ${base}` : 'المعرّف';
+    }
+    if (tokens.length > 1 && (last === 'date' || last === 'at')) {
+        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
+        return base ? `تاريخ ${base}` : 'التاريخ';
+    }
+    const mapped = tokens.map(t => VAR_WORD_MAP[t]).filter(Boolean);
+    return mapped.length ? mapped.join(' ') : null;
+}
+/* التسمية النهائية المعروضة للمستخدم لخيار متغيّر — تُخفي الاسم التقني تمامًا؛
+   إن تعذّرت الترجمة تُعرض فقط تسمية العنصر المصدر (from) دون أي صياغة تقنية */
+function friendlyVarLabel(u) {
+    const humanized = humanizeVarKey(u.v);
+    return humanized ? `${humanized} — ${u.from}` : u.from;
+}
+
+function getUpstreamVariables(session, nodeId) {
+    const edges = session.definition.edges, nodes = session.definition.nodes;
+    const byId = {}; nodes.forEach(n => byId[n.id] = n);
+    const incoming = {}; edges.forEach(e => { (incoming[e.target] = incoming[e.target] || []).push(e.source); });
+    const visited = new Set(), queue = [nodeId], ancestors = [];
+    while (queue.length) {
+        const id = queue.shift();
+        (incoming[id] || []).forEach(srcId => { if (!visited.has(srcId)) { visited.add(srcId); ancestors.push(srcId); queue.push(srcId); } });
+    }
+    const vars = [];
+    ancestors.forEach(aid => {
+        const n = byId[aid]; if (!n) return;
+        const nt = appState.nodeTypesByKey[n.type]; if (!nt) return;
+        (nt.output_vars || []).forEach(v => vars.push({ v, from: n.label || nt.name_ar || nt.name_en }));
+    });
+    Object.keys(session.variables || {}).forEach(k => vars.push({ v: k, from: 'متغيرات الـ Workflow' }));
+    return vars;
+}
+
+function commitInspectorChange(rerenderCanvas) {
+    const s = activeSession(); if (!s) return;
+    if (rerenderCanvas !== false) Canvas.render();
+    Canvas.pushHistory();
+    updateSaveState(); renderTabbar();
+}
+
+function renderInspector() {
+    const s = activeSession();
+    const wrap = document.getElementById('wfInspectorContent');
+    if (!s) { wrap.innerHTML = ''; return; }
+
+    if (s.selection.edgeId) { renderEdgeInspector(s, wrap); return; }
+
+    const selectedIds = [...s.selection.nodeIds];
+    if (selectedIds.length > 1) {
+        wrap.innerHTML = `
+        <div class="wf-inspector-head"><h3>تم تحديد ${selectedIds.length} عناصر</h3></div>
+        <div class="wf-inspector-body">
+            <button class="wf-btn wf-btn-sm" style="width:100%;margin-bottom:.5rem;" id="wfBulkDup" ${s.readOnly ? 'disabled' : ''}>${ic('copy', 13)} تكرار المحدد</button>
+            <button class="wf-btn wf-btn-sm wf-btn-danger" style="width:100%;" id="wfBulkDel" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف المحدد</button>
+        </div>`;
+        document.getElementById('wfBulkDup')?.addEventListener('click', () => Canvas.duplicateSelection());
+        document.getElementById('wfBulkDel')?.addEventListener('click', () => Canvas.deleteSelection());
+        return;
+    }
+
+    if (selectedIds.length === 1) { renderNodeInspector(s, wrap, selectedIds[0]); return; }
+
+    renderWorkflowInspector(s, wrap);
+}
+
+function renderEdgeInspector(s, wrap) {
+    const edge = s.definition.edges.find(e => e.id === s.selection.edgeId);
+    if (!edge) { wrap.innerHTML = ''; return; }
+    const sourceNode = s.definition.nodes.find(n => n.id === edge.source);
+    const targetNode = s.definition.nodes.find(n => n.id === edge.target);
+    wrap.innerHTML = `
+    <div class="wf-inspector-head"><h3>الاتصال (Edge)</h3></div>
+    <div class="wf-inspector-body">
+        <div class="wf-field"><label>من</label><div class="wf-input" style="background:transparent;">${escapeHtml(appState.nodeTypesByKey[sourceNode?.type]?.name_ar || '—')}</div></div>
+        <div class="wf-field"><label>إلى</label><div class="wf-input" style="background:transparent;">${escapeHtml(appState.nodeTypesByKey[targetNode?.type]?.name_ar || '—')}</div></div>
+        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteEdge" style="width:100%;" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف الاتصال</button>
+    </div>`;
+    document.getElementById('wfDeleteEdge')?.addEventListener('click', () => Canvas.deleteSelection());
+}
+
+function renderWorkflowInspector(s, wrap) {
+    const varsEntries = Object.entries(s.variables || {});
+    wrap.innerHTML = `
+    <div class="wf-inspector-head"><div class="wf-node-icon" style="background:var(--wf-primary)">${ic('zap', 15)}</div>
+        <div><h3>إعدادات الـ Workflow</h3><p>${(s.definition.nodes || []).length} عنصر</p></div>
+    </div>
+    <div class="wf-inspector-body">
+        <div class="wf-field"><label>الوصف</label><textarea class="wf-textarea" id="wfDescField" ${s.readOnly ? 'disabled' : ''}>${escapeHtml(s.description || '')}</textarea></div>
+
+        <div class="wf-inspector-section-title">المشغّل الحالي</div>
+        <div class="wf-field"><div class="wf-input" style="background:var(--wf-glass);">${escapeHtml(sessionTriggerSummary(s))}</div></div>
+
+        <div class="wf-inspector-section-title">متغيرات الـ Workflow (تُحفظ ضمن الإصدار الحالي)</div>
+        <div id="wfWorkflowVars">${varsEntries.map(([k, v], i) => `
+            <div class="wf-kv-row" data-i="${i}">
+                <input class="wf-input" value="${escapeHtml(k)}" data-role="key" ${s.readOnly ? 'disabled' : ''} placeholder="اسم المتغير">
+                <input class="wf-input" value="${escapeHtml(typeof v === 'string' ? v : JSON.stringify(v))}" data-role="val" ${s.readOnly ? 'disabled' : ''} placeholder="القيمة">
+                ${s.readOnly ? '' : `<button class="wf-btn wf-btn-icon wf-btn-sm" data-role="rm">${ic('x', 12)}</button>`}
+            </div>`).join('') || '<div class="wf-field-hint">لا توجد متغيرات محدَّدة يدويًا بعد.</div>'}
+        </div>
+        ${s.readOnly ? '' : '<button class="wf-btn wf-btn-sm" id="wfAddVar">+ إضافة متغير</button>'}
+    </div>`;
+
+    document.getElementById('wfDescField')?.addEventListener('input', (e) => { s.description = e.target.value; });
+    document.getElementById('wfDescField')?.addEventListener('blur', () => { updateSaveState(); renderTabbar(); });
+
+    function collectVars() {
+        const obj = {};
+        wrap.querySelectorAll('#wfWorkflowVars .wf-kv-row').forEach(row => {
+            const k = row.querySelector('[data-role="key"]').value.trim();
+            const v = row.querySelector('[data-role="val"]').value;
+            if (k) obj[k] = v;
+        });
+        s.variables = obj;
+        updateSaveState(); renderTabbar();
+    }
+    wrap.querySelectorAll('#wfWorkflowVars input').forEach(inp => inp.addEventListener('blur', collectVars));
+    wrap.querySelectorAll('[data-role="rm"]').forEach(btn => btn.addEventListener('click', (e) => { e.target.closest('.wf-kv-row').remove(); collectVars(); renderWorkflowInspector(s, wrap); }));
+    document.getElementById('wfAddVar')?.addEventListener('click', () => { s.variables = { ...(s.variables || {}), ['متغير_جديد']: '' }; renderWorkflowInspector(s, wrap); });
+}
+
+function renderNodeInspector(s, wrap, nodeId) {
+    const node = s.definition.nodes.find(n => n.id === nodeId);
+    if (!node) { wrap.innerHTML = ''; return; }
+    const nt = appState.nodeTypesByKey[node.type];
+    if (!nt) {
+        wrap.innerHTML = `<div class="wf-inspector-head"><h3>نوع غير معروف</h3></div>
+        <div class="wf-inspector-body"><p style="font-size:.78rem;color:var(--wf-text-2);">النوع "${escapeHtml(node.type)}" غير موجود ضمن wf_node_types النشطة حاليًا.</p>
+        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDelUnknown" style="width:100%;margin-top:.5rem;">حذف العنصر</button></div>`;
+        document.getElementById('wfDelUnknown')?.addEventListener('click', () => { s.selection.nodeIds = new Set([node.id]); Canvas.deleteSelection(); });
+        return;
+    }
+
+    const upstream = getUpstreamVariables(s, node.id);
+    const fields = nt.config_schema?.fields || [];
+
+    wrap.innerHTML = `
+    <div class="wf-inspector-head">
+        <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 15)}</div>
+        <div><h3>${escapeHtml(nt.name_ar || nt.name_en)}</h3><p>${CATEGORY_LABELS[nt.category] || nt.category}${nt.handler_type ? '' : ' · بانتظار التنفيذ'}</p></div>
+    </div>
+    <div class="wf-inspector-body">
+        <div class="wf-field"><label>اسم مخصّص <span class="wf-field-hint">(اختياري)</span></label>
+            <input class="wf-input" id="wfNodeLabel" value="${escapeHtml(node.label || '')}" placeholder="${escapeHtml(nt.name_ar || nt.name_en)}" ${s.readOnly ? 'disabled' : ''}>
+        </div>
+        ${!fields.length ? '<div class="wf-field-hint">لا توجد إعدادات إضافية لهذا العنصر.</div>' : '<div class="wf-inspector-section-title">الإعدادات</div>'}
+        <div id="wfFieldsContainer"></div>
+        ${nt.output_vars?.length ? `
+        <div class="wf-inspector-section-title">البيانات المتاحة لاستخدامها لاحقًا</div>
+        <div>${nt.output_vars.map(v => `<span class="wf-tag-chip" title="${escapeHtml(v)}">${escapeHtml(humanizeVarKey(v) || (nt.name_ar || nt.name_en))}</span>`).join('')}</div>` : ''}
+        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteNode" style="width:100%;margin-top:1.2rem;" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف العنصر</button>
+    </div>`;
+
+    document.getElementById('wfNodeLabel')?.addEventListener('input', (e) => { node.label = e.target.value; });
+    document.getElementById('wfNodeLabel')?.addEventListener('blur', () => commitInspectorChange());
+    document.getElementById('wfDeleteNode')?.addEventListener('click', () => { s.selection.nodeIds = new Set([node.id]); Canvas.deleteSelection(); });
+
+    const container = document.getElementById('wfFieldsContainer');
+    fields.forEach(f => container.appendChild(buildFieldControl(s, node, nt, f, upstream)));
+}
+
+function buildFieldControl(session, node, nt, field, upstream) {
+    node.config = node.config || {};
+    const wrapDiv = document.createElement('div');
+    wrapDiv.className = 'wf-field';
+    const label = document.createElement('label');
+    label.innerHTML = `<span>${escapeHtml(field.label || field.key)}${isStaffFieldOptional(field) ? '' : ' <span style="color:var(--wf-danger)">*</span>'}</span>`;
+    wrapDiv.appendChild(label);
+
+    const disabled = session.readOnly;
+    let control;
+    const commit = (skipCanvasRender) => commitInspectorChange(!skipCanvasRender);
+
+    if (field.supports_variables) {
+        const varBtn = document.createElement('button');
+        varBtn.className = 'wf-var-btn'; varBtn.type = 'button';
+        varBtn.style.display = 'inline-flex'; varBtn.style.alignItems = 'center'; varBtn.style.gap = '.25rem';
+        varBtn.innerHTML = `${ic('tag', 11)} إدراج بيانات`;
+        varBtn.disabled = disabled;
+        varBtn.addEventListener('click', (e) => openVarMenu(e, upstream, (chosen) => {
+            const el = wrapDiv.querySelector('textarea,input[type=text]');
+            if (el) { el.value = (el.value || '') + `{{${chosen}}}`; node.config[field.key] = el.value; commit(); }
+        }));
+        label.appendChild(varBtn);
+    }
+
+    switch (field.type) {
+        case 'textarea':
+            control = document.createElement('textarea');
+            control.className = 'wf-textarea';
+            control.value = node.config[field.key] ?? '';
+            control.placeholder = field.placeholder || '';
+            control.disabled = disabled;
+            control.addEventListener('input', () => { node.config[field.key] = control.value; });
+            control.addEventListener('blur', () => commit());
+            break;
+
+        case 'select': {
+            control = document.createElement('select');
+            control.className = 'wf-select';
+            control.disabled = disabled;
+            control.innerHTML = '<option value="">— اختر —</option>' + (field.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+            break;
+        }
+
+        case 'number':
+            control = document.createElement('input');
+            control.type = 'number'; control.className = 'wf-input'; control.disabled = disabled;
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('input', () => { node.config[field.key] = control.value === '' ? '' : Number(control.value); });
+            control.addEventListener('blur', () => commit());
+            break;
+
+        case 'tags': {
+            control = buildTagsControl(node.config[field.key] || [], disabled, (arr) => { node.config[field.key] = arr; commit(true); });
+            break;
+        }
+
+        case 'key_value_list': {
+            control = buildKeyValueControl(node.config[field.key] || {}, disabled, (obj) => { node.config[field.key] = obj; commit(true); });
+            break;
+        }
+
+        case 'variable_picker': {
+            control = document.createElement('select');
+            control.className = 'wf-select'; control.disabled = disabled;
+            control.innerHTML = '<option value="">— اختر —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(friendlyVarLabel(u))}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
+            const current = node.config[field.key] ?? '';
+            if (upstream.some(u => `{{${u.v}}}` === current) || current === '') control.value = current;
+            else control.value = '__manual__';
+            control.addEventListener('change', () => {
+                if (control.value === '__manual__') {
+                    const manual = prompt('اكتب القيمة يدويًا:', current || '');
+                    if (manual !== null) { node.config[field.key] = manual; }
+                } else node.config[field.key] = control.value;
+                commit();
+                renderNodeInspector(session, document.getElementById('wfInspectorContent'), node.id);
+            });
+            break;
+        }
+
+        case 'staff_picker': {
+            control = document.createElement('select');
+            control.className = 'wf-select'; control.disabled = disabled;
+            control.innerHTML = '<option value="">— اختر موظفًا —</option>' + appState.staff.map(p => `<option value="${p.id}">${escapeHtml(p.full_name || p.email)}</option>`).join('');
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+            break;
+        }
+
+        case 'integration_picker': {
+            control = document.createElement('select');
+            control.className = 'wf-select'; control.disabled = disabled;
+            control.innerHTML = '<option value="">— اختر تكاملًا —</option>' + appState.integrations.map(it => `<option value="${it.id}">${escapeHtml(it.display_name || it.provider || it.id)}</option>`).join('');
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+            break;
+        }
+
+        case 'mcp_tool_picker': {
+            control = document.createElement('select');
+            control.className = 'wf-select'; control.disabled = disabled;
+            control.innerHTML = '<option value="">— اختر أداة MCP —</option>' + appState.mcpTools.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.scope)})</option>`).join('');
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+            break;
+        }
+
+        case 'webhook_picker': {
+            control = document.createElement('select');
+            control.className = 'wf-select'; control.disabled = disabled;
+            const hooks = appState.currentWorkflowWebhooks || [];
+            control.innerHTML = '<option value="">— اختر Webhook —</option>' + hooks.map(h => `<option value="${h.id}">${escapeHtml(h.slug)}</option>`).join('') + '<option value="__manual__">إدخال معرّف يدويًا...</option>';
+            control.value = node.config[field.key] ?? '';
+            control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+            break;
+        }
+
+        default: // text
+            control = document.createElement('input');
+            control.type = 'text'; control.className = 'wf-input'; control.disabled = disabled;
+            control.value = node.config[field.key] ?? '';
+            control.placeholder = field.placeholder || '';
+            control.addEventListener('input', () => { node.config[field.key] = control.value; });
+            control.addEventListener('blur', () => commit());
+    }
+
+    wrapDiv.appendChild(control);
+    if (field.source_table) {
+        const hint = document.createElement('div');
+        hint.className = 'wf-field-hint'; hint.textContent = `المصدر: ${field.source_table}`;
+        wrapDiv.appendChild(hint);
+    }
+    return wrapDiv;
+}
+
+function buildTagsControl(initial, disabled, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'wf-tags-wrap';
+    let tags = Array.isArray(initial) ? [...initial] : [];
+    function redraw() {
+        wrap.innerHTML = '';
+        tags.forEach((t, i) => {
+            const chip = document.createElement('span'); chip.className = 'wf-tag-chip';
+            chip.innerHTML = `<span>${escapeHtml(t)}</span>`;
+            if (!disabled) {
+                const rm = document.createElement('button'); rm.innerHTML = ic('x', 10); rm.type = 'button';
+                rm.addEventListener('click', () => { tags.splice(i, 1); onChange(tags); redraw(); });
+                chip.appendChild(rm);
+            }
+            wrap.appendChild(chip);
+        });
+        if (!disabled) {
+            const input = document.createElement('input');
+            input.placeholder = 'اكتب واضغط Enter'; input.type = 'text';
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && input.value.trim()) { e.preventDefault(); tags.push(input.value.trim()); onChange(tags); input.value = ''; redraw(); }
+            });
+            wrap.appendChild(input);
+        }
+    }
+    redraw();
+    return wrap;
+}
+
+function buildKeyValueControl(initial, disabled, onChange) {
+    const wrap = document.createElement('div');
+    let obj = typeof initial === 'object' && initial ? { ...initial } : {};
+    function redraw() {
+        wrap.innerHTML = '';
+        Object.entries(obj).forEach(([k, v]) => {
+            const row = document.createElement('div'); row.className = 'wf-kv-row';
+            row.innerHTML = `<input class="wf-input" data-role="k" value="${escapeHtml(k)}" placeholder="المفتاح" ${disabled ? 'disabled' : ''}>
+                              <input class="wf-input" data-role="v" value="${escapeHtml(v)}" placeholder="القيمة" ${disabled ? 'disabled' : ''}>
+                              ${disabled ? '' : `<button class="wf-btn wf-btn-icon wf-btn-sm" type="button" data-role="rm">${ic('x', 12)}</button>`}`;
+            const commitRow = () => {
+                const nk = row.querySelector('[data-role="k"]').value.trim();
+                const nv = row.querySelector('[data-role="v"]').value;
+                if (nk && nk !== k) { delete obj[k]; obj[nk] = nv; }
+                else if (nk) obj[nk] = nv;
+                onChange(obj);
+            };
+            row.querySelectorAll('input').forEach(inp => inp.addEventListener('blur', commitRow));
+            row.querySelector('[data-role="rm"]')?.addEventListener('click', () => { delete obj[k]; onChange(obj); redraw(); });
+            wrap.appendChild(row);
+        });
+        if (!disabled) {
+            const addBtn = document.createElement('button');
+            addBtn.className = 'wf-btn wf-btn-sm'; addBtn.type = 'button'; addBtn.textContent = '+ إضافة';
+            addBtn.addEventListener('click', () => { obj[`key_${Object.keys(obj).length + 1}`] = ''; onChange(obj); redraw(); });
+            wrap.appendChild(addBtn);
+        }
+    }
+    redraw();
+    return wrap;
+}
+
+function openVarMenu(e, upstream, onPick) {
+    document.querySelectorAll('.wf-var-menu').forEach(m => m.remove());
+    const menu = document.createElement('div');
+    menu.className = 'wf-var-menu';
+    const rect = e.target.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.insetInlineStart = (rect.left + window.scrollX) + 'px';
+    menu.innerHTML = upstream.length
+        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('')
+        : '<div class="wf-var-empty">لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
+    document.body.appendChild(menu);
+    menu.addEventListener('click', (ev) => { const v = ev.target.closest('button')?.dataset.v; if (v) { onPick(v); menu.remove(); } });
+    setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
+}
+/* =====================================================================
+   BOTTOM PANEL
+   ===================================================================== */
+let bottomActiveTab = 'validation';
+
+function openBottomTab(name) {
+    bottomActiveTab = name;
+    document.querySelectorAll('.wf-bottom-tab').forEach(t => t.classList.toggle('wf-bottom-tab-active', t.dataset.bottomtab === name));
+    document.getElementById('wfBottomPanel').classList.remove('wf-bottom-collapsed');
+    renderBottomPanel();
+}
+document.querySelectorAll('.wf-bottom-tab').forEach(t => t.addEventListener('click', () => openBottomTab(t.dataset.bottomtab)));
+document.getElementById('wfBottomToggle')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('wfBottomPanel').classList.toggle('wf-bottom-collapsed');
+});
+document.getElementById('wfBottomToggle')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault(); e.stopPropagation();
+        document.getElementById('wfBottomPanel').classList.toggle('wf-bottom-collapsed');
+    }
+});
+
+function renderBottomPanel() {
+    const s = activeSession();
+    const content = document.getElementById('wfBottomContent');
+    if (!s) { content.innerHTML = ''; return; }
+    if (bottomActiveTab === 'validation') return renderValidationTab(s, content);
+    if (bottomActiveTab === 'runs') return renderRunsTab(s, content);
+    // TODO: لا يوجد بعد Executor فعلي يملأ wf_run_steps (handler_type لمعظم wf_node_types لا يزال NULL).
+    // بمجرد بناء محرك التنفيذ، تُستبدل هذه اللوحات باستعلامات حقيقية على wf_run_steps لكل wf_runs.id محدَّد.
+    if (bottomActiveTab === 'logs') return renderPlaceholderTab(content, 'fileText', 'السجلات (Logs)', 'ستعرض هذه اللوحة سجلًا تفصيليًا لكل خطوة تنفيذ (المدخلات، المخرجات، الأخطاء) بمجرد تفعيل محرك التنفيذ (Executor) وربطه بهذا الـ Workflow. الجدول wf_run_steps جاهز فعليًا لاستقبال هذه البيانات.');
+    if (bottomActiveTab === 'timeline') return renderPlaceholderTab(content, 'clock', 'الجدول الزمني', 'سيعرض الجدول الزمني تسلسل تنفيذ العناصر لحظة بلحظة لكل تشغيل (Run)، بما في ذلك التأخيرات وحالات الانتظار (عبر wf_scheduled_resumes)، فور تفعيل محرك التنفيذ.');
+    if (bottomActiveTab === 'metrics') return renderPlaceholderTab(content, 'barChart', 'المقاييس', 'ستظهر هنا مقاييس الأداء: عدد مرات التشغيل، نسبة النجاح، متوسط وقت التنفيذ لكل عنصر — بمجرد توفر بيانات تشغيل فعلية في wf_runs / wf_run_steps.');
+}
+
+function renderValidationTab(s, content) {
+    const issues = validateDefinition(s.definition);
+    updateValidationCount(issues);
+    if (!issues.length) {
+        content.innerHTML = `<div class="wf-empty" style="padding:1.2rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;color:var(--wf-success);">${ic('checkCircle', 18)}</div><h4 style="font-size:.8rem;">لا توجد مشاكل</h4><p style="font-size:.72rem;">الـ Workflow جاهز للنشر من ناحية صحة الإعدادات.</p></div>`;
+        return;
+    }
+    content.innerHTML = issues.map(i => {
+        const nt = i.nodeId ? appState.nodeTypesByKey[(s.definition.nodes.find(n => n.id === i.nodeId) || {}).type] : null;
+        return `<div class="wf-issue-row wf-issue-${i.level}" data-node="${i.nodeId || ''}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
+            <div><div>${escapeHtml(i.msg)}</div>${nt ? `<div style="color:var(--wf-text-3);font-size:.65rem;">${escapeHtml(nt.name_ar)}</div>` : ''}</div>
+        </div>`;
+    }).join('');
+    content.querySelectorAll('.wf-issue-row').forEach(row => row.addEventListener('click', () => {
+        const nid = row.dataset.node;
+        if (!nid) return;
+        s.selection.nodeIds = new Set([nid]); s.selection.edgeId = null;
+        Canvas.render(); renderInspector();
+    }));
+}
+
+function renderPlaceholderTab(content, iconName, title, desc) {
+    content.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;">${ic(iconName, 18)}</div><h4 style="font-size:.8rem;">${escapeHtml(title)}</h4><p style="font-size:.72rem;">${escapeHtml(desc)}</p></div>`;
+}
+
+const RUN_STATUS_BADGE = { pending: 'wf-badge-gray', running: 'wf-badge-blue', waiting: 'wf-badge-amber', completed: 'wf-badge-green', failed: 'wf-badge-red', cancelled: 'wf-badge-gray' };
+const RUN_STATUS_LABEL = { pending: 'قيد الانتظار', running: 'جارٍ التنفيذ', waiting: 'معلّق', completed: 'مكتمل', failed: 'فشل', cancelled: 'أُلغي' };
+
+function renderRunsTab(s, content) {
+    if (s.runsCache === undefined) {
+        content.innerHTML = `<div class="wf-empty" style="padding:1.5rem;"><div class="wf-spinner"></div></div>`;
+        DataLayer.listRuns(s.id).then(rows => { s.runsCache = rows; if (bottomActiveTab === 'runs' && activeSession() === s) renderRunsTab(s, content); });
+        return;
+    }
+    if (!s.runsCache.length) {
+        renderPlaceholderTab(content, 'activity', 'سجل التشغيل', 'لم يعمل هذا الـ Workflow بعد. بمجرد تفعيل محرك التنفيذ (Executor) وبدء تشغيله فعليًا، سيظهر هنا كل Run بحالته ووقته.');
+        return;
+    }
+    content.innerHTML = s.runsCache.map(r => `
+        <div class="wf-run-row">
+            <span class="wf-badge ${RUN_STATUS_BADGE[r.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${RUN_STATUS_LABEL[r.status] || r.status}</span>
+            <span style="color:var(--wf-text-3);font-family:var(--wf-font-data);">${new Date(r.started_at).toLocaleString('ar-EG')}</span>
+            <span style="margin-inline-start:auto;color:var(--wf-text-3);">v${r.workflow_version_number ?? '—'}</span>
+        </div>`).join('');
+}
+
+/* =====================================================================
+   VERSIONS SIDEBAR (يعمل على جدول wf_workflow_versions الحقيقي)
+   ===================================================================== */
+let versionsActiveTab = 'current';
+document.getElementById('wfToggleVersions')?.addEventListener('click', () => {
+    document.getElementById('wfVersionPanel').classList.toggle('wf-hidden');
+});
+document.querySelectorAll('.wf-version-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.wf-version-tab').forEach(x => x.classList.remove('wf-version-tab-active'));
+    t.classList.add('wf-version-tab-active');
+    versionsActiveTab = t.dataset.vtab;
+    renderVersionsPanel();
+}));
+
+async function renderVersionsPanel() {
+    const s = activeSession();
+    const body = document.getElementById('wfVersionBody');
+    if (!s) { body.innerHTML = ''; return; }
+
+    if (versionsActiveTab === 'history') {
+        body.innerHTML = `<div class="wf-empty" style="padding:1.5rem;"><div class="wf-spinner"></div></div>`;
+        let versions = [];
+        try { versions = await DataLayer.listVersions(s.id); }
+        catch (err) { console.error(err); }
+        if (activeSession() !== s || versionsActiveTab !== 'history') return;
+
+        if (!versions.length) {
+            body.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;">
+                <div class="wf-empty-icon" style="width:36px;height:36px;">${ic('archive', 18)}</div>
+                <h4 style="font-size:.8rem;">لا يوجد سجل بعد</h4>
+                <p style="font-size:.72rem;">سيظهر هنا كل إصدار (Version) تم إنشاؤه لهذا الـ Workflow، بدءًا من أول مسودة.</p>
+            </div>`;
+            return;
+        }
+
+        body.innerHTML = versions.map(v => `
+            <div class="wf-version-item">
+                <div class="wf-version-item-head">
+                    <span class="wf-vnum">v${v.version_number}</span>
+                    <span class="wf-badge ${v.status === 'published' ? 'wf-badge-green' : (v.status === 'archived' ? 'wf-badge-red' : 'wf-badge-gray')}">${VERSION_STATUS_LABEL[v.status] || v.status}</span>
+                </div>
+                <div class="wf-version-meta">
+                    <span>${ic('box', 11)} ${(v.definition?.nodes || []).length} عنصر</span>
+                    <span>${ic('clock', 11)} ${timeAgo(v.published_at || v.created_at)}</span>
+                </div>
+                ${(v.id !== s.draftVersionId && !s.readOnly) ? `<button class="wf-btn wf-btn-sm" data-restore="${v.id}" style="width:100%;">${ic('undo', 13)} استخدام كمسودة حالية</button>` : ''}
+            </div>`).join('');
+
+        body.querySelectorAll('[data-restore]').forEach(btn => btn.addEventListener('click', async () => {
+            const vid = btn.dataset.restore;
+            const target = versions.find(v => v.id === vid);
+            if (!target || !s.draftVersionId) return;
+            if (!confirm('سيتم استبدال محتوى المسودة الحالية بمحتوى هذا الإصدار. متابعة؟')) return;
+            try {
+                const updated = await DataLayer.restoreVersionIntoDraft(s.draftVersionId, target);
+                s.definition = JSON.parse(JSON.stringify(updated.definition || { nodes: [], edges: [] }));
+                s.variables = JSON.parse(JSON.stringify(updated.variables || {}));
+                s.triggerConfig = JSON.parse(JSON.stringify(updated.trigger_config || {}));
+                s.savedSnapshot = JSON.stringify({ definition: s.definition, variables: s.variables });
+                s.history = [JSON.stringify(s.definition)]; s.historyIndex = 0;
+                s.selection = { nodeIds: new Set(), edgeId: null };
+                Canvas.mount(s); renderInspector(); updateSaveState(); renderTabbar();
+                toast('تم استرجاع الإصدار إلى المسودة الحالية', 'success');
+            } catch (err) {
+                console.error(err);
+                toast('تعذّر الاسترجاع: ' + (err.message || ''), 'error');
+            }
+        }));
+        return;
+    }
+
+    // تبويب "الحالي"
+    const authorName = appState.staff.find(p => p.id === s.createdBy)?.full_name || 'فريق العمل';
+    let actionsHtml = '';
+    if (s.readOnly) {
+        actionsHtml = `
+            <div class="wf-readonly-banner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <span>هذا الـ Workflow مؤرشف وللقراءة فقط. لإعادة استخدامه، كرّره كمسودة جديدة.</span>
+            </div>
+            <button class="wf-btn wf-btn-sm" id="wfVersionDuplicate" style="width:100%;">${ic('copy', 13)} تكرار كمسودة جديدة</button>
+        `;
+    } else {
+        actionsHtml = `<button class="wf-btn wf-btn-primary wf-btn-sm" id="wfVersionPublish" style="width:100%;margin-bottom:.5rem;">${s.publishedVersion ? 'نشر التحديثات' : 'نشر هذه المسودة'}</button>`;
+        if (s.status === 'active' || s.status === 'paused') {
+            actionsHtml += `<button class="wf-btn wf-btn-sm" id="wfVersionPauseToggle" style="width:100%;">${s.status === 'active' ? `${ic('pause', 13)} إيقاف مؤقت` : `${ic('play', 13)} استئناف`}</button>`;
+        }
+    }
+
+    body.innerHTML = `
+        <div class="wf-version-item">
+            <div class="wf-version-item-head">
+                <span class="wf-vnum">مسودة v${s.draftVersionNumber}</span>
+                <span class="wf-badge wf-badge-gray">مسودة</span>
+            </div>
+            <div class="wf-version-meta">
+                <span>${ic('user', 11)} ${escapeHtml(authorName)}</span>
+                <span>${ic('clock', 11)} آخر تحديث: ${timeAgo(s.updatedAt)}</span>
+                <span>${ic('box', 11)} ${(s.definition.nodes || []).length} عنصر</span>
+            </div>
+        </div>
+        ${s.publishedVersion ? `
+        <div class="wf-version-item">
+            <div class="wf-version-item-head">
+                <span class="wf-vnum">منشور v${s.publishedVersion.version_number}</span>
+                <span class="wf-badge ${STATUS_BADGE_CLASS[s.status] || 'wf-badge-gray'}">${STATUS_LABEL[s.status] || s.status}</span>
+            </div>
+            <div class="wf-version-meta">
+                <span>${ic('clock', 11)} نُشر: ${timeAgo(s.publishedVersion.published_at)}</span>
+            </div>
+        </div>` : ''}
+        <div class="wf-version-actions" style="flex-direction:column;">${actionsHtml}</div>
+    `;
+
+    document.getElementById('wfVersionPublish')?.addEventListener('click', publishWorkflow);
+    document.getElementById('wfVersionDuplicate')?.addEventListener('click', duplicateAsDraftFromBuilder);
+    document.getElementById('wfVersionPauseToggle')?.addEventListener('click', async () => {
+        const newStatus = s.status === 'active' ? 'paused' : 'active';
+        try {
+            const row = await DataLayer.updateWorkflowMeta(s.id, { status: newStatus, updated_at: new Date().toISOString() });
+            s.status = row.status; s.updatedAt = row.updated_at;
+            const cached = appState.workflows.find(w => w.id === s.id); if (cached) Object.assign(cached, row);
+            mountActiveSession(); renderTabbar();
+            toast(newStatus === 'paused' ? 'تم الإيقاف المؤقت' : 'تم الاستئناف', 'success');
+        } catch (err) { toast('تعذّر تنفيذ العملية: ' + (err.message || ''), 'error'); }
+    });
+}
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+async function init() {
+    initSidebar();
+    const user = await checkAdminAuth();
+    if (!user) return;
+    appState.currentUser = { id: user.id || user.profile?.id, ...user };
+    updateAdminUI(user);
+
+    document.getElementById('wfAuthGate').classList.add('wf-hidden');
+    document.getElementById('wfListView').classList.add('wf-active');
+
+    Canvas.init();
+
+    try {
+        const [nodeTypes, mcpTools, staff, integrations] = await Promise.all([
+            DataLayer.listNodeTypes(),
+            DataLayer.listMcpTools(),
+            DataLayer.listStaff(),
+            DataLayer.listIntegrations()
+        ]);
+        appState.nodeTypes = nodeTypes;
+        appState.nodeTypesByKey = Object.fromEntries(nodeTypes.map(nt => [nt.key, nt]));
+        appState.mcpTools = mcpTools;
+        appState.staff = staff;
+        appState.integrations = integrations;
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر تحميل بيانات النظام (أنواع العناصر): ' + (err.message || ''), 'error');
+    }
+
+    renderNodeLibrary();
+    await refreshWorkflowsList();
+}
+
+init();
+
+    </script>
+</body>
+</html>
