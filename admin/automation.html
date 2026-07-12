@@ -12,16 +12,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* =====================================================================
-   Workflow Builder (automation.html) — Design tokens
-   مُستخرجة حرفيًا من index.html (نفس القيم بالضبط) — Dark افتراضي + Light overrides
-   عبر نفس آلية [data-theme] المستخدمة في باقي المنصة (theme-manager.js)
+   Workflow Builder (automation.html) — Design tokens v2
+   نفس متغيرات index.html بالضبط (الألوان الأساسية للهوية) + Dark افتراضي مع
+   Light overrides عبر [data-theme] — تمت إعادة ضبط الإيقاع البصري فقط
+   (Spacing / Radius / Shadows / Typography rhythm / Micro-interactions)
+   بدون المساس بأي هوية لونية للمنصة.
    ===================================================================== */
 .wf-shell{
   --wf-bg-void:#060B14;
   --wf-bg-surface:#0D1622;
   --wf-bg-elevated:#121F30;
   --wf-glass:rgba(255,255,255,.045);
-  --wf-glass-strong:rgba(255,255,255,.07);
+  --wf-glass-strong:rgba(255,255,255,.075);
   --wf-glass-border:rgba(255,255,255,.09);
   --wf-primary:#0077CC;
   --wf-primary-deep:#00234A;
@@ -32,44 +34,64 @@
   --wf-whatsapp:#25D366;
   --wf-mcp:#B45FE0;
   --wf-text-1:#F3F6FB;
-  --wf-text-2:#94A6C2;
-  --wf-text-3:#5A6A82;
-  --wf-radius-lg:1.5rem;
-  --wf-radius-md:1rem;
-  --wf-radius-sm:.6rem;
-  --wf-shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
-  --wf-shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --wf-text-2:#96A7C2;
+  --wf-text-3:#5D6D85;
+
+  --wf-radius-xl:1.25rem;
+  --wf-radius-lg:1rem;
+  --wf-radius-md:.75rem;
+  --wf-radius-sm:.55rem;
+  --wf-radius-xs:.4rem;
+
+  --wf-shadow-xs:0 1px 2px -1px rgba(0,8,25,.45);
+  --wf-shadow-sm:0 4px 14px -6px rgba(0,8,25,.5);
+  --wf-shadow-lg:0 24px 60px -24px rgba(0,8,25,.65), 0 4px 16px -6px rgba(0,8,25,.4);
+  --wf-shadow-glow:0 0 0 3px rgba(77,163,255,.16), 0 12px 28px -12px rgba(0,119,204,.4);
+
   --wf-font-display:'Cairo',sans-serif;
   --wf-font-body:'IBM Plex Sans Arabic',sans-serif;
   --wf-font-data:'Space Grotesk',sans-serif;
   --wf-ease-snap:cubic-bezier(.2,.8,.2,1);
   --wf-ease-bounce:cubic-bezier(.34,1.56,.64,1);
-  --wf-dur-fast:.15s;
-  --wf-dur-med:.3s;
+  --wf-dur-fast:.14s;
+  --wf-dur-med:.26s;
+
+  --wf-pill-green-bg:rgba(34,197,139,.14);--wf-pill-green-text:#22C58B;
+  --wf-pill-amber-bg:rgba(245,158,11,.14);--wf-pill-amber-text:#F5B300;
+  --wf-pill-blue-bg:rgba(77,163,255,.14);--wf-pill-blue-text:#7EB6FF;
+  --wf-pill-purple-bg:rgba(180,95,224,.15);--wf-pill-purple-text:#C98BEF;
+  --wf-pill-gray-bg:rgba(255,255,255,.07);--wf-pill-gray-text:#96A7C2;
+  --wf-pill-red-bg:rgba(255,107,107,.14);--wf-pill-red-text:#FF8484;
+
+  --wf-card:var(--wf-bg-elevated);
+  --wf-canvas-dot:rgba(255,255,255,.055);
+  --wf-canvas-bg:#080E19;
+}
+html[data-theme="light"] .wf-shell{
+  --wf-bg-void:#F1F4FA;
+  --wf-bg-surface:#FFFFFF;
+  --wf-bg-elevated:#FFFFFF;
+  --wf-glass:rgba(16,27,46,.032);
+  --wf-glass-strong:rgba(16,27,46,.055);
+  --wf-glass-border:rgba(16,27,46,.09);
+  --wf-text-1:#101B2E;
+  --wf-text-2:#5A6B85;
+  --wf-text-3:#8FA0B8;
+
+  --wf-shadow-xs:0 1px 2px rgba(16,27,46,.06);
+  --wf-shadow-sm:0 6px 16px -8px rgba(16,27,46,.12);
+  --wf-shadow-lg:0 20px 48px -22px rgba(16,27,46,.16), 0 2px 10px -4px rgba(16,27,46,.08);
+  --wf-shadow-glow:0 0 0 3px rgba(0,119,204,.12), 0 12px 24px -12px rgba(0,119,204,.22);
+
   --wf-pill-green-bg:#DCFCE7;--wf-pill-green-text:#16A34A;
   --wf-pill-amber-bg:#FEF3C7;--wf-pill-amber-text:#B45309;
   --wf-pill-blue-bg:#DBEAFE;--wf-pill-blue-text:#2563EB;
   --wf-pill-purple-bg:#F3E8FF;--wf-pill-purple-text:#9333EA;
   --wf-pill-gray-bg:#EEF1F6;--wf-pill-gray-text:#64748B;
   --wf-pill-red-bg:#FEE2E2;--wf-pill-red-text:#DC2626;
-  --wf-card:var(--wf-bg-elevated);
-  --wf-canvas-dot:rgba(255,255,255,.06);
-  --wf-canvas-bg:#080E19;
-}
-html[data-theme="light"] .wf-shell{
-  --wf-bg-void:#F3F6FC;
-  --wf-bg-surface:#FFFFFF;
-  --wf-bg-elevated:#FFFFFF;
-  --wf-glass:rgba(16,27,46,.035);
-  --wf-glass-strong:rgba(16,27,46,.06);
-  --wf-glass-border:rgba(16,27,46,.10);
-  --wf-text-1:#101B2E;
-  --wf-text-2:#4B5A72;
-  --wf-text-3:#8493AA;
-  --wf-shadow-lg:0 20px 60px -25px rgba(16,27,46,.18);
-  --wf-shadow-glow:0 0 50px -10px rgba(0,119,204,.18);
+
   --wf-card:#FFFFFF;
-  --wf-canvas-dot:rgba(16,27,46,.08);
+  --wf-canvas-dot:rgba(16,27,46,.075);
   --wf-canvas-bg:#EDF1F9;
 }
 
@@ -80,13 +102,15 @@ html[data-theme="light"] .wf-shell{
   font-family:var(--wf-font-body);
   background:var(--wf-bg-void);
   color:var(--wf-text-1);
-  min-height:100vh;
-  border-radius:var(--wf-radius-lg);
+  min-height:calc(100vh - 0px);
+  border-radius:var(--wf-radius-xl);
   overflow:hidden;
   position:relative;
   display:flex;
   flex-direction:column;
   box-shadow:var(--wf-shadow-lg);
+  font-size:15px;
+  line-height:1.5;
 }
 .wf-shell *{box-sizing:border-box;}
 .wf-shell h1,.wf-shell h2,.wf-shell h3,.wf-shell h4{font-family:var(--wf-font-display);font-weight:800;letter-spacing:-.01em;margin:0;}
@@ -94,54 +118,82 @@ html[data-theme="light"] .wf-shell{
 .wf-shell ::selection{background:var(--wf-primary);color:#fff;}
 .wf-hidden{display:none !important;}
 
-.wf-glass{background:var(--wf-glass);border:1px solid var(--wf-glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.wf-glass{background:var(--wf-glass);border:1px solid var(--wf-glass-border);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
 
-.wf-eyebrow{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--wf-accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.3rem .75rem;border-radius:99px;}
+.wf-shell button:focus-visible,
+.wf-shell input:focus-visible,
+.wf-shell select:focus-visible,
+.wf-shell textarea:focus-visible,
+.wf-shell [tabindex]:focus-visible{
+  outline:2px solid var(--wf-accent);
+  outline-offset:2px;
+  border-radius:var(--wf-radius-xs);
+}
+
+.wf-eyebrow{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--wf-accent-soft);background:var(--wf-pill-blue-bg);border:1px solid rgba(77,163,255,.25);padding:.3rem .75rem;border-radius:99px;}
 .wf-eyebrow .wf-dot{width:6px;height:6px;border-radius:50%;background:var(--wf-accent);box-shadow:0 0 8px var(--wf-accent);}
 
-/* Buttons (local wf- variants, coexist with existing .btn classes) */
-.wf-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1.05rem;border-radius:.7rem;font-weight:700;font-size:.82rem;cursor:pointer;border:1px solid transparent;transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-med) ease, background var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease, opacity var(--wf-dur-fast) ease;white-space:nowrap;background:var(--wf-glass);color:var(--wf-text-1);border-color:var(--wf-glass-border);}
-.wf-btn:hover{transform:translateY(-1px);border-color:var(--wf-accent-soft);}
+/* ---------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------- */
+.wf-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.5rem 1rem;border-radius:var(--wf-radius-sm);
+  font-weight:600;font-size:.82rem;letter-spacing:-.005em;
+  cursor:pointer;border:1px solid var(--wf-glass-border);
+  transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-med) ease,
+             background var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease, opacity var(--wf-dur-fast) ease, color var(--wf-dur-fast) ease;
+  white-space:nowrap;background:var(--wf-glass);color:var(--wf-text-1);
+}
+.wf-btn:hover{background:var(--wf-glass-strong);border-color:var(--wf-accent-soft);transform:translateY(-1px);}
 .wf-btn:active{transform:translateY(0) scale(.97);}
-.wf-btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none;}
-.wf-btn-primary{background:linear-gradient(135deg,var(--wf-accent),var(--wf-primary));color:#fff;border-color:transparent;box-shadow:0 10px 24px -10px rgba(0,119,204,.6);}
-.wf-btn-primary:hover{box-shadow:0 16px 32px -10px rgba(0,119,204,.75);}
-.wf-btn-danger{background:rgba(255,107,107,.12);color:var(--wf-danger);border-color:rgba(255,107,107,.3);}
-.wf-btn-danger:hover{background:rgba(255,107,107,.2);}
-.wf-btn-icon{padding:.5rem;width:2.15rem;height:2.15rem;}
-.wf-btn-sm{padding:.35rem .7rem;font-size:.72rem;border-radius:.55rem;}
+.wf-btn[disabled]{opacity:.38;cursor:not-allowed;pointer-events:none;}
+.wf-btn-primary{background:linear-gradient(135deg,var(--wf-accent),var(--wf-primary));color:#fff;border-color:transparent;box-shadow:0 8px 20px -8px rgba(0,119,204,.55);}
+.wf-btn-primary:hover{box-shadow:0 12px 28px -10px rgba(0,119,204,.7);filter:brightness(1.04);}
+.wf-btn-danger{background:var(--wf-pill-red-bg);color:var(--wf-danger);border-color:rgba(255,107,107,.28);}
+.wf-btn-danger:hover{background:rgba(255,107,107,.22);border-color:var(--wf-danger);}
+.wf-btn-icon{padding:.5rem;width:2.1rem;height:2.1rem;flex-shrink:0;}
+.wf-btn-sm{padding:.4rem .75rem;font-size:.74rem;border-radius:var(--wf-radius-xs);}
 .wf-btn svg{width:15px;height:15px;flex-shrink:0;}
 
+/* ---------------------------------------------------------------------
+   Form controls
+   --------------------------------------------------------------------- */
 .wf-input,.wf-select,.wf-textarea{
   width:100%;background:var(--wf-glass);border:1px solid var(--wf-glass-border);color:var(--wf-text-1);
-  border-radius:.6rem;padding:.55rem .8rem;font-size:.82rem;font-family:inherit;transition:border-color var(--wf-dur-fast) ease, background var(--wf-dur-fast) ease;
+  border-radius:var(--wf-radius-xs);padding:.55rem .75rem;font-size:.82rem;font-family:inherit;
+  transition:border-color var(--wf-dur-fast) ease, background var(--wf-dur-fast) ease, box-shadow var(--wf-dur-fast) ease;
 }
 .wf-input::placeholder,.wf-textarea::placeholder{color:var(--wf-text-3);}
-.wf-input:focus,.wf-select:focus,.wf-textarea:focus{outline:none;border-color:var(--wf-accent-soft);background:var(--wf-glass-strong);}
-.wf-textarea{resize:vertical;min-height:4.5rem;line-height:1.6;}
-.wf-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.9rem;}
+.wf-input:focus,.wf-select:focus,.wf-textarea:focus{outline:none;border-color:var(--wf-accent-soft);background:var(--wf-glass-strong);box-shadow:0 0 0 3px rgba(77,163,255,.12);}
+.wf-input:disabled,.wf-select:disabled,.wf-textarea:disabled{opacity:.55;cursor:not-allowed;}
+.wf-textarea{resize:vertical;min-height:4.5rem;line-height:1.65;}
+.wf-field{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;}
 .wf-field label{font-size:.74rem;font-weight:700;color:var(--wf-text-2);display:flex;align-items:center;justify-content:space-between;gap:.4rem;}
-.wf-field-hint{font-size:.68rem;color:var(--wf-text-3);}
+.wf-field-hint{font-size:.68rem;color:var(--wf-text-3);line-height:1.6;}
 
-.wf-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:800;padding:.22rem .55rem;border-radius:99px;line-height:1.4;white-space:nowrap;}
+/* ---------------------------------------------------------------------
+   Badges / pills
+   --------------------------------------------------------------------- */
+.wf-badge{display:inline-flex;align-items:center;gap:.32rem;font-size:.64rem;font-weight:800;padding:.24rem .58rem;border-radius:99px;line-height:1.4;white-space:nowrap;letter-spacing:.01em;}
 .wf-badge-green{background:var(--wf-pill-green-bg);color:var(--wf-pill-green-text);}
 .wf-badge-amber{background:var(--wf-pill-amber-bg);color:var(--wf-pill-amber-text);}
 .wf-badge-blue{background:var(--wf-pill-blue-bg);color:var(--wf-pill-blue-text);}
 .wf-badge-purple{background:var(--wf-pill-purple-bg);color:var(--wf-pill-purple-text);}
 .wf-badge-gray{background:var(--wf-pill-gray-bg);color:var(--wf-pill-gray-text);}
 .wf-badge-red{background:var(--wf-pill-red-bg);color:var(--wf-pill-red-text);}
-.wf-badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.wf-badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
 
-.wf-card{background:var(--wf-card);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease;}
-.wf-scrollbar::-webkit-scrollbar{width:8px;height:8px;}
+.wf-card{background:var(--wf-card);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-lg);transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease;}
+.wf-scrollbar::-webkit-scrollbar{width:7px;height:7px;}
 .wf-scrollbar::-webkit-scrollbar-thumb{background:var(--wf-glass-strong);border-radius:99px;}
+.wf-scrollbar::-webkit-scrollbar-thumb:hover{background:var(--wf-accent-soft);}
 .wf-scrollbar::-webkit-scrollbar-track{background:transparent;}
 
-/* Empty states */
 .wf-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.6rem;padding:3rem 1.5rem;color:var(--wf-text-2);}
-.wf-empty .wf-empty-icon{width:52px;height:52px;border-radius:1rem;background:var(--wf-glass);border:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:.3rem;}
+.wf-empty .wf-empty-icon{width:52px;height:52px;border-radius:var(--wf-radius-md);background:var(--wf-glass);border:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:.3rem;}
 .wf-empty h4{color:var(--wf-text-1);font-size:.95rem;}
-.wf-empty p{font-size:.78rem;max-width:340px;line-height:1.7;}
+.wf-empty p{font-size:.78rem;max-width:340px;line-height:1.75;}
 
 /* =====================================================================
    Top-level view switching
@@ -152,30 +204,31 @@ html[data-theme="light"] .wf-shell{
 /* =====================================================================
    Workflow List view
    ===================================================================== */
-.wf-list-header{padding:1.75rem clamp(1.25rem,3vw,2.25rem) 1.1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--wf-glass-border);}
-.wf-list-header h1{font-size:clamp(1.35rem,2.4vw,1.7rem);background:linear-gradient(90deg,var(--wf-text-1),var(--wf-accent-soft));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-.wf-list-header p{color:var(--wf-text-2);font-size:.85rem;margin-top:.35rem;max-width:520px;}
-.wf-toolbar{padding:1rem clamp(1.25rem,3vw,2.25rem);display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--wf-glass-border);}
+.wf-list-header{padding:1.85rem clamp(1.25rem,3vw,2.5rem) 1.15rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--wf-glass-border);}
+.wf-list-header h1{font-size:clamp(1.4rem,2.4vw,1.75rem);background:linear-gradient(90deg,var(--wf-text-1),var(--wf-accent-soft));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.wf-list-header p{color:var(--wf-text-2);font-size:.85rem;margin-top:.4rem;max-width:540px;line-height:1.7;}
+.wf-toolbar{padding:.9rem clamp(1.25rem,3vw,2.5rem);display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--wf-glass-border);background:var(--wf-glass);}
 .wf-search{position:relative;flex:1;min-width:220px;max-width:360px;}
 .wf-search svg{position:absolute;inset-inline-start:.75rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--wf-text-3);pointer-events:none;}
-.wf-search input{padding-inline-start:2.15rem;}
+.wf-search input{padding-inline-start:2.2rem;}
 .wf-filter-group{display:flex;gap:.5rem;flex-wrap:wrap;}
-.wf-filter-group .wf-select{width:auto;min-width:130px;}
-.wf-list-body{flex:1;overflow-y:auto;padding:1.25rem clamp(1.25rem,3vw,2.25rem) 2rem;}
-.wf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;}
-.wf-wf-card{padding:1.15rem;display:flex;flex-direction:column;gap:.7rem;cursor:pointer;}
-.wf-wf-card:hover{transform:translateY(-3px);border-color:var(--wf-accent-soft);box-shadow:var(--wf-shadow-lg);}
+.wf-filter-group .wf-select{width:auto;min-width:132px;}
+.wf-list-body{flex:1;overflow-y:auto;padding:1.35rem clamp(1.25rem,3vw,2.5rem) 2.25rem;}
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.1rem;}
+
+.wf-wf-card{padding:1.2rem;display:flex;flex-direction:column;gap:.75rem;cursor:pointer;box-shadow:var(--wf-shadow-xs);}
+.wf-wf-card:hover{transform:translateY(-3px);border-color:var(--wf-accent-soft);box-shadow:var(--wf-shadow-sm);}
 .wf-wf-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;}
-.wf-wf-icon{width:38px;height:38px;border-radius:.7rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;background:var(--wf-glass);}
-.wf-wf-card h3{font-size:.92rem;font-weight:700;font-family:var(--wf-font-body);}
-.wf-wf-card .wf-wf-desc{font-size:.75rem;color:var(--wf-text-2);line-height:1.6;min-height:2.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.wf-wf-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;font-size:.68rem;color:var(--wf-text-3);}
-.wf-wf-meta span{display:inline-flex;align-items:center;gap:.25rem;}
-.wf-wf-actions{display:flex;gap:.35rem;margin-top:auto;padding-top:.6rem;border-top:1px solid var(--wf-glass-border);}
+.wf-wf-icon{width:40px;height:40px;border-radius:var(--wf-radius-sm);display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;background:var(--wf-glass);border:1px solid var(--wf-glass-border);}
+.wf-wf-card h3{font-size:.94rem;font-weight:700;font-family:var(--wf-font-body);}
+.wf-wf-card .wf-wf-desc{font-size:.76rem;color:var(--wf-text-2);line-height:1.65;min-height:2.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-wf-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;font-size:.68rem;color:var(--wf-text-3);}
+.wf-wf-meta span{display:inline-flex;align-items:center;gap:.28rem;}
+.wf-wf-actions{display:flex;gap:.4rem;margin-top:auto;padding-top:.65rem;border-top:1px solid var(--wf-glass-border);}
 .wf-wf-actions .wf-btn{flex:1;}
 .wf-menu-btn{position:relative;}
-.wf-dropdown{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;box-shadow:var(--wf-shadow-lg);min-width:170px;z-index:60;overflow:hidden;padding:.35rem;}
-.wf-dropdown button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.5rem .6rem;font-size:.78rem;border-radius:.45rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;}
+.wf-dropdown{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);box-shadow:var(--wf-shadow-lg);min-width:175px;z-index:60;overflow:hidden;padding:.35rem;}
+.wf-dropdown button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.5rem .6rem;font-size:.78rem;border-radius:var(--wf-radius-xs);cursor:pointer;display:flex;align-items:center;gap:.5rem;transition:background var(--wf-dur-fast) ease;}
 .wf-dropdown button:hover{background:var(--wf-glass);}
 .wf-dropdown button.wf-danger-item{color:var(--wf-danger);}
 .wf-dropdown hr{border:none;border-top:1px solid var(--wf-glass-border);margin:.3rem 0;}
@@ -183,26 +236,28 @@ html[data-theme="light"] .wf-shell{
 /* =====================================================================
    Builder view — Tabs
    ===================================================================== */
-.wf-tabbar{display:flex;align-items:flex-end;gap:2px;padding:.5rem .75rem 0;background:var(--wf-bg-surface);border-bottom:1px solid var(--wf-glass-border);overflow-x:auto;flex-shrink:0;}
-.wf-tab{display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-radius:.65rem .65rem 0 0;background:var(--wf-glass);border:1px solid var(--wf-glass-border);border-bottom:none;font-size:.76rem;font-weight:600;color:var(--wf-text-2);cursor:pointer;max-width:190px;position:relative;top:1px;}
+.wf-tabbar{display:flex;align-items:flex-end;gap:2px;padding:.55rem .75rem 0;background:var(--wf-bg-surface);border-bottom:1px solid var(--wf-glass-border);overflow-x:auto;flex-shrink:0;}
+.wf-tab{display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-radius:var(--wf-radius-sm) var(--wf-radius-sm) 0 0;background:var(--wf-glass);border:1px solid var(--wf-glass-border);border-bottom:none;font-size:.76rem;font-weight:600;color:var(--wf-text-2);cursor:pointer;max-width:190px;position:relative;top:1px;transition:background var(--wf-dur-fast) ease,color var(--wf-dur-fast) ease;}
+.wf-tab:hover{color:var(--wf-text-1);}
 .wf-tab.wf-tab-active{background:var(--wf-bg-elevated);color:var(--wf-text-1);border-color:var(--wf-glass-border);box-shadow:0 -2px 0 var(--wf-accent) inset;}
 .wf-tab .wf-tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .wf-tab .wf-tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px;}
-.wf-tab .wf-tab-close{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.6;}
-.wf-tab .wf-tab-close:hover{opacity:1;background:rgba(255,107,107,.2);color:var(--wf-danger);}
+.wf-tab .wf-tab-close{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.6;transition:background var(--wf-dur-fast) ease,opacity var(--wf-dur-fast) ease;}
+.wf-tab .wf-tab-close:hover{opacity:1;background:var(--wf-pill-red-bg);color:var(--wf-danger);}
 .wf-tab-pin{opacity:.7;}
-.wf-tab-add{padding:.5rem;color:var(--wf-text-2);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.wf-tab-add{padding:.5rem;color:var(--wf-text-2);cursor:pointer;border-radius:var(--wf-radius-xs);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background var(--wf-dur-fast) ease;}
 .wf-tab-add:hover{background:var(--wf-glass);color:var(--wf-text-1);}
 
 /* Toolbar */
-.wf-builder-toolbar{display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem;background:var(--wf-bg-elevated);border-bottom:1px solid var(--wf-glass-border);flex-wrap:wrap;flex-shrink:0;}
-.wf-wf-name-input{background:transparent;border:1px solid transparent;color:var(--wf-text-1);font-weight:800;font-family:var(--wf-font-display);font-size:.95rem;padding:.3rem .5rem;border-radius:.5rem;min-width:120px;max-width:260px;}
+.wf-builder-toolbar{display:flex;align-items:center;gap:.55rem;padding:.6rem .9rem;background:var(--wf-bg-elevated);border-bottom:1px solid var(--wf-glass-border);flex-wrap:wrap;flex-shrink:0;}
+.wf-wf-name-input{background:transparent;border:1px solid transparent;color:var(--wf-text-1);font-weight:800;font-family:var(--wf-font-display);font-size:.95rem;padding:.32rem .55rem;border-radius:var(--wf-radius-xs);min-width:120px;max-width:260px;transition:border-color var(--wf-dur-fast) ease,background var(--wf-dur-fast) ease;}
 .wf-wf-name-input:hover{border-color:var(--wf-glass-border);}
 .wf-wf-name-input:focus{outline:none;border-color:var(--wf-accent-soft);background:var(--wf-glass);}
-.wf-toolbar-sep{width:1px;align-self:stretch;background:var(--wf-glass-border);margin:0 .2rem;}
+.wf-toolbar-sep{width:1px;align-self:stretch;background:var(--wf-glass-border);margin:0 .25rem;}
 .wf-toolbar-spacer{flex:1;}
-.wf-save-state{font-size:.68rem;color:var(--wf-text-3);display:flex;align-items:center;gap:.35rem;}
+.wf-save-state{font-size:.68rem;color:var(--wf-text-3);display:flex;align-items:center;gap:.35rem;font-weight:600;}
 .wf-save-state.wf-unsaved{color:var(--wf-pill-amber-text);}
+.wf-save-state::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;}
 
 /* Body: sidebar / canvas / inspector / version sidebar */
 .wf-builder-body{flex:1;display:flex;min-height:0;position:relative;}
@@ -210,29 +265,30 @@ html[data-theme="light"] .wf-shell{
 .wf-panel.wf-panel-start{border-inline-start:none;border-inline-end:1px solid var(--wf-glass-border);}
 
 /* Node Library */
-.wf-lib{width:250px;}
+.wf-lib{width:252px;}
 .wf-lib-search{padding:.75rem;border-bottom:1px solid var(--wf-glass-border);}
-.wf-lib-tabs{display:flex;gap:.3rem;padding:0 .75rem;border-bottom:1px solid var(--wf-glass-border);}
-.wf-lib-tab{padding:.5rem .3rem;font-size:.7rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
+.wf-lib-tabs{display:flex;gap:.25rem;padding:.4rem .6rem 0;border-bottom:1px solid var(--wf-glass-border);}
+.wf-lib-tab{padding:.5rem .5rem;font-size:.7rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;transition:color var(--wf-dur-fast) ease;}
+.wf-lib-tab:hover{color:var(--wf-text-1);}
 .wf-lib-tab.wf-lib-tab-active{color:var(--wf-accent-soft);border-color:var(--wf-accent);}
-.wf-lib-body{flex:1;overflow-y:auto;padding:.5rem;}
-.wf-lib-cat{margin-bottom:.4rem;}
-.wf-lib-cat-head{display:flex;align-items:center;gap:.4rem;padding:.45rem .5rem;font-size:.7rem;font-weight:800;color:var(--wf-text-2);cursor:pointer;border-radius:.5rem;}
+.wf-lib-body{flex:1;overflow-y:auto;padding:.6rem;}
+.wf-lib-cat{margin-bottom:.3rem;}
+.wf-lib-cat-head{display:flex;align-items:center;gap:.45rem;padding:.5rem .55rem;font-size:.7rem;font-weight:800;color:var(--wf-text-2);cursor:pointer;border-radius:var(--wf-radius-xs);transition:background var(--wf-dur-fast) ease;}
 .wf-lib-cat-head:hover{background:var(--wf-glass);}
-.wf-lib-cat-head svg.wf-chev{width:11px;height:11px;transition:transform var(--wf-dur-fast) ease;margin-inline-start:auto;}
+.wf-lib-cat-head svg.wf-chev{width:11px;height:11px;transition:transform var(--wf-dur-fast) ease;margin-inline-start:auto;color:var(--wf-text-3);}
 .wf-lib-cat.wf-collapsed .wf-chev{transform:rotate(-90deg);}
 .wf-lib-cat.wf-collapsed .wf-lib-cat-items{display:none;}
-.wf-lib-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .55rem;border-radius:.6rem;cursor:grab;font-size:.76rem;color:var(--wf-text-1);border:1px solid transparent;}
+.wf-lib-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .55rem;border-radius:var(--wf-radius-xs);cursor:grab;font-size:.76rem;color:var(--wf-text-1);border:1px solid transparent;transition:background var(--wf-dur-fast) ease,border-color var(--wf-dur-fast) ease;}
 .wf-lib-item:hover{background:var(--wf-glass);border-color:var(--wf-glass-border);}
 .wf-lib-item:active{cursor:grabbing;}
-.wf-lib-item .wf-lib-icon{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;}
-.wf-lib-item .wf-lib-fav{margin-inline-start:auto;opacity:.35;flex-shrink:0;cursor:pointer;}
+.wf-lib-item .wf-lib-icon{width:27px;height:27px;border-radius:var(--wf-radius-xs);display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0;}
+.wf-lib-item .wf-lib-fav{margin-inline-start:auto;opacity:.35;flex-shrink:0;cursor:pointer;transition:opacity var(--wf-dur-fast) ease;}
 .wf-lib-item .wf-lib-fav.wf-fav-on{opacity:1;color:#F5B300;}
 .wf-lib-item:hover .wf-lib-fav{opacity:.7;}
 
 /* Canvas */
 .wf-canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--wf-canvas-bg);min-width:0;}
-.wf-canvas-viewport{position:absolute;inset:0;cursor:grab;touch-action:none;background-image:radial-gradient(var(--wf-canvas-dot) 1.5px, transparent 1.5px);background-size:26px 26px;}
+.wf-canvas-viewport{position:absolute;inset:0;cursor:grab;touch-action:none;background-image:radial-gradient(var(--wf-canvas-dot) 1.6px, transparent 1.6px);background-size:24px 24px;}
 .wf-canvas-viewport.wf-panning{cursor:grabbing;}
 .wf-canvas-world{position:absolute;top:0;left:0;transform-origin:0 0;}
 .wf-edges-svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
@@ -241,31 +297,31 @@ html[data-theme="light"] .wf-shell{
 .wf-edge-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;}
 .wf-edge-arrow{fill:var(--wf-text-3);}
 
-.wf-node{position:absolute;width:220px;background:var(--wf-card);border:1.5px solid var(--wf-glass-border);border-radius:.85rem;box-shadow:0 8px 20px -10px rgba(0,8,25,.45);user-select:none;cursor:grab;}
-.wf-node:hover{border-color:var(--wf-accent-soft);}
-.wf-node.wf-node-selected{border-color:var(--wf-accent);box-shadow:0 0 0 3px rgba(77,163,255,.25), 0 8px 20px -10px rgba(0,8,25,.45);}
-.wf-node.wf-node-dragging{cursor:grabbing;opacity:.9;z-index:50;}
-.wf-node-head{display:flex;align-items:center;gap:.5rem;padding:.55rem .65rem;border-bottom:1px solid var(--wf-glass-border);}
-.wf-node-icon{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;color:#fff;}
-.wf-node-title{font-size:.76rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-.wf-node-body{padding:.55rem .65rem .65rem;font-size:.66rem;color:var(--wf-text-2);min-height:1.2rem;line-height:1.55;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.wf-node-foot{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem .5rem;}
-.wf-port{width:11px;height:11px;border-radius:50%;background:var(--wf-bg-void);border:2px solid var(--wf-text-3);position:absolute;top:50%;transform:translateY(-50%);cursor:crosshair;}
-.wf-port:hover{border-color:var(--wf-accent);background:var(--wf-accent);}
+.wf-node{position:absolute;width:220px;background:var(--wf-card);border:1.5px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);box-shadow:var(--wf-shadow-xs);user-select:none;cursor:grab;transition:border-color var(--wf-dur-fast) ease, box-shadow var(--wf-dur-fast) ease;}
+.wf-node:hover{border-color:var(--wf-accent-soft);box-shadow:var(--wf-shadow-sm);}
+.wf-node.wf-node-selected{border-color:var(--wf-accent);box-shadow:var(--wf-shadow-glow);}
+.wf-node.wf-node-dragging{cursor:grabbing;opacity:.92;z-index:50;box-shadow:var(--wf-shadow-lg);}
+.wf-node-head{display:flex;align-items:center;gap:.5rem;padding:.6rem .7rem;border-bottom:1px solid var(--wf-glass-border);}
+.wf-node-icon{width:27px;height:27px;border-radius:var(--wf-radius-xs);display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;color:#fff;box-shadow:0 2px 6px -2px rgba(0,0,0,.35);}
+.wf-node-title{font-size:.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.wf-node-body{padding:.55rem .7rem .6rem;font-size:.66rem;color:var(--wf-text-2);min-height:1.2rem;line-height:1.6;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-node-foot{display:flex;align-items:center;justify-content:space-between;padding:.4rem .7rem .55rem;}
+.wf-port{width:11px;height:11px;border-radius:50%;background:var(--wf-bg-void);border:2px solid var(--wf-text-3);position:absolute;top:50%;transform:translateY(-50%);cursor:crosshair;transition:border-color var(--wf-dur-fast) ease,background var(--wf-dur-fast) ease,transform var(--wf-dur-fast) ease;}
+.wf-port:hover{border-color:var(--wf-accent);background:var(--wf-accent);transform:translateY(-50%) scale(1.15);}
 .wf-port-in{inset-inline-start:-6px;}
 .wf-port-out{inset-inline-end:-6px;}
 .wf-port.wf-port-linking{background:var(--wf-accent);border-color:var(--wf-accent);}
 
-.wf-marquee{position:absolute;border:1px dashed var(--wf-accent);background:rgba(77,163,255,.1);pointer-events:none;z-index:40;}
+.wf-marquee{position:absolute;border:1px dashed var(--wf-accent);background:rgba(77,163,255,.1);pointer-events:none;z-index:40;border-radius:2px;}
 
-.wf-canvas-controls{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;flex-direction:column;gap:.4rem;z-index:30;}
-.wf-canvas-controls .wf-btn{background:var(--wf-bg-elevated);}
-.wf-zoom-group{display:flex;flex-direction:column;border-radius:.7rem;overflow:hidden;border:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);}
+.wf-canvas-controls{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;flex-direction:column;gap:.45rem;z-index:30;}
+.wf-canvas-controls .wf-btn{background:var(--wf-bg-elevated);box-shadow:var(--wf-shadow-xs);}
+.wf-zoom-group{display:flex;flex-direction:column;border-radius:var(--wf-radius-sm);overflow:hidden;border:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);box-shadow:var(--wf-shadow-sm);}
 .wf-zoom-group .wf-btn{border:none;border-radius:0;box-shadow:none;}
 .wf-zoom-group .wf-btn:not(:last-child){border-bottom:1px solid var(--wf-glass-border);}
-.wf-zoom-level{text-align:center;font-size:.62rem;color:var(--wf-text-3);padding:.15rem 0;font-family:var(--wf-font-data);}
+.wf-zoom-level{text-align:center;font-size:.62rem;color:var(--wf-text-3);padding:.18rem 0;font-family:var(--wf-font-data);font-weight:600;}
 
-.wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:170px;height:110px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);}
+.wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:172px;height:112px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);cursor:pointer;}
 .wf-minimap-inner{position:relative;width:100%;height:100%;}
 .wf-minimap-node{position:absolute;border-radius:2px;}
 .wf-minimap-viewport{position:absolute;border:1px solid var(--wf-accent);background:rgba(77,163,255,.12);border-radius:2px;}
@@ -273,18 +329,18 @@ html[data-theme="light"] .wf-shell{
 .wf-canvas-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 
 /* Inspector */
-.wf-inspector{width:300px;}
-.wf-inspector-head{padding:.85rem 1rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;gap:.6rem;}
+.wf-inspector{width:302px;}
+.wf-inspector-head{padding:.9rem 1.05rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;gap:.6rem;}
 .wf-inspector-head .wf-node-icon{width:30px;height:30px;font-size:.9rem;}
-.wf-inspector-head h3{font-size:.82rem;}
-.wf-inspector-head p{font-size:.66rem;color:var(--wf-text-3);}
-.wf-inspector-body{flex:1;overflow-y:auto;padding:1rem;}
-.wf-inspector-section-title{font-size:.68rem;font-weight:800;color:var(--wf-text-3);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .5rem;}
+.wf-inspector-head h3{font-size:.84rem;}
+.wf-inspector-head p{font-size:.66rem;color:var(--wf-text-3);margin-top:.1rem;}
+.wf-inspector-body{flex:1;overflow-y:auto;padding:1.05rem;}
+.wf-inspector-section-title{font-size:.68rem;font-weight:800;color:var(--wf-text-3);text-transform:uppercase;letter-spacing:.05em;margin:1.1rem 0 .55rem;}
 .wf-inspector-section-title:first-child{margin-top:0;}
-.wf-var-btn{background:var(--wf-glass);border:1px solid var(--wf-glass-border);color:var(--wf-accent-soft);font-size:.62rem;font-weight:700;border-radius:.4rem;padding:.15rem .4rem;cursor:pointer;flex-shrink:0;}
+.wf-var-btn{background:var(--wf-glass);border:1px solid var(--wf-glass-border);color:var(--wf-accent-soft);font-size:.62rem;font-weight:700;border-radius:var(--wf-radius-xs);padding:.15rem .45rem;cursor:pointer;flex-shrink:0;transition:background var(--wf-dur-fast) ease;}
 .wf-var-btn:hover{background:var(--wf-glass-strong);}
-.wf-var-menu{position:absolute;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.6rem;box-shadow:var(--wf-shadow-lg);z-index:80;max-height:220px;overflow-y:auto;min-width:200px;padding:.3rem;}
-.wf-var-menu button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.4rem .55rem;font-size:.72rem;border-radius:.4rem;cursor:pointer;font-family:var(--wf-font-data);}
+.wf-var-menu{position:absolute;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-sm);box-shadow:var(--wf-shadow-lg);z-index:80;max-height:220px;overflow-y:auto;min-width:200px;padding:.3rem;}
+.wf-var-menu button{width:100%;text-align:start;background:none;border:none;color:var(--wf-text-1);padding:.4rem .55rem;font-size:.72rem;border-radius:var(--wf-radius-xs);cursor:pointer;font-family:var(--wf-font-data);transition:background var(--wf-dur-fast) ease;}
 .wf-var-menu button:hover{background:var(--wf-glass);}
 .wf-var-empty{padding:.5rem;font-size:.7rem;color:var(--wf-text-3);}
 
@@ -292,51 +348,54 @@ html[data-theme="light"] .wf-shell{
 .wf-kv-row .wf-input{flex:1;}
 .wf-tag-chip{display:inline-flex;align-items:center;gap:.3rem;background:var(--wf-glass);border:1px solid var(--wf-glass-border);border-radius:99px;padding:.2rem .6rem;font-size:.68rem;margin:.15rem;}
 .wf-tag-chip button{background:none;border:none;color:var(--wf-text-3);cursor:pointer;padding:0;display:flex;}
-.wf-tags-wrap{display:flex;flex-wrap:wrap;padding:.3rem;border:1px solid var(--wf-glass-border);border-radius:.6rem;background:var(--wf-glass);gap:0;}
+.wf-tags-wrap{display:flex;flex-wrap:wrap;padding:.35rem;border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-xs);background:var(--wf-glass);gap:0;}
 .wf-tags-wrap input{border:none;background:none;color:var(--wf-text-1);font-size:.78rem;padding:.25rem;flex:1;min-width:60px;outline:none;}
 
 /* Versions sidebar */
-.wf-version-panel{width:280px;}
+.wf-version-panel{width:282px;}
 .wf-version-tabs{display:flex;border-bottom:1px solid var(--wf-glass-border);}
-.wf-version-tab{flex:1;text-align:center;padding:.65rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;}
+.wf-version-tab{flex:1;text-align:center;padding:.65rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-bottom:2px solid transparent;transition:color var(--wf-dur-fast) ease;}
+.wf-version-tab:hover{color:var(--wf-text-1);}
 .wf-version-tab.wf-version-tab-active{color:var(--wf-text-1);border-color:var(--wf-accent);}
-.wf-version-body{flex:1;overflow-y:auto;padding:.85rem;}
-.wf-version-item{padding:.75rem;border-radius:.65rem;border:1px solid var(--wf-glass-border);margin-bottom:.6rem;}
-.wf-version-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem;}
+.wf-version-body{flex:1;overflow-y:auto;padding:.9rem;}
+.wf-version-item{padding:.8rem;border-radius:var(--wf-radius-sm);border:1px solid var(--wf-glass-border);margin-bottom:.65rem;background:var(--wf-glass);}
+.wf-version-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;}
 .wf-version-item .wf-vnum{font-family:var(--wf-font-data);font-weight:700;font-size:.82rem;}
-.wf-version-meta{font-size:.66rem;color:var(--wf-text-3);display:flex;flex-direction:column;gap:.15rem;margin-bottom:.5rem;}
+.wf-version-meta{font-size:.66rem;color:var(--wf-text-3);display:flex;flex-direction:column;gap:.2rem;margin-bottom:.55rem;}
 .wf-version-actions{display:flex;gap:.35rem;}
-.wf-readonly-banner{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .85rem;background:rgba(224,168,0,.1);border:1px solid rgba(224,168,0,.3);border-radius:.65rem;font-size:.72rem;color:var(--wf-pill-amber-text);margin:.75rem;line-height:1.7;}
+.wf-readonly-banner{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem .85rem;background:var(--wf-pill-amber-bg);border:1px solid rgba(224,168,0,.3);border-radius:var(--wf-radius-sm);font-size:.72rem;color:var(--wf-pill-amber-text);margin:.75rem;line-height:1.7;}
 .wf-readonly-banner svg{width:16px;height:16px;flex-shrink:0;margin-top:.1rem;}
 
 /* Bottom panel */
 .wf-bottom{border-top:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);flex-shrink:0;display:flex;flex-direction:column;height:230px;transition:height var(--wf-dur-med) var(--wf-ease-snap);}
 .wf-bottom.wf-bottom-collapsed{height:38px;}
-.wf-bottom-tabs{display:flex;align-items:center;gap:.2rem;padding:0 .75rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);}
-.wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;gap:.4rem;}
+.wf-bottom-tabs{display:flex;align-items:center;gap:.15rem;padding:0 .8rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);}
+.wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:var(--wf-radius-xs);display:flex;align-items:center;gap:.4rem;transition:background var(--wf-dur-fast) ease,color var(--wf-dur-fast) ease;}
+.wf-bottom-tab:hover{color:var(--wf-text-1);}
 .wf-bottom-tab.wf-bottom-tab-active{color:var(--wf-text-1);background:var(--wf-glass);}
-.wf-bottom-tab .wf-count{background:var(--wf-glass-strong);border-radius:99px;font-size:.6rem;padding:.05rem .4rem;}
+.wf-bottom-tab .wf-count{background:var(--wf-glass-strong);border-radius:99px;font-size:.6rem;padding:.06rem .42rem;font-weight:700;}
 .wf-bottom-tab .wf-count.wf-count-error{background:var(--wf-pill-red-bg);color:var(--wf-pill-red-text);}
-.wf-bottom-toggle{margin-inline-start:auto;cursor:pointer;color:var(--wf-text-3);padding:.35rem;}
-.wf-bottom-content{flex:1;overflow-y:auto;padding:.75rem 1rem;}
+.wf-bottom-toggle{margin-inline-start:auto;cursor:pointer;color:var(--wf-text-3);padding:.35rem;border-radius:var(--wf-radius-xs);transition:background var(--wf-dur-fast) ease,color var(--wf-dur-fast) ease;}
+.wf-bottom-toggle:hover{color:var(--wf-text-1);background:var(--wf-glass);}
+.wf-bottom-content{flex:1;overflow-y:auto;padding:.8rem 1.05rem;}
 .wf-bottom.wf-bottom-collapsed .wf-bottom-content{display:none;}
-.wf-issue-row{display:flex;align-items:flex-start;gap:.55rem;padding:.55rem;border-radius:.55rem;font-size:.76rem;cursor:pointer;margin-bottom:.3rem;}
+.wf-issue-row{display:flex;align-items:flex-start;gap:.55rem;padding:.55rem;border-radius:var(--wf-radius-xs);font-size:.76rem;cursor:pointer;margin-bottom:.3rem;transition:background var(--wf-dur-fast) ease;}
 .wf-issue-row:hover{background:var(--wf-glass);}
 .wf-issue-row.wf-issue-error svg{color:var(--wf-danger);}
 .wf-issue-row.wf-issue-warn svg{color:var(--wf-pill-amber-text);}
 .wf-issue-row svg{width:15px;height:15px;flex-shrink:0;margin-top:.1rem;}
-.wf-run-row{display:flex;align-items:center;gap:.7rem;padding:.5rem .3rem;border-bottom:1px solid var(--wf-glass-border);font-size:.75rem;}
+.wf-run-row{display:flex;align-items:center;gap:.7rem;padding:.55rem .3rem;border-bottom:1px solid var(--wf-glass-border);font-size:.75rem;}
 .wf-run-row:last-child{border-bottom:none;}
 
 /* Modal (create workflow) */
 .wf-modal-overlay{position:fixed;inset:0;background:rgba(6,11,20,.6);backdrop-filter:blur(3px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
-.wf-modal{background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);width:min(480px,100%);box-shadow:var(--wf-shadow-lg);}
-.wf-modal-head{padding:1.1rem 1.25rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:space-between;}
-.wf-modal-body{padding:1.25rem;max-height:60vh;overflow-y:auto;}
-.wf-modal-foot{padding:1rem 1.25rem;border-top:1px solid var(--wf-glass-border);display:flex;justify-content:flex-end;gap:.6rem;}
+.wf-modal{background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-lg);width:min(480px,100%);box-shadow:var(--wf-shadow-lg);}
+.wf-modal-head{padding:1.1rem 1.3rem;border-bottom:1px solid var(--wf-glass-border);display:flex;align-items:center;justify-content:space-between;}
+.wf-modal-body{padding:1.3rem;max-height:60vh;overflow-y:auto;}
+.wf-modal-foot{padding:1rem 1.3rem;border-top:1px solid var(--wf-glass-border);display:flex;justify-content:flex-end;gap:.6rem;}
 
 .wf-toast-wrap{position:fixed;bottom:1.25rem;inset-inline-end:1.25rem;z-index:900;display:flex;flex-direction:column;gap:.5rem;}
-.wf-toast{background:var(--wf-bg-elevated);color:var(--wf-text-1);border:1px solid var(--wf-glass-border);border-radius:.7rem;padding:.7rem 1rem;font-size:.8rem;box-shadow:var(--wf-shadow-lg);display:flex;align-items:center;gap:.55rem;min-width:220px;animation:wfToastIn .25s var(--wf-ease-snap);}
+.wf-toast{background:var(--wf-bg-elevated);color:var(--wf-text-1);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-sm);padding:.7rem 1rem;font-size:.8rem;box-shadow:var(--wf-shadow-lg);display:flex;align-items:center;gap:.55rem;min-width:220px;animation:wfToastIn .25s var(--wf-ease-snap);}
 .wf-toast.wf-toast-error{border-color:rgba(255,107,107,.4);}
 .wf-toast.wf-toast-success{border-color:rgba(34,197,139,.4);}
 @keyframes wfToastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
@@ -467,18 +526,16 @@ html[data-theme="light"] .wf-shell{
                         </div>
                         <div class="wf-canvas-empty wf-hidden" id="wfCanvasEmpty">
                             <div class="wf-empty">
-                                <div class="wf-empty-icon" style="color:var(--wf-accent-soft);">
-                                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                                </div>
+                                <div class="wf-empty-icon">🧩</div>
                                 <h4>ابدأ ببناء الـ Workflow</h4>
                                 <p>اسحب Node من المكتبة على اليمين وأفلته هنا. ابدأ بمشغّل (Trigger) لتحديد الحدث الذي يشغّل الأتمتة.</p>
                             </div>
                         </div>
                         <div class="wf-canvas-controls">
                             <div class="wf-zoom-group">
-                                <button class="wf-btn wf-btn-icon" id="wfZoomIn" title="تكبير"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                                <button class="wf-btn wf-btn-icon" id="wfZoomIn" title="تكبير">+</button>
                                 <div class="wf-zoom-level" id="wfZoomLevel">100%</div>
-                                <button class="wf-btn wf-btn-icon" id="wfZoomOut" title="تصغير"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                                <button class="wf-btn wf-btn-icon" id="wfZoomOut" title="تصغير">−</button>
                             </div>
                             <button class="wf-btn wf-btn-icon" id="wfZoomFit" title="ملاءمة الكل">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3"/><path d="M21 8V5a2 2 0 00-2-2h-3"/><path d="M3 16v3a2 2 0 002 2h3"/><path d="M16 21h3a2 2 0 002-2v-3"/></svg>
@@ -510,7 +567,7 @@ html[data-theme="light"] .wf-shell{
                         <div class="wf-bottom-tab" data-bottomtab="logs">السجلات (Logs)</div>
                         <div class="wf-bottom-tab" data-bottomtab="timeline">الجدول الزمني</div>
                         <div class="wf-bottom-tab" data-bottomtab="metrics">المقاييس</div>
-                        <div class="wf-bottom-toggle" id="wfBottomToggle" title="طي/فتح" role="button" tabindex="0" aria-label="طي أو فتح لوحة الأسفل">
+                        <div class="wf-bottom-toggle" id="wfBottomToggle" title="طي/فتح">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                         </div>
                     </div>
@@ -592,9 +649,8 @@ function toast(message, type) {
     if (!wrap) return;
     const el = document.createElement('div');
     el.className = 'wf-toast' + (type ? ` wf-toast-${type}` : '');
-    const iconName = type === 'error' ? 'alertTriangle' : type === 'success' ? 'checkCircle' : 'info';
-    const iconColor = type === 'error' ? 'var(--wf-danger)' : type === 'success' ? 'var(--wf-success)' : 'var(--wf-accent-soft)';
-    el.innerHTML = `<span style="display:flex;color:${iconColor}">${ic(iconName, 16)}</span><span>${escapeHtml(message)}</span>`;
+    const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+    el.innerHTML = `<span>${icon}</span><span>${escapeHtml(message)}</span>`;
     wrap.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s ease'; setTimeout(() => el.remove(), 300); }, 3800);
 }
@@ -605,51 +661,6 @@ function isStaffFieldOptional(field) {
     if (field.default !== undefined && field.default !== null && field.default !== '') return true;
     if (typeof field.label === 'string' && field.label.includes('اختياري')) return true;
     return false;
-}
-
-/* =====================================================================
-   مكتبة أيقونات SVG (بدلًا من الإيموجي) — أسلوب Feather-icons، متسقة مع
-   الأيقونات الثابتة الموجودة أصلًا في الـ HTML (stroke=currentColor, viewBox 0 0 24 24)
-   ملاحظة: أيقونات أنواع الـ Nodes (nt.icon/nt.color) تأتي من قاعدة البيانات
-   (wf_node_types) وتبقى كما هي — هذه المكتبة تغطي فقط الرموز المكتوبة يدويًا في الكود.
-   ===================================================================== */
-const ICON_PATHS = {
-    box: '<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
-    alertTriangle: '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
-    zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
-    tag: '<path d="M20.59 13.41L13.42 20.58a2 2 0 01-2.83 0L2.41 12.4A2 2 0 012 11V4a2 2 0 012-2h7a2 2 0 011.41.59l8.18 8.18a2 2 0 010 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
-    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-    pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
-    play: '<polygon points="5 3 19 12 5 21 5 3"/>',
-    pause: '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>',
-    archive: '<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>',
-    barChart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
-    fileText: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
-    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
-    user: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-    tool: '<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',
-    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
-    checkCircle: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
-    x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
-    search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
-    edit: '<path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
-    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>',
-    trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',
-    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
-    minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
-    undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>',
-    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
-};
-/* أيقونة outline (الشكل الافتراضي): ترث currentColor لتتلوّن حسب أب العنصر */
-function ic(name, size) {
-    size = size || 14;
-    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;">${ICON_PATHS[name] || ''}</svg>`;
-}
-/* أيقونة معبّأة (للتشغيل/الإيقاف/النجمة المفعّلة) */
-function icFilled(name, size) {
-    size = size || 14;
-    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" stroke="none" style="flex-shrink:0;vertical-align:-2px;">${ICON_PATHS[name] || ''}</svg>`;
 }
 
 /* =====================================================================
@@ -785,7 +796,6 @@ const DataLayer = {
             .insert({
                 workflow_id: workflowId, version_number: publishedRow.version_number + 1, status: 'draft',
                 definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
-                trigger_event_key: publishedRow.trigger_event_key || null,
                 created_by: created_by || null
             })
             .select().single();
@@ -822,22 +832,11 @@ const DataLayer = {
    نشتق مفتاحًا مبدئيًا من نوع الـ node نفسه (بإزالة بادئة "trigger."). هذه القيمة
    تُخزَّن فقط في wf_workflows.trigger_event_key / wf_workflow_versions.trigger_event_key
    كإشارة أولية، ويجب مراجعتها عند بناء الـ Dispatcher الفعلي. */
-/* دالة مشتركة واحدة لإيجاد مشغّل الـ Workflow — إن وُجد أكثر من مشغّل، يُعتمد الأول
-   دائمًا (بنفس القاعدة في كل مكان: هنا، في validateDefinition، وفي عرض الملخص) */
-function findTriggerNode(definition) {
-    const nodes = definition?.nodes || [];
-    return nodes.find(n => (n.type || '').startsWith('trigger.')) || null;
-}
 function extractTriggerEventKey(definition) {
-    const trigger = findTriggerNode(definition);
+    const nodes = definition?.nodes || [];
+    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return null;
     return trigger.type.replace(/^trigger\./, '');
-}
-/* استخراج إعدادات المشغّل الفعلية (node.config) لحفظها في عمود trigger_config —
-   سابقًا كان trigger_config يبقى {} دائمًا لأن لا شيء كان يربطه بإعدادات الـ node نفسه */
-function extractTriggerConfig(definition) {
-    const trigger = findTriggerNode(definition);
-    return trigger ? (trigger.config || {}) : {};
 }
 
 /* استخراج تصنيف/ملخص مشغّل مشتق للعرض في قائمة الـ Workflows (لا يوجد عمود category،
@@ -846,7 +845,8 @@ function primaryDefinitionSource(workflow) {
     return workflow?.published_version || workflow?.draft_version || null;
 }
 function deriveWorkflowCategory(workflow) {
-    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
+    const nodes = primaryDefinitionSource(workflow)?.definition?.nodes || [];
+    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return 'بدون مشغّل';
     const key = trigger.type;
     if (key.startsWith('trigger.ticket')) return 'التذاكر';
@@ -858,7 +858,8 @@ function deriveWorkflowCategory(workflow) {
 }
 
 function triggerSummary(workflow) {
-    const trigger = findTriggerNode(primaryDefinitionSource(workflow)?.definition);
+    const nodes = primaryDefinitionSource(workflow)?.definition?.nodes || [];
+    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return 'بدون مشغّل بعد';
     const nt = appState.nodeTypesByKey[trigger.type];
     return nt ? (nt.name_ar || nt.name_en) : trigger.type;
@@ -866,7 +867,8 @@ function triggerSummary(workflow) {
 
 /* نفس فكرة triggerSummary لكن تعمل مباشرة على تعريف جلسة مفتوحة في الـ Builder (session.definition) */
 function sessionTriggerSummary(s) {
-    const trigger = findTriggerNode(s.definition);
+    const nodes = s.definition?.nodes || [];
+    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
     if (!trigger) return 'بدون مشغّل بعد';
     const nt = appState.nodeTypesByKey[trigger.type];
     return nt ? (nt.name_ar || nt.name_en) : trigger.type;
@@ -908,7 +910,7 @@ function renderWorkflowList() {
     if (!appState.workflows.length) {
         body.innerHTML = `
             <div class="wf-empty" style="min-height:50vh;">
-                <div class="wf-empty-icon" style="color:var(--wf-accent-soft);">${ic('zap', 24)}</div>
+                <div class="wf-empty-icon">⚡</div>
                 <h4>لا توجد Workflows بعد</h4>
                 <p>الأتمتة تساعدك على تنفيذ إجراءات تلقائية عند حدوث أحداث معيّنة — مثل إرسال رسالة واتساب عند إنشاء تذكرة جديدة. أنشئ أول Workflow لتبدأ.</p>
                 <button class="wf-btn wf-btn-primary" style="margin-top:.5rem;" id="wfEmptyCreateBtn">
@@ -923,7 +925,7 @@ function renderWorkflowList() {
     if (!list.length) {
         body.innerHTML = `
             <div class="wf-empty" style="min-height:40vh;">
-                <div class="wf-empty-icon">${ic('search', 22)}</div>
+                <div class="wf-empty-icon">🔍</div>
                 <h4>لا توجد نتائج</h4>
                 <p>جرّب تغيير كلمات البحث أو إزالة بعض الفلاتر.</p>
             </div>`;
@@ -953,7 +955,7 @@ function workflowCardHtml(w) {
     const category = deriveWorkflowCategory(w);
     const trig = triggerSummary(w);
     const triggerNode = nodes.find(n => (n.type || '').startsWith('trigger.'));
-    const icon = triggerNode ? (appState.nodeTypesByKey[triggerNode.type]?.icon || ic('zap', 17)) : ic('box', 17);
+    const icon = triggerNode ? (appState.nodeTypesByKey[triggerNode.type]?.icon || '⚡') : '🧩';
     return `
     <div class="wf-card wf-wf-card" data-id="${w.id}">
         <div class="wf-wf-card-top">
@@ -972,13 +974,13 @@ function workflowCardHtml(w) {
             <div class="wf-wf-desc">${escapeHtml(w.description || 'بدون وصف')}</div>
         </div>
         <div class="wf-wf-meta">
-            <span title="التصنيف">${ic('tag', 12)} ${escapeHtml(category)}</span>
-            <span title="المشغّل">${ic('zap', 12)} ${escapeHtml(trig)}</span>
-            <span title="عدد العناصر">${ic('box', 12)} ${nodesCount} عنصر</span>
+            <span title="التصنيف">🏷️ ${escapeHtml(category)}</span>
+            <span title="المشغّل">⚡ ${escapeHtml(trig)}</span>
+            <span title="عدد العناصر">🧩 ${nodesCount} عنصر</span>
         </div>
         <div class="wf-wf-meta">
-            <span title="آخر تحديث">${ic('clock', 12)} ${timeAgo(w.updated_at)}</span>
-            <span title="الإصدار المنشور">${w.published_version ? `${ic('pin', 12)} v${w.published_version.version_number}` : '— لم يُنشر بعد'}</span>
+            <span title="آخر تحديث">🕓 ${timeAgo(w.updated_at)}</span>
+            <span title="الإصدار المنشور">${w.published_version ? `📌 v${w.published_version.version_number}` : '— لم يُنشر بعد'}</span>
         </div>
         <div class="wf-wf-actions">
             <button class="wf-btn wf-btn-sm wf-card-edit">فتح</button>
@@ -994,14 +996,14 @@ function toggleCardMenu(btn) {
     if (!w) return;
     const menu = document.createElement('div');
     menu.className = 'wf-dropdown';
-    const pauseLabel = w.status === 'active' ? `${ic('pause', 13)} إيقاف مؤقت` : (w.status === 'paused' ? `${ic('play', 13)} استئناف` : null);
+    const pauseLabel = w.status === 'active' ? '⏸️ إيقاف مؤقت' : (w.status === 'paused' ? '▶️ استئناف' : null);
     menu.innerHTML = `
-        <button data-act="edit">${ic('edit', 13)} فتح للتعديل</button>
-        <button data-act="duplicate">${ic('copy', 13)} تكرار</button>
+        <button data-act="edit">✏️ فتح للتعديل</button>
+        <button data-act="duplicate">📄 تكرار</button>
         ${pauseLabel ? `<button data-act="pause">${pauseLabel}</button>` : ''}
-        ${w.status !== 'archived' ? `<button data-act="archive">${ic('archive', 13)} أرشفة</button>` : ''}
+        ${w.status !== 'archived' ? `<button data-act="archive">🗄️ أرشفة</button>` : ''}
         <hr>
-        <button data-act="delete" class="wf-danger-item">${ic('trash', 13)} حذف نهائي</button>
+        <button data-act="delete" class="wf-danger-item">🗑️ حذف نهائي</button>
     `;
     btn.closest('.wf-menu-btn').appendChild(menu);
     menu.addEventListener('click', async (e) => {
@@ -1025,7 +1027,7 @@ async function refreshWorkflowsList() {
         renderWorkflowList();
     } catch (err) {
         console.error(err);
-        document.getElementById('wfListBody').innerHTML = `<div class="wf-empty"><div class="wf-empty-icon" style="color:var(--wf-danger);">${ic('alertTriangle', 22)}</div><h4>تعذّر تحميل الـ Workflows</h4><p>${escapeHtml(err.message || '')}</p></div>`;
+        document.getElementById('wfListBody').innerHTML = `<div class="wf-empty"><div class="wf-empty-icon">⚠️</div><h4>تعذّر تحميل الـ Workflows</h4><p>${escapeHtml(err.message || '')}</p></div>`;
     }
 }
 
@@ -1041,7 +1043,7 @@ function openCreateWorkflowModal() {
     overlay.innerHTML = `
         <div class="wf-modal">
             <div class="wf-modal-head"><h3 style="font-size:1rem;">Workflow جديد</h3>
-                <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfModalClose">${ic('x', 14)}</button>
+                <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfModalClose">✕</button>
             </div>
             <div class="wf-modal-body">
                 <div class="wf-field"><label>الاسم</label><input class="wf-input" id="wfNewName" placeholder="مثال: ترحيب بالعملاء الجدد" autofocus></div>
@@ -1229,12 +1231,12 @@ function renderTabbar() {
         const dotColor = t.status === 'active' ? 'var(--wf-pill-green-text)' : (t.hasUnsaved ? 'var(--wf-pill-amber-text)' : 'var(--wf-text-3)');
         return `
         <div class="wf-tab ${t.id === appState.activeTabId ? 'wf-tab-active' : ''}" data-tab="${t.id}" title="${escapeHtml(t.name)}">
-            ${t.pinned ? `<span title="مثبّت" style="display:flex;color:var(--wf-accent);">${ic('pin', 12)}</span>` : `<span class="wf-tab-dot" style="background:${dotColor}"></span>`}
+            ${t.pinned ? '<span title="مثبّت">📌</span>' : `<span class="wf-tab-dot" style="background:${dotColor}"></span>`}
             <span class="wf-tab-title">${escapeHtml(t.name)}</span>
             ${t.hasUnsaved ? '<span title="تغييرات غير محفوظة" style="color:var(--wf-pill-amber-text);">•</span>' : ''}
-            <span class="wf-tab-close" data-close="${t.id}">${ic('x', 11)}</span>
+            <span class="wf-tab-close" data-close="${t.id}">✕</span>
         </div>`;
-    }).join('') + `<div class="wf-tab-add" id="wfTabAdd" title="Workflow جديد">${ic('plus', 14)}</div>`;
+    }).join('') + `<div class="wf-tab-add" id="wfTabAdd" title="Workflow جديد">+</div>`;
 
     bar.querySelectorAll('.wf-tab').forEach(el => {
         el.addEventListener('click', (e) => {
@@ -1254,9 +1256,9 @@ function renderTabbar() {
             menu.className = 'wf-dropdown';
             menu.style.position = 'fixed'; menu.style.top = e.clientY + 'px'; menu.style.insetInlineStart = e.clientX + 'px';
             menu.innerHTML = `
-                <button data-a="pin">${ic('pin', 13)} ${t.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</button>
-                <button data-a="dup">${ic('copy', 13)} تكرار</button>
-                <button data-a="close">${ic('x', 13)} إغلاق</button>`;
+                <button data-a="pin">${t.pinned ? '📌 إلغاء التثبيت' : '📌 تثبيت'}</button>
+                <button data-a="dup">📄 تكرار</button>
+                <button data-a="close">✕ إغلاق</button>`;
             document.body.appendChild(menu);
             menu.addEventListener('click', async (ev) => {
                 const a = ev.target.closest('button')?.dataset.a;
@@ -1337,9 +1339,6 @@ async function saveDraft(silent) {
         });
         let verRow = null;
         if (s.draftVersionId) {
-            // إعدادات المشغّل الفعلية تعيش داخل node.config على الـ canvas، وليس في حقل منفصل —
-            // نشتقها من التعريف الحالي في كل حفظ بدل الاعتماد على s.triggerConfig الذي لا يُحدَّث أبدًا لولا هذا
-            s.triggerConfig = extractTriggerConfig(s.definition);
             verRow = await DataLayer.updateDraftVersion(s.draftVersionId, {
                 definition: s.definition,
                 variables: s.variables,
@@ -1371,8 +1370,9 @@ async function publishWorkflow() {
     }
     if (!confirm('نشر هذا الإصدار سيجعله حيًّا الآن. سيتم فتح مسودة جديدة تلقائيًا لمتابعة التعديل بعد النشر. متابعة؟')) return;
     try {
-        // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور (يشمل مزامنة trigger_config)
+        // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور
         await saveDraft(true);
+        s.triggerConfig = s.triggerConfig || {};
         const eventKey = extractTriggerEventKey(s.definition);
         if (eventKey) {
             await DataLayer.updateDraftVersion(s.draftVersionId, { trigger_event_key: eventKey });
@@ -1455,9 +1455,9 @@ function renderNodeLibrary() {
 
     if (!types.length) {
         body.innerHTML = `<div class="wf-empty" style="padding:2rem 1rem;">
-            <div class="wf-empty-icon">${ic('tool', 20)}</div>
+            <div class="wf-empty-icon">🧰</div>
             <h4 style="font-size:.8rem;">${libActiveTab === 'favorites' ? 'لا مفضلات بعد' : libActiveTab === 'recent' ? 'لم تُستخدم عناصر بعد' : 'لا نتائج'}</h4>
-            <p style="font-size:.7rem;display:flex;align-items:center;justify-content:center;gap:.25rem;flex-wrap:wrap;">${libActiveTab === 'favorites' ? `اضغط ${ic('star', 11)} بجانب أي عنصر لإضافته هنا.` : 'جرّب كلمة بحث مختلفة.'}</p>
+            <p style="font-size:.7rem;">${libActiveTab === 'favorites' ? 'اضغط ⭐ بجانب أي عنصر لإضافته هنا.' : 'جرّب كلمة بحث مختلفة.'}</p>
         </div>`;
         return;
     }
@@ -1501,12 +1501,11 @@ function renderNodeLibrary() {
 }
 
 function libItemHtml(nt, favs) {
-    const isFav = favs.includes(nt.key);
     return `
     <div class="wf-lib-item" draggable="true" data-key="${nt.key}" title="${escapeHtml(nt.description || nt.name_ar)}">
-        <div class="wf-lib-icon" style="background:${nt.color}22;color:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+        <div class="wf-lib-icon" style="background:${nt.color}22;color:${nt.color}">${nt.icon || '⚙️'}</div>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(nt.name_ar || nt.name_en)}</span>
-        <span class="wf-lib-fav ${isFav ? 'wf-fav-on' : ''}" data-key="${nt.key}" style="display:flex;">${isFav ? icFilled('star', 13) : ic('star', 13)}</span>
+        <span class="wf-lib-fav ${favs.includes(nt.key) ? 'wf-fav-on' : ''}" data-key="${nt.key}">★</span>
     </div>`;
 }
 
@@ -1536,7 +1535,6 @@ const Canvas = (() => {
         canvasWrap.setAttribute('dir', 'ltr'); // إحداثيات المخطط دائمًا LTR (يمين=مخرج، يسار=مدخل) بصرف النظر عن اتجاه الواجهة
 
         viewport.addEventListener('pointerdown', onViewportPointerDown);
-        viewport.addEventListener('contextmenu', (e) => e.preventDefault());
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         viewport.addEventListener('wheel', onWheel, { passive: false });
@@ -1589,14 +1587,14 @@ const Canvas = (() => {
         const badge = nodeStatusBadge(n, nt, hasError);
         if (!nt) {
             return `<div class="wf-node wf-node-selected" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;border-color:var(--wf-danger)">
-                <div class="wf-node-head"><div class="wf-node-icon" style="background:var(--wf-danger)">${ic('alertTriangle', 14)}</div><div class="wf-node-title">نوع غير معروف: ${escapeHtml(n.type)}</div></div>
+                <div class="wf-node-head"><div class="wf-node-icon" style="background:var(--wf-danger)">⚠️</div><div class="wf-node-title">نوع غير معروف: ${escapeHtml(n.type)}</div></div>
                 <span class="wf-port wf-port-in"></span><span class="wf-port wf-port-out"></span>
             </div>`;
         }
         return `
         <div class="wf-node ${selected ? 'wf-node-selected' : ''}" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;">
             <div class="wf-node-head">
-                <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+                <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || '⚙️'}</div>
                 <div class="wf-node-title">${escapeHtml(n.label || nt.name_ar || nt.name_en)}</div>
                 ${hasError ? '<span title="يوجد خطأ في الإعدادات" style="color:var(--wf-danger)">●</span>' : (hasWarn ? '<span title="ملاحظة" style="color:var(--wf-pill-amber-text)">●</span>' : '')}
             </div>
@@ -1750,7 +1748,6 @@ const Canvas = (() => {
         renderInspector();
 
         if (e.button === 1 || spaceHeld || e.button === 2) {
-            e.preventDefault();
             dragState = { mode: 'pan', startX: e.clientX, startY: e.clientY, startPan: { ...session.view.pan } };
             viewport.classList.add('wf-panning');
         } else {
@@ -2058,14 +2055,7 @@ function validateDefinition(def) {
 
     const triggers = nodes.filter(n => (n.type || '').startsWith('trigger.'));
     if (!triggers.length) issues.push({ level: 'error', msg: 'يجب أن يحتوي الـ Workflow على مشغّل (Trigger) واحد على الأقل', nodeId: null });
-    if (triggers.length > 1) {
-        // النظام الحالي يخزّن مشغّلًا واحدًا فقط لكل Workflow (trigger_event_key) — أي مشغّل إضافي
-        // يُضاف على الـ canvas يُعرض هنا بوضوح كأنه سيُتجاهل تمامًا عند النشر، بدل تحذير عام غامض
-        triggers.slice(1).forEach(t => {
-            const ntName = appState.nodeTypesByKey[t.type]?.name_ar || appState.nodeTypesByKey[t.type]?.name_en || t.type;
-            issues.push({ level: 'warn', msg: `يوجد أكثر من مشغّل واحد — سيُعتمد المشغّل الأول فقط عند النشر، وسيتم تجاهل "${ntName}" ولن يُشغّل الـ Workflow`, nodeId: t.id });
-        });
-    }
+    if (triggers.length > 1) issues.push({ level: 'warn', msg: 'يوجد أكثر من مشغّل (Trigger) واحد — تأكد أن هذا مقصود', nodeId: null });
 
     const incoming = {}; edges.forEach(e => { incoming[e.target] = (incoming[e.target] || 0) + 1; });
     const nodeIds = new Set(nodes.map(n => n.id));
@@ -2106,47 +2096,9 @@ function updateValidationCount(issues) {
     const el = document.getElementById('wfValidationCount');
     if (el) { el.textContent = String(issues.length); el.classList.toggle('wf-count-error', errCount > 0); }
 }
-
 /* =====================================================================
    INSPECTOR — نماذج تتولّد ديناميكيًا بالكامل من config_schema (لا نماذج ثابتة)
    ===================================================================== */
-/* تبسيط أسماء المتغيرات التقنية (dot-notation) إلى تسميات عربية بسيطة تناسب
-   المستخدم العادي — بدل عرض "subscription.user_id" نعرض "معرّف المستخدم".
-   يعمل حصرًا على العرض (label)؛ القيمة الفعلية المُدرَجة في الحقل تبقى {{subscription.user_id}} كما هي. */
-const VAR_WORD_MAP = {
-    user: 'المستخدم', customer: 'العميل', ticket: 'التذكرة', subscription: 'الاشتراك',
-    order: 'الطلب', payment: 'الدفعة', invoice: 'الفاتورة', agent: 'الموظف', staff: 'الموظف',
-    email: 'البريد الإلكتروني', phone: 'الهاتف', name: 'الاسم', full: 'الكامل',
-    plan: 'الخطة', status: 'الحالة', amount: 'المبلغ', total: 'الإجمالي', price: 'السعر',
-    reason: 'السبب', reference: 'المرجع', number: 'الرقم', code: 'الرمز', title: 'العنوان',
-    content: 'المحتوى', body: 'النص', type: 'النوع', category: 'التصنيف', priority: 'الأولوية',
-    subject: 'الموضوع', message: 'الرسالة', url: 'الرابط', link: 'الرابط', channel: 'القناة',
-    notification: 'الإشعار', id: 'الرقم', end: 'الانتهاء', start: 'البدء',
-    created: 'الإنشاء', updated: 'التحديث'
-};
-function humanizeVarKey(key) {
-    const lastSeg = String(key || '').split('.').pop();
-    const tokens = lastSeg.split('_').filter(Boolean).map(t => t.toLowerCase());
-    if (!tokens.length) return null;
-    const last = tokens[tokens.length - 1];
-    if (tokens.length > 1 && last === 'id') {
-        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
-        return base ? `معرّف ${base}` : 'المعرّف';
-    }
-    if (tokens.length > 1 && (last === 'date' || last === 'at')) {
-        const base = tokens.slice(0, -1).map(t => VAR_WORD_MAP[t]).filter(Boolean).join(' ');
-        return base ? `تاريخ ${base}` : 'التاريخ';
-    }
-    const mapped = tokens.map(t => VAR_WORD_MAP[t]).filter(Boolean);
-    return mapped.length ? mapped.join(' ') : null;
-}
-/* التسمية النهائية المعروضة للمستخدم لخيار متغيّر — تُخفي الاسم التقني تمامًا؛
-   إن تعذّرت الترجمة تُعرض فقط تسمية العنصر المصدر (from) دون أي صياغة تقنية */
-function friendlyVarLabel(u) {
-    const humanized = humanizeVarKey(u.v);
-    return humanized ? `${humanized} — ${u.from}` : u.from;
-}
-
 function getUpstreamVariables(session, nodeId) {
     const edges = session.definition.edges, nodes = session.definition.nodes;
     const byId = {}; nodes.forEach(n => byId[n.id] = n);
@@ -2185,8 +2137,8 @@ function renderInspector() {
         wrap.innerHTML = `
         <div class="wf-inspector-head"><h3>تم تحديد ${selectedIds.length} عناصر</h3></div>
         <div class="wf-inspector-body">
-            <button class="wf-btn wf-btn-sm" style="width:100%;margin-bottom:.5rem;" id="wfBulkDup" ${s.readOnly ? 'disabled' : ''}>${ic('copy', 13)} تكرار المحدد</button>
-            <button class="wf-btn wf-btn-sm wf-btn-danger" style="width:100%;" id="wfBulkDel" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف المحدد</button>
+            <button class="wf-btn wf-btn-sm" style="width:100%;margin-bottom:.5rem;" id="wfBulkDup" ${s.readOnly ? 'disabled' : ''}>📄 تكرار المحدد</button>
+            <button class="wf-btn wf-btn-sm wf-btn-danger" style="width:100%;" id="wfBulkDel" ${s.readOnly ? 'disabled' : ''}>🗑️ حذف المحدد</button>
         </div>`;
         document.getElementById('wfBulkDup')?.addEventListener('click', () => Canvas.duplicateSelection());
         document.getElementById('wfBulkDel')?.addEventListener('click', () => Canvas.deleteSelection());
@@ -2208,7 +2160,7 @@ function renderEdgeInspector(s, wrap) {
     <div class="wf-inspector-body">
         <div class="wf-field"><label>من</label><div class="wf-input" style="background:transparent;">${escapeHtml(appState.nodeTypesByKey[sourceNode?.type]?.name_ar || '—')}</div></div>
         <div class="wf-field"><label>إلى</label><div class="wf-input" style="background:transparent;">${escapeHtml(appState.nodeTypesByKey[targetNode?.type]?.name_ar || '—')}</div></div>
-        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteEdge" style="width:100%;" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف الاتصال</button>
+        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteEdge" style="width:100%;" ${s.readOnly ? 'disabled' : ''}>🗑️ حذف الاتصال</button>
     </div>`;
     document.getElementById('wfDeleteEdge')?.addEventListener('click', () => Canvas.deleteSelection());
 }
@@ -2216,7 +2168,7 @@ function renderEdgeInspector(s, wrap) {
 function renderWorkflowInspector(s, wrap) {
     const varsEntries = Object.entries(s.variables || {});
     wrap.innerHTML = `
-    <div class="wf-inspector-head"><div class="wf-node-icon" style="background:var(--wf-primary)">${ic('zap', 15)}</div>
+    <div class="wf-inspector-head"><div class="wf-node-icon" style="background:var(--wf-primary)">⚡</div>
         <div><h3>إعدادات الـ Workflow</h3><p>${(s.definition.nodes || []).length} عنصر</p></div>
     </div>
     <div class="wf-inspector-body">
@@ -2230,7 +2182,7 @@ function renderWorkflowInspector(s, wrap) {
             <div class="wf-kv-row" data-i="${i}">
                 <input class="wf-input" value="${escapeHtml(k)}" data-role="key" ${s.readOnly ? 'disabled' : ''} placeholder="اسم المتغير">
                 <input class="wf-input" value="${escapeHtml(typeof v === 'string' ? v : JSON.stringify(v))}" data-role="val" ${s.readOnly ? 'disabled' : ''} placeholder="القيمة">
-                ${s.readOnly ? '' : `<button class="wf-btn wf-btn-icon wf-btn-sm" data-role="rm">${ic('x', 12)}</button>`}
+                ${s.readOnly ? '' : `<button class="wf-btn wf-btn-icon wf-btn-sm" data-role="rm">✕</button>`}
             </div>`).join('') || '<div class="wf-field-hint">لا توجد متغيرات محدَّدة يدويًا بعد.</div>'}
         </div>
         ${s.readOnly ? '' : '<button class="wf-btn wf-btn-sm" id="wfAddVar">+ إضافة متغير</button>'}
@@ -2271,7 +2223,7 @@ function renderNodeInspector(s, wrap, nodeId) {
 
     wrap.innerHTML = `
     <div class="wf-inspector-head">
-        <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 15)}</div>
+        <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || '⚙️'}</div>
         <div><h3>${escapeHtml(nt.name_ar || nt.name_en)}</h3><p>${CATEGORY_LABELS[nt.category] || nt.category}${nt.handler_type ? '' : ' · بانتظار التنفيذ'}</p></div>
     </div>
     <div class="wf-inspector-body">
@@ -2281,9 +2233,9 @@ function renderNodeInspector(s, wrap, nodeId) {
         ${!fields.length ? '<div class="wf-field-hint">لا توجد إعدادات إضافية لهذا العنصر.</div>' : '<div class="wf-inspector-section-title">الإعدادات</div>'}
         <div id="wfFieldsContainer"></div>
         ${nt.output_vars?.length ? `
-        <div class="wf-inspector-section-title">البيانات المتاحة لاستخدامها لاحقًا</div>
-        <div>${nt.output_vars.map(v => `<span class="wf-tag-chip" title="${escapeHtml(v)}">${escapeHtml(humanizeVarKey(v) || (nt.name_ar || nt.name_en))}</span>`).join('')}</div>` : ''}
-        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteNode" style="width:100%;margin-top:1.2rem;" ${s.readOnly ? 'disabled' : ''}>${ic('trash', 13)} حذف العنصر</button>
+        <div class="wf-inspector-section-title">المخرجات (متاحة للعناصر التالية)</div>
+        <div>${nt.output_vars.map(v => `<span class="wf-tag-chip" style="font-family:var(--wf-font-data);">{{${escapeHtml(v)}}}</span>`).join('')}</div>` : ''}
+        <button class="wf-btn wf-btn-sm wf-btn-danger" id="wfDeleteNode" style="width:100%;margin-top:1.2rem;" ${s.readOnly ? 'disabled' : ''}>🗑️ حذف العنصر</button>
     </div>`;
 
     document.getElementById('wfNodeLabel')?.addEventListener('input', (e) => { node.label = e.target.value; });
@@ -2293,7 +2245,6 @@ function renderNodeInspector(s, wrap, nodeId) {
     const container = document.getElementById('wfFieldsContainer');
     fields.forEach(f => container.appendChild(buildFieldControl(s, node, nt, f, upstream)));
 }
-
 function buildFieldControl(session, node, nt, field, upstream) {
     node.config = node.config || {};
     const wrapDiv = document.createElement('div');
@@ -2308,9 +2259,7 @@ function buildFieldControl(session, node, nt, field, upstream) {
 
     if (field.supports_variables) {
         const varBtn = document.createElement('button');
-        varBtn.className = 'wf-var-btn'; varBtn.type = 'button';
-        varBtn.style.display = 'inline-flex'; varBtn.style.alignItems = 'center'; varBtn.style.gap = '.25rem';
-        varBtn.innerHTML = `${ic('tag', 11)} إدراج بيانات`;
+        varBtn.className = 'wf-var-btn'; varBtn.type = 'button'; varBtn.textContent = '{{ }} إدراج متغير';
         varBtn.disabled = disabled;
         varBtn.addEventListener('click', (e) => openVarMenu(e, upstream, (chosen) => {
             const el = wrapDiv.querySelector('textarea,input[type=text]');
@@ -2361,13 +2310,13 @@ function buildFieldControl(session, node, nt, field, upstream) {
         case 'variable_picker': {
             control = document.createElement('select');
             control.className = 'wf-select'; control.disabled = disabled;
-            control.innerHTML = '<option value="">— اختر —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(friendlyVarLabel(u))}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
+            control.innerHTML = '<option value="">— اختر متغيّرًا —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(u.v)} — ${escapeHtml(u.from)}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
             const current = node.config[field.key] ?? '';
             if (upstream.some(u => `{{${u.v}}}` === current) || current === '') control.value = current;
             else control.value = '__manual__';
             control.addEventListener('change', () => {
                 if (control.value === '__manual__') {
-                    const manual = prompt('اكتب القيمة يدويًا:', current || '');
+                    const manual = prompt('اكتب القيمة أو اسم المتغيّر يدويًا:', current || '');
                     if (manual !== null) { node.config[field.key] = manual; }
                 } else node.config[field.key] = control.value;
                 commit();
@@ -2441,7 +2390,7 @@ function buildTagsControl(initial, disabled, onChange) {
             const chip = document.createElement('span'); chip.className = 'wf-tag-chip';
             chip.innerHTML = `<span>${escapeHtml(t)}</span>`;
             if (!disabled) {
-                const rm = document.createElement('button'); rm.innerHTML = ic('x', 10); rm.type = 'button';
+                const rm = document.createElement('button'); rm.textContent = '✕'; rm.type = 'button';
                 rm.addEventListener('click', () => { tags.splice(i, 1); onChange(tags); redraw(); });
                 chip.appendChild(rm);
             }
@@ -2469,7 +2418,7 @@ function buildKeyValueControl(initial, disabled, onChange) {
             const row = document.createElement('div'); row.className = 'wf-kv-row';
             row.innerHTML = `<input class="wf-input" data-role="k" value="${escapeHtml(k)}" placeholder="المفتاح" ${disabled ? 'disabled' : ''}>
                               <input class="wf-input" data-role="v" value="${escapeHtml(v)}" placeholder="القيمة" ${disabled ? 'disabled' : ''}>
-                              ${disabled ? '' : `<button class="wf-btn wf-btn-icon wf-btn-sm" type="button" data-role="rm">${ic('x', 12)}</button>`}`;
+                              ${disabled ? '' : '<button class="wf-btn wf-btn-icon wf-btn-sm" type="button" data-role="rm">✕</button>'}`;
             const commitRow = () => {
                 const nk = row.querySelector('[data-role="k"]').value.trim();
                 const nv = row.querySelector('[data-role="v"]').value;
@@ -2500,8 +2449,8 @@ function openVarMenu(e, upstream, onPick) {
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
     menu.style.insetInlineStart = (rect.left + window.scrollX) + 'px';
     menu.innerHTML = upstream.length
-        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('')
-        : '<div class="wf-var-empty">لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
+        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(u.v)} <span style="color:var(--wf-text-3);">— ${escapeHtml(u.from)}</span></button>`).join('')
+        : '<div class="wf-var-empty">لا توجد متغيرات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
     document.body.appendChild(menu);
     menu.addEventListener('click', (ev) => { const v = ev.target.closest('button')?.dataset.v; if (v) { onPick(v); menu.remove(); } });
     setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
@@ -2522,12 +2471,6 @@ document.getElementById('wfBottomToggle')?.addEventListener('click', (e) => {
     e.stopPropagation();
     document.getElementById('wfBottomPanel').classList.toggle('wf-bottom-collapsed');
 });
-document.getElementById('wfBottomToggle')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault(); e.stopPropagation();
-        document.getElementById('wfBottomPanel').classList.toggle('wf-bottom-collapsed');
-    }
-});
 
 function renderBottomPanel() {
     const s = activeSession();
@@ -2537,16 +2480,16 @@ function renderBottomPanel() {
     if (bottomActiveTab === 'runs') return renderRunsTab(s, content);
     // TODO: لا يوجد بعد Executor فعلي يملأ wf_run_steps (handler_type لمعظم wf_node_types لا يزال NULL).
     // بمجرد بناء محرك التنفيذ، تُستبدل هذه اللوحات باستعلامات حقيقية على wf_run_steps لكل wf_runs.id محدَّد.
-    if (bottomActiveTab === 'logs') return renderPlaceholderTab(content, 'fileText', 'السجلات (Logs)', 'ستعرض هذه اللوحة سجلًا تفصيليًا لكل خطوة تنفيذ (المدخلات، المخرجات، الأخطاء) بمجرد تفعيل محرك التنفيذ (Executor) وربطه بهذا الـ Workflow. الجدول wf_run_steps جاهز فعليًا لاستقبال هذه البيانات.');
-    if (bottomActiveTab === 'timeline') return renderPlaceholderTab(content, 'clock', 'الجدول الزمني', 'سيعرض الجدول الزمني تسلسل تنفيذ العناصر لحظة بلحظة لكل تشغيل (Run)، بما في ذلك التأخيرات وحالات الانتظار (عبر wf_scheduled_resumes)، فور تفعيل محرك التنفيذ.');
-    if (bottomActiveTab === 'metrics') return renderPlaceholderTab(content, 'barChart', 'المقاييس', 'ستظهر هنا مقاييس الأداء: عدد مرات التشغيل، نسبة النجاح، متوسط وقت التنفيذ لكل عنصر — بمجرد توفر بيانات تشغيل فعلية في wf_runs / wf_run_steps.');
+    if (bottomActiveTab === 'logs') return renderPlaceholderTab(content, '📜', 'السجلات (Logs)', 'ستعرض هذه اللوحة سجلًا تفصيليًا لكل خطوة تنفيذ (المدخلات، المخرجات، الأخطاء) بمجرد تفعيل محرك التنفيذ (Executor) وربطه بهذا الـ Workflow. الجدول wf_run_steps جاهز فعليًا لاستقبال هذه البيانات.');
+    if (bottomActiveTab === 'timeline') return renderPlaceholderTab(content, '🕒', 'الجدول الزمني', 'سيعرض الجدول الزمني تسلسل تنفيذ العناصر لحظة بلحظة لكل تشغيل (Run)، بما في ذلك التأخيرات وحالات الانتظار (عبر wf_scheduled_resumes)، فور تفعيل محرك التنفيذ.');
+    if (bottomActiveTab === 'metrics') return renderPlaceholderTab(content, '📊', 'المقاييس', 'ستظهر هنا مقاييس الأداء: عدد مرات التشغيل، نسبة النجاح، متوسط وقت التنفيذ لكل عنصر — بمجرد توفر بيانات تشغيل فعلية في wf_runs / wf_run_steps.');
 }
 
 function renderValidationTab(s, content) {
     const issues = validateDefinition(s.definition);
     updateValidationCount(issues);
     if (!issues.length) {
-        content.innerHTML = `<div class="wf-empty" style="padding:1.2rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;color:var(--wf-success);">${ic('checkCircle', 18)}</div><h4 style="font-size:.8rem;">لا توجد مشاكل</h4><p style="font-size:.72rem;">الـ Workflow جاهز للنشر من ناحية صحة الإعدادات.</p></div>`;
+        content.innerHTML = `<div class="wf-empty" style="padding:1.2rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;font-size:1.1rem;">✅</div><h4 style="font-size:.8rem;">لا توجد مشاكل</h4><p style="font-size:.72rem;">الـ Workflow جاهز للنشر من ناحية صحة الإعدادات.</p></div>`;
         return;
     }
     content.innerHTML = issues.map(i => {
@@ -2564,8 +2507,8 @@ function renderValidationTab(s, content) {
     }));
 }
 
-function renderPlaceholderTab(content, iconName, title, desc) {
-    content.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;">${ic(iconName, 18)}</div><h4 style="font-size:.8rem;">${escapeHtml(title)}</h4><p style="font-size:.72rem;">${escapeHtml(desc)}</p></div>`;
+function renderPlaceholderTab(content, icon, title, desc) {
+    content.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;"><div class="wf-empty-icon" style="width:36px;height:36px;font-size:1.1rem;">${icon}</div><h4 style="font-size:.8rem;">${escapeHtml(title)}</h4><p style="font-size:.72rem;">${escapeHtml(desc)}</p></div>`;
 }
 
 const RUN_STATUS_BADGE = { pending: 'wf-badge-gray', running: 'wf-badge-blue', waiting: 'wf-badge-amber', completed: 'wf-badge-green', failed: 'wf-badge-red', cancelled: 'wf-badge-gray' };
@@ -2578,7 +2521,7 @@ function renderRunsTab(s, content) {
         return;
     }
     if (!s.runsCache.length) {
-        renderPlaceholderTab(content, 'activity', 'سجل التشغيل', 'لم يعمل هذا الـ Workflow بعد. بمجرد تفعيل محرك التنفيذ (Executor) وبدء تشغيله فعليًا، سيظهر هنا كل Run بحالته ووقته.');
+        renderPlaceholderTab(content, '🏃', 'سجل التشغيل', 'لم يعمل هذا الـ Workflow بعد. بمجرد تفعيل محرك التنفيذ (Executor) وبدء تشغيله فعليًا، سيظهر هنا كل Run بحالته ووقته.');
         return;
     }
     content.innerHTML = s.runsCache.map(r => `
@@ -2588,7 +2531,6 @@ function renderRunsTab(s, content) {
             <span style="margin-inline-start:auto;color:var(--wf-text-3);">v${r.workflow_version_number ?? '—'}</span>
         </div>`).join('');
 }
-
 /* =====================================================================
    VERSIONS SIDEBAR (يعمل على جدول wf_workflow_versions الحقيقي)
    ===================================================================== */
@@ -2617,7 +2559,7 @@ async function renderVersionsPanel() {
 
         if (!versions.length) {
             body.innerHTML = `<div class="wf-empty" style="padding:1rem;min-height:auto;">
-                <div class="wf-empty-icon" style="width:36px;height:36px;">${ic('archive', 18)}</div>
+                <div class="wf-empty-icon" style="width:36px;height:36px;font-size:1.1rem;">🗂️</div>
                 <h4 style="font-size:.8rem;">لا يوجد سجل بعد</h4>
                 <p style="font-size:.72rem;">سيظهر هنا كل إصدار (Version) تم إنشاؤه لهذا الـ Workflow، بدءًا من أول مسودة.</p>
             </div>`;
@@ -2631,10 +2573,10 @@ async function renderVersionsPanel() {
                     <span class="wf-badge ${v.status === 'published' ? 'wf-badge-green' : (v.status === 'archived' ? 'wf-badge-red' : 'wf-badge-gray')}">${VERSION_STATUS_LABEL[v.status] || v.status}</span>
                 </div>
                 <div class="wf-version-meta">
-                    <span>${ic('box', 11)} ${(v.definition?.nodes || []).length} عنصر</span>
-                    <span>${ic('clock', 11)} ${timeAgo(v.published_at || v.created_at)}</span>
+                    <span>🧩 ${(v.definition?.nodes || []).length} عنصر</span>
+                    <span>🕓 ${timeAgo(v.published_at || v.created_at)}</span>
                 </div>
-                ${(v.id !== s.draftVersionId && !s.readOnly) ? `<button class="wf-btn wf-btn-sm" data-restore="${v.id}" style="width:100%;">${ic('undo', 13)} استخدام كمسودة حالية</button>` : ''}
+                ${(v.id !== s.draftVersionId && !s.readOnly) ? `<button class="wf-btn wf-btn-sm" data-restore="${v.id}" style="width:100%;">↩️ استخدام كمسودة حالية</button>` : ''}
             </div>`).join('');
 
         body.querySelectorAll('[data-restore]').forEach(btn => btn.addEventListener('click', async () => {
@@ -2669,12 +2611,12 @@ async function renderVersionsPanel() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
                 <span>هذا الـ Workflow مؤرشف وللقراءة فقط. لإعادة استخدامه، كرّره كمسودة جديدة.</span>
             </div>
-            <button class="wf-btn wf-btn-sm" id="wfVersionDuplicate" style="width:100%;">${ic('copy', 13)} تكرار كمسودة جديدة</button>
+            <button class="wf-btn wf-btn-sm" id="wfVersionDuplicate" style="width:100%;">📄 تكرار كمسودة جديدة</button>
         `;
     } else {
         actionsHtml = `<button class="wf-btn wf-btn-primary wf-btn-sm" id="wfVersionPublish" style="width:100%;margin-bottom:.5rem;">${s.publishedVersion ? 'نشر التحديثات' : 'نشر هذه المسودة'}</button>`;
         if (s.status === 'active' || s.status === 'paused') {
-            actionsHtml += `<button class="wf-btn wf-btn-sm" id="wfVersionPauseToggle" style="width:100%;">${s.status === 'active' ? `${ic('pause', 13)} إيقاف مؤقت` : `${ic('play', 13)} استئناف`}</button>`;
+            actionsHtml += `<button class="wf-btn wf-btn-sm" id="wfVersionPauseToggle" style="width:100%;">${s.status === 'active' ? '⏸️ إيقاف مؤقت' : '▶️ استئناف'}</button>`;
         }
     }
 
@@ -2685,9 +2627,9 @@ async function renderVersionsPanel() {
                 <span class="wf-badge wf-badge-gray">مسودة</span>
             </div>
             <div class="wf-version-meta">
-                <span>${ic('user', 11)} ${escapeHtml(authorName)}</span>
-                <span>${ic('clock', 11)} آخر تحديث: ${timeAgo(s.updatedAt)}</span>
-                <span>${ic('box', 11)} ${(s.definition.nodes || []).length} عنصر</span>
+                <span>👤 ${escapeHtml(authorName)}</span>
+                <span>🕓 آخر تحديث: ${timeAgo(s.updatedAt)}</span>
+                <span>🧩 ${(s.definition.nodes || []).length} عنصر</span>
             </div>
         </div>
         ${s.publishedVersion ? `
@@ -2697,7 +2639,7 @@ async function renderVersionsPanel() {
                 <span class="wf-badge ${STATUS_BADGE_CLASS[s.status] || 'wf-badge-gray'}">${STATUS_LABEL[s.status] || s.status}</span>
             </div>
             <div class="wf-version-meta">
-                <span>${ic('clock', 11)} نُشر: ${timeAgo(s.publishedVersion.published_at)}</span>
+                <span>🕓 نُشر: ${timeAgo(s.publishedVersion.published_at)}</span>
             </div>
         </div>` : ''}
         <div class="wf-version-actions" style="flex-direction:column;">${actionsHtml}</div>
@@ -2753,7 +2695,6 @@ async function init() {
 }
 
 init();
-
     </script>
 </body>
 </html>
