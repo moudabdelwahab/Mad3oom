@@ -1,297 +1,1137 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <script src="/error-tracker.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>توثيق API - منصة مدعوم</title>
-    <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    <link rel="stylesheet" href="/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-blue: #003366;
-            --code-bg: #1e1e1e;
-            --code-text: #d4d4d4;
-            --sidebar-width: 280px;
-        }
-        body { 
-            font-family: 'Cairo', sans-serif; 
-            background-color: #f8fafc; 
-            margin: 0; 
-            display: flex;
-        }
-        .sidebar {
-            width: var(--sidebar-width);
-            background: white;
-            height: 100vh;
-            position: fixed;
-            right: 0;
-            top: 0;
-            border-left: 1px solid #e2e8f0;
-            padding: 2rem 1rem;
-            overflow-y: auto;
-        }
-        .main-content {
-            margin-right: var(--sidebar-width);
-            padding: 3rem;
-            width: calc(100% - var(--sidebar-width)); /* لضمان عدم التداخل */
-            max-width: 900px; /* يمكن تعديلها حسب الحاجة */
-            box-sizing: border-box; /* لضمان احتساب البادينغ ضمن العرض */
-        }
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: #475569;
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            transition: all 0.2s;
-        }
-        .nav-item:hover, .nav-item.active {
-            background: #f1f5f9;
-            color: var(--primary-blue);
-            font-weight: 600;
-        }
-        .doc-section {
-            background: white;
-            padding: 2.5rem;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-bottom: 3rem;
-        }
-        h1 { color: var(--primary-blue); font-size: 2.5rem; margin-bottom: 1.5rem; }
-        h2 { color: var(--primary-blue); border-bottom: 2px solid #f1f5f9; padding-bottom: 0.5rem; margin-top: 2rem; }
-        p { line-height: 1.8; color: #334155; }
-        
-        .code-block {
-            background: var(--code-bg);
-            color: var(--code-text);
-            padding: 1.5rem;
-            border-radius: 12px;
-            direction: ltr;
-            text-align: left;
-            font-family: 'Fira Code', monospace;
-            position: relative;
-            margin: 1.5rem 0;
-            overflow-x: auto;
-        }
-        .lang-badge {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: #333;
-            color: #aaa;
-            padding: 4px 12px;
-            font-size: 0.75rem;
-            border-bottom-left-radius: 8px;
-        }
-        .method-badge {
-            background: #10b981;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 0.9rem;
-            margin-left: 10px;
-        }
-        .endpoint {
-            background: #f1f5f9;
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: monospace;
-            direction: ltr;
-            text-align: left;
-            margin: 1rem 0;
-            border: 1px solid #e2e8f0;
-        }
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            color: var(--primary-blue);
-            font-weight: 700;
-            margin-bottom: 2rem;
-        }
-        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
-        th, td { text-align: right; padding: 12px; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f8fafc; color: #475569; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('theme-preference');
+    if(t !== 'light' && t !== 'dark'){ t = 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<title>توثيق المطورين | API · MCP · OAuth 2.1 — مدعوم</title>
+<meta name="description" content="التوثيق الكامل لمفاتيح API، خادم MCP، وتدفق OAuth 2.1 في منصة مدعوم — مبني مباشرة من الكود الفعلي.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234DA3FF'/%3E%3Cstop offset='1' stop-color='%230077CC'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='%23071023'/%3E%3Ccircle cx='50' cy='46' r='26' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='18' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ Tokens (identical to index.html) ============ */
+:root{
+  --bg-void:#060B14;
+  --bg-surface:#0D1622;
+  --bg-elevated:#121F30;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.09);
+  --primary:#0077CC;
+  --primary-deep:#00234A;
+  --accent:#4DA3FF;
+  --accent-soft:#8FC7FF;
+  --success:#2E90FA;
+  --danger:#FF6B6B;
+  --warn:#F5A524;
+  --mcp-color:#2563EB;
+  --mcp-soft:#93C5FD;
+  --text-1:#F3F6FB;
+  --text-2:#94A6C2;
+  --text-3:#5A6A82;
+  --radius-lg:1.5rem;
+  --radius-md:1rem;
+  --radius-sm:.6rem;
+  --shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --font-display:'Cairo',sans-serif;
+  --font-body:'IBM Plex Sans Arabic',sans-serif;
+  --font-data:'Space Grotesk',monospace;
+  --container:1240px;
+  --pad:clamp(1.25rem,4vw,3rem);
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-fast:.18s;
+  --dur-med:.35s;
+  --term-bg:#0B1220;
+  --term-card:#131C2E;
+  --term-border:#22304A;
+  --term-ink:#E7ECF7;
+  --term-ink-2:#8493AA;
+  --term-green:#38BDF8;
+  --scrim:rgba(6,11,20,.75);
+  --scrim-strong:rgba(6,11,20,.98);
+  --btn-outline-bg:rgba(255,255,255,.03);
+  --dot-color:rgba(255,255,255,.05);
+}
+[data-theme="light"]{
+  --bg-void:#F3F6FC;
+  --bg-surface:#FFFFFF;
+  --bg-elevated:#EDF2FA;
+  --glass:rgba(16,27,46,.035);
+  --glass-strong:rgba(16,27,46,.06);
+  --glass-border:rgba(16,27,46,.09);
+  --text-1:#101B2E;
+  --text-2:#4B5A72;
+  --text-3:#8493AA;
+  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.22);
+  --scrim:rgba(255,255,255,.85);
+  --scrim-strong:rgba(255,255,255,.98);
+  --btn-outline-bg:rgba(16,27,46,.035);
+  --dot-color:rgba(16,27,46,.05);
+  --term-bg:#0E1626;
+  --term-card:#0B1220;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-1);line-height:1.75;overflow-x:hidden;position:relative;}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.18), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 20%, rgba(37,99,235,.10), transparent 55%),
+    var(--bg-void);}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+a{color:inherit;text-decoration:none;}
+ul,ol{list-style:none;}
+button{font-family:inherit;}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.3;letter-spacing:-.01em;}
+code, pre, kbd{font-family:var(--font-data);}
+::selection{background:var(--primary);color:#fff;}
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
+.container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);}
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.1rem;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.eyebrow.mcp{color:var(--mcp-soft);background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.3);}
+.eyebrow.mcp .dot{background:var(--mcp-color);box-shadow:0 0 8px var(--mcp-color);}
+.eyebrow.fixed{color:var(--success);background:rgba(46,144,250,.12);border-color:rgba(46,144,250,.3);}
+.eyebrow.fixed .dot{background:var(--success);box-shadow:0 0 8px var(--success);}
+.gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.gradient-text.mcp{background:linear-gradient(90deg,var(--mcp-soft),var(--mcp-color),#8FC7FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.4rem;border-radius:.75rem;font-weight:700;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) var(--ease-snap), background var(--dur-fast) ease, border-color var(--dur-fast) ease;white-space:nowrap;}
+.btn:active{transform:translateY(1px) scale(.97);}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(0,119,204,.7);}
+.btn-mcp{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;box-shadow:0 12px 30px -10px rgba(37,99,235,.5);}
+.btn-mcp:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(37,99,235,.65);}
+.btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);}
+.btn-sm{padding:.5rem 1rem;font-size:.78rem;border-radius:.6rem;}
+
+/* ============ Navbar ============ */
+.navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:.85rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
+.navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.55rem 0;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.65rem;}
+.brand-mark{width:38px;height:38px;border-radius:.75rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;}
+.brand-mark svg{width:20px;height:20px;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1rem;}
+.brand-text small{font-size:.62rem;color:var(--text-2);font-weight:600;}
+.nav-cta{display:flex;align-items:center;gap:.6rem;}
+.theme-toggle{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.theme-toggle:hover{border-color:var(--accent-soft);transform:rotate(-12deg) scale(1.06);}
+.theme-toggle svg{width:17px;height:17px;}
+.theme-toggle .sun-icon{display:block;}
+.theme-toggle .moon-icon{display:none;}
+[data-theme="light"] .theme-toggle .sun-icon{display:none;}
+[data-theme="light"] .theme-toggle .moon-icon{display:block;}
+
+/* ============ Doc hero ============ */
+.doc-hero{padding:clamp(6.5rem,10vw,8rem) 0 2.5rem;position:relative;}
+.doc-hero h1{font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:1rem;max-width:760px;}
+.doc-hero p{color:var(--text-2);font-size:1.02rem;max-width:640px;margin-bottom:1.5rem;}
+.doc-hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.75rem;}
+.meta-chip{display:inline-flex;align-items:center;gap:.4rem;background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.76rem;font-weight:600;padding:.4rem .8rem;border-radius:99px;}
+.meta-chip svg{width:13px;height:13px;color:var(--accent-soft);}
+.doc-hero-actions{display:flex;gap:.75rem;flex-wrap:wrap;}
+
+/* ============ Layout: sidebar + content ============ */
+.doc-layout{display:grid;grid-template-columns:240px 1fr;gap:2.5rem;align-items:start;padding-bottom:6rem;}
+.doc-sidebar{position:sticky;top:5.5rem;max-height:calc(100vh - 7rem);overflow-y:auto;padding-inline-end:.5rem;}
+.doc-sidebar::-webkit-scrollbar{width:4px;}
+.doc-sidebar::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:4px;}
+.doc-nav-group{margin-bottom:1.5rem;}
+.doc-nav-group h6{font-size:.68rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.6rem;padding-inline-start:.85rem;}
+.doc-nav-group a{display:block;padding:.45rem .85rem;font-size:.85rem;color:var(--text-2);border-inline-start:2px solid transparent;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease, background var(--dur-fast) ease;border-radius:0 .5rem .5rem 0;font-weight:600;}
+.doc-nav-group a:hover{color:var(--text-1);background:var(--glass);}
+.doc-nav-group a.active{color:var(--accent-soft);border-inline-start-color:var(--accent);background:var(--glass);}
+.doc-nav-group a.mcp.active{color:var(--mcp-soft);border-inline-start-color:var(--mcp-color);}
+@media (max-width:980px){.doc-layout{grid-template-columns:1fr;}.doc-sidebar{position:static;max-height:none;display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.5rem;}.doc-nav-group{margin-bottom:0;display:flex;gap:.4rem;}.doc-nav-group h6{display:none;}.doc-nav-group a{white-space:nowrap;border-inline-start:none;border-bottom:2px solid transparent;}.doc-nav-group a.active{border-bottom-color:var(--accent);}}
+
+.doc-main{min-width:0;}
+.doc-section{padding-bottom:3.5rem;margin-bottom:1rem;border-bottom:1px solid var(--glass-border);scroll-margin-top:5.5rem;}
+.doc-section:last-child{border-bottom:none;}
+.doc-section-head{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;}
+.doc-num{font-family:var(--font-data);font-size:.78rem;font-weight:700;color:var(--text-3);}
+.doc-section h2{font-size:clamp(1.35rem,2.6vw,1.75rem);}
+.doc-section > p.lead{color:var(--text-2);font-size:.98rem;margin-bottom:1.5rem;max-width:760px;}
+.doc-section h3{font-size:1.05rem;margin:1.75rem 0 .85rem;color:var(--text-1);}
+.doc-section p{color:var(--text-2);font-size:.92rem;margin-bottom:.9rem;max-width:760px;}
+.doc-section p strong{color:var(--text-1);}
+
+/* ============ Cards & callouts ============ */
+.card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.25rem 1.4rem;margin-bottom:1rem;}
+.card h4{font-size:.92rem;margin-bottom:.5rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;}
+.callout{display:flex;gap:.75rem;background:rgba(245,165,36,.08);border:1px solid rgba(245,165,36,.28);border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.25rem 0;}
+.callout svg{width:18px;height:18px;color:var(--warn);flex-shrink:0;margin-top:.15rem;}
+.callout.danger{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.28);}
+.callout.danger svg{color:var(--danger);}
+.callout.success{background:rgba(46,144,250,.08);border-color:rgba(46,144,250,.28);}
+.callout.success svg{color:var(--success);}
+.callout p{margin:0;font-size:.86rem;color:var(--text-2);}
+.callout p strong{color:var(--text-1);}
+
+/* ============ Architecture diagram ============ */
+.arch-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.5rem 0 2rem;}
+.arch-box{background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem;text-align:center;position:relative;}
+.arch-box.center{border-color:rgba(77,163,255,.4);box-shadow:0 0 0 1px rgba(77,163,255,.15) inset;}
+.arch-box .arch-ic{width:34px;height:34px;border-radius:.6rem;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;margin:0 auto .6rem;}
+.arch-box.center .arch-ic{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));}
+.arch-box .arch-ic svg{width:17px;height:17px;color:#fff;}
+.arch-box h5{font-size:.82rem;margin-bottom:.3rem;}
+.arch-box p{font-size:.72rem;color:var(--text-3);margin:0;}
+@media (max-width:700px){.arch-flow{grid-template-columns:1fr;}}
+
+/* ============ Code blocks (terminal style, matches MCP mock in index.html) ============ */
+.code-block{background:var(--term-bg);border:1px solid var(--term-border);border-radius:var(--radius-md);overflow:hidden;margin:1.1rem 0;box-shadow:var(--shadow-lg);}
+.code-block-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;background:linear-gradient(90deg,#0A1220,#101B30);border-bottom:1px solid var(--term-border);}
+.code-block-dots{display:flex;gap:.35rem;}
+.code-block-dots span{width:9px;height:9px;border-radius:50%;background:var(--glass-border);}
+.code-block-label{font-family:var(--font-data);font-size:.7rem;color:var(--term-ink-2);font-weight:600;}
+.code-block-copy{background:none;border:1px solid var(--term-border);color:var(--term-ink-2);font-size:.65rem;font-weight:700;padding:.25rem .6rem;border-radius:.4rem;cursor:pointer;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease;}
+.code-block-copy:hover{color:var(--accent-soft);border-color:var(--accent-soft);}
+.code-block pre{margin:0;padding:1rem 1.1rem;overflow-x:auto;font-size:.78rem;line-height:1.7;color:var(--term-ink);direction:ltr;text-align:left;}
+.code-block code{color:var(--term-ink);}
+.tok-key{color:var(--mcp-soft);}
+.tok-str{color:var(--term-green);}
+.tok-num{color:var(--accent-soft);}
+.tok-com{color:var(--term-ink-2);}
+.tok-fn{color:#F5A524;}
+
+/* ============ Tables ============ */
+.doc-table-wrap{overflow-x:auto;margin:1.1rem 0;border-radius:var(--radius-md);border:1px solid var(--glass-border);}
+table.doc-table{width:100%;border-collapse:collapse;min-width:520px;background:var(--glass);}
+table.doc-table th, table.doc-table td{padding:.7rem 1rem;text-align:right;font-size:.82rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);vertical-align:top;}
+table.doc-table th{color:var(--text-1);font-weight:700;background:var(--glass-strong);font-size:.78rem;}
+table.doc-table tr:last-child td{border-bottom:none;}
+table.doc-table tbody tr:hover td{background:rgba(77,163,255,.04);}
+table.doc-table code{background:var(--glass-strong);padding:.1rem .4rem;border-radius:.3rem;font-size:.76rem;color:var(--accent-soft);}
+.scope-pill{display:inline-block;background:rgba(37,99,235,.12);color:var(--mcp-soft);font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:99px;font-family:var(--font-data);margin:.1rem;}
+.method-pill{display:inline-flex;align-items:center;font-family:var(--font-data);font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:.35rem;}
+.method-post{background:rgba(46,144,250,.14);color:var(--success);}
+.method-get{background:rgba(77,163,255,.14);color:var(--accent-soft);}
+
+/* ============ Endpoint rows ============ */
+.endpoint-row{display:flex;align-items:center;gap:.7rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:.65rem;padding:.65rem .9rem;margin-bottom:.5rem;flex-wrap:wrap;}
+.endpoint-row code{font-family:var(--font-data);font-size:.82rem;color:var(--text-1);}
+.endpoint-row .arrow{color:var(--text-3);}
+.endpoint-row .dest{font-size:.76rem;color:var(--text-3);font-family:var(--font-data);}
+
+/* ============ Steps (OAuth flow) ============ */
+.step-list{counter-reset:step;margin:1.25rem 0;}
+.step-item{position:relative;padding-inline-start:2.75rem;padding-bottom:1.5rem;border-inline-start:2px solid var(--glass-border);}
+.step-item:last-child{border-color:transparent;padding-bottom:0;}
+.step-item::before{counter-increment:step;content:counter(step);position:absolute;inline-size:1.9rem;block-size:1.9rem;inset-inline-start:-1rem;top:0;background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;font-family:var(--font-data);}
+.step-item h5{font-size:.92rem;margin-bottom:.35rem;}
+.step-item p{font-size:.85rem;margin-bottom:.5rem;}
+
+/* ============ Function reference grid ============ */
+.fn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem;margin:1.25rem 0;}
+.fn-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:.7rem;padding:.9rem 1rem;}
+.fn-card .fn-name{font-family:var(--font-data);font-size:.8rem;color:var(--accent-soft);font-weight:700;margin-bottom:.3rem;word-break:break-all;}
+.fn-card .fn-desc{font-size:.76rem;color:var(--text-3);}
+.fn-card .fn-jwt{display:inline-block;margin-top:.4rem;font-size:.62rem;font-weight:700;padding:.1rem .45rem;border-radius:99px;}
+.fn-jwt.on{background:rgba(46,144,250,.14);color:var(--success);}
+.fn-jwt.off{background:rgba(255,107,107,.14);color:var(--danger);}
+
+/* ============ Back to top ============ */
+.back-top{position:fixed;bottom:1.5rem;left:1.5rem;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;opacity:0;pointer-events:none;transition:opacity var(--dur-med) ease, transform var(--dur-fast) var(--ease-bounce);z-index:150;}
+.back-top.show{opacity:1;pointer-events:auto;}
+.back-top:hover{transform:translateY(-3px);}
+.back-top svg{width:18px;height:18px;color:#fff;}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--glass-border);padding:2.5rem 0;background:var(--bg-surface);text-align:center;color:var(--text-3);font-size:.82rem;}
+footer a{color:var(--accent-soft);font-weight:600;}
+
+
+/* ============ Code tabs (curl / JS / Python) ============ */
+.code-tabs-head{display:flex;align-items:center;justify-content:space-between;padding:.4rem .5rem .4rem .9rem;background:linear-gradient(90deg,#0A1220,#101B30);border-bottom:1px solid var(--term-border);}
+.code-tab-btns{display:flex;gap:.25rem;}
+.code-tab-btn{background:none;border:none;color:var(--term-ink-2);font-family:var(--font-data);font-size:.72rem;font-weight:700;padding:.4rem .8rem;border-radius:.4rem;cursor:pointer;transition:color var(--dur-fast) ease, background var(--dur-fast) ease;}
+.code-tab-btn:hover{color:var(--term-ink);}
+.code-tab-btn.active{background:var(--glass-strong);color:var(--accent-soft);}
+.code-tab-panel{display:none;}
+.code-tab-panel.active{display:block;}
+
+/* ============ Try API console ============ */
+.try-api-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;}
+@media (max-width:900px){.try-api-grid{grid-template-columns:1fr;}}
+.try-field{margin-bottom:.9rem;}
+.try-field label{display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:.4rem;}
+.try-field input, .try-field select, .try-field textarea{
+  width:100%;padding:.65rem .85rem;border-radius:.6rem;border:1px solid var(--glass-border);
+  background:var(--bg-elevated);color:var(--text-1);font-family:var(--font-data);font-size:.82rem;direction:ltr;text-align:left;
+}
+.try-field textarea{min-height:90px;resize:vertical;}
+.try-field select{font-family:var(--font-body);direction:rtl;text-align:right;}
+.try-field input:focus, .try-field select:focus, .try-field textarea:focus{outline:none;border-color:var(--accent-soft);box-shadow:0 0 0 3px rgba(77,163,255,.15);}
+.try-field .hint{font-size:.72rem;color:var(--text-3);margin-top:.3rem;}
+.try-presets{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem;}
+.try-preset-btn{background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.72rem;font-weight:700;padding:.35rem .75rem;border-radius:99px;cursor:pointer;transition:border-color var(--dur-fast) ease, color var(--dur-fast) ease;}
+.try-preset-btn:hover{border-color:var(--mcp-soft);color:var(--text-1);}
+.try-send-btn{width:100%;margin-top:.4rem;}
+.try-response{background:var(--term-bg);border:1px solid var(--term-border);border-radius:var(--radius-md);min-height:220px;display:flex;flex-direction:column;overflow:hidden;}
+.try-response-head{display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;border-bottom:1px solid var(--term-border);background:linear-gradient(90deg,#0A1220,#101B30);}
+.try-status-badge{font-family:var(--font-data);font-size:.7rem;font-weight:800;padding:.2rem .6rem;border-radius:.4rem;}
+.try-status-badge.s2xx{background:rgba(46,144,250,.15);color:var(--success);}
+.try-status-badge.s4xx{background:rgba(245,165,36,.15);color:var(--warn);}
+.try-status-badge.s5xx{background:rgba(255,107,107,.15);color:var(--danger);}
+.try-status-badge.pending{background:var(--glass-strong);color:var(--term-ink-2);}
+.try-response pre{margin:0;padding:1rem 1.1rem;overflow:auto;font-size:.78rem;line-height:1.7;color:var(--term-ink);direction:ltr;text-align:left;flex:1;}
+.try-response-empty{color:var(--term-ink-2);font-size:.82rem;padding:1rem 1.1rem;}
+.try-privacy-note{display:flex;gap:.5rem;font-size:.72rem;color:var(--text-3);margin-top:.7rem;}
+.try-privacy-note svg{width:14px;height:14px;flex-shrink:0;margin-top:.1rem;color:var(--text-3);}
+
+/* ============ Auth flow diagram ============ */
+.flow-diagram{margin:1.5rem 0 2rem;}
+.flow-diagram h3{font-size:.88rem;color:var(--text-1);margin-bottom:1rem;}
+.flow-track{display:flex;align-items:stretch;gap:.5rem;overflow-x:auto;padding-bottom:.5rem;}
+.flow-node{flex:1;min-width:150px;background:var(--glass);border:1px solid var(--glass-border);border-radius:.75rem;padding:.9rem;text-align:center;position:relative;}
+.flow-node.accent{border-color:rgba(77,163,255,.4);background:rgba(77,163,255,.06);}
+.flow-node.mcp-accent{border-color:rgba(37,99,235,.4);background:rgba(37,99,235,.06);}
+.flow-node .flow-ic{width:30px;height:30px;border-radius:.55rem;background:var(--glass-strong);display:flex;align-items:center;justify-content:center;margin:0 auto .5rem;color:var(--accent-soft);}
+.flow-node.mcp-accent .flow-ic{color:var(--mcp-soft);}
+.flow-node .flow-ic svg{width:15px;height:15px;}
+.flow-node h6{font-size:.76rem;font-weight:800;color:var(--text-1);margin-bottom:.25rem;}
+.flow-node p{font-size:.66rem;color:var(--text-3);margin:0;line-height:1.5;}
+.flow-connector{display:flex;align-items:center;color:var(--text-3);flex-shrink:0;}
+.flow-connector svg{width:16px;height:16px;}
+@media (max-width:700px){.flow-track{flex-direction:column;}.flow-connector{transform:rotate(90deg);align-self:center;}}
+
+/* ============ Rate limit meters ============ */
+.rate-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem 1.25rem;margin-bottom:.9rem;}
+.rate-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;gap:.5rem;flex-wrap:wrap;}
+.rate-card-head h5{font-size:.86rem;color:var(--text-1);}
+.rate-value{font-family:var(--font-data);font-size:.78rem;font-weight:700;color:var(--accent-soft);}
+.rate-bar-track{height:6px;border-radius:99px;background:var(--glass-strong);overflow:hidden;}
+.rate-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--mcp-color));}
+.rate-card p{font-size:.78rem;color:var(--text-3);margin:.5rem 0 0;}
+
+/* ============ Status code badges ============ */
+.status-badge{display:inline-flex;align-items:center;font-family:var(--font-data);font-size:.72rem;font-weight:800;padding:.2rem .55rem;border-radius:.4rem;min-width:3.2rem;justify-content:center;}
+.status-2xx{background:rgba(46,144,250,.14);color:var(--success);}
+.status-4xx{background:rgba(245,165,36,.14);color:var(--warn);}
+.status-40x-danger{background:rgba(255,107,107,.14);color:var(--danger);}
+.status-5xx{background:rgba(255,107,107,.14);color:var(--danger);}
+
+</style>
+
+<style>
+/* ============ Beginner/Advanced split ============ */
+.advanced-tag{display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;color:var(--text-3);background:var(--glass-strong);border:1px solid var(--glass-border);padding:.15rem .5rem;border-radius:99px;margin-inline-start:.6rem;vertical-align:middle;text-transform:uppercase;letter-spacing:.03em;}
+.section-divider{display:flex;align-items:center;gap:1rem;margin:1rem 0 3rem;}
+.section-divider .line{flex:1;height:1px;background:var(--glass-border);}
+.section-divider .label{display:flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:800;color:var(--text-2);white-space:nowrap;}
+.section-divider .label svg{width:16px;height:16px;color:var(--text-3);}
+.section-divider-note{text-align:center;font-size:.8rem;color:var(--text-3);margin:-2.25rem 0 2.5rem;}
+.advanced-zone .doc-section p, .advanced-zone .doc-section > p.lead{font-size:.88rem;}
+.mini-note{font-size:.78rem;color:var(--text-3);margin-top:.5rem;}
+</style>
+
+<style>
+/* ============ Search ============ */
+.sidebar-search{position:relative;margin-bottom:1.25rem;}
+.sidebar-search svg{position:absolute;inset-inline-start:.7rem;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;}
+.sidebar-search input{width:100%;padding:.55rem .8rem .55rem 1.9rem;border-radius:.6rem;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-1);font-size:.8rem;font-family:inherit;}
+.sidebar-search input:focus{outline:none;border-color:var(--accent-soft);}
+.doc-link.search-hidden{display:none;}
+.doc-nav-group.search-hidden{display:none;}
+
+/* ============ Time badge ============ */
+.time-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;color:var(--accent-soft);background:rgba(77,163,255,.1);border:1px solid rgba(77,163,255,.25);padding:.25rem .65rem;border-radius:99px;margin-inline-start:.6rem;vertical-align:middle;}
+.time-badge svg{width:12px;height:12px;}
+
+/* ============ Checklist ============ */
+.checklist-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem 1.3rem;margin-bottom:2.5rem;}
+.checklist-card h4{font-size:.92rem;margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem;}
+.checklist-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.6rem;}
+.checklist-item{display:flex;align-items:center;gap:.6rem;cursor:pointer;padding:.5rem .6rem;border-radius:.5rem;transition:background var(--dur-fast) ease;}
+.checklist-item:hover{background:var(--glass-strong);}
+.checklist-item input{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer;}
+.checklist-item label{font-size:.84rem;color:var(--text-2);cursor:pointer;transition:color var(--dur-fast) ease;}
+.checklist-item input:checked ~ label{color:var(--text-3);text-decoration:line-through;}
+
+/* ============ Journey connector ============ */
+.journey-arrow{display:flex;justify-content:center;padding:.5rem 0 1.5rem;color:var(--text-3);}
+.journey-arrow svg{width:20px;height:20px;animation:journeyBounce 1.8s ease-in-out infinite;}
+@keyframes journeyBounce{0%,100%{transform:translateY(0);opacity:.5;}50%{transform:translateY(4px);opacity:1;}}
+.getting-started-zone{position:relative;}
+
+/* ============ Recipes ============ */
+.recipe-toc{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.75rem;}
+.recipe-toc a{display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:.6rem;font-size:.85rem;font-weight:700;color:var(--text-1);transition:border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);}
+.recipe-toc a:hover{border-color:var(--accent-soft);transform:translateX(-3px);}
+.recipe-toc a svg{width:15px;height:15px;color:var(--accent-soft);flex-shrink:0;}
+.recipe-block{margin-bottom:2.5rem;padding-top:.5rem;scroll-margin-top:5.5rem;}
+.recipe-block h3{font-size:1rem;display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;}
+.recipe-block h3 svg{width:16px;height:16px;color:var(--accent-soft);}
+.recipe-block > p.recipe-desc{color:var(--text-2);font-size:.86rem;margin-bottom:.85rem;}
+.recipe-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media (max-width:800px){.recipe-cols{grid-template-columns:1fr;}}
+.recipe-col-label{font-size:.7rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
+
+/* ============ Copy-paste clarity note ============ */
+.replace-note{font-size:.76rem;color:var(--text-3);margin-top:.4rem;}
+.replace-note code{color:var(--accent-soft);}
+
+/* ============ Section part header ============ */
+.part-header{text-align:center;margin:0 0 2.5rem;}
+.part-header .part-kicker{display:block;font-size:.7rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem;}
+.part-header h2{font-size:clamp(1.3rem,3vw,1.7rem);}
+</style>
 </head>
 <body>
-    <div class="sidebar">
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <img src="/assets/images/logo.png" alt="مدعوم" style="height: 50px;">
+
+<div class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-mark"><img src="/logo.png" alt="مدعوم" style="width:100%;height:100%;object-fit:cover;border-radius:.75rem;"></span>
+      <span class="brand-text"><strong>مدعوم</strong><small>توثيق المطورين</small></span>
+    </a>
+    <div class="nav-cta">
+      <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <a href="mcp.html" class="btn btn-mcp btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"></path></svg>
+        لوحة MCP
+      </a>
+    </div>
+  </div>
+</div>
+
+<header class="doc-hero">
+  <div class="container">
+    <span class="eyebrow mcp"><span class="dot"></span>دليل البدء</span>
+    <h1>وصّل تطبيقك بـ <span class="gradient-text mcp">مدعوم</span> في 3 دقايق</h1>
+    <p>تذاكر، عملاء، واتساب، اشتراكات — كله متاح من endpoint واحد. اتبع الخطوات تحت بالترتيب.</p>
+    <div class="doc-hero-actions">
+      <a href="#get-token" class="btn btn-primary">ابدأ دلوقتي</a>
+      <a href="#recipes" class="btn btn-mcp">أمثلة جاهزة (Recipes)</a>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ============ Checklist ============ -->
+  <div class="checklist-card">
+    <h4>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>
+      خطوات البدء
+    </h4>
+    <div class="checklist-items" id="checklistItems">
+      <div class="checklist-item"><input type="checkbox" id="chk1"><label for="chk1">أنشأت API Token</label></div>
+      <div class="checklist-item"><input type="checkbox" id="chk2"><label for="chk2">نفذت أول Request</label></div>
+      <div class="checklist-item"><input type="checkbox" id="chk3"><label for="chk3">جربت tools/list</label></div>
+      <div class="checklist-item"><input type="checkbox" id="chk4"><label for="chk4">بقيت جاهز</label></div>
+    </div>
+  </div>
+
+<div class="doc-layout">
+
+  <!-- ============ Sidebar ============ -->
+  <nav class="doc-sidebar" id="docSidebar">
+    <div class="sidebar-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" id="docSearch" placeholder="دور في التوثيق...">
+    </div>
+
+    <div class="doc-nav-group" data-group="getting-started">
+      <h6>دليل البدء</h6>
+      <a href="#overview" class="doc-link">ابدأ</a>
+      <a href="#get-token" class="doc-link">أنشئ مفتاح</a>
+      <a href="#first-request" class="doc-link">أول Request</a>
+      <a href="#recipes" class="doc-link">أمثلة جاهزة</a>
+      <a href="#try-api" class="doc-link mcp">جرّب الـ API</a>
+      <a href="#errors" class="doc-link">لو حصل خطأ</a>
+    </div>
+    <div class="doc-nav-group" data-group="reference">
+      <h6>مرجع API</h6>
+      <a href="#architecture" class="doc-link">إزاي شغّال من جوه</a>
+      <a href="#oauth" class="doc-link">OAuth 2.1</a>
+      <a href="#mcp-client" class="doc-link">مدعوم كعميل MCP</a>
+      <a href="#usage-tracking" class="doc-link">آخر التحديثات</a>
+      <a href="#routing" class="doc-link">توجيه Vercel</a>
+      <a href="#functions" class="doc-link">مرجع الوظائف</a>
+    </div>
+  </nav>
+
+  <!-- ============ Main content ============ -->
+  <main class="doc-main">
+
+    <div class="getting-started-zone">
+
+    <section class="doc-section" id="overview">
+      <div class="doc-section-head"><span class="doc-num">01</span><h2>ابدأ</h2></div>
+      <p>مدعوم API بيدّيك وصول لحسابك كامل من خلال endpoint واحد بس:</p>
+      <div class="endpoint-row"><span class="method-pill method-post">POST</span><code>https://mad3oom.online/mcp</code></div>
+      <p>تبعتله اسم الأداة اللي عايزها مع البيانات، وهو يرجّعلك النتيجة. نفس الرابط ده تقدر تحطه في Claude أو ChatGPT مباشرة لو حابب.</p>
+    </section>
+
+    <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+
+    <section class="doc-section" id="get-token">
+      <div class="doc-section-head"><span class="doc-num">02</span><h2>أنشئ مفتاح API<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>30 ثانية</span></h2></div>
+      <div class="step-list">
+        <div class="step-item">
+          <h5>افتح "مفاتيح API"</h5>
+          <p>من <a href="mcp.html" style="color:var(--accent-soft)">لوحة المطورين</a>.</p>
         </div>
-        <a href="#intro" class="nav-item active">مقدمة</a>
-        <a href="#auth" class="nav-item">المصادقة (Authentication)</a>
-        <a href="#endpoints" class="nav-item">نقاط الاتصال (Endpoints)</a>
-        <a href="#examples" class="nav-item">أمثلة برمجية</a>
-        <a href="#errors" class="nav-item">الأخطاء</a>
+        <div class="step-item">
+          <h5>دوس "توليد مفتاح جديد"</h5>
+          <p>اختار الصلاحيات (Scopes) اللي محتاجها.</p>
+        </div>
+        <div class="step-item">
+          <h5>احفظ الـ Key والـ Secret فورًا</h5>
+          <p>بيظهروا مرة واحدة بس ومش هترجعلك تانى.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+
+    <section class="doc-section" id="first-request">
+      <div class="doc-section-head"><span class="doc-num">03</span><h2>ابعت أول Request<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>دقيقة</span></h2></div>
+      <p class="lead">هنجيب آخر التذاكر المفتوحة — انسخ، بدّل القيم، وشغّل.</p>
+
+      <div class="code-block">
+        <div class="code-tabs-head">
+          <span class="code-block-label" style="color:var(--accent-soft);font-weight:800">اقرأ التذاكر</span>
+          <div class="code-tab-btns">
+            <button class="code-tab-btn active" onclick="switchCodeTab(this,'fr-curl')">curl</button>
+            <button class="code-tab-btn" onclick="switchCodeTab(this,'fr-js')">JavaScript</button>
+            <button class="code-tab-btn" onclick="switchCodeTab(this,'fr-py')">Python</button>
+          </div>
+          <button class="code-block-copy" onclick="copyCode(this)">نسخ</button>
+        </div>
+
+        <div class="code-tab-panel active" data-tab="fr-curl">
+        <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -H "<span class="tok-key">Content-Type</span>: application/json" \
+  -d '{
+    "<span class="tok-key">jsonrpc</span>": "<span class="tok-str">2.0</span>",
+    "<span class="tok-key">id</span>": <span class="tok-num">1</span>,
+    "<span class="tok-key">method</span>": "<span class="tok-fn">tools/call</span>",
+    "<span class="tok-key">params</span>": { "<span class="tok-key">name</span>": "<span class="tok-str">list_tickets</span>", "<span class="tok-key">arguments</span>": { "<span class="tok-key">status</span>": "<span class="tok-str">open</span>", "<span class="tok-key">limit</span>": <span class="tok-num">5</span> } }
+  }'</code></pre>
+        </div>
+
+        <div class="code-tab-panel" data-tab="fr-js">
+        <pre><code><span class="tok-key">const</span> res = <span class="tok-key">await</span> <span class="tok-fn">fetch</span>(<span class="tok-str">"https://mad3oom.online/mcp"</span>, {
+  method: <span class="tok-str">"POST"</span>,
+  headers: {
+    <span class="tok-str">"Authorization"</span>: <span class="tok-str">"Bearer YOUR_API_KEY.YOUR_SECRET"</span>,
+    <span class="tok-str">"Content-Type"</span>: <span class="tok-str">"application/json"</span>,
+  },
+  body: JSON.<span class="tok-fn">stringify</span>({
+    jsonrpc: <span class="tok-str">"2.0"</span>, id: <span class="tok-num">1</span>, method: <span class="tok-str">"tools/call"</span>,
+    params: { name: <span class="tok-str">"list_tickets"</span>, arguments: { status: <span class="tok-str">"open"</span>, limit: <span class="tok-num">5</span> } },
+  }),
+});
+<span class="tok-key">const</span> data = <span class="tok-key">await</span> res.<span class="tok-fn">json</span>();</code></pre>
+        </div>
+
+        <div class="code-tab-panel" data-tab="fr-py">
+        <pre><code><span class="tok-key">import</span> requests
+
+resp = requests.<span class="tok-fn">post</span>(
+    <span class="tok-str">"https://mad3oom.online/mcp"</span>,
+    headers={<span class="tok-str">"Authorization"</span>: <span class="tok-str">"Bearer YOUR_API_KEY.YOUR_SECRET"</span>},
+    json={
+        <span class="tok-str">"jsonrpc"</span>: <span class="tok-str">"2.0"</span>, <span class="tok-str">"id"</span>: <span class="tok-num">1</span>, <span class="tok-str">"method"</span>: <span class="tok-str">"tools/call"</span>,
+        <span class="tok-str">"params"</span>: {<span class="tok-str">"name"</span>: <span class="tok-str">"list_tickets"</span>, <span class="tok-str">"arguments"</span>: {<span class="tok-str">"status"</span>: <span class="tok-str">"open"</span>, <span class="tok-str">"limit"</span>: <span class="tok-num">5</span>}},
+    },
+)</code></pre>
+        </div>
+      </div>
+      <p class="replace-note">استبدل <code>YOUR_API_KEY</code> و<code>YOUR_SECRET</code> بالقيم اللي حفظتها في الخطوة اللي فاتت.</p>
+
+      <div class="recipe-col-label" style="margin-top:1.25rem">الرد</div>
+      <div class="code-block">
+        <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">Response</span></div>
+        <pre><code>{
+  "<span class="tok-key">jsonrpc</span>": "<span class="tok-str">2.0</span>",
+  "<span class="tok-key">id</span>": <span class="tok-num">1</span>,
+  "<span class="tok-key">result</span>": {
+    "<span class="tok-key">content</span>": [{ "<span class="tok-key">type</span>": "<span class="tok-str">text</span>", "<span class="tok-key">text</span>": "<span class="tok-str">[ {...ticket}, {...ticket} ]</span>" }]
+  }
+}</code></pre>
+      </div>
+      <p class="mini-note">البيانات جوه <code>result.content[0].text</code> كنص JSON — اعملها <code>JSON.parse()</code> عشان توصل للمصفوفة. من هنا في الأمثلة الجاية هنعرضها بعد الـ parsing مباشرة.</p>
+    </section>
+
+    <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+
+    <section class="doc-section" id="recipes">
+      <div class="doc-section-head"><span class="doc-num">04</span><h2>أمثلة جاهزة<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>3 دقايق</span></h2></div>
+      <p class="lead">5 حاجات بتتعمل كتير — انسخ اللي محتاجه وبدّل القيم.</p>
+
+      <div class="recipe-toc">
+        <a href="#recipe-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="1"></rect></svg>قراءة التذاكر</a>
+        <a href="#recipe-create-ticket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>إنشاء تذكرة</a>
+        <a href="#recipe-whatsapp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path></svg>إرسال واتساب</a>
+        <a href="#recipe-customer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>قراءة بيانات عميل</a>
+        <a href="#recipe-dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>إحصائيات Dashboard</a>
+      </div>
+
+      <!-- Recipe 1 -->
+      <div class="recipe-block" id="recipe-tickets">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="1"></rect></svg>قراءة التذاكر</h3>
+        <p class="recipe-desc">يجيب التذاكر المفتوحة، مرتبة من الأحدث.</p>
+        <div class="recipe-cols">
+          <div>
+            <div class="recipe-col-label">Request</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">curl</span><button class="code-block-copy" onclick="copyCode(this)">نسخ</button></div>
+              <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">list_tickets</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">status</span>":"<span class="tok-str">open</span>","<span class="tok-key">limit</span>":<span class="tok-num">5</span>}}}'</code></pre>
+            </div>
+          </div>
+          <div>
+            <div class="recipe-col-label">Response</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">بعد الـ parsing</span></div>
+              <pre><code>[
+  { "<span class="tok-key">id</span>": "<span class="tok-str">a1b2...</span>", "<span class="tok-key">title</span>": "<span class="tok-str">مشكلة تسجيل دخول</span>", "<span class="tok-key">status</span>": "<span class="tok-str">open</span>", "<span class="tok-key">priority</span>": "<span class="tok-str">high</span>" },
+  { "<span class="tok-key">id</span>": "<span class="tok-str">c3d4...</span>", "<span class="tok-key">title</span>": "<span class="tok-str">استفسار عن فاتورة</span>", "<span class="tok-key">status</span>": "<span class="tok-str">open</span>", "<span class="tok-key">priority</span>": "<span class="tok-str">medium</span>" }
+]</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe 2 -->
+      <div class="recipe-block" id="recipe-create-ticket">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>إنشاء تذكرة</h3>
+        <p class="recipe-desc">ينشئ تذكرة دعم فني جديدة.</p>
+        <div class="recipe-cols">
+          <div>
+            <div class="recipe-col-label">Request</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">curl</span><button class="code-block-copy" onclick="copyCode(this)">نسخ</button></div>
+              <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">create_ticket</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">title</span>":"<span class="tok-str">عندي مشكلة</span>","<span class="tok-key">description</span>":"<span class="tok-str">تفاصيل المشكلة هنا</span>","<span class="tok-key">priority</span>":"<span class="tok-str">medium</span>"}}}'</code></pre>
+            </div>
+          </div>
+          <div>
+            <div class="recipe-col-label">Response</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">بعد الـ parsing</span></div>
+              <pre><code>{
+  "<span class="tok-key">id</span>": "<span class="tok-str">e5f6...</span>",
+  "<span class="tok-key">title</span>": "<span class="tok-str">عندي مشكلة</span>",
+  "<span class="tok-key">status</span>": "<span class="tok-str">open</span>",
+  "<span class="tok-key">created_at</span>": "<span class="tok-str">2026-07-12T10:00:00Z</span>"
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe 3 -->
+      <div class="recipe-block" id="recipe-whatsapp">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path></svg>إرسال واتساب</h3>
+        <p class="recipe-desc">يبعت رسالة نصية عبر WhatsApp.</p>
+        <div class="recipe-cols">
+          <div>
+            <div class="recipe-col-label">Request</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">curl</span><button class="code-block-copy" onclick="copyCode(this)">نسخ</button></div>
+              <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">send_whatsapp</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">to</span>":"<span class="tok-str">201234567890</span>","<span class="tok-key">message_type</span>":"<span class="tok-str">text</span>","<span class="tok-key">text</span>":"<span class="tok-str">أهلاً بيك!</span>"}}}'</code></pre>
+            </div>
+          </div>
+          <div>
+            <div class="recipe-col-label">Response</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">بعد الـ parsing</span></div>
+              <pre><code>{ "<span class="tok-key">ok</span>": <span class="tok-fn">true</span>, "<span class="tok-key">status</span>": <span class="tok-num">200</span> }</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe 4 -->
+      <div class="recipe-block" id="recipe-customer">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>قراءة بيانات عميل</h3>
+        <p class="recipe-desc">يجيب بيانات عميل واحد بمعرّفه.</p>
+        <div class="recipe-cols">
+          <div>
+            <div class="recipe-col-label">Request</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">curl</span><button class="code-block-copy" onclick="copyCode(this)">نسخ</button></div>
+              <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">get_customer</span>","<span class="tok-key">arguments</span>":{"<span class="tok-key">customer_id</span>":"<span class="tok-str">CUSTOMER_ID</span>"}}}'</code></pre>
+            </div>
+          </div>
+          <div>
+            <div class="recipe-col-label">Response</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">بعد الـ parsing</span></div>
+              <pre><code>{
+  "<span class="tok-key">id</span>": "<span class="tok-str">CUSTOMER_ID</span>",
+  "<span class="tok-key">full_name</span>": "<span class="tok-str">أحمد محمد</span>",
+  "<span class="tok-key">email</span>": "<span class="tok-str">ahmed@example.com</span>",
+  "<span class="tok-key">phone</span>": "<span class="tok-str">+20123456789</span>"
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe 5 -->
+      <div class="recipe-block" id="recipe-dashboard">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>إحصائيات Dashboard</h3>
+        <p class="recipe-desc">عدد التذاكر حسب الحالة.</p>
+        <div class="recipe-cols">
+          <div>
+            <div class="recipe-col-label">Request</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">curl</span><button class="code-block-copy" onclick="copyCode(this)">نسخ</button></div>
+              <pre><code>curl -X POST https://mad3oom.online/mcp \
+  -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">YOUR_API_KEY.YOUR_SECRET</span>" \
+  -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>","<span class="tok-key">params</span>":{"<span class="tok-key">name</span>":"<span class="tok-str">get_dashboard_stats</span>"}}'</code></pre>
+            </div>
+          </div>
+          <div>
+            <div class="recipe-col-label">Response</div>
+            <div class="code-block">
+              <div class="code-block-head"><div class="code-block-dots"><span></span><span></span><span></span></div><span class="code-block-label">بعد الـ parsing</span></div>
+              <pre><code>{ "<span class="tok-key">total</span>": <span class="tok-num">42</span>, "<span class="tok-key">open</span>": <span class="tok-num">12</span>, "<span class="tok-key">closed</span>": <span class="tok-num">30</span> }</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="mini-note">في أدوات تانية (اشتراكات، إشعارات...) — شوفها كلها بـ <code>tools/list</code> من قسم "جرّب الـ API" الجاي.</p>
+    </section>
+
+    <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+
+    <section class="doc-section" id="try-api">
+      <div class="doc-section-head"><span class="doc-num">05</span><h2>جرّب الـ API<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>دقيقة</span></h2></div>
+      <p class="lead">حطّ مفتاحك واضغط إرسال — الطلب بيروح من متصفحك مباشرة، من غير أي وسيط.</p>
+
+      <div class="try-api-grid">
+        <div>
+          <div class="try-presets">
+            <button class="try-preset-btn" onclick="tryApiPreset('initialize')">initialize</button>
+            <button class="try-preset-btn" onclick="tryApiPreset('tools/list')">tools/list</button>
+            <button class="try-preset-btn" onclick="tryApiPreset('list_tickets')">list_tickets</button>
+            <button class="try-preset-btn" onclick="tryApiPreset('dashboard')">dashboard_stats</button>
+          </div>
+
+          <div class="try-field">
+            <label for="tryToken">Authorization Token</label>
+            <input type="text" id="tryToken" placeholder="YOUR_API_KEY.YOUR_SECRET" autocomplete="off">
+            <span class="hint">ما بيتخزّنش ولا بيتبعت لأي حاجة غير <code>mad3oom.online/mcp</code>.</span>
+          </div>
+
+          <div class="try-field">
+            <label for="tryMethod">Method</label>
+            <select id="tryMethod" onchange="tryApiToggleFields()">
+              <option value="initialize">initialize</option>
+              <option value="tools/list">tools/list</option>
+              <option value="tools/call">tools/call</option>
+            </select>
+          </div>
+
+          <div class="try-field" id="tryToolNameField" style="display:none">
+            <label for="tryToolName">اسم الأداة</label>
+            <input type="text" id="tryToolName" placeholder="list_tickets">
+          </div>
+
+          <div class="try-field" id="tryArgsField" style="display:none">
+            <label for="tryArgs">Arguments (JSON)</label>
+            <textarea id="tryArgs">{"status": "open", "limit": 10}</textarea>
+          </div>
+
+          <button class="btn btn-mcp try-send-btn" onclick="sendTryRequest()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            إرسال الطلب
+          </button>
+
+          <div class="try-privacy-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
+            <span>فيه حد أقصى 60 طلب/دقيقة — استخدمه بحكمة أثناء الاختبار.</span>
+          </div>
+        </div>
+
+        <div class="try-response">
+          <div class="try-response-head">
+            <span class="try-status-badge pending" id="tryStatusBadge">جاهز</span>
+            <span style="font-family:var(--font-data);font-size:.72rem;color:var(--term-ink-2)">POST /mcp</span>
+          </div>
+          <div id="tryResponseBody"><div class="try-response-empty">الرد هيظهر هنا بعد إرسال الطلب...</div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+
+    <section class="doc-section" id="errors">
+      <div class="doc-section-head"><span class="doc-num">06</span><h2>لو حصل خطأ</h2></div>
+
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>HTTP</th><th>يعني إيه</th><th>الحل</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status-badge status-40x-danger">401</span></td><td>المفتاح غلط أو منتهي</td><td>اتأكد من الـ Authorization header</td></tr>
+            <tr><td><span class="status-badge status-2xx">200*</span></td><td>الأداة مش من ضمن صلاحياتك</td><td>ضيف الـ scope من لوحة المفاتيح</td></tr>
+            <tr><td><span class="status-badge status-4xx">404</span></td><td>الحاجة مش موجودة</td><td>تأكد من الـ id</td></tr>
+            <tr><td><span class="status-badge status-40x-danger">429</span></td><td>طلبات كتير بسرعة (أكتر من 60/دقيقة)</td><td>استنى دقيقة وكمّل</td></tr>
+            <tr><td><span class="status-badge status-5xx">500</span></td><td>خطأ من عندنا</td><td>جرّب تاني، ولو استمر كلّمنا</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mini-note">* أخطاء الأدوات بترجع HTTP 200 مع <code>error</code> جوه الرد، حسب سبيك JSON-RPC.</p>
+    </section>
+
+    </div><!-- /getting-started-zone -->
+
+    <!-- ============================================================
+         API Reference
+    ============================================================ -->
+
+    <div class="part-header" style="margin-top:1rem">
+      <span class="part-kicker">الجزء الثاني</span>
+      <h2>مرجع API الكامل</h2>
+      <p style="color:var(--text-3);font-size:.85rem;margin-top:.4rem">تفاصيل داخلية — مش لازمة عشان تستخدم الـ API، بس مفيدة لو بتبني تكامل متقدّم.</p>
     </div>
 
-    <div class="main-content">
-        <a href="/api-management.html" class="back-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            العودة لإدارة المفاتيح
-        </a>
+    <section class="doc-section" id="architecture">
+      <div class="doc-section-head"><span class="doc-num">07</span><h2>إزاي شغّال من جوه</h2></div>
+      <p class="lead">جدول <code>api_tokens</code> هو مصدر الهوية الوحيد — سواء ولّدته يدويًا، أو صدر تلقائيًا من OAuth.</p>
 
-        <section id="intro" class="doc-section">
-            <h1>توثيق API منصة مدعوم</h1>
-            <p>مرحباً بك في توثيق API مدعوم. تتيح لك واجهة برمجة التطبيقات الخاصة بنا ربط قدرات الذكاء الاصطناعي والذاكرة الخاصة بمدعوم في تطبيقاتك ومواقعك الخاصة بسهولة.</p>
-            <div class="endpoint">Base URL: https://api.mad3oom.online/v1</div>
-        </section>
+      <div class="arch-flow">
+        <div class="arch-box">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5"></path></svg></div>
+          <h5>توليد يدوي</h5><p>من لوحة مفاتيح API</p>
+        </div>
+        <div class="arch-box center">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg></div>
+          <h5>api_tokens</h5><p>مصدر الهوية الموحّد</p>
+        </div>
+        <div class="arch-box">
+          <div class="arch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"></path></svg></div>
+          <h5>توليد تلقائي</h5><p>عبر OAuth 2.1</p>
+        </div>
+      </div>
 
-        <section id="auth" class="doc-section">
-            <h2>المصادقة (Authentication)</h2>
-            <p>يتم استخدام مفتاح API (Bearer Token) للمصادقة على جميع الطلبات. يجب إرسال المفتاح في ترويسة الطلب (Headers) كالتالي:</p>
-            <div class="code-block">
-                <div class="lang-badge">HTTP</div>
-                Authorization: Bearer YOUR_API_KEY
-            </div>
-        </section>
+      <p>كتالوج الأدوات بيتقرأ Live من قاعدة البيانات — أي تعديل بينعكس فورًا. وكل أداة بتفحص صلاحيات المستخدم (أدمن / عميل عادي) قبل ما تنفّذ.</p>
+    </section>
 
-        <section id="endpoints" class="doc-section">
-            <h2>نقاط الاتصال (Endpoints)</h2>
-            
-            <h3>1. إرسال رسالة للشات</h3>
-            <p>إرسال رسالة إلى البوت والحصول على رد ذكي بناءً على سياق الذاكرة.</p>
-            <div class="endpoint"><span class="method-badge">POST</span> /chat/send</div>
-            
-            <table>
-                <tr><th>المعلمة (Parameter)</th><th>النوع</th><th>الوصف</th></tr>
-                <tr><td>message</td><td>string</td><td>نص الرسالة المرسلة</td></tr>
-                <tr><td>session_id</td><td>string</td><td>معرف الجلسة للحفاظ على سياق المحادثة</td></tr>
-            </table>
+    <section class="doc-section" id="oauth">
+      <div class="doc-section-head"><span class="doc-num">08</span><h2>OAuth 2.1 (Claude / ChatGPT)</h2></div>
+      <p class="lead">لو بتبني Connector لعميل MCP خارجي، بدل ما تستخدم مفتاح ثابت.</p>
 
-            <h3>2. إرسال رسائل الجلسة (WhatsApp Session Messages)</h3>
-            <p>إرسال رسالة حرة عبر واتساب للعميل ضمن نافذة الـ 24 ساعة من آخر رسالة استلمتها منه.</p>
-            <div class="endpoint"><span class="method-badge">POST</span> /whatsapp/session/send</div>
-            
-            <table>
-                <tr><th>المعلمة (Parameter)</th><th>النوع</th><th>الوصف</th></tr>
-                <tr><td>to</td><td>string</td><td>رقم هاتف المستلم بالصيغة الدولية (بدون +)</td></tr>
-                <tr><td>message</td><td>string</td><td>نص الرسالة المراد إرسالها</td></tr>
-                <tr><td>phone_number_id</td><td>string</td><td>(اختياري) معرف رقم الهاتف في حال وجود أكثر من رقم مربوط</td></tr>
-            </table>
-        </section>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>الوظيفة</th><th>Public URL</th></tr></thead>
+          <tbody>
+            <tr><td>Discovery</td><td><code>GET /.well-known/oauth-authorization-server</code></td></tr>
+            <tr><td>Protected Resource</td><td><code>GET /.well-known/oauth-protected-resource</code></td></tr>
+            <tr><td>تسجيل عميل</td><td><code>POST /oauth/register</code></td></tr>
+            <tr><td>بدء التفويض</td><td><code>GET /oauth/authorize</code></td></tr>
+            <tr><td>Token</td><td><code>POST /oauth/token</code></td></tr>
+          </tbody>
+        </table>
+      </div>
 
-        <section id="examples" class="doc-section">
-            <h2>أمثلة برمجية</h2>
-            
-            <h3>JavaScript (Fetch API)</h3>
-            <div class="code-block">
-                <div class="lang-badge">JS</div>
-<pre>
-fetch('https://api.mad3oom.online/v1/chat/send', {
-    method: 'POST',
-    headers: {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        message: 'مرحباً، كيف حالك؟',
-        session_id: 'user_123'
-    })
-})
-.then(res => res.json())
-.then(data => console.log(data.reply));
-</pre>
-            </div>
+      <div class="step-list">
+        <div class="step-item"><h5>تسجيل العميل</h5><p>يبعت <code>client_name</code> و<code>redirect_uris</code> → يرجع <code>client_id</code>.</p></div>
+        <div class="step-item"><h5>PKCE + موافقة المستخدم</h5><p><code>code_challenge_method=S256</code> إجباري.</p></div>
+        <div class="step-item"><h5>تبادل الكود بـ Access Token</h5><p>ينشئ <code>api_tokens</code> جديد + refresh token.</p></div>
+        <div class="step-item"><h5>الاستخدام والتجديد</h5><p>Access token: ساعة. Refresh token: 30 يوم، يُدوَّر بالكامل عند كل استخدام.</p></div>
+      </div>
 
-            <h3>Python (Requests)</h3>
-            <div class="code-block">
-                <div class="lang-badge">Python</div>
-<pre>
-import requests
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Endpoint</th><th>الحد</th></tr></thead>
+          <tbody>
+            <tr><td>authorize</td><td>60/دقيقة لكل IP، 20/دقيقة لكل client</td></tr>
+            <tr><td>token</td><td>40/دقيقة لكل IP، 15/دقيقة لكل client</td></tr>
+            <tr><td>register</td><td>5/ساعة لكل IP</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-url = "https://api.mad3oom.online/v1/chat/send"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
+    <section class="doc-section" id="mcp-client">
+      <div class="doc-section-head"><span class="doc-num">09</span><h2>مدعوم كعميل MCP</h2></div>
+      <p class="lead">ميزة داخلية للوحة الإدارة — مدعوم بيتصل بخوادم MCP خارجية (Supabase، GitHub...) نيابةً عن الأدمن. مش جزء من استهلاكك كمطوّر خارجي.</p>
+    </section>
+
+    <section class="doc-section" id="usage-tracking">
+      <div class="doc-section-head"><span class="doc-num">10</span><h2>آخر التحديثات</h2></div>
+      <span class="eyebrow fixed"><span class="dot"></span>mcp function v21</span>
+      <ul style="list-style:disc;padding-inline-start:1.3rem;color:var(--text-2);font-size:.88rem;margin-top:.75rem">
+        <li style="margin-bottom:.4rem">سجل الاستخدام بقى يسجّل اسم الأداة المستخدمة فعليًا</li>
+        <li style="margin-bottom:.4rem">كود الرد (status code) بقى يتسجّل صح</li>
+        <li>عدّاد الاستخدام على كل مفتاح بقى يتحدّث فعليًا</li>
+      </ul>
+    </section>
+
+    <section class="doc-section" id="routing">
+      <div class="doc-section-head"><span class="doc-num">11</span><h2>توجيه Vercel</h2></div>
+      <p class="lead">كل روابط OAuth أعلاه + <code>/mcp</code> عبارة عن rewrites (مش redirects) على Supabase Edge Functions — عشان الدومين يفضل <code>mad3oom.online</code>.</p>
+    </section>
+
+    <section class="doc-section" id="functions">
+      <div class="doc-section-head"><span class="doc-num">12</span><h2>مرجع الوظائف</h2></div>
+      <p class="lead"><code>verify_jwt: false</code> على <code>mcp</code> و<code>oauth-*</code> لأن مصادقتهم مخصّصة، مش JWT قياسي.</p>
+
+      <div class="fn-grid">
+        <div class="fn-card"><div class="fn-name">mcp</div><div class="fn-desc">نقطة JSON-RPC الرئيسية</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">create-api-token</div><div class="fn-desc">توليد مفتاح API</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">regenerate-api-token-secret</div><div class="fn-desc">تجديد سر مفتاح</div><span class="fn-jwt on">verify_jwt: true</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-discovery</div><div class="fn-desc">RFC 8414 metadata</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-register</div><div class="fn-desc">Dynamic Client Registration</div><span class="fn-jwt off">verify_jwt: false</span></div>
+        <div class="fn-card"><div class="fn-name">oauth-token</div><div class="fn-desc">إصدار/تجديد access token</div><span class="fn-jwt off">verify_jwt: false</span></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<button class="back-top" id="backTop" aria-label="العودة لأعلى">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+</button>
+
+<footer>
+  <div class="container">
+    للإدارة والتحكم في المفاتيح والخوادم: <a href="mcp.html">لوحة MCP</a> — للعودة للصفحة الرئيسية: <a href="index.html">مدعوم</a>
+  </div>
+</footer>
+
+<script>
+// ---------- Theme toggle ----------
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try{ localStorage.setItem('theme-preference', t); }catch(e){}
 }
-payload = {
-    "message": "مرحباً، كيف حالك؟",
-    "session_id": "user_123"
+document.getElementById('themeToggleBtn').addEventListener('click', function(){
+  var current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// ---------- Navbar scroll state ----------
+var navbar = document.getElementById('navbar');
+function onScroll(){
+  if(window.scrollY > 30) navbar.classList.add('scrolled'); else navbar.classList.remove('scrolled');
+  var backTop = document.getElementById('backTop');
+  if(window.scrollY > 500) backTop.classList.add('show'); else backTop.classList.remove('show');
+}
+window.addEventListener('scroll', onScroll, { passive:true });
+onScroll();
+
+document.getElementById('backTop').addEventListener('click', function(){
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+
+// ---------- Sidebar active-link scrollspy ----------
+var sections = Array.from(document.querySelectorAll('.doc-section'));
+var links = Array.from(document.querySelectorAll('.doc-nav-group a'));
+function setActive(id){
+  links.forEach(function(l){ l.classList.toggle('active', l.getAttribute('href') === '#' + id); });
+}
+var observer = new IntersectionObserver(function(entries){
+  entries.forEach(function(entry){
+    if(entry.isIntersecting) setActive(entry.target.id);
+  });
+}, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+sections.forEach(function(s){ observer.observe(s); });
+
+// ---------- Copy code buttons ----------
+function copyCode(btn){
+  var block = btn.closest('.code-block');
+  var activePanel = block.querySelector('.code-tab-panel.active');
+  var pre = activePanel ? activePanel.querySelector('pre') : block.querySelector('pre');
+  var text = pre.innerText;
+  navigator.clipboard.writeText(text).then(function(){
+    var original = btn.textContent;
+    btn.textContent = 'تم النسخ';
+    setTimeout(function(){ btn.textContent = original; }, 1500);
+  });
 }
 
-response = requests.post(url, json=payload, headers=headers)
-print(response.json()['reply'])
-</pre>
-            </div>
+// ---------- Code language tabs ----------
+function switchCodeTab(btn, tabId){
+  var block = btn.closest('.code-block');
+  block.querySelectorAll('.code-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  block.querySelectorAll('.code-tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+  block.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
+}
 
-            <h3>PHP (cURL)</h3>
-            <div class="code-block">
-                <div class="lang-badge">PHP</div>
-<pre>
-$ch = curl_init("https://api.mad3oom.online/v1/chat/send");
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer YOUR_API_KEY',
-    'Content-Type: application/json'
-]);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-    "message" => "مرحباً",
-    "session_id" => "user_123"
-]));
-$response = curl_exec($ch);
-echo json_decode($response)->reply;
-</pre>
-            </div>
+// ---------- Try API console ----------
+var TRY_API_ENDPOINT = 'https://mad3oom.online/mcp';
 
-            <h3>مثال إرسال رسالة واتساب (JavaScript)</h3>
-            <div class="code-block">
-                <div class="lang-badge">JS</div>
-<pre>
-fetch('https://api.mad3oom.online/v1/whatsapp/session/send', {
-    method: 'POST',
-    headers: {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        to: '201025998920',
-        message: 'مرحباً بك، كيف يمكنني مساعدتك اليوم؟'
-    })
-})
-.then(res => res.json())
-.then(data => console.log(data));
-</pre>
-            </div>
-        </section>
+function tryApiToggleFields(){
+  var method = document.getElementById('tryMethod').value;
+  document.getElementById('tryToolNameField').style.display = method === 'tools/call' ? 'block' : 'none';
+  document.getElementById('tryArgsField').style.display = method === 'tools/call' ? 'block' : 'none';
+}
 
-        <section id="errors" class="doc-section">
-            <h2>الأخطاء</h2>
-            <table>
-                <tr><th>الكود</th><th>المعنى</th></tr>
-                <tr><td>401</td><td>مفتاح API غير صالح أو مفقود</td></tr>
-                <tr><td>403</td><td>تم رفض الوصول (بسبب النطاقات المسموحة أو الصلاحيات)</td></tr>
-                <tr><td>429</td><td>تم تجاوز حد الطلبات المسموح به</td></tr>
-                <tr><td>500</td><td>خطأ داخلي في الخادم</td></tr>
-            </table>
-        </section>
-    </div>
+function tryApiPreset(preset){
+  var methodEl = document.getElementById('tryMethod');
+  if(preset === 'initialize'){ methodEl.value = 'initialize'; }
+  else if(preset === 'tools/list'){ methodEl.value = 'tools/list'; }
+  else if(preset === 'list_tickets'){
+    methodEl.value = 'tools/call';
+    document.getElementById('tryToolName').value = 'list_tickets';
+    document.getElementById('tryArgs').value = '{"status": "open", "limit": 10}';
+  } else if(preset === 'dashboard'){
+    methodEl.value = 'tools/call';
+    document.getElementById('tryToolName').value = 'get_dashboard_stats';
+    document.getElementById('tryArgs').value = '{}';
+  }
+  tryApiToggleFields();
+}
 
-    <script>
-        // بسيطة لتغيير الحالة النشطة في القائمة الجانبية عند التمرير
-        window.addEventListener('scroll', () => {
-            let current = '';
-            document.querySelectorAll('section').forEach(section => {
-                const sectionTop = section.offsetTop;
-                if (pageYOffset >= sectionTop - 60) {
-                    current = section.getAttribute('id');
-                }
-            });
+function setTryStatusBadge(state, label){
+  var el = document.getElementById('tryStatusBadge');
+  el.className = 'try-status-badge ' + state;
+  el.textContent = label;
+}
 
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.getAttribute('href').includes(current)) {
-                    item.classList.add('active');
-                }
-            });
-        });
-    </script>
+async function sendTryRequest(){
+  var token = document.getElementById('tryToken').value.trim();
+  var method = document.getElementById('tryMethod').value;
+  var responseBody = document.getElementById('tryResponseBody');
+
+  if(!token){
+    setTryStatusBadge('s4xx', 'ناقص');
+    responseBody.innerHTML = '<div class="try-response-empty">لازم تدخل التوكن الأول.</div>';
+    return;
+  }
+
+  var payload = { jsonrpc: '2.0', id: Date.now(), method: method };
+  if(method === 'tools/call'){
+    var toolName = document.getElementById('tryToolName').value.trim();
+    var argsRaw = document.getElementById('tryArgs').value.trim();
+    var args = {};
+    if(argsRaw){
+      try { args = JSON.parse(argsRaw); }
+      catch(e){
+        setTryStatusBadge('s4xx', 'JSON خطأ');
+        responseBody.innerHTML = '<div class="try-response-empty">الـ Arguments مش JSON صالح: ' + e.message + '</div>';
+        return;
+      }
+    }
+    payload.params = { name: toolName, arguments: args };
+  } else if(method === 'initialize'){
+    payload.params = { protocolVersion: '2025-06-18' };
+  }
+
+  setTryStatusBadge('pending', 'جاري الإرسال...');
+  responseBody.innerHTML = '<div class="try-response-empty">جاري الاتصال بـ /mcp...</div>';
+
+  try {
+    var res = await fetch(TRY_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    var text = await res.text();
+    var pretty;
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); }
+    catch(e){ pretty = text; }
+
+    var state = res.status >= 500 ? 's5xx' : (res.status >= 400 ? 's4xx' : 's2xx');
+    setTryStatusBadge(state, res.status + ' ' + (res.statusText || ''));
+    responseBody.innerHTML = '<pre><code>' + escapeHtmlText(pretty) + '</code></pre>';
+
+    if(method === 'tools/list'){ setChecklistItem('chk3', true); }
+  } catch(err){
+    setTryStatusBadge('s5xx', 'فشل الاتصال');
+    responseBody.innerHTML = '<div class="try-response-empty">تعذّر الوصول لـ /mcp: ' + escapeHtmlText(err.message) + '</div>';
+  }
+}
+
+function escapeHtmlText(str){
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- Checklist (persisted) ----------
+var CHECKLIST_KEY = 'mad3oom-docs-checklist';
+function loadChecklist(){
+  try {
+    var saved = JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}');
+    Object.keys(saved).forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.checked = !!saved[id];
+    });
+  } catch(e){}
+}
+function saveChecklistState(){
+  var state = {};
+  ['chk1','chk2','chk3','chk4'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) state[id] = el.checked;
+  });
+  try { localStorage.setItem(CHECKLIST_KEY, JSON.stringify(state)); } catch(e){}
+}
+function setChecklistItem(id, checked){
+  var el = document.getElementById(id);
+  if(el){ el.checked = checked; saveChecklistState(); }
+}
+document.querySelectorAll('#checklistItems input[type="checkbox"]').forEach(function(cb){
+  cb.addEventListener('change', saveChecklistState);
+});
+loadChecklist();
+
+// ---------- Search filter (sidebar) ----------
+document.getElementById('docSearch').addEventListener('input', function(e){
+  var q = e.target.value.trim().toLowerCase();
+  var groups = document.querySelectorAll('.doc-nav-group');
+  groups.forEach(function(group){
+    var anyVisible = false;
+    group.querySelectorAll('.doc-link').forEach(function(link){
+      var match = !q || link.textContent.toLowerCase().indexOf(q) !== -1;
+      link.classList.toggle('search-hidden', !match);
+      if(match) anyVisible = true;
+    });
+    group.classList.toggle('search-hidden', !anyVisible);
+  });
+});
+document.getElementById('docSearch').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    var firstMatch = document.querySelector('.doc-link:not(.search-hidden)');
+    if(firstMatch){
+      document.querySelector(firstMatch.getAttribute('href')).scrollIntoView({ behavior:'smooth' });
+      firstMatch.blur();
+    }
+  }
+});
+</script>
 </body>
 </html>
