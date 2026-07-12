@@ -469,10 +469,10 @@ footer a{color:var(--accent-soft);font-weight:600;}
       <h6>مرجع API</h6>
       <a href="#architecture" class="doc-link">إزاي شغّال من جوه</a>
       <a href="#oauth" class="doc-link">OAuth 2.1</a>
+      <a href="#pro-tools" class="doc-link mcp">أدوات للمحترفين</a>
       <a href="#mcp-client" class="doc-link">مدعوم كعميل MCP</a>
       <a href="#usage-tracking" class="doc-link">آخر التحديثات</a>
-      <a href="#routing" class="doc-link">توجيه Vercel</a>
-      <a href="#functions" class="doc-link">مرجع الوظائف</a>
+      <a href="#routing" class="doc-link">توجيه الروابط</a>
     </div>
   </nav>
 
@@ -734,41 +734,39 @@ resp = requests.<span class="tok-fn">post</span>(
     <div class="journey-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
 
     <section class="doc-section" id="try-api">
-      <div class="doc-section-head"><span class="doc-num">05</span><h2>جرّب الـ API<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>دقيقة</span></h2></div>
-      <p class="lead">حطّ مفتاحك واضغط إرسال — الطلب بيروح من متصفحك مباشرة، من غير أي وسيط.</p>
+      <div class="doc-section-head"><span class="doc-num">05</span><h2>جرّب أي API<span class="time-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>دقيقة</span></h2></div>
+      <p class="lead">أداة عامة لاختبار أي طلب HTTP — من غير أي وسيط أو تخزين. مش مربوطة بمدعوم بس، تقدر تستخدمها لأي API تاني.</p>
 
       <div class="try-api-grid">
         <div>
           <div class="try-presets">
-            <button class="try-preset-btn" onclick="tryApiPreset('initialize')">initialize</button>
-            <button class="try-preset-btn" onclick="tryApiPreset('tools/list')">tools/list</button>
-            <button class="try-preset-btn" onclick="tryApiPreset('list_tickets')">list_tickets</button>
-            <button class="try-preset-btn" onclick="tryApiPreset('dashboard')">dashboard_stats</button>
+            <button class="try-preset-btn" onclick="tryApiPreset('mad3oom')">مثال: قراءة التذاكر</button>
+            <button class="try-preset-btn" onclick="tryApiClear()">امسح الكل</button>
           </div>
 
           <div class="try-field">
-            <label for="tryToken">Authorization Token</label>
-            <input type="text" id="tryToken" placeholder="YOUR_API_KEY.YOUR_SECRET" autocomplete="off">
-            <span class="hint">ما بيتخزّنش ولا بيتبعت لأي حاجة غير <code>mad3oom.online/mcp</code>.</span>
+            <label for="tryUrl">URL</label>
+            <div style="display:flex;gap:.5rem">
+              <select id="tryMethod" style="max-width:105px;flex-shrink:0">
+                <option value="GET">GET</option>
+                <option value="POST" selected>POST</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <input type="text" id="tryUrl" placeholder="https://api.example.com/endpoint" style="flex:1" autocomplete="off">
+            </div>
           </div>
 
           <div class="try-field">
-            <label for="tryMethod">Method</label>
-            <select id="tryMethod" onchange="tryApiToggleFields()">
-              <option value="initialize">initialize</option>
-              <option value="tools/list">tools/list</option>
-              <option value="tools/call">tools/call</option>
-            </select>
+            <label for="tryHeaders">Headers (سطر لكل هيدر — Key: Value)</label>
+            <textarea id="tryHeaders" style="min-height:64px">Authorization: Bearer YOUR_API_KEY.YOUR_SECRET
+Content-Type: application/json</textarea>
           </div>
 
-          <div class="try-field" id="tryToolNameField" style="display:none">
-            <label for="tryToolName">اسم الأداة</label>
-            <input type="text" id="tryToolName" placeholder="list_tickets">
-          </div>
-
-          <div class="try-field" id="tryArgsField" style="display:none">
-            <label for="tryArgs">Arguments (JSON)</label>
-            <textarea id="tryArgs">{"status": "open", "limit": 10}</textarea>
+          <div class="try-field">
+            <label for="tryBody">Body (JSON — اختياري)</label>
+            <textarea id="tryBody" style="min-height:110px" placeholder='{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'></textarea>
           </div>
 
           <button class="btn btn-mcp try-send-btn" onclick="sendTryRequest()">
@@ -778,14 +776,14 @@ resp = requests.<span class="tok-fn">post</span>(
 
           <div class="try-privacy-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
-            <span>فيه حد أقصى 60 طلب/دقيقة — استخدمه بحكمة أثناء الاختبار.</span>
+            <span>الطلب بيروح من متصفحك مباشرة للرابط اللي تحطه — لو الـ API مش عندها CORS مفعّل، الطلب ممكن يترفض من المتصفح نفسه.</span>
           </div>
         </div>
 
         <div class="try-response">
           <div class="try-response-head">
             <span class="try-status-badge pending" id="tryStatusBadge">جاهز</span>
-            <span style="font-family:var(--font-data);font-size:.72rem;color:var(--term-ink-2)">POST /mcp</span>
+            <span id="tryResponseMeta" style="font-family:var(--font-data);font-size:.72rem;color:var(--term-ink-2)"></span>
           </div>
           <div id="tryResponseBody"><div class="try-response-empty">الرد هيظهر هنا بعد إرسال الطلب...</div></div>
         </div>
@@ -882,13 +880,113 @@ resp = requests.<span class="tok-fn">post</span>(
       </div>
     </section>
 
+    <section class="doc-section" id="pro-tools">
+      <div class="doc-section-head"><span class="doc-num">09</span><h2>أدوات للمطوّرين المحترفين</h2></div>
+      <p class="lead">لو بتبني تكامل حقيقي هيشتغل في الإنتاج — دي الحاجات اللي هتحتاجها.</p>
+
+      <h3>Postman Collection جاهزة</h3>
+      <p>كل الـ 16 أداة كـ requests جاهزة، مقسّمة بمجلدات. حمّلها وغيّر <code>token</code> بمفتاحك من الـ Environment variables.</p>
+      <a class="btn btn-mcp" download="mad3oom-postman-collection.json" href="data:application/json;base64,eyJpbmZvIjogeyJuYW1lIjogIk1hZDNvb20gQVBJIOKAlCBKU09OLVJQQyAoTUNQKSIsICJkZXNjcmlwdGlvbiI6ICLZg9mEINij2K/ZiNin2Kog2YXYr9i52YjZhSBBUEkg2KzYp9mH2LLYqSDZg9i32YTYqNin2Kog4oCUINin2LPYqtio2K/ZhCB7e3Rva2VufX0g2KjZhdmB2KrYp9it2YMgKFlPVVJfQVBJX0tFWS5ZT1VSX1NFQ1JFVCkuIiwgInNjaGVtYSI6ICJodHRwczovL3NjaGVtYS5nZXRwb3N0bWFuLmNvbS9qc29uL2NvbGxlY3Rpb24vdjIuMS4wL2NvbGxlY3Rpb24uanNvbiJ9LCAidmFyaWFibGUiOiBbeyJrZXkiOiAiYmFzZV91cmwiLCAidmFsdWUiOiAiaHR0cHM6Ly9tYWQzb29tLm9ubGluZS9tY3AifSwgeyJrZXkiOiAidG9rZW4iLCAidmFsdWUiOiAiWU9VUl9BUElfS0VZLllPVVJfU0VDUkVUIn1dLCAiaXRlbSI6IFt7Im5hbWUiOiAiMC4g2KfZhNis2YTYs9ipIiwgIml0ZW0iOiBbeyJuYW1lIjogImluaXRpYWxpemUiLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwiaW5pdGlhbGl6ZVwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJwcm90b2NvbFZlcnNpb25cIjogXCIyMDI1LTA2LTE4XCJcbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAidG9vbHMvbGlzdCIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9saXN0XCJcbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fV19LCB7Im5hbWUiOiAi2KfZhNiq2LDYp9mD2LEiLCAiaXRlbSI6IFt7Im5hbWUiOiAibGlzdF90aWNrZXRzIiwgInJlcXVlc3QiOiB7Im1ldGhvZCI6ICJQT1NUIiwgImhlYWRlciI6IFt7ImtleSI6ICJBdXRob3JpemF0aW9uIiwgInZhbHVlIjogIkJlYXJlciB7e3Rva2VufX0ifSwgeyJrZXkiOiAiQ29udGVudC1UeXBlIiwgInZhbHVlIjogImFwcGxpY2F0aW9uL2pzb24ifV0sICJib2R5IjogeyJtb2RlIjogInJhdyIsICJyYXciOiAie1xuICBcImpzb25ycGNcIjogXCIyLjBcIixcbiAgXCJpZFwiOiAxLFxuICBcIm1ldGhvZFwiOiBcInRvb2xzL2NhbGxcIixcbiAgXCJwYXJhbXNcIjoge1xuICAgIFwibmFtZVwiOiBcImxpc3RfdGlja2V0c1wiLFxuICAgIFwiYXJndW1lbnRzXCI6IHtcbiAgICAgIFwic3RhdHVzXCI6IFwib3BlblwiLFxuICAgICAgXCJsaW1pdFwiOiAyMFxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAiZ2V0X3RpY2tldCIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJnZXRfdGlja2V0XCIsXG4gICAgXCJhcmd1bWVudHNcIjoge1xuICAgICAgXCJ0aWNrZXRfaWRcIjogXCJUSUNLRVRfSURcIlxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAiY3JlYXRlX3RpY2tldCIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJjcmVhdGVfdGlja2V0XCIsXG4gICAgXCJhcmd1bWVudHNcIjoge1xuICAgICAgXCJ0aXRsZVwiOiBcIti52YbYr9mKINmF2LTZg9mE2KlcIixcbiAgICAgIFwiZGVzY3JpcHRpb25cIjogXCLYqtmB2KfYtdmK2YQg2KfZhNmF2LTZg9mE2Kkg2YfZhtinXCIsXG4gICAgICBcInByaW9yaXR5XCI6IFwibWVkaXVtXCJcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fSwgeyJuYW1lIjogInVwZGF0ZV90aWNrZXQiLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwidXBkYXRlX3RpY2tldFwiLFxuICAgIFwiYXJndW1lbnRzXCI6IHtcbiAgICAgIFwidGlja2V0X2lkXCI6IFwiVElDS0VUX0lEXCIsXG4gICAgICBcInVwZGF0ZXNcIjoge1xuICAgICAgICBcInByaW9yaXR5XCI6IFwiaGlnaFwiXG4gICAgICB9XG4gICAgfVxuICB9XG59In0sICJ1cmwiOiB7InJhdyI6ICJ7e2Jhc2VfdXJsfX0iLCAiaG9zdCI6IFsie3tiYXNlX3VybH19Il19fX0sIHsibmFtZSI6ICJjbG9zZV90aWNrZXQiLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwiY2xvc2VfdGlja2V0XCIsXG4gICAgXCJhcmd1bWVudHNcIjoge1xuICAgICAgXCJ0aWNrZXRfaWRcIjogXCJUSUNLRVRfSURcIlxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAiZ2V0X2Rhc2hib2FyZF9zdGF0cyIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJnZXRfZGFzaGJvYXJkX3N0YXRzXCIsXG4gICAgXCJhcmd1bWVudHNcIjoge31cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19XX0sIHsibmFtZSI6ICLYp9mE2LnZhdmE2KfYoSIsICJpdGVtIjogW3sibmFtZSI6ICJsaXN0X2N1c3RvbWVycyIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJsaXN0X2N1c3RvbWVyc1wiLFxuICAgIFwiYXJndW1lbnRzXCI6IHtcbiAgICAgIFwibGltaXRcIjogMjBcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fSwgeyJuYW1lIjogImdldF9jdXN0b21lciIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJnZXRfY3VzdG9tZXJcIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcImN1c3RvbWVyX2lkXCI6IFwiQ1VTVE9NRVJfSURcIlxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19XX0sIHsibmFtZSI6ICLZiNin2KrYs9in2KgiLCAiaXRlbSI6IFt7Im5hbWUiOiAic2VuZF93aGF0c2FwcCAo2YbYtSkiLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwic2VuZF93aGF0c2FwcFwiLFxuICAgIFwiYXJndW1lbnRzXCI6IHtcbiAgICAgIFwidG9cIjogXCIyMDEyMzQ1Njc4OTBcIixcbiAgICAgIFwibWVzc2FnZV90eXBlXCI6IFwidGV4dFwiLFxuICAgICAgXCJ0ZXh0XCI6IFwi2KPZh9mE2KfZiyDYqNmK2YMhXCJcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fSwgeyJuYW1lIjogInNlbmRfd2hhdHNhcHAgKNiq2YXYqNmE2KopIiwgInJlcXVlc3QiOiB7Im1ldGhvZCI6ICJQT1NUIiwgImhlYWRlciI6IFt7ImtleSI6ICJBdXRob3JpemF0aW9uIiwgInZhbHVlIjogIkJlYXJlciB7e3Rva2VufX0ifSwgeyJrZXkiOiAiQ29udGVudC1UeXBlIiwgInZhbHVlIjogImFwcGxpY2F0aW9uL2pzb24ifV0sICJib2R5IjogeyJtb2RlIjogInJhdyIsICJyYXciOiAie1xuICBcImpzb25ycGNcIjogXCIyLjBcIixcbiAgXCJpZFwiOiAxLFxuICBcIm1ldGhvZFwiOiBcInRvb2xzL2NhbGxcIixcbiAgXCJwYXJhbXNcIjoge1xuICAgIFwibmFtZVwiOiBcInNlbmRfd2hhdHNhcHBcIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInRvXCI6IFwiMjAxMjM0NTY3ODkwXCIsXG4gICAgICBcIm1lc3NhZ2VfdHlwZVwiOiBcInRlbXBsYXRlXCIsXG4gICAgICBcInRlbXBsYXRlXCI6IHtcbiAgICAgICAgXCJuYW1lXCI6IFwiVEVNUExBVEVfTkFNRVwiLFxuICAgICAgICBcImxhbmd1YWdlXCI6IFwiYXJcIixcbiAgICAgICAgXCJjb21wb25lbnRzXCI6IFtdXG4gICAgICB9XG4gICAgfVxuICB9XG59In0sICJ1cmwiOiB7InJhdyI6ICJ7e2Jhc2VfdXJsfX0iLCAiaG9zdCI6IFsie3tiYXNlX3VybH19Il19fX1dfSwgeyJuYW1lIjogItin2YTYp9i02KrYsdin2YPYp9iqIiwgIml0ZW0iOiBbeyJuYW1lIjogImxpc3Rfc3Vic2NyaXB0aW9ucyIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJsaXN0X3N1YnNjcmlwdGlvbnNcIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInN0YXR1c1wiOiBcImFjdGl2ZVwiLFxuICAgICAgXCJsaW1pdFwiOiAyMFxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAiZ2V0X3N1YnNjcmlwdGlvbiIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJnZXRfc3Vic2NyaXB0aW9uXCIsXG4gICAgXCJhcmd1bWVudHNcIjoge1xuICAgICAgXCJzdWJzY3JpcHRpb25faWRcIjogXCJTVUJTQ1JJUFRJT05fSURcIlxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAibGlzdF9zdWJzY3JpcHRpb25fcGxhbnMiLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwibGlzdF9zdWJzY3JpcHRpb25fcGxhbnNcIixcbiAgICBcImFyZ3VtZW50c1wiOiB7fVxuICB9XG59In0sICJ1cmwiOiB7InJhdyI6ICJ7e2Jhc2VfdXJsfX0iLCAiaG9zdCI6IFsie3tiYXNlX3VybH19Il19fX0sIHsibmFtZSI6ICJjcmVhdGVfc3Vic2NyaXB0aW9uIiwgInJlcXVlc3QiOiB7Im1ldGhvZCI6ICJQT1NUIiwgImhlYWRlciI6IFt7ImtleSI6ICJBdXRob3JpemF0aW9uIiwgInZhbHVlIjogIkJlYXJlciB7e3Rva2VufX0ifSwgeyJrZXkiOiAiQ29udGVudC1UeXBlIiwgInZhbHVlIjogImFwcGxpY2F0aW9uL2pzb24ifV0sICJib2R5IjogeyJtb2RlIjogInJhdyIsICJyYXciOiAie1xuICBcImpzb25ycGNcIjogXCIyLjBcIixcbiAgXCJpZFwiOiAxLFxuICBcIm1ldGhvZFwiOiBcInRvb2xzL2NhbGxcIixcbiAgXCJwYXJhbXNcIjoge1xuICAgIFwibmFtZVwiOiBcImNyZWF0ZV9zdWJzY3JpcHRpb25cIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInBsYW5cIjogXCJzdXBwb3J0XCIsXG4gICAgICBcImJpbGxpbmdfY3ljbGVcIjogXCJtb250aGx5XCJcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fSwgeyJuYW1lIjogInJlbmV3X3N1YnNjcmlwdGlvbiIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJyZW5ld19zdWJzY3JpcHRpb25cIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInBsYW5cIjogXCJzdXBwb3J0XCIsXG4gICAgICBcImJpbGxpbmdfY3ljbGVcIjogXCJtb250aGx5XCJcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fSwgeyJuYW1lIjogImNhbmNlbF9zdWJzY3JpcHRpb24iLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwiY2FuY2VsX3N1YnNjcmlwdGlvblwiLFxuICAgIFwiYXJndW1lbnRzXCI6IHtcbiAgICAgIFwic3Vic2NyaXB0aW9uX2lkXCI6IFwiU1VCU0NSSVBUSU9OX0lEXCJcbiAgICB9XG4gIH1cbn0ifSwgInVybCI6IHsicmF3IjogInt7YmFzZV91cmx9fSIsICJob3N0IjogWyJ7e2Jhc2VfdXJsfX0iXX19fV19LCB7Im5hbWUiOiAi2KfZhNil2LTYudin2LHYp9iqIiwgIml0ZW0iOiBbeyJuYW1lIjogImxpc3Rfbm90aWZpY2F0aW9ucyIsICJyZXF1ZXN0IjogeyJtZXRob2QiOiAiUE9TVCIsICJoZWFkZXIiOiBbeyJrZXkiOiAiQXV0aG9yaXphdGlvbiIsICJ2YWx1ZSI6ICJCZWFyZXIge3t0b2tlbn19In0sIHsia2V5IjogIkNvbnRlbnQtVHlwZSIsICJ2YWx1ZSI6ICJhcHBsaWNhdGlvbi9qc29uIn1dLCAiYm9keSI6IHsibW9kZSI6ICJyYXciLCAicmF3IjogIntcbiAgXCJqc29ucnBjXCI6IFwiMi4wXCIsXG4gIFwiaWRcIjogMSxcbiAgXCJtZXRob2RcIjogXCJ0b29scy9jYWxsXCIsXG4gIFwicGFyYW1zXCI6IHtcbiAgICBcIm5hbWVcIjogXCJsaXN0X25vdGlmaWNhdGlvbnNcIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInN0YXR1c1wiOiBcInVucmVhZFwiLFxuICAgICAgXCJsaW1pdFwiOiAyMFxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19LCB7Im5hbWUiOiAic2VuZF9ub3RpZmljYXRpb24iLCAicmVxdWVzdCI6IHsibWV0aG9kIjogIlBPU1QiLCAiaGVhZGVyIjogW3sia2V5IjogIkF1dGhvcml6YXRpb24iLCAidmFsdWUiOiAiQmVhcmVyIHt7dG9rZW59fSJ9LCB7ImtleSI6ICJDb250ZW50LVR5cGUiLCAidmFsdWUiOiAiYXBwbGljYXRpb24vanNvbiJ9XSwgImJvZHkiOiB7Im1vZGUiOiAicmF3IiwgInJhdyI6ICJ7XG4gIFwianNvbnJwY1wiOiBcIjIuMFwiLFxuICBcImlkXCI6IDEsXG4gIFwibWV0aG9kXCI6IFwidG9vbHMvY2FsbFwiLFxuICBcInBhcmFtc1wiOiB7XG4gICAgXCJuYW1lXCI6IFwic2VuZF9ub3RpZmljYXRpb25cIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcInVzZXJfaWRcIjogXCJVU0VSX0lEXCIsXG4gICAgICBcInRpdGxlXCI6IFwi2LnZhtmI2KfZhiDYp9mE2KXYtNi52KfYsVwiLFxuICAgICAgXCJtZXNzYWdlXCI6IFwi2YbYtSDYp9mE2KXYtNi52KfYsVwiLFxuICAgICAgXCJ0eXBlXCI6IFwiaW5mb1wiXG4gICAgfVxuICB9XG59In0sICJ1cmwiOiB7InJhdyI6ICJ7e2Jhc2VfdXJsfX0iLCAiaG9zdCI6IFsie3tiYXNlX3VybH19Il19fX0sIHsibmFtZSI6ICJtYW5hZ2Vfbm90aWZpY2F0aW9uIiwgInJlcXVlc3QiOiB7Im1ldGhvZCI6ICJQT1NUIiwgImhlYWRlciI6IFt7ImtleSI6ICJBdXRob3JpemF0aW9uIiwgInZhbHVlIjogIkJlYXJlciB7e3Rva2VufX0ifSwgeyJrZXkiOiAiQ29udGVudC1UeXBlIiwgInZhbHVlIjogImFwcGxpY2F0aW9uL2pzb24ifV0sICJib2R5IjogeyJtb2RlIjogInJhdyIsICJyYXciOiAie1xuICBcImpzb25ycGNcIjogXCIyLjBcIixcbiAgXCJpZFwiOiAxLFxuICBcIm1ldGhvZFwiOiBcInRvb2xzL2NhbGxcIixcbiAgXCJwYXJhbXNcIjoge1xuICAgIFwibmFtZVwiOiBcIm1hbmFnZV9ub3RpZmljYXRpb25cIixcbiAgICBcImFyZ3VtZW50c1wiOiB7XG4gICAgICBcIm5vdGlmaWNhdGlvbl9pZFwiOiBcIk5PVElGSUNBVElPTl9JRFwiLFxuICAgICAgXCJhY3Rpb25cIjogXCJtYXJrX3JlYWRcIlxuICAgIH1cbiAgfVxufSJ9LCAidXJsIjogeyJyYXciOiAie3tiYXNlX3VybH19IiwgImhvc3QiOiBbInt7YmFzZV91cmx9fSJdfX19XX1dfQ==">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        تحميل Postman Collection
+      </a>
+
+      <h3>غلاف جاهز (Client Wrapper)</h3>
+      <p>كلاس بسيط بيلف الـ JSON-RPC ويطلّع أخطاء واضحة — أسهل من إعادة كتابة نفس الكود كل مرة.</p>
+
+      <div class="code-block">
+        <div class="code-tabs-head">
+          <div class="code-tab-btns">
+            <button class="code-tab-btn active" onclick="switchCodeTab(this,'wrap-js')">JavaScript</button>
+            <button class="code-tab-btn" onclick="switchCodeTab(this,'wrap-py')">Python</button>
+          </div>
+          <button class="code-block-copy" onclick="copyCode(this)">نسخ</button>
+        </div>
+
+        <div class="code-tab-panel active" data-tab="wrap-js">
+        <pre><code><span class="tok-key">class</span> <span class="tok-fn">Mad3oomClient</span> {
+  <span class="tok-fn">constructor</span>(token, baseUrl = <span class="tok-str">"https://mad3oom.online/mcp"</span>) {
+    <span class="tok-key">this</span>.token = token;
+    <span class="tok-key">this</span>.baseUrl = baseUrl;
+  }
+
+  <span class="tok-key">async</span> <span class="tok-fn">call</span>(method, params) {
+    <span class="tok-key">const</span> res = <span class="tok-key">await</span> <span class="tok-fn">fetch</span>(<span class="tok-key">this</span>.baseUrl, {
+      method: <span class="tok-str">"POST"</span>,
+      headers: {
+        <span class="tok-str">"Authorization"</span>: `Bearer ${<span class="tok-key">this</span>.token}`,
+        <span class="tok-str">"Content-Type"</span>: <span class="tok-str">"application/json"</span>,
+      },
+      body: JSON.<span class="tok-fn">stringify</span>({ jsonrpc: <span class="tok-str">"2.0"</span>, id: Date.<span class="tok-fn">now</span>(), method, params }),
+    });
+    <span class="tok-key">const</span> data = <span class="tok-key">await</span> res.<span class="tok-fn">json</span>();
+    <span class="tok-key">if</span> (data.error) <span class="tok-key">throw new</span> <span class="tok-fn">Error</span>(`[${data.error.code}] ${data.error.message}`);
+    <span class="tok-key">return</span> data.result;
+  }
+
+  <span class="tok-fn">tool</span>(name, args = {}) {
+    <span class="tok-key">return this</span>.<span class="tok-fn">call</span>(<span class="tok-str">"tools/call"</span>, { name, arguments: args })
+      .then(r => JSON.<span class="tok-fn">parse</span>(r.content[<span class="tok-num">0</span>].text));
+  }
+}
+
+<span class="tok-com">// استخدام:</span>
+<span class="tok-key">const</span> client = <span class="tok-key">new</span> <span class="tok-fn">Mad3oomClient</span>(<span class="tok-str">"YOUR_API_KEY.YOUR_SECRET"</span>);
+<span class="tok-key">const</span> tickets = <span class="tok-key">await</span> client.<span class="tok-fn">tool</span>(<span class="tok-str">"list_tickets"</span>, { status: <span class="tok-str">"open"</span> });</code></pre>
+        </div>
+
+        <div class="code-tab-panel" data-tab="wrap-py">
+        <pre><code><span class="tok-key">import</span> requests
+
+<span class="tok-key">class</span> <span class="tok-fn">Mad3oomClient</span>:
+    <span class="tok-key">def</span> <span class="tok-fn">__init__</span>(self, token, base_url=<span class="tok-str">"https://mad3oom.online/mcp"</span>):
+        self.token = token
+        self.base_url = base_url
+
+    <span class="tok-key">def</span> <span class="tok-fn">call</span>(self, method, params=<span class="tok-key">None</span>):
+        resp = requests.<span class="tok-fn">post</span>(self.base_url, headers={
+            <span class="tok-str">"Authorization"</span>: <span class="tok-str">f"Bearer {self.token}"</span>,
+            <span class="tok-str">"Content-Type"</span>: <span class="tok-str">"application/json"</span>,
+        }, json={<span class="tok-str">"jsonrpc"</span>: <span class="tok-str">"2.0"</span>, <span class="tok-str">"id"</span>: <span class="tok-num">1</span>, <span class="tok-str">"method"</span>: method, <span class="tok-str">"params"</span>: params})
+        data = resp.<span class="tok-fn">json</span>()
+        <span class="tok-key">if</span> <span class="tok-str">"error"</span> <span class="tok-key">in</span> data:
+            <span class="tok-key">raise</span> <span class="tok-fn">Exception</span>(<span class="tok-str">f"[{data['error']['code']}] {data['error']['message']}"</span>)
+        <span class="tok-key">return</span> data[<span class="tok-str">"result"</span>]
+
+    <span class="tok-key">def</span> <span class="tok-fn">tool</span>(self, name, args=<span class="tok-key">None</span>):
+        <span class="tok-key">import</span> json
+        result = self.<span class="tok-fn">call</span>(<span class="tok-str">"tools/call"</span>, {<span class="tok-str">"name"</span>: name, <span class="tok-str">"arguments"</span>: args <span class="tok-key">or</span> {}})
+        <span class="tok-key">return</span> json.<span class="tok-fn">loads</span>(result[<span class="tok-str">"content"</span>][<span class="tok-num">0</span>][<span class="tok-str">"text"</span>])
+
+<span class="tok-com"># استخدام:</span>
+client = <span class="tok-fn">Mad3oomClient</span>(<span class="tok-str">"YOUR_API_KEY.YOUR_SECRET"</span>)
+tickets = client.<span class="tok-fn">tool</span>(<span class="tok-str">"list_tickets"</span>, {<span class="tok-str">"status"</span>: <span class="tok-str">"open"</span>})</code></pre>
+        </div>
+      </div>
+
+      <h3>الترقيم (Pagination)</h3>
+      <p>الأدوات اللي بترجع قوائم بتاخد <code>limit</code> و<code>offset</code>. الحد الأقصى لـ <code>limit</code> هو <strong>100</strong> — أي رقم أكبر بيتقصّ تلقائيًا.</p>
+
+      <h3>الطلبات المتكررة (Retries)</h3>
+      <div class="callout danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <p>مفيش <strong>Idempotency Key</strong> مدعومة حاليًا. لو عملت retry على <code>create_ticket</code> أو <code>send_whatsapp</code> بعد timeout، ممكن تتكرّر العملية فعليًا. لو الـ retry مهم لك، اعمل تحقق من عندك قبل الإرسال (مثلاً دوّر على تذكرة بنفس العنوان قبل ما تنشئ واحدة تانية).</p>
+      </div>
+
+      <h3>Batch Requests</h3>
+      <p>مش مدعومة. كل طلب HTTP لازم يحمل JSON-RPC object واحد بس — مفيش array من طلبات مع بعض.</p>
+
+      <h3>توافق الإصدارات</h3>
+      <p>الـ endpoint بيتفاوض على نسخة البروتوكول وقت <code>initialize</code> عبر <code>protocolVersion</code>. لو مبعتّش نسخة معروفة، بيرجع لأحدث نسخة مدعومة تلقائيًا — مفيش داعي تتابعها يدويًا إلا لو بتبني عميل MCP كامل.</p>
+    </section>
+
     <section class="doc-section" id="mcp-client">
-      <div class="doc-section-head"><span class="doc-num">09</span><h2>مدعوم كعميل MCP</h2></div>
+      <div class="doc-section-head"><span class="doc-num">10</span><h2>مدعوم كعميل MCP</h2></div>
       <p class="lead">ميزة داخلية للوحة الإدارة — مدعوم بيتصل بخوادم MCP خارجية (Supabase، GitHub...) نيابةً عن الأدمن. مش جزء من استهلاكك كمطوّر خارجي.</p>
     </section>
 
     <section class="doc-section" id="usage-tracking">
-      <div class="doc-section-head"><span class="doc-num">10</span><h2>آخر التحديثات</h2></div>
+      <div class="doc-section-head"><span class="doc-num">11</span><h2>آخر التحديثات</h2></div>
       <span class="eyebrow fixed"><span class="dot"></span>mcp function v21</span>
       <ul style="list-style:disc;padding-inline-start:1.3rem;color:var(--text-2);font-size:.88rem;margin-top:.75rem">
         <li style="margin-bottom:.4rem">سجل الاستخدام بقى يسجّل اسم الأداة المستخدمة فعليًا</li>
@@ -898,22 +996,8 @@ resp = requests.<span class="tok-fn">post</span>(
     </section>
 
     <section class="doc-section" id="routing">
-      <div class="doc-section-head"><span class="doc-num">11</span><h2>توجيه Vercel</h2></div>
-      <p class="lead">كل روابط OAuth أعلاه + <code>/mcp</code> عبارة عن rewrites (مش redirects) على Supabase Edge Functions — عشان الدومين يفضل <code>mad3oom.online</code>.</p>
-    </section>
-
-    <section class="doc-section" id="functions">
-      <div class="doc-section-head"><span class="doc-num">12</span><h2>مرجع الوظائف</h2></div>
-      <p class="lead"><code>verify_jwt: false</code> على <code>mcp</code> و<code>oauth-*</code> لأن مصادقتهم مخصّصة، مش JWT قياسي.</p>
-
-      <div class="fn-grid">
-        <div class="fn-card"><div class="fn-name">mcp</div><div class="fn-desc">نقطة JSON-RPC الرئيسية</div><span class="fn-jwt off">verify_jwt: false</span></div>
-        <div class="fn-card"><div class="fn-name">create-api-token</div><div class="fn-desc">توليد مفتاح API</div><span class="fn-jwt on">verify_jwt: true</span></div>
-        <div class="fn-card"><div class="fn-name">regenerate-api-token-secret</div><div class="fn-desc">تجديد سر مفتاح</div><span class="fn-jwt on">verify_jwt: true</span></div>
-        <div class="fn-card"><div class="fn-name">oauth-discovery</div><div class="fn-desc">RFC 8414 metadata</div><span class="fn-jwt off">verify_jwt: false</span></div>
-        <div class="fn-card"><div class="fn-name">oauth-register</div><div class="fn-desc">Dynamic Client Registration</div><span class="fn-jwt off">verify_jwt: false</span></div>
-        <div class="fn-card"><div class="fn-name">oauth-token</div><div class="fn-desc">إصدار/تجديد access token</div><span class="fn-jwt off">verify_jwt: false</span></div>
-      </div>
+      <div class="doc-section-head"><span class="doc-num">12</span><h2>توجيه الروابط</h2></div>
+      <p class="lead">كل روابط OAuth أعلاه + <code>/mcp</code> ثابتة على دومين <code>mad3oom.online</code> طول الوقت، حتى لو اتغيّر السيرفر اللي بيخدمها من جوه.</p>
     </section>
 
   </main>
@@ -990,29 +1074,29 @@ function switchCodeTab(btn, tabId){
   block.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
 }
 
-// ---------- Try API console ----------
-var TRY_API_ENDPOINT = 'https://mad3oom.online/mcp';
-
-function tryApiToggleFields(){
-  var method = document.getElementById('tryMethod').value;
-  document.getElementById('tryToolNameField').style.display = method === 'tools/call' ? 'block' : 'none';
-  document.getElementById('tryArgsField').style.display = method === 'tools/call' ? 'block' : 'none';
-}
+// ---------- Try API console (generic HTTP tester) ----------
+var MAD3OOM_ENDPOINT = 'https://mad3oom.online/mcp';
 
 function tryApiPreset(preset){
-  var methodEl = document.getElementById('tryMethod');
-  if(preset === 'initialize'){ methodEl.value = 'initialize'; }
-  else if(preset === 'tools/list'){ methodEl.value = 'tools/list'; }
-  else if(preset === 'list_tickets'){
-    methodEl.value = 'tools/call';
-    document.getElementById('tryToolName').value = 'list_tickets';
-    document.getElementById('tryArgs').value = '{"status": "open", "limit": 10}';
-  } else if(preset === 'dashboard'){
-    methodEl.value = 'tools/call';
-    document.getElementById('tryToolName').value = 'get_dashboard_stats';
-    document.getElementById('tryArgs').value = '{}';
+  if(preset === 'mad3oom'){
+    document.getElementById('tryMethod').value = 'POST';
+    document.getElementById('tryUrl').value = MAD3OOM_ENDPOINT;
+    document.getElementById('tryHeaders').value = 'Authorization: Bearer YOUR_API_KEY.YOUR_SECRET\nContent-Type: application/json';
+    document.getElementById('tryBody').value = JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'tools/call',
+      params: { name: 'list_tickets', arguments: { status: 'open', limit: 5 } },
+    }, null, 2);
   }
-  tryApiToggleFields();
+}
+
+function tryApiClear(){
+  document.getElementById('tryMethod').value = 'GET';
+  document.getElementById('tryUrl').value = '';
+  document.getElementById('tryHeaders').value = '';
+  document.getElementById('tryBody').value = '';
+  setTryStatusBadge('pending', 'جاهز');
+  document.getElementById('tryResponseMeta').textContent = '';
+  document.getElementById('tryResponseBody').innerHTML = '<div class="try-response-empty">الرد هيظهر هنا بعد إرسال الطلب...</div>';
 }
 
 function setTryStatusBadge(state, label){
@@ -1021,44 +1105,43 @@ function setTryStatusBadge(state, label){
   el.textContent = label;
 }
 
-async function sendTryRequest(){
-  var token = document.getElementById('tryToken').value.trim();
-  var method = document.getElementById('tryMethod').value;
-  var responseBody = document.getElementById('tryResponseBody');
+function parseHeaderLines(raw){
+  var headers = {};
+  raw.split('\n').forEach(function(line){
+    var idx = line.indexOf(':');
+    if(idx === -1) return;
+    var key = line.slice(0, idx).trim();
+    var value = line.slice(idx + 1).trim();
+    if(key) headers[key] = value;
+  });
+  return headers;
+}
 
-  if(!token){
+async function sendTryRequest(){
+  var url = document.getElementById('tryUrl').value.trim();
+  var method = document.getElementById('tryMethod').value;
+  var headersRaw = document.getElementById('tryHeaders').value;
+  var bodyRaw = document.getElementById('tryBody').value.trim();
+  var responseBody = document.getElementById('tryResponseBody');
+  var responseMeta = document.getElementById('tryResponseMeta');
+
+  if(!url){
     setTryStatusBadge('s4xx', 'ناقص');
-    responseBody.innerHTML = '<div class="try-response-empty">لازم تدخل التوكن الأول.</div>';
+    responseBody.innerHTML = '<div class="try-response-empty">لازم تدخل الـ URL الأول.</div>';
     return;
   }
 
-  var payload = { jsonrpc: '2.0', id: Date.now(), method: method };
-  if(method === 'tools/call'){
-    var toolName = document.getElementById('tryToolName').value.trim();
-    var argsRaw = document.getElementById('tryArgs').value.trim();
-    var args = {};
-    if(argsRaw){
-      try { args = JSON.parse(argsRaw); }
-      catch(e){
-        setTryStatusBadge('s4xx', 'JSON خطأ');
-        responseBody.innerHTML = '<div class="try-response-empty">الـ Arguments مش JSON صالح: ' + e.message + '</div>';
-        return;
-      }
-    }
-    payload.params = { name: toolName, arguments: args };
-  } else if(method === 'initialize'){
-    payload.params = { protocolVersion: '2025-06-18' };
+  var options = { method: method, headers: parseHeaderLines(headersRaw) };
+  if(bodyRaw && method !== 'GET' && method !== 'DELETE'){
+    options.body = bodyRaw;
   }
 
   setTryStatusBadge('pending', 'جاري الإرسال...');
-  responseBody.innerHTML = '<div class="try-response-empty">جاري الاتصال بـ /mcp...</div>';
+  responseMeta.textContent = method + ' ' + url;
+  responseBody.innerHTML = '<div class="try-response-empty">جاري الاتصال...</div>';
 
   try {
-    var res = await fetch(TRY_API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    var res = await fetch(url, options);
     var text = await res.text();
     var pretty;
     try { pretty = JSON.stringify(JSON.parse(text), null, 2); }
@@ -1066,12 +1149,11 @@ async function sendTryRequest(){
 
     var state = res.status >= 500 ? 's5xx' : (res.status >= 400 ? 's4xx' : 's2xx');
     setTryStatusBadge(state, res.status + ' ' + (res.statusText || ''));
-    responseBody.innerHTML = '<pre><code>' + escapeHtmlText(pretty) + '</code></pre>';
-
-    if(method === 'tools/list'){ setChecklistItem('chk3', true); }
+    responseBody.innerHTML = '<pre><code>' + escapeHtmlText(pretty || '(رد فاضي)') + '</code></pre>';
+    setChecklistItem('chk3', true);
   } catch(err){
     setTryStatusBadge('s5xx', 'فشل الاتصال');
-    responseBody.innerHTML = '<div class="try-response-empty">تعذّر الوصول لـ /mcp: ' + escapeHtmlText(err.message) + '</div>';
+    responseBody.innerHTML = '<div class="try-response-empty">تعذّر إرسال الطلب: ' + escapeHtmlText(err.message) + ' (غالبًا مشكلة CORS من جهة السيرفر المستهدف)</div>';
   }
 }
 
