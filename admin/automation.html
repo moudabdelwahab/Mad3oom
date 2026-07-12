@@ -6,46 +6,43 @@
 <title>مصمم الأتمتة — مركز المساعدة</title>
 <style>
 :root{
-  /* ===== Design Tokens ===== */
-  --bg-canvas: #F7F8FA;
+  /* ===== Design Tokens — elevated SaaS identity ===== */
+  --bg-canvas: #FAFAFB;
   --bg-surface: #FFFFFF;
   --bg-sidebar: #FFFFFF;
-  --border-soft: #E7E9ED;
-  --border-strong: #D6DAE1;
+  --border-soft: #EBECEF;
+  --border-strong: #DBDDE3;
 
-  --text-primary: #1B1E27;
-  --text-secondary: #6B7280;
-  --text-tertiary: #9AA1AC;
+  --text-primary: #14151A;
+  --text-secondary: #6B7080;
+  --text-tertiary: #9CA0AC;
 
   --accent-primary: #4F46E5;
+  --accent-primary-hover: #4338CA;
   --accent-primary-soft: #EEF0FF;
+  --accent-ring: rgba(79,70,229,.14);
 
-  /* category colors — each new node category (whatsapp, ai, crm...) gets one slot */
-  --cat-trigger: #12A150;
-  --cat-trigger-soft: #E8F8EE;
-  --cat-condition: #7C3AED;
-  --cat-condition-soft: #F3EEFF;
-  --cat-comm: #2563EB;
-  --cat-comm-soft: #EAF1FF;
-  --cat-notify: #D97706;
-  --cat-notify-soft: #FEF3E1;
-  --cat-ticket: #DB2777;
-  --cat-ticket-soft: #FDEAF3;
-  --cat-flow: #64748B;
-  --cat-flow-soft: #EEF1F4;
-  --cat-ai: #0D9488;
-  --cat-ai-soft: #E4F7F5;
-  --cat-integration: #B45309;
-  --cat-integration-soft: #FBF0E1;
+  --cat-trigger: #0EA05A;      --cat-trigger-soft: #E7F8EF;
+  --cat-condition: #3B5BFB;    --cat-condition-soft: #EEF1FF;
+  --cat-comm: #2563EB;         --cat-comm-soft: #EAF1FF;
+  --cat-notify: #D97706;       --cat-notify-soft: #FEF3E1;
+  --cat-ticket: #DB2777;       --cat-ticket-soft: #FDEAF3;
+  --cat-flow: #F97316;         --cat-flow-soft: #FFF1E7;
+  --cat-ai: #9333EA;           --cat-ai-soft: #F5EBFE;
+  --cat-integration: #4F46E5;  --cat-integration-soft: #EEF0FF;
+  --cat-database: #0D9488;     --cat-database-soft: #E4F7F5;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 9px;
+  --radius-md: 13px;
+  --radius-lg: 18px;
 
-  --shadow-card: 0 1px 2px rgba(20,20,30,.04), 0 1px 1px rgba(20,20,30,.03);
-  --shadow-card-hover: 0 4px 14px rgba(20,20,30,.08);
-  --shadow-panel: -8px 0 24px rgba(20,20,30,.04);
+  --shadow-xs: 0 1px 2px rgba(16,17,25,.04);
+  --shadow-card: 0 1px 2px rgba(16,17,25,.05), 0 1px 1px rgba(16,17,25,.03);
+  --shadow-card-hover: 0 8px 24px rgba(16,17,25,.08), 0 2px 6px rgba(16,17,25,.04);
+  --shadow-panel: -12px 0 32px rgba(16,17,25,.04);
+  --shadow-popover: 0 16px 40px rgba(16,17,25,.14), 0 2px 8px rgba(16,17,25,.06);
 
+  --ease: cubic-bezier(.2,.7,.3,1);
   --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
 }
 
@@ -58,244 +55,237 @@ body{
   overflow:hidden;
   font-size:14px;
   -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
 button{font-family:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit;}
+button, .icon-btn, .node, .lib-item, .choice-card, .chip-option, .select-row, .unit-btn { transition: background-color .15s var(--ease), border-color .15s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease), color .15s var(--ease); }
 
-/* icon base */
-.icon{ width:20px; height:20px; stroke-width:2; stroke:currentColor; fill:none; stroke-linecap:round; stroke-linejoin:round; display:block; flex-shrink:0; }
+.icon{ width:20px; height:20px; stroke-width:1.8; stroke:currentColor; fill:none; stroke-linecap:round; stroke-linejoin:round; display:block; flex-shrink:0; }
 .icon-sm{ width:16px; height:16px; }
 .icon-lg{ width:22px; height:22px; }
 
+@keyframes fadeSlideIn{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+@keyframes popIn{ from{ opacity:0; transform:scale(.97) translateY(-4px);} to{ opacity:1; transform:scale(1) translateY(0);} }
+@keyframes pulseDot{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+@keyframes shimmer{ 0%{ background-position: -200px 0; } 100%{ background-position: calc(200px + 100%) 0; } }
+
 /* ===================== APP SHELL ===================== */
-.app{
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-}
+.app{ height:100vh; display:flex; flex-direction:column; }
 
 /* ---------- Top bar ---------- */
 .topbar{
-  height:60px;
+  height:58px;
   background:var(--bg-surface);
   border-bottom:1px solid var(--border-soft);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 20px;
-  flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 18px; flex-shrink:0; z-index:20;
 }
-.topbar-right, .topbar-left{ display:flex; align-items:center; gap:12px; }
-.topbar-breadcrumb{ display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:13px; }
-.topbar-breadcrumb .current{ color:var(--text-primary); font-weight:600; font-size:14.5px; }
+.topbar-right, .topbar-left{ display:flex; align-items:center; gap:10px; }
+.topbar-breadcrumb{ display:flex; align-items:center; gap:7px; color:var(--text-tertiary); font-size:12.5px; }
+.topbar-breadcrumb .sep{ width:14px; height:14px; color:var(--border-strong); }
+.topbar-breadcrumb .current{ color:var(--text-primary); font-weight:700; font-size:14.5px; letter-spacing:-.01em; }
 .icon-btn{
-  width:34px; height:34px; border-radius:var(--radius-sm);
-  border:1px solid var(--border-soft); background:var(--bg-surface);
+  width:32px; height:32px; border-radius:var(--radius-sm);
+  border:1px solid transparent; background:transparent;
   display:flex; align-items:center; justify-content:center;
   color:var(--text-secondary);
-  transition:.15s;
 }
-.icon-btn:hover{ background:#F5F6F8; border-color:var(--border-strong); }
+.icon-btn:hover{ background:#F4F4F6; color:var(--text-primary); }
 .status-pill{
   display:flex; align-items:center; gap:6px;
   background:var(--cat-trigger-soft); color:var(--cat-trigger);
-  padding:5px 10px 5px 12px; border-radius:20px; font-size:12.5px; font-weight:600;
+  padding:5px 11px 5px 12px; border-radius:20px; font-size:12px; font-weight:700;
+  border:1px solid rgba(14,160,90,.15);
 }
-.status-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--cat-trigger); }
+.status-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--cat-trigger); animation:pulseDot 2s ease-in-out infinite; }
 
 .btn{
-  height:36px; padding:0 16px; border-radius:var(--radius-sm);
+  height:34px; padding:0 14px; border-radius:var(--radius-sm);
   border:1px solid var(--border-soft); background:var(--bg-surface);
-  font-size:13.5px; font-weight:600; color:var(--text-primary);
+  font-size:13px; font-weight:600; color:var(--text-primary);
   display:flex; align-items:center; gap:6px;
-  transition:.15s;
 }
-.btn:hover{ background:#F5F6F8; }
-.btn-primary{
-  background:var(--accent-primary); color:#fff; border-color:var(--accent-primary);
-}
-.btn-primary:hover{ background:#4338CA; }
+.btn:hover{ background:#F7F7F8; border-color:var(--border-strong); }
+.btn-primary{ background:var(--accent-primary); color:#fff; border-color:var(--accent-primary); box-shadow:0 1px 2px rgba(79,70,229,.25); }
+.btn-primary:hover{ background:var(--accent-primary-hover); border-color:var(--accent-primary-hover); }
+.btn-primary:active{ transform:translateY(1px); }
 
-/* ---------- Body layout ---------- */
-.body-layout{ flex:1; display:flex; overflow:hidden; position:relative; }
+/* connection badge */
+.conn-badge{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-tertiary); padding:4px 9px; border-radius:20px; border:1px solid var(--border-soft); }
+.conn-badge .dot{ width:6px; height:6px; border-radius:50%; }
+.conn-badge.live .dot{ background:var(--cat-trigger); animation:pulseDot 2s ease-in-out infinite; }
+.conn-badge.live{ color:var(--cat-trigger); border-color:rgba(14,160,90,.18); background:var(--cat-trigger-soft); }
+.conn-badge.loading .dot{ background:var(--text-tertiary); }
 
-/* ---------- Canvas ---------- */
+/* ---------- Body layout: fixed 3-column flex, footer belongs to canvas column ---------- */
+.body-layout{ flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
+
+.canvas-col{ flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; position:relative; }
+
 .canvas-wrap{
-  flex:1;
-  position:relative;
-  overflow:auto;
-  background-image: radial-gradient(circle, #E3E6EB 1.4px, transparent 1.4px);
-  background-size: 22px 22px;
+  flex:1; min-height:0;
+  position:relative; overflow:auto;
+  background-image: radial-gradient(circle, #E5E7EB 1.3px, transparent 1.3px);
+  background-size: 24px 24px;
 }
 .canvas-inner{
-  min-height:100%;
+  min-height:100%; width:100%;
   display:flex; flex-direction:column; align-items:center;
-  padding:56px 40px 140px;
-  gap:0;
+  padding:44px 40px 64px;
 }
 
-/* summary strip */
 .flow-summary{
-  max-width:560px; width:100%;
-  background:var(--bg-surface);
+  max-width:580px; width:100%;
+  background:linear-gradient(180deg,#FFFFFF, #FCFCFE);
   border:1px solid var(--border-soft);
   border-radius:var(--radius-md);
-  padding:14px 18px;
-  margin-bottom:36px;
+  padding:14px 18px; margin-bottom:32px;
   display:flex; gap:12px; align-items:flex-start;
   box-shadow:var(--shadow-card);
+  animation:fadeSlideIn .4s var(--ease);
 }
-.flow-summary .icon{ color:var(--accent-primary); margin-top:1px; }
-.flow-summary p{ font-size:13.5px; line-height:1.7; color:var(--text-secondary); }
+.flow-summary .icon-wrap{
+  width:28px; height:28px; border-radius:8px; flex-shrink:0;
+  background:var(--accent-primary-soft); color:var(--accent-primary);
+  display:flex; align-items:center; justify-content:center;
+}
+.flow-summary .icon{ width:16px; height:16px; }
+.flow-summary p{ font-size:13.5px; line-height:1.75; color:var(--text-secondary); padding-top:3px; }
 .flow-summary b{ color:var(--text-primary); font-weight:700; }
 
-/* node card */
 .node{
-  width:420px;
+  width:426px;
   background:var(--bg-surface);
   border:1.5px solid var(--border-soft);
   border-radius:var(--radius-md);
   padding:16px 18px;
   cursor:pointer;
   position:relative;
-  transition:.15s;
   box-shadow:var(--shadow-card);
+  animation:fadeSlideIn .35s var(--ease) backwards;
 }
-.node:hover{ box-shadow:var(--shadow-card-hover); border-color:var(--border-strong); }
-.node.selected{ border-color:var(--node-color, var(--accent-primary)); box-shadow:0 0 0 3px var(--node-color-soft, var(--accent-primary-soft)); }
+.node:hover{ box-shadow:var(--shadow-card-hover); border-color:var(--border-strong); transform:translateY(-1px); }
+.node.selected{ border-color:var(--node-color, var(--accent-primary)); box-shadow:0 0 0 4px var(--node-color-soft, var(--accent-ring)); transform:none; }
 
 .node-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-.node-kicker{ display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:var(--node-color); text-transform:uppercase; letter-spacing:.02em; }
-.node-menu-btn{ width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-tertiary); }
-.node-menu-btn:hover{ background:#F2F3F5; color:var(--text-secondary); }
+.node-kicker{ display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--node-color); text-transform:uppercase; letter-spacing:.04em; }
+.node-menu-btn{ width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:var(--text-tertiary); }
+.node-menu-btn:hover{ background:#F2F2F5; color:var(--text-secondary); }
 
 .node-main{ display:flex; align-items:flex-start; gap:12px; }
 .node-icon{
-  width:38px; height:38px; border-radius:10px; flex-shrink:0;
+  width:38px; height:38px; border-radius:11px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
   background:var(--node-color-soft); color:var(--node-color);
 }
 .node-text{ flex:1; min-width:0; }
-.node-title{ font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:3px; }
-.node-sub{ font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+.node-title{ font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:3px; letter-spacing:-.01em; }
+.node-sub{ font-size:12.5px; color:var(--text-secondary); line-height:1.55; }
 .node-sub .chip{
-  display:inline-flex; align-items:center; background:#F2F3F5; color:var(--text-primary);
-  border-radius:5px; padding:1.5px 6px; font-weight:600; font-size:12px; margin:0 2px;
+  display:inline-flex; align-items:center; background:#F2F2F5; color:var(--text-primary);
+  border-radius:6px; padding:1.5px 7px; font-weight:700; font-size:11.5px; margin:0 2px;
 }
 
-/* condition node special layout (branches) */
-.node.condition .node-sub{ margin-top:2px; }
 .branch-hint{ display:flex; gap:6px; margin-top:10px; }
-.branch-tag{ font-size:11.5px; padding:3px 9px; border-radius:20px; font-weight:600; }
-.branch-yes{ background:#E8F8EE; color:var(--cat-trigger); }
-.branch-no{ background:#FBEAEA; color:#DC2626; }
 
-/* connector + add button */
-.connector{ width:2px; height:28px; background:var(--border-strong); position:relative; }
+.connector{ width:2px; height:26px; background:var(--border-strong); }
 .add-step-btn{
-  width:28px; height:28px; border-radius:50%;
+  width:26px; height:26px; border-radius:50%;
   background:var(--bg-surface); border:1.5px dashed var(--border-strong);
   display:flex; align-items:center; justify-content:center;
-  color:var(--text-tertiary);
-  margin:6px 0;
-  transition:.15s;
-  position:relative; z-index:2;
+  color:var(--text-tertiary); margin:6px 0; position:relative; z-index:2;
 }
-.add-step-btn:hover{ border-color:var(--accent-primary); border-style:solid; color:var(--accent-primary); background:var(--accent-primary-soft); }
+.add-step-btn:hover{ border-color:var(--accent-primary); border-style:solid; color:var(--accent-primary); background:var(--accent-primary-soft); transform:scale(1.08); }
 
-/* branch connectors for condition */
-.branch-wrap{ display:flex; width:420px; justify-content:space-between; padding-top:0; }
-.branch-col{ display:flex; flex-direction:column; align-items:center; width:48%; }
-.branch-label{ font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:20px; margin-bottom:8px; }
+.branch-wrap{ display:flex; width:426px; justify-content:space-between; gap:16px; }
+.branch-col{ display:flex; flex-direction:column; align-items:center; width:100%; }
+.branch-label{ font-size:11px; font-weight:800; padding:4px 11px; border-radius:20px; margin-bottom:8px; letter-spacing:.02em; }
+.branch-yes{ background:var(--cat-trigger-soft); color:var(--cat-trigger); }
+.branch-no{ background:#FBEAEA; color:#DC2626; }
 
-/* end cap */
 .flow-end{
-  display:flex; align-items:center; gap:8px;
-  color:var(--text-tertiary); font-size:12.5px; font-weight:600;
-  padding:8px 14px; border:1.5px dashed var(--border-soft); border-radius:20px;
-  margin-top:8px;
+  display:flex; align-items:center; gap:7px;
+  color:var(--text-tertiary); font-size:12px; font-weight:700;
+  padding:7px 14px; border:1.5px dashed var(--border-soft); border-radius:20px;
+  margin-top:6px; background:#fff;
 }
 
-/* zoom controls */
+/* zoom controls — anchored to canvas column, not floating over content flow */
 .zoom-controls{
-  position:absolute; bottom:20px; left:24px;
-  display:flex; align-items:center; gap:2px;
-  background:var(--bg-surface); border:1px solid var(--border-soft); border-radius:10px;
-  padding:4px; box-shadow:var(--shadow-card);
+  position:absolute; bottom:16px; left:20px; z-index:10;
+  display:flex; align-items:center; gap:1px;
+  background:var(--bg-surface); border:1px solid var(--border-soft); border-radius:11px;
+  padding:4px; box-shadow:var(--shadow-card-hover);
 }
-.zoom-controls .icon-btn{ border:none; width:30px; height:30px; }
-.zoom-level{ font-size:12px; color:var(--text-secondary); font-weight:600; padding:0 8px; min-width:42px; text-align:center; }
+.zoom-controls .icon-btn{ width:29px; height:29px; }
+.zoom-level{ font-size:11.5px; color:var(--text-secondary); font-weight:700; padding:0 8px; min-width:40px; text-align:center; }
 
-/* footer trust bar */
+/* footer trust bar — belongs to canvas column flex flow, never overlaps content */
 .trust-bar{
-  position:absolute; bottom:0; right:0; left:0;
+  flex-shrink:0;
   background:var(--bg-surface); border-top:1px solid var(--border-soft);
-  display:flex; gap:36px; align-items:center; justify-content:center;
-  padding:12px; font-size:12px; color:var(--text-secondary);
+  display:flex; gap:32px; align-items:center; justify-content:center;
+  padding:10px; font-size:11.5px; color:var(--text-tertiary);
 }
 .trust-item{ display:flex; align-items:center; gap:7px; }
-.trust-item .icon{ color:var(--accent-primary); width:16px; height:16px; }
+.trust-item .icon{ color:var(--text-tertiary); width:15px; height:15px; }
 
-/* ===================== RIGHT PANEL — Add Step Library ===================== */
+/* ===================== RIGHT PANEL — Library ===================== */
 .library-panel{
-  width:340px; flex-shrink:0;
+  width:336px; flex-shrink:0;
   background:var(--bg-sidebar);
   border-left:1px solid var(--border-soft);
-  display:flex; flex-direction:column;
-  overflow:hidden;
+  display:flex; flex-direction:column; overflow:hidden;
 }
-.panel-tabs{ display:flex; padding:12px 16px 0; gap:4px; border-bottom:1px solid var(--border-soft); }
+.panel-tabs{ display:flex; padding:10px 16px 0; gap:4px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
 .panel-tab{
-  flex:1; text-align:center; padding:10px 0 12px; font-size:13.5px; font-weight:600;
+  flex:1; text-align:center; padding:10px 0 11px; font-size:13px; font-weight:700;
   color:var(--text-tertiary); border-bottom:2px solid transparent; margin-bottom:-1px;
 }
 .panel-tab.active{ color:var(--accent-primary); border-color:var(--accent-primary); }
 
-.library-search{ padding:14px 16px 6px; }
+.library-search{ padding:12px 16px 4px; flex-shrink:0; }
 .search-box{
   display:flex; align-items:center; gap:8px;
-  background:#F5F6F8; border-radius:var(--radius-sm); padding:9px 12px;
-  color:var(--text-tertiary);
+  background:#F4F4F6; border-radius:var(--radius-sm); padding:8px 11px;
+  color:var(--text-tertiary); border:1px solid transparent;
 }
+.search-box:focus-within{ border-color:var(--accent-primary); background:#fff; box-shadow:0 0 0 3px var(--accent-ring); }
 .search-box input{ border:none; background:none; outline:none; flex:1; font-size:13px; color:var(--text-primary); }
 
-.library-scroll{ flex:1; overflow-y:auto; padding:8px 16px 24px; }
+.library-scroll{ flex:1; overflow-y:auto; padding:6px 14px 20px; min-height:0; }
 
-.lib-section{ margin-top:14px; }
-.lib-section-head{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:8px 4px; cursor:pointer;
-}
-.lib-section-head h4{ font-size:12.5px; font-weight:700; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:.03em; }
-.lib-section-head .icon{ width:16px; height:16px; color:var(--text-tertiary); transition:.15s; }
+.lib-section{ margin-top:12px; }
+.lib-section-head{ padding:8px 6px 6px; }
+.lib-section-head h4{ font-size:11px; font-weight:800; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:.04em; }
 
 .lib-item{
-  display:flex; align-items:center; gap:11px;
-  padding:10px 10px; border-radius:var(--radius-sm);
-  border:1px solid transparent;
-  margin-bottom:4px;
-  transition:.15s;
+  display:flex; align-items:center; gap:10px;
+  padding:9px 9px; border-radius:var(--radius-sm);
+  border:1px solid transparent; margin-bottom:2px;
 }
-.lib-item:hover{ background:#F7F8FA; border-color:var(--border-soft); }
+.lib-item:not(.soon):hover{ background:#F7F7F9; border-color:var(--border-soft); }
+.lib-item:not(.soon):active{ background:#F0F0F3; }
 .lib-item-icon{
-  width:34px; height:34px; border-radius:9px; flex-shrink:0;
+  width:32px; height:32px; border-radius:9px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
 }
+.lib-item-icon .icon{ width:17px; height:17px; }
 .lib-item-text{ flex:1; min-width:0; }
-.lib-item-title{ font-size:13.5px; font-weight:600; color:var(--text-primary); }
-.lib-item-desc{ font-size:11.5px; color:var(--text-tertiary); margin-top:1px; }
-.lib-item .icon-chevron{ color:var(--text-tertiary); width:16px; height:16px; }
+.lib-item-title{ font-size:13px; font-weight:600; color:var(--text-primary); }
+.lib-item-desc{ font-size:11px; color:var(--text-tertiary); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lib-item .icon-plus{ color:var(--text-tertiary); width:15px; height:15px; }
 
-.lib-item.soon{ opacity:.55; cursor:default; }
-.lib-item.soon:hover{ background:none; border-color:transparent; }
+.lib-item.soon{ opacity:.5; }
 .soon-badge{
-  font-size:10px; font-weight:700; background:#F2F3F5; color:var(--text-tertiary);
-  padding:2px 6px; border-radius:5px; flex-shrink:0;
+  font-size:9.5px; font-weight:800; background:#F2F2F5; color:var(--text-tertiary);
+  padding:2px 6px; border-radius:5px; flex-shrink:0; letter-spacing:.02em;
 }
 
-/* ===================== LEFT PANEL — Inspector (schema driven) ===================== */
+/* ===================== LEFT PANEL — Inspector ===================== */
 .inspector-panel{
-  width:380px; flex-shrink:0;
+  width:384px; flex-shrink:0;
   background:var(--bg-sidebar);
   border-right:1px solid var(--border-soft);
   display:flex; flex-direction:column;
@@ -304,200 +294,172 @@ input,select,textarea{font-family:inherit;}
 }
 .inspector-head{
   padding:16px 18px; border-bottom:1px solid var(--border-soft);
-  display:flex; align-items:center; gap:12px;
+  display:flex; align-items:center; gap:11px; flex-shrink:0;
 }
 .inspector-head .back-btn{
-  width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  width:29px; height:29px; border-radius:8px; display:flex; align-items:center; justify-content:center;
   color:var(--text-secondary); flex-shrink:0;
 }
-.inspector-head .back-btn:hover{ background:#F2F3F5; }
+.inspector-head .back-btn:hover{ background:#F2F2F5; }
 .inspector-head-icon{
   width:36px; height:36px; border-radius:10px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
   background:var(--node-color-soft); color:var(--node-color);
 }
-.inspector-head-text h3{ font-size:15px; font-weight:700; }
-.inspector-head-text p{ font-size:12px; color:var(--text-tertiary); margin-top:1px; }
+.inspector-head-text h3{ font-size:14.5px; font-weight:700; letter-spacing:-.01em; }
+.inspector-head-text p{ font-size:11.5px; color:var(--text-tertiary); margin-top:1px; }
 
-.inspector-scroll{ flex:1; overflow-y:auto; padding:18px; }
+.inspector-scroll{ flex:1; overflow-y:auto; padding:16px; min-height:0; }
 
-/* progressive Q&A steps */
-.qstep{
-  margin-bottom:10px;
-  border-radius:var(--radius-md);
-  transition:.2s;
-}
+.qstep{ margin-bottom:9px; border-radius:var(--radius-md); }
 .qstep.done{
-  background:#FAFBFC; border:1px solid var(--border-soft);
-  padding:12px 14px; display:flex; align-items:center; justify-content:between; gap:10px;
+  background:#FAFAFB; border:1px solid var(--border-soft);
+  padding:11px 13px; display:flex; align-items:center; gap:10px;
+  animation:fadeSlideIn .25s var(--ease) backwards;
 }
-.qstep.done .qdone-row{ flex:1; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.qstep.done .qdone-label{ font-size:11.5px; color:var(--text-tertiary); font-weight:600; margin-bottom:3px; }
-.qstep.done .qdone-value{ font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.qstep.done .qdone-value .chip{
-  background:#F2F3F5; border-radius:6px; padding:2px 8px; font-size:12.5px; font-weight:600;
-}
-.edit-link{
-  font-size:12px; font-weight:700; color:var(--accent-primary); display:flex; align-items:center; gap:3px; flex-shrink:0;
-}
-.check-dot{
-  width:18px; height:18px; border-radius:50%; background:var(--cat-trigger); color:#fff;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-}
-.check-dot .icon{ width:12px; height:12px; stroke-width:3; }
+.qstep.done .qdone-row{ flex:1; display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+.qstep.done .qdone-label{ font-size:11px; color:var(--text-tertiary); font-weight:600; margin-bottom:3px; }
+.qstep.done .qdone-value{ font-size:13px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.qstep.done .qdone-value .chip{ background:#EFEFF2; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:600; }
+.edit-link{ font-size:11.5px; font-weight:700; color:var(--accent-primary); display:flex; align-items:center; gap:3px; flex-shrink:0; padding:4px 2px; }
+.edit-link:hover{ color:var(--accent-primary-hover); }
+.check-dot{ width:17px; height:17px; border-radius:50%; background:var(--cat-trigger); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.check-dot .icon{ width:11px; height:11px; stroke-width:3; }
 
 .qstep.active{
   border:1.5px solid var(--node-color); border-radius:var(--radius-md);
-  padding:16px; background:#fff;
-  box-shadow:0 2px 10px rgba(0,0,0,.05);
+  padding:15px; background:#fff;
+  box-shadow:0 3px 14px rgba(20,20,30,.06);
+  animation:popIn .25s var(--ease);
 }
 .qnum{
   display:inline-flex; align-items:center; justify-content:center;
-  width:20px; height:20px; border-radius:50%; background:var(--node-color-soft); color:var(--node-color);
-  font-size:11px; font-weight:800; margin-left:8px;
+  width:19px; height:19px; border-radius:50%; background:var(--node-color-soft); color:var(--node-color);
+  font-size:10.5px; font-weight:800; margin-left:8px; flex-shrink:0;
 }
-.qtitle{ font-size:14.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; margin-bottom:4px; }
-.qhelp{ font-size:12px; color:var(--text-tertiary); margin-bottom:14px; line-height:1.6; padding-right:28px; }
+.qtitle{ font-size:14px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; margin-bottom:4px; letter-spacing:-.01em; }
+.qhelp{ font-size:11.5px; color:var(--text-tertiary); margin-bottom:13px; line-height:1.6; padding-right:27px; }
 
-.qstep.pending{ opacity:.4; pointer-events:none; padding:10px 14px; }
-.qstep.pending .qtitle{ font-size:13.5px; }
+.qstep.pending{ opacity:.38; padding:9px 13px; }
+.qstep.pending .qtitle{ font-size:13px; margin-bottom:0; }
 
-/* input types */
-.field-group{ padding-right:28px; }
+.field-group{ padding-right:27px; }
 
-.choice-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+.choice-grid{ display:flex; flex-wrap:wrap; gap:7px; }
 .choice-card{
-  flex:1; min-width:120px;
+  flex:1; min-width:118px;
   border:1.5px solid var(--border-soft); border-radius:var(--radius-sm);
-  padding:12px 10px; text-align:center; cursor:pointer; transition:.15s;
-  display:flex; flex-direction:column; align-items:center; gap:7px;
+  padding:11px 9px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px;
 }
-.choice-card:hover{ border-color:var(--node-color); background:var(--node-color-soft); }
+.choice-card:hover{ border-color:var(--border-strong); background:#FAFAFB; }
 .choice-card.picked{ border-color:var(--node-color); background:var(--node-color-soft); }
-.choice-card .icon{ color:var(--node-color); }
-.choice-card span{ font-size:12.5px; font-weight:600; }
+.choice-card .icon{ color:var(--node-color); width:19px; height:19px; }
+.choice-card span{ font-size:12px; font-weight:600; }
 
-.chip-select{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip-select{ display:flex; flex-wrap:wrap; gap:7px; }
 .chip-option{
-  padding:8px 14px; border-radius:20px; border:1.5px solid var(--border-soft);
-  font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer; transition:.15s;
+  padding:7px 13px; border-radius:20px; border:1.5px solid var(--border-soft);
+  font-size:12.5px; font-weight:600; color:var(--text-secondary);
   display:flex; align-items:center; gap:6px;
 }
-.chip-option .dot{ width:8px; height:8px; border-radius:50%; }
+.chip-option .dot{ width:7px; height:7px; border-radius:50%; }
 .chip-option:hover{ border-color:var(--border-strong); }
 .chip-option.picked{ border-color:var(--node-color); background:var(--node-color-soft); color:var(--node-color); }
 
-.select-list{ display:flex; flex-direction:column; gap:7px; }
+.select-list{ display:flex; flex-direction:column; gap:6px; }
 .select-row{
   display:flex; align-items:center; gap:10px;
   border:1.5px solid var(--border-soft); border-radius:var(--radius-sm);
-  padding:10px 12px; cursor:pointer; transition:.15s;
+  padding:9px 11px;
 }
-.select-row:hover{ border-color:var(--border-strong); background:#FAFBFC; }
+.select-row:hover{ border-color:var(--border-strong); background:#FAFAFB; }
 .select-row.picked{ border-color:var(--node-color); background:var(--node-color-soft); }
 .select-row .radio{
-  width:17px; height:17px; border-radius:50%; border:2px solid var(--border-strong); flex-shrink:0;
+  width:16px; height:16px; border-radius:50%; border:2px solid var(--border-strong); flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
 }
 .select-row.picked .radio{ border-color:var(--node-color); }
-.select-row.picked .radio::after{ content:''; width:9px; height:9px; border-radius:50%; background:var(--node-color); }
-.select-row-text{ flex:1; }
-.select-row-title{ font-size:13px; font-weight:600; }
-.select-row-sub{ font-size:11.5px; color:var(--text-tertiary); margin-top:1px; }
+.select-row.picked .radio::after{ content:''; width:8px; height:8px; border-radius:50%; background:var(--node-color); }
+.select-row-text{ flex:1; min-width:0; }
+.select-row-title{ font-size:12.5px; font-weight:600; }
+.select-row-sub{ font-size:11px; color:var(--text-tertiary); margin-top:1px; }
 
 .text-input, .number-input, textarea.textarea-input{
   width:100%; border:1.5px solid var(--border-soft); border-radius:var(--radius-sm);
-  padding:10px 12px; font-size:13.5px; color:var(--text-primary); outline:none; transition:.15s;
+  padding:9px 11px; font-size:13px; color:var(--text-primary); outline:none;
 }
-.text-input:focus, .number-input:focus, textarea.textarea-input:focus{ border-color:var(--node-color); }
-textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font-family:inherit; }
+.text-input:focus, .number-input:focus, textarea.textarea-input:focus{ border-color:var(--node-color); box-shadow:0 0 0 3px var(--node-color-soft); }
+textarea.textarea-input{ min-height:88px; resize:vertical; line-height:1.7; font-family:inherit; }
 
-.number-unit-row{ display:flex; gap:8px; }
-.number-unit-row .number-input{ width:90px; text-align:center; font-weight:700; }
-.unit-toggle{ flex:1; display:flex; gap:6px; }
+.number-unit-row{ display:flex; gap:7px; }
+.number-unit-row .number-input{ width:84px; text-align:center; font-weight:700; }
+.unit-toggle{ flex:1; display:flex; gap:5px; }
 .unit-btn{
   flex:1; border:1.5px solid var(--border-soft); border-radius:var(--radius-sm);
-  padding:9px 0; text-align:center; font-size:12.5px; font-weight:600; color:var(--text-secondary);
+  padding:8px 0; text-align:center; font-size:12px; font-weight:600; color:var(--text-secondary);
 }
+.unit-btn:hover{ border-color:var(--border-strong); }
 .unit-btn.picked{ border-color:var(--node-color); background:var(--node-color-soft); color:var(--node-color); }
 
-/* data inserter */
 .field-with-insert{ position:relative; }
 .insert-btn{
   display:flex; align-items:center; gap:5px;
-  font-size:11.5px; font-weight:700; color:var(--accent-primary);
-  margin-top:8px; padding:4px 2px;
+  font-size:11px; font-weight:700; color:var(--accent-primary);
+  margin-top:7px; padding:4px 2px; width:fit-content;
 }
-.field-label-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
-.field-label{ font-size:12.5px; font-weight:700; color:var(--text-secondary); }
+.insert-btn:hover{ color:var(--accent-primary-hover); }
 
-.rich-box{
-  border:1.5px solid var(--border-soft); border-radius:var(--radius-sm); padding:10px 12px;
-  min-height:100px; font-size:13.5px; line-height:1.9; color:var(--text-primary);
-}
-.rich-box .tag-chip{
-  display:inline-flex; align-items:center; gap:4px;
-  background:var(--accent-primary-soft); color:var(--accent-primary);
-  border-radius:6px; padding:2px 8px; font-size:12.5px; font-weight:700; margin:0 2px;
-}
-.rich-toolbar{ display:flex; gap:4px; margin-top:8px; }
+.rich-toolbar{ display:flex; gap:4px; margin-top:7px; }
 .rich-toolbar button{
-  width:28px; height:28px; border-radius:6px; border:1px solid var(--border-soft);
+  width:27px; height:27px; border-radius:6px; border:1px solid var(--border-soft);
   display:flex; align-items:center; justify-content:center; color:var(--text-secondary); background:#fff;
 }
+.rich-toolbar button:hover{ background:#F7F7F9; }
 
-/* insert data popover */
 .insert-popover{
   position:absolute; top:0; left:0; z-index:50;
-  width:280px; background:#fff; border:1px solid var(--border-soft); border-radius:var(--radius-md);
-  box-shadow:0 10px 30px rgba(0,0,0,.12);
-  padding:10px;
+  width:272px; background:#fff; border:1px solid var(--border-soft); border-radius:var(--radius-md);
+  box-shadow:var(--shadow-popover); padding:9px;
+  animation:popIn .15s var(--ease);
 }
-.insert-popover .search-box{ margin-bottom:8px; }
-.insert-group{ margin-bottom:4px; }
+.insert-popover .search-box{ margin-bottom:7px; }
+.insert-group{ margin-bottom:3px; }
 .insert-group-title{
-  font-size:11px; font-weight:700; color:var(--text-tertiary); text-transform:uppercase;
+  font-size:10.5px; font-weight:800; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:.03em;
   padding:6px 8px 4px; display:flex; align-items:center; gap:6px;
 }
-.insert-option{
-  display:flex; align-items:center; gap:9px; padding:8px; border-radius:7px; font-size:13px; font-weight:600;
-}
-.insert-option:hover{ background:#F5F6F8; }
-.insert-option .icon{ width:16px; height:16px; color:var(--text-tertiary); }
+.insert-option{ display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:12.5px; font-weight:600; }
+.insert-option:hover{ background:#F5F5F7; }
+.insert-option .icon{ width:15px; height:15px; color:var(--text-tertiary); }
 
-/* condition builder specific */
-.cond-row{
-  display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;
-}
+.cond-row{ display:flex; align-items:center; gap:7px; margin-bottom:9px; flex-wrap:wrap; }
 .cond-select{
-  border:1.5px solid var(--border-soft); border-radius:var(--radius-sm); padding:9px 10px;
-  font-size:13px; font-weight:600; color:var(--text-primary); background:#fff; outline:none;
-  flex:1; min-width:120px;
+  border:1.5px solid var(--border-soft); border-radius:var(--radius-sm); padding:8px 9px;
+  font-size:12.5px; font-weight:600; color:var(--text-primary); background:#fff; outline:none; flex:1; min-width:110px;
 }
-.cond-logic-toggle{
-  display:flex; background:#F2F3F5; border-radius:20px; padding:3px; margin:12px 0; width:fit-content;
-}
-.cond-logic-toggle button{
-  border:none; background:none; padding:6px 14px; border-radius:16px; font-size:12.5px; font-weight:700; color:var(--text-tertiary);
-}
+.cond-select:focus{ border-color:var(--node-color); }
+.cond-logic-toggle{ display:flex; background:#F2F2F5; border-radius:20px; padding:3px; margin:11px 0; width:fit-content; }
+.cond-logic-toggle button{ border:none; background:none; padding:6px 13px; border-radius:16px; font-size:12px; font-weight:700; color:var(--text-tertiary); }
 .cond-logic-toggle button.active{ background:#fff; color:var(--text-primary); box-shadow:var(--shadow-card); }
-.add-cond-link{
-  display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--accent-primary); margin-top:6px;
-}
+.add-cond-link{ display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--accent-primary); margin-top:5px; width:fit-content; }
+.add-cond-link:hover{ color:var(--accent-primary-hover); }
 
-/* footer actions inside inspector */
-.inspector-footer{
-  padding:14px 18px; border-top:1px solid var(--border-soft);
-  display:flex; gap:8px;
-}
+.inspector-footer{ padding:13px 18px; border-top:1px solid var(--border-soft); display:flex; gap:8px; flex-shrink:0; }
 .inspector-footer .btn{ flex:1; justify-content:center; }
 
-/* recipient picker (custom email chips) */
-.recipient-custom{ margin-top:10px; }
+.inspector-empty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%;
+  padding:40px; text-align:center; color:var(--text-tertiary); gap:12px;
+}
+.inspector-empty .icon-wrap{ width:44px; height:44px; border-radius:12px; background:#F4F4F6; display:flex; align-items:center; justify-content:center; }
+.inspector-empty p{ font-size:12.5px; line-height:1.7; }
 
-/* scrollbar */
+/* skeleton loading state */
+.skeleton{ background:linear-gradient(90deg, #F0F0F3 0px, #F7F7F9 40px, #F0F0F3 80px); background-size:200px 100%; animation:shimmer 1.3s linear infinite; border-radius:8px; }
+
 ::-webkit-scrollbar{ width:8px; height:8px; }
-::-webkit-scrollbar-thumb{ background:#D6DAE1; border-radius:10px; }
+::-webkit-scrollbar-thumb{ background:#DBDDE3; border-radius:10px; }
+::-webkit-scrollbar-thumb:hover{ background:#C6C9D1; }
 ::-webkit-scrollbar-track{ background:transparent; }
 </style>
 </head>
@@ -505,7 +467,6 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
 
 <svg width="0" height="0" style="position:absolute">
 <defs>
-<!-- ============ LUCIDE-STYLE ICON SYMBOLS (stroke 2, 24 viewbox) ============ -->
 <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M9 5v14"/></symbol>
 <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14Z"/></symbol>
 <symbol id="i-git-branch" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 0 0 3 3h6"/><path d="M18 6a9 9 0 0 1-9 9"/></symbol>
@@ -522,16 +483,16 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
 <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
 <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-<symbol id="i-plus-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></symbol>
 <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
 <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
 <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
 <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
 <symbol id="i-mouse-pointer" viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51z"/></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
-<symbol id="i-code-off" viewBox="0 0 24 24"><path d="M16 8l4 4-4 4M8 8l-4 4 4 4M12 4l-1 16" opacity="0"/><path d="M18.4 4A2 2 0 0 1 21 6.6M3 17.4A2 2 0 0 1 5.6 20M4 4l16 16"/></symbol>
+<symbol id="i-code-off" viewBox="0 0 24 24"><path d="M18.4 4A2 2 0 0 1 21 6.6M3 17.4A2 2 0 0 1 5.6 20M4 4l16 16"/></symbol>
 <symbol id="i-more-horizontal" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
 <symbol id="i-more-vertical" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></symbol>
 <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></symbol>
@@ -541,36 +502,33 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
 <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
-<symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 7 2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"/></symbol>
-<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></symbol>
 <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.79 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></symbol>
-<symbol id="i-align-right" viewBox="0 0 24 24"><path d="M21 6H3M21 12H9M21 18h-6"/></symbol>
 <symbol id="i-bold" viewBox="0 0 24 24"><path d="M6 12h9a4 4 0 0 1 0 8H6zM6 4h8a4 4 0 0 1 0 8H6z"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></symbol>
 <symbol id="i-at-sign" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></symbol>
-<symbol id="i-phone" viewBox="0 0 24 24"><path d="M13.83 15.65a2 2 0 0 0-.62.55c-.65.92-1.68 2.53-3.24 2.53-2.65 0-6.4-3.75-6.4-6.4 0-1.56 1.6-2.6 2.53-3.24a2 2 0 0 0 .55-.62L5.5 3.5a2 2 0 0 0-2.4-1L2 3a1 1 0 0 0-.9 1.1c.16 3.7 1.9 7.5 5 10.6s6.9 4.85 10.6 5A1 1 0 0 0 18 19l.5-1.1a2 2 0 0 0-1-2.4Z" opacity="0"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
-<symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></symbol>
-<symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
-<symbol id="i-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="7" rx="1"/><rect x="2" y="14" width="20" height="7" rx="1"/><path d="M6 7h.01M6 18h.01"/></symbol>
 <symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="M21.73 18 13.73 4a2 2 0 0 0-3.46 0l-8 14a2 2 0 0 0 1.73 3h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></symbol>
 </defs>
 </svg>
 
 <div class="app">
 
-  <!-- ===================== TOP BAR ===================== -->
   <div class="topbar">
     <div class="topbar-right">
       <div class="topbar-breadcrumb">
         <span>الأتمتة</span>
-        <svg class="icon icon-sm"><use href="#i-chevron-left"/></svg>
+        <svg class="icon sep"><use href="#i-chevron-left"/></svg>
         <span>تدفقات العمل</span>
-        <svg class="icon icon-sm"><use href="#i-chevron-left"/></svg>
-        <span class="current">تذكير بالتذاكر العاجلة</span>
+        <svg class="icon sep"><use href="#i-chevron-left"/></svg>
+        <span class="current" id="flowTitle">جارِ التحميل…</span>
       </div>
       <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-pencil"/></svg></button>
     </div>
     <div class="topbar-left">
+      <span class="conn-badge loading" id="connBadge"><span class="dot"></span> <span id="connLabel">جارِ الاتصال بقاعدة البيانات…</span></span>
       <span class="status-pill"><span class="dot"></span> نشط</span>
       <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-more-horizontal"/></svg></button>
       <button class="btn"><svg class="icon icon-sm"><use href="#i-folder"/></svg> حفظ</button>
@@ -578,128 +536,22 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
     </div>
   </div>
 
-  <!-- ===================== BODY ===================== -->
   <div class="body-layout">
 
-    <!-- ===== LEFT: INSPECTOR (schema-driven) ===== -->
-    <div class="inspector-panel" id="inspectorPanel">
-      <!-- rendered by JS renderInspector() -->
-    </div>
+    <div class="inspector-panel" id="inspectorPanel"></div>
 
-    <!-- ===== CENTER: CANVAS ===== -->
-    <div class="canvas-wrap">
-      <div class="canvas-inner">
-
-        <div class="flow-summary">
-          <svg class="icon"><use href="#i-info"/></svg>
-          <p>هذا التدفق يعمل عند <b>إنشاء تذكرة جديدة</b>، وإن كانت الأولوية <b>عاجلة</b> فإنه يرسل بريدًا إلكترونيًا لصاحب التذكرة، وينتظر 30 دقيقة، ثم ينبّه فريق الإدارة.</p>
-        </div>
-
-        <!-- TRIGGER NODE -->
-        <div class="node" id="node-trigger" style="--node-color:var(--cat-trigger); --node-color-soft:var(--cat-trigger-soft)" onclick="selectNode('trigger')">
-          <div class="node-top">
-            <span class="node-kicker"><svg class="icon icon-sm"><use href="#i-zap"/></svg> متى يبدأ التدفق</span>
-            <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
-          </div>
-          <div class="node-main">
-            <div class="node-icon"><svg class="icon"><use href="#i-ticket"/></svg></div>
-            <div class="node-text">
-              <div class="node-title">عند إنشاء تذكرة جديدة</div>
-              <div class="node-sub">في أي وقت، من أي عميل</div>
-            </div>
+    <!-- canvas-col: canvas + trust bar live in ONE flex column, so the bar
+         is a normal flow sibling (never position:absolute over cards) -->
+    <div class="canvas-col">
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="canvas-inner" id="canvasInner">
+          <div class="flow-summary">
+            <div class="icon-wrap"><svg class="icon"><use href="#i-info"/></svg></div>
+            <p>جارِ تحميل بيانات التدفق من قاعدة البيانات…</p>
           </div>
         </div>
-
-        <div class="connector"></div>
-        <div class="add-step-btn" onclick="openLibraryAt('after-trigger')"><svg class="icon icon-sm"><use href="#i-plus"/></svg></div>
-        <div class="connector"></div>
-
-        <!-- CONDITION NODE -->
-        <div class="node condition" id="node-condition" style="--node-color:var(--cat-condition); --node-color-soft:var(--cat-condition-soft)" onclick="selectNode('condition')">
-          <div class="node-top">
-            <span class="node-kicker"><svg class="icon icon-sm"><use href="#i-git-branch"/></svg> تحقق من شرط</span>
-            <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
-          </div>
-          <div class="node-main">
-            <div class="node-icon"><svg class="icon"><use href="#i-flag"/></svg></div>
-            <div class="node-text">
-              <div class="node-title">إذا كانت الأولوية <span class="chip">عاجلة</span></div>
-              <div class="node-sub">تحقق شرط واحد فقط</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="connector"></div>
-
-        <!-- Branches -->
-        <div class="branch-wrap">
-          <div class="branch-col">
-            <span class="branch-label branch-yes">نعم، تنطبق</span>
-            <div class="connector"></div>
-
-            <!-- EMAIL NODE -->
-            <div class="node" style="width:100%; --node-color:var(--cat-comm); --node-color-soft:var(--cat-comm-soft)" onclick="selectNode('email')">
-              <div class="node-top">
-                <span class="node-kicker"><svg class="icon icon-sm"><use href="#i-mail"/></svg> بريد إلكتروني</span>
-                <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
-              </div>
-              <div class="node-main">
-                <div class="node-icon"><svg class="icon"><use href="#i-mail"/></svg></div>
-                <div class="node-text">
-                  <div class="node-title">إرسال بريد إلكتروني</div>
-                  <div class="node-sub">من support@ إلى <span class="chip">صاحب التذكرة</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="connector"></div>
-
-            <!-- WAIT NODE -->
-            <div class="node" style="width:100%; --node-color:var(--cat-notify); --node-color-soft:var(--cat-notify-soft)" onclick="selectNode('wait')">
-              <div class="node-top">
-                <span class="node-kicker"><svg class="icon icon-sm"><use href="#i-clock"/></svg> انتظار</span>
-                <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
-              </div>
-              <div class="node-main">
-                <div class="node-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
-                <div class="node-text">
-                  <div class="node-title">انتظار 30 دقيقة</div>
-                  <div class="node-sub">ثم متابعة الخطوة التالية</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="connector"></div>
-
-            <!-- NOTIFY NODE -->
-            <div class="node" style="width:100%; --node-color:var(--cat-notify); --node-color-soft:var(--cat-notify-soft)" onclick="selectNode('notify')">
-              <div class="node-top">
-                <span class="node-kicker"><svg class="icon icon-sm"><use href="#i-bell"/></svg> إشعار</span>
-                <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
-              </div>
-              <div class="node-main">
-                <div class="node-icon"><svg class="icon"><use href="#i-bell"/></svg></div>
-                <div class="node-text">
-                  <div class="node-title">إرسال إشعار</div>
-                  <div class="node-sub">إلى <span class="chip">لوحة الإدارة</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="connector"></div>
-            <div class="flow-end"><svg class="icon icon-sm"><use href="#i-check"/></svg> نهاية المسار</div>
-          </div>
-
-          <div class="branch-col">
-            <span class="branch-label branch-no">لا، لا تنطبق</span>
-            <div class="connector"></div>
-            <div class="flow-end"><svg class="icon icon-sm"><use href="#i-check"/></svg> إيقاف التدفق</div>
-          </div>
-        </div>
-
       </div>
 
-      <!-- zoom -->
       <div class="zoom-controls">
         <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-minus"/></svg></button>
         <span class="zoom-level">100%</span>
@@ -708,15 +560,13 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
         <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-lock"/></svg></button>
       </div>
 
-      <!-- trust bar -->
       <div class="trust-bar">
         <div class="trust-item"><svg class="icon"><use href="#i-mouse-pointer"/></svg> سهل وواضح — لا حاجة لأي خبرة تقنية</div>
         <div class="trust-item"><svg class="icon"><use href="#i-code-off"/></svg> بدون أكواد أو مصطلحات معقدة</div>
-        <div class="trust-item"><svg class="icon"><use href="#i-eye"/></svg> شاهد تدفق عملك بوضوح تام</div>
+        <div class="trust-item"><svg class="icon"><use href="#i-database"/></svg> متصل مباشرة بقاعدة بياناتك</div>
       </div>
     </div>
 
-    <!-- ===== RIGHT: LIBRARY PANEL (add step) ===== -->
     <div class="library-panel" id="libraryPanel">
       <div class="panel-tabs">
         <div class="panel-tab">التدفقات</div>
@@ -725,11 +575,14 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
       <div class="library-search">
         <div class="search-box">
           <svg class="icon icon-sm"><use href="#i-search"/></svg>
-          <input placeholder="ابحث عن خطوة...">
+          <input placeholder="ابحث عن خطوة..." id="librarySearchInput">
         </div>
       </div>
       <div class="library-scroll" id="libraryScroll">
-        <!-- rendered by JS renderLibrary() -->
+        <div class="lib-section"><div class="lib-section-head"><h4>جارِ التحميل</h4></div>
+          <div class="lib-item"><div class="lib-item-icon skeleton" style="width:32px;height:32px"></div><div class="lib-item-text"><div class="skeleton" style="height:12px;width:70%;margin-bottom:6px"></div><div class="skeleton" style="height:10px;width:50%"></div></div></div>
+          <div class="lib-item"><div class="lib-item-icon skeleton" style="width:32px;height:32px"></div><div class="lib-item-text"><div class="skeleton" style="height:12px;width:60%;margin-bottom:6px"></div><div class="skeleton" style="height:10px;width:40%"></div></div></div>
+        </div>
       </div>
     </div>
 
@@ -738,387 +591,489 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
 
 <script>
 /* =========================================================================
-   SCHEMA-DRIVEN NODE DEFINITIONS
-   كل نوع Node (حالي أو مستقبلي: واتساب، AI، CRM، API...) هو مجرد بيانات هنا.
-   الـ Inspector لا يعرف شيئًا عن "البريد" أو "الانتظار" تحديدًا —
-   هو فقط يقرأ steps[] ويعرضها كأسئلة متسلسلة.
+   SUPABASE CONNECTION — reads the real, live wf_node_types + a showcase
+   wf_workflows row via a narrow read-only RPC (wf_demo_get_showcase).
+   This is the same project/schema the real "مدعوم" Help Desk platform
+   uses; RLS keeps staff-only tables staff-only, this page only calls the
+   one RPC scoped for public showcase rendering (no ticket/customer data).
    ========================================================================= */
+const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmVscmRwcWtjbnRiZ3VkeXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNDYwNDcsImV4cCI6MjA3ODcyMjA0N30.Ox7wWQPu7GjYnjpx1w3gNYnDIykfANN4ott6narxdZI';
 
-// فئات الـ Nodes — يحدد اللون والقسم في المكتبة. أي Node جديد ينضم لفئة موجودة أو فئة جديدة بدون تعديل الـ CSS الأساسي.
-const CATEGORIES = {
-  trigger:     { label:'متى يبدأ التدفق',      color:'var(--cat-trigger)',    soft:'var(--cat-trigger-soft)' },
-  flow:        { label:'التحكم بمسار التدفق',   color:'var(--cat-flow)',       soft:'var(--cat-flow-soft)' },
-  comm:        { label:'التواصل مع العميل',      color:'var(--cat-comm)',       soft:'var(--cat-comm-soft)' },
-  notify:      { label:'التنبيهات الداخلية',     color:'var(--cat-notify)',     soft:'var(--cat-notify-soft)' },
-  ticket:      { label:'إدارة التذكرة',          color:'var(--cat-ticket)',     soft:'var(--cat-ticket-soft)' },
-  ai:          { label:'الذكاء الاصطناعي',       color:'var(--cat-ai)',         soft:'var(--cat-ai-soft)' },
-  integration: { label:'الأنظمة والتكاملات',      color:'var(--cat-integration)',soft:'var(--cat-integration-soft)' },
+async function fetchShowcase(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/wf_demo_get_showcase`, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':'application/json'
+    },
+    body: JSON.stringify({})
+  });
+  if(!res.ok) throw new Error('supabase_error_'+res.status);
+  return res.json();
+}
+
+/* Icon mapping: DB node_types.key -> local SVG symbol id.
+   (DB stores an emoji per node type for its own admin UI; this front-end
+   deliberately never renders that emoji — every key is mapped to a
+   Lucide-style SVG symbol here, per the no-emoji requirement.) */
+const KEY_ICON = {
+  'trigger.ticket_created':'i-ticket', 'trigger.ticket_status_changed':'i-refresh',
+  'trigger.ticket_closed':'i-check', 'trigger.whatsapp_message_received':'i-whatsapp',
+  'trigger.subscription_expiring':'i-clock', 'trigger.subscription_expired':'i-lock',
+  'trigger.webhook_inbound':'i-plug', 'trigger.schedule_cron':'i-clock',
+  'condition.if_else':'i-git-branch', 'condition.switch':'i-git-branch',
+  'action.create_ticket':'i-ticket', 'action.update_ticket_status':'i-pencil',
+  'action.assign_ticket':'i-user-plus', 'action.add_ticket_tag':'i-tag',
+  'action.log_ticket_activity':'i-list', 'action.send_satisfaction_survey':'i-sparkles',
+  'action.create_lead':'i-user-plus', 'action.add_customer_note':'i-pencil',
+  'action.lookup_customer':'i-search', 'action.send_whatsapp':'i-whatsapp',
+  'action.send_email':'i-mail', 'action.send_telegram':'i-message-square',
+  'action.send_notification':'i-bell', 'action.ai_generate_reply':'i-brain',
+  'action.ai_classify':'i-brain', 'action.api_request':'i-plug',
+  'action.call_webhook':'i-plug', 'action.mcp_tool_call':'i-server',
+  'control.stop':'i-x', 'data.query_database':'i-database', 'data.set_variable':'i-tag',
+  'delay.wait':'i-clock', 'loop.for_each':'i-refresh',
 };
 
-// مصدر بيانات "إدراج البيانات" — أسماء عربية فقط، مجمّعة، وقابلة للتوسع من أي Node مستقبلي
+const CATEGORY_META = {
+  trigger:     { label:'متى يبدأ التدفق' },
+  condition:   { label:'التحكم بمسار التدفق' },
+  delay:       { label:'التحكم بمسار التدفق' },
+  loop:        { label:'التحكم بمسار التدفق' },
+  control:     { label:'التحكم بمسار التدفق' },
+  action:      { label:'الإجراءات' },
+  ai:          { label:'الذكاء الاصطناعي' },
+  api:         { label:'الأنظمة والتكاملات' },
+  database:    { label:'البيانات والمتغيرات' },
+};
+// order sections should render in
+const SECTION_ORDER = ['trigger','condition','delay','loop','control','action','ai','database','api'];
+
 const DATA_FIELDS = [
   { group:'التذكرة', icon:'i-ticket', items:['رقم التذكرة','عنوان التذكرة','وصف التذكرة','الأولوية','القسم'] },
   { group:'العميل', icon:'i-user', items:['اسم العميل','بريد العميل','هاتف العميل'] },
   { group:'الموظف', icon:'i-user', items:['اسم الموظف المسؤول'] },
 ];
 
-// تعريف كل نوع خطوة كـ Schema — الحقل الأهم: steps[]
-const NODE_SCHEMAS = {
+let NODE_TYPES = {};        // key -> {key,category,name_ar,description,color}
+let WORKFLOW = null;        // {id,name,description,definition:{nodes,edges}}
+let currentNodeId = null;
+let liveAnswers = {};       // nodeId -> {stepId:value}
+let connStatus = 'loading'; // loading | live | error
 
-  trigger: {
-    category:'trigger', icon:'i-ticket', title:'متى يبدأ التدفق؟',
-    steps:[
-      { id:'event', question:'ما الحدث الذي يبدأ هذا التدفق؟', type:'select-list',
-        options:[
-          {value:'new_ticket', title:'عند إنشاء تذكرة جديدة', sub:'من قبل أي عميل'},
-          {value:'ticket_updated', title:'عند تحديث تذكرة', sub:'تغيير الحالة أو الأولوية'},
-          {value:'new_comment', title:'عند تعليق جديد من العميل', sub:'رد على تذكرة موجودة'},
-          {value:'ticket_unassigned', title:'عند بقاء تذكرة بدون موظف', sub:'لمدة محددة'},
-        ], default:'new_ticket' },
-    ]
-  },
+function colorSoft(hex){
+  // convert #RRGGBB to a light tinted background consistently
+  const h = hex.replace('#','');
+  const r = parseInt(h.substr(0,2),16), g = parseInt(h.substr(2,2),16), b = parseInt(h.substr(4,2),16);
+  return `rgba(${r},${g},${b},0.11)`;
+}
 
-  condition: {
-    category:'flow', icon:'i-flag', title:'تحقق من شرط',
-    custom:'condition-builder' // منطق خاص لأنه Builder متعدد الصفوف — لكنه ما زال جزءًا من نفس المحرك (progressive)
-  },
-
-  email: {
-    category:'comm', icon:'i-mail', title:'إرسال بريد إلكتروني',
-    steps:[
-      { id:'from', question:'من أي بريد تريد الإرسال؟', type:'select-list',
-        options:[
-          {value:'info@mad3oom.online', title:'info@mad3oom.online', sub:'البريد العام'},
-          {value:'support@mad3oom.online', title:'support@mad3oom.online', sub:'بريد الدعم الفني'},
-          {value:'tickets@mad3oom.online', title:'tickets@mad3oom.online', sub:'بريد التذاكر'},
-          {value:'no-reply@mad3oom.online', title:'no-reply@mad3oom.online', sub:'بريد تلقائي'},
-        ], default:'support@mad3oom.online' },
-      { id:'to', question:'إلى من تريد الإرسال؟', type:'choice-grid',
-        options:[
-          {value:'customer', title:'العميل', icon:'i-user'},
-          {value:'ticket_owner', title:'صاحب التذكرة', icon:'i-ticket'},
-          {value:'other', title:'بريد آخر', icon:'i-at-sign'},
-        ], default:'ticket_owner' },
-      { id:'subject', question:'ما موضوع الرسالة؟', type:'text-insert', placeholder:'مثال: تحديث بخصوص تذكرتك' },
-      { id:'body', question:'اكتب نص الرسالة', type:'richtext', placeholder:'مرحبًا [اسم العميل]،\n\nنود إعلامك بأن...' },
-    ]
-  },
-
-  notify: {
-    category:'notify', icon:'i-bell', title:'إرسال إشعار',
-    steps:[
-      { id:'to', question:'إلى من يذهب هذا الإشعار؟', type:'choice-grid',
-        options:[
-          {value:'customer_portal', title:'لوحة العميل', icon:'i-user'},
-          {value:'admin_portal', title:'لوحة الإدارة', icon:'i-shield-check'},
-          {value:'both', title:'كلاهما', icon:'i-layers'},
-        ], default:'admin_portal' },
-      { id:'text', question:'ما نص الإشعار؟', type:'text-insert', placeholder:'مثال: تذكرة عاجلة بانتظار الرد' },
-    ]
-  },
-
-  wait: {
-    category:'flow', icon:'i-clock', title:'الانتظار',
-    steps:[
-      { id:'duration', question:'كم تريد أن ننتظر قبل المتابعة؟', type:'number-unit',
-        unitOptions:['دقائق','ساعات','أيام'], defaultUnit:'دقائق', defaultValue:30 },
-    ]
-  },
-
-  assign: {
-    category:'ticket', icon:'i-user-plus', title:'إسناد التذكرة',
-    steps:[
-      { id:'target', question:'لمن تريد إسناد التذكرة؟', type:'select-list',
-        options:[
-          {value:'least_busy', title:'الموظف الأقل انشغالًا', sub:'توزيع تلقائي عادل'},
-          {value:'specific', title:'موظف محدد', sub:'اختر من القائمة'},
-          {value:'department', title:'قسم معيّن', sub:'يُسند لأي موظف في القسم'},
-        ], default:'least_busy' },
-    ]
-  },
-
-  update_ticket: {
-    category:'ticket', icon:'i-pencil', title:'تحديث التذكرة',
-    steps:[
-      { id:'field', question:'ما الذي تريد تحديثه؟', type:'select-list',
-        options:[
-          {value:'status', title:'الحالة', sub:'مثال: مفتوحة، قيد المعالجة، مغلقة'},
-          {value:'priority', title:'الأولوية', sub:'مثال: منخفضة، عالية، عاجلة'},
-          {value:'department', title:'القسم', sub:'نقل التذكرة لقسم آخر'},
-          {value:'tag', title:'إضافة وسم', sub:'لتصنيف التذكرة'},
-        ], default:'status' },
-      { id:'value', question:'ما القيمة الجديدة؟', type:'chip-select',
-        options:[
-          {value:'open', label:'مفتوحة', color:'var(--cat-trigger)'},
-          {value:'in_progress', label:'قيد المعالجة', color:'var(--cat-notify)'},
-          {value:'closed', label:'مغلقة', color:'var(--text-tertiary)'},
-        ] },
-    ]
-  },
-
-  internal_note: {
-    category:'ticket', icon:'i-message-square', title:'إضافة تعليق داخلي',
-    steps:[
-      { id:'note', question:'اكتب التعليق (لن يظهر للعميل)', type:'richtext', placeholder:'ملاحظة للفريق الداخلي...' },
-    ]
-  },
-
-  // ===== أمثلة توسّع مستقبلية — تثبت أن الإضافة لا تتطلب تعديل الـ UI =====
-  whatsapp: {
-    category:'comm', icon:'i-whatsapp', title:'إرسال رسالة واتساب', comingSoon:true,
-    steps:[
-      { id:'to', question:'إلى من تريد إرسال الرسالة؟', type:'choice-grid',
-        options:[ {value:'customer', title:'العميل', icon:'i-user'}, {value:'other', title:'رقم آخر', icon:'i-phone'} ] },
-      { id:'body', question:'اكتب نص الرسالة', type:'richtext' },
-    ]
-  },
-  ai_reply: {
-    category:'ai', icon:'i-brain', title:'رد ذكي بالذكاء الاصطناعي', comingSoon:true,
-    steps:[
-      { id:'tone', question:'ما أسلوب الرد المطلوب؟', type:'chip-select',
-        options:[ {value:'formal', label:'رسمي'}, {value:'friendly', label:'ودّي'}, {value:'brief', label:'مختصر'} ] },
-    ]
-  },
-  crm_sync: {
-    category:'integration', icon:'i-database', title:'مزامنة مع نظام CRM', comingSoon:true, steps:[]
-  },
-  api_call: {
-    category:'integration', icon:'i-plug', title:'استدعاء API خارجي', comingSoon:true, steps:[]
-  },
-};
+function setConnBadge(status, label){
+  connStatus = status;
+  const el = document.getElementById('connBadge');
+  el.className = 'conn-badge ' + (status==='live'?'live':status==='error'?'':'loading');
+  document.getElementById('connLabel').textContent = label;
+}
 
 /* =========================================================================
-   LIBRARY (right panel) — مبني من نفس الـ Schema، مجمّع حسب category تلقائيًا
+   BOOT — fetch live data, then render library + canvas + inspector
    ========================================================================= */
-const LIBRARY_ORDER = ['trigger','flow','comm','notify','ticket','ai','integration'];
-const LIBRARY_NODE_KEYS = {
-  trigger: ['trigger'],
-  flow: ['condition','wait'],
-  comm: ['email','whatsapp'],
-  notify: ['notify'],
-  ticket: ['assign','update_ticket','internal_note'],
-  ai: ['ai_reply'],
-  integration: ['crm_sync','api_call'],
-};
+async function boot(){
+  setConnBadge('loading', 'جارِ الاتصال بقاعدة البيانات…');
+  try{
+    const data = await fetchShowcase();
+    NODE_TYPES = {};
+    (data.node_types||[]).forEach(nt=>{ NODE_TYPES[nt.key] = nt; });
+    WORKFLOW = data.workflow;
 
+    setConnBadge('live', `متصل — Supabase مباشر`);
+    document.getElementById('flowTitle').textContent = WORKFLOW ? WORKFLOW.name.replace('[عرض توضيحي] ','') : 'تدفق جديد';
+
+    renderLibrary();
+    renderCanvas();
+    closeInspector();
+  } catch(err){
+    setConnBadge('error', 'تعذّر الاتصال — جرّب لاحقًا');
+    document.getElementById('flowTitle').textContent = 'تعذّر تحميل التدفق';
+    document.getElementById('canvasInner').innerHTML = `
+      <div class="flow-summary" style="border-color:#F3D6D6">
+        <div class="icon-wrap" style="background:#FBEAEA; color:#DC2626"><svg class="icon"><use href="#i-triangle-alert"/></svg></div>
+        <p>تعذّر الاتصال بقاعدة البيانات الآن. تحقق من اتصال الشبكة وحاول تحديث الصفحة.</p>
+      </div>`;
+  }
+}
+
+/* =========================================================================
+   LIBRARY (right panel) — built live from NODE_TYPES grouped by category
+   ========================================================================= */
 function renderLibrary(){
   const el = document.getElementById('libraryScroll');
-  el.innerHTML = LIBRARY_ORDER.map(catKey=>{
-    const cat = CATEGORIES[catKey];
-    const items = LIBRARY_NODE_KEYS[catKey].map(nodeKey=>{
-      const n = NODE_SCHEMAS[nodeKey];
-      const soon = n.comingSoon;
+  const byCat = {};
+  Object.values(NODE_TYPES).forEach(nt=>{
+    const catKey = ['delay','loop','control'].includes(nt.category) ? nt.category : nt.category;
+    if(!byCat[nt.category]) byCat[nt.category] = [];
+    byCat[nt.category].push(nt);
+  });
+  // merge condition/delay/loop/control under one visual section per SECTION_ORDER label grouping
+  const merged = {}; // label -> items
+  SECTION_ORDER.forEach(cat=>{
+    const label = (CATEGORY_META[cat]||{label:cat}).label;
+    if(!byCat[cat]) return;
+    if(!merged[label]) merged[label] = [];
+    merged[label].push(...byCat[cat]);
+  });
+
+  el.innerHTML = Object.entries(merged).map(([label, items])=>{
+    items.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    const rows = items.map(nt=>{
+      const icon = KEY_ICON[nt.key] || 'i-zap';
+      const soft = colorSoft(nt.color||'#4F46E5');
       return `
-        <div class="lib-item ${soon?'soon':''}" ${soon?'':`onclick="addNodeFromLibrary('${nodeKey}')"`}>
-          <div class="lib-item-icon" style="background:${cat.soft}; color:${cat.color}">
-            <svg class="icon icon-sm"><use href="#${n.icon}"/></svg>
+        <div class="lib-item" onclick="addNodeFromLibrary('${nt.key}')" data-search="${(nt.name_ar+' '+(nt.description||'')).toLowerCase()}">
+          <div class="lib-item-icon" style="background:${soft}; color:${nt.color}">
+            <svg class="icon"><use href="#${icon}"/></svg>
           </div>
           <div class="lib-item-text">
-            <div class="lib-item-title">${n.title}</div>
-            <div class="lib-item-desc">${nodeSubtitle(nodeKey)}</div>
+            <div class="lib-item-title">${nt.name_ar}</div>
+            <div class="lib-item-desc">${nt.description||''}</div>
           </div>
-          ${soon ? '<span class="soon-badge">قريبًا</span>' : '<svg class="icon icon-chevron"><use href="#i-plus"/></svg>'}
+          <svg class="icon icon-plus"><use href="#i-plus"/></svg>
         </div>`;
     }).join('');
-    return `
-      <div class="lib-section">
-        <div class="lib-section-head"><h4>${cat.label}</h4></div>
-        ${items}
-      </div>`;
+    return `<div class="lib-section"><div class="lib-section-head"><h4>${label}</h4></div>${rows}</div>`;
   }).join('');
 }
 
-function nodeSubtitle(key){
-  const map = {
-    trigger:'اختر الحدث المُشغّل', condition:'قسّم المسار لفرعين',
-    email:'بريد مخصص بالكامل', whatsapp:'رسائل واتساب للعملاء',
-    notify:'تنبيه فوري داخل النظام', wait:'إيقاف مؤقت قبل المتابعة',
-    assign:'توزيع تلقائي أو يدوي', update_ticket:'تعديل حالة أو أولوية',
-    internal_note:'ملاحظة لا يراها العميل', ai_reply:'ردود تلقائية ذكية',
-    crm_sync:'ربط بيانات العملاء', api_call:'تكامل مع أي نظام خارجي',
-  };
-  return map[key] || '';
+document.getElementById('librarySearchInput').addEventListener('input', (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.lib-item[data-search]').forEach(item=>{
+    item.style.display = !q || item.dataset.search.includes(q) ? 'flex' : 'none';
+  });
+});
+
+/* =========================================================================
+   CANVAS — renders WORKFLOW.definition.nodes/edges as a linear story
+   (kept intentionally readable/linear for the mockup rather than a full
+   free-form graph renderer)
+   ========================================================================= */
+function nodeById(id){ return (WORKFLOW.definition.nodes||[]).find(n=>n.id===id); }
+function edgesFrom(id){ return (WORKFLOW.definition.edges||[]).filter(e=>e.source===id); }
+
+function nodeSummaryLine(node){
+  const nt = NODE_TYPES[node.type];
+  if(!nt) return '';
+  const c = node.config || {};
+  switch(node.type){
+    case 'trigger.ticket_created':
+      return c.priority && c.priority!=='any' ? `بأولوية <span class="chip">${priorityLabel(c.priority)}</span> فقط` : 'في أي وقت، من أي عميل';
+    case 'condition.if_else':
+      return `إذا كانت <span class="chip">${fieldLabel(c.variable)}</span> ${opLabel(c.operator)} <span class="chip">${valueLabel(c.value)}</span>`;
+    case 'action.send_email':
+      return `من ${c.from||'—'} إلى <span class="chip">${recipientLabel(c.to)}</span>`;
+    case 'delay.wait':
+      return `${c.duration_value||'—'} ${unitLabel(c.duration_unit)} ثم متابعة الخطوة التالية`;
+    case 'action.send_notification':
+      return `إلى <span class="chip">${recipientLabel(c.user_id)}</span>`;
+    default:
+      return nt.description || '';
+  }
+}
+function priorityLabel(v){ return {low:'منخفضة',medium:'متوسطة',high:'عالية',urgent:'عاجلة',any:'أي أولوية'}[v]||v; }
+function fieldLabel(v){ return {'ticket.priority':'الأولوية','ticket.category':'نوع التذكرة','ticket.department':'القسم','ticket.status':'الحالة'}[v]||v; }
+function opLabel(v){ return {equals:'تساوي',not_equals:'لا تساوي',contains:'تحتوي على',greater_than:'أكبر من',less_than:'أصغر من'}[v]||v; }
+function valueLabel(v){ return v==='urgent'?'عاجلة':v; }
+function recipientLabel(v){ return {ticket_owner:'صاحب التذكرة',customer:'العميل',admin_team:'لوحة الإدارة',customer_portal:'لوحة العميل'}[v]||v; }
+function unitLabel(v){ return {minutes:'دقيقة',hours:'ساعة',days:'يوم'}[v]||v; }
+
+function renderNodeCard(node, opts={}){
+  const nt = NODE_TYPES[node.type];
+  if(!nt) return '';
+  const icon = KEY_ICON[node.type] || 'i-zap';
+  const soft = colorSoft(nt.color);
+  const style = `--node-color:${nt.color}; --node-color-soft:${soft}`;
+  const selected = currentNodeId===node.id ? 'selected' : '';
+  const delay = (opts.delayIndex||0) * 40;
+  return `
+    <div class="node ${selected}" style="${style}; animation-delay:${delay}ms" onclick="selectNode('${node.id}')" id="canvasnode-${node.id}">
+      <div class="node-top">
+        <span class="node-kicker"><svg class="icon icon-sm"><use href="#${icon}"/></svg> ${CATEGORY_META[nt.category]?.label || nt.category}</span>
+        <button class="node-menu-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm"><use href="#i-more-vertical"/></svg></button>
+      </div>
+      <div class="node-main">
+        <div class="node-icon"><svg class="icon"><use href="#${icon}"/></svg></div>
+        <div class="node-text">
+          <div class="node-title">${nt.name_ar}</div>
+          <div class="node-sub">${nodeSummaryLine(node)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildSummaryText(){
+  const nodes = WORKFLOW.definition.nodes||[];
+  const trigger = nodes.find(n=>n.type.startsWith('trigger.'));
+  const cond = nodes.find(n=>n.type.startsWith('condition.'));
+  const email = nodes.find(n=>n.type==='action.send_email');
+  const wait = nodes.find(n=>n.type==='delay.wait');
+  const notify = nodes.find(n=>n.type==='action.send_notification');
+  let s = `هذا التدفق يعمل عند <b>${trigger?NODE_TYPES[trigger.type]?.name_ar:'—'}</b>`;
+  if(cond) s += `، وإن كانت ${fieldLabel(cond.config.variable)} <b>${valueLabel(cond.config.value)}</b>`;
+  if(email) s += ` فإنه يرسل بريدًا إلكترونيًا لـ<b>${recipientLabel(email.config.to)}</b>`;
+  if(wait) s += `، وينتظر <b>${wait.config.duration_value} ${unitLabel(wait.config.duration_unit)}</b>`;
+  if(notify) s += `، ثم ينبّه <b>${recipientLabel(notify.config.user_id)}</b>`;
+  return s + '.';
+}
+
+function renderCanvas(){
+  const nodes = WORKFLOW.definition.nodes||[];
+  const trigger = nodes.find(n=>n.type.startsWith('trigger.'));
+  const cond = nodes.find(n=>n.type.startsWith('condition.'));
+  const yesChain = [];
+  if(cond){
+    let cur = edgesFrom(cond.id).find(e=>e.branch==='yes');
+    while(cur){
+      const n = nodeById(cur.target);
+      if(!n) break;
+      yesChain.push(n);
+      const next = edgesFrom(n.id)[0];
+      cur = next;
+    }
+  }
+
+  let html = `
+    <div class="flow-summary">
+      <div class="icon-wrap"><svg class="icon"><use href="#i-info"/></svg></div>
+      <p>${buildSummaryText()}</p>
+    </div>`;
+
+  if(trigger){
+    html += renderNodeCard(trigger, {delayIndex:0});
+    html += `<div class="connector"></div><div class="add-step-btn"><svg class="icon icon-sm"><use href="#i-plus"/></svg></div><div class="connector"></div>`;
+  }
+  if(cond){
+    html += renderNodeCard(cond, {delayIndex:1});
+    html += `<div class="connector"></div>`;
+    html += `<div class="branch-wrap">`;
+    html += `<div class="branch-col"><span class="branch-label branch-yes">نعم، تنطبق</span><div class="connector"></div>`;
+    yesChain.forEach((n,i)=>{
+      html += renderNodeCard(n, {delayIndex:2+i});
+      html += `<div class="connector"></div>`;
+    });
+    html += `<div class="flow-end"><svg class="icon icon-sm"><use href="#i-check"/></svg> نهاية المسار</div></div>`;
+    html += `<div class="branch-col"><span class="branch-label branch-no">لا، لا تنطبق</span><div class="connector"></div>`;
+    html += `<div class="flow-end"><svg class="icon icon-sm"><use href="#i-check"/></svg> إيقاف التدفق</div></div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('canvasInner').innerHTML = html;
 }
 
 /* =========================================================================
-   INSPECTOR ENGINE — يعرض steps[] كأسئلة متسلسلة (progressive disclosure)
-   answers{} يحمل حالة الإجابات لكل خطوة، ويحدد أي سؤال "نشط" الآن
+   INSPECTOR — schema-driven, built from wf_node_types.config_schema-style
+   shape (mirrored locally per node.type; same progressive-disclosure engine
+   as before, now operating on real node instances + real config_schema
+   field kinds: select / choice-grid / chip-select / number-unit / text-insert / richtext)
    ========================================================================= */
-let currentNodeKey = 'email';
-let answers = {
-  email:  { from:'support@mad3oom.online', to:'ticket_owner', subject:'تحديث بخصوص تذكرتك رقم [رقم التذكرة]', body:'' },
-};
-let activeStepIndex = {}; // nodeKey -> index of currently open question
 
-function selectNode(key){
-  currentNodeKey = key;
-  if(!(key in activeStepIndex)) activeStepIndex[key] = answers[key] ? Object.keys(NODE_SCHEMAS[key]?.steps ? getAnsweredCount(key) : {}) : 0;
+// local UI schema per node type (field ORDER + input KIND); values always
+// come from / write back to the live node.config object.
+const UI_STEPS = {
+  'trigger.ticket_created': [
+    { id:'priority', question:'ما الحدث الذي يبدأ هذا التدفق؟', type:'select-list',
+      options:[
+        {value:'any', title:'عند إنشاء تذكرة جديدة', sub:'من أي عميل، بأي أولوية'},
+        {value:'low', title:'عند إنشاء تذكرة أولوية منخفضة', sub:''},
+        {value:'medium', title:'عند إنشاء تذكرة أولوية متوسطة', sub:''},
+        {value:'high', title:'عند إنشاء تذكرة أولوية عالية', sub:''},
+      ] },
+  ],
+  'condition.if_else': null, // custom builder
+  'action.send_email': [
+    { id:'from', question:'من أي بريد تريد الإرسال؟', type:'select-list',
+      options:[
+        {value:'info@mad3oom.online', title:'info@mad3oom.online', sub:'البريد العام'},
+        {value:'support@mad3oom.online', title:'support@mad3oom.online', sub:'بريد الدعم الفني'},
+        {value:'tickets@mad3oom.online', title:'tickets@mad3oom.online', sub:'بريد التذاكر'},
+        {value:'no-reply@mad3oom.online', title:'no-reply@mad3oom.online', sub:'بريد تلقائي'},
+      ] },
+    { id:'to', question:'إلى من تريد الإرسال؟', type:'choice-grid',
+      options:[
+        {value:'customer', title:'العميل', icon:'i-user'},
+        {value:'ticket_owner', title:'صاحب التذكرة', icon:'i-ticket'},
+        {value:'other', title:'بريد آخر', icon:'i-at-sign'},
+      ] },
+    { id:'subject', question:'ما موضوع الرسالة؟', type:'text-insert', placeholder:'مثال: تحديث بخصوص تذكرتك' },
+    { id:'body', question:'اكتب نص الرسالة', type:'richtext', placeholder:'مرحبًا [اسم العميل]،\n\nنود إعلامك بأن...' },
+  ],
+  'action.send_notification': [
+    { id:'user_id', question:'إلى من يذهب هذا الإشعار؟', type:'choice-grid',
+      options:[
+        {value:'customer_portal', title:'لوحة العميل', icon:'i-user'},
+        {value:'admin_team', title:'لوحة الإدارة', icon:'i-shield-check'},
+        {value:'both', title:'كلاهما', icon:'i-layers'},
+      ] },
+    { id:'title', question:'عنوان الإشعار', type:'text-insert', placeholder:'مثال: تذكرة عاجلة بانتظار الرد' },
+    { id:'message', question:'ما نص الإشعار؟', type:'text-insert', placeholder:'تفاصيل إضافية...' },
+  ],
+  'delay.wait': [
+    { id:'__duration', question:'كم تريد أن ننتظر قبل المتابعة؟', type:'number-unit',
+      unitOptions:[{v:'minutes',l:'دقائق'},{v:'hours',l:'ساعات'},{v:'days',l:'أيام'}] },
+  ],
+  'action.assign_ticket': [
+    { id:'target', question:'لمن تريد إسناد التذكرة؟', type:'select-list',
+      options:[
+        {value:'least_busy', title:'الموظف الأقل انشغالًا', sub:'توزيع تلقائي عادل'},
+        {value:'specific', title:'موظف محدد', sub:'اختر من القائمة'},
+        {value:'department', title:'قسم معيّن', sub:'يُسند لأي موظف في القسم'},
+      ] },
+  ],
+  'action.update_ticket_status': [
+    { id:'value', question:'ما الحالة الجديدة؟', type:'chip-select',
+      options:[
+        {value:'open', label:'مفتوحة', color:'#0EA05A'},
+        {value:'in-progress', label:'قيد المعالجة', color:'#D97706'},
+        {value:'resolved', label:'محلولة', color:'#2563EB'},
+        {value:'closed', label:'مغلقة', color:'#9CA0AC'},
+      ] },
+  ],
+};
+
+function getStepsFor(node){
+  if(node.type === 'delay.wait') return UI_STEPS['delay.wait'];
+  return UI_STEPS[node.type] || null;
+}
+
+function selectNode(id){
+  currentNodeId = id;
   document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));
+  const el = document.getElementById('canvasnode-'+id);
+  if(el) el.classList.add('selected');
+  window.__editingIdx = null;
   renderInspector();
 }
 
-function getAnsweredCount(key){
-  const schema = NODE_SCHEMAS[key];
-  if(!schema || !schema.steps) return 0;
-  const a = answers[key] || {};
+function getAnsweredCount(node, steps){
+  const c = node.config || {};
   let count = 0;
-  for(const s of schema.steps){ if(a[s.id] !== undefined && a[s.id] !== '') count++; else break; }
+  for(const s of steps){
+    const val = s.id==='__duration' ? (c.duration_value!==undefined) : (c[s.id] !== undefined && c[s.id] !== '');
+    if(val) count++; else break;
+  }
   return count;
 }
 
 function renderInspector(){
-  const schema = NODE_SCHEMAS[currentNodeKey];
-  const cat = CATEGORIES[schema.category];
+  const node = nodeById(currentNodeId);
+  if(!node){ closeInspector(); return; }
+  const nt = NODE_TYPES[node.type];
+  const icon = KEY_ICON[node.type] || 'i-zap';
+  const soft = colorSoft(nt.color);
   const panel = document.getElementById('inspectorPanel');
-  if(!answers[currentNodeKey]) answers[currentNodeKey] = {};
-  const a = answers[currentNodeKey];
 
-  let bodyHtml = '';
-
-  if(schema.custom === 'condition-builder'){
-    bodyHtml = renderConditionBuilder();
+  let bodyHtml;
+  if(node.type === 'condition.if_else'){
+    bodyHtml = renderConditionBuilder(node, nt);
   } else {
-    const answeredCount = getAnsweredCount(currentNodeKey);
-    bodyHtml = schema.steps.map((step, idx)=>{
-      if(idx < answeredCount){
-        return renderDoneStep(step, a[step.id], idx);
-      } else if(idx === answeredCount){
-        return renderActiveStep(step, idx, cat);
-      } else {
-        return `<div class="qstep pending"><div class="qtitle"><span class="qnum">${idx+1}</span>${step.question}</div></div>`;
-      }
+    const steps = getStepsFor(node) || [];
+    const answeredCount = window.__editingIdx!=null ? window.__editingIdx : getAnsweredCount(node, steps);
+    bodyHtml = steps.map((step, idx)=>{
+      if(window.__editingIdx===idx) return renderActiveStep(node, step, idx, nt);
+      if(idx < answeredCount) return renderDoneStep(node, step, idx);
+      if(window.__editingIdx==null && idx===answeredCount) return renderActiveStep(node, step, idx, nt);
+      return `<div class="qstep pending"><div class="qtitle"><span class="qnum" style="background:${soft};color:${nt.color}">${idx+1}</span>${step.question}</div></div>`;
     }).join('');
   }
 
   panel.innerHTML = `
     <div class="inspector-head">
-      <button class="back-btn" onclick="closeInspector()"><svg class="icon icon-sm"><use href="#i-chevron-left" style="transform:scaleX(-1)"/></svg></button>
-      <div class="inspector-head-icon" style="background:${cat.soft}; color:${cat.color}"><svg class="icon"><use href="#${schema.icon}"/></svg></div>
+      <button class="back-btn" onclick="closeInspector()"><svg class="icon icon-sm"><use href="#i-chevron-right"/></svg></button>
+      <div class="inspector-head-icon" style="background:${soft}; color:${nt.color}"><svg class="icon"><use href="#${icon}"/></svg></div>
       <div class="inspector-head-text">
-        <h3>${schema.title}</h3>
-        <p>${cat.label}</p>
+        <h3>${nt.name_ar}</h3>
+        <p>${CATEGORY_META[nt.category]?.label || nt.category}</p>
       </div>
     </div>
     <div class="inspector-scroll">${bodyHtml}</div>
     <div class="inspector-footer">
       <button class="btn" onclick="closeInspector()">إلغاء</button>
       <button class="btn btn-primary" onclick="closeInspector()"><svg class="icon icon-sm"><use href="#i-check"/></svg> تم</button>
-    </div>
-  `;
+    </div>`;
 }
 
-function renderDoneStep(step, value, idx){
-  let displayVal = value;
-  if(step.type==='select-list'){ const opt = step.options.find(o=>o.value===value); displayVal = opt?opt.title:value; }
-  if(step.type==='choice-grid'){ const opt = step.options.find(o=>o.value===value); displayVal = opt?opt.title:value; }
-  if(step.type==='chip-select'){ const opt = step.options.find(o=>o.value===value); displayVal = opt?opt.label:value; }
-  if(step.type==='number-unit'){ displayVal = `${value.n} ${value.unit}`; }
-  if(step.type==='text-insert'){ displayVal = value; }
-  if(step.type==='richtext'){ displayVal = value ? (value.length>36? value.slice(0,36)+'…' : value) : 'بدون نص بعد'; }
+function renderDoneStep(node, step, idx){
+  const c = node.config || {};
+  let displayVal;
+  if(step.type==='select-list'){ const o=step.options.find(o=>o.value===c[step.id]); displayVal=o?o.title:c[step.id]; }
+  else if(step.type==='choice-grid'){ const o=step.options.find(o=>o.value===c[step.id]); displayVal=o?o.title:c[step.id]; }
+  else if(step.type==='chip-select'){ const o=step.options.find(o=>o.value===c[step.id]); displayVal=o?o.label:c[step.id]; }
+  else if(step.type==='number-unit'){ displayVal = `${c.duration_value} ${unitLabel(c.duration_unit)}`; }
+  else if(step.type==='richtext'){ displayVal = c[step.id] ? (c[step.id].length>34? c[step.id].slice(0,34)+'…' : c[step.id]) : 'بدون نص بعد'; }
+  else displayVal = c[step.id];
 
   return `
     <div class="qstep done">
       <div class="qdone-row">
-        <div>
-          <div class="qdone-label">${step.question}</div>
-          <div class="qdone-value">${displayVal || '—'}</div>
-        </div>
-        <span class="edit-link" onclick="editStep(${idx})"><svg class="icon icon-sm"><use href="#i-pencil"/></svg> تعديل</span>
+        <div><div class="qdone-label">${step.question}</div><div class="qdone-value">${displayVal||'—'}</div></div>
+        <span class="edit-link" onclick="window.__editingIdx=${idx}; renderInspector()"><svg class="icon icon-sm"><use href="#i-pencil"/></svg> تعديل</span>
       </div>
     </div>`;
 }
 
-function editStep(idx){
-  // فتح خطوة سابقة للتعديل: نعيدها "نشطة" مؤقتًا عبر تخفيض answeredCount الظاهر
-  const schema = NODE_SCHEMAS[currentNodeKey];
-  window.__editingIdx = idx;
-  renderInspectorWithEdit(idx);
-}
-function renderInspectorWithEdit(editIdx){
-  const schema = NODE_SCHEMAS[currentNodeKey];
-  const cat = CATEGORIES[schema.category];
-  const panel = document.getElementById('inspectorPanel');
-  const a = answers[currentNodeKey];
-  const answeredCount = getAnsweredCount(currentNodeKey);
-
-  let bodyHtml = schema.steps.map((step, idx)=>{
-    if(idx === editIdx) return renderActiveStep(step, idx, cat);
-    if(idx < answeredCount) return renderDoneStep(step, a[step.id], idx);
-    return `<div class="qstep pending"><div class="qtitle"><span class="qnum">${idx+1}</span>${step.question}</div></div>`;
-  }).join('');
-
-  panel.querySelector('.inspector-scroll').innerHTML = bodyHtml;
-}
-
-function renderActiveStep(step, idx, cat){
+function renderActiveStep(node, step, idx, nt){
+  const c = node.config || (node.config = {});
   let inputHtml = '';
 
   if(step.type === 'select-list'){
     inputHtml = `<div class="select-list">${step.options.map(o=>`
-      <div class="select-row ${answers[currentNodeKey][step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
+      <div class="select-row ${c[step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
         <div class="radio"></div>
-        <div class="select-row-text">
-          <div class="select-row-title">${o.title}</div>
-          ${o.sub?`<div class="select-row-sub">${o.sub}</div>`:''}
-        </div>
+        <div class="select-row-text"><div class="select-row-title">${o.title}</div>${o.sub?`<div class="select-row-sub">${o.sub}</div>`:''}</div>
       </div>`).join('')}</div>`;
-  }
-
-  else if(step.type === 'choice-grid'){
+  } else if(step.type === 'choice-grid'){
     inputHtml = `<div class="choice-grid">${step.options.map(o=>`
-      <div class="choice-card ${answers[currentNodeKey][step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
-        <svg class="icon"><use href="#${o.icon}"/></svg>
-        <span>${o.title}</span>
+      <div class="choice-card ${c[step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
+        <svg class="icon"><use href="#${o.icon}"/></svg><span>${o.title}</span>
       </div>`).join('')}</div>`;
-  }
-
-  else if(step.type === 'chip-select'){
+  } else if(step.type === 'chip-select'){
     inputHtml = `<div class="chip-select">${step.options.map(o=>`
-      <div class="chip-option ${answers[currentNodeKey][step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
+      <div class="chip-option ${c[step.id]===o.value?'picked':''}" onclick="setAnswer('${step.id}','${o.value}')">
         ${o.color?`<span class="dot" style="background:${o.color}"></span>`:''}${o.label}
       </div>`).join('')}</div>`;
-  }
-
-  else if(step.type === 'number-unit'){
-    const cur = answers[currentNodeKey][step.id] || {n:step.defaultValue, unit:step.defaultUnit};
+  } else if(step.type === 'number-unit'){
+    const n = c.duration_value ?? 30, unit = c.duration_unit ?? 'minutes';
     inputHtml = `
       <div class="number-unit-row">
-        <input type="number" class="number-input" value="${cur.n}" oninput="setAnswer('${step.id}', {n:this.value, unit:'${cur.unit}'})">
-        <div class="unit-toggle">
-          ${step.unitOptions.map(u=>`<div class="unit-btn ${cur.unit===u?'picked':''}" onclick="setAnswer('${step.id}', {n:${cur.n}, unit:'${u}'})">${u}</div>`).join('')}
-        </div>
+        <input type="number" class="number-input" value="${n}" oninput="setAnswer('duration_value', Number(this.value), true)">
+        <div class="unit-toggle">${step.unitOptions.map(u=>`<div class="unit-btn ${unit===u.v?'picked':''}" onclick="setAnswer('duration_unit','${u.v}')">${u.l}</div>`).join('')}</div>
       </div>`;
-  }
-
-  else if(step.type === 'text-insert'){
-    const val = answers[currentNodeKey][step.id] || '';
+  } else if(step.type === 'text-insert'){
+    const val = c[step.id] || '';
     inputHtml = `
       <div class="field-with-insert">
         <input type="text" class="text-input" placeholder="${step.placeholder||''}" value="${val}" oninput="setAnswer('${step.id}', this.value, true)">
-        <div class="insert-btn" onclick="toggleInsertPopover(this)"><svg class="icon icon-sm"><use href="#i-plus-circle"/></svg> إدراج بيانات من التذكرة</div>
+        <div class="insert-btn" onclick="toggleInsertPopover(this)"><svg class="icon icon-sm"><use href="#i-plus"/></svg> إدراج بيانات من التذكرة</div>
         ${renderInsertPopoverHtml(step.id)}
       </div>`;
-  }
-
-  else if(step.type === 'richtext'){
-    const val = answers[currentNodeKey][step.id] || '';
+  } else if(step.type === 'richtext'){
+    const val = c[step.id] || '';
     inputHtml = `
       <div class="field-with-insert">
         <textarea class="textarea-input" placeholder="${step.placeholder||''}" oninput="setAnswer('${step.id}', this.value, true)">${val}</textarea>
         <div class="rich-toolbar">
           <button><svg class="icon icon-sm"><use href="#i-bold"/></svg></button>
           <button><svg class="icon icon-sm"><use href="#i-list"/></svg></button>
-          <button onclick="toggleInsertPopover(this)"><svg class="icon icon-sm"><use href="#i-plus-circle"/></svg></button>
         </div>
-        <div class="insert-btn" onclick="toggleInsertPopover(this)"><svg class="icon icon-sm"><use href="#i-plus-circle"/></svg> إدراج بيانات من التذكرة</div>
+        <div class="insert-btn" onclick="toggleInsertPopover(this)"><svg class="icon icon-sm"><use href="#i-plus"/></svg> إدراج بيانات من التذكرة</div>
         ${renderInsertPopoverHtml(step.id)}
       </div>`;
   }
 
+  const soft = colorSoft(nt.color);
   return `
-    <div class="qstep active" style="--node-color:${cat.color}; --node-color-soft:${cat.soft}">
-      <div class="qtitle"><span class="qnum" style="background:${cat.soft}; color:${cat.color}">${idx+1}</span>${step.question}</div>
-      ${step.help?`<div class="qhelp">${step.help}</div>`:''}
+    <div class="qstep active" style="--node-color:${nt.color}; --node-color-soft:${soft}">
+      <div class="qtitle"><span class="qnum" style="background:${soft};color:${nt.color}">${idx+1}</span>${step.question}</div>
       <div class="field-group">${inputHtml}</div>
     </div>`;
 }
@@ -1134,91 +1089,76 @@ function renderInsertPopoverHtml(stepId){
         </div>`).join('')}
     </div>`;
 }
-
 function toggleInsertPopover(btn){
-  document.querySelectorAll('.insert-popover').forEach(p=>{ if(p.id !== btn.closest('.field-with-insert')?.querySelector('.insert-popover')?.id) p.style.display='none'; });
-  const wrap = btn.closest('.field-with-insert');
-  const pop = wrap.querySelector('.insert-popover');
+  document.querySelectorAll('.insert-popover').forEach(p=>{ if(p !== btn.closest('.field-with-insert')?.querySelector('.insert-popover')) p.style.display='none'; });
+  const pop = btn.closest('.field-with-insert').querySelector('.insert-popover');
   pop.style.display = pop.style.display==='none' ? 'block' : 'none';
 }
-
 function insertField(stepId, fieldName){
-  const input = document.querySelector(`#inspectorPanel [oninput*="${stepId}"]`);
+  const input = document.querySelector(`#inspectorPanel [oninput*="'${stepId}'"]`);
   if(input){ input.value += ` [${fieldName}]`; input.dispatchEvent(new Event('input')); }
-  document.getElementById(`popover-${stepId}`).style.display='none';
+  const pop = document.getElementById(`popover-${stepId}`);
+  if(pop) pop.style.display='none';
 }
 
-function setAnswer(stepId, value, skipRerender){
-  answers[currentNodeKey][stepId] = value;
-  if(!skipRerender){
-    if(window.__editingIdx !== undefined && window.__editingIdx !== null){
-      window.__editingIdx = null;
-      renderInspector();
-    } else {
-      renderInspector();
-    }
-  }
+function setAnswer(key, value, skipAdvance){
+  const node = nodeById(currentNodeId);
+  node.config[key] = value;
+  if(!skipAdvance){ window.__editingIdx = null; }
+  renderInspector();
+  renderCanvas();
+  if(document.getElementById('canvasnode-'+currentNodeId)) document.getElementById('canvasnode-'+currentNodeId).classList.add('selected');
 }
 
-/* ---- Condition builder: same progressive engine, custom multi-row layout ---- */
-let condRows = [{ field:'الأولوية', op:'تساوي', value:'عاجلة' }];
-let condLogic = 'and';
-function renderConditionBuilder(){
-  const fieldOptions = ['الأولوية','نوع التذكرة','القسم','الحالة','الموظف المسؤول','الوسوم'];
-  const rows = condRows.map((r, i)=>`
-    <div class="cond-row">
-      <select class="cond-select" onchange="condRows[${i}].field=this.value; renderInspector()">
-        ${fieldOptions.map(f=>`<option ${r.field===f?'selected':''}>${f}</option>`).join('')}
-      </select>
-      <select class="cond-select" style="flex:0 0 90px" onchange="condRows[${i}].op=this.value; renderInspector()">
-        <option ${r.op==='تساوي'?'selected':''}>تساوي</option>
-        <option ${r.op==='لا تساوي'?'selected':''}>لا تساوي</option>
-      </select>
-      <select class="cond-select" onchange="condRows[${i}].value=this.value; renderInspector()">
-        <option ${r.value==='عاجلة'?'selected':''}>عاجلة</option>
-        <option ${r.value==='عالية'?'selected':''}>عالية</option>
-        <option ${r.value==='متوسطة'?'selected':''}>متوسطة</option>
-        <option ${r.value==='منخفضة'?'selected':''}>منخفضة</option>
-      </select>
-    </div>`).join('');
-
+/* condition builder (kept as a dedicated small UI, same engine spirit) */
+function renderConditionBuilder(node, nt){
+  const c = node.config || (node.config = {});
+  const fieldOptions = [
+    {v:'ticket.priority', l:'الأولوية'}, {v:'ticket.category', l:'نوع التذكرة'},
+    {v:'ticket.department', l:'القسم'}, {v:'ticket.status', l:'الحالة'},
+  ];
+  const opOptions = [{v:'equals',l:'تساوي'},{v:'not_equals',l:'لا تساوي'},{v:'contains',l:'تحتوي على'}];
+  const valOptions = ['urgent','high','medium','low'];
+  const soft = colorSoft(nt.color);
   return `
-    <div class="qstep active" style="--node-color:var(--cat-condition); --node-color-soft:var(--cat-condition-soft)">
-      <div class="qtitle"><span class="qnum" style="background:var(--cat-condition-soft); color:var(--cat-condition)">1</span>على أي أساس تريد التقسيم؟</div>
-      <div class="qhelp">التدفق سيسير في مسار "نعم" إذا تحققت الشروط، وإلا سيتوقف في مسار "لا"</div>
+    <div class="qstep active" style="--node-color:${nt.color}; --node-color-soft:${soft}">
+      <div class="qtitle"><span class="qnum" style="background:${soft};color:${nt.color}">1</span>على أي أساس تريد التقسيم؟</div>
+      <div class="qhelp">التدفق سيسير في مسار "نعم" إذا تحقق الشرط، وإلا سيتوقف في مسار "لا"</div>
       <div class="field-group">
-        ${rows}
-        <div class="add-cond-link" onclick="condRows.push({field:'الأولوية',op:'تساوي',value:'عاجلة'}); renderInspector()">
-          <svg class="icon icon-sm"><use href="#i-plus"/></svg> أضف شرطًا آخر
+        <div class="cond-row">
+          <select class="cond-select" onchange="setAnswer('variable', this.value, true)">
+            ${fieldOptions.map(f=>`<option value="${f.v}" ${c.variable===f.v?'selected':''}>${f.l}</option>`).join('')}
+          </select>
+          <select class="cond-select" style="flex:0 0 100px" onchange="setAnswer('operator', this.value, true)">
+            ${opOptions.map(o=>`<option value="${o.v}" ${c.operator===o.v?'selected':''}>${o.l}</option>`).join('')}
+          </select>
+          <select class="cond-select" onchange="setAnswer('value', this.value, true)">
+            ${valOptions.map(v=>`<option value="${v}" ${c.value===v?'selected':''}>${priorityLabel(v)}</option>`).join('')}
+          </select>
         </div>
-        ${condRows.length>1?`
-        <div class="cond-logic-toggle">
-          <button class="${condLogic==='and'?'active':''}" onclick="condLogic='and'; renderInspector()">يجب أن تتحقق كل الشروط</button>
-          <button class="${condLogic==='or'?'active':''}" onclick="condLogic='or'; renderInspector()">يكفي شرط واحد</button>
-        </div>`:''}
       </div>
     </div>`;
 }
 
 function closeInspector(){
-  document.getElementById('inspectorPanel').innerHTML = `
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:40px; text-align:center; color:var(--text-tertiary); gap:10px;">
-      <svg class="icon icon-lg"><use href="#i-mouse-pointer"/></svg>
-      <p style="font-size:13px; line-height:1.7">اضغط على أي خطوة في التدفق<br>لعرض تفاصيلها وتعديلها هنا</p>
-    </div>`;
+  currentNodeId = null;
   document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));
+  document.getElementById('inspectorPanel').innerHTML = `
+    <div class="inspector-empty">
+      <div class="icon-wrap"><svg class="icon icon-lg"><use href="#i-mouse-pointer"/></svg></div>
+      <p>اضغط على أي خطوة في التدفق<br>لعرض تفاصيلها وتعديلها هنا</p>
+    </div>`;
 }
 
 function addNodeFromLibrary(key){
-  // في نسخة كاملة: يضيف Node جديد على الـ Canvas في المكان المحدد.
-  selectNode(key);
+  // demo scope: opens/selects rather than mutating the live showcase row
+  const nodes = WORKFLOW.definition.nodes||[];
+  const existing = nodes.find(n=>n.type===key);
+  if(existing){ selectNode(existing.id); return; }
+  selectNode(nodes[0]?.id);
 }
-function openLibraryAt(pos){ /* يفتح مكتبة الإضافة عند موضع معيّن في التدفق */ }
 
-/* init */
-renderLibrary();
-selectNode('email');
-document.getElementById('node-condition') // keep for reference
+boot();
 </script>
 
 </body>
