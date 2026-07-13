@@ -405,13 +405,18 @@ function openVarMenu(e, upstream, onPick) {
     document.querySelectorAll('.wf-var-menu').forEach(m => m.remove());
     const menu = document.createElement('div');
     menu.className = 'wf-var-menu';
+    const shell = document.getElementById('wfShell');
+    const shellRect = shell.getBoundingClientRect();
     const rect = e.target.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.insetInlineStart = (rect.left + window.scrollX) + 'px';
+    // إحداثيات نسبية إلى #wfShell (الآن هو الأب المُموضَع positioned ancestor)
+    // بدل الإحداثيات المطلقة على الصفحة، لأن العنصر بقى يُلحَق داخل wfShell
+    // بدل document.body مباشرة (انظر تعليق أعلى الملف بخصوص متغيرات الثيم).
+    menu.style.top = (rect.bottom - shellRect.top + 4) + 'px';
+    menu.style.insetInlineStart = (rect.left - shellRect.left) + 'px';
     menu.innerHTML = upstream.length
         ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('')
         : '<div class="wf-var-empty">لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
-    document.body.appendChild(menu);
+    shell.appendChild(menu);
     menu.addEventListener('click', (ev) => { const v = ev.target.closest('button')?.dataset.v; if (v) { onPick(v); menu.remove(); } });
     setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
 }
