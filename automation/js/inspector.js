@@ -119,6 +119,9 @@ const FIELD_GROUP_META = {
 const FIELD_GROUP_ORDER = ['destination', 'content', 'conditions'];
 function fieldGroup(field) {
     if (['staff_picker', 'integration_picker', 'mcp_tool_picker', 'webhook_picker'].includes(field.type)) return 'destination';
+    // حقلا "من"/"إلى" (مثلًا from_email + to في عقدة إرسال بريد) ينتميان منطقيًا
+    // لقسم "الوجهة والربط" مهما كان نوع الحقل نفسه (select أو variable_picker)
+    if (['from_email', 'to', 'chat_id'].includes(field.key)) return 'destination';
     if (field.type === 'textarea') return 'content';
     if ((!field.type || field.type === 'text') && field.supports_variables) return 'content';
     return 'conditions';
