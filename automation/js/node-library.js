@@ -7,7 +7,7 @@
    place a node when a library item is double-clicked (no other module
    needs to reach back into this one, so this stays a clean leaf feature).
    ===================================================================== */
-import { escapeHtml, ic, icFilled, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_ACCENT, getFavorites, toggleFavorite, getRecent } from './common.js';
+import { escapeHtml, ic, icFilled, nodeIcon, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_ACCENT, getFavorites, toggleFavorite, getRecent } from './common.js';
 import { appState } from './state.js';
 import { Canvas } from './canvas.js';
 
@@ -76,7 +76,7 @@ function libItemHtml(nt, favs) {
     const isFav = favs.includes(nt.key);
     return `
     <div class="wf-lib-item" draggable="true" data-key="${nt.key}" title="${escapeHtml(nt.description || nt.name_ar)}">
-        <div class="wf-lib-icon" style="background:${nt.color}22;color:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+        <div class="wf-lib-icon" style="background:${nt.color}22;color:${nt.color}">${nodeIcon(nt, 14)}</div>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(nt.name_ar || nt.name_en)}</span>
         <span class="wf-lib-fav ${isFav ? 'wf-fav-on' : ''}" data-key="${nt.key}" style="display:flex;">${isFav ? icFilled('star', 13) : ic('star', 13)}</span>
     </div>`;
