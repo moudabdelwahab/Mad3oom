@@ -107,6 +107,64 @@ function optionLabel(raw) {
 }
 
 /* ---------------------------------------------------------------------
+   عقدة IF/ELSE: حقل "القيمة" يتغيّر شكله حسب "المتغيّر" المختار فوقه — بدل ما
+   يكتب الموظف قيمة حرة يدويًا لحاجة زي الأولوية أو الحالة (واللي غالبًا هيغلط
+   في كتابتها بالإنجليزية التقنية)، بيتحول تلقائيًا لقائمة اختيار مطابقة تمامًا
+   لقيم النظام الفعلية. أي متغيّر تاني مش من القائمة المعروفة يفضل حقل نص حر
+   زي ما كان (سلوك افتراضي بدون كسر أي حالة قديمة).
+   --------------------------------------------------------------------- */
+const IFELSE_VALUE_SUFFIX_OPTIONS = {
+    priority: ['low', 'medium', 'high'],
+    status: ['open', 'in-progress', 'resolved', 'confirmed', 'rejected', 'closed'],
+    from_status: ['open', 'in-progress', 'resolved', 'confirmed', 'rejected', 'closed'],
+    to_status: ['open', 'in-progress', 'resolved', 'confirmed', 'rejected', 'closed'],
+    new_status: ['open', 'in-progress', 'resolved', 'confirmed', 'rejected', 'closed']
+};
+function varSuffix(raw) {
+    const m = String(raw || '').match(/^\{\{(.+)\}\}$/);
+    return String(m ? m[1] : raw || '').split('.').pop();
+}
+function buildIfElseValueControl(node, field, disabled, commit) {
+    const suffix = varSuffix(node.config.variable);
+    const fixedOptions = IFELSE_VALUE_SUFFIX_OPTIONS[suffix];
+    if (fixedOptions) {
+        const control = document.createElement('select');
+        control.className = 'wf-select'; control.disabled = disabled;
+        control.innerHTML = '<option value="">— اختر —</option>' + fixedOptions.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(optionLabel(o))}</option>`).join('');
+        control.value = node.config[field.key] ?? '';
+        control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+        return control;
+    }
+    if (suffix === 'user_id') {
+        const control = document.createElement('select');
+        control.className = 'wf-select'; control.disabled = disabled;
+        control.innerHTML = '<option value="">— اختر مستخدمًا —</option>' + (appState.allUsers || []).map(p => `<option value="${p.id}">${escapeHtml(p.full_name || p.email || p.id)}</option>`).join('');
+        control.value = node.config[field.key] ?? '';
+        control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
+        return control;
+    }
+    if (suffix === 'category' && (appState.ticketCategories || []).length) {
+        const control = document.createElement('select');
+        control.className = 'wf-select'; control.disabled = disabled;
+        const cur = node.config[field.key] ?? '';
+        const known = appState.ticketCategories.includes(cur);
+        control.innerHTML = '<option value="">— اختر تصنيفًا —</option>'
+            + appState.ticketCategories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+            + `<option value="__manual__">قيمة أخرى...</option>`;
+        control.value = known ? cur : (cur ? '__manual__' : '');
+        control.addEventListener('change', async () => {
+            if (control.value === '__manual__') {
+                const manual = await promptDialog('اكتب التصنيف:', cur);
+                if (manual !== null) { node.config[field.key] = manual; commit(); }
+                else control.value = known ? cur : '';
+            } else { node.config[field.key] = control.value; commit(); }
+        });
+        return control;
+    }
+    return null; // لا يوجد تصنيف معروف لهذا المتغيّر — يفضل حقل نص حر (السلوك الافتراضي)
+}
+
+/* ---------------------------------------------------------------------
    تجميع حقول config_schema إلى أقسام منطقية — يعتمد فقط على field.type
    (وليس على مفتاح تقني خاص بعنصر معيّن)، بحيث يُطبَّق نفس النمط تلقائيًا
    وباتساق على كل أنواع الـ Nodes الحالية والمستقبلية.
@@ -363,7 +421,11 @@ function buildFieldControl(session, node, nt, field, upstream) {
         label.appendChild(varBtn);
     }
 
-    switch (field.type) {
+    if (nt.key === 'condition.if_else' && field.key === 'value') {
+        control = buildIfElseValueControl(node, field, disabled, commit);
+    }
+
+    if (!control) switch (field.type) {
         case 'textarea':
             control = document.createElement('textarea');
             control.className = 'wf-textarea';
@@ -407,6 +469,11 @@ function buildFieldControl(session, node, nt, field, upstream) {
             control.type = 'button';
             control.className = 'wf-varpicker';
             control.disabled = disabled;
+            // في عقدة IF/ELSE، حقل "القيمة" بيتغيّر شكله حسب المتغيّر المختار هنا
+            // (مثلًا يظهر كقائمة أولويات لو اخترت "الأولوية") — فلازم نعيد رسم
+            // اللوحة كلها بعد أي تغيير هنا عشان حقل "القيمة" يتحدّث فورًا.
+            const isIfElseVariable = nt.key === 'condition.if_else' && field.key === 'variable';
+            const refreshIfNeeded = () => { if (isIfElseVariable) renderNodeInspector(session, document.getElementById('wfInspectorContent'), node.id); };
             const currentVal = () => node.config[field.key] ?? '';
             const renderBtn = () => {
                 const val = currentVal();
@@ -420,7 +487,7 @@ function buildFieldControl(session, node, nt, field, upstream) {
                     control.innerHTML = `<span style="color:var(--wf-text-3);">— اختر بيانات —</span><span class="wf-varpicker-ic">${ic('search', 13)}</span>`;
                 }
                 control.querySelector('[data-role="clear"]')?.addEventListener('click', (ev) => {
-                    ev.stopPropagation(); node.config[field.key] = ''; commit(); renderBtn();
+                    ev.stopPropagation(); node.config[field.key] = ''; commit(); renderBtn(); refreshIfNeeded();
                 });
             };
             renderBtn();
@@ -429,10 +496,10 @@ function buildFieldControl(session, node, nt, field, upstream) {
                 openVarMenu(e, upstream, async (chosen) => {
                     if (chosen === '__manual__') {
                         const manual = await promptDialog('اكتب القيمة يدويًا:', currentVal() || '');
-                        if (manual !== null) { node.config[field.key] = manual; commit(); renderBtn(); }
+                        if (manual !== null) { node.config[field.key] = manual; commit(); renderBtn(); refreshIfNeeded(); }
                     } else {
                         node.config[field.key] = `{{${chosen}}}`;
-                        commit(); renderBtn();
+                        commit(); renderBtn(); refreshIfNeeded();
                     }
                 }, { manualOption: true, manualLabel: 'إدخال يدوي...' });
             });
