@@ -56,6 +56,34 @@ function friendlyVarLabel(u) {
     return humanized ? `${humanized} — ${u.from}` : u.from;
 }
 
+/* ---------------------------------------------------------------------
+   تسميات عربية لقيم قوائم select الفعلية (وليست فقط أسماء المتغيرات) — هذه
+   القيم مأخوذة حرفيًا من config_schema.fields[].options في wf_node_types
+   (مُدقَّقة من قاعدة البيانات الفعلية)، وكانت تُعرض للمستخدم كما هي بالإنجليزية
+   التقنية (مثال: "in-progress" بدل "قيد التنفيذ"). القيمة المخزَّنة في
+   node.config لا تتغيّر أبدًا — هذه التسمية للعرض فقط.
+   ملاحظة: قيم HTTP method (GET/POST/...) في عقدة "استدعاء API خارجي" تُركت
+   كما هي عمدًا لأنها مصطلحات تقنية عالمية موجّهة لمستخدم يبني تكاملًا فعليًا.
+   --------------------------------------------------------------------- */
+const OPTION_LABELS = {
+    any: 'أي قيمة',
+    low: 'منخفضة', medium: 'متوسطة', high: 'عالية',
+    open: 'مفتوحة', 'in-progress': 'قيد التنفيذ', resolved: 'محلولة',
+    confirmed: 'مؤكدة', rejected: 'مرفوضة', closed: 'مغلقة',
+    whatsapp: 'واتساب', email: 'البريد الإلكتروني',
+    user_id: 'معرّف المستخدم', phone: 'رقم الهاتف',
+    tickets: 'التذاكر', profiles: 'الملفات الشخصية', whatsapp_subscriptions: 'اشتراكات واتساب',
+    ticket_replies: 'ردود التذاكر', messages: 'الرسائل',
+    equals: 'يساوي', not_equals: 'لا يساوي', contains: 'يحتوي على',
+    greater_than: 'أكبر من', less_than: 'أصغر من', is_empty: 'فارغ', is_not_empty: 'غير فارغ',
+    success: 'نجاح', failed: 'فشل',
+    duration: 'مدة محددة', until_time: 'حتى وقت معيّن',
+    minutes: 'دقائق', hours: 'ساعات', days: 'أيام'
+};
+function optionLabel(raw) {
+    return OPTION_LABELS[raw] ?? raw;
+}
+
 function getUpstreamVariables(session, nodeId) {
     const edges = session.definition.edges, nodes = session.definition.nodes;
     const byId = {}; nodes.forEach(n => byId[n.id] = n);
@@ -135,6 +163,7 @@ function renderWorkflowInspector(s, wrap) {
         <div class="wf-field"><div class="wf-input" style="background:var(--wf-glass);">${escapeHtml(sessionTriggerSummary(s))}</div></div>
 
         <div class="wf-inspector-section-title">متغيرات الـ Workflow (تُحفظ ضمن الإصدار الحالي)</div>
+        <p class="wf-field-hint" style="margin:-.3rem 0 .6rem;">قيم ثابتة تُستخدم داخل أي عنصر بالـ Workflow، مثل رقم هاتف الدعم أو اسم الشركة — اكتب اسمًا وقيمة، ثم أدرجها لاحقًا داخل أي حقل نصي بالضغط على زر "إدراج بيانات".</p>
         <div id="wfWorkflowVars">${varsEntries.map(([k, v], i) => `
             <div class="wf-kv-row" data-i="${i}">
                 <input class="wf-input" value="${escapeHtml(k)}" data-role="key" ${s.readOnly ? 'disabled' : ''} placeholder="اسم المتغير">
@@ -160,7 +189,13 @@ function renderWorkflowInspector(s, wrap) {
     }
     wrap.querySelectorAll('#wfWorkflowVars input').forEach(inp => inp.addEventListener('blur', collectVars));
     wrap.querySelectorAll('[data-role="rm"]').forEach(btn => btn.addEventListener('click', (e) => { e.target.closest('.wf-kv-row').remove(); collectVars(); renderWorkflowInspector(s, wrap); }));
-    document.getElementById('wfAddVar')?.addEventListener('click', () => { s.variables = { ...(s.variables || {}), ['متغير_جديد']: '' }; renderWorkflowInspector(s, wrap); });
+    document.getElementById('wfAddVar')?.addEventListener('click', () => {
+        s.variables = s.variables || {};
+        let name = 'متغير_جديد', n = 2;
+        while (Object.prototype.hasOwnProperty.call(s.variables, name)) { name = `متغير_جديد_${n++}`; }
+        s.variables = { ...s.variables, [name]: '' };
+        renderWorkflowInspector(s, wrap);
+    });
 }
 
 function renderNodeInspector(s, wrap, nodeId) {
@@ -220,6 +255,7 @@ function buildFieldControl(session, node, nt, field, upstream) {
         varBtn.className = 'wf-var-btn'; varBtn.type = 'button';
         varBtn.style.display = 'inline-flex'; varBtn.style.alignItems = 'center'; varBtn.style.gap = '.25rem';
         varBtn.innerHTML = `${ic('tag', 11)} إدراج بيانات`;
+        varBtn.title = 'أدرج بيانات من عنصر سابق أو من متغيرات الـ Workflow (مثل اسم العميل أو رقم الهاتف) تلقائيًا داخل هذا الحقل';
         varBtn.disabled = disabled;
         varBtn.addEventListener('click', (e) => openVarMenu(e, upstream, (chosen) => {
             const el = wrapDiv.querySelector('textarea,input[type=text]');
@@ -243,7 +279,7 @@ function buildFieldControl(session, node, nt, field, upstream) {
             control = document.createElement('select');
             control.className = 'wf-select';
             control.disabled = disabled;
-            control.innerHTML = '<option value="">— اختر —</option>' + (field.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+            control.innerHTML = '<option value="">— اختر —</option>' + (field.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(optionLabel(o))}</option>`).join('');
             control.value = node.config[field.key] ?? '';
             control.addEventListener('change', () => { node.config[field.key] = control.value; commit(); });
             break;
