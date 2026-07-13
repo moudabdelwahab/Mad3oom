@@ -44,17 +44,21 @@ async function init() {
     Canvas.init();
 
     try {
-        const [nodeTypes, mcpTools, staff, integrations] = await Promise.all([
+        const [nodeTypes, mcpTools, staff, integrations, allUsers, ticketCategories] = await Promise.all([
             DataLayer.listNodeTypes(),
             DataLayer.listMcpTools(),
             DataLayer.listStaff(),
-            DataLayer.listIntegrations()
+            DataLayer.listIntegrations(),
+            DataLayer.listAllUsers(),
+            DataLayer.listTicketCategories()
         ]);
         appState.nodeTypes = nodeTypes;
         appState.nodeTypesByKey = Object.fromEntries(nodeTypes.map(nt => [nt.key, nt]));
         appState.mcpTools = mcpTools;
         appState.staff = staff;
         appState.integrations = integrations;
+        appState.allUsers = allUsers;
+        appState.ticketCategories = ticketCategories;
     } catch (err) {
         console.error(err);
         toast('تعذّر تحميل بيانات النظام (أنواع العناصر): ' + (err.message || ''), 'error');
