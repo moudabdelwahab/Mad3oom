@@ -14,7 +14,7 @@
    they trigger (publish, duplicate-as-draft, mount, save-state, tabbar)
    so this module never needs to import builder-shell.js directly.
    ===================================================================== */
-import { escapeHtml, ic, toast, timeAgo, STATUS_LABEL, STATUS_BADGE_CLASS, VERSION_STATUS_LABEL } from './common.js';
+import { escapeHtml, ic, toast, confirmDialog, timeAgo, STATUS_LABEL, STATUS_BADGE_CLASS, VERSION_STATUS_LABEL } from './common.js';
 import { appState, ui, activeSession, validateDefinition } from './state.js';
 import { Canvas } from './canvas.js';
 import { DataLayer } from './data-layer.js';
@@ -160,7 +160,7 @@ export async function renderVersionsPanel() {
             const vid = btn.dataset.restore;
             const target = versions.find(v => v.id === vid);
             if (!target || !s.draftVersionId) return;
-            if (!confirm('سيتم استبدال محتوى المسودة الحالية بمحتوى هذا الإصدار. متابعة؟')) return;
+            if (!await confirmDialog('سيتم استبدال محتوى المسودة الحالية بمحتوى هذا الإصدار. متابعة؟', { okLabel: 'استبدال' })) return;
             try {
                 const updated = await DataLayer.restoreVersionIntoDraft(s.draftVersionId, target);
                 s.definition = JSON.parse(JSON.stringify(updated.definition || { nodes: [], edges: [] }));
