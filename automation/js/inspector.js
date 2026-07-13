@@ -13,7 +13,7 @@
    directly (which would create a cycle, since builder-shell imports this
    module's `renderInspector`).
    ===================================================================== */
-import { escapeHtml, ic, icFilled, isStaffFieldOptional, promptDialog, CATEGORY_LABELS } from './common.js';
+import { escapeHtml, ic, icFilled, nodeIcon, isStaffFieldOptional, promptDialog, CATEGORY_LABELS } from './common.js';
 import { appState, ui, activeSession, sessionTriggerSummary } from './state.js';
 import { Canvas } from './canvas.js';
 
@@ -215,7 +215,7 @@ function renderNodeInspector(s, wrap, nodeId) {
 
     wrap.innerHTML = `
     <div class="wf-inspector-head">
-        <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 15)}</div>
+        <div class="wf-node-icon" style="background:${nt.color}">${nodeIcon(nt, 15)}</div>
         <div><h3>${escapeHtml(nt.name_ar || nt.name_en)}</h3><p>${CATEGORY_LABELS[nt.category] || nt.category}${nt.handler_type ? '' : ' · بانتظار التنفيذ'}</p></div>
     </div>
     <div class="wf-inspector-body">
