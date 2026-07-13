@@ -62,6 +62,22 @@ export const DataLayer = {
         if (error) { console.warn('staff fetch failed', error); return []; }
         return data || [];
     },
+    // كل مستخدمي المنصة (وليس فقط admin/support) — تُستخدم في عقدة IF/ELSE لما
+    // يكون المتغيّر المختار هو "معرّف المستخدم" (user_id)، عشان يظهر اسم حقيقي
+    // بدل ما يكتب الموظف الـ UUID يدويًا.
+    async listAllUsers() {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, email').order('full_name');
+        if (error) { console.warn('all users fetch failed', error); return []; }
+        return data || [];
+    },
+    // القيم الفعلية المستخدمة حاليًا في عمود tickets.category — تُستخدم في عقدة
+    // IF/ELSE لما يكون المتغيّر المختار هو "التصنيف"، عشان تُعرض كخيارات جاهزة
+    // بدل كتابة القيمة يدويًا (مع بقاء خيار "قيمة أخرى..." كـ fallback نصي حر).
+    async listTicketCategories() {
+        const { data, error } = await supabase.from('tickets').select('category').not('category', 'is', null);
+        if (error) { console.warn('ticket categories fetch failed', error); return []; }
+        return [...new Set((data || []).map(r => r.category).filter(Boolean))].sort();
+    },
     async listIntegrations() {
         const { data, error } = await supabase.from('external_integrations').select('id, provider, display_name').eq('is_active', true);
         if (error) { console.warn('integrations fetch failed', error); return []; }
