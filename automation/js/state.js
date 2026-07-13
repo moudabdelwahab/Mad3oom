@@ -30,6 +30,8 @@ export const appState = {
     nodeTypesByKey: {},
     mcpTools: [],
     staff: [],
+    allUsers: [],          // كل بروفايلات المنصة — لعقدة IF/ELSE عند اختيار متغيّر user_id
+    ticketCategories: [],  // القيم الفعلية الحالية في tickets.category — لعقدة IF/ELSE
     integrations: [],
     currentWorkflowWebhooks: [],
     openTabs: [],             // جلسات الـ workflow المفتوحة داخل الـ Builder (تدعم تعدد التابات)
