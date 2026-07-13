@@ -57,6 +57,28 @@ function friendlyVarLabel(u) {
 }
 
 /* ---------------------------------------------------------------------
+   تصنيف بيانات المتغيرات إلى فئات مفهومة (تذكرة/عميل/واتساب/اشتراك/ذكاء
+   اصطناعي/نظام...) بالاعتماد على أول جزء من اسم المتغير التقني (قبل أول
+   نقطة) — يُستخدم فقط لتقسيم قائمة "إدراج بيانات" بصريًا، ولا يغيّر القيمة
+   المخزَّنة في node.config.
+   --------------------------------------------------------------------- */
+const VAR_CATEGORY_BY_PREFIX = {
+    ticket: 'التذاكر', tickets: 'التذاكر', ticket_replies: 'التذاكر',
+    customer: 'العميل', user: 'العميل', profile: 'العميل', profiles: 'العميل',
+    whatsapp: 'واتساب', whatsapp_subscriptions: 'واتساب', wa: 'واتساب', message: 'واتساب', messages: 'واتساب',
+    subscription: 'الاشتراك', subscriptions: 'الاشتراك', plan: 'الاشتراك',
+    payment: 'المدفوعات', invoice: 'المدفوعات', order: 'الطلبات',
+    ai: 'الذكاء الاصطناعي', agent: 'الموظفون', staff: 'الموظفون',
+    system: 'النظام', workflow: 'النظام'
+};
+const VAR_CATEGORY_ORDER = ['التذاكر', 'العميل', 'واتساب', 'الاشتراك', 'المدفوعات', 'الطلبات', 'الذكاء الاصطناعي', 'الموظفون', 'النظام', 'متغيرات الـ Workflow', 'عام'];
+function classifyVar(u) {
+    if (u.from === 'متغيرات الـ Workflow') return 'متغيرات الـ Workflow';
+    const prefix = String(u.v || '').split('.')[0]?.toLowerCase();
+    return VAR_CATEGORY_BY_PREFIX[prefix] || 'عام';
+}
+
+/* ---------------------------------------------------------------------
    تسميات عربية لقيم قوائم select الفعلية (وليست فقط أسماء المتغيرات) — هذه
    القيم مأخوذة حرفيًا من config_schema.fields[].options في wf_node_types
    (مُدقَّقة من قاعدة البيانات الفعلية)، وكانت تُعرض للمستخدم كما هي بالإنجليزية
@@ -84,6 +106,40 @@ function optionLabel(raw) {
     return OPTION_LABELS[raw] ?? raw;
 }
 
+/* ---------------------------------------------------------------------
+   تجميع حقول config_schema إلى أقسام منطقية — يعتمد فقط على field.type
+   (وليس على مفتاح تقني خاص بعنصر معيّن)، بحيث يُطبَّق نفس النمط تلقائيًا
+   وباتساق على كل أنواع الـ Nodes الحالية والمستقبلية.
+   --------------------------------------------------------------------- */
+const FIELD_GROUP_META = {
+    destination: { title: 'الوجهة والربط', icon: 'link' },
+    content: { title: 'المحتوى', icon: 'fileText' },
+    conditions: { title: 'الشروط والبيانات', icon: 'gitBranch' }
+};
+const FIELD_GROUP_ORDER = ['destination', 'content', 'conditions'];
+function fieldGroup(field) {
+    if (['staff_picker', 'integration_picker', 'mcp_tool_picker', 'webhook_picker'].includes(field.type)) return 'destination';
+    if (field.type === 'textarea') return 'content';
+    if ((!field.type || field.type === 'text') && field.supports_variables) return 'content';
+    return 'conditions';
+}
+
+/* نص توضيحي قصير أسفل الحقل — عام حسب نوع الحقل، لا يعتمد على بيانات تقنية */
+function fieldHelpText(field) {
+    switch (field.type) {
+        case 'variable_picker': return 'اختر بيانات من عنصر سابق متصل بهذا العنصر، أو أدخلها يدويًا.';
+        case 'staff_picker': return 'سيتم إسناد هذا الإجراء تلقائيًا للموظف الذي تختاره.';
+        case 'integration_picker': return 'اختر التكامل المُعدّ مسبقًا الذي سيُنفَّذ عبره هذا الإجراء.';
+        case 'mcp_tool_picker': return 'أداة من أدوات الذكاء الاصطناعي المتاحة حاليًا للنظام.';
+        case 'webhook_picker': return 'اختر الرابط (Webhook) الذي سيستقبل هذا الطلب.';
+        case 'tags': return 'اكتب القيمة ثم اضغط Enter لإضافتها، ويمكن إضافة أكثر من قيمة.';
+        case 'key_value_list': return 'أضف أزواجًا من (مفتاح ↔ قيمة) حسب الحاجة.';
+        case 'select': return '';
+        case 'number': return '';
+        default: return field.supports_variables ? 'يمكنك كتابة نص حر، أو إدراج بيانات ديناميكية (مثل اسم العميل) بالضغط على "إدراج بيانات" أعلاه.' : '';
+    }
+}
+
 function getUpstreamVariables(session, nodeId) {
     const edges = session.definition.edges, nodes = session.definition.nodes;
     const byId = {}; nodes.forEach(n => byId[n.id] = n);
@@ -108,6 +164,21 @@ function commitInspectorChange(rerenderCanvas) {
     if (rerenderCanvas !== false) Canvas.render();
     Canvas.pushHistory();
     ui.updateSaveState(); ui.renderTabbar();
+}
+
+function buildAdvancedSection(count, defaultOpen) {
+    const sec = document.createElement('div');
+    sec.className = 'wf-insec' + (defaultOpen ? ' wf-insec-open' : '');
+    sec.innerHTML = `
+        <div class="wf-insec-head">
+            <span class="wf-insec-ic">${ic('settings', 13)}</span>
+            <h4>إعدادات متقدمة</h4>
+            <span class="wf-insec-count">${count}</span>
+            <span class="wf-insec-chevron">${ic('chevronDown', 13)}</span>
+        </div>
+        <div class="wf-insec-body"></div>`;
+    sec.querySelector('.wf-insec-head').addEventListener('click', () => sec.classList.toggle('wf-insec-open'));
+    return sec;
 }
 
 export function renderInspector() {
@@ -212,6 +283,8 @@ function renderNodeInspector(s, wrap, nodeId) {
 
     const upstream = getUpstreamVariables(s, node.id);
     const fields = nt.config_schema?.fields || [];
+    const requiredFields = fields.filter(f => !isStaffFieldOptional(f));
+    const optionalFields = fields.filter(f => isStaffFieldOptional(f));
 
     wrap.innerHTML = `
     <div class="wf-inspector-head">
@@ -222,7 +295,7 @@ function renderNodeInspector(s, wrap, nodeId) {
         <div class="wf-field"><label>اسم مخصّص <span class="wf-field-hint">(اختياري)</span></label>
             <input class="wf-input" id="wfNodeLabel" value="${escapeHtml(node.label || '')}" placeholder="${escapeHtml(nt.name_ar || nt.name_en)}" ${s.readOnly ? 'disabled' : ''}>
         </div>
-        ${!fields.length ? '<div class="wf-field-hint">لا توجد إعدادات إضافية لهذا العنصر.</div>' : '<div class="wf-inspector-section-title">الإعدادات</div>'}
+        ${!fields.length ? '<div class="wf-field-hint">لا توجد إعدادات إضافية لهذا العنصر.</div>' : ''}
         <div id="wfFieldsContainer"></div>
         ${nt.output_vars?.length ? `
         <div class="wf-inspector-section-title">البيانات المتاحة لاستخدامها لاحقًا</div>
@@ -235,20 +308,36 @@ function renderNodeInspector(s, wrap, nodeId) {
     document.getElementById('wfDeleteNode')?.addEventListener('click', () => { s.selection.nodeIds = new Set([node.id]); Canvas.deleteSelection(); });
 
     const container = document.getElementById('wfFieldsContainer');
-    fields.forEach(f => container.appendChild(buildFieldControl(s, node, nt, f, upstream)));
+    FIELD_GROUP_ORDER.forEach(g => {
+        const groupFields = requiredFields.filter(f => fieldGroup(f) === g);
+        if (!groupFields.length) return;
+        const title = document.createElement('div');
+        title.className = 'wf-inspector-section-title';
+        title.textContent = FIELD_GROUP_META[g].title;
+        container.appendChild(title);
+        groupFields.forEach(f => container.appendChild(buildFieldControl(s, node, nt, f, upstream)));
+    });
+    if (optionalFields.length) {
+        const advSec = buildAdvancedSection(optionalFields.length, requiredFields.length === 0);
+        const body = advSec.querySelector('.wf-insec-body');
+        optionalFields.forEach(f => body.appendChild(buildFieldControl(s, node, nt, f, upstream)));
+        container.appendChild(advSec);
+    }
 }
 
 function buildFieldControl(session, node, nt, field, upstream) {
     node.config = node.config || {};
     const wrapDiv = document.createElement('div');
     wrapDiv.className = 'wf-field';
-    const label = document.createElement('label');
-    label.innerHTML = `<span>${escapeHtml(field.label || field.key)}${isStaffFieldOptional(field) ? '' : ' <span style="color:var(--wf-danger)">*</span>'}</span>`;
-    wrapDiv.appendChild(label);
-
     const disabled = session.readOnly;
+    const optional = isStaffFieldOptional(field);
     let control;
     const commit = (skipCanvasRender) => commitInspectorChange(!skipCanvasRender);
+
+    const label = document.createElement('label');
+    label.innerHTML = `<span style="display:inline-flex;align-items:center;gap:.4rem;">${escapeHtml(field.label || field.key)}<span class="wf-field-badge ${optional ? 'wf-field-badge-opt' : 'wf-field-badge-req'}">${optional ? 'اختياري' : 'مطلوب'}</span></span>`;
+    wrapDiv.appendChild(label);
+
 
     if (field.supports_variables) {
         const varBtn = document.createElement('button');
@@ -304,19 +393,38 @@ function buildFieldControl(session, node, nt, field, upstream) {
         }
 
         case 'variable_picker': {
-            control = document.createElement('select');
-            control.className = 'wf-select'; control.disabled = disabled;
-            control.innerHTML = '<option value="">— اختر —</option>' + upstream.map(u => `<option value="{{${escapeHtml(u.v)}}}">${escapeHtml(friendlyVarLabel(u))}</option>`).join('') + `<option value="__manual__">إدخال يدوي...</option>`;
-            const current = node.config[field.key] ?? '';
-            if (upstream.some(u => `{{${u.v}}}` === current) || current === '') control.value = current;
-            else control.value = '__manual__';
-            control.addEventListener('change', async () => {
-                if (control.value === '__manual__') {
-                    const manual = await promptDialog('اكتب القيمة يدويًا:', current || '');
-                    if (manual !== null) { node.config[field.key] = manual; }
-                } else node.config[field.key] = control.value;
-                commit();
-                renderNodeInspector(session, document.getElementById('wfInspectorContent'), node.id);
+            control = document.createElement('button');
+            control.type = 'button';
+            control.className = 'wf-varpicker';
+            control.disabled = disabled;
+            const currentVal = () => node.config[field.key] ?? '';
+            const renderBtn = () => {
+                const val = currentVal();
+                const match = upstream.find(u => `{{${u.v}}}` === val);
+                if (val && match) {
+                    control.innerHTML = `<span class="wf-varpicker-chip">${escapeHtml(friendlyVarLabel(match))}${disabled ? '' : `<button type="button" data-role="clear">${ic('x', 9)}</button>`}</span>`;
+                } else if (val) {
+                    const short = val.length > 30 ? val.slice(0, 28) + '…' : val;
+                    control.innerHTML = `<span class="wf-varpicker-chip" title="${escapeHtml(val)}">${escapeHtml(short)}${disabled ? '' : `<button type="button" data-role="clear">${ic('x', 9)}</button>`}</span>`;
+                } else {
+                    control.innerHTML = `<span style="color:var(--wf-text-3);">— اختر بيانات —</span><span class="wf-varpicker-ic">${ic('search', 13)}</span>`;
+                }
+                control.querySelector('[data-role="clear"]')?.addEventListener('click', (ev) => {
+                    ev.stopPropagation(); node.config[field.key] = ''; commit(); renderBtn();
+                });
+            };
+            renderBtn();
+            control.addEventListener('click', (e) => {
+                if (disabled) return;
+                openVarMenu(e, upstream, async (chosen) => {
+                    if (chosen === '__manual__') {
+                        const manual = await promptDialog('اكتب القيمة يدويًا:', currentVal() || '');
+                        if (manual !== null) { node.config[field.key] = manual; commit(); renderBtn(); }
+                    } else {
+                        node.config[field.key] = `{{${chosen}}}`;
+                        commit(); renderBtn();
+                    }
+                }, { manualOption: true, manualLabel: 'إدخال يدوي...' });
             });
             break;
         }
@@ -370,8 +478,15 @@ function buildFieldControl(session, node, nt, field, upstream) {
     wrapDiv.appendChild(control);
     if (field.source_table) {
         const hint = document.createElement('div');
-        hint.className = 'wf-field-hint'; hint.textContent = `المصدر: ${field.source_table}`;
+        hint.className = 'wf-field-hint'; hint.textContent = `المصدر: ${optionLabel(field.source_table)}`;
         wrapDiv.appendChild(hint);
+    }
+    const help = fieldHelpText(field);
+    if (help) {
+        const helpEl = document.createElement('div');
+        helpEl.className = 'wf-field-help';
+        helpEl.textContent = help;
+        wrapDiv.appendChild(helpEl);
     }
     return wrapDiv;
 }
@@ -437,24 +552,50 @@ function buildKeyValueControl(initial, disabled, onChange) {
     return wrap;
 }
 
-function openVarMenu(e, upstream, onPick) {
+function openVarMenu(e, upstream, onPick, opts) {
+    opts = opts || {};
     document.querySelectorAll('.wf-var-menu').forEach(m => m.remove());
     const menu = document.createElement('div');
     menu.className = 'wf-var-menu';
     const shell = document.getElementById('wfShell');
     const shellRect = shell.getBoundingClientRect();
-    const rect = e.target.getBoundingClientRect();
-    // إحداثيات نسبية إلى #wfShell (الآن هو الأب المُموضَع positioned ancestor)
-    // بدل الإحداثيات المطلقة على الصفحة، لأن العنصر بقى يُلحَق داخل wfShell
-    // بدل document.body مباشرة (انظر تعليق أعلى الملف بخصوص متغيرات الثيم).
+    const anchor = e.currentTarget || e.target;
+    const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom - shellRect.top + 4) + 'px';
     menu.style.insetInlineStart = (rect.left - shellRect.left) + 'px';
-    menu.innerHTML = upstream.length
-        ? upstream.map(u => `<button data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('')
-        : '<div class="wf-var-empty">لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.</div>';
+    menu.style.width = Math.max(230, rect.width) + 'px';
+
+    const grouped = {};
+    upstream.forEach(u => { const c = classifyVar(u); (grouped[c] = grouped[c] || []).push(u); });
+    const cats = [...VAR_CATEGORY_ORDER.filter(c => grouped[c]), ...Object.keys(grouped).filter(c => !VAR_CATEGORY_ORDER.includes(c))];
+
+    menu.innerHTML = `
+        <div class="wf-var-menu-search-wrap"><input type="text" placeholder="ابحث عن بيانات... (مثال: اسم العميل، حالة التذكرة)"></div>
+        <div class="wf-var-menu-list"></div>
+        ${opts.manualOption ? `<div class="wf-var-menu-manual"><button type="button" data-v="__manual__">${ic('edit', 11)} ${escapeHtml(opts.manualLabel || 'إدخال يدوي...')}</button></div>` : ''}`;
+    const listEl = menu.querySelector('.wf-var-menu-list');
+    const searchInput = menu.querySelector('input');
+
+    function renderList(q) {
+        q = (q || '').trim().toLowerCase();
+        let html = '';
+        cats.forEach(cat => {
+            const items = grouped[cat].filter(u => !q || friendlyVarLabel(u).toLowerCase().includes(q) || cat.toLowerCase().includes(q));
+            if (!items.length) return;
+            html += `<div class="wf-var-menu-group-title">${escapeHtml(cat)}</div>`;
+            html += items.map(u => `<button type="button" data-v="${escapeHtml(u.v)}">${escapeHtml(friendlyVarLabel(u))}</button>`).join('');
+        });
+        listEl.innerHTML = html || `<div class="wf-var-empty">${upstream.length ? 'لا توجد نتائج مطابقة.' : 'لا توجد بيانات متاحة من عناصر سابقة متصلة بهذا العنصر بعد.'}</div>`;
+    }
+    renderList('');
+    searchInput.addEventListener('input', () => renderList(searchInput.value));
+
     shell.appendChild(menu);
     menu.addEventListener('click', (ev) => { const v = ev.target.closest('button')?.dataset.v; if (v) { onPick(v); menu.remove(); } });
-    setTimeout(() => document.addEventListener('click', function h() { menu.remove(); document.removeEventListener('click', h); }), 0);
+    setTimeout(() => {
+        searchInput.focus();
+        document.addEventListener('click', function h(ev) { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', h); } });
+    }, 0);
 }
 
 ui.renderInspector = renderInspector;
