@@ -16,7 +16,7 @@
    مُستخرجة حرفيًا من index.html (نفس القيم بالضبط) — Dark افتراضي + Light overrides
    عبر نفس آلية [data-theme] المستخدمة في باقي المنصة (theme-manager.js)
    ===================================================================== */
-.wf-shell{
+:root,.wf-shell{
   --wf-bg-void:#060B14;
   --wf-bg-surface:#0D1622;
   --wf-bg-elevated:#121F30;
@@ -56,7 +56,7 @@
   --wf-canvas-dot:rgba(255,255,255,.06);
   --wf-canvas-bg:#080E19;
 }
-html[data-theme="light"] .wf-shell{
+html[data-theme="light"],html[data-theme="light"] .wf-shell{
   --wf-bg-void:#F3F6FC;
   --wf-bg-surface:#FFFFFF;
   --wf-bg-elevated:#FFFFFF;
