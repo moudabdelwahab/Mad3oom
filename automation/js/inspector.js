@@ -13,7 +13,7 @@
    directly (which would create a cycle, since builder-shell imports this
    module's `renderInspector`).
    ===================================================================== */
-import { escapeHtml, ic, icFilled, isStaffFieldOptional, CATEGORY_LABELS } from './common.js';
+import { escapeHtml, ic, icFilled, isStaffFieldOptional, promptDialog, CATEGORY_LABELS } from './common.js';
 import { appState, ui, activeSession, sessionTriggerSummary } from './state.js';
 import { Canvas } from './canvas.js';
 
@@ -310,9 +310,9 @@ function buildFieldControl(session, node, nt, field, upstream) {
             const current = node.config[field.key] ?? '';
             if (upstream.some(u => `{{${u.v}}}` === current) || current === '') control.value = current;
             else control.value = '__manual__';
-            control.addEventListener('change', () => {
+            control.addEventListener('change', async () => {
                 if (control.value === '__manual__') {
-                    const manual = prompt('اكتب القيمة يدويًا:', current || '');
+                    const manual = await promptDialog('اكتب القيمة يدويًا:', current || '');
                     if (manual !== null) { node.config[field.key] = manual; }
                 } else node.config[field.key] = control.value;
                 commit();
