@@ -111,7 +111,7 @@ export function renderTabbar() {
                 <button data-a="pin">${ic('pin', 13)} ${t.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</button>
                 <button data-a="dup">${ic('copy', 13)} تكرار</button>
                 <button data-a="close">${ic('x', 13)} إغلاق</button>`;
-            document.getElementById('wfShell').appendChild(menu);
+            document.body.appendChild(menu);
             menu.addEventListener('click', async (ev) => {
                 const a = ev.target.closest('button')?.dataset.a;
                 menu.remove();
