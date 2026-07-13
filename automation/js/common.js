@@ -48,6 +48,70 @@ export function toast(message, type) {
     setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s ease'; setTimeout(() => el.remove(), 300); }, 3800);
 }
 
+/* ---------------------------------------------------------------------
+   نافذتا تأكيد/إدخال منسجمتان مع تصميم المنصة — بديل عن confirm()/prompt()
+   الافتراضيتين في المتصفح (اللي بتظهر بشكل النظام التقليدي "mad3oom.online
+   says"). كلاهما يعيد Promise بدل القيمة المباشرة لأنه لازم ينتظر تفاعل
+   المستخدم مع عنصر DOM حقيقي بدل استدعاء متزامن يوقف الصفحة بالكامل.
+   --------------------------------------------------------------------- */
+export function confirmDialog(message, opts) {
+    opts = opts || {};
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'wf-modal-overlay';
+        overlay.innerHTML = `
+        <div class="wf-modal wf-confirm-modal">
+            <div class="wf-modal-body" style="padding-top:1.5rem;">
+                <div style="display:flex;gap:.85rem;align-items:flex-start;">
+                    <div class="wf-empty-icon" style="width:40px;height:40px;flex-shrink:0;margin:0;color:${opts.danger ? 'var(--wf-danger)' : 'var(--wf-accent-soft)'};background:${opts.danger ? 'rgba(255,107,107,.12)' : 'rgba(77,163,255,.12)'};">${ic(opts.danger ? 'trash' : 'alertTriangle', 19)}</div>
+                    <p style="font-size:.84rem;line-height:1.75;color:var(--wf-text-1);margin:.2rem 0 0;">${escapeHtml(message)}</p>
+                </div>
+            </div>
+            <div class="wf-modal-foot">
+                <button class="wf-btn wf-btn-sm" type="button" data-a="cancel">${escapeHtml(opts.cancelLabel || 'إلغاء')}</button>
+                <button class="wf-btn wf-btn-sm ${opts.danger ? 'wf-btn-danger' : 'wf-btn-primary'}" type="button" data-a="ok">${escapeHtml(opts.okLabel || 'تأكيد')}</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        const close = (val) => { document.removeEventListener('keydown', onKey); overlay.remove(); resolve(val); };
+        const onKey = (e) => { if (e.key === 'Escape') close(false); if (e.key === 'Enter') close(true); };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+        overlay.querySelector('[data-a="cancel"]').addEventListener('click', () => close(false));
+        overlay.querySelector('[data-a="ok"]').addEventListener('click', () => close(true));
+        document.addEventListener('keydown', onKey);
+        overlay.querySelector('[data-a="ok"]').focus();
+    });
+}
+
+export function promptDialog(message, defaultValue) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'wf-modal-overlay';
+        overlay.innerHTML = `
+        <div class="wf-modal wf-confirm-modal">
+            <div class="wf-modal-body" style="padding-top:1.5rem;">
+                <div class="wf-field" style="margin-bottom:0;"><label>${escapeHtml(message)}</label>
+                    <input class="wf-input" id="wfPromptInput" value="${escapeHtml(defaultValue || '')}">
+                </div>
+            </div>
+            <div class="wf-modal-foot">
+                <button class="wf-btn wf-btn-sm" type="button" data-a="cancel">إلغاء</button>
+                <button class="wf-btn wf-btn-primary wf-btn-sm" type="button" data-a="ok">تأكيد</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('#wfPromptInput');
+        const close = (val) => { document.removeEventListener('keydown', onKey); overlay.remove(); resolve(val); };
+        const onKey = (e) => { if (e.key === 'Escape') close(null); };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+        overlay.querySelector('[data-a="cancel"]').addEventListener('click', () => close(null));
+        overlay.querySelector('[data-a="ok"]').addEventListener('click', () => close(input.value));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') close(input.value); });
+        document.addEventListener('keydown', onKey);
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+    });
+}
+
 export function isStaffFieldOptional(field) {
     if (!field) return true;
     if (field.optional === true) return true;
