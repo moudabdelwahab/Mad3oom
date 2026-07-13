@@ -152,6 +152,13 @@ function getUpstreamVariables(session, nodeId) {
         const id = queue.shift();
         (incoming[id] || []).forEach(srcId => { if (!visited.has(srcId)) { visited.add(srcId); ancestors.push(srcId); queue.push(srcId); } });
     }
+    // المشغّل (Trigger) هو دايمًا أول خطوة فعلية في أي Workflow، فبياناته (مثل رقم
+    // التذكرة أو اسم العميل) لازم تكون متاحة لأي عنصر تاني حتى لو العنصر مش متوصّل
+    // بخط صريح بالمشغّل على الـ canvas — بدل ما يُطلب من موظف غير تقني إنه يفهم
+    // مفهوم "التوصيل اليدوي بين العناصر" عشان بس يقدر يستخدم بيانات التذكرة الأساسية.
+    const trigger = nodes.find(n => (n.type || '').startsWith('trigger.'));
+    if (trigger && trigger.id !== nodeId && !visited.has(trigger.id)) { visited.add(trigger.id); ancestors.unshift(trigger.id); }
+
     const vars = [];
     ancestors.forEach(aid => {
         const n = byId[aid]; if (!n) return;
