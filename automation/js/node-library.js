@@ -12,13 +12,17 @@ import { appState } from './state.js';
 import { Canvas } from './canvas.js';
 
 let libActiveTab = 'all';
+let libActiveCategory = null; // null = كل التصنيفات؛ وإلا مفتاح تصنيف واحد (trigger/action/...)
 let libCollapsedCats = new Set();
 
 export function renderNodeLibrary() {
     const body = document.getElementById('wfLibBody');
     const q = (document.getElementById('wfLibSearch')?.value || '').trim().toLowerCase();
     const favs = getFavorites();
-    let types = appState.nodeTypes.filter(nt => !q || `${nt.name_ar} ${nt.name_en} ${nt.key}`.toLowerCase().includes(q));
+    let types = appState.nodeTypes.filter(nt => !q || `${nt.name_ar} ${nt.name_en} ${nt.key} ${nt.description || ''}`.toLowerCase().includes(q));
+
+    renderLibCatBar();
+    if (libActiveCategory) types = types.filter(nt => nt.category === libActiveCategory);
 
     if (libActiveTab === 'favorites') types = types.filter(nt => favs.includes(nt.key));
     if (libActiveTab === 'recent') {
@@ -35,7 +39,7 @@ export function renderNodeLibrary() {
         return;
     }
 
-    if (libActiveTab !== 'all') {
+    if (libActiveTab !== 'all' || libActiveCategory) {
         body.innerHTML = types.map(nt => libItemHtml(nt, favs)).join('');
     } else {
         const byCat = {};
@@ -70,6 +74,29 @@ export function renderNodeLibrary() {
             Canvas.addNodeAtCenter(item.dataset.key);
         });
     });
+}
+
+/* شريط أفقي قابل للتمرير لتصنيفات الـ Nodes — يُبنى ديناميكيًا من التصنيفات
+   المتوفرة فعليًا ضمن wf_node_types النشطة (لا تصنيفات ثابتة بالكود)، بحيث لو
+   اختفى تصنيف كامل (كـ database/api بعد إخفاء nodes الإصدار الأول) يختفي معه
+   تلقائيًا من الشريط دون أي تعديل هنا. */
+function renderLibCatBar() {
+    const bar = document.getElementById('wfLibCatBar');
+    if (!bar) return;
+    const byCat = {};
+    appState.nodeTypes.forEach(nt => { byCat[nt.category] = (byCat[nt.category] || 0) + 1; });
+    const cats = CATEGORY_ORDER.filter(c => byCat[c]);
+    if (!cats.length) { bar.innerHTML = ''; return; }
+    bar.innerHTML = `
+        <div class="wf-lib-chip ${!libActiveCategory ? 'wf-lib-chip-active' : ''}" data-cat="" style="${!libActiveCategory ? 'background:var(--wf-accent);' : ''}">الكل</div>
+        ${cats.map(c => `
+        <div class="wf-lib-chip ${libActiveCategory === c ? 'wf-lib-chip-active' : ''}" data-cat="${c}" style="${libActiveCategory === c ? `background:${CATEGORY_ACCENT[c]};` : ''}">
+            <span class="wf-lib-chip-dot" style="background:${CATEGORY_ACCENT[c]}"></span>${CATEGORY_LABELS[c] || c}
+        </div>`).join('')}`;
+    bar.querySelectorAll('.wf-lib-chip').forEach(chip => chip.addEventListener('click', () => {
+        libActiveCategory = chip.dataset.cat || null;
+        renderNodeLibrary();
+    }));
 }
 
 function libItemHtml(nt, favs) {
