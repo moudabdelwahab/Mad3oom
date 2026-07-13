@@ -15,7 +15,7 @@
    Routing through the `ui` registry keeps this module's dependencies
    one-directional instead of circular.
    ===================================================================== */
-import { escapeHtml, ic, uid, pushRecent, CATEGORY_LABELS } from './common.js';
+import { escapeHtml, ic, nodeIcon, uid, pushRecent, CATEGORY_LABELS } from './common.js';
 import { appState, ui, validateDefinition } from './state.js';
 
 const NODE_W = 220, NODE_H_APPROX = 90;
@@ -96,7 +96,7 @@ export const Canvas = (() => {
         return `
         <div class="wf-node ${selected ? 'wf-node-selected' : ''}" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;">
             <div class="wf-node-head">
-                <div class="wf-node-icon" style="background:${nt.color}">${nt.icon || ic('settings', 14)}</div>
+                <div class="wf-node-icon" style="background:${nt.color}">${nodeIcon(nt, 14)}</div>
                 <div class="wf-node-title">${escapeHtml(n.label || nt.name_ar || nt.name_en)}</div>
                 ${hasError ? '<span title="يوجد خطأ في الإعدادات" style="color:var(--wf-danger)">●</span>' : (hasWarn ? '<span title="ملاحظة" style="color:var(--wf-pill-amber-text)">●</span>' : '')}
             </div>
