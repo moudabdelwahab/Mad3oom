@@ -12,7 +12,7 @@
    a function builder-shell registers on the shared `ui` service locator
    in state.js — instead of importing builder-shell.js directly.
    ===================================================================== */
-import { escapeHtml, timeAgo, toast, ic, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
+import { escapeHtml, timeAgo, toast, ic, nodeIcon, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
 import { appState, ui, primaryDefinitionSource, deriveWorkflowCategory, triggerSummary } from './state.js';
 import { DataLayer } from './data-layer.js';
 
@@ -96,7 +96,7 @@ function workflowCardHtml(w) {
     const category = deriveWorkflowCategory(w);
     const trig = triggerSummary(w);
     const triggerNode = nodes.find(n => (n.type || '').startsWith('trigger.'));
-    const icon = triggerNode ? (appState.nodeTypesByKey[triggerNode.type]?.icon || ic('zap', 17)) : ic('box', 17);
+    const icon = triggerNode ? nodeIcon(appState.nodeTypesByKey[triggerNode.type], 17) : ic('box', 17);
     return `
     <div class="wf-card wf-wf-card" data-id="${w.id}">
         <div class="wf-wf-card-top">
