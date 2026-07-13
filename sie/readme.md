@@ -227,13 +227,25 @@ These are the rules every future change to the Support Intelligence Engine (SIE)
 1. **Single Responsibility per module.** Each module in §3.1 does exactly one job. A change that makes the Dialogue Engine decide something, or makes the Scenario Engine phrase something, is a violation regardless of how small it seems.
 2. **Deterministic diagnosis.** Given the same evidence, the same scenario/knowledge version, and the same ranking weights, the engine must produce the same hypotheses and the same decision. Any probabilistic or LLM-assisted component must be isolated behind a module boundary (see §9) so the rest of the pipeline stays reproducible and traceable. Non-determinism is never allowed to leak into the Ranking or Decision Engine's own logic.
 3. **Storage-agnostic providers.** No module reasons about Postgres/Supabase specifics directly in its core logic. Each module talks to a narrow provider interface (e.g., `ScenarioRepository.getPublished()`, `EvidenceStore.get(sessionId)`). Supabase is today's implementation of those interfaces, not a dependency baked into the diagnostic logic. This is what allows storage or schema details to change later without touching the Diagnostic/Ranking/Decision logic.
-4. **Backward compatibility by default.** New scenario versions, new knowledge entries, new evidence fields must not break sessions that are mid-diagnosis on an older version. See §10 for the precise rules.
-5. **Explainability is mandatory, not optional.** Every decision the engine makes must be traceable to the evidence and scenario version that produced it (via `chat_engine_trace_events`). A module that cannot explain its own output is not shippable.
-6. **Extensibility over rewrites.** New capabilities (new scenario types, new evidence sources, new action types) must be addable by adding data (a new scenario, a new rule) or a new provider — not by branching core module logic. If a feature request requires an `if` statement inside the Diagnostic or Ranking Engine that only applies to one scenario, that's a signal the logic belongs in scenario data instead.
-7. **One-way data flow.** Evidence and control flow forward through the pipeline (§3). Nothing downstream mutates a module's job upstream (see §8).
-8. **No silent action.** Any action with a real-world effect (ticket creation, status change, notification) is only ever triggered by the Decision Engine, and only ever after the safety check (`memory_firewall_rules`) passes. No other module is permitted to write to `tickets`, `ticket_replies`, or trigger `rules_engine` actions directly.
-9. **Channel-agnostic core.** Nothing above the Dialogue Engine may assume "website chat." The moment domain logic references a channel-specific concept (a button shape, a WhatsApp template, a Telegram chat ID), it has leaked out of its module (see §9, §12).
-10. **The engine proposes; it does not execute business process.** The SIE's authority ends at "here is the decision and the recommended action." Executing multi-step business processes belongs to a Workflow Automation Engine, not the SIE (see §13).
+4. **Modules transform data; orchestrators decide persistence.**
+A module's responsibility is to receive input, transform it, and return a well-defined output according to its contract.
+
+Modules MUST NOT:
+- Access database implementations directly.
+- Execute SQL queries or depend on Supabase-specific APIs.
+- Decide where or when outputs are persisted.
+
+Persistence, tracing, caching, and state management are the responsibility of the Pipeline Orchestrator (or another infrastructure layer).
+
+This separation keeps the Support Intelligence Engine storage-agnostic, testable, portable, and compatible with different execution environments.
+
+5. **Backward compatibility by default.** New scenario versions, new knowledge entries, new evidence fields must not break sessions that are mid-diagnosis on an older version. See §10 for the precise rules.
+6. **Explainability is mandatory, not optional.** Every decision the engine makes must be traceable to the evidence and scenario version that produced it (via `chat_engine_trace_events`). A module that cannot explain its own output is not shippable.
+7. **Extensibility over rewrites.** New capabilities (new scenario types, new evidence sources, new action types) must be addable by adding data (a new scenario, a new rule) or a new provider — not by branching core module logic. If a feature request requires an `if` statement inside the Diagnostic or Ranking Engine that only applies to one scenario, that's a signal the logic belongs in scenario data instead.
+8. **One-way data flow.** Evidence and control flow forward through the pipeline (§3). Nothing downstream mutates a module's job upstream (see §8).
+9. **No silent action.** Any action with a real-world effect (ticket creation, status change, notification) is only ever triggered by the Decision Engine, and only ever after the safety check (`memory_firewall_rules`) passes. No other module is permitted to write to `tickets`, `ticket_replies`, or trigger `rules_engine` actions directly.
+10. **Channel-agnostic core.** Nothing above the Dialogue Engine may assume "website chat." The moment domain logic references a channel-specific concept (a button shape, a WhatsApp template, a Telegram chat ID), it has leaked out of its module (see §9, §12).
+11. **The engine proposes; it does not execute business process.** The SIE's authority ends at "here is the decision and the recommended action." Executing multi-step business processes belongs to a Workflow Automation Engine, not the SIE (see §13).
 
 ---
 
