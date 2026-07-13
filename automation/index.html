@@ -133,8 +133,12 @@ html[data-theme="light"] .wf-shell{
 .wf-badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 
 .wf-card{background:var(--wf-card);border:1px solid var(--wf-glass-border);border-radius:var(--wf-radius-md);transition:transform var(--wf-dur-fast) var(--wf-ease-snap), box-shadow var(--wf-dur-fast) ease, border-color var(--wf-dur-fast) ease;}
+/* شريط تمرير موحّد لكل القوائم القابلة للتمرير (المكتبة، الأحداث/التبويبات السفلية، تبويبات الـ Workflow...)
+   scrollbar-width/-color تغطي Firefox (لم تكن مُعرَّفة سابقًا فيظهر شريط رمادي افتراضي غير متسق مع الهوية) */
+.wf-scrollbar{scrollbar-width:thin;scrollbar-color:var(--wf-glass-strong) transparent;scroll-behavior:smooth;}
 .wf-scrollbar::-webkit-scrollbar{width:8px;height:8px;}
 .wf-scrollbar::-webkit-scrollbar-thumb{background:var(--wf-glass-strong);border-radius:99px;}
+.wf-scrollbar::-webkit-scrollbar-thumb:hover{background:var(--wf-accent-soft);}
 .wf-scrollbar::-webkit-scrollbar-track{background:transparent;}
 
 /* Empty states */
@@ -168,7 +172,7 @@ html[data-theme="light"] .wf-shell{
 .wf-wf-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;}
 .wf-wf-icon{width:38px;height:38px;border-radius:.7rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;background:var(--wf-glass);}
 .wf-wf-card h3{font-size:.92rem;font-weight:700;font-family:var(--wf-font-body);}
-.wf-wf-card .wf-wf-desc{font-size:.75rem;color:var(--wf-text-2);line-height:1.6;min-height:2.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-wf-card .wf-wf-desc{font-size:.75rem;color:var(--wf-text-2);line-height:1.6;min-height:2.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;}
 .wf-wf-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;font-size:.68rem;color:var(--wf-text-3);}
 .wf-wf-meta span{display:inline-flex;align-items:center;gap:.25rem;}
 .wf-wf-actions{display:flex;gap:.35rem;margin-top:auto;padding-top:.6rem;border-top:1px solid var(--wf-glass-border);}
@@ -248,7 +252,7 @@ html[data-theme="light"] .wf-shell{
 .wf-node-head{display:flex;align-items:center;gap:.5rem;padding:.55rem .65rem;border-bottom:1px solid var(--wf-glass-border);}
 .wf-node-icon{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;color:#fff;}
 .wf-node-title{font-size:.76rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-.wf-node-body{padding:.55rem .65rem .65rem;font-size:.66rem;color:var(--wf-text-2);min-height:1.2rem;line-height:1.55;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.wf-node-body{padding:.55rem .65rem .65rem;font-size:.66rem;color:var(--wf-text-2);min-height:1.2rem;line-height:1.55;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;}
 .wf-node-foot{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem .5rem;}
 .wf-port{width:11px;height:11px;border-radius:50%;background:var(--wf-bg-void);border:2px solid var(--wf-text-3);position:absolute;top:50%;transform:translateY(-50%);cursor:crosshair;}
 .wf-port:hover{border-color:var(--wf-accent);background:var(--wf-accent);}
@@ -263,6 +267,7 @@ html[data-theme="light"] .wf-shell{
 .wf-zoom-group{display:flex;flex-direction:column;border-radius:.7rem;overflow:hidden;border:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);}
 .wf-zoom-group .wf-btn{border:none;border-radius:0;box-shadow:none;}
 .wf-zoom-group .wf-btn:not(:last-child){border-bottom:1px solid var(--wf-glass-border);}
+.wf-zoom-group .wf-btn:hover{transform:none;}
 .wf-zoom-level{text-align:center;font-size:.62rem;color:var(--wf-text-3);padding:.15rem 0;font-family:var(--wf-font-data);}
 
 .wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:170px;height:110px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);}
@@ -312,12 +317,13 @@ html[data-theme="light"] .wf-shell{
 /* Bottom panel */
 .wf-bottom{border-top:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);flex-shrink:0;display:flex;flex-direction:column;height:230px;transition:height var(--wf-dur-med) var(--wf-ease-snap);}
 .wf-bottom.wf-bottom-collapsed{height:38px;}
-.wf-bottom-tabs{display:flex;align-items:center;gap:.2rem;padding:0 .75rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);}
-.wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;gap:.4rem;}
+.wf-bottom-tabs{display:flex;align-items:center;gap:.2rem;padding:0 .75rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);overflow-x:auto;overflow-y:hidden;}
+.wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;gap:.4rem;flex-shrink:0;white-space:nowrap;}
 .wf-bottom-tab.wf-bottom-tab-active{color:var(--wf-text-1);background:var(--wf-glass);}
 .wf-bottom-tab .wf-count{background:var(--wf-glass-strong);border-radius:99px;font-size:.6rem;padding:.05rem .4rem;}
 .wf-bottom-tab .wf-count.wf-count-error{background:var(--wf-pill-red-bg);color:var(--wf-pill-red-text);}
-.wf-bottom-toggle{margin-inline-start:auto;cursor:pointer;color:var(--wf-text-3);padding:.35rem;}
+/* sticky بدل margin-inline-start:auto وحدها، حتى لا يختفي زر الطي خارج نطاق الرؤية عند تمرير التبويبات أفقيًا */
+.wf-bottom-toggle{margin-inline-start:auto;cursor:pointer;color:var(--wf-text-3);padding:.35rem;flex-shrink:0;position:sticky;inset-inline-end:0;background:var(--wf-bg-elevated);}
 .wf-bottom-content{flex:1;overflow-y:auto;padding:.75rem 1rem;}
 .wf-bottom.wf-bottom-collapsed .wf-bottom-content{display:none;}
 .wf-issue-row{display:flex;align-items:flex-start;gap:.55rem;padding:.55rem;border-radius:.55rem;font-size:.76rem;cursor:pointer;margin-bottom:.3rem;}
@@ -504,7 +510,7 @@ html[data-theme="light"] .wf-shell{
 
                 <!-- Bottom panel -->
                 <div class="wf-bottom" id="wfBottomPanel">
-                    <div class="wf-bottom-tabs">
+                    <div class="wf-bottom-tabs wf-scrollbar">
                         <div class="wf-bottom-tab wf-bottom-tab-active" data-bottomtab="validation">التحقق <span class="wf-count" id="wfValidationCount">0</span></div>
                         <div class="wf-bottom-tab" data-bottomtab="runs">سجل التشغيل</div>
                         <div class="wf-bottom-tab" data-bottomtab="logs">السجلات (Logs)</div>
