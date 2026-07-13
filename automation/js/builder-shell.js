@@ -20,7 +20,7 @@
    onto `ui` at the bottom of this file is what keeps the whole module
    graph acyclic.
    ===================================================================== */
-import { ic, escapeHtml, toast, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
+import { ic, escapeHtml, toast, confirmDialog, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
 import { appState, ui, activeSession, createSession, extractTriggerConfig, extractTriggerEventKey, validateDefinition } from './state.js';
 import { DataLayer } from './data-layer.js';
 import { Canvas } from './canvas.js';
@@ -61,11 +61,11 @@ export async function openWorkflowInBuilder(id, preloadedRow) {
     mountActiveSession();
 }
 
-export function closeTab(id, force) {
+export async function closeTab(id, force) {
     const tab = appState.openTabs.find(t => t.id === id);
     if (!tab) return;
     if (!force && tab.hasUnsaved) {
-        if (!confirm(`لديك تغييرات غير محفوظة في "${tab.name}". هل تريد إغلاق التاب على أي حال؟`)) return;
+        if (!await confirmDialog(`لديك تغييرات غير محفوظة في "${tab.name}". هل تريد إغلاق التاب على أي حال؟`, { okLabel: 'إغلاق على أي حال', danger: true })) return;
     }
     appState.openTabs = appState.openTabs.filter(t => t.id !== id);
     if (appState.activeTabId === id) {
@@ -223,7 +223,7 @@ export async function publishWorkflow() {
         openBottomTab('validation');
         return;
     }
-    if (!confirm('نشر هذا الإصدار سيجعله حيًّا الآن. سيتم فتح مسودة جديدة تلقائيًا لمتابعة التعديل بعد النشر. متابعة؟')) return;
+    if (!await confirmDialog('نشر هذا الإصدار سيجعله حيًّا الآن. سيتم فتح مسودة جديدة تلقائيًا لمتابعة التعديل بعد النشر. متابعة؟', { okLabel: 'نشر' })) return;
     try {
         // تأكد من حفظ آخر التعديلات في صف المسودة قبل ترقيته لمنشور (يشمل مزامنة trigger_config)
         await saveDraft(true);
