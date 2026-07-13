@@ -562,8 +562,12 @@ function openVarMenu(e, upstream, onPick, opts) {
     const anchor = e.currentTarget || e.target;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom - shellRect.top + 4) + 'px';
-    menu.style.insetInlineStart = (rect.left - shellRect.left) + 'px';
-    menu.style.width = Math.max(230, rect.width) + 'px';
+    const isRtl = getComputedStyle(shell).direction === 'rtl';
+    const menuWidth = Math.max(230, rect.width);
+    let insetStart = isRtl ? (shellRect.right - rect.right) : (rect.left - shellRect.left);
+    insetStart = Math.max(4, Math.min(insetStart, shellRect.width - menuWidth - 4));
+    menu.style.insetInlineStart = insetStart + 'px';
+    menu.style.width = menuWidth + 'px';
 
     const grouped = {};
     upstream.forEach(u => { const c = classifyVar(u); (grouped[c] = grouped[c] || []).push(u); });
