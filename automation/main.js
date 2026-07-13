@@ -13,7 +13,7 @@
    else — by design, nothing imports main.js back.
    ===================================================================== */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
-import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth-client.js';
 
 import { toast } from './common.js';
 import { appState } from './state.js';
