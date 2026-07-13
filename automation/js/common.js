@@ -152,7 +152,12 @@ export const ICON_PATHS = {
     plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
     minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>',
-    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    gitBranch: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/>',
+    link: '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>',
+    database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+    repeat: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
+    xOctagon: '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
 };
 
 /* أيقونة outline (الشكل الافتراضي): ترث currentColor لتتلوّن حسب أب العنصر */
@@ -179,6 +184,17 @@ export const CATEGORY_ACCENT = {
     trigger: '#22C55E', condition: '#3B82F6', action: '#0EA5E9', ai: '#A855F7',
     api: '#6366F1', database: '#14B8A6', delay: '#F97316', loop: '#F97316', control: '#EF4444'
 };
+/* أيقونة واحدة موحّدة لكل تصنيف (Category) — تحل محل nt.icon القادمة من قاعدة
+   البيانات (wf_node_types) واللي كانت غير متسقة الشكل (إيموجي/رموز مختلطة).
+   هذه تضمن أن كل عناصر نفس التصنيف تظهر بنفس أسلوب الأيقونات الأخرى بالتطبيق. */
+export const CATEGORY_ICON = {
+    trigger: 'zap', condition: 'gitBranch', action: 'play', ai: 'star',
+    api: 'link', database: 'database', delay: 'clock', loop: 'repeat', control: 'xOctagon'
+};
+/* أيقونة الـ Node الموحّدة: تتجاهل عمدًا nt.icon وتعتمد فقط على nt.category */
+export function nodeIcon(nt, size) {
+    return ic(CATEGORY_ICON[nt?.category] || 'settings', size);
+}
 /* الحالة على مستوى wf_workflows.status (حالة تشغيلية) */
 export const STATUS_LABEL = { draft: 'مسودة', active: 'نشط (منشور)', paused: 'متوقف مؤقتًا', archived: 'مؤرشف' };
 export const STATUS_BADGE_CLASS = { draft: 'wf-badge-gray', active: 'wf-badge-green', paused: 'wf-badge-amber', archived: 'wf-badge-red' };
