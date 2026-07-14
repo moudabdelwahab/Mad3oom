@@ -20,7 +20,7 @@
    onto `ui` at the bottom of this file is what keeps the whole module
    graph acyclic.
    ===================================================================== */
-import { ic, escapeHtml, toast, confirmDialog, promptDialog, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
+import { ic, escapeHtml, toast, confirmDialog, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
 import { appState, ui, activeSession, createSession, extractTriggerConfig, extractTriggerEventKey, validateDefinition } from './state.js';
 import { DataLayer } from './data-layer.js';
 import { Canvas } from './canvas.js';
@@ -265,11 +265,7 @@ export async function runNow() {
         toast('لا يوجد Trigger في هذا الـ Workflow — أضِف عنصر مشغّل أولًا', 'error');
         return;
     }
-    const raw = await promptDialog('بيانات المشغّل (Trigger) بصيغة JSON — اتركها {} إن لم تكن بحاجة لبيانات اختبار:', '{}');
-    if (raw === null) return; // المستخدم ألغى
-    let triggerPayload;
-    try { triggerPayload = raw.trim() ? JSON.parse(raw) : {}; }
-    catch (err) { toast('صيغة JSON غير صالحة: ' + (err.message || ''), 'error'); return; }
+    const triggerPayload = {};
 
     const btn = document.getElementById('wfRunNowBtn');
     if (btn) { btn.disabled = true; }
