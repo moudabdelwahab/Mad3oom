@@ -103,6 +103,45 @@ export const DataLayer = {
         if (error) { console.warn('run steps fetch failed', error); return []; }
         return data || [];
     },
+    // يبني trigger_payload حقيقي تلقائيًا لاختبار "تشغيل الآن" بدل الاعتماد على
+    // JSON يُكتب يدويًا. يبني نفس شكل المتغيرات اللي بيبنيها الـ Dispatcher الفعلي
+    // (dispatch_workflow_on_ticket_created في قاعدة البيانات): كل عمود من صف
+    // التذكرة كمتغير "ticket.<column>" — بدون أي هاردكود لأسماء أعمدة بعينها،
+    // فيما عدا alias واحد صغير لـ "ticket.type" (الاسم الفعلي للعمود ticket_type).
+    // لو مفيش أي تذكرة في المنصة أصلاً، ينشئ تذكرة اختبار مؤقتة يستخدمها.
+    async buildTicketTriggerPayload() {
+        let { data: ticket, error } = await supabase
+            .from('tickets')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw error;
+
+        if (!ticket) {
+            const { data: anyUser, error: userErr } = await supabase
+                .from('profiles').select('id').limit(1).maybeSingle();
+            if (userErr) throw userErr;
+            if (!anyUser) throw new Error('لا يوجد أي مستخدم على المنصة لإنشاء تذكرة اختبار به');
+            const { data: created, error: createErr } = await supabase
+                .from('tickets')
+                .insert({
+                    user_id: anyUser.id,
+                    title: 'تذكرة اختبار — تشغيل الآن',
+                    description: 'تم إنشاؤها تلقائيًا لاختبار الـ Workflow من محرر الأتمتة',
+                    priority: 'medium',
+                    ticket_type: 'inquiry',
+                })
+                .select('*').single();
+            if (createErr) throw createErr;
+            ticket = created;
+        }
+
+        const payload = {};
+        for (const [key, value] of Object.entries(ticket)) payload[`ticket.${key}`] = value;
+        payload['ticket.type'] = ticket.ticket_type;
+        return payload;
+    },
     // Executor P0 — تنفيذ يدوي فقط. يستدعي دالة الحافة wf-executor بحالة الرسم
     // الحالية (definition) كما هي في المحرر، مباشرة دون الحاجة لحفظ/نشر أولًا.
     // مدعوم حاليًا: Trigger / Condition / Action فقط — أي عنصر من فئة أخرى
