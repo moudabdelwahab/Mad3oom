@@ -48,10 +48,9 @@ export function renderBottomPanel() {
     if (!s) { content.innerHTML = ''; return; }
     if (bottomActiveTab === 'validation') return renderValidationTab(s, content);
     if (bottomActiveTab === 'runs') return renderRunsTab(s, content);
-    // TODO: لا يوجد بعد Executor فعلي يملأ wf_run_steps (handler_type لمعظم wf_node_types لا يزال NULL).
-    // بمجرد بناء محرك التنفيذ، تُستبدل هذه اللوحات باستعلامات حقيقية على wf_run_steps لكل wf_runs.id محدَّد.
-    if (bottomActiveTab === 'logs') return renderPlaceholderTab(content, 'fileText', 'السجلات (Logs)', 'ستعرض هذه اللوحة سجلًا تفصيليًا لكل خطوة تنفيذ (المدخلات، المخرجات، الأخطاء) بمجرد تفعيل محرك التنفيذ (Executor) وربطه بهذا الـ Workflow. الجدول wf_run_steps جاهز فعليًا لاستقبال هذه البيانات.');
-    if (bottomActiveTab === 'timeline') return renderPlaceholderTab(content, 'clock', 'الجدول الزمني', 'سيعرض الجدول الزمني تسلسل تنفيذ العناصر لحظة بلحظة لكل تشغيل (Run)، بما في ذلك التأخيرات وحالات الانتظار (عبر wf_scheduled_resumes)، فور تفعيل محرك التنفيذ.');
+    if (bottomActiveTab === 'logs') return renderLogsTab(s, content);
+    // لوحة الجدول الزمني/التوقيت (delay/loop) خارج نطاق Executor P0 عمدًا (Trigger/Condition/Action فقط)
+    if (bottomActiveTab === 'timeline') return renderPlaceholderTab(content, 'clock', 'الجدول الزمني', 'الجدول الزمني (بما في ذلك التأخيرات وحالات الانتظار عبر wf_scheduled_resumes) خارج نطاق النسخة الحالية من محرك التنفيذ (P0)، والتي تدعم Trigger / Condition / Action فقط. استخدم لسان "السجلات" لعرض خطوات كل تشغيل.');
     if (bottomActiveTab === 'metrics') return renderPlaceholderTab(content, 'barChart', 'المقاييس', 'ستظهر هنا مقاييس الأداء: عدد مرات التشغيل، نسبة النجاح، متوسط وقت التنفيذ لكل عنصر — بمجرد توفر بيانات تشغيل فعلية في wf_runs / wf_run_steps.');
 }
 
@@ -101,11 +100,63 @@ function renderRunsTab(s, content) {
         return;
     }
     content.innerHTML = s.runsCache.map(r => `
-        <div class="wf-run-row">
+        <div class="wf-run-row" data-run="${r.id}" style="cursor:pointer;" title="عرض تفاصيل هذا التشغيل في لسان السجلات">
             <span class="wf-badge ${RUN_STATUS_BADGE[r.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${RUN_STATUS_LABEL[r.status] || r.status}</span>
             <span style="color:var(--wf-text-3);font-family:var(--wf-font-data);">${new Date(r.started_at).toLocaleString('ar-EG')}</span>
             <span style="margin-inline-start:auto;color:var(--wf-text-3);">v${r.workflow_version_number ?? '—'}</span>
         </div>`).join('');
+    content.querySelectorAll('.wf-run-row').forEach(row => row.addEventListener('click', () => {
+        openBottomTab('logs');
+        showRunResultInLogs(row.dataset.run, s);
+    }));
+}
+
+/* =====================================================================
+   لسان السجلات (Logs) — يعرض خطوات wf_run_steps لتشغيل واحد محدَّد.
+   (Executor P0: Trigger / Condition / Action فقط)
+   ===================================================================== */
+const STEP_STATUS_BADGE = { running: 'wf-badge-blue', success: 'wf-badge-green', failed: 'wf-badge-red' };
+const STEP_STATUS_LABEL = { running: 'جارٍ', success: 'نجح', failed: 'فشل' };
+
+export async function showRunResultInLogs(runId, sessionArg) {
+    const s = sessionArg || activeSession();
+    if (!s) return;
+    s.selectedRunId = runId;
+    s.runStepsCache = undefined; // إجبار إعادة الجلب لأن التشغيل قد يكون جديدًا للتو
+    openBottomTab('logs'); // يستدعي renderBottomPanel داخليًا
+}
+
+function renderLogsTab(s, content) {
+    if (!s.selectedRunId) {
+        renderPlaceholderTab(content, 'fileText', 'السجلات (Logs)', 'اختر تشغيلاً (Run) من لسان "سجل التشغيل" لعرض خطواته بالتفصيل هنا (المدخلات/المخرجات/الأخطاء).');
+        return;
+    }
+    if (s.runStepsCache === undefined) {
+        content.innerHTML = `<div class="wf-empty" style="padding:1.5rem;"><div class="wf-spinner"></div></div>`;
+        DataLayer.listRunSteps(s.selectedRunId).then(rows => {
+            s.runStepsCache = rows;
+            if (bottomActiveTab === 'logs' && activeSession() === s) renderLogsTab(s, content);
+        });
+        return;
+    }
+    if (!s.runStepsCache.length) {
+        renderPlaceholderTab(content, 'fileText', 'لا توجد خطوات', 'هذا التشغيل لم يسجّل أي خطوة تنفيذ بعد (على الأرجح توقّف عند المشغّل مباشرة).');
+        return;
+    }
+    content.innerHTML = `<div style="font-size:.68rem;color:var(--wf-text-3);padding:.3rem .2rem .6rem;">تشغيل رقم ${escapeHtml(s.selectedRunId)}</div>` +
+        s.runStepsCache.map(step => {
+            const nt = appState.nodeTypesByKey[step.node_key];
+            const label = nt ? (nt.name_ar || nt.name_en) : step.node_key;
+            return `<div class="wf-run-row" style="flex-direction:column;align-items:stretch;gap:.35rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                    <span class="wf-badge ${STEP_STATUS_BADGE[step.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${STEP_STATUS_LABEL[step.status] || step.status}</span>
+                    <strong style="font-size:.75rem;">${escapeHtml(label)}</strong>
+                    <span style="margin-inline-start:auto;color:var(--wf-text-3);font-family:var(--wf-font-data);font-size:.65rem;">${step.duration_ms != null ? step.duration_ms + ' ms' : ''}</span>
+                </div>
+                ${step.error ? `<div style="color:var(--wf-danger);font-size:.68rem;">${escapeHtml(step.error)}</div>` : ''}
+                ${step.output && Object.keys(step.output).length ? `<pre style="font-size:.62rem;background:var(--wf-surface-2);border-radius:6px;padding:.4rem .5rem;margin:0;overflow:auto;direction:ltr;text-align:left;">${escapeHtml(JSON.stringify(step.output, null, 2))}</pre>` : ''}
+            </div>`;
+        }).join('');
 }
 
 /* =====================================================================
