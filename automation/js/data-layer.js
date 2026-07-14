@@ -225,21 +225,81 @@ export const DataLayer = {
         return data;
     },
 
-    // ينشر المسودة الحالية (تصبح published/immutable) ثم يفتح مسودة جديدة (version_number+1) لمتابعة التعديل
+    // ينشر المسودة الحالية (تصبح published/immutable) ثم يفتح مسودة جديدة لمتابعة التعديل.
+    //
+    // ملاحظة على الـ bug اللي كان موجود هنا: version_number للمسودة الجديدة كان
+    // يُحسب كـ (publishedRow.version_number + 1) — أي مبني على رقم الإصدار اللي
+    // *بيتم نشره الآن* فقط. لو الـ draftVersionId اللي وصل للدالة كان قديم/stale
+    // (مثلاً tab تاني فاتح أو session لسه شايل draftVersionId من قبل آخر نشر)،
+    // فالتحديث لصف قديم بالفعل published بيرجع بنجاح (لأنه idempotent — نفس
+    // الحالة)، لكن الرقم الجديد المحسوب منه بيتصادم مع نسخة أحدث موجودة فعلاً
+    // (duplicate key على wf_workflow_versions_workflow_id_version_number_key).
+    //
+    // الإصلاح: منعتمدش على version_number بتاع الصف اللي بننشره، ومنفترضش إن
+    // draftVersionId اللي جاي من الـ session هو فعلاً المسودة الحالية. بدل كده:
+    //   1) نجيب current_draft_version_id الحقيقي من wf_workflows نفسها (مصدر
+    //      الحقيقة)، مش من اللي مررته الواجهة.
+    //   2) لو الصف ده مش status='draft' فعلاً (يعني already published بواسطة
+    //      طلب سابق/متزامن) — منعيدش نشره تاني، نكمل من غير ما نلمسه.
+    //   3) رقم نسخة المسودة الجديدة = MAX(version_number) + 1 عبر كل نسخ نفس
+    //      الـ workflow (مش published_row.version_number + 1).
+    //   4) لو أصلاً فيه مسودة تانية موجودة (status='draft') لنفس الـ workflow
+    //      غير اللي هينشر (حالة نادرة لكن ممكنة)، نعيد استخدامها بدل ما ننشئ
+    //      وحدة جديدة، حسب المطلوب: "If a draft already exists, reuse it".
     async publishWorkflow(workflowId, draftVersionId, created_by) {
-        const { data: publishedRow, error: e1 } = await supabase.from('wf_workflow_versions')
-            .update({ status: 'published', published_at: new Date().toISOString() })
-            .eq('id', draftVersionId).select().single();
-        if (e1) throw e1;
-        const { data: newDraft, error: e2 } = await supabase.from('wf_workflow_versions')
-            .insert({
-                workflow_id: workflowId, version_number: publishedRow.version_number + 1, status: 'draft',
-                definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
-                trigger_event_key: publishedRow.trigger_event_key || null,
-                created_by: created_by || null
-            })
-            .select().single();
-        if (e2) throw e2;
+        // (1) مصدر الحقيقة لهوية المسودة الحالية هو wf_workflows.current_draft_version_id،
+        // مش القيمة اللي مررتها الواجهة (ممكن تكون stale).
+        const { data: wf0, error: e0 } = await supabase.from('wf_workflows')
+            .select('id, current_draft_version_id').eq('id', workflowId).single();
+        if (e0) throw e0;
+        const actualDraftId = wf0.current_draft_version_id || draftVersionId;
+        if (!actualDraftId) throw new Error('لا يوجد مسودة حالية لهذا الـ Workflow لنشرها');
+
+        const { data: currentRow, error: eCur } = await supabase.from('wf_workflow_versions')
+            .select('*').eq('id', actualDraftId).single();
+        if (eCur) throw eCur;
+
+        // (2) لو الصف ده اتنشر بالفعل (سباق مع نشر سابق) منعيدش النشر، بس لسه
+        // محتاجين نتأكد إن فيه مسودة صالحة موجودة للرجوع لها.
+        let publishedRow = currentRow;
+        if (currentRow.status !== 'published') {
+            const { data: justPublished, error: e1 } = await supabase.from('wf_workflow_versions')
+                .update({ status: 'published', published_at: new Date().toISOString() })
+                .eq('id', actualDraftId).eq('status', 'draft').select().single();
+            if (e1) throw e1;
+            publishedRow = justPublished;
+        }
+
+        // (4) هل فيه مسودة موجودة بالفعل (نادراً ما تحصل، لكن لو حصلت منعملش نسخة تانية)
+        const { data: existingDraft, error: eExisting } = await supabase.from('wf_workflow_versions')
+            .select('*').eq('workflow_id', workflowId).eq('status', 'draft')
+            .order('version_number', { ascending: false }).limit(1).maybeSingle();
+        if (eExisting) throw eExisting;
+
+        let newDraft;
+        if (existingDraft) {
+            newDraft = existingDraft;
+        } else {
+            // (3) الرقم الجديد = MAX(version_number) + 1 عبر كل نسخ الـ workflow،
+            // مش published_row.version_number + 1
+            const { data: maxRow, error: eMax } = await supabase.from('wf_workflow_versions')
+                .select('version_number').eq('workflow_id', workflowId)
+                .order('version_number', { ascending: false }).limit(1).single();
+            if (eMax) throw eMax;
+            const nextVersionNumber = maxRow.version_number + 1;
+
+            const { data: inserted, error: e2 } = await supabase.from('wf_workflow_versions')
+                .insert({
+                    workflow_id: workflowId, version_number: nextVersionNumber, status: 'draft',
+                    definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
+                    trigger_event_key: publishedRow.trigger_event_key || null,
+                    created_by: created_by || null
+                })
+                .select().single();
+            if (e2) throw e2;
+            newDraft = inserted;
+        }
+
         const { data: wf, error: e3 } = await supabase.from('wf_workflows')
             .update({
                 status: 'active',
