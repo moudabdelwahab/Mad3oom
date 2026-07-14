@@ -98,6 +98,36 @@ export const DataLayer = {
         if (error) { console.warn('versions fetch failed', error); return []; }
         return data || [];
     },
+    async listRunSteps(runId) {
+        const { data, error } = await supabase.from('wf_run_steps').select('*').eq('run_id', runId).order('started_at', { ascending: true });
+        if (error) { console.warn('run steps fetch failed', error); return []; }
+        return data || [];
+    },
+    // Executor P0 — تنفيذ يدوي فقط. يستدعي دالة الحافة wf-executor بحالة الرسم
+    // الحالية (definition) كما هي في المحرر، مباشرة دون الحاجة لحفظ/نشر أولًا.
+    // مدعوم حاليًا: Trigger / Condition / Action فقط — أي عنصر من فئة أخرى
+    // (control/database/delay/loop/ai/api) سيُفشل التشغيل برسالة واضحة.
+    async runWorkflowNow({ workflowId, workflowVersionId = null, workflowVersionNumber = null, definition, triggerPayload = {} }) {
+        const { data, error } = await supabase.functions.invoke('wf-executor', {
+            body: {
+                workflow_id: workflowId,
+                workflow_version_id: workflowVersionId,
+                workflow_version_number: workflowVersionNumber,
+                definition,
+                trigger_payload: triggerPayload,
+            },
+        });
+        if (error) {
+            // supabase-js embeds the function's JSON error body in error.context when available
+            let message = error.message || 'فشل تشغيل الـ Workflow';
+            try {
+                const body = await error.context?.json?.();
+                if (body?.error) message = body.error;
+            } catch (_) { /* ignore parse failure, fall back to error.message */ }
+            throw new Error(message);
+        }
+        return data;
+    },
 
     // ينشئ صف wf_workflows + أول صف wf_workflow_versions (v1, draft) ثم يربطهما عبر current_draft_version_id
     async createWorkflow({ name, description, created_by }) {
