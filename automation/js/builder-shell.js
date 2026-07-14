@@ -20,13 +20,13 @@
    onto `ui` at the bottom of this file is what keeps the whole module
    graph acyclic.
    ===================================================================== */
-import { ic, escapeHtml, toast, confirmDialog, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
+import { ic, escapeHtml, toast, confirmDialog, promptDialog, STATUS_LABEL, STATUS_BADGE_CLASS } from './common.js';
 import { appState, ui, activeSession, createSession, extractTriggerConfig, extractTriggerEventKey, validateDefinition } from './state.js';
 import { DataLayer } from './data-layer.js';
 import { Canvas } from './canvas.js';
 import { renderNodeLibrary } from './node-library.js';
 import { renderInspector } from './inspector.js';
-import { renderVersionsPanel, renderBottomPanel, openBottomTab } from './side-panels.js';
+import { renderVersionsPanel, renderBottomPanel, openBottomTab, showRunResultInLogs } from './side-panels.js';
 import { refreshWorkflowsList, openCreateWorkflowModal, duplicateWorkflow } from './workflow-list.js';
 
 /* =====================================================================
@@ -144,6 +144,7 @@ export function mountActiveSession() {
     updateSaveState();
 
     document.getElementById('wfSaveDraftBtn').disabled = s.readOnly;
+    document.getElementById('wfRunNowBtn').disabled = (s.definition.nodes || []).length === 0;
     document.getElementById('wfPublishBtn').textContent = s.publishedVersion ? 'نشر التحديثات' : 'نشر';
     document.getElementById('wfPublishBtn').disabled = s.readOnly || (s.definition.nodes || []).length === 0;
 
@@ -248,6 +249,55 @@ export async function publishWorkflow() {
     }
 }
 document.getElementById('wfPublishBtn')?.addEventListener('click', publishWorkflow);
+
+/* =====================================================================
+   تشغيل تجريبي يدوي (Executor P0)
+   ---------------------------------------------------------------------
+   يستدعي دالة الحافة wf-executor مباشرة بحالة الرسم الحالية في الذاكرة
+   (s.definition) — لا حاجة للحفظ أو النشر أولًا. مدعوم حاليًا فقط:
+   Trigger / Condition / Action. أي عنصر من فئة أخرى (control/database/
+   delay/loop/ai/api) سيُفشل التشغيل برسالة واضحة بدل تجاهله أو محاكاته.
+   ===================================================================== */
+export async function runNow() {
+    const s = activeSession();
+    if (!s) return;
+    if (!(s.definition.nodes || []).some(n => (n.type || '').startsWith('trigger.'))) {
+        toast('لا يوجد Trigger في هذا الـ Workflow — أضِف عنصر مشغّل أولًا', 'error');
+        return;
+    }
+    const raw = await promptDialog('بيانات المشغّل (Trigger) بصيغة JSON — اتركها {} إن لم تكن بحاجة لبيانات اختبار:', '{}');
+    if (raw === null) return; // المستخدم ألغى
+    let triggerPayload;
+    try { triggerPayload = raw.trim() ? JSON.parse(raw) : {}; }
+    catch (err) { toast('صيغة JSON غير صالحة: ' + (err.message || ''), 'error'); return; }
+
+    const btn = document.getElementById('wfRunNowBtn');
+    if (btn) { btn.disabled = true; }
+    toast('جارِ تشغيل الـ Workflow...', undefined);
+    try {
+        const result = await DataLayer.runWorkflowNow({
+            workflowId: s.id,
+            workflowVersionId: s.draftVersionId || null,
+            workflowVersionNumber: s.draftVersionNumber || null,
+            definition: s.definition,
+            triggerPayload,
+        });
+        if (result.status === 'completed') {
+            toast('اكتمل التشغيل بنجاح', 'success');
+        } else {
+            toast('فشل التشغيل: ' + (result.error || ''), 'error');
+        }
+        s.runsCache = undefined; // لإظهار التشغيل الجديد فورًا لو رجع المستخدم للسان "سجل التشغيل"
+        if (result.run_id) await showRunResultInLogs(result.run_id, s);
+        else { openBottomTab('runs'); renderBottomPanel(); }
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر تشغيل الـ Workflow: ' + (err.message || ''), 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+document.getElementById('wfRunNowBtn')?.addEventListener('click', runNow);
 
 export async function duplicateAsDraftFromBuilder() {
     const s = activeSession();
