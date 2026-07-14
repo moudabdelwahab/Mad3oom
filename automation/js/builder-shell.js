@@ -261,15 +261,29 @@ document.getElementById('wfPublishBtn')?.addEventListener('click', publishWorkfl
 export async function runNow() {
     const s = activeSession();
     if (!s) return;
-    if (!(s.definition.nodes || []).some(n => (n.type || '').startsWith('trigger.'))) {
+    const triggerNode = (s.definition.nodes || []).find(n => (n.type || '').startsWith('trigger.'));
+    if (!triggerNode) {
         toast('لا يوجد Trigger في هذا الـ Workflow — أضِف عنصر مشغّل أولًا', 'error');
         return;
     }
-    const triggerPayload = {};
 
     const btn = document.getElementById('wfRunNowBtn');
     if (btn) { btn.disabled = true; }
     toast('جارِ تشغيل الـ Workflow...', undefined);
+    let triggerPayload = {};
+    try {
+        // Triggers المبنية على تذكرة (ticket_created/status_changed/closed) محتاجة
+        // بيانات تذكرة حقيقية عشان {{ticket.*}} تتحل صح — نجيبها تلقائيًا بدل ما
+        // نطلب من المستخدم يكتب JSON يدوي.
+        if (triggerNode.type.startsWith('trigger.ticket_')) {
+            triggerPayload = await DataLayer.buildTicketTriggerPayload();
+        }
+    } catch (err) {
+        console.error(err);
+        toast('تعذّر تجهيز بيانات اختبار التذكرة: ' + (err.message || ''), 'error');
+        if (btn) btn.disabled = false;
+        return;
+    }
     try {
         const result = await DataLayer.runWorkflowNow({
             workflowId: s.id,
