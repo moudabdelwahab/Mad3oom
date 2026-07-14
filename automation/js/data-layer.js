@@ -281,21 +281,49 @@ export const DataLayer = {
             newDraft = existingDraft;
         } else {
             // (3) الرقم الجديد = MAX(version_number) + 1 عبر كل نسخ الـ workflow،
-            // مش published_row.version_number + 1
-            const { data: maxRow, error: eMax } = await supabase.from('wf_workflow_versions')
-                .select('version_number').eq('workflow_id', workflowId)
-                .order('version_number', { ascending: false }).limit(1).single();
-            if (eMax) throw eMax;
-            const nextVersionNumber = maxRow.version_number + 1;
+            // مش published_row.version_number + 1.
+            //
+            // ملاحظة تزامن: القراءة (MAX) والكتابة (INSERT) هنا خطوتان منفصلتان
+            // عبر PostgREST (مفيش transaction واحدة تلمّهم، ومفيش RPC جديدة
+            // مسموح نضيفها) — فلو تبويبين نشروا نفس المسودة في نفس اللحظة
+            // بالظبط، ممكن الاتنين يحسبوا نفس nextVersionNumber ويتصادموا على
+            // الـ unique constraint. ده مش عيب في الـ invariant نفسه (مفيش أي
+            // صف اتكتب بحالة غلط في wf_workflows بسبب كده — الكتابة النهائية
+            // بتحصل بس بعد ما الـ insert ينجح)، لكن عشان الطلب يفضل يفشل نادرًا
+            // في السباق الحقيقي ده، بنعيد المحاولة مرة واحدة: لو الـ insert فشل
+            // بسبب duplicate key بالظبط، يبقى فيه تبويب تاني سبقنا وأنشأ نفس
+            // الرقم — نعيد القراءة من الأول (هل بقى فيه draft موجود دلوقتي؟
+            // هل الـ MAX اتغيّر؟) ونحاول تاني مرة واحدة بس.
+            const attemptInsert = async () => {
+                const { data: maxRow, error: eMax } = await supabase.from('wf_workflow_versions')
+                    .select('version_number').eq('workflow_id', workflowId)
+                    .order('version_number', { ascending: false }).limit(1).single();
+                if (eMax) throw eMax;
+                const nextVersionNumber = maxRow.version_number + 1;
+                return supabase.from('wf_workflow_versions')
+                    .insert({
+                        workflow_id: workflowId, version_number: nextVersionNumber, status: 'draft',
+                        definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
+                        trigger_event_key: publishedRow.trigger_event_key || null,
+                        created_by: created_by || null
+                    })
+                    .select().single();
+            };
 
-            const { data: inserted, error: e2 } = await supabase.from('wf_workflow_versions')
-                .insert({
-                    workflow_id: workflowId, version_number: nextVersionNumber, status: 'draft',
-                    definition: publishedRow.definition, trigger_config: publishedRow.trigger_config, variables: publishedRow.variables,
-                    trigger_event_key: publishedRow.trigger_event_key || null,
-                    created_by: created_by || null
-                })
-                .select().single();
+            let { data: inserted, error: e2 } = await attemptInsert();
+            if (e2 && e2.code === '23505') {
+                // صادمنا تبويب تاني وصل قبلنا بجزء من الثانية. أول حاجة: يمكن
+                // هو أصلاً أنشأ المسودة اللي محتاجينها — نتحقق قبل ما نعيد المحاولة.
+                const { data: retryExisting, error: eRetryExisting } = await supabase.from('wf_workflow_versions')
+                    .select('*').eq('workflow_id', workflowId).eq('status', 'draft')
+                    .order('version_number', { ascending: false }).limit(1).maybeSingle();
+                if (eRetryExisting) throw eRetryExisting;
+                if (retryExisting) {
+                    inserted = retryExisting; e2 = null;
+                } else {
+                    ({ data: inserted, error: e2 } = await attemptInsert());
+                }
+            }
             if (e2) throw e2;
             newDraft = inserted;
         }
