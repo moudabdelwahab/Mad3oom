@@ -80,7 +80,8 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
   font-family:var(--wf-font-body);
   background:var(--wf-bg-void);
   color:var(--wf-text-1);
-  min-height:100vh;
+  height:100vh;
+  height:100dvh;
   border-radius:var(--wf-radius-lg);
   overflow:hidden;
   position:relative;
@@ -359,7 +360,7 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
 .wf-readonly-banner svg{width:16px;height:16px;flex-shrink:0;margin-top:.1rem;}
 
 /* Bottom panel */
-.wf-bottom{border-top:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);flex-shrink:0;display:flex;flex-direction:column;height:230px;transition:height var(--wf-dur-med) var(--wf-ease-snap);}
+.wf-bottom{border-top:1px solid var(--wf-glass-border);background:var(--wf-bg-elevated);flex-shrink:0;display:flex;flex-direction:column;height:min(230px,28vh);transition:height var(--wf-dur-med) var(--wf-ease-snap);}
 .wf-bottom.wf-bottom-collapsed{height:38px;}
 .wf-bottom-tabs{display:flex;align-items:center;gap:.2rem;padding:0 .75rem;height:38px;flex-shrink:0;border-bottom:1px solid var(--wf-glass-border);overflow-x:auto;overflow-y:hidden;}
 .wf-bottom-tab{padding:.4rem .7rem;font-size:.72rem;font-weight:700;color:var(--wf-text-3);cursor:pointer;border-radius:.5rem;display:flex;align-items:center;gap:.4rem;flex-shrink:0;white-space:nowrap;}
