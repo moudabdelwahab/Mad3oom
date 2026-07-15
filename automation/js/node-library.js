@@ -8,7 +8,7 @@
    needs to reach back into this one, so this stays a clean leaf feature).
    ===================================================================== */
 import { escapeHtml, ic, icFilled, nodeIcon, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_ACCENT, getFavorites, toggleFavorite, getRecent } from './common.js';
-import { appState } from './state.js';
+import { appState, ui } from './state.js';
 import { Canvas } from './canvas.js';
 
 let libActiveTab = 'all';
@@ -72,6 +72,16 @@ export function renderNodeLibrary() {
         });
         item.addEventListener('dblclick', () => {
             Canvas.addNodeAtCenter(item.dataset.key);
+        });
+        // السحب والإفلات (HTML5 DnD) مش شغّال بشكل موثوق على شاشات اللمس، فبنضيف
+        // نقرة عادية (tap) كطريقة بديلة لإضافة العنصر على الجوال — بتضيف العنصر
+        // في وسط الكانفاس نفس سلوك الدبل-كليك، وبعدين تقفل لوحة المكتبة تلقائيًا
+        // لو كانت فاتحة كطبقة فوق الكانفاس (يعني إحنا في وضع الجوال).
+        item.addEventListener('click', () => {
+            const isMobileOverlay = getComputedStyle(item.closest('.wf-lib')).position === 'absolute';
+            if (!isMobileOverlay) return;
+            Canvas.addNodeAtCenter(item.dataset.key);
+            ui.closeMobilePanels?.();
         });
     });
 }
