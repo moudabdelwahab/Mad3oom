@@ -395,9 +395,52 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
 .wf-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--wf-glass-border);border-top-color:var(--wf-accent);animation:wfSpin .7s linear infinite;}
 @keyframes wfSpin{to{transform:rotate(360deg);}}
 
+/* =====================================================================
+   Responsive: tablet + mobile
+   ---------------------------------------------------------------------
+   دون الـ 1100px، المكتبة والمعاينة (Inspector) وسجل الإصدارات بتتحول من
+   أعمدة ثابتة جنب بعض لطبقات (overlay) تنزلق من الجانب فوق الـ Canvas —
+   بيفتحهم زرّين جدد في الـ toolbar (wf-mobile-only) بدل ما يتزاحموا مع
+   بعض في نفس الشاشة. الـ backdrop بيقفلهم لو المستخدم دَس برّه اللوحة.
+   ===================================================================== */
+.wf-mobile-only{display:none;}
+.wf-panel-backdrop{display:none;position:absolute;inset:0;background:rgba(6,11,20,.55);z-index:65;}
+.wf-panel-backdrop.wf-backdrop-visible{display:block;}
+
 @media (max-width: 1100px){
-  .wf-inspector,.wf-version-panel{position:absolute;top:0;bottom:0;inset-inline-end:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
-  .wf-lib{position:absolute;top:0;bottom:0;inset-inline-start:0;z-index:70;box-shadow:var(--wf-shadow-lg);}
+  .wf-mobile-only{display:inline-flex;}
+
+  .wf-lib,.wf-inspector{
+    display:none;position:absolute;top:0;bottom:0;z-index:70;box-shadow:var(--wf-shadow-lg);
+    width:min(84vw,300px);
+  }
+  .wf-lib.wf-panel-open,.wf-inspector.wf-panel-open{display:flex;}
+  .wf-lib{inset-inline-start:0;}
+  .wf-inspector{inset-inline-end:0;}
+  .wf-version-panel{position:absolute;top:0;bottom:0;inset-inline-end:0;z-index:70;box-shadow:var(--wf-shadow-lg);width:min(84vw,300px);}
+
+  .wf-minimap{display:none;}
+}
+
+@media (max-width: 900px){
+  .wf-builder-toolbar{padding:.5rem .65rem;gap:.4rem;}
+  .wf-btn-label{display:none;}
+  .wf-wf-name-input{min-width:70px;max-width:150px;}
+  .wf-tabbar .wf-tab{max-width:140px;}
+  .wf-tabbar .wf-tab .wf-tab-title{max-width:70px;}
+}
+
+@media (max-width: 640px){
+  .wf-shell{border-radius:0;}
+  .wf-list-header{flex-direction:column;align-items:stretch;}
+  .wf-list-header button{width:100%;justify-content:center;}
+  .wf-toolbar{padding:.75rem 1rem;}
+  .wf-search{max-width:none;}
+  .wf-filter-group .wf-select{flex:1;min-width:0;}
+  .wf-canvas-controls{bottom:.6rem;inset-inline-start:.6rem;}
+  .wf-toast-wrap{inset-inline-start:.75rem;inset-inline-end:.75rem;bottom:.75rem;}
+  .wf-toast{width:100%;min-width:0;}
+  .wf-modal{width:100%;max-height:92vh;}
 }
 @media (prefers-reduced-motion: reduce){
   .wf-shell *{transition-duration:.001ms !important;animation-duration:.001ms !important;}
@@ -468,6 +511,9 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
                     <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfBackToList" title="عودة لقائمة الـ Workflows">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                     </button>
+                    <button class="wf-btn wf-btn-icon wf-btn-sm wf-mobile-only" id="wfToggleLibBtn" title="عناصر الـ Workflow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                    </button>
                     <input type="text" class="wf-wf-name-input" id="wfNameInput" placeholder="اسم الـ Workflow">
                     <span class="wf-badge wf-badge-gray" id="wfStatusBadge">مسودة</span>
                     <div class="wf-toolbar-sep"></div>
@@ -475,23 +521,27 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
                     <button class="wf-btn wf-btn-sm" id="wfRedoBtn" title="إعادة (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg></button>
                     <button class="wf-btn wf-btn-sm" id="wfAutoLayoutBtn" title="ترتيب تلقائي">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-                        ترتيب تلقائي
+                        <span class="wf-btn-label">ترتيب تلقائي</span>
                     </button>
                     <div class="wf-toolbar-spacer"></div>
                     <span class="wf-save-state" id="wfSaveState">محفوظ</span>
                     <button class="wf-btn wf-btn-sm" id="wfToggleVersions" title="سجل الإصدارات">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-                        الإصدارات
+                        <span class="wf-btn-label">الإصدارات</span>
                     </button>
                     <button class="wf-btn wf-btn-sm" id="wfRunNowBtn" title="تشغيل تجريبي يدوي — يستخدم حالة الرسم الحالية في المحرر (غير محفوظة بالضرورة). مدعوم حاليًا: Trigger / Condition / Action فقط.">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        تشغيل تجريبي
+                        <span class="wf-btn-label">تشغيل تجريبي</span>
                     </button>
                     <button class="wf-btn wf-btn-sm" id="wfSaveDraftBtn">حفظ كمسودة</button>
                     <button class="wf-btn wf-btn-primary wf-btn-sm" id="wfPublishBtn">نشر</button>
+                    <button class="wf-btn wf-btn-icon wf-btn-sm wf-mobile-only" id="wfToggleInspectorBtn" title="إعدادات العنصر المحدَّد">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    </button>
                 </div>
 
                 <div class="wf-builder-body">
+                    <div class="wf-panel-backdrop" id="wfPanelBackdrop"></div>
                     <!-- Node Library -->
                     <aside class="wf-panel wf-panel-start wf-lib" id="wfLibPanel">
                         <div class="wf-lib-search">
