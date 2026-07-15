@@ -334,6 +334,32 @@ window.addEventListener('beforeunload', (e) => {
     if (hasUnsaved) { e.preventDefault(); e.returnValue = ''; }
 });
 
+/* لوحات المكتبة/الإعدادات على الجوال (<1100px): بتتحول لطبقات منزلقة بدل
+   أعمدة ثابتة، فمحتاجة أزرار تفتحها + طبقة خلفية (backdrop) تقفلهم لو
+   ضغط المستخدم برّه اللوحة. على الشاشات الكبيرة اللوحتين ظاهرتين دايمًا
+   والكلاس ده مالوش أي تأثير بصري (CSS بيتجاهله فوق 1100px).                */
+const wfLibPanelEl = document.getElementById('wfLibPanel');
+const wfInspectorPanelEl = document.getElementById('wfInspectorPanel');
+const wfPanelBackdropEl = document.getElementById('wfPanelBackdrop');
+
+function closeMobilePanels() {
+    wfLibPanelEl?.classList.remove('wf-panel-open');
+    wfInspectorPanelEl?.classList.remove('wf-panel-open');
+    wfPanelBackdropEl?.classList.remove('wf-backdrop-visible');
+}
+function openMobilePanel(panelEl) {
+    const wasOpen = panelEl?.classList.contains('wf-panel-open');
+    closeMobilePanels();
+    if (panelEl && !wasOpen) {
+        panelEl.classList.add('wf-panel-open');
+        wfPanelBackdropEl?.classList.add('wf-backdrop-visible');
+    }
+}
+document.getElementById('wfToggleLibBtn')?.addEventListener('click', () => openMobilePanel(wfLibPanelEl));
+document.getElementById('wfToggleInspectorBtn')?.addEventListener('click', () => openMobilePanel(wfInspectorPanelEl));
+wfPanelBackdropEl?.addEventListener('click', closeMobilePanels);
+ui.closeMobilePanels = closeMobilePanels;
+
 /* Register this module's functions on the shared service locator so
    canvas.js / inspector.js / side-panels.js / workflow-list.js can call
    them without importing this module directly (which would create a
