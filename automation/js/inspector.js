@@ -565,6 +565,17 @@ function buildFieldControl(session, node, nt, field, upstream) {
         helpEl.textContent = help;
         wrapDiv.appendChild(helpEl);
     }
+
+    // عقدة "إرسال بريد إلكتروني": لا يوجد حقل لاختيار المستلم يدويًا (كان
+    // سابقًا متغيّرًا حرًّا وده كان مربكًا) — البريد يُرسل تلقائيًا لصاحب
+    // التذكرة المختارة، فبنوضّح ده بشكل صريح تحت حقل التذكرة.
+    if (nt.key === 'action.send_email' && field.key === 'ticket_id') {
+        const autoHint = document.createElement('div');
+        autoHint.className = 'wf-field-help';
+        autoHint.textContent = 'سيُرسَل البريد تلقائيًا إلى البريد الإلكتروني المسجَّل لصاحب هذه التذكرة (العميل الذي أنشأها) — لا حاجة لاختيار المستلم يدويًا.';
+        wrapDiv.appendChild(autoHint);
+    }
+
     return wrapDiv;
 }
 
