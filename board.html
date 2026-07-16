@@ -91,6 +91,14 @@
   .no-storage-badge{
     display:flex; align-items:center; gap:6px; background:#FBF1E1; color:#A96C1B; border-radius:9px; padding:7px 11px; font-size:11.5px; font-weight:700;
   }
+  .sync-badge{
+    display:flex; align-items:center; gap:6px; border-radius:9px; padding:7px 11px; font-size:11.5px; font-weight:700;
+  }
+  .sync-badge.ok{background:#E7F7EE; color:#157A44;}
+  .sync-badge.bad{background:#FBEAE7; color:#993F35;}
+  .sync-dot{width:7px; height:7px; border-radius:50%; background:currentColor; flex:0 0 auto;}
+  .sync-dot.pulse{animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 
   /* ===== Tabs ===== */
   nav.tabs{
@@ -227,6 +235,10 @@
   }
   .card:hover .card-delete{opacity:1;}
   .card-delete:hover{background:#FBEAE7; color:#C4574A;}
+
+  /* synced (read-only-status) cards */
+  .card-synced-line{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-faint);}
+  .stale-flag{display:flex; align-items:center; gap:4px; font-size:10.5px; color:#A96C1B; font-weight:700;}
 
   /* ===== Menu portal (shared, escapes scroll clipping) ===== */
   #menu-portal{
@@ -399,6 +411,7 @@
     </div>
     <div class="stat-chip" id="stat-chip"><b>0</b><span>مهمة مفتوحة</span></div>
     <div class="topbar-spacer"></div>
+    <span id="sync-badge"></span>
     <span id="storage-badge"></span>
     <button class="icon-action" id="export-btn" title="تصدير نسخة احتياطية">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 19h14"/></svg>
@@ -452,12 +465,29 @@ function icon(name, size, extraAttrs){
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extraAttrs||''}>${ICONS[name]||''}</svg>`;
 }
 
-/* ===================== SUPABASE (board persistence) ===================== */
+/* ===================== SUPABASE (board persistence + live two-way sync) ===================== */
 const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
 const sb = (typeof window.supabase !== 'undefined' && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
   : null;
+
+let realtimeChannel = null;
+let lastWrittenAt = 0;      // timestamp (ms) of the last change WE pushed, to ignore our own echo
+let applyingRemote = false;  // guards against feedback loops while applying an incoming remote update
+let localEditing = false;    // true while user is actively typing in an inline input (avoid re-render stomp)
+
+function setSyncBadge(mode){
+  const el = document.getElementById('sync-badge');
+  if(!el) return;
+  if(mode === 'live'){
+    el.innerHTML = `<span class="sync-badge ok"><span class="sync-dot"></span>متصل مباشرة بـ Supabase</span>`;
+  } else if(mode === 'connecting'){
+    el.innerHTML = `<span class="sync-badge ok"><span class="sync-dot pulse"></span>جارٍ الاتصال بـ Supabase...</span>`;
+  } else {
+    el.innerHTML = `<span class="sync-badge bad"><span class="sync-dot"></span>غير متصل بـ Supabase</span>`;
+  }
+}
 
 /* ===================== MCP BRIDGE (live tickets/customers via Mad3oom) =====================
    Works only when this page is opened as an artifact inside Claude.ai (which proxies calls to
@@ -597,6 +627,7 @@ function persist(){
     let savedRemotely = false;
     if(sb){
       try{
+        lastWrittenAt = Date.now();
         const { error } = await sb.from('board').upsert({ id:'main', data: state });
         if(error) throw error;
         savedRemotely = true;
@@ -608,6 +639,43 @@ function persist(){
     }
     if(!savedRemotely && !hasLocalStorage) toast('تعذّر الحفظ - تحقق من الاتصال');
   }, 250);
+}
+
+/* ---- Live two-way realtime sync: any row change on Supabase (from this tab, another tab,
+   another user, or a direct edit in the Supabase table editor) is pushed to every open board
+   within ~a second, without needing a page refresh. ---- */
+function startRealtimeSync(){
+  if(!sb){ setSyncBadge('offline'); return; }
+  setSyncBadge('connecting');
+  realtimeChannel = sb
+    .channel('board-sync-main')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'board', filter: 'id=eq.main' },
+      (payload)=>{
+        const incoming = payload && payload.new;
+        if(!incoming || !incoming.data || !Array.isArray(incoming.data.sections)) return;
+        // Ignore the echo of a change we just wrote ourselves (within a short debounce window)
+        if(Date.now() - lastWrittenAt < 600) return;
+        // Don't clobber whatever the user is actively typing right now
+        if(localEditing) return;
+        applyingRemote = true;
+        const keepActiveTaskId = activeTaskId;
+        const keepActiveSection = state.activeSection;
+        state = incoming.data;
+        ensureBuiltinSections();
+        if(!findSection(keepActiveSection)) state.activeSection = state.sections[0] ? state.sections[0].id : state.activeSection;
+        else state.activeSection = keepActiveSection;
+        renderAll();
+        if(keepActiveTaskId && findTask(keepActiveTaskId)){ activeTaskId = keepActiveTaskId; renderPanel(); }
+        else if(keepActiveTaskId){ closePanel(); }
+        applyingRemote = false;
+        toast('تحديث مباشر من Supabase');
+      }
+    )
+    .subscribe((status)=>{
+      if(status === 'SUBSCRIBED') setSyncBadge('live');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setSyncBadge('offline');
+    });
 }
 
 /* ===================== HELPERS ===================== */
@@ -872,12 +940,15 @@ function showQuickAdd(colId){
   </div>`;
   const ta = document.getElementById('qa-input-'+colId);
   ta.focus();
+  localEditing = true;
+  ta.addEventListener('blur', ()=>{ localEditing = false; }, { once:true });
   ta.addEventListener('keydown', (e)=>{
     if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submitQuickAdd(colId); }
     if(e.key==='Escape'){ cancelQuickAdd(colId); }
   });
 }
 function cancelQuickAdd(colId){
+  localEditing = false;
   const footer = document.getElementById('footer-'+colId);
   if(footer) footer.innerHTML = `<button class="quick-add-btn" data-action="show-quick-add" data-id="${colId}">${icon('plus',13)} إضافة مهمة</button>`;
 }
@@ -892,6 +963,7 @@ function submitQuickAdd(colId){
     id: uid('task'), title, state:'normal', starred:false, createdAt: Date.now(),
     tags: [], subtasks: [], logs: []
   });
+  localEditing = false;
   persist(); renderAll(); cancelQuickAdd(colId);
   toast('تمت إضافة المهمة');
 }
@@ -1061,12 +1133,18 @@ function renderPanel(){
   `;
 
   const tagInput = document.getElementById('tag-input');
+  tagInput.addEventListener('focus', ()=>{ localEditing = true; });
+  tagInput.addEventListener('blur', ()=>{ localEditing = false; });
   tagInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTag(t.id, tagInput.value); tagInput.value=''; } });
 
   const subInput = document.getElementById('subtask-input');
+  subInput.addEventListener('focus', ()=>{ localEditing = true; });
+  subInput.addEventListener('blur', ()=>{ localEditing = false; });
   subInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addSubtask(t.id, subInput.value); } });
 
   const logInput = document.getElementById('log-input');
+  logInput.addEventListener('focus', ()=>{ localEditing = true; });
+  logInput.addEventListener('blur', ()=>{ localEditing = false; });
   logInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); addLog(t.id, logInput.value); } });
 }
 
@@ -1077,14 +1155,16 @@ function editColName(colId, target){
   target.innerHTML = `<input type="text" value="${esc(col.name)}">`;
   const input = target.querySelector('input');
   input.focus(); input.select();
+  localEditing = true;
   let committed = false;
   function commit(){
     if(committed) return; committed = true;
+    localEditing = false;
     const val = input.value.trim();
     if(val) col.name = val;
     persist(); renderAll();
   }
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter') commit(); if(e.key==='Escape'){ committed=true; renderAll(); } });
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') commit(); if(e.key==='Escape'){ committed=true; localEditing=false; renderAll(); } });
   input.addEventListener('blur', commit);
 }
 function editTaskTitle(taskId, target){
@@ -1092,9 +1172,10 @@ function editTaskTitle(taskId, target){
   target.innerHTML = `<textarea rows="2">${esc(f.task.title)}</textarea>`;
   const ta = target.querySelector('textarea');
   ta.focus(); ta.select();
+  localEditing = true;
   let committed = false;
-  function commit(){ if(committed) return; committed = true; renameTaskTitle(taskId, ta.value); }
-  ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); commit(); } if(e.key==='Escape'){ committed=true; renderPanel(); } });
+  function commit(){ if(committed) return; committed = true; localEditing = false; renameTaskTitle(taskId, ta.value); }
+  ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); commit(); } if(e.key==='Escape'){ committed=true; localEditing=false; renderPanel(); } });
   ta.addEventListener('blur', commit);
 }
 
@@ -1345,9 +1426,13 @@ async function init(){
   }
   await loadState();
   renderAll();
+  startRealtimeSync();
   // auto-sync any built-in synced section that has never been synced yet
-  for(const sec of state.sections){
-    if(sec.type==='synced' && !sec.lastSync) syncSection(sec.id);
+  // (guarded: syncSection is only wired up if/when an external data source is connected)
+  if(typeof syncSection === 'function'){
+    for(const sec of state.sections){
+      if(sec.type==='synced' && !sec.lastSync) syncSection(sec.id);
+    }
   }
 }
 init();
