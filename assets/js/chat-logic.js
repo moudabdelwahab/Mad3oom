@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function init() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            window.location.href = '/sign-in.html';
+            window.location.href = '/login.html';
             return;
         }
 
