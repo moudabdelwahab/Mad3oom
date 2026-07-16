@@ -182,6 +182,12 @@ export function validateDefinition(def) {
         if (!n.type.startsWith('trigger.') && !incoming[n.id]) {
             issues.push({ level: 'warn', msg: `العنصر "${nt.name_ar || nt.name_en}" غير متصل بأي مسار سابق`, nodeId: n.id });
         }
+
+        if (n.type === 'condition.if_else') {
+            const outPorts = new Set(edges.filter(e => e.source === n.id).map(e => e.source_port || 'default'));
+            if (!outPorts.has('true')) issues.push({ level: 'warn', msg: 'فرع "إذا" غير متصل بأي خطوة تالية', nodeId: n.id });
+            if (!outPorts.has('false')) issues.push({ level: 'warn', msg: 'فرع "لكن" غير متصل بأي خطوة تالية', nodeId: n.id });
+        }
     });
 
     edges.forEach(e => {
