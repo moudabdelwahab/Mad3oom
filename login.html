@@ -1051,7 +1051,7 @@
       'تحديد نوع الحساب'
     );
     const role = profile?.role || 'user';
-    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
   async function checkExistingSession() {
@@ -1110,7 +1110,7 @@
     }
 
     const role = existing?.role || 'user';
-    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
   });
 
   checkExistingSession();
@@ -1739,7 +1739,7 @@
     sessionStorage.removeItem('just_logged_out');
     _handlingAuthManually = false;
     const role = data.role || 'user';
-    window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
   }
 
   function setPiLoading(panel, loading) {
