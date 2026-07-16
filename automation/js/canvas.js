@@ -88,13 +88,21 @@ export const Canvas = (() => {
         const hasWarn = (nodeIssues || []).some(i => i.level === 'warn');
         const badge = nodeStatusBadge(n, nt, hasError);
         if (!nt) {
-            return `<div class="wf-node wf-node-selected" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;border-color:var(--wf-danger)">
+            return `<div class="wf-node wf-node-selected" data-id="${n.id}" data-type="${escapeHtml(n.type)}" style="left:${n.position.x}px;top:${n.position.y}px;border-color:var(--wf-danger)">
                 <div class="wf-node-head"><div class="wf-node-icon" style="background:var(--wf-danger)">${ic('alertTriangle', 14)}</div><div class="wf-node-title">نوع غير معروف: ${escapeHtml(n.type)}</div></div>
                 <span class="wf-port wf-port-in"></span><span class="wf-port wf-port-out"></span>
             </div>`;
         }
+        const isIfElse = n.type === 'condition.if_else';
+        const outPortsHtml = isIfElse ? `
+            <span class="wf-port-branch wf-port-branch-true" data-port="true">
+                <span class="wf-port-branch-label">إذا</span><span class="wf-port wf-port-out" data-port="true"></span>
+            </span>
+            <span class="wf-port-branch wf-port-branch-false" data-port="false">
+                <span class="wf-port-branch-label">لكن</span><span class="wf-port wf-port-out" data-port="false"></span>
+            </span>` : '<span class="wf-port wf-port-out" data-port="default"></span>';
         return `
-        <div class="wf-node ${selected ? 'wf-node-selected' : ''}" data-id="${n.id}" style="left:${n.position.x}px;top:${n.position.y}px;">
+        <div class="wf-node ${selected ? 'wf-node-selected' : ''}" data-id="${n.id}" data-type="${escapeHtml(n.type)}" style="left:${n.position.x}px;top:${n.position.y}px;">
             <div class="wf-node-head">
                 <div class="wf-node-icon" style="background:${nt.color}">${nodeIcon(nt, 14)}</div>
                 <div class="wf-node-title">${escapeHtml(n.label || nt.name_ar || nt.name_en)}</div>
@@ -103,7 +111,7 @@ export const Canvas = (() => {
             <div class="wf-node-body">${escapeHtml(nt.description || '')}</div>
             <div class="wf-node-foot">${badge}<span style="font-size:.6rem;color:var(--wf-text-3);font-family:var(--wf-font-data)">${CATEGORY_LABELS[nt.category] || nt.category}</span></div>
             ${nt.category !== 'trigger' ? '<span class="wf-port wf-port-in" data-port="in"></span>' : ''}
-            <span class="wf-port wf-port-out" data-port="out"></span>
+            ${outPortsHtml}
         </div>`;
     }
 
@@ -135,13 +143,15 @@ export const Canvas = (() => {
             const sEl = nodesLayer.querySelector(`.wf-node[data-id="${e.source}"]`);
             const tEl = nodesLayer.querySelector(`.wf-node[data-id="${e.target}"]`);
             const sh = sEl ? sEl.offsetHeight : 90, th = tEl ? tEl.offsetHeight : 90;
-            const x1 = s.position.x + NODE_W, y1 = s.position.y + sh / 2;
+            const portFrac = s.type === 'condition.if_else' ? (e.source_port === 'false' ? 0.70 : 0.36) : 0.5;
+            const x1 = s.position.x + NODE_W, y1 = s.position.y + sh * portFrac;
             const x2 = t.position.x, y2 = t.position.y + th / 2;
             const dx = Math.max(60, Math.abs(x2 - x1) * 0.5);
             const d = `M ${x1},${y1} C ${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
             const selected = session.selection.edgeId === e.id;
+            const branchClass = s.type === 'condition.if_else' ? (e.source_port === 'false' ? 'wf-edge-branch-false' : 'wf-edge-branch-true') : '';
             return `<path class="wf-edge-hit" data-edge="${e.id}" d="${d}"></path>
-                    <path class="wf-edge-path ${selected ? 'wf-edge-selected' : ''}" d="${d}" marker-end="url(#wfArrow)" data-edge-visual="${e.id}"></path>`;
+                    <path class="wf-edge-path ${selected ? 'wf-edge-selected' : ''} ${branchClass}" d="${d}" marker-end="url(#wfArrow)" data-edge-visual="${e.id}"></path>`;
         }).join('');
 
         edgesGroup.querySelectorAll('.wf-edge-hit').forEach(p => {
@@ -220,16 +230,22 @@ export const Canvas = (() => {
             el.setPointerCapture?.(e.pointerId);
         });
 
-        el.querySelector('.wf-port-out')?.addEventListener('pointerdown', (e) => {
-            e.stopPropagation();
-            if (session.readOnly) return;
-            linkingFrom = { nodeId: el.dataset.id };
-            dragState = { mode: 'link', startX: e.clientX, startY: e.clientY };
+        el.querySelectorAll('.wf-port-out').forEach(portEl => {
+            portEl.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                if (session.readOnly) return;
+                linkingFrom = { nodeId: el.dataset.id, port: portEl.dataset.port || 'default' };
+                dragState = { mode: 'link', startX: e.clientX, startY: e.clientY };
+            });
         });
-        el.querySelector('.wf-port-in')?.addEventListener('pointerup', (e) => {
-            if (linkingFrom && linkingFrom.nodeId !== el.dataset.id) {
-                addEdge(linkingFrom.nodeId, el.dataset.id);
-            }
+        // إكمال الاتصال: بنقبله لو الإفلات حصل في أي مكان على مربع العقدة الهدف،
+        // مش بس لو لمس نقطة الدخول (.wf-port-in) بالظبط — أسهل بكتير وأدق في
+        // الاستخدام اليومي وعلى شاشات اللمس.
+        el.addEventListener('pointerup', () => {
+            if (!linkingFrom || linkingFrom.nodeId === el.dataset.id) return;
+            const targetNt = appState.nodeTypesByKey[el.dataset.type];
+            if (targetNt && targetNt.category === 'trigger') return; // المشغّلات لا تقبل اتصالًا داخلًا
+            addEdge(linkingFrom.nodeId, el.dataset.id, linkingFrom.port);
         });
     }
 
@@ -303,7 +319,8 @@ export const Canvas = (() => {
         const fromEl = nodesLayer.querySelector(`.wf-node[data-id="${linkingFrom.nodeId}"]`);
         if (!fromEl) return;
         const n = session.definition.nodes.find(x => x.id === linkingFrom.nodeId);
-        const x1 = n.position.x + NODE_W, y1 = n.position.y + fromEl.offsetHeight / 2;
+        const portFrac = n.type === 'condition.if_else' ? (linkingFrom.port === 'false' ? 0.70 : 0.36) : 0.5;
+        const x1 = n.position.x + NODE_W, y1 = n.position.y + fromEl.offsetHeight * portFrac;
         const wrapRect = canvasWrap.getBoundingClientRect();
         const x2 = (e.clientX - wrapRect.left - session.view.pan.x) / session.view.zoom;
         const y2 = (e.clientY - wrapRect.top - session.view.pan.y) / session.view.zoom;
@@ -408,11 +425,12 @@ export const Canvas = (() => {
         render(); ui.renderInspector(); ui.updateSaveState(); ui.renderTabbar();
     }
 
-    function addEdge(sourceId, targetId) {
+    function addEdge(sourceId, targetId, sourcePort) {
         if (sourceId === targetId) return;
+        sourcePort = sourcePort || 'default';
         const edges = session.definition.edges;
-        if (edges.some(e => e.source === sourceId && e.target === targetId)) return;
-        edges.push({ id: uid('e'), source: sourceId, target: targetId, source_port: 'default', type: 'sequential', condition: null });
+        if (edges.some(e => e.source === sourceId && e.target === targetId && (e.source_port || 'default') === sourcePort)) return;
+        edges.push({ id: uid('e'), source: sourceId, target: targetId, source_port: sourcePort, type: 'sequential', condition: null });
         pushHistory();
         render(); ui.updateSaveState(); ui.renderTabbar();
     }
