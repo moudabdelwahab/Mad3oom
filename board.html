@@ -678,6 +678,138 @@ function startRealtimeSync(){
     });
 }
 
+/* ===================== SYNCED SECTIONS (tickets / customers / subscriptions) =====================
+   These sections mirror real Supabase tables in read-only "system" fields (status, priority, etc.)
+   while letting support staff layer their own tags/subtasks/notes/starring on top — that overlay
+   lives in the board's own JSON, keyed by a stable task id, and survives across re-syncs. */
+
+function syncedTaskId(sourceType, rowId){ return 'sync_' + sourceType + '_' + rowId; }
+
+function ticketRowToTitle(row){ return row.title || ('تذكرة #' + (row.ticket_number ?? row.id)); }
+function customerRowToTitle(row){ return row.full_name || row.email || row.phone || 'عميل بدون اسم'; }
+function subscriptionRowToTitle(row){ return 'اشتراك ' + (row.plan || 'واتساب') + (row.billing_cycle ? ' · ' + row.billing_cycle : ''); }
+
+async function fetchSyncRows(syncKind){
+  if(!sb) throw new Error('no-supabase-client');
+  if(syncKind === 'tickets'){
+    const { data, error } = await sb.from('board_tickets_view').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    return (data||[]).map(row => ({
+      id: row.id, status: row.status || 'open', title: ticketRowToTitle(row), createdAt: row.created_at,
+      synced: { ticket_number: row.ticket_number, priority: row.priority, status: row.status, category: row.category, ticket_type: row.ticket_type, resolved_at: row.resolved_at }
+    }));
+  }
+  if(syncKind === 'customers'){
+    const { data, error } = await sb.from('board_customers_view').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    return (data||[]).map(row => ({
+      id: row.id, status: row.is_verified ? 'verified' : 'unverified', title: customerRowToTitle(row), createdAt: row.created_at,
+      synced: { email: row.email, phone: row.phone, role: row.role, status: row.is_verified ? 'verified' : 'unverified' }
+    }));
+  }
+  if(syncKind === 'subscriptions'){
+    const { data, error } = await sb.from('whatsapp_subscriptions').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    return (data||[]).map(row => ({
+      id: row.id, status: row.status || 'pending', title: subscriptionRowToTitle(row), createdAt: row.created_at,
+      synced: { billing_cycle: row.billing_cycle, payment_method: row.payment_method, status: row.status, plan: row.plan }
+    }));
+  }
+  return [];
+}
+
+async function syncSection(secId){
+  const sec = findSection(secId);
+  if(!sec || sec.type !== 'synced' || !sb) return;
+  const cfg = SYNC_CONFIG[sec.syncKind];
+  if(!cfg) return;
+  let rows;
+  try{
+    rows = await fetchSyncRows(sec.syncKind);
+  }catch(e){
+    toast('تعذّرت مزامنة "' + sec.name + '"');
+    return;
+  }
+
+  // index existing tasks (across all of this section's columns) by id, to preserve the local overlay
+  const existingById = {};
+  for(const col of sec.columns) for(const t of col.tasks) existingById[t.id] = t;
+
+  // build the fixed group columns fresh, then reuse each existing column's real id/color if we already had one
+  const oldColumnsByLabel = {};
+  for(const col of sec.columns) oldColumnsByLabel[col.name] = col;
+
+  const groupedColumns = [];
+  const seenIds = new Set();
+  for(const g of cfg.groups){
+    const prior = oldColumnsByLabel[g.label];
+    groupedColumns.push({ id: prior ? prior.id : uid('col'), name: g.label, color: g.color, __key:g.key, tasks: [] });
+  }
+  const fallbackColumnsByKey = {};
+
+  for(const row of rows){
+    const taskId = syncedTaskId(cfg.sourceType, row.id);
+    seenIds.add(taskId);
+    let col = groupedColumns.find(c => c.__key === row.status);
+    if(!col){
+      if(!fallbackColumnsByKey[row.status]){
+        const fb = cfg.fallbackGroup(row.status);
+        const prior = oldColumnsByLabel[fb.label];
+        const newCol = { id: prior ? prior.id : uid('col'), name: fb.label, color: fb.color, __key: row.status, tasks: [] };
+        fallbackColumnsByKey[row.status] = newCol;
+        groupedColumns.push(newCol);
+      }
+      col = fallbackColumnsByKey[row.status];
+    }
+    const prevTask = existingById[taskId];
+    col.tasks.push({
+      id: taskId,
+      sourceType: cfg.sourceType,
+      title: row.title,
+      state: prevTask ? prevTask.state : 'normal',
+      starred: prevTask ? prevTask.starred : false,
+      createdAt: row.createdAt ? Date.parse(row.createdAt) : Date.now(),
+      tags: prevTask ? (prevTask.tags||[]) : [],
+      subtasks: prevTask ? (prevTask.subtasks||[]) : [],
+      logs: prevTask ? (prevTask.logs||[]) : [],
+      synced: Object.assign({}, row.synced, { stale:false })
+    });
+  }
+
+  // anything we had locally that didn't come back in this fetch is flagged stale (not deleted),
+  // so support staff don't lose notes/tags on an item that's temporarily filtered out or removed upstream.
+  for(const col of sec.columns){
+    for(const t of col.tasks){
+      if(t.sourceType && !seenIds.has(t.id)){
+        const label = cfg.groups.find(g=>g.key===((t.synced||{}).status))?.label
+          || cfg.fallbackGroup((t.synced||{}).status).label;
+        let staleCol = groupedColumns.find(c=>c.name===label);
+        if(!staleCol){ staleCol = { id: uid('col'), name: label, color:'slate', tasks: [] }; groupedColumns.push(staleCol); }
+        t.synced = Object.assign({}, t.synced, { stale:true });
+        staleCol.tasks.push(t);
+      }
+    }
+  }
+
+  for(const c of groupedColumns) delete c.__key;
+  sec.columns = groupedColumns;
+  sec.lastSync = Date.now();
+  persist();
+  if(state.activeSection === secId) renderAll();
+}
+
+async function syncAllSections(silent){
+  if(!sb) return;
+  for(const sec of state.sections){
+    if(sec.type === 'synced') await syncSection(sec.id);
+  }
+  if(!silent) toast('تمت مزامنة الأقسام المرتبطة');
+}
+
+// keep synced sections fresh automatically: right after load, then every 30s, and whenever the tab regains focus
+setInterval(()=>{ if(!document.hidden) syncAllSections(true); }, 30000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncAllSections(true); });
+
 /* ===================== HELPERS ===================== */
 function esc(str){
   return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -878,33 +1010,44 @@ function renderCard(task){
   </div>`;
 }
 
-function renderColumn(col){
+function renderColumn(col, isSynced){
   const visibleTasks = col.tasks.filter(taskMatchesSearch);
   const done = col.tasks.filter(t=>t.state==='done').length;
   const pct = col.tasks.length ? Math.round(done/col.tasks.length*100) : 0;
   let body = '';
   if(col.tasks.length === 0){
-    body = `<div class="col-empty">لا توجد مهام بعد<br>اضغط + لإضافة أول مهمة</div>`;
+    body = isSynced
+      ? `<div class="col-empty">لا توجد عناصر بهذه الحالة حاليًا</div>`
+      : `<div class="col-empty">لا توجد مهام بعد<br>اضغط + لإضافة أول مهمة</div>`;
   } else if(visibleTasks.length === 0){
     body = `<div class="col-empty">لا نتائج مطابقة للبحث</div>`;
   } else {
     body = visibleTasks.map(t=>renderCard(t)).join('');
   }
+  const headTitle = isSynced
+    ? `<div class="col-head-title" title="عمود تلقائي من Supabase">${esc(col.name)}</div>`
+    : `<div class="col-head-title" data-action="edit-col-name" data-id="${col.id}" title="اضغط لإعادة التسمية">${esc(col.name)}</div>`;
+  const headActions = isSynced
+    ? ``
+    : `<div class="col-head-actions">
+        <button class="col-btn" data-action="show-quick-add" data-id="${col.id}" title="إضافة مهمة">${icon('plus',15)}</button>
+        <button class="col-btn" data-action="col-menu" data-id="${col.id}" title="خيارات العمود">${icon('dots',15)}</button>
+      </div>`;
+  const footer = isSynced
+    ? ``
+    : `<div class="col-footer" id="footer-${col.id}">
+        <button class="quick-add-btn" data-action="show-quick-add" data-id="${col.id}">${icon('plus',13)} إضافة مهمة</button>
+      </div>`;
   return `<div class="column accent-${col.color}" data-column="${col.id}">
     <div class="col-accent-bar"></div>
     <div class="col-head">
-      <div class="col-head-title" data-action="edit-col-name" data-id="${col.id}" title="اضغط لإعادة التسمية">${esc(col.name)}</div>
+      ${headTitle}
       <span class="col-count">${col.tasks.length}</span>
-      <div class="col-head-actions">
-        <button class="col-btn" data-action="show-quick-add" data-id="${col.id}" title="إضافة مهمة">${icon('plus',15)}</button>
-        <button class="col-btn" data-action="col-menu" data-id="${col.id}" title="خيارات العمود">${icon('dots',15)}</button>
-      </div>
+      ${headActions}
     </div>
     <div class="col-progress"><div class="col-progress-fill" style="width:${pct}%"></div></div>
     <div class="col-body">${body}</div>
-    <div class="col-footer" id="footer-${col.id}">
-      <button class="quick-add-btn" data-action="show-quick-add" data-id="${col.id}">${icon('plus',13)} إضافة مهمة</button>
-    </div>
+    ${footer}
   </div>`;
 }
 
@@ -915,8 +1058,18 @@ function renderBoard(){
     board.innerHTML = `<div class="board-empty">${icon('boxEmpty',46)}<h3>لا يوجد أي قسم بعد</h3><p>ابدأ بإضافة قسم جديد من الأعلى</p></div>`;
     return;
   }
-  let html = sec.columns.map(col=>renderColumn(col)).join('');
-  html += `<button class="add-col-btn" data-action="add-column" data-id="${sec.id}">${icon('plus',16)} إضافة عمود جديد</button>`;
+  const isSynced = sec.type === 'synced';
+  let html = sec.columns.map(col=>renderColumn(col, isSynced)).join('');
+  if(isSynced){
+    const lastSyncLabel = sec.lastSync ? `آخر مزامنة: ${relativeTime(sec.lastSync)}` : 'لم تتم المزامنة بعد';
+    html += `<div class="add-col-btn" style="cursor:pointer; flex-direction:column; gap:4px;" data-action="sync-now" data-id="${sec.id}">
+      ${icon('sync',18)}
+      <span>مزامنة الآن</span>
+      <span style="font-size:11px; font-weight:400; color:var(--ink-faint);">${lastSyncLabel}</span>
+    </div>`;
+  } else {
+    html += `<button class="add-col-btn" data-action="add-column" data-id="${sec.id}">${icon('plus',16)} إضافة عمود جديد</button>`;
+  }
   board.innerHTML = html;
 
   let openCount = 0;
@@ -1337,6 +1490,11 @@ document.addEventListener('click', function(e){
     }
     case 'add-section': addSectionModal(); break;
     case 'add-column': addColumnModal(id); break;
+    case 'sync-now': {
+      toast('جارٍ المزامنة...');
+      syncSection(id).then(()=> toast('تمت المزامنة'));
+      break;
+    }
 
     case 'col-menu': e.stopPropagation(); toggleColumnMenu(el, id); break;
     case 'rename-col': {
@@ -1427,13 +1585,8 @@ async function init(){
   await loadState();
   renderAll();
   startRealtimeSync();
-  // auto-sync any built-in synced section that has never been synced yet
-  // (guarded: syncSection is only wired up if/when an external data source is connected)
-  if(typeof syncSection === 'function'){
-    for(const sec of state.sections){
-      if(sec.type==='synced' && !sec.lastSync) syncSection(sec.id);
-    }
-  }
+  // pull in real data for the synced sections (tickets / customers / subscriptions) right away
+  syncAllSections(true);
 }
 init();
 
