@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#F5F3EF;
@@ -438,36 +439,132 @@ const ICONS = {
   send:'<line x1="21" y1="3" x2="10" y2="14"/><polygon points="21 3 14 21 10 14 3 10 21 3"/>',
   phone:'<path d="M6 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/>',
   folder:'<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-  boxEmpty:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>'
+  boxEmpty:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
+  sync:'<path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M3 16v4h4"/><path d="M21 8V4h-4"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  shield:'<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>',
+  lock:'<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
+  link:'<path d="M9 15l6-6"/><path d="M11 5l1-1a4 4 0 0 1 6 6l-1 1"/><path d="M13 19l-1 1a4 4 0 0 1-6-6l1-1"/>',
+  warn:'<path d="M12 3 2 20h20z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>'
 };
 function icon(name, size, extraAttrs){
   const s = size || 16;
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extraAttrs||''}>${ICONS[name]||''}</svg>`;
 }
 
+/* ===================== SUPABASE (board persistence) ===================== */
+const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
+const sb = (typeof window.supabase !== 'undefined' && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+/* ===================== MCP BRIDGE (live tickets/customers via Mad3oom) =====================
+   Works only when this page is opened as an artifact inside Claude.ai (which proxies calls to
+   api.anthropic.com). If opened as a plain standalone file, these calls will fail gracefully
+   and the app falls back to the last cached snapshot stored in Supabase. */
+const MCP_SERVERS = { mad3oom: { type:'url', url:'https://mad3oom.online/mcp', name:'mad3oom' } };
+
+async function callClaudeMCP(promptText, servers){
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: promptText }],
+      mcp_servers: servers
+    })
+  });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const toolResults = (data.content || []).filter(b => b.type === 'mcp_tool_result');
+  return { data, toolResults };
+}
+function extractToolResultJSON(toolResults, index){
+  const block = toolResults[index || 0];
+  if(!block) return null;
+  const textBlock = Array.isArray(block.content) ? (block.content.find(c=>c.type==='text') || block.content[0]) : null;
+  if(!textBlock || !textBlock.text) return null;
+  try{ return JSON.parse(textBlock.text); }catch(e){ return null; }
+}
+function friendlyMcpError(e){
+  const msg = String((e && e.message) || e || '');
+  if(msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('HTTP')) {
+    return 'المزامنة الحية تعمل فقط عند فتح اللوحة داخل Claude.ai';
+  }
+  return 'تعذرت المزامنة: ' + msg;
+}
+
 /* ===================== STATE / STORAGE ===================== */
 const STORAGE_KEY = 'sms-whatsapp-support-board';
-const hasStorage = (typeof window.storage !== 'undefined' && window.storage !== null);
+const hasLocalStorage = (typeof window.storage !== 'undefined' && window.storage !== null);
 let saveTimer = null;
 
 function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* Column-grouping configuration for each synced kind. `groups` defines the fixed, ordered
+   columns; anything with a status outside this list gets its own fallback column. */
+const SYNC_CONFIG = {
+  tickets: {
+    sourceType: 'ticket',
+    groups: [
+      { key:'open', label:'مفتوحة', color:'terracotta' },
+      { key:'confirmed', label:'مؤكدة', color:'amber' },
+      { key:'resolved', label:'تم الحل', color:'whatsapp' },
+      { key:'rejected', label:'مرفوضة', color:'slate' }
+    ],
+    fallbackGroup: (k)=>({ label:k||'أخرى', color:'rose' })
+  },
+  customers: {
+    sourceType: 'customer',
+    groups: [
+      { key:'verified', label:'موثّقون', color:'whatsapp' },
+      { key:'unverified', label:'غير موثّقين', color:'amber' }
+    ],
+    fallbackGroup: (k)=>({ label:k||'أخرى', color:'slate' })
+  },
+  subscriptions: {
+    sourceType: 'subscription',
+    groups: [
+      { key:'active', label:'نشط', color:'whatsapp' },
+      { key:'pending', label:'قيد المراجعة', color:'amber' },
+      { key:'rejected', label:'مرفوض', color:'terracotta' },
+      { key:'expired', label:'منتهي', color:'slate' }
+    ],
+    fallbackGroup: (k)=>({ label:k||'أخرى', color:'violet' })
+  }
+};
 
 function defaultState(){
   return {
     activeSection: 'sec_sms',
     sections: [
-      { id:'sec_sms', name:'الرسائل النصية', color:'sms', icon:'note', columns:[
+      { id:'sec_sms', name:'الرسائل النصية', color:'sms', icon:'note', type:'manual', columns:[
         { id: uid('col'), name:'مشاكل برمجية', color:'terracotta', tasks:[] },
         { id: uid('col'), name:'تعويضات', color:'amber', tasks:[] },
         { id: uid('col'), name:'نقل ملكية', color:'sms', tasks:[] }
       ]},
-      { id:'sec_wa', name:'الواتساب', color:'whatsapp', icon:'phone', columns:[
+      { id:'sec_wa', name:'الواتساب', color:'whatsapp', icon:'phone', type:'manual', columns:[
         { id: uid('col'), name:'مشاكل برمجية', color:'terracotta', tasks:[] },
         { id: uid('col'), name:'الرد الآلي', color:'teal', tasks:[] },
         { id: uid('col'), name:'التعويضات', color:'amber', tasks:[] }
-      ]}
+      ]},
+      { id:'sec_tickets', name:'التذاكر', color:'violet', icon:'checklist', type:'synced', syncKind:'tickets', lastSync:null, columns:[] },
+      { id:'sec_customers', name:'العملاء', color:'teal', icon:'user', type:'synced', syncKind:'customers', lastSync:null, columns:[] },
+      { id:'sec_subs', name:'الاشتراكات', color:'rose', icon:'tag', type:'synced', syncKind:'subscriptions', lastSync:null, columns:[] }
     ]
   };
+}
+
+/* Guarantees the three built-in synced sections exist even for states saved before this
+   feature existed, and back-fills type:'manual' on legacy sections. Non-destructive. */
+function ensureBuiltinSections(){
+  for(const sec of state.sections){ if(!sec.type) sec.type = 'manual'; }
+  const defaults = defaultState().sections.filter(s=>s.type==='synced');
+  for(const d of defaults){
+    if(!state.sections.find(s=>s.id===d.id)) state.sections.push(JSON.parse(JSON.stringify(d)));
+  }
 }
 
 let state = defaultState();
@@ -476,21 +573,40 @@ let searchQuery = '';
 let openMenuId = null;
 
 async function loadState(){
-  if(!hasStorage) return;
-  try{
-    const res = await window.storage.get(STORAGE_KEY, false);
-    if(res && res.value){
-      const parsed = JSON.parse(res.value);
-      if(parsed && Array.isArray(parsed.sections)) state = parsed;
-    }
-  }catch(e){ /* nothing saved yet */ }
+  if(sb){
+    try{
+      const { data, error } = await sb.from('board').select('data').eq('id','main').maybeSingle();
+      if(error) throw error;
+      if(data && data.data && Array.isArray(data.data.sections)){ state = data.data; ensureBuiltinSections(); return; }
+    }catch(e){ /* fall through to local cache below */ }
+  }
+  if(hasLocalStorage){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        if(parsed && Array.isArray(parsed.sections)){ state = parsed; }
+      }
+    }catch(e){ /* nothing saved yet */ }
+  }
+  ensureBuiltinSections();
 }
 function persist(){
-  if(!hasStorage) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async ()=>{
-    try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state), false); }
-    catch(e){ toast('تعذّر الحفظ التلقائي'); }
+    let savedRemotely = false;
+    if(sb){
+      try{
+        const { error } = await sb.from('board').upsert({ id:'main', data: state });
+        if(error) throw error;
+        savedRemotely = true;
+      }catch(e){ /* fall back to local cache */ }
+    }
+    if(hasLocalStorage){
+      try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state), false); }
+      catch(e){ /* ignore */ }
+    }
+    if(!savedRemotely && !hasLocalStorage) toast('تعذّر الحفظ - تحقق من الاتصال');
   }, 250);
 }
 
@@ -634,6 +750,29 @@ function taskMatchesSearch(t){
   return false;
 }
 
+const PRIORITY_LABELS = { low:'منخفضة', medium:'متوسطة', high:'عالية', urgent:'عاجلة' };
+function ticketPriorityLabel(p){ return PRIORITY_LABELS[p] || p || '—'; }
+function syncedStatusColor(sourceType, status){
+  const good = ['resolved','active','verified'];
+  const bad = ['rejected','expired'];
+  if(good.includes(status)) return 'state-done';
+  if(bad.includes(status)) return 'state-blocked';
+  return 'state-normal';
+}
+function syncedBadgeLine(task){
+  const s = task.synced || {};
+  if(task.sourceType === 'ticket'){
+    return `#${s.ticket_number ?? '—'} · ${ticketPriorityLabel(s.priority)}`;
+  }
+  if(task.sourceType === 'customer'){
+    return [s.email, s.phone].filter(Boolean).join(' · ') || (s.role || '');
+  }
+  if(task.sourceType === 'subscription'){
+    return [s.billing_cycle, s.payment_method].filter(Boolean).join(' · ') || 'اشتراك';
+  }
+  return '';
+}
+
 function renderCard(task){
   const doneCls = task.state==='done' ? 'is-done' : '';
   const subDone = (task.subtasks||[]).filter(s=>s.done).length;
@@ -644,21 +783,30 @@ function renderCard(task){
     return `<span class="tag-chip" style="--chip:${c.bg}; --chip-ink:${c.ink}">${esc(tg)}</span>`;
   }).join('');
   const moreTags = (task.tags||[]).length > 3 ? `<span class="tag-chip" style="--chip:#EEE;--chip-ink:#777">+${task.tags.length-3}</span>` : '';
-  return `<div class="card ${doneCls}" data-task="${task.id}" tabindex="0" data-action="open-task">
+  const isSynced = !!task.sourceType;
+  const staleCls = (task.synced && task.synced.stale) ? 'is-stale' : '';
+  const bottomRow = isSynced
+    ? `<div class="card-bottom">
+         <span class="state-dot ${syncedStatusColor(task.sourceType, task.synced && task.synced.status)}" title="حالة النظام (للقراءة فقط)"></span>
+         ${(task.synced && task.synced.stale) ? `<span class="stale-flag" title="لم تعد هذه العناصر ضمن آخر مزامنة">${icon('warn',13)} غير محدثة</span>` : '<span></span>'}
+       </div>`
+    : `<div class="card-bottom">
+         <button class="state-dot state-${task.state||'normal'}" data-action="cycle-state" data-id="${task.id}" title="تغيير الحالة"></button>
+         <button class="card-delete" data-action="delete-task" data-id="${task.id}" title="حذف المهمة">${icon('trash',14)}</button>
+       </div>`;
+  return `<div class="card ${doneCls} ${staleCls}" data-task="${task.id}" tabindex="0" data-action="open-task">
     <div class="card-top">
       <div class="card-tags">${tagsHtml}${moreTags}</div>
       <button class="star-btn ${task.starred?'starred':''}" data-action="toggle-star" data-id="${task.id}" title="مفضلة">${icon('star',14,'fill="'+(task.starred?'currentColor':'none')+'"')}</button>
     </div>
     <div class="card-title">${esc(task.title)}</div>
+    ${isSynced ? `<div class="card-synced-line">${icon('link',11)} ${esc(syncedBadgeLine(task))}</div>` : ''}
     <div class="card-meta">
       ${subTotal>0 ? `<span class="meta-item">${icon('checklist',13)} ${subDone}/${subTotal}</span>` : ''}
       ${logCount>0 ? `<span class="meta-item">${icon('note',13)} ${logCount}</span>` : ''}
       <span class="card-time">${relativeTime(task.createdAt)}</span>
     </div>
-    <div class="card-bottom">
-      <button class="state-dot state-${task.state||'normal'}" data-action="cycle-state" data-id="${task.id}" title="تغيير الحالة"></button>
-      <button class="card-delete" data-action="delete-task" data-id="${task.id}" title="حذف المهمة">${icon('trash',14)}</button>
-    </div>
+    ${bottomRow}
   </div>`;
 }
 
@@ -1192,11 +1340,15 @@ document.addEventListener('keydown', function(e){
 
 /* ===================== INIT ===================== */
 async function init(){
-  if(!hasStorage){
-    document.getElementById('storage-badge').innerHTML = `<span class="no-storage-badge">${icon('clock',12)} التخزين السحابي غير متاح - التغييرات لن تُحفظ بعد إغلاق الصفحة</span>`;
+  if(!sb && !hasLocalStorage){
+    document.getElementById('storage-badge').innerHTML = `<span class="no-storage-badge">${icon('clock',12)} التخزين غير متاح - التغييرات لن تُحفظ بعد إغلاق الصفحة</span>`;
   }
   await loadState();
   renderAll();
+  // auto-sync any built-in synced section that has never been synced yet
+  for(const sec of state.sections){
+    if(sec.type==='synced' && !sec.lastSync) syncSection(sec.id);
+  }
 }
 init();
 
