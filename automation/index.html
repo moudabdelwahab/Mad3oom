@@ -265,6 +265,19 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
 .wf-port-in{inset-inline-start:-6px;}
 .wf-port-out{inset-inline-end:-6px;}
 .wf-port.wf-port-linking{background:var(--wf-accent);border-color:var(--wf-accent);}
+/* منافذ الفروع (عقدة إذا/لكن) — منفذين حقيقيين بدل منفذ عام واحد، كل واحد
+   بتسميته العربية جنبه؛ اللون بيتطابق مع لون الحافة الخارجة منه. */
+.wf-port-branch{position:absolute;inset-inline-end:-6px;display:flex;align-items:center;gap:.3rem;}
+.wf-port-branch .wf-port{position:static;transform:none;}
+.wf-port-branch-true{top:36%;transform:translateY(-50%);}
+.wf-port-branch-false{top:70%;transform:translateY(-50%);}
+.wf-port-branch-label{font-size:.6rem;font-weight:700;white-space:nowrap;pointer-events:none;}
+.wf-port-branch-true .wf-port-branch-label{color:#2ecc71;}
+.wf-port-branch-false .wf-port-branch-label{color:#e74c3c;}
+.wf-port-branch-true .wf-port{border-color:#2ecc71;}
+.wf-port-branch-false .wf-port{border-color:#e74c3c;}
+.wf-edge-path.wf-edge-branch-true{stroke:#2ecc71;}
+.wf-edge-path.wf-edge-branch-false{stroke:#e74c3c;}
 
 .wf-marquee{position:absolute;border:1px dashed var(--wf-accent);background:rgba(77,163,255,.1);pointer-events:none;z-index:40;}
 
