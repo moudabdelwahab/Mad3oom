@@ -210,7 +210,7 @@
         document.getElementById('cancelBtn').onclick = async (e) => {
             e.preventDefault();
             await supabase.auth.signOut();
-            window.location.href = 'sign-in.html';
+            window.location.href = 'login.html';
         };
     </script>
 </body>
