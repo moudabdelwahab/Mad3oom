@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة متابعة طلبات الدعم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F3EF;
+    --surface:#FFFFFF;
+    --surface-2:#FBFAF7;
+    --ink:#221F2B;
+    --ink-soft:#6C6678;
+    --ink-faint:#A29CAC;
+    --line:#E6E1D8;
+    --line-soft:#EFEBE3;
+    --shadow:0 1px 2px rgba(34,31,43,.06), 0 6px 20px rgba(34,31,43,.07);
+    --shadow-lg:0 10px 40px rgba(34,31,43,.20);
+    --radius:14px;
+    --font-display:'Cairo', sans-serif;
+    --font-body:'IBM Plex Sans Arabic', sans-serif;
+    --state-normal:#C9C3D6;
+    --state-done:#279864;
+    --state-blocked:#C4574A;
+  }
+  .accent-sms{ --accent:#3556D6; --accent-tint:#EAEEFD; --accent-dark:#25409E; }
+  .accent-whatsapp{ --accent:#1E9E5A; --accent-tint:#E7F7EE; --accent-dark:#157A44; }
+  .accent-amber{ --accent:#D98E2B; --accent-tint:#FBF1E1; --accent-dark:#A96C1B; }
+  .accent-terracotta{ --accent:#C4574A; --accent-tint:#FBEAE7; --accent-dark:#993F35; }
+  .accent-violet{ --accent:#7C5CBF; --accent-tint:#F1ECFA; --accent-dark:#5E4293; }
+  .accent-teal{ --accent:#1C8C8C; --accent-tint:#E3F3F3; --accent-dark:#136868; }
+  .accent-rose{ --accent:#C4577C; --accent-tint:#FAEAF0; --accent-dark:#9C3E60; }
+  .accent-slate{ --accent:#5B6472; --accent-tint:#ECEDEF; --accent-dark:#3F4753; }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit; cursor:pointer;}
+  input,textarea{font-family:inherit; font-size:14px;}
+  svg{display:block; flex-shrink:0;}
+  :focus-visible{outline:2px solid var(--ink); outline-offset:2px; border-radius:4px;}
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-thumb{background:#D8D2C5; border-radius:20px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  #app{height:100vh; display:flex; flex-direction:column;}
+
+  /* ===== Header ===== */
+  header.topbar{
+    display:flex; align-items:center; gap:14px;
+    padding:14px 22px; background:var(--surface); border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .brand{display:flex; align-items:center; gap:10px; margin-inline-end:6px;}
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background:linear-gradient(135deg,#3556D6,#1E9E5A);
+    display:flex; align-items:center; justify-content:center; color:#fff; flex:0 0 auto;
+  }
+  .brand-title{font-family:var(--font-display); font-weight:800; font-size:16px; letter-spacing:.2px;}
+  .brand-sub{font-size:11.5px; color:var(--ink-faint); margin-top:1px;}
+
+  .search-box{
+    display:flex; align-items:center; gap:8px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:10px; padding:8px 12px; flex:1 1 320px; max-width:420px;
+    color:var(--ink-soft);
+  }
+  .search-box input{border:none; background:transparent; outline:none; width:100%; color:var(--ink); font-size:13.5px;}
+
+  .stat-chip{
+    display:flex; gap:6px; align-items:baseline; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:10px; padding:7px 12px; font-size:12.5px; color:var(--ink-soft); white-space:nowrap;
+  }
+  .stat-chip b{font-family:var(--font-display); font-size:15px; color:var(--ink);}
+
+  .topbar-spacer{flex:1;}
+  .icon-action{
+    display:flex; align-items:center; gap:6px; background:transparent; border:1px solid var(--line);
+    border-radius:10px; padding:8px 11px; color:var(--ink-soft); font-size:12.5px; transition:.15s;
+  }
+  .icon-action:hover{background:var(--surface-2); color:var(--ink); border-color:#D8D2C5;}
+  #import-input{display:none;}
+  .no-storage-badge{
+    display:flex; align-items:center; gap:6px; background:#FBF1E1; color:#A96C1B; border-radius:9px; padding:7px 11px; font-size:11.5px; font-weight:700;
+  }
+
+  /* ===== Tabs ===== */
+  nav.tabs{
+    display:flex; align-items:center; gap:8px; padding:12px 22px; background:var(--surface);
+    border-bottom:1px solid var(--line); overflow-x:auto; overflow-y:hidden; flex:0 0 auto;
+  }
+  .tab-wrap{
+    position:relative; display:flex; align-items:stretch; border-radius:11px; border:1px solid var(--line);
+    background:var(--surface-2); transition:.15s; flex:0 0 auto;
+  }
+  .tab-wrap:hover{border-color:var(--accent);}
+  .tab-wrap.active{background:var(--accent-tint); border-color:var(--accent);}
+  .tab{
+    display:flex; align-items:center; gap:8px; padding:9px 6px 9px 12px; border:none; background:transparent;
+    color:var(--ink-soft); font-weight:600; font-size:13.5px; white-space:nowrap; border-radius:11px 0 0 11px;
+  }
+  .tab-wrap.active .tab{color:var(--accent-dark);}
+  .tab .tab-icon{width:18px; height:18px; color:var(--accent); flex:0 0 auto;}
+  .tab-count{background:rgba(0,0,0,.06); border-radius:99px; padding:1px 8px; font-size:11.5px; font-weight:700;}
+  .tab-wrap.active .tab-count{background:var(--accent); color:#fff;}
+  .tab-settings{
+    display:flex; align-items:center; justify-content:center; width:28px; border:none; background:transparent;
+    color:var(--ink-soft); opacity:.55; border-radius:0 11px 11px 0;
+  }
+  .tab-settings:hover{opacity:1; background:rgba(0,0,0,.06);}
+  .tab-add{
+    display:flex; align-items:center; gap:6px; padding:9px 14px; border-radius:11px; border:1.5px dashed #CFC9BC;
+    background:transparent; color:var(--ink-faint); font-weight:700; font-size:13.5px; white-space:nowrap; flex:0 0 auto;
+  }
+  .tab-add:hover{border-color:var(--ink-soft); color:var(--ink-soft);}
+
+  /* ===== Board ===== */
+  main.board{
+    flex:1; display:flex; gap:16px; padding:18px 22px; overflow-x:auto; overflow-y:hidden; align-items:flex-start;
+  }
+  .column{
+    flex:0 0 300px; height:100%; max-height:100%; display:flex; flex-direction:column;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .col-accent-bar{height:4px; background:var(--accent); border-radius:var(--radius) var(--radius) 0 0; flex:0 0 auto;}
+  .col-head{
+    display:flex; align-items:center; gap:8px; padding:13px 14px 10px; flex:0 0 auto;
+  }
+  .col-head-title{
+    font-family:var(--font-display); font-weight:700; font-size:14.5px; flex:1;
+    padding:3px 6px; border-radius:6px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .col-head-title:hover{background:var(--line-soft); cursor:text;}
+  .col-head-title input{
+    width:100%; border:1px solid var(--accent); border-radius:6px; padding:2px 6px; font-family:var(--font-display);
+    font-weight:700; font-size:14.5px; outline:none;
+  }
+  .col-count{
+    background:var(--accent-tint); color:var(--accent-dark); font-weight:700; font-size:11.5px;
+    border-radius:99px; padding:2px 9px; flex:0 0 auto;
+  }
+  .col-head-actions{display:flex; gap:2px; flex:0 0 auto;}
+  .col-btn{
+    width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:7px;
+    color:var(--ink-faint); background:transparent; border:none;
+  }
+  .col-btn:hover{background:var(--line-soft); color:var(--ink);}
+  .col-progress{height:5px; background:var(--line-soft); margin:0 14px 12px; border-radius:99px; overflow:hidden; flex:0 0 auto;}
+  .col-progress-fill{height:100%; background:var(--accent); border-radius:99px; transition:width .35s ease;}
+
+  .col-body{flex:1; overflow-y:auto; padding:0 10px 10px; display:flex; flex-direction:column; gap:8px; min-height:40px;}
+  .col-empty{
+    margin:6px 4px; padding:22px 10px; text-align:center; color:var(--ink-faint); font-size:12.5px;
+    border:1.5px dashed var(--line); border-radius:10px;
+  }
+  .col-footer{padding:8px 10px 12px; flex:0 0 auto;}
+  .quick-add-btn{
+    display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:8px; border-radius:9px;
+    border:none; background:transparent; color:var(--ink-faint); font-weight:600; font-size:13px;
+  }
+  .quick-add-btn:hover{background:var(--line-soft); color:var(--ink-soft);}
+  .quick-add-form{display:flex; flex-direction:column; gap:6px; padding:2px 2px 4px;}
+  .quick-add-form textarea{
+    resize:none; border:1px solid var(--accent); border-radius:9px; padding:8px 10px; outline:none; min-height:56px;
+  }
+  .quick-add-actions{display:flex; gap:6px;}
+  .btn-primary{
+    background:var(--ink); color:#fff; border:none; border-radius:8px; padding:7px 14px; font-weight:700; font-size:12.5px;
+  }
+  .btn-primary:hover{background:#000;}
+  .btn-ghost{
+    background:transparent; color:var(--ink-soft); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px;
+  }
+  .btn-ghost:hover{background:var(--line-soft);}
+
+  .add-col-btn{
+    flex:0 0 250px; align-self:flex-start; display:flex; align-items:center; justify-content:center; gap:8px;
+    border:1.5px dashed #D2CCC0; border-radius:var(--radius); color:var(--ink-faint); background:transparent;
+    font-weight:700; font-size:13.5px; min-height:64px;
+  }
+  .add-col-btn:hover{border-color:var(--ink-soft); color:var(--ink-soft); background:rgba(255,255,255,.4);}
+
+  /* ===== Card ===== */
+  .card{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:11px; padding:11px 12px 9px;
+    display:flex; flex-direction:column; gap:7px; transition:.12s; position:relative;
+  }
+  .card:hover{border-color:#D2CCC0; box-shadow:var(--shadow); transform:translateY(-1px);}
+  .card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:6px;}
+  .card-tags{display:flex; flex-wrap:wrap; gap:5px; min-width:0;}
+  .tag-chip{
+    font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px; background:var(--chip,#EEE);
+    color:var(--chip-ink,#555); white-space:nowrap;
+  }
+  .star-btn{
+    flex:0 0 auto; width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+    border:none; background:transparent; color:var(--ink-faint); border-radius:6px;
+  }
+  .star-btn:hover{background:var(--line-soft);}
+  .star-btn.starred{color:#D98E2B;}
+  .card-title{
+    font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.45; word-break:break-word;
+  }
+  .card.is-done .card-title{color:var(--ink-faint); text-decoration:line-through;}
+  .card-meta{display:flex; align-items:center; gap:10px; color:var(--ink-faint); font-size:11.5px; flex-wrap:wrap;}
+  .meta-item{display:flex; align-items:center; gap:4px;}
+  .card-time{margin-inline-start:auto; font-size:11px;}
+  .card-bottom{display:flex; align-items:center; justify-content:space-between; padding-top:5px; border-top:1px dashed var(--line-soft); margin-top:1px;}
+  .state-dot{
+    width:16px; height:16px; border-radius:50%; border:none; background:var(--state-normal); flex:0 0 auto;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);
+  }
+  .state-dot.state-done{background:var(--state-done);}
+  .state-dot.state-blocked{background:var(--state-blocked);}
+  .card-delete{
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center; border:none; background:transparent;
+    color:var(--ink-faint); border-radius:6px; opacity:0; transition:.15s;
+  }
+  .card:hover .card-delete{opacity:1;}
+  .card-delete:hover{background:#FBEAE7; color:#C4574A;}
+
+  /* ===== Menu portal (shared, escapes scroll clipping) ===== */
+  #menu-portal{
+    position:fixed; z-index:85; background:var(--surface); border:1px solid var(--line);
+    border-radius:11px; box-shadow:var(--shadow-lg); padding:6px; min-width:190px; display:none;
+    max-height:70vh; overflow-y:auto;
+  }
+  #menu-portal.open{display:block;}
+  .dropdown-item{
+    display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px; border-radius:8px; border:none;
+    background:transparent; text-align:right; font-size:12.5px; color:var(--ink); font-weight:500;
+  }
+  .dropdown-item:hover{background:var(--line-soft);}
+  .dropdown-item.danger{color:#C4574A;}
+  .dropdown-item.danger:hover{background:#FBEAE7;}
+  .dropdown-item svg{color:var(--ink-faint); flex:0 0 auto;}
+  .dropdown-sep{height:1px; background:var(--line); margin:5px 4px;}
+  .swatch-row{display:flex; flex-wrap:wrap; gap:7px; padding:8px 8px 4px;}
+  .swatch{width:22px; height:22px; border-radius:50%; border:2px solid transparent; background:var(--sw); padding:0;}
+  .swatch.selected{border-color:var(--ink);}
+
+  /* ===== Overlay / Modal (top layer, above panel) ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,18,26,.42); z-index:60; display:none;
+    align-items:center; justify-content:center;
+  }
+  .overlay.open{display:flex;}
+  #modal-overlay{z-index:100;}
+  .modal{
+    background:var(--surface); border-radius:16px; width:380px; max-width:92vw; padding:22px; box-shadow:var(--shadow-lg);
+  }
+  .modal h3{margin:0 0 4px; font-family:var(--font-display); font-size:16.5px;}
+  .modal p.hint{margin:0 0 16px; color:var(--ink-faint); font-size:12.5px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:6px;}
+  .field input[type=text]{
+    width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 11px; outline:none;
+  }
+  .field input[type=text]:focus{border-color:var(--ink);}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+
+  /* ===== Task Panel ===== */
+  .panel{
+    position:fixed; top:0; bottom:0; left:0; width:430px; max-width:92vw; background:var(--surface);
+    box-shadow:14px 0 40px rgba(20,18,26,.18); z-index:70; transform:translateX(-100%); transition:transform .28s ease;
+    display:flex; flex-direction:column;
+  }
+  .panel.open{transform:translateX(0);}
+  .panel-head{display:flex; align-items:flex-start; gap:10px; padding:18px 18px 12px; border-bottom:1px solid var(--line); flex:0 0 auto;}
+  .panel-close{
+    width:30px; height:30px; border-radius:8px; border:none; background:var(--line-soft); color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .panel-close:hover{background:var(--line);}
+  .panel-title{
+    flex:1; font-family:var(--font-display); font-weight:800; font-size:16.5px; line-height:1.4; min-width:0;
+    padding:4px 6px; border-radius:7px; word-break:break-word;
+  }
+  .panel-title:hover{background:var(--line-soft); cursor:text;}
+  .panel-title textarea{
+    width:100%; font-family:var(--font-display); font-weight:800; font-size:16.5px; border:1px solid var(--ink);
+    border-radius:7px; padding:6px 8px; resize:none; outline:none;
+  }
+  .panel-star{flex:0 0 auto; width:30px; height:30px; border-radius:8px; border:none; background:var(--line-soft); color:var(--ink-faint); display:flex; align-items:center; justify-content:center;}
+  .panel-star.starred{color:#D98E2B; background:#FBF1E1;}
+  .panel-body{flex:1; overflow-y:auto; padding:16px 18px 30px; display:flex; flex-direction:column; gap:22px;}
+
+  .segmented{display:flex; gap:6px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:4px;}
+  .segmented button{
+    flex:1; border:none; background:transparent; padding:8px 4px; border-radius:7px; font-size:12px; font-weight:700;
+    color:var(--ink-soft); display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .segmented button.active[data-state=normal]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
+  .segmented button.active[data-state=done]{background:#E7F7EE; color:#1E9E5A;}
+  .segmented button.active[data-state=blocked]{background:#FBEAE7; color:#C4574A;}
+  .segmented .dot{width:9px; height:9px; border-radius:50%; background:currentColor; flex:0 0 auto;}
+
+  .panel-section-title{
+    display:flex; align-items:center; gap:6px; font-family:var(--font-display); font-weight:700;
+    font-size:13px; color:var(--ink-soft); margin-bottom:10px;
+  }
+  .panel-section-title .count{font-weight:400; color:var(--ink-faint);}
+
+  .panel-tags{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+  .tag-chip.removable{display:flex; align-items:center; gap:5px; padding-inline-start:9px;}
+  .tag-chip.removable button{border:none; background:transparent; color:inherit; opacity:.6; display:flex; padding:0;}
+  .tag-chip.removable button:hover{opacity:1;}
+  .tag-add-input{
+    border:1px dashed var(--line); border-radius:99px; padding:4px 12px; font-size:12px; outline:none; width:110px; background:transparent;
+  }
+  .tag-add-input:focus{border-color:var(--ink); border-style:solid;}
+
+  .subtask-row{display:flex; align-items:center; gap:9px; padding:6px 2px;}
+  .subtask-check{
+    width:19px; height:19px; border-radius:6px; border:1.5px solid #C9C3D6; background:#fff; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; color:#fff; padding:0;
+  }
+  .subtask-check.checked{background:#279864; border-color:#279864;}
+  .subtask-text{flex:1; font-size:13px; min-width:0; word-break:break-word;}
+  .subtask-row.done .subtask-text{color:var(--ink-faint); text-decoration:line-through;}
+  .subtask-del{width:22px; height:22px; border:none; background:transparent; color:var(--ink-faint); border-radius:6px; opacity:0; display:flex; align-items:center; justify-content:center;}
+  .subtask-row:hover .subtask-del{opacity:1;}
+  .subtask-del:hover{background:#FBEAE7; color:#C4574A;}
+  .subtask-empty, .log-empty{color:var(--ink-faint); font-size:12px; padding:6px 2px;}
+  .add-row{display:flex; gap:8px; margin-top:8px;}
+  .add-row input{flex:1; border:1px solid var(--line); border-radius:9px; padding:8px 11px; outline:none;}
+  .add-row input:focus{border-color:var(--ink);}
+  .add-row button{border:none; background:var(--ink); color:#fff; border-radius:9px; padding:0 14px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+
+  .log-item{display:flex; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line-soft);}
+  .log-dot{width:26px; height:26px; border-radius:50%; background:var(--line-soft); color:var(--ink-soft); flex:0 0 auto; display:flex; align-items:center; justify-content:center;}
+  .log-content{flex:1; min-width:0;}
+  .log-text{font-size:12.8px; color:var(--ink); white-space:pre-wrap; word-break:break-word;}
+  .log-time{font-size:11px; color:var(--ink-faint); margin-top:3px;}
+  .log-del{width:22px; height:22px; border:none; background:transparent; color:var(--ink-faint); border-radius:6px; opacity:0; flex:0 0 auto;}
+  .log-item:hover .log-del{opacity:1;}
+  .log-del:hover{background:#FBEAE7; color:#C4574A;}
+  .log-form textarea{
+    width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 11px; resize:none; min-height:64px; outline:none;
+  }
+  .log-form textarea:focus{border-color:var(--ink);}
+  .log-form-actions{display:flex; justify-content:flex-end; margin-top:8px;}
+  .log-form-actions button{display:flex; align-items:center; gap:6px;}
+
+  .panel-footer{padding:12px 18px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; flex:0 0 auto;}
+  .panel-created{font-size:11px; color:var(--ink-faint);}
+  .delete-task-btn{display:flex; align-items:center; gap:6px; border:none; background:transparent; color:#C4574A; font-weight:700; font-size:12.5px; padding:7px 10px; border-radius:8px;}
+  .delete-task-btn:hover{background:#FBEAE7;}
+
+  /* ===== Empty board state ===== */
+  .board-empty{margin:auto; text-align:center; color:var(--ink-faint); padding:40px;}
+  .board-empty svg{width:46px; height:46px; margin:0 auto 12px;}
+  .board-empty h3{font-family:var(--font-display); color:var(--ink-soft); margin:0 0 6px;}
+
+  /* ===== Toast ===== */
+  .toast-wrap{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:110; display:flex; flex-direction:column; gap:8px; align-items:center;}
+  .toast{
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:99px; font-size:12.5px; font-weight:600;
+    box-shadow:var(--shadow-lg); opacity:0; transform:translateY(8px); transition:.2s;
+  }
+  .toast.show{opacity:1; transform:translateY(0);}
+
+  @media (max-width:720px){
+    header.topbar{flex-wrap:wrap; padding:12px 14px;}
+    .search-box{order:3; flex:1 1 100%; max-width:none;}
+    nav.tabs{padding:10px 14px;}
+    main.board{padding:14px;}
+    .column{flex:0 0 84vw;}
+    .add-col-btn{flex:0 0 60vw;}
+    .panel{width:100vw;}
+    .stat-chip{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+      </div>
+      <div>
+        <div class="brand-title">لوحة متابعة طلبات الدعم</div>
+        <div class="brand-sub" id="board-sub">رسائل نصية · واتساب</div>
+      </div>
+    </div>
+    <div class="search-box">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search-input" placeholder="ابحث في العنوان أو الوسوم...">
+    </div>
+    <div class="stat-chip" id="stat-chip"><b>0</b><span>مهمة مفتوحة</span></div>
+    <div class="topbar-spacer"></div>
+    <span id="storage-badge"></span>
+    <button class="icon-action" id="export-btn" title="تصدير نسخة احتياطية">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 19h14"/></svg>
+      تصدير
+    </button>
+    <button class="icon-action" id="import-btn" title="استيراد نسخة احتياطية">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><polyline points="7 14 12 9 17 14"/><path d="M5 5h14"/></svg>
+      استيراد
+    </button>
+    <input type="file" id="import-input" accept="application/json">
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+  <main class="board" id="board"></main>
+</div>
+
+<aside class="panel" id="panel"></aside>
+<div class="overlay" id="overlay"></div>
+<div class="overlay" id="modal-overlay"></div>
+<div id="menu-portal"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ===================== ICONS ===================== */
+const ICONS = {
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  dots:'<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
+  star:'<polygon points="12 2.5 15.1 9 22.2 10 17.1 15 18.3 22.1 12 18.7 5.7 22.1 6.9 15 1.8 10 8.9 9"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+  checklist:'<rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="7.5 12 10.5 15 16.5 8.5"/>',
+  note:'<path d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>',
+  trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>',
+  x:'<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>',
+  tag:'<path d="M20.6 12.6 12 21.2 2.8 12 2.8 2.8 12 2.8 20.6 11.4a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+  send:'<line x1="21" y1="3" x2="10" y2="14"/><polygon points="21 3 14 21 10 14 3 10 21 3"/>',
+  phone:'<path d="M6 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/>',
+  folder:'<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  boxEmpty:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>'
+};
+function icon(name, size, extraAttrs){
+  const s = size || 16;
+  return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extraAttrs||''}>${ICONS[name]||''}</svg>`;
+}
+
+/* ===================== STATE / STORAGE ===================== */
+const STORAGE_KEY = 'sms-whatsapp-support-board';
+const hasStorage = (typeof window.storage !== 'undefined' && window.storage !== null);
+let saveTimer = null;
+
+function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function defaultState(){
+  return {
+    activeSection: 'sec_sms',
+    sections: [
+      { id:'sec_sms', name:'الرسائل النصية', color:'sms', icon:'note', columns:[
+        { id: uid('col'), name:'مشاكل برمجية', color:'terracotta', tasks:[] },
+        { id: uid('col'), name:'تعويضات', color:'amber', tasks:[] },
+        { id: uid('col'), name:'نقل ملكية', color:'sms', tasks:[] }
+      ]},
+      { id:'sec_wa', name:'الواتساب', color:'whatsapp', icon:'phone', columns:[
+        { id: uid('col'), name:'مشاكل برمجية', color:'terracotta', tasks:[] },
+        { id: uid('col'), name:'الرد الآلي', color:'teal', tasks:[] },
+        { id: uid('col'), name:'التعويضات', color:'amber', tasks:[] }
+      ]}
+    ]
+  };
+}
+
+let state = defaultState();
+let activeTaskId = null;
+let searchQuery = '';
+let openMenuId = null;
+
+async function loadState(){
+  if(!hasStorage) return;
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(parsed && Array.isArray(parsed.sections)) state = parsed;
+    }
+  }catch(e){ /* nothing saved yet */ }
+}
+function persist(){
+  if(!hasStorage) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state), false); }
+    catch(e){ toast('تعذّر الحفظ التلقائي'); }
+  }, 250);
+}
+
+/* ===================== HELPERS ===================== */
+function esc(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const ACCENTS = ['sms','whatsapp','amber','terracotta','violet','teal','rose','slate'];
+const ACCENT_HEX = { sms:'#3556D6', whatsapp:'#1E9E5A', amber:'#D98E2B', terracotta:'#C4574A', violet:'#7C5CBF', teal:'#1C8C8C', rose:'#C4577C', slate:'#5B6472' };
+const TAG_PALETTE = [
+  {bg:'#EAEEFD', ink:'#3556D6'}, {bg:'#E7F7EE', ink:'#1E9E5A'}, {bg:'#FBF1E1', ink:'#A96C1B'},
+  {bg:'#FBEAE7', ink:'#993F35'}, {bg:'#F1ECFA', ink:'#5E4293'}, {bg:'#E3F3F3', ink:'#136868'},
+  {bg:'#FAEAF0', ink:'#9C3E60'}
+];
+function tagColor(text){
+  let h=0; for(let i=0;i<text.length;i++) h = (h*31 + text.charCodeAt(i)) >>> 0;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
+}
+function arWord(n, singular, dual, plural){ if(n===1) return singular; if(n===2) return dual; return plural; }
+function relativeTime(ts){
+  const diffSec = Math.floor((Date.now()-ts)/1000);
+  if(diffSec < 45) return 'الآن';
+  const min = Math.floor(diffSec/60);
+  if(min < 60) return `منذ ${min} ${arWord(min,'دقيقة','دقيقتين','دقائق')}`;
+  const hr = Math.floor(min/60);
+  if(hr < 24) return `منذ ${hr} ${arWord(hr,'ساعة','ساعتين','ساعات')}`;
+  const day = Math.floor(hr/24);
+  if(day===1) return 'أمس';
+  if(day < 30) return `منذ ${day} ${arWord(day,'يوم','يومين','أيام')}`;
+  const mo = Math.floor(day/30);
+  if(mo < 12) return `منذ ${mo} ${arWord(mo,'شهر','شهرين','أشهر')}`;
+  const yr = Math.floor(mo/12);
+  return `منذ ${yr} ${arWord(yr,'سنة','سنتين','سنوات')}`;
+}
+function findTask(taskId){
+  for(const sec of state.sections) for(const col of sec.columns){
+    const idx = col.tasks.findIndex(t=>t.id===taskId);
+    if(idx!==-1) return { section:sec, column:col, task:col.tasks[idx], idx };
+  }
+  return null;
+}
+function findColumn(colId){
+  for(const sec of state.sections) for(const col of sec.columns) if(col.id===colId) return {section:sec, column:col};
+  return null;
+}
+function findSection(secId){ return state.sections.find(s=>s.id===secId); }
+
+/* ===================== TOAST ===================== */
+function toast(msg){
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(), 250); }, 2200);
+}
+
+/* ===================== RENDER: TABS ===================== */
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  let html = '';
+  for(const sec of state.sections){
+    const total = sec.columns.reduce((a,c)=>a+c.tasks.length,0);
+    const active = sec.id === state.activeSection ? 'active' : '';
+    html += `<div class="tab-wrap accent-${sec.color} ${active}">
+      <button class="tab" data-action="select-section" data-id="${sec.id}">
+        <span class="tab-icon">${icon(sec.icon||'folder')}</span>
+        <span>${esc(sec.name)}</span>
+        <span class="tab-count">${total}</span>
+      </button>
+      <button class="tab-settings" data-action="section-menu" data-id="${sec.id}" title="خيارات القسم">${icon('dots',14)}</button>
+    </div>`;
+  }
+  html += `<button class="tab-add" data-action="add-section">${icon('plus',14)} قسم جديد</button>`;
+  tabs.innerHTML = html;
+}
+function sectionMenuHtml(sec){
+  return `
+    <button class="dropdown-item" data-action="rename-section" data-id="${sec.id}">${icon('folder')} إعادة تسمية</button>
+    <div class="dropdown-sep"></div>
+    <div class="swatch-row">
+      ${ACCENTS.map(a=>`<button class="swatch ${a===sec.color?'selected':''}" style="--sw:${ACCENT_HEX[a]}" data-action="set-section-color" data-id="${sec.id}" data-color="${a}" title="${a}"></button>`).join('')}
+    </div>
+    <div class="dropdown-sep"></div>
+    <button class="dropdown-item danger" data-action="delete-section" data-id="${sec.id}">${icon('trash')} حذف القسم</button>
+  `;
+}
+function columnMenuHtml(col){
+  return `
+    <button class="dropdown-item" data-action="rename-col" data-id="${col.id}">${icon('folder')} إعادة تسمية</button>
+    <div class="dropdown-sep"></div>
+    <div class="swatch-row">
+      ${ACCENTS.map(a=>`<button class="swatch ${a===col.color?'selected':''}" style="--sw:${ACCENT_HEX[a]}" data-action="set-col-color" data-id="${col.id}" data-color="${a}" title="${a}"></button>`).join('')}
+    </div>
+    <div class="dropdown-sep"></div>
+    <button class="dropdown-item danger" data-action="delete-col" data-id="${col.id}">${icon('trash')} حذف العمود</button>
+  `;
+}
+
+/* ===================== MENU PORTAL (avoids clipping inside scroll areas) ===================== */
+function openMenu(triggerEl, contentHtml, menuId){
+  const portal = document.getElementById('menu-portal');
+  portal.innerHTML = contentHtml;
+  portal.classList.add('open');
+  const rect = triggerEl.getBoundingClientRect();
+  const portalWidth = portal.offsetWidth || 200;
+  let rightPos = window.innerWidth - rect.right;
+  if(rightPos + portalWidth > window.innerWidth - 8) rightPos = 8;
+  let topPos = rect.bottom + 6;
+  const portalHeight = portal.offsetHeight || 160;
+  if(topPos + portalHeight > window.innerHeight - 8) topPos = Math.max(8, rect.top - portalHeight - 6);
+  portal.style.right = rightPos + 'px';
+  portal.style.left = 'auto';
+  portal.style.top = topPos + 'px';
+  openMenuId = menuId;
+}
+function closeMenu(){
+  const portal = document.getElementById('menu-portal');
+  portal.classList.remove('open');
+  portal.innerHTML = '';
+  openMenuId = null;
+}
+function toggleSectionMenu(triggerEl, secId){
+  if(openMenuId === 'sec:'+secId){ closeMenu(); return; }
+  const sec = findSection(secId); if(!sec) return;
+  openMenu(triggerEl, sectionMenuHtml(sec), 'sec:'+secId);
+}
+function toggleColumnMenu(triggerEl, colId){
+  if(openMenuId === 'col:'+colId){ closeMenu(); return; }
+  const found = findColumn(colId); if(!found) return;
+  openMenu(triggerEl, columnMenuHtml(found.column), 'col:'+colId);
+}
+
+/* ===================== RENDER: BOARD ===================== */
+function taskMatchesSearch(t){
+  if(!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  if(t.title.toLowerCase().includes(q)) return true;
+  if((t.tags||[]).some(tag=>tag.toLowerCase().includes(q))) return true;
+  return false;
+}
+
+function renderCard(task){
+  const doneCls = task.state==='done' ? 'is-done' : '';
+  const subDone = (task.subtasks||[]).filter(s=>s.done).length;
+  const subTotal = (task.subtasks||[]).length;
+  const logCount = (task.logs||[]).length;
+  const tagsHtml = (task.tags||[]).slice(0,3).map(tg=>{
+    const c = tagColor(tg);
+    return `<span class="tag-chip" style="--chip:${c.bg}; --chip-ink:${c.ink}">${esc(tg)}</span>`;
+  }).join('');
+  const moreTags = (task.tags||[]).length > 3 ? `<span class="tag-chip" style="--chip:#EEE;--chip-ink:#777">+${task.tags.length-3}</span>` : '';
+  return `<div class="card ${doneCls}" data-task="${task.id}" tabindex="0" data-action="open-task">
+    <div class="card-top">
+      <div class="card-tags">${tagsHtml}${moreTags}</div>
+      <button class="star-btn ${task.starred?'starred':''}" data-action="toggle-star" data-id="${task.id}" title="مفضلة">${icon('star',14,'fill="'+(task.starred?'currentColor':'none')+'"')}</button>
+    </div>
+    <div class="card-title">${esc(task.title)}</div>
+    <div class="card-meta">
+      ${subTotal>0 ? `<span class="meta-item">${icon('checklist',13)} ${subDone}/${subTotal}</span>` : ''}
+      ${logCount>0 ? `<span class="meta-item">${icon('note',13)} ${logCount}</span>` : ''}
+      <span class="card-time">${relativeTime(task.createdAt)}</span>
+    </div>
+    <div class="card-bottom">
+      <button class="state-dot state-${task.state||'normal'}" data-action="cycle-state" data-id="${task.id}" title="تغيير الحالة"></button>
+      <button class="card-delete" data-action="delete-task" data-id="${task.id}" title="حذف المهمة">${icon('trash',14)}</button>
+    </div>
+  </div>`;
+}
+
+function renderColumn(col){
+  const visibleTasks = col.tasks.filter(taskMatchesSearch);
+  const done = col.tasks.filter(t=>t.state==='done').length;
+  const pct = col.tasks.length ? Math.round(done/col.tasks.length*100) : 0;
+  let body = '';
+  if(col.tasks.length === 0){
+    body = `<div class="col-empty">لا توجد مهام بعد<br>اضغط + لإضافة أول مهمة</div>`;
+  } else if(visibleTasks.length === 0){
+    body = `<div class="col-empty">لا نتائج مطابقة للبحث</div>`;
+  } else {
+    body = visibleTasks.map(t=>renderCard(t)).join('');
+  }
+  return `<div class="column accent-${col.color}" data-column="${col.id}">
+    <div class="col-accent-bar"></div>
+    <div class="col-head">
+      <div class="col-head-title" data-action="edit-col-name" data-id="${col.id}" title="اضغط لإعادة التسمية">${esc(col.name)}</div>
+      <span class="col-count">${col.tasks.length}</span>
+      <div class="col-head-actions">
+        <button class="col-btn" data-action="show-quick-add" data-id="${col.id}" title="إضافة مهمة">${icon('plus',15)}</button>
+        <button class="col-btn" data-action="col-menu" data-id="${col.id}" title="خيارات العمود">${icon('dots',15)}</button>
+      </div>
+    </div>
+    <div class="col-progress"><div class="col-progress-fill" style="width:${pct}%"></div></div>
+    <div class="col-body">${body}</div>
+    <div class="col-footer" id="footer-${col.id}">
+      <button class="quick-add-btn" data-action="show-quick-add" data-id="${col.id}">${icon('plus',13)} إضافة مهمة</button>
+    </div>
+  </div>`;
+}
+
+function renderBoard(){
+  const board = document.getElementById('board');
+  const sec = findSection(state.activeSection) || state.sections[0];
+  if(!sec){
+    board.innerHTML = `<div class="board-empty">${icon('boxEmpty',46)}<h3>لا يوجد أي قسم بعد</h3><p>ابدأ بإضافة قسم جديد من الأعلى</p></div>`;
+    return;
+  }
+  let html = sec.columns.map(col=>renderColumn(col)).join('');
+  html += `<button class="add-col-btn" data-action="add-column" data-id="${sec.id}">${icon('plus',16)} إضافة عمود جديد</button>`;
+  board.innerHTML = html;
+
+  let openCount = 0;
+  for(const s of state.sections) for(const c of s.columns) for(const t of c.tasks) if(t.state!=='done') openCount++;
+  document.getElementById('stat-chip').innerHTML = `<b>${openCount}</b><span>مهمة مفتوحة</span>`;
+  document.getElementById('board-sub').textContent = state.sections.map(s=>s.name).join(' · ') || '—';
+}
+
+function renderAll(){ renderTabs(); renderBoard(); }
+
+/* ===================== QUICK ADD ===================== */
+function showQuickAdd(colId){
+  const footer = document.getElementById('footer-'+colId);
+  if(!footer) return;
+  footer.innerHTML = `<div class="quick-add-form">
+    <textarea id="qa-input-${colId}" placeholder="اكتب عنوان المهمة..."></textarea>
+    <div class="quick-add-actions">
+      <button class="btn-primary" data-action="submit-quick-add" data-id="${colId}">إضافة</button>
+      <button class="btn-ghost" data-action="cancel-quick-add" data-id="${colId}">إلغاء</button>
+    </div>
+  </div>`;
+  const ta = document.getElementById('qa-input-'+colId);
+  ta.focus();
+  ta.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submitQuickAdd(colId); }
+    if(e.key==='Escape'){ cancelQuickAdd(colId); }
+  });
+}
+function cancelQuickAdd(colId){
+  const footer = document.getElementById('footer-'+colId);
+  if(footer) footer.innerHTML = `<button class="quick-add-btn" data-action="show-quick-add" data-id="${colId}">${icon('plus',13)} إضافة مهمة</button>`;
+}
+function submitQuickAdd(colId){
+  const ta = document.getElementById('qa-input-'+colId);
+  if(!ta) return;
+  const title = ta.value.trim();
+  if(!title){ toast('اكتب عنوان المهمة أولاً'); return; }
+  const found = findColumn(colId);
+  if(!found) return;
+  found.column.tasks.unshift({
+    id: uid('task'), title, state:'normal', starred:false, createdAt: Date.now(),
+    tags: [], subtasks: [], logs: []
+  });
+  persist(); renderAll(); cancelQuickAdd(colId);
+  toast('تمت إضافة المهمة');
+}
+
+/* ===================== TASK ACTIONS ===================== */
+function toggleStar(taskId){
+  const f = findTask(taskId); if(!f) return;
+  f.task.starred = !f.task.starred; persist(); renderAll(); renderPanel();
+}
+function cycleState(taskId){
+  const f = findTask(taskId); if(!f) return;
+  const order = ['normal','done','blocked'];
+  const i = order.indexOf(f.task.state||'normal');
+  f.task.state = order[(i+1)%order.length];
+  persist(); renderAll(); renderPanel();
+}
+function setState(taskId, val){
+  const f = findTask(taskId); if(!f) return;
+  f.task.state = val; persist(); renderAll(); renderPanel();
+}
+function deleteTask(taskId){
+  const f = findTask(taskId); if(!f) return;
+  confirmModal(`سيتم حذف المهمة "${f.task.title}" نهائيًا مع كل المهام الفرعية والملاحظات.`, ()=>{
+    f.column.tasks.splice(f.idx,1);
+    if(activeTaskId===taskId) closePanel();
+    persist(); renderAll();
+    toast('تم حذف المهمة');
+  });
+}
+function renameTaskTitle(taskId, newTitle){
+  const f = findTask(taskId); if(!f) return;
+  const t = newTitle.trim();
+  if(t) f.task.title = t;
+  persist(); renderAll(); renderPanel();
+}
+function addTag(taskId, text){
+  const f = findTask(taskId); if(!f) return;
+  const t = text.trim();
+  if(!t) return;
+  f.task.tags = f.task.tags || [];
+  if(!f.task.tags.includes(t)) f.task.tags.push(t);
+  persist(); renderAll(); renderPanel();
+}
+function removeTag(taskId, text){
+  const f = findTask(taskId); if(!f) return;
+  f.task.tags = (f.task.tags||[]).filter(t=>t!==text);
+  persist(); renderAll(); renderPanel();
+}
+function addSubtask(taskId, text){
+  const f = findTask(taskId); if(!f) return;
+  const t = text.trim(); if(!t) return;
+  f.task.subtasks = f.task.subtasks || [];
+  f.task.subtasks.push({ id: uid('sub'), text:t, done:false, createdAt: Date.now() });
+  persist(); renderAll(); renderPanel();
+}
+function toggleSubtask(taskId, subId){
+  const f = findTask(taskId); if(!f) return;
+  const s = (f.task.subtasks||[]).find(s=>s.id===subId);
+  if(s){ s.done = !s.done; persist(); renderAll(); renderPanel(); }
+}
+function deleteSubtask(taskId, subId){
+  const f = findTask(taskId); if(!f) return;
+  f.task.subtasks = (f.task.subtasks||[]).filter(s=>s.id!==subId);
+  persist(); renderAll(); renderPanel();
+}
+function addLog(taskId, text){
+  const f = findTask(taskId); if(!f) return;
+  const t = text.trim(); if(!t) return;
+  f.task.logs = f.task.logs || [];
+  f.task.logs.unshift({ id: uid('log'), text:t, createdAt: Date.now() });
+  persist(); renderAll(); renderPanel();
+  toast('تمت إضافة الملاحظة');
+}
+function deleteLog(taskId, logId){
+  const f = findTask(taskId); if(!f) return;
+  f.task.logs = (f.task.logs||[]).filter(l=>l.id!==logId);
+  persist(); renderAll(); renderPanel();
+}
+
+/* ===================== TASK PANEL ===================== */
+function openPanel(taskId){
+  activeTaskId = taskId;
+  renderPanel();
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closePanel(){
+  activeTaskId = null;
+  document.getElementById('panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+function renderPanel(){
+  const panel = document.getElementById('panel');
+  if(!activeTaskId){ panel.innerHTML=''; return; }
+  const f = findTask(activeTaskId);
+  if(!f){ closePanel(); return; }
+  const t = f.task;
+  const subTotal = (t.subtasks||[]).length;
+  const subDone = (t.subtasks||[]).filter(s=>s.done).length;
+
+  const statesConfig = [
+    {key:'normal', label:'مفتوحة'}, {key:'done', label:'منجزة'}, {key:'blocked', label:'متعثرة'}
+  ];
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <button class="panel-close" data-action="close-panel">${icon('x',15)}</button>
+      <div class="panel-title" data-action="edit-task-title">${esc(t.title)}</div>
+      <button class="panel-star ${t.starred?'starred':''}" data-action="toggle-star" data-id="${t.id}">${icon('star',15,'fill="'+(t.starred?'currentColor':'none')+'"')}</button>
+    </div>
+    <div class="panel-body">
+      <div class="segmented">
+        ${statesConfig.map(s=>`<button class="${(t.state||'normal')===s.key?'active':''}" data-state="${s.key}" data-action="set-state" data-id="${t.id}" data-val="${s.key}"><span class="dot"></span>${s.label}</button>`).join('')}
+      </div>
+
+      <div>
+        <div class="panel-section-title">${icon('tag',14)} الوسوم</div>
+        <div class="panel-tags">
+          ${(t.tags||[]).map(tg=>{ const c=tagColor(tg); return `<span class="tag-chip removable" style="--chip:${c.bg}; --chip-ink:${c.ink}">${esc(tg)}<button data-action="remove-tag" data-id="${t.id}" data-tag="${esc(tg)}">${icon('x',10)}</button></span>`; }).join('')}
+          <input class="tag-add-input" id="tag-input" placeholder="+ وسم جديد">
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">${icon('checklist',14)} المهام الفرعية <span class="count">${subTotal? subDone+'/'+subTotal : ''}</span></div>
+        <div id="subtask-list">
+          ${subTotal===0 ? `<div class="subtask-empty">لا توجد مهام فرعية بعد</div>` :
+            (t.subtasks||[]).map(s=>`<div class="subtask-row ${s.done?'done':''}">
+              <button class="subtask-check ${s.done?'checked':''}" data-action="toggle-subtask" data-id="${t.id}" data-sub="${s.id}">${s.done?icon('checklist',12):''}</button>
+              <span class="subtask-text">${esc(s.text)}</span>
+              <button class="subtask-del" data-action="delete-subtask" data-id="${t.id}" data-sub="${s.id}">${icon('trash',13)}</button>
+            </div>`).join('')
+          }
+        </div>
+        <div class="add-row">
+          <input type="text" id="subtask-input" placeholder="أضف مهمة فرعية واضغط Enter">
+          <button data-action="submit-subtask" data-id="${t.id}">${icon('plus',14)}</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">${icon('note',14)} سجل الملاحظات <span class="count">${(t.logs||[]).length}</span></div>
+        <div class="log-form">
+          <textarea id="log-input" placeholder="اكتب ملاحظة أو تحديث عن هذه المهمة..."></textarea>
+          <div class="log-form-actions">
+            <button class="btn-primary" data-action="submit-log" data-id="${t.id}">${icon('send',13)} إضافة ملاحظة</button>
+          </div>
+        </div>
+        <div id="log-list" style="margin-top:10px;">
+          ${(t.logs||[]).length===0 ? `<div class="log-empty">لا توجد ملاحظات بعد</div>` :
+            (t.logs||[]).map(l=>`<div class="log-item">
+              <div class="log-dot">${icon('note',13)}</div>
+              <div class="log-content">
+                <div class="log-text">${esc(l.text)}</div>
+                <div class="log-time">${relativeTime(l.createdAt)}</div>
+              </div>
+              <button class="log-del" data-action="delete-log" data-id="${t.id}" data-log="${l.id}">${icon('trash',13)}</button>
+            </div>`).join('')
+          }
+        </div>
+      </div>
+    </div>
+    <div class="panel-footer">
+      <span class="panel-created">أُنشئت ${relativeTime(t.createdAt)}</span>
+      <button class="delete-task-btn" data-action="delete-task" data-id="${t.id}">${icon('trash',13)} حذف المهمة</button>
+    </div>
+  `;
+
+  const tagInput = document.getElementById('tag-input');
+  tagInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTag(t.id, tagInput.value); tagInput.value=''; } });
+
+  const subInput = document.getElementById('subtask-input');
+  subInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addSubtask(t.id, subInput.value); } });
+
+  const logInput = document.getElementById('log-input');
+  logInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); addLog(t.id, logInput.value); } });
+}
+
+/* ===================== INLINE EDIT: column / task title ===================== */
+function editColName(colId, target){
+  const found = findColumn(colId); if(!found) return;
+  const col = found.column;
+  target.innerHTML = `<input type="text" value="${esc(col.name)}">`;
+  const input = target.querySelector('input');
+  input.focus(); input.select();
+  let committed = false;
+  function commit(){
+    if(committed) return; committed = true;
+    const val = input.value.trim();
+    if(val) col.name = val;
+    persist(); renderAll();
+  }
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') commit(); if(e.key==='Escape'){ committed=true; renderAll(); } });
+  input.addEventListener('blur', commit);
+}
+function editTaskTitle(taskId, target){
+  const f = findTask(taskId); if(!f) return;
+  target.innerHTML = `<textarea rows="2">${esc(f.task.title)}</textarea>`;
+  const ta = target.querySelector('textarea');
+  ta.focus(); ta.select();
+  let committed = false;
+  function commit(){ if(committed) return; committed = true; renameTaskTitle(taskId, ta.value); }
+  ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); commit(); } if(e.key==='Escape'){ committed=true; renderPanel(); } });
+  ta.addEventListener('blur', commit);
+}
+
+/* ===================== MODALS (top layer) ===================== */
+function openModalGeneric(innerHtml, onMount){
+  const overlay = document.getElementById('modal-overlay');
+  overlay.innerHTML = `<div class="modal">${innerHtml}</div>`;
+  overlay.classList.add('open');
+  if(onMount) onMount(overlay.querySelector('.modal'));
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+}
+function closeModal(){
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('open');
+  overlay.innerHTML='';
+  overlay.onclick=null;
+}
+function confirmModal(message, onConfirm){
+  openModalGeneric(`
+    <h3>تأكيد الحذف</h3>
+    <p class="hint">${esc(message)}</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-action="close-modal">إلغاء</button>
+      <button class="btn-primary" id="confirm-yes" style="background:#C4574A;">حذف نهائيًا</button>
+    </div>
+  `, (modal)=>{
+    modal.querySelector('#confirm-yes').addEventListener('click', ()=>{ closeModal(); onConfirm(); });
+  });
+}
+function addSectionModal(){
+  openModalGeneric(`
+    <h3>قسم جديد</h3>
+    <p class="hint">أضف قسمًا رئيسيًا جديدًا للوحة (مثل قناة تواصل جديدة)</p>
+    <div class="field"><label>اسم القسم</label><input type="text" id="new-sec-name" placeholder="مثال: البريد الإلكتروني"></div>
+    <div class="field"><label>اللون</label><div class="swatch-row" id="new-sec-colors">
+      ${ACCENTS.map((a,i)=>`<button type="button" class="swatch ${i===0?'selected':''}" style="--sw:${ACCENT_HEX[a]}" data-color="${a}"></button>`).join('')}
+    </div></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-action="close-modal">إلغاء</button>
+      <button class="btn-primary" id="create-sec">إضافة القسم</button>
+    </div>
+  `, (modal)=>{
+    let chosen = ACCENTS[0];
+    modal.querySelectorAll('#new-sec-colors .swatch').forEach(sw=>{
+      sw.addEventListener('click', ()=>{ chosen = sw.dataset.color; modal.querySelectorAll('#new-sec-colors .swatch').forEach(s=>s.classList.remove('selected')); sw.classList.add('selected'); });
+    });
+    const nameInput = modal.querySelector('#new-sec-name');
+    nameInput.focus();
+    function submit(){
+      const name = nameInput.value.trim();
+      if(!name){ toast('اكتب اسم القسم'); return; }
+      const id = uid('sec');
+      state.sections.push({ id, name, color:chosen, icon:'folder', columns:[] });
+      state.activeSection = id;
+      persist(); renderAll(); closeModal();
+      toast('تمت إضافة القسم');
+    }
+    nameInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    modal.querySelector('#create-sec').addEventListener('click', submit);
+  });
+}
+function addColumnModal(secId){
+  openModalGeneric(`
+    <h3>عمود جديد</h3>
+    <p class="hint">أضف تصنيفًا فرعيًا جديدًا داخل هذا القسم</p>
+    <div class="field"><label>اسم العمود</label><input type="text" id="new-col-name" placeholder="مثال: استفسارات عامة"></div>
+    <div class="field"><label>اللون</label><div class="swatch-row" id="new-col-colors">
+      ${ACCENTS.map((a,i)=>`<button type="button" class="swatch ${i===0?'selected':''}" style="--sw:${ACCENT_HEX[a]}" data-color="${a}"></button>`).join('')}
+    </div></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-action="close-modal">إلغاء</button>
+      <button class="btn-primary" id="create-col">إضافة العمود</button>
+    </div>
+  `, (modal)=>{
+    let chosen = ACCENTS[0];
+    modal.querySelectorAll('#new-col-colors .swatch').forEach(sw=>{
+      sw.addEventListener('click', ()=>{ chosen = sw.dataset.color; modal.querySelectorAll('#new-col-colors .swatch').forEach(s=>s.classList.remove('selected')); sw.classList.add('selected'); });
+    });
+    const nameInput = modal.querySelector('#new-col-name');
+    nameInput.focus();
+    function submit(){
+      const name = nameInput.value.trim();
+      if(!name){ toast('اكتب اسم العمود'); return; }
+      const sec = findSection(secId); if(!sec) return;
+      sec.columns.push({ id: uid('col'), name, color:chosen, tasks:[] });
+      persist(); renderAll(); closeModal();
+      toast('تمت إضافة العمود');
+    }
+    nameInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    modal.querySelector('#create-col').addEventListener('click', submit);
+  });
+}
+
+/* ===================== EXPORT / IMPORT ===================== */
+function exportData(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'نسخة-احتياطية-لوحة-الدعم.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('تم تنزيل النسخة الاحتياطية');
+}
+function importData(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!parsed || !Array.isArray(parsed.sections)) throw new Error('bad');
+      confirmModal('سيتم استبدال كل بيانات اللوحة الحالية بمحتوى الملف المستورد.', ()=>{
+        state = parsed;
+        if(!findSection(state.activeSection) && state.sections[0]) state.activeSection = state.sections[0].id;
+        persist(); renderAll();
+        toast('تم الاستيراد بنجاح');
+      });
+    }catch(e){ toast('ملف غير صالح'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ===================== EVENT DELEGATION ===================== */
+document.addEventListener('click', function(e){
+  const el = e.target.closest('[data-action]');
+  if(!el){
+    if(!e.target.closest('#menu-portal')) closeMenu();
+    return;
+  }
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+
+  switch(action){
+    case 'select-section':
+      state.activeSection = id; renderAll(); break;
+    case 'section-menu':
+      e.stopPropagation(); toggleSectionMenu(el, id); break;
+    case 'rename-section': {
+      e.stopPropagation(); closeMenu();
+      const sec = findSection(id);
+      const name = window.prompt('اسم القسم الجديد:', sec.name);
+      if(name && name.trim()){ sec.name = name.trim(); persist(); renderAll(); }
+      break;
+    }
+    case 'set-section-color': {
+      e.stopPropagation();
+      const sec = findSection(id); sec.color = el.dataset.color; persist(); renderAll(); closeMenu();
+      break;
+    }
+    case 'delete-section': {
+      e.stopPropagation(); closeMenu();
+      const sec = findSection(id);
+      const taskCount = sec.columns.reduce((a,c)=>a+c.tasks.length,0);
+      confirmModal(`سيتم حذف قسم "${sec.name}" وكل أعمدته (${sec.columns.length}) ومهامه (${taskCount}).`, ()=>{
+        state.sections = state.sections.filter(s=>s.id!==id);
+        if(state.activeSection===id && state.sections[0]) state.activeSection = state.sections[0].id;
+        persist(); renderAll();
+        toast('تم حذف القسم');
+      });
+      break;
+    }
+    case 'add-section': addSectionModal(); break;
+    case 'add-column': addColumnModal(id); break;
+
+    case 'col-menu': e.stopPropagation(); toggleColumnMenu(el, id); break;
+    case 'rename-col': {
+      e.stopPropagation(); closeMenu();
+      const found = findColumn(id);
+      const name = window.prompt('اسم العمود الجديد:', found.column.name);
+      if(name && name.trim()){ found.column.name = name.trim(); persist(); renderAll(); }
+      break;
+    }
+    case 'set-col-color': {
+      e.stopPropagation();
+      const found = findColumn(id); found.column.color = el.dataset.color; persist(); renderAll(); closeMenu();
+      break;
+    }
+    case 'delete-col': {
+      e.stopPropagation(); closeMenu();
+      const found = findColumn(id);
+      confirmModal(`سيتم حذف العمود "${found.column.name}" وكل مهامه (${found.column.tasks.length}).`, ()=>{
+        found.section.columns = found.section.columns.filter(c=>c.id!==id);
+        persist(); renderAll();
+        toast('تم حذف العمود');
+      });
+      break;
+    }
+
+    case 'show-quick-add': showQuickAdd(id); break;
+    case 'cancel-quick-add': cancelQuickAdd(id); break;
+    case 'submit-quick-add': submitQuickAdd(id); break;
+
+    case 'open-task': {
+      const cardEl = e.target.closest('.card');
+      if(cardEl) openPanel(cardEl.dataset.task);
+      break;
+    }
+    case 'toggle-star': e.stopPropagation(); toggleStar(id); break;
+    case 'cycle-state': e.stopPropagation(); cycleState(id); break;
+    case 'set-state': setState(id, el.dataset.val); break;
+    case 'delete-task': e.stopPropagation(); deleteTask(id); break;
+    case 'close-panel': closePanel(); break;
+    case 'edit-task-title': editTaskTitle(activeTaskId, el); break;
+    case 'edit-col-name': editColName(id, el); break;
+
+    case 'remove-tag': removeTag(id, el.dataset.tag); break;
+    case 'submit-subtask': {
+      const input = document.getElementById('subtask-input');
+      addSubtask(id, input.value); break;
+    }
+    case 'toggle-subtask': toggleSubtask(id, el.dataset.sub); break;
+    case 'delete-subtask': deleteSubtask(id, el.dataset.sub); break;
+    case 'submit-log': {
+      const input = document.getElementById('log-input');
+      addLog(id, input.value); input.value=''; break;
+    }
+    case 'delete-log': deleteLog(id, el.dataset.log); break;
+
+    case 'close-modal': closeModal(); break;
+  }
+});
+
+document.getElementById('overlay').addEventListener('click', function(e){
+  if(e.target === this) closePanel();
+});
+
+document.getElementById('search-input').addEventListener('input', function(e){
+  searchQuery = e.target.value.trim(); renderBoard();
+});
+
+document.getElementById('export-btn').addEventListener('click', exportData);
+document.getElementById('import-btn').addEventListener('click', ()=> document.getElementById('import-input').click());
+document.getElementById('import-input').addEventListener('change', function(e){
+  if(e.target.files && e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = '';
+});
+
+document.getElementById('board').addEventListener('scroll', closeMenu);
+document.getElementById('tabs').addEventListener('scroll', closeMenu);
+window.addEventListener('resize', closeMenu);
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){ closePanel(); closeModal(); closeMenu(); }
+});
+
+/* ===================== INIT ===================== */
+async function init(){
+  if(!hasStorage){
+    document.getElementById('storage-badge').innerHTML = `<span class="no-storage-badge">${icon('clock',12)} التخزين السحابي غير متاح - التغييرات لن تُحفظ بعد إغلاق الصفحة</span>`;
+  }
+  await loadState();
+  renderAll();
+}
+init();
+
+})();
+</script>
+</body>
+</html>
