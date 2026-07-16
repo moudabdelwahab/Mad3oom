@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function checkAuth() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            window.location.href = '/sign-in.html';
+            window.location.href = '/login.html';
             return;
         }
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
