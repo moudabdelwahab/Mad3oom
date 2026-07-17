@@ -168,11 +168,7 @@ export const Canvas = (() => {
         const inner = document.getElementById('wfMinimapInner');
         const nodes = session.definition.nodes || [];
         if (!nodes.length) { inner.innerHTML = ''; return; }
-        const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
-        const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
-        const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + NODE_H_APPROX + 40;
-        const spanX = Math.max(200, maxX - minX), spanY = Math.max(140, maxY - minY);
-        const scale = Math.min(170 / spanX, 110 / spanY);
+        const { minX, minY, scale } = minimapMetrics();
 
         let html = nodes.map(n => {
             const nt = appState.nodeTypesByKey[n.type];
@@ -186,21 +182,37 @@ export const Canvas = (() => {
         html += `<div class="wf-minimap-viewport" style="left:${vpX}px;top:${vpY}px;width:${vpW * scale}px;height:${vpH * scale}px;"></div>`;
         inner.innerHTML = html;
     }
-    document.getElementById('wfMinimap')?.addEventListener('click', (e) => {
-        if (!session || !(session.definition.nodes || []).length) return;
-        const rect = e.currentTarget.getBoundingClientRect();
+    function minimapMetrics() {
         const nodes = session.definition.nodes;
         const xs = nodes.map(n => n.position.x), ys = nodes.map(n => n.position.y);
         const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + NODE_W + 40;
         const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + NODE_H_APPROX + 40;
         const spanX = Math.max(200, maxX - minX), spanY = Math.max(140, maxY - minY);
         const scale = Math.min(170 / spanX, 110 / spanY);
+        return { minX, minY, scale };
+    }
+    function panToMinimapPoint(e) {
+        const rect = document.getElementById('wfMinimap').getBoundingClientRect();
+        const { minX, minY, scale } = minimapMetrics();
         const clickX = (e.clientX - rect.left) / scale + minX;
         const clickY = (e.clientY - rect.top) / scale + minY;
         session.view.pan.x = -(clickX * session.view.zoom) + canvasWrap.clientWidth / 2;
         session.view.pan.y = -(clickY * session.view.zoom) + canvasWrap.clientHeight / 2;
         applyTransform(); renderMinimap();
+    }
+    let minimapDragging = false;
+    document.getElementById('wfMinimap')?.addEventListener('pointerdown', (e) => {
+        if (!session || !(session.definition.nodes || []).length) return;
+        minimapDragging = true;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        panToMinimapPoint(e);
     });
+    document.getElementById('wfMinimap')?.addEventListener('pointermove', (e) => {
+        if (!minimapDragging || !session || !(session.definition.nodes || []).length) return;
+        panToMinimapPoint(e);
+    });
+    document.getElementById('wfMinimap')?.addEventListener('pointerup', () => { minimapDragging = false; });
+    document.getElementById('wfMinimap')?.addEventListener('pointerleave', () => { minimapDragging = false; });
 
     /* ---------------- Node events (drag / select) ---------------- */
     function bindNodeEvents(el) {
@@ -564,5 +576,23 @@ export const Canvas = (() => {
         if (e.key.startsWith('Arrow') && session && !session.readOnly) pushHistory();
     });
 
-    return { init, mount, render, addNodeAtCenter, deleteSelection, duplicateSelection, pushHistory, updateEdgePaths, get session() { return session; } };
+    /* تمييز بصري لعقدة معيّنة بعد نتيجة تشغيل فعلي (فشل غالبًا) — بنلوّن حدود
+       العنصر ونعمل توهّج نابض حواليه، ونحرّك الكاميرا عشان يبان في المنتصف.
+       عمدًا بيعدّل الـ DOM مباشرة من غير ما يستدعي render() الكامل، لأن
+       render() بيستدعي renderBottomPanel() اللي هو المصدر اللي بينادي على
+       الدالة دي أصلًا (لوحة السجلات) — نداء render() هنا كان هيعمل حلقة لا نهائية. */
+    function highlightRunNode(nodeId, level) {
+        if (!session) return;
+        nodesLayer.querySelectorAll('.wf-node-run-error, .wf-node-run-success').forEach(el => el.classList.remove('wf-node-run-error', 'wf-node-run-success'));
+        if (!nodeId) return;
+        const n = session.definition.nodes.find(x => x.id === nodeId);
+        const el = nodesLayer.querySelector(`.wf-node[data-id="${nodeId}"]`);
+        if (!n || !el) return;
+        el.classList.add(level === 'success' ? 'wf-node-run-success' : 'wf-node-run-error');
+        session.view.pan.x = -(n.position.x * session.view.zoom) + canvasWrap.clientWidth / 2 - (NODE_W * session.view.zoom) / 2;
+        session.view.pan.y = -(n.position.y * session.view.zoom) + canvasWrap.clientHeight / 2 - 45 * session.view.zoom;
+        applyTransform();
+    }
+
+    return { init, mount, render, addNodeAtCenter, deleteSelection, duplicateSelection, pushHistory, updateEdgePaths, highlightRunNode, get session() { return session; } };
 })();
