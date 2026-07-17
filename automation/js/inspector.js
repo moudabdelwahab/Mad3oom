@@ -301,6 +301,10 @@ function renderWorkflowInspector(s, wrap) {
         <div class="wf-inspector-section-title">المشغّل الحالي</div>
         <div class="wf-field"><div class="wf-input" style="background:var(--wf-glass);">${escapeHtml(sessionTriggerSummary(s))}</div></div>
 
+        <div class="wf-inspector-section-title">الحد الأقصى للتشغيلات بالساعة</div>
+        <p class="wf-field-hint" style="margin:-.3rem 0 .6rem;">لحماية هذا الـ Workflow من التشغيل المتكرر بشكل مبالغ فيه (مثلًا بسبب حلقة أو خطأ في المشغّل). اتركه فارغًا لعدم وضع أي حد.</p>
+        <div class="wf-field"><input type="number" min="1" class="wf-input" id="wfMaxRunsPerHour" placeholder="بلا حد" value="${s.maxRunsPerHour ?? ''}" ${s.readOnly ? 'disabled' : ''}></div>
+
         <div class="wf-inspector-section-title">متغيرات الـ Workflow (تُحفظ ضمن الإصدار الحالي)</div>
         <p class="wf-field-hint" style="margin:-.3rem 0 .6rem;">قيم ثابتة تُستخدم داخل أي عنصر بالـ Workflow، مثل رقم هاتف الدعم أو اسم الشركة — اكتب اسمًا وقيمة، ثم أدرجها لاحقًا داخل أي حقل نصي بالضغط على زر "إدراج بيانات".</p>
         <div id="wfWorkflowVars">${varsEntries.map(([k, v], i) => `
@@ -315,6 +319,14 @@ function renderWorkflowInspector(s, wrap) {
 
     document.getElementById('wfDescField')?.addEventListener('input', (e) => { s.description = e.target.value; });
     document.getElementById('wfDescField')?.addEventListener('blur', () => { ui.updateSaveState(); ui.renderTabbar(); });
+
+    document.getElementById('wfMaxRunsPerHour')?.addEventListener('change', (e) => {
+        const raw = e.target.value.trim();
+        const n = raw === '' ? null : Math.max(1, parseInt(raw, 10) || 1);
+        s.maxRunsPerHour = n;
+        e.target.value = n ?? '';
+        ui.updateSaveState(); ui.renderTabbar();
+    });
 
     function collectVars() {
         const obj = {};
