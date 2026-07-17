@@ -252,6 +252,18 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
 .wf-edge-arrow{fill:var(--wf-text-3);}
 
 .wf-node{position:absolute;width:220px;background:var(--wf-card);border:1.5px solid var(--wf-glass-border);border-radius:.85rem;box-shadow:0 8px 20px -10px rgba(0,8,25,.45);user-select:none;cursor:grab;}
+/* تمييز بصري لعقدة آخر تشغيل فعلي وقف عندها (فشل غالبًا) — إطار أحمر نابض
+   حول العنصر، منفصل تمامًا عن نقطة "خطأ في الإعدادات" الثابتة الصغيرة. */
+@keyframes wfRunPulse{
+  0%,100%{box-shadow:0 8px 20px -10px rgba(0,8,25,.45),0 0 0 0 rgba(231,76,60,.55);}
+  50%{box-shadow:0 8px 20px -10px rgba(0,8,25,.45),0 0 0 7px rgba(231,76,60,0);}
+}
+@keyframes wfRunPulseSuccess{
+  0%,100%{box-shadow:0 8px 20px -10px rgba(0,8,25,.45),0 0 0 0 rgba(46,204,113,.5);}
+  50%{box-shadow:0 8px 20px -10px rgba(0,8,25,.45),0 0 0 7px rgba(46,204,113,0);}
+}
+.wf-node-run-error{border-color:#e74c3c !important;animation:wfRunPulse 1.4s ease-in-out 3;}
+.wf-node-run-success{border-color:#2ecc71 !important;animation:wfRunPulseSuccess 1.4s ease-in-out 3;}
 .wf-node:hover{border-color:var(--wf-accent-soft);}
 .wf-node.wf-node-selected{border-color:var(--wf-accent);box-shadow:0 0 0 3px rgba(77,163,255,.25), 0 8px 20px -10px rgba(0,8,25,.45);}
 .wf-node.wf-node-dragging{cursor:grabbing;opacity:.9;z-index:50;}
@@ -289,7 +301,8 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
 .wf-zoom-group .wf-btn:hover{transform:none;}
 .wf-zoom-level{text-align:center;font-size:.62rem;color:var(--wf-text-3);padding:.15rem 0;font-family:var(--wf-font-data);}
 
-.wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:170px;height:110px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);}
+.wf-minimap{position:absolute;bottom:1rem;inset-inline-end:1rem;width:170px;height:110px;background:var(--wf-bg-elevated);border:1px solid var(--wf-glass-border);border-radius:.7rem;overflow:hidden;z-index:30;box-shadow:var(--wf-shadow-lg);cursor:grab;touch-action:none;}
+.wf-minimap:active{cursor:grabbing;}
 .wf-minimap-inner{position:relative;width:100%;height:100%;}
 .wf-minimap-node{position:absolute;border-radius:2px;}
 .wf-minimap-viewport{position:absolute;border:1px solid var(--wf-accent);background:rgba(77,163,255,.12);border-radius:2px;}
@@ -546,6 +559,10 @@ html[data-theme="light"],html[data-theme="light"] .wf-shell{
                     <button class="wf-btn wf-btn-sm" id="wfRunNowBtn" title="تشغيل تجريبي يدوي — يستخدم حالة الرسم الحالية في المحرر (غير محفوظة بالضرورة). مدعوم حاليًا: Trigger / Condition / Action فقط.">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                         <span class="wf-btn-label">تشغيل تجريبي</span>
+                    </button>
+                    <button class="wf-btn wf-btn-sm" id="wfDryRunBtn" title="معاينة قبل النشر — يحسب كل خطوة ويوضّح ماذا كان سيحدث، بدون تنفيذ أي إجراء حقيقي أو لمس قاعدة البيانات.">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span class="wf-btn-label">معاينة</span>
                     </button>
                     <button class="wf-btn wf-btn-sm" id="wfSaveDraftBtn">حفظ كمسودة</button>
                     <button class="wf-btn wf-btn-primary wf-btn-sm" id="wfPublishBtn">نشر</button>
