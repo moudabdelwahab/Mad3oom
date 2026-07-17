@@ -145,6 +145,7 @@ export function mountActiveSession() {
 
     document.getElementById('wfSaveDraftBtn').disabled = s.readOnly;
     document.getElementById('wfRunNowBtn').disabled = (s.definition.nodes || []).length === 0;
+    document.getElementById('wfDryRunBtn').disabled = (s.definition.nodes || []).length === 0;
     document.getElementById('wfPublishBtn').textContent = s.publishedVersion ? 'نشر التحديثات' : 'نشر';
     document.getElementById('wfPublishBtn').disabled = s.readOnly || (s.definition.nodes || []).length === 0;
 
@@ -188,6 +189,7 @@ export async function saveDraft(silent) {
         const wfRow = await DataLayer.updateWorkflowMeta(s.id, {
             name: s.name || 'Workflow بدون اسم',
             description: s.description,
+            max_runs_per_hour: s.maxRunsPerHour ?? null,
             updated_at: new Date().toISOString()
         });
         let verRow = null;
@@ -258,7 +260,7 @@ document.getElementById('wfPublishBtn')?.addEventListener('click', publishWorkfl
    Trigger / Condition / Action. أي عنصر من فئة أخرى (control/database/
    delay/loop/ai/api) سيُفشل التشغيل برسالة واضحة بدل تجاهله أو محاكاته.
    ===================================================================== */
-export async function runNow() {
+export async function runNow(dryRun) {
     const s = activeSession();
     if (!s) return;
     const triggerNode = (s.definition.nodes || []).find(n => (n.type || '').startsWith('trigger.'));
@@ -267,9 +269,9 @@ export async function runNow() {
         return;
     }
 
-    const btn = document.getElementById('wfRunNowBtn');
+    const btn = document.getElementById(dryRun ? 'wfDryRunBtn' : 'wfRunNowBtn');
     if (btn) { btn.disabled = true; }
-    toast('جارِ تشغيل الـ Workflow...', undefined);
+    toast(dryRun ? 'جارِ تجهيز المعاينة...' : 'جارِ تشغيل الـ Workflow...', undefined);
     let triggerPayload = {};
     try {
         // Triggers المبنية على تذكرة (ticket_created/status_changed/closed) محتاجة
@@ -291,23 +293,63 @@ export async function runNow() {
             workflowVersionNumber: s.draftVersionNumber || null,
             definition: s.definition,
             triggerPayload,
+            dryRun: !!dryRun,
         });
-        if (result.status === 'completed') {
-            toast('اكتمل التشغيل بنجاح', 'success');
+        if (dryRun) {
+            showDryRunResults(result);
         } else {
-            toast('فشل التشغيل: ' + (result.error || ''), 'error');
+            if (result.status === 'completed') {
+                toast('اكتمل التشغيل بنجاح', 'success');
+            } else {
+                toast('فشل التشغيل: ' + (result.error || ''), 'error');
+            }
+            s.runsCache = undefined; // لإظهار التشغيل الجديد فورًا لو رجع المستخدم للسان "سجل التشغيل"
+            if (result.run_id) await showRunResultInLogs(result.run_id, s);
+            else { openBottomTab('runs'); renderBottomPanel(); }
         }
-        s.runsCache = undefined; // لإظهار التشغيل الجديد فورًا لو رجع المستخدم للسان "سجل التشغيل"
-        if (result.run_id) await showRunResultInLogs(result.run_id, s);
-        else { openBottomTab('runs'); renderBottomPanel(); }
     } catch (err) {
         console.error(err);
-        toast('تعذّر تشغيل الـ Workflow: ' + (err.message || ''), 'error');
+        toast('تعذّر ' + (dryRun ? 'تجهيز المعاينة' : 'تشغيل الـ Workflow') + ': ' + (err.message || ''), 'error');
     } finally {
         if (btn) btn.disabled = false;
     }
 }
-document.getElementById('wfRunNowBtn')?.addEventListener('click', runNow);
+document.getElementById('wfRunNowBtn')?.addEventListener('click', () => runNow(false));
+document.getElementById('wfDryRunBtn')?.addEventListener('click', () => runNow(true));
+
+/* نافذة نتيجة المعاينة (Dry Run) — الاستجابة بترجع كل الخطوات inline في نفس
+   الطلب (مفيش سجل حقيقي في wf_runs نقدر نستعلم عنه)، فبنعرضها مباشرة من غير
+   ما نلجأ للوحة "سجل التشغيل" العادية المرتبطة بقاعدة البيانات. */
+function showDryRunResults(result) {
+    const overlay = document.createElement('div');
+    overlay.className = 'wf-modal-overlay';
+    const rows = (result.steps || []).map(st => {
+        const ok = st.status === 'success';
+        const detail = st.dry_run_note || st.error || (ok ? 'تم التحقق بنجاح' : '');
+        return `<div class="wf-field" style="border-bottom:1px solid var(--wf-glass-border);padding-bottom:.6rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;color:${ok ? 'var(--wf-text-1)' : 'var(--wf-danger)'};">
+                <span>${ok ? '✅' : '❌'}</span><span>${escapeHtml(st.node_key || '')}</span>
+            </div>
+            <p style="font-size:.72rem;color:var(--wf-text-2);margin:.3rem 0 0;">${escapeHtml(detail)}</p>
+        </div>`;
+    }).join('');
+    overlay.innerHTML = `
+        <div class="wf-modal" style="width:min(560px,100%);">
+            <div class="wf-modal-head"><h3 style="font-size:1rem;">نتيجة المعاينة ${result.status === 'completed' ? '✅' : '— توقّفت عند خطأ'}</h3>
+                <button class="wf-btn wf-btn-icon wf-btn-sm" id="wfDryModalClose">${ic('x', 14)}</button>
+            </div>
+            <div class="wf-modal-body">
+                <p class="wf-field-hint" style="margin-bottom:.8rem;">هذه معاينة فقط — لم يتم تنفيذ أي إجراء حقيقي ولم تُلمَس أي بيانات في قاعدة البيانات أو تُرسَل أي رسالة فعلية.</p>
+                ${rows || '<p style="font-size:.75rem;color:var(--wf-text-2);">لا توجد خطوات نُفِّذت.</p>'}
+            </div>
+            <div class="wf-modal-foot"><button class="wf-btn wf-btn-sm wf-btn-primary" id="wfDryModalOk">تمام</button></div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('wfDryModalClose').addEventListener('click', close);
+    document.getElementById('wfDryModalOk').addEventListener('click', close);
+}
 
 export async function duplicateAsDraftFromBuilder() {
     const s = activeSession();
