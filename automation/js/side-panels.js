@@ -28,6 +28,7 @@ export function openBottomTab(name) {
     bottomActiveTab = name;
     document.querySelectorAll('.wf-bottom-tab').forEach(t => t.classList.toggle('wf-bottom-tab-active', t.dataset.bottomtab === name));
     document.getElementById('wfBottomPanel').classList.remove('wf-bottom-collapsed');
+    if (name !== 'logs') Canvas.highlightRunNode(null);
     renderBottomPanel();
 }
 document.querySelectorAll('.wf-bottom-tab').forEach(t => t.addEventListener('click', () => openBottomTab(t.dataset.bottomtab)));
@@ -147,7 +148,7 @@ function renderLogsTab(s, content) {
         s.runStepsCache.map(step => {
             const nt = appState.nodeTypesByKey[step.node_key];
             const label = nt ? (nt.name_ar || nt.name_en) : step.node_key;
-            return `<div class="wf-run-row" style="flex-direction:column;align-items:stretch;gap:.35rem;">
+            return `<div class="wf-run-row" data-node="${escapeHtml(step.node_id || '')}" style="flex-direction:column;align-items:stretch;gap:.35rem;cursor:${step.node_id ? 'pointer' : 'default'};" title="${step.node_id ? 'اضغط للانتقال إلى هذه الخطوة على المخطط' : ''}">
                 <div style="display:flex;align-items:center;gap:.5rem;">
                     <span class="wf-badge ${STEP_STATUS_BADGE[step.status] || 'wf-badge-gray'}"><span class="wf-badge-dot"></span>${STEP_STATUS_LABEL[step.status] || step.status}</span>
                     <strong style="font-size:.75rem;">${escapeHtml(label)}</strong>
@@ -157,6 +158,20 @@ function renderLogsTab(s, content) {
                 ${step.output && Object.keys(step.output).length ? `<pre style="font-size:.62rem;background:var(--wf-surface-2);border-radius:6px;padding:.4rem .5rem;margin:0;overflow:auto;direction:ltr;text-align:left;">${escapeHtml(JSON.stringify(step.output, null, 2))}</pre>` : ''}
             </div>`;
         }).join('');
+
+    content.querySelectorAll('.wf-run-row[data-node]').forEach(row => {
+        const nid = row.dataset.node;
+        if (!nid) return;
+        row.addEventListener('click', () => {
+            s.selection.nodeIds = new Set([nid]); s.selection.edgeId = null;
+            Canvas.render(); ui.renderInspector();
+        });
+    });
+
+    // تمييز بصري مباشر على المخطط لأول خطوة فشلت في هذا التشغيل (لو موجودة) —
+    // بدل ما يضطر المستخدم يدوّر يدويًا على العنصر اللي وقف عنده التنفيذ.
+    const failedStep = s.runStepsCache.find(st => st.status === 'failed');
+    Canvas.highlightRunNode(failedStep?.node_id || null, 'error');
 }
 
 /* =====================================================================
