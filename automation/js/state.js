@@ -119,6 +119,7 @@ export function createSession(workflowFull, isNew) {
         draftVersionId: draft.id,
         draftVersionNumber: draft.version_number || 1,
         publishedVersion: workflowFull.published_version || null,
+        maxRunsPerHour: workflowFull.max_runs_per_hour ?? null,
         definition: JSON.parse(JSON.stringify(def)),
         variables: JSON.parse(JSON.stringify(vars)),
         triggerConfig: JSON.parse(JSON.stringify(triggerConfig)),
