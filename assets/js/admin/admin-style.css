@@ -670,6 +670,38 @@ body {
 
 .status-super_user { background: #EDE7F6; color: #5E35B1; }
 
+.sie-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.6rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.sie-field select,
+.sie-field input[type="number"],
+.sie-field input[type="text"],
+.sie-field input[type="datetime-local"] {
+    font-family: 'Cairo', sans-serif;
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    background: var(--color-bg, #fff);
+    color: var(--color-text);
+    max-width: 55%;
+}
+.sie-usage {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin: 0.4rem 0 0.75rem;
+}
+
 @media (max-width: 480px) {
     .options-panel { width: 92%; }
 }
