@@ -14,6 +14,8 @@
 
 import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
+import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
+import { CHATBOT_MODE_LABELS, fetchChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 
 /**
  * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
@@ -148,6 +150,13 @@ class ChatWidget {
               </a>
               <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">تقديم</button>
             </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="chatModeItem">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+              </div>
+              <span class="chat-settings-label">وضع الشات بوت</span>
+              <span class="chat-settings-action" id="chatModeCurrentLabel" style="color: var(--chat-text-secondary); font-weight: 600;">تقليدي</span>
+            </div>
             <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem">
               <div class="chat-settings-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
@@ -201,6 +210,7 @@ class ChatWidget {
         const maximizeItem = document.getElementById('maximizeItem');
         const notifToggle = document.getElementById('notificationsToggle');
         const provideBtn = document.getElementById('chatProvideBtn');
+        const chatModeItem = document.getElementById('chatModeItem');
 
         if (!bubbleBtn || !closeBtn) {
             console.error('[ChatWidget] Failed to find chat elements');
@@ -218,6 +228,7 @@ class ChatWidget {
         maximizeItem.addEventListener('click', () => this.toggleMaximize());
         notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
         provideBtn.addEventListener('click', () => this.submitContactDetails());
+        chatModeItem.addEventListener('click', () => this.openChatModeDialog());
 
         document.addEventListener('click', (e) => {
             const panel = document.getElementById('chatSettingsPanel');
@@ -321,6 +332,31 @@ class ChatWidget {
         provideBtn.style.display = this.isLoggedIn ? 'flex' : 'none';
     }
 
+    /* ==================== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) ==================== */
+
+    async refreshChatModeLabel() {
+        const label = document.getElementById('chatModeCurrentLabel');
+        if (!label || !this.currentUser) return;
+        try {
+            const state = await fetchChatbotModeState(this.currentUser.id);
+            label.textContent = CHATBOT_MODE_LABELS[state.chatbot_mode] || CHATBOT_MODE_LABELS.traditional;
+        } catch (err) {
+            console.warn('[ChatWidget] تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
+        }
+    }
+
+    openChatModeDialog() {
+        if (!this.currentUser) {
+            window.location.href = '/sign-in.html';
+            return;
+        }
+        this.toggleSettingsPanel(false);
+        openChatbotModeDialog({
+            userId: this.currentUser.id,
+            onModeChanged: () => this.refreshChatModeLabel()
+        });
+    }
+
     /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
 
     async openWidget() {
@@ -400,6 +436,7 @@ class ChatWidget {
         this.currentUser = user;
         this.isLoggedIn = true;
         this.updateContactDetailsUI();
+        this.refreshChatModeLabel();
 
         await Promise.all([this.loadProfile(), this.loadBotSettings()]);
         await this.loadOrCreateSession();
