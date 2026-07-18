@@ -121,6 +121,7 @@ function setupSidebarLogic() {
     checkMainAdminForSuperUser();
     checkSuperUserForMyUsers();
     checkSupportForWhatsApp();
+    checkAdminForAgents();
 
     const toggleSidebar = () => {
         sidebar.classList.toggle('active');
@@ -308,6 +309,17 @@ async function checkSupportForWhatsApp() {
         if (profile && (profile.email === 'support@mad3oom.online' || profile.role === 'admin' || profile.whatsapp_enabled)) {
             const whatsappLink = document.getElementById('whatsappLink');
             if (whatsappLink) whatsappLink.style.display = 'flex';
+        }
+    }
+}
+
+async function checkAdminForAgents() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile && (profile.role === 'admin' || profile.role === 'support' || profile.role === 'super_user')) {
+            const agentsLink = document.getElementById('agentsLink');
+            if (agentsLink) agentsLink.style.display = 'flex';
         }
     }
 }
