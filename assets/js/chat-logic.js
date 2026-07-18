@@ -1,5 +1,7 @@
 import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
+import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
+import { CHATBOT_MODE_LABELS, fetchChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 
 console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
 
@@ -475,6 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
         const endChatBtn = document.getElementById('endChatBtn');
+        const chatModeBtn = document.getElementById('chatModeBtn');
 
         if (sendBtn) {
             sendBtn.onclick = () => sendCustomerMessage();
@@ -491,6 +494,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (endChatBtn) {
             endChatBtn.onclick = endCustomerChat;
         }
+
+        if (chatModeBtn) {
+            chatModeBtn.onclick = openChatModeDialogForCustomer;
+            refreshChatModeButtonLabel();
+        }
+    }
+
+    // ===== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) =====
+    async function refreshChatModeButtonLabel() {
+        const label = document.getElementById('chatModeBtnLabel');
+        if (!label || !currentUser) return;
+        try {
+            const state = await fetchChatbotModeState(currentUser.id);
+            label.textContent = CHATBOT_MODE_LABELS[state.chatbot_mode] || CHATBOT_MODE_LABELS.traditional;
+        } catch (err) {
+            console.warn('تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
+        }
+    }
+
+    function openChatModeDialogForCustomer() {
+        if (!currentUser) return;
+        openChatbotModeDialog({
+            userId: currentUser.id,
+            onModeChanged: () => refreshChatModeButtonLabel()
+        });
     }
 
     // ===== SEND CUSTOMER MESSAGE =====
