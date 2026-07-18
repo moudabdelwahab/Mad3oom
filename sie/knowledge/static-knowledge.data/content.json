@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "key": "platform_info",
+      "text": {
+        "ar": "منصتنا بتساعد الشركات تدير الدعم الفني والتواصل مع العملاء من مكان واحد، بما في ذلك الرد على واتساب، إدارة التذاكر، ومتابعة الاشتراكات. تقدر تدخل تعرف أكتر من صفحة \"عن المنصة\" في حسابك، أو تسألني أي سؤال تاني وهساعدك.",
+        "en": "Our platform helps businesses manage customer support and communication from one place — including WhatsApp replies, ticket management, and subscription tracking. You can read more on the \"About\" page in your account, or just ask me anything else."
+      }
+    },
+    {
+      "key": "pricing",
+      "text": {
+        "ar": "عندنا 3 باقات: باقة الدعم الفني بس، باقة واتساب بس، والباقة الشاملة اللي بتضم الاتنين بسعر أقل من لو اشتركت فيهم منفصلين. كل باقة متاحة شهري أو سنوي (السنوي بخصم). للأسعار الدقيقة والعروض الحالية، تقدر تزور صفحة الأسعار في حسابك أو تتواصل مع فريق المبيعات.",
+        "en": "We offer three plans: Support only, WhatsApp only, and a combined Bundle plan that costs less than subscribing to both separately. Each plan is available monthly or yearly (yearly comes with a discount). For exact current pricing and offers, check the Pricing page in your account or reach out to our sales team."
+      }
+    }
+  ]
+}

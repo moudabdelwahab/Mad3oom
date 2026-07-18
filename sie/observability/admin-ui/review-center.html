@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مركز المراجعة — محرك الدعم الذكي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #F3F4F7;
+    --surface: #FFFFFF;
+    --surface-sunken: #EBEDF2;
+    --ink: #14181F;
+    --ink-soft: #545B6B;
+    --ink-faint: #8A90A0;
+    --border: #E1E4EA;
+    --border-strong: #C7CBD6;
+    --accent: #6552E0;
+    --accent-soft: #EFECFC;
+    --pass: #1F8A5F;
+    --pass-soft: #E4F5EC;
+    --fail: #C4453C;
+    --fail-soft: #FBEAE9;
+    --warn: #B8790C;
+    --warn-soft: #FBF1DE;
+    --mono-bg: #14181F;
+    --mono-ink: #D8DBE3;
+    --radius: 10px;
+    --font-display: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+    --font-body: 'IBM Plex Sans Arabic', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+}
+a { color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+.ltr-data { direction: ltr; unicode-bidi: isolate; text-align: left; font-family: var(--font-mono); }
+
+/* ---------- الهيكل العام ---------- */
+.shell { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+@media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+.sidebar {
+    background: var(--ink);
+    color: #C7CBE0;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff; }
+.brand-sub { font-size: 11.5px; color: #8A90C7; margin-top: 4px; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-label { font-size: 11px; color: #6D7290; margin: 14px 4px 6px; }
+.nav-item { padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #C7CBE0; display: flex; justify-content: space-between; align-items: center; }
+.nav-item.active { background: rgba(101,82,224,0.35); color: #fff; }
+.nav-count { font-family: var(--font-mono); direction: ltr; font-size: 11px; background: rgba(255,255,255,0.1); padding: 1px 7px; border-radius: 20px; }
+.pipeline-legend { margin-top: auto; font-size: 11.5px; color: #6D7290; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; line-height: 1.8; }
+.pipeline-legend b { color: #A9ADD6; }
+
+.main { padding: 32px 40px 80px; max-width: 1180px; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 6px; gap: 20px; }
+.page-title { font-family: var(--font-display); font-size: 27px; font-weight: 700; }
+.page-desc { color: var(--ink-soft); font-size: 13.5px; max-width: 60ch; margin-top: 4px; }
+.demo-flag { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; color: var(--accent); background: var(--accent-soft); border: 1px solid #D8D1FA; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+
+/* ---------- جدول القائمة ---------- */
+.queue-wrap { margin-top: 26px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.queue-row {
+    display: grid;
+    grid-template-columns: 96px 1fr 130px 110px 120px 90px;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.queue-row:hover { background: var(--surface-sunken); }
+.queue-row.head { font-size: 11px; color: var(--ink-faint); cursor: default; background: var(--surface-sunken); font-weight: 600; }
+.queue-row.head:hover { background: var(--surface-sunken); }
+.queue-row.selected { background: var(--accent-soft); }
+.qid { font-family: var(--font-mono); direction: ltr; text-align: left; color: var(--ink-faint); font-size: 11.5px; }
+.qmsg { color: var(--ink); }
+.qmsg .qmsg-sub { display: block; color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 500; width: fit-content; }
+.badge.fallback { background: var(--warn-soft); color: var(--warn); }
+.badge.escalated_unknown { background: var(--fail-soft); color: var(--fail); }
+.badge.low_confidence { background: var(--accent-soft); color: var(--accent); }
+.status-pill { font-size: 11.5px; padding: 3px 9px; border-radius: 20px; background: var(--surface-sunken); color: var(--ink-soft); width: fit-content; }
+.status-pill.resolved { background: var(--pass-soft); color: var(--pass); }
+.conf { font-family: var(--font-mono); direction: ltr; text-align: left; font-size: 12.5px; color: var(--ink-soft); }
+
+/* ---------- لوحة التفاصيل ---------- */
+.detail { margin-top: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 30px; display: none; }
+.detail.open { display: block; }
+.detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 24px; }
+.detail-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.detail-meta { font-size: 11.5px; color: var(--ink-faint); margin-top: 6px; line-height: 1.7; }
+.close-btn { background: var(--surface-sunken); border: none; border-radius: 7px; padding: 6px 14px; font-size: 12.5px; color: var(--ink-soft); }
+
+.detail-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; }
+@media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+
+/* عمود التتبع — العنصر المميّز: سبع خطوات متصلة، لكل موديول في المحرك */
+.spine { position: relative; padding-right: 26px; }
+.spine::before { content: ''; position: absolute; right: 7px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, var(--accent) 0%, var(--border-strong) 100%); }
+.spine-step { position: relative; margin-bottom: 4px; }
+.spine-dot { position: absolute; right: -26px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
+.spine-step.inactive .spine-dot { border-color: var(--border-strong); }
+.spine-toggle { width: 100%; text-align: right; background: none; border: none; padding: 8px 0 8px 12px; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; }
+.spine-toggle:hover { background: var(--surface-sunken); }
+.spine-num { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; color: var(--ink-faint); margin-left: 8px; }
+.spine-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
+.spine-summary { font-size: 11.5px; color: var(--ink-faint); font-family: var(--font-mono); direction: ltr; text-align: left; }
+.spine-body { display: none; background: var(--mono-bg); color: var(--mono-ink); border-radius: 8px; padding: 14px 16px; margin: 6px 0 14px 0; font-family: var(--font-mono); direction: ltr; text-align: left; font-size: 12px; line-height: 1.65; white-space: pre-wrap; }
+.spine-body.open { display: block; }
+
+/* معاينة الرد */
+.response-card { background: var(--surface-sunken); border-radius: 8px; padding: 14px 16px; margin-top: 18px; font-size: 13.5px; }
+.response-card .label { font-size: 11px; color: var(--ink-faint); margin-bottom: 6px; font-weight: 500; }
+
+/* العمود الأيسر: التصحيح والحالة */
+.panel-block { border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+.panel-block h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 14px; }
+.panel-block p.hint { color: var(--ink-faint); font-size: 12px; margin: 0 0 12px; line-height: 1.6; }
+select, textarea, input[type=text] {
+    width: 100%; border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 10px;
+    font-family: var(--font-body); font-size: 13.5px; background: var(--surface); color: var(--ink);
+}
+textarea { resize: vertical; min-height: 64px; }
+label.field-label { font-size: 12px; color: var(--ink-soft); font-weight: 500; display: block; margin: 10px 0 5px; }
+.status-options { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.status-opt { border: 1px solid var(--border-strong); background: var(--surface); border-radius: 20px; padding: 6px 12px; font-size: 12.5px; color: var(--ink-soft); }
+.status-opt.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn { border: none; border-radius: 7px; padding: 9px 16px; font-size: 13px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #5642cf; }
+.save-row { display: flex; justify-content: flex-start; gap: 10px; margin-top: 14px; }
+.saved-flag { font-size: 12px; color: var(--pass); display: none; align-self: center; }
+.saved-flag.show { display: inline; }
+
+.empty-state { padding: 60px 20px; text-align: center; color: var(--ink-faint); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <div>
+            <div class="brand">محرك الدعم الذكي</div>
+            <div class="brand-sub">مركز المراجعة</div>
+        </div>
+        <nav class="nav-group">
+            <div class="nav-label">المراقبة</div>
+            <div class="nav-item active">قائمة التعلّم <span class="nav-count" id="nav-queue-count">—</span></div>
+            <div class="nav-item">كل المحادثات</div>
+            <div class="nav-item">التذاكر المُصعّدة</div>
+            <div class="nav-label">المحتوى</div>
+            <div class="nav-item">مسودات السيناريوهات</div>
+            <div class="nav-item">مسودات المعرفة</div>
+            <div class="nav-item">معمل التحقق ↚</div>
+        </nav>
+        <div class="pipeline-legend">
+            ترتيب مسار التتبع:<br>
+            <b>اللغة ← السيناريو ← التشخيص ← الترتيب ← القرار ← المعرفة ← الحوار</b>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="page-head">
+            <div>
+                <div class="page-title">قائمة التعلّم</div>
+                <div class="page-desc">المحادثات اللي المحرك حطّها للمراجعة — ثقة منخفضة، رد احتياطي (Fallback)، أو تصعيد لم يُحل. الشاشة دي فلتر على سجل التتبع، مش تخزين منفصل.</div>
+            </div>
+            <span class="demo-flag">● بيانات تجريبية — غير متصلة بقاعدة بيانات حقيقية</span>
+        </div>
+
+        <div class="queue-wrap">
+            <div class="queue-row head">
+                <span>الجلسة</span>
+                <span>الرسالة المُعلّمة</span>
+                <span>السبب</span>
+                <span>الثقة</span>
+                <span>الحالة</span>
+                <span>الدور</span>
+            </div>
+            <div id="queue-body"></div>
+        </div>
+
+        <section id="detail" class="detail">
+            <div class="detail-head">
+                <div>
+                    <div class="detail-title" id="detail-title">—</div>
+                    <div class="detail-meta" id="detail-meta">—</div>
+                </div>
+                <button class="close-btn" onclick="closeDetail()">إغلاق</button>
+            </div>
+
+            <div class="detail-grid">
+                <div>
+                    <div class="spine" id="spine"></div>
+                    <div class="response-card">
+                        <div class="label">الرد المُرسل في هذا الدور</div>
+                        <div id="response-text">—</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel-block">
+                        <h4>تصحيح التشخيص</h4>
+                        <p class="hint">لو المحرك اختار السيناريو الغلط، صححه هنا. ده هيتسجل كملاحظة على المراجعة — مش هيغيّر كتالوج السيناريوهات لوحده.</p>
+                        <label class="field-label">السيناريو الصحيح</label>
+                        <select id="correction-scenario"></select>
+                        <label class="field-label">ملاحظة للفريق</label>
+                        <textarea id="correction-note" placeholder="مثلاً: العميل كان بيسأل عن إلغاء الاشتراك، مش الفوترة…"></textarea>
+                    </div>
+
+                    <div class="panel-block">
+                        <h4>حالة المراجعة</h4>
+                        <p class="hint">متسجّلة في جدول chat_engine_conversation_reviews.</p>
+                        <div class="status-options" id="status-options"></div>
+                    </div>
+
+                    <div class="save-row">
+                        <button class="btn btn-primary" onclick="saveReview()">حفظ المراجعة</button>
+                        <span class="saved-flag" id="saved-flag">تم الحفظ (محليًا فقط — عرض تجريبي)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="empty" class="empty-state" style="display:none;">مفيش حاجة في قائمة التعلّم دلوقتي.</div>
+    </main>
+</div>
+
+<script>
+// ------------------------------------------------------------------
+// بيانات تجريبية ثابتة. في الإنتاج، الشاشة دي بتقرأ من
+// chat_engine_learning_queue (VIEW) و chat_engine_trace_events؛
+// مفيش أي استدعاء API حقيقي هنا — شوف علامة "بيانات تجريبية" فوق.
+// ------------------------------------------------------------------
+const SCENARIO_OPTIONS = [
+    'login_token_expired', 'api_integration_issue', 'webhook_delivery_failure',
+    'subscription_payment_not_reflected', 'pricing_inquiry', 'platform_info_inquiry',
+    'ticket_status_inquiry', 'subscription_status_inquiry', 'unknown'
+];
+const STATUS_OPTIONS = [
+    { value: 'open', label: 'مفتوحة' },
+    { value: 'in_review', label: 'قيد المراجعة' },
+    { value: 'resolved', label: 'تم الحل' },
+    { value: 'dismissed', label: 'مرفوضة' }
+];
+
+const QUEUE = [
+    {
+        sessionId: 'a1c9-4e21', turn: 2, reason: 'low_confidence', status: 'open', confidence: 0.14,
+        rawText: 'مش عارف انا عندي مشكلة في حاجة غريبة شوية بس مش قادر اوصفها',
+        trace: [
+            { name: 'اللغة', summary: 'ar · 11 tokens · 0 glossary matches', body: 'responseLanguage: ar\nnormalizedTokenCanonicals: [مش, عارف, انا, عندي, مشكله, في, حاجه, غريبه, شويه, بس, مش]\nglossaryMatches: []' },
+            { name: 'السيناريو', summary: 'catalog v14 · 12 scenarios loaded', body: 'catalogVersion: 14\nscenariosLoaded: 12\nwarnings: []' },
+            { name: 'التشخيص', summary: '2 active hypotheses, weak signal', body: 'hypotheses:\n  - scenarioId: unknown            confidence: 0.140  status: active\n  - scenarioId: subscription_payment_not_reflected  confidence: 0.090  status: active' },
+            { name: 'الترتيب', summary: 'top: unknown (0.14) · ambiguous: false', body: 'topScenarioId: unknown\ntopConfidence: 0.140\nrunnerUp: subscription_payment_not_reflected (0.090)\nisAmbiguous: false' },
+            { name: 'القرار', summary: 'FALLBACK · below activation threshold', body: 'action: FALLBACK\nscenarioId: null\nexplanation: "No hypothesis reached the activation threshold with usable specificity; offering the fallback menu."\nevaluatedRules: [R0..R8, matched=R8_REFINE→false, final=FALLBACK_DEFAULT]' },
+            { name: 'المعرفة', summary: 'not applicable (no knowledgeSource)', body: 'knowledgeData: undefined  // decision.action !== ANSWER' },
+            { name: 'الحوار', summary: 'ar · FALLBACK template · 2 options', body: 'text: "مش متأكد إني فهمتك صح 🗒️ اختار من الاختيارات دي وهساعدك:"\noptions: [عندي استفسار, عندي مشكلة]' }
+        ],
+        responseText: 'مش متأكد إني فهمتك صح 🗒️ اختار من الاختيارات دي وهساعدك:'
+    },
+    {
+        sessionId: 'f7b0-88d3', turn: 4, reason: 'escalated_unknown', status: 'in_review', confidence: null,
+        rawText: 'كل اللي قلتهولك مش بيحل المشكلة، حد يرد عليا بجد',
+        trace: [
+            { name: 'اللغة', summary: 'ar · 9 tokens', body: 'responseLanguage: ar\nnormalizedTokenCanonicals: [كل, اللي, قلتهولك, مش, بيحل, المشكله, حد, يرد, عليا]' },
+            { name: 'السيناريو', summary: 'catalog v14 · 12 scenarios loaded', body: 'catalogVersion: 14\nscenariosLoaded: 12' },
+            { name: 'التشخيص', summary: '0 active hypotheses after 4 turns', body: 'hypotheses: []\naccumulator.entries: 6 (none matched a current scenario token this turn)' },
+            { name: 'الترتيب', summary: 'top: none · ambiguous: false', body: 'topScenarioId: null\ntopConfidence: null\nisAmbiguous: false' },
+            { name: 'القرار', summary: 'ESCALATE_TO_HUMAN · no-progress cap reached', body: 'action: ESCALATE_TO_HUMAN\nscenarioId: null\nexplanation: "consecutiveNoNewEvidenceTurns=3 exceeded cap after FALLBACK; escalating to a human agent."\nticketDraft: { scenarioId: null, category: null, diagnosticTrail: [] }' },
+            { name: 'المعرفة', summary: 'not applicable', body: 'knowledgeData: undefined' },
+            { name: 'الحوار', summary: 'ar · ESCALATE_TO_HUMAN template', body: 'text: "هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر 🗒️"' }
+        ],
+        responseText: 'هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر 🗒️'
+    },
+    {
+        sessionId: '2d61-c40a', turn: 1, reason: 'low_confidence', status: 'resolved', confidence: 0.18,
+        rawText: 'في مشكلة في الدفع بتاعي مش متأكد ايه بالظبط',
+        trace: [
+            { name: 'اللغة', summary: 'ar · 8 tokens', body: 'responseLanguage: ar\nnormalizedTokenCanonicals: [في, مشكله, في, الدفع, بتاعي, مش, متأكد, ايه]' },
+            { name: 'السيناريو', summary: 'catalog v14 · 12 scenarios loaded', body: 'catalogVersion: 14\nscenariosLoaded: 12' },
+            { name: 'التشخيص', summary: '1 active hypothesis, low confidence', body: 'hypotheses:\n  - scenarioId: subscription_payment_not_reflected  confidence: 0.180  status: active' },
+            { name: 'الترتيب', summary: 'top: subscription_payment_not_reflected (0.18)', body: 'topScenarioId: subscription_payment_not_reflected\ntopConfidence: 0.180\nisAmbiguous: false' },
+            { name: 'القرار', summary: 'ASK_CLARIFYING_QUESTION', body: 'action: ASK_CLARIFYING_QUESTION\ntargetQuestion: { id: payment_confirmation_received }' },
+            { name: 'المعرفة', summary: 'not applicable', body: 'knowledgeData: undefined' },
+            { name: 'الحوار', summary: 'ar · targeted question', body: 'text: "تمام، تقدر تأكدلي الدفع اتخصم فعلاً من حسابك؟"' }
+        ],
+        responseText: 'تمام، تقدر تأكدلي الدفع اتخصم فعلاً من حسابك؟ (تم الحل لاحقًا بعد رد العميل)'
+    }
+];
+
+let selected = null;
+let pendingStatus = {};
+
+function reasonLabel(r) { return { fallback: 'رد احتياطي', escalated_unknown: 'تصعيد (غير معروف)', low_confidence: 'ثقة منخفضة' }[r] || r; }
+function statusLabel(s) { return (STATUS_OPTIONS.find(o => o.value === s) || {}).label || s; }
+
+function renderQueue() {
+    document.getElementById('nav-queue-count').textContent = QUEUE.length;
+    const body = document.getElementById('queue-body');
+    if (QUEUE.length === 0) {
+        document.getElementById('empty').style.display = 'block';
+        return;
+    }
+    body.innerHTML = QUEUE.map((item, i) => `
+        <div class="queue-row ${selected === i ? 'selected' : ''}" onclick="openDetail(${i})">
+            <span class="qid">${item.sessionId}</span>
+            <span class="qmsg">${item.rawText}<span class="qmsg-sub">الدور ${item.turn}</span></span>
+            <span class="badge ${item.reason}">${reasonLabel(item.reason)}</span>
+            <span class="conf">${item.confidence === null ? '—' : item.confidence.toFixed(2)}</span>
+            <span class="status-pill ${item.status === 'resolved' ? 'resolved' : ''}">${statusLabel(item.status)}</span>
+            <span class="conf">#${item.turn}</span>
+        </div>
+    `).join('');
+}
+
+function openDetail(i) {
+    selected = i;
+    renderQueue();
+    const item = QUEUE[i];
+    const detail = document.getElementById('detail');
+    detail.classList.add('open');
+    document.getElementById('detail-title').textContent = `الجلسة ${item.sessionId} — الدور ${item.turn}`;
+    document.getElementById('detail-meta').textContent = `السبب: ${reasonLabel(item.reason)} · الثقة: ${item.confidence === null ? 'غير متاحة' : item.confidence.toFixed(3)} · "${item.rawText}"`;
+    document.getElementById('response-text').textContent = item.responseText;
+
+    document.getElementById('spine').innerHTML = item.trace.map((step, si) => `
+        <div class="spine-step" id="spine-step-${si}">
+            <div class="spine-dot"></div>
+            <button class="spine-toggle" onclick="toggleSpine(${si})">
+                <span class="spine-summary">${step.summary}</span>
+                <span><span class="spine-name">${step.name}</span><span class="spine-num">0${si + 1}</span></span>
+            </button>
+            <div class="spine-body" id="spine-body-${si}">${step.body.replace(/\n/g, '<br>')}</div>
+        </div>
+    `).join('');
+
+    const scenarioSelect = document.getElementById('correction-scenario');
+    scenarioSelect.innerHTML = SCENARIO_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join('');
+    document.getElementById('correction-note').value = '';
+
+    pendingStatus[i] = pendingStatus[i] || item.status;
+    renderStatusOptions(i);
+    document.getElementById('saved-flag').classList.remove('show');
+
+    document.getElementById('detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function toggleSpine(si) {
+    document.getElementById(`spine-body-${si}`).classList.toggle('open');
+    document.getElementById(`spine-step-${si}`).classList.toggle('inactive');
+}
+
+function renderStatusOptions(i) {
+    const wrap = document.getElementById('status-options');
+    wrap.innerHTML = STATUS_OPTIONS.map(s => `
+        <button class="status-opt ${pendingStatus[i] === s.value ? 'active' : ''}" onclick="setStatus(${i}, '${s.value}')">${s.label}</button>
+    `).join('');
+}
+
+function setStatus(i, s) {
+    pendingStatus[i] = s;
+    renderStatusOptions(i);
+}
+
+function saveReview() {
+    if (selected === null) return;
+    QUEUE[selected].status = pendingStatus[selected];
+    renderQueue();
+    const flag = document.getElementById('saved-flag');
+    flag.classList.add('show');
+    setTimeout(() => flag.classList.remove('show'), 2200);
+    // في الإنتاج: updateConversationReviewStatus({ reviewId, status, correction, port })
+    // عبر action-layer.js — مركز المراجعة أبدًا مش بيكتب على Supabase مباشرة.
+}
+
+function closeDetail() {
+    selected = null;
+    document.getElementById('detail').classList.remove('open');
+    renderQueue();
+}
+
+renderQueue();
+</script>
+</body>
+</html>

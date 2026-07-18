@@ -1,0 +1,303 @@
+{
+  "scenarios": [
+    {
+      "id": "whatsapp_number_not_linked",
+      "label": { "ar": "رقم الواتساب مش مربوط بالمنصة", "en": "WhatsApp number not linked to the platform" },
+      "category": "whatsapp",
+      "evidenceSignature": [
+        { "token": "واتساب", "weight": 2, "source": "text" },
+        { "token": "رابط", "weight": 1, "source": "text" },
+        { "token": "symptom_not_working", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "subscription_payment_not_reflected",
+      "label": { "ar": "الدفع تم لكن الاشتراك لسه مش متفعل", "en": "Payment made but subscription not reflected" },
+      "category": "subscription",
+      "evidenceSignature": [
+        { "token": "اشتراك", "weight": 2, "source": "text" },
+        { "token": "دفع", "weight": 2, "source": "text" },
+        { "token": "فاتوره", "weight": 2, "source": "text" },
+        { "token": "خصم", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [
+        {
+          "id": "payment_confirmation_received",
+          "prompt": {
+            "ar": "وصلك رسالة أو إيصال يأكد إن الدفع نجح؟",
+            "en": "Did you receive a confirmation message or receipt that the payment succeeded?"
+          },
+          "resolvesEvidence": ["دفع"],
+          "options": [
+            { "label": { "ar": "أيوه وصلني تأكيد", "en": "Yes, I got a confirmation" }, "value": "confirmed", "impliesEvidence": ["دفع"] },
+            { "label": { "ar": "لأ محصلش", "en": "No, I didn't" }, "value": "not_confirmed" }
+          ]
+        }
+      ],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "subscription_expired",
+      "label": { "ar": "الاشتراك منتهي الصلاحية", "en": "Subscription has expired" },
+      "category": "subscription",
+      "evidenceSignature": [
+        { "token": "اشتراك", "weight": 2, "source": "text" },
+        { "token": "انتهت", "weight": 2, "source": "text" },
+        { "token": "صلاحيه", "weight": 2, "source": "text" },
+        { "token": "subscription_recently_expired", "weight": 4, "source": "live" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "يبدو إن اشتراكك انتهى. تقدر تجدده من صفحة الاشتراكات في حسابك مباشرة.",
+          "en": "It looks like your subscription has expired. You can renew it directly from the subscriptions page in your account."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "login_credentials_forgotten",
+      "label": { "ar": "نسيان كلمة المرور", "en": "Forgotten login credentials" },
+      "category": "login",
+      "evidenceSignature": [
+        { "token": "entity_login", "weight": 1, "source": "text" },
+        { "token": "دخول", "weight": 1, "source": "text" },
+        { "token": "باسورد", "weight": 2, "source": "text" },
+        { "token": "symptom_login_failed", "weight": 2, "source": "text" }
+      ],
+      "discriminatingQuestions": [
+        {
+          "id": "login_error_type",
+          "prompt": {
+            "ar": "بيقولك إيه بالظبط لما تحاول تدخل؟ كلمة السر غلط، ولا الحساب مقفول؟",
+            "en": "What exactly happens when you try to log in — wrong password, or account locked?"
+          },
+          "resolvesEvidence": ["باسورد", "مقفول"],
+          "options": [
+            { "label": { "ar": "كلمة السر غلط", "en": "Wrong password" }, "value": "wrong_password", "impliesEvidence": ["باسورد"] },
+            { "label": { "ar": "الحساب مقفول", "en": "Account locked" }, "value": "account_locked", "impliesEvidence": ["مقفول"] }
+          ]
+        }
+      ],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "تقدر تعمل استعادة كلمة المرور من صفحة تسجيل الدخول، هتوصلك رسالة على بريدك الإلكتروني لإعادة تعيينها.",
+          "en": "You can reset your password from the login page — you'll receive an email to set a new one."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "login_account_locked",
+      "label": { "ar": "الحساب مقفول بسبب محاولات دخول فاشلة", "en": "Account locked due to failed login attempts" },
+      "category": "login",
+      "evidenceSignature": [
+        { "token": "entity_login", "weight": 1, "source": "text" },
+        { "token": "مقفول", "weight": 2, "source": "text" },
+        { "token": "account_recently_locked", "weight": 4, "source": "live" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "حسابك اتقفل مؤقتًا بسبب محاولات دخول فاشلة متكررة، وهيتفتح تلقائيًا بعد فترة قصيرة. لو المشكلة استمرت بعدها، افتحلك تذكرة.",
+          "en": "Your account was temporarily locked due to repeated failed login attempts and will unlock automatically shortly. If it persists, we'll open a ticket."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "login_token_expired",
+      "label": { "ar": "انتهاء صلاحية الـ Token", "en": "Access token expired" },
+      "category": "login",
+      "evidenceSignature": [
+        { "token": "entity_token", "weight": 2, "source": "text" },
+        { "token": "symptom_token_expired", "weight": 3, "source": "text" },
+        { "token": "انتهت", "weight": 1, "source": "text" },
+        { "token": "صلاحيه", "weight": 1, "source": "text" },
+        { "token": "http_status_401", "weight": 3, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "الـ Token بتاعك انتهت صلاحيته. تقدر تولّد واحد جديد من إعدادات حسابك أو من لوحة تحكم المطورين.",
+          "en": "Your access token has expired. You can generate a new one from your account settings or the developer dashboard."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "api_integration_issue",
+      "label": { "ar": "مشكلة في التكامل مع الـ API", "en": "API integration issue" },
+      "category": "api",
+      "evidenceSignature": [
+        { "token": "entity_api", "weight": 3, "source": "text" },
+        { "token": "symptom_generic_error", "weight": 1, "source": "text" },
+        { "token": "symptom_not_working", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "webhook_not_receiving",
+      "label": { "ar": "الـ Webhook مش بيستقبل الأحداث", "en": "Webhook not receiving events" },
+      "category": "api",
+      "evidenceSignature": [
+        { "token": "entity_webhook", "weight": 3, "source": "text" },
+        { "token": "symptom_not_working", "weight": 2, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "dns_subdomain_issue",
+      "label": { "ar": "مشكلة في الـ DNS أو النطاق الفرعي", "en": "DNS or subdomain issue" },
+      "category": "other",
+      "evidenceSignature": [
+        { "token": "entity_dns", "weight": 3, "source": "text" },
+        { "token": "entity_subdomain", "weight": 2, "source": "text" },
+        { "token": "رابط", "weight": 1, "source": "text" },
+        { "token": "نطاق", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "تغييرات الـ DNS بتاخد لحد 24-48 ساعة عشان تنتشر بالكامل. لو الفترة دي عدت والمشكلة مستمرة، هنفتحلك تذكرة.",
+          "en": "DNS changes can take up to 24-48 hours to fully propagate. If it's been longer than that and the issue persists, we'll open a ticket."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "ssl_certificate_issue",
+      "label": { "ar": "مشكلة في شهادة SSL", "en": "SSL certificate issue" },
+      "category": "other",
+      "evidenceSignature": [
+        { "token": "entity_ssl_certificate", "weight": 3, "source": "text" },
+        { "token": "شهاده", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "text": {
+          "ar": "شهادات SSL بتتجدد تلقائيًا على المنصة، وممكن ياخد التفعيل شوية وقت بعد ربط نطاق جديد. لو استمرت المشكلة، هنفتحلك تذكرة.",
+          "en": "SSL certificates renew automatically on the platform, and activation can take a little time after linking a new domain. If it persists, we'll open a ticket."
+        }
+      },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "server_error_5xx",
+      "label": { "ar": "خطأ في السيرفر (5xx)", "en": "Server-side error (5xx)" },
+      "category": "other",
+      "evidenceSignature": [
+        { "token": "http_status_500", "weight": 3, "source": "text" },
+        { "token": "symptom_generic_error", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "unknown",
+      "label": { "ar": "مشكلة غير محددة", "en": "Unclassified issue" },
+      "category": "other",
+      "evidenceSignature": [
+        { "token": "symptom_generic_error", "weight": 0.1, "source": "any" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": { "hasAutoResolution": false },
+      "requiresTicketIfUnresolved": true
+    },
+    {
+      "id": "platform_info_inquiry",
+      "label": { "ar": "استفسار عن المنصة", "en": "Platform information inquiry" },
+      "category": "inquiry",
+      "evidenceSignature": [
+        { "token": "منصه", "weight": 3, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "knowledgeSource": "platform_info",
+        "text": {
+          "ar": "مش لاقي المعلومة دلوقتي، جرب تاني كمان شوية أو تواصل مع فريق الدعم.",
+          "en": "I couldn't find that information right now — please try again shortly or contact our support team."
+        }
+      },
+      "requiresTicketIfUnresolved": false
+    },
+    {
+      "id": "pricing_inquiry",
+      "label": { "ar": "استفسار عن الأسعار", "en": "Pricing inquiry" },
+      "category": "inquiry",
+      "evidenceSignature": [
+        { "token": "اسعار", "weight": 3, "source": "text" },
+        { "token": "خطط", "weight": 2, "source": "text" },
+        { "token": "باقات", "weight": 2, "source": "text" },
+        { "token": "بكام", "weight": 2, "source": "text" },
+        { "token": "عروض", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "knowledgeSource": "pricing",
+        "text": {
+          "ar": "مش لاقي المعلومة دلوقتي، جرب تاني كمان شوية أو تواصل مع فريق الدعم.",
+          "en": "I couldn't find that information right now — please try again shortly or contact our support team."
+        }
+      },
+      "requiresTicketIfUnresolved": false
+    },
+    {
+      "id": "ticket_status_inquiry",
+      "label": { "ar": "استفسار عن حالة التذكرة", "en": "Ticket status inquiry" },
+      "category": "inquiry",
+      "evidenceSignature": [
+        { "token": "تذكرتي", "weight": 3, "source": "text" },
+        { "token": "حالتي", "weight": 2, "source": "text" },
+        { "token": "وصلت", "weight": 1, "source": "text" },
+        { "token": "فين", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "knowledgeSource": "ticket_status",
+        "text": {
+          "ar": "مش لاقي بيانات تذاكرك دلوقتي، جرب تاني كمان شوية أو تواصل مع فريق الدعم مباشرة.",
+          "en": "I couldn't find your ticket data right now — please try again shortly or contact our support team directly."
+        }
+      },
+      "requiresTicketIfUnresolved": false
+    },
+    {
+      "id": "subscription_status_inquiry",
+      "label": { "ar": "استفسار عن حالة الاشتراك", "en": "Subscription status inquiry" },
+      "category": "inquiry",
+      "evidenceSignature": [
+        { "token": "اشتراكي", "weight": 3, "source": "text" },
+        { "token": "فاضل", "weight": 1, "source": "text" }
+      ],
+      "discriminatingQuestions": [],
+      "resolution": {
+        "hasAutoResolution": true,
+        "knowledgeSource": "subscription_status",
+        "text": {
+          "ar": "مش لاقي بيانات اشتراكك دلوقتي، جرب تاني كمان شوية أو تواصل مع فريق الدعم مباشرة.",
+          "en": "I couldn't find your subscription data right now — please try again shortly or contact our support team directly."
+        }
+      },
+      "requiresTicketIfUnresolved": false
+    }
+  ]
+}

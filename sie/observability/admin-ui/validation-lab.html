@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>معمل التحقق — محرك الدعم الذكي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #F3F4F7;
+    --surface: #FFFFFF;
+    --surface-sunken: #EBEDF2;
+    --ink: #14181F;
+    --ink-soft: #545B6B;
+    --ink-faint: #8A90A0;
+    --border: #E1E4EA;
+    --border-strong: #C7CBD6;
+    --accent: #6552E0;
+    --accent-soft: #EFECFC;
+    --pass: #1F8A5F;
+    --pass-soft: #E4F5EC;
+    --fail: #C4453C;
+    --fail-soft: #FBEAE9;
+    --warn: #B8790C;
+    --warn-soft: #FBF1DE;
+    --mono-bg: #14181F;
+    --mono-ink: #D8DBE3;
+    --radius: 10px;
+    --font-display: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+    --font-body: 'IBM Plex Sans Arabic', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.6; }
+button, select, textarea { font-family: inherit; }
+button { cursor: pointer; }
+.ltr-data { direction: ltr; unicode-bidi: isolate; text-align: left; font-family: var(--font-mono); }
+
+.shell { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+@media (max-width: 950px) { .shell { grid-template-columns: 1fr; } .sidebar { display: none; } }
+.sidebar { background: var(--ink); color: #C7CBE0; padding: 28px 20px; display: flex; flex-direction: column; gap: 28px; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff; }
+.brand-sub { font-size: 11.5px; color: #8A90C7; margin-top: 4px; }
+.nav-item { padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #C7CBE0; }
+.nav-item.active { background: rgba(101,82,224,0.35); color: #fff; }
+
+.main { padding: 32px 40px 90px; max-width: 1220px; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; gap: 20px; }
+.page-title { font-family: var(--font-display); font-size: 27px; font-weight: 700; }
+.page-desc { color: var(--ink-soft); font-size: 13.5px; max-width: 62ch; margin-top: 4px; }
+.demo-flag { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; color: var(--accent); background: var(--accent-soft); border: 1px solid #D8D1FA; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+
+.tabs { display: flex; gap: 4px; margin: 26px 0 22px; border-bottom: 1px solid var(--border); }
+.tab { padding: 10px 16px; font-size: 13.5px; color: var(--ink-soft); border-bottom: 2px solid transparent; font-weight: 500; }
+.tab.active { color: var(--ink); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.picker-row { display: flex; gap: 12px; align-items: center; margin-bottom: 22px; flex-wrap: wrap; }
+.picker-row select { border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 12px; font-size: 13px; background: var(--surface); min-width: 220px; }
+.run-btn { background: var(--ink); color: #fff; border: none; border-radius: 7px; padding: 10px 18px; font-size: 13px; font-weight: 500; }
+.run-btn:hover { background: #262c38; }
+.target-version { font-family: var(--font-mono); direction: ltr; font-size: 11.5px; color: var(--ink-faint); background: var(--surface-sunken); padding: 6px 10px; border-radius: 6px; }
+
+.turn-compare { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+.turn-head { padding: 10px 18px; background: var(--surface-sunken); font-size: 12.5px; color: var(--ink-soft); display: flex; justify-content: space-between; }
+.turn-body { display: grid; grid-template-columns: 1fr 1fr; }
+.turn-col { padding: 16px 18px; }
+.turn-col + .turn-col { border-right: 1px dashed var(--border-strong); }
+.turn-col .col-label { font-size: 11px; color: var(--ink-faint); margin-bottom: 8px; font-weight: 500; }
+.fact-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; }
+.fact-row .k { color: var(--ink-faint); }
+.fact-row .v { font-family: var(--font-mono); direction: ltr; }
+.resp-text { margin-top: 10px; background: var(--surface-sunken); border-radius: 7px; padding: 10px 12px; font-size: 13px; }
+.delta-tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.delta-tag.same { background: var(--surface-sunken); color: var(--ink-faint); }
+
+.summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.stat-card .num { font-family: var(--font-display); font-size: 27px; font-weight: 800; }
+.stat-card .label { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+.stat-card.pass .num { color: var(--pass); }
+.stat-card.fail .num { color: var(--fail); }
+
+.shadow-row { display: grid; grid-template-columns: 110px 1fr 100px 80px 1fr; gap: 14px; align-items: center; padding: 13px 18px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.shadow-row.head { font-size: 11px; color: var(--ink-faint); background: var(--surface-sunken); font-weight: 600; }
+.shadow-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.verdict-pill { font-size: 11.5px; padding: 3px 10px; border-radius: 20px; width: fit-content; font-weight: 500; }
+.verdict-pill.pass { background: var(--pass-soft); color: var(--pass); }
+.verdict-pill.fail { background: var(--fail-soft); color: var(--fail); }
+.reason-text { color: var(--ink-soft); font-size: 12px; }
+.sess-id { font-family: var(--font-mono); direction: ltr; text-align: left; color: var(--ink-faint); }
+
+.gate-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 28px; max-width: 640px; }
+.gate-status { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.gate-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.gate-dot.pass { background: var(--pass); }
+.gate-dot.fail { background: var(--fail); }
+.gate-title { font-family: var(--font-display); font-size: 17.5px; font-weight: 700; }
+.gate-reason { color: var(--ink-soft); font-size: 13.5px; margin: 10px 0 18px; line-height: 1.7; }
+.gate-reason code { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 12px; background: var(--surface-sunken); padding: 1px 5px; border-radius: 4px; }
+.override-box { border: 1px dashed var(--border-strong); border-radius: 8px; padding: 16px; margin-top: 4px; }
+.override-box label { font-size: 12px; font-weight: 500; color: var(--ink-soft); display: block; margin-bottom: 6px; }
+.override-box textarea { width: 100%; border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 10px; font-size: 13.5px; min-height: 60px; font-family: var(--font-body); }
+.gate-actions { display: flex; justify-content: flex-start; gap: 10px; margin-top: 18px; }
+.btn { border: none; border-radius: 7px; padding: 10px 18px; font-size: 13px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:disabled { background: var(--border-strong); color: #fff; cursor: not-allowed; }
+.btn-override { background: var(--fail); color: #fff; }
+.published-flag { font-size: 12.5px; color: var(--pass); margin-top: 12px; display: none; line-height: 1.6; }
+.published-flag.show { display: block; }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <div>
+            <div class="brand">محرك الدعم الذكي</div>
+            <div class="brand-sub">معمل التحقق</div>
+        </div>
+        <nav>
+            <div class="nav-item">↚ مركز المراجعة</div>
+            <div class="nav-item active">معمل التحقق</div>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="page-head">
+            <div>
+                <div class="page-title">معمل التحقق</div>
+                <div class="page-desc">أعد تشغيل تعديل مقترح على سيناريو أو معرفة على محادثات حقيقية مخزّنة قبل ما يوصل لأي عميل. النشر ممنوع لحد ما يعدي التعديل مجموعة اختبارات الانحدار.</div>
+            </div>
+            <span class="demo-flag">● بيانات تجريبية — غير متصلة بقاعدة بيانات حقيقية</span>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="sim" onclick="switchTab('sim')">محاكاة</div>
+            <div class="tab" data-tab="shadow" onclick="switchTab('shadow')">تشغيل الظل</div>
+            <div class="tab" data-tab="gate" onclick="switchTab('gate')">بوابة النشر</div>
+        </div>
+
+        <section class="tab-panel active" id="tab-sim">
+            <div class="picker-row">
+                <select id="sim-target">
+                    <option>knowledge: pricing — مسودة v3</option>
+                </select>
+                <span class="target-version">قبل: <b>v2 (منشور)</b> ← بعد: <b>v3 (مسودة)</b></span>
+                <select id="sim-conversation">
+                    <option value="conv-pricing">conv-pricing — «عايز اعرف اسعار خطط باقات بكام عروض ايه»</option>
+                </select>
+                <button class="run-btn" onclick="runSimulation()">شغّل المحاكاة</button>
+            </div>
+            <div id="sim-results"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-shadow">
+            <div class="picker-row">
+                <select id="shadow-target">
+                    <option>knowledge: pricing — مسودة v3</option>
+                </select>
+                <select>
+                    <option>المصدر: قائمة التعلّم (آخر 30 يوم)</option>
+                    <option>المصدر: مجموعة مختارة يدويًا (12 محادثة)</option>
+                </select>
+                <button class="run-btn" onclick="runShadowRun()">شغّل مجموعة اختبارات الانحدار</button>
+            </div>
+
+            <div class="summary-bar" id="shadow-summary" style="display:none;">
+                <div class="stat-card"><div class="num" id="stat-total">—</div><div class="label">المحادثات</div></div>
+                <div class="stat-card pass"><div class="num" id="stat-pass">—</div><div class="label">ناجحة</div></div>
+                <div class="stat-card fail"><div class="num" id="stat-fail">—</div><div class="label">فاشلة</div></div>
+                <div class="stat-card"><div class="num" id="stat-verdict">—</div><div class="label">الحكم الإجمالي</div></div>
+            </div>
+
+            <div class="shadow-wrap" id="shadow-table" style="display:none;">
+                <div class="shadow-row head">
+                    <span>الجلسة</span><span>المحادثة</span><span>الحكم</span><span>الأدوار</span><span>السبب</span>
+                </div>
+                <div id="shadow-rows"></div>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="tab-gate">
+            <div class="gate-card">
+                <div class="gate-status">
+                    <span class="gate-dot fail" id="gate-dot"></span>
+                    <span class="gate-title" id="gate-title">فشلت مجموعة اختبارات الانحدار</span>
+                </div>
+                <div class="gate-reason" id="gate-reason">
+                    شغّل تبويب «تشغيل الظل» الأول عشان يتسجل حكم لـ <code>knowledge:pricing v3</code>. النشر ممنوع لحد ما يبقى فيه حكم.
+                </div>
+
+                <div class="override-box">
+                    <label for="override-reason">سبب التجاوز (مطلوب للنشر رغم فشل أو غياب الحكم)</label>
+                    <textarea id="override-reason" placeholder="مثلاً: تم التأكيد مع مسؤول الدعم — المحادثة الوحيدة اللي فشلت كانت اتحلت يدويًا بالفعل، آمن للنشر."></textarea>
+                </div>
+
+                <div class="gate-actions">
+                    <button class="btn btn-primary" id="publish-btn" disabled onclick="publish(false)">نشر v3</button>
+                    <button class="btn btn-override" id="override-btn" onclick="publish(true)">نشر بتجاوز</button>
+                </div>
+                <div class="published-flag" id="published-flag">تم النشر (محليًا فقط — عرض تجريبي). في الإنتاج بينادي على publishKnowledgeVersion() عبر Action Layer، اللي بيسجل سبب التجاوز في chat_engine_publish_overrides.</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+// ------------------------------------------------------------------
+// بيانات تجريبية ثابتة، مبنية على نفس النتائج اللي جابها فعليًا
+// replay-engine.js + comparison-engine.js + validation-policy.js
+// لتعديل محتوى الأسعار ده في observability/tests/shadow-run-engine.e2e.test.mjs.
+// مفيش أي استدعاء API حقيقي هنا — شوف علامة "بيانات تجريبية" فوق.
+// ------------------------------------------------------------------
+let shadowVerdict = null; // بيتحدد بعد "تشغيل" Shadow Run — وده اللي بيتحكم في النشر
+
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+function runSimulation() {
+    const results = document.getElementById('sim-results');
+    results.innerHTML = `
+        <div class="turn-compare">
+            <div class="turn-head">
+                <span>الدور 1 · conv-pricing</span>
+                <span class="delta-tag same">القرار زي ما هو: ANSWER</span>
+            </div>
+            <div class="turn-body">
+                <div class="turn-col">
+                    <div class="col-label">قبل — pricing v2 (منشور)</div>
+                    <div class="fact-row"><span class="k">السيناريو</span><span class="v">pricing_inquiry</span></div>
+                    <div class="fact-row"><span class="k">الثقة</span><span class="v">0.800</span></div>
+                    <div class="resp-text">عندنا 3 باقات: باقة الدعم الفني بس، باقة واتساب بس، والباقة الشاملة اللي بتضم الاتنين بسعر أقل من لو اشتركت فيهم منفصلين…</div>
+                </div>
+                <div class="turn-col">
+                    <div class="col-label">بعد — pricing v3 (مسودة)</div>
+                    <div class="fact-row"><span class="k">السيناريو</span><span class="v">pricing_inquiry</span></div>
+                    <div class="fact-row"><span class="k">الثقة</span><span class="v">0.800 <span class="delta-tag same">±0.000</span></span></div>
+                    <div class="resp-text">نص جديد للأسعار بعد مراجعة فريق المبيعات لعروض الربع الحالي…</div>
+                </div>
+            </div>
+        </div>
+        <p style="color:var(--ink-soft);font-size:12.5px;">النص المُرسل بس اللي اتغيّر (محتوى المعرفة من موديول 7) — القرار، السيناريو، والثقة زي ما هما. ده بالظبط النوع من التعديلات اللي المفروض بوابة النشر تسمح بيه بسهولة.</p>
+    `;
+}
+
+function runShadowRun() {
+    document.getElementById('shadow-summary').style.display = 'grid';
+    document.getElementById('shadow-table').style.display = 'block';
+
+    const rows = [
+        { id: 'conv-pricing', desc: 'اسعار خطط باقات بكام عروض ايه', verdict: 'pass', turns: 1, reason: '—' },
+        { id: 'conv-platform', desc: 'عايز اعرف عن منصه ازاي بتشتغل', verdict: 'pass', turns: 1, reason: '—' },
+        { id: 'conv-ticket-journey', desc: 'الـ API مش شغال ← (صمت)', verdict: 'pass', turns: 2, reason: '—' },
+        { id: 'conv-pricing-edge', desc: 'الاسعار بكام لو اشتركت سنوي', verdict: 'fail', turns: 1, reason: 'الدور 1: الثقة نزلت من 0.800 إلى 0.480' }
+    ];
+
+    const passCount = rows.filter(r => r.verdict === 'pass').length;
+    const failCount = rows.length - passCount;
+    document.getElementById('stat-total').textContent = rows.length;
+    document.getElementById('stat-pass').textContent = passCount;
+    document.getElementById('stat-fail').textContent = failCount;
+    document.getElementById('stat-verdict').textContent = failCount === 0 ? 'ناجح' : 'فاشل';
+    document.getElementById('stat-verdict').style.color = failCount === 0 ? 'var(--pass)' : 'var(--fail)';
+
+    document.getElementById('shadow-rows').innerHTML = rows.map(r => `
+        <div class="shadow-row">
+            <span class="sess-id">${r.id}</span>
+            <span>${r.desc}</span>
+            <span class="verdict-pill ${r.verdict}">${r.verdict === 'pass' ? 'ناجحة' : 'فاشلة'}</span>
+            <span>${r.turns}</span>
+            <span class="reason-text">${r.reason}</span>
+        </div>
+    `).join('');
+
+    shadowVerdict = { passed: failCount === 0, reasons: rows.filter(r => r.verdict === 'fail').map(r => r.reason) };
+    updateGate();
+}
+
+function updateGate() {
+    const dot = document.getElementById('gate-dot');
+    const title = document.getElementById('gate-title');
+    const reason = document.getElementById('gate-reason');
+    const publishBtn = document.getElementById('publish-btn');
+
+    if (!shadowVerdict) {
+        dot.className = 'gate-dot fail';
+        title.textContent = 'لا يوجد تشغيل تحقق مسجّل';
+        reason.innerHTML = 'شغّل تبويب «تشغيل الظل» الأول عشان يتسجل حكم لـ <code>knowledge:pricing v3</code>. النشر ممنوع لحد ما يبقى فيه حكم.';
+        publishBtn.disabled = true;
+        return;
+    }
+
+    if (shadowVerdict.passed) {
+        dot.className = 'gate-dot pass';
+        title.textContent = 'نجحت مجموعة اختبارات الانحدار';
+        reason.textContent = 'كل المحادثات في التشغيل حافظت على نفس القرار والثقة، أو تحسّنت. النشر متاح دلوقتي — من غير ما تحتاج تجاوز.';
+        publishBtn.disabled = false;
+    } else {
+        dot.className = 'gate-dot fail';
+        title.textContent = 'فشلت مجموعة اختبارات الانحدار';
+        reason.innerHTML = 'ممنوع: <code>' + shadowVerdict.reasons.join('</code>، <code>') + '</code>. النشر محتاج سبب تجاوز صريح تحت.';
+        publishBtn.disabled = true;
+    }
+}
+
+function publish(withOverride) {
+    const overrideReason = document.getElementById('override-reason').value.trim();
+    if (withOverride && overrideReason.length === 0) {
+        alert('سبب التجاوز مطلوب عشان تنشر رغم فشل أو غياب الحكم.');
+        return;
+    }
+    if (!withOverride && (!shadowVerdict || !shadowVerdict.passed)) return;
+
+    const flag = document.getElementById('published-flag');
+    flag.classList.add('show');
+    flag.textContent = withOverride
+        ? `تم النشر بتجاوز (عرض تجريبي): "${overrideReason}" — ده هيتسجل في chat_engine_publish_overrides.`
+        : 'تم النشر (محليًا فقط — عرض تجريبي). في الإنتاج بينادي على publishKnowledgeVersion() عبر Action Layer.';
+}
+
+updateGate();
+</script>
+</body>
+</html>
