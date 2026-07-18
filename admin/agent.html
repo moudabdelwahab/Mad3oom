@@ -52,7 +52,13 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 .mono, .num{font-family:var(--font-data);}
 :focus-visible{outline:2px solid var(--color-accent);outline-offset:2px;border-radius:4px;}
 
-.page{max-width:1240px;margin:0 auto;}
+/* [إصلاح حرج] الاسم كان .page، وهو نفس اسم كلاس عام في /styles.css
+   (المستخدم في صفحات أخرى كنمط "tab switcher": .page{display:none}
+   و .page.active{display:block}). بما إن agentPageRoot ما بياخدش
+   كلاس .active أبداً، كان فضل display:none طول الوقت رغم إن كل
+   الـ JS (auth + تحميل البيانات) كان شغال صح تمامًا. غيّرنا الاسم
+   هنا فقط لعنصر مستقل تمامًا عن أي كلاس عام مشترك. */
+.agent-page-container{max-width:1240px;margin:0 auto;}
 
 /* ---------- Header ---------- */
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;}
@@ -223,7 +229,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 <div id="sidebar-container"></div>
 
 <main class="admin-main">
-<div class="page" id="agentPageRoot">
+<div class="agent-page-container" id="agentPageRoot">
 
   <!-- ================= Header ================= -->
   <div class="page-header">
