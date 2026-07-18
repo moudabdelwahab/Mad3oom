@@ -11,7 +11,7 @@ import {
     fetchTicketActivity, fetchTicketRating, fetchAllTicketRatings,
     fetchSavedFilters, createSavedFilter, deleteSavedFilter
 } from '/tickets-service.js';
-import { adminImpersonateUser } from '/auth-client.js';
+import { impersonateUser } from './admin-utils.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
 
@@ -1147,15 +1147,6 @@ async function loadAdminRepliesInPanel(ticketId) {
     } catch (err) {
         list.innerHTML = '<p style="text-align:center; color:var(--color-danger);">فشل تحميل الردود</p>';
     }
-}
-
-async function impersonateUser(id) {
-    if (!id) return showToast('لا يمكن الدخول لحساب ضيف', 'error');
-    const { data: targetUser } = await supabase.from('profiles').select('email').eq('id', id).single();
-    const activityModule = await import('/activity-service.js');
-    activityModule.logActivity('impersonate', { target_user_id: id, target_email: targetUser?.email });
-    await adminImpersonateUser(id);
-    location.href = '/customer-dashboard.html';
 }
 
 /* ==================== نافذة إغلاق التذكرة ==================== */
