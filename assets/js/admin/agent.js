@@ -200,7 +200,7 @@ function openAgentModal(agentId) {
     document.getElementById('fEndpoint').value = agent?.endpoint || '';
     document.getElementById('fHealthEndpoint').value = agent?.health_endpoint || '';
     document.getElementById('fApiKey').value = '';
-    document.getElementById('fApiKey').placeholder = agent?.api_key_last4 ? `•••• ${agent.api_key_last4} — اتركه فارغاً للإبقاء عليه` : 'اتركه فارغاً إن لم تحتج مفتاح API';
+    document.getElementById('fApiKey').placeholder = agent?.api_key_last4 ? `•••• ${agent.api_key_last4} — اتركه فارغاً للإبقاء عليه` : 'اتركه فارغاً إن لم تحتاج الي مفتاح API';
     document.getElementById('fTimeout').value = agent?.timeout_ms ?? 10000;
     document.getElementById('fRetryCount').value = agent?.retry_count ?? 3;
     document.getElementById('fRetryDelay').value = agent?.retry_delay_ms ?? 2000;
