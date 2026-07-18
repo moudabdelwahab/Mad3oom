@@ -547,45 +547,45 @@ import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { initAgentAdminPage } from '/assets/js/admin/agent.js';
 
 initSidebar();
+
+console.log('[DEBUG] guest session raw:', localStorage.getItem('mad3oom-guest-session'));
+
 const user = await checkAdminAuth();
+console.log('[DEBUG] checkAdminAuth() returned:', user);
+
 if (user) {
     updateAdminUI(user);
 
-    // ============================================================
-    // [إصلاح خاص بهذه الصفحة فقط] checkAdminAuth (ومن خلفها
-    // requireAuth في auth-client.js) بترجّع جلسة "زائر" مخزّنة في
-    // localStorage (مفتاح mad3oom-guest-session) فورًا لو كانت
-    // موجودة، من غير ما تتحقق من جلسة Supabase الحقيقية أصلاً —
-    // وده بيحصل حتى لو كانت جلستك الحقيقية كأدمن مسجّلة وصحيحة
-    // بالكامل على Supabase، طالما مفتاح الضيف القديم متروك في
-    // المتصفح من زيارة سابقة. بما إن signInAsGuest() لا تُسجّل خروج
-    // من الجلسة الحقيقية، فالجلستان تتعايشان معًا، والحل هنا هو
-    // تجاهل رد الضيف الوهمي والسؤال مباشرة عن الجلسة الحقيقية على
-    // Supabase قبل تحديد الصلاحية. هذا لا يُصلح السبب الجذري في
-    // auth-client.js، لكنه يضمن عمل هذه الصفحة بالذات بشكل صحيح.
-    // ============================================================
     let realUser = user;
     if (user.isGuest || user.profile?.is_guest) {
+        console.log('[DEBUG] detected guest object, re-checking Supabase session directly...');
         try {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
+            console.log('[DEBUG] supabase.auth.getUser() ->', authUser, 'error:', authErr);
             if (authUser) {
-                const { data: profile } = await supabase
+                const { data: profile, error: profileErr } = await supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', authUser.id)
                     .maybeSingle();
+                console.log('[DEBUG] profile fetch ->', profile, 'error:', profileErr);
                 realUser = { ...authUser, profile: profile || {} };
-                updateAdminUI(realUser); // تحديث الشارة/الصورة بالبيانات الحقيقية بدل الضيف
+                updateAdminUI(realUser);
             }
         } catch (err) {
-            console.error('Real-session fallback check failed:', err);
+            console.error('[DEBUG] Real-session fallback check failed:', err);
         }
+    } else {
+        console.log('[DEBUG] user is NOT flagged as guest, using as-is.');
     }
 
     const role = realUser.profile?.role;
     const email = realUser.email || realUser.profile?.email || '';
     const MAIN_ADMIN_EMAILS = ['support@mad3oom.online', 'info@mad3oom.online'];
     const isAdmin = role === 'admin' || MAIN_ADMIN_EMAILS.includes(email);
+
+    console.log('[DEBUG] final check -> role:', role, '| email:', JSON.stringify(email), '| isAdmin:', isAdmin);
+
     if (isAdmin) {
         initAgentAdminPage();
     } else {
@@ -595,6 +595,8 @@ if (user) {
                 <p style="font-size:.85rem; margin-top:.4rem;">إدارة وكلاء الذكاء الاصطناعي تتطلب صلاحية أدمن.</p>
             </div>`;
     }
+} else {
+    console.log('[DEBUG] checkAdminAuth() returned null/undefined — should redirect to login.html');
 }
 </script>
 </body>
