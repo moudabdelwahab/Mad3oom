@@ -430,7 +430,7 @@ class ChatWidget {
     }
 
     async loadBotSettings() {
-        const { data, error } = await supabase.from('bot_settings').select('*').single();
+        const { data, error } = await supabase.from('bot_settings').select('*').maybeSingle();
         if (error) {
             console.error('خطأ في جلب إعدادات البوت:', error);
             this.botSettings = {};
@@ -447,14 +447,14 @@ class ChatWidget {
             .eq('status', 'active')
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (error || !session) {
             const { data: newSession, error: createError } = await supabase
                 .from('chat_sessions')
                 .insert({ user_id: this.currentUser.id, status: 'active' })
                 .select()
-                .single();
+                .maybeSingle();
 
             if (createError) {
                 console.error('خطأ في إنشاء جلسة دردشة:', createError);
@@ -690,7 +690,7 @@ class ChatWidget {
                 .from('chat_sessions')
                 .select('bot_state, is_manual_mode')
                 .eq('id', this.currentSessionId)
-                .single();
+                .maybeSingle();
 
             if (freshSession?.is_manual_mode) return;
 
