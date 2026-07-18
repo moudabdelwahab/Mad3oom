@@ -5,18 +5,39 @@
  * (action: list | get | create | update | delete | start | stop | restart |
  *          test_connection | status | logs)
  *
- * لو الدالة agent-manager غير منشورة بعد على Supabase (لسه ما اتعملتش)،
- * الخدمة تسقط تلقائياً على تخزين محلي (localStorage) عشان الصفحة تفضل
- * شغالة للتجربة/العرض بدل ما تكسر بالكامل. أول ما تُنشر الدالة فعلياً،
- * الخدمة هتكتشفها تلقائياً وتستخدمها بدون أي تعديل في الصفحة.
+ * لو الدالة agent-manager غير منشورة بعد على Supabase، الخدمة تسقط تلقائياً
+ * على تخزين محلي (localStorage) عشان الصفحة تفضل شغالة للتجربة/العرض بدل ما
+ * تكسر بالكامل. أول ما تُنشر الدالة فعلياً، الخدمة هتكتشفها تلقائياً وتستخدمها
+ * بدون أي تعديل في الصفحة — ودالة agent-manager دلوقتي منشورة فعلاً.
  *
  * بنفس فلسفة mcp-service.js تماماً (نفس مشروع Supabase، نفس supabase client).
+ *
+ * ===================== إصلاحات هذه المراجعة =====================
+ * 1) [حرج] استخراج رسالة الخطأ الحقيقية من استجابة supabase.functions.invoke:
+ *    لما الدالة البعيدة ترجّع كود غير 2xx، مكتبة supabase-js بترجّع
+ *    FunctionsHttpError برسالة عامة ("Edge Function returned a non-2xx
+ *    status code") وتحطّ الاستجابة الفعلية (اللي فيها رسالة الخطأ بالعربي
+ *    من agent-manager) داخل error.context كـ Response لسه ما اتقرتش. كانت
+ *    الكود القديم بيستخدم error.message مباشرة فتظهر رسالة عامة مش مفيدة
+ *    بدل رسائل agent-manager الحقيقية (زي "name و slug مطلوبان" أو "هذا
+ *    القسم متاح للأدمن فقط"). الحل: extractFunctionErrorMessage تحاول تقرأ
+ *    الـ body الحقيقي أولاً.
+ * 2) تفادي نداء "list" مرتين عند فتح الصفحة (مرة للكشف عن الباك-إند، ومرة
+ *    فعلية من loadAgents) عبر تخزين نتيجة نداء الكشف وإعادة استخدامها مرة
+ *    واحدة فقط.
+ * 3) توحيد شكل استجابة الوضع المحلي (localFallback) مع شكل استجابة
+ *    agent-manager الحقيقية تمامًا (agent / success بدل data) حتى يبقى
+ *    الاستبدال بين الاثنين "بدون أي تعديل" كما هو موثّق أعلاه فعلاً.
+ * 4) عدم تخزين مفتاح API أو القيم السرّية بنصها الصريح في localStorage في
+ *    وضع الطوارئ المحلي — نفس نهج الإخفاء المستخدم في agent-manager الحقيقية
+ *    (تخزين آخر 4 خانات فقط، وإخفاء متغيرات البيئة السرّية).
  */
 
 import { supabase } from '/api-config.js';
 
 const STORAGE_KEY = 'mad3oom_agents';
 const FN = 'agent-manager';
+const SECRET_MASK = '••••••••';
 
 export const AGENT_STATUSES = {
     RUNNING: 'running',
@@ -76,23 +97,72 @@ function writeLocal(agents) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(agents));
 }
 
+// يقنّع متغيرات البيئة السرّية ومفتاح الـ API قبل تخزينهم محلياً — نفس مبدأ
+// agent-manager الحقيقية (لا نخزّن قيمًا سرّية بنصها الصريح، ولو مؤقتًا).
+function sanitizeForLocalStorage(payload) {
+    const out = { ...payload };
+    if (Array.isArray(out.environment_variables)) {
+        out.environment_variables = out.environment_variables.map((v) =>
+            v?.is_secret && v.value && v.value !== SECRET_MASK
+                ? { key: v.key, value: 'local:' + btoa(unescape(encodeURIComponent(v.value))), is_secret: true }
+                : v
+        );
+    }
+    if (out.api_key) {
+        out.api_key_last4 = String(out.api_key).slice(-4);
+        delete out.api_key;
+    }
+    return out;
+}
+
 let _useEdgeFunction = null;
+// نتيجة نداء الكشف الأول (list) — تُستخدم مرة واحدة فقط لتفادي تكرار النداء
+let _detectionListCache = null;
 
 /** يكتشف مرة واحدة فقط إذا كانت agent-manager منشورة فعلاً على Supabase. */
 async function detectBackend() {
     if (_useEdgeFunction !== null) return _useEdgeFunction;
     try {
-        const { error } = await supabase.functions.invoke(FN, { body: { action: 'list' } });
+        const { data, error } = await supabase.functions.invoke(FN, { body: { action: 'list' } });
         // 404 / Function not found = لسه ما اتعملتش على السيرفر
-        if (error && (error.context?.status === 404 || /not\s*found/i.test(error.message || ''))) {
+        if (error && (await isFunctionNotFoundError(error))) {
             _useEdgeFunction = false;
         } else {
             _useEdgeFunction = true;
+            if (!error && data) _detectionListCache = data; // إعادة استخدامها في أول list() بدل نداء مكرر
         }
     } catch {
         _useEdgeFunction = false;
     }
     return _useEdgeFunction;
+}
+
+async function isFunctionNotFoundError(error) {
+    if (error?.context?.status === 404) return true;
+    if (/not\s*found/i.test(error?.message || '')) return true;
+    return false;
+}
+
+/**
+ * [إصلاح حرج] تستخرج رسالة الخطأ الحقيقية من خطأ supabase.functions.invoke.
+ * لو الاستجابة الأصلية غير 2xx، supabase-js بترجّع FunctionsHttpError برسالة
+ * عامة ("Edge Function returned a non-2xx status code") وتترك جسم الاستجابة
+ * الحقيقي (اللي فيه { error: "..." } بالعربي من agent-manager) في
+ * error.context كـ Response لسه ما اتقرتش. لازم نحاول نقرأه هنا قبل ما نرجع
+ * لرسالة عامة.
+ */
+async function extractFunctionErrorMessage(error) {
+    try {
+        const ctx = error?.context;
+        if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error) return body.error;
+            if (body?.message) return body.message; // شكل أخطاء بوابة Supabase نفسها (401 مثلاً)
+        }
+    } catch {
+        // فشل قراءة الـ body (مثلاً اتقرى قبل كده) — نرجع للرسالة العامة أدناه
+    }
+    return error?.message || 'فشل الاتصال بخدمة إدارة الوكلاء';
 }
 
 /* =========================================================
@@ -103,16 +173,31 @@ async function detectBackend() {
 export async function callAgentManager(action, payload = {}) {
     const useFn = await detectBackend();
     if (!useFn) {
-        return localFallback(action, payload);
+        // [إصلاح] لازم نرمي استثناء هنا كمان لو الوضع المحلي رجّع خطأ، تمامًا
+        // زي مسار agent-manager الحقيقي أدناه — كانت الكود القديم بترجع نتيجة
+        // الفشل كأنها نجاح لأي كود مستدعي بيفترض النجاح بدون فحص result.error.
+        const result = localFallback(action, payload);
+        if (result?.error) throw new Error(result.error);
+        return result;
     }
+
+    // إعادة استخدام نتيجة نداء الكشف الأولي لو كان نفسه list() بدون فلاتر إضافية
+    if (action === 'list' && Object.keys(payload).length === 0 && _detectionListCache) {
+        const cached = _detectionListCache;
+        _detectionListCache = null; // استخدام مرة واحدة فقط
+        return cached;
+    }
+
     const { data, error } = await supabase.functions.invoke(FN, { body: { action, ...payload } });
-    if (error) throw new Error(error.message || 'فشل الاتصال بخدمة إدارة الوكلاء');
+    if (error) throw new Error(await extractFunctionErrorMessage(error));
     if (data?.error) throw new Error(data.error);
     return data;
 }
 
 /* =========================================================
  *  محاكاة محلية (localStorage) — تُستخدم فقط قبل نشر agent-manager فعلياً
+ *  ملاحظة: أشكال الاستجابة هنا مطابقة تمامًا لأشكال استجابة agent-manager
+ *  الحقيقية (agent / agents / success) حتى يبقى التبديل بينهما شفافًا.
  * ========================================================= */
 
 function localFallback(action, payload) {
@@ -120,40 +205,44 @@ function localFallback(action, payload) {
 
     switch (action) {
         case 'list':
-            return { ok: true, agents };
+            return { agents };
 
         case 'get': {
             const agent = agents.find(a => a.id === payload.id);
-            return { ok: !!agent, data: agent || null, error: agent ? null : 'الوكيل غير موجود' };
+            if (!agent) return { error: 'الوكيل غير موجود' };
+            return { agent };
         }
 
         case 'create': {
             const now = new Date().toISOString();
+            const clean = sanitizeForLocalStorage(payload);
             const agent = {
                 id: uuid(),
                 status: AGENT_STATUSES.STOPPED,
                 last_heartbeat: null,
+                last_error: null,
                 created_at: now,
                 updated_at: now,
-                ...payload,
+                ...clean,
             };
             agents.unshift(agent);
             writeLocal(agents);
-            return { ok: true, data: agent };
+            return { agent };
         }
 
         case 'update': {
             const idx = agents.findIndex(a => a.id === payload.id);
-            if (idx === -1) return { ok: false, error: 'الوكيل غير موجود' };
-            agents[idx] = { ...agents[idx], ...payload, updated_at: new Date().toISOString() };
+            if (idx === -1) return { error: 'الوكيل غير موجود' };
+            const clean = sanitizeForLocalStorage(payload);
+            agents[idx] = { ...agents[idx], ...clean, updated_at: new Date().toISOString() };
             writeLocal(agents);
-            return { ok: true, data: agents[idx] };
+            return { agent: agents[idx] };
         }
 
         case 'delete': {
             agents = agents.filter(a => a.id !== payload.id);
             writeLocal(agents);
-            return { ok: true };
+            return { success: true };
         }
 
         case 'start':
@@ -163,6 +252,7 @@ function localFallback(action, payload) {
             if (idx === -1) return { ok: false, error: 'الوكيل غير موجود' };
             const map = { start: AGENT_STATUSES.RUNNING, stop: AGENT_STATUSES.STOPPED, restart: AGENT_STATUSES.RUNNING };
             agents[idx].status = map[action];
+            agents[idx].last_error = null;
             agents[idx].last_heartbeat = action === 'stop' ? agents[idx].last_heartbeat : new Date().toISOString();
             writeLocal(agents);
             return { ok: true, data: agents[idx] };
