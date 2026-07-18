@@ -2,9 +2,12 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { adminImpersonateUser } from '/auth-client.js';
+import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/sie-integration/sie-entitlement.js';
 
 let user = null;
 let currentOptionsUserId = null;
+let isSieAdmin = false; // من is_sie_admin() فقط — نفس القاعدة اللي هتتفرض في RLS/RPC، مفيش تكرار للشرط هنا
+let currentSieAccess = null; // صف customer_sie_access الخاص بالمستخدم اللي فاتح له نافذة الخيارات دلوقتي
 
 function roleLabel(role) {
     if (role === 'admin') return 'مدير';
@@ -18,6 +21,7 @@ async function init() {
     if (!user) return;
 
     updateAdminUI(user);
+    isSieAdmin = await isCurrentUserSieAdmin(supabase);
     injectOptionsPanel();
     renderUsers();
 
@@ -73,6 +77,45 @@ function injectOptionsPanel() {
                 </span>
             </button>
         </div>
+
+        <div class="options-group-label" id="sieSectionLabel" style="display:none;">محرك الدعم الذكي (SIE)</div>
+        <div class="options-panel-body" id="sieSection" style="display:none;">
+            <label class="sie-field">
+                <span>تفعيل SIE لهذا العميل</span>
+                <input type="checkbox" id="sieEnabledToggle">
+            </label>
+
+            <label class="sie-field">
+                <span>نوع الحد</span>
+                <select id="sieAccessMode">
+                    <option value="unlimited">بدون حد (طالما مفعّل)</option>
+                    <option value="quota">حد رسائل</option>
+                    <option value="expiration">تاريخ انتهاء</option>
+                </select>
+            </label>
+
+            <label class="sie-field" id="sieQuotaRow" style="display:none;">
+                <span>حد الرسائل</span>
+                <input type="number" id="sieMessageQuota" min="1" step="1">
+            </label>
+
+            <label class="sie-field" id="sieExpiryRow" style="display:none;">
+                <span>تاريخ الانتهاء</span>
+                <input type="datetime-local" id="sieExpiresAt">
+            </label>
+
+            <label class="sie-field">
+                <span>ملاحظة (اختياري)</span>
+                <input type="text" id="sieNotes" placeholder="سبب التفعيل مثلاً">
+            </label>
+
+            <div class="sie-usage" id="sieUsageDisplay">—</div>
+
+            <div style="display:flex; gap:6px;">
+                <button class="btn btn-primary btn-sm" id="sieSaveBtn">حفظ إعدادات SIE</button>
+                <button class="btn btn-secondary btn-sm" id="sieResetUsageBtn">تصفير الاستخدام</button>
+            </div>
+        </div>
     `;
 
     document.body.appendChild(overlay);
@@ -110,12 +153,103 @@ function injectOptionsPanel() {
             }
         });
     });
+
+    // ===== قسم محرك الدعم الذكي (SIE) — الأزرار دي أصلاً مخفية عن أي حد
+    // غير support@mad3oom.online (شوف openOptionsPanel)، لكن is_sie_admin()
+    // في الـ RPC/RLS هي اللي بتمنع فعليًا، مش الإخفاء ده.
+    document.getElementById('sieAccessMode').addEventListener('change', (e) => {
+        const mode = e.target.value;
+        document.getElementById('sieQuotaRow').style.display = mode === 'quota' ? '' : 'none';
+        document.getElementById('sieExpiryRow').style.display = mode === 'expiration' ? '' : 'none';
+    });
+
+    document.getElementById('sieSaveBtn').addEventListener('click', async () => {
+        if (!currentOptionsUserId) return;
+        const isEnabled = document.getElementById('sieEnabledToggle').checked;
+        const accessMode = document.getElementById('sieAccessMode').value;
+        const quotaRaw = document.getElementById('sieMessageQuota').value;
+        const expiryRaw = document.getElementById('sieExpiresAt').value;
+        const notes = document.getElementById('sieNotes').value.trim() || null;
+
+        const messageQuota = accessMode === 'quota' && quotaRaw ? parseInt(quotaRaw, 10) : null;
+        const expiresAt = accessMode === 'expiration' && expiryRaw ? new Date(expiryRaw).toISOString() : null;
+
+        if (accessMode === 'quota' && (!messageQuota || messageQuota < 1)) {
+            alert('من فضلك أدخل حد رسائل صحيح (رقم أكبر من صفر)');
+            return;
+        }
+        if (accessMode === 'expiration' && !expiresAt) {
+            alert('من فضلك اختر تاريخ انتهاء');
+            return;
+        }
+
+        const { error } = await adminSetAccess(supabase, {
+            userId: currentOptionsUserId,
+            isEnabled,
+            accessMode,
+            messageQuota,
+            expiresAt,
+            notes
+        });
+
+        if (error) alert('خطأ في حفظ إعدادات SIE: ' + error.message);
+        else {
+            alert('تم حفظ إعدادات SIE');
+            await loadSieAccessIntoPanel(currentOptionsUserId);
+        }
+    });
+
+    document.getElementById('sieResetUsageBtn').addEventListener('click', async () => {
+        if (!currentOptionsUserId) return;
+        if (!confirm('تصفير عداد الاستخدام لهذا العميل؟')) return;
+        const { error } = await adminResetUsage(supabase, currentOptionsUserId);
+        if (error) alert('خطأ في تصفير الاستخدام: ' + error.message);
+        else await loadSieAccessIntoPanel(currentOptionsUserId);
+    });
 }
 
-function openOptionsPanel(userId, name, email, currentRole) {
+/**
+ * يجيب صف customer_sie_access الحالي للعميل ده ويملأ بيه قسم SIE في النافذة.
+ * بيتنادى أول ما النافذة تتفتح، وتاني كل مرة الأدمن يحفظ/يصفّر عشان القيم المعروضة تفضل حقيقية.
+ */
+async function loadSieAccessIntoPanel(userId) {
+    currentSieAccess = await getSieAccessStatus(supabase, userId);
+
+    const enabled = currentSieAccess?.is_enabled || false;
+    const mode = currentSieAccess?.access_mode || 'unlimited';
+
+    document.getElementById('sieEnabledToggle').checked = enabled;
+    document.getElementById('sieAccessMode').value = mode;
+    document.getElementById('sieMessageQuota').value = currentSieAccess?.message_quota ?? '';
+    document.getElementById('sieExpiresAt').value = currentSieAccess?.expires_at
+        ? new Date(currentSieAccess.expires_at).toISOString().slice(0, 16)
+        : '';
+    document.getElementById('sieNotes').value = currentSieAccess?.notes || '';
+    document.getElementById('sieQuotaRow').style.display = mode === 'quota' ? '' : 'none';
+    document.getElementById('sieExpiryRow').style.display = mode === 'expiration' ? '' : 'none';
+
+    const usageEl = document.getElementById('sieUsageDisplay');
+    if (!currentSieAccess) {
+        usageEl.textContent = 'لسه معملوش تفعيل لهذا العميل';
+    } else if (mode === 'quota') {
+        usageEl.textContent = `الاستخدام: ${currentSieAccess.messages_used} / ${currentSieAccess.message_quota}`;
+    } else if (mode === 'expiration') {
+        usageEl.textContent = `رسايل مُرسَلة: ${currentSieAccess.messages_used} — ينتهي في ${new Date(currentSieAccess.expires_at).toLocaleString('ar-EG')}`;
+    } else {
+        usageEl.textContent = `رسايل مُرسَلة: ${currentSieAccess.messages_used}`;
+    }
+}
+
+async function openOptionsPanel(userId, name, email, currentRole) {
     currentOptionsUserId = userId;
     document.getElementById('optUserName').textContent = name || 'بدون اسم';
     document.getElementById('optUserEmail').textContent = email || '';
+
+    // قسم SIE بيتعرض بس للأدمن اللي is_sie_admin() بترجعله true — أي حد تاني
+    // مش هيشوف القسم أصلاً، وحتى لو حاول ينده الـ RPCs مباشرة هترفضه هي نفسها.
+    document.getElementById('sieSectionLabel').style.display = isSieAdmin ? '' : 'none';
+    document.getElementById('sieSection').style.display = isSieAdmin ? '' : 'none';
+    if (isSieAdmin) await loadSieAccessIntoPanel(userId);
 
     document.querySelectorAll('#optionsPanel .option-row-btn[data-role]').forEach(btn => {
         btn.classList.toggle('role-active', btn.getAttribute('data-role') === currentRole);
@@ -137,6 +271,7 @@ function openOptionsPanel(userId, name, email, currentRole) {
 
 function closeOptionsPanel() {
     currentOptionsUserId = null;
+    currentSieAccess = null;
     document.getElementById('optionsOverlay').classList.remove('active');
     document.getElementById('optionsPanel').classList.remove('active');
 }
