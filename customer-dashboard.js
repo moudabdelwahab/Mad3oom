@@ -142,7 +142,7 @@ const CUSTOMER_HIDDEN_ACTIVITY_TYPES = new Set(['assignee_change', 'internal_not
 
     /* ================= AUTH ================= */
 
-    const user = await requireAuth('customer');
+    const user = await requireAuth('user');
     if (!user) {
         window.location.replace('login.html');
         return;
