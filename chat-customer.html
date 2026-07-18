@@ -289,6 +289,12 @@
             .chat-header-blue { padding: 1rem; } 
             .chat-footer { padding: 1rem; } 
         } 
+
+        @media (max-width: 480px) {
+            #chatModeBtn { padding: 0.5rem; }
+            #chatModeBtnLabel { display: none; }
+            #chatModeBtn svg { margin-inline-end: 0; }
+        }
         
         footer {
             display: none !important;
@@ -320,7 +326,13 @@
                                 <span style="font-size: 0.8rem; opacity: 0.8;" id="chatHeaderStatus">متصل الآن</span>
                             </div>
                         </div>
-                        <button id="endChatBtn" class="end-chat-btn">إنهاء المحادثة</button>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <button id="chatModeBtn" class="end-chat-btn" style="background: rgba(255,255,255,0.15);" title="وضع الشات بوت">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px; margin-inline-end:0.3rem;"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+                                <span id="chatModeBtnLabel">تقليدي</span>
+                            </button>
+                            <button id="endChatBtn" class="end-chat-btn">إنهاء المحادثة</button>
+                        </div>
                     </div>
 
                     <div class="chat-body" id="chatMessages"></div>
