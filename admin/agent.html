@@ -1,107 +1,91 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+<script src="/error-tracker.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>وكلاء الذكاء الاصطناعي — مدعوم</title>
+<title>وكلاء الذكاء الاصطناعي - لوحة الإدارة</title>
+<link rel="icon" type="image/png" href="/assets/images/logo.png">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/robot.css">
+<link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+<script src="/theme-manager.js"></script>
+<script src="/language-manager.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   نفس Design Tokens المستخدمة في بقية مدعوم (نسخة الواجهة الفعلية
-   الفاتحة: --ui-*, --pill-*, نفس الخطوط والـ radius/shadow tokens).
-   دمج هذا الملف: يفضّل استبدال هذا الـ <style> بروابط CSS المشتركة
-   الموجودة عندك بدل تكراره هنا، لو عندك ملف tokens.css منفصل.
+   نفس منظومة الألوان المستخدمة في بقية لوحة الإدارة (--color-*
+   من admin-style.css) بدل الـ tokens المستقلة القديمة، حتى تتبع
+   الصفحة الثيم الفاتح/الداكن العام للوحة تلقائياً.
    ============================================================ */
 :root{
-  --primary:#0077CC;
-  --primary-deep:#00234A;
-  --accent:#4DA3FF;
-  --accent-soft:#8FC7FF;
-  --success:#22C58B;
-  --danger:#FF6B6B;
-  --warning:#F59E0B;
-  --mcp-color:#B45FE0;
-  --radius-lg:1.5rem;
-  --radius-md:1rem;
+  --radius-lg:1.1rem;
+  --radius-md:.85rem;
   --radius-sm:.6rem;
-  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
   --shadow-sm:0 10px 24px -10px rgba(16,27,46,.10);
   --font-display:'Cairo',sans-serif;
-  --font-body:'IBM Plex Sans Arabic',sans-serif;
   --font-data:'Space Grotesk',sans-serif;
-  --ui-bg:#F3F6FC;
-  --ui-card:#FFFFFF;
-  --ui-ink:#101B2E;
-  --ui-ink-2:#66738B;
-  --ui-ink-3:#8493AA;
-  --ui-border:#E7ECF5;
-  --pill-green-bg:#DCFCE7;--pill-green-text:#16A34A;
-  --pill-amber-bg:#FEF3C7;--pill-amber-text:#B45309;
-  --pill-blue-bg:#DBEAFE;--pill-blue-text:#2563EB;
-  --pill-purple-bg:#F3E8FF;--pill-purple-text:#9333EA;
-  --pill-red-bg:#FEE2E2;--pill-red-text:#DC2626;
-  --pill-gray-bg:#EEF1F6;--pill-gray-text:#64748B;
+  --pill-green-bg:rgba(34,197,138,.14);--pill-green-text:#16A34A;
+  --pill-amber-bg:rgba(245,158,11,.14);--pill-amber-text:#B45309;
+  --pill-blue-bg:rgba(37,99,235,.14);--pill-blue-text:#2563EB;
+  --pill-purple-bg:rgba(147,51,234,.14);--pill-purple-text:#9333EA;
+  --pill-red-bg:rgba(220,38,38,.14);--pill-red-text:#DC2626;
+  --pill-gray-bg:rgba(100,116,139,.14);--pill-gray-text:#64748B;
   --ease-snap:cubic-bezier(.2,.8,.2,1);
   --dur-fast:.16s;
   --dur-med:.3s;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:var(--font-body);background:var(--ui-bg);color:var(--ui-ink);line-height:1.7;}
+[data-theme='dark']{
+  --pill-green-bg:rgba(34,197,138,.16);--pill-green-text:#3ADD9E;
+  --pill-amber-bg:rgba(245,158,11,.16);--pill-amber-text:#FBBF67;
+  --pill-blue-bg:rgba(37,99,235,.18);--pill-blue-text:#7FB8FF;
+  --pill-purple-bg:rgba(147,51,234,.18);--pill-purple-text:#C892FF;
+  --pill-red-bg:rgba(220,38,38,.18);--pill-red-text:#FF8B8B;
+  --pill-gray-bg:rgba(148,166,194,.14);--pill-gray-text:#94A6C2;
+}
 h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01em;}
 .mono, .num{font-family:var(--font-data);}
-button{font-family:inherit;cursor:pointer;}
-a{color:inherit;text-decoration:none;}
-:focus-visible{outline:2px solid var(--accent-soft);outline-offset:2px;border-radius:4px;}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px;border-radius:4px;}
 
-.page{max-width:1240px;margin:0 auto;padding:2rem clamp(1rem,3vw,2rem) 5rem;}
+.page{max-width:1240px;margin:0 auto;}
 
 /* ---------- Header ---------- */
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.75rem;flex-wrap:wrap;}
-.page-header h1{font-size:1.6rem;margin-bottom:.35rem;}
-.page-header .sub{color:var(--ui-ink-2);font-size:.92rem;}
-
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.7rem 1.3rem;border-radius:.7rem;font-weight:700;font-size:.9rem;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) ease, background var(--dur-fast) ease;white-space:nowrap;}
-.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 10px 24px -10px rgba(0,119,204,.5);}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 32px -10px rgba(0,119,204,.6);}
-.btn-outline{background:#fff;border-color:var(--ui-border);color:var(--ui-ink);}
-.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.06);}
-.btn-danger-outline{background:#fff;border-color:var(--pill-red-bg);color:var(--danger);}
-.btn-danger-outline:hover{background:var(--pill-red-bg);}
-.btn-sm{padding:.45rem .85rem;font-size:.78rem;border-radius:.55rem;}
-.btn-icon{width:34px;height:34px;padding:0;border-radius:.55rem;}
-.btn:disabled{opacity:.5;pointer-events:none;}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+.page-header h1{font-size:1.5rem;margin-bottom:.3rem;color:var(--color-text);}
+.page-header .sub{color:var(--color-text-secondary);font-size:.9rem;}
 
 /* ---------- Dashboard stat widgets ---------- */
-.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:2rem;}
-.stat-chip{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:var(--radius-md);padding:1rem 1.1rem;box-shadow:var(--shadow-sm);}
-.stat-chip .lbl{font-size:.75rem;color:var(--ui-ink-2);font-weight:600;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;}
-.stat-chip .val{font-family:var(--font-data);font-size:1.6rem;font-weight:700;color:var(--ui-ink);}
-.stat-chip .val.success{color:var(--success);}
-.stat-chip .val.gray{color:var(--ui-ink-3);}
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.75rem;}
+.stat-chip{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:1rem 1.1rem;box-shadow:var(--shadow-sm);}
+.stat-chip .lbl{font-size:.75rem;color:var(--color-text-secondary);font-weight:600;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;}
+.stat-chip .val{font-family:var(--font-data);font-size:1.5rem;font-weight:700;color:var(--color-text);}
+.stat-chip .val.success{color:var(--color-success);}
+.stat-chip .val.gray{color:var(--color-text-secondary);}
 .stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 @media (max-width:1000px){.stats-row{grid-template-columns:repeat(2,1fr);}}
 @media (max-width:560px){.stats-row{grid-template-columns:1fr;}}
 
 /* ---------- Agents grid ---------- */
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.1rem;flex-wrap:wrap;}
-.toolbar h2{font-size:1.05rem;}
+.toolbar h2{font-size:1.05rem;color:var(--color-text);}
 .search-box{position:relative;}
-.search-box input{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.6rem;padding:.55rem .9rem .55rem 2.2rem;font-size:.85rem;font-family:inherit;color:var(--ui-ink);min-width:220px;}
-.search-box input:focus{outline:none;border-color:var(--accent-soft);}
-.search-box svg{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--ui-ink-3);}
+.search-box input{background:var(--color-surface);border:1px solid var(--color-border);border-radius:.6rem;padding:.55rem .9rem .55rem 2.2rem;font-size:.85rem;font-family:inherit;color:var(--color-text);min-width:220px;}
+.search-box input:focus{outline:none;border-color:var(--color-accent);}
+.search-box svg{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--color-text-secondary);}
 
 .agents-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;}
-.agent-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:var(--radius-md);padding:1.1rem;display:flex;flex-direction:column;gap:.85rem;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) ease;}
+.agent-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:1.1rem;display:flex;flex-direction:column;gap:.85rem;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) ease;cursor:pointer;}
 .agent-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-sm);}
 .agent-card .head{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;}
 .agent-id{display:flex;align-items:center;gap:.6rem;min-width:0;}
-.agent-avatar{width:38px;height:38px;border-radius:.7rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:var(--font-display);flex-shrink:0;}
-.agent-name{font-weight:700;font-size:.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.agent-type{font-size:.72rem;color:var(--ui-ink-2);}
+.agent-avatar{width:38px;height:38px;border-radius:.7rem;background:linear-gradient(135deg,var(--color-accent),var(--color-primary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:var(--font-display);flex-shrink:0;}
+.agent-name{font-weight:700;font-size:.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text);}
+.agent-type{font-size:.72rem;color:var(--color-text-secondary);}
 
 .pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:700;padding:.25rem .6rem;border-radius:99px;flex-shrink:0;}
-.pill svg,.pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .pill.running{background:var(--pill-green-bg);color:var(--pill-green-text);}
 .pill.running .dot{background:var(--pill-green-text);animation:pulseDot 1.6s infinite;}
 .pill.stopped{background:var(--pill-gray-bg);color:var(--pill-gray-text);}
@@ -111,92 +95,96 @@ a{color:inherit;text-decoration:none;}
 .pill.starting,.pill.stopping,.pill.restarting{background:var(--pill-amber-bg);color:var(--pill-amber-text);}
 .pill.starting .dot,.pill.stopping .dot,.pill.restarting .dot{background:var(--pill-amber-text);animation:pulseDot 1s infinite;}
 .pill.unknown{background:var(--pill-gray-bg);color:var(--pill-gray-text);}
-.pill.disabled{background:var(--pill-gray-bg);color:var(--ui-ink-3);}
+.pill.disabled{background:var(--pill-gray-bg);color:var(--color-text-secondary);}
 @keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,138,.5);}70%{box-shadow:0 0 0 6px rgba(34,197,138,0);}}
 
-.agent-desc{font-size:.8rem;color:var(--ui-ink-2);min-height:1.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.agent-desc{font-size:.8rem;color:var(--color-text-secondary);min-height:1.4em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 
-.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;background:var(--ui-bg);border-radius:.6rem;padding:.6rem;}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;background:var(--color-muted);border-radius:.6rem;padding:.6rem;}
 .metric{text-align:center;}
-.metric b{display:block;font-family:var(--font-data);font-size:.85rem;color:var(--ui-ink);}
-.metric span{font-size:.6rem;color:var(--ui-ink-2);}
-.metric.na b{color:var(--ui-ink-3);}
+.metric b{display:block;font-family:var(--font-data);font-size:.85rem;color:var(--color-text);}
+.metric span{font-size:.6rem;color:var(--color-text-secondary);}
+.metric.na b{color:var(--color-text-secondary);}
 
-.meta-row{display:flex;align-items:center;justify-content:space-between;font-size:.7rem;color:var(--ui-ink-3);}
+.meta-row{display:flex;align-items:center;justify-content:space-between;font-size:.7rem;color:var(--color-text-secondary);}
 
-.card-actions{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;border-top:1px solid var(--ui-border);padding-top:.75rem;}
+.card-actions{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;border-top:1px solid var(--color-border);padding-top:.75rem;}
 .card-actions .btn{flex:1;min-width:0;}
 .card-actions .icon-only{flex:0 0 auto;}
 
-.empty-state{grid-column:1/-1;text-align:center;padding:4rem 1rem;color:var(--ui-ink-2);}
-.empty-state h3{color:var(--ui-ink);margin-bottom:.5rem;font-size:1.05rem;}
-.empty-state svg{width:44px;height:44px;color:var(--ui-ink-3);margin-bottom:1rem;}
+.empty-state{grid-column:1/-1;text-align:center;padding:4rem 1rem;color:var(--color-text-secondary);}
+.empty-state h3{color:var(--color-text);margin-bottom:.5rem;font-size:1.05rem;}
+.empty-state svg{width:44px;height:44px;color:var(--color-text-secondary);margin-bottom:1rem;}
+
+.backend-notice{display:flex;align-items:flex-start;gap:.6rem;background:var(--pill-amber-bg);color:var(--pill-amber-text);border:1px solid var(--pill-amber-text);border-radius:var(--radius-sm);padding:.75rem .9rem;font-size:.78rem;margin-bottom:1.25rem;line-height:1.6;}
+.backend-notice svg{flex-shrink:0;margin-top:.15rem;}
+.backend-notice strong{display:block;margin-bottom:.15rem;}
 
 /* ---------- Modal ---------- */
-.modal-overlay{position:fixed;inset:0;background:rgba(16,27,46,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:3vh 1rem;overflow-y:auto;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:3vh 1rem;overflow-y:auto;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--ui-card);border-radius:var(--radius-lg);width:100%;max-width:760px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;max-height:94vh;}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.4rem;border-bottom:1px solid var(--ui-border);}
-.modal-head h3{font-size:1.05rem;}
-.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--ui-bg);color:var(--ui-ink-2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
-.modal-close:hover{background:var(--pill-red-bg);color:var(--danger);}
+.modal{background:var(--color-surface);border-radius:var(--radius-lg);width:100%;max-width:760px;box-shadow:0 30px 80px -25px rgba(0,0,0,.35);display:flex;flex-direction:column;max-height:94vh;}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.4rem;border-bottom:1px solid var(--color-border);}
+.modal-head h3{font-size:1.05rem;color:var(--color-text);}
+.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--color-muted);color:var(--color-text-secondary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;}
+.modal-close:hover{background:var(--pill-red-bg);color:var(--color-danger);}
 
-.tabs{display:flex;gap:.25rem;padding:0 1.4rem;border-bottom:1px solid var(--ui-border);overflow-x:auto;flex-shrink:0;}
-.tab-btn{background:none;border:none;padding:.85rem .9rem;font-size:.82rem;font-weight:700;color:var(--ui-ink-2);border-bottom:2px solid transparent;white-space:nowrap;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease;}
-.tab-btn:hover{color:var(--ui-ink);}
-.tab-btn.active{color:var(--primary);border-color:var(--primary);}
+.tabs{display:flex;gap:.25rem;padding:0 1.4rem;border-bottom:1px solid var(--color-border);overflow-x:auto;flex-shrink:0;}
+.tab-btn{background:none;border:none;padding:.85rem .9rem;font-size:.82rem;font-weight:700;color:var(--color-text-secondary);border-bottom:2px solid transparent;white-space:nowrap;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease;cursor:pointer;font-family:inherit;}
+.tab-btn:hover{color:var(--color-text);}
+.tab-btn.active{color:var(--color-accent);border-color:var(--color-accent);}
 
 .modal-body{padding:1.4rem;overflow-y:auto;flex:1;}
 .tab-panel{display:none;}
 .tab-panel.active{display:flex;flex-direction:column;gap:1rem;}
 
 .field{display:flex;flex-direction:column;gap:.35rem;}
-.field label{font-size:.8rem;font-weight:700;color:var(--ui-ink);}
-.field .hint{font-size:.7rem;color:var(--ui-ink-3);font-weight:400;}
+.field label{font-size:.8rem;font-weight:700;color:var(--color-text);}
+.field .hint{font-size:.7rem;color:var(--color-text-secondary);font-weight:400;}
 .field input[type=text], .field input[type=number], .field input[type=password], .field input[type=url], .field textarea, .field select{
-  background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.6rem;padding:.6rem .8rem;font-size:.85rem;font-family:inherit;color:var(--ui-ink);width:100%;
+  background:var(--input-bg,var(--color-muted));border:1px solid var(--color-border);border-radius:.6rem;padding:.6rem .8rem;font-size:.85rem;font-family:inherit;color:var(--color-text);width:100%;
 }
 .field textarea{resize:vertical;min-height:70px;}
-.field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--accent-soft);background:#fff;}
+.field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--color-accent);}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;}
 .field-row.three{grid-template-columns:1fr 1fr 1fr;}
 @media (max-width:560px){.field-row,.field-row.three{grid-template-columns:1fr;}}
 
-.switch-row{display:flex;align-items:center;justify-content:space-between;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.6rem;padding:.7rem .9rem;}
-.switch-row .txt{font-size:.83rem;font-weight:600;}
-.switch-row .txt small{display:block;font-weight:400;color:var(--ui-ink-2);font-size:.72rem;margin-top:.1rem;}
+.switch-row{display:flex;align-items:center;justify-content:space-between;background:var(--color-muted);border:1px solid var(--color-border);border-radius:.6rem;padding:.7rem .9rem;}
+.switch-row .txt{font-size:.83rem;font-weight:600;color:var(--color-text);}
+.switch-row .txt small{display:block;font-weight:400;color:var(--color-text-secondary);font-size:.72rem;margin-top:.1rem;}
 .switch{position:relative;width:40px;height:22px;flex-shrink:0;}
 .switch input{opacity:0;width:0;height:0;}
-.switch .track{position:absolute;inset:0;background:var(--ui-border);border-radius:99px;transition:background var(--dur-fast) ease;}
+.switch .track{position:absolute;inset:0;background:var(--color-border);border-radius:99px;transition:background var(--dur-fast) ease;cursor:pointer;}
 .switch .track::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform var(--dur-fast) var(--ease-snap);box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.switch input:checked + .track{background:var(--primary);}
+.switch input:checked + .track{background:var(--color-accent);}
 .switch input:checked + .track::after{transform:translateX(-18px);}
 
 .checkbox-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
 @media (max-width:600px){.checkbox-grid{grid-template-columns:repeat(2,1fr);}}
-.check-item{display:flex;align-items:center;gap:.5rem;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.55rem;padding:.55rem .7rem;font-size:.78rem;font-weight:600;cursor:pointer;transition:border-color var(--dur-fast) ease, background var(--dur-fast) ease;}
-.check-item:hover{border-color:var(--accent-soft);}
-.check-item input{accent-color:var(--primary);width:15px;height:15px;flex-shrink:0;}
-.check-item.checked{background:rgba(0,119,204,.06);border-color:var(--accent-soft);}
+.check-item{display:flex;align-items:center;gap:.5rem;background:var(--color-muted);border:1px solid var(--color-border);border-radius:.55rem;padding:.55rem .7rem;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--color-text);transition:border-color var(--dur-fast) ease, background var(--dur-fast) ease;}
+.check-item:hover{border-color:var(--color-accent);}
+.check-item input{accent-color:var(--color-accent);width:15px;height:15px;flex-shrink:0;}
+.check-item.checked{background:rgba(0,119,204,.08);border-color:var(--color-accent);}
 
 .envvar-list{display:flex;flex-direction:column;gap:.5rem;}
 .envvar-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:.5rem;align-items:center;}
-.envvar-row input{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem .7rem;font-size:.8rem;font-family:var(--font-data);color:var(--ui-ink);width:100%;}
-.envvar-row .secret-toggle{display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:var(--ui-ink-2);cursor:pointer;white-space:nowrap;}
-.envvar-remove{width:30px;height:30px;border-radius:.5rem;border:1px solid var(--ui-border);background:#fff;color:var(--danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.envvar-row input{background:var(--color-muted);border:1px solid var(--color-border);border-radius:.5rem;padding:.5rem .7rem;font-size:.8rem;font-family:var(--font-data);color:var(--color-text);width:100%;}
+.envvar-row .secret-toggle{display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;}
+.envvar-remove{width:30px;height:30px;border-radius:.5rem;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
 .envvar-remove:hover{background:var(--pill-red-bg);}
 .add-row-btn{align-self:flex-start;}
 
 .metrics-tab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;}
 @media (max-width:560px){.metrics-tab-grid{grid-template-columns:repeat(2,1fr);}}
-.metric-tile{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.65rem;padding:.8rem;text-align:center;}
-.metric-tile b{display:block;font-family:var(--font-data);font-size:1.15rem;color:var(--ui-ink);}
-.metric-tile span{font-size:.68rem;color:var(--ui-ink-2);}
-.metrics-note{font-size:.72rem;color:var(--ui-ink-3);background:var(--ui-bg);border-radius:.5rem;padding:.6rem .8rem;}
+.metric-tile{background:var(--color-muted);border:1px solid var(--color-border);border-radius:.65rem;padding:.8rem;text-align:center;}
+.metric-tile b{display:block;font-family:var(--font-data);font-size:1.15rem;color:var(--color-text);}
+.metric-tile span{font-size:.68rem;color:var(--color-text-secondary);}
+.metrics-note{font-size:.72rem;color:var(--color-text-secondary);background:var(--color-muted);border-radius:.5rem;padding:.6rem .8rem;}
 
 .logs-toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.7rem;}
-.logs-toolbar select, .logs-toolbar input{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.5rem;padding:.45rem .7rem;font-size:.78rem;font-family:inherit;}
-.logs-box{background:var(--primary-deep);color:#DCE8FF;border-radius:.65rem;padding:.8rem;font-family:var(--font-data);font-size:.72rem;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;}
+.logs-toolbar select, .logs-toolbar input{background:var(--color-muted);border:1px solid var(--color-border);border-radius:.5rem;padding:.45rem .7rem;font-size:.78rem;font-family:inherit;color:var(--color-text);}
+.logs-box{background:var(--color-primary);color:#DCE8FF;border-radius:.65rem;padding:.8rem;font-family:var(--font-data);font-size:.72rem;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;}
 .log-line{display:flex;gap:.6rem;}
 .log-line .lvl{flex-shrink:0;font-weight:700;width:52px;}
 .log-line.info .lvl{color:#7FB8FF;}
@@ -206,29 +194,33 @@ a{color:inherit;text-decoration:none;}
 
 .actions-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;}
 @media (max-width:560px){.actions-grid{grid-template-columns:1fr;}}
-.action-tile{display:flex;align-items:center;gap:.7rem;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.65rem;padding:.8rem;text-align:right;transition:border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);}
-.action-tile:hover{border-color:var(--accent-soft);transform:translateY(-2px);}
-.action-tile .ic{width:34px;height:34px;border-radius:.6rem;background:#fff;border:1px solid var(--ui-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.action-tile.danger .ic{color:var(--danger);}
-.action-tile strong{display:block;font-size:.82rem;}
-.action-tile small{color:var(--ui-ink-2);font-size:.7rem;}
+.action-tile{display:flex;align-items:center;gap:.7rem;background:var(--color-muted);border:1px solid var(--color-border);border-radius:.65rem;padding:.8rem;text-align:right;transition:border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);cursor:pointer;font-family:inherit;width:100%;}
+.action-tile:hover{border-color:var(--color-accent);transform:translateY(-2px);}
+.action-tile .ic{width:34px;height:34px;border-radius:.6rem;background:var(--color-surface);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--color-text);}
+.action-tile.danger .ic{color:var(--color-danger);}
+.action-tile strong{display:block;font-size:.82rem;color:var(--color-text);}
+.action-tile small{color:var(--color-text-secondary);font-size:.7rem;}
 
-.modal-foot{display:flex;align-items:center;justify-content:flex-end;gap:.6rem;padding:1rem 1.4rem;border-top:1px solid var(--ui-border);flex-shrink:0;}
+.modal-foot{display:flex;align-items:center;justify-content:flex-end;gap:.6rem;padding:1rem 1.4rem;border-top:1px solid var(--color-border);flex-shrink:0;}
 
 /* toast */
 .toast-wrap{position:fixed;bottom:1.2rem;left:1.2rem;z-index:800;display:flex;flex-direction:column;gap:.5rem;}
-.toast{background:var(--ui-ink);color:#fff;padding:.7rem 1.1rem;border-radius:.6rem;font-size:.82rem;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.5rem;animation:toastIn .25s var(--ease-snap);}
-.toast.success{background:var(--success);}
-.toast.error{background:var(--danger);}
+.toast{background:var(--color-text);color:var(--color-background);padding:.7rem 1.1rem;border-radius:.6rem;font-size:.82rem;font-weight:600;box-shadow:0 20px 45px -15px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;animation:toastIn .25s var(--ease-snap);}
+.toast.success{background:var(--color-success);color:#fff;}
+.toast.error{background:var(--color-danger);color:#fff;}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
 .spin{animation:spinAnim .8s linear infinite;}
 @keyframes spinAnim{to{transform:rotate(360deg);}}
+
+.not-authorized{text-align:center;padding:4rem 1.5rem;color:var(--color-text-secondary);}
 </style>
 </head>
 <body>
+<div id="sidebar-container"></div>
 
-<div class="page">
+<main class="admin-main">
+<div class="page" id="agentPageRoot">
 
   <!-- ================= Header ================= -->
   <div class="page-header">
@@ -240,6 +232,14 @@ a{color:inherit;text-decoration:none;}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
       إضافة وكيل جديد
     </button>
+  </div>
+
+  <div class="backend-notice" id="backendNotice" style="display:none;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div>
+      <strong>وضع تجريبي محلي</strong>
+      دالة agent-manager غير منشورة بعد على Supabase، فالبيانات تُحفظ مؤقتاً في متصفحك فقط (localStorage) ولن تُشارك مع بقية اللوحة حتى يتم نشر الدالة. راجع تقرير الفحص المرفق لمزيد من التفاصيل.
+    </div>
   </div>
 
   <!-- ================= Dashboard widget ================= -->
@@ -276,10 +276,11 @@ a{color:inherit;text-decoration:none;}
   </div>
 
   <div class="agents-grid" id="agentsGrid">
-    <!-- تُملأ ديناميكياً -->
+    <div class="empty-state"><p>جاري التحميل...</p></div>
   </div>
 
 </div>
+</main>
 
 <!-- ================= Modal: إعدادات الوكيل ================= -->
 <div class="modal-overlay" id="agentModal">
@@ -531,451 +532,27 @@ a{color:inherit;text-decoration:none;}
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script>
-/* ============================================================
-   إعدادات الربط — عدّل هذا الجزء فقط عند الدمج داخل التطبيق الفعلي:
-   - لو عندك عميل Supabase عام جاهز (مثلاً window.supabaseClient)
-     استخدمه بدل إنشاء عميل جديد هنا.
-   - عدّل SUPABASE_URL لو مختلف عن مشروعك.
-   ============================================================ */
-const SUPABASE_URL = window.SUPABASE_URL || "https://srnelrdpqkcntbgudyto.supabase.co";
-const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
+<script type="module">
+import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+import { initSidebar } from '/assets/js/admin/sidebar.js';
+import { initAgentAdminPage } from '/assets/js/admin/agent.js';
 
-// دالة الحصول على access token — عدّلها لتستخدم عميل Supabase الفعلي
-// المستخدم في باقي لوحة التحكم (مثال شائع: supabaseClient.auth.getSession()).
-async function getAccessToken() {
-  if (window.supabaseClient?.auth?.getSession) {
-    const { data } = await window.supabaseClient.auth.getSession();
-    return data?.session?.access_token || null;
-  }
-  // احتياطي: لو التوكن مخزّن يدوياً في مكان آخر بالتطبيق
-  return window.__SUPABASE_ACCESS_TOKEN__ || null;
-}
-
-async function callAgentManager(action, payload = {}) {
-  const token = await getAccessToken();
-  if (!token) { toast("لم يتم العثور على جلسة تسجيل دخول صالحة", "error"); throw new Error("no session"); }
-  const res = await fetch(`${FUNCTIONS_BASE}/agent-manager`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-    body: JSON.stringify({ action, ...payload }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(data.error || `فشل الطلب (${res.status})`);
-  return data;
-}
-
-/* ---------- الموارد والصلاحيات الثابتة (حسب المواصفة) ---------- */
-const RESOURCES = [
-  { key: "tickets", label: "التذاكر" },
-  { key: "knowledge_base", label: "قاعدة المعرفة" },
-  { key: "whatsapp", label: "واتساب" },
-  { key: "email", label: "البريد الإلكتروني" },
-  { key: "mcp", label: "MCP" },
-  { key: "files", label: "الملفات" },
-  { key: "memory", label: "الذاكرة" },
-  { key: "supabase", label: "Supabase" },
-  { key: "notifications", label: "الإشعارات" },
-];
-const PERMISSIONS = [
-  { key: "tickets.read", label: "قراءة التذاكر" },
-  { key: "tickets.create", label: "إنشاء تذاكر" },
-  { key: "tickets.update", label: "تعديل التذاكر" },
-  { key: "tickets.delete", label: "حذف التذاكر" },
-  { key: "whatsapp.send", label: "إرسال رسائل واتساب" },
-  { key: "actions.execute", label: "تنفيذ الإجراءات" },
-  { key: "data.sensitive", label: "الوصول إلى البيانات الحساسة" },
-  { key: "commands.execute", label: "تشغيل الأوامر" },
-];
-
-const STATUS_LABELS = {
-  running: "يعمل", stopped: "متوقف", starting: "قيد التشغيل", stopping: "قيد الإيقاف",
-  restarting: "قيد إعادة التشغيل", error: "خطأ", unknown: "غير معروف",
-};
-
-let agentsCache = [];
-let currentAgentId = null; // null = إنشاء وكيل جديد
-let envVars = []; // {key, value, is_secret}
-
-/* ================= تحميل وعرض الوكلاء ================= */
-async function loadAgents() {
-  try {
-    const { agents } = await callAgentManager("list");
-    agentsCache = agents || [];
-    renderAgents();
-    renderDashboardStats();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function renderDashboardStats() {
-  const total = agentsCache.length;
-  const active = agentsCache.filter(a => a.status === "running").length;
-  const stopped = agentsCache.filter(a => a.status === "stopped" || !a.enabled).length;
-  const errored = agentsCache.filter(a => a.status === "error").length;
-  document.getElementById("statTotal").textContent = total;
-  document.getElementById("statActive").textContent = active;
-  document.getElementById("statStopped").textContent = stopped;
-  document.getElementById("statSystem").textContent = errored > 0 ? `⚠ ${errored} بحالة خطأ` : (total === 0 ? "لا يوجد وكلاء" : "مستقر");
-  document.getElementById("statSystem").style.color = errored > 0 ? "var(--danger)" : "var(--success)";
-  document.getElementById("statTasks").textContent = "—"; // Runtime metric — تُجمّع لاحقاً من status لكل وكيل نشط
-}
-
-function renderAgents(filter = "") {
-  const grid = document.getElementById("agentsGrid");
-  const list = agentsCache.filter(a => a.name.toLowerCase().includes(filter.toLowerCase()));
-  if (list.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6v6H9z"/></svg>
-        <h3>لا يوجد وكلاء بعد</h3>
-        <p>ابدأ بإضافة أول وكيل ذكاء اصطناعي في مدعوم.</p>
-      </div>`;
-    return;
-  }
-  grid.innerHTML = list.map(agentCardHTML).join("");
-  grid.querySelectorAll("[data-open-agent]").forEach(el => el.addEventListener("click", () => openAgentModal(el.dataset.openAgent)));
-  grid.querySelectorAll("[data-quick-act]").forEach(el => el.addEventListener("click", (e) => {
-    e.stopPropagation();
-    quickAction(el.dataset.quickAct, el.dataset.agentId);
-  }));
-}
-
-function agentCardHTML(a) {
-  const statusClass = a.enabled ? (a.status || "unknown") : "disabled";
-  const statusLabel = a.enabled ? (STATUS_LABELS[a.status] || a.status) : "معطّل";
-  const initial = (a.name || "?").trim().charAt(0).toUpperCase();
-  const heartbeat = a.last_heartbeat ? timeAgo(a.last_heartbeat) : "—";
-  return `
-  <div class="agent-card" data-open-agent="${a.id}">
-    <div class="head">
-      <div class="agent-id">
-        <div class="agent-avatar">${initial}</div>
-        <div style="min-width:0">
-          <div class="agent-name">${escapeHtml(a.name)}</div>
-          <div class="agent-type">${escapeHtml(a.type)} ${a.version ? "· v" + escapeHtml(a.version) : ""}</div>
-        </div>
-      </div>
-      <span class="pill ${statusClass}"><span class="dot"></span>${statusLabel}</span>
-    </div>
-    ${a.description ? `<div class="agent-desc">${escapeHtml(a.description)}</div>` : ""}
-    <div class="metrics-row">
-      <div class="metric na"><b>—</b><span>CPU</span></div>
-      <div class="metric na"><b>—</b><span>RAM</span></div>
-      <div class="metric na"><b>—</b><span>Uptime</span></div>
-      <div class="metric na"><b>—</b><span>المهام</span></div>
-    </div>
-    <div class="meta-row"><span>آخر Heartbeat: ${heartbeat}</span></div>
-    <div class="card-actions">
-      <button class="btn btn-outline btn-sm" data-open-agent="${a.id}">الإعدادات</button>
-      <button class="btn btn-outline btn-sm icon-only" data-quick-act="start" data-agent-id="${a.id}" title="تشغيل">▶</button>
-      <button class="btn btn-outline btn-sm icon-only" data-quick-act="stop" data-agent-id="${a.id}" title="إيقاف">■</button>
-      <button class="btn btn-outline btn-sm icon-only" data-quick-act="restart" data-agent-id="${a.id}" title="إعادة تشغيل">⟳</button>
-    </div>
-  </div>`;
-}
-
-async function quickAction(action, id) {
-  try {
-    toast("جاري التنفيذ...", "info");
-    const result = await callAgentManager(action, { id });
-    if (result.ok === false) throw new Error(result.error || "فشل الإجراء");
-    toast("تم التنفيذ بنجاح", "success");
-    loadAgents();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-/* ================= المودال: فتح/إغلاق/تابات ================= */
-document.getElementById("btnAddAgent").addEventListener("click", () => openAgentModal(null));
-document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
-document.getElementById("btnCancelModal").addEventListener("click", closeModal);
-document.getElementById("agentModal").addEventListener("click", (e) => { if (e.target.id === "agentModal") closeModal(); });
-
-document.getElementById("modalTabs").addEventListener("click", (e) => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-  btn.classList.add("active");
-  document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add("active");
-  if (btn.dataset.tab === "status" && currentAgentId) refreshLiveStatus();
-  if (btn.dataset.tab === "logs" && currentAgentId) loadLogs();
-});
-
-function closeModal() {
-  document.getElementById("agentModal").classList.remove("open");
-}
-
-function openAgentModal(agentId) {
-  currentAgentId = agentId;
-  const isEdit = !!agentId;
-  document.getElementById("modalTitle").textContent = isEdit ? "إعدادات الوكيل" : "إضافة وكيل جديد";
-  document.querySelectorAll(".edit-only").forEach(el => el.style.display = isEdit ? "" : "none");
-  document.querySelectorAll(".tab-btn")[0].click(); // ارجع دايماً لأول تاب
-
-  const agent = isEdit ? agentsCache.find(a => a.id === agentId) : null;
-
-  document.getElementById("fName").value = agent?.name || "";
-  document.getElementById("fSlug").value = agent?.slug || "";
-  document.getElementById("fSlug").disabled = isEdit; // الـ slug ثابت بعد الإنشاء
-  document.getElementById("fDescription").value = agent?.description || "";
-  document.getElementById("fType").value = agent?.type || "";
-  document.getElementById("fVersion").value = agent?.version || "";
-  document.getElementById("fStatusReadonly").value = agent ? (STATUS_LABELS[agent.status] || agent.status) : "لم يُنشأ بعد";
-  document.getElementById("fEnabled").checked = agent ? !!agent.enabled : true;
-  document.getElementById("fAutoStart").checked = !!agent?.auto_start;
-  document.getElementById("fAutoRestart").checked = !!agent?.auto_restart;
-
-  document.getElementById("fConnectionType").value = agent?.connection_type || "http";
-  document.getElementById("fProtocol").value = agent?.protocol || "";
-  document.getElementById("fPort").value = agent?.port ?? "";
-  document.getElementById("fHost").value = agent?.host || "";
-  document.getElementById("fEndpoint").value = agent?.endpoint || "";
-  document.getElementById("fHealthEndpoint").value = agent?.health_endpoint || "";
-  document.getElementById("fApiKey").value = "";
-  document.getElementById("fApiKey").placeholder = agent?.api_key_last4 ? `•••• ${agent.api_key_last4} — اتركه فارغاً للإبقاء عليه` : "اتركه فارغاً إن لم تحتج مفتاح API";
-  document.getElementById("fTimeout").value = agent?.timeout_ms ?? 10000;
-  document.getElementById("fRetryCount").value = agent?.retry_count ?? 3;
-  document.getElementById("fRetryDelay").value = agent?.retry_delay_ms ?? 2000;
-
-  document.getElementById("fExecutable").value = agent?.executable || "";
-  document.getElementById("fWorkingDir").value = agent?.working_directory || "";
-  document.getElementById("fCmdStart").value = agent?.command_start || "";
-  document.getElementById("fCmdStop").value = agent?.command_stop || "";
-  document.getElementById("fCmdRestart").value = agent?.command_restart || "";
-
-  renderCheckboxGrid("resourcesGrid", RESOURCES, agent?.resources || []);
-  renderCheckboxGrid("permissionsGrid", PERMISSIONS, agent?.permissions || []);
-
-  envVars = Array.isArray(agent?.environment_variables) ? JSON.parse(JSON.stringify(agent.environment_variables)) : [];
-  renderEnvVars();
-
-  // تصفير تابات الحالة/السجلات
-  document.getElementById("logsBox").innerHTML = `<div class="log-line info"><span class="ts">—</span><span class="lvl">INFO</span><span>اضغط "تحديث" لجلب السجلات من الوكيل.</span></div>`;
-  ["mCpu","mRam","mUptime","mQueue","mLatency","mHeartbeat"].forEach(id => document.getElementById(id).textContent = "—");
-
-  document.getElementById("agentModal").classList.add("open");
-}
-
-function renderCheckboxGrid(containerId, items, selected) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = items.map(it => `
-    <label class="check-item ${selected.includes(it.key) ? "checked" : ""}">
-      <input type="checkbox" value="${it.key}" ${selected.includes(it.key) ? "checked" : ""}>
-      ${it.label}
-    </label>`).join("");
-  el.querySelectorAll("input").forEach(cb => cb.addEventListener("change", () => cb.closest(".check-item").classList.toggle("checked", cb.checked)));
-}
-function getCheckedValues(containerId) {
-  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(i => i.value);
-}
-
-/* ---------- متغيرات البيئة ---------- */
-function renderEnvVars() {
-  const list = document.getElementById("envvarList");
-  if (envVars.length === 0) {
-    list.innerHTML = `<p class="hint">لا توجد متغيرات بيئة بعد.</p>`;
-    return;
-  }
-  list.innerHTML = envVars.map((v, i) => `
-    <div class="envvar-row">
-      <input type="text" placeholder="KEY" value="${escapeAttr(v.key)}" data-env-idx="${i}" data-env-field="key">
-      <input type="${v.is_secret ? "password" : "text"}" placeholder="VALUE" value="${v.is_secret && v.value === "••••••••" ? "" : escapeAttr(v.value)}" data-env-idx="${i}" data-env-field="value" ${v.is_secret ? `placeholder="${v.value === "••••••••" ? "•••••••• (اتركه فارغاً للإبقاء عليه)" : "VALUE"}"` : ""}>
-      <label class="secret-toggle"><input type="checkbox" data-env-idx="${i}" data-env-field="is_secret" ${v.is_secret ? "checked" : ""}> سرّي</label>
-      <button class="envvar-remove" data-env-remove="${i}" title="حذف">×</button>
-    </div>`).join("");
-
-  list.querySelectorAll("[data-env-field]").forEach(el => el.addEventListener("input", onEnvVarChange));
-  list.querySelectorAll("[data-env-field='is_secret']").forEach(el => el.addEventListener("change", onEnvVarChange));
-  list.querySelectorAll("[data-env-remove]").forEach(el => el.addEventListener("click", () => {
-    envVars.splice(Number(el.dataset.envRemove), 1);
-    renderEnvVars();
-  }));
-}
-function onEnvVarChange(e) {
-  const idx = Number(e.target.dataset.envIdx);
-  const field = e.target.dataset.envField;
-  if (field === "is_secret") {
-    envVars[idx].is_secret = e.target.checked;
-    renderEnvVars(); // إعادة رسم عشان نبدّل نوع input بين text/password
-  } else {
-    envVars[idx][field] = e.target.value;
-  }
-}
-document.getElementById("btnAddEnvVar").addEventListener("click", () => {
-  envVars.push({ key: "", value: "", is_secret: false });
-  renderEnvVars();
-});
-
-/* ================= الحالة والأداء (Runtime، لا تُخزَّن) ================= */
-async function refreshLiveStatus() {
-  if (!currentAgentId) return;
-  ["mCpu","mRam","mUptime","mQueue","mLatency","mHeartbeat"].forEach(id => document.getElementById(id).textContent = "...");
-  try {
-    const result = await callAgentManager("status", { id: currentAgentId });
-    if (!result.ok) { toast(result.error || "تعذّر جلب الحالة", "error"); resetLiveMetrics(); return; }
-    const m = result.data || {};
-    document.getElementById("mCpu").textContent = m.cpu != null ? `${m.cpu}%` : "—";
-    document.getElementById("mRam").textContent = m.ram != null ? `${m.ram}%` : "—";
-    document.getElementById("mUptime").textContent = m.uptime || "—";
-    document.getElementById("mQueue").textContent = m.queue_size ?? "—";
-    document.getElementById("mLatency").textContent = m.latency_ms != null ? `${m.latency_ms}ms` : "—";
-    document.getElementById("mHeartbeat").textContent = "الآن";
-  } catch (err) {
-    toast(err.message, "error");
-    resetLiveMetrics();
-  }
-}
-function resetLiveMetrics() {
-  ["mCpu","mRam","mUptime","mQueue","mLatency","mHeartbeat"].forEach(id => document.getElementById(id).textContent = "—");
-}
-document.getElementById("btnRefreshStatus").addEventListener("click", refreshLiveStatus);
-
-/* ================= السجلات ================= */
-async function loadLogs() {
-  if (!currentAgentId) return;
-  const box = document.getElementById("logsBox");
-  box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>جاري الجلب...</span></div>`;
-  try {
-    const level = document.getElementById("logLevelFilter").value;
-    const search = document.getElementById("logSearch").value;
-    const result = await callAgentManager("logs", { id: currentAgentId, level, search, limit: 300 });
-    if (!result.ok) { box.innerHTML = `<div class="log-line error"><span class="lvl">ERROR</span><span>${escapeHtml(result.error || "تعذّر جلب السجلات")}</span></div>`; return; }
-    const lines = Array.isArray(result.data) ? result.data : (result.data?.logs || []);
-    if (!lines.length) { box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>لا توجد سجلات مطابقة.</span></div>`; return; }
-    box.innerHTML = lines.map(l => `
-      <div class="log-line ${l.level || "info"}">
-        <span class="ts">${l.timestamp ? new Date(l.timestamp).toLocaleTimeString("ar-EG") : ""}</span>
-        <span class="lvl">${(l.level || "info").toUpperCase()}</span>
-        <span>${escapeHtml(l.message || "")}</span>
-      </div>`).join("");
-  } catch (err) {
-    box.innerHTML = `<div class="log-line error"><span class="lvl">ERROR</span><span>${escapeHtml(err.message)}</span></div>`;
-  }
-}
-document.getElementById("btnLoadLogs").addEventListener("click", loadLogs);
-document.getElementById("btnDownloadLogs").addEventListener("click", () => downloadLogsAsFile());
-function downloadLogsAsFile() {
-  const text = Array.from(document.querySelectorAll("#logsBox .log-line")).map(l => l.textContent.trim()).join("\n");
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `agent-logs-${currentAgentId || "new"}-${Date.now()}.txt`;
-  a.click();
-}
-
-/* ================= الإجراءات ================= */
-document.querySelector(".actions-grid")?.addEventListener("click", async (e) => {
-  const tile = e.target.closest(".action-tile");
-  if (!tile || !currentAgentId) return;
-  const act = tile.dataset.act;
-  if (act === "download_logs_full") return downloadLogsAsFile();
-  if (act === "delete_agent") {
-    if (!confirm("هل أنت متأكد من حذف هذا الوكيل نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) return;
-    try {
-      await callAgentManager("delete", { id: currentAgentId });
-      toast("تم حذف الوكيل", "success");
-      closeModal();
-      loadAgents();
-    } catch (err) { toast(err.message, "error"); }
-    return;
-  }
-  try {
-    toast("جاري التنفيذ...", "info");
-    const result = await callAgentManager(act, { id: currentAgentId });
-    if (result.ok === false) throw new Error(result.error || "فشل الإجراء");
-    toast("تم التنفيذ بنجاح", "success");
-    loadAgents();
-    if (act !== "test_connection") document.getElementById("fStatusReadonly").value = "قيد التحديث...";
-  } catch (err) {
-    toast(err.message, "error");
-  }
-});
-
-/* ================= الحفظ (إنشاء/تعديل) ================= */
-document.getElementById("btnSaveAgent").addEventListener("click", async () => {
-  const payload = {
-    name: document.getElementById("fName").value.trim(),
-    slug: document.getElementById("fSlug").value.trim(),
-    description: document.getElementById("fDescription").value.trim() || null,
-    type: document.getElementById("fType").value.trim() || "custom",
-    version: document.getElementById("fVersion").value.trim() || null,
-    enabled: document.getElementById("fEnabled").checked,
-    auto_start: document.getElementById("fAutoStart").checked,
-    auto_restart: document.getElementById("fAutoRestart").checked,
-
-    connection_type: document.getElementById("fConnectionType").value,
-    protocol: document.getElementById("fProtocol").value || null,
-    port: document.getElementById("fPort").value ? Number(document.getElementById("fPort").value) : null,
-    host: document.getElementById("fHost").value.trim() || null,
-    endpoint: document.getElementById("fEndpoint").value.trim() || null,
-    health_endpoint: document.getElementById("fHealthEndpoint").value.trim() || null,
-    timeout_ms: Number(document.getElementById("fTimeout").value) || 10000,
-    retry_count: Number(document.getElementById("fRetryCount").value) || 3,
-    retry_delay_ms: Number(document.getElementById("fRetryDelay").value) || 2000,
-
-    executable: document.getElementById("fExecutable").value.trim() || null,
-    working_directory: document.getElementById("fWorkingDir").value.trim() || null,
-    command_start: document.getElementById("fCmdStart").value.trim() || null,
-    command_stop: document.getElementById("fCmdStop").value.trim() || null,
-    command_restart: document.getElementById("fCmdRestart").value.trim() || null,
-
-    resources: getCheckedValues("resourcesGrid"),
-    permissions: getCheckedValues("permissionsGrid"),
-    environment_variables: envVars.filter(v => v.key.trim() !== ""),
-  };
-
-  const apiKeyVal = document.getElementById("fApiKey").value.trim();
-  if (apiKeyVal) payload.api_key = apiKeyVal;
-
-  if (!payload.name || !payload.slug) { toast("اسم الوكيل والمعرّف مطلوبان", "error"); return; }
-
-  try {
-    if (currentAgentId) {
-      payload.id = currentAgentId;
-      await callAgentManager("update", payload);
-      toast("تم حفظ التعديلات", "success");
+initSidebar();
+const user = await checkAdminAuth();
+if (user) {
+    updateAdminUI(user);
+    const role = user.profile?.role;
+    const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
+    if (isAdmin) {
+        initAgentAdminPage();
     } else {
-      await callAgentManager("create", payload);
-      toast("تم إنشاء الوكيل", "success");
+        document.getElementById('agentPageRoot').innerHTML = `
+            <div class="not-authorized">
+                <p style="font-size:1.05rem; font-weight:700; color:var(--color-text);">هذه الصفحة متاحة للأدمن فقط</p>
+                <p style="font-size:.85rem; margin-top:.4rem;">إدارة وكلاء الذكاء الاصطناعي تتطلب صلاحية أدمن أو دعم فني.</p>
+            </div>`;
     }
-    closeModal();
-    loadAgents();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-});
-
-/* ================= البحث ================= */
-document.getElementById("searchInput").addEventListener("input", (e) => renderAgents(e.target.value));
-
-/* ================= أدوات مساعدة ================= */
-function toast(msg, type = "info") {
-  const wrap = document.getElementById("toastWrap");
-  const el = document.createElement("div");
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  wrap.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
 }
-function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function escapeAttr(str) { return escapeHtml(str); }
-function timeAgo(iso) {
-  const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diffSec < 60) return "الآن";
-  if (diffSec < 3600) return `منذ ${Math.floor(diffSec/60)} دقيقة`;
-  if (diffSec < 86400) return `منذ ${Math.floor(diffSec/3600)} ساعة`;
-  return `منذ ${Math.floor(diffSec/86400)} يوم`;
-}
-
-/* ================= التشغيل الأولي ================= */
-loadAgents();
 </script>
-
 </body>
 </html>
