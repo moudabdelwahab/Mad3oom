@@ -409,6 +409,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
             <input type="number" id="fRetryDelay" value="2000">
           </div>
         </div>
+        <div class="field">
+          <label>الفاصل الزمني لفحص الصحة (ثانية) <span class="hint">— كل كام ثانية يتفحّص Agent Manager حالة الوكيل تلقائياً</span></label>
+          <input type="number" id="fHealthCheckInterval" value="30" min="5">
+        </div>
       </div>
 
       <!-- ---------- التشغيل ---------- -->
@@ -471,6 +475,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
         </div>
         <button class="btn btn-outline btn-sm" id="btnRefreshStatus" style="align-self:flex-start;">تحديث الحالة الآن</button>
         <p class="metrics-note">هذه البيانات تُجلب مباشرة من الوكيل وقت الطلب ولا تُخزَّن في قاعدة البيانات.</p>
+        <!-- [إضافة] عنصر last_error يُملأ ديناميكياً من agent.js (renderLastErrorNote) -->
       </div>
 
       <!-- ---------- السجلات ---------- -->
@@ -542,14 +547,25 @@ const user = await checkAdminAuth();
 if (user) {
     updateAdminUI(user);
     const role = user.profile?.role;
-    const isAdmin = role === 'admin' || role === 'support' || role === 'super_user';
+    // [إصلاح] الصفحة القديمة كانت تسمح بالدخول لـ admin/support/super_user،
+    // لكن Edge Function الفعلية (agent-manager) تتحقق عبر is_admin() اللي
+    // تسمح فقط لـ role = 'admin' أو بريدي support@mad3oom.online /
+    // info@mad3oom.online. كانت النتيجة: مستخدم support أو super_user يدخل
+    // الصفحة ويشوف الواجهة كاملة، لكن أي إجراء (حتى عرض قائمة الوكلاء) يفشل
+    // برسالة 403 "هذا القسم متاح للأدمن فقط" فوراً. الحل: نطابق نفس شرط
+    // is_admin() هنا بالضبط. لو حابب تسمح لـ support/super_user فعلاً
+    // بإدارة الوكلاء، غيّر is_admin() في agent-manager إلى wf_is_staff()
+    // بدلاً من تعديل هذا الشرط.
+    const email = user.email || user.profile?.email || '';
+    const MAIN_ADMIN_EMAILS = ['support@mad3oom.online', 'info@mad3oom.online'];
+    const isAdmin = role === 'admin' || MAIN_ADMIN_EMAILS.includes(email);
     if (isAdmin) {
         initAgentAdminPage();
     } else {
         document.getElementById('agentPageRoot').innerHTML = `
             <div class="not-authorized">
                 <p style="font-size:1.05rem; font-weight:700; color:var(--color-text);">هذه الصفحة متاحة للأدمن فقط</p>
-                <p style="font-size:.85rem; margin-top:.4rem;">إدارة وكلاء الذكاء الاصطناعي تتطلب صلاحية أدمن أو دعم فني.</p>
+                <p style="font-size:.85rem; margin-top:.4rem;">إدارة وكلاء الذكاء الاصطناعي تتطلب صلاحية أدمن.</p>
             </div>`;
     }
 }
