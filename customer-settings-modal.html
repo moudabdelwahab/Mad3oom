@@ -11,6 +11,7 @@
         <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--color-border); overflow-x: auto;">
             <button class="settings-tab-btn active" data-tab="general" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">عام</button>
             <button class="settings-tab-btn" data-tab="account" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">الحساب</button>
+            <button class="settings-tab-btn" data-tab="chatbot" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">الشات بوت</button>
             <button class="settings-tab-btn" data-tab="security" style="padding: 0.75rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--color-text); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap;">الأمان</button>
         </div>
 
@@ -90,6 +91,19 @@
 
                 <!-- Change Password Button -->
                 <button id="changePasswordBtn" style="width: 100%; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">تحديث كلمة المرور</button>
+            </div>
+        </div>
+
+        <!-- TAB: Chatbot Mode Settings -->
+        <div class="settings-tab-content" data-tab="chatbot" style="display: none;">
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text);">وضع الشات بوت</h3>
+                <p style="color: var(--color-text-secondary); margin: 0 0 1.5rem; font-size: 0.9rem;">اختر طريقة رد البوت على رسائلك في المحادثة.</p>
+            </div>
+            <div id="chatbotModeSettingsContainer">
+                <div style="display:flex; align-items:center; justify-content:center; gap:0.6rem; padding: 2rem 1rem; color: var(--color-text-secondary); font-size: 0.9rem;">
+                    <span>جاري تحميل الإعدادات...</span>
+                </div>
             </div>
         </div>
 
