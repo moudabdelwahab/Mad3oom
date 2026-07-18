@@ -568,10 +568,18 @@ export async function requireAuth(requiredRole = null) {
         role === 'support' ||
         role === 'super_user';
 
+    // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: admin و super_user
+    // (والأدمن الرئيسي بإيميله) فقط - مش support. ده تفويض أضيق ومنفصل عن
+    // isAdmin العامة (اللي بتحدد مين يشوف لوحة الإدارة أصلاً بشكل أوسع).
+    // الفحص هنا هو نقطة التنفيذ الحقيقية (enforcement) - إخفاء الزرار في
+    // الواجهة وحده مش كافي كحماية، لأن أي حد يقدر يكتب ?impersonate=...
+    // في العنوان يدويًا لو الفحص مش موجود هنا كمان.
+    const canImpersonate = isMainAdminEmail || role === 'admin' || role === 'super_user';
+
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
 
-    if (impersonateId && isAdmin) {
+    if (impersonateId && canImpersonate) {
         const { data: targetProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -582,7 +590,13 @@ export async function requireAuth(requiredRole = null) {
             return {
                 id: impersonateId,
                 profile: targetProfile,
-                isImpersonated: true
+                isImpersonated: true,
+                // بيانات الأدمن الحقيقي اللي شغّل الـimpersonation، محفوظة عشان
+                // شريط "الرجوع" يقدر يعرض اسمه ويرجّعه بدون أي session جديدة -
+                // الجلسة الحقيقية (Supabase auth) فضلت زي ما هي طول الوقت.
+                impersonatorId: user.id,
+                impersonatorEmail: user.email,
+                impersonatorName: user.profile?.full_name || null
             };
         }
     }
@@ -681,7 +695,16 @@ export async function updatePassword(newPassword) {
 /**
  * دالة للأدمن لتقمص شخصية مستخدم آخر
  */
-export async function adminImpersonateUser(userId) {
+/**
+ * بيبني رابط "الدخول كعضو" ويوديّه فعليًا. مسؤول التنقل الوحيد لعملية
+ * الـimpersonation - لا حد غيره ينده window.location بعدها لنفس الغرض،
+ * لتفادي سباق تنقّل مزدوج كان بيمسح ?impersonate= قبل التعديل ده.
+ * @param {string} userId - المستخدم المطلوب الدخول بحسابه
+ * @param {string} redirectPath - الصفحة المستهدفة (افتراضيًا لوحة العميل)
+ */
+export async function adminImpersonateUser(userId, redirectPath = '/customer-dashboard.html') {
     if (!userId) return;
-    window.location.href = `/customer-dashboard.html?impersonate=${userId}`;
+    const url = new URL(redirectPath, window.location.origin);
+    url.searchParams.set('impersonate', userId);
+    window.location.href = url.pathname + url.search;
 }
