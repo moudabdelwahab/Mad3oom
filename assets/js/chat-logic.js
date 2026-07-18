@@ -2,6 +2,7 @@ import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, fetchChatbotModeState } from '/assets/js/chatbot-mode-service.js';
+import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
 
 console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
 
@@ -569,6 +570,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .single();
 
             if (freshSession?.is_manual_mode) return;
+
+            // لو العميل مفعّل له وصول لمحرك الدعم الذكي (SIE) من الإدارة (جدول
+            // customer_sie_access)، جرّب الرد عن طريقه الأول. مستقل تمامًا عن
+            // اختيار العميل الشخصي لوضع الشات بوت (تقليدي/AI/تلقائي) — تفعيل
+            // SIE قرار إداري، مش تفضيل عميل. لو مش مفعّل، أو الكوتة خلصت، أو
+            // حصل أي خطأ، بيرجع null وبنكمل بالمحرك المحلي بالظبط زي الأول.
+            const sieResult = await getSieReply({
+                text,
+                supabase,
+                sessionId: currentSessionId,
+                userId: currentUser.id,
+                botState: freshSession?.bot_state || {}
+            });
+
+            if (sieResult) {
+                // Action Layer (Module 8) already كتب رسالة البوت + حالة الجلسة
+                // ذرّيًا (persist_bot_turn / create_ticket_with_message_and_session_update)،
+                // فمفيش داعي نكرر الإدراج هنا.
+                renderQuickOptions(sieResult.options);
+                return;
+            }
 
             const { reply, options } = await getBotReply({
                 text,
