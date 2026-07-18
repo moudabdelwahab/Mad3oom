@@ -5,6 +5,13 @@
  * كل عمليات القراءة/الكتابة تمر عبر agent-service.js (والتي بدورها
  * تستدعي Edge Function باسم agent-manager، مع سقوط تلقائي على
  * تخزين محلي لو الدالة لسه غير منشورة على السيرفر).
+ *
+ * ===================== إصلاحات هذه المراجعة =====================
+ * - last_error المخزّن في ai_agents لم يكن يظهر في أي مكان بالواجهة رغم أن
+ *   agent-manager يحفظه فعليًا عند فشل start/stop/restart. أضفنا عرضه في
+ *   كرت الوكيل (لما تكون الحالة "خطأ") وفي تبويب "الحالة والأداء".
+ * - إضافة حقل health_check_interval (عمود موجود في القاعدة لم يكن له أي
+ *   عنصر إدخال في الواجهة، فكان دائمًا يأخذ القيمة الافتراضية 30 فقط).
  */
 
 import {
@@ -83,6 +90,10 @@ function agentCardHTML(a) {
     const statusLabel = a.enabled ? (AGENT_STATUS_LABELS[a.status] || a.status) : 'معطّل';
     const initial = (a.name || '?').trim().charAt(0).toUpperCase();
     const heartbeat = a.last_heartbeat ? timeAgo(a.last_heartbeat) : '—';
+    // إظهار سبب الخطأ لو الوكيل واقف بسببه — last_error كان مخزّناً بدون أي عرض له
+    const errorNote = (a.status === 'error' && a.last_error)
+        ? `<div class="meta-row" style="color:var(--color-danger);"><span title="${escapeAttr(a.last_error)}">⚠ ${escapeHtml(truncate(a.last_error, 70))}</span></div>`
+        : '';
     return `
   <div class="agent-card" data-open-agent="${a.id}">
     <div class="head">
@@ -103,6 +114,7 @@ function agentCardHTML(a) {
       <div class="metric na"><b>—</b><span>المهام</span></div>
     </div>
     <div class="meta-row"><span>آخر Heartbeat: ${heartbeat}</span></div>
+    ${errorNote}
     <div class="card-actions">
       <button class="btn btn-outline btn-sm" data-open-agent="${a.id}">الإعدادات</button>
       <button class="btn btn-outline btn-sm icon-only" data-quick-act="start" data-agent-id="${a.id}" title="تشغيل">▶</button>
@@ -192,6 +204,7 @@ function openAgentModal(agentId) {
     document.getElementById('fTimeout').value = agent?.timeout_ms ?? 10000;
     document.getElementById('fRetryCount').value = agent?.retry_count ?? 3;
     document.getElementById('fRetryDelay').value = agent?.retry_delay_ms ?? 2000;
+    document.getElementById('fHealthCheckInterval').value = agent?.health_check_interval ?? 30;
 
     document.getElementById('fExecutable').value = agent?.executable || '';
     document.getElementById('fWorkingDir').value = agent?.working_directory || '';
@@ -208,8 +221,25 @@ function openAgentModal(agentId) {
     // تصفير تابات الحالة/السجلات
     document.getElementById('logsBox').innerHTML = `<div class="log-line info"><span class="ts">—</span><span class="lvl">INFO</span><span>اضغط "تحديث" لجلب السجلات من الوكيل.</span></div>`;
     ['mCpu', 'mRam', 'mUptime', 'mQueue', 'mLatency', 'mHeartbeat'].forEach(id => document.getElementById(id).textContent = '—');
+    renderLastErrorNote(agent?.last_error || null);
 
     document.getElementById('agentModal').classList.add('open');
+}
+
+// [إضافة] عرض last_error في تبويب "الحالة والأداء" — كان مخزّناً في القاعدة
+// بدون أي مكان يعرضه للمستخدم، فما كانش في طريقة لمعرفة سبب فشل وكيل متوقّف بخطأ.
+function renderLastErrorNote(lastError) {
+    const container = document.getElementById('liveMetricsGrid');
+    const existing = document.getElementById('lastErrorNote');
+    if (existing) existing.remove();
+    if (!lastError) return;
+    const note = document.createElement('p');
+    note.id = 'lastErrorNote';
+    note.className = 'metrics-note';
+    note.style.color = 'var(--color-danger)';
+    note.style.gridColumn = '1 / -1';
+    note.textContent = `آخر خطأ مسجّل: ${lastError}`;
+    container.insertAdjacentElement('afterend', note);
 }
 
 function renderCheckboxGrid(containerId, items, selected) {
@@ -362,6 +392,7 @@ async function handleSaveAgent() {
         timeout_ms: Number(document.getElementById('fTimeout').value) || 10000,
         retry_count: Number(document.getElementById('fRetryCount').value) || 3,
         retry_delay_ms: Number(document.getElementById('fRetryDelay').value) || 2000,
+        health_check_interval: Number(document.getElementById('fHealthCheckInterval').value) || 30,
 
         executable: document.getElementById('fExecutable').value.trim() || null,
         working_directory: document.getElementById('fWorkingDir').value.trim() || null,
@@ -378,6 +409,13 @@ async function handleSaveAgent() {
     if (apiKeyVal) payload.api_key = apiKeyVal;
 
     if (!payload.name || !payload.slug) { toast('اسم الوكيل والمعرّف مطلوبان', 'error'); return; }
+    if (!/^[a-z0-9][a-z0-9_-]*$/.test(payload.slug)) {
+        // [إضافة] فحص شكل الـ slug في الواجهة قبل الإرسال — نفس القيد الموجود
+        // فعلياً في قاعدة البيانات وفي agent-manager، كان غير مُتحقق منه هنا
+        // فيضطر المستخدم ينتظر رد الخادم ليكتشف الخطأ.
+        toast('المعرّف (Slug) يجب أن يبدأ بحرف/رقم ويحتوي فقط على حروف إنجليزية صغيرة وأرقام و - و _', 'error');
+        return;
+    }
 
     try {
         if (currentAgentId) {
@@ -408,6 +446,10 @@ function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(str) { return escapeHtml(str); }
+function truncate(str, max) {
+    const s = String(str ?? '');
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
 function timeAgo(iso) {
     const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
     if (diffSec < 60) return 'الآن';
