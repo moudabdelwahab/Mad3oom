@@ -1,5 +1,6 @@
 import { supabase } from './api-config.js';
 import { updateProfile, updatePassword } from './auth-client.js';
+import { renderChatbotModeInto } from './assets/js/chatbot-mode-selector.js';
 
 let currentUser = null;
 let currentSecret = null;
@@ -141,6 +142,7 @@ async function loadUserProfile() {
 function setupTabSwitching() {
     const tabButtons = document.querySelectorAll('.settings-tab-btn');
     const tabContents = document.querySelectorAll('.settings-tab-content');
+    let chatbotTabLoaded = false;
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -160,6 +162,16 @@ function setupTabSwitching() {
                     content.style.display = 'none';
                 }
             });
+
+            // تحميل قسم "الشات بوت" عند أول فتح فقط (Lazy load) بدل تحميله
+            // دايمًا حتى لو المستخدم مافتحش التبويب ده أبدًا في هذه الجلسة
+            if (tabName === 'chatbot' && !chatbotTabLoaded) {
+                chatbotTabLoaded = true;
+                const container = document.getElementById('chatbotModeSettingsContainer');
+                if (container && currentUser) {
+                    renderChatbotModeInto(container, { userId: currentUser.id });
+                }
+            }
         });
     });
 }
