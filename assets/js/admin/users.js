@@ -97,6 +97,11 @@ function injectOptionsPanel() {
         document.getElementById(id).addEventListener('click', async (e) => {
             const newRole = e.currentTarget.getAttribute('data-role');
             if (!currentOptionsUserId) return;
+
+            // حماية إضافية: Super User لا يقدر يغيّر رتبته الخاصة حتى لو فُتح الزر بأي طريقة
+            const isSelf = !!user && currentOptionsUserId === user.id;
+            if (isSelf && user?.profile?.role === 'super_user') return;
+
             const labels = { user: 'عضو', super_user: 'Super User', admin: 'Admin' };
             if (confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى "${labels[newRole]}"؟`)) {
                 const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', currentOptionsUserId);
@@ -114,6 +119,16 @@ function openOptionsPanel(userId, name, email, currentRole) {
 
     document.querySelectorAll('#optionsPanel .option-row-btn[data-role]').forEach(btn => {
         btn.classList.toggle('role-active', btn.getAttribute('data-role') === currentRole);
+    });
+
+    // منع الـ Super User من تغيير رتبته الخاصة: نخفي قسم "تغيير الصلاحية" بالكامل
+    // عندما يفتح المستخدم الحالي نافذة خياراته هو نفسه.
+    const isViewingSelf = !!user && userId === user.id;
+    const isSuperUserSelf = isViewingSelf && user?.profile?.role === 'super_user';
+    const roleGroupLabel = document.querySelector('#optionsPanel .options-group-label');
+    if (roleGroupLabel) roleGroupLabel.style.display = isSuperUserSelf ? 'none' : '';
+    document.querySelectorAll('#optionsPanel .option-row-btn[data-role]').forEach(btn => {
+        btn.style.display = isSuperUserSelf ? 'none' : '';
     });
 
     document.getElementById('optionsOverlay').classList.add('active');
