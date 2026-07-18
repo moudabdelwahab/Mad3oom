@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/chat-widget.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/js/admin/central-wallet-modal.css">        
     <script src="/theme-manager.js"></script>
@@ -341,5 +342,9 @@
     </main>
 
     <script type="module" src="/assets/js/admin/dashboard-logic.js"></script>
+    <!-- الويدجت العائم: يظهر هنا أيضًا عشان أي حساب دوره super_user (بيتحول
+         تلقائيًا للوحة الإدارة بعد الدخول) يقدر يستخدم الشات بوت كعميل
+         بنفس حسابه من غير ما يحتاج يفتح customer-dashboard.html بشكل منفصل. -->
+    <script type="module" src="/chat-widget.js"></script>
 </body>
 </html>
