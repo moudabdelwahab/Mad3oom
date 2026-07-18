@@ -27,6 +27,7 @@
             --rm-green: #22C58B;
             --rm-amber: #E0A800;
             --rm-blue: var(--color-accent);
+            --rm-purple: #8B5CF6;
             --rm-glow-rgb: 0,119,204;
         }
         [data-theme="dark"]{ --rm-glow-rgb: 0,136,221; }
@@ -75,12 +76,12 @@
         .rm-timeline{ position: relative; margin-top: 2rem; padding-right: 2.75rem; box-sizing: border-box; }
         .rm-track{
             position:absolute; top: 0; bottom: 0; right: 22px; width: 3px; border-radius:3px;
-            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 28%, var(--rm-amber) 40%, var(--rm-amber) 55%, var(--rm-blue) 68%, var(--rm-blue) 100%);
+            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 20%, var(--rm-amber) 30%, var(--rm-amber) 40%, var(--rm-blue) 50%, var(--rm-blue) 62%, var(--rm-purple) 74%, var(--rm-purple) 100%);
             opacity: .22;
         }
         .rm-fill{
             position:absolute; top:0; right:22px; width:3px; height:0%; border-radius:3px;
-            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 28%, var(--rm-amber) 40%, var(--rm-amber) 55%, var(--rm-blue) 68%, var(--rm-blue) 100%);
+            background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 20%, var(--rm-amber) 30%, var(--rm-amber) 40%, var(--rm-blue) 50%, var(--rm-blue) 62%, var(--rm-purple) 74%, var(--rm-purple) 100%);
             box-shadow: 0 0 14px rgba(var(--rm-glow-rgb),.5);
             transition: height .1s linear;
         }
@@ -112,6 +113,7 @@
         .rm-phase.done .rm-phase-marker{ border-color: var(--rm-green); color: var(--rm-green); }
         .rm-phase.now .rm-phase-marker{ border-color: var(--rm-amber); color: var(--rm-amber); }
         .rm-phase.next .rm-phase-marker{ border-color: var(--rm-blue); color: var(--rm-blue); }
+        .rm-phase.future .rm-phase-marker{ border-color: var(--rm-purple); color: var(--rm-purple); }
         .rm-phase h2{ padding-right: 3.2rem; font-size: 1.5rem; font-weight: 800; box-sizing: border-box; }
         .rm-phase p.rm-phase-sub{ padding-right: 3.2rem; color: var(--color-text-secondary); font-size: .95rem; margin-top: .35rem; max-width: 480px; box-sizing: border-box; }
 
@@ -134,10 +136,12 @@
         .rm-step.done .rm-dot{ border-color: var(--rm-green); }
         .rm-step.now .rm-dot{ border-color: var(--rm-amber); }
         .rm-step.next .rm-dot{ border-color: var(--rm-blue); }
+        .rm-step.future .rm-dot{ border-color: var(--rm-purple); }
         .rm-dot svg{ width: 10px; height: 10px; }
         .rm-step.done .rm-dot svg{ color: var(--rm-green); }
         .rm-step.now .rm-dot svg{ color: var(--rm-amber); }
         .rm-step.next .rm-dot svg{ color: var(--rm-blue); }
+        .rm-step.future .rm-dot svg{ color: var(--rm-purple); }
         .rm-step h4{ font-size: 1.05rem; margin-bottom: .4rem; display:flex; align-items:center; gap:.6rem; flex-wrap: wrap; }
         .rm-step p{ color: var(--color-text-secondary); font-size: .92rem; max-width: 500px; line-height: 1.75; }
         .rm-pill{
@@ -146,6 +150,18 @@
         .rm-pill.done{ background: rgba(34,197,139,.12); color: var(--rm-green); }
         .rm-pill.now{ background: rgba(224,168,0,.14); color: var(--rm-amber); }
         .rm-pill.next{ background: rgba(var(--rm-glow-rgb),.12); color: var(--rm-blue); }
+        .rm-pill.future{ background: rgba(139,92,246,.12); color: var(--rm-purple); }
+
+        /* Bullet lists inside roadmap steps (matches step paragraph styling) */
+        .rm-step ul{ list-style:none; padding-inline-start:0; margin-top:.5rem; max-width:500px; }
+        .rm-step ul li{
+            color: var(--color-text-secondary); font-size:.92rem; line-height:1.75;
+            padding-inline-start:1.1rem; position:relative;
+        }
+        .rm-step ul li::before{ content:'—'; position:absolute; right:0; opacity:.55; }
+        .rm-step.future ul li::before{ color: var(--rm-purple); }
+        .rm-step h4 svg.rm-icon{ width: 18px; height: 18px; flex-shrink: 0; }
+        .rm-step.future h4 svg.rm-icon{ color: var(--rm-purple); }
 
         /* ===== SIE spotlight (the "now" milestone) ===== */
         .rm-spotlight{
@@ -165,6 +181,15 @@
         }
         .rm-here-tag .pulse{ width:6px; height:6px; border-radius:50%; background: var(--rm-amber); animation: rmPulse 1.4s ease-in-out infinite; }
         @keyframes rmPulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:.4; transform:scale(1.6);} }
+
+        /* Future-vision spotlight variant (Voice Support) */
+        .rm-spotlight-future::before{ background: linear-gradient(135deg, rgba(139,92,246,.09), transparent 70%); }
+        .rm-future-tag{
+            color: var(--rm-purple) !important;
+            background: rgba(139,92,246,.13) !important;
+            border-color: rgba(139,92,246,.3) !important;
+        }
+        .rm-future-tag .pulse{ background: var(--rm-purple) !important; }
 
         /* Mini process chain for SIE stages */
         .rm-chain{ display:flex; align-items:center; flex-wrap: wrap; gap: 0; margin-top: 1.4rem; max-width: 560px; }
@@ -256,6 +281,7 @@
                 <span><i style="background:var(--rm-green);"></i> تم إنجازه</span>
                 <span><i style="background:var(--rm-amber);"></i> يعمل عليه الفريق الآن</span>
                 <span><i style="background:var(--rm-blue);"></i> على الطريق</span>
+                <span><i style="background:var(--rm-purple);"></i> رؤية مستقبلية</span>
             </div>
 
             <!-- Timeline -->
@@ -378,6 +404,67 @@
                     <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
                     <h4>تصنيفات وأدوات MCP إضافية <span class="rm-pill next">قادم</span></h4>
                     <p>توسيع قائمة التصنيفات المتاحة للتذاكر، وربط المزيد من أدوات وWorkflows الشركات الخارجية مثل Notion.</p>
+                </div>
+
+                <!-- PHASE: FUTURE VISION (Voice Support) -->
+                <div class="rm-phase future">
+                    <div class="rm-phase-marker">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+                    </div>
+                    <h2>الدعم الصوتي</h2>
+                    <p class="rm-phase-sub">تحويل مدعوم من منصة نصية أولًا إلى منصة دعم متعددة القنوات، قادرة على فهم ومعالجة والرد على التفاعلات الصوتية باستخدام الذكاء الاصطناعي.</p>
+                </div>
+
+                <div class="rm-step future">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <div class="rm-spotlight rm-spotlight-future">
+                        <span class="rm-here-tag rm-future-tag"><span class="pulse"></span> رؤية مستقبلية — غير مخطط لها ضمن الجدول الحالي</span>
+                        <p style="margin-top:.9rem;">
+                            هذا القسم يمثل اتجاهًا استكشافيًا بعيد المدى لمدعوم، وليس جزءًا من مراحل التطوير الحالية أو القادمة المذكورة أعلاه. الرؤية النهائية هي تمكين المنصة من فهم ومعالجة والرد على التفاعلات الصوتية بالذكاء الاصطناعي، إلى جانب قنوات الدعم النصية الحالية.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="rm-step future">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4><svg class="rm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg> ذكاء الرسائل الصوتية <span class="rm-pill future">رؤية مستقبلية</span></h4>
+                    <ul>
+                        <li>تحويل الرسائل الصوتية الواردة إلى نص (Speech-to-Text).</li>
+                        <li>تحليل المحادثة عبر SIE.</li>
+                        <li>توليد ردود ذكية مناسبة.</li>
+                        <li>الرد اختياريًا بنص أو بصوت مُصنّع.</li>
+                    </ul>
+                </div>
+
+                <div class="rm-step future">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4><svg class="rm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg> مكالمات صوتية بالذكاء الاصطناعي <span class="rm-pill future">رؤية مستقبلية</span></h4>
+                    <ul>
+                        <li>استقبال مكالمات الدعم الواردة.</li>
+                        <li>فهم طلبات العميل بشكل طبيعي.</li>
+                        <li>طرح أسئلة توضيحية عند الحاجة.</li>
+                        <li>تنفيذ الإجراءات المناسبة تلقائيًا عند الاقتضاء.</li>
+                        <li>تحويل المكالمة بسلاسة إلى موظف بشري عند الحاجة.</li>
+                    </ul>
+                </div>
+
+                <div class="rm-step future">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4><svg class="rm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg> الردود الصوتية <span class="rm-pill future">رؤية مستقبلية</span></h4>
+                    <ul>
+                        <li>توليد ردود صوتية طبيعية بالذكاء الاصطناعي.</li>
+                        <li>دعم لغات ولهجات إقليمية متعددة.</li>
+                        <li>إمكانية تخصيص صوت المساعد لكل شركة.</li>
+                    </ul>
+                </div>
+
+                <div class="rm-step future">
+                    <div class="rm-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h4><svg class="rm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg> مساعد صوتي لموظفي الدعم <span class="rm-pill future">رؤية مستقبلية</span></h4>
+                    <ul>
+                        <li>تنفيذ الإجراءات عبر أوامر صوتية، مثل: إغلاق تذكرة، تعيين تذكرة، تغيير الأولوية، إضافة ملاحظات داخلية.</li>
+                        <li>تحسين إنتاجية الفريق عبر تشغيل بدون استخدام اليدين.</li>
+                    </ul>
                 </div>
             </div>
 
