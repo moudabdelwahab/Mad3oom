@@ -1,7 +1,7 @@
 import { supabase } from '/api-config.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
-import { CHATBOT_MODE_LABELS, fetchChatbotModeState } from '/assets/js/chatbot-mode-service.js';
+import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
 
 console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
@@ -137,6 +137,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let messageChannel = null;
     let botSettings = null;
     let allSessions = [];
+    // كاش لوضع الشات بوت المختار من العميل (traditional/ai_model/auto/sie) -
+    // بيتقرا مرة عند بداية الجلسة، وبيتحدّث فورًا لما العميل يغيّر اختياره
+    // من نافذة الإعدادات (refreshChatModeButtonLabel)، عشان مفيش استعلام
+    // إضافي لقاعدة البيانات مع كل رسالة بيبعتها العميل.
+    let cachedChatbotMode = 'traditional';
 
     // ===== INITIALIZATION =====
     async function init() {
@@ -479,6 +484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sendBtn = document.getElementById('sendBtn');
         const endChatBtn = document.getElementById('endChatBtn');
         const chatModeBtn = document.getElementById('chatModeBtn');
+        const chatModeInlineBtn = document.getElementById('chatModeInlineBtn');
 
         if (sendBtn) {
             sendBtn.onclick = () => sendCustomerMessage();
@@ -498,17 +504,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (chatModeBtn) {
             chatModeBtn.onclick = openChatModeDialogForCustomer;
+        }
+
+        // زرار وضع الشات بوت المصغّر جنب مربع الكتابة نفسه - نفس النافذة
+        // بالظبط اللي بيفتحها زرار الهيدر (chatModeBtn)، مجرد نقطة وصول
+        // تانية أقرب للمكان اللي العميل عينه فيه فعلاً وهو بيكتب.
+        if (chatModeInlineBtn) {
+            chatModeInlineBtn.onclick = openChatModeDialogForCustomer;
+        }
+
+        // تحديث تسمية الوضع مرة واحدة يكفي الاتنين (الزرارين بيقرأوا نفس
+        // الحالة المحفوظة في cachedChatbotMode/CHATBOT_MODE_LABELS)
+        if (chatModeBtn || chatModeInlineBtn) {
             refreshChatModeButtonLabel();
         }
     }
 
     // ===== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) =====
     async function refreshChatModeButtonLabel() {
-        const label = document.getElementById('chatModeBtnLabel');
-        if (!label || !currentUser) return;
+        if (!currentUser) return;
         try {
             const state = await fetchChatbotModeState(currentUser.id);
-            label.textContent = CHATBOT_MODE_LABELS[state.chatbot_mode] || CHATBOT_MODE_LABELS.traditional;
+            cachedChatbotMode = state.chatbot_mode || 'traditional';
+            const label = document.getElementById('chatModeBtnLabel');
+            if (label) {
+                label.textContent = CHATBOT_MODE_LABELS[cachedChatbotMode] || CHATBOT_MODE_LABELS.traditional;
+            }
         } catch (err) {
             console.warn('تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
         }
@@ -519,6 +540,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         openChatbotModeDialog({
             userId: currentUser.id,
             onModeChanged: () => refreshChatModeButtonLabel()
+        });
+    }
+
+    /**
+     * العميل مختار SIE (chatbot_mode) لكن صلاحيته اتسحبت وهو *في نص محادثة*
+     * فعلاً (اكتشفناها وقت إرسال رسالة، مش وقت فتح نافذة الإعدادات). لازم:
+     *  1) نحفظ التحويل للتقليدي في قاعدة البيانات فعليًا (مش بس متغيّر محلي)
+     *     عشان أي قراءة تانية للحالة (نافذة الإعدادات، تحميل الصفحة تاني)
+     *     تطابق الواقع.
+     *  2) نحدّث الحالة المحلية فورًا (cachedChatbotMode + نص الزرار).
+     *  3) نكتب رسالة واضحة *داخل نص المحادثة نفسها* - مش toast ممكن يفوته -
+     *     عشان يبقى مؤكد إن العميل شاف واستوعب إنه بقى بيكلم محرك مختلف.
+     */
+    async function handleSieRevokedMidConversation(sieAccess) {
+        cachedChatbotMode = 'traditional';
+        const label = document.getElementById('chatModeBtnLabel');
+        if (label) label.textContent = CHATBOT_MODE_LABELS.traditional;
+
+        try {
+            await saveChatbotModeState(currentUser.id, { mode: 'traditional', integrationId: null, modelId: null });
+        } catch (err) {
+            console.warn('تعذّر حفظ التحويل التلقائي عن SIE:', err?.message || err);
+        }
+
+        const reason = sieAccess?.statusLabel;
+        let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة.';
+        if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
+        else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
+        else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
+
+        await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            sender_id: null,
+            message_text: `${why} تم تحويلك تلقائيًا للوضع التقليدي. تقدر تختار وضعًا آخر من زر "وضع الشات بوت"، أو تتواصل مع الدعم لتفعيل SIE مرة أخرى.`,
+            is_admin_reply: false,
+            is_bot_reply: true
         });
     }
 
@@ -571,18 +628,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (freshSession?.is_manual_mode) return;
 
-            // لو العميل مفعّل له وصول لمحرك الدعم الذكي (SIE) من الإدارة (جدول
-            // customer_sie_access)، جرّب الرد عن طريقه الأول. مستقل تمامًا عن
-            // اختيار العميل الشخصي لوضع الشات بوت (تقليدي/AI/تلقائي) — تفعيل
-            // SIE قرار إداري، مش تفضيل عميل. لو مش مفعّل، أو الكوتة خلصت، أو
-            // حصل أي خطأ، بيرجع null وبنكمل بالمحرك المحلي بالظبط زي الأول.
-            const sieResult = await getSieReply({
-                text,
-                supabase,
-                sessionId: currentSessionId,
-                userId: currentUser.id,
-                botState: freshSession?.bot_state || {}
-            });
+            // SIE بقى ليه بوابتان لازم يعدّيهم الاتنين مع بعض (حسب القرار
+            // النهائي: المفهومان يكملوا بعض مش بيتعارضوا):
+            //   1) العميل نفسه لازم يكون *مختار* وضع "محرك الدعم الذكي" من
+            //      قائمة اختيار وضع الشات بوت (profiles.chatbot_mode === 'sie')-
+            //      تفضيل شخصي، بيتغيّر وقت ما العميل يحب.
+            //   2) الإدارة لازم تكون *فعّلت* له الوصول فعليًا من جدول
+            //      customer_sie_access - صلاحية إدارية منفصلة تمامًا.
+            //
+            // مهم: لو العميل مختار SIE (بوابة 1 مفتوحة) لكن الإدارة سحبت
+            // صلاحيته (بوابة 2 اتقفلت) وهو *لسه في نص محادثة*، ممنوع نرجّعه
+            // للمحرك التقليدي بصمت - هيفضل يكتب معتقد إنه لسه بيكلم SIE.
+            // فبنعمل فحص قراءة (مش استهلاك كوتة) قبل استدعاء getSieReply
+            // نفسها، وإذا لقيناه سحب، نوقف الرسالة دي، نبلّغه بوضوح، ونحفظ
+            // تحويله للوضع التقليدي فورًا في قاعدة البيانات (مش محليًا بس).
+            let sieResult = null;
+            if (cachedChatbotMode === CHATBOT_MODES.SIE) {
+                const sieAccess = await getSieAccessInfo(currentUser.id);
+                if (!sieAccess.available) {
+                    await handleSieRevokedMidConversation(sieAccess);
+                    if (typingIndicator) typingIndicator.style.display = 'none';
+                    return;
+                }
+                sieResult = await getSieReply({
+                    text,
+                    supabase,
+                    sessionId: currentSessionId,
+                    userId: currentUser.id,
+                    botState: freshSession?.bot_state || {}
+                });
+                // لو الفحص قال متاح لكن getSieReply برضه رجّعت null (سباق نادر:
+                // اتلغى بالظبط بين الفحص والاستدعاء، أو خطأ مؤقت في الـpipeline)،
+                // منرجعش صامت للتقليدي كإجابة نهائية بردّ عادي - نبلّغ العميل
+                // إن في مشكلة مؤقتة، عشان الفرق بين "بيرد عليك بوت تاني دلوقتي"
+                // و"حصل خطأ، جرّب تاني" يفضل واضح له.
+                if (!sieResult) {
+                    await supabase.from('chat_messages').insert({
+                        session_id: currentSessionId,
+                        sender_id: null,
+                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من زر "وضع الشات بوت".',
+                        is_admin_reply: false,
+                        is_bot_reply: true
+                    });
+                    if (typingIndicator) typingIndicator.style.display = 'none';
+                    return;
+                }
+            }
 
             if (sieResult) {
                 // Action Layer (Module 8) already كتب رسالة البوت + حالة الجلسة
