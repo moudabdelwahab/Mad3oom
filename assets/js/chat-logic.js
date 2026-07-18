@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             .from('chat_sessions')
             .select(`
                 *,
-                profiles:user_id (full_name),
+                profiles:user_id (full_name, role),
                 chat_messages (message_text, created_at)
             `)
             .order('updated_at', { ascending: false });
@@ -670,6 +670,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         return trimmed ? trimmed.charAt(0) : 'ع';
     }
 
+    // الأدوار اللي لو بعتت من نفس حسابها كـ"عميل" بيبقى مهم يبان للفريق إنها
+    // مش عميل عادي (زي super_user اللي دوره الأساسي إدارة، مش عميل)
+    const STAFF_ROLES_AS_CUSTOMER = ['super_user', 'admin', 'support'];
+
+    function isStaffOriginatedSession(session) {
+        return STAFF_ROLES_AS_CUSTOMER.includes(session.profiles?.role);
+    }
+
     function renderChatsList(sessions) {
         if (!chatsList) return;
         chatsList.innerHTML = '';
@@ -679,13 +687,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        sessions.forEach(session => {
+        // نظهر محادثات الفريق (زي super_user بيستخدم حسابه كعميل) في الأعلى
+        // دايمًا، عشان تلفت النظر فورًا ومتتوهش وسط باقي التذاكر العادية.
+        // ملحوظة: ده ترتيب عرض في الواجهة فقط، ومش نظام توجيه/صلاحيات حقيقي -
+        // أي موظف دعم لسه يقدر يفتح ويرد على أي محادثة، بما فيها دي، لأن
+        // جدول chat_sessions معندوش عمود "المستلم المقصود" أصلاً في الباك إند.
+        const sorted = [...sessions].sort((a, b) => {
+            const aStaff = isStaffOriginatedSession(a) ? 1 : 0;
+            const bStaff = isStaffOriginatedSession(b) ? 1 : 0;
+            if (aStaff !== bStaff) return bStaff - aStaff;
+            return new Date(b.updated_at) - new Date(a.updated_at);
+        });
+
+        sorted.forEach(session => {
             const messages = session.chat_messages || [];
             const lastMsg = messages.length ? messages[messages.length - 1] : null;
             const time = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
             const name = session.profiles?.full_name || 'عميل مجهول';
             const statusClass = session.status === 'closed' ? 'status-closed' : 'status-open';
             const statusLabel = session.status === 'closed' ? 'مغلقة' : 'نشطة';
+            const staffBadge = isStaffOriginatedSession(session)
+                ? `<span class="status-badge" style="background: rgba(224, 168, 0, 0.15); color: #9a6c00;" title="هذا الحساب دوره الأساسي إدارة/دعم، وبيستخدم الشات بوت هنا بصفته عميل">فريق العمل</span>`
+                : '';
 
             const item = document.createElement('div');
             item.className = `chat-item ${currentSessionId === session.id ? 'active' : ''}`;
@@ -698,6 +721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="chat-name">
                             ${escapeHtml(name)}
                             <span class="status-badge ${statusClass}">${statusLabel}</span>
+                            ${staffBadge}
                         </span>
                         <span class="chat-time">${time}</span>
                     </div>
