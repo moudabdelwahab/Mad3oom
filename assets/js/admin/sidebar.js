@@ -117,11 +117,7 @@ function setupSidebarLogic() {
     // Initial load
     loadNotifications();
     setupNotificationRealtime();
-    checkAdminForErrorTracker();
-    checkMainAdminForSuperUser();
-    checkSuperUserForMyUsers();
-    checkSupportForWhatsApp();
-    checkAdminForAgents();
+    applySidebarPermissions();
 
     const toggleSidebar = () => {
         sidebar.classList.toggle('active');
@@ -270,57 +266,73 @@ function setupSidebarLogic() {
     updateAdminLanguageCheckmarks();
 }
 
-async function checkAdminForErrorTracker() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile && profile.role === 'admin') {
-            const errorLink = document.getElementById('errorTrackerLink');
-            if (errorLink) errorLink.style.display = 'flex';
-            const rewardsLink = document.getElementById('rewardsLink');
-            if (rewardsLink) rewardsLink.style.display = 'flex';
-        }
-    }
+// أقسام لا يجب أن يراها "Super User" (مستخدم مميز/باقة) لأنها تعرض بيانات
+// على مستوى المنصة بالكامل (كل العملاء/التذاكر/الإعدادات)، وليست خاصة بحسابه.
+// الأدمن والدعم لا يتأثرون بهذه القائمة إطلاقاً — سلوكهم يبقى كما هو.
+const STAFF_ONLY_LINK_IDS = [
+    'ticketsLink', 'chatAdminLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
+    'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
+    'sendEmailLink', 'knowledgeBaseLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
+];
+
+function showLink(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
 }
 
-async function checkMainAdminForSuperUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.email === 'support@mad3oom.online') {
-        const superUserLink = document.getElementById('superUserLink');
-        if (superUserLink) superUserLink.style.display = 'flex';
-    }
+function hideLink(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
 }
 
-async function checkSuperUserForMyUsers() {
+// نقطة واحدة تجلب صلاحيات المستخدم الحالي وتبني السايدبار بناءً عليها
+// (بدلاً من عدة استعلامات منفصلة لنفس الملف الشخصي).
+async function applySidebarPermissions() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile && (profile.role === 'super_user' || profile.role === 'admin')) {
-            const myUsersLink = document.getElementById('myUsersLink');
-            if (myUsersLink) myUsersLink.style.display = 'flex';
-        }
-    }
-}
+    if (!user) return;
 
-async function checkSupportForWhatsApp() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('email, role, whatsapp_enabled').eq('id', user.id).maybeSingle();
-        if (profile && (profile.email === 'support@mad3oom.online' || profile.role === 'admin' || profile.whatsapp_enabled)) {
-            const whatsappLink = document.getElementById('whatsappLink');
-            if (whatsappLink) whatsappLink.style.display = 'flex';
-        }
-    }
-}
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, role, whatsapp_enabled')
+        .eq('id', user.id)
+        .maybeSingle();
 
-async function checkAdminForAgents() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile && (profile.role === 'admin' || profile.role === 'support' || profile.role === 'super_user')) {
-            const agentsLink = document.getElementById('agentsLink');
-            if (agentsLink) agentsLink.style.display = 'flex';
-        }
+    if (!profile) return;
+
+    const isMainAdmin = user.email === 'support@mad3oom.online';
+    const isAdmin = profile.role === 'admin';
+    const isSupport = profile.role === 'support';
+    const isSuperUser = profile.role === 'super_user';
+
+    // --- الصلاحيات الحالية (بدون أي تغيير في سلوكها) ---
+    if (isAdmin) {
+        showLink('errorTrackerLink');
+        showLink('rewardsLink');
+    }
+
+    if (isMainAdmin) {
+        showLink('superUserLink');
+    }
+
+    if (isSuperUser || isAdmin) {
+        showLink('myUsersLink');
+    }
+
+    if (isMainAdmin || isAdmin || profile.whatsapp_enabled) {
+        showLink('whatsappLink');
+    }
+
+    if (isAdmin || isSupport || isSuperUser) {
+        showLink('agentsLink');
+    }
+
+    // --- سايدبار ديناميكي لـ Super User: إخفاء أقسام الإدارة العامة للمنصة ---
+    if (isSuperUser && !isAdmin && !isSupport && !isMainAdmin) {
+        STAFF_ONLY_LINK_IDS.forEach(hideLink);
+
+        // --- عنوان لوحة مختلف لـ Super User فقط (تغيير نصي بحت، بدون مسارات/صفحات جديدة) ---
+        const panelTitle = document.getElementById('adminPanelTitle');
+        if (panelTitle) panelTitle.textContent = 'لوحة المسؤول';
     }
 }
 
