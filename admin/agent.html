@@ -541,6 +541,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script type="module">
+import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { initAgentAdminPage } from '/assets/js/admin/agent.js';
@@ -549,17 +550,40 @@ initSidebar();
 const user = await checkAdminAuth();
 if (user) {
     updateAdminUI(user);
-    const role = user.profile?.role;
-    // [إصلاح] الصفحة القديمة كانت تسمح بالدخول لـ admin/support/super_user،
-    // لكن Edge Function الفعلية (agent-manager) تتحقق عبر is_admin() اللي
-    // تسمح فقط لـ role = 'admin' أو بريدي support@mad3oom.online /
-    // info@mad3oom.online. كانت النتيجة: مستخدم support أو super_user يدخل
-    // الصفحة ويشوف الواجهة كاملة، لكن أي إجراء (حتى عرض قائمة الوكلاء) يفشل
-    // برسالة 403 "هذا القسم متاح للأدمن فقط" فوراً. الحل: نطابق نفس شرط
-    // is_admin() هنا بالضبط. لو حابب تسمح لـ support/super_user فعلاً
-    // بإدارة الوكلاء، غيّر is_admin() في agent-manager إلى wf_is_staff()
-    // بدلاً من تعديل هذا الشرط.
-    const email = user.email || user.profile?.email || '';
+
+    // ============================================================
+    // [إصلاح خاص بهذه الصفحة فقط] checkAdminAuth (ومن خلفها
+    // requireAuth في auth-client.js) بترجّع جلسة "زائر" مخزّنة في
+    // localStorage (مفتاح mad3oom-guest-session) فورًا لو كانت
+    // موجودة، من غير ما تتحقق من جلسة Supabase الحقيقية أصلاً —
+    // وده بيحصل حتى لو كانت جلستك الحقيقية كأدمن مسجّلة وصحيحة
+    // بالكامل على Supabase، طالما مفتاح الضيف القديم متروك في
+    // المتصفح من زيارة سابقة. بما إن signInAsGuest() لا تُسجّل خروج
+    // من الجلسة الحقيقية، فالجلستان تتعايشان معًا، والحل هنا هو
+    // تجاهل رد الضيف الوهمي والسؤال مباشرة عن الجلسة الحقيقية على
+    // Supabase قبل تحديد الصلاحية. هذا لا يُصلح السبب الجذري في
+    // auth-client.js، لكنه يضمن عمل هذه الصفحة بالذات بشكل صحيح.
+    // ============================================================
+    let realUser = user;
+    if (user.isGuest || user.profile?.is_guest) {
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authUser.id)
+                    .maybeSingle();
+                realUser = { ...authUser, profile: profile || {} };
+                updateAdminUI(realUser); // تحديث الشارة/الصورة بالبيانات الحقيقية بدل الضيف
+            }
+        } catch (err) {
+            console.error('Real-session fallback check failed:', err);
+        }
+    }
+
+    const role = realUser.profile?.role;
+    const email = realUser.email || realUser.profile?.email || '';
     const MAIN_ADMIN_EMAILS = ['support@mad3oom.online', 'info@mad3oom.online'];
     const isAdmin = role === 'admin' || MAIN_ADMIN_EMAILS.includes(email);
     if (isAdmin) {
