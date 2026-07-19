@@ -71,6 +71,8 @@ button { cursor: pointer; }
     font-family: var(--font-mono); direction: ltr; font-size:10.5px; color:#8FC7FF;
     background: rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.25); padding:4px 10px; border-radius:20px; white-space:nowrap;
 }
+.demo-flag.live{ color:#22C58B; background:rgba(34,197,139,.14); border-color:rgba(34,197,139,.3); }
+.demo-flag.error{ color:#FF6B6B; background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.3); }
 
 .not-authorized{
     max-width:520px; margin:4rem auto; text-align:center; padding:2.5rem 2rem;
@@ -186,7 +188,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             <h1 class="gradient-text">قائمة التعلّم</h1>
             <p>المحادثات اللي المحرك حطّها للمراجعة — ثقة منخفضة، رد احتياطي (Fallback)، أو تصعيد لم يُحل. الشاشة دي فلتر على سجل التتبع نفسه، مش تخزين منفصل.</p>
         </div>
-        <span class="demo-flag" id="dataModeFlag">● بيانات تجريبية — غير متصلة بقاعدة بيانات حقيقية</span>
+        <span class="demo-flag" id="dataModeFlag">● جارِ الاتصال بقاعدة البيانات…</span>
     </div>
 
     <div class="stats-grid">
