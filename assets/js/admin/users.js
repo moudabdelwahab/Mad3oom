@@ -1,7 +1,7 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
-import { adminImpersonateUser } from '/auth-client.js';
+import { impersonateUser } from './admin-utils.js';
 import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/sie-integration/sie-entitlement.js';
 
 let user = null;
@@ -380,14 +380,6 @@ async function renderUsers() {
             }
         });
     });
-}
-
-async function impersonateUser(id) { 
-    const { data: targetUser } = await supabase.from('profiles').select('email').eq('id', id).single();
-    const activityModule = await import('/activity-service.js');
-    activityModule.logActivity('impersonate', { target_user_id: id, target_email: targetUser?.email });
-    await adminImpersonateUser(id);
-    location.href = '/customer-dashboard.html';
 }
 
 init();
