@@ -509,12 +509,15 @@ class ChatWidget {
     async startChat() {
         this.renderLoadingState();
 
-        // requireAuth('user') بدل supabase.auth.getUser() المباشرة عشان
-        // الويدجت يحترم "الدخول كعضو" (impersonation): لو أدمن/super_user
-        // فاتح الصفحة بـ ?impersonate=<id>، هيرجعله requireAuth بروفايل
-        // العضو المستهدف (id/profile) بدل حساب الأدمن الحقيقي - مع إن جلسة
-        // Supabase الحقيقية (auth) فضلت زي ما هي طول الوقت من غير أي تبديل.
-        const user = await requireAuth('user');
+        // ملحوظة مهمة: الويدجت ده بقى شغال في customer-dashboard.html
+        // و admin-dashboard.html مع بعض. requireAuth('user') بترفض أي أدمن
+        // مش عامل impersonation - وده غلط هنا: أدمن داخل بحسابه العادي على
+        // لوحة الإدارة *لازم* يقدر يستخدم الويدجت برضه (هو مش بيشوف حساب
+        // حد تاني، هو بيشوف حسابه). فبنستخدم requireAuth(null) بدل 'user' -
+        // كده بيرجع بيانات المستخدم الحقيقي (أدمن أو عميل) في الحالة
+        // العادية، وبرضه بيرجع بروفايل العضو المستهدف صح لو فيه ?impersonate=
+        // (لأن شرط الـimpersonation في requireAuth() مستقل عن requiredRole).
+        const user = await requireAuth(null);
         if (!user || user.banned) {
             this.isLoggedIn = false;
             this.updateContactDetailsUI();
@@ -586,6 +589,16 @@ class ChatWidget {
 
             if (createError) {
                 console.error('خطأ في إنشاء جلسة دردشة:', createError);
+                // ملحوظة معروفة (مش مصلّحة من الفرونت إند): في وضع "الدخول
+                // كعضو" (impersonation)، جلسة Supabase الحقيقية (auth.uid())
+                // لسه بتاعة الأدمن، لكن هنا بنحاول نعمل insert بـ user_id
+                // بتاع العضو المستهدف. لو الـRLS policy على chat_sessions من
+                // نوع auth.uid() = user_id (الشكل الشائع)، الـinsert هيترفض
+                // هنا بالظبط - وده على الأغلب سبب "حدث خطأ" وقت الـimpersonation.
+                // الإصلاح الحقيقي محتاج تعديل في الباك إند (policy تسمح
+                // للأدمن/super_user يكتبوا نيابة عن غيرهم، أو RPC بصلاحية
+                // SECURITY DEFINER)، ده خارج نطاق تعديلات الفرونت إند.
+                this.sessionCreateError = createError;
                 return;
             }
             session = newSession;
@@ -983,7 +996,14 @@ class ChatWidget {
     renderErrorState() {
         const body = document.getElementById('chatWidgetBody');
         const footer = document.getElementById('chatWidgetFooter');
-        if (body) body.innerHTML = `<div class="chat-widget-center-state">حصل خطأ في تحميل المحادثة، جرب تقفل وتفتح الويدجت تاني.</div>`;
+        // لو الخطأ حصل وقت "الدخول كعضو" تحديدًا، الرسالة العامة مضلّلة -
+        // بتوحي إن فيه مشكلة عشوائية، بينما فعليًا السبب الأرجح معروف (فرق
+        // بين جلسة Supabase الحقيقية وuser_id المستهدف، على مستوى RLS في
+        // الباك إند) ومحتاج تدخل هناك، مش مجرد "جرب تاني".
+        const message = this.isImpersonated
+            ? 'تعذّر فتح محادثة باسم هذا العضو أثناء "الدخول كعضو". هذه مشكلة معروفة في صلاحيات قاعدة البيانات (RLS) تحتاج تعديل من فريق التطوير الخلفي، وليست مشكلة في المتصفح.'
+            : 'حصل خطأ في تحميل المحادثة، جرب تقفل وتفتح الويدجت تاني.';
+        if (body) body.innerHTML = `<div class="chat-widget-center-state">${message}</div>`;
         if (footer) footer.innerHTML = '';
     }
 
