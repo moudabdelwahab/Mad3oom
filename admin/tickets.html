@@ -121,7 +121,17 @@
         .ticket-card:hover{background:rgba(255,255,255,.05);border-color:rgba(77,163,255,.25);}
         .ticket-card.selected{background:rgba(0,119,204,.12);border-color:var(--color-accent-2);box-shadow:0 0 0 1px rgba(77,163,255,.25) inset;}
         .ticket-card.keyboard-focus{outline:2px dashed rgba(77,163,255,.5);outline-offset:2px;}
-        .ticket-checkbox{position:absolute;top:.95rem;right:.7rem;width:15px;height:15px;accent-color:var(--color-accent-2);cursor:pointer;}
+        .ticket-checkbox{position:absolute;top:.95rem;right:.7rem;-webkit-appearance:none;appearance:none;width:17px;height:17px;border-radius:5px;border:1.5px solid var(--color-border);background:var(--color-surface);cursor:pointer;transition:background .15s ease,border-color .15s ease;}
+        .ticket-checkbox:hover{border-color:var(--color-accent-2);}
+        .ticket-checkbox:checked{background:var(--color-accent-2);border-color:var(--color-accent-2);}
+        .ticket-checkbox:checked::after{content:'';position:absolute;top:2px;right:6px;width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+        #selectAllTickets{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--color-border);background:var(--color-surface);cursor:pointer;position:relative;vertical-align:middle;margin-left:.4rem;transition:background .15s ease,border-color .15s ease;}
+        #selectAllTickets:hover{border-color:var(--color-accent-2);}
+        #selectAllTickets:checked{background:var(--color-accent-2);border-color:var(--color-accent-2);}
+        #selectAllTickets:checked::after{content:'';position:absolute;top:1px;right:5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+        #attachmentInput{color:var(--color-text-secondary);}
+        #attachmentInput::file-selector-button{background:var(--color-accent-2);color:#fff;border:none;border-radius:.5rem;padding:.5rem 1rem;margin-left:.75rem;cursor:pointer;font-family:inherit;font-weight:600;font-size:.78rem;transition:opacity .15s ease;}
+        #attachmentInput::file-selector-button:hover{opacity:.85;}
         .ticket-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;gap:.5rem;}
         .ticket-num{color:var(--color-text-secondary);font-size:.72rem;font-weight:700;font-family:'Space Grotesk',sans-serif;}
         .ticket-title{font-size:.92rem;font-weight:700;line-height:1.35;margin-bottom:.5rem;color:var(--color-text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
@@ -323,7 +333,7 @@
                 <div class="tickets-panel-header">
                     <h3>قائمة التذاكر</h3>
                     <label style="display:flex; align-items:center; gap:.4rem; font-size:.75rem; color:var(--color-text-secondary); cursor:pointer; font-weight:600;">
-                        <input type="checkbox" id="selectAllTickets" style="accent-color:var(--color-accent-2);"> تحديد الكل
+                        <input type="checkbox" id="selectAllTickets"> تحديد الكل
                     </label>
                 </div>
                 <div id="bulkBar" class="bulk-bar">
