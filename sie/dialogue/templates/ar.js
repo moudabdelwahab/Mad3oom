@@ -93,15 +93,13 @@ export const ar = {
         ]
     }),
 
-    CREATE_TICKET: () => ({
-        text: 'تمام، فتحنالك تذكرة دعم وفريقنا هيتواصل معاك في أقرب وقت [[icon:ticket]]',
-        options: []
-    }),
+    CREATE_TICKET: (decision) => decision?.alreadyTicketed
+        ? { text: 'التذكرة اللي فتحناها لسه شغالة وفريق الدعم هيتواصل معاك [[icon:ticket]] تقدر تضيفلي أي تفاصيل تانية لو حابب', options: [] }
+        : { text: 'تمام، فتحنالك تذكرة دعم وفريقنا هيتواصل معاك في أقرب وقت [[icon:ticket]]', options: [] },
 
-    ESCALATE_TO_HUMAN: () => ({
-        text: 'هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر [[icon:note]]',
-        options: []
-    }),
+    ESCALATE_TO_HUMAN: (decision) => decision?.alreadyTicketed
+        ? { text: 'لسه بننتظر رد فريق الدعم البشري، هيتواصلوا معاك في أقرب وقت [[icon:note]] لو حابب تضيف أي تفاصيل تانية أنا موجود', options: [] }
+        : { text: 'هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر [[icon:note]]', options: [] },
 
     COMPLETE: () => ({
         text: 'تمام، سعيد إن المشكلة اتحلت! لو احتجت أي حاجة تانية أنا موجود [[icon:star]]',
