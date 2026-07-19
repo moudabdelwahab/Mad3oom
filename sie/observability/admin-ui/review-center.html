@@ -206,7 +206,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
         </div>
         <div class="glass-card stat-card">
             <div class="stat-icon ok"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
-            <div class="stat-info"><div class="stat-label">تم الحل</div><div class="stat-value" id="stat-resolved">—</div></div>
+            <div class="stat-info"><div class="stat-label">تم التصحيح</div><div class="stat-value" id="stat-corrected">—</div></div>
         </div>
     </div>
 
@@ -216,7 +216,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
                 <thead>
                     <tr>
                         <th>الجلسة</th>
-                        <th>الرسالة المُعلّمة</th>
+                        <th>تفسير القرار</th>
                         <th>السبب</th>
                         <th>الثقة</th>
                         <th>الحالة</th>
@@ -297,7 +297,7 @@ if (user) {
     if (user.profile?.role === 'admin') {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('page-template').content.cloneNode(true));
-        initReviewCenter();
+        initReviewCenter(user);
     } else {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('not-authorized-template').content.cloneNode(true));
