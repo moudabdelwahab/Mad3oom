@@ -62,7 +62,12 @@ export async function executeDecision({ decision, rendered, sessionId, nextBotSt
         });
     }
 
-    if (TICKET_ACTIONS.has(decision.action)) {
+    // ticketDraft is only null here when the Decision Engine deliberately
+    // suppressed it (this session already has a ticket/escalation on file —
+    // see decision-engine.js's ticketAlreadyCreated handling); in that case
+    // just persist the reminder message like any other reply, instead of
+    // opening a second duplicate ticket for the same conversation.
+    if (TICKET_ACTIONS.has(decision.action) && decision.ticketDraft) {
         const step = await callStep('createTicketWithMessageAndSessionUpdate', () =>
             port.createTicketWithMessageAndSessionUpdate({
                 sessionId,
