@@ -18,6 +18,7 @@ import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/ch
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
+import { iconize } from '/assets/js/chat-icons.js';
 
 /**
  * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
@@ -199,6 +200,7 @@ class ChatWidget {
               <span class="chat-widget-typing-dot"></span>
               <span class="chat-widget-typing-dot"></span>
               <span class="chat-widget-typing-dot"></span>
+              <span class="chat-widget-typing-text" id="chatWidgetTypingText">جاري التفكير...</span>
             </div>
           </div>
 
@@ -725,7 +727,7 @@ class ChatWidget {
         div.className = `chat-widget-message ${isOwn ? 'user' : 'bot'}`;
         div.innerHTML = `
       <div class="chat-widget-bubble">
-        ${escapeHtml(text).replace(/\n/g, '<br>')}
+        ${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}
         <div class="chat-widget-msg-time">${time}</div>
       </div>
     `;
@@ -787,7 +789,7 @@ class ChatWidget {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'bot-quick-option-btn';
-            btn.textContent = opt.label;
+            btn.innerHTML = iconize(escapeHtml(opt.label));
             btn.addEventListener('click', () => {
                 wrap.querySelectorAll('button').forEach(b => (b.disabled = true));
                 this.sendMessage(opt.value);
@@ -809,6 +811,7 @@ class ChatWidget {
         if (presetText === undefined && input) input.value = '';
         this.clearQuickOptions();
         const typingIndicator = document.getElementById('chatWidgetTyping');
+        const typingText = document.getElementById('chatWidgetTypingText');
 
         const { error: sendError } = await supabase.from('chat_messages').insert({
             session_id: this.currentSessionId,
@@ -823,6 +826,12 @@ class ChatWidget {
         }
 
         try {
+            if (typingText) {
+                // "جاري اتخاذ القرار..." لوضع SIE (محرك تشخيص/قرار)، وإلا نص عام
+                // "جاري التفكير..." للمحرك التقليدي. بيفضل ظاهر طول مراحل المعالجة
+                // كلها (مش بس نداء الـ API) لحد ما finally يقفله تحت.
+                typingText.textContent = this.cachedChatbotMode === 'sie' ? 'جاري اتخاذ القرار...' : 'جاري التفكير...';
+            }
             if (typingIndicator) typingIndicator.style.display = 'flex';
 
             if (this.currentSession?.is_manual_mode) return;
