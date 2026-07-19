@@ -2,7 +2,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { fetchTicketStats, subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, addTicketReply, fetchTicketReplies, closeTicketWithComment } from '/tickets-service.js';
-import { adminImpersonateUser } from '/auth-client.js';
+import { impersonateUser } from './admin-utils.js';
 
 let user = null;
 let currentTicketId = null;
