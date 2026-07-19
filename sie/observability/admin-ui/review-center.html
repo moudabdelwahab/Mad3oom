@@ -162,9 +162,47 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 .btn{ border:none; border-radius:.6rem; padding:.6rem 1.1rem; font-size:.82rem; font-weight:700; font-family:inherit; }
 .btn-primary{ background:linear-gradient(135deg,#4DA3FF,#0077CC); color:#fff; }
 .btn-primary:hover{ box-shadow:0 0 20px -4px rgba(77,163,255,.5); }
+.btn-ghost{ background:var(--color-muted); border:1px solid var(--color-border); color:var(--color-text); display:inline-flex; align-items:center; gap:6px; }
+.btn-ghost:hover{ background:var(--color-border); }
+.btn-ghost:disabled{ opacity:.55; cursor:default; }
+.btn-sm{ padding:.4rem .75rem; font-size:.74rem; }
 .save-row{ display:flex; justify-content:flex-start; align-items:center; gap:.8rem; margin-top:.9rem; }
 .saved-flag{ font-size:.78rem; color:#22C58B; display:none; }
 .saved-flag.show{ display:inline; }
+
+/* ---------- رأس الصفحة: أزرار وحالة الاتصال ---------- */
+.header-actions{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; justify-content:flex-end; }
+.last-sync{ font-family:var(--font-mono); direction:ltr; font-size:10.5px; color:var(--color-text-3); white-space:nowrap; }
+
+/* ---------- نبض محرك SIE ---------- */
+.pulse-card{ padding:1.1rem 1.35rem; margin-bottom:1.75rem; }
+.pulse-title{ font-size:.78rem; font-weight:700; color:var(--color-text-secondary); margin-bottom:.9rem; }
+.pulse-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:1rem; }
+.pulse-item{ text-align:center; }
+.pulse-value{ font-size:1.3rem; font-weight:800; font-family:'Space Grotesk', var(--font-display); color:var(--color-text); }
+.pulse-value.zero{ color:var(--color-text-3); }
+.pulse-label{ font-size:.72rem; color:var(--color-text-secondary); margin-top:.2rem; }
+.pulse-note{ margin-top:.9rem; padding-top:.8rem; border-top:1px solid var(--color-border); font-size:.78rem; color:#F5A623; display:none; line-height:1.7; }
+.pulse-note.show{ display:block; }
+
+/* ---------- شريط الفلاتر ---------- */
+.filters-card{ padding:1rem 1.25rem; margin-bottom:1.1rem; }
+.filters-row{ display:flex; align-items:flex-end; gap:.9rem; flex-wrap:wrap; }
+.filter-field{ min-width:150px; }
+.filter-field label{ display:block; font-size:.72rem; color:var(--color-text-secondary); font-weight:600; margin-bottom:.35rem; }
+.filter-field select, .filter-field input{ padding:.5rem .65rem; font-size:.8rem; }
+.filter-search{ flex:1; min-width:200px; }
+
+/* ---------- تحميل المزيد ---------- */
+.load-more-row{ display:flex; justify-content:center; padding:1rem; border-top:1px solid var(--color-border); }
+
+/* ---------- المحادثة الكاملة ---------- */
+.transcript{ margin-top:.8rem; max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-left:4px; }
+.t-msg{ max-width:85%; padding:.55rem .8rem; border-radius:.7rem; font-size:.8rem; line-height:1.6; }
+.t-msg .t-meta{ font-size:.68rem; color:var(--color-text-3); margin-top:3px; font-family:var(--font-mono); direction:ltr; text-align:left; }
+.t-msg.customer{ align-self:flex-start; background:var(--color-muted); border:1px solid var(--color-border); }
+.t-msg.bot{ align-self:flex-end; background:rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.22); }
+.t-msg.admin{ align-self:flex-end; background:rgba(34,197,139,.12); border:1px solid rgba(34,197,139,.25); }
 
 @media (max-width:768px){
     .admin-main{ padding:1.25rem; }
@@ -188,7 +226,25 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             <h1 class="gradient-text">قائمة التعلّم</h1>
             <p>المحادثات اللي المحرك حطّها للمراجعة — ثقة منخفضة، رد احتياطي (Fallback)، أو تصعيد لم يُحل. الشاشة دي فلتر على سجل التتبع نفسه، مش تخزين منفصل.</p>
         </div>
-        <span class="demo-flag" id="dataModeFlag">● جارِ الاتصال بقاعدة البيانات…</span>
+        <div class="header-actions">
+            <span class="demo-flag" id="dataModeFlag" style="display:none;"></span>
+            <span class="last-sync" id="lastSyncLabel"></span>
+            <button class="btn btn-ghost btn-sm" id="refreshBtn" title="تحديث القائمة الآن">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                تحديث
+            </button>
+        </div>
+    </div>
+
+    <div class="glass-card pulse-card">
+        <div class="pulse-title">نبض محرك SIE — حالة المحرك الفعلية، مش مجرد تأكيد اتصال</div>
+        <div class="pulse-grid">
+            <div class="pulse-item"><div class="pulse-value" id="pulse-total-traces">—</div><div class="pulse-label">تتبّعات مُسجَّلة (كل الوقت)</div></div>
+            <div class="pulse-item"><div class="pulse-value" id="pulse-sessions">—</div><div class="pulse-label">جلسات SIE حقيقية مُسجَّلة</div></div>
+            <div class="pulse-item"><div class="pulse-value" id="pulse-last-trace">—</div><div class="pulse-label">آخر تتبّع مسجَّل</div></div>
+            <div class="pulse-item"><div class="pulse-value" id="pulse-sie-users">—</div><div class="pulse-label">عملاء مفعّل لهم SIE</div></div>
+        </div>
+        <div class="pulse-note" id="pulse-note"></div>
     </div>
 
     <div class="stats-grid">
@@ -210,6 +266,34 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
         </div>
     </div>
 
+    <div class="glass-card filters-card">
+        <div class="filters-row">
+            <div class="filter-field">
+                <label>السبب</label>
+                <select id="filter-reason">
+                    <option value="all">الكل</option>
+                    <option value="fallback">رد احتياطي</option>
+                    <option value="escalated_unknown">تصعيد (غير معروف)</option>
+                    <option value="low_confidence">ثقة منخفضة</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>الحالة</label>
+                <select id="filter-status">
+                    <option value="all">الكل</option>
+                    <option value="unresolved">غير محلولة</option>
+                    <option value="reviewed">تمت المراجعة</option>
+                    <option value="corrected">تم التصحيح</option>
+                </select>
+            </div>
+            <div class="filter-field filter-search">
+                <label>بحث بمعرّف الجلسة</label>
+                <input type="text" id="filter-session" placeholder="مثلاً a1b2c3…" class="ltr-data" autocomplete="off">
+            </div>
+            <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">مسح الفلاتر</button>
+        </div>
+    </div>
+
     <div class="glass-card section-card">
         <div class="table-wrap">
             <table class="queue-table">
@@ -227,6 +311,9 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             </table>
         </div>
         <div id="empty" class="empty-state" style="display:none;">مفيش حاجة في قائمة التعلّم دلوقتي.</div>
+        <div class="load-more-row" id="loadMoreRow" style="display:none;">
+            <button class="btn btn-ghost btn-sm" id="loadMoreBtn">تحميل 200 صف إضافي</button>
+        </div>
     </div>
 
     <section id="detail" class="detail glass-card">
@@ -244,6 +331,14 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
                 <div class="response-card">
                     <div class="label">الرد المُرسل في هذا الدور</div>
                     <div id="response-text">—</div>
+                </div>
+                <div class="panel-block" style="margin-top:1rem;">
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <h4 style="margin:0;">المحادثة الكاملة</h4>
+                        <button class="btn btn-ghost btn-sm" id="loadConversationBtn">عرض</button>
+                    </div>
+                    <p class="hint" style="margin-top:.5rem;">كل رسائل الجلسة دي بالترتيب — مش الدور المُبلَّغ عنه بس — عشان تفهم السياق كامل قبل التصحيح.</p>
+                    <div id="conversation-transcript" class="transcript" style="display:none;"></div>
                 </div>
             </div>
 
