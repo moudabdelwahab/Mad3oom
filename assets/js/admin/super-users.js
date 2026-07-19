@@ -387,9 +387,8 @@ function bindSubUserActions() {
     document.querySelectorAll('.sub-view-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const userId = btn.dataset.id;
-            const { adminImpersonateUser } = await import('/auth-client.js');
-            await adminImpersonateUser(userId);
-            window.location.href = '/customer-dashboard.html';
+            const { impersonateUser } = await import('./admin-utils.js');
+            await impersonateUser(userId, '/customer-dashboard.html');
         });
     });
 
