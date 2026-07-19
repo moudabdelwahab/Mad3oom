@@ -1,6 +1,7 @@
 import * as dataClient from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
+import { iconize } from '/assets/js/chat-icons.js';
 
 // طبقة الوصول للبيانات - تُستورد من إعدادات المنصة الداخلية فقط
 const db = dataClient.supabase;
@@ -383,7 +384,7 @@ function renderChatsTab() {
                     <div class="ch-record-title">محادثة ${formatDate(s.created_at)}</div>
                     <div class="ch-record-date">${msgs.length} رسالة</div>
                 </div>
-                <div class="ch-bubble-preview">${escapeHtml(preview)}</div>
+                <div class="ch-bubble-preview">${iconize(escapeHtml(preview))}</div>
                 <div class="ch-record-footer">
                     <span class="ch-chip ch-chip-${s.status}">${s.status === 'active' ? 'جارية' : 'مغلقة'}</span>
                     <a href="/chat-admin.html?session_id=${s.id}" class="ch-record-link">
