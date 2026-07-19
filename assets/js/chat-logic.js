@@ -1,4 +1,5 @@
 import { supabase } from '/api-config.js';
+import { requireAuth } from '/auth-client.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
@@ -142,13 +143,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     // من نافذة الإعدادات (refreshChatModeButtonLabel)، عشان مفيش استعلام
     // إضافي لقاعدة البيانات مع كل رسالة بيبعتها العميل.
     let cachedChatbotMode = 'traditional';
+    // هل الجلسة الحالية "دخول كعضو" (impersonation) من أدمن/super_user؟
+    // بيتحدد بس على صفحة العميل (window.isCustomerChat)، زي ما هو موضّح فوق.
+    let isImpersonated = false;
 
     // ===== INITIALIZATION =====
     async function init() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            window.location.href = '/login.html';
-            return;
+        // صفحة شات العميل (chat-customer.html) لازم تحترم "الدخول كعضو"
+        // (impersonation) عشان الأدمن/super_user يقدر يشوف الشات بحساب أي
+        // عضو فتحه بـ ?impersonate=. صفحة الأدمن (chat-admin.html) لأ -
+        // مفيش داعي ولا معنى لتبديل هوية الأدمن وهو بيدير شاتات العملاء.
+        let user;
+        if (window.isCustomerChat) {
+            user = await requireAuth('user');
+            if (!user || user.banned) {
+                window.location.href = '/login.html';
+                return;
+            }
+            isImpersonated = !!user.isImpersonated;
+        } else {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (!authUser) {
+                window.location.href = '/login.html';
+                return;
+            }
+            user = authUser;
         }
 
         currentUser = user;
@@ -171,6 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadBotSettings(); // البوت المحلي محتاج إعدادات bot_settings (رسالة الترحيب وتأكيد التذكرة)
             await loadCustomerChat();
             setupCustomerChatEventListeners();
+            renderImpersonationBanner();
             return;
         }
 
@@ -533,6 +553,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (err) {
             console.warn('تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
         }
+    }
+
+    /* ==================== بانر "الدخول كعضو" (impersonation) ==================== */
+
+    /**
+     * يعرض بانر واضح فوق شات العميل لو الأدمن/super_user فاتح الصفحة دي
+     * "كعضو" (impersonation)، فيه اسم العضو المستهدف وزرار "رجوع لحسابي".
+     * ملحوظة: بيتفعّل بس على صفحة العميل (window.isCustomerChat) - أصلاً
+     * isImpersonated مبتتحطش true غير في نفس السياق ده (راجع init()).
+     */
+    function renderImpersonationBanner() {
+        const container = document.getElementById('chatImpersonationBanner');
+        if (!container) return;
+
+        if (!isImpersonated) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+
+        const memberName = currentUser?.profile?.full_name || currentUser?.profile?.email || 'هذا العضو';
+        container.style.display = 'block';
+        container.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 1.25rem; background:#fff3cd; border-bottom:1px solid #ffe08a; font-size:0.85rem; color:#8a6300;">
+                <span>بتشوف الشات كـ <strong>${escapeHtml(memberName)}</strong></span>
+                <button type="button" id="chatExitImpersonationBtn" style="background:#8a6300; color:#fff; border:none; border-radius:8px; padding:0.4rem 0.9rem; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap;">رجوع لحسابي</button>
+            </div>
+        `;
+
+        const exitBtn = document.getElementById('chatExitImpersonationBtn');
+        if (exitBtn) {
+            exitBtn.addEventListener('click', exitImpersonation);
+        }
+    }
+
+    /** يرجّع الأدمن لصفحته الأصلية بمسح ?impersonate= من العنوان - الجلسة الحقيقية (Supabase auth) أصلاً ما اتغيّرتش. */
+    function exitImpersonation() {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('impersonate');
+        window.location.href = url.pathname + url.search;
     }
 
     function openChatModeDialogForCustomer() {
