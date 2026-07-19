@@ -227,6 +227,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (createError) {
                 console.error('خطأ في إنشاء جلسة دردشة:', createError);
+                // لو الخطأ حصل وقت "الدخول كعضو"، السبب الأرجح معروف: جلسة
+                // Supabase الحقيقية (auth.uid()) لسه بتاعة الأدمن، مش العضو
+                // المستهدف، وRLS على chat_sessions على الأغلب من نوع
+                // auth.uid() = user_id فبيرفض الـinsert. ده محتاج تعديل في
+                // الباك إند (policy/RPC)، مش حاجة نقدر نصلّحها من هنا -
+                // لكن أهم حاجة إننا منسيبش الصفحة فاضية بصمت زي ما كانت.
+                const messagesContainer = document.getElementById('chatMessages');
+                if (messagesContainer) {
+                    const msg = isImpersonated
+                        ? 'تعذّر فتح محادثة باسم هذا العضو أثناء "الدخول كعضو". هذه مشكلة معروفة في صلاحيات قاعدة البيانات (RLS) تحتاج تعديل من فريق التطوير الخلفي.'
+                        : 'حصل خطأ أثناء تحميل المحادثة. جرب تحدّث الصفحة.';
+                    messagesContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#888;">${escapeHtml(msg)}</div>`;
+                }
                 return;
             }
             session = newSession;
