@@ -108,7 +108,8 @@
 
     <script type="module">
         import { supabase } from './api-config.js';
-        import { requireAuth, adminImpersonateUser } from './auth-client.js';
+        import { requireAuth } from './auth-client.js';
+        import { impersonateUser } from './assets/js/admin/admin-utils.js';
         import { fetchTicketStats, subscribeToTickets } from './tickets-service.js';
 
         async function init() {
@@ -166,14 +167,7 @@
             document.getElementById('admResolved').textContent = stats.resolved;
         }
 
-        window.impersonateUser = async (id) => {
-            if (!id) {
-                alert('لا يمكن الدخول لحساب ضيف');
-                return;
-            }
-            await adminImpersonateUser(id);
-            location.href = 'customer-dashboard.html';
-        };
+        window.impersonateUser = (id) => impersonateUser(id);
 
         init();
     </script>
