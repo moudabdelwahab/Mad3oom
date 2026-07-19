@@ -284,6 +284,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 <script type="module">
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
+import { supabase } from '/api-config.js';
 
 initSidebar();
 
@@ -304,16 +305,23 @@ if (user) {
 }
 
 // ------------------------------------------------------------------
-// هذه الجولة من التعديل تغطي التصميم فقط: نقل الصفحة لثيم لوحة
-// الإدارة الحقيقي (Cairo/IBM Plex Sans Arabic، ألوان --color-*،
-// الشريط الجانبي المشترك، وفحص صلاحية الأدمن) — مع إبقاء منطق
-// وبيانات العرض التجريبي كما هي مؤقتًا. الربط الفعلي بـ
-// chat_engine_learning_queue / chat_engine_conversation_reviews
-// عبر Supabase هيتم في خطوة تالية منفصلة، بعد تشغيل الـ migration
-// اللي بيصلّح is_chat_engine_staff().
+// متصل ببيانات حقيقية:
+//   - قراءة: chat_engine_learning_queue (VIEW على chat_engine_trace_events
+//     LEFT JOIN chat_engine_conversation_reviews).
+//   - كتابة: INSERT/UPDATE مباشر على chat_engine_conversation_reviews
+//     (نفس نمط الكتابة المباشر من المتصفح المستخدم في باقي صفحات
+//     /admin، مثل tickets.js) — الصلاحية بالكامل عبر RLS و
+//     is_chat_engine_staff()، فلازم migration
+//     0002_fix_chat_engine_staff_roles.sql يكون شغّال على القاعدة
+//     الحقيقية، وإلا هترجع الاستعلامات صفوف فاضية أو خطأ صلاحيات.
+//   - عمود trace (jsonb) شكله الحقيقي من trace-logger.js::buildTraceEvent():
+//     { rawText, normalizedTokenCanonicals, hypothesesSnapshot,
+//       rankingSnapshot, decision, responseText, timestamp } — مفيش فيه
+//     تفاصيل منفصلة لخطوة "السيناريو" أو "المعرفة"، فعمود التتبّع هنا
+//     مبني من خمس خطوات فعلية بس (لغة/تشخيص/ترتيب/قرار/حوار).
 // ------------------------------------------------------------------
-function initReviewCenter() {
-    const SCENARIO_OPTIONS = [
+async function initReviewCenter() {
+    const FALLBACK_SCENARIO_OPTIONS = [
         'login_token_expired', 'api_integration_issue', 'webhook_delivery_failure',
         'subscription_payment_not_reflected', 'pricing_inquiry', 'platform_info_inquiry',
         'ticket_status_inquiry', 'subscription_status_inquiry', 'unknown'
@@ -325,50 +333,109 @@ function initReviewCenter() {
         { value: 'dismissed', label: 'مرفوضة' }
     ];
 
-    const QUEUE = [
-        {
-            sessionId: 'a1c9-4e21', turn: 2, reason: 'low_confidence', status: 'open', confidence: 0.14,
-            rawText: 'مش عارف انا عندي مشكلة في حاجة غريبة شوية بس مش قادر اوصفها',
-            trace: [
-                { name: 'اللغة', summary: '11 tokens', body: 'normalizedTokenCanonicals: [مش, عارف, انا, عندي, مشكله, في, حاجه, غريبه, شويه, بس, مش]' },
-                { name: 'التشخيص', summary: '2 active hypotheses, weak signal', body: 'hypotheses:\n  - scenarioId: unknown            confidence: 0.140  status: active\n  - scenarioId: subscription_payment_not_reflected  confidence: 0.090  status: active' },
-                { name: 'الترتيب', summary: 'top: unknown (0.14) · ambiguous: false', body: 'topScenarioId: unknown\ntopConfidence: 0.140\nisAmbiguous: false' },
-                { name: 'القرار', summary: 'FALLBACK · below activation threshold', body: 'action: FALLBACK\nscenarioId: null\nexplanation: "No hypothesis reached the activation threshold with usable specificity; offering the fallback menu."' },
-                { name: 'الحوار', summary: 'FALLBACK template · 2 options', body: 'text: "مش متأكد إني فهمتك صح 🗒️ اختار من الاختيارات دي وهساعدك:"\noptions: [عندي استفسار, عندي مشكلة]' }
-            ],
-            responseText: 'مش متأكد إني فهمتك صح 🗒️ اختار من الاختيارات دي وهساعدك:'
-        },
-        {
-            sessionId: 'f7b0-88d3', turn: 4, reason: 'escalated_unknown', status: 'in_review', confidence: null,
-            rawText: 'كل اللي قلتهولك مش بيحل المشكلة، حد يرد عليا بجد',
-            trace: [
-                { name: 'اللغة', summary: '9 tokens', body: 'normalizedTokenCanonicals: [كل, اللي, قلتهولك, مش, بيحل, المشكله, حد, يرد, عليا]' },
-                { name: 'التشخيص', summary: '0 active hypotheses after 4 turns', body: 'hypotheses: []\naccumulator.entries: 6 (none matched a current scenario token this turn)' },
-                { name: 'الترتيب', summary: 'top: none · ambiguous: false', body: 'topScenarioId: null\ntopConfidence: null\nisAmbiguous: false' },
-                { name: 'القرار', summary: 'ESCALATE_TO_HUMAN · no-progress cap reached', body: 'action: ESCALATE_TO_HUMAN\nscenarioId: null\nexplanation: "consecutiveNoNewEvidenceTurns=3 exceeded cap after FALLBACK; escalating to a human agent."' },
-                { name: 'الحوار', summary: 'ESCALATE_TO_HUMAN template', body: 'text: "هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر 🗒️"' }
-            ],
-            responseText: 'هوصلك بفريق الدعم البشري عشان يقدر يساعدك بشكل مباشر 🗒️'
-        },
-        {
-            sessionId: '2d61-c40a', turn: 1, reason: 'low_confidence', status: 'resolved', confidence: 0.18,
-            rawText: 'في مشكلة في الدفع بتاعي مش متأكد ايه بالظبط',
-            trace: [
-                { name: 'اللغة', summary: '8 tokens', body: 'normalizedTokenCanonicals: [في, مشكله, في, الدفع, بتاعي, مش, متأكد, ايه]' },
-                { name: 'التشخيص', summary: '1 active hypothesis, low confidence', body: 'hypotheses:\n  - scenarioId: subscription_payment_not_reflected  confidence: 0.180  status: active' },
-                { name: 'الترتيب', summary: 'top: subscription_payment_not_reflected (0.18)', body: 'topScenarioId: subscription_payment_not_reflected\ntopConfidence: 0.180\nisAmbiguous: false' },
-                { name: 'القرار', summary: 'ASK_CLARIFYING_QUESTION', body: 'action: ASK_CLARIFYING_QUESTION\ntargetQuestion: { id: payment_confirmation_received }' },
-                { name: 'الحوار', summary: 'targeted question', body: 'text: "تمام، تقدر تأكدلي الدفع اتخصم فعلاً من حسابك؟"' }
-            ],
-            responseText: 'تمام، تقدر تأكدلي الدفع اتخصم فعلاً من حسابك؟ (تم الحل لاحقًا بعد رد العميل)'
-        }
-    ];
-
+    let QUEUE = [];
+    let SCENARIO_OPTIONS = FALLBACK_SCENARIO_OPTIONS;
     let selected = null;
     let pendingStatus = {};
+    const dataModeFlag = document.getElementById('dataModeFlag');
 
-    function reasonLabel(r) { return { fallback: 'رد احتياطي', escalated_unknown: 'تصعيد (غير معروف)', low_confidence: 'ثقة منخفضة' }[r] || r; }
+    function setFlag(mode, text) {
+        dataModeFlag.className = 'demo-flag' + (mode ? ' ' + mode : '');
+        dataModeFlag.textContent = text;
+    }
+
+    function reasonLabel(r) { return { fallback: 'رد احتياطي', escalated_unknown: 'تصعيد (غير معروف)', low_confidence: 'ثقة منخفضة' }[r] || r || '—'; }
     function statusLabel(s) { return (STATUS_OPTIONS.find(o => o.value === s) || {}).label || s; }
+
+    // يحوّل صف الـ view (trace jsonb خام) لشكل مناسب للعرض
+    function projectRow(row) {
+        const trace = row.trace || {};
+        const decision = trace.decision || {};
+        const confidence = typeof decision.confidence === 'number' ? decision.confidence : null;
+
+        const spine = [
+            {
+                name: 'اللغة',
+                summary: `${(trace.normalizedTokenCanonicals || []).length} tokens`,
+                body: `normalizedTokenCanonicals: [${(trace.normalizedTokenCanonicals || []).join(', ')}]`
+            },
+            {
+                name: 'التشخيص',
+                summary: `${(trace.hypothesesSnapshot || []).length} hypotheses`,
+                body: (trace.hypothesesSnapshot || []).length
+                    ? 'hypotheses:\n' + trace.hypothesesSnapshot.map(h => `  - scenarioId: ${h.scenarioId}  confidence: ${h.confidence}  status: ${h.status}`).join('\n')
+                    : 'hypotheses: []'
+            },
+            {
+                name: 'الترتيب',
+                summary: `top: ${trace.rankingSnapshot?.topScenarioId ?? 'none'} (${trace.rankingSnapshot?.topConfidence ?? '—'})`,
+                body: `topScenarioId: ${trace.rankingSnapshot?.topScenarioId ?? null}\ntopConfidence: ${trace.rankingSnapshot?.topConfidence ?? null}\nisAmbiguous: ${Boolean(trace.rankingSnapshot?.isAmbiguous)}`
+            },
+            {
+                name: 'القرار',
+                summary: `${decision.action ?? '—'}`,
+                body: `action: ${decision.action ?? null}\nscenarioId: ${decision.scenarioId ?? null}\nconfidence: ${decision.confidence ?? null}\nexplanation: ${decision.explanation ? JSON.stringify(decision.explanation) : 'null'}`
+            },
+            {
+                name: 'الحوار',
+                summary: (trace.responseText || '').slice(0, 40),
+                body: `text: ${JSON.stringify(trace.responseText || '')}`
+            }
+        ];
+
+        return {
+            traceEventId: row.trace_event_id,
+            sessionId: row.session_id,
+            turn: row.turn,
+            reason: row.reason,
+            confidence,
+            rawText: trace.rawText || '(مفيش نص مسجّل لهذا الدور)',
+            responseText: trace.responseText || '—',
+            reviewId: row.review_id || null,
+            status: row.review_status || 'open',
+            correction: null, // يُحمّل عند فتح التفاصيل
+            createdAt: row.created_at,
+            trace: spine
+        };
+    }
+
+    async function loadScenarioOptions() {
+        try {
+            const { data, error } = await supabase
+                .from('chat_engine_scenarios')
+                .select('scenario_key');
+            if (error || !data || data.length === 0) return;
+            const uniqueKeys = [...new Set(data.map(r => r.scenario_key))].sort();
+            if (uniqueKeys.length > 0) SCENARIO_OPTIONS = uniqueKeys;
+        } catch (err) {
+            console.warn('[review-center] تعذّر تحميل قائمة السيناريوهات، هنستخدم القائمة الافتراضية:', err);
+        }
+    }
+
+    async function loadQueue() {
+        setFlag(null, '● جارِ الاتصال بقاعدة البيانات…');
+        try {
+            const { data, error } = await supabase
+                .from('chat_engine_learning_queue')
+                .select('trace_event_id, session_id, turn, trace, reason, review_id, review_status, created_at')
+                .order('created_at', { ascending: false })
+                .limit(200);
+
+            if (error) throw error;
+
+            QUEUE = (data || []).map(projectRow);
+            setFlag('live', '● متصل ببيانات حقيقية — chat_engine_learning_queue');
+            renderQueue();
+        } catch (err) {
+            console.error('[review-center] فشل تحميل قائمة التعلّم:', err);
+            setFlag('error', '● تعذّر الاتصال بالبيانات — تحقق من صلاحيات Supabase/RLS');
+            document.getElementById('empty').style.display = 'block';
+            document.getElementById('empty').textContent =
+                'تعذّر تحميل قائمة التعلّم. غالبًا الحساب الحالي لسه مش معرّف كـ staff في is_chat_engine_staff() ' +
+                '(migration 0002_fix_chat_engine_staff_roles.sql)، أو migration 0001 لسه ما اتشغّلش على القاعدة.';
+            document.getElementById('queue-body').innerHTML = '';
+        }
+    }
 
     function renderStats() {
         document.getElementById('stat-total').textContent = QUEUE.length;
@@ -382,13 +449,14 @@ function initReviewCenter() {
         const body = document.getElementById('queue-body');
         if (QUEUE.length === 0) {
             document.getElementById('empty').style.display = 'block';
+            document.getElementById('empty').textContent = 'مفيش حاجة في قائمة التعلّم دلوقتي.';
             body.innerHTML = '';
             return;
         }
         document.getElementById('empty').style.display = 'none';
         body.innerHTML = QUEUE.map((item, i) => `
             <tr class="${selected === i ? 'selected' : ''}" data-index="${i}">
-                <td class="qid">${item.sessionId}</td>
+                <td class="qid">${(item.sessionId || '').toString().slice(0, 8)}</td>
                 <td>${item.rawText}<span class="qmsg-sub">الدور ${item.turn}</span></td>
                 <td><span class="badge ${item.reason}">${reasonLabel(item.reason)}</span></td>
                 <td class="conf">${item.confidence === null ? '—' : item.confidence.toFixed(2)}</td>
@@ -401,7 +469,7 @@ function initReviewCenter() {
         });
     }
 
-    function openDetail(i) {
+    async function openDetail(i) {
         selected = i;
         renderQueue();
         const item = QUEUE[i];
@@ -427,7 +495,27 @@ function initReviewCenter() {
 
         const scenarioSelect = document.getElementById('correction-scenario');
         scenarioSelect.innerHTML = SCENARIO_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join('');
-        document.getElementById('correction-note').value = '';
+
+        const noteField = document.getElementById('correction-note');
+        noteField.value = '';
+        // نجيب ملاحظة التصحيح السابقة (لو موجودة) من نفس صف المراجعة
+        if (item.reviewId && item.correction === null) {
+            try {
+                const { data, error } = await supabase
+                    .from('chat_engine_conversation_reviews')
+                    .select('correction')
+                    .eq('id', item.reviewId)
+                    .maybeSingle();
+                if (!error && data) {
+                    item.correction = data.correction || '';
+                    if (selected === i) noteField.value = item.correction;
+                }
+            } catch (err) {
+                console.warn('[review-center] تعذّر تحميل ملاحظة التصحيح السابقة:', err);
+            }
+        } else if (item.correction) {
+            noteField.value = item.correction;
+        }
 
         pendingStatus[i] = pendingStatus[i] || item.status;
         renderStatusOptions(i);
@@ -456,13 +544,57 @@ function initReviewCenter() {
         renderStatusOptions(i);
     }
 
-    function saveReview() {
+    async function saveReview() {
         if (selected === null) return;
-        QUEUE[selected].status = pendingStatus[selected];
-        renderQueue();
-        const flag = document.getElementById('saved-flag');
-        flag.classList.add('show');
-        setTimeout(() => flag.classList.remove('show'), 2200);
+        const item = QUEUE[selected];
+        const saveBtn = document.getElementById('saveReviewBtn');
+        const correction = document.getElementById('correction-note').value.trim() || null;
+        const status = pendingStatus[selected];
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'جارِ الحفظ…';
+
+        try {
+            if (item.reviewId) {
+                const { error } = await supabase
+                    .from('chat_engine_conversation_reviews')
+                    .update({ status, correction, updated_at: new Date().toISOString() })
+                    .eq('id', item.reviewId);
+                if (error) throw error;
+            } else {
+                const { data, error } = await supabase
+                    .from('chat_engine_conversation_reviews')
+                    .insert({
+                        session_id: item.sessionId,
+                        triggered_by_turn: item.turn,
+                        reason: item.reason,
+                        status,
+                        correction
+                    })
+                    .select('id')
+                    .single();
+                if (error) throw error;
+                item.reviewId = data.id;
+            }
+
+            item.status = status;
+            item.correction = correction;
+            renderQueue();
+
+            const flag = document.getElementById('saved-flag');
+            flag.textContent = 'تم الحفظ في chat_engine_conversation_reviews';
+            flag.classList.add('show');
+            setTimeout(() => flag.classList.remove('show'), 2500);
+        } catch (err) {
+            console.error('[review-center] فشل حفظ المراجعة:', err);
+            const flag = document.getElementById('saved-flag');
+            flag.textContent = 'فشل الحفظ — تحقق من صلاحيات الأدمن (RLS)';
+            flag.style.color = 'var(--color-danger)';
+            flag.classList.add('show');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'حفظ المراجعة';
+        }
     }
 
     document.getElementById('closeDetailBtn').addEventListener('click', () => {
@@ -472,7 +604,7 @@ function initReviewCenter() {
     });
     document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 
-    renderQueue();
+    await Promise.all([loadScenarioOptions(), loadQueue()]);
 }
 </script>
 </body>
