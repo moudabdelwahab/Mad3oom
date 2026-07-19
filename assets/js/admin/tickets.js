@@ -267,6 +267,18 @@ async function loadTickets() {
 
     if (error) {
         console.error("Error fetching tickets:", error);
+        const grid = document.getElementById('ticketsGrid');
+        if (grid) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon" style="color:var(--color-danger);">${ICONS.alertTriangle}</div>
+                    <p style="font-weight:700; color:var(--color-danger);">فشل تحميل التذاكر</p>
+                    <p style="font-size:.8rem; margin-top:.3rem; word-break:break-word;">${escapeHtml(error.message || 'حدث خطأ غير متوقع')}${error.code ? ' (كود: ' + escapeHtml(error.code) + ')' : ''}</p>
+                    <button id="retryLoadTicketsBtn" class="icon-btn" style="margin-top:.75rem;">${ICONS.refresh} إعادة المحاولة</button>
+                </div>`;
+            document.getElementById('retryLoadTicketsBtn')?.addEventListener('click', () => loadTickets());
+        }
+        showToast('فشل تحميل التذاكر: ' + (error.message || 'حدث خطأ غير متوقع'), 'error');
         return;
     }
 
