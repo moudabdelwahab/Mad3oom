@@ -538,32 +538,126 @@ async function initReviewCenter(currentUser) {
         }
     }
 
-    async function loadQueue() {
+    let offset = 0;
+    let reviewsBySession = {};
+
+    function formatRelative(iso) {
+        if (!iso) return '—';
+        const diffMs = Date.now() - new Date(iso).getTime();
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'الآن';
+        if (mins < 60) return `منذ ${mins} د`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `منذ ${hours} س`;
+        const days = Math.floor(hours / 24);
+        return `منذ ${days} يوم`;
+    }
+
+    // بيجيب أرقام حقيقية عن حالة محرك SIE (مش مجرد "الاستعلام نجح") — عدد
+    // التتبّعات المُسجَّلة فعليًا من كل الوقت، عدد الجلسات المختلفة، آخر
+    // وقت اتسجّل فيه تتبّع، وعدد العملاء المفعّل لهم SIE. لو العدد صفر،
+    // بنوريه صراحة بدل ما نسيب القائمة الفاضية تفسَّر غلط على إنها "كل حاجة تمام".
+    async function loadEnginePulse() {
+        const noteEl = document.getElementById('pulse-note');
+        noteEl.classList.remove('show');
+        noteEl.textContent = '';
+        try {
+            const { count, error: countError } = await supabase
+                .from('chat_engine_trace_events')
+                .select('id', { count: 'exact', head: true });
+            if (countError) throw countError;
+
+            totalTraceEventsEver = count ?? 0;
+            const totalEl = document.getElementById('pulse-total-traces');
+            totalEl.textContent = totalTraceEventsEver;
+            totalEl.classList.toggle('zero', totalTraceEventsEver === 0);
+
+            const sessionsEl = document.getElementById('pulse-sessions');
+            const lastTraceEl = document.getElementById('pulse-last-trace');
+
+            if (totalTraceEventsEver === 0) {
+                sessionsEl.textContent = '0'; sessionsEl.classList.add('zero');
+                lastTraceEl.textContent = 'لسه ولا مرة'; lastTraceEl.classList.add('zero');
+                noteEl.textContent = 'محرك SIE لسه ما سجّلش أي تتبّع حقيقي — القائمة تحت فاضية لأن مفيش بيانات بتتولّد أصلًا، مش لأن كل حاجة تمام.';
+                noteEl.classList.add('show');
+            } else {
+                sessionsEl.classList.remove('zero'); lastTraceEl.classList.remove('zero');
+                const [sessionsResult, lastResult] = await Promise.all([
+                    supabase.from('chat_engine_trace_events').select('session_id').limit(5000),
+                    supabase.from('chat_engine_trace_events').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle()
+                ]);
+                if (sessionsResult.error) throw sessionsResult.error;
+                if (lastResult.error) throw lastResult.error;
+                const distinctSessions = new Set((sessionsResult.data || []).map(r => r.session_id)).size;
+                const approx = (sessionsResult.data || []).length >= 5000 ? '+' : '';
+                sessionsEl.textContent = distinctSessions + approx;
+                lastTraceEl.textContent = formatRelative(lastResult.data?.created_at);
+            }
+        } catch (err) {
+            console.warn('[review-center] تعذّر تحميل نبض المحرك:', err);
+            document.getElementById('pulse-total-traces').textContent = '—';
+            document.getElementById('pulse-sessions').textContent = '—';
+            document.getElementById('pulse-last-trace').textContent = '—';
+        }
+
+        // عدد العملاء المفعّل لهم SIE — best effort: لو الحساب الحالي مش
+        // is_sie_admin() (بريد محدد، مش أي أدمن) هيرجع صفر بسبب RLS، مش
+        // لازم يبقى معناه فعليًا صفر عميل مفعّل.
+        try {
+            const { count: sieUsersCount, error: sieUsersError } = await supabase
+                .from('customer_sie_access')
+                .select('id', { count: 'exact', head: true })
+                .eq('is_enabled', true);
+            document.getElementById('pulse-sie-users').textContent = sieUsersError ? '—' : (sieUsersCount ?? 0);
+        } catch {
+            document.getElementById('pulse-sie-users').textContent = '—';
+        }
+    }
+
+    function applyFilters(rows) {
+        return rows.filter(item => {
+            if (filters.reason !== 'all' && item.reason !== filters.reason) return false;
+            if (filters.status !== 'all' && item.status !== filters.status) return false;
+            if (filters.session && !String(item.sessionId || '').toLowerCase().includes(filters.session)) return false;
+            return true;
+        });
+    }
+
+    async function loadQueue({ reset = true } = {}) {
         setFlag(null, '● جارِ الاتصال بقاعدة البيانات…');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (reset) offset = 0;
+        else { loadMoreBtn.disabled = true; loadMoreBtn.textContent = 'جارِ التحميل…'; }
+
         try {
             const { data, error } = await supabase
                 .from('chat_engine_learning_queue')
                 .select('trace_event_id, session_id, turn, action, scenario_id, confidence, explanation, created_at')
                 .order('created_at', { ascending: false })
-                .limit(200);
+                .range(offset, offset + PAGE_SIZE - 1);
 
             if (error) throw error;
 
             const rows = data || [];
-            const sessionIds = [...new Set(rows.map(r => r.session_id))];
+            const newSessionIds = [...new Set(rows.map(r => r.session_id))].filter(id => !(id in reviewsBySession));
 
-            let reviewsBySession = {};
-            if (sessionIds.length > 0) {
+            if (newSessionIds.length > 0) {
                 const { data: reviews, error: reviewsError } = await supabase
                     .from('chat_engine_conversation_reviews')
                     .select('id, session_id, status, corrected_scenario_id, notes')
-                    .in('session_id', sessionIds);
+                    .in('session_id', newSessionIds);
                 if (reviewsError) throw reviewsError;
-                reviewsBySession = Object.fromEntries((reviews || []).map(r => [r.session_id, r]));
+                for (const sid of newSessionIds) reviewsBySession[sid] = null;
+                for (const r of (reviews || [])) reviewsBySession[r.session_id] = r;
             }
 
-            QUEUE = rows.map(row => projectRow(row, reviewsBySession[row.session_id]));
-            setFlag('live', '● متصل ببيانات حقيقية — chat_engine_learning_queue');
+            const projected = rows.map(row => projectRow(row, reviewsBySession[row.session_id]));
+            QUEUE = reset ? projected : QUEUE.concat(projected);
+            offset += rows.length;
+            hasMore = rows.length === PAGE_SIZE;
+            document.getElementById('loadMoreRow').style.display = hasMore ? 'flex' : 'none';
+
+            setFlag('live');
             renderQueue();
         } catch (err) {
             console.error('[review-center] فشل تحميل قائمة التعلّم:', err);
@@ -573,6 +667,9 @@ async function initReviewCenter(currentUser) {
                 'تعذّر تحميل قائمة التعلّم. تحقق من رسالة الخطأ في الـ console — غالبًا صلاحيات الحساب ' +
                 '(is_chat_engine_staff) أو مشكلة في شكل الاستعلام مقابل الـ view الحالي.';
             document.getElementById('queue-body').innerHTML = '';
+        } finally {
+            loadMoreBtn.disabled = false;
+            loadMoreBtn.textContent = 'تحميل 200 صف إضافي';
         }
     }
 
@@ -586,15 +683,32 @@ async function initReviewCenter(currentUser) {
     function renderQueue() {
         renderStats();
         const body = document.getElementById('queue-body');
+        const emptyEl = document.getElementById('empty');
+        const visibleRows = applyFilters(QUEUE);
+
         if (QUEUE.length === 0) {
-            document.getElementById('empty').style.display = 'block';
-            document.getElementById('empty').textContent = 'مفيش حاجة في قائمة التعلّم دلوقتي.';
+            emptyEl.style.display = 'block';
+            if (totalTraceEventsEver === 0) {
+                emptyEl.textContent = 'القائمة فاضية لأن محرك SIE لسه ما سجّلش أي محادثة حقيقية خالص — راجع "نبض المحرك" فوق. الفراغ هنا معناه "مفيش بيانات"، مش "كل حاجة تمام".';
+            } else if (typeof totalTraceEventsEver === 'number' && totalTraceEventsEver > 0) {
+                emptyEl.textContent = `المحرك سجّل ${totalTraceEventsEver} تتبّع فعلي حتى الآن، ومفيش ولا واحد محتاج مراجعة دلوقتي — يبان إن ثقة المحرك كويسة.`;
+            } else {
+                emptyEl.textContent = 'مفيش حاجة في قائمة التعلّم دلوقتي.';
+            }
             body.innerHTML = '';
             return;
         }
-        document.getElementById('empty').style.display = 'none';
-        body.innerHTML = QUEUE.map((item, i) => `
-            <tr class="${selected === i ? 'selected' : ''}" data-index="${i}">
+
+        if (visibleRows.length === 0) {
+            emptyEl.style.display = 'block';
+            emptyEl.textContent = 'مفيش صفوف مطابقة للفلاتر الحالية — جرّب "مسح الفلاتر".';
+            body.innerHTML = '';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        body.innerHTML = visibleRows.map(item => `
+            <tr class="${selected === item.traceEventId ? 'selected' : ''}" data-id="${escapeHtml(item.traceEventId)}">
                 <td class="qid">${escapeHtml((item.sessionId || '').toString().slice(0, 8))}</td>
                 <td>${escapeHtml(item.explanation || item.scenarioId || item.action || '—')}<span class="qmsg-sub">${escapeHtml(item.scenarioId || 'unknown')} · الدور ${item.turn}</span></td>
                 <td><span class="badge ${item.reason}">${reasonLabel(item.reason)}</span></td>
@@ -604,7 +718,7 @@ async function initReviewCenter(currentUser) {
             </tr>
         `).join('');
         body.querySelectorAll('tr').forEach(row => {
-            row.addEventListener('click', () => openDetail(Number(row.dataset.index)));
+            row.addEventListener('click', () => openDetail(row.dataset.id));
         });
     }
 
