@@ -748,6 +748,16 @@ async function showAdminTicketInPanel(ticketId) {
                 </select>
             </div>
 
+            <div class="detail-block">
+                <label>حالة التذكرة</label>
+                <select id="panelStatusSelect">
+                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>مفتوحة</option>
+                    <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>قيد المعالجة</option>
+                    <option value="resolved" ${['resolved', 'confirmed'].includes(ticket.status) ? 'selected' : ''}>محلولة / مغلقة</option>
+                    ${ticket.status === 'rejected' ? `<option value="rejected" selected>مرفوضة</option>` : ''}
+                </select>
+            </div>
+
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1rem;">
                 <div class="detail-block" style="margin-bottom:0;">
                     <label>الأولوية</label>
@@ -768,6 +778,7 @@ async function showAdminTicketInPanel(ticketId) {
             <div class="detail-block">
                 <label>تعيين الموظف المسؤول (Agent Assignment)</label>
                 <select id="panelAssigneeSelect">
+
                     <option value="">غير معيّنة</option>
                     ${supportAgents.map(a => `<option value="${escapeHtml(a.id)}" ${ticket.assigned_to === a.id ? 'selected' : ''}>${escapeHtml(a.full_name || a.email)}</option>`).join('')}
                 </select>
@@ -815,6 +826,55 @@ async function showAdminTicketInPanel(ticketId) {
     renderCannedChips();
 
     document.getElementById('impersonateBtn')?.addEventListener('click', () => impersonateUser(ticket.profiles?.id));
+
+    document.getElementById('panelStatusSelect')?.addEventListener('change', async (e) => {
+        const previous = ticket.status;
+        const newStatus = e.target.value;
+
+        if (newStatus === 'resolved') {
+            const modal = document.getElementById('closeTicketModal');
+            const commentBox = document.getElementById('closeTicketComment');
+            if (commentBox) commentBox.value = '';
+            if (modal) modal.style.display = 'block';
+
+            const cancelBtn = document.getElementById('closeCloseTicketModal');
+            const confirmBtn = document.getElementById('confirmCloseTicket');
+            if (cancelBtn) {
+                cancelBtn.onclick = () => {
+                    if (modal) modal.style.display = 'none';
+                    e.target.value = previous;
+                };
+            }
+            if (confirmBtn) {
+                confirmBtn.onclick = async () => {
+                    confirmBtn.disabled = true;
+                    confirmBtn.textContent = 'جاري الإغلاق...';
+                    try {
+                        await closeTicketWithComment(ticket.id, (commentBox?.value || '').trim());
+                        if (modal) modal.style.display = 'none';
+                        showToast('تم إغلاق التذكرة بنجاح');
+                        await loadTickets();
+                        await showAdminTicketInPanel(ticket.id);
+                    } catch (err) {
+                        showToast('فشل إغلاق التذكرة: ' + err.message, 'error');
+                    } finally {
+                        confirmBtn.disabled = false;
+                        confirmBtn.textContent = 'تأكيد الإغلاق';
+                    }
+                };
+            }
+        } else {
+            try {
+                await updateTicketStatus(ticket.id, newStatus);
+                showToast('تم تحديث حالة التذكرة بنجاح');
+                await loadTickets();
+                await showAdminTicketInPanel(ticket.id);
+            } catch (err) {
+                showToast('فشل تحديث الحالة: ' + err.message, 'error');
+                e.target.value = previous;
+            }
+        }
+    });
 
     document.getElementById('panelPrioritySelect')?.addEventListener('change', async (e) => {
         const previous = ticket.priority;
