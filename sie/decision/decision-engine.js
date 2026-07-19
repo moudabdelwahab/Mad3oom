@@ -72,11 +72,26 @@ export function decide({ ranking, turn, previousDecisionState, newEvidenceAddedT
     const consecutiveNoNewEvidenceTurns = noNewEvidence ? prevState.consecutiveNoNewEvidenceTurns + 1 : 0;
 
     const evaluatedRules = [];
-    const decision = decideAction(
+    let decision = decideAction(
         { ranking, turn, prevState, noNewEvidence, consecutiveNoNewEvidenceTurns },
         evaluatedRules,
         clock
     );
+
+    // R1 (turn budget), R5's exhausted-questions branch, and R6's exhausted-
+    // ambiguity branch all key off conditions that never revert once true
+    // (turn only increases, questionsAskedCount only increases), so left
+    // alone they'd re-decide CREATE_TICKET/ESCALATE_TO_HUMAN — and open a
+    // fresh duplicate ticket — on every single subsequent turn forever. If
+    // this session already has one, keep the same action (still true: a
+    // human is on it) but drop ticketDraft so the Action Layer won't create
+    // another, and flag it so the Dialogue Engine can phrase it as a
+    // reminder rather than repeating the first-time announcement verbatim.
+    const isTicketAction = decision.action === ACTIONS.CREATE_TICKET || decision.action === ACTIONS.ESCALATE_TO_HUMAN;
+    if (isTicketAction && prevState.ticketAlreadyCreated) {
+        decision = { ...decision, ticketDraft: null, alreadyTicketed: true };
+    }
+
     const decisionState = updateDecisionState(prevState, decision, consecutiveNoNewEvidenceTurns);
 
     return { decision, decisionState };
@@ -385,6 +400,10 @@ function updateDecisionState(prevState, decision, consecutiveNoNewEvidenceTurns)
 
     const isEvidenceRequestAction = [ACTIONS.ASK_FOR_SCREENSHOT, ACTIONS.ASK_FOR_ATTACHMENT, ACTIONS.ASK_FOR_LOGS].includes(decision.action);
 
+    const ticketAlreadyCreated =
+        prevState.ticketAlreadyCreated ||
+        (decision.action === ACTIONS.CREATE_TICKET || decision.action === ACTIONS.ESCALATE_TO_HUMAN);
+
     return {
         askedQuestionIds,
         questionsAskedCount,
@@ -394,6 +413,7 @@ function updateDecisionState(prevState, decision, consecutiveNoNewEvidenceTurns)
         consecutiveNoNewEvidenceTurns,
         lastAction: decision.action,
         lastScenarioId: decision.scenarioId,
+        ticketAlreadyCreated,
         history: [
             ...prevState.history,
             { turn: decision.turn, action: decision.action, scenarioId: decision.scenarioId, confidence: decision.confidence, explanation: decision.explanation }
