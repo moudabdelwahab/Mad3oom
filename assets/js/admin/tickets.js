@@ -1117,3 +1117,5 @@ function renderPanelActions(ticket, subscription) {
         container.innerHTML = '';
     }
 }
+
+init();
