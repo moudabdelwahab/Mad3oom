@@ -1031,4 +1031,77 @@ function renderPanelActions(ticket, subscription) {
 
         const reviewerName = subscription.reviewed_by_profile?.full_name;
         const reviewedAtLabel = subscription.reviewed_at
-            ? new Date(subscription.r
+            ? new Date(subscription.reviewed_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+            : '';
+
+        const paymentMethodLabel = PAYMENT_METHOD_LABELS[subscription.payment_method] || subscription.payment_method || '';
+        const isExternalPayment = EXTERNAL_PAYMENT_METHODS.includes(subscription.payment_method);
+
+        const STATUS_INFO = {
+            pending: { label: 'بانتظار المراجعة', color: '#F5A623', bg: 'rgba(245,166,35,.14)' },
+            active: { label: 'مؤكَّد ومُفعّل', color: '#3DBE7A', bg: 'rgba(61,190,122,.14)' },
+            rejected: { label: 'مرفوض', color: '#E5533D', bg: 'rgba(229,83,61,.14)' },
+            expired: { label: 'منتهي', color: 'var(--color-text-3)', bg: 'var(--color-muted)' }
+        };
+        const statusInfo = STATUS_INFO[subscription.status] || { label: subscription.status, color: 'var(--color-text-3)', bg: 'var(--color-muted)' };
+
+        let actionsHtml = '';
+        if (subscription.status === 'pending') {
+            actionsHtml = `
+                ${isExternalPayment ? `<div style="margin-top:.6rem; font-size:.78rem; color:var(--color-text-secondary);">${ICONS.alertTriangle} تحقق من إثبات الدفع المرفق أدناه قبل تأكيد الاشتراك.</div>` : ''}
+                <div style="display:flex; gap:.6rem; margin-top:.85rem;">
+                    <button id="confirmSubBtn" class="btn btn-primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.7rem; border-radius:.6rem; color:#fff; cursor:pointer;">${ICONS.confirmCheck} تأكيد الاشتراك</button>
+                    <button id="rejectSubBtn" class="icon-btn" style="flex:1; justify-content:center; color:var(--color-danger); border-color:var(--color-danger);">${ICONS.reject} رفض الاشتراك</button>
+                </div>`;
+        } else if (subscription.status === 'rejected' && subscription.rejection_reason) {
+            actionsHtml = `<div style="margin-top:.6rem; font-size:.82rem; color:var(--color-danger);">سبب الرفض: ${escapeHtml(subscription.rejection_reason)}</div>`;
+        }
+
+        container.innerHTML = `
+            <div class="detail-block" style="background:var(--color-muted); border-radius:.65rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+                    <div>
+                        <label style="margin:0;">طلب اشتراك</label>
+                        <div style="font-weight:700; margin-top:.2rem;">${escapeHtml(planLabel)}${renewalBadge}<span style="font-size:.8rem; color:var(--color-text-secondary); font-weight:400;"> - ${escapeHtml(billingLabel)}</span></div>
+                    </div>
+                    <span class="pill" style="background:${statusInfo.bg}; color:${statusInfo.color};">${statusInfo.label}</span>
+                </div>
+                ${paymentMethodLabel ? `<div style="margin-top:.5rem; font-size:.8rem; color:var(--color-text-secondary);">وسيلة الدفع: <strong style="color:var(--color-text);">${escapeHtml(paymentMethodLabel)}</strong></div>` : ''}
+                ${reviewerName ? `<div style="margin-top:.3rem; font-size:.78rem; color:var(--color-text-secondary);">تمت المراجعة بواسطة: <strong style="color:var(--color-text);">${escapeHtml(reviewerName)}</strong>${reviewedAtLabel ? ' - ' + reviewedAtLabel : ''}</div>` : ''}
+                ${actionsHtml}
+            </div>`;
+
+        document.getElementById('confirmSubBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('confirmSubBtn');
+            const rejectBtn = document.getElementById('rejectSubBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'جاري التأكيد...'; }
+            if (rejectBtn) rejectBtn.disabled = true;
+            try {
+                const result = await confirmPurchaseTicket(ticket.id);
+                if (!result.success) throw new Error(result.error || 'حدث خطأ غير متوقع');
+                showToast('تم تأكيد الاشتراك وتفعيله بنجاح');
+                await loadTickets();
+                await showAdminTicketInPanel(ticket.id);
+            } catch (err) {
+                showToast('فشل تأكيد الاشتراك: ' + err.message, 'error');
+                renderPanelActions(ticket, subscription);
+            }
+        });
+
+        document.getElementById('rejectSubBtn')?.addEventListener('click', async () => {
+            const reason = window.prompt('سبب رفض طلب الاشتراك (اختياري):', '');
+            if (reason === null) return;
+            try {
+                const result = await rejectPurchaseTicket(ticket.id, reason.trim());
+                if (!result.success) throw new Error(result.error || 'حدث خطأ غير متوقع');
+                showToast('تم رفض طلب الاشتراك');
+                await loadTickets();
+                await showAdminTicketInPanel(ticket.id);
+            } catch (err) {
+                showToast('فشل رفض الاشتراك: ' + err.message, 'error');
+            }
+        });
+    } else {
+        container.innerHTML = '';
+    }
+}
