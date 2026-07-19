@@ -400,9 +400,9 @@ if (user) {
 }
 
 // ------------------------------------------------------------------
-// متصل ببيانات حقيقية — والشكل هنا اتأكّد منه مباشرة على القاعدة
-// الحية عبر Supabase (مش من ملف migration 0001 المرفق في الريبو،
-// اللي بقى قديم — حد غيّر السكيمـا فعليًا على القاعدة بعد كتابته):
+// متصل ببيانات حقيقية فعلاً — والشكل هنا اتأكّد منه مباشرة على القاعدة
+// الحية عبر Supabase (مش من ملف migration 0001 المرفق في الريبو، اللي
+// بقى قديم — حد غيّر السكيمـا فعليًا على القاعدة بعد كتابته):
 //
 //   - chat_engine_learning_queue (VIEW): trace_event_id, session_id,
 //     turn, action, scenario_id, confidence, explanation, created_at.
@@ -415,11 +415,16 @@ if (user) {
 //     بدل عمود trace واحد: normalized_tokens, hypotheses, ranking,
 //     decision, knowledge_data, rendered, action_result,
 //     response_language, processing_time_ms. بنجيبها بالـ id لما صف
-//     يتفتح. مفيش أي كود في الريبو ده بيكتب فيها فعليًا لسه (0 صف
-//     حاليًا)، فشكل الـ jsonb الداخلي لكل عمود مش موثّق 100%؛ العرض هنا
-//     دفاعي عن قصد: بيدوّر على المفاتيح المتوقعة ولو مالقاش بيعرض الـ
-//     JSON خام بدل ما يفترض شكل ثابت ويكسر تاني زي ما حصل بالظبط مع
-//     عمود trace القديم.
+//     يتفتح. العرض هنا دفاعي عن قصد: بيدوّر على المفاتيح المتوقعة ولو
+//     مالقاش بيعرض الـ JSON خام بدل ما يفترض شكل ثابت.
+//
+//     ملحوظة مهمة: لحد وقت قريب كان الجدول ده بيفضل 0 صف حتى مع استخدام
+//     حقيقي من عملاء مؤهّلين لـ SIE، لأن sie/action/supabase-port.supabase.js
+//     كانت لسه بتكتب على عمود trace القديم اللي مبقاش موجود — كل INSERT
+//     كان بيفشل بصمت. اتصلح دلوقتي (insertTraceEvent بقى بيكتب على
+//     الأعمدة الحقيقية)، فالقائمة المفروض تتغذّى فعليًا من محرك SIE
+//     الحي من هنا وطالع. "نبض المحرك" تحت بيوريك العدد الحقيقي بدل ما
+//     تفترض إن "الاتصال شغّال" يعني "فيه بيانات حقيقية".
 //
 //   - chat_engine_conversation_reviews: مراجعة واحدة لكل *جلسة* مش لكل
 //     دور (session_id عليه UNIQUE constraint، ومفيش عمود
@@ -430,6 +435,7 @@ if (user) {
 //     dismissed زي ما كان في التصميم الأصلي).
 // ------------------------------------------------------------------
 async function initReviewCenter(currentUser) {
+    const PAGE_SIZE = 200;
     const FALLBACK_SCENARIO_OPTIONS = [
         'login_token_expired', 'api_integration_issue', 'webhook_delivery_failure',
         'subscription_payment_not_reflected', 'pricing_inquiry', 'platform_info_inquiry',
@@ -445,9 +451,26 @@ async function initReviewCenter(currentUser) {
     let SCENARIO_OPTIONS = FALLBACK_SCENARIO_OPTIONS;
     let selected = null;
     let pendingStatus = {};
+    let hasMore = false;
+    let totalTraceEventsEver = null; // null = لسه معرفناش، 0 = عرفنا إنها فاضية فعلاً
+    const filters = { reason: 'all', status: 'all', session: '' };
+
     const dataModeFlag = document.getElementById('dataModeFlag');
+    const lastSyncLabel = document.getElementById('lastSyncLabel');
 
     function setFlag(mode, text) {
+        // حالة النجاح (live) مالهاش لازمة تتعلن كـ "شارة نجاح" دايمة —
+        // ده بالظبط النص اللي طلب صاحب المنصة نشيله لأنه بيوهم إن وصول
+        // الاستعلام يعني وجود بيانات حقيقية ذات معنى. بدل كده، بنكتفي
+        // بتحديث "آخر تحديث" بصمت، ونسيب الشارة الظاهرة بس لحالة التحميل
+        // أو الخطأ الفعلي.
+        if (mode === 'live') {
+            dataModeFlag.style.display = 'none';
+            dataModeFlag.textContent = '';
+            lastSyncLabel.textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`;
+            return;
+        }
+        dataModeFlag.style.display = 'inline-flex';
         dataModeFlag.className = 'demo-flag' + (mode ? ' ' + mode : '');
         dataModeFlag.textContent = text;
     }
