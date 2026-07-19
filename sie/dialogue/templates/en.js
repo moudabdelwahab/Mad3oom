@@ -87,15 +87,13 @@ export const en = {
         ]
     }),
 
-    CREATE_TICKET: () => ({
-        text: "Got it — I've opened a support ticket for you and our team will follow up soon.",
-        options: []
-    }),
+    CREATE_TICKET: (decision) => decision?.alreadyTicketed
+        ? { text: "The ticket we already opened is still active and our team will follow up — feel free to add any more details in the meantime.", options: [] }
+        : { text: "Got it — I've opened a support ticket for you and our team will follow up soon.", options: [] },
 
-    ESCALATE_TO_HUMAN: () => ({
-        text: "I'll connect you with a member of our support team so they can help you directly.",
-        options: []
-    }),
+    ESCALATE_TO_HUMAN: (decision) => decision?.alreadyTicketed
+        ? { text: "We're still waiting on our support team — they'll reach out to you soon. Feel free to add any more details if you'd like.", options: [] }
+        : { text: "I'll connect you with a member of our support team so they can help you directly.", options: [] },
 
     COMPLETE: () => ({
         text: "Glad that's resolved! Let me know if you need anything else.",
