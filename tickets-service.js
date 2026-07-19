@@ -215,17 +215,24 @@ export async function updateTicketStatus(ticketId, status) {
     // وتأكيد/رفض الاشتراك بقى بيتم فقط من خلال زرار "تأكيد"/"رفض" الصريحين في
     // لوحة الإدارة، مش تلقائياً من مجرد تغيير الحالة لـ resolved. فالمنطق ده
     // اتشال خالص من هنا عشان منمنعش تعارض بين الحالتين.
-    const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
-    if (ticket) {
-        const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
-        // إشعار للعميل فقط عند تغيير حالة تذكرته من قبل الإدارة
-        await createNotification({
-            userId: ticket.user_id,
-            title: 'تحديث حالة التذكرة',
-            message: `تم تغيير حالة تذكرتك #${ticket.ticket_number} إلى ${statusMap[status] || status}`,
-            type: 'info',
-            link: `customer-dashboard.html?ticket=${ticket.id}`
-        });
+    // إشعار العميل بتحديث حالة تذكرته — إجراء ثانوي (best-effort)؛ التحديث
+    // الفعلي للحالة نجح بالفعل فوق (تم التحقق من `updated`)، فأي فشل شبكة
+    // عابر هنا (مثلاً "Failed to fetch") ملهوش يمنع اكتمال الدالة بنجاح.
+    try {
+        const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+        if (ticket) {
+            const statusMap = { 'open': 'مفتوحة', 'in-progress': 'قيد المعالجة', 'resolved': 'محلولة', 'confirmed': 'مؤكدة', 'rejected': 'مرفوضة' };
+            // إشعار للعميل فقط عند تغيير حالة تذكرته من قبل الإدارة
+            await createNotification({
+                userId: ticket.user_id,
+                title: 'تحديث حالة التذكرة',
+                message: `تم تغيير حالة تذكرتك #${ticket.ticket_number} إلى ${statusMap[status] || status}`,
+                type: 'info',
+                link: `customer-dashboard.html?ticket=${ticket.id}`
+            });
+        }
+    } catch (notifyErr) {
+        console.error('Failed to send status-change notification (non-blocking):', notifyErr);
     }
 
     await logActivity('ticket_status_update', { ticket_id: ticketId, status });
@@ -488,33 +495,53 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
 
     if (error) throw error;
 
-    const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+    // هذا الجلب ثانوي (يُستخدم فقط للإشعارات والتحويل التلقائي للحالة تحت) —
+    // الرد الفعلي اتحفظ بنجاح فوق بالفعل، فأي فشل شبكة هنا ملهوش يوقف الدالة.
+    let ticket = null;
+    try {
+        const { data } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+        ticket = data;
+    } catch (fetchErr) {
+        console.error('Failed to fetch ticket for reply side-effects (non-blocking):', fetchErr);
+    }
 
     // إشعار للجهة المقابلة
+    //
+    // ملاحظة مهمة (تم إصلاحها): كان إرسال الإشعار هنا بيتم من غير try/catch،
+    // فأي فشل شبكة عابر في طلب الإشعار (مثلاً "Failed to fetch") كان بيوقف
+    // تنفيذ الدالة بالكامل قبل ما توصل لأي كود بعدها. تحديدًا closeTicketWithComment()
+    // بتنادي addTicketReply() ثم updateTicketStatus('resolved') بعدها مباشرة — فلو
+    // فشل الإشعار هنا، التذكرة كانت بتفضل من غير ما تتحول لـ"محلولة" خالص، مع إن
+    // الرد نفسه كان بيتحفظ بنجاح في قاعدة البيانات. الإشعار إجراء ثانوي (best-effort)
+    // ومش المفروض يمنع نجاح الإجراء الأساسي (إرسال الرد / إغلاق التذكرة).
     if (!isInternal && ticket) {
-        if (ticket.user_id !== user.id) {
-            // الرد من الأدمن -> إشعار للعميل
-            await createNotification({
-                userId: ticket.user_id,
-                title: 'رد جديد على تذكرتك',
-                message: `هناك رد جديد من الإدارة على تذكرتك #${ticket.ticket_number}`,
-                type: 'success',
-                link: `customer-dashboard.html?ticket=${ticket.id}`
-            });
-        } else {
-            // الرد من العميل -> إشعار للأدمن
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
-            if (admins) {
-                for (const admin of admins) {
-                    await createNotification({
-                        userId: admin.id,
-                        title: 'رد جديد من عميل',
-                        message: `قام العميل بالرد على التذكرة #${ticket.ticket_number}`,
-                        type: 'info',
-                        link: `admin/tickets.html?ticket=${ticket.id}`
-                    });
+        try {
+            if (ticket.user_id !== user.id) {
+                // الرد من الأدمن -> إشعار للعميل
+                await createNotification({
+                    userId: ticket.user_id,
+                    title: 'رد جديد على تذكرتك',
+                    message: `هناك رد جديد من الإدارة على تذكرتك #${ticket.ticket_number}`,
+                    type: 'success',
+                    link: `customer-dashboard.html?ticket=${ticket.id}`
+                });
+            } else {
+                // الرد من العميل -> إشعار للأدمن
+                const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
+                if (admins) {
+                    for (const admin of admins) {
+                        await createNotification({
+                            userId: admin.id,
+                            title: 'رد جديد من عميل',
+                            message: `قام العميل بالرد على التذكرة #${ticket.ticket_number}`,
+                            type: 'info',
+                            link: `admin/tickets.html?ticket=${ticket.id}`
+                        });
+                    }
                 }
             }
+        } catch (notifyErr) {
+            console.error('Failed to send reply notification (non-blocking):', notifyErr);
         }
     }
 
@@ -528,18 +555,22 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
     // بنسجل last_updated_by بهوية الأدمن اللي رد لإن الرد نفسه سبب التحول
     // التلقائي للحالة.
     if (ticket && ticket.user_id !== user.id) {
-        const { error: statusUpdateError } = await supabase
-            .from('tickets')
-            .update({
-                status: 'in-progress',
-                last_updated_by: user.id,
-                last_updated_at: new Date().toISOString()
-            })
-            .eq('id', ticketId)
-            .eq('status', 'open');
+        try {
+            const { error: statusUpdateError } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'in-progress',
+                    last_updated_by: user.id,
+                    last_updated_at: new Date().toISOString()
+                })
+                .eq('id', ticketId)
+                .eq('status', 'open');
 
-        if (statusUpdateError) {
-            console.error('Failed to auto-transition ticket to in-progress:', statusUpdateError);
+            if (statusUpdateError) {
+                console.error('Failed to auto-transition ticket to in-progress:', statusUpdateError);
+            }
+        } catch (transitionErr) {
+            console.error('Failed to auto-transition ticket to in-progress (non-blocking):', transitionErr);
         }
     }
     
