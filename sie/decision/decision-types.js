@@ -53,6 +53,11 @@
  * @property {number} consecutiveNoNewEvidenceTurns
  * @property {DecisionAction|null} lastAction
  * @property {string|null} lastScenarioId
+ * @property {boolean} ticketAlreadyCreated - true once CREATE_TICKET or
+ *   ESCALATE_TO_HUMAN has ever been decided in this session; used to stop
+ *   R1/R5/R6 from re-deciding (and re-ticketing) forever once one of their
+ *   trigger conditions becomes permanently true (turn budget and exhausted
+ *   question counts never go back down on their own)
  * @property {Array<{turn: number, action: DecisionAction, scenarioId: string|null, confidence: number|null, explanation: string}>} history
  */
 
@@ -124,6 +129,7 @@ export function createEmptyDecisionState() {
         consecutiveNoNewEvidenceTurns: 0,
         lastAction: null,
         lastScenarioId: null,
+        ticketAlreadyCreated: false,
         history: []
     };
 }
