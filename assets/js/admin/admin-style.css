@@ -405,8 +405,10 @@ body {
 /* ==================== Main Content Area ==================== */
 .admin-main {
     flex: 1;
-    padding: 1rem 1rem;
     width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
     box-sizing: border-box;
 }
 
@@ -514,7 +516,7 @@ body {
 
 /* ==================== Responsive ==================== */
 @media (max-width: 768px) {
-    .admin-main { padding: 1.25rem 0.875rem; }
+    .admin-main { padding: 1.25rem 1.25rem; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
     .ticket-details-grid { grid-template-columns: 1fr; }
     .modal-content { margin: 0 auto; max-height: 95vh; }
