@@ -246,6 +246,23 @@ function setupSidebarLogic() {
         });
     }
 
+    // "الدخول كعضو" (Login as Member) - يفتح حساب الأدمن/super_user الحالي
+    // نفسه بصفته عضو (نفس آلية impersonation الموجودة، مستهدفة حساب
+    // المستخدم الحالي بالذات). الظهور مقصور على admin/super_user فقط -
+    // بيتحدد في applySidebarPermissions() تحت، ومفروض فرض حقيقي كمان في
+    // requireAuth() (auth-client.js)، مش مجرد إخفاء العنصر هنا.
+    const adminLoginAsMember = document.getElementById('adminLoginAsMember');
+    if (adminLoginAsMember) {
+        adminLoginAsMember.addEventListener('click', async (e) => {
+            e.preventDefault();
+            adminAvatarMenu.style.display = 'none';
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { impersonateUser } = await import('./admin-utils.js');
+            await impersonateUser(user.id, '/customer-dashboard.html');
+        });
+    }
+
     // Initialize language checkmarks on load
     updateAdminLanguageCheckmarks();
 
@@ -324,6 +341,13 @@ async function applySidebarPermissions() {
 
     if (isAdmin || isSupport || isSuperUser) {
         showLink('agentsLink');
+    }
+
+    // "الدخول كعضو" مقصور على admin/super_user (والأدمن الرئيسي) فقط - مش
+    // support، مطابقةً لنفس القيد المفروض فعليًا في requireAuth().
+    if (isMainAdmin || isAdmin || isSuperUser) {
+        const loginAsMemberLink = document.getElementById('adminLoginAsMember');
+        if (loginAsMemberLink) loginAsMemberLink.style.display = 'flex';
     }
 
     // --- سايدبار ديناميكي لـ Super User: إخفاء أقسام الإدارة العامة للمنصة ---
