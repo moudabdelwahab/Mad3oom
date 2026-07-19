@@ -1577,8 +1577,47 @@ document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){ closePanel(); closeModal(); closeMenu(); }
 });
 
+/* ===================== AUTH GUARD =====================
+   This page is an internal staff tool. It must never render for a
+   visitor without a valid session, or for a logged-in user who is
+   not admin/support. This is defense-in-depth on top of the RLS
+   policies (board_staff_read/insert/update) which are the real
+   enforcement point — even if this guard were bypassed, the
+   database itself now refuses anon/non-staff access. */
+async function enforceStaffAuthGuard(){
+  document.documentElement.style.visibility = 'hidden';
+  try{
+    if(!sb){
+      window.location.replace('/login.html');
+      return false;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    if(!session){
+      window.location.replace('/login.html?redirect=board');
+      return false;
+    }
+    const [{ data: isAdmin }, { data: isSupport }] = await Promise.all([
+      sb.rpc('is_admin'),
+      sb.rpc('is_support_user')
+    ]);
+    if(!isAdmin && !isSupport){
+      window.location.replace('/');
+      return false;
+    }
+    document.documentElement.style.visibility = '';
+    return true;
+  }catch(err){
+    console.error('Auth guard check failed:', err);
+    window.location.replace('/login.html?redirect=board');
+    return false;
+  }
+}
+
 /* ===================== INIT ===================== */
 async function init(){
+  const allowed = await enforceStaffAuthGuard();
+  if(!allowed) return;
+
   if(!sb && !hasLocalStorage){
     document.getElementById('storage-badge').innerHTML = `<span class="no-storage-badge">${icon('clock',12)} التخزين غير متاح - التغييرات لن تُحفظ بعد إغلاق الصفحة</span>`;
   }
