@@ -265,7 +265,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 
                 <div class="save-row">
                     <button class="btn btn-primary" id="saveReviewBtn">حفظ المراجعة</button>
-                    <span class="saved-flag" id="saved-flag">تم الحفظ (محليًا فقط — عرض تجريبي)</span>
+                    <span class="saved-flag" id="saved-flag">تم الحفظ</span>
                 </div>
             </div>
         </div>
@@ -582,6 +582,7 @@ async function initReviewCenter() {
             renderQueue();
 
             const flag = document.getElementById('saved-flag');
+            flag.style.color = '';
             flag.textContent = 'تم الحفظ في chat_engine_conversation_reviews';
             flag.classList.add('show');
             setTimeout(() => flag.classList.remove('show'), 2500);
