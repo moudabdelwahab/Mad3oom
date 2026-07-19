@@ -734,8 +734,15 @@
 
 .chat-widget-typing {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
     padding: 0.6rem 0.2rem;
+}
+
+.chat-widget-typing-text {
+    font-size: 0.78rem;
+    color: var(--chat-text-tertiary, #7d818a);
+    font-family: 'Cairo', sans-serif;
 }
 
 .chat-widget-typing-dot {
