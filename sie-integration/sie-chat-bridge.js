@@ -214,6 +214,7 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
     }
 
     const port = createRealSupabasePort(supabase);
+    const turnStartedAt = Date.now();
 
     try {
         const prevSie = botState?.sie || null;
@@ -325,7 +326,13 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
                 responseText: rendered.text,
                 timestamp: decisionWithKnowledge.timestamp
             });
-            await logTraceEvent({ sessionId, turn, traceEvent, port });
+            await logTraceEvent({
+                sessionId, turn, traceEvent, port,
+                responseLanguage,
+                processingTimeMs: Date.now() - turnStartedAt,
+                actionResult,
+                renderedOptions: replyOptions
+            });
         } catch (traceErr) {
             console.warn('SIE trace logging failed (non-fatal):', traceErr?.message || traceErr);
         }
