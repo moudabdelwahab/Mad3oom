@@ -800,7 +800,7 @@ async function showAdminTicketInPanel(ticketId) {
                 <div id="adminPanelRepliesList" style="max-height:280px; overflow-y:auto; margin-bottom:1rem;">
                     <div style="text-align:center; padding:1rem; color:var(--color-text-secondary);">جاري تحميل الردود...</div>
                 </div>
-                <textarea id="adminPanelReplyText" data-shortcut-reply style="min-height:80px;" placeholder="اكتب ردك هنا... (استخدم اختصار R للتركيز هنا)"></textarea>
+                <textarea id="adminPanelReplyText" class="reply-textarea" data-shortcut-reply style="min-height:80px;" placeholder="اكتب ردك هنا... (استخدم اختصار R للتركيز هنا)"></textarea>
                 <div style="display:flex; gap:.5rem; margin-top:.6rem;">
                     <button id="adminPanelSendReply" class="btn btn-primary" style="flex:1; padding:.75rem; border-radius:.6rem; color:#fff; cursor:pointer;">إرسال رد للعميل</button>
                     <button id="adminPanelSendInternalNote" class="icon-btn" style="flex:1; justify-content:center;">${ICONS.note} ملاحظة داخلية</button>
@@ -1087,6 +1087,395 @@ async function loadActivityTimeline(ticketId) {
     } catch (err) {
         box.innerHTML = '<p style="text-align:center; color:var(--color-danger);">فشل تحميل سجل النشاط</p>';
     }
+}
+
+/* ==================== الردود داخل لوحة الإدارة ==================== */
+
+async function loadAdminRepliesInPanel(ticketId) {
+    const list = document.getElementById('adminPanelRepliesList');
+    if (!list) return;
+    list.innerHTML = '<div style="text-align:center; padding:1rem; color:var(--color-text-secondary);">جاري تحميل الردود...</div>';
+    try {
+        const replies = await fetchTicketReplies(ticketId);
+        if (!replies.length) {
+            list.innerHTML = '<p style="text-align:center; color:var(--color-text-3); font-size:.82rem; padding:1rem;">لا توجد ردود بعد</p>';
+            return;
+        }
+        const isStaffProfile = (p) => ['admin', 'support', 'super_user'].includes(p?.role);
+        list.innerHTML = replies.map(r => {
+            const roleClass = r.is_internal ? 'reply-internal' : (isStaffProfile(r.profiles) ? 'reply-admin' : 'reply-user');
+            return `
+            <div class="reply-item ${roleClass}">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-bottom:.4rem;">
+                    <strong style="font-size:.85rem;">${escapeHtml(r.profiles?.full_name || 'مستخدم')}${r.is_internal ? ` <span style="font-size:.7rem; font-weight:400; color:var(--color-warning);">${ICONS.note} ملاحظة داخلية</span>` : ''}</strong>
+                    <span style="font-size:.72rem; color:var(--color-text-secondary); white-space:nowrap;">${new Date(r.created_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</span>
+                </div>
+                <p style="margin:0; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-size:.88rem;">${escapeHtml(r.message)}</p>
+            </div>`;
+        }).join('');
+        list.scrollTop = list.scrollHeight;
+    } catch (err) {
+        console.error('Error loading replies:', err);
+        list.innerHTML = '<p style="text-align:center; color:var(--color-danger); font-size:.82rem; padding:1rem;">فشل تحميل الردود</p>';
+    }
+}
+
+/* ==================== تنبيهات الوقت الفعلي (Realtime) ==================== */
+
+function playNotificationSound() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+    } catch (err) {
+        // تجاهل أي رفض من المتصفح لتشغيل الصوت تلقائياً
+    }
+}
+
+function setupNotificationChannel() {
+    if (notificationChannel) return;
+    notificationChannel = supabase
+        .channel('admin-tickets-notification-channel')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
+            if (soundEnabled) playNotificationSound();
+            showToast(`تذكرة جديدة: #${payload.new?.ticket_number || ''} ${payload.new?.title || ''}`.trim());
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_replies' }, (payload) => {
+            const reply = payload.new;
+            if (!reply || reply.is_internal) return;
+            if (user && reply.user_id === user.id) return;
+            if (soundEnabled) playNotificationSound();
+            if (reply.ticket_id === currentTicketId) {
+                loadAdminRepliesInPanel(currentTicketId);
+            } else {
+                showToast('رد جديد على إحدى التذاكر');
+            }
+        })
+        .subscribe();
+}
+
+/* ==================== النوافذ المنبثقة (ردود جاهزة / وسوم / إحصائيات) ==================== */
+
+function renderCannedManagerList() {
+    const list = document.getElementById('cannedList');
+    if (!list) return;
+    if (!cannedResponses.length) {
+        list.innerHTML = '<p style="text-align:center; color:var(--color-text-3); font-size:.82rem; padding:.75rem 0;">لا توجد ردود جاهزة بعد</p>';
+        return;
+    }
+    list.innerHTML = cannedResponses.map(c => `
+        <div class="detail-block" style="display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:700; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
+                    ${escapeHtml(c.title)}
+                    ${c.category ? `<span class="pill" style="font-size:.68rem;">${escapeHtml(c.category)}</span>` : ''}
+                </div>
+                <p style="margin:.35rem 0 0; font-size:.8rem; color:var(--color-text-secondary); white-space:pre-wrap;">${escapeHtml(c.content)}</p>
+            </div>
+            <button data-delete-canned="${escapeHtml(c.id)}" class="icon-btn" style="flex-shrink:0; color:var(--color-danger); border-color:var(--color-danger);">${ICONS.trash}</button>
+        </div>`).join('');
+
+    list.querySelectorAll('[data-delete-canned]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('هل تريد حذف هذا الرد الجاهز؟')) return;
+            try {
+                await deleteCannedResponse(btn.dataset.deleteCanned);
+                await loadCannedResponses();
+                showToast('تم حذف الرد الجاهز');
+            } catch (err) {
+                showToast('فشل الحذف: ' + err.message, 'error');
+            }
+        });
+    });
+}
+
+function renderTagsManagerList() {
+    const list = document.getElementById('tagsList');
+    if (!list) return;
+    if (!allTags.length) {
+        list.innerHTML = '<p style="text-align:center; color:var(--color-text-3); font-size:.82rem; padding:.75rem 0;">لا توجد وسوم بعد</p>';
+        return;
+    }
+    list.innerHTML = allTags.map(t => `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.6rem 0; border-bottom:1px solid var(--color-border);">
+            <span class="tag-chip" style="background:${t.color}22; color:${t.color};">${escapeHtml(t.name)}</span>
+            <button data-delete-tag="${escapeHtml(t.id)}" class="icon-btn" style="color:var(--color-danger); border-color:var(--color-danger);">${ICONS.trash}</button>
+        </div>`).join('');
+
+    list.querySelectorAll('[data-delete-tag]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('هل تريد حذف هذا الوسم؟ سيُزال من كل التذاكر المرتبطة به.')) return;
+            try {
+                await deleteTag(btn.dataset.deleteTag);
+                await loadTags();
+                renderTagsManagerList();
+                showToast('تم حذف الوسم');
+            } catch (err) {
+                showToast('فشل الحذف: ' + err.message, 'error');
+            }
+        });
+    });
+}
+
+function renderAnalytics() {
+    const body = document.getElementById('analyticsBody');
+    if (!body) return;
+
+    const total = allTickets.length;
+    const byStatus = {};
+    const byPriority = {};
+    const byCategory = {};
+    let resolvedCount = 0;
+    let totalResolutionMs = 0;
+
+    allTickets.forEach(t => {
+        byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+        byPriority[t.priority] = (byPriority[t.priority] || 0) + 1;
+        const cat = t.category || 'other';
+        byCategory[cat] = (byCategory[cat] || 0) + 1;
+        if (['resolved', 'confirmed'].includes(t.status) && t.last_updated_at) {
+            resolvedCount++;
+            totalResolutionMs += new Date(t.last_updated_at) - new Date(t.created_at);
+        }
+    });
+
+    const avgResolutionHours = resolvedCount ? (totalResolutionMs / resolvedCount / (1000 * 60 * 60)).toFixed(1) : null;
+
+    const row = (label, count) => `
+        <div style="display:flex; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid var(--color-border); font-size:.85rem;">
+            <span>${escapeHtml(label)}</span>
+            <strong>${count} <span style="color:var(--color-text-secondary); font-weight:400;">(${total ? Math.round(count / total * 100) : 0}%)</span></strong>
+        </div>`;
+
+    body.innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+            <div>
+                <h4 style="margin:0 0 .5rem;">حسب الحالة</h4>
+                ${Object.entries(STATUS_MAP).map(([key, label]) => row(label, byStatus[key] || 0)).join('')}
+            </div>
+            <div>
+                <h4 style="margin:0 0 .5rem;">حسب الأولوية</h4>
+                ${Object.entries(PRIORITY_MAP).map(([key, val]) => row(val.label, byPriority[key] || 0)).join('')}
+            </div>
+            <div>
+                <h4 style="margin:0 0 .5rem;">حسب التصنيف</h4>
+                ${Object.entries(CATEGORY_MAP).map(([key, val]) => row(val.label, byCategory[key] || 0)).join('')}
+            </div>
+            <div>
+                <h4 style="margin:0 0 .5rem;">مؤشرات عامة</h4>
+                <div style="font-size:.85rem; line-height:2;">
+                    <div>إجمالي التذاكر: <strong>${total}</strong></div>
+                    <div>متوسط زمن الحل: <strong>${avgResolutionHours ? avgResolutionHours + ' ساعة' : 'غير متاح'}</strong></div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function setupHeaderButtons() {
+    document.getElementById('refreshTicketsBtn')?.addEventListener('click', async () => {
+        await loadTickets();
+        showToast('تم تحديث القائمة');
+    });
+
+    document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
+        if (!lastFilteredList.length) return showToast('لا توجد تذاكر لتصديرها', 'error');
+        exportTicketsToCsv(lastFilteredList);
+    });
+
+    document.getElementById('soundToggleBtn')?.addEventListener('click', (e) => {
+        soundEnabled = !soundEnabled;
+        localStorage.setItem('mad3oom_tickets_sound', soundEnabled ? 'on' : 'off');
+        const btn = e.currentTarget;
+        btn.innerHTML = soundEnabled ? `${ICONS.bell} تنبيهات مفعّلة` : `${ICONS.bellOff} تنبيهات متوقفة`;
+        btn.classList.toggle('active', soundEnabled);
+    });
+
+    const openModal = (id) => document.getElementById(id)?.classList.add('active');
+
+    document.getElementById('shortcutsBtn')?.addEventListener('click', () => openModal('shortcutsModal'));
+
+    document.getElementById('cannedManageBtn')?.addEventListener('click', () => {
+        renderCannedManagerList();
+        openModal('cannedModal');
+    });
+
+    document.getElementById('tagsManageBtn')?.addEventListener('click', () => {
+        renderTagsManagerList();
+        openModal('tagsModal');
+    });
+
+    document.getElementById('analyticsBtn')?.addEventListener('click', () => {
+        renderAnalytics();
+        openModal('analyticsModal');
+    });
+}
+
+function setupModalEvents() {
+    document.getElementById('addCannedBtn')?.addEventListener('click', async () => {
+        const titleInput = document.getElementById('cannedTitleInput');
+        const categoryInput = document.getElementById('cannedCategoryInput');
+        const contentInput = document.getElementById('cannedContentInput');
+        const title = titleInput?.value.trim();
+        const category = categoryInput?.value.trim();
+        const content = contentInput?.value.trim();
+        if (!title || !content) return showToast('العنوان والمحتوى مطلوبان', 'error');
+        try {
+            await createCannedResponse({ title, content, category: category || null });
+            if (titleInput) titleInput.value = '';
+            if (categoryInput) categoryInput.value = '';
+            if (contentInput) contentInput.value = '';
+            await loadCannedResponses();
+            showToast('تمت إضافة الرد الجاهز');
+        } catch (err) {
+            showToast('فشل الإضافة: ' + err.message, 'error');
+        }
+    });
+
+    document.getElementById('addTagBtn')?.addEventListener('click', async () => {
+        const nameInput = document.getElementById('newTagName');
+        const colorInput = document.getElementById('newTagColor');
+        const name = nameInput?.value.trim();
+        if (!name) return showToast('اسم الوسم مطلوب', 'error');
+        try {
+            await createTag(name, colorInput?.value || '#4DA3FF');
+            if (nameInput) nameInput.value = '';
+            await loadTags();
+            renderTagsManagerList();
+            showToast('تمت إضافة الوسم');
+        } catch (err) {
+            showToast('فشل الإضافة: ' + err.message, 'error');
+        }
+    });
+}
+
+function setupGenericModalClosers() {
+    document.querySelectorAll('.app-modal-close[data-close-modal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById(btn.dataset.closeModal)?.classList.remove('active');
+        });
+    });
+
+    document.querySelectorAll('.app-modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.classList.remove('active');
+        });
+    });
+}
+
+/* ==================== اختصارات لوحة المفاتيح ==================== */
+
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        const active = document.activeElement;
+        const isTyping = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.app-modal-overlay.active').forEach(m => m.classList.remove('active'));
+            const closeModal = document.getElementById('closeTicketModal');
+            if (closeModal && closeModal.style.display === 'block') closeModal.style.display = 'none';
+            if (isTyping) active.blur();
+            return;
+        }
+
+        if (isTyping) {
+            if (e.shiftKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                loadTickets();
+                showToast('تم تحديث القائمة');
+            }
+            return;
+        }
+
+        if (e.key === '?') {
+            document.getElementById('shortcutsModal')?.classList.add('active');
+            return;
+        }
+
+        if (e.key === '/') {
+            e.preventDefault();
+            document.getElementById('searchInput')?.focus();
+            return;
+        }
+
+        if (e.shiftKey && e.key.toLowerCase() === 'r') {
+            e.preventDefault();
+            loadTickets();
+            showToast('تم تحديث القائمة');
+            return;
+        }
+
+        if (e.key.toLowerCase() === 'r') {
+            document.getElementById('adminPanelReplyText')?.focus();
+            return;
+        }
+
+        if (!currentTicketId) return;
+
+        if (e.key.toLowerCase() === 'j' || e.key.toLowerCase() === 'k') {
+            const idx = lastFilteredList.findIndex(t => t.id === currentTicketId);
+            if (idx === -1) return;
+            const nextIdx = e.key.toLowerCase() === 'j' ? idx + 1 : idx - 1;
+            const nextTicket = lastFilteredList[nextIdx];
+            if (!nextTicket) return;
+            const targetPage = Math.floor(nextIdx / pageSize) + 1;
+            if (targetPage !== currentPage) { currentPage = targetPage; renderPage(); }
+            showAdminTicketInPanel(nextTicket.id);
+            document.querySelectorAll('.ticket-card').forEach(c => c.classList.toggle('selected', c.dataset.ticketId === nextTicket.id));
+        } else if (e.key.toLowerCase() === 'e') {
+            const select = document.getElementById('panelStatusSelect');
+            if (select && select.value !== 'resolved') {
+                select.value = 'resolved';
+                select.dispatchEvent(new Event('change'));
+            }
+        } else if (e.key.toLowerCase() === 'o') {
+            const select = document.getElementById('panelStatusSelect');
+            if (select && select.value !== 'open') {
+                select.value = 'open';
+                select.dispatchEvent(new Event('change'));
+            }
+        } else if (e.key.toLowerCase() === 'x') {
+            const cb = document.querySelector(`.ticket-checkbox[data-ticket-id="${currentTicketId}"]`);
+            if (cb) {
+                cb.checked = !cb.checked;
+                cb.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+}
+
+/* ==================== تصدير CSV ==================== */
+
+function exportTicketsToCsv(tickets) {
+    const headers = ['رقم التذكرة', 'العنوان', 'الحالة', 'الأولوية', 'التصنيف', 'اسم العميل', 'البريد الإلكتروني', 'تاريخ الإنشاء'];
+    const rows = tickets.map(t => [
+        t.ticket_number || '',
+        t.title || '',
+        STATUS_MAP[t.status] || t.status,
+        PRIORITY_MAP[t.priority]?.label || t.priority,
+        CATEGORY_MAP[t.category || 'other']?.label || t.category,
+        t.profiles?.full_name || '',
+        t.profiles?.email || '',
+        new Date(t.created_at).toLocaleString('ar-EG')
+    ]);
+    const escapeCsv = (val) => `"${String(val).replace(/"/g, '""')}"`;
+    const csvContent = '\uFEFF' + [headers, ...rows].map(r => r.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tickets_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 /* ==================== إجراءات التذكرة (تأكيد/رفض اشتراك أو تغيير حالة) ==================== */
