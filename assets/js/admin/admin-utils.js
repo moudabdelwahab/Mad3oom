@@ -10,7 +10,10 @@ import { fetchTicketReplies } from '/tickets-service.js';
 import { getTicketStatusLabel } from '/constants.js';
 
 /**
- * Impersonate a user (admin feature)
+ * Impersonate a user (admin feature) - يفتح حساب مستخدم آخر ("الدخول كعضو")
+ * مقصور على admin/super_user فقط (والأدمن الرئيسي بإيميله)؛ التنفيذ الفعلي
+ * والملزم لهذا القيد في requireAuth() (auth-client.js) - الفحص هنا تحسين
+ * لتجربة الاستخدام (رسالة خطأ واضحة فورًا) مش الحماية نفسها.
  * @param {string} userId - User ID to impersonate
  * @param {string} redirectPath - Path to redirect after impersonation (default: customer dashboard)
  */
@@ -21,6 +24,26 @@ export async function impersonateUser(userId, redirectPath = '/customer-dashboar
     }
 
     try {
+        const { data: { user: currentAuthUser } } = await supabase.auth.getUser();
+        if (!currentAuthUser) {
+            alert('يجب تسجيل الدخول أولاً');
+            return;
+        }
+
+        const { data: currentProfile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', currentAuthUser.id)
+            .maybeSingle();
+
+        const isMainAdminEmail = currentAuthUser.email === 'support@mad3oom.online';
+        const canImpersonate = isMainAdminEmail || currentProfile?.role === 'admin' || currentProfile?.role === 'super_user';
+
+        if (!canImpersonate) {
+            alert('هذه الميزة متاحة فقط للأدمن والمستخدم المميز (super_user).');
+            return;
+        }
+
         // Fetch target user info for logging
         const { data: targetUser } = await supabase
             .from('profiles')
@@ -34,11 +57,9 @@ export async function impersonateUser(userId, redirectPath = '/customer-dashboar
             target_email: targetUser?.email
         });
 
-        // Perform impersonation
-        await adminImpersonateUser(userId);
-
-        // Redirect to specified path
-        window.location.href = redirectPath;
+        // Perform impersonation + navigation (نداء واحد مسؤول عن التنقل، بدل
+        // ما يحصل تنقّل مزدوج كان بيمسح ?impersonate= أحيانًا)
+        await adminImpersonateUser(userId, redirectPath);
     } catch (error) {
         console.error('Error impersonating user:', error);
         alert('حدث خطأ أثناء محاولة الدخول كمستخدم');
