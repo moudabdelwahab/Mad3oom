@@ -335,11 +335,17 @@
                         </div>
                     </div>
 
+                    <!-- بانر "الدخول كعضو" - يظهر بس وقت الـimpersonation -->
+                    <div id="chatImpersonationBanner" style="display:none;"></div>
+
                     <div class="chat-body" id="chatMessages"></div>
 
                     <div id="typingIndicator" style="padding: 0.5rem 2rem; font-size: 0.8rem; color: #666; display: none;">جاري الرد...</div>
 
                     <div class="chat-footer">
+                        <button class="action-btn" id="chatModeInlineBtn" style="background: #f0f2f5; color: var(--primary-blue);" title="وضع الشات بوت">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+                        </button>
                         <input type="text" class="input-box" placeholder="اكتب رسالتك هنا..." id="chatInput" autocomplete="off">
                         <button class="action-btn" id="sendBtn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
