@@ -1,7 +1,7 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
-import { adminImpersonateUser } from '/auth-client.js';
+import { impersonateUser } from './admin-utils.js';
 
 let currentUser = null;
 
@@ -137,8 +137,7 @@ function setupEventListeners() {
 function bindActionButtons() {
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-            await adminImpersonateUser(btn.dataset.id);
-            location.href = '/customer-dashboard.html';
+            await impersonateUser(btn.dataset.id, '/customer-dashboard.html');
         });
     });
 
