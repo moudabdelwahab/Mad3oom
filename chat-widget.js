@@ -13,7 +13,11 @@
  */
 
 import { supabase } from '/api-config.js';
+import { requireAuth } from '/auth-client.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
+import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
+import { CHATBOT_MODE_LABELS, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
+import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
 
 /**
  * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
@@ -36,6 +40,11 @@ class ChatWidget {
         this.currentSession = null;
         this.botSettings = null;
         this.messageChannel = null;
+        // كاش لوضع الشات بوت المختار من العميل، بنفس منطق chat-logic.js -
+        // بيتحدّث في refreshChatModeLabel() وبعد كل تغيير من نافذة الإعدادات.
+        this.cachedChatbotMode = 'traditional';
+        // هل الجلسة الحالية "دخول كعضو" (impersonation) من أدمن/super_user؟
+        this.isImpersonated = false;
 
         this.chatInitialized = false; // هل بدأنا تحميل الجلسة فعلاً؟
         this.isLoggedIn = false;
@@ -135,6 +144,9 @@ class ChatWidget {
             </div>
           </div>
 
+          <!-- بانر "عرض كعضو" - يظهر بس وقت الـimpersonation، فيه اسم العضو وزرار رجوع واضح -->
+          <div id="chatImpersonationBanner" style="display:none;"></div>
+
           <!-- Settings dropdown -->
           <div class="chat-settings-panel" id="chatSettingsPanel">
             <div class="chat-settings-item" id="contactDetailsItem">
@@ -147,6 +159,13 @@ class ChatWidget {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </a>
               <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">تقديم</button>
+            </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="chatModeItem">
+              <div class="chat-settings-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+              </div>
+              <span class="chat-settings-label">وضع الشات بوت</span>
+              <span class="chat-settings-action" id="chatModeCurrentLabel" style="color: var(--chat-text-secondary); font-weight: 600;">تقليدي</span>
             </div>
             <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem">
               <div class="chat-settings-icon">
@@ -201,6 +220,7 @@ class ChatWidget {
         const maximizeItem = document.getElementById('maximizeItem');
         const notifToggle = document.getElementById('notificationsToggle');
         const provideBtn = document.getElementById('chatProvideBtn');
+        const chatModeItem = document.getElementById('chatModeItem');
 
         if (!bubbleBtn || !closeBtn) {
             console.error('[ChatWidget] Failed to find chat elements');
@@ -218,6 +238,7 @@ class ChatWidget {
         maximizeItem.addEventListener('click', () => this.toggleMaximize());
         notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
         provideBtn.addEventListener('click', () => this.submitContactDetails());
+        chatModeItem.addEventListener('click', () => this.openChatModeDialog());
 
         document.addEventListener('click', (e) => {
             const panel = document.getElementById('chatSettingsPanel');
@@ -321,6 +342,105 @@ class ChatWidget {
         provideBtn.style.display = this.isLoggedIn ? 'flex' : 'none';
     }
 
+    /* ==================== بانر "الدخول كعضو" (impersonation) ==================== */
+
+    /**
+     * يعرض بانر واضح فوق الشات لو الأدمن/super_user فاتح المحادثة دي "كعضو"
+     * (impersonation)، فيه اسم العضو المستهدف وزرار "رجوع لحسابي" - عشان
+     * يكون واضح دايمًا مين بيكلم مين، وعشان يكون في طريقة أكيدة يرجع بيها
+     * لحسابه الحقيقي بدون أي لبس.
+     */
+    renderImpersonationBanner() {
+        const container = document.getElementById('chatImpersonationBanner');
+        if (!container) return;
+
+        if (!this.isImpersonated) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+
+        const memberName = this.currentUser?.profile?.full_name || this.currentUser?.profile?.email || 'هذا العضو';
+        container.style.display = 'block';
+        container.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0.9rem; background:#fff3cd; border-bottom:1px solid #ffe08a; font-size:0.78rem; color:#8a6300;">
+                <span>بتشوف الشات كـ <strong>${escapeHtml(memberName)}</strong></span>
+                <button type="button" id="chatExitImpersonationBtn" style="background:#8a6300; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.7rem; font-size:0.74rem; font-weight:700; cursor:pointer; white-space:nowrap;">رجوع لحسابي</button>
+            </div>
+        `;
+
+        const exitBtn = document.getElementById('chatExitImpersonationBtn');
+        if (exitBtn) {
+            exitBtn.addEventListener('click', () => this.exitImpersonation());
+        }
+    }
+
+    /** يرجّع الأدمن لصفحته الأصلية بمسح ?impersonate= من العنوان - الجلسة الحقيقية (Supabase auth) أصلاً ما اتغيّرتش، فمفيش أي session-switching محتاج نرجّعه. */
+    exitImpersonation() {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('impersonate');
+        window.location.href = url.pathname + url.search;
+    }
+
+    /* ==================== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) ==================== */
+
+    async refreshChatModeLabel() {
+        if (!this.currentUser) return;
+        try {
+            const state = await fetchChatbotModeState(this.currentUser.id);
+            this.cachedChatbotMode = state.chatbot_mode || 'traditional';
+            const label = document.getElementById('chatModeCurrentLabel');
+            if (label) {
+                label.textContent = CHATBOT_MODE_LABELS[this.cachedChatbotMode] || CHATBOT_MODE_LABELS.traditional;
+            }
+        } catch (err) {
+            console.warn('[ChatWidget] تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
+        }
+    }
+
+    openChatModeDialog() {
+        if (!this.currentUser) {
+            window.location.href = '/sign-in.html';
+            return;
+        }
+        this.toggleSettingsPanel(false);
+        openChatbotModeDialog({
+            userId: this.currentUser.id,
+            onModeChanged: () => this.refreshChatModeLabel()
+        });
+    }
+
+    /**
+     * نفس منطق chat-logic.js: العميل مختار SIE لكن صلاحيته اتسحبت وهو في نص
+     * محادثة - نحفظ التحويل للتقليدي فعليًا في قاعدة البيانات، نحدّث الحالة
+     * المحلية، ونكتب رسالة واضحة داخل نص المحادثة (مش toast ممكن يفوته).
+     */
+    async handleSieRevokedMidConversation(sieAccess) {
+        this.cachedChatbotMode = 'traditional';
+        const label = document.getElementById('chatModeCurrentLabel');
+        if (label) label.textContent = CHATBOT_MODE_LABELS.traditional;
+
+        try {
+            await saveChatbotModeState(this.currentUser.id, { mode: 'traditional', integrationId: null, modelId: null });
+        } catch (err) {
+            console.warn('[ChatWidget] تعذّر حفظ التحويل التلقائي عن SIE:', err?.message || err);
+        }
+
+        const reason = sieAccess?.statusLabel;
+        let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة.';
+        if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
+        else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
+        else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
+
+        await supabase.from('chat_messages').insert({
+            session_id: this.currentSessionId,
+            sender_id: null,
+            message_text: `${why} تم تحويلك تلقائيًا للوضع التقليدي. تقدر تختار وضعًا آخر من إعدادات الشات، أو تتواصل مع الدعم لتفعيل SIE مرة أخرى.`,
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
+    }
+
     /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
 
     async openWidget() {
@@ -389,8 +509,13 @@ class ChatWidget {
     async startChat() {
         this.renderLoadingState();
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        // requireAuth('user') بدل supabase.auth.getUser() المباشرة عشان
+        // الويدجت يحترم "الدخول كعضو" (impersonation): لو أدمن/super_user
+        // فاتح الصفحة بـ ?impersonate=<id>، هيرجعله requireAuth بروفايل
+        // العضو المستهدف (id/profile) بدل حساب الأدمن الحقيقي - مع إن جلسة
+        // Supabase الحقيقية (auth) فضلت زي ما هي طول الوقت من غير أي تبديل.
+        const user = await requireAuth('user');
+        if (!user || user.banned) {
             this.isLoggedIn = false;
             this.updateContactDetailsUI();
             this.renderLoggedOutState();
@@ -398,8 +523,11 @@ class ChatWidget {
         }
 
         this.currentUser = user;
+        this.isImpersonated = !!user.isImpersonated;
         this.isLoggedIn = true;
         this.updateContactDetailsUI();
+        this.renderImpersonationBanner();
+        this.refreshChatModeLabel();
 
         await Promise.all([this.loadProfile(), this.loadBotSettings()]);
         await this.loadOrCreateSession();
@@ -430,7 +558,7 @@ class ChatWidget {
     }
 
     async loadBotSettings() {
-        const { data, error } = await supabase.from('bot_settings').select('*').maybeSingle();
+        const { data, error } = await supabase.from('bot_settings').select('*').single();
         if (error) {
             console.error('خطأ في جلب إعدادات البوت:', error);
             this.botSettings = {};
@@ -447,14 +575,14 @@ class ChatWidget {
             .eq('status', 'active')
             .order('created_at', { ascending: false })
             .limit(1)
-            .maybeSingle();
+            .single();
 
         if (error || !session) {
             const { data: newSession, error: createError } = await supabase
                 .from('chat_sessions')
                 .insert({ user_id: this.currentUser.id, status: 'active' })
                 .select()
-                .maybeSingle();
+                .single();
 
             if (createError) {
                 console.error('خطأ في إنشاء جلسة دردشة:', createError);
@@ -690,9 +818,46 @@ class ChatWidget {
                 .from('chat_sessions')
                 .select('bot_state, is_manual_mode')
                 .eq('id', this.currentSessionId)
-                .maybeSingle();
+                .single();
 
             if (freshSession?.is_manual_mode) return;
+
+            // نفس منطق البوابتين المزدوج الموجود في chat-logic.js، لكن دلوقتي
+            // بدون silent fallback: لو العميل مختار SIE (this.cachedChatbotMode)
+            // لكن صلاحيته اتسحبت من الإدارة وهو في نص محادثة، بنوقف ونبلّغه
+            // بوضوح جوه الشات نفسه، بدل ما نرجّعه صامت للمحرك التقليدي.
+            let sieResult = null;
+            if (this.cachedChatbotMode === 'sie') {
+                const sieAccess = await getSieAccessInfo(this.currentUser.id);
+                if (!sieAccess.available) {
+                    await this.handleSieRevokedMidConversation(sieAccess);
+                    return;
+                }
+                sieResult = await getSieReply({
+                    text,
+                    supabase,
+                    sessionId: this.currentSessionId,
+                    userId: this.currentUser.id,
+                    botState: freshSession?.bot_state || {}
+                });
+                if (!sieResult) {
+                    await supabase.from('chat_messages').insert({
+                        session_id: this.currentSessionId,
+                        sender_id: null,
+                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من إعدادات الشات.',
+                        is_admin_reply: false,
+                        is_bot_reply: true
+                    });
+                    return;
+                }
+            }
+
+            if (sieResult) {
+                // Action Layer بتاعة SIE كتبت رسالة البوت وحالة الجلسة
+                // بنفسها، فمفيش داعي نكرر الإدراج هنا.
+                this.renderQuickOptions(sieResult.options);
+                return;
+            }
 
             const { reply, options } = await getBotReply({
                 text,
