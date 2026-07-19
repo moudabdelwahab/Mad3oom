@@ -32,7 +32,7 @@ import {
     fetchCustomerVisibleIntegrations,
     fetchCustomerVisibleModels,
     getAutoModeExplanation,
-    getSiePlaceholderInfo
+    getSieAccessInfo
 } from '/assets/js/chatbot-mode-service.js';
 
 function escapeHtml(value) {
@@ -235,6 +235,18 @@ function injectStyles() {
             line-height: 1.5;
         }
 
+        .cms-revoked-note {
+            margin-top: 0.5rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #a3231f;
+            background: rgba(217, 83, 79, 0.1);
+            border: 1px solid rgba(217, 83, 79, 0.25);
+            border-radius: 8px;
+            padding: 0.6rem 0.7rem;
+            line-height: 1.6;
+        }
+
         .cms-section-title {
             font-size: 0.8rem;
             font-weight: 700;
@@ -327,6 +339,20 @@ function showToast(message, kind = 'success') {
 }
 
 /**
+ * نص واضح وصريح يشرح للعميل *ليه* اتحول تلقائيًا من SIE للوضع التقليدي -
+ * عمدًا مش "حصل تغيير" غامضة، عشان العميل يفهم ويقدر يتصرف (يشترك تاني،
+ * يكلم الدعم، أو يختار وضع تاني بوعي بدل ما يفضل يكلم بوت مش اللي فاكره).
+ */
+function buildSieRevokedMessage(sieAccess) {
+    const reason = sieAccess?.statusLabel;
+    let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة حاليًا.';
+    if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
+    else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
+    else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
+    return `${why} تم تحويلك تلقائيًا للوضع التقليدي، واختيارك محفوظ كذلك. اختر وضعًا آخر من هنا، أو تواصل مع الدعم لتفعيل SIE مرة أخرى.`;
+}
+
+/**
  * يرسم واجهة اختيار الوضع (بدون الفوتر/الحوار) داخل أي عنصر حاوٍ (container)
  * موجود بالفعل في الصفحة. يُستخدم هذا مباشرة من التبويب داخل نافذة إعدادات
  * العميل (customer-settings-modal)، وأيضًا داخليًا من openChatbotModeDialog.
@@ -402,10 +428,12 @@ export function openChatbotModeDialog({ userId, onModeChanged } = {}) {
 async function loadAndRender({ userId, body, overlay, onModeChanged, showFooterButtons, isDialog }) {
     let entitled = false;
     let state = null;
+    let sieAccess = null;
     try {
-        [entitled, state] = await Promise.all([
+        [entitled, state, sieAccess] = await Promise.all([
             hasChatbotEntitlement(userId),
-            fetchChatbotModeState(userId)
+            fetchChatbotModeState(userId),
+            getSieAccessInfo(userId)
         ]);
     } catch (err) {
         renderErrorState(body, 'حصل خطأ أثناء تحميل إعدادات وضع الشات بوت.', () => loadAndRender({ userId, body, overlay, onModeChanged, showFooterButtons, isDialog }));
@@ -421,7 +449,7 @@ async function loadAndRender({ userId, body, overlay, onModeChanged, showFooterB
         integrationsError = err;
     }
 
-    renderModeList({ body, overlay, userId, entitled, state, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog });
+    renderModeList({ body, overlay, userId, entitled, state, sieAccess, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog });
 }
 
 function renderErrorState(body, message, onRetry) {
@@ -435,21 +463,46 @@ function renderErrorState(body, message, onRetry) {
     body.querySelector('#cmsRetryBtn')?.addEventListener('click', onRetry);
 }
 
-function renderModeList({ body, overlay, userId, entitled, state, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog }) {
+function renderModeList({ body, overlay, userId, entitled, state, sieAccess, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog }) {
     let selectedMode = state.chatbot_mode;
     let selectedIntegrationId = state.chatbot_selected_integration_id;
     let selectedModelId = state.chatbot_selected_model_id;
 
-    const modesOrder = [CHATBOT_MODES.TRADITIONAL, CHATBOT_MODES.AI_MODEL, CHATBOT_MODES.AUTO, CHATBOT_MODES.SIE];
-    const sie = getSiePlaceholderInfo();
+    // SIE عنصر مستقل: customer_sie_access (قرار إداري) هو اللي بيحدد هل
+    // الخيار *يظهر أصلاً* في القائمة، مش مجرد يبان "مقفول" زي أوضاع
+    // الاشتراك العادية. لو العميل مش مفعّل له SIE، الخيار مبيتعرضش خالص.
+    const sieAvailable = !!sieAccess?.available;
+
+    // لو العميل كان مختار SIE فعلاً (محفوظ في profiles.chatbot_mode) والصلاحية
+    // اتشالت منه بعدين (كوتة خلصت / انتهت الصلاحية / الإدارة عطّلته)، *ممنوع*
+    // نرجّعه للوضع التقليدي بصمت في الواجهة بس - العميل هيفضل معتقد إنه
+    // لسه على SIE بينما فعليًا بيرد عليه المحرك التقليدي، وده أخطر من مفيش
+    // fallback أصلاً. بدل كده: نحفظ التراجع فعليًا في قاعدة البيانات (مش
+    // بس محليًا)، ونوريه بانر واضح بالسبب، ونخليه يختار وضع تاني بنفسه.
+    const wasSieRevoked = state.chatbot_mode === CHATBOT_MODES.SIE && !sieAvailable;
+    if (wasSieRevoked) {
+        selectedMode = CHATBOT_MODES.TRADITIONAL;
+        // Fire-and-forget: يحفظ التراجع فورًا في profiles.chatbot_mode بحيث
+        // أي مكان تاني بيقرا الحالة دي (زر الشات المصغّر، مسار الإرسال نفسه)
+        // ما يفضلش شايف "sie" وهي مرفوضة فعليًا. لو الحفظ فشل (شبكة مثلاً)،
+        // البانر التحذيري هيفضل ظاهر على أي حال لحد ما ينجح في مرة تانية.
+        saveChatbotModeState(userId, { mode: CHATBOT_MODES.TRADITIONAL, integrationId: null, modelId: null })
+            .then((result) => {
+                if (result.ok && typeof onModeChanged === 'function') {
+                    onModeChanged({ mode: CHATBOT_MODES.TRADITIONAL, integrationId: null, modelId: null, sieAutoDowngraded: true });
+                }
+            })
+            .catch((err) => console.warn('[chatbot-mode-selector] تعذّر حفظ التراجع التلقائي عن SIE:', err?.message || err));
+    }
+
+    const modesOrder = [CHATBOT_MODES.TRADITIONAL, CHATBOT_MODES.AI_MODEL, CHATBOT_MODES.AUTO];
+    if (sieAvailable) modesOrder.push(CHATBOT_MODES.SIE);
 
     function modeCardHtml(mode) {
-        const available = isModeAvailableForEntitlement(mode, entitled) && !(mode === CHATBOT_MODES.SIE && !sie.available);
+        const available = isModeAvailableForEntitlement(mode, entitled);
         const isActive = selectedMode === mode;
         let badge = '';
-        if (mode === CHATBOT_MODES.SIE && !sie.available) {
-            badge = `<span class="cms-badge cms-badge-soon">${escapeHtml(sie.statusLabel)}</span>`;
-        } else if (!available) {
+        if (!available) {
             badge = `<span class="cms-badge cms-badge-locked">للمشتركين فقط</span>`;
         } else if (isActive) {
             badge = `<span class="cms-badge cms-badge-active">مفعّل</span>`;
@@ -463,7 +516,7 @@ function renderModeList({ body, overlay, userId, entitled, state, integrations, 
                         <span class="cms-mode-title">${escapeHtml(CHATBOT_MODE_LABELS[mode])}</span>
                         ${badge}
                     </div>
-                    <div class="cms-mode-desc">${escapeHtml(mode === CHATBOT_MODES.SIE ? sie.description : CHATBOT_MODE_DESCRIPTIONS[mode])}</div>
+                    <div class="cms-mode-desc">${escapeHtml(mode === CHATBOT_MODES.SIE ? (sieAccess?.description || CHATBOT_MODE_DESCRIPTIONS[mode]) : CHATBOT_MODE_DESCRIPTIONS[mode])}</div>
                 </div>
             </button>
         `;
@@ -473,6 +526,7 @@ function renderModeList({ body, overlay, userId, entitled, state, integrations, 
         <div class="cms-mode-list" id="cmsModeList">
             ${modesOrder.map(modeCardHtml).join('')}
         </div>
+        ${wasSieRevoked ? `<div class="cms-revoked-note">${escapeHtml(buildSieRevokedMessage(sieAccess))}</div>` : ''}
         ${!entitled ? `<div class="cms-locked-note">الأوضاع المتقدمة (نموذج ذكاء اصطناعي، تلقائي، SIE) متاحة للمشتركين فقط. تقدر تشترك من صفحة الاشتراكات.</div>` : ''}
         <div id="cmsExtraSection"></div>
     `;
@@ -504,7 +558,7 @@ function renderModeList({ body, overlay, userId, entitled, state, integrations, 
         } else if (selectedMode === CHATBOT_MODES.AUTO) {
             extra.innerHTML = `<div class="cms-info-box">${escapeHtml(getAutoModeExplanation())}</div>`;
         } else if (selectedMode === CHATBOT_MODES.SIE) {
-            extra.innerHTML = `<div class="cms-info-box">${escapeHtml(sie.description)}</div>`;
+            extra.innerHTML = `<div class="cms-info-box">${escapeHtml(sieAccess?.description || CHATBOT_MODE_DESCRIPTIONS[CHATBOT_MODES.SIE])}</div>`;
         } else {
             extra.innerHTML = '';
         }
