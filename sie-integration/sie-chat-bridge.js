@@ -193,22 +193,34 @@ async function resolvePendingTicketConfirmation({ text, sessionId, botState, pre
     };
 }
 
-const HUMAN_REQUEST_TEXT = {
-    ar: 'تمام، هوصلك بفريق الدعم البشري دلوقتي وهيتواصلوا معاك في أقرب وقت [[icon:note]]',
-    en: "Sure thing, I'll connect you with our human support team right away — they'll be in touch shortly [[icon:note]]"
+const ESCALATION_REPLY_TEXT = {
+    human_request: {
+        ar: 'تمام، هوصلك بفريق الدعم البشري دلوقتي وهيتواصلوا معاك في أقرب وقت [[icon:note]]',
+        en: "Sure thing, I'll connect you with our human support team right away — they'll be in touch shortly [[icon:note]]"
+    },
+    frustration: {
+        ar: 'أعتذر لو حسّيت إن الرد مش مفيد. هوصلك بفريق الدعم البشري دلوقتي عشان يقدروا يساعدوك بشكل مباشر [[icon:note]]',
+        en: "I'm sorry this hasn't been helpful. I'll connect you with our human support team right away so they can help you directly [[icon:note]]"
+    }
+};
+
+const ESCALATION_EXPLANATION = {
+    human_request: 'Customer explicitly asked to speak with a human agent; escalating immediately without further diagnosis.',
+    frustration: 'Customer expressed frustration directly at the bot (not a technical complaint); escalating immediately instead of continuing the diagnostic loop.'
 };
 
 /**
- * العميل طلب صراحة إنه يتكلم مع حد بشري (sie/language/small-talk.js's
- * human_request). مفيش داعي نستنى نأكد معاه زي CREATE_TICKET العادي —
- * هو أصلاً قال اللي عايزه، فبننفذ تصعيد حقيقي (ESCALATE_TO_HUMAN) على
+ * العميل طلب صراحة إنه يتكلم مع حد بشري، أو بان عليه انزعاج واضح من
+ * البوت نفسه (sie/language/small-talk.js's human_request/frustration).
+ * مفيش داعي نستنى نأكد معاه زي CREATE_TICKET العادي — الحالتين مفيش
+ * فيهم حاجة نتشخصها أكتر، فبننفذ تصعيد حقيقي (ESCALATE_TO_HUMAN) على
  * طول بدل رد كلامي بس. بنحدّث decisionState.ticketAlreadyCreated يدويًا
  * (بدل ما نستدعي decide()) عشان أي دور تشخيصي بعد كده — لو الجلسة كانت
  * أصلاً في نص تشخيص — ميحاولش يفتح تذكرة تانية مكررة.
  */
-async function escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionId, botState, prevSie, port }) {
+async function escalateImmediately({ reason, responseLanguage, turn, sessionId, botState, prevSie, port }) {
     const lang = responseLanguage === 'en' ? 'en' : 'ar';
-    const rendered = { text: HUMAN_REQUEST_TEXT[lang], options: [] };
+    const rendered = { text: ESCALATION_REPLY_TEXT[reason][lang], options: [] };
 
     const prevDecisionState = prevSie?.decisionState || createEmptyDecisionState();
     const nextDecisionState = {
@@ -218,14 +230,14 @@ async function escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionI
         ticketAlreadyCreated: true,
         history: [
             ...prevDecisionState.history,
-            { turn, action: ACTIONS.ESCALATE_TO_HUMAN, scenarioId: null, confidence: null, explanation: 'Customer explicitly asked to speak with a human agent.' }
+            { turn, action: ACTIONS.ESCALATE_TO_HUMAN, scenarioId: null, confidence: null, explanation: ESCALATION_EXPLANATION[reason] }
         ]
     };
 
     const decision = {
         action: ACTIONS.ESCALATE_TO_HUMAN,
         turn,
-        explanation: 'Customer explicitly asked to speak with a human agent; escalating immediately without further diagnosis.',
+        explanation: ESCALATION_EXPLANATION[reason],
         ticketDraft: { scenarioId: null, category: 'other', diagnosticTrail: [] }
     };
 
@@ -241,7 +253,7 @@ async function escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionI
 
     const actionResult = await executeDecision({ decision, rendered, sessionId, nextBotState, port });
     if (!actionResult?.success) {
-        console.error('SIE action-layer write failed (explicit human request escalation):', actionResult);
+        console.error(`SIE action-layer write failed (${reason} escalation):`, actionResult);
         return null;
     }
 
@@ -316,15 +328,16 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
             previousLanguage: prevSie?.language || 'ar'
         });
 
-        // 2.5. كلام عادي (تحية / شكر / سؤال هوية أو عن المنصة / طلب موظف
-        // بشري)؟ (sie/language/small-talk.js) مش دليل تشخيصي — بنردّ عليه
-        // مباشرة من غير ما نستهلك حصة أسئلة التوضيح ولا نغيّر حالة التشخيص
-        // الحالية. لو الجلسة كانت شغّالة في تشخيص فعلي، هتكمل عادي في الدور
-        // اللي بعد كده لأن botState.sie ماتغيرش هنا (ما عدا human_request،
-        // اللي بيسجّل تصعيد حقيقي – شايف escalateOnExplicitHumanRequest فوق).
+        // 2.5. كلام عادي (تحية / شكر / اعتذار / سؤال هوية أو عن المنصة / طلب
+        // موظف بشري / انزعاج من البوت)؟ (sie/language/small-talk.js) مش دليل
+        // تشخيصي — بنردّ عليه مباشرة من غير ما نستهلك حصة أسئلة التوضيح ولا
+        // نغيّر حالة التشخيص الحالية. لو الجلسة كانت شغّالة في تشخيص فعلي،
+        // هتكمل عادي في الدور اللي بعد كده لأن botState.sie ماتغيرش هنا (ما
+        // عدا human_request/frustration، اللي بيسجّلوا تصعيد حقيقي – شايف
+        // escalateImmediately فوق).
         const smallTalk = detectSmallTalk(text);
-        if (smallTalk?.type === 'human_request') {
-            const result = await escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionId, botState, prevSie, port });
+        if (smallTalk?.type === 'human_request' || smallTalk?.type === 'frustration') {
+            const result = await escalateImmediately({ reason: smallTalk.type, responseLanguage, turn, sessionId, botState, prevSie, port });
             if (result) return result;
             return null;
         }
