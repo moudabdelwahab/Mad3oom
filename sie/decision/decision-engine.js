@@ -98,7 +98,7 @@ export function decide({ ranking, turn, previousDecisionState, newEvidenceAddedT
 }
 
 function finalize(action, opts, turn, evaluatedRules, clock) {
-    const { scenarioId = null, scenarioLabel = null, confidence = null, explanation, targetQuestion = null, resolution = null, ticketDraft = null } = opts;
+    const { scenarioId = null, scenarioLabel = null, confidence = null, explanation, targetQuestion = null, resolution = null, ticketDraft = null, attemptNumber = null } = opts;
     return {
         action,
         scenarioId,
@@ -110,7 +110,8 @@ function finalize(action, opts, turn, evaluatedRules, clock) {
         targetQuestion,
         resolution,
         ticketDraft,
-        turn
+        turn,
+        attemptNumber
     };
 }
 
@@ -203,7 +204,10 @@ function decideAction({ ranking, turn, prevState, noNewEvidence, consecutiveNoNe
         if (prevState.questionsAskedCount < MAX_CLARIFYING_QUESTIONS) {
             return finalize(
                 ACTIONS.ASK_CLARIFYING_QUESTION,
-                { explanation: `Top hypothesis "${topHypothesis.hypothesis.scenarioId}" confidence ${topHypothesis.hypothesis.confidence.toFixed(2)} is below the activation threshold (${ACTIVATION_THRESHOLD}); no scenario is a real candidate yet, requesting more detail.` },
+                {
+                    explanation: `Top hypothesis "${topHypothesis.hypothesis.scenarioId}" confidence ${topHypothesis.hypothesis.confidence.toFixed(2)} is below the activation threshold (${ACTIVATION_THRESHOLD}); no scenario is a real candidate yet, requesting more detail.`,
+                    attemptNumber: prevState.questionsAskedCount
+                },
                 turn, evaluatedRules, clock
             );
         }
@@ -359,7 +363,8 @@ function decideAction({ ranking, turn, prevState, noNewEvidence, consecutiveNoNe
                 scenarioId: topHypothesis.hypothesis.scenarioId,
                 scenarioLabel: topHypothesis.scenario?.label ?? null,
                 confidence: topHypothesis.hypothesis.confidence,
-                explanation: `"${topHypothesis.hypothesis.scenarioId}" confidence ${topHypothesis.hypothesis.confidence.toFixed(2)} is below the resolution threshold with no specific discriminating question available; requesting more detail.`
+                explanation: `"${topHypothesis.hypothesis.scenarioId}" confidence ${topHypothesis.hypothesis.confidence.toFixed(2)} is below the resolution threshold with no specific discriminating question available; requesting more detail.`,
+                attemptNumber: prevState.questionsAskedCount
             },
             turn, evaluatedRules, clock
         );
