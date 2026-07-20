@@ -114,13 +114,17 @@ export async function executeDecision({ decision, rendered, sessionId, nextBotSt
  * @param {number} params.turn
  * @param {import('../observability/trace-types.js').TraceEvent} params.traceEvent
  * @param {import('./supabase-port.js').SupabasePort} params.port
+ * @param {string} [params.responseLanguage] - Module 1's detected response language for this turn
+ * @param {number} [params.processingTimeMs] - wall-clock time the pipeline took this turn, for perf visibility in Review Center
+ * @param {Object} [params.actionResult] - the ActionResult executeDecision() produced this turn (or null if it wasn't reached yet)
+ * @param {Array} [params.renderedOptions] - Module 6's rendered quick-reply options, alongside traceEvent.responseText
  * @returns {Promise<import('./action-types.js').ActionResult>}
  */
-export async function logTraceEvent({ sessionId, turn, traceEvent, port }) {
+export async function logTraceEvent({ sessionId, turn, traceEvent, port, responseLanguage = null, processingTimeMs = null, actionResult = null, renderedOptions = null }) {
     if (typeof sessionId !== 'string' || !traceEvent || !port) {
         return buildActionResult({ action: 'LOG_TRACE_EVENT', steps: [{ name: 'validate_input', success: false, error: 'missing sessionId, traceEvent, or port' }] });
     }
-    const step = await callStep('insertTraceEvent', () => port.insertTraceEvent({ sessionId, turn, traceEvent }));
+    const step = await callStep('insertTraceEvent', () => port.insertTraceEvent({ sessionId, turn, traceEvent, responseLanguage, processingTimeMs, actionResult, renderedOptions }));
     return buildActionResult({ action: 'LOG_TRACE_EVENT', steps: [step] });
 }
 
