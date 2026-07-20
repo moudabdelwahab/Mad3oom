@@ -204,6 +204,39 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 .t-msg.bot{ align-self:flex-end; background:rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.22); }
 .t-msg.admin{ align-self:flex-end; background:rgba(34,197,139,.12); border:1px solid rgba(34,197,139,.25); }
 
+/* ---------- تبويبات الأقسام (تُستخدم لتبديل قائمة التعلّم/معمل التحقق، وتبويبات معمل التحقق الفرعية) ---------- */
+.tabs{ display:flex; gap:4px; margin-bottom:1.5rem; border-bottom:1px solid var(--color-border); flex-wrap:wrap; }
+.tabs.sub-tabs{ margin:0 0 1.35rem; }
+.tab-btn{ background:none; border:none; padding:.7rem 1.05rem; font-size:.85rem; font-weight:700; color:var(--color-text-secondary); border-bottom:2px solid transparent; font-family:inherit; }
+.tab-btn:hover{ color:var(--color-text); }
+.tab-btn.active{ color:var(--color-text); border-color:var(--color-accent-2); }
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+.tab-intro{ color:var(--color-text-secondary); font-size:.85rem; line-height:1.7; margin:0 0 1.5rem; max-width:70ch; }
+
+/* ---------- معمل التحقق: مقارنة قبل/بعد المحاكاة ---------- */
+.compare-card{ margin-bottom:1rem; overflow:hidden; }
+.compare-head{ padding:.75rem 1.25rem; background:rgba(255,255,255,.03); border-bottom:1px solid var(--color-border); font-size:.78rem; color:var(--color-text-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+.compare-body{ display:grid; grid-template-columns:1fr 1fr; }
+@media (max-width:900px){ .compare-body{ grid-template-columns:1fr; } }
+.compare-col{ padding:1.1rem 1.25rem; }
+.compare-col + .compare-col{ border-right:1px dashed var(--color-border); }
+@media (max-width:900px){ .compare-col + .compare-col{ border-right:none; border-top:1px dashed var(--color-border); } }
+.compare-col .col-label{ font-size:.72rem; color:var(--color-text-3); margin-bottom:.6rem; font-weight:700; }
+.fact-row{ display:flex; justify-content:space-between; font-size:.82rem; padding:.25rem 0; }
+.fact-row .k{ color:var(--color-text-secondary); }
+.fact-row .v{ font-family:var(--font-mono); direction:ltr; }
+.badge.same{ background:rgba(148,166,194,.16); color:var(--color-text-secondary); }
+.hint code{ background:var(--color-muted); padding:1px 6px; border-radius:4px; font-family:var(--font-mono); direction:ltr; unicode-bidi:isolate; font-size:.78rem; }
+
+/* ---------- معمل التحقق: بوابة النشر ---------- */
+.gate-status{ display:flex; align-items:center; gap:10px; margin-bottom:.4rem; }
+.gate-dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; background:var(--color-danger); }
+.gate-dot.pass{ background:var(--color-success); }
+.btn-danger{ background:var(--color-danger); color:#fff; }
+.btn-danger:hover{ box-shadow:0 0 20px -4px rgba(255,107,107,.5); }
+.btn-primary:disabled{ background:var(--color-muted); color:var(--color-text-3); box-shadow:none; cursor:default; }
+
 @media (max-width:768px){
     .admin-main{ padding:1.25rem; }
     .stats-grid{ grid-template-columns:repeat(2,1fr); }
@@ -223,8 +256,21 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
     <div class="page-header">
         <div>
             <span class="eyebrow"><span class="dot"></span> محرك الدعم الذكي — Module 9</span>
-            <h1 class="gradient-text">قائمة التعلّم</h1>
-            <p>المحادثات اللي المحرك حطّها للمراجعة — ثقة منخفضة، رد احتياطي (Fallback)، أو تصعيد لم يُحل. الشاشة دي فلتر على سجل التتبع نفسه، مش تخزين منفصل.</p>
+            <h1 class="gradient-text">مركز المراجعة</h1>
+            <p>استعرض قائمة التعلّم — المحادثات اللي المحرك حطّها للمراجعة (ثقة منخفضة، رد احتياطي، أو تصعيد لم يُحل) — وشغّل معمل التحقق قبل نشر أي تعديل على السيناريوهات أو المعرفة.</p>
+        </div>
+    </div>
+
+    <div class="tabs" id="sectionTabs" data-group="section">
+        <button class="tab-btn active" data-target="panel-learning-queue">قائمة التعلّم</button>
+        <button class="tab-btn" data-target="panel-validation-lab">معمل التحقق</button>
+    </div>
+
+    <section class="tab-panel active" id="panel-learning-queue" data-group="section">
+
+    <div class="page-header" style="margin-bottom:1.25rem;">
+        <div>
+            <p class="tab-intro" style="margin:0;">المحادثات اللي المحرك حطّها للمراجعة — ثقة منخفضة، رد احتياطي (Fallback)، أو تصعيد لم يُحل. الشاشة دي فلتر على سجل التتبع نفسه، مش تخزين منفصل.</p>
         </div>
         <div class="header-actions">
             <span class="demo-flag" id="dataModeFlag" style="display:none;"></span>
@@ -365,6 +411,117 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             </div>
         </div>
     </section>
+
+    </section><!-- /#panel-learning-queue -->
+
+    <section class="tab-panel" id="panel-validation-lab" data-group="section">
+        <div class="page-header" style="margin-bottom:1.25rem;">
+            <div>
+                <p class="tab-intro" style="margin:0;">أعد تشغيل تعديل مقترح على سيناريو أو معرفة على محادثات حقيقية مخزّنة قبل ما يوصل لأي عميل. النشر ممنوع لحد ما يعدي التعديل مجموعة اختبارات الانحدار.</p>
+            </div>
+            <div class="header-actions">
+                <span class="demo-flag" style="display:inline-flex;">● بيانات تجريبية — غير متصلة بقاعدة بيانات حقيقية</span>
+            </div>
+        </div>
+
+        <div class="tabs sub-tabs" id="vlTabs" data-group="vl">
+            <button class="tab-btn active" data-target="vl-panel-sim">محاكاة</button>
+            <button class="tab-btn" data-target="vl-panel-shadow">تشغيل الظل</button>
+            <button class="tab-btn" data-target="vl-panel-gate">بوابة النشر</button>
+        </div>
+
+        <div class="tab-panel active" id="vl-panel-sim" data-group="vl">
+            <div class="glass-card filters-card">
+                <div class="filters-row">
+                    <div class="filter-field">
+                        <label>التعديل المطلوب اختباره</label>
+                        <select id="vl-sim-target">
+                            <option>knowledge: pricing — مسودة v3</option>
+                        </select>
+                    </div>
+                    <span style="font-size:.78rem; color:var(--color-text-secondary); align-self:center;">قبل: <b class="ltr-data" style="display:inline; font-weight:700;">v2 (منشور)</b> ← بعد: <b class="ltr-data" style="display:inline; font-weight:700;">v3 (مسودة)</b></span>
+                    <div class="filter-field">
+                        <label>المحادثة المسجّلة</label>
+                        <select id="vl-sim-conversation">
+                            <option value="conv-pricing">conv-pricing — «عايز اعرف اسعار خطط باقات بكام عروض ايه»</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="vl-run-sim-btn" style="align-self:flex-end;">شغّل المحاكاة</button>
+                </div>
+            </div>
+            <div id="vl-sim-results"></div>
+        </div>
+
+        <div class="tab-panel" id="vl-panel-shadow" data-group="vl">
+            <div class="glass-card filters-card">
+                <div class="filters-row">
+                    <div class="filter-field">
+                        <label>التعديل المطلوب اختباره</label>
+                        <select id="vl-shadow-target">
+                            <option>knowledge: pricing — مسودة v3</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label>مصدر المحادثات</label>
+                        <select id="vl-shadow-source">
+                            <option>قائمة التعلّم (آخر 30 يوم)</option>
+                            <option>مجموعة مختارة يدويًا (12 محادثة)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="vl-run-shadow-btn" style="align-self:flex-end;">شغّل مجموعة اختبارات الانحدار</button>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="vl-shadow-summary" style="display:none;">
+                <div class="glass-card stat-card">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></div>
+                    <div class="stat-info"><div class="stat-label">المحادثات</div><div class="stat-value" id="vl-stat-total">—</div></div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon ok"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
+                    <div class="stat-info"><div class="stat-label">ناجحة</div><div class="stat-value" id="vl-stat-pass">—</div></div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon danger"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                    <div class="stat-info"><div class="stat-label">فاشلة</div><div class="stat-value" id="vl-stat-fail">—</div></div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon" id="vl-stat-verdict-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                    <div class="stat-info"><div class="stat-label">الحكم الإجمالي</div><div class="stat-value" id="vl-stat-verdict">—</div></div>
+                </div>
+            </div>
+
+            <div class="glass-card section-card" id="vl-shadow-table" style="display:none;">
+                <div class="table-wrap">
+                    <table class="queue-table">
+                        <thead>
+                            <tr><th>الجلسة</th><th>المحادثة</th><th>الحكم</th><th>الأدوار</th><th>السبب</th></tr>
+                        </thead>
+                        <tbody id="vl-shadow-rows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="vl-panel-gate" data-group="vl">
+            <div class="panel-block" style="max-width:640px;">
+                <div class="gate-status">
+                    <span class="gate-dot" id="vl-gate-dot"></span>
+                    <h4 style="margin:0;" id="vl-gate-title">لا يوجد تشغيل تحقق مسجّل</h4>
+                </div>
+                <p class="hint" id="vl-gate-reason" style="margin-bottom:1rem;">شغّل تبويب «تشغيل الظل» الأول عشان يتسجل حكم لـ <code>knowledge:pricing v3</code>. النشر ممنوع لحد ما يبقى فيه حكم.</p>
+
+                <label class="field-label" for="vl-override-reason">سبب التجاوز (مطلوب للنشر رغم فشل أو غياب الحكم)</label>
+                <textarea id="vl-override-reason" placeholder="مثلاً: تم التأكيد مع مسؤول الدعم — المحادثة الوحيدة اللي فشلت كانت اتحلت يدويًا بالفعل، آمن للنشر."></textarea>
+
+                <div class="save-row" style="margin-top:1.1rem;">
+                    <button class="btn btn-primary" id="vl-publish-btn" disabled>نشر v3</button>
+                    <button class="btn btn-danger" id="vl-override-btn">نشر بتجاوز</button>
+                </div>
+                <span class="saved-flag" id="vl-published-flag">تم النشر</span>
+            </div>
+        </div>
+    </section>
 </template>
 
 <template id="not-authorized-template">
@@ -392,11 +549,32 @@ if (user) {
     if (user.profile?.role === 'admin') {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('page-template').content.cloneNode(true));
+        initTabGroup(document.getElementById('sectionTabs'));
+        initTabGroup(document.getElementById('vlTabs'));
         initReviewCenter(user);
+        initValidationLab();
     } else {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('not-authorized-template').content.cloneNode(true));
     }
+}
+
+// تبديل تبويبات عام (مُستخدَم لكل من تبويب "قائمة التعلّم / معمل التحقق"
+// الرئيسي، وتبويبات معمل التحقق الفرعية "محاكاة / تشغيل الظل / بوابة
+// النشر") — بيدوّر بس على الأزرار والألواح اللي عليها نفس data-group.
+function initTabGroup(tabsEl) {
+    if (!tabsEl) return;
+    const group = tabsEl.dataset.group;
+    const buttons = tabsEl.querySelectorAll(':scope > .tab-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll(`.tab-panel[data-group="${group}"]`).forEach(p => {
+                p.classList.toggle('active', p.id === btn.dataset.target);
+            });
+        });
+    });
 }
 
 // ------------------------------------------------------------------
