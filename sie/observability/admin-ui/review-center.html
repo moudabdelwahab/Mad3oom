@@ -129,7 +129,7 @@ button { cursor: pointer; }
 .detail-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:1.75rem; }
 @media (max-width:900px){ .detail-grid{ grid-template-columns:1fr; } }
 
-/* عمود التتبّع — الخطوات الفعلية المتاحة في trace jsonb */
+/* عمود التتبّع — الخطوات الفعلية المتاحة في أعمدة chat_engine_trace_events المنفصلة */
 .spine{ position:relative; padding-right:26px; }
 .spine::before{ content:''; position:absolute; right:7px; top:6px; bottom:6px; width:2px; background:linear-gradient(180deg, var(--color-accent-2) 0%, rgba(255,255,255,.12) 100%); }
 .spine-step{ position:relative; margin-bottom:4px; }
@@ -797,10 +797,11 @@ async function initReviewCenter(currentUser) {
         });
     }
 
-    async function openDetail(i) {
-        selected = i;
+    async function openDetail(traceEventId) {
+        const item = QUEUE.find(q => q.traceEventId === traceEventId);
+        if (!item) return;
+        selected = traceEventId;
         renderQueue();
-        const item = QUEUE[i];
         const detail = document.getElementById('detail');
         detail.classList.add('open');
         document.getElementById('detail-title').textContent = `الجلسة ${item.sessionId} — الدور ${item.turn}`;
@@ -816,9 +817,16 @@ async function initReviewCenter(currentUser) {
         const noteField = document.getElementById('correction-note');
         noteField.value = item.notes || '';
 
-        pendingStatus[i] = pendingStatus[i] || item.status;
-        renderStatusOptions(i);
+        pendingStatus[traceEventId] = pendingStatus[traceEventId] || item.status;
+        renderStatusOptions(traceEventId);
         document.getElementById('saved-flag').classList.remove('show');
+
+        const convWrap = document.getElementById('conversation-transcript');
+        convWrap.style.display = 'none';
+        convWrap.innerHTML = '';
+        const loadConvBtn = document.getElementById('loadConversationBtn');
+        loadConvBtn.textContent = 'عرض';
+        loadConvBtn.onclick = () => loadConversation(item.sessionId, traceEventId);
 
         detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -832,7 +840,7 @@ async function initReviewCenter(currentUser) {
                 .eq('id', item.traceEventId)
                 .maybeSingle();
             if (error) throw error;
-            if (selected !== i) return; // المستخدم فتح صف تاني قبل ما يخلص التحميل
+            if (selected !== traceEventId) return; // المستخدم فتح صف تاني قبل ما يخلص التحميل
 
             if (!data) {
                 document.getElementById('spine').innerHTML = '<div class="empty-state" style="padding:2rem 0;">تعذّر إيجاد سجل التتبّع الكامل لهذا الصف.</div>';
@@ -844,9 +852,56 @@ async function initReviewCenter(currentUser) {
             document.getElementById('response-text').textContent = responseText || '—';
         } catch (err) {
             console.error('[review-center] تعذّر تحميل تفاصيل التتبّع:', err);
-            if (selected === i) {
+            if (selected === traceEventId) {
                 document.getElementById('spine').innerHTML = '<div class="empty-state" style="padding:2rem 0;">تعذّر تحميل تفاصيل التتبّع.</div>';
             }
+        }
+    }
+
+    // المحادثة الكاملة للجلسة — مش الدور المُبلَّغ عنه بس — عشان السياق.
+    // best effort: لو الحساب الحالي مش is_main_admin() فعليًا (بريد محدد،
+    // مش أي دور admin) هيرجع فاضي بسبب RLS على chat_messages.
+    async function loadConversation(sessionId, forTraceEventId) {
+        const wrap = document.getElementById('conversation-transcript');
+        const btn = document.getElementById('loadConversationBtn');
+        if (wrap.style.display === 'flex') {
+            wrap.style.display = 'none';
+            btn.textContent = 'عرض';
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'جارِ التحميل…';
+        try {
+            const { data, error } = await supabase
+                .from('chat_messages')
+                .select('id, message_text, is_bot_reply, is_admin_reply, created_at, image_url')
+                .eq('session_id', sessionId)
+                .order('created_at', { ascending: true })
+                .limit(300);
+            if (error) throw error;
+            if (selected !== forTraceEventId) return;
+
+            const rows = data || [];
+            if (rows.length === 0) {
+                wrap.innerHTML = '<div class="empty-state" style="padding:1rem 0;">مفيش رسائل متاحة لهذه الجلسة (أو الحساب الحالي مالوش صلاحية قراءتها).</div>';
+            } else {
+                wrap.innerHTML = rows.map(m => {
+                    const cls = m.is_admin_reply ? 'admin' : (m.is_bot_reply ? 'bot' : 'customer');
+                    const who = m.is_admin_reply ? 'الفريق' : (m.is_bot_reply ? 'البوت' : 'العميل');
+                    const time = new Date(m.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                    const body = m.message_text || (m.image_url ? '(صورة)' : '—');
+                    return `<div class="t-msg ${cls}">${escapeHtml(body)}<div class="t-meta">${who} · ${time}</div></div>`;
+                }).join('');
+            }
+            wrap.style.display = 'flex';
+            btn.textContent = 'إخفاء';
+        } catch (err) {
+            console.error('[review-center] تعذّر تحميل المحادثة الكاملة:', err);
+            wrap.innerHTML = '<div class="empty-state" style="padding:1rem 0;">تعذّر تحميل المحادثة — تحقق من صلاحيات الحساب.</div>';
+            wrap.style.display = 'flex';
+            btn.textContent = 'عرض';
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -855,24 +910,25 @@ async function initReviewCenter(currentUser) {
         document.getElementById(`spine-step-${si}`).classList.toggle('inactive');
     }
 
-    function renderStatusOptions(i) {
+    function renderStatusOptions(traceEventId) {
         const wrap = document.getElementById('status-options');
         wrap.innerHTML = STATUS_OPTIONS.map(s => `
-            <button class="status-opt ${pendingStatus[i] === s.value ? 'active' : ''}" data-value="${s.value}">${s.label}</button>
+            <button class="status-opt ${pendingStatus[traceEventId] === s.value ? 'active' : ''}" data-value="${s.value}">${s.label}</button>
         `).join('');
         wrap.querySelectorAll('.status-opt').forEach(btn => {
-            btn.addEventListener('click', () => setStatus(i, btn.dataset.value));
+            btn.addEventListener('click', () => setStatus(traceEventId, btn.dataset.value));
         });
     }
 
-    function setStatus(i, s) {
-        pendingStatus[i] = s;
-        renderStatusOptions(i);
+    function setStatus(traceEventId, s) {
+        pendingStatus[traceEventId] = s;
+        renderStatusOptions(traceEventId);
     }
 
     async function saveReview() {
         if (selected === null) return;
-        const item = QUEUE[selected];
+        const item = QUEUE.find(q => q.traceEventId === selected);
+        if (!item) return;
         const saveBtn = document.getElementById('saveReviewBtn');
         const notes = document.getElementById('correction-note').value.trim() || null;
         const correctedScenarioId = document.getElementById('correction-scenario').value || null;
@@ -909,6 +965,7 @@ async function initReviewCenter(currentUser) {
                     .single();
                 if (error) throw error;
                 item.reviewId = data.id;
+                reviewsBySession[item.sessionId] = { id: data.id, session_id: item.sessionId, status, corrected_scenario_id: correctedScenarioId, notes };
             }
 
             item.status = status;
@@ -940,7 +997,23 @@ async function initReviewCenter(currentUser) {
     });
     document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 
-    await Promise.all([loadScenarioOptions(), loadQueue()]);
+    document.getElementById('filter-reason').addEventListener('change', e => { filters.reason = e.target.value; renderQueue(); });
+    document.getElementById('filter-status').addEventListener('change', e => { filters.status = e.target.value; renderQueue(); });
+    document.getElementById('filter-session').addEventListener('input', e => { filters.session = e.target.value.trim().toLowerCase(); renderQueue(); });
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        filters.reason = 'all'; filters.status = 'all'; filters.session = '';
+        document.getElementById('filter-reason').value = 'all';
+        document.getElementById('filter-status').value = 'all';
+        document.getElementById('filter-session').value = '';
+        renderQueue();
+    });
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+        loadQueue({ reset: true });
+        loadEnginePulse();
+    });
+    document.getElementById('loadMoreBtn').addEventListener('click', () => loadQueue({ reset: false }));
+
+    await Promise.all([loadScenarioOptions(), loadQueue(), loadEnginePulse()]);
 }
 </script>
 </body>
