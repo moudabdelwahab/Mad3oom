@@ -50,10 +50,19 @@ export const ar = {
             }));
             return { text: decision.targetQuestion.prompt.ar, options };
         }
-        return {
-            text: 'ممكن توضحلي أكتر عن المشكلة اللي حضرتك واجهتها؟ [[icon:search]]',
-            options: []
-        };
+        // بيتكرر لحد MAX_CLARIFYING_QUESTIONS مرة في نفس الجلسة (decision-policy.js)
+        // لو العميل مش راجع بدليل تشخيصي جديد — فالنص بيتنوّع حسب رقم المحاولة
+        // (decision.attemptNumber، صفر-index) بدل ما يتكرر نفسه حرفيًا كل مرة،
+        // ومع اقتراب آخر محاولة بنقول للعميل صراحة إننا هنوصله بفريق الدعم لو
+        // احتجنا. لو attemptNumber مش موجودة (null/undefined) بترجع أول نص —
+        // نفس السلوك القديم بالظبط.
+        const GENERIC_CLARIFY_VARIANTS = [
+            'ممكن توضحلي أكتر عن المشكلة اللي حضرتك واجهتها؟ [[icon:search]]',
+            'معلش، حابب أفهم أكتر — تقدر تقولي بالظبط إيه المشكلة اللي واجهتها، بالتفصيل؟ [[icon:search]]',
+            'لسه مش قادر أفهم المشكلة من التفاصيل اللي وصلتني — جرّب توضحها بشكل مختلف، ولو صعبت هوصلك بفريق الدعم البشري على طول [[icon:search]]'
+        ];
+        const attempt = decision.attemptNumber ?? 0;
+        return { text: GENERIC_CLARIFY_VARIANTS[Math.min(attempt, GENERIC_CLARIFY_VARIANTS.length - 1)], options: [] };
     },
 
     ASK_FOR_SCREENSHOT: () => ({
