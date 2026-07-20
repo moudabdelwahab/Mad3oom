@@ -23,10 +23,11 @@
  * itself never writes an error message to chat_messages.
  */
 import { normalize } from '/sie/language/normalizer.js';
+import { detectSmallTalk, SMALL_TALK_REPLIES } from '/sie/language/small-talk.js';
 import { processTurn } from '/sie/diagnostics/diagnostic-engine.js';
 import { rankDiagnosticState } from '/sie/ranking/ranking-engine.js';
 import { decide } from '/sie/decision/decision-engine.js';
-import { ACTIONS } from '/sie/decision/decision-types.js';
+import { ACTIONS, createEmptyDecisionState } from '/sie/decision/decision-types.js';
 import { composeAnswerDecision } from '/sie/knowledge/answer-composer.js';
 import { renderDecision } from '/sie/dialogue/dialogue-renderer.js';
 import { executeDecision, logTraceEvent } from '/sie/action/action-layer.js';
@@ -192,6 +193,89 @@ async function resolvePendingTicketConfirmation({ text, sessionId, botState, pre
     };
 }
 
+const HUMAN_REQUEST_TEXT = {
+    ar: 'تمام، هوصلك بفريق الدعم البشري دلوقتي وهيتواصلوا معاك في أقرب وقت [[icon:note]]',
+    en: "Sure thing, I'll connect you with our human support team right away — they'll be in touch shortly [[icon:note]]"
+};
+
+/**
+ * العميل طلب صراحة إنه يتكلم مع حد بشري (sie/language/small-talk.js's
+ * human_request). مفيش داعي نستنى نأكد معاه زي CREATE_TICKET العادي —
+ * هو أصلاً قال اللي عايزه، فبننفذ تصعيد حقيقي (ESCALATE_TO_HUMAN) على
+ * طول بدل رد كلامي بس. بنحدّث decisionState.ticketAlreadyCreated يدويًا
+ * (بدل ما نستدعي decide()) عشان أي دور تشخيصي بعد كده — لو الجلسة كانت
+ * أصلاً في نص تشخيص — ميحاولش يفتح تذكرة تانية مكررة.
+ */
+async function escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionId, botState, prevSie, port }) {
+    const lang = responseLanguage === 'en' ? 'en' : 'ar';
+    const rendered = { text: HUMAN_REQUEST_TEXT[lang], options: [] };
+
+    const prevDecisionState = prevSie?.decisionState || createEmptyDecisionState();
+    const nextDecisionState = {
+        ...prevDecisionState,
+        lastAction: ACTIONS.ESCALATE_TO_HUMAN,
+        lastScenarioId: null,
+        ticketAlreadyCreated: true,
+        history: [
+            ...prevDecisionState.history,
+            { turn, action: ACTIONS.ESCALATE_TO_HUMAN, scenarioId: null, confidence: null, explanation: 'Customer explicitly asked to speak with a human agent.' }
+        ]
+    };
+
+    const decision = {
+        action: ACTIONS.ESCALATE_TO_HUMAN,
+        turn,
+        explanation: 'Customer explicitly asked to speak with a human agent; escalating immediately without further diagnosis.',
+        ticketDraft: { scenarioId: null, category: 'other', diagnosticTrail: [] }
+    };
+
+    const nextBotState = {
+        ...(botState || {}),
+        sie: {
+            diagnosticState: prevSie?.diagnosticState || null,
+            decisionState: nextDecisionState,
+            language: lang,
+            turnCount: turn
+        }
+    };
+
+    const actionResult = await executeDecision({ decision, rendered, sessionId, nextBotState, port });
+    if (!actionResult?.success) {
+        console.error('SIE action-layer write failed (explicit human request escalation):', actionResult);
+        return null;
+    }
+
+    return { reply: rendered.text, options: rendered.options, alreadyPersisted: true, ticketNumber: actionResult.ticketNumber ?? null };
+}
+
+/**
+ * رد على "مرحبا"/"انت مين؟" وأشباهها (sie/language/small-talk.js) من غير ما
+ * نعدّي على Diagnostics/Ranking/Decision خالص — مش دليل تشخيصي، فمش لازم
+ * "يستهلك" أي حصة من MAX_CLARIFYING_QUESTIONS ولا يتحسب turn حقيقي في
+ * تعداد المحرك. botState.sie بيفضل زي ما هو تمامًا (لو كانت فيه جلسة
+ * تشخيص شغّالة فعلاً، بتكمل عادي في الدور اللي بعد كده).
+ */
+async function respondToSmallTalk({ smallTalk, responseLanguage, sessionId, botState, prevSie, port }) {
+    const lang = responseLanguage === 'en' ? 'en' : 'ar';
+    const rendered = { text: SMALL_TALK_REPLIES[smallTalk.type][lang], options: [] };
+    const nextBotState = { ...(botState || {}), sie: prevSie ? { ...prevSie } : { turnCount: 0 } };
+
+    const actionResult = await executeDecision({
+        decision: { action: ACTIONS.WAIT_FOR_USER, turn: prevSie?.turnCount || 0 },
+        rendered,
+        sessionId,
+        nextBotState,
+        port
+    });
+
+    if (!actionResult?.success) {
+        console.error('SIE action-layer write failed (small talk):', actionResult);
+        return null;
+    }
+
+    return { reply: rendered.text, options: rendered.options, alreadyPersisted: true, ticketNumber: null };
+}
+
 /**
  * @param {Object} params
  * @param {string} params.text
@@ -231,6 +315,26 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
         const { normalizedTokens, responseLanguage } = await normalize(text, {
             previousLanguage: prevSie?.language || 'ar'
         });
+
+        // 2.5. كلام عادي (تحية / شكر / سؤال هوية أو عن المنصة / طلب موظف
+        // بشري)؟ (sie/language/small-talk.js) مش دليل تشخيصي — بنردّ عليه
+        // مباشرة من غير ما نستهلك حصة أسئلة التوضيح ولا نغيّر حالة التشخيص
+        // الحالية. لو الجلسة كانت شغّالة في تشخيص فعلي، هتكمل عادي في الدور
+        // اللي بعد كده لأن botState.sie ماتغيرش هنا (ما عدا human_request،
+        // اللي بيسجّل تصعيد حقيقي – شايف escalateOnExplicitHumanRequest فوق).
+        const smallTalk = detectSmallTalk(text);
+        if (smallTalk?.type === 'human_request') {
+            const result = await escalateOnExplicitHumanRequest({ responseLanguage, turn, sessionId, botState, prevSie, port });
+            if (result) return result;
+            return null;
+        }
+        if (smallTalk) {
+            const result = await respondToSmallTalk({ smallTalk, responseLanguage, sessionId, botState, prevSie, port });
+            if (result) return result;
+            // لو الكتابة فشلت، منكملش على البايبلاين التشخيصي بنفس normalizedTokens
+            // القديمة دي — نرجع null عادي زي أي فشل تاني، والـ caller هيقع للمحرك التقليدي.
+            return null;
+        }
 
         // 3. Diagnostics (Module 3)
         const diagnosticState = await processTurn({
