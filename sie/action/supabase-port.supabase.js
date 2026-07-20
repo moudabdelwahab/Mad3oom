@@ -52,12 +52,39 @@ export function createRealSupabasePort(supabaseClient) {
     }
 
     // ---- Added during Module 9 (Observability / Review Center / Validation Lab) ----
+    //
+    // ملحوظة مهمة (تم تصحيحها): الجدول الحي chat_engine_trace_events اتغيّر
+    // شكله فعليًا بعد أول كتابة لهذا الملف — بقى بأعمدة منفصلة
+    // (normalized_tokens, hypotheses, ranking, decision, knowledge_data,
+    // rendered, action_result, response_language, processing_time_ms) بدل
+    // عمود trace (jsonb) واحد. الدالة تحت كانت لسه بتكتب على العمود القديم
+    // اللي مبقاش موجود، فكل INSERT كان بيفشل بصمت (يتلقّط في try/catch جوه
+    // sie-chat-bridge.js) — وده السبب الحقيقي إن chat_engine_trace_events
+    // فضل 0 صف حتى بعد استخدام حقيقي من عميل مؤهّل SIE. نفس الكلام كان
+    // منطبق على createConversationReview/updateConversationReview تحت،
+    // اللي كانت لسه بتفترض أعمدة (triggered_by_turn, reason, correction,
+    // status='open') مش موجودة في الجدول الحقيقي أصلاً (status مقيّد بـ
+    // CHECK على unresolved/reviewed/corrected بس).
 
-    async function insertTraceEvent({ sessionId, turn, traceEvent }) {
+    async function insertTraceEvent({
+        sessionId, turn, traceEvent,
+        responseLanguage = null, processingTimeMs = null, actionResult = null, renderedOptions = null
+    }) {
         const { error } = await supabaseClient.from('chat_engine_trace_events').insert({
             session_id: sessionId,
             turn,
-            trace: traceEvent
+            normalized_tokens: {
+                rawText: traceEvent?.rawText ?? null,
+                canonicals: traceEvent?.normalizedTokenCanonicals ?? []
+            },
+            hypotheses: traceEvent?.hypothesesSnapshot ?? [],
+            ranking: traceEvent?.rankingSnapshot ?? {},
+            decision: traceEvent?.decision ?? {},
+            knowledge_data: traceEvent?.decision?.knowledgeData ?? null,
+            rendered: { responseText: traceEvent?.responseText ?? '', options: renderedOptions ?? [] },
+            action_result: actionResult,
+            response_language: responseLanguage,
+            processing_time_ms: processingTimeMs
         });
         return { success: !error, error: error?.message ?? null };
     }
@@ -65,7 +92,11 @@ export function createRealSupabasePort(supabaseClient) {
     async function createConversationReview({ sessionId, triggeredByTurn, reason }) {
         const { data, error } = await supabaseClient
             .from('chat_engine_conversation_reviews')
-            .insert({ session_id: sessionId, triggered_by_turn: triggeredByTurn, reason, status: 'open' })
+            .insert({
+                session_id: sessionId,
+                status: 'unresolved',
+                notes: reason ? `تم الرصد تلقائيًا (${reason}) عند الدور رقم ${triggeredByTurn ?? '—'}` : null
+            })
             .select('id')
             .single();
         return { success: !error, error: error?.message ?? null, reviewId: error ? null : (data?.id ?? null) };
@@ -74,7 +105,7 @@ export function createRealSupabasePort(supabaseClient) {
     async function updateConversationReview({ reviewId, status, correction = null }) {
         const { error } = await supabaseClient
             .from('chat_engine_conversation_reviews')
-            .update({ status, correction, updated_at: new Date().toISOString() })
+            .update({ status, corrected_scenario_id: correction, reviewed_at: new Date().toISOString() })
             .eq('id', reviewId);
         return { success: !error, error: error?.message ?? null };
     }
