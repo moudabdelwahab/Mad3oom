@@ -47,7 +47,13 @@ export const en = {
             }));
             return { text: decision.targetQuestion.prompt.en, options };
         }
-        return { text: 'Could you tell me a bit more about the issue you ran into?', options: [] };
+        const GENERIC_CLARIFY_VARIANTS = [
+            'Could you tell me a bit more about the issue you ran into?',
+            "Sorry, I'd like to understand better — could you describe exactly what problem you're facing, in a bit more detail?",
+            "I still can't quite pin down the issue from what I have — try describing it a different way, and if it's still unclear I'll connect you with our human support team right away."
+        ];
+        const attempt = decision.attemptNumber ?? 0;
+        return { text: GENERIC_CLARIFY_VARIANTS[Math.min(attempt, GENERIC_CLARIFY_VARIANTS.length - 1)], options: [] };
     },
 
     ASK_FOR_SCREENSHOT: () => ({
