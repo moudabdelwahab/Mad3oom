@@ -9,19 +9,26 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/robot.css">
 <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+<script src="/theme-manager.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root, :root[data-theme='light'], :root[data-theme='dark']{
-    --color-primary:#00234A; --color-primary-variant:#0077CC; --color-accent:#0077CC; --color-accent-2:#4DA3FF;
-    --color-background:#060B14; --color-surface:#0D1622; --color-surface-2:#121F30;
-    --color-text:#F3F6FB; --color-text-secondary:#94A6C2; --color-text-3:#5A6A82; --color-muted:#101B2C;
-    --color-success:#22C58B; --color-warning:#F5A623; --color-danger:#FF6B6B; --color-border:rgba(255,255,255,.09);
-    --input-bg:#0F1A2A; --shadow-lg:0 25px 60px -20px rgba(0,8,25,.75); --shadow-sm:0 10px 24px -12px rgba(0,8,25,.6);
+:root{
+    /* هذه فقط الـ tokens الإضافية اللي الصفحة دي محتاجاها فوق منظومة
+       الألوان العامة للوحة (--color-primary/background/surface/text/
+       text-secondary/muted/success/warning/danger/border/input-bg اللي
+       أصلاً معرّفة وتتبع الوضع الفاتح/الداكن في /styles.css). ما بنعيدش
+       تعريفها هنا عشان الصفحة تتبع تبديل النافبار تلقائيًا. */
+    --color-accent-2:#0066CC;
+    --color-text-3:#8992A3;
     --font-display:'Cairo', 'IBM Plex Sans Arabic', sans-serif;
     --font-body:'IBM Plex Sans Arabic', 'Cairo', sans-serif;
     --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+}
+[data-theme='dark']{
+    --color-accent-2:#4DA3FF;
+    --color-text-3:#5A6A82;
 }
 * { box-sizing: border-box; }
 body{
@@ -39,9 +46,11 @@ body::before{
 }
 body::after{
     content:""; position:fixed; inset:0; z-index:-1;
+    mask-image: radial-gradient(60rem 60rem at 70% 0%, black, transparent 70%);
+}
+[data-theme='dark'] body::after{
     background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px);
     background-size: 32px 32px;
-    mask-image: radial-gradient(60rem 60rem at 70% 0%, black, transparent 70%);
     opacity:.6;
 }
 h1,h2,h3,h4 { font-family: var(--font-display); }
@@ -54,25 +63,34 @@ button { cursor: pointer; }
     background: linear-gradient(90deg,#8FC7FF,#4DA3FF,#B9DCFF);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
+[data-theme='light'] .gradient-text, :root:not([data-theme]) .gradient-text{
+    background: linear-gradient(90deg,#0055AA,#0077CC,#0A6BD1);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
 .eyebrow{
     display:inline-flex; align-items:center; gap:.5rem; font-size:.75rem; font-weight:700;
-    color:#8FC7FF; background:rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.25);
+    color:#0066CC; background:rgba(0,119,204,.10); border:1px solid rgba(0,119,204,.22);
     padding:.3rem .85rem; border-radius:99px; margin-bottom:.6rem;
 }
+[data-theme='dark'] .eyebrow{ color:#8FC7FF; background:rgba(0,119,204,.14); border-color:rgba(77,163,255,.25); }
 .eyebrow .dot { width:6px; height:6px; border-radius:50%; background:var(--color-accent-2); box-shadow:0 0 8px var(--color-accent-2); }
 .glass-card{
-    background: rgba(255,255,255,.04); border:1px solid var(--color-border);
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-radius:1.1rem;
+    background: var(--color-surface); border:1px solid var(--color-border);
+    border-radius:1.1rem; box-shadow:0 14px 30px -20px rgba(15,30,60,.18);
+}
+[data-theme='dark'] .glass-card{
+    background: rgba(255,255,255,.04); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    box-shadow:none;
 }
 .page-header{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem; margin-bottom:1.75rem; }
 .page-header h1{ font-size:clamp(1.4rem,3vw,1.9rem); margin:0; }
 .page-header p{ color:var(--color-text-secondary); margin:.5rem 0 0; max-width:62ch; font-size:.9rem; line-height:1.7; }
 .demo-flag{
-    font-family: var(--font-mono); direction: ltr; font-size:10.5px; color:#8FC7FF;
+    font-family: var(--font-mono); direction: ltr; font-size:10.5px; color:var(--color-accent-2);
     background: rgba(0,119,204,.14); border:1px solid rgba(77,163,255,.25); padding:4px 10px; border-radius:20px; white-space:nowrap;
 }
-.demo-flag.live{ color:#22C58B; background:rgba(34,197,139,.14); border-color:rgba(34,197,139,.3); }
-.demo-flag.error{ color:#FF6B6B; background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.3); }
+.demo-flag.live{ color:var(--color-success); background:rgba(34,197,139,.14); border-color:rgba(34,197,139,.3); }
+.demo-flag.error{ color:var(--color-danger); background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.3); }
 
 .not-authorized{
     max-width:520px; margin:4rem auto; text-align:center; padding:2.5rem 2rem;
@@ -81,10 +99,10 @@ button { cursor: pointer; }
 /* ---------- إحصائيات سريعة ---------- */
 .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1rem; margin-bottom:1.75rem; }
 .stat-card{ padding:1.15rem 1.25rem; display:flex; align-items:center; gap:1rem; }
-.stat-icon{ width:44px; height:44px; min-width:44px; border-radius:.85rem; display:flex; align-items:center; justify-content:center; background:rgba(0,119,204,.15); color:#8FC7FF; }
-.stat-icon.warn { background:rgba(245,166,35,.15); color:#F5A623; }
-.stat-icon.danger { background:rgba(255,107,107,.15); color:#FF6B6B; }
-.stat-icon.ok { background:rgba(34,197,139,.15); color:#22C58B; }
+.stat-icon{ width:44px; height:44px; min-width:44px; border-radius:.85rem; display:flex; align-items:center; justify-content:center; background:rgba(0,119,204,.15); color:var(--color-accent-2); }
+.stat-icon.warn { background:rgba(245,166,35,.15); color:var(--color-warning); }
+.stat-icon.danger { background:rgba(255,107,107,.15); color:var(--color-danger); }
+.stat-icon.ok { background:rgba(34,197,139,.15); color:var(--color-success); }
 .stat-info .stat-label{ font-size:.78rem; color:var(--color-text-secondary); font-weight:600; }
 .stat-info .stat-value{ font-size:1.5rem; font-weight:800; color:var(--color-text); font-family:'Space Grotesk', var(--font-display); }
 
@@ -94,26 +112,28 @@ button { cursor: pointer; }
 .queue-table{ width:100%; border-collapse:collapse; min-width:760px; }
 .queue-table th{
     text-align:right; font-size:.72rem; font-weight:700; color:var(--color-text-secondary);
-    padding:.9rem 1.1rem; border-bottom:1px solid var(--color-border); white-space:nowrap; background:rgba(255,255,255,.02);
+    padding:.9rem 1.1rem; border-bottom:1px solid var(--color-border); white-space:nowrap; background:rgba(10,35,70,.035);
 }
+[data-theme='dark'] .queue-table th{ background:rgba(255,255,255,.02); }
 .queue-table td{ padding:.85rem 1.1rem; border-bottom:1px solid var(--color-border); font-size:.85rem; vertical-align:middle; }
 .queue-table tbody tr{ cursor:pointer; transition:background .15s ease; }
-.queue-table tbody tr:hover{ background:rgba(255,255,255,.035); }
+.queue-table tbody tr:hover{ background:rgba(10,35,70,.05); }
+[data-theme='dark'] .queue-table tbody tr:hover{ background:rgba(255,255,255,.035); }
 .queue-table tbody tr.selected{ background:rgba(0,119,204,.12); }
 .qid{ font-family:var(--font-mono); direction:ltr; text-align:left; color:var(--color-text-3); font-size:.78rem; }
 .qmsg-sub{ display:block; color:var(--color-text-3); font-size:.74rem; margin-top:2px; }
 .conf{ font-family:var(--font-mono); direction:ltr; text-align:left; font-size:.82rem; color:var(--color-text-secondary); }
 
 .badge{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; width:fit-content; }
-.badge.fallback { background:rgba(245,166,35,.16); color:#F5A623; }
-.badge.escalated_unknown { background:rgba(255,107,107,.16); color:#FF6B6B; }
-.badge.low_confidence { background:rgba(0,119,204,.16); color:#4DA3FF; }
+.badge.fallback { background:rgba(245,166,35,.16); color:var(--color-warning); }
+.badge.escalated_unknown { background:rgba(255,107,107,.16); color:var(--color-danger); }
+.badge.low_confidence { background:rgba(0,119,204,.16); color:var(--color-accent-2); }
 
 .status-badge{ display:inline-flex; padding:.25rem .75rem; border-radius:99px; font-size:.72rem; font-weight:700; width:fit-content; }
-.status-open      { background:rgba(148,166,194,.16); color:#94A6C2; }
-.status-in_review { background:rgba(245,166,35,.16);  color:#F5A623; }
-.status-resolved  { background:rgba(34,197,139,.16);  color:#22C58B; }
-.status-dismissed { background:rgba(255,107,107,.16); color:#FF6B6B; }
+.status-open      { background:rgba(148,166,194,.16); color:var(--color-text-secondary); }
+.status-in_review { background:rgba(245,166,35,.16);  color:var(--color-warning); }
+.status-resolved  { background:rgba(34,197,139,.16);  color:var(--color-success); }
+.status-dismissed { background:rgba(255,107,107,.16); color:var(--color-danger); }
 
 .empty-state{ padding:4rem 1rem; text-align:center; color:var(--color-text-secondary); font-size:.9rem; }
 
@@ -134,9 +154,11 @@ button { cursor: pointer; }
 .spine::before{ content:''; position:absolute; right:7px; top:6px; bottom:6px; width:2px; background:linear-gradient(180deg, var(--color-accent-2) 0%, rgba(255,255,255,.12) 100%); }
 .spine-step{ position:relative; margin-bottom:4px; }
 .spine-dot{ position:absolute; right:-26px; top:3px; width:14px; height:14px; border-radius:50%; background:var(--color-surface); border:2px solid var(--color-accent-2); }
-.spine-step.inactive .spine-dot{ border-color:rgba(255,255,255,.2); }
+.spine-step.inactive .spine-dot{ border-color:rgba(10,35,70,.18); }
+[data-theme='dark'] .spine-step.inactive .spine-dot{ border-color:rgba(255,255,255,.2); }
 .spine-toggle{ width:100%; text-align:right; background:none; border:none; padding:.5rem 0 .5rem .75rem; display:flex; justify-content:space-between; align-items:center; border-radius:.5rem; color:var(--color-text); }
-.spine-toggle:hover{ background:rgba(255,255,255,.03); }
+.spine-toggle:hover{ background:rgba(10,35,70,.05); }
+[data-theme='dark'] .spine-toggle:hover{ background:rgba(255,255,255,.03); }
 .spine-num{ font-family:var(--font-mono); direction:ltr; font-size:10.5px; color:var(--color-text-3); margin-left:8px; }
 .spine-name{ font-weight:700; font-size:.88rem; }
 .spine-summary{ font-size:.78rem; color:var(--color-text-3); font-family:var(--font-mono); direction:ltr; text-align:left; }
@@ -167,7 +189,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 .btn-ghost:disabled{ opacity:.55; cursor:default; }
 .btn-sm{ padding:.4rem .75rem; font-size:.74rem; }
 .save-row{ display:flex; justify-content:flex-start; align-items:center; gap:.8rem; margin-top:.9rem; }
-.saved-flag{ font-size:.78rem; color:#22C58B; display:none; }
+.saved-flag{ font-size:.78rem; color:var(--color-success); display:none; }
 .saved-flag.show{ display:inline; }
 
 /* ---------- رأس الصفحة: أزرار وحالة الاتصال ---------- */
@@ -182,7 +204,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 .pulse-value{ font-size:1.3rem; font-weight:800; font-family:'Space Grotesk', var(--font-display); color:var(--color-text); }
 .pulse-value.zero{ color:var(--color-text-3); }
 .pulse-label{ font-size:.72rem; color:var(--color-text-secondary); margin-top:.2rem; }
-.pulse-note{ margin-top:.9rem; padding-top:.8rem; border-top:1px solid var(--color-border); font-size:.78rem; color:#F5A623; display:none; line-height:1.7; }
+.pulse-note{ margin-top:.9rem; padding-top:.8rem; border-top:1px solid var(--color-border); font-size:.78rem; color:var(--color-warning); display:none; line-height:1.7; }
 .pulse-note.show{ display:block; }
 
 /* ---------- شريط الفلاتر ---------- */
@@ -216,7 +238,8 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 
 /* ---------- معمل التحقق: مقارنة قبل/بعد المحاكاة ---------- */
 .compare-card{ margin-bottom:1rem; overflow:hidden; }
-.compare-head{ padding:.75rem 1.25rem; background:rgba(255,255,255,.03); border-bottom:1px solid var(--color-border); font-size:.78rem; color:var(--color-text-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+.compare-head{ padding:.75rem 1.25rem; background:rgba(10,35,70,.035); border-bottom:1px solid var(--color-border); font-size:.78rem; color:var(--color-text-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+[data-theme='dark'] .compare-head{ background:rgba(255,255,255,.03); }
 .compare-body{ display:grid; grid-template-columns:1fr 1fr; }
 @media (max-width:900px){ .compare-body{ grid-template-columns:1fr; } }
 .compare-col{ padding:1.1rem 1.25rem; }
@@ -417,34 +440,40 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
     <section class="tab-panel" id="panel-validation-lab" data-group="section">
         <div class="page-header" style="margin-bottom:1.25rem;">
             <div>
-                <p class="tab-intro" style="margin:0;">أعد تشغيل تعديل مقترح على سيناريو أو معرفة على محادثات حقيقية مخزّنة قبل ما يوصل لأي عميل. النشر ممنوع لحد ما يعدي التعديل مجموعة اختبارات الانحدار.</p>
+                <p class="tab-intro" style="margin:0;">اختبر أي تعديل مقترح على سيناريو أو معرفة على محادثات حقيقية، قبل ما يوصل لأي عميل.</p>
             </div>
             <div class="header-actions">
-                <span class="demo-flag" style="display:inline-flex;">● بيانات تجريبية — غير متصلة بقاعدة بيانات حقيقية</span>
+                <span class="last-sync" id="vl-last-sync"></span>
+                <button class="btn btn-ghost btn-sm" id="vl-refresh-btn" title="تحديث القوائم الآن">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    تحديث
+                </button>
             </div>
         </div>
 
+        <div class="glass-card filters-card">
+            <div class="filters-row">
+                <div class="filter-field" style="min-width:280px;">
+                    <label>التعديل المطلوب اختباره</label>
+                    <select id="vl-target"><option value="">جارِ التحميل…</option></select>
+                </div>
+            </div>
+        </div>
+        <p class="hint" id="vl-empty-note" style="display:none; margin:-.6rem 0 1.5rem;">مفيش تعديلات قيد المراجعة دلوقتي — أي تعديل جديد على سيناريو أو معرفة هيظهر هنا تلقائيًا عشان تختبره.</p>
+
         <div class="tabs sub-tabs" id="vlTabs" data-group="vl">
-            <button class="tab-btn active" data-target="vl-panel-sim">محاكاة</button>
-            <button class="tab-btn" data-target="vl-panel-shadow">تشغيل الظل</button>
-            <button class="tab-btn" data-target="vl-panel-gate">بوابة النشر</button>
+            <button class="tab-btn active" data-target="vl-panel-sim">محاكاة على محادثة واحدة</button>
+            <button class="tab-btn" data-target="vl-panel-shadow">اختبار شامل</button>
+            <button class="tab-btn" data-target="vl-panel-gate">النشر</button>
         </div>
 
         <div class="tab-panel active" id="vl-panel-sim" data-group="vl">
+            <p class="tab-intro">شوف هل الرد هيتغيّر أو لأ على محادثة حقيقية واحدة، قبل ما تروح لاختبار شامل.</p>
             <div class="glass-card filters-card">
                 <div class="filters-row">
                     <div class="filter-field">
-                        <label>التعديل المطلوب اختباره</label>
-                        <select id="vl-sim-target">
-                            <option>knowledge: pricing — مسودة v3</option>
-                        </select>
-                    </div>
-                    <span style="font-size:.78rem; color:var(--color-text-secondary); align-self:center;">قبل: <b class="ltr-data" style="display:inline; font-weight:700;">v2 (منشور)</b> ← بعد: <b class="ltr-data" style="display:inline; font-weight:700;">v3 (مسودة)</b></span>
-                    <div class="filter-field">
-                        <label>المحادثة المسجّلة</label>
-                        <select id="vl-sim-conversation">
-                            <option value="conv-pricing">conv-pricing — «عايز اعرف اسعار خطط باقات بكام عروض ايه»</option>
-                        </select>
+                        <label>محادثة حقيقية نجرّب عليها</label>
+                        <select id="vl-sim-conversation"><option value="">جارِ التحميل…</option></select>
                     </div>
                     <button class="btn btn-primary btn-sm" id="vl-run-sim-btn" style="align-self:flex-end;">شغّل المحاكاة</button>
                 </div>
@@ -453,41 +482,29 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
         </div>
 
         <div class="tab-panel" id="vl-panel-shadow" data-group="vl">
+            <p class="tab-intro">هيتم اختبار التعديل على آخر المحادثات الحقيقية من قائمة التعلّم دفعة واحدة، عشان نتأكد إنه مش هيبوّظ حاجة تانية.</p>
             <div class="glass-card filters-card">
                 <div class="filters-row">
-                    <div class="filter-field">
-                        <label>التعديل المطلوب اختباره</label>
-                        <select id="vl-shadow-target">
-                            <option>knowledge: pricing — مسودة v3</option>
-                        </select>
-                    </div>
-                    <div class="filter-field">
-                        <label>مصدر المحادثات</label>
-                        <select id="vl-shadow-source">
-                            <option>قائمة التعلّم (آخر 30 يوم)</option>
-                            <option>مجموعة مختارة يدويًا (12 محادثة)</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-primary btn-sm" id="vl-run-shadow-btn" style="align-self:flex-end;">شغّل مجموعة اختبارات الانحدار</button>
+                    <button class="btn btn-primary btn-sm" id="vl-run-shadow-btn">شغّل الاختبار الشامل</button>
                 </div>
             </div>
 
             <div class="stats-grid" id="vl-shadow-summary" style="display:none;">
                 <div class="glass-card stat-card">
                     <div class="stat-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></div>
-                    <div class="stat-info"><div class="stat-label">المحادثات</div><div class="stat-value" id="vl-stat-total">—</div></div>
+                    <div class="stat-info"><div class="stat-label">محادثات اتفحصت</div><div class="stat-value" id="vl-stat-total">—</div></div>
                 </div>
                 <div class="glass-card stat-card">
                     <div class="stat-icon ok"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
-                    <div class="stat-info"><div class="stat-label">ناجحة</div><div class="stat-value" id="vl-stat-pass">—</div></div>
+                    <div class="stat-info"><div class="stat-label">تمام</div><div class="stat-value" id="vl-stat-pass">—</div></div>
                 </div>
                 <div class="glass-card stat-card">
                     <div class="stat-icon danger"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                    <div class="stat-info"><div class="stat-label">فاشلة</div><div class="stat-value" id="vl-stat-fail">—</div></div>
+                    <div class="stat-info"><div class="stat-label">فيها مشكلة</div><div class="stat-value" id="vl-stat-fail">—</div></div>
                 </div>
                 <div class="glass-card stat-card">
                     <div class="stat-icon" id="vl-stat-verdict-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                    <div class="stat-info"><div class="stat-label">الحكم الإجمالي</div><div class="stat-value" id="vl-stat-verdict">—</div></div>
+                    <div class="stat-info"><div class="stat-label">النتيجة العامة</div><div class="stat-value" id="vl-stat-verdict">—</div></div>
                 </div>
             </div>
 
@@ -495,7 +512,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
                 <div class="table-wrap">
                     <table class="queue-table">
                         <thead>
-                            <tr><th>الجلسة</th><th>المحادثة</th><th>الحكم</th><th>الأدوار</th><th>السبب</th></tr>
+                            <tr><th>المحادثة</th><th>النتيجة</th><th>السبب</th></tr>
                         </thead>
                         <tbody id="vl-shadow-rows"></tbody>
                     </table>
@@ -507,15 +524,15 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             <div class="panel-block" style="max-width:640px;">
                 <div class="gate-status">
                     <span class="gate-dot" id="vl-gate-dot"></span>
-                    <h4 style="margin:0;" id="vl-gate-title">لا يوجد تشغيل تحقق مسجّل</h4>
+                    <h4 style="margin:0;" id="vl-gate-title">اختار تعديل الأول من فوق</h4>
                 </div>
-                <p class="hint" id="vl-gate-reason" style="margin-bottom:1rem;">شغّل تبويب «تشغيل الظل» الأول عشان يتسجل حكم لـ <code>knowledge:pricing v3</code>. النشر ممنوع لحد ما يبقى فيه حكم.</p>
+                <p class="hint" id="vl-gate-reason" style="margin-bottom:1rem;"></p>
 
-                <label class="field-label" for="vl-override-reason">سبب التجاوز (مطلوب للنشر رغم فشل أو غياب الحكم)</label>
-                <textarea id="vl-override-reason" placeholder="مثلاً: تم التأكيد مع مسؤول الدعم — المحادثة الوحيدة اللي فشلت كانت اتحلت يدويًا بالفعل، آمن للنشر."></textarea>
+                <label class="field-label" for="vl-override-reason">سبب النشر رغم وجود مشكلة (لازم تكتبه لو عايز تنشر بتجاوز)</label>
+                <textarea id="vl-override-reason" placeholder="مثلاً: راجعت المشكلة يدويًا مع فريق الدعم واتأكدت إنها مش مؤثرة."></textarea>
 
                 <div class="save-row" style="margin-top:1.1rem;">
-                    <button class="btn btn-primary" id="vl-publish-btn" disabled>نشر v3</button>
+                    <button class="btn btn-primary" id="vl-publish-btn" disabled>نشر التعديل</button>
                     <button class="btn btn-danger" id="vl-override-btn">نشر بتجاوز</button>
                 </div>
                 <span class="saved-flag" id="vl-published-flag">تم النشر</span>
