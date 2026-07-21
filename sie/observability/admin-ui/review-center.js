@@ -19,6 +19,7 @@ if (user) {
         initReviewCenter(user);
         initValidationLab();
         initCustomerAccess(user);
+        initAiFallbackCenter(user);
     } else {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('not-authorized-template').content.cloneNode(true));
@@ -1086,4 +1087,400 @@ function initValidationLab() {
     document.getElementById('vl-override-btn').addEventListener('click', () => publish(true));
 
     updateGate();
+}
+
+// ------------------------------------------------------------------
+// قسم "حالات AI Fallback" — يعرض المحادثات اللي محرك SIE مقدرش يحسمها
+// بثقة كافية أو رجّع فيها رد احتياطي من الذكاء الاصطناعي، بتفاصيل أوسع
+// من قائمة التعلّم فوق: رسالة العميل كاملة، اللغة، الـ Intent المتوقع،
+// اقتراح AI (لو موجود)، رد المشرف، Keywords، Scenario/Intent، تواريخ
+// الإنشاء والتعديل، وسجل تعديلات/موافقات كامل لكل حالة.
+//
+// القسم ده بالكامل Mock — مفيش أي استدعاء Supabase أو API حقيقي هنا.
+// البيانات مصفوفة ثابتة في الذاكرة (CASES)، وأي حفظ أو تغيير حالة
+// بيعدّل المصفوفة دي محليًا بس، وبيترجع لأصله لو الصفحة اتعمللها refresh.
+// TODO: لما يتوفر جدول حقيقي (مثلاً chat_engine_ai_fallback_cases) في
+// الـ backend، استبدل تحميل/حفظ CASES هنا باستدعاءات Supabase حقيقية،
+// بنفس نمط initReviewCenter() فوق.
+// ------------------------------------------------------------------
+function initAiFallbackCenter(currentUser) {
+    const STATUS_OPTIONS = [
+        { value: 'pending', label: 'قيد الانتظار' },
+        { value: 'under_review', label: 'قيد المراجعة' },
+        { value: 'approved', label: 'مُعتمدة' },
+        { value: 'rejected', label: 'مرفوضة' },
+        { value: 'archived', label: 'مؤرشفة' }
+    ];
+
+    const REASON_LABELS = {
+        low_confidence: 'ثقة منخفضة',
+        no_matching_scenario: 'مفيش سيناريو مطابق',
+        ambiguous_intent: 'Intent غامض',
+        unsupported_language: 'لغة غير مدعومة',
+        timeout: 'مهلة/صمت من غير رد'
+    };
+
+    const LANGUAGE_LABELS = {
+        ar: 'العربية', 'ar-eg': 'عامية مصرية', en: 'الإنجليزية', mixed: 'عربي/إنجليزي مختلط'
+    };
+
+    function hoursAgo(h) { return new Date(Date.now() - h * 3600 * 1000).toISOString(); }
+    function daysAgo(d) { return hoursAgo(d * 24); }
+
+    // بيانات تجريبية بالكامل (Mock) — TODO: استبدالها بجلب حقيقي من الـ backend.
+    let CASES = [
+        {
+            id: 'aif-1001',
+            customerMessage: 'عايز الغي الاشتراك بتاعي دلوقتي، مش لاقي زرار الالغاء في صفحة الحساب خالص',
+            language: 'ar-eg',
+            expectedIntent: 'subscription_cancellation',
+            confidence: 0.38,
+            failureReason: 'low_confidence',
+            aiSuggestion: 'يبدو أن العميل يطلب إلغاء الاشتراك. نقترح توجيهه إلى: الإعدادات ← الاشتراك ← إلغاء، أو تصعيد الحالة لفريق الفوترة لو الزر غير ظاهر له فعليًا.',
+            adminReply: null,
+            keywords: ['إلغاء', 'اشتراك', 'حساب'],
+            scenarioIntent: 'subscription_cancellation',
+            createdAt: hoursAgo(3),
+            updatedAt: hoursAgo(3),
+            status: 'pending',
+            history: [
+                { at: hoursAgo(3), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — الثقة (0.38) أقل من الحد الأدنى المطلوب.' }
+            ]
+        },
+        {
+            id: 'aif-1002',
+            customerMessage: 'Hi, does this platform support Shopify webhooks? I keep getting 404 errors on the callback URL.',
+            language: 'en',
+            expectedIntent: 'webhook_delivery_failure',
+            confidence: 0.51,
+            failureReason: 'ambiguous_intent',
+            aiSuggestion: 'الرسالة فيها احتمالين: مشكلة في إعداد الـ webhook endpoint، أو استفسار عام عن الدعم لمنصة Shopify. نقترح الرد بخطوات فحص الـ callback URL أولاً.',
+            adminReply: 'تم الرد على العميل بخطوات التأكد من الـ endpoint وتفعيل السجل (logs) على لوحة Shopify.',
+            keywords: ['webhook', 'Shopify', '404', 'callback'],
+            scenarioIntent: 'webhook_delivery_failure',
+            createdAt: daysAgo(2),
+            updatedAt: hoursAgo(6),
+            status: 'approved',
+            history: [
+                { at: daysAgo(2), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — Intent غامض بين مشكلتين محتملتين.' },
+                { at: daysAgo(1), actor: 'سارة أحمد', action: 'تم نقل الحالة إلى «قيد المراجعة».' },
+                { at: hoursAgo(6), actor: 'سارة أحمد', action: 'تمت الموافقة على الرد وإرساله للعميل.' }
+            ]
+        },
+        {
+            id: 'aif-1003',
+            customerMessage: 'plz help fatورة مش راضيه تتحدث من امبارح وانا محتاجها ضروري النهارده',
+            language: 'mixed',
+            expectedIntent: 'subscription_payment_not_reflected',
+            confidence: 0.29,
+            failureReason: 'unsupported_language',
+            aiSuggestion: null,
+            adminReply: null,
+            keywords: ['فاتورة', 'تحديث', 'دفع'],
+            scenarioIntent: 'unknown',
+            createdAt: hoursAgo(9),
+            updatedAt: hoursAgo(1),
+            status: 'under_review',
+            history: [
+                { at: hoursAgo(9), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — المزج بين العربية والإنجليزية قلّل ثقة التطبيع اللغوي.' },
+                { at: hoursAgo(1), actor: 'محمود سعيد', action: 'تم نقل الحالة إلى «قيد المراجعة» لحين التأكد من حالة الفاتورة.' }
+            ]
+        },
+        {
+            id: 'aif-1004',
+            customerMessage: '(العميل بعت رسالة فاضية ومرفق صورة بس من غير أي نص)',
+            language: 'ar',
+            expectedIntent: null,
+            confidence: null,
+            failureReason: 'timeout',
+            aiSuggestion: 'لا يوجد نص كافٍ لتوليد اقتراح — يُنصح بمراجعة الصورة المرفقة يدويًا أو الرد بطلب توضيح من العميل.',
+            adminReply: 'تم الرد بطلب توضيح إضافي من العميل، ولم يصل رد حتى الآن.',
+            keywords: [],
+            scenarioIntent: 'unknown',
+            createdAt: daysAgo(5),
+            updatedAt: daysAgo(4),
+            status: 'rejected',
+            history: [
+                { at: daysAgo(5), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — لا يوجد نص كافٍ لاستخراج Intent.' },
+                { at: daysAgo(4), actor: 'محمود سعيد', action: 'تم رفض الحالة — لا يوجد ما يكفي من السياق للتصنيف.' }
+            ]
+        },
+        {
+            id: 'aif-1005',
+            customerMessage: 'إزاي أقدر أربط الـ API بتاعي بحساب المنصة؟ عندي مفتاح API بس مش عارف أحطه فين بالظبط',
+            language: 'ar',
+            expectedIntent: 'api_integration_issue',
+            confidence: 0.44,
+            failureReason: 'no_matching_scenario',
+            aiSuggestion: 'لا يوجد سيناريو مطابق تمامًا لخطوات ربط الـ API الحالية — نقترح إنشاء سيناريو جديد "إعداد مفتاح API لأول مرة" منفصل عن "فشل تسليم الـ webhook".',
+            adminReply: 'تم الرد يدويًا بخطوات الربط، وتم تسجيل ملاحظة لفريق المحتوى بإضافة سيناريو مخصص.',
+            keywords: ['API', 'مفتاح', 'ربط', 'إعداد'],
+            scenarioIntent: 'unknown',
+            createdAt: daysAgo(9),
+            updatedAt: daysAgo(8),
+            status: 'archived',
+            history: [
+                { at: daysAgo(9), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — لا يوجد سيناريو مطابق بثقة كافية.' },
+                { at: daysAgo(8), actor: 'سارة أحمد', action: 'تم الرد يدويًا وأرشفة الحالة بعد تسجيل ملاحظة لفريق المحتوى.' }
+            ]
+        },
+        {
+            id: 'aif-1006',
+            customerMessage: 'هل فيه خصم لو اشتركت في الباقة الشاملة لمدة سنة كاملة بدل شهري؟',
+            language: 'ar',
+            expectedIntent: 'pricing_inquiry',
+            confidence: 0.47,
+            failureReason: 'low_confidence',
+            aiSuggestion: null,
+            adminReply: null,
+            keywords: ['خصم', 'باقة', 'سنوي'],
+            scenarioIntent: 'pricing_inquiry',
+            createdAt: hoursAgo(1),
+            updatedAt: hoursAgo(1),
+            status: 'pending',
+            history: [
+                { at: hoursAgo(1), actor: 'محرك SIE', action: 'تم إنشاء الحالة تلقائيًا — الثقة (0.47) أقل من حد النشر التلقائي.' }
+            ]
+        }
+    ];
+
+    let selected = null;
+    let pendingStatus = {};
+    const filters = { status: 'all', language: 'all', reason: 'all', search: '' };
+
+    // دوال مساعدة مكرّرة هنا عمدًا (escapeHtml/formatRelative) عشان القسم
+    // ده يفضل مستقل تمامًا كمكوّن Mock، بنفس مبدأ التكرار المتعمّد في
+    // قسم "العملاء" فوق (initCustomerAccess).
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function formatRelative(iso) {
+        if (!iso) return '—';
+        const diffMs = Date.now() - new Date(iso).getTime();
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'الآن';
+        if (mins < 60) return `منذ ${mins} د`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `منذ ${hours} س`;
+        const days = Math.floor(hours / 24);
+        return `منذ ${days} يوم`;
+    }
+    function formatFull(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    function statusLabel(s) { return (STATUS_OPTIONS.find(o => o.value === s) || {}).label || s; }
+    function reasonLabel(r) { return REASON_LABELS[r] || r || '—'; }
+    function languageLabel(l) { return LANGUAGE_LABELS[l] || l || '—'; }
+
+    function populateLanguageFilter() {
+        const select = document.getElementById('aif-filter-language');
+        const langs = [...new Set(CASES.map(c => c.language))];
+        select.innerHTML = '<option value="all">الكل</option>' +
+            langs.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(languageLabel(l))}</option>`).join('');
+    }
+
+    function applyFilters(rows) {
+        return rows.filter(c => {
+            if (filters.status !== 'all' && c.status !== filters.status) return false;
+            if (filters.language !== 'all' && c.language !== filters.language) return false;
+            if (filters.reason !== 'all' && c.failureReason !== filters.reason) return false;
+            if (filters.search) {
+                const hay = `${c.customerMessage} ${(c.keywords || []).join(' ')}`.toLowerCase();
+                if (!hay.includes(filters.search)) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderStats() {
+        document.getElementById('aif-stat-total').textContent = CASES.length;
+        document.getElementById('aif-stat-pending').textContent = CASES.filter(c => c.status === 'pending').length;
+        document.getElementById('aif-stat-under-review').textContent = CASES.filter(c => c.status === 'under_review').length;
+        document.getElementById('aif-stat-approved').textContent = CASES.filter(c => c.status === 'approved').length;
+        document.getElementById('aif-stat-rejected').textContent = CASES.filter(c => c.status === 'rejected').length;
+    }
+
+    function renderTable() {
+        renderStats();
+        const body = document.getElementById('aif-body');
+        const emptyEl = document.getElementById('aif-empty');
+        const rows = applyFilters(CASES);
+
+        if (rows.length === 0) {
+            emptyEl.style.display = 'block';
+            emptyEl.textContent = CASES.length === 0
+                ? 'مفيش حالات AI Fallback مسجّلة حاليًا.'
+                : 'مفيش حالات مطابقة للفلاتر الحالية — جرّب "مسح الفلاتر".';
+            body.innerHTML = '';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        body.innerHTML = rows.map(c => `
+            <tr class="${selected === c.id ? 'selected' : ''}" data-id="${escapeHtml(c.id)}">
+                <td>${escapeHtml((c.customerMessage || '').slice(0, 70))}${(c.customerMessage || '').length > 70 ? '…' : ''}</td>
+                <td><span class="badge same">${escapeHtml(languageLabel(c.language))}</span></td>
+                <td>${escapeHtml(c.expectedIntent || '—')}</td>
+                <td class="conf">${c.confidence === null || c.confidence === undefined ? '—' : c.confidence.toFixed(2)}</td>
+                <td><span class="badge ${c.failureReason}">${escapeHtml(reasonLabel(c.failureReason))}</span></td>
+                <td><span class="status-badge status-${c.status}">${escapeHtml(statusLabel(c.status))}</span></td>
+                <td class="conf">${formatRelative(c.createdAt)}</td>
+            </tr>
+        `).join('');
+
+        body.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('click', () => openDetail(row.dataset.id));
+        });
+    }
+
+    function renderKeywords(keywords) {
+        const wrap = document.getElementById('aif-keywords');
+        if (!keywords || keywords.length === 0) {
+            wrap.innerHTML = '<span style="color:var(--color-text-3); font-size:.8rem;">لا يوجد Keywords مستخرجة لهذه الحالة</span>';
+            return;
+        }
+        wrap.innerHTML = keywords.map(k => `<span class="keyword-chip">${escapeHtml(k)}</span>`).join('');
+    }
+
+    function renderHistory(history) {
+        const wrap = document.getElementById('aif-history-list');
+        if (!history || history.length === 0) {
+            wrap.innerHTML = '<div class="empty-state" style="padding:1rem 0;">لا يوجد سجل تعديلات بعد.</div>';
+            return;
+        }
+        wrap.innerHTML = history.slice().reverse().map(h => `
+            <div class="history-item">
+                <div class="history-action">${escapeHtml(h.action)}</div>
+                <div class="history-meta"><span class="history-actor">${escapeHtml(h.actor)}</span> · <span>${escapeHtml(formatFull(h.at))}</span></div>
+            </div>
+        `).join('');
+    }
+
+    function renderStatusOptions(caseId) {
+        const wrap = document.getElementById('aif-status-options');
+        wrap.innerHTML = STATUS_OPTIONS.map(s => `
+            <button class="status-opt ${pendingStatus[caseId] === s.value ? 'active' : ''}" data-value="${s.value}">${s.label}</button>
+        `).join('');
+        wrap.querySelectorAll('.status-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                pendingStatus[caseId] = btn.dataset.value;
+                renderStatusOptions(caseId);
+            });
+        });
+    }
+
+    function openDetail(caseId) {
+        const item = CASES.find(c => c.id === caseId);
+        if (!item) return;
+        selected = caseId;
+        renderTable();
+
+        const detail = document.getElementById('aif-detail');
+        detail.classList.add('open');
+        document.getElementById('aif-detail-title').textContent = `حالة ${item.id}`;
+        document.getElementById('aif-detail-meta').textContent =
+            `${languageLabel(item.language)} · ${reasonLabel(item.failureReason)} · أُنشئت ${formatRelative(item.createdAt)}`;
+
+        document.getElementById('aif-customer-message').textContent = item.customerMessage || '—';
+        document.getElementById('aif-ai-suggestion').textContent = item.aiSuggestion || 'لا يوجد اقتراح من الذكاء الاصطناعي لهذه الحالة.';
+        document.getElementById('aif-admin-reply').value = item.adminReply || '';
+
+        document.getElementById('aif-lang').textContent = languageLabel(item.language);
+        document.getElementById('aif-expected-intent').textContent = item.expectedIntent || '—';
+        document.getElementById('aif-confidence').textContent = (item.confidence === null || item.confidence === undefined) ? 'غير متاحة' : item.confidence.toFixed(3);
+        document.getElementById('aif-failure-reason').textContent = reasonLabel(item.failureReason);
+        document.getElementById('aif-scenario').textContent = item.scenarioIntent || 'unknown';
+        document.getElementById('aif-created-at').textContent = formatFull(item.createdAt);
+        document.getElementById('aif-updated-at').textContent = formatFull(item.updatedAt);
+
+        renderKeywords(item.keywords);
+        renderHistory(item.history);
+
+        pendingStatus[caseId] = pendingStatus[caseId] || item.status;
+        renderStatusOptions(caseId);
+        document.getElementById('aif-saved-flag').classList.remove('show');
+
+        detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeDetail() {
+        selected = null;
+        document.getElementById('aif-detail').classList.remove('open');
+        renderTable();
+    }
+
+    function saveCase() {
+        if (!selected) return;
+        const item = CASES.find(c => c.id === selected);
+        if (!item) return;
+
+        const saveBtn = document.getElementById('aifSaveBtn');
+        const newReply = document.getElementById('aif-admin-reply').value.trim() || null;
+        const newStatus = pendingStatus[selected];
+        const statusChanged = newStatus !== item.status;
+        const replyChanged = newReply !== item.adminReply;
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'جارِ الحفظ…';
+
+        // TODO: هنا المفروض يكون فيه استدعاء حقيقي لحفظ الحالة والرد في
+        // الـ backend (مثلاً supabase.from('chat_engine_ai_fallback_cases')
+        // .update(...)) بدل التعديل المباشر على المصفوفة المحلية. الحفظ
+        // هنا Mock بالكامل وبيتفقد عند تحديث الصفحة.
+        setTimeout(() => {
+            const now = new Date().toISOString();
+            if (replyChanged) item.adminReply = newReply;
+            if (statusChanged) item.status = newStatus;
+            if (statusChanged || replyChanged) {
+                item.updatedAt = now;
+                const actor = currentUser?.profile?.full_name || currentUser?.email || 'المشرف الحالي';
+                let actionText;
+                if (statusChanged && replyChanged) actionText = `تم تحديث رد المشرف وتغيير الحالة إلى «${statusLabel(newStatus)}».`;
+                else if (statusChanged) actionText = `تم تغيير الحالة إلى «${statusLabel(newStatus)}».`;
+                else actionText = 'تم تحديث رد المشرف.';
+                item.history = item.history || [];
+                item.history.push({ at: now, actor, action: actionText });
+            }
+
+            renderTable();
+            openDetail(item.id);
+
+            const flag = document.getElementById('aif-saved-flag');
+            flag.style.color = '';
+            flag.textContent = (statusChanged || replyChanged) ? 'تم الحفظ محليًا (Mock)' : 'لا يوجد تغييرات لحفظها';
+            flag.classList.add('show');
+            setTimeout(() => flag.classList.remove('show'), 2500);
+
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'حفظ (محليًا)';
+        }, 300);
+    }
+
+    function refreshLastSync() {
+        document.getElementById('aifLastSync').textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    document.getElementById('aifCloseDetailBtn').addEventListener('click', closeDetail);
+    document.getElementById('aifSaveBtn').addEventListener('click', saveCase);
+    document.getElementById('aif-filter-status').addEventListener('change', e => { filters.status = e.target.value; renderTable(); });
+    document.getElementById('aif-filter-language').addEventListener('change', e => { filters.language = e.target.value; renderTable(); });
+    document.getElementById('aif-filter-reason').addEventListener('change', e => { filters.reason = e.target.value; renderTable(); });
+    document.getElementById('aif-filter-search').addEventListener('input', e => { filters.search = e.target.value.trim().toLowerCase(); renderTable(); });
+    document.getElementById('aifClearFiltersBtn').addEventListener('click', () => {
+        filters.status = 'all'; filters.language = 'all'; filters.reason = 'all'; filters.search = '';
+        document.getElementById('aif-filter-status').value = 'all';
+        document.getElementById('aif-filter-language').value = 'all';
+        document.getElementById('aif-filter-reason').value = 'all';
+        document.getElementById('aif-filter-search').value = '';
+        renderTable();
+    });
+    document.getElementById('aifRefreshBtn').addEventListener('click', () => {
+        refreshLastSync();
+        renderTable();
+    });
+
+    populateLanguageFilter();
+    refreshLastSync();
+    renderTable();
 }
