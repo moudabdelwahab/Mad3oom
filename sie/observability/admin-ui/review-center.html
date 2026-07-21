@@ -287,6 +287,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
     <div class="tabs" id="sectionTabs" data-group="section">
         <button class="tab-btn active" data-target="panel-learning-queue">قائمة التعلّم</button>
         <button class="tab-btn" data-target="panel-validation-lab">معمل التحقق</button>
+        <button class="tab-btn" data-target="panel-customers">العملاء</button>
     </div>
 
     <section class="tab-panel active" id="panel-learning-queue" data-group="section">
@@ -539,6 +540,129 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
             </div>
         </div>
     </section>
+
+    <section class="tab-panel" id="panel-customers" data-group="section">
+        <div class="page-header" style="margin-bottom:1.25rem;">
+            <div>
+                <p class="tab-intro" style="margin:0;">تتبّع تفعيل محرك الدعم الذكي (SIE) لكل عميل — فعّل أو عطّل الوصول، وحدّد سقف استخدام (عدد رسائل) أو تاريخ انتهاء لو احتجت. البيانات والتحكم من جدول customer_sie_access عبر sie-entitlement.js — نفس المصدر المُستخدم في صفحة المستخدمين.</p>
+            </div>
+            <div class="header-actions">
+                <span class="demo-flag" id="custDataModeFlag" style="display:none;"></span>
+                <span class="last-sync" id="custLastSync"></span>
+                <button class="btn btn-ghost btn-sm" id="custRefreshBtn" title="تحديث القائمة الآن">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    تحديث
+                </button>
+            </div>
+        </div>
+
+        <p class="hint" id="cust-not-sie-admin-note" style="display:none; margin:-.6rem 0 1.5rem; color:var(--color-warning);">
+            حسابك أدمن، لكن التحكم في SIE لكل عميل مقصور على حساب is_sie_admin() المحدد فقط (نفس القيد الموجود في صفحة المستخدمين). لو القائمة تحت فاضية أو الحفظ بيفشل، الأرجح إن ده السبب — مش إن مفيش عملاء مفعّلين فعليًا.
+        </p>
+
+        <div class="stats-grid">
+            <div class="glass-card stat-card">
+                <div class="stat-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+                <div class="stat-info"><div class="stat-label">إجمالي العملاء</div><div class="stat-value" id="cust-stat-total">—</div></div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon ok"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
+                <div class="stat-info"><div class="stat-label">مفعّل SIE</div><div class="stat-value" id="cust-stat-enabled">—</div></div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon danger"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"></line></svg></div>
+                <div class="stat-info"><div class="stat-label">غير مفعّل</div><div class="stat-value" id="cust-stat-disabled">—</div></div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon warn"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                <div class="stat-info"><div class="stat-label">بحد استخدام أو تاريخ</div><div class="stat-value" id="cust-stat-limited">—</div></div>
+            </div>
+        </div>
+
+        <div class="glass-card filters-card">
+            <div class="filters-row">
+                <div class="filter-field filter-search">
+                    <label>بحث بالاسم أو الإيميل</label>
+                    <input type="text" id="cust-filter-search" placeholder="مثلاً أحمد أو name@example.com" autocomplete="off">
+                </div>
+                <div class="filter-field">
+                    <label>حالة SIE</label>
+                    <select id="cust-filter-status">
+                        <option value="all">الكل</option>
+                        <option value="enabled">مفعّل</option>
+                        <option value="disabled">غير مفعّل</option>
+                    </select>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="cust-clear-filters-btn">مسح الفلاتر</button>
+            </div>
+        </div>
+
+        <div class="glass-card section-card">
+            <div class="table-wrap">
+                <table class="queue-table">
+                    <thead>
+                        <tr>
+                            <th>العميل</th>
+                            <th>حالة SIE</th>
+                            <th>نوع الحد</th>
+                            <th>الاستخدام</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cust-body"></tbody>
+                </table>
+            </div>
+            <div id="cust-empty" class="empty-state" style="display:none;">لا يوجد عملاء مطابقين.</div>
+        </div>
+
+        <section id="cust-detail" class="detail glass-card">
+            <div class="detail-head">
+                <div>
+                    <h3 class="detail-title" id="cust-detail-title">—</h3>
+                    <div class="detail-meta" id="cust-detail-meta">—</div>
+                </div>
+                <button class="close-btn" id="custCloseDetailBtn">إغلاق</button>
+            </div>
+
+            <div class="panel-block">
+                <h4>تفعيل SIE لهذا العميل</h4>
+                <p class="hint">متسجّل في جدول customer_sie_access عبر sie_admin_set_access() — نفس الدالة المُستخدمة في صفحة المستخدمين.</p>
+
+                <label class="field-label" style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="cust-enabled-toggle" style="width:auto;">
+                    <span>مفعّل لهذا العميل</span>
+                </label>
+
+                <label class="field-label">نوع الحد</label>
+                <select id="cust-access-mode">
+                    <option value="unlimited">بدون حد (طالما مفعّل)</option>
+                    <option value="quota">حد رسائل</option>
+                    <option value="expiration">تاريخ انتهاء</option>
+                </select>
+
+                <div id="cust-quota-row" style="display:none;">
+                    <label class="field-label">حد الرسائل</label>
+                    <input type="number" id="cust-message-quota" min="1" step="1" placeholder="مثلاً 200">
+                </div>
+
+                <div id="cust-expiry-row" style="display:none;">
+                    <label class="field-label">تاريخ الانتهاء</label>
+                    <input type="datetime-local" id="cust-expires-at">
+                </div>
+
+                <label class="field-label">ملاحظة (اختياري)</label>
+                <input type="text" id="cust-notes" placeholder="سبب التفعيل مثلاً">
+
+                <p class="hint" id="cust-usage-display" style="margin-top:.9rem;">—</p>
+
+                <div class="save-row">
+                    <button class="btn btn-primary" id="cust-save-btn">حفظ إعدادات SIE</button>
+                    <button class="btn btn-ghost" id="cust-reset-usage-btn">تصفير الاستخدام</button>
+                    <span class="saved-flag" id="cust-saved-flag">تم الحفظ</span>
+                </div>
+            </div>
+        </section>
+    </section>
 </template>
 
 <template id="not-authorized-template">
@@ -554,6 +678,7 @@ label.field-label{ font-size:.75rem; color:var(--color-text-secondary); font-wei
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { supabase } from '/api-config.js';
+import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/sie-integration/sie-entitlement.js';
 
 initSidebar();
 
@@ -570,6 +695,7 @@ if (user) {
         initTabGroup(document.getElementById('vlTabs'));
         initReviewCenter(user);
         initValidationLab();
+        initCustomerAccess(user);
     } else {
         appRoot.innerHTML = '';
         appRoot.appendChild(document.getElementById('not-authorized-template').content.cloneNode(true));
@@ -1209,6 +1335,299 @@ async function initReviewCenter(currentUser) {
     document.getElementById('loadMoreBtn').addEventListener('click', () => loadQueue({ reset: false }));
 
     await Promise.all([loadScenarioOptions(), loadQueue(), loadEnginePulse()]);
+}
+
+// ------------------------------------------------------------------
+// قسم "العملاء" — متابعة تفعيل محرك الدعم الذكي (SIE) لكل عميل على حدة:
+// مفعّل أو لأ دلوقتي، وتقدر تغيّر حالته أو تحدّد له سقف استخدام (عدد
+// رسائل) أو تاريخ انتهاء. القسم ده مالوش أي منطق باك إند جديد — بيستخدم
+// بالظبط نفس RPCs وجدول customer_sie_access المُعرَّفين فعلًا في
+// sie-integration/sie-entitlement.js (isCurrentUserSieAdmin/
+// getSieAccessStatus/adminSetAccess/adminResetUsage)، واللي already
+// مُستخدَمين في نافذة "خيارات" الخاصة بكل مستخدم في صفحة المستخدمين
+// (assets/js/admin/users.js). هنا بس واجهة مخصّصة وأوضح لإدارة SIE
+// تحديدًا — جدول واحد بكل العملاء وحالتهم، بدل ما تكون الإعدادات مدفونة
+// جوه نافذة عامة لكل مستخدم على حدة.
+//
+// ملحوظة صلاحيات مهمة (نفس القيد الموجود في users.js): تنفيذ
+// sie_admin_set_access() / sie_admin_reset_usage()، وكمان قراءة صفوف
+// عملاء تانيين من customer_sie_access أصلًا، مقصورة على is_sie_admin() —
+// بريد محدد، مش أي حساب role='admin' عادي. لو الحساب الحالي مش هو،
+// القائمة تحت هترجع فاضية (أو الحفظ هيفشل) بسبب RLS — مش لأن مفيش عملاء
+// مفعّلين فعليًا. بنوضّح ده صراحة في القسم بدل ما نسيبه يفسَّر غلط.
+// ------------------------------------------------------------------
+async function initCustomerAccess(currentUser) {
+    let isSieAdmin = false;
+    let CUSTOMERS = []; // { id, fullName, email, role, access: customer_sie_access row|null }
+    let selectedUserId = null;
+    const filters = { status: 'all', search: '' };
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function accessModeLabel(mode) {
+        return { unlimited: 'بدون حد', quota: 'حد رسائل', expiration: 'تاريخ انتهاء' }[mode] || '—';
+    }
+    function accessModeBadgeClass(mode) {
+        return { unlimited: 'same', quota: 'low_confidence', expiration: 'fallback' }[mode] || 'same';
+    }
+
+    // نفس منطق evaluateSieAccessRow() في assets/js/chatbot-mode-service.js —
+    // مكرَّر هنا عمدًا (بدل استيراده من مسار العميل) عشان القسم ده يفضل
+    // مستقل تمامًا عن مسار الشات، لكن بنفس القاعدة بالظبط، عشان الحالة
+    // المعروضة هنا للأدمن تطابق اللي العميل شايفه فعليًا (مفعّل + مش
+    // منتهي + عنده كوتة).
+    function evaluateStatus(row) {
+        if (!row || !row.is_enabled) return { enabled: false, label: 'غير مفعّل' };
+        if (row.access_mode === 'expiration' && row.expires_at) {
+            if (new Date(row.expires_at).getTime() <= Date.now()) return { enabled: false, label: 'انتهت الصلاحية' };
+        }
+        if (row.access_mode === 'quota') {
+            const used = row.messages_used ?? 0;
+            const quota = row.message_quota ?? 0;
+            if (quota > 0 && used >= quota) return { enabled: false, label: 'انتهت الكوتة' };
+        }
+        return { enabled: true, label: 'مفعّل' };
+    }
+
+    function usageLabel(row) {
+        if (!row) return 'لسه معملوش تفعيل لهذا العميل';
+        if (row.access_mode === 'quota') return `${row.messages_used ?? 0} / ${row.message_quota ?? '—'}`;
+        if (row.access_mode === 'expiration') return `${row.messages_used ?? 0} رسالة — ينتهي ${row.expires_at ? new Date(row.expires_at).toLocaleString('ar-EG') : '—'}`;
+        return `${row.messages_used ?? 0} رسالة مُرسَلة`;
+    }
+
+    async function loadCustomers() {
+        document.getElementById('custLastSync').textContent = '● جارِ الاتصال بقاعدة البيانات…';
+        try {
+            const [{ data: profiles, error: profilesError }, accessResult] = await Promise.all([
+                supabase.from('profiles').select('id, full_name, email, role, created_at').order('created_at', { ascending: false }),
+                supabase.from('customer_sie_access').select('*')
+            ]);
+            if (profilesError) throw profilesError;
+
+            // قراءة customer_sie_access ممكن ترجع فاضية أو بخطأ لو الحساب
+            // الحالي مش is_sie_admin() فعليًا — مش هنعتبره فشل قاتل للقسم
+            // كله (قائمة العملاء من profiles لسه مفيدة)، وكل عميل هيظهر
+            // "غير مفعّل" افتراضيًا (نفس سلوك getSieAccessStatus لما مفيش
+            // صف)، مع تنبيه واضح تحت لو ده هو السبب.
+            const accessByUser = new Map();
+            if (!accessResult.error) {
+                for (const row of (accessResult.data || [])) accessByUser.set(row.user_id, row);
+            } else {
+                console.warn('[review-center] تعذّر قراءة customer_sie_access (على الأغلب صلاحية is_sie_admin):', accessResult.error.message);
+            }
+
+            document.getElementById('cust-not-sie-admin-note').style.display = (!isSieAdmin || accessResult.error) ? 'block' : 'none';
+
+            CUSTOMERS = (profiles || []).map(p => ({
+                id: p.id,
+                fullName: p.full_name || 'بدون اسم',
+                email: p.email || '—',
+                role: p.role,
+                access: accessByUser.get(p.id) || null
+            }));
+
+            document.getElementById('custLastSync').textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`;
+            document.getElementById('custDataModeFlag').style.display = 'none';
+            renderCustomers();
+        } catch (err) {
+            console.error('[review-center] فشل تحميل قائمة العملاء:', err);
+            document.getElementById('custLastSync').textContent = '';
+            const flag = document.getElementById('custDataModeFlag');
+            flag.style.display = 'inline-flex';
+            flag.className = 'demo-flag error';
+            flag.textContent = '● تعذّر تحميل قائمة العملاء';
+            document.getElementById('cust-empty').style.display = 'block';
+            document.getElementById('cust-empty').textContent = 'تعذّر تحميل قائمة العملاء — تحقق من صلاحيات الحساب.';
+            document.getElementById('cust-body').innerHTML = '';
+        }
+    }
+
+    function applyFilters(rows) {
+        return rows.filter(c => {
+            const status = evaluateStatus(c.access);
+            if (filters.status === 'enabled' && !status.enabled) return false;
+            if (filters.status === 'disabled' && status.enabled) return false;
+            if (filters.search) {
+                const hay = `${c.fullName} ${c.email}`.toLowerCase();
+                if (!hay.includes(filters.search)) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderStats() {
+        const enabledCount = CUSTOMERS.filter(c => evaluateStatus(c.access).enabled).length;
+        document.getElementById('cust-stat-total').textContent = CUSTOMERS.length;
+        document.getElementById('cust-stat-enabled').textContent = enabledCount;
+        document.getElementById('cust-stat-disabled').textContent = CUSTOMERS.length - enabledCount;
+        document.getElementById('cust-stat-limited').textContent = CUSTOMERS.filter(c => c.access && c.access.access_mode !== 'unlimited').length;
+    }
+
+    function renderCustomers() {
+        renderStats();
+        const body = document.getElementById('cust-body');
+        const emptyEl = document.getElementById('cust-empty');
+        const visible = applyFilters(CUSTOMERS);
+
+        if (CUSTOMERS.length === 0) {
+            emptyEl.style.display = 'block';
+            emptyEl.textContent = 'مفيش عملاء في جدول profiles حاليًا.';
+            body.innerHTML = '';
+            return;
+        }
+        if (visible.length === 0) {
+            emptyEl.style.display = 'block';
+            emptyEl.textContent = 'مفيش عملاء مطابقين للفلاتر الحالية.';
+            body.innerHTML = '';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        body.innerHTML = visible.map(c => {
+            const status = evaluateStatus(c.access);
+            const mode = c.access?.access_mode || null;
+            return `
+                <tr data-id="${escapeHtml(c.id)}">
+                    <td>${escapeHtml(c.fullName)}<span class="qmsg-sub" style="direction:rtl; text-align:right;">${escapeHtml(c.email)}</span></td>
+                    <td><span class="status-badge status-${status.enabled ? 'resolved' : 'dismissed'}">${escapeHtml(status.label)}</span></td>
+                    <td>${mode ? `<span class="badge ${accessModeBadgeClass(mode)}">${accessModeLabel(mode)}</span>` : '—'}</td>
+                    <td class="conf">${escapeHtml(usageLabel(c.access))}</td>
+                    <td><button class="btn btn-ghost btn-sm cust-edit-btn" data-id="${escapeHtml(c.id)}">تعديل</button></td>
+                </tr>
+            `;
+        }).join('');
+
+        body.querySelectorAll('.cust-edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openCustomerDetail(btn.dataset.id);
+            });
+        });
+    }
+
+    function openCustomerDetail(userId) {
+        const customer = CUSTOMERS.find(c => c.id === userId);
+        if (!customer) return;
+        selectedUserId = userId;
+
+        document.getElementById('cust-detail-title').textContent = customer.fullName;
+        document.getElementById('cust-detail-meta').textContent = customer.email;
+
+        const row = customer.access;
+        const mode = row?.access_mode || 'unlimited';
+        document.getElementById('cust-enabled-toggle').checked = row?.is_enabled || false;
+        document.getElementById('cust-access-mode').value = mode;
+        document.getElementById('cust-message-quota').value = row?.message_quota ?? '';
+        document.getElementById('cust-expires-at').value = row?.expires_at
+            ? new Date(row.expires_at).toISOString().slice(0, 16)
+            : '';
+        document.getElementById('cust-notes').value = row?.notes || '';
+        document.getElementById('cust-quota-row').style.display = mode === 'quota' ? '' : 'none';
+        document.getElementById('cust-expiry-row').style.display = mode === 'expiration' ? '' : 'none';
+        document.getElementById('cust-usage-display').textContent = usageLabel(row);
+        document.getElementById('cust-saved-flag').classList.remove('show');
+
+        document.getElementById('cust-detail').classList.add('open');
+        document.getElementById('cust-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeCustomerDetail() {
+        selectedUserId = null;
+        document.getElementById('cust-detail').classList.remove('open');
+    }
+
+    document.getElementById('cust-access-mode').addEventListener('change', (e) => {
+        const mode = e.target.value;
+        document.getElementById('cust-quota-row').style.display = mode === 'quota' ? '' : 'none';
+        document.getElementById('cust-expiry-row').style.display = mode === 'expiration' ? '' : 'none';
+    });
+
+    document.getElementById('cust-save-btn').addEventListener('click', async () => {
+        if (!selectedUserId) return;
+        const saveBtn = document.getElementById('cust-save-btn');
+        const isEnabled = document.getElementById('cust-enabled-toggle').checked;
+        const accessMode = document.getElementById('cust-access-mode').value;
+        const quotaRaw = document.getElementById('cust-message-quota').value;
+        const expiryRaw = document.getElementById('cust-expires-at').value;
+        const notes = document.getElementById('cust-notes').value.trim() || null;
+
+        const messageQuota = accessMode === 'quota' && quotaRaw ? parseInt(quotaRaw, 10) : null;
+        const expiresAt = accessMode === 'expiration' && expiryRaw ? new Date(expiryRaw).toISOString() : null;
+
+        if (accessMode === 'quota' && (!messageQuota || messageQuota < 1)) {
+            alert('من فضلك أدخل حد رسائل صحيح (رقم أكبر من صفر)');
+            return;
+        }
+        if (accessMode === 'expiration' && !expiresAt) {
+            alert('من فضلك اختر تاريخ انتهاء');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'جارِ الحفظ…';
+        const flag = document.getElementById('cust-saved-flag');
+        try {
+            const { error } = await adminSetAccess(supabase, {
+                userId: selectedUserId, isEnabled, accessMode, messageQuota, expiresAt, notes
+            });
+            if (error) throw error;
+
+            flag.style.color = '';
+            flag.textContent = 'تم الحفظ في customer_sie_access';
+            flag.classList.add('show');
+            await loadCustomers();
+            openCustomerDetail(selectedUserId); // إعادة تعبئة اللوحة بالقيم المحفوظة فعليًا من القاعدة
+        } catch (err) {
+            console.error('[review-center] فشل حفظ إعدادات SIE:', err);
+            flag.style.color = 'var(--color-danger)';
+            flag.textContent = 'فشل الحفظ: ' + (err.message || 'تحقق من صلاحية is_sie_admin()');
+            flag.classList.add('show');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'حفظ إعدادات SIE';
+        }
+    });
+
+    document.getElementById('cust-reset-usage-btn').addEventListener('click', async () => {
+        if (!selectedUserId) return;
+        if (!confirm('تصفير عداد الاستخدام لهذا العميل؟')) return;
+        const resetBtn = document.getElementById('cust-reset-usage-btn');
+        const flag = document.getElementById('cust-saved-flag');
+        resetBtn.disabled = true;
+        try {
+            const { error } = await adminResetUsage(supabase, selectedUserId);
+            if (error) throw error;
+            flag.style.color = '';
+            flag.textContent = 'تم تصفير الاستخدام';
+            flag.classList.add('show');
+            await loadCustomers();
+            openCustomerDetail(selectedUserId);
+        } catch (err) {
+            console.error('[review-center] فشل تصفير الاستخدام:', err);
+            flag.style.color = 'var(--color-danger)';
+            flag.textContent = 'فشل التصفير: ' + (err.message || 'تحقق من صلاحية is_sie_admin()');
+            flag.classList.add('show');
+        } finally {
+            resetBtn.disabled = false;
+        }
+    });
+
+    document.getElementById('custCloseDetailBtn').addEventListener('click', closeCustomerDetail);
+    document.getElementById('custRefreshBtn').addEventListener('click', loadCustomers);
+    document.getElementById('cust-filter-search').addEventListener('input', e => { filters.search = e.target.value.trim().toLowerCase(); renderCustomers(); });
+    document.getElementById('cust-filter-status').addEventListener('change', e => { filters.status = e.target.value; renderCustomers(); });
+    document.getElementById('cust-clear-filters-btn').addEventListener('click', () => {
+        filters.status = 'all'; filters.search = '';
+        document.getElementById('cust-filter-status').value = 'all';
+        document.getElementById('cust-filter-search').value = '';
+        renderCustomers();
+    });
+
+    isSieAdmin = await isCurrentUserSieAdmin(supabase);
+    await loadCustomers();
 }
 
 // ------------------------------------------------------------------
