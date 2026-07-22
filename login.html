@@ -993,6 +993,52 @@
 
   const LOGO_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/subdomain-logos`;
 
+  // --- Cross-module return redirect ---------------------------------
+  // Modules split into their own repos/subdomains (e.g. WhatsApp module at
+  // whatsapp.mad3oom.online) send unauthenticated users here with
+  // ?redirect=<url-they-came-from> so login can send them back afterwards.
+  // Previously this param was parsed nowhere, so every login unconditionally
+  // landed on admin-dashboard.html / customer-dashboard.html on THIS domain.
+  const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
+
+  function isAllowedRedirectTarget(url) {
+    try {
+      const u = new URL(url, window.location.origin);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      return u.hostname === ROOT_DOMAIN || u.hostname.endsWith('.' + ROOT_DOMAIN);
+    } catch {
+      return false;
+    }
+  }
+
+  // Builds the final post-login destination: honors ?redirect= when it points
+  // to an allowed mad3oom.online (sub)domain, otherwise falls back to the
+  // role-based page on this domain. When the destination is a different
+  // origin (a split-out module's own subdomain), the freshly created session
+  // can't reach it via localStorage (each origin has its own storage), so the
+  // tokens are handed off in the URL fragment; the target app's Supabase
+  // client (detectSessionInUrl: true) picks them up and hydrates its own
+  // session automatically.
+  async function resolveDestination(fallbackPage) {
+    if (!redirectTarget || !isAllowedRedirectTarget(redirectTarget)) {
+      return fallbackPage;
+    }
+    const dest = new URL(redirectTarget, window.location.origin);
+    if (dest.origin === window.location.origin) {
+      return dest.href;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        dest.hash = `access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&expires_in=${session.expires_in || 3600}&token_type=bearer`;
+      }
+    } catch {
+      // If we can't read the session for some reason, still send the user to
+      // the right app rather than stranding them on the main platform.
+    }
+    return dest.href;
+  }
+
   async function loadSubdomainLogo() {
     if (!currentSubdomain) return;
     const extensions = ['png', 'jpg', 'webp', 'svg'];
@@ -1051,7 +1097,7 @@
       'تحديد نوع الحساب'
     );
     const role = profile?.role || 'user';
-    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
   }
 
   async function checkExistingSession() {
@@ -1110,7 +1156,7 @@
     }
 
     const role = existing?.role || 'user';
-    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
   });
 
   checkExistingSession();
@@ -1739,7 +1785,7 @@
     sessionStorage.removeItem('just_logged_out');
     _handlingAuthManually = false;
     const role = data.role || 'user';
-    window.location.href = (role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
   }
 
   function setPiLoading(panel, loading) {
