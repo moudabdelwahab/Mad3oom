@@ -415,7 +415,7 @@ function renderWhatsappTab(profile) {
 
     panel.innerHTML = `
         <div style="margin-bottom:0.85rem;">
-            <a href="/modules/whatsapp/index.html?phone=${encodeURIComponent(profile.phone)}" class="btn btn-sm btn-primary">فتح محادثة واتساب الكاملة</a>
+            <a href="https://whatsapp.mad3oom.online/index.html?phone=${encodeURIComponent(profile.phone)}" class="btn btn-sm btn-primary">فتح محادثة واتساب الكاملة</a>
         </div>
     ` + msgs.slice(0, 30).map(m => {
         const isOutbound = m.direction === 'outbound';
