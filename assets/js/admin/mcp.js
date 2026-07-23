@@ -272,7 +272,7 @@ function renderConnectorGrid() {
                 ${connectorStatusChip(server)}
                 ${metaExtra}
             </div>
-            ${!isConnected && !readyForQuickLogin && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}</div>` : ''}
+            ${!isConnected && !readyForQuickLogin && c.setup_note ? `<div class="connector-setup-note">${escapeHtml(c.setup_note)}${c.docs_url ? `<br><a href="${c.docs_url}" target="_blank" rel="noopener" class="connector-docs-link">📖 خطوات الإعداد بالتفصيل ↗</a>` : ''}</div>` : ''}
             <div class="connector-actions">${actions}</div>
         </div>`;
     }).join('');
@@ -336,6 +336,8 @@ window.mcpConnectCatalog = function (catalogKey) {
     if (entry.needsManualUrl && !entry.url) {
         toast('هذا الموصل يحتاج رابط خادم خاص بإعدادك - راجع التوثيق قبل الحفظ', 'info');
     }
+
+    setQuickConnectMode(true, entry);
 };
 
 /** لموصلات OAuth اللي عندها Client ID محفوظ بالفعل - يحوّل المتصفح مباشرة لصفحة تسجيل الدخول
@@ -477,6 +479,7 @@ function resetForm() {
     const mcpRadio = document.querySelector('input[name="connectorType"][value="mcp_server"]');
     if (mcpRadio) mcpRadio.checked = true;
     onConnectorTypeChange();
+    setQuickConnectMode(false);
 }
 
 function openModal(id = null) {
@@ -502,6 +505,35 @@ function openModal(id = null) {
 function closeModal() {
     document.getElementById('mcpModal').classList.remove('open');
     editingId = null;
+    setQuickConnectMode(false);
+}
+
+/** وضع "ربط سريع" - بيتفعّل بس لما نيجي من كارت موصّل جاهز (Supabase/GitHub/...) في تبويب "العميل".
+ *  بيخفي الحقول التقنية اللي القيمة بتاعتها متحددة مسبقًا من الكتالوج (نوع الموصل، نوع النقل، التصنيف،
+ *  Headers/Env، وحتى قائمة "نوع المصادقة" نفسها) عشان الفورم يبان بسيط: بس الاسم + بيانات الاعتماد المطلوبة فعليًا. */
+function setQuickConnectMode(active, entry = null) {
+    const ids = ['connectorTypeRow', 'fTransportGroup', 'categoryGroup', 'headersGroup', 'envGroup', 'authTypeGroup'];
+    ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('field-hidden', active);
+    });
+
+    const note = document.getElementById('quickConnectNote');
+    if (!note) return;
+    if (active && entry) {
+        const stepsMap = {
+            bearer: 'أدخل اسمًا ثم الصق الـ Bearer Token/Access Token بتاعك في الحقل بالأسفل واضغط "حفظ الخادم".',
+            api_key: 'أدخل اسمًا ثم الصق API Key الخاص بيك بالأسفل واضغط "حفظ الخادم".',
+            oauth2: 'لو عندك تطبيق OAuth مسجّل بالفعل عند المزوّد، الصق Client ID وClient Secret بالأسفل. لو لسه معملتوش، افتح رابط التوثيق تحت وسجّل تطبيق OAuth الأول.',
+            none: 'اضغط "حفظ الخادم" مباشرة - مفيش بيانات اعتماد مطلوبة.',
+            custom: 'الصق الترويسات (Headers) المطلوبة بصيغة JSON بالأسفل واضغط "حفظ الخادم".',
+        };
+        note.innerHTML = `⚡ وضع الربط السريع مفعّل - الإعدادات التقنية غير الضرورية اتخفت تلقائيًا.<br>${stepsMap[entry.auth_type] || ''}${entry.docs_url ? ` <a href="${entry.docs_url}" target="_blank" rel="noopener">فتح التوثيق ↗</a>` : ''}`;
+        note.style.display = 'block';
+    } else {
+        note.innerHTML = '';
+        note.style.display = 'none';
+    }
 }
 
 function fillForm(s) {
@@ -839,7 +871,6 @@ function copyRedirectUri() {
 function switchDevTab(tab) {
     document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
     document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
-    document.getElementById('devSectionServers').classList.toggle('active', tab === 'servers');
     document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
     document.getElementById('devSectionApi').classList.toggle('active', tab === 'api');
 
@@ -856,6 +887,13 @@ function switchApiSubTab(subtab) {
     document.querySelectorAll('.api-subtab').forEach((b) => b.classList.toggle('active', b.dataset.apisubtab === subtab));
     document.getElementById('apiSubsectionInternal').classList.toggle('active', subtab === 'internal');
     document.getElementById('apiSubsectionExternal').classList.toggle('active', subtab === 'external');
+}
+
+/** تبويب فرعي داخل قسم "MCP العميل" المدمج: العميل (Marketplace/ربط سريع) / الخادم (خوادم مخصّصة يدويًا) */
+function switchClientSubTab(subtab) {
+    document.querySelectorAll('.client-subtab').forEach((b) => b.classList.toggle('active', b.dataset.clientsubtab === subtab));
+    document.getElementById('clientSubsectionClient').classList.toggle('active', subtab === 'client');
+    document.getElementById('clientSubsectionServer').classList.toggle('active', subtab === 'server');
 }
 
 let mcpClientMarketLoadedOnce = false;
@@ -1738,13 +1776,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // تبويب Developer Center
     document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
-    document.getElementById('devTabServers').addEventListener('click', () => switchDevTab('servers'));
     document.getElementById('devTabMcpServer').addEventListener('click', () => switchDevTab('mcpserver'));
     document.getElementById('devTabApi').addEventListener('click', () => switchDevTab('api'));
 
     // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
     document.getElementById('apiSubTabInternal').addEventListener('click', () => switchApiSubTab('internal'));
     document.getElementById('apiSubTabExternal').addEventListener('click', () => switchApiSubTab('external'));
+
+    // تبويب فرعي: العميل (Marketplace) / الخادم (خوادم مخصّصة) داخل قسم "MCP العميل" المدمج
+    document.getElementById('clientSubTabClient').addEventListener('click', () => switchClientSubTab('client'));
+    document.getElementById('clientSubTabServer').addEventListener('click', () => switchClientSubTab('server'));
 
     // MCP Client Marketplace - أحداث البحث والتصنيفات ومستكشف الأدوات
     document.getElementById('mcpMarketSearch').addEventListener('input', debounce((e) => {
