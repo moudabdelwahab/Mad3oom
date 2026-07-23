@@ -841,13 +841,21 @@ function switchDevTab(tab) {
     document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
     document.getElementById('devSectionServers').classList.toggle('active', tab === 'servers');
     document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
-    document.getElementById('devSectionApiTokens').classList.toggle('active', tab === 'apitokens');
-    document.getElementById('devSectionIntegrations').classList.toggle('active', tab === 'integrations');
+    document.getElementById('devSectionApi').classList.toggle('active', tab === 'api');
 
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
     if (tab === 'mcpserver' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
-    if (tab === 'apitokens' && !apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
-    if (tab === 'integrations' && !integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
+    if (tab === 'api') {
+        if (!apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
+        if (!integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
+    }
+}
+
+/** تبويب فرعي داخل قسم API: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية) */
+function switchApiSubTab(subtab) {
+    document.querySelectorAll('.api-subtab').forEach((b) => b.classList.toggle('active', b.dataset.apisubtab === subtab));
+    document.getElementById('apiSubsectionInternal').classList.toggle('active', subtab === 'internal');
+    document.getElementById('apiSubsectionExternal').classList.toggle('active', subtab === 'external');
 }
 
 let mcpClientMarketLoadedOnce = false;
@@ -857,6 +865,11 @@ let integrationsLoadedOnce = false;
 let allApiTokens = [];
 let allIntegrations = [];
 let pendingCreateApiTokenResult = null;
+
+/* مفاتيح API: فلتر متصل/غير متصل + وضع التحديد المتعدد للحذف الجماعي */
+let apiTokenFilter = 'all'; // 'all' | 'connected' | 'disconnected'
+let tokenSelectModeActive = false;
+let selectedTokenIds = new Set();
 
 /* ====================  Mad3oom كـ MCP Server (Phase 3)  ==================== */
 
@@ -1088,8 +1101,85 @@ async function loadApiTokensSection() {
     }
 }
 
+function updateTokenFilterCounts() {
+    const connectedCount = allApiTokens.filter((t) => t.is_active).length;
+    setText('filterCountAll', String(allApiTokens.length));
+    setText('filterCountConnected', String(connectedCount));
+    setText('filterCountDisconnected', String(allApiTokens.length - connectedCount));
+}
+
+function setTokenFilter(filter) {
+    apiTokenFilter = filter;
+    document.querySelectorAll('.filter-pill').forEach((b) => b.classList.toggle('active', b.dataset.tokenfilter === filter));
+    renderApiTokens();
+}
+
+function getFilteredApiTokens() {
+    if (apiTokenFilter === 'connected') return allApiTokens.filter((t) => t.is_active);
+    if (apiTokenFilter === 'disconnected') return allApiTokens.filter((t) => !t.is_active);
+    return allApiTokens;
+}
+
+function updateBulkDeleteToolbar() {
+    const count = selectedTokenIds.size;
+    setText('selectedTokensCount', String(count));
+    const btn = document.getElementById('bulkDeleteTokensBtn');
+    if (btn) btn.disabled = count === 0;
+}
+
+function setTokenSelectMode(active) {
+    tokenSelectModeActive = active;
+    if (!active) selectedTokenIds.clear();
+    document.getElementById('selectToolbarActive').style.display = active ? 'flex' : 'none';
+    document.getElementById('toggleSelectModeBtn').style.display = active ? 'none' : 'inline-flex';
+    updateBulkDeleteToolbar();
+    renderApiTokens();
+}
+
+function toggleTokenSelect(tokenId, checked) {
+    if (checked) selectedTokenIds.add(tokenId); else selectedTokenIds.delete(tokenId);
+    updateBulkDeleteToolbar();
+    const card = document.querySelector(`.mcp-card[data-token-id="${tokenId}"]`);
+    if (card) card.classList.toggle('selected', checked);
+}
+
+function selectAllVisibleTokens() {
+    getFilteredApiTokens().forEach((t) => selectedTokenIds.add(t.id));
+    updateBulkDeleteToolbar();
+    document.querySelectorAll('#apiTokensList .mcp-card-select-cb').forEach((cb) => { cb.checked = true; cb.closest('.mcp-card')?.classList.add('selected'); });
+}
+
+function deselectAllTokens() {
+    selectedTokenIds.clear();
+    updateBulkDeleteToolbar();
+    document.querySelectorAll('#apiTokensList .mcp-card-select-cb').forEach((cb) => { cb.checked = false; cb.closest('.mcp-card')?.classList.remove('selected'); });
+}
+
+async function handleBulkDeleteTokens() {
+    const ids = Array.from(selectedTokenIds);
+    if (!ids.length) return;
+    if (!confirm(`حذف ${ids.length} مفتاح API نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+
+    const btn = document.getElementById('bulkDeleteTokensBtn');
+    btn.disabled = true; btn.textContent = 'جاري الحذف...';
+    try {
+        const results = await Promise.allSettled(ids.map((id) => deleteApiToken(id)));
+        const failed = results.filter((r) => r.status === 'rejected').length;
+        if (failed) toast(`تم الحذف مع فشل ${failed} من ${ids.length}`, 'error');
+        else toast(`تم حذف ${ids.length} مفتاح بنجاح`, 'success');
+        setTokenSelectMode(false);
+        await loadApiTokensSection();
+    } catch (err) {
+        toast(err.message || 'فشل الحذف الجماعي', 'error');
+    } finally {
+        btn.textContent = 'حذف المحدد (0)';
+    }
+}
+
 function renderApiTokens() {
     const list = document.getElementById('apiTokensList');
+    updateTokenFilterCounts();
+
     if (!allApiTokens.length) {
         list.innerHTML = `<div class="state-block empty">
             <h3>لا توجد مفاتيح API بعد</h3>
@@ -1099,7 +1189,14 @@ function renderApiTokens() {
         return;
     }
 
-    list.innerHTML = allApiTokens.map((t) => {
+    const filteredTokens = getFilteredApiTokens();
+    if (!filteredTokens.length) {
+        const label = apiTokenFilter === 'connected' ? 'متصلة' : 'غير متصلة';
+        list.innerHTML = `<div class="state-block empty"><h3>لا توجد مفاتيح ${label}</h3></div>`;
+        return;
+    }
+
+    list.innerHTML = filteredTokens.map((t) => {
         const scopesHtml = (t.scopes || []).map((s) => `<span class="transport-chip">${escapeHtml(s)}</span>`).join(' ');
         const keyLine = t.api_key && t.credential_type === 'api_key_secret'
             ? `<span title="API Key">${ICN.key} <code dir="ltr">${escapeHtml(t.api_key)}</code>
@@ -1112,8 +1209,10 @@ function renderApiTokens() {
         const expiresChip = t.expires_at ? `<span title="ينتهي في">${ICN.hourglass} ${new Date(t.expires_at).toLocaleDateString('ar-EG')}</span>` : '';
         const groupNote = t.credential_group_id ? `<span title="مرتبط بمفتاح آخر ضمن نفس مجموعة الإنشاء">${ICN.link} مجموعة مزدوجة</span>` : '';
 
+        const isSelected = selectedTokenIds.has(t.id);
         return `
-        <div class="mcp-card ${t.is_active ? 'is-connected' : ''}" data-token-id="${t.id}">
+        <div class="mcp-card ${t.is_active ? 'is-connected' : ''} ${tokenSelectModeActive ? 'select-mode' : ''} ${isSelected ? 'selected' : ''}" data-token-id="${t.id}">
+            <input type="checkbox" class="mcp-card-select-cb" ${isSelected ? 'checked' : ''} onchange="window.mcpToggleTokenSelect('${t.id}', this.checked)" aria-label="تحديد المفتاح">
             <div class="card-row">
                 <div class="card-head">
                     <div class="card-icon">
@@ -1604,6 +1703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.mcpToggleToken = handleToggleToken;
     window.mcpDeleteToken = handleDeleteToken;
     window.mcpCopyText = copyText;
+    window.mcpToggleTokenSelect = toggleTokenSelect;
 
     // External Integrations
     window.mcpAddIntegration = openAddIntegrationModal;
@@ -1640,8 +1740,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
     document.getElementById('devTabServers').addEventListener('click', () => switchDevTab('servers'));
     document.getElementById('devTabMcpServer').addEventListener('click', () => switchDevTab('mcpserver'));
-    document.getElementById('devTabApiTokens').addEventListener('click', () => switchDevTab('apitokens'));
-    document.getElementById('devTabIntegrations').addEventListener('click', () => switchDevTab('integrations'));
+    document.getElementById('devTabApi').addEventListener('click', () => switchDevTab('api'));
+
+    // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
+    document.getElementById('apiSubTabInternal').addEventListener('click', () => switchApiSubTab('internal'));
+    document.getElementById('apiSubTabExternal').addEventListener('click', () => switchApiSubTab('external'));
 
     // MCP Client Marketplace - أحداث البحث والتصنيفات ومستكشف الأدوات
     document.getElementById('mcpMarketSearch').addEventListener('input', debounce((e) => {
@@ -1665,6 +1768,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('secretRevealContent').innerHTML = '';
     });
     document.getElementById('apiTokenModal').addEventListener('click', (e) => { if (e.target.id === 'apiTokenModal') closeApiTokenModal(); });
+
+    // مفاتيح API - فلتر متصل/غير متصل + التحديد المتعدد والحذف الجماعي
+    document.querySelectorAll('#tokenFilterPills .filter-pill').forEach((btn) => {
+        btn.addEventListener('click', () => setTokenFilter(btn.dataset.tokenfilter));
+    });
+    document.getElementById('toggleSelectModeBtn').addEventListener('click', () => setTokenSelectMode(true));
+    document.getElementById('cancelSelectModeBtn').addEventListener('click', () => setTokenSelectMode(false));
+    document.getElementById('selectAllTokensBtn').addEventListener('click', selectAllVisibleTokens);
+    document.getElementById('deselectAllTokensBtn').addEventListener('click', deselectAllTokens);
+    document.getElementById('bulkDeleteTokensBtn').addEventListener('click', handleBulkDeleteTokens);
 
     // External Integrations - أحداث
     document.getElementById('addIntegrationBtn').addEventListener('click', openAddIntegrationModal);
