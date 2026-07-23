@@ -417,6 +417,31 @@
         .integrations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
         .credtype-chip { font-size: 0.68rem; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 0.15rem 0.5rem; border-radius: 2rem; }
         .info-only-chip { font-size: 0.62rem; font-weight: 800; background: #e0e7ff; color: #3730a3; padding: 0.1rem 0.5rem; border-radius: 2rem; }
+
+        /* ==================== API section: internal/external sub-tabs ==================== */
+        .api-subtabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--color-border); flex-wrap: wrap; }
+        .api-subtab { display: flex; align-items: center; gap: 0.45rem; padding: 0.65rem 1.1rem; border: none; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.87rem; cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+        .api-subtab:hover { color: var(--color-text); }
+        .api-subtab.active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+        .api-subtab-hint { font-size: 0.72rem; font-weight: 600; color: var(--color-text-secondary); opacity: 0.75; }
+        .api-subtab.active .api-subtab-hint { color: var(--color-accent); opacity: 0.85; }
+        .api-subsection { display: none; }
+        .api-subsection.active { display: block; animation: cardIn 0.2s ease-out; }
+
+        /* ==================== API keys: filter + bulk-select toolbar ==================== */
+        .tokens-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .filter-pills { display: flex; gap: 0.4rem; background: var(--color-muted); border-radius: 0.7rem; padding: 0.3rem; flex-wrap: wrap; }
+        .filter-pill { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; border: none; border-radius: 0.5rem; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+        .filter-pill:hover { color: var(--color-text); }
+        .filter-pill.active { background: var(--color-surface); color: var(--color-accent); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .filter-count { font-size: 0.68rem; font-weight: 800; background: var(--color-border); color: var(--color-text-secondary); padding: 0.05rem 0.4rem; border-radius: 2rem; min-width: 1.1rem; text-align: center; }
+        .filter-pill.active .filter-count { background: var(--color-accent); color: #fff; }
+        .select-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .select-toolbar-active { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .mcp-card.select-mode { padding-inline-start: 2.9rem; position: relative; }
+        .mcp-card-select-cb { position: absolute; inset-inline-start: 1rem; top: 1.1rem; width: 18px; height: 18px; accent-color: var(--color-accent); cursor: pointer; display: none; }
+        .mcp-card.select-mode .mcp-card-select-cb { display: block; }
+        .mcp-card.selected { outline: 2px solid var(--color-accent); outline-offset: -1px; background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface)); }
     </style>
 </head>
 <body>
@@ -451,13 +476,9 @@
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
                     خادم MCP
                 </button>
-                <button class="dev-tab" data-devtab="apitokens" id="devTabApiTokens">
+                <button class="dev-tab" data-devtab="api" id="devTabApi">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
-                    مفاتيح API
-                </button>
-                <button class="dev-tab" data-devtab="integrations" id="devTabIntegrations">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
-                    التكاملات الخارجية
+                    API
                 </button>
             </div>
 
@@ -616,65 +637,103 @@
 
             </div><!-- /devSectionMcpServer -->
 
-            <!-- ═══════════════ قسم 2: مفاتيح API ═══════════════ -->
-            <div class="dev-section" id="devSectionApiTokens">
-                <div class="toolbar">
-                    <div class="field" style="flex:1">
-                        <label>مفاتيح الوصول لـ Ticket System / WhatsApp System / Chatbot</label>
-                        <span style="font-size:0.82rem;color:var(--color-text-secondary)">كل مفتاح له API Key ظاهر دائمًا، وSecret/Bearer Token يُعرض مرة واحدة فقط عند الإنشاء أو التجديد.</span>
-                    </div>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-secondary" id="refreshTokensBtn">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                            تحديث
-                        </button>
-                        <button class="btn btn-primary" id="addTokenBtn">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            توليد مفتاح جديد
-                        </button>
-                    </div>
+            <!-- ═══════════════ قسم 2: API (مفاتيح API + التكاملات الخارجية) ═══════════════ -->
+            <div class="dev-section" id="devSectionApi">
+
+                <div class="api-subtabs">
+                    <button class="api-subtab active" data-apisubtab="internal" id="apiSubTabInternal">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
+                        داخلي
+                        <span class="api-subtab-hint">مفاتيح API</span>
+                    </button>
+                    <button class="api-subtab" data-apisubtab="external" id="apiSubTabExternal">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>
+                        خارجي
+                        <span class="api-subtab-hint">التكاملات الخارجية</span>
+                    </button>
                 </div>
 
-                <div class="servers-list" id="apiTokensList">
-                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل المفاتيح...</p></div>
-                </div>
-
-                <div class="activity-panel">
-                    <h3>
-                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        <span>سجل الاستخدام (Audit Log)</span>
-                    </h3>
-                    <div id="apiUsageLogList">
-                        <div class="activity-empty">لا يوجد استخدام مسجّل بعد</div>
+                <!-- ─────────── داخلي: مفاتيح API ─────────── -->
+                <div class="api-subsection active" id="apiSubsectionInternal">
+                    <div class="toolbar">
+                        <div class="field" style="flex:1">
+                            <label>مفاتيح الوصول لـ Ticket System / WhatsApp System / Chatbot</label>
+                            <span style="font-size:0.82rem;color:var(--color-text-secondary)">كل مفتاح له API Key ظاهر دائمًا، وSecret/Bearer Token يُعرض مرة واحدة فقط عند الإنشاء أو التجديد.</span>
+                        </div>
+                        <div class="toolbar-actions">
+                            <button class="btn btn-secondary" id="refreshTokensBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                تحديث
+                            </button>
+                            <button class="btn btn-primary" id="addTokenBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                توليد مفتاح جديد
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </div><!-- /devSectionApiTokens -->
 
-            <!-- ═══════════════ قسم 3: External Integrations ═══════════════ -->
-            <div class="dev-section" id="devSectionIntegrations">
-                <div class="toolbar">
-                    <div class="field" style="flex:1">
-                        <label>المزوّد الافتراضي للذكاء الاصطناعي (شات بوت الموقع)</label>
-                        <select id="defaultAiProviderSelect" style="min-width:260px">
-                            <option value="">— بدون (الرد الآلي البسيط فقط) —</option>
-                        </select>
+                    <div class="tokens-filter-bar">
+                        <div class="filter-pills" id="tokenFilterPills">
+                            <button class="filter-pill active" data-tokenfilter="all">الكل <span class="filter-count" id="filterCountAll">0</span></button>
+                            <button class="filter-pill" data-tokenfilter="connected">متصل <span class="filter-count" id="filterCountConnected">0</span></button>
+                            <button class="filter-pill" data-tokenfilter="disconnected">غير متصل <span class="filter-count" id="filterCountDisconnected">0</span></button>
+                        </div>
+                        <div class="select-toolbar">
+                            <button class="btn btn-secondary" id="toggleSelectModeBtn">
+                                <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>
+                                تحديد
+                            </button>
+                            <div class="select-toolbar-active" id="selectToolbarActive" style="display:none">
+                                <button class="btn btn-secondary" id="selectAllTokensBtn">تحديد الكل</button>
+                                <button class="btn btn-secondary" id="deselectAllTokensBtn">إلغاء التحديد</button>
+                                <button class="btn btn-delete" id="bulkDeleteTokensBtn" disabled>حذف المحدد (<span id="selectedTokensCount">0</span>)</button>
+                                <button class="btn btn-secondary" id="cancelSelectModeBtn">إلغاء</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-secondary" id="refreshIntegrationsBtn">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                            تحديث
-                        </button>
-                        <button class="btn btn-primary" id="addIntegrationBtn">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            إضافة تكامل جديد
-                        </button>
-                    </div>
-                </div>
 
-                <div class="integrations-grid" id="integrationsGrid">
-                    <div class="state-block"><div class="spinner"></div><p>جاري تحميل التكاملات...</p></div>
-                </div>
-            </div><!-- /devSectionIntegrations -->
+                    <div class="servers-list" id="apiTokensList">
+                        <div class="state-block"><div class="spinner"></div><p>جاري تحميل المفاتيح...</p></div>
+                    </div>
+
+                    <div class="activity-panel">
+                        <h3>
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span>سجل الاستخدام (Audit Log)</span>
+                        </h3>
+                        <div id="apiUsageLogList">
+                            <div class="activity-empty">لا يوجد استخدام مسجّل بعد</div>
+                        </div>
+                    </div>
+                </div><!-- /apiSubsectionInternal -->
+
+                <!-- ─────────── خارجي: التكاملات الخارجية ─────────── -->
+                <div class="api-subsection" id="apiSubsectionExternal">
+                    <div class="toolbar">
+                        <div class="field" style="flex:1">
+                            <label>المزوّد الافتراضي للذكاء الاصطناعي (شات بوت الموقع)</label>
+                            <select id="defaultAiProviderSelect" style="min-width:260px">
+                                <option value="">— بدون (الرد الآلي البسيط فقط) —</option>
+                            </select>
+                        </div>
+                        <div class="toolbar-actions">
+                            <button class="btn btn-secondary" id="refreshIntegrationsBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                تحديث
+                            </button>
+                            <button class="btn btn-primary" id="addIntegrationBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                إضافة تكامل جديد
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="integrations-grid" id="integrationsGrid">
+                        <div class="state-block"><div class="spinner"></div><p>جاري تحميل التكاملات...</p></div>
+                    </div>
+                </div><!-- /apiSubsectionExternal -->
+
+            </div><!-- /devSectionApi -->
 
         </div>
     </main>
