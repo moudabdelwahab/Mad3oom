@@ -871,11 +871,9 @@ function copyRedirectUri() {
 function switchDevTab(tab) {
     document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
     document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
-    document.getElementById('devSectionMcpServer').classList.toggle('active', tab === 'mcpserver');
     document.getElementById('devSectionApi').classList.toggle('active', tab === 'api');
 
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
-    if (tab === 'mcpserver' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
     if (tab === 'api') {
         if (!apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
         if (!integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
@@ -889,11 +887,13 @@ function switchApiSubTab(subtab) {
     document.getElementById('apiSubsectionExternal').classList.toggle('active', subtab === 'external');
 }
 
-/** تبويب فرعي داخل قسم "MCP العميل" المدمج: العميل (Marketplace/ربط سريع) / الخادم (خوادم مخصّصة يدويًا) */
+/** تبويب فرعي داخل قسم "MCP" المدمج: العميل (Marketplace/ربط سريع) / الخادم (خوادم مخصّصة + مدعوم كخادم MCP) */
 function switchClientSubTab(subtab) {
     document.querySelectorAll('.client-subtab').forEach((b) => b.classList.toggle('active', b.dataset.clientsubtab === subtab));
     document.getElementById('clientSubsectionClient').classList.toggle('active', subtab === 'client');
     document.getElementById('clientSubsectionServer').classList.toggle('active', subtab === 'server');
+
+    if (subtab === 'server' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
 }
 
 let mcpClientMarketLoadedOnce = false;
@@ -1776,7 +1776,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // تبويب Developer Center
     document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
-    document.getElementById('devTabMcpServer').addEventListener('click', () => switchDevTab('mcpserver'));
     document.getElementById('devTabApi').addEventListener('click', () => switchDevTab('api'));
 
     // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
