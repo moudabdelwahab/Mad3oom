@@ -111,6 +111,15 @@
             font-size: 0.76rem; color: var(--color-text-secondary); background: var(--color-muted);
             border-radius: 0.5rem; padding: 0.5rem 0.7rem; line-height: 1.5;
         }
+        .connector-docs-link { display: inline-block; margin-top: 0.35rem; font-weight: 700; color: var(--color-accent); text-decoration: none; }
+        .connector-docs-link:hover { text-decoration: underline; }
+        .quick-connect-note {
+            font-size: 0.8rem; line-height: 1.6; color: var(--color-text-secondary);
+            background: var(--color-muted); border-radius: 0.6rem; padding: 0.7rem 0.9rem; margin-bottom: 1rem;
+        }
+        .quick-connect-note a { color: var(--color-accent); font-weight: 700; text-decoration: none; }
+        .quick-connect-note a:hover { text-decoration: underline; }
+        .field-hidden { display: none !important; }
 
         /* ==================== Tool Explorer ==================== */
         .tool-run-panel { display: none; margin-top: 0.75rem; border-top: 1px dashed var(--color-border); padding-top: 0.75rem; }
@@ -418,6 +427,14 @@
         .credtype-chip { font-size: 0.68rem; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 0.15rem 0.5rem; border-radius: 2rem; }
         .info-only-chip { font-size: 0.62rem; font-weight: 800; background: #e0e7ff; color: #3730a3; padding: 0.1rem 0.5rem; border-radius: 2rem; }
 
+        /* ==================== MCP client section: العميل/الخادم sub-tabs ==================== */
+        .client-subtabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--color-border); flex-wrap: wrap; }
+        .client-subtab { display: flex; align-items: center; gap: 0.45rem; padding: 0.65rem 1.1rem; border: none; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.87rem; cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+        .client-subtab:hover { color: var(--color-text); }
+        .client-subtab.active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+        .client-subsection { display: none; }
+        .client-subsection.active { display: block; animation: cardIn 0.2s ease-out; }
+
         /* ==================== API section: internal/external sub-tabs ==================== */
         .api-subtabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--color-border); flex-wrap: wrap; }
         .api-subtab { display: flex; align-items: center; gap: 0.45rem; padding: 0.65rem 1.1rem; border: none; background: transparent; color: var(--color-text-secondary); font-family: inherit; font-weight: 700; font-size: 0.87rem; cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
@@ -468,10 +485,6 @@
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
                     MCP العميل
                 </button>
-                <button class="dev-tab" data-devtab="servers" id="devTabServers">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
-                    Servers
-                </button>
                 <button class="dev-tab" data-devtab="mcpserver" id="devTabMcpServer">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
                     خادم MCP
@@ -482,8 +495,25 @@
                 </button>
             </div>
 
-            <!-- ═══════════════ قسم 0: MCP العميل — Marketplace (جديد) ═══════════════ -->
+            <!-- ═══════════════ قسم 0: MCP العميل — مدمج (Marketplace + Servers) ═══════════════ -->
             <div class="dev-section active" id="devSectionMcpClient">
+
+                <!-- تبويب فرعي: العميل (Marketplace/ربط سريع) / الخادم (خوادم مخصّصة يدويًا) -->
+                <div class="client-subtabs">
+                    <button class="client-subtab active" data-clientsubtab="client" id="clientSubTabClient">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                        العميل
+                        <span class="api-subtab-hint">ربط سريع بخدمات جاهزة</span>
+                    </button>
+                    <button class="client-subtab" data-clientsubtab="server" id="clientSubTabServer">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                        الخادم
+                        <span class="api-subtab-hint">خوادم مخصّصة يدويًا</span>
+                    </button>
+                </div>
+
+                <!-- ─────────── العميل: Marketplace (ربط سريع) ─────────── -->
+                <div class="client-subsection active" id="clientSubsectionClient">
 
                 <div class="mcp-search-row">
                     <div class="mcp-search-box">
@@ -510,10 +540,10 @@
                     <div class="tools-list" id="toolExplorerList"></div>
                 </div>
 
-            </div><!-- /devSectionMcpClient -->
+                </div><!-- /clientSubsectionClient -->
 
-            <!-- ═══════════════ قسم 1: Servers — إضافة خادم MCP مخصّص (منقول كما هو من "شبكة MCP") ═══════════════ -->
-            <div class="dev-section" id="devSectionServers">
+                <!-- ─────────── الخادم: إضافة خادم MCP مخصّص (منقول كما هو من "Servers") ─────────── -->
+                <div class="client-subsection" id="clientSubsectionServer">
 
             <!-- Stats -->
             <div class="stats-grid">
@@ -601,7 +631,9 @@
                 </div>
             </div>
 
-            </div><!-- /devSectionServers -->
+                </div><!-- /clientSubsectionServer -->
+
+            </div><!-- /devSectionMcpClient -->
 
             <!-- ═══════════════ قسم 2: خادم MCP — مدعوم كخادم (منقول كما هو، Inbound سابقًا) ═══════════════ -->
             <div class="dev-section" id="devSectionMcpServer">
@@ -748,7 +780,7 @@
             <div class="mcp-modal-body">
                 <div class="form-error" id="formError"></div>
 
-                <div class="form-group full" style="margin-bottom:1rem">
+                <div class="form-group full" style="margin-bottom:1rem" id="connectorTypeRow">
                     <label>نوع الموصل <span class="req">*</span></label>
                     <div class="credtype-row">
                         <label><input type="radio" name="connectorType" value="mcp_server" checked onchange="window.mcpOnConnectorTypeChange()"> 🔌 خادم MCP (JSON-RPC كامل - initialize/tools/list/tools/call)</label>
@@ -756,6 +788,7 @@
                     </div>
                     <span class="hint" id="connectorTypeHint"></span>
                 </div>
+                <div class="quick-connect-note" id="quickConnectNote" style="display:none;"></div>
 
                 <div class="form-grid">
                     <div class="form-group">
@@ -792,7 +825,7 @@
                     </div>
 
                     <!-- نوع المصادقة - Dynamic Form -->
-                    <div class="form-group full">
+                    <div class="form-group full" id="authTypeGroup">
                         <label>نوع المصادقة (Authentication Type)</label>
                         <select id="fAuthType" onchange="window.mcpOnAuthTypeChange()">
                             <option value="none">بدون (None)</option>
@@ -873,7 +906,7 @@
                         </button>
                     </div>
 
-                    <div class="form-group full">
+                    <div class="form-group full" id="headersGroup">
                         <label>الترويسات الإضافية العامة (Headers) — JSON</label>
                         <textarea id="fHeaders" placeholder='{"X-Custom-Header": "value"}' dir="ltr"></textarea>
                         <span class="hint">تُضاف فوق أي auth headers أعلاه، لأي احتياج إضافي.</span>
@@ -884,7 +917,7 @@
                         <textarea id="fEnv" placeholder='{"API_TOKEN": "xxx"}' dir="ltr"></textarea>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="categoryGroup">
                         <label>التصنيف</label>
                         <input type="text" id="fCategory" placeholder="general">
                     </div>
