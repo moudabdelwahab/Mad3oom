@@ -3,7 +3,7 @@ import { requireAuth } from '/auth-client.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
-import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
+import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
 
 console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
@@ -673,7 +673,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             // فبنعمل فحص قراءة (مش استهلاك كوتة) قبل استدعاء getSieReply
             // نفسها، وإذا لقيناه سحب، نوقف الرسالة دي، نبلّغه بوضوح، ونحفظ
             // تحويله للوضع التقليدي فورًا في قاعدة البيانات (مش محليًا بس).
-            let sieResult = null;
+            let reply;
+            let options;
+
             if (cachedChatbotMode === CHATBOT_MODES.SIE) {
                 const sieAccess = await getSieAccessInfo(currentUser.id);
                 if (!sieAccess.available) {
@@ -681,18 +683,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (typingIndicator) typingIndicator.style.display = 'none';
                     return;
                 }
-                sieResult = await getSieReply({
+                const sieResult = await getSieReply({
                     text,
                     supabase,
                     sessionId: currentSessionId,
                     userId: currentUser.id,
                     botState: freshSession?.bot_state || {}
                 });
-                // لو الفحص قال متاح لكن getSieReply برضه رجّعت null (سباق نادر:
-                // اتلغى بالظبط بين الفحص والاستدعاء، أو خطأ مؤقت في الـpipeline)،
-                // منرجعش صامت للتقليدي كإجابة نهائية بردّ عادي - نبلّغ العميل
-                // إن في مشكلة مؤقتة، عشان الفرق بين "بيرد عليك بوت تاني دلوقتي"
-                // و"حصل خطأ، جرّب تاني" يفضل واضح له.
+                // لو الفحص قال متاح لكن getSieReply برضه رجّعت null (سباق نادر،
+                // أو محرك SIE الخارجي مش متاح مؤقتًا/بطيء)، منرجعش صامت للتقليدي
+                // كإجابة نهائية بردّ عادي - نبلّغ العميل إن في مشكلة مؤقتة، عشان
+                // الفرق بين "بيرد عليك بوت تاني دلوقتي" و"حصل خطأ، جرّب تاني" يفضل واضح له.
                 if (!sieResult) {
                     await supabase.from('chat_messages').insert({
                         session_id: currentSessionId,
@@ -704,25 +705,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (typingIndicator) typingIndicator.style.display = 'none';
                     return;
                 }
+                // SIE منتج خارجي مستقل ومالوش وصول مباشر لقاعدة بيانات مدعوم، فبيرجع
+                // بيانات بس (نص + خيارات + bot_state جديدة) - الكتابة الفعلية هنا،
+                // بالظبط زي المحرك التقليدي تحت.
+                reply = sieResult.reply;
+                options = sieResult.options;
+                if (sieResult.botState !== undefined) {
+                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
+                }
+            } else {
+                const botReply = await getBotReply({
+                    text,
+                    supabase,
+                    sessionId: currentSessionId,
+                    userId: currentUser.id,
+                    botState: freshSession?.bot_state || {},
+                    botSettings,
+                    imageUrl
+                });
+                reply = botReply.reply;
+                options = botReply.options;
             }
-
-            if (sieResult) {
-                // Action Layer (Module 8) already كتب رسالة البوت + حالة الجلسة
-                // ذرّيًا (persist_bot_turn / create_ticket_with_message_and_session_update)،
-                // فمفيش داعي نكرر الإدراج هنا.
-                renderQuickOptions(sieResult.options);
-                return;
-            }
-
-            const { reply, options } = await getBotReply({
-                text,
-                supabase,
-                sessionId: currentSessionId,
-                userId: currentUser.id,
-                botState: freshSession?.bot_state || {},
-                botSettings,
-                imageUrl
-            });
 
             await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
