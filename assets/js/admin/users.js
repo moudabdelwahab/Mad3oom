@@ -2,7 +2,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { impersonateUser } from './admin-utils.js';
-import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/sie-integration/sie-entitlement.js';
+import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/assets/js/sie-client.js';
 
 let user = null;
 let currentOptionsUserId = null;
