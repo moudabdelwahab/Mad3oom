@@ -15,7 +15,7 @@
  */
 
 import { supabase } from '/api-config.js';
-import { getSieAccessStatus } from '/sie-integration/sie-entitlement.js';
+import { getSieAccessStatus } from '/assets/js/sie-client.js';
 
 // ===================== الأوضاع المتاحة =====================
 export const CHATBOT_MODES = {
@@ -43,7 +43,7 @@ export const CHATBOT_MODE_DESCRIPTIONS = {
 // ملحوظة مهمة: SIE اتشالت من هنا عمدًا. أهليّة SIE مش جزء من نظام
 // has_chatbot_entitlement() العام (whatsapp_enabled/role) - ليها بوابة
 // مستقلة تمامًا خاصة بيها (جدول customer_sie_access، قرار إداري صرف)،
-// موصوفة في sie-integration/sie-entitlement.js ومُتحقق منها بدالة
+// موصوفة عبر API خارجي على SIE (assets/js/sie-client.js) ومُتحقق منها بدالة
 // hasSieAccess() تحت. المزج بين النظامين هيدّي نتيجة غلط (كل عميل مشترك
 // عادي هيقدر يستخدم SIE من غير ما الإدارة تفعّله له تحديدًا).
 const PAID_MODES = new Set([CHATBOT_MODES.AI_MODEL, CHATBOT_MODES.AUTO]);
@@ -216,11 +216,12 @@ export function getAutoModeExplanation() {
 
 // ===================== SIE (محرك الدعم الذكي) =====================
 /**
- * الآن SIE مربوط فعليًا (تم دمج /sie و /sie-integration في المشروع). زي ما
- * وضّح sie-integration/README.md عمدًا: أهليّة SIE (customer_sie_access)
- * *مستقلة* تمامًا عن has_chatbot_entitlement() العامة (اشتراك واتساب/الدعم) -
- * قرار إداري صرف من جدول وRPCs منفصلة بالكامل. هذا الملف لا يعيد كتابة تلك
- * المنطق، بل يعيد استخدام sie-entitlement.js كمصدر الحقيقة الوحيد له.
+ * SIE منتج مستقل تمامًا، مستضاف على https://sie.mad3oom.com، ومفيش أي كود
+ * محلي بتاعه في هذا المشروع. أهليّة SIE (customer_sie_access) *مستقلة*
+ * تمامًا عن has_chatbot_entitlement() العامة (اشتراك واتساب/الدعم) - قرار
+ * إداري صرف بيتحقق منه محرك SIE نفسه عبر API خارجي. هذا الملف لا يعيد كتابة
+ * تلك المنطق، بل يعيد استخدام assets/js/sie-client.js (العميل الوحيد
+ * المسموح له بمخاطبة SIE عبر HTTP) كمصدر الحقيقة الوحيد له.
  *
  * العلاقة بين المفهومين (حسب توجيهك):
  *  - customer_sie_access (إداري)  → هل خيار SIE يظهر/يُسمح باختياره في القائمة أصلاً؟
