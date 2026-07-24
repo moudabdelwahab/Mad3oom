@@ -17,7 +17,7 @@ import { requireAuth } from '/auth-client.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
-import { getSieReply } from '/sie-integration/sie-chat-bridge.js';
+import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
 
 /**
@@ -848,14 +848,16 @@ class ChatWidget {
             // بدون silent fallback: لو العميل مختار SIE (this.cachedChatbotMode)
             // لكن صلاحيته اتسحبت من الإدارة وهو في نص محادثة، بنوقف ونبلّغه
             // بوضوح جوه الشات نفسه، بدل ما نرجّعه صامت للمحرك التقليدي.
-            let sieResult = null;
+            let reply;
+            let options;
+
             if (this.cachedChatbotMode === 'sie') {
                 const sieAccess = await getSieAccessInfo(this.currentUser.id);
                 if (!sieAccess.available) {
                     await this.handleSieRevokedMidConversation(sieAccess);
                     return;
                 }
-                sieResult = await getSieReply({
+                const sieResult = await getSieReply({
                     text,
                     supabase,
                     sessionId: this.currentSessionId,
@@ -872,23 +874,26 @@ class ChatWidget {
                     });
                     return;
                 }
+                // SIE منتج خارجي مستقل ومالوش وصول مباشر لقاعدة بيانات مدعوم، فبيرجع
+                // بيانات بس (نص + خيارات + bot_state جديدة) - الكتابة الفعلية هنا،
+                // بالظبط زي المحرك التقليدي تحت.
+                reply = sieResult.reply;
+                options = sieResult.options;
+                if (sieResult.botState !== undefined) {
+                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', this.currentSessionId);
+                }
+            } else {
+                const botReply = await getBotReply({
+                    text,
+                    supabase,
+                    sessionId: this.currentSessionId,
+                    userId: this.currentUser.id,
+                    botState: freshSession?.bot_state || {},
+                    botSettings: this.botSettings
+                });
+                reply = botReply.reply;
+                options = botReply.options;
             }
-
-            if (sieResult) {
-                // Action Layer بتاعة SIE كتبت رسالة البوت وحالة الجلسة
-                // بنفسها، فمفيش داعي نكرر الإدراج هنا.
-                this.renderQuickOptions(sieResult.options);
-                return;
-            }
-
-            const { reply, options } = await getBotReply({
-                text,
-                supabase,
-                sessionId: this.currentSessionId,
-                userId: this.currentUser.id,
-                botState: freshSession?.bot_state || {},
-                botSettings: this.botSettings
-            });
 
             await supabase.from('chat_messages').insert({
                 session_id: this.currentSessionId,
