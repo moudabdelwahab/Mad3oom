@@ -2,47 +2,112 @@
  * sie-client.js
  * ------------------------------------------------------------
  * Mad3oom Core's ONLY point of contact with the Support Intelligence
- * Engine (SIE). SIE is now a fully independent product hosted at
- * https://sie.mad3oom.com — it is no longer embedded in this
- * repository (the old local `/sie` and `/sie-integration` folders have
- * been removed).
+ * Engine (SIE). SIE is a fully independent product — it is not embedded
+ * in this repository, and per the platform's architecture rules Mad3oom
+ * must never import SIE source code. Every interaction with SIE MUST go
+ * through public HTTP APIs, and this file is that single boundary.
  *
- * Per the platform's architecture rules, Mad3oom must never import SIE
- * source code, and every interaction with SIE must go through public
- * HTTP APIs. This file is that boundary: every exported function here
- * is a thin, resilient wrapper around a `fetch()` call to
- * SIE_API_BASE_URL. Nothing else in this codebase should talk to SIE
- * directly — always go through this module, the same way every other
- * external integration in this project goes through its own thin
- * client (see api-config.js's supabaseRestFetch for the same pattern).
+ * RULE: no other file in this codebase may call SIE directly (no
+ * fetch()/XHR/axios to the SIE base URL anywhere else). If a new
+ * feature needs SIE, add a function here and import it — never inline
+ * a request elsewhere. This is what keeps SIE swappable/upgradeable
+ * without ever touching a UI component, page, or feature module.
  *
- * Every function fails CLOSED and never throws: if SIE is unreachable,
- * slow, misconfigured, or returns something unexpected, callers get a
- * safe default (false/null/an error object) instead of an exception —
- * so the rest of the platform (chat, tickets, dashboard, admin, auth...)
- * keeps working exactly as before, with zero impact on customers who
- * aren't using SIE. A short request timeout (see `withTimeout`) is what
- * prevents a slow/down SIE from ever hanging the UI in a permanent
- * loading state.
- *
- * The function names and parameter/return shapes intentionally mirror
- * the old local module's public API (isCurrentUserSieAdmin,
- * getSieAccessStatus, adminSetAccess, adminResetUsage, getSieReply) so
- * every existing caller (chatbot-mode-service.js, admin/users.js,
- * chat-logic.js, chat-widget.js) needed only an import-path change, not
- * a rewrite — this keeps the decoupling a pure refactor with zero
- * functional regressions.
+ * What this file provides, end to end:
+ *   - Base URL: never hardcoded here — always read from sie-config.js,
+ *     which resolves it per environment (dev/staging/production).
+ *   - Versioning: every endpoint lives under /api/v1/, centralized in
+ *     SIE_ENDPOINTS below (a version bump is a one-place change).
+ *   - Contract validation: every exported function documents its
+ *     request/response shape and validates the response before
+ *     returning it — a malformed/partial response degrades to a safe
+ *     default instead of leaking garbage into the UI.
+ *   - Reliability: request timeout (AbortController), one automatic
+ *     retry for transient failures (network errors / 5xx), and a
+ *     short-lived circuit breaker so a down SIE doesn't get hammered
+ *     with doomed requests or make the UI feel slow.
+ *   - Auth: forwards the current Supabase access token. Token refresh is
+ *     never duplicated here — supabase.auth.getSession() already
+ *     refreshes an expired session before returning it, so this file
+ *     just asks for "the current session" and forwards whatever token
+ *     that returns.
+ *   - Logging: quiet in production; verbose only in local/dev
+ *     environments (see sie-config.js's isSieDebugMode()). Tokens are
+ *     never logged.
+ *   - Fail-closed: every function catches its own errors and returns a
+ *     safe default (false/null/{error}) rather than throwing, so the
+ *     rest of the platform (chat, tickets, dashboard, admin, auth...)
+ *     keeps working exactly as before even when SIE is unreachable.
  */
+import { getSieBaseUrl, isSieDebugMode } from '/sie-config.js';
 
-/** Base URL of the independent SIE service. The single place this ever changes. */
-export const SIE_API_BASE_URL = 'https://sie.mad3oom.com';
+const API_VERSION = 'v1';
+
+/** Centralized, versioned endpoint definitions — the only place a path is ever written. */
+const SIE_ENDPOINTS = Object.freeze({
+    HEALTH: `/api/${API_VERSION}/health`,
+    IS_ADMIN: `/api/${API_VERSION}/admin/is-admin`,
+    ACCESS_STATUS: (userId) => `/api/${API_VERSION}/access/${encodeURIComponent(userId)}`,
+    ADMIN_SET_ACCESS: `/api/${API_VERSION}/admin/access`,
+    ADMIN_RESET_USAGE: `/api/${API_VERSION}/admin/access/reset-usage`,
+    CHAT_REPLY: `/api/${API_VERSION}/chat/reply`
+});
 
 const DEFAULT_TIMEOUT_MS = 8000;
+const MAX_RETRIES = 1; // one automatic retry for transient failures only
+const RETRY_DELAY_MS = 400;
+
+// ----- Circuit breaker: avoid hammering a known-down SIE, keep the UI snappy -----
+const CIRCUIT_COOLDOWN_MS = 30000;
+let circuitOpenUntil = 0;
+
+function isCircuitOpen() {
+    return Date.now() < circuitOpenUntil;
+}
+
+function tripCircuit() {
+    circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+}
+
+function resetCircuit() {
+    circuitOpenUntil = 0;
+}
 
 /**
- * Wraps fetch() with an abort-based timeout so a slow/unreachable SIE
- * can never leave the caller (and therefore the UI) hanging forever.
+ * Whether SIE is currently considered reachable, WITHOUT making a
+ * network call — purely reflects the circuit breaker's current state.
+ * Safe to call as often as needed; never blocks or slows the UI.
+ * @returns {boolean}
  */
+export function isSieLikelyAvailable() {
+    return !isCircuitOpen();
+}
+
+// ----- Dev-only logging (never verbose in production, never logs tokens) -----
+function debugLog(...args) {
+    if (isSieDebugMode()) console.debug('[sie-client]', ...args);
+}
+function warnLog(...args) {
+    // Warnings are useful in every environment (they explain a
+    // degrade-to-safe-default to whoever's debugging a support ticket),
+    // but never include the token/headers, only the error message.
+    console.warn('[sie-client]', ...args);
+}
+
+/** True for errors worth a single retry: network failures and 5xx server errors. Not for 4xx (those won't succeed on retry). */
+function isRetryableError(err) {
+    if (!err) return false;
+    if (err.name === 'AbortError') return true; // timeout
+    if (err instanceof TypeError) return true; // network failure (fetch throws TypeError on network errors)
+    if (typeof err.status === 'number' && err.status >= 500) return true;
+    return false;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Wraps fetch() with an abort-based timeout so a slow/unreachable SIE can never hang the caller. */
 async function withTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -53,24 +118,42 @@ async function withTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
     }
 }
 
-/** Current Supabase access token, if any — forwarded to SIE so it can identify the caller. */
+/**
+ * Current Supabase access token, if any — forwarded to SIE so it can
+ * identify the caller. Reuses supabase-js's own session handling
+ * (which already refreshes an expiring/expired token before returning
+ * it) rather than re-implementing token refresh here.
+ */
 async function getAccessToken(supabase) {
     try {
         const { data } = await supabase.auth.getSession();
         return data?.session?.access_token || null;
     } catch (err) {
-        console.warn('[sie-client] تعذّر جلب جلسة المستخدم الحالية:', err?.message || err);
+        warnLog('تعذّر جلب جلسة المستخدم الحالية:', err?.message || err);
         return null;
     }
 }
 
-async function sieFetch(supabase, path, { method = 'GET', body, timeoutMs } = {}) {
+class SieHttpError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.name = 'SieHttpError';
+        this.status = status;
+    }
+}
+
+/**
+ * Performs one HTTP call to SIE (no retry, no circuit-breaker check —
+ * see sieRequest() below for the full policy). Never logs the token.
+ */
+async function sieFetchOnce(supabase, path, { method = 'GET', body, timeoutMs } = {}) {
+    const baseUrl = getSieBaseUrl();
     const token = await getAccessToken(supabase);
     const headers = { ...(body ? { 'Content-Type': 'application/json' } : {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const response = await withTimeout(
-        `${SIE_API_BASE_URL}${path}`,
+        `${baseUrl}${path}`,
         { method, headers, body: body ? JSON.stringify(body) : undefined },
         timeoutMs
     );
@@ -84,35 +167,119 @@ async function sieFetch(supabase, path, { method = 'GET', body, timeoutMs } = {}
 
     if (!response.ok) {
         const message = payload?.error || payload?.message || `SIE request failed (${response.status})`;
-        throw new Error(message);
+        throw new SieHttpError(message, response.status);
     }
 
     return payload;
 }
 
+/**
+ * Full request policy: circuit breaker short-circuit -> one HTTP
+ * attempt -> one retry on a transient failure -> circuit trip on
+ * continued failure. This is what "one automatic retry for transient
+ * failures" + "fail-closed" + "avoid unnecessary requests while SIE is
+ * down" mean in practice, in one shared place so every exported
+ * function below gets it for free.
+ */
+async function sieRequest(supabase, path, options = {}) {
+    if (isCircuitOpen()) {
+        debugLog(`الدائرة مفتوحة (SIE اتعتبر مش متاح مؤقتًا) — تخطي الطلب لـ ${path}`);
+        throw new SieHttpError('SIE temporarily unavailable (circuit open)', 0);
+    }
+
+    try {
+        const result = await sieFetchOnce(supabase, path, options);
+        resetCircuit();
+        return result;
+    } catch (err) {
+        if (!isRetryableError(err)) {
+            throw err;
+        }
+        debugLog(`فشل مؤقت في ${path}، بيتعمل retry واحد:`, err?.message || err);
+        await sleep(RETRY_DELAY_MS);
+        try {
+            const result = await sieFetchOnce(supabase, path, options);
+            resetCircuit();
+            return result;
+        } catch (retryErr) {
+            if (isRetryableError(retryErr)) tripCircuit();
+            throw retryErr;
+        }
+    }
+}
+
+// ===================== Health check =====================
+
+/**
+ * Lightweight reachability check. Does not throw. Updates the circuit
+ * breaker on failure so subsequent calls from any function in this
+ * file skip straight to their fail-closed default without a network
+ * round-trip, until the cooldown passes.
+ *
+ * Contract:
+ *   Request:  GET {baseUrl}/api/v1/health
+ *   Response (200): { status: 'ok' }  — any 2xx with a JSON body is treated as healthy
+ * @returns {Promise<boolean>}
+ */
+export async function checkSieHealth() {
+    if (isCircuitOpen()) return false;
+    try {
+        await sieFetchOnce(null, SIE_ENDPOINTS.HEALTH, { timeoutMs: 4000 });
+        resetCircuit();
+        return true;
+    } catch (err) {
+        warnLog('فحص توفر SIE فشل:', err?.message || err);
+        tripCircuit();
+        return false;
+    }
+}
+
 // ===================== Entitlement / Admin API =====================
 
 /**
- * هل المستخدم الحالي (حسب الـ token المُرسَل) أدمن معتمَد لدى SIE؟ يحل محل
- * الاستدعاء المحلي القديم لـ is_sie_admin() RPC. Fail closed: أي خطأ
- * (شبكة، SIE غير متاح، غير مصرّح) يرجّع false بدل ما يكسر صفحة المستخدمين.
+ * هل المستخدم الحالي (حسب الـ token المُرسَل) أدمن معتمَد لدى SIE؟
+ *
+ * Contract:
+ *   Request:  GET {baseUrl}/api/v1/admin/is-admin  (Authorization: Bearer <supabase JWT>)
+ *   Response (200): { isAdmin: boolean }
+ * Validation: anything other than a strict boolean `true` is treated as false (fail closed).
+ *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  * @returns {Promise<boolean>}
  */
 export async function isCurrentUserSieAdmin(supabase) {
     try {
-        const data = await sieFetch(supabase, '/api/v1/admin/is-admin', { timeoutMs: 6000 });
-        return data?.isAdmin === true;
+        const data = await sieRequest(supabase, SIE_ENDPOINTS.IS_ADMIN, { timeoutMs: 6000 });
+        if (!data || typeof data.isAdmin !== 'boolean') {
+            debugLog('استجابة is-admin غير متوقعة، بيتم التعامل معاها كـ false:', data);
+            return false;
+        }
+        return data.isAdmin === true;
     } catch (err) {
-        console.warn('[sie-client] تعذّر التحقق من صلاحية أدمن SIE:', err?.message || err);
+        warnLog('تعذّر التحقق من صلاحية أدمن SIE:', err?.message || err);
         return false;
     }
 }
 
 /**
  * يجيب حالة وصول عميل معيّن لمحرك SIE (مفعّل؟ نوع الحد؟ الاستخدام؟...).
- * يحل محل القراءة المباشرة القديمة لجدول customer_sie_access. يرجّع null
- * عند أي فشل أو عدم وجود صف، بنفس سلوك النسخة المحلية القديمة.
+ *
+ * Contract:
+ *   Request:  GET {baseUrl}/api/v1/access/:userId  (Authorization: Bearer <supabase JWT>)
+ *   Response (200): {
+ *     access: {
+ *       is_enabled: boolean,
+ *       access_mode: 'unlimited'|'quota'|'expiration',
+ *       message_quota: number|null,
+ *       messages_used: number|null,
+ *       expires_at: string|null,   // ISO-8601
+ *       notes: string|null
+ *     } | null
+ *   }
+ * Validation: a response missing the `access` object, or one whose
+ * `is_enabled` isn't a boolean, is treated as "no access row" (null) —
+ * the same as the old direct-table-read behavior for an unknown user.
+ *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  * @param {string} userId
  * @returns {Promise<Object|null>}
@@ -120,55 +287,68 @@ export async function isCurrentUserSieAdmin(supabase) {
 export async function getSieAccessStatus(supabase, userId) {
     if (!userId) return null;
     try {
-        const data = await sieFetch(supabase, `/api/v1/access/${encodeURIComponent(userId)}`, { timeoutMs: 6000 });
-        return data?.access ?? data ?? null;
+        const data = await sieRequest(supabase, SIE_ENDPOINTS.ACCESS_STATUS(userId), { timeoutMs: 6000 });
+        const access = data?.access;
+        if (!access || typeof access !== 'object' || typeof access.is_enabled !== 'boolean') {
+            return null;
+        }
+        return access;
     } catch (err) {
-        console.warn('[sie-client] تعذّر جلب حالة وصول SIE:', err?.message || err);
+        warnLog('تعذّر جلب حالة وصول SIE:', err?.message || err);
         return null;
     }
 }
 
 /**
- * إعداد/تحديث وصول عميل لمحرك SIE (أدمن فقط). يحل محل sie_admin_set_access() RPC.
+ * إعداد/تحديث وصول عميل لمحرك SIE (أدمن فقط).
+ *
+ * Contract:
+ *   Request:  POST {baseUrl}/api/v1/admin/access
+ *             body: { userId, isEnabled, accessMode, messageQuota, expiresAt, notes }
+ *   Response (200): { success: true } (body is not required beyond a 2xx status)
+ *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  * @param {{userId: string, isEnabled: boolean, accessMode: string, messageQuota: number|null, expiresAt: string|null, notes: string|null}} params
  * @returns {Promise<{error: Error|null}>}
  */
 export async function adminSetAccess(supabase, { userId, isEnabled, accessMode, messageQuota, expiresAt, notes }) {
+    if (!userId) return { error: new Error('userId is required') };
     try {
-        await sieFetch(supabase, '/api/v1/admin/access', {
+        await sieRequest(supabase, SIE_ENDPOINTS.ADMIN_SET_ACCESS, {
             method: 'POST',
-            body: {
-                userId,
-                isEnabled,
-                accessMode,
-                messageQuota,
-                expiresAt,
-                notes
-            },
+            body: { userId, isEnabled, accessMode, messageQuota, expiresAt, notes },
             timeoutMs: 10000
         });
         return { error: null };
     } catch (err) {
+        warnLog('تعذّر تحديث وصول SIE:', err?.message || err);
         return { error: err instanceof Error ? err : new Error(String(err)) };
     }
 }
 
 /**
- * تصفير عداد الاستخدام لعميل معيّن (أدمن فقط). يحل محل sie_admin_reset_usage() RPC.
+ * تصفير عداد الاستخدام لعميل معيّن (أدمن فقط).
+ *
+ * Contract:
+ *   Request:  POST {baseUrl}/api/v1/admin/access/reset-usage
+ *             body: { userId }
+ *   Response (200): { success: true }
+ *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  * @param {string} userId
  * @returns {Promise<{error: Error|null}>}
  */
 export async function adminResetUsage(supabase, userId) {
+    if (!userId) return { error: new Error('userId is required') };
     try {
-        await sieFetch(supabase, '/api/v1/admin/access/reset-usage', {
+        await sieRequest(supabase, SIE_ENDPOINTS.ADMIN_RESET_USAGE, {
             method: 'POST',
             body: { userId },
             timeoutMs: 10000
         });
         return { error: null };
     } catch (err) {
+        warnLog('تعذّر تصفير استخدام SIE:', err?.message || err);
         return { error: err instanceof Error ? err : new Error(String(err)) };
     }
 }
@@ -176,16 +356,23 @@ export async function adminResetUsage(supabase, userId) {
 // ===================== Chat reply API =====================
 
 /**
- * يطلب رد محادثة من محرك SIE الخارجي لرسالة عميل واحدة. يحل محل الـ
- * pipeline المحلي القديم (Language -> Diagnostics -> Ranking -> Decision
- * -> Knowledge -> Dialogue -> Action) اللي كان جوه هذا المشروع.
+ * يطلب رد محادثة من محرك SIE الخارجي لرسالة عميل واحدة.
  *
- * ملحوظة معمارية مهمة: بما إن SIE بقى خدمة مستقلة تمامًا ومالوش وصول
- * مباشر لقاعدة بيانات مدعوم، الرد بتاعه بيرجع كبيانات فقط (نص + خيارات +
- * bot_state جديدة) - الكتابة الفعلية في chat_messages/chat_sessions
- * لسه مسؤولية الطبقة اللي بتنده الدالة دي (chat-logic.js / chat-widget.js)،
- * بالظبط زي ما بيحصل مع getBotReply() المحلي التقليدي. مفيش أي كتابة على
- * قاعدة بيانات مدعوم بتحصل من جوه هذا الملف.
+ * Contract:
+ *   Request:  POST {baseUrl}/api/v1/chat/reply
+ *             body: { text, sessionId, userId, botState }
+ *   Response (200): {
+ *     reply: string,
+ *     options?: Array<{ label: string, value: string }>,
+ *     botState?: any
+ *   }
+ * Validation: a response with a non-string `reply` is treated as a
+ * total failure (returns null) rather than rendering something broken
+ * to the customer. `options` defaults to [] if missing/malformed.
+ *
+ * SIE مالوش وصول مباشر لقاعدة بيانات مدعوم (منتج مستقل)، فالرد بيرجع
+ * كبيانات فقط - الكتابة الفعلية في chat_messages/chat_sessions لسه
+ * مسؤولية الطبقة اللي بتنده الدالة دي (chat-logic.js / chat-widget.js).
  *
  * @param {Object} params
  * @param {string} params.text
@@ -194,26 +381,27 @@ export async function adminResetUsage(supabase, userId) {
  * @param {string} params.userId
  * @param {*} params.botState - آخر bot_state معروفة لهذه الجلسة
  * @returns {Promise<{reply: string, options: Array<{label:string,value:string}>, botState: *}|null>}
- *   null يعني تعذّر الحصول على رد (شبكة/SIE غير متاح/خطأ) — الـ caller بيتعامل
- *   معاها كـ"مشكلة مؤقتة" ولا يفترض نجاح صامت.
  */
 export async function getSieReply({ text, supabase, sessionId, userId, botState }) {
     if (!text || !supabase || !sessionId || !userId) return null;
     try {
-        const data = await sieFetch(supabase, '/api/v1/chat/reply', {
+        const data = await sieRequest(supabase, SIE_ENDPOINTS.CHAT_REPLY, {
             method: 'POST',
             body: { text, sessionId, userId, botState: botState || {} },
             timeoutMs: 15000
         });
 
-        if (!data || typeof data.reply !== 'string') return null;
+        if (!data || typeof data.reply !== 'string' || data.reply.trim() === '') {
+            debugLog('استجابة chat/reply غير صالحة (مفيش نص رد):', data);
+            return null;
+        }
         return {
             reply: data.reply,
-            options: Array.isArray(data.options) ? data.options : [],
+            options: Array.isArray(data.options) ? data.options.filter((o) => o && typeof o.label === 'string' && typeof o.value === 'string') : [],
             botState: data.botState ?? botState ?? {}
         };
     } catch (err) {
-        console.warn('[sie-client] تعذّر الحصول على رد من محرك SIE الخارجي:', err?.message || err);
+        warnLog('تعذّر الحصول على رد من محرك SIE الخارجي:', err?.message || err);
         return null;
     }
 }
