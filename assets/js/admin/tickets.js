@@ -13,7 +13,7 @@ import {
 } from '/tickets-service.js';
 import { impersonateUser } from './admin-utils.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
-import { confirmWalletTopupTicket, rejectWalletTopupTicket } from 'https://wa.mad3oom.com/whatsapp-wallet-topup-service.js';
+import { confirmWalletTopupTicket, rejectWalletTopupTicket } from './whatsapp-wallet-topup-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
 
 /**
