@@ -13,6 +13,7 @@ import {
 } from '/tickets-service.js';
 import { impersonateUser } from './admin-utils.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
+import { confirmWalletTopupTicket, rejectWalletTopupTicket } from '/whatsapp-wallet-topup-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
 
 /**
@@ -66,6 +67,7 @@ const CATEGORY_MAP = {
     'whatsapp': { label: 'واتساب', class: 'cat-whatsapp' },
     'tickets': { label: 'تذاكر', class: 'cat-tickets' },
     'subscription': { label: 'اشتراك', class: 'cat-subscription' },
+    'whatsapp_wallet_topup': { label: 'شحن رصيد واتساب', class: 'cat-subscription' },
     'login': { label: 'تسجيل الدخول', class: 'cat-login' },
     'other': { label: 'أخرى', class: 'cat-other' }
 };
@@ -690,6 +692,12 @@ async function showAdminTicketInPanel(ticketId) {
         .eq('ticket_id', ticket.id)
         .maybeSingle();
 
+    const { data: walletTopup } = await supabase
+        .from('whatsapp_wallet_topup_requests')
+        .select('*, reviewed_by_profile:profiles!whatsapp_wallet_topup_requests_reviewed_by_fkey(full_name)')
+        .eq('ticket_id', ticket.id)
+        .maybeSingle();
+
     panel.classList.remove('details-empty');
     panel.style.display = 'block';
 
@@ -817,7 +825,7 @@ async function showAdminTicketInPanel(ticketId) {
         </div>
     `;
 
-    renderPanelActions(ticket, subscription);
+    renderPanelActions(ticket, subscription, walletTopup);
     await Promise.all([
         loadAdminRepliesInPanel(ticket.id),
         loadAttachments(ticket.id),
@@ -1480,11 +1488,90 @@ function exportTicketsToCsv(tickets) {
 
 /* ==================== إجراءات التذكرة (تأكيد/رفض اشتراك أو تغيير حالة) ==================== */
 
-function renderPanelActions(ticket, subscription) {
+function renderPanelActions(ticket, subscription, walletTopup) {
     const container = document.getElementById('panelActionsContainer');
     if (!container) return;
 
-    if (subscription) {
+    if (walletTopup) {
+        // Wallet top-up requests reuse the exact same approval workflow as
+        // subscription requests: a ticket + one linked domain row
+        // (whatsapp_wallet_topup_requests), a pending/approved/rejected
+        // status, and Approve/Reject buttons that call the wallet-topup
+        // counterpart of confirmPurchaseTicket/rejectPurchaseTicket. This is
+        // intentionally the same markup/classes/icons as the subscription
+        // block above - not a separate approval UI.
+        const reviewerName = walletTopup.reviewed_by_profile?.full_name;
+        const reviewedAtLabel = walletTopup.reviewed_at
+            ? new Date(walletTopup.reviewed_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+            : '';
+
+        const amountLabel = Number(walletTopup.amount || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const paymentMethodLabel = walletTopup.payment_method || '';
+
+        const STATUS_INFO = {
+            pending: { label: 'بانتظار المراجعة', color: '#F5A623', bg: 'rgba(245,166,35,.14)' },
+            approved: { label: 'مؤكَّد وتم الشحن', color: '#3DBE7A', bg: 'rgba(61,190,122,.14)' },
+            rejected: { label: 'مرفوض', color: '#E5533D', bg: 'rgba(229,83,61,.14)' }
+        };
+        const statusInfo = STATUS_INFO[walletTopup.status] || { label: walletTopup.status, color: 'var(--color-text-3)', bg: 'var(--color-muted)' };
+
+        let actionsHtml = '';
+        if (walletTopup.status === 'pending') {
+            actionsHtml = `
+                <div style="margin-top:.6rem; font-size:.78rem; color:var(--color-text-secondary);">${ICONS.alertTriangle} تحقق من صورة إثبات التحويل المرفقة أدناه قبل تأكيد الشحن.</div>
+                <div style="display:flex; gap:.6rem; margin-top:.85rem;">
+                    <button id="confirmTopupBtn" class="btn btn-primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.7rem; border-radius:.6rem; color:#fff; cursor:pointer;">${ICONS.confirmCheck} تأكيد الشحن وإضافة الرصيد</button>
+                    <button id="rejectTopupBtn" class="icon-btn" style="flex:1; justify-content:center; color:var(--color-danger); border-color:var(--color-danger);">${ICONS.reject} رفض الطلب</button>
+                </div>`;
+        } else if (walletTopup.status === 'rejected' && walletTopup.rejection_reason) {
+            actionsHtml = `<div style="margin-top:.6rem; font-size:.82rem; color:var(--color-danger);">سبب الرفض: ${escapeHtml(walletTopup.rejection_reason)}</div>`;
+        }
+
+        container.innerHTML = `
+            <div class="detail-block" style="background:var(--color-muted); border-radius:.65rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+                    <div>
+                        <label style="margin:0;">طلب شحن رصيد واتساب</label>
+                        <div style="font-weight:700; margin-top:.2rem;">${amountLabel} ${escapeHtml(walletTopup.currency || 'EGP')}</div>
+                    </div>
+                    <span class="pill" style="background:${statusInfo.bg}; color:${statusInfo.color};">${statusInfo.label}</span>
+                </div>
+                ${paymentMethodLabel ? `<div style="margin-top:.5rem; font-size:.8rem; color:var(--color-text-secondary);">وسيلة الدفع: <strong style="color:var(--color-text);">${escapeHtml(paymentMethodLabel)}</strong></div>` : ''}
+                ${reviewerName ? `<div style="margin-top:.3rem; font-size:.78rem; color:var(--color-text-secondary);">تمت المراجعة بواسطة: <strong style="color:var(--color-text);">${escapeHtml(reviewerName)}</strong>${reviewedAtLabel ? ' - ' + reviewedAtLabel : ''}</div>` : ''}
+                ${actionsHtml}
+            </div>`;
+
+        document.getElementById('confirmTopupBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('confirmTopupBtn');
+            const rejectBtn = document.getElementById('rejectTopupBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'جاري التأكيد...'; }
+            if (rejectBtn) rejectBtn.disabled = true;
+            try {
+                const result = await confirmWalletTopupTicket(ticket.id);
+                if (!result.success) throw new Error(result.error || 'حدث خطأ غير متوقع');
+                showToast('تم تأكيد طلب الشحن وإضافة الرصيد بنجاح');
+                await loadTickets();
+                await showAdminTicketInPanel(ticket.id);
+            } catch (err) {
+                showToast('فشل تأكيد الشحن: ' + err.message, 'error');
+                renderPanelActions(ticket, subscription, walletTopup);
+            }
+        });
+
+        document.getElementById('rejectTopupBtn')?.addEventListener('click', async () => {
+            const reason = window.prompt('سبب رفض طلب شحن الرصيد (اختياري):', '');
+            if (reason === null) return;
+            try {
+                const result = await rejectWalletTopupTicket(ticket.id, reason.trim());
+                if (!result.success) throw new Error(result.error || 'حدث خطأ غير متوقع');
+                showToast('تم رفض طلب الشحن');
+                await loadTickets();
+                await showAdminTicketInPanel(ticket.id);
+            } catch (err) {
+                showToast('فشل رفض طلب الشحن: ' + err.message, 'error');
+            }
+        });
+    } else if (subscription) {
         const planLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
         const billingLabel = BILLING_LABELS[subscription.billing_cycle] || subscription.billing_cycle;
         const renewalBadge = subscription.is_renewal
