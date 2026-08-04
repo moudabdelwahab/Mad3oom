@@ -364,15 +364,27 @@ export async function adminResetUsage(supabase, userId) {
  *   Response (200): {
  *     reply: string,
  *     options?: Array<{ label: string, value: string }>,
- *     botState?: any
+ *     botState?: any,
+ *     alreadyPersisted?: boolean,
+ *     ticketNumber?: string|null
  *   }
  * Validation: a response with a non-string `reply` is treated as a
  * total failure (returns null) rather than rendering something broken
  * to the customer. `options` defaults to [] if missing/malformed.
  *
- * SIE مالوش وصول مباشر لقاعدة بيانات مدعوم (منتج مستقل)، فالرد بيرجع
- * كبيانات فقط - الكتابة الفعلية في chat_messages/chat_sessions لسه
- * مسؤولية الطبقة اللي بتنده الدالة دي (chat-logic.js / chat-widget.js).
+ * ⚠️ مين بيكتب في قاعدة البيانات؟
+ *
+ * كان مكتوب هنا إن SIE بيرجّع بيانات بس والكتابة علينا. ده مش صح: SIE
+ * بيكتب دور المحادثة بنفسه - رسالة البوت و bot_state والتذكرة لو
+ * اتفتحت - في معاملة واحدة، عشان أثر التشخيص والتذكرة ما يفترقوش. وده
+ * بالظبط اللي بيحصل في قناة تيليجرام بردو.
+ *
+ * فبقى بيرجّع `alreadyPersisted`. الطبقة اللي بتنده الدالة دي
+ * (chat-logic.js / chat-widget.js) **لازم** تتخطى الكتابة بتاعتها لما
+ * تشوفه true - وإلا كل رد هيتكتب مرتين والعميل هيشوفه مكرر.
+ *
+ * لو رجع false أو مش موجود خالص (واجهة أقدم)، السلوك القديم بيفضل زي ما
+ * هو: الكتابة على الطبقة اللي فوق.
  *
  * @param {Object} params
  * @param {string} params.text
@@ -398,7 +410,16 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
         return {
             reply: data.reply,
             options: Array.isArray(data.options) ? data.options.filter((o) => o && typeof o.label === 'string' && typeof o.value === 'string') : [],
-            botState: data.botState ?? botState ?? {}
+            botState: data.botState ?? botState ?? {},
+            // SIE بيكتب دور المحادثة بنفسه (رسالة البوت + bot_state +
+            // التذكرة لو اتفتحت) في معاملة واحدة، عشان أثر التشخيص
+            // والتذكرة ما يفترقوش. فالعلم ده معناه «متكتبش تاني».
+            //
+            // بيتقرا بـ === true عن قصد: أي رد قديم أو ناقص بيبقى false،
+            // يعني السلوك الافتراضي يفضل «اكتب» زي ما كان، والتخطي
+            // مابيحصلش إلا لما الواجهة تقوله صراحة.
+            alreadyPersisted: data.alreadyPersisted === true,
+            ticketNumber: data.ticketNumber ?? null
         };
     } catch (err) {
         warnLog('تعذّر الحصول على رد من محرك SIE الخارجي:', err?.message || err);
