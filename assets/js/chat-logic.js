@@ -705,9 +705,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (typingIndicator) typingIndicator.style.display = 'none';
                     return;
                 }
-                // SIE منتج خارجي مستقل ومالوش وصول مباشر لقاعدة بيانات مدعوم، فبيرجع
-                // بيانات بس (نص + خيارات + bot_state جديدة) - الكتابة الفعلية هنا،
-                // بالظبط زي المحرك التقليدي تحت.
+                // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted:
+                // رسالة البوت و bot_state والتذكرة لو اتفتحت، كلهم في
+                // معاملة واحدة عنده - عشان أثر التشخيص والتذكرة ما
+                // يفترقوش. لو كتبنا هنا كمان، العميل هيشوف نفس الرد
+                // مرتين وكل دور هيتسجّل مكرر.
+                //
+                // مؤشر الكتابة بيتخفي في finally، فالـ return هنا آمن.
+                if (sieResult.alreadyPersisted) {
+                    renderQuickOptions(sieResult.options);
+                    return;
+                }
+
+                // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
+                // متسيبش الفرع ده - أي رد من واجهة أقدم بيعدي من هنا.
                 reply = sieResult.reply;
                 options = sieResult.options;
                 if (sieResult.botState !== undefined) {

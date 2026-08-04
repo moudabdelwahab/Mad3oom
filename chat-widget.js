@@ -874,9 +874,16 @@ class ChatWidget {
                     });
                     return;
                 }
-                // SIE منتج خارجي مستقل ومالوش وصول مباشر لقاعدة بيانات مدعوم، فبيرجع
-                // بيانات بس (نص + خيارات + bot_state جديدة) - الكتابة الفعلية هنا،
-                // بالظبط زي المحرك التقليدي تحت.
+                // نفس منطق chat-logic.js: SIE بيكتب دور المحادثة بنفسه
+                // لما يقول alreadyPersisted - رسالة البوت و bot_state
+                // والتذكرة لو اتفتحت، كلهم في معاملة واحدة عنده. لو
+                // كتبنا هنا كمان، العميل هيشوف نفس الرد مرتين.
+                if (sieResult.alreadyPersisted) {
+                    this.renderQuickOptions(sieResult.options);
+                    return;
+                }
+
+                // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
                 reply = sieResult.reply;
                 options = sieResult.options;
                 if (sieResult.botState !== undefined) {

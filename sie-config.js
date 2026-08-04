@@ -24,10 +24,30 @@
 //      just because SIE config wasn't explicitly provided.
 // ==============================
 
+// ------------------------------------------------------------
+// لازم يكون العنوان ده بيرد فعلاً على /api/v1/*
+//
+// كان مضبوط على https://sie.mad3oom.com — والدومين ده بيقدّم موقع SIE
+// نفسه (صفحة العرض + لوحة sie-admin) كملفات ثابتة، ومفيش عليه أي مسار
+// /api. يعني كل نداء من الملف ده كان بيرجع صفحة 404، getSieReply()
+// بترجّع null، والعميل بيشوف «محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة
+// في الرد على رسالتك». وضع SIE في المنصة عمره ما اشتغل بسبب كده — رغم
+// إن نفس المحرك شغال عادي على تيليجرام.
+//
+// الواجهة نفسها (sie-api) منشورة كـ Supabase Edge Function، فالعنوان
+// بقى بيوصّل لها مباشرة. مرجع المشروع مكتوب هنا بنفس طريقة
+// supabase-config.js بالظبط، لأن المشروع مافيهوش خطوة بناء.
+//
+// أول ما يتظبط rewrite على sie.mad3oom.com/api/* يوصّل للدالة، رجّع
+// العنوان للدومين — من غير ما تعدّل أي ملف، عن طريق
+// window.__SIE_CONFIG__.baseUrl أو <meta name="sie-api-base-url">.
+// الدالة بتقبل الشكلين أصلاً.
+const SIE_FUNCTIONS_ORIGIN = "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/sie-api";
+
 const SIE_ENVIRONMENT_BASE_URLS = Object.freeze({
-    development: "https://sie-dev.mad3oom.com",
-    staging: "https://sie-staging.mad3oom.com",
-    production: "https://sie.mad3oom.com",
+    development: SIE_FUNCTIONS_ORIGIN,
+    staging: SIE_FUNCTIONS_ORIGIN,
+    production: SIE_FUNCTIONS_ORIGIN,
 });
 
 const DEFAULT_ENVIRONMENT = "production";
