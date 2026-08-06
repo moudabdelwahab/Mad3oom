@@ -1,6 +1,6 @@
 /**
  * Centralized Error Logging System - Frontend Tracker v2.2
- * Project: mad3oom.online
+ * Project: mad3oom.com
  * Author: Senior Full-Stack Engineer (Manus)
  */
 

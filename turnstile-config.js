@@ -120,7 +120,7 @@ export async function verifyTurnstileToken(token, remoteIP = null) {
  * 
  * 5. ملء النموذج:
  *    - Name: اسم الـ Widget (مثل: "mad3oom-login" أو "mad3oom-signup")
- *    - Domains: أضف نطاقاتك (مثل: mad3oom.online, www.mad3oom.online)
+ *    - Domains: أضف نطاقاتك (مثل: mad3oom.com, www.mad3oom.com)
  *    - Mode: اختر "Managed" (الوضع الافتراضي والموصى به)
  *    - Widget Mode: اختر "Turnstile" (أو Invisible إذا كنت تريد بدون تفاعل مرئي)
  * 

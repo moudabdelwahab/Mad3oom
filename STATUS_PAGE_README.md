@@ -75,7 +75,7 @@
 
 ### 2. الوصول إلى الصفحة
 ```
-https://mad3oom.online/admin/status-page.html
+https://mad3oom.com/admin/status-page.html
 ```
 
 ### 3. تحديث بيانات الخدمات
