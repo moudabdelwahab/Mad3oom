@@ -335,6 +335,13 @@ async function applySidebarPermissions() {
         showLink('myUsersLink');
     }
 
+    // صندوق الرسائل: الأدمن والدعم بيكلموا أعضاء المنصة، والسوبر يوزر
+    // بيكلم أعضاءه هو. العضو العادي مالوش صندوق هنا — ده جوه لوحة
+    // الإدارة أصلاً.
+    if (isAdmin || isSupport || isSuperUser) {
+        showLink('inboxLink');
+    }
+
     if (isMainAdmin || isAdmin || profile.whatsapp_enabled) {
         showLink('whatsappLink');
     }
