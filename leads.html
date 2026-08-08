@@ -437,6 +437,21 @@
   }
   .sidebar-backdrop.show{display:block;}
 
+  /* ---------- Placeholder page panels (for working sidebar nav) ---------- */
+  .page-panel{display:none;}
+  .page-panel.active{display:block;}
+  .placeholder-panel{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:110px 20px; gap:14px;
+  }
+  .placeholder-panel .p-icon{
+    width:64px; height:64px; border-radius:18px; background:var(--glass); border:1px solid var(--border-soft);
+    display:flex; align-items:center; justify-content:center; color:var(--accent-purple);
+  }
+  .placeholder-panel .p-icon svg{width:28px; height:28px;}
+  .placeholder-panel h3{font-size:17px; font-weight:800;}
+  .placeholder-panel p{font-size:13px; color:var(--text-muted); max-width:360px;}
+
   /* =====================================================================
      RESPONSIVE — breakpoints tuned for: large desktop (default),
      laptop/1180, tablet/900, large phone/680, small phone/420
@@ -537,52 +552,52 @@
     <div class="name">مدعوم</div>
   </div>
 
-  <nav class="sidebar-nav">
-    <a class="nav-item" href="#">
+  <nav class="sidebar-nav" id="sidebarNav">
+    <a class="nav-item" href="#home" data-page="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
       <span class="label">الرئيسية</span>
     </a>
-    <a class="nav-item active" href="#">
+    <a class="nav-item active" href="#leads" data-page="leads">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 3-5 5.5-5s4.9 1.8 5.5 5"/><path d="M16.5 5.5a3 3 0 0 1 0 5.8"/><path d="M19 19c-.3-1.9-1.1-3.3-2.3-4.2"/></svg>
       <span class="label">العملاء المحتملون</span>
       <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#campaigns" data-page="campaigns">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
       <span class="label">الحملات</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#sequences" data-page="sequences">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
       <span class="label">التسلسلات</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#messages" data-page="messages">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9.8 8.3 8.3 8.3 0 0 1-4.3-1.7L3 19l1-3.8A8.3 8.3 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5Z"/></svg>
       <span class="label">الرسائل</span>
       <span class="nav-badge">12</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#meetings" data-page="meetings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
       <span class="label">الإجتماعات</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#pipeline" data-page="pipeline">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4Z"/></svg>
       <span class="label">خط سير المبيعات</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#reports" data-page="reports">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/></svg>
       <span class="label">التقارير والتحليلات</span>
       <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#ai" data-page="ai">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
       <span class="label">الذكاء الاصطناعي</span>
       <span class="nav-badge new">جديد</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#integrations" data-page="integrations">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v4M6 5h4M16 15v4M14 17h4"/><rect x="3" y="11" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/></svg>
       <span class="label">التكاملات</span>
     </a>
-    <a class="nav-item" href="#">
+    <a class="nav-item" href="#settings" data-page="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.3.7.9 1.1 1.6 1.1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
       <span class="label">الإعدادات</span>
     </a>
@@ -646,7 +661,8 @@
     </div>
   </header>
 
-  <div class="page">
+  <!-- ===== صفحة العملاء المحتملون (الصفحة الأصلية بالكامل) ===== -->
+  <div class="page page-panel active" id="page-leads">
 
     <!-- Page header -->
     <div class="page-head">
@@ -729,6 +745,79 @@
       <div class="pagination" id="pagination"></div>
     </div>
   </div>
+
+  <!-- ===== صفحات بديلة placeholder — تُبنى لاحقاً، دلوقتي بس بتفتح فعلياً ===== -->
+  <div class="page page-panel" id="page-home">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></div>
+      <h3>الرئيسية</h3>
+      <p>هذه الصفحة قيد الإنشاء. سيتم عرض نظرة عامة على أداء حسابك هنا.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-campaigns">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg></div>
+      <h3>الحملات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستتمكن من إدارة حملات التواصل من هنا.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-sequences">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div>
+      <h3>التسلسلات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستتمكن من بناء تسلسلات متابعة تلقائية من هنا.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-messages">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9.8 8.3 8.3 8.3 0 0 1-4.3-1.7L3 19l1-3.8A8.3 8.3 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5Z"/></svg></div>
+      <h3>الرسائل</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستجد هنا كل محادثاتك مع العملاء.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-meetings">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg></div>
+      <h3>الإجتماعات</h3>
+      <p>هذه الصفحة قيد الإنشاء. سيتم عرض تقويم اجتماعاتك القادمة هنا.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-pipeline">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4Z"/></svg></div>
+      <h3>خط سير المبيعات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستعرض صفقاتك بشكل كانبان حسب المرحلة.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-reports">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/></svg></div>
+      <h3>التقارير والتحليلات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستجد هنا تقارير مفصلة عن أداء المبيعات.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-ai">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
+      <h3>الذكاء الاصطناعي</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستتمكن من استخدام أدوات الذكاء الاصطناعي هنا قريباً.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-integrations">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v4M6 5h4M16 15v4M14 17h4"/><rect x="3" y="11" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/></svg></div>
+      <h3>التكاملات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستتمكن من ربط أدواتك المفضلة من هنا.</p>
+    </div>
+  </div>
+  <div class="page page-panel" id="page-settings">
+    <div class="placeholder-panel">
+      <div class="p-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.3.7.9 1.1 1.6 1.1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></div>
+      <h3>الإعدادات</h3>
+      <p>هذه الصفحة قيد الإنشاء. ستتمكن من ضبط إعدادات حسابك من هنا.</p>
+    </div>
+  </div>
+
 </div>
 
 <!-- ================= Add Lead Modal ================= -->
@@ -816,11 +905,11 @@
 
 const STAGES = [
   { id:'new',                label:'عميل جديد',      color:'#8a8d86' },
-  { id:'contacted',          label:'تم التواصل',     color:'#4f6ec9' },
-  { id:'replied',            label:'تم الرد',        color:'#1f8f8a' },
-  { id:'meeting_scheduled',  label:'اجتماع محجوز',   color:'#2fb673' },
+  { id:'contacted',          label:'تم التواصل',     color:'#8a8d86' },
+  { id:'replied',            label:'تم الرد',        color:'#8a8d86' },
+  { id:'meeting_scheduled',  label:'اجتماع محجوز',   color:'#0e9e68' },
   { id:'quote_sent',         label:'تم إرسال عرض سعر', color:'#c98a2e' },
-  { id:'negotiating',        label:'قيد التفاوض',    color:'#b5622b' },
+  { id:'negotiating',        label:'قيد التفاوض',    color:'#c98a2e' },
   { id:'won',                label:'تم إغلاق الصفقة', color:'#0e9e68' },
 ];
 
@@ -838,7 +927,7 @@ const SOURCES = {
   workflow:          'أتمتة',
 };
 
-const AVATAR_COLORS = ['#0e9e68','#4f6ec9','#1f8f8a','#c98a2e','#b5622b','#2fb673','#8a8d86'];
+const AVATAR_COLORS = ['#0e9e68','#c98a2e','#8a8d86'];
 
 function initials(name){
   const parts = name.trim().split(' ');
@@ -936,16 +1025,16 @@ function renderStats(leads){
       bg:'rgba(14,158,104,0.14)', fg:'#0e9e68' },
     { label:'عملاء جدد هذا الأسبوع', value: newThisWeek, trend:'+6.3%', up:true,
       icon:`<path d="M12 5v14M5 12h14"/>`,
-      bg:'rgba(79,110,201,0.14)', fg:'#4f6ec9' },
+      bg:'rgba(138,141,134,0.16)', fg:'#8a8d86' },
     { label:'معدل التحويل', value: conversion+'%', trend:'+2.4%', up:true,
       icon:`<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>`,
-      bg:'rgba(31,143,138,0.16)', fg:'#1f8f8a' },
+      bg:'rgba(138,141,134,0.16)', fg:'#8a8d86' },
     { label:'اهتمام عالي', value: highInterest, trend:'+27.1%', up:true,
       icon:`<path d="M12 2c1 3-1 4-1 6a3 3 0 0 0 6 0c2 2 2 5 0 8a7 7 0 0 1-12 0c-1-2-1-4 0-6 1 1 2 1 2 0 0-2-1-4 0-6 1 1 2 2 5-2Z"/>`,
       bg:'rgba(201,138,46,0.16)', fg:'#c98a2e' },
     { label:'قيمة الفرص المتوقعة', value: fmtMoney(pipelineValue), trend:'+28.5%', up:true,
       icon:`<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.3c0-1.3 1.1-2.1 2.5-2.1s2.5.8 2.5 2c0 2.6-5 1.6-5 4.2 0 1.2 1.1 2 2.5 2s2.5-.8 2.5-2.1"/>`,
-      bg:'rgba(46,182,115,0.15)', fg:'#2fb673' },
+      bg:'rgba(14,158,104,0.14)', fg:'#0e9e68' },
   ];
 
   document.getElementById('statsRow').innerHTML = cards.map(c => `
@@ -1140,8 +1229,34 @@ function openSidebar(){ sidebarEl.classList.add('open'); backdropEl.classList.ad
 function closeSidebar(){ sidebarEl.classList.remove('open'); backdropEl.classList.remove('show'); }
 document.getElementById('menuToggle').addEventListener('click', openSidebar);
 backdropEl.addEventListener('click', closeSidebar);
-document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', closeSidebar));
 window.addEventListener('resize', () => { if (window.innerWidth > 1024) closeSidebar(); });
+
+/* ---------- Sidebar navigation (makes the nav buttons actually work) ---------- */
+function goToPage(pageId){
+  // toggle active nav item
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.page === pageId);
+  });
+  // toggle visible panel
+  document.querySelectorAll('.page-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === 'page-' + pageId);
+  });
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  closeSidebar();
+}
+document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    goToPage(item.dataset.page);
+  });
+});
+// Support direct linking via hash (e.g. #pipeline) and back/forward navigation
+function pageIdFromHash(){
+  const id = (location.hash || '#leads').slice(1);
+  return document.getElementById('page-' + id) ? id : 'leads';
+}
+window.addEventListener('hashchange', () => goToPage(pageIdFromHash()));
+if (location.hash) goToPage(pageIdFromHash());
 
 /* ---------- Sorting headers ---------- */
 document.querySelectorAll('th.sortable').forEach(th => {
