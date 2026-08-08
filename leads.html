@@ -8,24 +8,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0d16;
-    --bg-elevated:#0f1420;
-    --panel:#121826;
+    /* Warm charcoal, not blue-black — avoids the generic "near-black + neon" AI look */
+    --bg:#15171b;
+    --bg-elevated:#1a1d22;
+    --panel:#1e2126;
     --glass:rgba(255,255,255,0.045);
     --glass-hover:rgba(255,255,255,0.075);
-    --border:rgba(255,255,255,0.08);
-    --border-soft:rgba(255,255,255,0.05);
-    --text-primary:#f2f4fa;
-    --text-secondary:#9aa1b8;
-    --text-muted:#666e85;
-    --accent-blue:#4c8dff;
-    --accent-purple:#8b6bff;
-    --accent-cyan:#22d3c7;
-    --accent-green:#34d399;
-    --accent-amber:#fbbf24;
-    --accent-orange:#fb923c;
-    --accent-red:#f66565;
-    --accent-slate:#8892a6;
+    --border:rgba(255,255,255,0.09);
+    --border-soft:rgba(255,255,255,0.06);
+    --text-primary:#f2f0ea;
+    --text-secondary:#a3a29c;
+    --text-muted:#6c6b66;
+    /* Brand palette grounded in the product: WhatsApp-adjacent emerald as the
+       primary (this is a WhatsApp business platform), warm brass as the
+       secondary/CTA accent, deep teal + muted indigo for data variety. */
+    --accent-blue:#4f6ec9;      /* muted indigo — used sparingly for data variety */
+    --accent-purple:#0e9e68;    /* PRIMARY brand — emerald green */
+    --accent-purple-dark:#0b7c52;
+    --accent-cyan:#1f8f8a;      /* deep teal */
+    --accent-green:#2fb673;
+    --accent-amber:#c98a2e;     /* warm brass/gold — CTA & "hot lead" accent */
+    --accent-orange:#b5622b;    /* burnt clay */
+    --accent-red:#c14b45;       /* brick red, not neon */
+    --accent-slate:#8a8d86;
     --radius-lg:18px;
     --radius-md:12px;
     --radius-sm:8px;
@@ -36,8 +41,8 @@
   html,body{height:100%;}
   body{
     background:
-      radial-gradient(1100px 600px at 85% -10%, rgba(139,107,255,0.14), transparent 60%),
-      radial-gradient(900px 500px at 0% 0%, rgba(76,141,255,0.10), transparent 55%),
+      radial-gradient(1000px 560px at 88% -8%, rgba(14,158,104,0.10), transparent 60%),
+      radial-gradient(800px 460px at 2% 0%, rgba(201,138,46,0.06), transparent 55%),
       var(--bg);
     color:var(--text-primary);
     font-family:'Cairo', sans-serif;
@@ -52,7 +57,7 @@
   a{color:inherit; text-decoration:none;}
   button{font-family:inherit; cursor:pointer;}
   input,select{font-family:inherit;}
-  :focus-visible{outline:2px solid var(--accent-blue); outline-offset:2px; border-radius:6px;}
+  :focus-visible{outline:2px solid var(--accent-purple); outline-offset:2px; border-radius:6px;}
 
   /* ---------- Sidebar ---------- */
   .sidebar{
@@ -262,9 +267,9 @@
   }
   .badge .dot{width:6px; height:6px; border-radius:50%;}
 
-  .interest-high{background:rgba(251,146,60,0.14); color:var(--accent-orange);}
-  .interest-medium{background:rgba(56,189,248,0.14); color:#38bdf8;}
-  .interest-low{background:rgba(148,163,184,0.14); color:var(--text-secondary);}
+  .interest-high{background:rgba(201,138,46,0.16); color:var(--accent-amber);}
+  .interest-medium{background:rgba(31,143,138,0.16); color:var(--accent-cyan);}
+  .interest-low{background:rgba(138,141,134,0.14); color:var(--text-secondary);}
 
   .deal-value{font-weight:700; font-size:13px; direction:ltr; text-align:right; display:block;}
   .last-contact{color:var(--text-secondary); font-size:12.5px;}
@@ -344,30 +349,97 @@
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .toast svg{width:16px; height:16px; color:var(--accent-green); flex-shrink:0;}
 
-  /* ---------- Mobile card fallback ---------- */
-  .lead-card{display:none;}
+  /* ---------- Mobile nav toggle + backdrop ---------- */
+  .menu-toggle{display:none;}
+  .sidebar-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(5,6,9,0.6); z-index:35;
+  }
+  .sidebar-backdrop.show{display:block;}
 
-  /* ---------- Responsive ---------- */
-  @media (max-width: 1180px){
+  /* =====================================================================
+     RESPONSIVE — breakpoints tuned for: large desktop (default),
+     laptop/1180, tablet/900, large phone/680, small phone/420
+     ===================================================================== */
+
+  /* ---- ≤1280: tighten side padding, drop to 3-up stats ---- */
+  @media (max-width: 1280px){
     .stats-row{grid-template-columns:repeat(3, 1fr);}
   }
-  @media (max-width: 900px){
-    .sidebar{transform:translateX(100%); transition:transform .2s;}
+
+  /* ---- ≤1024: sidebar becomes an off-canvas drawer ---- */
+  @media (max-width: 1024px){
+    .sidebar{
+      transform:translateX(-100%);
+      transition:transform .22s ease;
+      box-shadow:24px 0 48px -20px rgba(0,0,0,0.5);
+    }
     .sidebar.open{transform:translateX(0);}
     .main{margin-left:0;}
-    .stats-row{grid-template-columns:repeat(2, 1fr);}
-    .topbar-left h1{font-size:14px;}
-    .search-box{width:150px;}
-    .date-pill span{display:none;}
+    .menu-toggle{
+      display:flex; align-items:center; justify-content:center;
+      width:38px; height:38px; border-radius:var(--radius-sm);
+      background:var(--glass); border:1px solid var(--border-soft); color:var(--text-primary);
+      flex-shrink:0;
+    }
+    .menu-toggle svg{width:18px; height:18px;}
+    .topbar-left{flex-direction:row; align-items:center; gap:12px;}
+    .topbar-left .greet-text{display:flex; flex-direction:column; gap:2px;}
   }
-  @media (max-width: 680px){
+
+  /* ---- ≤900: header controls start collapsing ---- */
+  @media (max-width: 900px){
+    .stats-row{grid-template-columns:repeat(2, 1fr);}
+    .topbar{padding:14px 16px; gap:10px;}
+    .topbar-left h1{font-size:14px;}
+    .search-box{width:130px;}
+    .date-pill span{display:none;}
+    .profile .who{display:none;}
+  }
+
+  /* ---- ≤760: table becomes a stacked card list ---- */
+  @media (max-width: 760px){
     .page{padding:16px;}
-    .stats-row{grid-template-columns:1fr 1fr;}
+    .page-head{flex-direction:column; align-items:stretch;}
+    .page-actions{justify-content:flex-end;}
+    .funnel-strip{padding:16px;}
+
     table thead{display:none;}
-    .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td{display:block; width:100%;}
-    tbody tr{border-bottom:1px solid var(--border-soft); padding:14px 4px;}
-    tbody td{border-bottom:none; padding:6px 12px;}
-    .contact-line{text-align:right;}
+    .table-wrap table, .table-wrap tbody{display:block; width:100%;}
+    tbody tr{
+      display:grid; grid-template-columns:1fr auto; gap:2px 12px;
+      border:1px solid var(--border-soft); border-radius:var(--radius-md);
+      margin:12px; padding:14px; background:var(--bg-elevated);
+    }
+    tbody tr:hover{background:var(--bg-elevated);}
+    tbody td{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px dashed var(--border-soft); padding:8px 2px; font-size:12.5px;
+    }
+    tbody tr td:last-child{border-bottom:none;}
+    tbody td[data-label]::before{
+      content:attr(data-label); color:var(--text-muted); font-weight:700; font-size:11.5px; flex-shrink:0;
+    }
+    .td-check{grid-column:1 / -1; order:-2; justify-content:flex-start; border-bottom:none; padding-bottom:0;}
+    .td-lead{grid-column:1 / -1; order:-1; border-bottom:1px solid var(--border-soft) !important; padding-bottom:12px !important; margin-bottom:4px;}
+    .td-actions{justify-content:flex-start;}
+    .contact-line{text-align:left; direction:ltr;}
+  }
+
+  /* ---- ≤480: single-column stats, compact modal fields ---- */
+  @media (max-width: 480px){
+    .stats-row{grid-template-columns:1fr 1fr; gap:10px;}
+    .stat-card{padding:14px;}
+    .stat-value{font-size:20px;}
+    .field-row{grid-template-columns:1fr;}
+    .search-box{width:100px;}
+    .modal{max-width:100%; border-radius:var(--radius-md) var(--radius-md) 0 0; position:fixed; bottom:0; right:0; left:0; max-height:92vh;}
+    .modal-overlay{align-items:flex-end; padding:0;}
+    .toast{width:calc(100% - 24px); left:12px; transform:translateY(20px); justify-content:center;}
+    .toast.show{transform:translateY(0);}
+  }
+
+  @media (max-width: 360px){
+    .stats-row{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -477,8 +549,13 @@
       </div>
     </div>
     <div class="topbar-left">
-      <h1>مرحباً محمود 👋</h1>
-      <p>إدارة قاعدة عملائك المحتملين هنا</p>
+      <div class="greet-text">
+        <h1>مرحباً محمود 👋</h1>
+        <p>إدارة قاعدة عملائك المحتملين هنا</p>
+      </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="فتح القائمة">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
     </div>
   </header>
 
@@ -651,13 +728,13 @@
    ========================================================================= */
 
 const STAGES = [
-  { id:'new',                label:'عميل جديد',      color:'#94a3b8' },
-  { id:'contacted',          label:'تم التواصل',     color:'#60a5fa' },
-  { id:'replied',            label:'تم الرد',        color:'#22d3c7' },
-  { id:'meeting_scheduled',  label:'اجتماع محجوز',   color:'#a78bfa' },
-  { id:'quote_sent',         label:'تم إرسال عرض سعر', color:'#fbbf24' },
-  { id:'negotiating',        label:'قيد التفاوض',    color:'#fb923c' },
-  { id:'won',                label:'تم إغلاق الصفقة', color:'#34d399' },
+  { id:'new',                label:'عميل جديد',      color:'#8a8d86' },
+  { id:'contacted',          label:'تم التواصل',     color:'#4f6ec9' },
+  { id:'replied',            label:'تم الرد',        color:'#1f8f8a' },
+  { id:'meeting_scheduled',  label:'اجتماع محجوز',   color:'#2fb673' },
+  { id:'quote_sent',         label:'تم إرسال عرض سعر', color:'#c98a2e' },
+  { id:'negotiating',        label:'قيد التفاوض',    color:'#b5622b' },
+  { id:'won',                label:'تم إغلاق الصفقة', color:'#0e9e68' },
 ];
 
 const INTEREST = {
@@ -674,7 +751,7 @@ const SOURCES = {
   workflow:          'أتمتة',
 };
 
-const AVATAR_COLORS = ['#8b6bff','#4c8dff','#22d3c7','#fb923c','#f66565','#34d399','#fbbf24'];
+const AVATAR_COLORS = ['#0e9e68','#4f6ec9','#1f8f8a','#c98a2e','#b5622b','#2fb673','#8a8d86'];
 
 function initials(name){
   const parts = name.trim().split(' ');
@@ -769,19 +846,19 @@ function renderStats(leads){
   const cards = [
     { label:'إجمالي العملاء المحتملين', value: total, trend:'+18.5%', up:true,
       icon:`<circle cx="9" cy="8" r="3"/><path d="M3.5 18c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><path d="M16 5.3a2.8 2.8 0 0 1 0 5.4"/><path d="M19 18c-.3-1.7-1-3-2.2-3.9"/>`,
-      bg:'rgba(139,107,255,0.14)', fg:'#8b6bff' },
+      bg:'rgba(14,158,104,0.14)', fg:'#0e9e68' },
     { label:'عملاء جدد هذا الأسبوع', value: newThisWeek, trend:'+6.3%', up:true,
       icon:`<path d="M12 5v14M5 12h14"/>`,
-      bg:'rgba(76,141,255,0.14)', fg:'#4c8dff' },
+      bg:'rgba(79,110,201,0.14)', fg:'#4f6ec9' },
     { label:'معدل التحويل', value: conversion+'%', trend:'+2.4%', up:true,
       icon:`<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>`,
-      bg:'rgba(34,211,199,0.14)', fg:'#22d3c7' },
+      bg:'rgba(31,143,138,0.16)', fg:'#1f8f8a' },
     { label:'اهتمام عالي', value: highInterest, trend:'+27.1%', up:true,
       icon:`<path d="M12 2c1 3-1 4-1 6a3 3 0 0 0 6 0c2 2 2 5 0 8a7 7 0 0 1-12 0c-1-2-1-4 0-6 1 1 2 1 2 0 0-2-1-4 0-6 1 1 2 2 5-2Z"/>`,
-      bg:'rgba(251,146,60,0.14)', fg:'#fb923c' },
+      bg:'rgba(201,138,46,0.16)', fg:'#c98a2e' },
     { label:'قيمة الفرص المتوقعة', value: fmtMoney(pipelineValue), trend:'+28.5%', up:true,
       icon:`<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.3c0-1.3 1.1-2.1 2.5-2.1s2.5.8 2.5 2c0 2.6-5 1.6-5 4.2 0 1.2 1.1 2 2.5 2s2.5-.8 2.5-2.1"/>`,
-      bg:'rgba(52,211,153,0.14)', fg:'#34d399' },
+      bg:'rgba(46,182,115,0.15)', fg:'#2fb673' },
   ];
 
   document.getElementById('statsRow').innerHTML = cards.map(c => `
@@ -893,8 +970,8 @@ function renderTableRows(){
     const av = colorFor(l.name);
     return `
     <tr>
-      <td><input type="checkbox" class="checkbox"></td>
-      <td>
+      <td class="td-check"><input type="checkbox" class="checkbox"></td>
+      <td class="td-lead">
         <div class="lead-cell">
           <div class="lead-avatar" style="background:${av};">${initials(l.name)}</div>
           <div class="lead-info">
@@ -903,20 +980,20 @@ function renderTableRows(){
           </div>
         </div>
       </td>
-      <td>
+      <td data-label="التواصل">
         <div class="contact-line">${l.phone}</div>
         <div class="contact-line">${l.email}</div>
       </td>
-      <td><span class="badge" style="background:${stage.color}22; color:${stage.color};"><span class="dot" style="background:${stage.color};"></span>${stage.label}</span></td>
-      <td><span class="badge ${interest.cls}">${interest.label}</span></td>
-      <td><span class="deal-value">${fmtMoney(l.value)}</span></td>
-      <td><span class="last-contact">${relativeTime(l.lastContact)}</span></td>
-      <td>
+      <td data-label="المرحلة"><span class="badge" style="background:${stage.color}22; color:${stage.color};"><span class="dot" style="background:${stage.color};"></span>${stage.label}</span></td>
+      <td data-label="الاهتمام"><span class="badge ${interest.cls}">${interest.label}</span></td>
+      <td data-label="قيمة الفرصة"><span class="deal-value">${fmtMoney(l.value)}</span></td>
+      <td data-label="آخر تواصل"><span class="last-contact">${relativeTime(l.lastContact)}</span></td>
+      <td data-label="المسؤول">
         <div class="assignee">
           <div class="a-av">${l.assignee}</div>
         </div>
       </td>
-      <td>
+      <td class="td-actions" data-label="الإجراء">
         <div class="row-actions">
           <button title="جدولة اجتماع" aria-label="جدولة اجتماع">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
