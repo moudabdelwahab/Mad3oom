@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>العملاء المحتملون · مدعوم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d16;
+    --bg-elevated:#0f1420;
+    --panel:#121826;
+    --glass:rgba(255,255,255,0.045);
+    --glass-hover:rgba(255,255,255,0.075);
+    --border:rgba(255,255,255,0.08);
+    --border-soft:rgba(255,255,255,0.05);
+    --text-primary:#f2f4fa;
+    --text-secondary:#9aa1b8;
+    --text-muted:#666e85;
+    --accent-blue:#4c8dff;
+    --accent-purple:#8b6bff;
+    --accent-cyan:#22d3c7;
+    --accent-green:#34d399;
+    --accent-amber:#fbbf24;
+    --accent-orange:#fb923c;
+    --accent-red:#f66565;
+    --accent-slate:#8892a6;
+    --radius-lg:18px;
+    --radius-md:12px;
+    --radius-sm:8px;
+    --shadow-glow:0 0 0 1px var(--border), 0 20px 40px -20px rgba(0,0,0,0.6);
+    --sidebar-w:248px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(139,107,255,0.14), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(76,141,255,0.10), transparent 55%),
+      var(--bg);
+    color:var(--text-primary);
+    font-family:'Cairo', sans-serif;
+    min-height:100vh;
+    font-size:14px;
+    line-height:1.5;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  ::selection{background:rgba(139,107,255,0.35);}
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit; cursor:pointer;}
+  input,select{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--accent-blue); outline-offset:2px; border-radius:6px;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    position:fixed; top:0; left:0; height:100vh; width:var(--sidebar-w);
+    background:linear-gradient(180deg, var(--bg-elevated), var(--bg));
+    border-left:1px solid var(--border-soft);
+    display:flex; flex-direction:column;
+    z-index:40;
+  }
+  .sidebar-logo{
+    display:flex; align-items:center; gap:10px;
+    padding:22px 20px; border-bottom:1px solid var(--border-soft);
+  }
+  .sidebar-logo .mark{
+    width:34px; height:34px; border-radius:10px;
+    background:linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:15px; color:#fff; flex-shrink:0;
+  }
+  .sidebar-logo .name{font-weight:800; font-size:17px; letter-spacing:-.2px;}
+  .sidebar-nav{flex:1; overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:2px;}
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:var(--radius-sm);
+    color:var(--text-secondary); font-size:13.5px; font-weight:600;
+    position:relative; transition:background .15s, color .15s;
+  }
+  .nav-item svg{width:18px; height:18px; flex-shrink:0; opacity:.85;}
+  .nav-item:hover{background:var(--glass); color:var(--text-primary);}
+  .nav-item.active{
+    background:linear-gradient(90deg, rgba(139,107,255,0.18), rgba(76,141,255,0.10));
+    color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(139,107,255,0.25);
+  }
+  .nav-item.active svg{opacity:1; color:var(--accent-purple);}
+  .nav-item .label{flex:1;}
+  .nav-item .chevron{width:14px; height:14px; opacity:.5;}
+  .nav-badge{
+    font-size:10.5px; font-weight:800; padding:1px 7px; border-radius:20px;
+    background:var(--accent-red); color:#fff;
+  }
+  .nav-badge.new{background:linear-gradient(135deg, var(--accent-purple), var(--accent-blue));}
+  .sidebar-footer{padding:14px; border-top:1px solid var(--border-soft); display:flex; flex-direction:column; gap:10px;}
+  .plan-card{
+    background:var(--glass); border:1px solid var(--border-soft); border-radius:var(--radius-md);
+    padding:14px;
+  }
+  .plan-card .plan-label{font-size:11px; color:var(--text-muted); margin-bottom:2px;}
+  .plan-card .plan-name{font-size:13px; font-weight:700; margin-bottom:10px;}
+  .plan-bar{height:6px; border-radius:20px; background:rgba(255,255,255,0.08); overflow:hidden; margin-bottom:8px;}
+  .plan-bar span{display:block; height:100%; width:80%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); border-radius:20px;}
+  .plan-days{font-size:11px; color:var(--text-secondary); margin-bottom:10px;}
+  .upgrade-btn{
+    width:100%; padding:8px; border:none; border-radius:var(--radius-sm);
+    background:linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+    color:#fff; font-weight:700; font-size:12.5px;
+  }
+  .support-link{display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:13px; font-weight:600; color:var(--text-secondary);}
+  .support-link:hover{color:var(--text-primary);}
+  .support-link svg{width:17px; height:17px;}
+
+  /* ---------- Main ---------- */
+  .main{margin-right:0; margin-left:var(--sidebar-w); min-height:100vh;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 28px; border-bottom:1px solid var(--border-soft);
+    position:sticky; top:0; background:rgba(10,13,22,0.75); backdrop-filter:blur(14px);
+    z-index:30; gap:16px;
+  }
+  .topbar-right{display:flex; align-items:center; gap:14px;}
+  .topbar-left{display:flex; flex-direction:column; gap:2px;}
+  .topbar-left h1{font-size:16px; font-weight:800;}
+  .topbar-left p{font-size:12px; color:var(--text-muted);}
+
+  .search-box{
+    display:flex; align-items:center; gap:8px;
+    background:var(--glass); border:1px solid var(--border-soft);
+    border-radius:var(--radius-md); padding:8px 14px; width:260px;
+  }
+  .search-box svg{width:15px; height:15px; color:var(--text-muted); flex-shrink:0;}
+  .search-box input{background:none; border:none; color:var(--text-primary); font-size:13px; width:100%;}
+  .search-box input::placeholder{color:var(--text-muted);}
+
+  .date-pill{
+    display:flex; align-items:center; gap:8px;
+    background:var(--glass); border:1px solid var(--border-soft);
+    border-radius:var(--radius-md); padding:8px 14px; font-size:12.5px; color:var(--text-secondary); font-weight:600;
+    white-space:nowrap;
+  }
+  .date-pill svg{width:14px; height:14px;}
+
+  .icon-btn{
+    position:relative; width:38px; height:38px; border-radius:50%;
+    background:var(--glass); border:1px solid var(--border-soft);
+    display:flex; align-items:center; justify-content:center; color:var(--text-secondary);
+  }
+  .icon-btn:hover{background:var(--glass-hover); color:var(--text-primary);}
+  .icon-btn svg{width:17px; height:17px;}
+  .icon-btn .dot{
+    position:absolute; top:-2px; left:-2px; min-width:16px; height:16px; padding:0 3px;
+    border-radius:50%; background:var(--accent-red); color:#fff; font-size:9.5px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; border:2px solid var(--bg);
+  }
+  .profile{display:flex; align-items:center; gap:10px; padding-right:4px; cursor:pointer;}
+  .profile .avatar{width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#666,#333); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff;}
+  .profile .who{display:flex; flex-direction:column; text-align:right;}
+  .profile .who .n{font-size:12.5px; font-weight:700;}
+  .profile .who .r{font-size:10.5px; color:var(--text-muted);}
+
+  /* ---------- Page header ---------- */
+  .page{padding:24px 28px 60px;}
+  .page-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap;}
+  .page-head h2{font-size:24px; font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:10px;}
+  .page-head p{font-size:13px; color:var(--text-secondary);}
+  .page-actions{display:flex; align-items:center; gap:10px;}
+  .btn{
+    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:var(--radius-md);
+    font-size:13px; font-weight:700; border:1px solid var(--border-soft); background:var(--glass); color:var(--text-primary);
+    transition:transform .1s, background .15s;
+  }
+  .btn svg{width:15px; height:15px;}
+  .btn:hover{background:var(--glass-hover);}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{
+    background:linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+    border:none; box-shadow:0 8px 24px -8px rgba(139,107,255,0.55);
+  }
+  .btn-primary:hover{filter:brightness(1.08);}
+
+  /* ---------- Stat cards ---------- */
+  .stats-row{display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; margin-bottom:20px;}
+  .stat-card{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-lg);
+    padding:18px; display:flex; flex-direction:column; gap:10px;
+  }
+  .stat-top{display:flex; align-items:center; justify-content:space-between;}
+  .stat-icon{width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;}
+  .stat-icon svg{width:17px; height:17px;}
+  .stat-label{font-size:12px; color:var(--text-muted); font-weight:600;}
+  .stat-value{font-size:24px; font-weight:800; letter-spacing:-.3px;}
+  .stat-trend{font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:4px;}
+  .trend-up{color:var(--accent-green);}
+  .trend-down{color:var(--accent-red);}
+
+  /* ---------- Funnel strip (signature element) ---------- */
+  .funnel-strip{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-lg);
+    padding:18px 20px; margin-bottom:20px;
+  }
+  .funnel-strip-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .funnel-strip-head h3{font-size:14px; font-weight:800;}
+  .funnel-strip-head span{font-size:11.5px; color:var(--text-muted);}
+  .funnel-track{display:flex; gap:3px; height:10px; border-radius:20px; overflow:hidden; margin-bottom:12px;}
+  .funnel-seg{height:100%; transition:filter .15s; cursor:pointer;}
+  .funnel-seg:hover{filter:brightness(1.25);}
+  .funnel-legend{display:flex; flex-wrap:wrap; gap:16px;}
+  .funnel-legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary); cursor:pointer; user-select:none;}
+  .funnel-legend-item .sw{width:8px; height:8px; border-radius:50%;}
+  .funnel-legend-item b{color:var(--text-primary); font-weight:700;}
+  .funnel-legend-item.dim{opacity:.35;}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .toolbar-filters{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .select-pill{
+    background:var(--glass); border:1px solid var(--border-soft); color:var(--text-secondary);
+    border-radius:var(--radius-md); padding:9px 12px; font-size:12.5px; font-weight:600;
+  }
+  .toolbar-count{font-size:12.5px; color:var(--text-muted);}
+
+  /* ---------- Table ---------- */
+  .table-wrap{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-lg);
+    overflow:hidden;
+  }
+  table{width:100%; border-collapse:collapse;}
+  thead th{
+    text-align:right; font-size:11.5px; font-weight:700; color:var(--text-muted);
+    padding:14px 16px; border-bottom:1px solid var(--border-soft); white-space:nowrap;
+    user-select:none;
+  }
+  thead th.sortable{cursor:pointer;}
+  thead th.sortable:hover{color:var(--text-secondary);}
+  thead th .th-in{display:flex; align-items:center; gap:5px;}
+  thead th svg{width:11px; height:11px; opacity:.6;}
+  tbody td{padding:13px 16px; border-bottom:1px solid var(--border-soft); font-size:13px; vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr{transition:background .12s;}
+  tbody tr:hover{background:rgba(255,255,255,0.02);}
+
+  .lead-cell{display:flex; align-items:center; gap:10px;}
+  .lead-avatar{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; color:#fff;
+  }
+  .lead-info .lead-name{font-weight:700; font-size:13.5px; margin-bottom:1px;}
+  .lead-info .lead-company{font-size:11.5px; color:var(--text-muted);}
+  .contact-line{font-size:12px; color:var(--text-secondary); direction:ltr; text-align:right;}
+  .contact-line + .contact-line{margin-top:2px;}
+
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:20px;
+    font-size:11.5px; font-weight:700; white-space:nowrap;
+  }
+  .badge .dot{width:6px; height:6px; border-radius:50%;}
+
+  .interest-high{background:rgba(251,146,60,0.14); color:var(--accent-orange);}
+  .interest-medium{background:rgba(56,189,248,0.14); color:#38bdf8;}
+  .interest-low{background:rgba(148,163,184,0.14); color:var(--text-secondary);}
+
+  .deal-value{font-weight:700; font-size:13px; direction:ltr; text-align:right; display:block;}
+  .last-contact{color:var(--text-secondary); font-size:12.5px;}
+
+  .assignee{display:flex; align-items:center; gap:6px;}
+  .assignee .a-av{width:26px; height:26px; border-radius:50%; background:var(--glass-hover); display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; border:1px solid var(--border-soft);}
+
+  .row-actions{display:flex; align-items:center; gap:6px;}
+  .row-actions button{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border-soft); background:var(--glass);
+    display:flex; align-items:center; justify-content:center; color:var(--text-secondary);
+  }
+  .row-actions button:hover{background:var(--glass-hover); color:var(--text-primary);}
+  .row-actions svg{width:14px; height:14px;}
+
+  .checkbox{width:16px; height:16px; accent-color:var(--accent-purple);}
+
+  /* ---------- Pagination ---------- */
+  .pagination{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 18px;
+    border-top:1px solid var(--border-soft); flex-wrap:wrap; gap:10px;
+  }
+  .pagination-info{font-size:12px; color:var(--text-muted);}
+  .pagination-controls{display:flex; align-items:center; gap:6px;}
+  .page-btn{
+    min-width:30px; height:30px; padding:0 8px; border-radius:8px; border:1px solid var(--border-soft);
+    background:var(--glass); color:var(--text-secondary); font-size:12px; font-weight:700;
+  }
+  .page-btn.active{background:linear-gradient(135deg, var(--accent-purple), var(--accent-blue)); color:#fff; border:none;}
+  .page-btn:disabled{opacity:.35; cursor:not-allowed;}
+
+  /* ---------- Empty / loading ---------- */
+  .empty-state{display:none; flex-direction:column; align-items:center; justify-content:center; padding:70px 20px; text-align:center;}
+  .empty-state.show{display:flex;}
+  .empty-state .e-icon{width:56px; height:56px; border-radius:16px; background:var(--glass); display:flex; align-items:center; justify-content:center; margin-bottom:16px; color:var(--text-muted);}
+  .empty-state .e-icon svg{width:26px; height:26px;}
+  .empty-state h4{font-size:15px; font-weight:800; margin-bottom:6px;}
+  .empty-state p{font-size:12.5px; color:var(--text-muted); margin-bottom:16px;}
+
+  .skeleton-row td{padding:13px 16px; border-bottom:1px solid var(--border-soft);}
+  .sk{height:14px; border-radius:6px; background:linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.09), rgba(255,255,255,0.04)); background-size:200% 100%; animation:shimmer 1.4s infinite;}
+  @keyframes shimmer{0%{background-position:200% 0;} 100%{background-position:-200% 0;}}
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(5,7,12,0.65); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    width:100%; max-width:520px; background:var(--bg-elevated); border:1px solid var(--border);
+    border-radius:var(--radius-lg); box-shadow:var(--shadow-glow); max-height:88vh; overflow-y:auto;
+  }
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--border-soft);}
+  .modal-head h3{font-size:16px; font-weight:800;}
+  .modal-close{width:30px; height:30px; border-radius:8px; background:var(--glass); border:1px solid var(--border-soft); display:flex; align-items:center; justify-content:center; color:var(--text-secondary);}
+  .modal-close svg{width:14px; height:14px;}
+  .modal-body{padding:20px 22px; display:flex; flex-direction:column; gap:14px;}
+  .field{display:flex; flex-direction:column; gap:6px;}
+  .field label{font-size:12px; font-weight:700; color:var(--text-secondary);}
+  .field input, .field select, .field textarea{
+    background:var(--glass); border:1px solid var(--border-soft); border-radius:var(--radius-sm);
+    padding:10px 12px; color:var(--text-primary); font-size:13px;
+  }
+  .field textarea{resize:vertical; min-height:70px; font-family:inherit;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .modal-foot{display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--border-soft);}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:12px 20px; font-size:13px; font-weight:600; box-shadow:var(--shadow-glow);
+    display:flex; align-items:center; gap:10px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+    z-index:200;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast svg{width:16px; height:16px; color:var(--accent-green); flex-shrink:0;}
+
+  /* ---------- Mobile card fallback ---------- */
+  .lead-card{display:none;}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1180px){
+    .stats-row{grid-template-columns:repeat(3, 1fr);}
+  }
+  @media (max-width: 900px){
+    .sidebar{transform:translateX(100%); transition:transform .2s;}
+    .sidebar.open{transform:translateX(0);}
+    .main{margin-left:0;}
+    .stats-row{grid-template-columns:repeat(2, 1fr);}
+    .topbar-left h1{font-size:14px;}
+    .search-box{width:150px;}
+    .date-pill span{display:none;}
+  }
+  @media (max-width: 680px){
+    .page{padding:16px;}
+    .stats-row{grid-template-columns:1fr 1fr;}
+    table thead{display:none;}
+    .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td{display:block; width:100%;}
+    tbody tr{border-bottom:1px solid var(--border-soft); padding:14px 4px;}
+    tbody td{border-bottom:none; padding:6px 12px;}
+    .contact-line{text-align:right;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= Sidebar ================= -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="mark">م</div>
+    <div class="name">مدعوم</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+      <span class="label">الرئيسية</span>
+    </a>
+    <a class="nav-item active" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 3-5 5.5-5s4.9 1.8 5.5 5"/><path d="M16.5 5.5a3 3 0 0 1 0 5.8"/><path d="M19 19c-.3-1.9-1.1-3.3-2.3-4.2"/></svg>
+      <span class="label">العملاء المحتملون</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+      <span class="label">الحملات</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+      <span class="label">التسلسلات</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9.8 8.3 8.3 8.3 0 0 1-4.3-1.7L3 19l1-3.8A8.3 8.3 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5Z"/></svg>
+      <span class="label">الرسائل</span>
+      <span class="nav-badge">12</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
+      <span class="label">الإجتماعات</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4Z"/></svg>
+      <span class="label">خط سير المبيعات</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/></svg>
+      <span class="label">التقارير والتحليلات</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
+      <span class="label">الذكاء الاصطناعي</span>
+      <span class="nav-badge new">جديد</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v4M6 5h4M16 15v4M14 17h4"/><rect x="3" y="11" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/></svg>
+      <span class="label">التكاملات</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.3.7.9 1.1 1.6 1.1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+      <span class="label">الإعدادات</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="plan-card">
+      <div class="plan-label">خطتك الحالية</div>
+      <div class="plan-name">خطة النمو الاحترافية</div>
+      <div class="plan-bar"><span></span></div>
+      <div class="plan-days">باقٍ 14 يوماً · مستخدم 80%</div>
+      <button class="upgrade-btn">ترقية الخطة</button>
+    </div>
+    <a class="support-link" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-7h3Z"/><path d="M3 19a2 2 0 0 0 2 2h1v-7H3Z"/></svg>
+      المساعدة والدعم
+    </a>
+  </div>
+</aside>
+
+<!-- ================= Main ================= -->
+<div class="main">
+
+  <!-- Topbar chrome (shared header) -->
+  <header class="topbar">
+    <div class="topbar-right">
+      <div class="profile">
+        <div class="avatar">م ع</div>
+        <div class="who">
+          <span class="n">محمود عبدالوهاب</span>
+          <span class="r">المدير العام</span>
+        </div>
+      </div>
+      <button class="icon-btn" aria-label="الرسائل">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9.8 8.3 8.3 8.3 0 0 1-4.3-1.7L3 19l1-3.8A8.3 8.3 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5Z"/></svg>
+        <span class="dot">12</span>
+      </button>
+      <button class="icon-btn" aria-label="الإشعارات">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+        <span class="dot">5</span>
+      </button>
+      <div class="date-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <span>١ يوليو – ٣١ يوليو ٢٠٢٤</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="topSearch" placeholder="ابحث عن عميل، حملة أو رسالة...">
+      </div>
+    </div>
+    <div class="topbar-left">
+      <h1>مرحباً محمود 👋</h1>
+      <p>إدارة قاعدة عملائك المحتملين هنا</p>
+    </div>
+  </header>
+
+  <div class="page">
+
+    <!-- Page header -->
+    <div class="page-head">
+      <div>
+        <h2>العملاء المحتملون</h2>
+        <p>تتبع كل عميل محتمل من أول تواصل وحتى إغلاق الصفقة</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn" id="exportBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          تصدير
+        </button>
+        <button class="btn btn-primary" id="addLeadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          عميل محتمل جديد
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow"></div>
+
+    <!-- Funnel distribution strip -->
+    <div class="funnel-strip">
+      <div class="funnel-strip-head">
+        <h3>توزيع مراحل خط السير</h3>
+        <span>اضغط على مرحلة لتصفية الجدول</span>
+      </div>
+      <div class="funnel-track" id="funnelTrack"></div>
+      <div class="funnel-legend" id="funnelLegend"></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-filters">
+        <select class="select-pill" id="filterStage">
+          <option value="">كل المراحل</option>
+        </select>
+        <select class="select-pill" id="filterInterest">
+          <option value="">كل مستويات الاهتمام</option>
+          <option value="high">اهتمام عالي</option>
+          <option value="medium">اهتمام متوسط</option>
+          <option value="low">اهتمام منخفض</option>
+        </select>
+        <select class="select-pill" id="filterSource">
+          <option value="">كل المصادر</option>
+        </select>
+      </div>
+      <div class="toolbar-count" id="toolbarCount"></div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;"><input type="checkbox" class="checkbox" id="checkAll"></th>
+            <th>العميل المحتمل</th>
+            <th>التواصل</th>
+            <th class="sortable" data-sort="stage"><span class="th-in">المرحلة <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m7 10 5 5 5-5"/></svg></span></th>
+            <th class="sortable" data-sort="interest"><span class="th-in">الاهتمام <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m7 10 5 5 5-5"/></svg></span></th>
+            <th class="sortable" data-sort="value"><span class="th-in">قيمة الفرصة <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m7 10 5 5 5-5"/></svg></span></th>
+            <th class="sortable" data-sort="lastContact"><span class="th-in">آخر تواصل <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m7 10 5 5 5-5"/></svg></span></th>
+            <th>المسؤول</th>
+            <th>الإجراء</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+
+      <div class="empty-state" id="emptyState">
+        <div class="e-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <h4>لا توجد نتائج مطابقة</h4>
+        <p>جرّب تعديل كلمات البحث أو إزالة بعض الفلاتر</p>
+        <button class="btn" id="resetFilters">إعادة ضبط الفلاتر</button>
+      </div>
+
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Add Lead Modal ================= -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>إضافة عميل محتمل جديد</h3>
+      <button class="modal-close" id="modalCloseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field">
+          <label>الاسم الكامل</label>
+          <input type="text" id="f-name" placeholder="مثال: أحمد سامي">
+        </div>
+        <div class="field">
+          <label>اسم الشركة</label>
+          <input type="text" id="f-company" placeholder="اختياري">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>رقم الهاتف</label>
+          <input type="text" id="f-phone" placeholder="+20 1xx xxx xxxx" style="direction:ltr; text-align:right;">
+        </div>
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="f-email" placeholder="name@company.com" style="direction:ltr; text-align:right;">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المرحلة</label>
+          <select id="f-stage"></select>
+        </div>
+        <div class="field">
+          <label>مستوى الاهتمام</label>
+          <select id="f-interest">
+            <option value="medium">متوسط</option>
+            <option value="high">عالي</option>
+            <option value="low">منخفض</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>قيمة الفرصة المتوقعة (ج.م)</label>
+          <input type="number" id="f-value" placeholder="0" style="direction:ltr; text-align:right;">
+        </div>
+        <div class="field">
+          <label>المصدر</label>
+          <select id="f-source">
+            <option value="manual">إضافة يدوية</option>
+            <option value="whatsapp_campaign">حملة واتساب</option>
+            <option value="website">الموقع الإلكتروني</option>
+            <option value="referral">ترشيح</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>ملاحظات</label>
+        <textarea id="f-notes" placeholder="أي تفاصيل إضافية عن العميل..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="cancelAddBtn">إلغاء</button>
+      <button class="btn btn-primary" id="saveLeadBtn">حفظ العميل المحتمل</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+/* =========================================================================
+   ملاحظة: كل البيانات هنا محلية (mock) فقط لعرض الواجهة.
+   لاحقاً عند الموافقة على الـ backend، تُستبدل دالة fetchLeads()
+   باستدعاء حقيقي لجدول leads في Supabase — باقي الكود لن يتغير.
+   ========================================================================= */
+
+const STAGES = [
+  { id:'new',                label:'عميل جديد',      color:'#94a3b8' },
+  { id:'contacted',          label:'تم التواصل',     color:'#60a5fa' },
+  { id:'replied',            label:'تم الرد',        color:'#22d3c7' },
+  { id:'meeting_scheduled',  label:'اجتماع محجوز',   color:'#a78bfa' },
+  { id:'quote_sent',         label:'تم إرسال عرض سعر', color:'#fbbf24' },
+  { id:'negotiating',        label:'قيد التفاوض',    color:'#fb923c' },
+  { id:'won',                label:'تم إغلاق الصفقة', color:'#34d399' },
+];
+
+const INTEREST = {
+  high:   { label:'عالي',   cls:'interest-high' },
+  medium: { label:'متوسط', cls:'interest-medium' },
+  low:    { label:'منخفض', cls:'interest-low' },
+};
+
+const SOURCES = {
+  manual:            'إضافة يدوية',
+  whatsapp_campaign: 'حملة واتساب',
+  website:           'الموقع الإلكتروني',
+  referral:          'ترشيح',
+  workflow:          'أتمتة',
+};
+
+const AVATAR_COLORS = ['#8b6bff','#4c8dff','#22d3c7','#fb923c','#f66565','#34d399','#fbbf24'];
+
+function initials(name){
+  const parts = name.trim().split(' ');
+  return (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+}
+function colorFor(seed){
+  let h = 0;
+  for(const c of seed) h = c.charCodeAt(0) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function relativeTime(iso){
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  const hours = Math.floor(diffMs / 3600000);
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return mins <= 1 ? 'منذ دقيقة' : `منذ ${mins} دقيقة`;
+  if (hours < 24) return hours === 1 ? 'منذ ساعة' : `منذ ${hours} ساعات`;
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  return `منذ ${days} أيام`;
+}
+function fmtMoney(n){
+  if (n == null) return '—';
+  return new Intl.NumberFormat('en-US').format(n) + ' ج.م';
+}
+function daysAgo(n){ return new Date(Date.now() - n*86400000).toISOString(); }
+
+/* ---------- Mock dataset ---------- */
+const MOCK_LEADS = [
+  { id:1, name:'أحمد سامي',      company:'شركة تك كبير',        phone:'+20 100 123 4567', email:'ahmed@tecgiant.com',    stage:'meeting_scheduled', interest:'high',   value:42000, source:'whatsapp_campaign', lastContact:daysAgo(0),   assignee:'س ن' },
+  { id:2, name:'سارة محمد',      company:'النور التقنية',        phone:'+20 101 234 5678', email:'sara@alnoor-tech.com',  stage:'replied',           interest:'high',   value:31500, source:'website',           lastContact:daysAgo(1),   assignee:'م ع' },
+  { id:3, name:'خالد إبراهيم',   company:'مستقبل البرمجيات',      phone:'+20 111 345 6789', email:'khaled@futuresoft.io',  stage:'contacted',         interest:'medium', value:18000, source:'referral',          lastContact:daysAgo(2),   assignee:'س ن' },
+  { id:4, name:'منى الشريف',     company:'قمة الحلول',           phone:'+20 122 456 7890', email:'mona@qimma-sol.com',    stage:'new',               interest:'medium', value:9500,  source:'whatsapp_campaign', lastContact:daysAgo(3),   assignee:'ر ح' },
+  { id:5, name:'يوسف عادل',      company:'ابتكار الرقمية',        phone:'+20 155 567 8901', email:'youssef@ebtikar.dev',   stage:'contacted',         interest:'low',    value:6200,  source:'manual',             lastContact:daysAgo(4),   assignee:'م ع' },
+  { id:6, name:'هبة كمال',       company:'ورد للتجارة',          phone:'+20 106 678 9012', email:'heba@ward-trading.com', stage:'quote_sent',        interest:'high',   value:52800, source:'website',           lastContact:daysAgo(1),   assignee:'ر ح' },
+  { id:7, name:'عمر فتحي',       company:'نبض السحابة',          phone:'+20 127 789 0123', email:'omar@nabd-cloud.com',   stage:'negotiating',       interest:'high',   value:76000, source:'referral',          lastContact:daysAgo(0),   assignee:'س ن' },
+  { id:8, name:'ندى وليد',       company:'أفق للاستشارات',       phone:'+20 114 890 1234', email:'nada@ofoq.co',          stage:'won',               interest:'high',   value:38500, source:'whatsapp_campaign', lastContact:daysAgo(6),   assignee:'م ع' },
+  { id:9, name:'كريم صلاح',      company:'مسار التوصيل',         phone:'+20 128 901 2345', email:'karim@masar-dlv.com',   stage:'new',               interest:'low',    value:4100,  source:'manual',             lastContact:daysAgo(5),   assignee:'ر ح' },
+  { id:10,name:'رنا عبدالله',    company:'زهرة العطور',          phone:'+20 109 012 3456', email:'rana@zahra-perf.com',   stage:'replied',           interest:'medium', value:14300, source:'website',           lastContact:daysAgo(2),   assignee:'س ن' },
+  { id:11,name:'طارق حسين',      company:'بوابة الاستيراد',       phone:'+20 115 123 4560', email:'tarek@bawaba-imp.com',  stage:'meeting_scheduled', interest:'medium', value:27600, source:'referral',          lastContact:daysAgo(1),   assignee:'م ع' },
+  { id:12,name:'ياسمين علي',     company:'نخبة العقارات',         phone:'+20 120 234 5601', email:'yasmin@nokhba-re.com',  stage:'contacted',         interest:'medium', value:61000, source:'whatsapp_campaign', lastContact:daysAgo(3),   assignee:'ر ح' },
+];
+
+/* ---------- State ---------- */
+let state = {
+  leads: [],
+  loading: true,
+  search: '',
+  stage: '',
+  interest: '',
+  source: '',
+  sortKey: null,
+  sortDir: 'desc',
+  page: 1,
+  pageSize: 8,
+  activeFunnelStage: null,
+};
+
+/* Swap this function's body for a real Supabase query later —
+   the rest of the app only depends on the returned shape. */
+async function fetchLeads(){
+  await new Promise(r => setTimeout(r, 550));
+  return MOCK_LEADS;
+}
+
+/* ---------- Render: stage <select> options ---------- */
+function populateStageSelects(){
+  const filterStage = document.getElementById('filterStage');
+  const formStage = document.getElementById('f-stage');
+  STAGES.forEach(s => {
+    filterStage.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.label}</option>`);
+    formStage.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.label}</option>`);
+  });
+}
+function populateSourceSelect(){
+  const el = document.getElementById('filterSource');
+  Object.entries(SOURCES).forEach(([id,label]) => {
+    el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
+  });
+}
+
+/* ---------- Stats cards ---------- */
+function renderStats(leads){
+  const total = leads.length;
+  const weekAgo = Date.now() - 7*86400000;
+  const newThisWeek = leads.filter(l => new Date(l.lastContact).getTime() >= weekAgo && l.stage === 'new').length;
+  const won = leads.filter(l => l.stage === 'won').length;
+  const conversion = total ? Math.round((won/total)*100) : 0;
+  const highInterest = leads.filter(l => l.interest === 'high').length;
+  const pipelineValue = leads.filter(l => !['won'].includes(l.stage)).reduce((s,l) => s+(l.value||0), 0);
+
+  const cards = [
+    { label:'إجمالي العملاء المحتملين', value: total, trend:'+18.5%', up:true,
+      icon:`<circle cx="9" cy="8" r="3"/><path d="M3.5 18c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><path d="M16 5.3a2.8 2.8 0 0 1 0 5.4"/><path d="M19 18c-.3-1.7-1-3-2.2-3.9"/>`,
+      bg:'rgba(139,107,255,0.14)', fg:'#8b6bff' },
+    { label:'عملاء جدد هذا الأسبوع', value: newThisWeek, trend:'+6.3%', up:true,
+      icon:`<path d="M12 5v14M5 12h14"/>`,
+      bg:'rgba(76,141,255,0.14)', fg:'#4c8dff' },
+    { label:'معدل التحويل', value: conversion+'%', trend:'+2.4%', up:true,
+      icon:`<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>`,
+      bg:'rgba(34,211,199,0.14)', fg:'#22d3c7' },
+    { label:'اهتمام عالي', value: highInterest, trend:'+27.1%', up:true,
+      icon:`<path d="M12 2c1 3-1 4-1 6a3 3 0 0 0 6 0c2 2 2 5 0 8a7 7 0 0 1-12 0c-1-2-1-4 0-6 1 1 2 1 2 0 0-2-1-4 0-6 1 1 2 2 5-2Z"/>`,
+      bg:'rgba(251,146,60,0.14)', fg:'#fb923c' },
+    { label:'قيمة الفرص المتوقعة', value: fmtMoney(pipelineValue), trend:'+28.5%', up:true,
+      icon:`<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.3c0-1.3 1.1-2.1 2.5-2.1s2.5.8 2.5 2c0 2.6-5 1.6-5 4.2 0 1.2 1.1 2 2.5 2s2.5-.8 2.5-2.1"/>`,
+      bg:'rgba(52,211,153,0.14)', fg:'#34d399' },
+  ];
+
+  document.getElementById('statsRow').innerHTML = cards.map(c => `
+    <div class="stat-card">
+      <div class="stat-top">
+        <span class="stat-label">${c.label}</span>
+        <div class="stat-icon" style="background:${c.bg}; color:${c.fg};">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${c.icon}</svg>
+        </div>
+      </div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-trend ${c.up?'trend-up':'trend-down'}">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="${c.up?'m6 15 6-6 6 6':'m6 9 6 6 6-6'}"/></svg>
+        ${c.trend} مقارنة بالفترة السابقة
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------- Funnel strip ---------- */
+function renderFunnel(leads){
+  const counts = STAGES.map(s => ({...s, count: leads.filter(l => l.stage === s.id).length}));
+  const total = counts.reduce((s,c) => s+c.count, 0) || 1;
+
+  document.getElementById('funnelTrack').innerHTML = counts.map(c => `
+    <div class="funnel-seg" data-stage="${c.id}" style="width:${(c.count/total*100)||1}%; background:${c.color};" title="${c.label}: ${c.count}"></div>
+  `).join('');
+
+  document.getElementById('funnelLegend').innerHTML = counts.map(c => `
+    <div class="funnel-legend-item ${state.activeFunnelStage && state.activeFunnelStage!==c.id ? 'dim':''}" data-stage="${c.id}">
+      <span class="sw" style="background:${c.color};"></span>
+      ${c.label} · <b>${c.count}</b>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.funnel-seg, .funnel-legend-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const stage = el.dataset.stage;
+      state.activeFunnelStage = state.activeFunnelStage === stage ? null : stage;
+      state.stage = state.activeFunnelStage || '';
+      document.getElementById('filterStage').value = state.stage;
+      state.page = 1;
+      render();
+    });
+  });
+}
+
+/* ---------- Filtering / sorting ---------- */
+function getFilteredLeads(){
+  let list = [...state.leads];
+  const q = state.search.trim().toLowerCase();
+  if (q) {
+    list = list.filter(l =>
+      l.name.toLowerCase().includes(q) ||
+      l.company.toLowerCase().includes(q) ||
+      l.email.toLowerCase().includes(q) ||
+      l.phone.includes(q)
+    );
+  }
+  if (state.stage) list = list.filter(l => l.stage === state.stage);
+  if (state.interest) list = list.filter(l => l.interest === state.interest);
+  if (state.source) list = list.filter(l => l.source === state.source);
+
+  if (state.sortKey) {
+    const dir = state.sortDir === 'asc' ? 1 : -1;
+    list.sort((a,b) => {
+      let av, bv;
+      if (state.sortKey === 'stage') { av = STAGES.findIndex(s=>s.id===a.stage); bv = STAGES.findIndex(s=>s.id===b.stage); }
+      else if (state.sortKey === 'interest') { const order={low:0,medium:1,high:2}; av = order[a.interest]; bv = order[b.interest]; }
+      else if (state.sortKey === 'value') { av = a.value||0; bv = b.value||0; }
+      else if (state.sortKey === 'lastContact') { av = new Date(a.lastContact).getTime(); bv = new Date(b.lastContact).getTime(); }
+      return av > bv ? dir : av < bv ? -dir : 0;
+    });
+  }
+  return list;
+}
+
+/* ---------- Table ---------- */
+function renderTableRows(){
+  const tbody = document.getElementById('tableBody');
+  const filtered = getFilteredLeads();
+  const start = (state.page-1)*state.pageSize;
+  const pageItems = filtered.slice(start, start+state.pageSize);
+
+  document.getElementById('emptyState').classList.toggle('show', filtered.length===0 && !state.loading);
+  document.getElementById('toolbarCount').textContent = `عرض ${filtered.length} من ${state.leads.length} عميل محتمل`;
+
+  if (state.loading){
+    tbody.innerHTML = Array.from({length:6}).map(() => `
+      <tr class="skeleton-row">
+        <td><div class="sk" style="width:16px; height:16px;"></div></td>
+        <td><div class="sk" style="width:170px;"></div></td>
+        <td><div class="sk" style="width:120px;"></div></td>
+        <td><div class="sk" style="width:90px;"></div></td>
+        <td><div class="sk" style="width:70px;"></div></td>
+        <td><div class="sk" style="width:80px;"></div></td>
+        <td><div class="sk" style="width:60px;"></div></td>
+        <td><div class="sk" style="width:26px; height:26px; border-radius:50%;"></div></td>
+        <td><div class="sk" style="width:90px;"></div></td>
+      </tr>
+    `).join('');
+    renderPagination(0);
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(l => {
+    const stage = STAGES.find(s => s.id === l.stage);
+    const interest = INTEREST[l.interest];
+    const av = colorFor(l.name);
+    return `
+    <tr>
+      <td><input type="checkbox" class="checkbox"></td>
+      <td>
+        <div class="lead-cell">
+          <div class="lead-avatar" style="background:${av};">${initials(l.name)}</div>
+          <div class="lead-info">
+            <div class="lead-name">${l.name}</div>
+            <div class="lead-company">${l.company}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="contact-line">${l.phone}</div>
+        <div class="contact-line">${l.email}</div>
+      </td>
+      <td><span class="badge" style="background:${stage.color}22; color:${stage.color};"><span class="dot" style="background:${stage.color};"></span>${stage.label}</span></td>
+      <td><span class="badge ${interest.cls}">${interest.label}</span></td>
+      <td><span class="deal-value">${fmtMoney(l.value)}</span></td>
+      <td><span class="last-contact">${relativeTime(l.lastContact)}</span></td>
+      <td>
+        <div class="assignee">
+          <div class="a-av">${l.assignee}</div>
+        </div>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button title="جدولة اجتماع" aria-label="جدولة اجتماع">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          </button>
+          <button title="إرسال بريد" aria-label="إرسال بريد">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>
+          </button>
+          <button title="فتح المحادثة" aria-label="فتح المحادثة">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9.8 8.3 8.3 8.3 0 0 1-4.3-1.7L3 19l1-3.8A8.3 8.3 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5Z"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+  }).join('');
+
+  renderPagination(filtered.length);
+}
+
+function renderPagination(total){
+  const totalPages = Math.max(1, Math.ceil(total/state.pageSize));
+  if (state.page > totalPages) state.page = totalPages;
+  const start = total===0 ? 0 : (state.page-1)*state.pageSize+1;
+  const end = Math.min(state.page*state.pageSize, total);
+
+  let btns = '';
+  for (let p=1; p<=totalPages; p++){
+    if (p===1 || p===totalPages || Math.abs(p-state.page)<=1){
+      btns += `<button class="page-btn ${p===state.page?'active':''}" data-page="${p}">${p}</button>`;
+    } else if (Math.abs(p-state.page)===2){
+      btns += `<span style="color:var(--text-muted); padding:0 4px;">···</span>`;
+    }
+  }
+
+  document.getElementById('pagination').innerHTML = `
+    <div class="pagination-info">${total===0 ? 'لا توجد نتائج' : `عرض ${start}–${end} من ${total}`}</div>
+    <div class="pagination-controls">
+      <button class="page-btn" id="prevPage" ${state.page<=1?'disabled':''}>‹</button>
+      ${btns}
+      <button class="page-btn" id="nextPage" ${state.page>=totalPages?'disabled':''}>›</button>
+    </div>
+  `;
+
+  document.querySelectorAll('#pagination [data-page]').forEach(b => {
+    b.addEventListener('click', () => { state.page = parseInt(b.dataset.page); renderTableRows(); });
+  });
+  const prev = document.getElementById('prevPage');
+  const next = document.getElementById('nextPage');
+  if (prev) prev.addEventListener('click', () => { if (state.page>1){ state.page--; renderTableRows(); } });
+  if (next) next.addEventListener('click', () => { if (state.page<totalPages){ state.page++; renderTableRows(); } });
+}
+
+/* ---------- Sorting headers ---------- */
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    else { state.sortKey = key; state.sortDir = 'desc'; }
+    renderTableRows();
+  });
+});
+
+/* ---------- Toolbar filters ---------- */
+document.getElementById('topSearch').addEventListener('input', e => { state.search = e.target.value; state.page=1; renderTableRows(); });
+document.getElementById('filterStage').addEventListener('change', e => { state.stage = e.target.value; state.activeFunnelStage = e.target.value || null; state.page=1; render(); });
+document.getElementById('filterInterest').addEventListener('change', e => { state.interest = e.target.value; state.page=1; renderTableRows(); });
+document.getElementById('filterSource').addEventListener('change', e => { state.source = e.target.value; state.page=1; renderTableRows(); });
+document.getElementById('resetFilters').addEventListener('click', () => {
+  state.search=''; state.stage=''; state.interest=''; state.source=''; state.activeFunnelStage=null; state.page=1;
+  document.getElementById('topSearch').value='';
+  document.getElementById('filterStage').value='';
+  document.getElementById('filterInterest').value='';
+  document.getElementById('filterSource').value='';
+  render();
+});
+
+/* ---------- Modal ---------- */
+const overlay = document.getElementById('modalOverlay');
+function openModal(){ overlay.classList.add('show'); }
+function closeModal(){
+  overlay.classList.remove('show');
+  ['f-name','f-company','f-phone','f-email','f-value','f-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('f-stage').value='new';
+  document.getElementById('f-interest').value='medium';
+  document.getElementById('f-source').value='manual';
+}
+document.getElementById('addLeadBtn').addEventListener('click', openModal);
+document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+document.getElementById('cancelAddBtn').addEventListener('click', closeModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+document.getElementById('saveLeadBtn').addEventListener('click', () => {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name){ showToast('من فضلك أدخل اسم العميل'); return; }
+  const newLead = {
+    id: Date.now(),
+    name,
+    company: document.getElementById('f-company').value.trim() || '—',
+    phone: document.getElementById('f-phone').value.trim() || '—',
+    email: document.getElementById('f-email').value.trim() || '—',
+    stage: document.getElementById('f-stage').value,
+    interest: document.getElementById('f-interest').value,
+    value: parseFloat(document.getElementById('f-value').value) || 0,
+    source: document.getElementById('f-source').value,
+    lastContact: new Date().toISOString(),
+    assignee: 'م ع',
+  };
+  state.leads.unshift(newLead);
+  closeModal();
+  showToast('تمت إضافة العميل محلياً — سيتم حفظه فعلياً بعد ربط الـ backend');
+  state.page = 1;
+  render();
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  showToast('التصدير سيكون متاحاً بعد ربط قاعدة البيانات');
+});
+
+/* ---------- Toast ---------- */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ---------- Master render ---------- */
+function render(){
+  renderStats(state.leads);
+  renderFunnel(state.leads);
+  renderTableRows();
+}
+
+/* ---------- Init ---------- */
+(async function init(){
+  populateStageSelects();
+  populateSourceSelect();
+  renderStats([]); // instant skeleton feel handled by loading table only
+  state.leads = await fetchLeads();
+  state.loading = false;
+  render();
+})();
+</script>
+
+</body>
+</html>
