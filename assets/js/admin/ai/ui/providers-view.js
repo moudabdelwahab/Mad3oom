@@ -8,7 +8,7 @@
 import * as api from '../ai-service.js';
 import {
     findProvider, providerLabel, effectiveProtocol, effectiveBaseUrl,
-    credentialFields, supportsModelDiscovery, maskedKey,
+    credentialFields, supportsModelDiscovery, maskedKey, resolveEndpoints, looksMasked,
     PROVIDER_KIND_LABELS, PROTOCOL_LABELS, AI_PROVIDER_KINDS,
 } from '../provider-registry.js';
 import {
@@ -20,8 +20,44 @@ let ctx = null;              // مرجع للحالة المشتركة من ai-a
 let searchQuery = '';
 let kindFilter = 'all';
 
+/**
+ * آخر فشل لكل تكامل مع كل تفاصيله (الرابط الذي جُرّب فعلًا + سبب مرجّح).
+ * الـ toast يختفي بعد ثوانٍ، وهذه المعلومة هي بالضبط ما يحتاجه المستخدم
+ * ليقرأه بتأنٍّ، فتبقى معروضة على البطاقة حتى تنجح العملية.
+ */
+const diagnostics = new Map();
+
 export function init(sharedContext) {
     ctx = sharedContext;
+}
+
+function diagnosticHtml(integrationId) {
+    const d = diagnostics.get(integrationId);
+    if (!d) return '';
+    return `
+    <div class="ai-diagnostic">
+        <div class="ai-diagnostic-head">${icon('alert', 13)} <strong>${escapeHtml(d.title)}</strong></div>
+        <div class="ai-diagnostic-msg">${escapeHtml(d.message)}</div>
+        ${d.endpoint ? `<div class="ai-diagnostic-row"><span>الرابط الذي جُرّب</span><code dir="ltr">${escapeHtml(d.endpoint)}</code></div>` : ''}
+        ${d.protocol ? `<div class="ai-diagnostic-row"><span>البروتوكول</span><code dir="ltr">${escapeHtml(d.protocol)}</code></div>` : ''}
+        ${d.hint ? `<div class="ai-diagnostic-hint">${escapeHtml(d.hint)}</div>` : ''}
+        <div class="ai-diagnostic-actions">
+            <button class="btn btn-edit btn-sm" data-ai-action="edit" data-id="${integrationId}">تعديل الإعدادات</button>
+            <button class="btn btn-secondary btn-sm" data-ai-action="dismiss-diagnostic" data-id="${integrationId}">إخفاء</button>
+        </div>
+    </div>`;
+}
+
+/** يستخرج تفاصيل التشخيص من رد الـ Gateway (يرجّع endpoint/hint مع كل فشل). */
+function recordDiagnostic(integrationId, title, err) {
+    const details = err?.details || {};
+    diagnostics.set(integrationId, {
+        title,
+        message: err?.message || 'خطأ غير معروف',
+        endpoint: details.endpoint || null,
+        protocol: details.protocol || null,
+        hint: details.hint || null,
+    });
 }
 
 /* ====================  البطاقات  ==================== */
@@ -80,6 +116,7 @@ function providerCard(integration) {
         </div>` : ''}
 
         ${integration.last_test_message ? `<div class="ai-note">${escapeHtml(integration.last_test_message)}</div>` : ''}
+        ${diagnosticHtml(integration.id)}
         <div class="ai-note ai-note-muted">${icon('clock')} آخر استخدام: ${formatDate(integration.last_used_at)}</div>
 
         <div class="card-actions">
@@ -174,20 +211,14 @@ function fieldsHtml(providerId, integration = null) {
                <div class="ai-readonly-value" dir="ltr">${escapeHtml(PROTOCOL_LABELS[currentProtocol] || currentProtocol || '—')}</div>
            </div>`;
 
-    const endpointPreview = protocols.map((p) => `
-        <div class="ai-endpoint-row">
-            <span class="ai-endpoint-proto">${escapeHtml(PROTOCOL_LABELS[p] || p)}</span>
-            <code dir="ltr">${escapeHtml(row.default_endpoints?.[p] || '— يتطلب Base URL مخصّص —')}</code>
-        </div>`).join('');
-
     const baseUrlBlock = row.allows_base_url ? `
         <div class="form-group full">
             <label>Base URL ${row.requires_base_url ? '<span class="req">*</span>' : '(اختياري)'}</label>
             <input type="text" id="aiProviderBaseUrl" dir="ltr"
                    placeholder="${escapeHtml(row.default_endpoints?.[currentProtocol] || 'https://api.example.com/v1')}"
                    value="${escapeHtml(integration?.base_url || meta.base_url || '')}">
-            <span class="hint">اتركه فارغًا لاستخدام رابط الكتالوج أدناه. املأه فقط للاستضافة الذاتية أو بروكسي متوافق.</span>
-            <div class="ai-endpoints-preview">${endpointPreview}</div>
+            <span class="hint">اتركه فارغًا لاستخدام رابط الكتالوج. املأه فقط للاستضافة الذاتية أو بروكسي متوافق.</span>
+            <div class="ai-endpoints-preview" id="aiEndpointPreview"></div>
         </div>` : '';
 
     const creds = credentialFields(ctx.catalog, providerId);
@@ -261,16 +292,72 @@ export function openModal(integrationId = null) {
     setTimeout(() => document.getElementById('aiProviderDisplayName')?.focus(), 60);
 }
 
-/** تغيير البروتوكول يحدّث الرابط الافتراضي المعروض كـ placeholder فورًا. */
+/**
+ * معاينة حيّة للروابط النهائية.
+ * أهم عنصر في هذا الفورم: يرى المستخدم بالضبط ما سيُنادى قبل الحفظ، فيكتشف
+ * فورًا لو أن Base URL بلا /v1 سيولّد مسارًا يشير للموقع بدل واجهة الـ API.
+ */
+function renderEndpointPreview(providerId) {
+    const box = document.getElementById('aiEndpointPreview');
+    if (!box) return;
+
+    const protocol = document.getElementById('aiProviderProtocol')?.value || '';
+    const baseInput = document.getElementById('aiProviderBaseUrl');
+    const typedBase = baseInput?.value.trim() || '';
+    const row = findProvider(ctx.catalog, providerId);
+    const endpoints = resolveEndpoints(ctx.catalog, providerId, protocol, typedBase);
+
+    if (!endpoints.base) {
+        box.innerHTML = `<div class="ai-endpoint-row"><span class="ai-dim">هذا البروتوكول يتطلّب Base URL — اكتبه أعلاه لترى الروابط النهائية.</span></div>`;
+        return;
+    }
+
+    // تحذير لا تصحيح تلقائي: إضافة /v1 من تلقاء النظام تكسر مزوّدين آخرين
+    const needsV1 = protocol === 'openai' && !/\/v\d+(\/|$)/.test(endpoints.base);
+    const suggestion = needsV1 ? `${endpoints.base}/v1` : '';
+
+    box.innerHTML = `
+        <div class="ai-endpoint-row">
+            <span class="ai-endpoint-proto">${escapeHtml(typedBase ? 'رابط مخصّص' : 'رابط الكتالوج')}</span>
+            <code dir="ltr">${escapeHtml(endpoints.base)}</code>
+        </div>
+        <div class="ai-endpoint-row">
+            <span class="ai-endpoint-proto">نداء التوليد</span>
+            <code dir="ltr">${escapeHtml(endpoints.chat)}</code>
+        </div>
+        <div class="ai-endpoint-row">
+            <span class="ai-endpoint-proto">قائمة الموديلات</span>
+            <code dir="ltr">${escapeHtml(endpoints.models)}</code>
+        </div>
+        ${needsV1 ? `
+        <div class="ai-endpoint-warn">
+            ${icon('alert', 13)}
+            <span>البروتوكول <strong>OpenAI Compatible</strong> يفترض أن الرابط يتضمّن مسار الـ API بالفعل. الرابط الحالي بلا <code dir="ltr">/v1</code>، فالنداء سيذهب لمسار الموقع وغالبًا سيرجع HTML.</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="aiFixBaseUrlBtn" data-suggest="${escapeHtml(suggestion)}">استخدم <span dir="ltr">${escapeHtml(suggestion)}</span></button>
+        </div>` : ''}
+        ${row?.protocols?.length > 1 ? `<div class="ai-endpoint-row"><span class="ai-dim">هذا المزوّد يدعم أيضًا: ${row.protocols.filter((p) => p !== protocol).map((p) => escapeHtml(PROTOCOL_LABELS[p] || p)).join('، ')}</span></div>` : ''}`;
+
+    document.getElementById('aiFixBaseUrlBtn')?.addEventListener('click', (e) => {
+        if (baseInput) {
+            baseInput.value = e.currentTarget.dataset.suggest;
+            renderEndpointPreview(providerId);
+        }
+    });
+}
+
+/** يربط تحديث المعاينة بتغيّر البروتوكول أو الرابط. */
 function bindProtocolChange(providerId) {
     const protocolSelect = document.getElementById('aiProviderProtocol');
     const baseUrlInput = document.getElementById('aiProviderBaseUrl');
-    if (!protocolSelect || !baseUrlInput || protocolSelect.tagName !== 'SELECT') return;
 
-    protocolSelect.addEventListener('change', () => {
+    protocolSelect?.addEventListener('change', () => {
         const row = findProvider(ctx.catalog, providerId);
-        baseUrlInput.placeholder = row?.default_endpoints?.[protocolSelect.value] || 'https://api.example.com/v1';
+        if (baseUrlInput) baseUrlInput.placeholder = row?.default_endpoints?.[protocolSelect.value] || 'https://api.example.com/v1';
+        renderEndpointPreview(providerId);
     });
+
+    baseUrlInput?.addEventListener('input', () => renderEndpointPreview(providerId));
+    renderEndpointPreview(providerId);
 }
 
 export function closeModal() {
@@ -315,8 +402,17 @@ export async function submitModal() {
     for (const f of credentialFields(ctx.catalog, providerId)) {
         const el = document.getElementById(`aiCred-${f.key}`);
         const value = el?.value.trim();
-        if (value) { credentials[f.key] = value; hasCredentials = true; }
-        else if (f.required && !editingId) return showError(`${f.label_ar || f.label} مطلوب`);
+        if (value) {
+            // حارس ضد أشهر سبب لـ 401: نسخ القيمة المقنّعة المعروضة في جدول
+            // مفاتيح المزوّد (sk-fSDF***) بدل استخدام زر النسخ.
+            if (f.type === 'password' && looksMasked(value)) {
+                return showError(`قيمة "${f.label_ar || f.label}" تبدو مقنّعة أو ناقصة. انسخ المفتاح الكامل من زر النسخ عند المزوّد، لا من الخانة التي تعرضه بنجوم.`);
+            }
+            credentials[f.key] = value;
+            hasCredentials = true;
+        } else if (f.required && !editingId) {
+            return showError(`${f.label_ar || f.label} مطلوب`);
+        }
     }
 
     const btn = document.getElementById('aiProviderSaveBtn');
@@ -351,14 +447,24 @@ export async function handleAction(action, id, buttonEl) {
     const integration = ctx.integrations.find((i) => i.id === id);
     if (!integration && action !== 'add') return;
 
+    if (action === 'dismiss-diagnostic') {
+        diagnostics.delete(id);
+        render();
+        return;
+    }
+
     if (action === 'test') {
         setBusy(buttonEl, true, 'جاري الاختبار...');
         try {
             const result = await api.testIntegration(id);
+            if (result.success) diagnostics.delete(id);
+            else recordDiagnostic(id, 'فشل اختبار الاتصال', { message: result.message, details: result });
             toast(result.message + (result.latency_ms ? ` • ${result.latency_ms}ms` : ''), result.success ? 'success' : 'error');
             await ctx.reload();
         } catch (err) {
+            recordDiagnostic(id, 'فشل اختبار الاتصال', err);
             toast(err.message || 'فشل الاختبار', 'error');
+            render();
         } finally { setBusy(buttonEl, false); }
         return;
     }
@@ -367,10 +473,17 @@ export async function handleAction(action, id, buttonEl) {
         setBusy(buttonEl, true, 'جاري المزامنة...');
         try {
             const result = await api.syncModels(id);
-            toast(result.message || `تم اكتشاف ${result.discovered || 0} موديل`, 'success');
+            diagnostics.delete(id);
+            if (!result.discovered) {
+                toast('لم يرجع المزوّد أي موديل — تقدر تضيف موديلًا يدويًا من تبويب الموديلات', 'info');
+            } else {
+                toast(result.message || `تم اكتشاف ${result.discovered} موديل`, 'success');
+            }
             await ctx.reload();
         } catch (err) {
+            recordDiagnostic(id, 'فشل جلب الموديلات', err);
             toast(err.message || 'فشل جلب الموديلات', 'error');
+            render();
         } finally { setBusy(buttonEl, false); }
         return;
     }

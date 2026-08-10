@@ -903,11 +903,45 @@ function copyRedirectUri() {
  *  (منقول بالكامل من صفحة الإعدادات - مصدر واحد فقط لإدارة الـ API)
  * ============================================================ */
 
+/* ── واجهة الـ Hub ثلاثي الأبعاد ────────────────────────────────────────────
+ * الحالة الافتراضية هي "الـ Hub": ثلاثة كروت تنقلب عند التمرير لتعرض ما بداخل
+ * كل قسم. النقر يدخل القسم، فيتحوّل الـ Hub إلى شريط تنقّل مضغوط.
+ * السبب في عدم وضع محتوى القسم نفسه داخل الوجه الخلفي: الوجه المقلوب لا يصلح
+ * لجداول وفورمات (لا يعمل باللمس، ويفقد التمرير، ويعود للقلب عند الخروج بالفأرة)،
+ * فالوجه الخلفي يعرض محتويات القسم وأرقامه الحيّة، والدخول يفتحه بالكامل.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+let activeDevTab = null; // null = نحن في الـ Hub
+
+const DEV_SECTION_IDS = {
+    mcpclient: 'devSectionMcpClient',
+    api: 'devSectionApi',
+    ai: 'devSectionAi',
+};
+
+function currentDevTab() { return activeDevTab || 'mcpclient'; }
+
+/** العودة لمشهد الكروت. */
+function showHub() {
+    activeDevTab = null;
+    Object.values(DEV_SECTION_IDS).forEach((id) => document.getElementById(id)?.classList.remove('active'));
+    document.getElementById('devHub')?.removeAttribute('hidden');
+    document.getElementById('devHubBar')?.setAttribute('hidden', '');
+    try { localStorage.removeItem(DEV_TAB_STORAGE_KEY); } catch { /* تجاهل */ }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function switchDevTab(tab) {
-    document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
-    document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
-    document.getElementById('devSectionApi').classList.toggle('active', tab === 'api');
-    document.getElementById('devSectionAi')?.classList.toggle('active', tab === 'ai');
+    if (!DEV_SECTION_IDS[tab]) return;
+    activeDevTab = tab;
+
+    document.getElementById('devHub')?.setAttribute('hidden', '');
+    document.getElementById('devHubBar')?.removeAttribute('hidden');
+    document.querySelectorAll('.hub-chip').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
+
+    Object.entries(DEV_SECTION_IDS).forEach(([key, id]) => {
+        document.getElementById(id)?.classList.toggle('active', key === tab);
+    });
 
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
     if (tab === 'api') {
@@ -920,10 +954,78 @@ function switchDevTab(tab) {
     try { localStorage.setItem(DEV_TAB_STORAGE_KEY, tab); } catch { /* الوضع الخاص يمنع التخزين — تجاهل */ }
 }
 
-/** أعداد صغيرة بجانب اسم كل تبويب رئيسي حتى يُعرف ما بداخله دون فتحه. */
+/** الأرقام الحيّة على وجهي كل كارت وعلى شريط التنقّل. */
 function updateDevTabCounts() {
+    const toolCount = allServers.reduce((sum, s) => sum + (Array.isArray(s.tools) ? s.tools.length : 0), 0);
+    const apiTotal = allApiTokens.length + allIntegrations.length;
+
     setText('devTabMcpCount', String(allServers.length));
-    setText('devTabApiCount', String(allApiTokens.length + allIntegrations.length));
+    setText('devTabApiCount', String(apiTotal));
+    setText('devChipMcpCount', String(allServers.length));
+    setText('devChipApiCount', String(apiTotal));
+    setText('devChipAiCount', document.getElementById('devTabAiCount')?.textContent || '0');
+
+    setText('hubMcpServers', String(allServers.length));
+    setText('hubMcpTools', String(toolCount));
+    setText('hubApiTokens', String(allApiTokens.length));
+    setText('hubIntegrations', String(allIntegrations.length));
+}
+
+/**
+ * ميلان المشهد مع حركة الفأرة. مقيّد بـ requestAnimationFrame بحيث لا يزيد
+ * التحديث عن إطار واحد لكل رسم مهما تسارعت أحداث mousemove.
+ */
+function initHubParallax() {
+    const hub = document.getElementById('devHub');
+    const grid = document.getElementById('devHubGrid');
+    if (!hub || !grid) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia('(hover: none)').matches) return;
+
+    let queued = false;
+    let rx = 0;
+    let ry = 0;
+
+    hub.addEventListener('mousemove', (e) => {
+        const rect = hub.getBoundingClientRect();
+        ry = ((e.clientX - rect.left) / rect.width - 0.5) * 9;
+        rx = (0.5 - (e.clientY - rect.top) / rect.height) * 6;
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+            grid.style.setProperty('--hub-rx', `${rx.toFixed(2)}deg`);
+            grid.style.setProperty('--hub-ry', `${ry.toFixed(2)}deg`);
+            queued = false;
+        });
+    });
+
+    hub.addEventListener('mouseleave', () => {
+        grid.style.setProperty('--hub-rx', '0deg');
+        grid.style.setProperty('--hub-ry', '0deg');
+    });
+}
+
+function initHub() {
+    document.querySelectorAll('.hub-card').forEach((card) => {
+        const tab = card.dataset.devtab;
+
+        card.addEventListener('click', () => switchDevTab(tab));
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchDevTab(tab); }
+        });
+
+        // على الأجهزة اللمسية لا يوجد hover: أول لمسة تقلب الكارت، والثانية تدخل
+        if (window.matchMedia('(hover: none)').matches) {
+            card.addEventListener('touchstart', () => card.classList.add('is-flipped'), { passive: true });
+        }
+    });
+
+    document.querySelectorAll('.hub-chip').forEach((chip) => {
+        chip.addEventListener('click', () => switchDevTab(chip.dataset.devtab));
+    });
+
+    document.getElementById('devHubBack')?.addEventListener('click', showHub);
+    initHubParallax();
 }
 
 /** تبويب فرعي داخل قسم API: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية) */
@@ -1849,8 +1951,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            const anyModalOpen = !!document.querySelector('.modal-overlay.open');
             closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal();
             aiAdmin.closeAllModals();
+            // لا نغادر القسم إن كان Escape يقصد إغلاق نافذة مفتوحة
+            if (!anyModalOpen && activeDevTab) showHub();
         }
         // اختصارات: / للبحث في التبويب الحالي، Ctrl+K للانتقال بين التبويبات الرئيسية
         const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName);
@@ -1861,15 +1966,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
             e.preventDefault();
-            const order = ['mcpclient', 'api', 'ai'];
-            switchDevTab(order[(order.indexOf(currentDevTab()) + 1) % order.length]);
+            const order = [null, 'mcpclient', 'api', 'ai'];
+            const next = order[(order.indexOf(activeDevTab) + 1) % order.length];
+            if (next) switchDevTab(next); else showHub();
         }
     });
 
-    // تبويب Developer Center
-    document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
-    document.getElementById('devTabApi').addEventListener('click', () => switchDevTab('api'));
-    document.getElementById('devTabAi').addEventListener('click', () => switchDevTab('ai'));
+    // Developer Center: كروت الـ Hub + شريط التنقّل + ميلان المشهد
+    initHub();
 
     // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
     document.getElementById('apiSubTabInternal').addEventListener('click', () => switchApiSubTab('internal'));
@@ -1934,10 +2038,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // استعادة آخر تبويب كان مفتوحًا (بعد تحميل البيانات حتى لا يومض القسم فارغًا)
     let lastTab = null;
     try { lastTab = localStorage.getItem(DEV_TAB_STORAGE_KEY); } catch { /* تجاهل */ }
-    if (lastTab && lastTab !== 'mcpclient') switchDevTab(lastTab);
+    if (lastTab && DEV_SECTION_IDS[lastTab]) switchDevTab(lastTab);
 });
 
-/** التبويب الرئيسي المفتوح حاليًا. */
-function currentDevTab() {
-    return document.querySelector('.dev-tab.active')?.dataset.devtab || 'mcpclient';
-}

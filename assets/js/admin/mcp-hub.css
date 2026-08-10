@@ -1,0 +1,411 @@
+/* ============================================================================
+   Developer Center — واجهة 3D Hub
+   ----------------------------------------------------------------------------
+   بديل التبويبات المسطّحة: مشهد ثلاثي الأبعاد من كروت تنقلب عند التمرير
+   لتعرض ما بداخل كل قسم، والنقر يدخل القسم نفسه.
+
+   ⚠ لا يوجد لون جديد في هذا الملف إطلاقًا. كل شيء مشتق من متغيّرات نظام
+   التصميم القائم (--color-accent / --color-surface / --color-border ...)
+   عبر color-mix، فيتبع الوضع الفاتح والداكن تلقائيًا.
+
+   إمكانية الوصول مبنية في الأساس لا مضافة لاحقًا:
+     • الكارت عنصر role="button" يستقبل التركيز، ويتقلب بـ :focus-within أيضًا.
+     • على الأجهزة التي لا تدعم hover تُعرض الوجهتان فوق بعض (بلا قلب).
+     • prefers-reduced-motion يوقف القلب والميلان ويستبدلهما بتلاشٍ بسيط.
+   ============================================================================ */
+
+/* ==================== زر ملف التوثيق (داخل رأس الصفحة) ==================== */
+
+.page-doc-btn {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1.1rem;
+    padding: 0.7rem 1.15rem;
+    border-radius: 0.8rem;
+    text-decoration: none;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(4px);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s, box-shadow 0.2s;
+}
+.page-doc-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+.page-doc-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.page-doc-btn small {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.85;
+    padding-inline-start: 0.6rem;
+    border-inline-start: 1px solid rgba(255, 255, 255, 0.3);
+}
+@media (max-width: 480px) {
+    .page-doc-btn small { border-inline-start: none; padding-inline-start: 0; width: 100%; }
+}
+
+/* ==================== المشهد ==================== */
+
+.hub {
+    perspective: 1600px;
+    perspective-origin: 50% 40%;
+    margin-bottom: 1.75rem;
+}
+
+.hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    transform-style: preserve-3d;
+    /* الميلان يأتي من الماوس عبر JS، وهذه قيم السكون */
+    transform: rotateX(var(--hub-rx, 0deg)) rotateY(var(--hub-ry, 0deg));
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+/* ==================== الكارت ==================== */
+
+.hub-card {
+    position: relative;
+    height: 260px;
+    perspective: 1400px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: inherit;
+    text-align: start;
+    /* دخول متدرّج: كل كارت يصعد من العمق بتأخير مختلف */
+    animation: hubCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.hub-card:nth-child(1) { animation-delay: 0.05s; }
+.hub-card:nth-child(2) { animation-delay: 0.14s; }
+.hub-card:nth-child(3) { animation-delay: 0.23s; }
+
+@keyframes hubCardIn {
+    from { opacity: 0; transform: translateY(28px) translateZ(-160px) rotateX(-14deg); }
+    to   { opacity: 1; transform: none; }
+}
+
+.hub-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition:
+        transform 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.4s ease;
+    border-radius: 1.25rem;
+}
+
+/* القلب: hover للفأرة، focus-within للوحة المفاتيح، is-flipped للمس */
+.hub-card:hover .hub-card-inner,
+.hub-card:focus-visible .hub-card-inner,
+.hub-card.is-flipped .hub-card-inner {
+    transform: rotateY(180deg) translateZ(24px);
+    box-shadow: 0 28px 60px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* اتجاه الصفحة RTL: القلب يبدأ من نفس الجهة بصريًا */
+[dir="rtl"] .hub-card:hover .hub-card-inner,
+[dir="rtl"] .hub-card:focus-visible .hub-card-inner,
+[dir="rtl"] .hub-card.is-flipped .hub-card-inner {
+    transform: rotateY(-180deg) translateZ(24px);
+}
+
+.hub-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 1.25rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
+}
+
+.hub-face-back {
+    transform: rotateY(180deg);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+[dir="rtl"] .hub-face-back { transform: rotateY(-180deg); }
+
+/* ==================== الوجه الأمامي ==================== */
+
+/* توهّج يتحرّك خلف الأيقونة — يعطي عمقًا دون أي لون جديد */
+.hub-glow {
+    position: absolute;
+    top: -30%;
+    inset-inline-start: -20%;
+    width: 160%;
+    height: 160%;
+    pointer-events: none;
+    background: radial-gradient(
+        circle at 30% 25%,
+        color-mix(in srgb, var(--color-accent) 20%, transparent) 0%,
+        transparent 60%
+    );
+    opacity: 0.75;
+    animation: hubGlowDrift 9s ease-in-out infinite alternate;
+}
+@keyframes hubGlowDrift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(12%, 10%, 0) scale(1.15); }
+}
+
+.hub-icon {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--color-accent) 85%, #000 0%),
+        color-mix(in srgb, var(--color-accent) 55%, var(--color-surface)));
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--color-accent) 32%, transparent);
+    margin-bottom: 1rem;
+    /* طبقة ترتفع عن سطح الكارت فتظهر كأنها طافية */
+    transform: translateZ(40px);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hub-card:hover .hub-icon { transform: translateZ(60px) rotateZ(-6deg); }
+
+.hub-title {
+    position: relative;
+    margin: 0 0 0.35rem;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--color-text);
+    letter-spacing: 0.01em;
+    transform: translateZ(26px);
+}
+.hub-desc {
+    position: relative;
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    transform: translateZ(16px);
+}
+
+.hub-meta {
+    position: relative;
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    transform: translateZ(20px);
+}
+.hub-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0.3rem 0.75rem;
+    border-radius: 2rem;
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    color: color-mix(in srgb, var(--color-accent) 85%, var(--color-text));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+.hub-hint {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-inline-start: auto;
+    opacity: 0.8;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* ==================== الوجه الخلفي ==================== */
+
+.hub-back-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.hub-list {
+    margin: 0 0 0.9rem;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    overflow-y: auto;
+}
+.hub-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--color-text);
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+}
+.hub-list li svg { color: var(--color-accent); flex-shrink: 0; }
+.hub-list li .hub-list-count {
+    margin-inline-start: auto;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--color-text-secondary);
+}
+
+.hub-enter {
+    margin-top: auto;
+    width: 100%;
+    justify-content: center;
+}
+
+/* ==================== الشريط المضغوط بعد الدخول ==================== */
+
+.hub-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    animation: hubBarIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes hubBarIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+
+.hub-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: none;
+    background: var(--color-muted);
+    color: var(--color-text);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.83rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+}
+.hub-back-btn:hover { background: var(--color-border); transform: translateX(2px); }
+
+.hub-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hub-chip:hover { background: var(--color-muted); color: var(--color-text); }
+.hub-chip.active {
+    background: var(--color-accent);
+    color: #fff;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--color-accent) 35%, transparent);
+    transform: translateY(-1px);
+}
+.hub-chip .tab-count {
+    font-size: 0.66rem;
+    font-weight: 800;
+    padding: 0.05rem 0.4rem;
+    border-radius: 2rem;
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
+    min-width: 1.1rem;
+    text-align: center;
+}
+.hub-chip.active .tab-count { background: rgba(255, 255, 255, 0.25); color: #fff; }
+
+/* دخول المحتوى بعد اختيار قسم */
+.dev-section.active { animation: sectionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes sectionIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.995); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ==================== اللمس: لا hover، فلا قلب تلقائي ==================== */
+
+@media (hover: none) {
+    .hub-card { height: auto; }
+    .hub-card-inner { transform: none !important; box-shadow: none; }
+    .hub-face {
+        position: relative;
+        inset: auto;
+        backface-visibility: visible;
+        -webkit-backface-visibility: visible;
+        transform: none !important;
+    }
+    /* الوجهان يظهران فوق بعض: كل المعلومات متاحة بلا أي تفاعل */
+    .hub-face-front { border-radius: 1.25rem 1.25rem 0 0; border-bottom: none; }
+    .hub-face-back { border-radius: 0 0 1.25rem 1.25rem; }
+    .hub-icon, .hub-title, .hub-desc, .hub-meta { transform: none; }
+    .hub-hint { display: none; }
+}
+
+/* ==================== احترام تقليل الحركة ==================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .hub-grid { transform: none !important; transition: none; }
+    .hub-card { animation: none; }
+    .hub-card-inner { transition: none; transform: none !important; }
+    .hub-glow { animation: none; }
+    .hub-icon { transition: none; transform: none; }
+    .dev-section.active { animation: none; }
+
+    /* بديل القلب: تلاشٍ بسيط للوجه الخلفي فوق الأمامي */
+    .hub-face { backface-visibility: visible; -webkit-backface-visibility: visible; }
+    .hub-face-back { transform: none !important; opacity: 0; transition: opacity 0.2s linear; }
+    .hub-card:hover .hub-face-back,
+    .hub-card:focus-within .hub-face-back,
+    .hub-card.is-flipped .hub-face-back { opacity: 1; }
+}
+
+/* ==================== الشاشات الصغيرة ==================== */
+
+@media (max-width: 640px) {
+    .hub { perspective: none; }
+    .hub-grid { grid-template-columns: 1fr; gap: 0.9rem; transform: none !important; }
+    .hub-card { height: auto; }
+    .hub-face { position: relative; inset: auto; backface-visibility: visible; transform: none !important; }
+    .hub-face-front { border-radius: 1.25rem 1.25rem 0 0; border-bottom: none; }
+    .hub-face-back { border-radius: 0 0 1.25rem 1.25rem; }
+    .hub-card-inner { transform: none !important; }
+    .hub-icon, .hub-title, .hub-desc, .hub-meta { transform: none; }
+    .hub-hint { display: none; }
+    .hub-bar { padding: 0.4rem; }
+    .hub-chip { font-size: 0.8rem; padding: 0.45rem 0.7rem; }
+}

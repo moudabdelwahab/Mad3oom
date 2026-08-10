@@ -301,17 +301,84 @@ export function listProtocols(): string[] {
     return Object.keys(PROTOCOLS);
 }
 
-/** قراءة رسالة خطأ مفهومة من رد المزوّد دون تسريب أي بيانات حسّاسة. */
-export async function readProviderError(res: Response): Promise<string> {
+/**
+ * إخفاء أي سر قد يظهر داخل الرابط قبل عرضه في رسالة خطأ.
+ * (بروتوكول Gemini يضع المفتاح في الـ query string.)
+ */
+export function maskUrl(url: string): string {
+    return url.replace(/([?&](?:key|api_key|access_token)=)[^&]+/gi, "$1***");
+}
+
+/**
+ * وصف مفهوم لجسم الخطأ. يغطّي الأشكال الشائعة:
+ *   OpenAI/Anthropic → {error:{message}}
+ *   new-api/one-api  → {code, msg}          ← شكل بوابات مثل AgentRouter
+ *   نص خام أو HTML   → يُقال ذلك صراحةً
+ */
+function describeErrorBody(status: number, text: string): string {
     let detail = "";
     try {
-        const txt = await res.text();
-        const parsed = JSON.parse(txt);
-        detail = parsed?.error?.message || parsed?.message || parsed?.error || txt.slice(0, 300);
+        const p = JSON.parse(text);
+        detail = p?.error?.message
+            || p?.msg
+            || p?.message
+            || (typeof p?.error === "string" ? p.error : "")
+            || "";
     } catch {
-        detail = "";
+        detail = /^\s*</.test(text) ? "رد HTML (صفحة ويب) بدل JSON" : text.slice(0, 200);
     }
-    return `كود ${res.status}${detail ? ": " + String(detail).slice(0, 300) : ""}`;
+    return `كود ${status}${detail ? ": " + String(detail).slice(0, 300) : ""}`;
+}
+
+/** قراءة رسالة خطأ مفهومة من رد المزوّد دون تسريب أي بيانات حسّاسة. */
+export async function readProviderError(res: Response): Promise<string> {
+    let text = "";
+    try { text = await res.text(); } catch { /* جسم غير قابل للقراءة */ }
+    return describeErrorBody(res.status, text);
+}
+
+/**
+ * يقرأ JSON أو يرمي خطأً يشرح ما الذي رجع فعلاً.
+ * السبب: رد HTML كان يتحوّل سابقًا إلى "Unexpected token '<'" وهي رسالة لا
+ * تدلّ المستخدم على شيء. أشهر أسبابها أن الـ Base URL يشير لموقع المزوّد
+ * بدل مسار الـ API (مثلاً بدون /v1 في البروتوكولات المتوافقة مع OpenAI).
+ */
+async function readJsonOrExplain(res: Response, url: string): Promise<any> {
+    const safeUrl = maskUrl(url);
+    const contentType = res.headers.get("content-type") || "";
+    let text = "";
+    try { text = await res.text(); } catch { /* تجاهل */ }
+
+    if (!res.ok) {
+        throw new Error(`${safeUrl} — ${describeErrorBody(res.status, text)}`);
+    }
+
+    if (!/json/i.test(contentType) || /^\s*</.test(text.trim())) {
+        throw new Error(
+            `${safeUrl} رجّع ${contentType || "محتوى غير معروف"} بدل JSON. `
+            + `غالبًا الـ Base URL يشير لصفحة ويب وليس لواجهة API — تأكّد أنه يتضمّن مسار الـ API الكامل `
+            + `(البروتوكولات المتوافقة مع OpenAI تحتاج الرابط منتهيًا بـ /v1).`
+        );
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`${safeUrl} رجّع ردًا غير صالح كـ JSON`);
+    }
+}
+
+/** الرابط الذي ستُجلب منه الموديلات — يُعرض للمستخدم للتشخيص (مُقنَّع). */
+export function modelsEndpointFor(
+    integration: IntegrationRow,
+    catalogRow: CatalogRow,
+    protocol: string,
+    creds: Record<string, any> = {},
+): string | null {
+    const adapter = resolveProtocolAdapter(protocol);
+    const base = resolveBaseUrl(integration, catalogRow, protocol);
+    const url = adapter.modelsUrl(base, catalogRow, creds);
+    return url ? maskUrl(url) : null;
 }
 
 /** تنفيذ نداء التوليد كاملًا عبر البروتوكول المناسب. */
@@ -336,8 +403,7 @@ export async function callProvider(
             body: JSON.stringify(adapter.buildBody(req)),
             signal: controller.signal,
         });
-        if (!res.ok) throw new Error(await readProviderError(res));
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, url);
         const parsed = adapter.parseResponse(json);
         if (!parsed.text && !parsed.tool_calls.length) throw new Error("رد فارغ من المزوّد");
         return parsed;
@@ -359,6 +425,5 @@ export async function fetchModels(
     if (!url) return [];
 
     const res = await fetch(url, { headers: adapter.headers(creds, catalogRow) });
-    if (!res.ok) throw new Error(await readProviderError(res));
-    return adapter.parseModels(await res.json());
+    return adapter.parseModels(await readJsonOrExplain(res, url));
 }

@@ -210,6 +210,73 @@ export async function saveCapabilities(buttonEl) {
     } finally { setBusy(buttonEl, false); }
 }
 
+/* ====================  إضافة موديل يدويًا  ==================== */
+
+/** القدرات التي يمكن ضبطها يدويًا (chat مفروضة دائمًا، وstreaming افتراضها نعم). */
+const MANUAL_CAPABILITY_KEYS = ['reasoning', 'coding', 'tools', 'agent', 'vision', 'longContext'];
+
+export function openAddModelModal() {
+    const integrationSelect = document.getElementById('aiAddModelIntegration');
+    if (!ctx.integrations.length) return toast('أضِف مزوّدًا أولًا', 'error');
+
+    integrationSelect.innerHTML = ctx.integrations
+        .map((i) => `<option value="${i.id}" ${i.id === integrationFilter ? 'selected' : ''}>${escapeHtml(i.display_name)}</option>`).join('');
+
+    document.getElementById('aiAddModelId').value = '';
+    document.getElementById('aiAddModelName').value = '';
+    document.getElementById('aiAddModelContext').value = '';
+    document.getElementById('aiAddModelError').style.display = 'none';
+
+    document.getElementById('aiAddModelCaps').innerHTML = CAPABILITIES
+        .filter((c) => MANUAL_CAPABILITY_KEYS.includes(c.key))
+        .map((c) => `
+            <label class="ai-cap-toggle">
+                <input type="checkbox" data-manual-cap="${c.key}">
+                <span>${icon(c.icon, 13)} ${escapeHtml(c.label)} <span class="ai-dim">${escapeHtml(c.en)}</span></span>
+            </label>`).join('');
+
+    document.getElementById('aiAddModelModal').classList.add('open');
+    setTimeout(() => document.getElementById('aiAddModelId')?.focus(), 60);
+}
+
+export function closeAddModelModal() {
+    document.getElementById('aiAddModelModal')?.classList.remove('open');
+}
+
+export async function submitAddModel(buttonEl) {
+    const errBox = document.getElementById('aiAddModelError');
+    const showError = (m) => { errBox.textContent = m; errBox.style.display = 'block'; };
+    errBox.style.display = 'none';
+
+    const integrationId = document.getElementById('aiAddModelIntegration').value;
+    const modelId = document.getElementById('aiAddModelId').value.trim();
+    if (!integrationId) return showError('اختر مزوّدًا');
+    if (!modelId) return showError('معرّف الموديل مطلوب');
+
+    const capabilities = {};
+    document.querySelectorAll('#aiAddModelCaps [data-manual-cap]').forEach((cb) => {
+        capabilities[cb.dataset.manualCap] = cb.checked;
+    });
+
+    const contextRaw = document.getElementById('aiAddModelContext').value;
+
+    setBusy(buttonEl, true, 'جاري الإضافة...');
+    try {
+        const result = await api.addModelManually({
+            integration_id: integrationId,
+            model_id: modelId,
+            display_name: document.getElementById('aiAddModelName').value.trim(),
+            capabilities,
+            context_window: contextRaw ? Number(contextRaw) : null,
+        });
+        closeAddModelModal();
+        toast(result.message || 'تمت إضافة الموديل', 'success');
+        await ctx.reload();
+    } catch (err) {
+        showError(err.message || 'فشل حفظ الموديل');
+    } finally { setBusy(buttonEl, false); }
+}
+
 /* ====================  الإجراءات  ==================== */
 
 export async function handleAction(action, modelRowId, element) {
