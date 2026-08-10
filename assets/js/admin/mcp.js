@@ -18,9 +18,18 @@ import {
     fetchExternalIntegrations, saveExternalIntegration, deleteExternalIntegration,
     testExternalIntegration, fetchDefaultAiProvider, saveDefaultAiProvider,
     fetchIntegrationModels, OPENAI_COMPATIBLE_PROVIDERS,
-    INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
+    INTEGRATION_PROVIDERS, INTEGRATION_PROVIDER_LABELS, INTEGRATION_CREDENTIAL_FIELDS, AI_INTEGRATION_PROVIDERS,
     MCP_CLIENT_CATALOG, MCP_CATALOG_CATEGORIES, invokeMcpTool, findConnectedServerForCatalogEntry,
 } from '/mcp-service.js';
+
+// قسم AI: وحدة مستقلة بالكامل. هذه الصفحة لوحة إدارة فقط — الـ runtime الحقيقي
+// في Edge Functions (ai-gateway / ai-session)، فإضافة أي مزوّد جديد لاحقًا
+// لا تتطلّب لمس هذا الملف ولا صفحة الإدارة.
+import * as aiAdmin from '/assets/js/admin/ai/ai-admin.js';
+import { testIntegration as aiGatewayTest } from '/assets/js/admin/ai/ai-service.js';
+
+/** آخر تبويب رئيسي مفتوح — يعود المستخدم لنفس مكانه بعد التحديث. */
+const DEV_TAB_STORAGE_KEY = 'mad3oom_dev_center_tab';
 
 let mcpMarketCategory = 'all';
 let mcpMarketSearchQuery = '';
@@ -99,6 +108,7 @@ async function loadServers() {
     try {
         allServers = await fetchServers(getFilters());
         renderServers(allServers);
+        updateDevTabCounts();
         await loadStats();
         await loadActivity();
         // البيانات مشتركة مع تبويب "MCP العميل" الجديد - نحدّثه كل ما يتغيّر allServers هنا
@@ -706,6 +716,31 @@ async function handleTest(id) {
     }
 }
 
+/**
+ * اختبار كل الخوادم المفعّلة دفعة واحدة بدل فتح كل بطاقة على حدة.
+ * يُنفَّذ بالتتابع عمدًا — التوازي هنا يعني ضغطًا متزامنًا على عدة خوادم خارجية.
+ */
+async function handleTestAllServers() {
+    const targets = allServers.filter((s) => s.enabled !== false);
+    if (!targets.length) { toast('لا يوجد خادم مفعّل لاختباره', 'info'); return; }
+
+    const btn = document.getElementById('testAllServersBtn');
+    const originalHtml = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.textContent = `جاري اختبار ${targets.length}...`; }
+
+    let ok = 0;
+    for (const server of targets) {
+        try {
+            const result = await testServer(server.id);
+            if (result.ok) ok++;
+        } catch { /* نتيجة كل خادم تظهر في بطاقته بعد إعادة التحميل */ }
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+    toast(`اكتمل الاختبار: ${ok} من ${targets.length} متصل`, ok === targets.length ? 'success' : 'error');
+    await loadServers();
+}
+
 async function handleDelete(id) {
     const server = allServers.find((s) => s.id === id);
     if (!confirm(`هل أنت متأكد من حذف خادم "${server?.name || ''}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
@@ -872,17 +907,28 @@ function switchDevTab(tab) {
     document.querySelectorAll('.dev-tab').forEach((b) => b.classList.toggle('active', b.dataset.devtab === tab));
     document.getElementById('devSectionMcpClient').classList.toggle('active', tab === 'mcpclient');
     document.getElementById('devSectionApi').classList.toggle('active', tab === 'api');
+    document.getElementById('devSectionAi')?.classList.toggle('active', tab === 'ai');
 
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
     if (tab === 'api') {
         if (!apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
         if (!integrationsLoadedOnce) { integrationsLoadedOnce = true; loadIntegrationsSection(); }
     }
+    // قسم AI يُحمَّل عند أول فتح فقط — لا نُثقل تحميل الصفحة الأولى بطلباته
+    if (tab === 'ai') aiAdmin.mount().catch((err) => console.error('[AI] mount failed:', err));
+
+    try { localStorage.setItem(DEV_TAB_STORAGE_KEY, tab); } catch { /* الوضع الخاص يمنع التخزين — تجاهل */ }
+}
+
+/** أعداد صغيرة بجانب اسم كل تبويب رئيسي حتى يُعرف ما بداخله دون فتحه. */
+function updateDevTabCounts() {
+    setText('devTabMcpCount', String(allServers.length));
+    setText('devTabApiCount', String(allApiTokens.length + allIntegrations.length));
 }
 
 /** تبويب فرعي داخل قسم API: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية) */
 function switchApiSubTab(subtab) {
-    document.querySelectorAll('.api-subtab').forEach((b) => b.classList.toggle('active', b.dataset.apisubtab === subtab));
+    document.querySelectorAll('#devSectionApi .api-subtab').forEach((b) => b.classList.toggle('active', b.dataset.apisubtab === subtab));
     document.getElementById('apiSubsectionInternal').classList.toggle('active', subtab === 'internal');
     document.getElementById('apiSubsectionExternal').classList.toggle('active', subtab === 'external');
 }
@@ -1132,6 +1178,7 @@ async function loadApiTokensSection() {
     try {
         allApiTokens = await fetchApiTokens();
         renderApiTokens();
+        updateDevTabCounts();
         await loadApiUsageLog();
     } catch (err) {
         console.error('[MCP] loadApiTokensSection failed:', err);
@@ -1424,6 +1471,7 @@ async function loadIntegrationsSection() {
     try {
         allIntegrations = await fetchExternalIntegrations();
         renderIntegrations();
+        updateDevTabCounts();
         await populateDefaultAiProviderSelect();
     } catch (err) {
         console.error('[MCP] loadIntegrationsSection failed:', err);
@@ -1607,6 +1655,15 @@ function openAddIntegrationModal() {
 function openEditIntegrationModal(id) {
     const integ = allIntegrations.find((i) => i.id === id);
     if (!integ) return;
+
+    // المزوّدون خارج القائمة القديمة (AgentRouter وأي مزوّد يُضاف للكتالوج لاحقًا)
+    // يُحرَّرون من تبويب AI حيث الفورم مبني ديناميكيًا من الكتالوج.
+    if (!INTEGRATION_PROVIDERS.includes(integ.provider)) {
+        toast('هذا المزوّد يُدار من تبويب AI — جاري النقل إليه', 'info');
+        switchDevTab('ai');
+        return;
+    }
+
     document.getElementById('integrationModalTitle').textContent = 'تعديل التكامل';
     document.getElementById('editIntegrationId').value = integ.id;
     document.getElementById('integrationProvider').value = integ.provider;
@@ -1691,6 +1748,20 @@ async function handleDeleteIntegration(id) {
 }
 
 async function handleTestIntegration(id) {
+    const integ = allIntegrations.find((i) => i.id === id);
+
+    // المزوّدون الجدد (خارج القائمة القديمة) يُختبرون عبر ai-gateway الذي يعرف
+    // بروتوكولهم من الكتالوج — الدالة القديمة تعرف الثمانية الأصليين فقط.
+    if (integ && !INTEGRATION_PROVIDERS.includes(integ.provider)) {
+        try {
+            toast('جاري اختبار الاتصال...', 'info');
+            const result = await aiGatewayTest(id);
+            toast(result.message, result.success ? 'success' : 'error');
+            await loadIntegrationsSection();
+        } catch (err) { toast(err.message || 'فشل الاختبار', 'error'); }
+        return;
+    }
+
     try {
         toast('جاري اختبار الاتصال...', 'info');
         const result = await testExternalIntegration(id);
@@ -1714,6 +1785,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const user = await checkAdminAuth();
     if (user) updateAdminUI(user);
     initSidebar();
+
+    // مصدر واحد للتنبيهات في الصفحة كلها — وحدة AI تستخدم نفس الدالة
+    window.mcpToast = toast;
 
     window.mcpAdd = () => openModal();
     window.mcpEdit = (id) => openModal(id);
@@ -1752,6 +1826,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('addBtn').addEventListener('click', () => openModal());
     document.getElementById('refreshBtn').addEventListener('click', loadServers);
+    document.getElementById('testAllServersBtn')?.addEventListener('click', handleTestAllServers);
     document.getElementById('saveBtn').addEventListener('click', submitForm);
     document.getElementById('filterStatus').addEventListener('change', loadServers);
     document.getElementById('filterTransport').addEventListener('change', loadServers);
@@ -1772,11 +1847,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderToolsModal();
     }, 250));
 
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal(); } });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal();
+            aiAdmin.closeAllModals();
+        }
+        // اختصارات: / للبحث في التبويب الحالي، Ctrl+K للانتقال بين التبويبات الرئيسية
+        const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName);
+        if (e.key === '/' && !typing) {
+            const searchId = { mcpclient: 'mcpMarketSearch', api: 'searchInput', ai: 'aiProviderSearch' }[currentDevTab()];
+            const box = document.getElementById(searchId);
+            if (box) { e.preventDefault(); box.focus(); box.select?.(); }
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            const order = ['mcpclient', 'api', 'ai'];
+            switchDevTab(order[(order.indexOf(currentDevTab()) + 1) % order.length]);
+        }
+    });
 
     // تبويب Developer Center
     document.getElementById('devTabMcpClient').addEventListener('click', () => switchDevTab('mcpclient'));
     document.getElementById('devTabApi').addEventListener('click', () => switchDevTab('api'));
+    document.getElementById('devTabAi').addEventListener('click', () => switchDevTab('ai'));
 
     // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
     document.getElementById('apiSubTabInternal').addEventListener('click', () => switchApiSubTab('internal'));
@@ -1829,8 +1922,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('defaultAiProviderSelect').addEventListener('change', handleSaveDefaultAiProvider);
     document.getElementById('integrationModal').addEventListener('click', (e) => { if (e.target.id === 'integrationModal') closeIntegrationModal(); });
 
+    // قسم AI: أزرار النوافذ المنبثقة تعيش خارج جذر القسم، فتُربط مرة واحدة هنا
+    aiAdmin.bindModalControls();
+
     handleOauthReturn();
     await loadServers();
     mcpClientMarketLoadedOnce = true;
     await loadMcpClientMarketplace();
+    updateDevTabCounts();
+
+    // استعادة آخر تبويب كان مفتوحًا (بعد تحميل البيانات حتى لا يومض القسم فارغًا)
+    let lastTab = null;
+    try { lastTab = localStorage.getItem(DEV_TAB_STORAGE_KEY); } catch { /* تجاهل */ }
+    if (lastTab && lastTab !== 'mcpclient') switchDevTab(lastTab);
 });
+
+/** التبويب الرئيسي المفتوح حاليًا. */
+function currentDevTab() {
+    return document.querySelector('.dev-tab.active')?.dataset.devtab || 'mcpclient';
+}
