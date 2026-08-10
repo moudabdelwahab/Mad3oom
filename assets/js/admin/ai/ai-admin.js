@@ -176,7 +176,7 @@ export async function mount() {
     });
 
     // إغلاق النوافذ بالنقر على الخلفية
-    ['aiProviderModal', 'aiCapabilitiesModal', 'aiRuleModal', 'aiRoutePreviewModal'].forEach((id) => {
+    ['aiProviderModal', 'aiCapabilitiesModal', 'aiAddModelModal', 'aiRuleModal', 'aiRoutePreviewModal'].forEach((id) => {
         document.getElementById(id)?.addEventListener('click', (e) => {
             if (e.target.id === id) closeAllModals();
         });
@@ -189,6 +189,7 @@ export async function mount() {
 export function closeAllModals() {
     providersView.closeModal();
     modelsView.closeCapabilitiesPanel();
+    modelsView.closeAddModelModal();
     routingView.closeRuleModal();
     routingView.closePreview();
 }
@@ -242,6 +243,11 @@ export function bindModalControls() {
     on('aiProviderCancelBtn', 'click', providersView.closeModal);
     on('aiProviderSaveBtn', 'click', providersView.submitModal);
     on('aiProviderSelect', 'change', providersView.onProviderChanged);
+
+    on('aiAddModelBtn', 'click', modelsView.openAddModelModal);
+    on('aiAddModelClose', 'click', modelsView.closeAddModelModal);
+    on('aiAddModelCancel', 'click', modelsView.closeAddModelModal);
+    on('aiAddModelSave', 'click', (e) => modelsView.submitAddModel(e.currentTarget));
 
     on('aiCapabilitiesModalClose', 'click', modelsView.closeCapabilitiesPanel);
     on('aiCapabilitiesCancelBtn', 'click', modelsView.closeCapabilitiesPanel);

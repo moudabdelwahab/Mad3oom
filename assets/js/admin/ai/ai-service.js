@@ -21,15 +21,27 @@ const MODES_TABLE = 'ai_agent_modes';
 
 /* ====================  استدعاء Edge Functions  ==================== */
 
+/**
+ * أي فشل يحمل معه الجسم الكامل في `err.details`، لأن الـ Gateway يرجّع مع كل
+ * خطأ الرابط الذي جُرّب فعلًا والبروتوكول وتلميح السبب — وهي المعلومات التي
+ * تحوّل "فشل جلب الموديلات" من رسالة مسدودة إلى تشخيص قابل للتصرّف.
+ */
 async function invoke(fn, body) {
     const { data, error } = await supabase.functions.invoke(fn, { body });
+
     if (error) {
-        // رسالة الخطأ المفيدة تأتي عادة في جسم الرد وليس في error.message
-        let detail = '';
-        try { detail = (await error.context?.json?.())?.error || ''; } catch { /* تجاهل */ }
-        throw new Error(detail || `فشل نداء ${fn}: ${error.message}`);
+        let payload = null;
+        try { payload = await error.context?.json?.(); } catch { /* الرد ليس JSON */ }
+        const err = new Error(payload?.error || `فشل نداء ${fn}: ${error.message}`);
+        err.details = payload || {};
+        throw err;
     }
-    if (data?.error) throw new Error(data.error);
+
+    if (data?.error) {
+        const err = new Error(data.error);
+        err.details = data;
+        throw err;
+    }
     return data;
 }
 
@@ -73,6 +85,14 @@ export function testIntegration(integrationId) {
 
 export function syncModels(integrationId) {
     return invoke('ai-gateway', { action: 'list_models', integration_id: integrationId });
+}
+
+/** إضافة موديل يدويًا — مخرج ضروري للبوابات التي لا تعرض /models. */
+export function addModelManually({ integration_id, model_id, display_name, capabilities, category, context_window }) {
+    return invoke('ai-gateway', {
+        action: 'add_model',
+        integration_id, model_id, display_name, capabilities, category, context_window,
+    });
 }
 
 export function previewRoute({ mode, capability } = {}) {

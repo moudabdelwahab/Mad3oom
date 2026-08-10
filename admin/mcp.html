@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/mcp-hub.css">
     <link rel="stylesheet" href="/assets/js/admin/ai/ai-styles.css">
     <script src="/theme-manager.js"></script>
     <script src="/language-manager.js"></script>
@@ -482,25 +483,119 @@
                     </span>
                 </h1>
                 <p data-i18n="mcp_page_subtitle">مركز التكاملات الموحّد لمنصة مدعوم: خوادم MCP صادرة وواردة، مفاتيح API، والتكاملات الخارجية — بالإضافة لمزوّدي الذكاء الاصطناعي وموديلاتهم وقواعد التوجيه وبيئة التطوير، كل ذلك من مكان واحد</p>
+
+                <a class="page-doc-btn" href="/docs/MCP_GUIDE_AR.md" download="دليل-مركز-المطورين.md" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 18 15 15"></polyline></svg>
+                    <span>اضغط هنا لقراءة ملف التوثيق</span>
+                    <small>شرح كامل للصفحة خطوة بخطوة</small>
+                </a>
             </div>
 
-            <!-- تبويب رئيسي -->
-            <div class="dev-tabs">
-                <button class="dev-tab active" data-devtab="mcpclient" id="devTabMcpClient">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
-                    MCP
-                    <span class="tab-count" id="devTabMcpCount">0</span>
+            <!-- ═══════════════ Hub ثلاثي الأبعاد: كل قسم كارت ينقلب ويعرض ما بداخله ═══════════════ -->
+            <div class="hub" id="devHub">
+                <div class="hub-grid" id="devHubGrid">
+
+                    <div class="hub-card" id="devTabMcpClient" data-devtab="mcpclient" role="button" tabindex="0" aria-label="قسم MCP — خوادم وموصلات">
+                        <div class="hub-card-inner">
+                            <div class="hub-face hub-face-front">
+                                <span class="hub-glow"></span>
+                                <span class="hub-icon">
+                                    <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                                </span>
+                                <h3 class="hub-title">MCP</h3>
+                                <p class="hub-desc">اربط مدعوم بخوادم خارجية لتستخدم أدواتها، أو افتح أدواتك لعملاء MCP آخرين.</p>
+                                <div class="hub-meta">
+                                    <span class="hub-count"><span id="devTabMcpCount">0</span> خادم</span>
+                                    <span class="hub-hint">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                        مرّر لرؤية المحتوى
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="hub-face hub-face-back">
+                                <h4 class="hub-back-title">ما بداخل هذا القسم</h4>
+                                <ul class="hub-list">
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg> ربط سريع بخدمات جاهزة</li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg> خوادم مخصّصة يدويًا <span class="hub-list-count" id="hubMcpServers">0</span></li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> مستكشف الأدوات <span class="hub-list-count" id="hubMcpTools">0</span></li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg> مدعوم كخادم MCP + OAuth</li>
+                                </ul>
+                                <span class="btn btn-primary hub-enter">ادخل القسم</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hub-card" id="devTabApi" data-devtab="api" role="button" tabindex="0" aria-label="قسم API — مفاتيح وتكاملات">
+                        <div class="hub-card-inner">
+                            <div class="hub-face hub-face-front">
+                                <span class="hub-glow"></span>
+                                <span class="hub-icon">
+                                    <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
+                                </span>
+                                <h3 class="hub-title">API</h3>
+                                <p class="hub-desc">مفاتيح الوصول لمنصة مدعوم، والتكاملات الخارجية مثل تيليجرام والـ Webhooks.</p>
+                                <div class="hub-meta">
+                                    <span class="hub-count"><span id="devTabApiCount">0</span> عنصر</span>
+                                    <span class="hub-hint">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                        مرّر لرؤية المحتوى
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="hub-face hub-face-back">
+                                <h4 class="hub-back-title">ما بداخل هذا القسم</h4>
+                                <ul class="hub-list">
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg> مفاتيح API <span class="hub-list-count" id="hubApiTokens">0</span></li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> سجل الاستخدام (Audit Log)</li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg> التكاملات الخارجية <span class="hub-list-count" id="hubIntegrations">0</span></li>
+                                </ul>
+                                <span class="btn btn-primary hub-enter">ادخل القسم</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hub-card" id="devTabAi" data-devtab="ai" role="button" tabindex="0" aria-label="قسم AI — مزوّدون وموديلات وبيئة تطوير">
+                        <div class="hub-card-inner">
+                            <div class="hub-face hub-face-front">
+                                <span class="hub-glow"></span>
+                                <span class="hub-icon">
+                                    <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
+                                </span>
+                                <h3 class="hub-title">AI</h3>
+                                <p class="hub-desc">مزوّدو الذكاء الاصطناعي وموديلاتهم، قواعد التوجيه والاحتياطي، التكلفة، وبيئة التطوير.</p>
+                                <div class="hub-meta">
+                                    <span class="hub-count"><span id="devTabAiCount">0</span> مزوّد</span>
+                                    <span class="hub-hint">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                        مرّر لرؤية المحتوى
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="hub-face hub-face-back">
+                                <h4 class="hub-back-title">ما بداخل هذا القسم</h4>
+                                <ul class="hub-list">
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg> المزوّدون <span class="hub-list-count" id="hubAiProviders">0</span></li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg> الموديلات وقدراتها <span class="hub-list-count" id="hubAiModels">0</span></li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg> التوجيه والاحتياطي</li>
+                                    <li><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> بيئة التطوير (Coding Agent)</li>
+                                </ul>
+                                <span class="btn btn-primary hub-enter">ادخل القسم</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- شريط التنقّل المضغوط (يظهر بعد الدخول لقسم) -->
+            <div class="hub-bar" id="devHubBar" hidden>
+                <button class="hub-back-btn" id="devHubBack">
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                    كل الأقسام
                 </button>
-                <button class="dev-tab" data-devtab="api" id="devTabApi">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
-                    API
-                    <span class="tab-count" id="devTabApiCount">0</span>
-                </button>
-                <button class="dev-tab" data-devtab="ai" id="devTabAi">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
-                    AI
-                    <span class="tab-count" id="devTabAiCount">0</span>
-                </button>
+                <button class="hub-chip" data-devtab="mcpclient">MCP <span class="tab-count" id="devChipMcpCount">0</span></button>
+                <button class="hub-chip" data-devtab="api">API <span class="tab-count" id="devChipApiCount">0</span></button>
+                <button class="hub-chip" data-devtab="ai">AI <span class="tab-count" id="devChipAiCount">0</span></button>
             </div>
 
             <!-- ═══════════════ قسم 0: MCP العميل — مدمج (Marketplace + Servers) ═══════════════ -->
@@ -876,6 +971,7 @@
                         <select id="aiModelsIntegrationFilter"><option value="all">كل المزوّدين</option></select>
                         <select id="aiModelCapabilityFilter"><option value="all">أي قدرة</option></select>
                         <span class="ai-dim">المعروض: <strong id="aiModelsCount">0</strong></span>
+                        <button class="btn btn-secondary btn-sm" id="aiAddModelBtn">+ إضافة موديل يدويًا</button>
                     </div>
 
                     <div class="mcp-category-chips" id="aiModelCategoryChips" style="margin-bottom:1.25rem"></div>
@@ -1296,6 +1392,47 @@
             <div class="mcp-modal-footer">
                 <button class="btn btn-secondary" id="aiCapabilitiesCancelBtn">إلغاء</button>
                 <button class="btn btn-primary" id="aiCapabilitiesSaveBtn">حفظ القدرات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: إضافة موديل يدويًا (مخرج لما لا يدعم المزوّد اكتشاف الموديلات) -->
+    <div class="modal-overlay" id="aiAddModelModal">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="aiAddModelTitle">
+            <div class="mcp-modal-header">
+                <h2 id="aiAddModelTitle">إضافة موديل يدويًا</h2>
+                <button class="mcp-modal-close" id="aiAddModelClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body">
+                <div class="form-error" id="aiAddModelError"></div>
+                <p class="hint">استخدم هذا لو المزوّد لا يعرض قائمة موديلات، أو لو مفتاحك محصور في موديلات بعينها. القدرات هنا تُحفظ كـ "معدّلة يدويًا" فلا تدهسها أي مزامنة لاحقة.</p>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>المزوّد <span class="req">*</span></label>
+                        <select id="aiAddModelIntegration"></select>
+                    </div>
+                    <div class="form-group full">
+                        <label>معرّف الموديل (Model ID) <span class="req">*</span></label>
+                        <input type="text" id="aiAddModelId" dir="ltr" placeholder="claude-opus-4-8">
+                        <span class="hint">انسخه كما هو من لوحة المزوّد — يُرسل حرفيًا في نداء الـ API.</span>
+                    </div>
+                    <div class="form-group full">
+                        <label>اسم العرض (اختياري)</label>
+                        <input type="text" id="aiAddModelName" placeholder="Claude Opus 4.8">
+                    </div>
+                    <div class="form-group full">
+                        <label>القدرات</label>
+                        <div class="ai-caps-grid" id="aiAddModelCaps"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>نافذة السياق (اختياري)</label>
+                        <input type="number" id="aiAddModelContext" placeholder="200000" step="1000">
+                    </div>
+                </div>
+            </div>
+            <div class="mcp-modal-footer">
+                <button class="btn btn-secondary" id="aiAddModelCancel">إلغاء</button>
+                <button class="btn btn-primary" id="aiAddModelSave">إضافة</button>
             </div>
         </div>
     </div>

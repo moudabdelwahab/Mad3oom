@@ -8,7 +8,7 @@ import {
     CatalogRow, IntegrationRow,
 } from "./catalog.ts";
 import {
-    callProvider, fetchModels, listProtocols, resolveProtocolAdapter, readProviderError,
+    callProvider, fetchModels, listProtocols, resolveProtocolAdapter, readProviderError, modelsEndpointFor,
     ChatTurn, GenerateRequest,
 } from "./protocols.ts";
 import { categorize, computeCost, DiscoveredModel } from "./capabilities.ts";
@@ -330,11 +330,22 @@ async function handleListModels(adminClient: any, catalog: Map<string, CatalogRo
     }
 
     const creds = await decryptCredentials(integration);
+
+    // الرابط المستهدف يُرجَع دائمًا (نجاحًا أو فشلًا) — بدونه لا يعرف المستخدم
+    // أي مضيف/مسار جُرّب فعلًا، وهو أول ما يحتاجه لتشخيص 401 أو رد HTML.
+    let endpoint: string | null = null;
+    try { endpoint = modelsEndpointFor(integration, catalogRow, discoveryProtocol, creds); } catch { /* يظهر في الخطأ التالي */ }
+
     let discovered: DiscoveredModel[];
     try {
         discovered = await fetchModels(integration, catalogRow, discoveryProtocol, creds);
     } catch (err) {
-        return jsonResponse({ error: "فشل جلب الموديلات: " + (err as Error).message }, 502);
+        return jsonResponse({
+            error: "فشل جلب الموديلات: " + (err as Error).message,
+            endpoint,
+            protocol: discoveryProtocol,
+            hint: "لو الرد 401: تأكّد أن المفتاح كامل (لا تنسخه من العمود المقنّع في جدول المفاتيح) وأنه صادر من نفس المضيف الموجود أعلاه. لو الرد HTML: الـ Base URL يشير لموقع بدل واجهة API.",
+        }, 502);
     }
 
     const saved = await saveDiscoveredModels(adminClient, id, discovered, integration.credentials_meta?.model);
@@ -343,8 +354,51 @@ async function handleListModels(adminClient: any, catalog: Map<string, CatalogRo
         discovered: discovered.length,
         models: saved,
         protocol: discoveryProtocol,
+        endpoint,
         message: `تم اكتشاف ${discovered.length} موديل`,
     });
+}
+
+// ----------------------------------------------------------------------------
+// action: add_model — إضافة موديل يدويًا
+// ----------------------------------------------------------------------------
+// مخرج ضروري: بعض البوابات لا تعرض /models إطلاقًا، أو تحصر المفتاح في موديلات
+// بعينها. بدون هذا المسار يبقى المستخدم عالقًا لو فشل الاكتشاف التلقائي.
+async function handleAddModel(adminClient: any, body: any) {
+    const integrationId = (body.integration_id || "").trim();
+    const modelId = (body.model_id || "").trim();
+    if (!integrationId || !modelId) return jsonResponse({ error: "integration_id و model_id مطلوبان" }, 400);
+
+    const { data: integration } = await adminClient
+        .from("external_integrations").select("id").eq("id", integrationId).maybeSingle();
+    if (!integration) return jsonResponse({ error: "التكامل غير موجود" }, 404);
+
+    const caps = body.capabilities || {};
+    const { data, error } = await adminClient
+        .from("external_integration_models")
+        .upsert({
+            integration_id: integrationId,
+            model_id: modelId,
+            display_name: (body.display_name || "").trim() || modelId,
+            supports_chat: true,
+            supports_vision: !!caps.vision,
+            supports_tools: !!caps.tools,
+            supports_streaming: caps.streaming !== false,
+            supports_reasoning: !!caps.reasoning,
+            supports_coding: !!caps.coding,
+            supports_agent: !!caps.agent,
+            supports_long_context: !!caps.longContext,
+            context_window: body.context_window ?? null,
+            is_enabled: true,
+            capabilities_source: "manual",
+            category: body.category || "general",
+            updated_at: new Date().toISOString(),
+        }, { onConflict: "integration_id,model_id" })
+        .select("*")
+        .single();
+
+    if (error) return jsonResponse({ error: "فشل حفظ الموديل: " + error.message }, 500);
+    return jsonResponse({ success: true, model: data, message: `تمت إضافة ${modelId}` });
 }
 
 // ----------------------------------------------------------------------------
@@ -364,6 +418,7 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
 
     let ok = false;
     let message = "";
+    let endpoint: string | null = null;
     const startedAt = Date.now();
     try {
         const creds = await decryptCredentials(integration);
@@ -373,6 +428,7 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
             message = `لا يوجد فحص محدّد للبروتوكول "${protocol}" — الإعدادات تبدو صحيحة`;
         } else {
             const { url, init } = adapter.probe(base, catalogRow, creds);
+            endpoint = url.replace(/([?&](?:key|api_key|access_token)=)[^&]+/gi, "$1***");
             const res = await fetch(url, init);
             ok = res.ok;
             message = ok
@@ -390,7 +446,14 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
         last_test_message: message,
     }).eq("id", id);
 
-    return jsonResponse({ success: ok, message, protocol, latency_ms: Date.now() - startedAt });
+    return jsonResponse({
+        success: ok,
+        message,
+        protocol,
+        endpoint,
+        hint: ok ? null : "تأكّد من أن المفتاح كامل وصادر من نفس المضيف الموضّح أعلاه، ومن أن Base URL يتضمّن مسار الـ API الكامل.",
+        latency_ms: Date.now() - startedAt,
+    });
 }
 
 // ----------------------------------------------------------------------------
@@ -442,6 +505,8 @@ Deno.serve(async (req: Request) => {
                 return await handleListModels(adminClient, catalog, body);
             case "test":
                 return await handleTest(adminClient, catalog, body);
+            case "add_model":
+                return await handleAddModel(adminClient, body);
             case "resolve_route":
                 return await handleResolveRoute(adminClient, catalog, body);
             case "capabilities":
@@ -452,7 +517,7 @@ Deno.serve(async (req: Request) => {
                 });
             default:
                 return jsonResponse({
-                    error: "action غير معروف. المتاح: generate | list_models | test | resolve_route | capabilities",
+                    error: "action غير معروف. المتاح: generate | list_models | add_model | test | resolve_route | capabilities",
                 }, 400);
         }
     } catch (err) {

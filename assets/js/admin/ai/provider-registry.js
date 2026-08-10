@@ -92,6 +92,46 @@ export function effectiveBaseUrl(catalog, integration, protocol) {
     return (custom || row?.default_endpoints?.[proto] || '').replace(/\/+$/, '');
 }
 
+/**
+ * المسارات الافتراضية لكل بروتوكول — نسخة طبق الأصل مما يفعله الـ Gateway،
+ * لغرض واحد فقط: عرض الرابط النهائي للمستخدم قبل الحفظ.
+ *
+ * السبب: البروتوكول openai يفترض أن الـ Base URL يتضمّن /v1 بالفعل، بينما
+ * anthropic يفترض العكس. بدون معاينة، إدخال رابط بلا /v1 ينتهي بنداء على
+ * مسار الموقع بدل الـ API ورد HTML غامض.
+ */
+export const PROTOCOL_PATHS = {
+    openai:      { chat: '/chat/completions', models: '/models' },
+    anthropic:   { chat: '/v1/messages', models: '/v1/models' },
+    gemini:      { chat: '/models/{model}:generateContent', models: '/models' },
+    custom_http: { chat: '', models: '' },
+};
+
+/** الروابط النهائية التي سيناديها الـ Gateway فعليًا لهذا البروتوكول. */
+export function resolveEndpoints(catalog, providerId, protocol, baseUrlOverride = '') {
+    const row = findProvider(catalog, providerId);
+    const base = (baseUrlOverride || row?.default_endpoints?.[protocol] || '').trim().replace(/\/+$/, '');
+    if (!base) return { base: '', chat: '', models: '' };
+
+    const custom = row?.endpoint_paths?.[protocol] || {};
+    const fallback = PROTOCOL_PATHS[protocol] || PROTOCOL_PATHS.custom_http;
+
+    return {
+        base,
+        chat: base + (custom.chat || fallback.chat),
+        models: base + (custom.models || fallback.models),
+    };
+}
+
+/**
+ * يبدو المفتاح مقنّعًا/ناقصًا؟ الأسباب الشائعة: نسخ القيمة المعروضة في جدول
+ * المفاتيح (sk-fSDF***) بدل استخدام زر النسخ، أو قصّ ناقص.
+ */
+export function looksMasked(value) {
+    const v = String(value || '');
+    return /[*•…]/.test(v) || v.length < 12;
+}
+
 /** مواصفات حقول الاعتماد للفورم الديناميكي (تأتي من الكتالوج، ليست مكتوبة في الواجهة). */
 export function credentialFields(catalog, providerId) {
     const row = findProvider(catalog, providerId);
