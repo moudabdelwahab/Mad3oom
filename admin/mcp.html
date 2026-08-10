@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/ai/ai-styles.css">
     <script src="/theme-manager.js"></script>
     <script src="/language-manager.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -475,8 +476,12 @@
                 <h1>
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
                     <span data-i18n="mcp_page_title">مركز المطورين</span>
+                    <span class="kbd-hint" style="color:rgba(255,255,255,0.85);margin-inline-start:auto;font-weight:600">
+                        <kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">/</kbd> بحث
+                        <kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">Ctrl</kbd>+<kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">K</kbd> تبديل التبويب
+                    </span>
                 </h1>
-                <p data-i18n="mcp_page_subtitle">إدارة كاملة لشبكة MCP الخاصة بمنصة مدعوم: اتصال صادر بخوادم خارجية، واتصال وارد يفتح أدواتك لعملاء MCP آخرين — بالإضافة لمفاتيح API وتكاملات الذكاء الاصطناعي، كل ذلك من مكان واحد</p>
+                <p data-i18n="mcp_page_subtitle">مركز التكاملات الموحّد لمنصة مدعوم: خوادم MCP صادرة وواردة، مفاتيح API، والتكاملات الخارجية — بالإضافة لمزوّدي الذكاء الاصطناعي وموديلاتهم وقواعد التوجيه وبيئة التطوير، كل ذلك من مكان واحد</p>
             </div>
 
             <!-- تبويب رئيسي -->
@@ -484,10 +489,17 @@
                 <button class="dev-tab active" data-devtab="mcpclient" id="devTabMcpClient">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
                     MCP
+                    <span class="tab-count" id="devTabMcpCount">0</span>
                 </button>
                 <button class="dev-tab" data-devtab="api" id="devTabApi">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
                     API
+                    <span class="tab-count" id="devTabApiCount">0</span>
+                </button>
+                <button class="dev-tab" data-devtab="ai" id="devTabAi">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
+                    AI
+                    <span class="tab-count" id="devTabAiCount">0</span>
                 </button>
             </div>
 
@@ -572,7 +584,7 @@
             </div>
 
             <!-- Toolbar -->
-            <div class="toolbar">
+            <div class="toolbar is-sticky">
                 <div class="field">
                     <label data-i18n="mcp_filter_status">الحالة</label>
                     <select id="filterStatus">
@@ -597,6 +609,10 @@
                     <input type="text" id="searchInput" placeholder="ابحث بالاسم أو الرابط...">
                 </div>
                 <div class="toolbar-actions">
+                    <button class="btn btn-secondary" id="testAllServersBtn" title="اختبار الاتصال بكل الخوادم المفعّلة دفعة واحدة">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        اختبار الكل
+                    </button>
                     <button class="btn btn-secondary" id="refreshBtn">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                         <span data-i18n="mcp_refresh">تحديث</span>
@@ -758,6 +774,167 @@
                 </div><!-- /apiSubsectionExternal -->
 
             </div><!-- /devSectionApi -->
+
+            <!-- ═══════════════ قسم 3: AI (مزوّدون + موديلات + توجيه + استخدام + بيئة تطوير) ═══════════════ -->
+            <div class="dev-section" id="devSectionAi">
+
+                <!-- ملخّص سريع -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon icon-total"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg></div>
+                        <div class="stat-info"><div class="num" id="aiStatProviders">0</div><div class="lbl">مزوّدون فعّالون</div></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-connected"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                        <div class="stat-info"><div class="num" id="aiStatConnected">0</div><div class="lbl">اتصال ناجح</div></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-tools"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>
+                        <div class="stat-info"><div class="num" id="aiStatModels">0</div><div class="lbl">موديلات مكتشفة</div></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-error"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+                        <div class="stat-info"><div class="num" id="aiStatCost">$0</div><div class="lbl">تكلفة الفترة المختارة</div></div>
+                    </div>
+                </div>
+
+                <!-- تبويبات فرعية -->
+                <div class="api-subtabs" id="aiSubTabs">
+                    <button class="api-subtab active" data-aisubtab="providers">
+                        المزوّدون
+                        <span class="api-subtab-hint">إضافة وإدارة واختبار</span>
+                    </button>
+                    <button class="api-subtab" data-aisubtab="models">
+                        الموديلات
+                        <span class="api-subtab-hint">اكتشاف وقدرات</span>
+                    </button>
+                    <button class="api-subtab" data-aisubtab="routing">
+                        التوجيه والاحتياطي
+                        <span class="api-subtab-hint">Routing &amp; Fallback</span>
+                    </button>
+                    <button class="api-subtab" data-aisubtab="usage">
+                        الاستخدام والتكلفة
+                        <span class="api-subtab-hint">توكنات • تكلفة • أخطاء</span>
+                    </button>
+                    <button class="api-subtab" data-aisubtab="dev">
+                        بيئة التطوير
+                        <span class="api-subtab-hint">Coding Agent</span>
+                    </button>
+                </div>
+
+                <!-- ─────────── المزوّدون ─────────── -->
+                <div class="api-subsection active" id="aiSubsection-providers">
+                    <div class="subsection-header">
+                        <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="12" y1="1" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="23"></line><line x1="20" y1="12" x2="23" y2="12"></line><line x1="1" y1="12" x2="4" y2="12"></line></svg></span>
+                        <div>
+                            <h2>مزوّدو الذكاء الاصطناعي والبوابات</h2>
+                            <p>هذه الصفحة لوحة إدارة فقط — لا تنادي أي مزوّد بنفسها. كل تشغيل حقيقي يمر عبر خدمة <code dir="ltr">ai-gateway</code> المستقلة، والمفاتيح تُشفَّر على الخادم ولا تُعرض كاملة أبدًا بعد الحفظ.</p>
+                        </div>
+                    </div>
+
+                    <div class="toolbar">
+                        <div class="field" style="flex:1; min-width:220px;">
+                            <label>بحث</label>
+                            <input type="text" id="aiProviderSearch" placeholder="ابحث بالاسم أو المزوّد أو الرابط...">
+                        </div>
+                        <div class="toolbar-spacer"></div>
+                        <div class="toolbar-actions">
+                            <button class="btn btn-secondary" id="aiTestAllBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                                اختبار الكل
+                            </button>
+                            <button class="btn btn-secondary" id="aiRefreshBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                تحديث
+                            </button>
+                            <button class="btn btn-primary" id="aiAddProviderBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                إضافة مزوّد
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mcp-category-chips" id="aiProviderKindChips" style="margin-bottom:1.25rem"></div>
+
+                    <div class="servers-list" id="aiProvidersGrid">
+                        <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+                    </div>
+                </div>
+
+                <!-- ─────────── الموديلات ─────────── -->
+                <div class="api-subsection" id="aiSubsection-models">
+                    <div class="subsection-header">
+                        <span class="subsection-icon in"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></span>
+                        <div>
+                            <h2>الموديلات وقدراتها</h2>
+                            <p>القائمة تُكتشف من كل مزوّد عبر "مزامنة الموديلات" ولا تُكتب يدويًا في النظام. القدرات المعروضة بجانب كل موديل تشرح لماذا تختاره — والموديل الذي يدعم البرمجة أو التفكير يفتح بيئة تطوير بدل صندوق شات عادي.</p>
+                        </div>
+                    </div>
+
+                    <div class="ai-models-toolbar">
+                        <input type="text" id="aiModelsSearch" placeholder="ابحث في الموديلات...">
+                        <select id="aiModelsIntegrationFilter"><option value="all">كل المزوّدين</option></select>
+                        <select id="aiModelCapabilityFilter"><option value="all">أي قدرة</option></select>
+                        <span class="ai-dim">المعروض: <strong id="aiModelsCount">0</strong></span>
+                    </div>
+
+                    <div class="mcp-category-chips" id="aiModelCategoryChips" style="margin-bottom:1.25rem"></div>
+                    <div class="ai-models-list" id="aiModelsList"></div>
+                </div>
+
+                <!-- ─────────── التوجيه والاحتياطي ─────────── -->
+                <div class="api-subsection" id="aiSubsection-routing">
+                    <div class="subsection-header">
+                        <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg></span>
+                        <div>
+                            <h2>التوجيه وسلسلة الاحتياطي</h2>
+                            <p>حدّد أي موديل يخدم أي وضع — المحادثة البسيطة لموديل أرخص، والتفكير والبرمجة لموديل أقوى. عند فشل الأساسي ينتقل الـ Gateway تلقائيًا للاحتياطي التالي في نفس السلسلة، ويُسجَّل ذلك في الاستخدام.</p>
+                        </div>
+                        <button class="btn btn-primary" id="aiAddRuleBtn" style="margin-inline-start:auto">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            إضافة قاعدة
+                        </button>
+                    </div>
+                    <div class="servers-list" id="aiRoutingList"></div>
+                </div>
+
+                <!-- ─────────── الاستخدام والتكلفة ─────────── -->
+                <div class="api-subsection" id="aiSubsection-usage">
+                    <div class="subsection-header">
+                        <span class="subsection-icon in"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
+                        <div>
+                            <h2>الاستخدام والتكلفة</h2>
+                            <p>كل نداء يمر عبر الـ Gateway يُسجَّل بتوكناته وتكلفته وزمن استجابته — لكل مزوّد ولكل موديل على حدة، بما في ذلك المحاولات الفاشلة والتحوّل للاحتياطي.</p>
+                        </div>
+                    </div>
+
+                    <div class="mcp-category-chips" id="aiUsagePeriodChips" style="margin-bottom:1.25rem"></div>
+                    <div class="stats-grid" id="aiUsageKpis"></div>
+                    <div class="ai-usage-table-wrap servers-list" id="aiUsageTable"></div>
+
+                    <div class="activity-panel">
+                        <h3>
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--color-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                            <span>آخر الأحداث (Recent Calls)</span>
+                        </h3>
+                        <div id="aiUsageRecent"><div class="activity-empty">لا توجد أحداث بعد</div></div>
+                    </div>
+                </div>
+
+                <!-- ─────────── بيئة التطوير ─────────── -->
+                <div class="api-subsection" id="aiSubsection-dev">
+                    <div class="subsection-header">
+                        <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span>
+                        <div>
+                            <h2>بيئة التطوير (Coding Agent)</h2>
+                            <p>تعامل مع الموديل كوكيل تطوير لا كصندوق شات: أوضاع تشغيل مختلفة، جلسات محفوظة، وسجل لكل نداء. لا يوجد تنفيذ كود أو نظام ملفات حقيقي في المتصفح — نقاط الامتداد (sandbox • repository • github • filesystem • terminal • code execution) معرَّفة وجاهزة للتفعيل من الخادم لاحقًا.</p>
+                        </div>
+                        <span class="kbd-hint" style="margin-inline-start:auto"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> للإرسال</span>
+                    </div>
+                    <div id="aiDevEnvironment"></div>
+                </div>
+
+            </div><!-- /devSectionAi -->
 
         </div>
     </main>
@@ -1058,6 +1235,132 @@
                 <button class="btn btn-secondary" id="cancelIntegrationBtn">إلغاء</button>
                 <button class="btn btn-primary" id="saveIntegrationBtn">حفظ</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: إضافة / تعديل مزوّد AI (الحقول تُبنى ديناميكيًا من كتالوج المزوّدين) -->
+    <div class="modal-overlay" id="aiProviderModal">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="aiProviderModalTitle">
+            <div class="mcp-modal-header">
+                <h2 id="aiProviderModalTitle">إضافة مزوّد جديد</h2>
+                <button class="mcp-modal-close" id="aiProviderModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body">
+                <div class="form-error" id="aiProviderFormError"></div>
+
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>المزوّد <span class="req">*</span></label>
+                        <select id="aiProviderSelect"></select>
+                        <span class="hint">القائمة تأتي من كتالوج المزوّدين في قاعدة البيانات — إضافة مزوّد جديد لاحقًا لا تتطلّب أي تعديل في هذه الصفحة.</span>
+                    </div>
+                    <div class="form-group full">
+                        <div id="aiProviderDescription"></div>
+                    </div>
+                    <div class="form-group full">
+                        <label>اسم العرض <span class="req">*</span></label>
+                        <input type="text" id="aiProviderDisplayName" placeholder="مثال: AgentRouter - الحساب الرئيسي">
+                    </div>
+
+                    <div id="aiProviderDynamicFields" class="full" style="display:grid;grid-template-columns:1fr;gap:1rem;"></div>
+
+                    <div class="form-group">
+                        <label>الأولوية</label>
+                        <input type="number" id="aiProviderPriority" value="100" step="1">
+                        <span class="hint">الأصغر يُجرَّب أولًا عند عدم وجود قاعدة توجيه.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>الحالة</label>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="aiProviderActive" checked>
+                            <label for="aiProviderActive" style="font-weight:600;color:var(--color-text)">نشط</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mcp-modal-footer">
+                <button class="btn btn-secondary" id="aiProviderCancelBtn">إلغاء</button>
+                <button class="btn btn-primary" id="aiProviderSaveBtn">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: تعديل قدرات موديل -->
+    <div class="modal-overlay" id="aiCapabilitiesModal">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="aiCapabilitiesModalTitle">
+            <div class="mcp-modal-header">
+                <h2 id="aiCapabilitiesModalTitle">قدرات الموديل</h2>
+                <button class="mcp-modal-close" id="aiCapabilitiesModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body" id="aiCapabilitiesModalBody"></div>
+            <div class="mcp-modal-footer">
+                <button class="btn btn-secondary" id="aiCapabilitiesCancelBtn">إلغاء</button>
+                <button class="btn btn-primary" id="aiCapabilitiesSaveBtn">حفظ القدرات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: قاعدة توجيه -->
+    <div class="modal-overlay" id="aiRuleModal">
+        <div class="mcp-modal-box" role="dialog" aria-labelledby="aiRuleModalTitle">
+            <div class="mcp-modal-header">
+                <h2 id="aiRuleModalTitle">إضافة قاعدة توجيه</h2>
+                <button class="mcp-modal-close" id="aiRuleModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body">
+                <div class="form-error" id="aiRuleFormError"></div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>الاسم (اختياري)</label>
+                        <input type="text" id="aiRuleName" placeholder="مثال: مسار البرمجة">
+                    </div>
+                    <div class="form-group">
+                        <label>نوع المطابقة <span class="req">*</span></label>
+                        <select id="aiRuleMatchKind">
+                            <option value="mode">حسب الوضع</option>
+                            <option value="capability">حسب القدرة المطلوبة</option>
+                            <option value="tag">حسب الوسم</option>
+                            <option value="default">الافتراضي العام</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="aiRuleMatchValueWrap"></div>
+                    <div class="form-group">
+                        <label>المزوّد <span class="req">*</span></label>
+                        <select id="aiRuleIntegration"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>الموديل</label>
+                        <select id="aiRuleModel"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>الترتيب في السلسلة <span class="req">*</span></label>
+                        <input type="number" id="aiRulePosition" value="0" step="1" min="0">
+                        <span class="hint">0 = الأساسي، 1 = الاحتياطي الأول، وهكذا.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>الحالة</label>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="aiRuleActive" checked>
+                            <label for="aiRuleActive" style="font-weight:600;color:var(--color-text)">مفعّلة</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mcp-modal-footer">
+                <button class="btn btn-secondary" id="aiRuleCancelBtn">إلغاء</button>
+                <button class="btn btn-primary" id="aiRuleSaveBtn">حفظ القاعدة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: معاينة المسار -->
+    <div class="modal-overlay" id="aiRoutePreviewModal">
+        <div class="mcp-modal-box" role="dialog">
+            <div class="mcp-modal-header">
+                <h2>معاينة المسار الفعلي</h2>
+                <button class="mcp-modal-close" id="aiRoutePreviewClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div class="mcp-modal-body" id="aiRoutePreviewBody"></div>
         </div>
     </div>
 
