@@ -9,7 +9,7 @@ import {
 } from "./catalog.ts";
 import {
     callProvider, discoverModels, listProtocols, resolveProtocolAdapter, readProviderError,
-    chatEndpointFor, maskUrl,
+    chatEndpointFor, maskUrl, detectBotChallenge,
     ChatTurn, GenerateRequest, DiscoveryAttempt,
 } from "./protocols.ts";
 import { categorize, computeCost, DiscoveredModel } from "./capabilities.ts";
@@ -505,7 +505,12 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
                 if (!res.ok) {
                     message = `${catalogRow.label} رفض الاتّصال (${await readProviderError(res)})`;
                 } else if (!/json/i.test(contentType)) {
-                    message = `الرابط رجّع ${contentType || "محتوى غير معروف"} بدل JSON — هذا مسار موقع وليس واجهة API.`;
+                    const body = await res.text().catch(() => "");
+                    const challenge = detectBotChallenge(body);
+                    message = challenge
+                        ? `المضيف ردّ بصفحة تحقّق بشري (${challenge}) — يحجب الطلبات من الخوادم ويطلب كابتشا في متصفّح. `
+                          + `الرابط والمفتاح ليسا السبب؛ يلزم استثناء عناوين خوادمك لدى المزوّد أو مضيف API للاتّصال من خادم إلى خادم.`
+                        : `الرابط رجّع ${contentType || "محتوى غير معروف"} بدل JSON — هذا مسار موقع وليس واجهة API.`;
                 } else {
                     ok = true;
                     message = `تم الاتّصال بنجاح مع ${catalogRow.label} عبر بروتوكول ${p}`;
