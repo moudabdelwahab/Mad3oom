@@ -82,17 +82,20 @@ CREATE POLICY "Manage models of writable integrations"
 -- ----------------------------------------------------------------------------
 -- ما تغيّر ولماذا:
 --   • المضيف الرسمي هو agentrouter.org (وليس co.agentrouter.org كما كان في 002).
---   • البوابة تعلن /v1beta/models بشكل Gemini — وهو المسار الوحيد الذي يعرض
---     قائمة الموديلات؛ /v1/models يرتطم بصفحة الموقع ويرجع HTML. لذلك أضيف
---     بروتوكول gemini برابط أساسي منتهٍ بـ /v1beta، وأُعلن كبروتوكول الاكتشاف.
+--   • الاكتشاف يُعلن على بروتوكول openai: مسار /v1/models هناك واجهة API
+--     حقيقية (يرد خطأ JSON من البوابة، لا صفحة HTML) لكنه يطلب ترويسة
+--     Authorization: Bearer، وهي التي يرسلها هذا البروتوكول. الفحص السابق
+--     كان يمر ببروتوكول anthropic فيرسل x-api-key فيُرفض بـ 401.
+--   • البوابة تعلن أيضًا /v1beta/models بشكل Gemini، فأُضيف بروتوكول gemini
+--     برابط أساسي منتهٍ بـ /v1beta كمسار بديل.
 --   • البوابة تظل تتحدث anthropic و openai للتوليد كما كانت.
 -- ملاحظة: لو فشل مسار الاكتشاف المعلن، تُجرَّب بقية بروتوكولات المزوّد تلقائيًا
 -- (راجع resolveDiscoveryProtocols في ai-gateway/catalog.ts) — لا افتراض بأن
--- كل مزوّد يعرض الموديلات على نفس المسار.
+-- كل مزوّد يعرض الموديلات على نفس المسار أو بنفس آلية المصادقة.
 UPDATE public.ai_provider_catalog
 SET protocols         = ARRAY['anthropic', 'openai', 'gemini'],
     default_endpoints = '{"anthropic":"https://agentrouter.org","openai":"https://agentrouter.org/v1","gemini":"https://agentrouter.org/v1beta"}'::jsonb,
-    models_discovery  = '{"supported":true,"protocol":"gemini"}'::jsonb,
+    models_discovery  = '{"supported":true,"protocol":"openai"}'::jsonb,
     default_model     = 'claude-opus-4-8',
     updated_at        = now()
 WHERE id = 'agentrouter';
