@@ -73,9 +73,11 @@ export function resolveProtocol(integration: IntegrationRow, catalogRow: Catalog
  * الرابط الأساسي للبروتوكول المطلوب.
  * ملاحظة مقصودة: لا يُضاف "/v1" تلقائيًا أبدًا — البروتوكول (ومسارات الكتالوج)
  * هما ما يحدّدان المسار النهائي. مثال AgentRouter:
- *   anthropic → https://agentrouter.org        ثم /v1/messages
- *   openai    → https://agentrouter.org/v1     ثم /chat/completions
- *   gemini    → https://agentrouter.org/v1beta ثم /models
+ *   anthropic → https://co.agentrouter.org        ثم /v1/messages
+ *   openai    → https://co.agentrouter.org/v1     ثم /chat/completions
+ *
+ * انتبه: مضيف الـ API هو co.agentrouter.org وليس agentrouter.org — الأخير هو
+ * الموقع/الكونسول خلف Aliyun WAF، ويرد صفحة HTML بكود 200 لأي مسار API.
  */
 export function resolveBaseUrl(integration: IntegrationRow, catalogRow: CatalogRow, protocol: string): string {
     // رابط مخصّص لهذا البروتوكول تحديدًا

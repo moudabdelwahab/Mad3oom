@@ -80,21 +80,31 @@ CREATE POLICY "Manage models of writable integrations"
 -- ----------------------------------------------------------------------------
 -- 4) صف AgentRouter — تصحيح المضيف ومسار اكتشاف الموديلات
 -- ----------------------------------------------------------------------------
--- ما تغيّر ولماذا:
---   • المضيف الرسمي هو agentrouter.org (وليس co.agentrouter.org كما كان في 002).
---   • الاكتشاف يُعلن على بروتوكول openai: مسار /v1/models هناك واجهة API
---     حقيقية (يرد خطأ JSON من البوابة، لا صفحة HTML) لكنه يطلب ترويسة
---     Authorization: Bearer، وهي التي يرسلها هذا البروتوكول. الفحص السابق
---     كان يمر ببروتوكول anthropic فيرسل x-api-key فيُرفض بـ 401.
---   • البوابة تعلن أيضًا /v1beta/models بشكل Gemini، فأُضيف بروتوكول gemini
---     برابط أساسي منتهٍ بـ /v1beta كمسار بديل.
---   • البوابة تظل تتحدث anthropic و openai للتوليد كما كانت.
+-- مضيفان بنفس الاسم تقريبًا، ووظيفتان مختلفتان تمامًا — قيس ولا تخمّن:
+--
+--   agentrouter.org      → الموقع/الكونسول، خلفه Aliyun WAF. يرد 200 مع صفحة
+--                          HTML لأي مسار API، حتى مع ترويسات متصفّح كاملة
+--                          (User-Agent / Referer / Sec-Fetch-*). غير صالح
+--                          كمضيف API من الخادم إطلاقًا.
+--   co.agentrouter.org   → واجهة الـ API الحقيقية (nginx + new-api).
+--                          GET /v1/models بلا مفتاح  → 401 JSON:
+--                            "Missing API Key! Please provide
+--                             'Authorization: Bearer <token>', 'x-google-api-key',
+--                             'x-goog-api-key', or 'x-api-key' header."
+--                          أي أنها تقبل أكثر من ترويسة مصادقة، فبروتوكولا
+--                          anthropic (x-api-key) و openai (Bearer) كلاهما يعمل.
+--                          /v1beta/models عليها → 404، فلا وجود لمسار Gemini.
+--
+-- لذلك: المضيف يبقى co.agentrouter.org كما في 002، ولا يُضاف بروتوكول gemini.
+-- الجديد هنا هو default_model فقط. الصفحة الرسمية تعلن مسارات (/v1/rerank,
+-- /v1beta/models …) لكنها لا تدل على المضيف — وهذه بالضبط كانت مصدر الخطأ.
+--
 -- ملاحظة: لو فشل مسار الاكتشاف المعلن، تُجرَّب بقية بروتوكولات المزوّد تلقائيًا
 -- (راجع resolveDiscoveryProtocols في ai-gateway/catalog.ts) — لا افتراض بأن
 -- كل مزوّد يعرض الموديلات على نفس المسار أو بنفس آلية المصادقة.
 UPDATE public.ai_provider_catalog
-SET protocols         = ARRAY['anthropic', 'openai', 'gemini'],
-    default_endpoints = '{"anthropic":"https://agentrouter.org","openai":"https://agentrouter.org/v1","gemini":"https://agentrouter.org/v1beta"}'::jsonb,
+SET protocols         = ARRAY['anthropic', 'openai'],
+    default_endpoints = '{"anthropic":"https://co.agentrouter.org","openai":"https://co.agentrouter.org/v1"}'::jsonb,
     models_discovery  = '{"supported":true,"protocol":"openai"}'::jsonb,
     default_model     = 'claude-opus-4-8',
     updated_at        = now()
@@ -107,10 +117,8 @@ COMMIT;
 --
 --   BEGIN;
 --   UPDATE public.ai_provider_catalog
---   SET protocols         = ARRAY['anthropic','openai'],
---       default_endpoints = '{"anthropic":"https://co.agentrouter.org","openai":"https://co.agentrouter.org/v1"}'::jsonb,
---       models_discovery  = '{"supported":true,"protocol":"openai","path":"/models"}'::jsonb,
---       default_model     = NULL
+--   SET models_discovery = '{"supported":true,"protocol":"openai","path":"/models"}'::jsonb,
+--       default_model    = NULL
 --   WHERE id = 'agentrouter';
 --
 --   DROP POLICY IF EXISTS "Manage models of writable integrations" ON public.external_integration_models;
