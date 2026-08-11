@@ -96,6 +96,25 @@
 }
 .ai-diagnostic-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
 
+/* سجل المسارات المجرَّبة — مطوي افتراضيًا حتى لا يزحم البطاقة */
+.ai-attempts { margin-top: 0.5rem; }
+.ai-attempts summary {
+    cursor: pointer; font-size: 0.75rem; font-weight: 700;
+    color: var(--color-text-secondary); list-style: none;
+}
+.ai-attempts summary::-webkit-details-marker { display: none; }
+.ai-attempts summary::before { content: '▾ '; display: inline-block; transition: transform 0.15s ease; }
+.ai-attempts[open] summary::before { content: '▴ '; }
+.ai-attempt-row {
+    display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+    margin-top: 0.35rem; padding-inline-start: 0.6rem; font-size: 0.72rem;
+    border-inline-start: 2px solid var(--color-border);
+}
+.ai-attempt-row.is-ok { border-inline-start-color: var(--color-success); }
+.ai-attempt-row.is-fail { border-inline-start-color: color-mix(in srgb, var(--color-danger) 55%, transparent); }
+.ai-attempt-row code { direction: ltr; color: var(--color-text); overflow-wrap: anywhere; }
+.ai-attempt-note { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
 #aiProviderDescription {
     font-size: 0.82rem; line-height: 1.7; color: var(--color-text-secondary);
     background: var(--color-muted); border-radius: 0.6rem; padding: 0.7rem 0.9rem; margin-bottom: 1rem;

@@ -40,6 +40,7 @@ function diagnosticHtml(integrationId) {
         <div class="ai-diagnostic-msg">${escapeHtml(d.message)}</div>
         ${d.endpoint ? `<div class="ai-diagnostic-row"><span>الرابط الذي جُرّب</span><code dir="ltr">${escapeHtml(d.endpoint)}</code></div>` : ''}
         ${d.protocol ? `<div class="ai-diagnostic-row"><span>البروتوكول</span><code dir="ltr">${escapeHtml(d.protocol)}</code></div>` : ''}
+        ${attemptsHtml(d.attempts)}
         ${d.hint ? `<div class="ai-diagnostic-hint">${escapeHtml(d.hint)}</div>` : ''}
         <div class="ai-diagnostic-actions">
             <button class="btn btn-edit btn-sm" data-ai-action="edit" data-id="${integrationId}">تعديل الإعدادات</button>
@@ -48,7 +49,23 @@ function diagnosticHtml(integrationId) {
     </div>`;
 }
 
-/** يستخرج تفاصيل التشخيص من رد الـ Gateway (يرجّع endpoint/hint مع كل فشل). */
+/**
+ * كل المسارات التي جرّبها الـ Gateway فعلًا.
+ * بدونها يرى المستخدم رابطًا واحدًا فاشلًا ويظنّ أن هذا كل ما حدث، بينما
+ * البوابة الواحدة قد تعرض الموديلات على مسار بروتوكول آخر تمامًا.
+ */
+function attemptsHtml(attempts) {
+    if (!Array.isArray(attempts) || attempts.length < 2) return '';
+    const rows = attempts.map((a) => `
+        <div class="ai-attempt-row ${a.ok ? 'is-ok' : 'is-fail'}">
+            <span class="ai-endpoint-proto">${escapeHtml(a.protocol || '—')}</span>
+            <code dir="ltr">${escapeHtml(a.endpoint || 'بلا رابط')}</code>
+            <span class="ai-attempt-note">${escapeHtml(a.ok ? `${a.count} موديل` : (a.error || 'فشل'))}</span>
+        </div>`).join('');
+    return `<details class="ai-attempts"><summary>المسارات المجرَّبة (${attempts.length})</summary>${rows}</details>`;
+}
+
+/** يستخرج تفاصيل التشخيص من رد الـ Gateway (يرجّع endpoint/hint/attempts مع كل فشل). */
 function recordDiagnostic(integrationId, title, err) {
     const details = err?.details || {};
     diagnostics.set(integrationId, {
@@ -56,6 +73,7 @@ function recordDiagnostic(integrationId, title, err) {
         message: err?.message || 'خطأ غير معروف',
         endpoint: details.endpoint || null,
         protocol: details.protocol || null,
+        attempts: Array.isArray(details.attempts) ? details.attempts : null,
         hint: details.hint || null,
     });
 }

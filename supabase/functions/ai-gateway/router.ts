@@ -42,8 +42,7 @@ async function loadIntegrations(adminClient: any, ids?: string[]): Promise<Map<s
  *   2. الموديل المعلَّم is_default بين الموديلات المكتشفة
  *   3. أول موديل مفعّل
  *   4. default_model من كتالوج المزوّد — ملاذ أخير حتى لا يفشل النداء لمجرد
- *      أن المزامنة لم تُشغَّل بعد. (كان هذا سابقًا خريطة مكتوبة في كود
- *      generate-ai-chat-reply؛ صار بيانات في الكتالوج يستفيد منها الجميع.)
+ *      أن المزامنة لم تُشغَّل بعد.
  */
 async function defaultModelFor(
     adminClient: any,
@@ -149,8 +148,7 @@ export async function resolveChain(
         chain = [{ integration, model_id: opts.model || null, origin: "explicit", position: 0 }];
 
         // الاختيار الصريح يبقى الأساسي دائمًا، لكن قواعد الوضع تُلحق بعده
-        // كاحتياطيات بدل أن تُلغى. هكذا يظل ما اختاره الأدمن هو المستخدَم
-        // فعليًا، ومع ذلك لا ينقطع الرد لو سقط ذلك المزوّد.
+        // كاحتياطيات بدل أن تُلغى.
         if (opts.mode) {
             const fallbacks = await chainFromRules(adminClient, "mode", opts.mode);
             chain.push(...fallbacks.filter((c) => c.integration.id !== opts.integration_id));
