@@ -72,7 +72,7 @@ async function decryptCredentials(integration: IntegrationRow): Promise<Record<s
     }
 }
 
-const INTEGRATION_COLUMNS = "id, provider, display_name, protocol, base_url, credentials_encrypted, credentials_meta, capabilities_override, is_active, priority";
+const INTEGRATION_COLUMNS = "id, provider, display_name, protocol, base_url, base_urls, credentials_encrypted, credentials_meta, capabilities_override, is_active, priority";
 
 // ----------------------------------------------------------------------------
 // حفظ الموديلات المكتشفة
@@ -344,7 +344,7 @@ async function handleListModels(adminClient: any, catalog: Map<string, CatalogRo
             error: "فشل جلب الموديلات: " + (err as Error).message,
             endpoint,
             protocol: discoveryProtocol,
-            hint: "لو الرد 401: تأكّد أن المفتاح كامل (لا تنسخه من العمود المقنّع في جدول المفاتيح) وأنه صادر من نفس المضيف الموجود أعلاه. لو الرد HTML: الـ Base URL يشير لموقع بدل واجهة API.",
+            hint: buildEndpointHint(discoveryProtocol, endpoint),
         }, 502);
     }
 
@@ -430,10 +430,22 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
             const { url, init } = adapter.probe(base, catalogRow, creds);
             endpoint = url.replace(/([?&](?:key|api_key|access_token)=)[^&]+/gi, "$1***");
             const res = await fetch(url, init);
-            ok = res.ok;
-            message = ok
-                ? `تم الاتّصال بنجاح مع ${catalogRow.label} عبر بروتوكول ${protocol}`
-                : `${catalogRow.label} رفض الاتّصال (${await readProviderError(res)})`;
+
+            // res.ok وحده لا يكفي: مواقع الويب تُرجع صفحة SPA بكود 200 لأي مسار
+            // غير معروف، فكان الفحص يعلن "متصل" وهو لم يلمس واجهة API إطلاقًا.
+            const contentType = res.headers.get("content-type") || "";
+            const isJson = /json/i.test(contentType);
+
+            if (!res.ok) {
+                ok = false;
+                message = `${catalogRow.label} رفض الاتّصال (${await readProviderError(res)})`;
+            } else if (!isJson) {
+                ok = false;
+                message = `الرابط رجّع ${contentType || "محتوى غير معروف"} بدل JSON — هذا موقع ويب وليس واجهة API. راجع الرابط الأساسي لبروتوكول ${protocol}.`;
+            } else {
+                ok = true;
+                message = `تم الاتّصال بنجاح مع ${catalogRow.label} عبر بروتوكول ${protocol}`;
+            }
         }
     } catch (err) {
         ok = false;
@@ -451,7 +463,7 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
         message,
         protocol,
         endpoint,
-        hint: ok ? null : "تأكّد من أن المفتاح كامل وصادر من نفس المضيف الموضّح أعلاه، ومن أن Base URL يتضمّن مسار الـ API الكامل.",
+        hint: ok ? null : buildEndpointHint(protocol, endpoint),
         latency_ms: Date.now() - startedAt,
     });
 }

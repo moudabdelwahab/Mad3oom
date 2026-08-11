@@ -27,6 +27,7 @@ import {
 // لا تتطلّب لمس هذا الملف ولا صفحة الإدارة.
 import * as aiAdmin from '/assets/js/admin/ai/ai-admin.js';
 import { testIntegration as aiGatewayTest } from '/assets/js/admin/ai/ai-service.js';
+import { fetchProviderCatalog, isAiProvider, providerLabel } from '/assets/js/admin/ai/provider-registry.js';
 
 /** آخر تبويب رئيسي مفتوح — يعود المستخدم لنفس مكانه بعد التحديث. */
 const DEV_TAB_STORAGE_KEY = 'mad3oom_dev_center_tab';
@@ -1635,9 +1636,19 @@ function renderIntegrations() {
 
 async function populateDefaultAiProviderSelect() {
     const select = document.getElementById('defaultAiProviderSelect');
-    const activeAi = allIntegrations.filter((i) => AI_INTEGRATION_PROVIDERS.includes(i.provider) && i.is_active);
+
+    // القائمة كانت محصورة في الخمسة الأصليين لأن generate-ai-chat-reply كان
+    // يعرفهم وحدهم. بعد توصيلها بالـ Gateway صار أي مزوّد AI في الكتالوج صالحًا،
+    // فنقرأ النوع من الكتالوج ونرجع للقائمة القديمة فقط لو تعذّرت قراءته.
+    let catalog = [];
+    try { catalog = await fetchProviderCatalog(); } catch (err) { console.warn('[MCP] catalog unavailable:', err); }
+
+    const isAi = (provider) => (catalog.length ? isAiProvider(catalog, provider) : AI_INTEGRATION_PROVIDERS.includes(provider));
+    const labelOf = (provider) => (catalog.length ? providerLabel(catalog, provider) : (INTEGRATION_PROVIDER_LABELS[provider] || provider));
+
+    const activeAi = allIntegrations.filter((i) => isAi(i.provider) && i.is_active);
     select.innerHTML = '<option value="">— بدون (الرد الآلي البسيط فقط) —</option>' +
-        activeAi.map((i) => `<option value="${i.id}">${escapeHtml(i.display_name)} (${INTEGRATION_PROVIDER_LABELS[i.provider]})</option>`).join('');
+        activeAi.map((i) => `<option value="${i.id}">${escapeHtml(i.display_name)} (${escapeHtml(labelOf(i.provider))})</option>`).join('');
     try {
         const current = await fetchDefaultAiProvider();
         if (current) select.value = current;

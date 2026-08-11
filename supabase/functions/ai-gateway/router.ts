@@ -27,7 +27,7 @@ const AI_KINDS = ["ai_provider", "ai_gateway", "custom"];
 async function loadIntegrations(adminClient: any, ids?: string[]): Promise<Map<string, IntegrationRow>> {
     let q = adminClient
         .from("external_integrations")
-        .select("id, provider, display_name, protocol, base_url, credentials_encrypted, credentials_meta, capabilities_override, is_active, priority");
+        .select("id, provider, display_name, protocol, base_url, base_urls, credentials_encrypted, credentials_meta, capabilities_override, is_active, priority");
     if (ids?.length) q = q.in("id", ids);
     const { data, error } = await q;
     if (error) throw new Error("فشل قراءة التكاملات: " + error.message);
@@ -36,8 +36,20 @@ async function loadIntegrations(adminClient: any, ids?: string[]): Promise<Map<s
     return map;
 }
 
-/** الموديل الافتراضي لتكامل: المحدّد يدويًا في الإعدادات، وإلا is_default، وإلا أول موديل مفعّل. */
-async function defaultModelFor(adminClient: any, integration: IntegrationRow): Promise<string | null> {
+/**
+ * الموديل الافتراضي لتكامل، بالترتيب:
+ *   1. ما حدّده الأدمن يدويًا في إعدادات التكامل
+ *   2. الموديل المعلَّم is_default بين الموديلات المكتشفة
+ *   3. أول موديل مفعّل
+ *   4. default_model من كتالوج المزوّد — ملاذ أخير حتى لا يفشل النداء لمجرد
+ *      أن المزامنة لم تُشغَّل بعد. (كان هذا سابقًا خريطة مكتوبة في كود
+ *      generate-ai-chat-reply؛ صار بيانات في الكتالوج يستفيد منها الجميع.)
+ */
+async function defaultModelFor(
+    adminClient: any,
+    integration: IntegrationRow,
+    catalog: Map<string, any>,
+): Promise<string | null> {
     const fromMeta = (integration.credentials_meta?.model || "").trim();
     if (fromMeta) return fromMeta;
 
@@ -50,7 +62,9 @@ async function defaultModelFor(adminClient: any, integration: IntegrationRow): P
         .order("display_name", { ascending: true })
         .limit(1);
 
-    return data?.[0]?.model_id || null;
+    if (data?.[0]?.model_id) return data[0].model_id;
+
+    return (catalog.get(integration.provider)?.default_model || "").trim() || null;
 }
 
 async function chainFromRules(
@@ -133,6 +147,14 @@ export async function resolveChain(
         if (!integration) throw new Error("التكامل المطلوب غير موجود");
         if (!integration.is_active) throw new Error("التكامل المطلوب معطّل حاليًا");
         chain = [{ integration, model_id: opts.model || null, origin: "explicit", position: 0 }];
+
+        // الاختيار الصريح يبقى الأساسي دائمًا، لكن قواعد الوضع تُلحق بعده
+        // كاحتياطيات بدل أن تُلغى. هكذا يظل ما اختاره الأدمن هو المستخدَم
+        // فعليًا، ومع ذلك لا ينقطع الرد لو سقط ذلك المزوّد.
+        if (opts.mode) {
+            const fallbacks = await chainFromRules(adminClient, "mode", opts.mode);
+            chain.push(...fallbacks.filter((c) => c.integration.id !== opts.integration_id));
+        }
     }
 
     if (!chain.length && opts.mode) chain = await chainFromRules(adminClient, "mode", opts.mode);
@@ -145,7 +167,7 @@ export async function resolveChain(
     const resolved: Candidate[] = [];
     for (const c of chain) {
         if (!c.integration.credentials_encrypted) continue;
-        resolved.push({ ...c, model_id: c.model_id || await defaultModelFor(adminClient, c.integration) });
+        resolved.push({ ...c, model_id: c.model_id || await defaultModelFor(adminClient, c.integration, catalog) });
     }
 
     return resolved.slice(0, opts.limit ?? 4);
