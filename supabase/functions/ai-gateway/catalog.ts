@@ -19,6 +19,8 @@ export interface CatalogRow {
     requires_base_url: boolean;
     allows_base_url: boolean;
     is_enabled: boolean;
+    /** ملاذ أخير للموديل عندما لا يوجد موديل محدّد ولا مكتشف. */
+    default_model?: string | null;
 }
 
 export interface IntegrationRow {
@@ -27,6 +29,7 @@ export interface IntegrationRow {
     display_name: string;
     protocol: string | null;
     base_url: string | null;
+    base_urls: Record<string, string> | null;
     credentials_encrypted: string | null;
     credentials_meta: Record<string, any>;
     capabilities_override: Record<string, any>;
@@ -74,8 +77,19 @@ export function resolveProtocol(integration: IntegrationRow, catalogRow: Catalog
  *   openai    → https://co.agentrouter.org/v1     ثم /chat/completions
  */
 export function resolveBaseUrl(integration: IntegrationRow, catalogRow: CatalogRow, protocol: string): string {
-    const custom = (integration.base_url || integration.credentials_meta?.base_url || "").trim();
-    const base = custom || catalogRow.default_endpoints?.[protocol] || "";
+    // رابط مخصّص لهذا البروتوكول تحديدًا
+    const perProtocol = (integration.base_urls?.[protocol] || "").trim();
+
+    // العمود القديم (رابط واحد) ينطبق على البروتوكول المختار للتكامل فقط.
+    // تطبيقه على كل البروتوكولات كان يكسر الاكتشاف: مزوّد يتحدث anthropic
+    // برابط بلا /v1 ويكتشف الموديلات بـ openai برابط بـ /v1 — رابط واحد
+    // لا يصلح للاثنين.
+    const selectedProtocol = (integration.protocol || catalogRow.protocols[0] || "").trim();
+    const legacy = selectedProtocol === protocol
+        ? (integration.base_url || integration.credentials_meta?.base_url || "").trim()
+        : "";
+
+    const base = perProtocol || legacy || catalogRow.default_endpoints?.[protocol] || "";
     if (!base) {
         throw new Error(`لا يوجد رابط أساسي للمزوّد "${catalogRow.id}" بالبروتوكول "${protocol}" — أضِف Base URL في إعدادات الربط.`);
     }

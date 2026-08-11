@@ -45,7 +45,7 @@ function jsonResponse(body: unknown, status = 200) {
 const FALLBACK_PROVIDERS = ["openai", "claude", "gemini", "openrouter", "groq", "telegram_bot", "webhook", "custom"];
 
 const RETURN_COLUMNS =
-  "id, provider, display_name, owner_id, owner_scope, is_active, priority, protocol, base_url, credentials_meta, capabilities_override, last_tested_at, last_test_status, created_at";
+  "id, provider, display_name, owner_id, owner_scope, is_active, priority, protocol, base_url, base_urls, credentials_meta, capabilities_override, last_tested_at, last_test_status, created_at";
 
 interface CatalogEntry {
   id: string;
@@ -153,6 +153,7 @@ Deno.serve(async (req: Request) => {
       priority?: number;
       protocol?: string | null;
       base_url?: string | null;
+      base_urls?: Record<string, string> | null;
       credentials?: Record<string, unknown>;
       credentials_meta?: Record<string, unknown>;
       capabilities_override?: Record<string, unknown>;
@@ -220,6 +221,16 @@ Deno.serve(async (req: Request) => {
 
     const baseUrl = "base_url" in body ? ((body.base_url || "").trim() || null) : undefined;
 
+    // روابط أساسية لكل بروتوكول — الفراغات تُحذف حتى لا تُخزَّن مفاتيح فارغة
+    let baseUrls: Record<string, string> | undefined;
+    if ("base_urls" in body) {
+        baseUrls = {};
+        for (const [proto, value] of Object.entries(body.base_urls || {})) {
+            const trimmed = String(value ?? "").trim();
+            if (trimmed) baseUrls[proto] = trimmed.replace(/\/+$/, "");
+        }
+    }
+
     let ownerId = body.owner_id ?? callerId;
     let ownerScope = body.owner_scope || "user";
 
@@ -256,6 +267,7 @@ Deno.serve(async (req: Request) => {
       if (hasPriority) insertRow.priority = Math.trunc(body.priority as number);
       if (protocol !== undefined) insertRow.protocol = protocol;
       if (baseUrl !== undefined) insertRow.base_url = baseUrl;
+      if (baseUrls !== undefined) insertRow.base_urls = baseUrls;
       if (body.capabilities_override) insertRow.capabilities_override = body.capabilities_override;
 
       const { data: inserted, error: insertError } = await adminClient
@@ -284,6 +296,7 @@ Deno.serve(async (req: Request) => {
     if (hasPriority) updateRow.priority = Math.trunc(body.priority as number);
     if (protocol !== undefined) updateRow.protocol = protocol;
     if (baseUrl !== undefined) updateRow.base_url = baseUrl;
+    if (baseUrls !== undefined) updateRow.base_urls = baseUrls;
     if (body.capabilities_override) updateRow.capabilities_override = body.capabilities_override;
     if (encryptedPayload) updateRow.credentials_encrypted = encryptedPayload;
 

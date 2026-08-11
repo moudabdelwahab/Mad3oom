@@ -50,7 +50,7 @@ async function invoke(fn, body) {
 export async function fetchIntegrations() {
     const { data, error } = await supabase
         .from(INTEGRATIONS_TABLE)
-        .select('id, provider, display_name, protocol, base_url, credentials_meta, capabilities_override, tags, is_active, priority, last_tested_at, last_test_status, last_test_message, last_used_at, created_at')
+        .select('id, provider, display_name, protocol, base_url, base_urls, credentials_meta, capabilities_override, tags, is_active, priority, last_tested_at, last_test_status, last_test_message, last_used_at, created_at')
         .eq('owner_scope', 'platform')
         .order('priority', { ascending: true })
         .order('created_at', { ascending: false });
@@ -59,10 +59,10 @@ export async function fetchIntegrations() {
 }
 
 /** الحفظ يمر دائمًا عبر Edge Function لأن التشفير لا يحدث في المتصفح أبدًا. */
-export async function saveIntegration({ id, provider, display_name, protocol, base_url, is_active, priority, credentials, credentials_meta }) {
+export async function saveIntegration({ id, provider, display_name, protocol, base_url, base_urls, is_active, priority, credentials, credentials_meta }) {
     const payload = id
-        ? { action: 'update', id, display_name, protocol, base_url, is_active, priority, credentials, credentials_meta }
-        : { action: 'create', provider, owner_scope: 'platform', display_name, protocol, base_url, is_active, priority, credentials, credentials_meta };
+        ? { action: 'update', id, display_name, protocol, base_url, base_urls, is_active, priority, credentials, credentials_meta }
+        : { action: 'create', provider, owner_scope: 'platform', display_name, protocol, base_url, base_urls, is_active, priority, credentials, credentials_meta };
 
     // إزالة المفاتيح غير المعرّفة حتى لا تُفسَّر كـ "امسح القيمة الحالية"
     for (const key of Object.keys(payload)) {

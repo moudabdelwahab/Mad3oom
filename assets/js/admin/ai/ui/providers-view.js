@@ -211,15 +211,37 @@ function fieldsHtml(providerId, integration = null) {
                <div class="ai-readonly-value" dir="ltr">${escapeHtml(PROTOCOL_LABELS[currentProtocol] || currentProtocol || '—')}</div>
            </div>`;
 
-    const baseUrlBlock = row.allows_base_url ? `
+    // رابط لكل بروتوكول: مزوّد يدعم anthropic وopenai معًا يحتاج رابطين
+    // مختلفين (anthropic بلا /v1 لأنه يضيف /v1/messages، وopenai بـ /v1 لأنه
+    // يضيف /chat/completions). رابط واحد مشترك يكسر أحدهما حتمًا.
+    const savedBaseUrls = integration?.base_urls || {};
+    const legacyBase = integration?.base_url || meta.base_url || '';
+
+    const baseUrlInputs = protocols.map((p) => {
+        const saved = savedBaseUrls[p] || (p === currentProtocol ? legacyBase : '');
+        const isDiscovery = discoveryProtocolOf(row) === p;
+        const roles = [
+            p === currentProtocol ? 'المحادثة' : '',
+            isDiscovery ? 'اكتشاف الموديلات' : '',
+        ].filter(Boolean).join(' + ');
+
+        return `
         <div class="form-group full">
-            <label>Base URL ${row.requires_base_url ? '<span class="req">*</span>' : '(اختياري)'}</label>
-            <input type="text" id="aiProviderBaseUrl" dir="ltr"
-                   placeholder="${escapeHtml(row.default_endpoints?.[currentProtocol] || 'https://api.example.com/v1')}"
-                   value="${escapeHtml(integration?.base_url || meta.base_url || '')}">
-            <span class="hint">اتركه فارغًا لاستخدام رابط الكتالوج. املأه فقط للاستضافة الذاتية أو بروكسي متوافق.</span>
-            <div class="ai-endpoints-preview" id="aiEndpointPreview"></div>
-        </div>` : '';
+            <label>
+                Base URL — ${escapeHtml(PROTOCOL_LABELS[p] || p)}
+                ${roles ? `<span class="ai-chip-soft">${escapeHtml(roles)}</span>` : ''}
+            </label>
+            <input type="text" class="ai-base-url-input" data-protocol="${escapeHtml(p)}" id="aiBaseUrl-${escapeHtml(p)}" dir="ltr"
+                   placeholder="${escapeHtml(row.default_endpoints?.[p] || 'https://api.example.com')}"
+                   value="${escapeHtml(saved)}">
+        </div>`;
+    }).join('');
+
+    const baseUrlBlock = row.allows_base_url ? `
+        <div class="ai-section-label">${icon('globe')} الروابط الأساسية</div>
+        ${baseUrlInputs}
+        <span class="hint">اترك أي حقل فارغًا لاستخدام رابط الكتالوج. كل بروتوكول له رابط مستقل لأن كلًا منهم يضيف مسارًا مختلفًا بعده.</span>
+        <div class="ai-endpoints-preview" id="aiEndpointPreview"></div>` : '';
 
     const creds = credentialFields(ctx.catalog, providerId);
     const credsBlock = creds.map((f) => `
@@ -301,62 +323,84 @@ function renderEndpointPreview(providerId) {
     const box = document.getElementById('aiEndpointPreview');
     if (!box) return;
 
-    const protocol = document.getElementById('aiProviderProtocol')?.value || '';
-    const baseInput = document.getElementById('aiProviderBaseUrl');
-    const typedBase = baseInput?.value.trim() || '';
     const row = findProvider(ctx.catalog, providerId);
-    const endpoints = resolveEndpoints(ctx.catalog, providerId, protocol, typedBase);
+    if (!row) { box.innerHTML = ''; return; }
 
-    if (!endpoints.base) {
-        box.innerHTML = `<div class="ai-endpoint-row"><span class="ai-dim">هذا البروتوكول يتطلّب Base URL — اكتبه أعلاه لترى الروابط النهائية.</span></div>`;
-        return;
-    }
+    const selected = document.getElementById('aiProviderProtocol')?.value || row.protocols?.[0] || '';
+    const discovery = discoveryProtocolOf(row);
+    const typed = collectBaseUrls();
 
-    // تحذير لا تصحيح تلقائي: إضافة /v1 من تلقاء النظام تكسر مزوّدين آخرين
-    const needsV1 = protocol === 'openai' && !/\/v\d+(\/|$)/.test(endpoints.base);
-    const suggestion = needsV1 ? `${endpoints.base}/v1` : '';
+    const rows = (row.protocols || []).map((p) => {
+        const endpoints = resolveEndpoints(ctx.catalog, providerId, p, typed[p] || '');
+        const roles = [p === selected ? 'المحادثة' : '', p === discovery ? 'الاكتشاف' : ''].filter(Boolean).join(' + ');
 
-    box.innerHTML = `
-        <div class="ai-endpoint-row">
-            <span class="ai-endpoint-proto">${escapeHtml(typedBase ? 'رابط مخصّص' : 'رابط الكتالوج')}</span>
-            <code dir="ltr">${escapeHtml(endpoints.base)}</code>
-        </div>
-        <div class="ai-endpoint-row">
-            <span class="ai-endpoint-proto">نداء التوليد</span>
-            <code dir="ltr">${escapeHtml(endpoints.chat)}</code>
-        </div>
-        <div class="ai-endpoint-row">
-            <span class="ai-endpoint-proto">قائمة الموديلات</span>
-            <code dir="ltr">${escapeHtml(endpoints.models)}</code>
-        </div>
-        ${needsV1 ? `
-        <div class="ai-endpoint-warn">
-            ${icon('alert', 13)}
-            <span>البروتوكول <strong>OpenAI Compatible</strong> يفترض أن الرابط يتضمّن مسار الـ API بالفعل. الرابط الحالي بلا <code dir="ltr">/v1</code>، فالنداء سيذهب لمسار الموقع وغالبًا سيرجع HTML.</span>
-            <button type="button" class="btn btn-secondary btn-sm" id="aiFixBaseUrlBtn" data-suggest="${escapeHtml(suggestion)}">استخدم <span dir="ltr">${escapeHtml(suggestion)}</span></button>
-        </div>` : ''}
-        ${row?.protocols?.length > 1 ? `<div class="ai-endpoint-row"><span class="ai-dim">هذا المزوّد يدعم أيضًا: ${row.protocols.filter((p) => p !== protocol).map((p) => escapeHtml(PROTOCOL_LABELS[p] || p)).join('، ')}</span></div>` : ''}`;
-
-    document.getElementById('aiFixBaseUrlBtn')?.addEventListener('click', (e) => {
-        if (baseInput) {
-            baseInput.value = e.currentTarget.dataset.suggest;
-            renderEndpointPreview(providerId);
+        if (!endpoints.base) {
+            return `<div class="ai-endpoint-row"><span class="ai-endpoint-proto">${escapeHtml(PROTOCOL_LABELS[p] || p)}</span>
+                <span class="ai-dim">لا يوجد رابط — أضِفه أعلاه</span></div>`;
         }
+
+        // رقم إصدار مكرّر (/v1/v1/) = الرابط الأساسي يتضمّن مسارًا يضيفه البروتوكول بنفسه
+        const duplicated = /\/v\d+\/v\d+\//.test(endpoints.chat + '/');
+        const missingV1 = p === 'openai' && !/\/v\d+(\/|$)/.test(endpoints.base);
+
+        return `
+        <div class="ai-endpoint-row">
+            <span class="ai-endpoint-proto">${escapeHtml(PROTOCOL_LABELS[p] || p)}${roles ? ` <span class="ai-chip-soft">${escapeHtml(roles)}</span>` : ''}</span>
+        </div>
+        <div class="ai-endpoint-row"><span class="ai-endpoint-proto ai-dim">توليد</span><code dir="ltr">${escapeHtml(endpoints.chat)}</code></div>
+        <div class="ai-endpoint-row"><span class="ai-endpoint-proto ai-dim">موديلات</span><code dir="ltr">${escapeHtml(endpoints.models)}</code></div>
+        ${duplicated ? warnHtml(
+            `رقم الإصدار مكرّر في المسار. بروتوكول ${PROTOCOL_LABELS[p] || p} يضيف مسار الإصدار بنفسه، فالرابط الأساسي يجب أن يكون بدونه.`,
+            p, endpoints.base.replace(/\/v\d+$/, '')) : ''}
+        ${missingV1 && !duplicated ? warnHtml(
+            'هذا البروتوكول يضيف /chat/completions فقط، فالرابط الأساسي يجب أن ينتهي بمسار الـ API (غالبًا /v1) وإلا ذهب النداء لمسار الموقع.',
+            p, `${endpoints.base}/v1`) : ''}`;
+    }).join('');
+
+    box.innerHTML = rows;
+
+    box.querySelectorAll('[data-fix-protocol]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(`aiBaseUrl-${btn.dataset.fixProtocol}`);
+            if (input) { input.value = btn.dataset.suggest; renderEndpointPreview(providerId); }
+        });
     });
+}
+
+function warnHtml(message, protocol, suggestion) {
+    return `<div class="ai-endpoint-warn">
+        ${icon('alert', 13)}
+        <span>${escapeHtml(message)}</span>
+        ${suggestion ? `<button type="button" class="btn btn-secondary btn-sm" data-fix-protocol="${escapeHtml(protocol)}" data-suggest="${escapeHtml(suggestion)}">استخدم <span dir="ltr">${escapeHtml(suggestion)}</span></button>` : ''}
+    </div>`;
+}
+
+/** بروتوكول اكتشاف الموديلات — نفس منطق الخادم. */
+function discoveryProtocolOf(row) {
+    if (row?.models_discovery?.supported === false) return null;
+    const declared = row?.models_discovery?.protocol;
+    if (declared && row.protocols?.includes(declared)) return declared;
+    return row?.protocols?.[0] || null;
+}
+
+/** قيم حقول الروابط الحالية مفهرسة بالبروتوكول. */
+function collectBaseUrls() {
+    const out = {};
+    document.querySelectorAll('.ai-base-url-input').forEach((el) => {
+        const value = el.value.trim();
+        if (value) out[el.dataset.protocol] = value.replace(/\/+$/, '');
+    });
+    return out;
 }
 
 /** يربط تحديث المعاينة بتغيّر البروتوكول أو الرابط. */
 function bindProtocolChange(providerId) {
     const protocolSelect = document.getElementById('aiProviderProtocol');
-    const baseUrlInput = document.getElementById('aiProviderBaseUrl');
 
-    protocolSelect?.addEventListener('change', () => {
-        const row = findProvider(ctx.catalog, providerId);
-        if (baseUrlInput) baseUrlInput.placeholder = row?.default_endpoints?.[protocolSelect.value] || 'https://api.example.com/v1';
-        renderEndpointPreview(providerId);
+    protocolSelect?.addEventListener('change', () => renderEndpointPreview(providerId));
+    document.querySelectorAll('.ai-base-url-input').forEach((el) => {
+        el.addEventListener('input', () => renderEndpointPreview(providerId));
     });
-
-    baseUrlInput?.addEventListener('input', () => renderEndpointPreview(providerId));
     renderEndpointPreview(providerId);
 }
 
@@ -385,7 +429,8 @@ export async function submitModal() {
     const priorityRaw = document.getElementById('aiProviderPriority').value;
     const isActive = document.getElementById('aiProviderActive').checked;
     const protocol = document.getElementById('aiProviderProtocol')?.value || null;
-    const baseUrl = document.getElementById('aiProviderBaseUrl')?.value.trim() || '';
+    const baseUrls = collectBaseUrls();
+    const baseUrl = baseUrls[protocol] || '';
 
     if (!displayName) return showError('اسم العرض مطلوب');
 
@@ -394,7 +439,7 @@ export async function submitModal() {
 
     const row = findProvider(ctx.catalog, providerId);
     if (row?.requires_base_url && !baseUrl && !editingId) {
-        return showError('هذا المزوّد يتطلب Base URL');
+        return showError(`هذا المزوّد يتطلب Base URL لبروتوكول ${PROTOCOL_LABELS[protocol] || protocol}`);
     }
 
     const credentials = {};
@@ -424,6 +469,7 @@ export async function submitModal() {
             display_name: displayName,
             protocol,
             base_url: baseUrl,
+            base_urls: baseUrls,
             is_active: isActive,
             priority,
             credentials: hasCredentials ? credentials : undefined,

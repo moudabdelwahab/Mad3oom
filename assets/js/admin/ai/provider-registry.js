@@ -87,9 +87,17 @@ export function effectiveProtocol(catalog, integration) {
  */
 export function effectiveBaseUrl(catalog, integration, protocol) {
     const row = findProvider(catalog, integration?.provider);
-    const custom = (integration?.base_url || integration?.credentials_meta?.base_url || '').trim();
     const proto = protocol || effectiveProtocol(catalog, integration);
-    return (custom || row?.default_endpoints?.[proto] || '').replace(/\/+$/, '');
+
+    // نفس ترتيب الخادم: رابط البروتوكول أولًا، ثم الرابط القديم (للبروتوكول
+    // المختار فقط)، ثم رابط الكتالوج.
+    const perProtocol = (integration?.base_urls?.[proto] || '').trim();
+    const selected = (integration?.protocol || row?.protocols?.[0] || '').trim();
+    const legacy = selected === proto
+        ? (integration?.base_url || integration?.credentials_meta?.base_url || '').trim()
+        : '';
+
+    return (perProtocol || legacy || row?.default_endpoints?.[proto] || '').replace(/\/+$/, '');
 }
 
 /**
