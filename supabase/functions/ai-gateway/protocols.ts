@@ -323,6 +323,23 @@ export function maskUrl(url: string): string {
 }
 
 /**
+ * هل هذا الرد صفحة تحقّق بشري من جدار حماية (bot challenge)؟
+ *
+ * لماذا يستحق حالة خاصة: صفحة الكابتشا ترجع 200 و text/html، فتبدو مطابقة
+ * تمامًا لحالة "الـ Base URL يشير لموقع بدل واجهة API". الخلط بينهما يوجّه
+ * التشخيص كله في الاتجاه الخاطئ — يبدأ المستخدم بتغيير روابط سليمة أو
+ * الشكّ في مفتاح صحيح، بينما المضيف ببساطة يرفض أي عميل غير متصفّح.
+ * تُشخَّص بالبصمة لا بالمضيف، فتنطبق على أي مزوّد خلف نفس النوع من الجدران.
+ */
+export function detectBotChallenge(text: string): string | null {
+    if (/aliyunCaptcha|aliyun_waf/i.test(text)) return "Aliyun WAF";
+    if (/cdn-cgi\/challenge-platform|cf-browser-verification|Just a moment\.\.\./i.test(text)) return "Cloudflare";
+    if (/incapsula|_Incapsula_Resource/i.test(text)) return "Imperva Incapsula";
+    if (/px-captcha|PerimeterX/i.test(text)) return "PerimeterX";
+    return null;
+}
+
+/**
  * وصف مفهوم لجسم الخطأ. يغطّي الأشكال الشائعة:
  *   OpenAI/Anthropic → {error:{message}}
  *   new-api/one-api  → {code, msg}          ← شكل بوابات مثل AgentRouter
@@ -367,6 +384,15 @@ async function readJsonOrExplain(res: Response, url: string): Promise<any> {
     }
 
     if (!/json/i.test(contentType) || /^\s*</.test(text.trim())) {
+        const challenge = detectBotChallenge(text);
+        if (challenge) {
+            throw new Error(
+                `${safeUrl} ردّ بصفحة تحقّق بشري (${challenge}) بدل JSON. `
+                + `المضيف يحجب الطلبات القادمة من الخوادم ويطلب اجتياز كابتشا في متصفّح، `
+                + `فلا يمكن لأي خدمة خلفية الاتّصال به. هذه ليست مشكلة في الـ Base URL ولا في المفتاح: `
+                + `اطلب من المزوّد استثناء عناوين خوادمك من الجدار، أو مضيف API مخصّصًا للاتّصال من خادم إلى خادم.`
+            );
+        }
         throw new Error(
             `${safeUrl} رجّع ${contentType || "محتوى غير معروف"} بدل JSON. `
             + `غالبًا الـ Base URL يشير لصفحة ويب وليس لواجهة API — تأكّد أنه يتضمّن مسار الـ API الكامل `

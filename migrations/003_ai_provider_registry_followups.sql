@@ -80,31 +80,28 @@ CREATE POLICY "Manage models of writable integrations"
 -- ----------------------------------------------------------------------------
 -- 4) صف AgentRouter — تصحيح المضيف ومسار اكتشاف الموديلات
 -- ----------------------------------------------------------------------------
--- مضيفان بنفس الاسم تقريبًا، ووظيفتان مختلفتان تمامًا — قيس ولا تخمّن:
+-- المضيف الرسمي (وفق توثيق المزوّد) هو agentrouter.org.
 --
---   agentrouter.org      → الموقع/الكونسول، خلفه Aliyun WAF. يرد 200 مع صفحة
---                          HTML لأي مسار API، حتى مع ترويسات متصفّح كاملة
---                          (User-Agent / Referer / Sec-Fetch-*). غير صالح
---                          كمضيف API من الخادم إطلاقًا.
---   co.agentrouter.org   → واجهة الـ API الحقيقية (nginx + new-api).
---                          GET /v1/models بلا مفتاح  → 401 JSON:
---                            "Missing API Key! Please provide
---                             'Authorization: Bearer <token>', 'x-google-api-key',
---                             'x-goog-api-key', or 'x-api-key' header."
---                          أي أنها تقبل أكثر من ترويسة مصادقة، فبروتوكولا
---                          anthropic (x-api-key) و openai (Bearer) كلاهما يعمل.
---                          /v1beta/models عليها → 404، فلا وجود لمسار Gemini.
+-- تحذير لمن يقرأ ردود هذا المضيف من خادم: الموقع محمي بـ Aliyun WAF يطلب
+-- كابتشا تفاعلية من أي عميل غير متصفّح. النتيجة أن **كل** مسار — بما فيه
+-- /favicon.ico و /robots.txt وصفحات التوثيق — يرد 200 مع text/html تحتوي
+-- صفحة التحقّق، حتى مع ترويسات متصفّح كاملة (User-Agent/Referer/Sec-Fetch-*).
 --
--- لذلك: المضيف يبقى co.agentrouter.org كما في 002، ولا يُضاف بروتوكول gemini.
--- الجديد هنا هو default_model فقط. الصفحة الرسمية تعلن مسارات (/v1/rerank,
--- /v1beta/models …) لكنها لا تدل على المضيف — وهذه بالضبط كانت مصدر الخطأ.
+-- هذا الرد يشبه تمامًا حالة "الـ Base URL يشير لموقع بدل API"، وقد أوقع
+-- التشخيص في متاهة: بدا أن المضيف خاطئ، ثم بدا أن المفتاح مرفوض عند تجربته
+-- على مضيف آخر (co.agentrouter.org) — وهو نشر مختلف لا وجود لمفتاح الحساب
+-- فيه، فردّ "Invalid API Key!" وهو رد صحيح لمفتاح غريب عنه.
 --
--- ملاحظة: لو فشل مسار الاكتشاف المعلن، تُجرَّب بقية بروتوكولات المزوّد تلقائيًا
--- (راجع resolveDiscoveryProtocols في ai-gateway/catalog.ts) — لا افتراض بأن
--- كل مزوّد يعرض الموديلات على نفس المسار أو بنفس آلية المصادقة.
+-- لذلك يميّز ai-gateway الآن صفحات التحقّق البشري بالبصمة (detectBotChallenge
+-- في protocols.ts) ويقولها صراحةً بدل اتّهام الرابط أو المفتاح.
+--
+-- الأثر التشغيلي: الاتّصال من Edge Functions (عناوين مراكز بيانات) محجوب حتى
+-- يستثني المزوّد تلك العناوين أو يوفّر مضيف API للاتّصال من خادم إلى خادم.
+-- ولا يلزم أي تعديل في الكود حينها: يُدخَل المضيف الجديد في base_urls للبروتوكول
+-- المطلوب من إعدادات الربط.
 UPDATE public.ai_provider_catalog
 SET protocols         = ARRAY['anthropic', 'openai'],
-    default_endpoints = '{"anthropic":"https://co.agentrouter.org","openai":"https://co.agentrouter.org/v1"}'::jsonb,
+    default_endpoints = '{"anthropic":"https://agentrouter.org","openai":"https://agentrouter.org/v1"}'::jsonb,
     models_discovery  = '{"supported":true,"protocol":"openai"}'::jsonb,
     default_model     = 'claude-opus-4-8',
     updated_at        = now()
