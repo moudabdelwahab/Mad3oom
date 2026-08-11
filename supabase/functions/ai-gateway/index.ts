@@ -4,12 +4,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { CORS_HEADERS, jsonResponse } from "./cors.ts";
 import { decryptJson } from "./crypto.ts";
 import {
-    loadCatalog, getCatalogRow, resolveProtocol, resolveBaseUrl, resolveDiscoveryProtocol,
+    loadCatalog, getCatalogRow, resolveProtocol, resolveBaseUrl, resolveDiscoveryProtocols,
     CatalogRow, IntegrationRow,
 } from "./catalog.ts";
 import {
-    callProvider, fetchModels, listProtocols, resolveProtocolAdapter, readProviderError, modelsEndpointFor,
-    ChatTurn, GenerateRequest,
+    callProvider, discoverModels, listProtocols, resolveProtocolAdapter, readProviderError,
+    chatEndpointFor, maskUrl,
+    ChatTurn, GenerateRequest, DiscoveryAttempt,
 } from "./protocols.ts";
 import { categorize, computeCost, DiscoveredModel } from "./capabilities.ts";
 import { resolveChain, Candidate } from "./router.ts";
@@ -161,6 +162,46 @@ async function saveDiscoveredModels(
         return [];
     }
     return saved || [];
+}
+
+// ----------------------------------------------------------------------------
+// تلميح تشخيصي بعد فشل نداء
+// ----------------------------------------------------------------------------
+/**
+ * نصيحة مبنية على الرابط الذي جُرّب فعلاً، لا على افتراض عام.
+ * السبب: التلميح الثابت "أضِف /v1" كان يظهر حتى لمن رابطه منتهٍ بـ /v1 أصلاً،
+ * فيبدو أن الخطأ من المستخدم بينما المشكلة في مكان آخر تمامًا.
+ */
+function buildEndpointHint(protocol: string, endpoint: string | null): string | null {
+    if (!endpoint) {
+        return "لم يُبنَ أي رابط — تأكّد من وجود Base URL لهذا البروتوكول في إعدادات الربط.";
+    }
+
+    let path = endpoint;
+    try { path = new URL(endpoint).pathname; } catch { /* رابط غير قابل للتحليل: نفحص النص كما هو */ }
+
+    // /v1/v1/... يعني أن الـ Base URL يتضمّن نسخة API والبروتوكول أضاف أخرى
+    if (/\/v\d+(beta)?\/v\d+(beta)?\//i.test(path)) {
+        return "الرابط يحتوي على نسخة API مكرّرة (مثل /v1/v1) — احذف الجزء الزائد من Base URL.";
+    }
+
+    if (protocol === "openai") {
+        return /\/v\d+/i.test(path)
+            ? "الرابط يبدو صحيح الشكل. تحقّق من صلاحية المفتاح وأن هذا المضيف هو مضيف الـ API وليس الموقع التعريفي."
+            : "بروتوكول OpenAI يحتاج Base URL منتهيًا بمسار النسخة (غالبًا /v1).";
+    }
+
+    if (protocol === "anthropic") {
+        return /\/v\d+/i.test(path.replace(/\/v1\/(messages|models)$/i, ""))
+            ? "بروتوكول Anthropic يضيف /v1 بنفسه — احذف /v1 من نهاية Base URL."
+            : "تحقّق من صلاحية المفتاح وأن Base URL هو مضيف الـ API (بدون /v1 في آخره).";
+    }
+
+    if (protocol === "gemini") {
+        return "بروتوكول Gemini يتوقّع Base URL منتهيًا بمسار النسخة (غالبًا /v1beta) والمفتاح يُمرَّر في الرابط.";
+    }
+
+    return "راجع Base URL والمسارات المخصّصة لهذا المزوّد في كتالوج المزوّدين.";
 }
 
 // ----------------------------------------------------------------------------
@@ -324,38 +365,39 @@ async function handleListModels(adminClient: any, catalog: Map<string, CatalogRo
     if (!integration) return jsonResponse({ error: "التكامل غير موجود" }, 404);
 
     const catalogRow = getCatalogRow(catalog, integration.provider);
-    const discoveryProtocol = resolveDiscoveryProtocol(integration, catalogRow);
-    if (!discoveryProtocol) {
+    const protocols = resolveDiscoveryProtocols(integration, catalogRow);
+    if (!protocols.length) {
         return jsonResponse({ success: true, models: [], message: "هذا المزوّد لا يدعم اكتشاف الموديلات" });
     }
 
     const creds = await decryptCredentials(integration);
 
-    // الرابط المستهدف يُرجَع دائمًا (نجاحًا أو فشلًا) — بدونه لا يعرف المستخدم
-    // أي مضيف/مسار جُرّب فعلًا، وهو أول ما يحتاجه لتشخيص 401 أو رد HTML.
-    let endpoint: string | null = null;
-    try { endpoint = modelsEndpointFor(integration, catalogRow, discoveryProtocol, creds); } catch { /* يظهر في الخطأ التالي */ }
+    // كل المسارات المجرَّبة تُرجَع (نجاحًا أو فشلًا) — بدونها لا يعرف المستخدم
+    // أي مضيف/مسار لُمس فعلًا، وهو أول ما يحتاجه لتشخيص 401 أو رد HTML.
+    const outcome = await discoverModels(integration, catalogRow, protocols, creds);
 
-    let discovered: DiscoveredModel[];
-    try {
-        discovered = await fetchModels(integration, catalogRow, discoveryProtocol, creds);
-    } catch (err) {
+    if (!outcome.protocol) {
+        const last = outcome.attempts[outcome.attempts.length - 1];
         return jsonResponse({
-            error: "فشل جلب الموديلات: " + (err as Error).message,
-            endpoint,
-            protocol: discoveryProtocol,
-            hint: buildEndpointHint(discoveryProtocol, endpoint),
+            error: "فشل جلب الموديلات على كل المسارات المتاحة: " + (last?.error || "سبب غير معروف"),
+            endpoint: last?.endpoint || null,
+            protocol: last?.protocol || null,
+            attempts: outcome.attempts,
+            hint: buildEndpointHint(last?.protocol || "", last?.endpoint || null),
         }, 502);
     }
 
-    const saved = await saveDiscoveredModels(adminClient, id, discovered, integration.credentials_meta?.model);
+    const saved = await saveDiscoveredModels(adminClient, id, outcome.models, integration.credentials_meta?.model);
     return jsonResponse({
         success: true,
-        discovered: discovered.length,
+        discovered: outcome.models.length,
         models: saved,
-        protocol: discoveryProtocol,
-        endpoint,
-        message: `تم اكتشاف ${discovered.length} موديل`,
+        protocol: outcome.protocol,
+        endpoint: outcome.endpoint,
+        attempts: outcome.attempts,
+        message: outcome.models.length
+            ? `تم اكتشاف ${outcome.models.length} موديل عبر بروتوكول ${outcome.protocol}`
+            : `المسار ${outcome.endpoint} ردّ بنجاح لكنه لم يُرجع أي موديل — أضِف الموديلات يدويًا.`,
     });
 }
 
@@ -402,8 +444,25 @@ async function handleAddModel(adminClient: any, body: any) {
 }
 
 // ----------------------------------------------------------------------------
-// action: test — فحص اتصال خفيف عبر البروتوكول المناسب
+// action: test — فحص الاتصال
 // ----------------------------------------------------------------------------
+
+/** الموديل الذي سيُستخدم في فحص الاتصال: المحدّد يدويًا، ثم المكتشف، ثم كتالوج المزوّد. */
+async function resolveTestModel(adminClient: any, integration: any, catalogRow: CatalogRow): Promise<string | null> {
+    const fromMeta = (integration.credentials_meta?.model || "").trim();
+    if (fromMeta) return fromMeta;
+
+    const { data } = await adminClient
+        .from("external_integration_models")
+        .select("model_id")
+        .eq("integration_id", integration.id)
+        .eq("is_enabled", true)
+        .order("is_default", { ascending: false })
+        .limit(1);
+
+    return data?.[0]?.model_id || (catalogRow.default_model || "").trim() || null;
+}
+
 async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, body: any) {
     const id = (body.integration_id || "").trim();
     if (!id) return jsonResponse({ error: "integration_id مطلوب" }, 400);
@@ -414,41 +473,83 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
 
     const catalogRow = getCatalogRow(catalog, integration.provider);
     const protocol = resolveProtocol(integration, catalogRow);
-    const adapter = resolveProtocolAdapter(protocol);
+    const discoveryProtocols = resolveDiscoveryProtocols(integration, catalogRow);
 
     let ok = false;
     let message = "";
     let endpoint: string | null = null;
+    let method = "";
+    const attempts: DiscoveryAttempt[] = [];
     const startedAt = Date.now();
+
     try {
         const creds = await decryptCredentials(integration);
-        const base = resolveBaseUrl(integration, catalogRow, protocol);
-        if (!adapter.probe) {
-            ok = true;
-            message = `لا يوجد فحص محدّد للبروتوكول "${protocol}" — الإعدادات تبدو صحيحة`;
-        } else {
-            const { url, init } = adapter.probe(base, catalogRow, creds);
-            endpoint = url.replace(/([?&](?:key|api_key|access_token)=)[^&]+/gi, "$1***");
-            const res = await fetch(url, init);
 
-            // res.ok وحده لا يكفي: مواقع الويب تُرجع صفحة SPA بكود 200 لأي مسار
-            // غير معروف، فكان الفحص يعلن "متصل" وهو لم يلمس واجهة API إطلاقًا.
-            const contentType = res.headers.get("content-type") || "";
-            const isJson = /json/i.test(contentType);
+        // (1) أرخص فحص وأدقّه: قائمة الموديلات. نجرّبها على كل بروتوكول يدعمه
+        //     المزوّد لأن البوابات المجمِّعة قد تعرضها على مسار بروتوكول آخر.
+        for (const p of discoveryProtocols) {
+            const adapter = resolveProtocolAdapter(p);
+            if (!adapter.probe) continue;
+            method = "models";
+            let url = "";
+            try {
+                const base = resolveBaseUrl(integration, catalogRow, p);
+                const probe = adapter.probe(base, catalogRow, creds);
+                url = probe.url;
+                endpoint = maskUrl(url);
+                const res = await fetch(url, probe.init);
 
-            if (!res.ok) {
-                ok = false;
-                message = `${catalogRow.label} رفض الاتّصال (${await readProviderError(res)})`;
-            } else if (!isJson) {
-                ok = false;
-                message = `الرابط رجّع ${contentType || "محتوى غير معروف"} بدل JSON — هذا موقع ويب وليس واجهة API. راجع الرابط الأساسي لبروتوكول ${protocol}.`;
+                // res.ok وحده لا يكفي: مواقع الويب تُرجع صفحة SPA بكود 200 لأي
+                // مسار غير معروف، فكان الفحص يعلن "متصل" وهو لم يلمس API إطلاقًا.
+                const contentType = res.headers.get("content-type") || "";
+                if (!res.ok) {
+                    message = `${catalogRow.label} رفض الاتّصال (${await readProviderError(res)})`;
+                } else if (!/json/i.test(contentType)) {
+                    message = `الرابط رجّع ${contentType || "محتوى غير معروف"} بدل JSON — هذا مسار موقع وليس واجهة API.`;
+                } else {
+                    ok = true;
+                    message = `تم الاتّصال بنجاح مع ${catalogRow.label} عبر بروتوكول ${p}`;
+                }
+            } catch (probeErr) {
+                message = (probeErr as Error).message;
+            }
+            attempts.push({ protocol: p, endpoint: endpoint, ok, count: 0, error: ok ? undefined : message });
+            if (ok) break;
+        }
+
+        // (2) بوابات كثيرة لا تعرض قائمة موديلات على أي مسار (AgentRouter كان
+        //     يبدو كذلك)، فالفحص الصادق الوحيد المتبقي هو نداء توليد حقيقي
+        //     بأقل تكلفة ممكنة. لا نُسقط الفحص لمجرد أن القائمة غير متاحة.
+        if (!ok) {
+            method = "generate";
+            const model = await resolveTestModel(adminClient, integration, catalogRow);
+            if (!model) {
+                message = message || "لا يوجد موديل للاختبار — أضِف موديلًا يدويًا من تبويب الموديلات أولًا.";
             } else {
-                ok = true;
-                message = `تم الاتّصال بنجاح مع ${catalogRow.label} عبر بروتوكول ${protocol}`;
+                endpoint = chatEndpointFor(integration, catalogRow, protocol, model, creds);
+                try {
+                    await callProvider(integration, catalogRow, protocol, creds, {
+                        model,
+                        messages: [{ role: "user", content: "ping" }],
+                        max_tokens: 8,
+                        temperature: 0,
+                    }, 30_000);
+                    ok = true;
+                    message = `تم الاتّصال بنجاح مع ${catalogRow.label} عبر نداء توليد بالموديل ${model}`;
+                } catch (callErr) {
+                    const detail = (callErr as Error).message || "";
+                    // رد فارغ ما زال دليلًا على أن الـ API استُدعي وردّ JSON صالحًا
+                    if (/رد فارغ/.test(detail)) {
+                        ok = true;
+                        message = `تم الاتّصال بنجاح مع ${catalogRow.label} (رد قصير) بالموديل ${model}`;
+                    } else {
+                        message = `${catalogRow.label} رفض النداء: ${detail}`;
+                    }
+                }
+                attempts.push({ protocol, endpoint, ok, count: 0, error: ok ? undefined : message });
             }
         }
     } catch (err) {
-        ok = false;
         message = "تعذّر الاتّصال: " + (err as Error).message;
     }
 
@@ -463,6 +564,8 @@ async function handleTest(adminClient: any, catalog: Map<string, CatalogRow>, bo
         message,
         protocol,
         endpoint,
+        method,
+        attempts,
         hint: ok ? null : buildEndpointHint(protocol, endpoint),
         latency_ms: Date.now() - startedAt,
     });

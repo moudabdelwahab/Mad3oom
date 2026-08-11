@@ -73,8 +73,9 @@ export function resolveProtocol(integration: IntegrationRow, catalogRow: Catalog
  * الرابط الأساسي للبروتوكول المطلوب.
  * ملاحظة مقصودة: لا يُضاف "/v1" تلقائيًا أبدًا — البروتوكول (ومسارات الكتالوج)
  * هما ما يحدّدان المسار النهائي. مثال AgentRouter:
- *   anthropic → https://co.agentrouter.org        ثم /v1/messages
- *   openai    → https://co.agentrouter.org/v1     ثم /chat/completions
+ *   anthropic → https://agentrouter.org        ثم /v1/messages
+ *   openai    → https://agentrouter.org/v1     ثم /chat/completions
+ *   gemini    → https://agentrouter.org/v1beta ثم /models
  */
 export function resolveBaseUrl(integration: IntegrationRow, catalogRow: CatalogRow, protocol: string): string {
     // رابط مخصّص لهذا البروتوكول تحديدًا
@@ -102,10 +103,28 @@ export function resolvePath(catalogRow: CatalogRow, protocol: string, key: strin
     return (p && String(p).trim()) || fallback;
 }
 
-/** البروتوكول المستخدم لاكتشاف الموديلات — قد يختلف عن بروتوكول المحادثة. */
-export function resolveDiscoveryProtocol(integration: IntegrationRow, catalogRow: CatalogRow): string | null {
-    if (catalogRow.models_discovery?.supported === false) return null;
-    const declared = catalogRow.models_discovery?.protocol;
-    if (declared && catalogRow.protocols.includes(declared)) return declared;
-    return resolveProtocol(integration, catalogRow);
+/**
+ * البروتوكولات التي يُجرَّب اكتشاف الموديلات عبرها، بالترتيب.
+ *
+ * لماذا قائمة وليست بروتوكولًا واحدًا: البوابات المجمِّعة (AgentRouter مثلاً)
+ * تتكلم أكثر من بروتوكول وقد تعرض قائمة الموديلات على مسار واحد فقط من بينها
+ * — AgentRouter يعلن /v1beta/models (شكل Gemini) بينما /v1/models يرتطم
+ * بصفحة الموقع. افتراض مسار واحد كان يُنتج "المزوّد لا يدعم الاكتشاف" وهو
+ * استنتاج خاطئ. نجرّب المعلن في الكتالوج أولًا، ثم بروتوكول المحادثة، ثم بقية
+ * ما يدعمه المزوّد.
+ */
+export function resolveDiscoveryProtocols(integration: IntegrationRow, catalogRow: CatalogRow): string[] {
+    if (catalogRow.models_discovery?.supported === false) return [];
+
+    const ordered: string[] = [];
+    const push = (p?: string | null) => {
+        const v = (p || "").trim();
+        if (v && catalogRow.protocols.includes(v) && !ordered.includes(v)) ordered.push(v);
+    };
+
+    push(catalogRow.models_discovery?.protocol);
+    push(integration.protocol);
+    for (const p of catalogRow.protocols) push(p);
+
+    return ordered;
 }

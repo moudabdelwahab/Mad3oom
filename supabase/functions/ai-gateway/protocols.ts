@@ -202,7 +202,14 @@ const geminiAdapter: ProtocolAdapter = {
     modelsUrl: (base, row, creds) =>
         `${base}${resolvePath(row, "gemini", "models", "/models")}?key=${encodeURIComponent(creds.api_key || "")}`,
 
-    headers: (_creds, row) => ({ "Content-Type": "application/json", ...(row.default_headers || {}) }),
+    // المفتاح يُمرَّر في الـ query string (شكل Google الرسمي)، ونكرّره في
+    // x-goog-api-key لأن بعض البوابات المتوافقة تقرأ الترويسة فقط. Google
+    // نفسها تقبل الاثنين، فلا ضرر من إرسالهما معًا.
+    headers: (creds, row) => ({
+        "Content-Type": "application/json",
+        ...(creds.api_key ? { "x-goog-api-key": String(creds.api_key) } : {}),
+        ...(row.default_headers || {}),
+    }),
 
     buildBody: (req) => {
         const body: Record<string, unknown> = {
@@ -237,22 +244,28 @@ const geminiAdapter: ProtocolAdapter = {
     },
 
     parseModels: (json) => (json?.models || [])
-        .filter((m: any) => (m.supportedGenerationMethods || []).includes("generateContent"))
+        // الفلترة تُطبَّق فقط عندما يعلن المزوّد الطرق المدعومة. البوابات
+        // المتوافقة كثيرًا ما تُغفل هذا الحقل، وحذف كل شيء عند غيابه كان
+        // يُنتج "صفر موديل" من رد سليم تمامًا.
+        .filter((m: any) => !Array.isArray(m.supportedGenerationMethods)
+            || m.supportedGenerationMethods.includes("generateContent"))
         .map((m: any) => {
-            const id = String(m.name || "").replace(/^models\//, "");
+            const id = String(m.name || m.id || "").replace(/^models\//, "");
+            const methods: string[] = Array.isArray(m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
             return enrichCapabilities({
                 model_id: id,
                 display_name: m.displayName || id,
-                supports_streaming: (m.supportedGenerationMethods || []).includes("streamGenerateContent"),
+                supports_streaming: methods.length ? methods.includes("streamGenerateContent") : undefined,
                 context_window: m.inputTokenLimit ?? null,
                 max_output_tokens: m.outputTokenLimit ?? null,
-                metadata: { supported_generation_methods: m.supportedGenerationMethods || [] },
+                metadata: { supported_generation_methods: methods },
             });
-        }),
+        })
+        .filter((m: DiscoveredModel) => m.model_id && isChatLikeModel(m.model_id)),
 
     probe: (base, row, creds) => ({
         url: `${base}${resolvePath(row, "gemini", "models", "/models")}?key=${encodeURIComponent(creds.api_key || "")}`,
-        init: {},
+        init: { headers: creds.api_key ? { "x-goog-api-key": String(creds.api_key) } : {} },
     }),
 };
 
@@ -368,17 +381,17 @@ async function readJsonOrExplain(res: Response, url: string): Promise<any> {
     }
 }
 
-/** الرابط الذي ستُجلب منه الموديلات — يُعرض للمستخدم للتشخيص (مُقنَّع). */
-export function modelsEndpointFor(
+/** رابط التوليد — يُعرض للمستخدم عند التشخيص (مُقنَّع). */
+export function chatEndpointFor(
     integration: IntegrationRow,
     catalogRow: CatalogRow,
     protocol: string,
+    model: string,
     creds: Record<string, any> = {},
-): string | null {
+): string {
     const adapter = resolveProtocolAdapter(protocol);
     const base = resolveBaseUrl(integration, catalogRow, protocol);
-    const url = adapter.modelsUrl(base, catalogRow, creds);
-    return url ? maskUrl(url) : null;
+    return maskUrl(adapter.chatUrl(base, catalogRow, { model, messages: [] } as GenerateRequest, creds));
 }
 
 /** تنفيذ نداء التوليد كاملًا عبر البروتوكول المناسب. */
@@ -412,18 +425,84 @@ export async function callProvider(
     }
 }
 
-/** جلب قائمة الموديلات عبر بروتوكول الاكتشاف المعلن في الكتالوج. */
-export async function fetchModels(
+/**
+ * قارئ قوائم لا يفترض شكلًا بعينه.
+ * يُستخدم كشبكة أمان فقط: عندما يردّ المسار بنجاح لكن مُحلِّل البروتوكول
+ * لا يتعرّف على الشكل (بوابة تخلط بين أشكال OpenAI وGemini على نفس المسار)،
+ * نلتقط المعرّفات بدل إعلان "صفر موديل" من رد سليم.
+ */
+function parseModelsAuto(json: any): DiscoveredModel[] {
+    const list: any[] = Array.isArray(json) ? json
+        : Array.isArray(json?.data) ? json.data
+        : Array.isArray(json?.models) ? json.models
+        : [];
+
+    return list
+        .map((m: any) => String(
+            typeof m === "string" ? m : (m?.id || m?.model || m?.name || ""),
+        ).replace(/^models\//, ""))
+        .filter((id: string) => id && isChatLikeModel(id))
+        .map((id: string) => enrichCapabilities({ model_id: id, display_name: id }));
+}
+
+export interface DiscoveryAttempt {
+    protocol: string;
+    endpoint: string | null;
+    ok: boolean;
+    count: number;
+    error?: string;
+}
+
+export interface DiscoveryOutcome {
+    models: DiscoveredModel[];
+    protocol: string | null;
+    endpoint: string | null;
+    attempts: DiscoveryAttempt[];
+}
+
+/**
+ * يجرّب أكثر من بروتوكول حتى ينجح واحد.
+ *
+ * البوابة الواحدة قد تعرض الموديلات على مسار بروتوكول غير الذي نتحدث به.
+ * أول محاولة تُرجع موديلات فعلية تفوز؛ ولو نجح مسار لكنه رجع قائمة فارغة
+ * نحتفظ به كأفضل نتيجة متاحة ونكمل البحث عن أفضل منه. وكل محاولة تُسجَّل
+ * برابطها المُقنَّع وسبب فشلها حتى يرى المستخدم ما جُرِّب فعلاً بدل رسالة
+ * واحدة غامضة.
+ */
+export async function discoverModels(
     integration: IntegrationRow,
     catalogRow: CatalogRow,
-    discoveryProtocol: string,
+    protocols: string[],
     creds: Record<string, any>,
-): Promise<DiscoveredModel[]> {
-    const adapter = resolveProtocolAdapter(discoveryProtocol);
-    const base = resolveBaseUrl(integration, catalogRow, discoveryProtocol);
-    const url = adapter.modelsUrl(base, catalogRow, creds);
-    if (!url) return [];
+): Promise<DiscoveryOutcome> {
+    const attempts: DiscoveryAttempt[] = [];
+    let best: DiscoveryOutcome | null = null;
 
-    const res = await fetch(url, { headers: adapter.headers(creds, catalogRow) });
-    return adapter.parseModels(await readJsonOrExplain(res, url));
+    for (const protocol of protocols) {
+        let endpoint: string | null = null;
+        try {
+            const adapter = resolveProtocolAdapter(protocol);
+            const base = resolveBaseUrl(integration, catalogRow, protocol);
+            const url = adapter.modelsUrl(base, catalogRow, creds);
+            if (!url) {
+                attempts.push({ protocol, endpoint: null, ok: false, count: 0, error: "هذا البروتوكول لا يعرّف مسارًا لقائمة الموديلات" });
+                continue;
+            }
+            endpoint = maskUrl(url);
+
+            const res = await fetch(url, { headers: adapter.headers(creds, catalogRow) });
+            const json = await readJsonOrExplain(res, url);
+            const parsed = adapter.parseModels(json);
+            const models = parsed.length ? parsed : parseModelsAuto(json);
+
+            attempts.push({ protocol, endpoint, ok: true, count: models.length });
+            if (models.length) return { models, protocol, endpoint, attempts };
+            best ??= { models, protocol, endpoint, attempts };
+        } catch (err) {
+            attempts.push({ protocol, endpoint, ok: false, count: 0, error: (err as Error).message });
+        }
+    }
+
+    if (best) return { ...best, attempts };
+    return { models: [], protocol: null, endpoint: null, attempts };
 }
