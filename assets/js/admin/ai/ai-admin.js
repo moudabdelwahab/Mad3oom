@@ -114,11 +114,14 @@ function renderHeaderStats() {
     const connected = ctx.integrations.filter((i) => i.last_test_status === 'success').length;
     const totalCost = ctx.usageSummary.reduce((s, r) => s + (Number(r.total_cost) || 0), 0);
 
-    set('devTabAiCount', String(ctx.integrations.length));
     set('aiStatProviders', `${active}/${ctx.integrations.length}`);
     set('aiStatConnected', String(connected));
     set('aiStatModels', String(ctx.models.length));
     set('aiStatCost', totalCost < 0.01 && totalCost > 0 ? `$${totalCost.toFixed(4)}` : `$${totalCost.toFixed(2)}`);
+
+    // عدّادات كروت الـ Hub وشريط التنقّل تعيش خارج هذا القسم — نبلّغ الصفحة
+    // لتحدّثها من اللقطة بدل أن تقرأ نص عنصر من هنا.
+    window.mcpOnAiDataChanged?.();
 }
 
 function renderActive() {
@@ -154,6 +157,25 @@ function openDevEnvironment(options) {
 
 /* ====================  التركيب  ==================== */
 
+/**
+ * لقطة للقراءة فقط من الحالة الحيّة — تستخدمها لوحة الأوامر لبناء فهرسها.
+ * لا تُنسخ العناصر: القارئ لا يعدّلها، والنسخ عند كل فتح للوحة هدر بلا مقابل.
+ */
+export function snapshot() {
+    return {
+        mounted,
+        catalog: ctx.catalog,
+        integrations: ctx.integrations,
+        models: ctx.models,
+        routingRules: ctx.routingRules,
+    };
+}
+
+/** يُركّب القسم إن لم يكن مركّبًا، دون إعادة تحميل الشبكة لو كان جاهزًا. */
+export async function ensureMounted() {
+    if (!mounted) await mount();
+}
+
 export async function mount() {
     if (mounted) { await reload(); return; }
     mounted = true;
@@ -170,7 +192,7 @@ export async function mount() {
     document.getElementById('aiProviderSearch')?.addEventListener('input', debounce((e) => providersView.setSearch(e.target.value), 250));
     document.getElementById('aiModelsSearch')?.addEventListener('input', debounce((e) => modelsView.setSearch(e.target.value), 250));
 
-    document.getElementById('aiDevInput')?.addEventListener('keydown', onComposerKey);
+    // محرّر بيئة التطوير يُرسَم لاحقًا، فالربط عليه بالتفويض لا بالعنصر نفسه
     root.addEventListener('keydown', (e) => {
         if (e.target?.id === 'aiDevInput') onComposerKey(e);
     });
