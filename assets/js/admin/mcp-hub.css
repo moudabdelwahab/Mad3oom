@@ -409,3 +409,211 @@
     .hub-bar { padding: 0.4rem; }
     .hub-chip { font-size: 0.8rem; padding: 0.45rem 0.7rem; }
 }
+
+/* ============================================================================
+   لوحة الأوامر (Ctrl/⌘+K)
+   ----------------------------------------------------------------------------
+   بلا أي لون جديد: كل شيء مشتق من متغيّرات نظام التصميم عبر color-mix، فتتبع
+   اللوحة السمة الفاتحة والداكنة تلقائيًا كبقية الصفحة.
+   ========================================================================== */
+
+.palette-trigger {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    margin-inline-start: auto;
+    padding: 0.45rem 0.8rem;
+    font-family: inherit; font-size: 0.82rem; font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 0.6rem;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.palette-trigger:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.45); }
+.palette-trigger:active { transform: translateY(1px); }
+.palette-trigger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.palette-trigger kbd {
+    font-family: inherit; font-size: 0.68rem; font-weight: 700;
+    padding: 0.1rem 0.35rem; border-radius: 0.3rem;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+@media (max-width: 720px) {
+    .palette-trigger span { display: none; }
+    .palette-trigger kbd { display: none; }
+    .palette-trigger { padding: 0.45rem; }
+}
+
+/* ‎`display: flex` هنا أقوى من قاعدة `[hidden] { display: none }` في متصفّح
+   المستخدم (قواعد الصفحة تسبق قواعد المتصفّح)، فتبقى الطبقة معروضة بعرض
+   شفّاف تغطّي الصفحة كلها وتبتلع كل نقرة بعد أول إغلاق. الإخفاء الصريح أدناه
+   ليس احتياطًا — بدونه تتجمّد الصفحة بالكامل. */
+.cmdk[hidden] { display: none; }
+
+.cmdk {
+    position: fixed; inset: 0; z-index: 1200;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: clamp(3rem, 12vh, 9rem) 1rem 1rem;
+    background: color-mix(in srgb, var(--color-text) 55%, transparent);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.cmdk.is-open { opacity: 1; }
+
+.cmdk-panel {
+    width: min(680px, 100%);
+    max-height: min(70vh, 560px);
+    display: flex; flex-direction: column;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    box-shadow: 0 24px 60px color-mix(in srgb, var(--color-text) 30%, transparent);
+    overflow: hidden;
+    transform: translateY(-8px) scale(0.985);
+    transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.cmdk.is-open .cmdk-panel { transform: none; }
+
+.cmdk-search {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+.cmdk-search input {
+    flex: 1; min-width: 0;
+    border: none; background: transparent; outline: none;
+    font-family: inherit; font-size: 0.95rem; color: var(--color-text);
+}
+.cmdk-search input::placeholder { color: var(--color-text-secondary); opacity: 0.75; }
+.cmdk-esc {
+    font-family: inherit; font-size: 0.68rem; font-weight: 700;
+    padding: 0.15rem 0.4rem; border-radius: 0.3rem;
+    background: var(--color-muted); border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.cmdk-list { overflow-y: auto; padding: 0.35rem; scroll-padding: 0.5rem; }
+
+.cmdk-group {
+    padding: 0.55rem 0.7rem 0.3rem;
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
+    text-transform: none;
+}
+
+.cmdk-item {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+.cmdk-item.is-selected {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+.cmdk-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; flex-shrink: 0;
+    border-radius: 0.5rem;
+    background: var(--color-muted);
+    color: var(--color-accent);
+}
+.cmdk-item.is-selected .cmdk-icon { background: color-mix(in srgb, var(--color-accent) 20%, transparent); }
+.cmdk-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.cmdk-title {
+    font-size: 0.87rem; font-weight: 700; color: var(--color-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-sub {
+    font-size: 0.73rem; color: var(--color-text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-badge {
+    flex-shrink: 0;
+    font-size: 0.68rem; font-weight: 700;
+    padding: 0.15rem 0.5rem; border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+}
+
+.cmdk-empty { padding: 2rem 1rem; text-align: center; }
+.cmdk-empty p { margin: 0 0 0.35rem; font-weight: 700; color: var(--color-text); }
+.cmdk-empty small { color: var(--color-text-secondary); font-size: 0.78rem; line-height: 1.7; }
+
+.cmdk-footer {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    padding: 0.55rem 1rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-muted);
+    font-size: 0.72rem; color: var(--color-text-secondary);
+}
+.cmdk-footer kbd {
+    font-family: inherit; font-size: 0.68rem; font-weight: 700;
+    padding: 0.08rem 0.35rem; margin-inline-end: 0.15rem;
+    border-radius: 0.3rem;
+    background: var(--color-surface); border: 1px solid var(--color-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cmdk, .cmdk-panel { transition: none; }
+    .cmdk-panel { transform: none; }
+}
+
+/* ==================== إبراز العنصر بعد القفز إليه ==================== */
+
+/* بعد أن تنقلك لوحة الأوامر للقسم الصحيح، النبضة تدلّك على العنصر نفسه
+   وسط عشرات البطاقات — بدونها يضيع نصف فائدة البحث. */
+@keyframes mcpFlash {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    12%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 42%, transparent); }
+    60%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 22%, transparent); }
+}
+.is-flashed {
+    animation: mcpFlash 2.1s ease-out;
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .is-flashed { animation: none; outline: 3px solid var(--color-accent); outline-offset: 2px; }
+}
+
+/* ==================== نافذة الاختصارات ==================== */
+
+.shortcut-rows { display: flex; flex-direction: column; gap: 0.15rem; }
+.shortcut-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.6rem 0.2rem;
+    border-bottom: 1px dashed var(--color-border);
+}
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-keys { display: inline-flex; align-items: center; gap: 0.2rem; flex-shrink: 0; min-width: 150px; }
+.shortcut-keys kbd {
+    font-family: inherit; font-size: 0.72rem; font-weight: 700;
+    padding: 0.2rem 0.45rem; border-radius: 0.35rem;
+    background: var(--color-muted); border: 1px solid var(--color-border);
+    color: var(--color-text);
+}
+.shortcut-plus { color: var(--color-text-secondary); font-size: 0.7rem; }
+.shortcut-desc { font-size: 0.84rem; color: var(--color-text-secondary); line-height: 1.6; }
+
+@media (max-width: 520px) {
+    .shortcut-row { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+    .shortcut-keys { min-width: 0; }
+}
+
+.cmdk-busy {
+    margin-inline-start: auto;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    color: var(--color-accent); font-weight: 600;
+}
+.cmdk-busy::before {
+    content: ''; width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+    border-top-color: var(--color-accent);
+    animation: cmdkSpin 0.7s linear infinite;
+}
+@keyframes cmdkSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cmdk-busy::before { animation: none; } }

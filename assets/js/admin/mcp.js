@@ -29,6 +29,9 @@ import * as aiAdmin from '/assets/js/admin/ai/ai-admin.js';
 import { testIntegration as aiGatewayTest } from '/assets/js/admin/ai/ai-service.js';
 import { fetchProviderCatalog, isAiProvider, providerLabel } from '/assets/js/admin/ai/provider-registry.js';
 
+import * as cmdk from '/assets/js/admin/command-palette.js';
+import * as modalA11y from '/assets/js/admin/modal-a11y.js';
+
 /** آخر تبويب رئيسي مفتوح — يعود المستخدم لنفس مكانه بعد التحديث. */
 const DEV_TAB_STORAGE_KEY = 'mad3oom_dev_center_tab';
 
@@ -878,16 +881,41 @@ function errorHtml(message) {
     </div>`;
 }
 function toast(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
+    // التنبيه هو آخر ما يبلّغ المستخدم بفشل عملية — فلا يجوز أن يفشل هو نفسه
+    // لغياب حاويته. نُنشئها عند الحاجة بدل أن نرمي استثناءً داخل معالج خطأ.
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
     el.innerHTML = `<span>${escapeHtml(message)}</span>`;
     container.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
-    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 4000);
+
+    // رسائل الخطأ تحتاج وقتًا أطول للقراءة من رسائل النجاح
+    const life = type === 'error' ? 7000 : 4000;
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, life);
 }
-function showError(msg) { const box = document.getElementById('formError'); box.textContent = msg; box.style.display = 'block'; }
-function clearError() { const box = document.getElementById('formError'); box.textContent = ''; box.style.display = 'none'; }
+function showError(msg) {
+    const box = document.getElementById('formError');
+    if (!box) { toast(msg, 'error'); return; }
+    box.textContent = msg;
+    box.style.display = 'block';
+    box.setAttribute('role', 'alert');
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function clearError() {
+    const box = document.getElementById('formError');
+    if (!box) return;
+    box.textContent = '';
+    box.style.display = 'none';
+}
 function escapeHtml(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
@@ -944,6 +972,11 @@ function switchDevTab(tab) {
         document.getElementById(id)?.classList.toggle('active', key === tab);
     });
 
+    // العودة لآخر تبويب فرعي كان مفتوحًا في هذا القسم
+    const savedSub = readSubTabs()[tab];
+    if (tab === 'mcpclient' && (savedSub === 'client' || savedSub === 'server')) switchClientSubTab(savedSub);
+    if (tab === 'api' && (savedSub === 'internal' || savedSub === 'external')) switchApiSubTab(savedSub);
+
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
     if (tab === 'api') {
         if (!apiTokensLoadedOnce) { apiTokensLoadedOnce = true; loadApiTokensSection(); }
@@ -955,22 +988,40 @@ function switchDevTab(tab) {
     try { localStorage.setItem(DEV_TAB_STORAGE_KEY, tab); } catch { /* الوضع الخاص يمنع التخزين — تجاهل */ }
 }
 
-/** الأرقام الحيّة على وجهي كل كارت وعلى شريط التنقّل. */
+/**
+ * الأرقام الحيّة على وجهي كل كارت وعلى شريط التنقّل.
+ *
+ * أرقام قسم AI تُقرأ من لقطة الوحدة مباشرة. كانت تُقرأ من نص عنصر في الصفحة
+ * (devTabAiCount)، وهو مصدر هشّ: يعتمد على ترتيب الرسم، ويحوّل الواجهة إلى
+ * مصدر بيانات لنفسها. وعدّادا وجه كارت AI الخلفي (hubAiProviders/hubAiModels)
+ * لم يكونا يُملآن إطلاقًا، فكان الكارت يعرض صفرًا دائمًا مهما أُضيف من مزوّدين.
+ */
 function updateDevTabCounts() {
     const toolCount = allServers.reduce((sum, s) => sum + (Array.isArray(s.tools) ? s.tools.length : 0), 0);
     const apiTotal = allApiTokens.length + allIntegrations.length;
 
+    const ai = aiAdmin.snapshot();
+    const aiProviders = ai.integrations?.length || 0;
+    const aiModels = ai.models?.length || 0;
+
     setText('devTabMcpCount', String(allServers.length));
     setText('devTabApiCount', String(apiTotal));
+    setText('devTabAiCount', String(aiProviders));
     setText('devChipMcpCount', String(allServers.length));
     setText('devChipApiCount', String(apiTotal));
-    setText('devChipAiCount', document.getElementById('devTabAiCount')?.textContent || '0');
+    setText('devChipAiCount', String(aiProviders));
 
     setText('hubMcpServers', String(allServers.length));
     setText('hubMcpTools', String(toolCount));
     setText('hubApiTokens', String(allApiTokens.length));
     setText('hubIntegrations', String(allIntegrations.length));
+    setText('hubAiProviders', String(aiProviders));
+    setText('hubAiModels', String(aiModels));
 }
+
+// وحدة AI تُحمَّل عند فتح تبويبها، فتُبلّغ الصفحة كي تُحدَّث أرقام الكروت
+// والشريط. بدون هذا يبقى كارت AI صفرًا حتى إعادة تحميل الصفحة.
+window.mcpOnAiDataChanged = updateDevTabCounts;
 
 /**
  * ميلان المشهد مع حركة الفأرة. مقيّد بـ requestAnimationFrame بحيث لا يزيد
@@ -1032,15 +1083,17 @@ function initHub() {
 /** تبويب فرعي داخل قسم API: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية) */
 function switchApiSubTab(subtab) {
     document.querySelectorAll('#devSectionApi .api-subtab').forEach((b) => b.classList.toggle('active', b.dataset.apisubtab === subtab));
-    document.getElementById('apiSubsectionInternal').classList.toggle('active', subtab === 'internal');
-    document.getElementById('apiSubsectionExternal').classList.toggle('active', subtab === 'external');
+    document.getElementById('apiSubsectionInternal')?.classList.toggle('active', subtab === 'internal');
+    document.getElementById('apiSubsectionExternal')?.classList.toggle('active', subtab === 'external');
+    rememberSubTab('api', subtab);
 }
 
 /** تبويب فرعي داخل قسم "MCP" المدمج: العميل (Marketplace/ربط سريع) / الخادم (خوادم مخصّصة + مدعوم كخادم MCP) */
 function switchClientSubTab(subtab) {
     document.querySelectorAll('.client-subtab').forEach((b) => b.classList.toggle('active', b.dataset.clientsubtab === subtab));
-    document.getElementById('clientSubsectionClient').classList.toggle('active', subtab === 'client');
-    document.getElementById('clientSubsectionServer').classList.toggle('active', subtab === 'server');
+    document.getElementById('clientSubsectionClient')?.classList.toggle('active', subtab === 'client');
+    document.getElementById('clientSubsectionServer')?.classList.toggle('active', subtab === 'server');
+    rememberSubTab('mcpclient', subtab);
 
     if (subtab === 'server' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
 }
@@ -1892,6 +1945,246 @@ async function handleSaveDefaultAiProvider() {
     } catch (err) { toast(err.message || 'فشل الحفظ', 'error'); }
 }
 
+/* ============================================================
+ *  لوحة الأوامر + التنقّل الموجَّه + الاختصارات
+ * ============================================================ */
+
+const SUBTAB_STORAGE_KEY = 'mad3oom_dev_center_subtabs';
+
+/** التبويبات الفرعية المحفوظة لكل قسم — العودة للصفحة تعيدك لنفس المكان بالضبط. */
+function readSubTabs() {
+    try { return JSON.parse(localStorage.getItem(SUBTAB_STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function rememberSubTab(section, subtab) {
+    try {
+        const all = readSubTabs();
+        all[section] = subtab;
+        localStorage.setItem(SUBTAB_STORAGE_KEY, JSON.stringify(all));
+    } catch { /* الوضع الخاص يمنع التخزين — تجاهل */ }
+}
+
+/**
+ * يلفت النظر لعنصر بعد القفز إليه.
+ * بدونه تفتح لوحة الأوامر القسم الصحيح ويبقى على المستخدم أن يدور بعينه على
+ * العنصر وسط عشرات البطاقات — وهو نصف الغرض من البحث.
+ */
+function flash(selector, attempt = 0) {
+    const el = document.querySelector(selector);
+    if (!el) {
+        // القسم قد يكون ما زال يُحمّل — نعاود المحاولة قليلًا ثم نستسلم بهدوء
+        if (attempt < 12) setTimeout(() => flash(selector, attempt + 1), 250);
+        return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('is-flashed');
+    void el.offsetWidth;                 // إعادة تشغيل الحركة لو كان مُبرَزًا بالفعل
+    el.classList.add('is-flashed');
+    setTimeout(() => el.classList.remove('is-flashed'), 2200);
+}
+
+/** انتقال موحّد: قسم رئيسي ← تبويب فرعي ← إبراز عنصر. */
+async function goTo({ tab, clientSub, apiSub, aiSub, focus } = {}) {
+    if (tab) switchDevTab(tab);
+    if (clientSub) switchClientSubTab(clientSub);
+    if (apiSub) switchApiSubTab(apiSub);
+    if (aiSub) {
+        await aiAdmin.ensureMounted();
+        aiAdmin.switchSubTab(aiSub);
+    }
+    if (focus) flash(focus);
+}
+
+const CMDK_ICONS = {
+    server: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>',
+    key: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg>',
+    plug: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg>',
+    cpu: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>',
+    tool: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>',
+    bolt: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+    layers: '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>',
+};
+
+/**
+ * الفهرس يُبنى عند كل فتح للوحة من الحالة الحيّة في الذاكرة — بلا أي طلب شبكة،
+ * فالفتح فوري ولا يعرض بيانات قديمة. أقسام لم تُفتح بعد تظهر بأوامر الانتقال
+ * إليها فقط، لأن محتواها لم يُحمَّل أصلًا.
+ */
+function buildPaletteIndex() {
+    const out = [];
+    const ai = aiAdmin.snapshot();
+
+    /* ── الأوامر ─────────────────────────────────────────────── */
+    const actions = [
+        { title: 'إضافة خادم MCP', keywords: 'server add new جديد', icon: CMDK_ICONS.server, run: () => { goTo({ tab: 'mcpclient', clientSub: 'server' }); openModal(); } },
+        { title: 'اختبار كل خوادم MCP', keywords: 'test all فحص', icon: CMDK_ICONS.bolt, run: () => { goTo({ tab: 'mcpclient', clientSub: 'server' }); handleTestAllServers(); } },
+        { title: 'توليد مفتاح API', keywords: 'token key new جديد', icon: CMDK_ICONS.key, run: () => { goTo({ tab: 'api', apiSub: 'internal' }); openApiTokenModal(); } },
+        { title: 'إضافة تكامل خارجي', keywords: 'integration webhook telegram', icon: CMDK_ICONS.plug, run: () => { goTo({ tab: 'api', apiSub: 'external' }); openAddIntegrationModal(); } },
+        { title: 'إضافة مزوّد ذكاء اصطناعي', keywords: 'ai provider add', icon: CMDK_ICONS.cpu, run: () => goTo({ tab: 'ai', aiSub: 'providers' }).then(() => document.getElementById('aiAddProviderBtn')?.click()) },
+        { title: 'فتح بيئة التطوير', keywords: 'dev environment terminal code', icon: CMDK_ICONS.tool, run: () => goTo({ tab: 'ai', aiSub: 'dev' }) },
+        { title: 'قواعد التوجيه والاحتياطي', keywords: 'routing fallback rules', icon: CMDK_ICONS.layers, run: () => goTo({ tab: 'ai', aiSub: 'routing' }) },
+        { title: 'الاستخدام والتكلفة', keywords: 'usage cost tokens تكلفة', icon: CMDK_ICONS.layers, run: () => goTo({ tab: 'ai', aiSub: 'usage' }) },
+        { title: 'مستكشف الأدوات', keywords: 'tools explorer run', icon: CMDK_ICONS.tool, run: () => goTo({ tab: 'mcpclient', clientSub: 'client', focus: '#toolExplorerList' }) },
+        { title: 'مدعوم كخادم MCP', keywords: 'server outbound oauth', icon: CMDK_ICONS.server, run: () => goTo({ tab: 'mcpclient', clientSub: 'server' }) },
+        { title: 'تحديث بيانات الصفحة', keywords: 'refresh reload تحديث', icon: CMDK_ICONS.bolt, run: () => { loadServers(); if (apiTokensLoadedOnce) loadApiTokensSection(); if (integrationsLoadedOnce) loadIntegrationsSection(); if (ai.mounted) aiAdmin.reload({ force: true }); } },
+        { title: 'قراءة دليل الاستخدام', keywords: 'docs guide help توثيق', icon: CMDK_ICONS.layers, run: () => document.querySelector('.page-doc-btn')?.click() },
+        { title: 'عرض اختصارات الكيبورد', keywords: 'shortcuts keyboard help', icon: CMDK_ICONS.bolt, run: () => openShortcutsHelp() },
+        { title: 'العودة لواجهة الكروت', keywords: 'hub home back رئيسية', icon: CMDK_ICONS.layers, run: () => showHub() },
+    ];
+    for (const a of actions) out.push({ ...a, kind: 'action', group: 'أوامر' });
+
+    /* ── خوادم MCP وأدواتها ──────────────────────────────────── */
+    for (const s of allServers) {
+        out.push({
+            kind: 'entity', group: 'خوادم MCP', icon: CMDK_ICONS.server,
+            title: s.name || s.id,
+            subtitle: `${transportLabel(s.transport)} · ${Array.isArray(s.tools) ? s.tools.length : 0} أداة`,
+            badge: s.status === MCP_STATUSES.CONNECTED ? 'متصل' : undefined,
+            keywords: `${s.url || ''} ${s.transport || ''}`,
+            boost: 40,
+            run: () => goTo({ tab: 'mcpclient', clientSub: 'server', focus: `#serversList [data-id="${CSS.escape(s.id)}"]` }),
+        });
+
+        for (const t of (Array.isArray(s.tools) ? s.tools : [])) {
+            out.push({
+                kind: 'entity', group: 'أدوات', icon: CMDK_ICONS.tool,
+                title: t.name,
+                subtitle: `${s.name} · ${t.enabled ? 'مفعّلة' : 'معطّلة'}`,
+                keywords: t.description || '',
+                run: () => { goTo({ tab: 'mcpclient', clientSub: 'server' }); openToolsModal(s.id); },
+            });
+        }
+    }
+
+    /* ── مفاتيح API ──────────────────────────────────────────── */
+    for (const t of allApiTokens) {
+        out.push({
+            kind: 'entity', group: 'مفاتيح API', icon: CMDK_ICONS.key,
+            title: t.name || 'مفتاح بلا اسم',
+            subtitle: t.description || credentialTypeLabel(t.credential_type),
+            badge: t.is_active ? undefined : 'معطّل',
+            boost: 20,
+            run: () => goTo({ tab: 'api', apiSub: 'internal', focus: `#apiTokensList [data-token-id="${CSS.escape(t.id)}"]` }),
+        });
+    }
+
+    /* ── التكاملات الخارجية ──────────────────────────────────── */
+    for (const i of allIntegrations) {
+        out.push({
+            kind: 'entity', group: 'التكاملات الخارجية', icon: CMDK_ICONS.plug,
+            title: i.display_name || i.provider,
+            subtitle: i.provider,
+            badge: i.is_active ? undefined : 'معطّل',
+            boost: 20,
+            // النطاق مهم: نفس السمة تُستخدم في شبكة مزوّدي AI أيضًا
+            run: () => goTo({ tab: 'api', apiSub: 'external', focus: `#integrationsGrid [data-integration-id="${CSS.escape(i.id)}"]` }),
+        });
+    }
+
+    /* ── مزوّدو الذكاء الاصطناعي وموديلاتهم ──────────────────── */
+    for (const p of ai.integrations || []) {
+        out.push({
+            kind: 'entity', group: 'مزوّدو الذكاء الاصطناعي', icon: CMDK_ICONS.cpu,
+            title: p.display_name || p.provider,
+            subtitle: `${p.provider}${p.protocol ? ' · ' + p.protocol : ''}`,
+            badge: p.last_test_status === 'success' ? 'متصل' : (p.is_active ? undefined : 'معطّل'),
+            boost: 30,
+            run: () => goTo({ tab: 'ai', aiSub: 'providers', focus: `#aiProvidersGrid [data-integration-id="${CSS.escape(p.id)}"]` }),
+        });
+    }
+
+    const providerNameById = new Map((ai.integrations || []).map((p) => [p.id, p.display_name || p.provider]));
+    for (const m of ai.models || []) {
+        out.push({
+            kind: 'entity', group: 'الموديلات', icon: CMDK_ICONS.cpu,
+            title: m.display_name || m.model_id,
+            subtitle: `${providerNameById.get(m.integration_id) || ''} · ${m.model_id}`,
+            badge: m.is_default ? 'افتراضي' : (m.is_enabled ? undefined : 'معطّل'),
+            keywords: m.category || '',
+            run: () => goTo({ tab: 'ai', aiSub: 'models', focus: `[data-model-row-id="${CSS.escape(m.id)}"]` }),
+        });
+    }
+
+    return out;
+}
+
+/**
+ * الأقسام تُحمَّل عند أول فتح لتبويبها، فلو لم يفتح المستخدم تبويب API مثلًا
+ * فمفاتيحه غير موجودة في الذاكرة — واللوحة تَعِد بالبحث في كل شيء. فتح اللوحة
+ * يبدأ تحميل ما تبقّى في الخلفية، وعند وصوله يُعاد بناء الفهرس فورًا واللوحة
+ * مفتوحة. التحميل يبقى كسولًا لأول رسم للصفحة، ويكتمل عند أول بحث حقيقي.
+ */
+function prefetchForPalette() {
+    const jobs = [];
+
+    if (!apiTokensLoadedOnce) { apiTokensLoadedOnce = true; jobs.push(loadApiTokensSection()); }
+    if (!integrationsLoadedOnce) { integrationsLoadedOnce = true; jobs.push(loadIntegrationsSection()); }
+    if (!aiAdmin.snapshot().mounted) jobs.push(aiAdmin.ensureMounted());
+
+    if (!jobs.length) return;
+
+    cmdk.setBusy(true);
+    Promise.allSettled(jobs).then(() => {
+        cmdk.setBusy(false);
+        cmdk.refreshIndex();
+        updateDevTabCounts();
+    });
+}
+
+/* ── نافذة الاختصارات ─────────────────────────────────────── */
+
+const SHORTCUTS = [
+    ['Ctrl / ⌘ + K', 'لوحة الأوامر — ابحث عن أي عنصر أو نفّذ أمرًا'],
+    ['/', 'التركيز على حقل البحث في التبويب الحالي'],
+    ['?', 'عرض هذه القائمة'],
+    ['Esc', 'إغلاق النافذة المفتوحة، أو العودة لواجهة الكروت'],
+    ['↑ ↓', 'التنقّل بين نتائج لوحة الأوامر'],
+    ['Enter', 'فتح النتيجة المختارة'],
+    ['Ctrl / ⌘ + Enter', 'إرسال الرسالة في بيئة التطوير'],
+];
+
+function openShortcutsHelp() {
+    let modal = document.getElementById('shortcutsModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'shortcutsModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="mcp-modal" style="max-width:520px">
+                <div class="mcp-modal-header">
+                    <h3>اختصارات الكيبورد</h3>
+                    <button class="modal-close" id="shortcutsModalClose" aria-label="إغلاق">&times;</button>
+                </div>
+                <div class="mcp-modal-body">
+                    <div class="shortcut-rows">
+                        ${SHORTCUTS.map(([k, d]) => `
+                            <div class="shortcut-row">
+                                <span class="shortcut-keys">${k.split(' + ').map((p) => `<kbd>${escapeHtml(p)}</kbd>`).join('<span class="shortcut-plus">+</span>')}</span>
+                                <span class="shortcut-desc">${escapeHtml(d)}</span>
+                            </div>`).join('')}
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+        modal.querySelector('#shortcutsModalClose').addEventListener('click', () => modal.classList.remove('open'));
+    }
+    modal.classList.add('open');
+}
+
+/**
+ * حقل البحث الظاهر فعلًا في التبويب الحالي.
+ * الاختيار حسب اسم التبويب وحده كان يُركّز حقلًا مخفيًا: قسم AI فيه حقلا بحث
+ * (مزوّدون وموديلات) يظهر أحدهما حسب التبويب الفرعي، فيبدو أن المفتاح لا يعمل.
+ */
+function focusVisibleSearch() {
+    const candidates = ['mcpMarketSearch', 'explorerSearchInput', 'searchInput', 'aiProviderSearch', 'aiModelsSearch', 'toolsSearchInput'];
+    for (const id of candidates) {
+        const el = document.getElementById(id);
+        if (el && el.offsetParent !== null) { el.focus(); el.select?.(); return true; }
+    }
+    return false;
+}
+
 /* ====================  التهيئة  ==================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1937,49 +2230,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.mcpDeleteIntegration = handleDeleteIntegration;
     window.mcpTestIntegration = handleTestIntegration;
 
-    document.getElementById('addBtn').addEventListener('click', () => openModal());
-    document.getElementById('refreshBtn').addEventListener('click', loadServers);
-    document.getElementById('testAllServersBtn')?.addEventListener('click', handleTestAllServers);
-    document.getElementById('saveBtn').addEventListener('click', submitForm);
-    document.getElementById('filterStatus').addEventListener('change', loadServers);
-    document.getElementById('filterTransport').addEventListener('change', loadServers);
-    document.getElementById('searchInput').addEventListener('input', debounce(loadServers, 400));
-    document.getElementById('fTransport').addEventListener('change', onTransportChange);
-    document.getElementById('fAuthType').addEventListener('change', onAuthTypeChange);
+    /**
+     * ربط مُحصَّن. كل الأحداث كانت مربوطة بـ getElementById(...).addEventListener
+     * مباشرة داخل هذا المعالج الواحد، فأي معرّف مفقود في الـ HTML كان يرمي
+     * استثناءً يوقف بقية التهيئة: الصفحة تُرسم لكن نصف أزرارها ميت بلا رسالة.
+     * الآن العنصر المفقود يُسجَّل في الكونسول والباقي يكمل عمله.
+     */
+    const on = (id, event, handler, opts) => {
+        const el = document.getElementById(id);
+        if (!el) { console.warn(`[mcp] عنصر مفقود في الصفحة: #${id} — تم تخطّي ربط "${event}"`); return null; }
+        el.addEventListener(event, handler, opts);
+        return el;
+    };
 
-    document.getElementById('mcpModal').addEventListener('click', (e) => { if (e.target.id === 'mcpModal') closeModal(); });
-    document.getElementById('modalClose').addEventListener('click', closeModal);
+    on('addBtn', 'click', () => openModal());
+    on('refreshBtn', 'click', loadServers);
+    on('testAllServersBtn', 'click', handleTestAllServers);
+    on('saveBtn', 'click', submitForm);
+    on('filterStatus', 'change', loadServers);
+    on('filterTransport', 'change', loadServers);
+    on('searchInput', 'input', debounce(loadServers, 400));
+    on('fTransport', 'change', onTransportChange);
+    on('fAuthType', 'change', onAuthTypeChange);
 
-    document.getElementById('toolsModal').addEventListener('click', (e) => { if (e.target.id === 'toolsModal') closeToolsModal(); });
-    document.getElementById('toolsModalClose').addEventListener('click', closeToolsModal);
-    document.getElementById('syncToolsBtn').addEventListener('click', handleSyncTools);
-    document.getElementById('testMcpServerBtn')
-    .addEventListener('click', handleTestMcpServer);
-    document.getElementById('toolsSearchInput').addEventListener('input', debounce((e) => {
+    on('mcpModal', 'click', (e) => { if (e.target.id === 'mcpModal') closeModal(); });
+    on('modalClose', 'click', closeModal);
+
+    on('toolsModal', 'click', (e) => { if (e.target.id === 'toolsModal') closeToolsModal(); });
+    on('toolsModalClose', 'click', closeToolsModal);
+    on('syncToolsBtn', 'click', handleSyncTools);
+    on('testMcpServerBtn', 'click', handleTestMcpServer);
+    on('toolsSearchInput', 'input', debounce((e) => {
         toolsSearchQuery = e.target.value;
         renderToolsModal();
     }, 250));
 
     document.addEventListener('keydown', (e) => {
+        // لوحة الأوامر تتكفّل بمفاتيحها بنفسها وتوقف انتشارها
+        if (cmdk.isPaletteOpen()) return;
+
+        const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName) || e.target?.isContentEditable;
+
         if (e.key === 'Escape') {
             const anyModalOpen = !!document.querySelector('.modal-overlay.open');
-            closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal();
-            aiAdmin.closeAllModals();
-            // لا نغادر القسم إن كان Escape يقصد إغلاق نافذة مفتوحة
-            if (!anyModalOpen && activeDevTab) showHub();
+            if (anyModalOpen) {
+                closeModal(); closeToolsModal(); closeApiTokenModal(); closeIntegrationModal();
+                document.getElementById('shortcutsModal')?.classList.remove('open');
+                aiAdmin.closeAllModals();
+            } else if (activeDevTab) {
+                showHub();   // لا نغادر القسم إلا إذا لم يكن هناك ما يُغلق أولًا
+            }
+            return;
         }
-        // اختصارات: / للبحث في التبويب الحالي، Ctrl+K للانتقال بين التبويبات الرئيسية
-        const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName);
-        if (e.key === '/' && !typing) {
-            const searchId = { mcpclient: 'mcpMarketSearch', api: 'searchInput', ai: 'aiProviderSearch' }[currentDevTab()];
-            const box = document.getElementById(searchId);
-            if (box) { e.preventDefault(); box.focus(); box.select?.(); }
-        }
+
+        // Ctrl/⌘+K: لوحة الأوامر. كانت تُدوّر بين التبويبات فقط، وهو أضعف
+        // استعمال ممكن لأشهر اختصار في لوحات الإدارة — والتبويبات نفسها صارت
+        // نتائج داخل اللوحة، فلم يُفقد شيء.
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
             e.preventDefault();
-            const order = [null, 'mcpclient', 'api', 'ai'];
-            const next = order[(order.indexOf(activeDevTab) + 1) % order.length];
-            if (next) switchDevTab(next); else showHub();
+            cmdk.open();
+            return;
+        }
+
+        if (typing) return;
+
+        if (e.key === '/') {
+            if (focusVisibleSearch()) e.preventDefault();
+        } else if (e.key === '?') {
+            e.preventDefault();
+            openShortcutsHelp();
         }
     });
 
@@ -1987,58 +2306,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     initHub();
 
     // تبويب فرعي: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية)
-    document.getElementById('apiSubTabInternal').addEventListener('click', () => switchApiSubTab('internal'));
-    document.getElementById('apiSubTabExternal').addEventListener('click', () => switchApiSubTab('external'));
+    on('apiSubTabInternal', 'click', () => switchApiSubTab('internal'));
+    on('apiSubTabExternal', 'click', () => switchApiSubTab('external'));
 
     // تبويب فرعي: العميل (Marketplace) / الخادم (خوادم مخصّصة) داخل قسم "MCP العميل" المدمج
-    document.getElementById('clientSubTabClient').addEventListener('click', () => switchClientSubTab('client'));
-    document.getElementById('clientSubTabServer').addEventListener('click', () => switchClientSubTab('server'));
+    on('clientSubTabClient', 'click', () => switchClientSubTab('client'));
+    on('clientSubTabServer', 'click', () => switchClientSubTab('server'));
 
     // MCP Client Marketplace - أحداث البحث والتصنيفات ومستكشف الأدوات
-    document.getElementById('mcpMarketSearch').addEventListener('input', debounce((e) => {
+    on('mcpMarketSearch', 'input', debounce((e) => {
         mcpMarketSearchQuery = e.target.value;
         renderConnectorGrid();
     }, 250));
-    document.getElementById('explorerSearchInput').addEventListener('input', debounce((e) => {
+    on('explorerSearchInput', 'input', debounce((e) => {
         explorerSearchQuery = e.target.value;
         renderToolExplorer();
     }, 250));
 
-
     // مفاتيح API - أحداث
-    document.getElementById('addTokenBtn').addEventListener('click', openApiTokenModal);
-    document.getElementById('refreshTokensBtn').addEventListener('click', loadApiTokensSection);
-    document.getElementById('cancelApiTokenBtn').addEventListener('click', closeApiTokenModal);
-    document.getElementById('apiTokenModalClose').addEventListener('click', closeApiTokenModal);
-    document.getElementById('confirmCreateApiTokenBtn').addEventListener('click', handleCreateApiToken);
-    document.getElementById('closeSecretRevealBtn').addEventListener('click', () => {
-        document.getElementById('apiSecretRevealModal').classList.remove('open');
-        document.getElementById('secretRevealContent').innerHTML = '';
+    on('addTokenBtn', 'click', openApiTokenModal);
+    on('refreshTokensBtn', 'click', loadApiTokensSection);
+    on('cancelApiTokenBtn', 'click', closeApiTokenModal);
+    on('apiTokenModalClose', 'click', closeApiTokenModal);
+    on('confirmCreateApiTokenBtn', 'click', handleCreateApiToken);
+    on('closeSecretRevealBtn', 'click', () => {
+        document.getElementById('apiSecretRevealModal')?.classList.remove('open');
+        const content = document.getElementById('secretRevealContent');
+        if (content) content.innerHTML = '';
     });
-    document.getElementById('apiTokenModal').addEventListener('click', (e) => { if (e.target.id === 'apiTokenModal') closeApiTokenModal(); });
+    on('apiTokenModal', 'click', (e) => { if (e.target.id === 'apiTokenModal') closeApiTokenModal(); });
 
     // مفاتيح API - فلتر متصل/غير متصل + التحديد المتعدد والحذف الجماعي
     document.querySelectorAll('#tokenFilterPills .filter-pill').forEach((btn) => {
         btn.addEventListener('click', () => setTokenFilter(btn.dataset.tokenfilter));
     });
-    document.getElementById('toggleSelectModeBtn').addEventListener('click', () => setTokenSelectMode(true));
-    document.getElementById('cancelSelectModeBtn').addEventListener('click', () => setTokenSelectMode(false));
-    document.getElementById('selectAllTokensBtn').addEventListener('click', selectAllVisibleTokens);
-    document.getElementById('deselectAllTokensBtn').addEventListener('click', deselectAllTokens);
-    document.getElementById('bulkDeleteTokensBtn').addEventListener('click', handleBulkDeleteTokens);
+    on('toggleSelectModeBtn', 'click', () => setTokenSelectMode(true));
+    on('cancelSelectModeBtn', 'click', () => setTokenSelectMode(false));
+    on('selectAllTokensBtn', 'click', selectAllVisibleTokens);
+    on('deselectAllTokensBtn', 'click', deselectAllTokens);
+    on('bulkDeleteTokensBtn', 'click', handleBulkDeleteTokens);
 
     // External Integrations - أحداث
-    document.getElementById('addIntegrationBtn').addEventListener('click', openAddIntegrationModal);
-    document.getElementById('refreshIntegrationsBtn').addEventListener('click', loadIntegrationsSection);
-    document.getElementById('cancelIntegrationBtn').addEventListener('click', closeIntegrationModal);
-    document.getElementById('integrationModalClose').addEventListener('click', closeIntegrationModal);
-    document.getElementById('saveIntegrationBtn').addEventListener('click', handleSaveIntegration);
-    document.getElementById('integrationProvider').addEventListener('change', (e) => renderIntegrationCredentialFields(e.target.value));
-    document.getElementById('defaultAiProviderSelect').addEventListener('change', handleSaveDefaultAiProvider);
-    document.getElementById('integrationModal').addEventListener('click', (e) => { if (e.target.id === 'integrationModal') closeIntegrationModal(); });
+    on('addIntegrationBtn', 'click', openAddIntegrationModal);
+    on('refreshIntegrationsBtn', 'click', loadIntegrationsSection);
+    on('cancelIntegrationBtn', 'click', closeIntegrationModal);
+    on('integrationModalClose', 'click', closeIntegrationModal);
+    on('saveIntegrationBtn', 'click', handleSaveIntegration);
+    on('integrationProvider', 'change', (e) => renderIntegrationCredentialFields(e.target.value));
+    on('defaultAiProviderSelect', 'change', handleSaveDefaultAiProvider);
+    on('integrationModal', 'click', (e) => { if (e.target.id === 'integrationModal') closeIntegrationModal(); });
 
     // قسم AI: أزرار النوافذ المنبثقة تعيش خارج جذر القسم، فتُربط مرة واحدة هنا
     aiAdmin.bindModalControls();
+
+    // إدارة التركيز لكل النوافذ دفعة واحدة (مراقبة الصنف .open بدل تعديل كل موضع فتح)
+    modalA11y.init();
+
+    // لوحة الأوامر: الفهرس يُبنى عند كل فتح من الحالة الحيّة
+    cmdk.init({ buildIndex: buildPaletteIndex, onOpen: prefetchForPalette });
+    on('openPaletteBtn', 'click', () => cmdk.open());
 
     handleOauthReturn();
     await loadServers();

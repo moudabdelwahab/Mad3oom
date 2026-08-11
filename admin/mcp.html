@@ -477,10 +477,14 @@
                 <h1>
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><path d="M15 5l4 4"></path></svg>
                     <span data-i18n="mcp_page_title">مركز المطورين</span>
-                    <span class="kbd-hint" style="color:rgba(255,255,255,0.85);margin-inline-start:auto;font-weight:600">
-                        <kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">/</kbd> بحث
-                        <kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">Ctrl</kbd>+<kbd style="background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.3);color:#fff">K</kbd> تبديل التبويب
-                    </span>
+
+                    <!-- مدخل ظاهر للوحة الأوامر: الاختصار وحده غير مرئي لمن لا يعرفه -->
+                    <button type="button" class="palette-trigger" id="openPaletteBtn"
+                            aria-label="فتح لوحة الأوامر والبحث في كل الأقسام">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <span>ابحث في كل الأقسام…</span>
+                        <kbd>Ctrl</kbd><kbd>K</kbd>
+                    </button>
                 </h1>
                 <p data-i18n="mcp_page_subtitle">مركز التكاملات الموحّد لمنصة مدعوم: خوادم MCP صادرة وواردة، مفاتيح API، والتكاملات الخارجية — بالإضافة لمزوّدي الذكاء الاصطناعي وموديلاتهم وقواعد التوجيه وبيئة التطوير، كل ذلك من مكان واحد</p>
 
