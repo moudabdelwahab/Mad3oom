@@ -97,6 +97,10 @@ function warnLog(...args) {
 /** True for errors worth a single retry: network failures and 5xx server errors. Not for 4xx (those won't succeed on retry). */
 function isRetryableError(err) {
     if (!err) return false;
+    // A 429 says "you are going too fast". Retrying spends another token
+    // and pushes the reset further away, so it is excluded explicitly
+    // rather than relying on it falling through the >= 500 check.
+    if (err?.name === 'SieRateLimitError' || err?.status === 429) return false;
     if (err.name === 'AbortError') return true; // timeout
     if (err instanceof TypeError) return true; // network failure (fetch throws TypeError on network errors)
     if (typeof err.status === 'number' && err.status >= 500) return true;
@@ -143,6 +147,71 @@ class SieHttpError extends Error {
 }
 
 /**
+ * A 429 is NOT a transient failure, so it gets its own type rather than
+ * reusing SieHttpError: retrying it is precisely the wrong response, and
+ * isRetryableError() must be able to tell the difference. Retrying would
+ * spend another token and push the reset further out — the customer would
+ * be punished for the client's impatience.
+ */
+class SieRateLimitError extends Error {
+    constructor(message, retryAfterSeconds, limit) {
+        super(message);
+        this.name = 'SieRateLimitError';
+        this.status = 429;
+        this.retryAfterSeconds = Math.max(Number(retryAfterSeconds) || 1, 1);
+        this.limit = Number(limit) || null;
+    }
+}
+
+/**
+ * Last rate-limit standing seen on any SIE response.
+ *
+ * Only meaningful if the API is allowed to expose these headers through
+ * CORS (Access-Control-Expose-Headers) — a cross-origin response hides
+ * everything else from JavaScript, so without that the values stay null
+ * and every consumer degrades to "unknown", never to a wrong number.
+ */
+const lastRateLimit = { limit: null, remaining: null, resetSeconds: null, at: 0 };
+
+function recordRateLimitHeaders(response) {
+    try {
+        const limit = response.headers.get('RateLimit-Limit') ?? response.headers.get('X-RateLimit-Limit');
+        const remaining = response.headers.get('RateLimit-Remaining') ?? response.headers.get('X-RateLimit-Remaining');
+        const reset = response.headers.get('RateLimit-Reset') ?? response.headers.get('X-RateLimit-Reset');
+        if (limit === null && remaining === null) return; // limiter off, or headers not exposed
+        lastRateLimit.limit = limit === null ? null : Number(limit);
+        lastRateLimit.remaining = remaining === null ? null : Number(remaining);
+        lastRateLimit.resetSeconds = reset === null ? null : Number(reset);
+        lastRateLimit.at = Date.now();
+    } catch {
+        // Reading headers must never break a successful reply.
+    }
+}
+
+/**
+ * What the UI needs to warn a customer approaching their limit.
+ *
+ * `level` mirrors the thresholds the admin console uses, so a customer
+ * seeing "قربت من الحد" and an admin looking at the same account are
+ * being told the same thing.
+ *
+ * @returns {{known: boolean, limit: number|null, remaining: number|null,
+ *            resetSeconds: number|null, level: 'unknown'|'ok'|'warning'|'critical'|'exhausted'}}
+ */
+export function getSieRateLimitSnapshot() {
+    const { limit, remaining, resetSeconds } = lastRateLimit;
+    if (limit === null || remaining === null) {
+        return { known: false, limit, remaining, resetSeconds, level: 'unknown' };
+    }
+    const ratio = limit > 0 ? remaining / limit : 1;
+    const level = remaining <= 0 ? 'exhausted'
+        : ratio <= 0.1 ? 'critical'
+        : ratio <= 0.25 ? 'warning'
+        : 'ok';
+    return { known: true, limit, remaining, resetSeconds, level };
+}
+
+/**
  * Performs one HTTP call to SIE (no retry, no circuit-breaker check —
  * see sieRequest() below for the full policy). Never logs the token.
  */
@@ -165,7 +234,22 @@ async function sieFetchOnce(supabase, path, { method = 'GET', body, timeoutMs } 
         payload = null;
     }
 
+    // Every response carries the caller's current standing, not just the
+    // 429 — that is the whole point of the headers. Recording it here (the
+    // one place every SIE call passes through) is what lets the UI warn
+    // BEFORE the wall instead of only reporting the crash into it.
+    recordRateLimitHeaders(response);
+
     if (!response.ok) {
+        if (response.status === 429) {
+            const retryAfter = Number(response.headers.get('Retry-After')) || payload?.retryAfter || 1;
+            const err = new SieRateLimitError(
+                payload?.message || 'وصلت للحد المسموح من الطلبات.',
+                retryAfter,
+                Number(payload?.limit) || lastRateLimit.limit
+            );
+            throw err;
+        }
         const message = payload?.error || payload?.message || `SIE request failed (${response.status})`;
         throw new SieHttpError(message, response.status);
     }
@@ -422,6 +506,27 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
             ticketNumber: data.ticketNumber ?? null
         };
     } catch (err) {
+        // Rate limiting is the one failure with something worth saying to
+        // the customer. Everything else degrades to null so the
+        // traditional engine answers instead — but falling back here would
+        // be wrong: the customer is sending faster than the service
+        // accepts, and quietly routing them to another engine hides that
+        // and doubles the load. So they get a plain, friendly explanation
+        // with a concrete number of seconds.
+        if (err?.name === 'SieRateLimitError') {
+            const seconds = err.retryAfterSeconds;
+            warnLog(`SIE رفض الطلب بسبب حد المعدل — إعادة المحاولة بعد ${seconds}ث`);
+            return {
+                reply: `بعتّ رسايل كتير في وقت قصير، فمحتاج أهدّي شوية [[icon:note]]\n`
+                     + `استنى ${seconds} ${seconds === 1 ? 'ثانية' : 'ثانية'} وابعت تاني — رسالتك مش هتضيع.`,
+                options: [],
+                botState: botState ?? {},
+                alreadyPersisted: false,
+                ticketNumber: null,
+                rateLimited: true,
+                retryAfterSeconds: seconds
+            };
+        }
         warnLog('تعذّر الحصول على رد من محرك SIE الخارجي:', err?.message || err);
         return null;
     }
