@@ -733,4 +733,172 @@ ${ticket.description}
     }
 
     // Create Ticket Form Handler
-    const userCreateTicketForm = document.getElementBy
+    const userCreateTicketForm = document.getElementById('userCreateTicketForm');
+    if (userCreateTicketForm) {
+        userCreateTicketForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('userTicketTitle').value;
+            const description = document.getElementById('userTicketDescription').value;
+            const priority = document.getElementById('userTicketPriority').value;
+            
+            try {
+                await createTicket({ title, description, priority });
+                alert('تم إنشاء التذكرة بنجاح');
+                userCreateTicketForm.reset();
+                createTicketModal.classList.remove('active');
+                await renderStats();
+                await renderTickets();
+            } catch (err) {
+                alert('فشل إنشاء التذكرة: ' + err.message);
+            }
+        });
+    }
+
+    async function renderNotifications() {
+        const container = document.getElementById('notificationsList');
+        if (!container) return;
+        
+        try {
+            const notifications = await fetchNotifications();
+            if (!notifications.length) {
+                container.innerHTML = '<p style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">لا توجد إشعارات</p>';
+                return;
+            }
+            
+            container.innerHTML = notifications.map(n => `
+                <div class="notification-item ${!n.is_read ? 'unread' : ''}" style="border-bottom: 1px solid var(--color-border); padding: 12px 16px; cursor: pointer; transition: background 0.2s;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">${escapeHtml(n.title)}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.2rem;">${escapeHtml(n.message)}</div>
+                    <div style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 0.4rem; opacity: 0.7;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error('Error rendering notifications:', err);
+        }
+    }
+
+    /* ================= BADGES LOGIC ================= */
+
+    async function renderBadges() {
+        const grid = document.getElementById('badgesGrid');
+        const summaryEl = document.getElementById('badgesProgressSummary');
+        if (!grid) return;
+
+        if (isGuest) {
+            grid.innerHTML = '<p class="empty-state">سجّل الدخول لتتمكن من جمع الشارات ومتابعة إنجازاتك.</p>';
+            if (summaryEl) summaryEl.textContent = '';
+            return;
+        }
+
+        try {
+            // نطلب من السيرفر تقييم شارات المستخدم فورًا (بأمان، تعمل فقط على نفس المستخدم المسجّل دخوله)
+            // بحيث لو استحق شارة جديدة بس السيرفر لسه ما فعّلهاش (مثال: عميل مخلص بعد مرور شهر)، تتفعل فورًا هنا.
+            await supabase.rpc('evaluate_customer_badges', { p_user_id: user.id });
+        } catch (err) {
+            console.warn('[Badges] evaluate_customer_badges failed (non-blocking):', err?.message || err);
+        }
+
+        try {
+            const [{ data: definitions, error: defError }, { data: earned, error: earnedError }] = await Promise.all([
+                supabase
+                    .from('badge_definitions')
+                    .select('id, key, name, description, icon, sort_order')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }),
+                supabase
+                    .from('customer_badges')
+                    .select('badge_id, earned_at')
+                    .eq('user_id', user.id)
+            ]);
+
+            if (defError) throw defError;
+            if (earnedError) throw earnedError;
+
+            const earnedMap = new Map((earned || []).map(e => [e.badge_id, e.earned_at]));
+
+            if (!definitions || !definitions.length) {
+                grid.innerHTML = '<p class="empty-state">لا توجد شارات متاحة حاليًا.</p>';
+                if (summaryEl) summaryEl.textContent = '';
+                return;
+            }
+
+            if (summaryEl) {
+                summaryEl.textContent = `حصلت على ${earnedMap.size} من ${definitions.length} شارة`;
+            }
+
+            grid.innerHTML = definitions.map(badge => {
+                const earnedAt = earnedMap.get(badge.id);
+                const isEarned = !!earnedAt;
+                const dateLabel = isEarned
+                    ? new Date(earnedAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : '';
+
+                return `
+                    <div class="badge-card glass-card ${isEarned ? 'earned' : 'locked'}" data-badge-key="${escapeHtml(badge.key)}" title="${isEarned ? 'شارة مكتسبة' : 'شارة غير مكتسبة بعد'}">
+                        ${!isEarned ? '<span class="badge-locked-tag">🔒</span>' : ''}
+                        <div class="badge-icon">${escapeHtml(badge.icon || '🏆')}</div>
+                        <h3>${escapeHtml(badge.name)}</h3>
+                        <p>${escapeHtml(badge.description)}</p>
+                        ${isEarned ? `<div class="badge-earned-date">✓ حصلت عليها في ${dateLabel}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('[Badges] Error loading badges:', err);
+            grid.innerHTML = '<p class="empty-state">حدث خطأ أثناء تحميل الشارات، حاول تحديث الصفحة.</p>';
+        }
+    }
+
+    // تحميل الشارات عند فتح تبويب "الشارات" لأول مرة (Lazy Load)
+    let badgesLoadedOnce = false;
+    const badgesTabEl = document.querySelector('.nav-tab[data-tab="badges"]');
+    if (badgesTabEl) {
+        badgesTabEl.addEventListener('click', () => {
+            if (!badgesLoadedOnce) {
+                badgesLoadedOnce = true;
+                renderBadges();
+            }
+        });
+    }
+
+    /* ================= INIT ================= */
+
+    await Promise.all([renderStats(), renderTickets(), renderNotifications()]);
+
+    // اشتراكات لحظية
+    if (!isGuest) {
+        console.log('[Customer Dashboard] Setting up realtime subscriptions for user:', user.id);
+        subscribeToTickets(() => {
+            console.log('[Customer Dashboard] Tickets callback triggered');
+            // Run stats and tickets fetch in parallel
+            Promise.all([renderStats(), renderTickets()]);
+            if (currentTicketId) loadRepliesInPanel(currentTicketId);
+            if (badgesLoadedOnce) renderBadges();
+        });
+        subscribeToNotifications(user.id, (newNotification) => {
+            console.log('[Customer Dashboard] Notification callback triggered:', newNotification);
+            renderNotifications();
+        });
+    }
+
+    // Logout
+    const signOutLink = document.getElementById('signOutLink');
+    if (signOutLink) {
+        signOutLink.onclick = async (e) => {
+            e.preventDefault();
+            // مهم: نستخدم try/finally هنا. لو حصل أي خطأ أو استثناء جوه
+            // logout() لأي سبب، لازم إعادة التوجيه لصفحة تسجيل الدخول
+            // تحصل برضه، عشان المستخدم ميفضلش عالق في الداشبورد وكأنه
+            // "رجع اتسجل دخول لوحده".
+            try {
+                await logout();
+            } catch (err) {
+                console.error('Logout error (proceeding to redirect anyway):', err);
+            } finally {
+                window.location.replace('login.html');
+            }
+        };
+    }
+
+})();
