@@ -340,10 +340,40 @@ export function detectBotChallenge(text: string): string | null {
 }
 
 /**
+ * إرشاد قابل للتنفيذ لأشهر أعطال المزوّدين.
+ *
+ * رقم الحالة وحده لا يقول للأدمن ما العمل: «كود 402» تقنيّ، بينما «رصيد حسابك
+ * لدى المزوّد نفد» يقود مباشرةً إلى الحل. والتصنيف بنصّ الرسالة قبل الرقم
+ * مقصود — بوابات تُرجع نفاد الرصيد بكود 429 (حدّ معدّل)، فالاعتماد على الرقم
+ * وحده يعطي نصيحة خاطئة تمامًا: "انتظر قليلًا" بينما المطلوب شحن الرصيد.
+ */
+function guidanceFor(status: number, detail: string): string {
+    const d = String(detail).toLowerCase();
+
+    if (/insufficient|no credit|balance|top up|billing|payment|out of credit|quota exceeded/.test(d) || status === 402) {
+        return "رصيد حسابك لدى المزوّد نفد — اشحن الرصيد، أو وجّه هذا الوضع لمزوّد آخر من تبويب «التوجيه والاحتياطي».";
+    }
+    if (status === 429) {
+        return "تجاوزت حدّ المعدّل المسموح — انتظر قليلًا، أو عرّف مزوّدًا احتياطيًا يتحوّل إليه النداء تلقائيًا.";
+    }
+    if (status === 401 || status === 403) {
+        return "المفتاح مرفوض أو لا يملك صلاحية هذا الموديل — راجع المفتاح في إعدادات الربط.";
+    }
+    if (status === 404) {
+        return "المسار أو اسم الموديل غير موجود لدى هذا المزوّد — راجع اسم الموديل أو أعِد مزامنة الموديلات.";
+    }
+    if (status >= 500) {
+        return "عطل مؤقت لدى المزوّد — أعِد المحاولة، أو عرّف مزوّدًا احتياطيًا.";
+    }
+    return "";
+}
+
+/**
  * وصف مفهوم لجسم الخطأ. يغطّي الأشكال الشائعة:
  *   OpenAI/Anthropic → {error:{message}}
  *   new-api/one-api  → {code, msg}          ← شكل بوابات مثل AgentRouter
  *   نص خام أو HTML   → يُقال ذلك صراحةً
+ * ثم يُلحق بالوصف إرشادًا عمليًا حين يكون العطل من نوع معروف.
  */
 function describeErrorBody(status: number, text: string): string {
     let detail = "";
@@ -355,9 +385,15 @@ function describeErrorBody(status: number, text: string): string {
             || (typeof p?.error === "string" ? p.error : "")
             || "";
     } catch {
-        detail = /^\s*</.test(text) ? "رد HTML (صفحة ويب) بدل JSON" : text.slice(0, 200);
+        const challenge = detectBotChallenge(text);
+        detail = challenge
+            ? `صفحة تحقّق بشري (${challenge}) بدل JSON`
+            : (/^\s*</.test(text) ? "رد HTML (صفحة ويب) بدل JSON" : text.slice(0, 200));
     }
-    return `كود ${status}${detail ? ": " + String(detail).slice(0, 300) : ""}`;
+
+    const base = `كود ${status}${detail ? ": " + String(detail).slice(0, 300) : ""}`;
+    const guidance = guidanceFor(status, detail);
+    return guidance ? `${base} — ${guidance}` : base;
 }
 
 /** قراءة رسالة خطأ مفهومة من رد المزوّد دون تسريب أي بيانات حسّاسة. */
