@@ -49,7 +49,15 @@ async function callGateway(payload: Record<string, unknown>) {
         body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.error) throw new Error(data?.error || `فشل نداء ai-gateway (كود ${res.status})`);
+    if (!res.ok || data?.error) {
+        // كان الخطأ يُرمى كنصّ فقط، فتضيع كل تفاصيل البوابة: سبب الفشل الفعلي
+        // لكل مزوّد جُرِّب، والاقتراح المرتبط بالحالة. النتيجة أن الأدمن يرى
+        // "فشلت كل المحاولات" ولا يرى أن رصيده لدى المزوّد نفد. نُرفق الجسم
+        // كاملًا بالاستثناء ليصل إلى الواجهة.
+        const err = new Error(data?.error || `فشل نداء ai-gateway (كود ${res.status})`) as Error & { details?: unknown };
+        err.details = data;
+        throw err;
+    }
     return data;
 }
 
@@ -196,11 +204,26 @@ Deno.serve(async (req: Request) => {
                 });
             } catch (err) {
                 const errMessage = (err as Error).message;
-                await adminClient.from("ai_session_messages").insert({
-                    session_id: sessionId, role: "event", content: errMessage,
-                    mode, channel: "logs", error: errMessage,
-                });
-                return jsonResponse({ error: errMessage }, 502);
+                const details = ((err as Error & { details?: any }).details) || {};
+
+                // سطر لكل مزوّد جُرِّب في تبويب Logs — لا سطر واحد مبهم للجلسة كلها
+                const attempts: any[] = Array.isArray(details.attempts) ? details.attempts : [];
+                const logRows = attempts.length
+                    ? attempts.map((a) => ({
+                        session_id: sessionId, role: "event", channel: "logs", mode,
+                        content: `${a.provider || "?"}/${a.model || "?"} • ${a.status || "error"} • ${a.error || ""}`,
+                        error: a.error || errMessage,
+                    }))
+                    : [{ session_id: sessionId, role: "event", channel: "logs", mode, content: errMessage, error: errMessage }];
+                await adminClient.from("ai_session_messages").insert(logRows);
+
+                return jsonResponse({
+                    error: errMessage,
+                    headline: details.headline ?? null,
+                    reason: details.reason ?? null,
+                    suggestion: details.suggestion ?? null,
+                    attempts,
+                }, 502);
             }
 
             const usage = result.usage || {};

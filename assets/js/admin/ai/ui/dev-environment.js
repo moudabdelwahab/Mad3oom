@@ -272,12 +272,30 @@ export async function send() {
             toast(`تم التحوّل للاحتياطي — الرد جاء من ${result.provider}/${result.model}`, 'info');
         }
     } catch (err) {
+        // البوابة ترفق سبب الفشل الفعلي لكل مزوّد جُرِّب واقتراحًا مرتبطًا بالحالة.
+        // عرض err.message وحده كان يُظهر "فشلت كل المحاولات" ويُخفي السبب الوحيد
+        // القابل للتنفيذ — نفاد الرصيد مثلًا — فيبدو العطل مجهولًا بلا حلّ.
+        const d = err.details || {};
+        const attempts = Array.isArray(d.attempts) ? d.attempts.filter((a) => a.error) : [];
+
+        // السبب الفعلي: ما ترسله البوابة صراحةً، وإلا خطأ آخر مزوّد جُرِّب.
+        // الاشتقاق من attempts مقصود كي تعمل الرسالة حتى مع نسخة بوابة أقدم
+        // لا ترسل reason — فالحالة الشائعة مزوّد واحد، وخطؤه هو كل القصة.
+        const reason = d.reason || attempts[attempts.length - 1]?.error || err.message || 'خطأ غير معروف';
+        const parts = [reason];
+
+        if (attempts.length > 1) {
+            parts.push('\n\nالمزوّدون الذين جُرِّبوا:');
+            for (const a of attempts) parts.push(`• ${a.provider || '?'}/${a.model || '?'}: ${a.error}`);
+        }
+        if (d.suggestion) parts.push(`\n${d.suggestion}`);
+
         messages.push({
             role: 'assistant', channel: 'session', mode: currentMode,
-            content: 'تعذّر الحصول على رد: ' + (err.message || 'خطأ غير معروف'),
+            content: 'تعذّر الحصول على رد — ' + parts.join('\n'),
             created_at: new Date().toISOString(),
         });
-        toast(err.message || 'فشل الإرسال', 'error');
+        toast(reason, 'error');
     } finally {
         sending = false;
         setBusy(btn, false);
