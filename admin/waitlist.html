@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قائمة الانتظار - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .waitlist-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .waitlist-toolbar input[type="text"],
+        .waitlist-toolbar select {
+            padding: 0.65rem 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.6rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .waitlist-toolbar input[type="text"] {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .waitlist-detail-modal {
+            display: none;
+            position: fixed;
+            z-index: 4000;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 1rem;
+        }
+
+        .waitlist-detail-content {
+            background-color: var(--color-surface);
+            margin: 8% auto;
+            padding: 1.75rem;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .waitlist-detail-header {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 1.25rem;
+        }
+
+        .waitlist-detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 0.9rem;
+        }
+
+        .waitlist-detail-row span:first-child {
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        .waitlist-detail-footer {
+            display: flex;
+            gap: 0.625rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>قائمة الانتظار (Waitlist)</h1>
+            <p>مراجعة المسجلين قبل الإطلاق الرسمي والموافقة عليهم أو رفضهم</p>
+        </header>
+
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">الطلبات</h2>
+            </div>
+
+            <div class="waitlist-toolbar">
+                <input type="text" id="waitlistSearch" placeholder="ابحث بالاسم أو البريد الإلكتروني أو الهاتف...">
+                <select id="waitlistStatusFilter">
+                    <option value="">كل الحالات</option>
+                    <option value="pending">قيد المراجعة</option>
+                    <option value="approved">تمت الموافقة</option>
+                    <option value="rejected">مرفوض</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>الهاتف</th>
+                            <th>الحالة</th>
+                            <th>تاريخ التسجيل</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="waitlistBody">
+                        <tr><td colspan="6" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Entry Details Modal -->
+    <div class="waitlist-detail-modal" id="waitlistDetailModal">
+        <div class="waitlist-detail-content">
+            <div class="waitlist-detail-header">بيانات الطلب</div>
+            <div class="waitlist-detail-row"><span>الاسم</span><span id="detailName"></span></div>
+            <div class="waitlist-detail-row"><span>البريد الإلكتروني</span><span id="detailEmail"></span></div>
+            <div class="waitlist-detail-row"><span>الهاتف</span><span id="detailPhone"></span></div>
+            <div class="waitlist-detail-row"><span>الحالة</span><span id="detailStatus"></span></div>
+            <div class="waitlist-detail-row"><span>تاريخ التسجيل</span><span id="detailCreatedAt"></span></div>
+            <div class="waitlist-detail-row" id="detailReviewedRow" style="display:none;">
+                <span>تمت المراجعة</span><span id="detailReviewedAt"></span>
+            </div>
+            <div class="waitlist-detail-footer">
+                <button type="button" class="btn btn-secondary btn-sm" id="detailCloseBtn">إغلاق</button>
+                <button type="button" class="btn btn-danger btn-sm" id="detailRejectBtn">رفض</button>
+                <button type="button" class="btn btn-success btn-sm" id="detailApproveBtn">موافقة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--color-success); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 9999; font-weight: 600;"></div>
+
+    <script type="module" src="/assets/js/admin/waitlist.js"></script>
+</body>
+</html>

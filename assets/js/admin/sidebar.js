@@ -325,6 +325,7 @@ async function applySidebarPermissions() {
     if (isAdmin) {
         showLink('errorTrackerLink');
         showLink('rewardsLink');
+        showLink('waitlistLink');
     }
 
     if (isMainAdmin) {
