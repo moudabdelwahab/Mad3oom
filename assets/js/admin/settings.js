@@ -138,6 +138,7 @@ async function loadAllSettings() {
             document.getElementById('waitlistLaunchDate').value = settings.expected_launch_date || 'أكتوبر 2026';
             document.getElementById('waitlistMessage').value = settings.waitlist_message || '';
             document.getElementById('waitlistModeFields').style.display = mode === 'waitlist' ? 'block' : 'none';
+            showCurrentRegistrationMode(mode);
         }
 
         // 7. Load Working Hours
@@ -839,14 +840,9 @@ function setupEventListeners() {
             show_support_online_status: document.getElementById('showSupportOnlineStatus').checked
         };
         saveAdvancedSetting('customer_experience', settings);
-
-        const registrationMode = document.querySelector('input[name="registrationMode"]:checked')?.value === 'waitlist' ? 'waitlist' : 'open';
-        saveAdvancedSetting('registration_mode', {
-            mode: registrationMode,
-            waitlist_message: document.getElementById('waitlistMessage').value,
-            expected_launch_date: document.getElementById('waitlistLaunchDate').value
-        });
     });
+
+    document.getElementById('saveRegistrationModeBtn')?.addEventListener('click', saveRegistrationMode);
 
     document.getElementById('saveWorkingHoursBtn')?.addEventListener('click', saveWorkingHours);
     document.getElementById('saveBotBtn')?.addEventListener('click', saveBotSettings);
@@ -1080,24 +1076,79 @@ async function saveProfile() {
     }
 }
 
+// يعرض الوضع المطبَّق فعليًا حسب ما هو مقروء من قاعدة البيانات، مش حسب
+// اختيار الراديو - عشان يبان بوضوح لو التغيير لسه محفوظ ولا لأ.
+function showCurrentRegistrationMode(mode) {
+    const el = document.getElementById('registrationModeCurrent');
+    if (!el) return;
+    const isWaitlist = mode === 'waitlist';
+    el.textContent = isWaitlist
+        ? 'الوضع المطبَّق حاليًا: قائمة الانتظار — التسجيل الجديد لا يُنشئ حسابات فعلية.'
+        : 'الوضع المطبَّق حاليًا: تسجيل مفتوح — الحسابات الجديدة تُنشأ بشكل طبيعي.';
+    el.style.color = isWaitlist ? 'var(--color-warning, #92400e)' : 'var(--color-text-secondary)';
+}
+
+async function saveRegistrationMode() {
+    const btn = document.getElementById('saveRegistrationModeBtn');
+    setLoading(btn, true);
+    try {
+        const mode = document.querySelector('input[name="registrationMode"]:checked')?.value === 'waitlist'
+            ? 'waitlist'
+            : 'open';
+
+        const saved = await saveAdvancedSetting('registration_mode', {
+            mode,
+            waitlist_message: document.getElementById('waitlistMessage').value,
+            expected_launch_date: document.getElementById('waitlistLaunchDate').value
+        });
+        if (!saved) return;
+
+        // نعيد القراءة من قاعدة البيانات لتأكيد الوضع المطبَّق فعليًا
+        const { data } = await supabase
+            .from('advanced_settings')
+            .select('value')
+            .eq('key', 'registration_mode')
+            .maybeSingle();
+        showCurrentRegistrationMode(data?.value?.mode === 'waitlist' ? 'waitlist' : 'open');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
 async function saveAdvancedSetting(key, value) {
     try {
         const { data: existing } = await supabase.from('advanced_settings').select('id').eq('key', key).maybeSingle();
-        
-        let error;
+
+        // ملاحظة مهمة: لازم .select() بعد الكتابة عشان نتأكد إن الصف اتكتب فعلاً.
+        // بدونها، أي كتابة تمنعها RLS بترجع بدون error وبصفر صفوف متأثرة، فتظهر
+        // رسالة "تم الحفظ بنجاح" والإعداد مش محفوظ أصلاً.
+        let error, rows;
         if (existing) {
-            const { error: err } = await supabase.from('advanced_settings').update({ value, updated_at: new Date() }).eq('key', key);
-            error = err;
+            const res = await supabase.from('advanced_settings')
+                .update({ value, updated_at: new Date() })
+                .eq('key', key)
+                .select('id');
+            error = res.error;
+            rows = res.data;
         } else {
-            const { error: err } = await supabase.from('advanced_settings').insert({ key, value });
-            error = err;
+            const res = await supabase.from('advanced_settings')
+                .insert({ key, value })
+                .select('id');
+            error = res.error;
+            rows = res.data;
         }
 
         if (error) throw error;
+        if (!rows || rows.length === 0) {
+            throw new Error('لم يتم الحفظ فعليًا — صلاحيات حسابك لا تسمح بتعديل إعدادات المنصة');
+        }
+
         showAlert('تم حفظ الإعدادات بنجاح', 'success');
         logActivity('update_settings', `Updated ${key} settings`);
+        return true;
     } catch (error) {
         showAlert('خطأ في الحفظ: ' + error.message, 'error');
+        return false;
     }
 }
 
