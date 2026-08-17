@@ -123,6 +123,23 @@ async function loadAllSettings() {
             document.getElementById('showSupportOnlineStatus').checked = settings.show_support_online_status !== false;
         }
 
+        // 6b. Load Registration Mode (Open Registration / Waitlist)
+        const { data: registrationModeSettings } = await supabase
+            .from('advanced_settings')
+            .select('*')
+            .eq('key', 'registration_mode')
+            .maybeSingle();
+
+        {
+            const settings = registrationModeSettings?.value || {};
+            const mode = settings.mode === 'waitlist' ? 'waitlist' : 'open';
+            const modeRadio = document.querySelector(`input[name="registrationMode"][value="${mode}"]`);
+            if (modeRadio) modeRadio.checked = true;
+            document.getElementById('waitlistLaunchDate').value = settings.expected_launch_date || 'أكتوبر 2026';
+            document.getElementById('waitlistMessage').value = settings.waitlist_message || '';
+            document.getElementById('waitlistModeFields').style.display = mode === 'waitlist' ? 'block' : 'none';
+        }
+
         // 7. Load Working Hours
         const { data: workingHours } = await supabase
             .from('working_hours')
@@ -822,6 +839,13 @@ function setupEventListeners() {
             show_support_online_status: document.getElementById('showSupportOnlineStatus').checked
         };
         saveAdvancedSetting('customer_experience', settings);
+
+        const registrationMode = document.querySelector('input[name="registrationMode"]:checked')?.value === 'waitlist' ? 'waitlist' : 'open';
+        saveAdvancedSetting('registration_mode', {
+            mode: registrationMode,
+            waitlist_message: document.getElementById('waitlistMessage').value,
+            expected_launch_date: document.getElementById('waitlistLaunchDate').value
+        });
     });
 
     document.getElementById('saveWorkingHoursBtn')?.addEventListener('click', saveWorkingHours);
@@ -934,6 +958,12 @@ document.getElementById('defaultAiProviderSelect')?.addEventListener('change', (
 
     document.getElementById('restrictByIP')?.addEventListener('change', (e) => {
         document.getElementById('ipRestrictionSettings').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('input[name="registrationMode"]').forEach((radio) => {
+        radio.addEventListener('change', (e) => {
+            document.getElementById('waitlistModeFields').style.display = e.target.value === 'waitlist' ? 'block' : 'none';
+        });
     });
 
     document.getElementById('emergencyModeEnabled')?.addEventListener('change', (e) => {

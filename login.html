@@ -730,9 +730,10 @@
         <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم" id="register-logo">
       </div>
 
-      <h1 class="card-title">إنشاء حساب جديد</h1>
-      <p class="card-subtitle">أنشئ حسابك في منصة مدعوم</p>
+      <h1 class="card-title" id="register-title">إنشاء حساب جديد</h1>
+      <p class="card-subtitle" id="register-subtitle">أنشئ حسابك في منصة مدعوم</p>
 
+      <div id="register-form-wrap">
       <form id="register-form" novalidate>
 
         <div class="form-group">
@@ -849,6 +850,18 @@
       <p class="register-row">
         لديك حساب بالفعل؟ <a href="#" id="go-login">تسجيل الدخول</a>
       </p>
+      </div>
+
+      <div id="register-success-panel" style="display:none; text-align:center;">
+        <div style="color: var(--success); margin-bottom: 0.75rem;">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+            <path d="M8 12.4l2.6 2.6L16 9.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <p id="register-success-text" style="white-space:pre-line; text-align:right; line-height:1.9; color: var(--text); font-size:0.92rem; margin-bottom:1.4rem;"></p>
+        <a href="#" id="waitlist-back-to-login" class="btn-primary" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">العودة لتسجيل الدخول</a>
+      </div>
 
     </article>
   </main>
@@ -979,6 +992,49 @@
     });
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // وضع التسجيل (Registration Mode): Open Registration / Waitlist
+  // القيمة قابلة للتحكم من لوحة الإدارة (advanced_settings.registration_mode).
+  // في حال فشل التحميل، نفترض "Open Registration" حتى لا يتعطل التسجيل الحالي.
+  // ══════════════════════════════════════════════════════════════
+  const DEFAULT_WAITLIST_MESSAGE = [
+    'شكرًا لتسجيلك في مدعوم.',
+    'نستعد حاليًا للإطلاق الرسمي للمنصة، وحرصًا منا على تقديم أفضل تجربة وجودة خدمة منذ اليوم الأول، سيتم إضافة بياناتك إلى قائمة الانتظار في الوقت الحالي.',
+    'عند الإطلاق، سنرسل إليك رابط تفعيل حسابك مباشرة.',
+    'موعد الإطلاق المتوقع: {{launch_date}}',
+    'نشكرك على اهتمامك بمدعوم، ونتطلع لانضمامك إلينا.'
+  ].join('\n\n');
+  const DEFAULT_LAUNCH_DATE = 'أكتوبر 2026';
+
+  async function loadRegistrationSettings() {
+    try {
+      const { data } = await withTimeout(
+        supabase.from('advanced_settings').select('value').eq('key', 'registration_mode').maybeSingle(),
+        8000,
+        'التحقق من وضع التسجيل'
+      );
+      const value = data?.value || {};
+      return {
+        mode: value.mode === 'waitlist' ? 'waitlist' : 'open',
+        waitlistMessage: value.waitlist_message || DEFAULT_WAITLIST_MESSAGE,
+        launchDate: value.expected_launch_date || DEFAULT_LAUNCH_DATE
+      };
+    } catch (err) {
+      console.error('Failed to load registration mode, defaulting to open registration:', err);
+      return { mode: 'open', waitlistMessage: DEFAULT_WAITLIST_MESSAGE, launchDate: DEFAULT_LAUNCH_DATE };
+    }
+  }
+
+  const registrationSettingsPromise = loadRegistrationSettings();
+
+  registrationSettingsPromise.then((settings) => {
+    if (settings.mode !== 'waitlist') return;
+    document.getElementById('register-title').textContent = 'الانضمام لقائمة الانتظار';
+    document.getElementById('register-subtitle').textContent = 'المنصة تستعد للإطلاق - سجّل بياناتك وسنتواصل معك عند التفعيل';
+    const submitBtn = document.querySelector('#register-form .btn-primary');
+    if (submitBtn) submitBtn.textContent = 'الانضمام لقائمة الانتظار';
+  });
 
   const ROOT_DOMAIN      = 'mad3oom.online';
   const hostname         = window.location.hostname;
@@ -1488,10 +1544,36 @@
       return;
     }
 
-    setLoading(btn, true, 'إنشاء الحساب');
+    const regSettings = await registrationSettingsPromise;
+    const isWaitlistMode = regSettings.mode === 'waitlist';
+    const idleLabel = isWaitlistMode ? 'الانضمام لقائمة الانتظار' : 'إنشاء الحساب';
+
+    setLoading(btn, true, idleLabel);
     _handlingAuthManually = true;
 
     try {
+      // ── وضع قائمة الانتظار: لا يتم إنشاء حساب فعلي ولا Session، فقط
+      // تُحفظ البيانات في waitlist_entries لمراجعة الأدمن لاحقًا ──
+      if (isWaitlistMode) {
+        const { error: waitlistError } = await withTimeout(
+          supabase.from('waitlist_entries').insert({ name, email, phone }),
+          10000,
+          'إضافتك إلى قائمة الانتظار'
+        );
+
+        if (waitlistError) {
+          if (waitlistError.code === '23505') {
+            showToast('هذا البريد الإلكتروني مسجل بالفعل في قائمة الانتظار.');
+          } else {
+            showToast(waitlistError.message || 'حدث خطأ أثناء الإضافة لقائمة الانتظار، حاول مرة أخرى.');
+          }
+          return;
+        }
+
+        showWaitlistSuccess(regSettings);
+        return;
+      }
+
       // ── تحقق مسبق من توفر اسم المستخدم ورقم الهاتف (تجربة أفضل من
       // انتظار فشل إنشاء الحساب بسبب تعارض على مستوى قاعدة البيانات) ──
       const { data: usernameRows } = await withTimeout(
@@ -1555,8 +1637,23 @@
       showToast(err.message || 'حدث خطأ غير متوقع، حاول مرة أخرى');
     } finally {
       _handlingAuthManually = false;
-      setLoading(btn, false, 'إنشاء الحساب');
+      setLoading(btn, false, idleLabel);
     }
+  });
+
+  function showWaitlistSuccess(regSettings) {
+    const message = regSettings.waitlistMessage.replaceAll('{{launch_date}}', regSettings.launchDate);
+    document.getElementById('register-success-text').textContent = message;
+    document.getElementById('register-form-wrap').style.display = 'none';
+    document.getElementById('register-success-panel').style.display = 'block';
+  }
+
+  document.getElementById('waitlist-back-to-login').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('register-success-panel').style.display = 'none';
+    document.getElementById('register-form-wrap').style.display = '';
+    document.getElementById('register-form').reset();
+    swapToLogin();
   });
 
   // ══════════════════════════════════════════════════════════════
