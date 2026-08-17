@@ -575,6 +575,37 @@
     box-shadow: 0 0 0 3px rgba(22,119,255,0.11);
     background: #fff;
   }
+
+  /* ══ REGISTRATION VALIDATION POPUP ══ */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.45);
+    backdrop-filter: blur(3px);
+    z-index: 10000;
+    align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.8rem 1.6rem;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(15,23,42,0.28);
+    animation: card-in 0.3s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .modal-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(239,68,68,0.1); color: #ef4444;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.9rem;
+  }
+  .modal-title { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-bottom: 0.5rem; }
+  .modal-message { font-size: 0.88rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.3rem; }
+  .modal-box .btn-primary { margin-bottom: 0; }
 </style>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
@@ -768,6 +799,7 @@
             </svg>
             <input type="tel" id="reg-phone" name="phone" placeholder="مثال: 01012345678 أو +201012345678" autocomplete="tel" required>
           </div>
+          <small id="phone-availability" style="display:block; margin-top:0.35rem; font-size:0.78rem;"></small>
         </div>
 
         <div class="form-group">
@@ -968,6 +1000,21 @@
 <footer class="page-footer">
   <span>&#169; منصة مدعوم. جميع الحقوق محفوظة.</span>
 </footer>
+
+<div class="modal-overlay" id="reg-validation-modal">
+  <div class="modal-box">
+    <div class="modal-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="12" cy="16.2" r="1" fill="currentColor"/>
+      </svg>
+    </div>
+    <h3 class="modal-title" id="reg-validation-title">تنبيه</h3>
+    <p class="modal-message" id="reg-validation-message"></p>
+    <button type="button" class="btn-primary" id="reg-validation-close">حسنًا</button>
+  </div>
+</div>
 
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -1574,15 +1621,26 @@
         return;
       }
 
-      // ── تحقق مسبق من توفر اسم المستخدم ورقم الهاتف (تجربة أفضل من
-      // انتظار فشل إنشاء الحساب بسبب تعارض على مستوى قاعدة البيانات) ──
+      // ── تحقق مسبق من اسم المستخدم (محجوز أو مستخدم بالفعل) ورقم الهاتف
+      // (تجربة أفضل من انتظار فشل إنشاء الحساب بسبب تعارض على مستوى قاعدة
+      // البيانات، وبتظهر برسالة واضحة بدل خطأ عام غير مفهوم) ──
+      const { data: isReserved } = await withTimeout(
+        supabase.rpc('is_reserved_username', { p_username: username }),
+        8000,
+        'التحقق من اسم المستخدم'
+      );
+      if (isReserved) {
+        showValidationModal('اسم المستخدم محجوز', 'هذا الاسم محجوز ولا يمكن استخدامه، برجاء اختيار اسم مستخدم آخر.');
+        return;
+      }
+
       const { data: usernameRows } = await withTimeout(
         supabase.rpc('get_email_by_username', { p_username: username }),
         8000,
         'التحقق من اسم المستخدم'
       );
       if (usernameRows?.[0]?.email) {
-        showToast('اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر');
+        showValidationModal('اسم المستخدم مستخدم بالفعل', 'هذا الاسم مستخدم بالفعل بحساب آخر، برجاء اختيار اسم مستخدم مختلف.');
         return;
       }
 
@@ -1592,7 +1650,7 @@
         'التحقق من رقم الهاتف'
       );
       if (phoneRows?.[0]?.email) {
-        showToast('رقم الهاتف مسجل بحساب آخر بالفعل');
+        showValidationModal('رقم الهاتف مستخدم بالفعل', 'رقم الهاتف ده مرتبط بحساب آخر بالفعل. كل حساب لازم يكون له رقم هاتف مختلف.');
         return;
       }
 
@@ -1610,6 +1668,7 @@
         const msgs = {
           'User already registered': 'هذا البريد الإلكتروني مسجل مسبقاً',
           'Password should be at least 6 characters': 'كلمة المرور قصيرة جداً',
+          'Database error saving new user': 'تعذر إنشاء الحساب، تأكد من عدم استخدام اسم المستخدم أو رقم الهاتف من قبل وحاول مرة أخرى',
         };
         showToast(msgs[error.message] || error.message);
         return;
@@ -1657,6 +1716,24 @@
   });
 
   // ══════════════════════════════════════════════════════════════
+  // نافذة منبثقة لتنبيهات التسجيل (اسم مستخدم محجوز/مكرر، هاتف مكرر...)
+  // ══════════════════════════════════════════════════════════════
+  function showValidationModal(title, message) {
+    document.getElementById('reg-validation-title').textContent = title;
+    document.getElementById('reg-validation-message').textContent = message;
+    document.getElementById('reg-validation-modal').classList.add('show');
+  }
+
+  function hideValidationModal() {
+    document.getElementById('reg-validation-modal').classList.remove('show');
+  }
+
+  document.getElementById('reg-validation-close').addEventListener('click', hideValidationModal);
+  document.getElementById('reg-validation-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'reg-validation-modal') hideValidationModal();
+  });
+
+  // ══════════════════════════════════════════════════════════════
   // ✅ التحقق اللحظي من توفر اسم المستخدم أثناء الكتابة (Debounced)
   // ══════════════════════════════════════════════════════════════
   {
@@ -1689,6 +1766,13 @@
 
       debounceTimer = setTimeout(async () => {
         try {
+          const { data: reserved } = await supabase.rpc('is_reserved_username', { p_username: value });
+          if (myToken !== requestToken) return; // نتيجة قديمة، تجاهلها
+          if (reserved) {
+            setAvailability('هذا الاسم محجوز ولا يمكن استخدامه', '#ef4444');
+            return;
+          }
+
           const { data: rows, error } = await supabase.rpc('get_email_by_username', { p_username: value });
           if (myToken !== requestToken) return; // نتيجة قديمة، تجاهلها
           if (error) {
@@ -1699,6 +1783,56 @@
             setAvailability('اسم المستخدم مستخدم بالفعل', '#ef4444');
           } else {
             setAvailability('اسم المستخدم متاح ✓', '#16a34a');
+          }
+        } catch {
+          if (myToken === requestToken) setAvailability('', '');
+        }
+      }, 450);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // ✅ التحقق اللحظي من عدم تكرار رقم الهاتف أثناء الكتابة (Debounced)
+  // ══════════════════════════════════════════════════════════════
+  {
+    const phoneInput = document.getElementById('reg-phone');
+    const availabilityEl = document.getElementById('phone-availability');
+    let debounceTimer = null;
+    let requestToken = 0;
+
+    function setAvailability(text, color) {
+      availabilityEl.textContent = text;
+      availabilityEl.style.color = color;
+    }
+
+    phoneInput.addEventListener('input', () => {
+      const value = phoneInput.value.trim().replace(/[\s\-()]/g, '');
+      clearTimeout(debounceTimer);
+
+      if (!value) {
+        setAvailability('', '');
+        return;
+      }
+      if (!validatePhone(value)) {
+        setAvailability('', '');
+        return;
+      }
+
+      setAvailability('جارٍ التحقق...', 'var(--text-secondary, #888)');
+      const myToken = ++requestToken;
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          const { data: rows, error } = await supabase.rpc('get_email_by_phone', { p_phone: value });
+          if (myToken !== requestToken) return; // نتيجة قديمة، تجاهلها
+          if (error) {
+            setAvailability('', '');
+            return;
+          }
+          if (rows?.[0]?.email) {
+            setAvailability('رقم الهاتف مرتبط بحساب آخر بالفعل', '#ef4444');
+          } else {
+            setAvailability('رقم الهاتف متاح ✓', '#16a34a');
           }
         } catch {
           if (myToken === requestToken) setAvailability('', '');
