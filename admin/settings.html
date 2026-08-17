@@ -92,6 +92,15 @@
         .card-body {
             padding: 2rem;
         }
+
+        /* أقسام فرعية داخل بطاقة إعدادات واحدة (مثل مفاتيح API والتكاملات) */
+        .settings-subsection {
+            border-top: 1px solid var(--color-border);
+        }
+
+        .settings-subsection .card-header {
+            background: var(--color-muted);
+        }
         
         .form-row {
             display: grid;
@@ -382,7 +391,7 @@
                     إعدادات الإعلانات
                 </a>
                 <a href="#api-keys" class="nav-link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3y2.5z"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"></path></svg>
                     مفاتيح API
                 </a>
                 <a href="#customer-settings" class="nav-link">
@@ -1233,7 +1242,6 @@
             وربط مزوّدي الخدمات الخارجية (ذكاء اصطناعي، تيليجرام، Webhooks) المستخدمة داخل المنصة.
         </p>
     </div>
-</section>
 
 <!-- ============ القسم الأول: Mad3oom API Tokens ============ -->
 <div class="settings-subsection" id="mad3oom-api-tokens">
@@ -1320,7 +1328,7 @@
             </tbody>
         </table>
     </div>
-</section>
+</div>
 
 <!-- ============ القسم الثاني: External Integrations ============ -->
 <div class="settings-subsection" id="external-integrations">
@@ -1387,6 +1395,7 @@
             </div>
         </div>
     </div>
+</div>
 </section>
 
                 <!-- Customer Settings Section -->
@@ -1439,6 +1448,11 @@
                                     استخدم <code>{{launch_date}}</code> داخل الرسالة ليتم استبدالها تلقائيًا بموعد الإطلاق أعلاه.
                                 </p>
                             </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                            <button type="button" class="btn btn-primary btn-sm" id="saveRegistrationModeBtn">حفظ وضع التسجيل</button>
+                            <span id="registrationModeCurrent" style="font-size: 0.85rem; color: var(--color-text-secondary);"></span>
                         </div>
 
                         <hr class="section-divider">
