@@ -114,7 +114,11 @@ export function setActiveSidebarTab(tabName) {
  * بيتحدّد من اسم الملف، مش من قسم داخل اللوحة.
  */
 function markActivePage() {
-    const file = window.location.pathname.split('/').pop().replace(/\.html$/, '');
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    let file = (segments.pop() || '').replace(/\.html$/, '');
+    // مسار مجلد (/company-dashboard/ أو /company-dashboard/index.html):
+    // الاسم يُؤخذ من المجلد نفسه بدل ما يبقى فاضي أو 'index'
+    if (!file || file === 'index') file = segments.pop() || '';
     if (!file || file === 'customer-dashboard') return;
 
     document.querySelectorAll('.sidebar-item[data-page]').forEach(item => {
@@ -332,6 +336,7 @@ function setupSidebarLogic(onTabChange, options = {}) {
     refreshUnreadBadge();
     setupNotificationRealtime();
     checkWhatsAppPermission();
+    checkCompanyMembership();
     document.addEventListener('customer:notifications-read', refreshUnreadBadge);
 
     // ── الدرج على الشاشات الصغيرة ────────────────────────────────────────────
@@ -545,5 +550,22 @@ async function checkWhatsAppPermission() {
         await initSubscriptionHandler();
     } catch (err) {
         console.error('[CustomerSidebar] Error checking WhatsApp permission:', err);
+    }
+}
+
+/**
+ * مدخل لوحة الشركة بيظهر فقط للمستخدم التابع لشركة (مالك أو عضو فرعي).
+ * القرار بيتاخد في القاعدة (current_company_id)، والواجهة بترسم نتيجته —
+ * الإخفاء هنا تنظيم للقائمة مش حماية؛ الحماية في RLS ودوال الـRPC نفسها.
+ */
+async function checkCompanyMembership() {
+    const link = document.getElementById('companyDashboardLink');
+    if (!link) return;
+    try {
+        const { hasCompany } = await import('/assets/js/company/company-data.js');
+        link.hidden = !(await hasCompany());
+    } catch (err) {
+        console.error('[CustomerSidebar] Error checking company membership:', err);
+        link.hidden = true;
     }
 }
