@@ -20,6 +20,7 @@ import {
 import { ui } from '/ui-service.js';
 import {
     fetchCompanyDashboard,
+    fetchCompanyMembers,
     saveCompany
 } from '/assets/js/company/company-data.js';
 import {
@@ -83,6 +84,56 @@ async function load() {
     renderProfile();
     renderSubscriptions();
     renderEntitlements();
+    await renderMembers();
+}
+
+/* ── مستخدمو الشركة ─────────────────────────────────────────────────────── */
+
+/**
+ * القسم ده بيعوّض وصول مسؤول الشركة القديم إلى admin/my-users.html بعد ما بقى
+ * التحويل بعد الدخول يوديه للوحة شركته. الصلاحية بتتقرر في القاعدة
+ * (can_manage = مالك + امتياز sub_users فعّال)، والواجهة بترسم نتيجتها.
+ */
+async function renderMembers() {
+    const panel = document.getElementById('companyMembersPanel');
+    const container = document.getElementById('companyMembers');
+    const addBtn = document.getElementById('addMemberBtn');
+
+    const result = await fetchCompanyMembers();
+    if (!result.ok || !result.data) { panel.hidden = true; return; }
+
+    const { members = [], can_manage: canManage } = result.data;
+    panel.hidden = false;
+    addBtn.hidden = !canManage;
+
+    if (!members.length) {
+        renderState(container, { variant: 'empty', title: 'لا يوجد مستخدمون بعد', text: '' });
+        return;
+    }
+
+    container.innerHTML = `
+        <ul class="company-sub-list">
+            ${members.map(m => `
+                <li class="company-sub">
+                    <div class="company-sub-main">
+                        <p class="company-sub-plan">${escapeHtml(m.name || m.email || '—')}</p>
+                        <p class="company-sub-dates">${escapeHtml(m.email || '')}</p>
+                    </div>
+                    <div class="company-sub-side">
+                        <span class="pill ${m.is_owner ? 'status-tone-accent' : 'status-neutral'}">
+                            ${m.is_owner ? 'مالك الحساب' : 'مستخدم فرعي'}
+                        </span>
+                        ${m.is_me ? '<span class="company-sub-days">أنت</span>' : ''}
+                    </div>
+                </li>`).join('')}
+        </ul>`;
+
+    addBtn.onclick = () => {
+        // إنشاء المستخدم الفرعي يتم عبر Edge Function اسمها create-sub-user،
+        // وهي تشتق التبعية من هوية المنادي. الشاشة الحالية لذلك في لوحة
+        // الإدارة، فنوجّه إليها بدل تكرار النموذج هنا.
+        window.location.href = '/admin/my-users.html';
+    };
 }
 
 /* ── شريط المستوى ───────────────────────────────────────────────────────── */

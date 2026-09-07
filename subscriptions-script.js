@@ -10,7 +10,9 @@ import {
     getSubscriptionStatus,
     renewSubscription,
     subscribeToSubscriptionUpdates,
-    checkPurchaseAllowed
+    checkPurchaseAllowed,
+    getUpgradeQuote,
+    getPlanPrices
 } from '/whatsapp-subscription-service.js';
 // خطوة بيانات الشركة للباقات التي تستلزمها (subscription_plans.requires_company).
 // المسار نفسه لم يتغيّر: طلب اشتراك → مراجعة الإدارة → تفعيل.
@@ -42,11 +44,42 @@ let unsubscribeRealtime = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
     initThemeToggle();
+    // الأسعار تُحمَّل من قاعدة البيانات قبل أي رسم: القيم المكتوبة في HTML
+    // بقت مجرد قيمة ظاهرة لحظة التحميل الأولى، مش مصدر فوترة.
+    await loadPricesFromDatabase();
     initBillingToggle();
     initPlanButtons();
     setupAnchorScrolling();
     await initializePage();
 });
+
+/**
+ * يملأ أسعار البطاقات من subscription_plans.
+ * قبل كده كان السعر مكتوبًا في سمتَي data-monthly/data-yearly في صفحتين
+ * منفصلتين، فأي تغيير سعر كان لازم يتعمل في مكانين ومفيش ضمان إنهم متطابقين
+ * ولا إن القاعدة تعرفهم أصلًا.
+ */
+async function loadPricesFromDatabase() {
+    const plans = await getPlanPrices();
+    if (!plans.length) return; // فشل التحميل: تُترك القيم الظاهرة كما هي
+
+    for (const plan of plans) {
+        const card = document.querySelector(`.pricing-card[data-plan="${plan.key}"]`);
+        if (!card) continue;
+
+        const amountEl = card.querySelector('.amount');
+        if (amountEl && plan.price_monthly != null && plan.price_yearly != null) {
+            amountEl.dataset.monthly = String(plan.price_monthly);
+            amountEl.dataset.yearly = String(plan.price_yearly);
+        }
+        const currencyEl = card.querySelector('.currency');
+        if (currencyEl && plan.currency) {
+            currencyEl.textContent = plan.currency === 'USD' ? '$' : plan.currency;
+        }
+    }
+
+    updatePricing(getActiveBillingCycle());
+}
 
 /* ==================== Theme Toggle ==================== */
 function initThemeToggle() {
@@ -276,6 +309,18 @@ async function updatePlanButtonsState(activePlan) {
             return;
         }
 
+        // ترقية متاحة؟ الزر لازم يقول كده صراحةً بدل "اشترك الآن"، عشان
+        // العميل يعرف إنه هيدفع فرق السعر لا السعر الكامل.
+        const quote = await getUpgradeQuote(plan);
+        if (quote && quote.eligible === true) {
+            const cy = quote.currency === 'USD' ? '$' : (quote.currency || '');
+            btn.textContent = 'ترقية ودمج الباقة';
+            btn.disabled = false;
+            btn.title = `تدفع فرق السعر فقط (${cy}${quote.amount_due}) عن ${quote.remaining_days} يومًا متبقية، بنفس تاريخ انتهاء اشتراكك الحالي.`;
+            btn.classList.remove('btn-subscribed');
+            return;
+        }
+
         const check = await checkPurchaseAllowed(plan, false);
 
         if (check && check.allowed === false) {
@@ -442,11 +487,92 @@ function initPlanButtons() {
     });
 }
 
+/**
+ * نافذة "ترقية ودمج الباقة".
+ * بتعرض كل أرقام العملية قبل أي طلب دفع، وكلها جاية من القاعدة
+ * (subscription_upgrade_quote) — الواجهة ما بتحسبش أي مبلغ.
+ * @returns {Promise<boolean>} هل أكّد العميل؟
+ */
+function openUpgradeModal(quote) {
+    return new Promise((resolve) => {
+        const cur = quote.current, tgt = quote.target;
+        const cy = quote.currency === 'USD' ? '$' : (quote.currency || '');
+        const cycleLabel = BILLING_LABELS[cur.billing_cycle] || cur.billing_cycle;
+        const fmtDate = (d) => new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+        const row = (label, value, strong) => `
+            <div style="display:flex; justify-content:space-between; gap:1rem; padding:.45rem 0; ${strong ? 'font-weight:800; font-size:1.05rem;' : ''}">
+                <span style="color:var(--color-text-secondary);">${label}</span>
+                <span>${value}</span>
+            </div>`;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `position:fixed; inset:0; background:rgba(0,0,0,.55);
+            display:flex; align-items:center; justify-content:center; z-index:10000; padding:1rem;`;
+        const box = document.createElement('div');
+        box.style.cssText = `background:var(--color-surface); color:var(--color-text);
+            border:1px solid var(--color-border); border-radius:1rem; padding:1.75rem;
+            width:100%; max-width:520px; max-height:90vh; overflow-y:auto;
+            box-shadow:var(--shadow-lg, 0 10px 30px rgba(0,0,0,.3));`;
+
+        box.innerHTML = `
+            <h3 style="margin:0 0 .25rem; font-size:1.15rem; font-weight:800;">ترقية ودمج الباقة</h3>
+            <p style="margin:0 0 1.25rem; font-size:.85rem; color:var(--color-text-secondary); line-height:1.8;">
+                لن تبدأ دورة اشتراك جديدة. تحتفظ بنفس تاريخ انتهاء اشتراكك الحالي،
+                وتدفع فرق السعر عن الأيام المتبقية فقط.
+            </p>
+            <div style="border:1px solid var(--color-border); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
+                ${row('الباقة الحالية', `${cur.plan_name_ar} — ${cy}${cur.price}`)}
+                ${row('الباقة الجديدة', `${tgt.plan_name_ar} — ${cy}${tgt.price}`)}
+                ${row('دورة الفوترة', cycleLabel)}
+                ${row('ينتهي اشتراكك في', fmtDate(cur.end_date))}
+                ${row('الأيام المتبقية', `${quote.remaining_days} من ${quote.cycle_days}`)}
+                ${row('فرق السعر للدورة كاملة', `${cy}${quote.price_difference}`)}
+            </div>
+            <div style="border:1px solid var(--color-accent); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
+                ${row('المبلغ المطلوب الآن', `${cy}${quote.amount_due}`, true)}
+                <p style="margin:.5rem 0 0; font-size:.78rem; color:var(--color-text-secondary); line-height:1.7;">
+                    فرق السعر محسوبًا على ${quote.remaining_days} يومًا متبقية.
+                </p>
+            </div>
+            <p style="margin:0 0 1.25rem; font-size:.8rem; color:var(--color-text-secondary); line-height:1.7;">
+                عند التجديد بعد ${fmtDate(cur.end_date)} ستُجدَّد باقة "${tgt.plan_name_ar}"
+                بالسعر الكامل ${cy}${quote.next_renewal_price} ${cycleLabel}.
+            </p>
+            <div style="display:flex; gap:.6rem;">
+                <button id="upConfirm" style="flex:1; padding:.75rem; border:none; border-radius:.6rem;
+                    background:var(--color-accent); color:#fff; font-weight:700; font-family:inherit; cursor:pointer;">
+                    متابعة الترقية</button>
+                <button id="upCancel" style="flex:1; padding:.75rem; border:1px solid var(--color-border);
+                    border-radius:.6rem; background:transparent; color:var(--color-text);
+                    font-weight:700; font-family:inherit; cursor:pointer;">إلغاء</button>
+            </div>`;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const close = (v) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+        const onKey = (e) => { if (e.key === 'Escape') close(false); };
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+        box.querySelector('#upCancel').addEventListener('click', () => close(false));
+        box.querySelector('#upConfirm').addEventListener('click', () => close(true));
+    });
+}
+
 async function handleSubscribe(plan, buttonEl) {
     if (!currentUser) {
         alert('يرجى تسجيل الدخول أولاً');
         window.location.href = '/login.html';
         return;
+    }
+
+    // ترقية أم شراء جديد؟ القاعدة هي التي تقرّر، لا الواجهة.
+    const quote = await getUpgradeQuote(plan);
+    const isUpgrade = !!(quote && quote.eligible === true);
+
+    if (isUpgrade) {
+        const confirmed = await openUpgradeModal(quote);
+        if (!confirmed) return;
     }
 
     // لو الباقة بتستلزم شركة والمستخدم لسه ملهوش واحدة، بنطلب بياناتها الأول.
@@ -470,13 +596,15 @@ async function handleSubscribe(plan, buttonEl) {
             buttonEl.disabled = true;
         }
 
-        const result = await createSubscriptionTicket(plan, billingCycle, paymentInfo);
+        const result = await createSubscriptionTicket(plan, billingCycle, { ...paymentInfo, isUpgrade });
         await linkSubscriptionIfCompanyPlan(plan, result.subscription?.id);
 
         const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
             : '';
-        alert(`تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
+        alert(isUpgrade
+            ? `تم إرسال طلب الترقية بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\nالمبلغ المطلوب: ${result.subscription?.upgrade_amount ?? quote.amount_due}\n\nلن تتغيّر باقتك قبل تأكيد الدفع من فريق الدعم.${reviewNote}`
+            : `تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
 
         // إكمال مسار الشركة: لو الشركة اتكوّنت للتو، المستخدم المفروض يشوف
         // لوحتها بدل ما يفضل في صفحة الباقات ومايعرفش إن ليه لوحة أصلًا.
