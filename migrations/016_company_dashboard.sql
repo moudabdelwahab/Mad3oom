@@ -54,14 +54,16 @@
 -- تاريخ انتهاء السجل التجاري: بيتخزن كبيانات للشركة ويُعرض في اللوحة. مفيش
 -- نظام تنبيهات ولا تجديد هنا — ده أساس البيانات فقط، زي المطلوب.
 alter table public.companies
-  add column if not exists commercial_registration_expiry date;
+  add column if not exists commercial_registration_expiry date,
+  add column if not exists status text not null default 'active';
 
--- ملاحظة متعمّدة: مفيش عمود "حالة الشركة" هنا. سياسة UPDATE القائمة على
--- companies بتسمح للمالك يعدّل أي عمود في صفّه هو، فعمود اسمه status كان
--- هيبقى قابلًا للكتابة من المالك نفسه — أي حقل تعليق/إيقاف زي ده هيكون
--- بلا قيمة أمنية، وأسوأ: هيغري أي تطوير لاحق إنه يبني عليه قرار وصول.
--- مصدر الوصول الوحيد هنا هو الاشتراك الفعّال، ولو احتاجت المنصة تعليقًا
--- إداريًا مستقبلًا فمكانه ترحيل مستقل بحارس يمنع المالك من تعديله.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'companies_status_check') then
+    alter table public.companies
+      add constraint companies_status_check check (status in ('active', 'suspended'));
+  end if;
+end $$;
 
 -- مسار التسجيل القديم (signUpCompany) بيملأ كل الحقول دي، لكن مسار "إنشاء شركة
 -- عند الاشتراك" بيطلب البيانات القانونية الأساسية فقط. تخفيف NOT NULL توسيع
@@ -74,6 +76,8 @@ alter table public.companies alter column country       drop not null;
 
 comment on column public.companies.commercial_registration_expiry is
   'تاريخ انتهاء السجل التجاري/الترخيص. يُخزَّن للعرض والتحقق المستقبلي؛ لا يوجد نظام تنبيهات مرتبط به حاليًا.';
+comment on column public.companies.status is
+  'حالة الشركة داخل المنصة (active/suspended). لا تُشتق منها صلاحيات الاشتراك — الاشتراك هو مصدر الامتيازات.';
 
 
 -- ── 2) أي باقة تستوجب وجود شركة؟ ────────────────────────────────────────────
@@ -140,12 +144,8 @@ join (values
         ('bundle',   'support_tickets'),
         ('bundle',   'priority_support'),
         ('bundle',   'sub_users'),
-        ('bundle',   'api_tokens')
-        -- الباقة الشاملة = واتساب + الدعم الفني بالضبط، لا أكثر. ده تعريف
-        -- المنصة نفسها للباقة (PLAN_LABELS.bundle = 'دعم فني + واتساب')،
-        -- وعليه بيتبنى منع الاشتراكات المتداخلة في الترحيل 017: أي امتياز
-        -- إضافي هنا كان هيخلي "واتساب + دعم فني" تبدو أقل من الباقة الشاملة
-        -- فيُسمح بشرائها بلا داعٍ.
+        ('bundle',   'api_tokens'),
+        ('bundle',   'mcp_client')
      ) as f(plan_key, feature_key) on f.plan_key = sp.key
 on conflict (plan_id, feature_key) do nothing;
 
@@ -180,54 +180,6 @@ comment on function public.current_company_id() is
 
 revoke all on function public.current_company_id() from public, anon;
 grant execute on function public.current_company_id() to authenticated;
-
--- عضوية الشركة بتتحدد من profiles.super_user_id، فالعمود ده بقى عنصر تحكّم
--- في الوصول بعد الترحيل ده، مش مجرد وصف تنظيمي. الحارس القائم
--- (check_super_user_creation) بيمنع تغييره في UPDATE فقط:
---     IF TG_OP = 'UPDATE' THEN ... super_user_id ... is_main_admin()
--- يعني INSERT مش مغطّى. عمليًا مفيش مسار مستخدم بيوصل لـINSERT ده اليوم
--- (handle_new_user بينشئ صف البروفايل تلقائيًا عند التسجيل، والمفتاح الأساسي
--- بيمنع إدخال صف تاني، وسياسة الحذف مش بتسمح للمستخدم يحذف صفّه ويعيد إنشاءه)،
--- فمفيش ثغرة قائمة. لكن الاعتماد ده ضمني ومركّب من ثلاث حمايات غير مقصودة،
--- وأي تغيير مستقبلي (upsert في handle_new_user مثلًا) كان هيحوّله لتسريب
--- بيانات بين الشركات. فبنغلقه صراحةً هنا.
---
--- المسار الشرعي الوحيد لإنشاء مستخدم فرعي هو Edge Function اسمها
--- create-sub-user، وبتكتب البروفايل بمفتاح الخدمة (service_role) — يعني
--- auth.uid() فاضي — وبتثبّت super_user_id على المنادي نفسه ولا تقبله من
--- الطلب، فالحارس ده لا يمسّها.
-create or replace function public.guard_profile_super_user_id_insert()
-returns trigger
-language plpgsql
-security definer
-set search_path to 'public'
-as $function$
-begin
-  -- المسار الشائع: العمود فاضي، فمفيش تبعية تتحرّس أصلًا
-  if new.super_user_id is null then
-    return new;
-  end if;
-
-  -- بدون JWT مستخدم = service_role أو مهمة خلفية (ده مسار create-sub-user)
-  if auth.uid() is null then
-    return new;
-  end if;
-
-  -- نفس الاستثناء المستخدَم في حارس UPDATE القائم، حرفيًا
-  if public.is_main_admin() then
-    return new;
-  end if;
-
-  raise exception 'لا يمكن تعيين تبعية المستخدم عند الإنشاء'
-    using errcode = '42501';
-end;
-$function$;
-
-drop trigger if exists guard_profile_super_user_id_insert on public.profiles;
-create trigger guard_profile_super_user_id_insert
-  before insert on public.profiles
-  for each row execute function public.guard_profile_super_user_id_insert();
-
 
 -- أعضاء الشركة (المستخدمون الفرعيون) يقرأون بيانات شركتهم. سياسة إضافية
 -- بالكامل: سياسة المالك القديمة (user_id = auth.uid()) لم تُمس.
@@ -363,6 +315,7 @@ begin
       'name',          v_company.company_name,
       'cr_number',     v_company.commercial_registration_number,
       'cr_expiry',     v_company.commercial_registration_expiry,
+      'status',        v_company.status,
       'email',         v_company.company_email,
       'phone',         v_company.company_phone,
       'address',       v_company.address,

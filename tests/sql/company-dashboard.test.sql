@@ -180,7 +180,11 @@ INSERT INTO public.profiles (id, email, role, super_user_id) VALUES
 \echo ''
 \echo '--- applying migrations/016 ---'
 \i migrations/016_company_dashboard.sql
-\echo '--- migration applied ---'
+-- 016 اندمج وطُبِّق على الإنتاج، فتصحيحاته جاءت في ترحيل مستقل. الاختبار
+-- يطبّق السلسلة كما ستُطبَّق فعليًا: 016 ثم 021.
+\echo '--- applying migrations/021 ---'
+\i migrations/021_reconcile_company_dashboard.sql
+\echo '--- migrations applied ---'
 \echo ''
 
 GRANT EXECUTE ON FUNCTION public.upsert_my_company(text,text,date,text,text,text,text,text,text) TO authenticated;
@@ -286,6 +290,14 @@ BEGIN
   IF 'support_tickets' = ANY(keys) OR 'priority_support' = ANY(keys) THEN
     RAISE EXCEPTION 'FAIL B3b: امتيازات الدعم الفني ظهرت لباقة واتساب (%)', keys; END IF;
   RAISE NOTICE 'PASS B3: الامتيازات مشتقة من الباقة المشترَك بها فقط';
+
+  -- بعد 021: الباقة الشاملة = واتساب + الدعم الفني بالضبط، بلا mcp_client
+  IF EXISTS (SELECT 1 FROM public.plan_features pf
+               JOIN public.subscription_plans sp ON sp.id = pf.plan_id
+              WHERE sp.key = 'bundle' AND pf.feature_key = 'mcp_client') THEN
+    RAISE EXCEPTION 'FAIL B3c: الباقة الشاملة ما زالت تمنح mcp_client';
+  END IF;
+  RAISE NOTICE 'PASS B3c: الباقة الشاملة = واتساب + الدعم الفني بالضبط';
 
   -- B4: نفس النتيجة من دالة الفحص المفردة
   IF NOT public.company_has_feature('whatsapp_sender') THEN
@@ -560,8 +572,9 @@ BEGIN
 END $$;
 
 \echo ''
-\echo '=== H) الترحيل قابل لإعادة التطبيق (idempotent) ==='
+\echo '=== H) الترحيلات قابلة لإعادة التطبيق (idempotent) ==='
 \i migrations/016_company_dashboard.sql
+\i migrations/021_reconcile_company_dashboard.sql
 DO $$ BEGIN
   RAISE NOTICE 'PASS H: إعادة تطبيق الترحيل لم تفشل';
 END $$;
