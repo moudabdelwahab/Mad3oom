@@ -95,6 +95,43 @@ BEGIN
   RETURN EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin');
 END; $$;
 
+-- بديل مبسّط لـis_main_admin(): في الإنتاج بتقرأ auth.users، وهنا بتقرأ
+-- public.profiles.email عشان النموذج المصغّر ما يحتاجش سكيما auth كاملة.
+-- المُختبَر هنا هو منطق الحارس الجديد، مش منطق is_main_admin نفسها.
+CREATE OR REPLACE FUNCTION public.is_main_admin() RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  RETURN COALESCE(
+    (SELECT email FROM public.profiles WHERE id = auth.uid())
+      IN ('support@mad3oom.online', 'info@mad3oom.online'),
+    false);
+END; $$;
+
+-- الحارس الحقيقي المنسوخ من الإنتاج على تبعية المستخدم: بيغطّي UPDATE فقط
+-- (لاحظ شرط TG_OP = 'UPDATE')، وده بالظبط الفراغ اللي الترحيل بيسدّه بحارس
+-- INSERT مستقل. وجوده هنا ضروري عشان الاختبار يعكس الإنتاج بأمانة.
+CREATE OR REPLACE FUNCTION public.check_super_user_creation() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+    IF NEW.role = 'super_user' THEN
+        IF NOT public.is_main_admin() THEN
+            RAISE EXCEPTION 'فقط support@mad3oom.online يمكنه إنشاء أو تعيين حسابات سوبر يوزر';
+        END IF;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.super_user_id IS DISTINCT FROM NEW.super_user_id AND NOT public.is_main_admin() THEN
+             RAISE EXCEPTION 'لا يمكن تغيير تبعية المستخدم إلا بواسطة الإدارة العليا';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END; $$;
+
+CREATE TRIGGER tr_check_super_user_creation
+  BEFORE INSERT OR UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.check_super_user_creation();
+
 -- السياسات الحقيقية المنسوخة من الإنتاج، قبل تطبيق الترحيل
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own company" ON public.companies
@@ -436,6 +473,69 @@ DO $$ BEGIN
   IF public.get_my_company_dashboard() IS NOT NULL THEN
     RAISE EXCEPTION 'FAIL F4: الدالة رجّعت بيانات لمستخدم غير مسجّل'; END IF;
   RAISE NOTICE 'PASS F4: لا بيانات لغير المسجّلين';
+END $$;
+RESET ROLE;
+
+\echo ''
+\echo '=== SU) تبعية المستخدم (super_user_id) لا تُزوَّر عند الإنشاء ==='
+-- عضوية الشركة بتُشتق من profiles.super_user_id، فلو مستخدم قدر يعيّن العمود
+-- ده بنفسه على مالك شركة تانية، كان هيقرأ بياناتها. الحارس القائم بيغطّي
+-- UPDATE فقط؛ الترحيل بيضيف حارس INSERT، والاختبار ده بيثبّت الاتنين.
+SET ROLE authenticated;
+SET request.jwt.claim.sub = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+DO $$
+DECLARE owner_a uuid := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+BEGIN
+  -- SU1: مهاجم ينشئ بروفايله وهو مُعلَّم كتابع لمالك شركة أ
+  BEGIN
+    INSERT INTO public.profiles (id, email, role, super_user_id)
+    VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'attacker@test.local', 'user', owner_a);
+    RAISE EXCEPTION 'FAIL SU1: تم تعيين تبعية لمالك شركة أخرى عند الإنشاء';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'FAIL SU1%' THEN RAISE; END IF;
+  END;
+  RAISE NOTICE 'PASS SU1: لا يمكن تزوير التبعية عند الإنشاء';
+
+  -- SU2: نفس الإدخال بدون تبعية مسموح (مسار التسجيل الطبيعي)
+  INSERT INTO public.profiles (id, email, role, super_user_id)
+  VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'attacker@test.local', 'user', NULL);
+  RAISE NOTICE 'PASS SU2: التسجيل الطبيعي (بلا تبعية) لم يتأثر';
+
+  -- SU3: وبالتالي لا شركة له ولا امتيازات
+  IF public.current_company_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'FAIL SU3: المهاجم حصل على شركة'; END IF;
+  IF public.get_my_company_dashboard() IS NOT NULL THEN
+    RAISE EXCEPTION 'FAIL SU3b: المهاجم قرأ لوحة شركة'; END IF;
+  RAISE NOTICE 'PASS SU3: لا وصول لشركة غيره';
+
+  -- SU4: والتعديل اللاحق للتبعية مرفوض كذلك (الحارس القائم)
+  BEGIN
+    UPDATE public.profiles SET super_user_id = owner_a
+     WHERE id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    RAISE EXCEPTION 'FAIL SU4: تم تغيير التبعية بالتحديث';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'FAIL SU4%' THEN RAISE; END IF;
+  END;
+  RAISE NOTICE 'PASS SU4: التحديث اللاحق للتبعية مرفوض أيضًا';
+END $$;
+
+-- SU5: مسار create-sub-user الشرعي (مفتاح الخدمة، بلا JWT) لم يتأثر
+RESET ROLE;
+RESET request.jwt.claim.sub;
+DO $$ BEGIN
+  INSERT INTO public.profiles (id, email, role, super_user_id)
+  VALUES ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'staff2-a@test.local', 'user',
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  RAISE NOTICE 'PASS SU5: إنشاء مستخدم فرعي بمفتاح الخدمة ما زال يعمل';
+END $$;
+
+-- SU6: والمستخدم الفرعي الشرعي ده فعلًا بيشوف شركة مالكه
+SET ROLE authenticated;
+SET request.jwt.claim.sub = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+DO $$ BEGIN
+  IF public.get_my_company_dashboard()->'company'->>'name' <> 'شركة أ' THEN
+    RAISE EXCEPTION 'FAIL SU6: المستخدم الفرعي الشرعي لا يرى شركة مالكه'; END IF;
+  RAISE NOTICE 'PASS SU6: العضوية الشرعية ما زالت تعمل بعد الحارس';
 END $$;
 RESET ROLE;
 

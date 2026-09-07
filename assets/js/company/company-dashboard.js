@@ -224,7 +224,7 @@ function renderSubscriptions() {
                     </div>
                     <div class="company-sub-side">
                         <span class="pill ${info.pill}">${escapeHtml(info.label)}</span>
-                        ${sub.is_active ? `<span class="company-sub-days">${sub.days_remaining} يوم متبقٍ</span>` : ''}
+                        ${sub.is_active ? `<span class="company-sub-days">${escapeHtml(sub.days_remaining)} يوم متبقٍ</span>` : ''}
                     </div>
                 </li>`;
             }).join('')}
