@@ -5,9 +5,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>خارطة الطريق - منصة مدعوم</title>
-    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="icon" type="image/png" href="/logo.png">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <script>
+        /* نفس السكربت في كل صفحات البوابة: يضبط الثيم وحالة طي القائمة قبل
+           أول رسم، فمفيش وميض ولا قفزة عند الانتقال بين الصفحات. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -73,7 +95,9 @@
         .rm-phaserail i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
 
         /* ===== Timeline spine ===== */
-        .rm-timeline{ position: relative; margin-top: 2rem; padding-right: 2.75rem; box-sizing: border-box; }
+        /* overflow-x: clip بدل hidden: بيقصّ الهالات والحلقات الزخرفية
+           اللي بتخرج عن الحاوية من غير ما يحوّلها لصندوق تمرير رأسي. */
+        .rm-timeline{ position: relative; margin-top: 2rem; padding-right: 2.75rem; box-sizing: border-box; overflow-x: clip; }
         .rm-track{
             position:absolute; top: 0; bottom: 0; right: 22px; width: 3px; border-radius:3px;
             background: linear-gradient(180deg, var(--rm-green) 0%, var(--rm-green) 20%, var(--rm-amber) 30%, var(--rm-amber) 40%, var(--rm-blue) 50%, var(--rm-blue) 62%, var(--rm-purple) 74%, var(--rm-purple) 100%);
@@ -254,9 +278,20 @@
             .rm-phase-marker svg{ width: 12px; height: 12px; }
             .rm-dot{ right: 3px; width: 17px; height: 17px; }
         }
+
+        /* ===== الشاشات الضيقة: نضيّق عمود الخط الزمني ===== */
+        @media (max-width: 768px) {
+            .rm-timeline{ padding-right: 2rem; }
+            .rm-step{ padding-left: 0; padding-right: 2.4rem; }
+        }
+
+        @media (max-width: 380px) {
+            .rm-timeline{ padding-right: 1.6rem; }
+            .rm-step{ padding-right: 2rem; }
+        }
     </style>
 </head>
-<body class="rm-page">
+<body class="customer-shell rm-page">
     <div id="sidebar-container"></div>
 
     <main class="admin-main">

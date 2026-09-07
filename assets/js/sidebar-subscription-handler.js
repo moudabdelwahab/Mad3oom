@@ -33,12 +33,12 @@ export async function checkAndUpdateWhatsAppLink() {
         if (whatsappLink) {
             if (isEnabled) {
                 // Show WhatsApp link
-                whatsappLink.style.display = 'flex';
+                whatsappLink.hidden = false;
                 // Add active indicator
                 whatsappLink.classList.add('subscription-active');
             } else {
                 // Hide WhatsApp link
-                whatsappLink.style.display = 'none';
+                whatsappLink.hidden = true;
                 whatsappLink.classList.remove('subscription-active');
             }
         }
@@ -54,7 +54,7 @@ export async function checkAndUpdateWhatsAppLink() {
 function hideWhatsAppLink() {
     const whatsappLink = document.getElementById('whatsappLink');
     if (whatsappLink) {
-        whatsappLink.style.display = 'none';
+        whatsappLink.hidden = true;
     }
 }
 

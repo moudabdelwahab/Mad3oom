@@ -229,10 +229,12 @@ function updateSubscriptionDisplay() {
 
         updatePlanButtonsState(sub.plan);
     } else {
+        // مكوّن الحالة الموحّد في البوابة بدل ألوان ثابتة: كان #f0f0f0 على
+        // #333، فيفضل صندوقًا فاتحًا وسط صفحة داكنة في الوضع الليلي.
         statusContainer.innerHTML = `
-            <div style="background: #f0f0f0; color: #333; padding: 2rem; border-radius: 1rem; margin-bottom: 2rem; text-align: center;">
-                <p style="margin: 0; font-size: 1rem;">لا توجد اشتراكات نشطة حالياً</p>
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666;">اختر إحدى الخطط أدناه للبدء</p>
+            <div class="state-block">
+                <p class="state-title">لا توجد اشتراكات نشطة حالياً</p>
+                <p class="state-text">اختر إحدى الخطط أدناه للبدء</p>
             </div>
         `;
 

@@ -128,27 +128,81 @@ export function resolveDestination(link) {
 }
 
 /**
+ * الوجهة من أعمدة الإشعار نفسه (action / action_target).
+ *
+ * ده المصدر الأساسي بعد migrations/015: الإجراء بقى بيانات على الصف، مش
+ * استنتاجًا من نص الرابط في كل شاشة. الرابط بيفضل موجودًا وبيشتغل — هو
+ * البنية اللي بتخدم الروابط الخارجية والبريد — لكنه بقى **احتياطيًا** هنا.
+ */
+function destinationFromColumns(notification) {
+    const action = notification?.action;
+    const target = notification?.action_target;
+    if (!action || action === 'none') return null;
+
+    if (action === 'open_ticket') {
+        const id = target || notification?.reference_id;
+        return id && UUID_RE.test(String(id)) ? { kind: 'ticket', ticketId: String(id) } : null;
+    }
+
+    if (action === 'open_section') {
+        return IN_APP_SECTIONS.has(target) ? { kind: 'section', section: target } : null;
+    }
+
+    return null;
+}
+
+/**
  * يجمّع الإشعار في الشكل الذي تعرضه الواجهة.
- * category بييجي من قاعدة البيانات؛ لو صف قديم لسبب ما لسه فاضي بنرجع
- * للتصنيف الافتراضي بدل ما نكسر العرض.
+ * category و action بييجوا من قاعدة البيانات؛ لو صف قديم لسه فاضي بنرجع
+ * لاشتقاق الرابط بدل ما نكسر العرض.
  */
 export function resolveNotification(notification) {
     const category = NOTIFICATION_CATEGORIES[notification?.category]
         ? notification.category
         : FALLBACK_CATEGORY;
 
+    const destination = destinationFromColumns(notification)
+        || resolveDestination(notification?.link);
+
     return {
         category,
         meta: NOTIFICATION_CATEGORIES[category],
-        destination: resolveDestination(notification?.link)
+        destination
     };
+}
+
+/** نص الإجراء لكل قسم — أوضح من "فتح القسم" المجرّدة. */
+const SECTION_ACTION_LABELS = Object.freeze({
+    tickets: 'عرض التذاكر',
+    usage: 'عرض الاشتراك والاستهلاك',
+    security: 'الانتقال إلى الأمان',
+    profile: 'فتح الملف الشخصي',
+    rewards: 'عرض المكافآت',
+    support: 'عرض حالة النظام',
+    badges: 'عرض الشارات',
+    activity: 'عرض النشاط',
+    overview: 'فتح النظرة العامة',
+    notifications: 'عرض الإشعارات'
+});
+
+/** نص الزر داخل نافذة التفاصيل. الأدمن يقدر يخصّصه عبر action_label. */
+export function actionLabelFor(notification, destination) {
+    const custom = notification?.action_label;
+    if (typeof custom === 'string' && custom.trim()) return custom.trim();
+
+    if (destination?.kind === 'ticket') return 'فتح التذكرة';
+    if (destination?.kind === 'section') {
+        return SECTION_ACTION_LABELS[destination.section] || 'فتح القسم';
+    }
+    if (destination?.kind === 'url') return 'فتح الصفحة';
+    return '';
 }
 
 /** نص قصير يوضّح للعميل ماذا سيحدث عند الضغط. */
 export function destinationLabel(destination) {
     switch (destination?.kind) {
         case 'ticket':  return 'فتح التذكرة';
-        case 'section': return 'فتح القسم';
+        case 'section': return SECTION_ACTION_LABELS[destination.section] || 'فتح القسم';
         case 'url':     return 'فتح الصفحة';
         default:        return '';
     }

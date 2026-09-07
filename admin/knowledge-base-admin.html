@@ -60,6 +60,7 @@
                     <tr>
                         <th>العنوان</th>
                         <th>التصنيف</th>
+                        <th>الحالة</th>
                         <th>تاريخ التحديث</th>
                         <th>الإجراءات</th>
                     </tr>
@@ -85,12 +86,34 @@
                 </div>
                 <div class="form-group">
                     <label>التصنيف</label>
+                    <!-- التصنيفات دي هي اللي مركز المساعدة بيبني منها شرائح
+                         التصفّح، فأي إضافة هنا بتظهر للعميل تلقائيًا. -->
                     <select id="category" class="form-control" required>
-                        <option value="أساسيات تقنية">أساسيات تقنية</option>
+                        <option value="الحساب وإدارة المستخدم">الحساب وإدارة المستخدم</option>
+                        <option value="الاشتراكات والباقات">الاشتراكات والباقات</option>
+                        <option value="واتساب">واتساب</option>
+                        <option value="المحرك الذكي">المحرك الذكي</option>
+                        <option value="التذاكر والدعم">التذاكر والدعم</option>
+                        <option value="الفوترة والمدفوعات">الفوترة والمدفوعات</option>
+                        <option value="المشاكل الشائعة">المشاكل الشائعة</option>
                         <option value="الأمان">الأمان</option>
-                        <option value="الدعم الفني">الدعم الفني</option>
-                        <option value="تطبيقات">تطبيقات</option>
+                        <option value="الخدمات والنظام">الخدمات والنظام</option>
                     </select>
+                </div>
+
+                <div class="form-group">
+                    <label>حالة النشر</label>
+                    <select id="status" class="form-control" required>
+                        <option value="published">منشور — يظهر للعملاء</option>
+                        <option value="draft">مسودّة — لا يظهر للعملاء</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: .5rem; font-weight: 600;">
+                        <input type="checkbox" id="isInternal">
+                        مقال داخلي لفريق الدعم (لا يصل العميل مهما كانت حالة النشر)
+                    </label>
                 </div>
                 <div class="form-group">
                     <label>مقتطف (وصف قصير)</label>
@@ -149,6 +172,11 @@
                 <tr>
                     <td style="font-weight: 600;">${article.title}</td>
                     <td><span class="badge">${article.category}</span></td>
+                    <td>
+                        <span class="status-badge ${article.status === 'published' && !article.is_internal ? 'status-resolved' : 'status-pending'}">
+                            ${article.is_internal ? 'داخلي' : article.status === 'published' ? 'منشور' : 'مسودّة'}
+                        </span>
+                    </td>
                     <td>${new Date(article.updated_at).toLocaleDateString('ar-EG')}</td>
                     <td>
                         <div style="display: flex; gap: 0.5rem;">
@@ -177,6 +205,8 @@
                 category: document.getElementById('category').value,
                 excerpt: document.getElementById('excerpt').value,
                 content: document.getElementById('content').value,
+                status: document.getElementById('status').value,
+                is_internal: document.getElementById('isInternal').checked,
                 updated_at: new Date()
             };
 
@@ -206,6 +236,8 @@
             document.getElementById('category').value = article.category;
             document.getElementById('excerpt').value = article.excerpt || '';
             document.getElementById('content').value = article.content;
+            document.getElementById('status').value = article.status || 'published';
+            document.getElementById('isInternal').checked = article.is_internal === true;
             
             modalTitle.textContent = 'تعديل المقال';
             articleModal.classList.add('active');

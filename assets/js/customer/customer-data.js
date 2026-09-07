@@ -244,11 +244,11 @@ export async function fetchSystemStatus() {
         const [{ data: services, error: servicesError }, { data: incidents, error: incidentsError }] = await Promise.all([
             supabase
                 .from('services')
-                .select('id, name, status, response_time, last_checked')
+                .select('id, name, description, service_key, status, response_time, last_checked, status_changed_at, updated_at')
                 .order('name', { ascending: true }),
             supabase
                 .from('incidents')
-                .select('id, title, description, status, affected_services, created_at, resolved_at')
+                .select('id, title, description, status, affected_services, created_at, updated_at, resolved_at')
                 .is('resolved_at', null)
                 .order('created_at', { ascending: false })
                 .limit(5)
@@ -257,13 +257,61 @@ export async function fetchSystemStatus() {
         if (incidentsError) throw incidentsError;
 
         const list = services || [];
-        const degraded = list.filter(s => s.status && s.status !== 'operational');
+        // الصيانة حالة معلنة ومقصودة، مش عطل — فما بتتحسبش ضمن "المتدهور"
+        const degraded = list.filter(s => s.status && s.status !== 'operational' && s.status !== 'maintenance');
         return {
             services: list,
             incidents: incidents || [],
             degraded,
+            maintenance: list.filter(s => s.status === 'maintenance'),
             allOperational: list.length > 0 && degraded.length === 0
         };
+    });
+}
+
+/* =========================================================
+   7.a بلاغات العميل عن الأعطال
+========================================================= */
+
+/**
+ * بلاغات العميل الحالية. بنقراها مرة واحدة مع اللقطة عشان نعرف على أي
+ * عطل بلّغ بالفعل، فالزر يظهر "تم الإبلاغ" بدل ما يسمح ببلاغ مكرر يترفض
+ * من القاعدة بعد الضغط.
+ */
+export async function fetchMyServiceReports() {
+    return safe('serviceReports', async () => {
+        const userId = await currentUserId();
+        const { data, error } = await supabase
+            .from('customer_service_reports')
+            .select('id, service_id, incident_id, episode_key, status, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (error) throw error;
+        return data || [];
+    });
+}
+
+/**
+ * إبلاغ الإدارة بأن العميل متأثر بعطل.
+ * episode_key بيتحسب في trigger على السيرفر، ومنع التكرار قيد فريد في
+ * القاعدة — فالواجهة ما بتحاولش تفرضه بنفسها.
+ */
+export async function reportServiceIssue({ serviceId, incidentId = null }) {
+    return safe('reportService', async () => {
+        const userId = await currentUserId();
+        const { data, error } = await supabase
+            .from('customer_service_reports')
+            .insert({ user_id: userId, service_id: serviceId, incident_id: incidentId })
+            .select('id, service_id, incident_id, episode_key, created_at')
+            .single();
+
+        if (error) {
+            // 23505 = انتهاك القيد الفريد: بلاغ سابق على نفس النوبة
+            if (error.code === '23505') return { duplicate: true };
+            throw error;
+        }
+        return { duplicate: false, report: data };
     });
 }
 

@@ -45,17 +45,6 @@
 
     <main class="admin-main" id="customerMain">
 
-        <!-- ======================= بحث شامل ======================= -->
-        <div class="portal-search" role="search">
-            <svg class="portal-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <label class="visually-hidden" for="globalSearchInput">ابحث في بوابة الدعم</label>
-            <input type="search" id="globalSearchInput" class="portal-search-input" autocomplete="off"
-                   placeholder="ابحث في التذاكر والإشعارات والأقسام…" aria-expanded="false"
-                   aria-controls="globalSearchResults" role="combobox">
-            <kbd class="portal-search-kbd">/</kbd>
-            <div id="globalSearchResults" class="portal-search-results" role="listbox" hidden></div>
-        </div>
-
         <!-- ============================ نظرة عامة ============================ -->
         <section id="overviewTabContent" class="tab-content active" aria-labelledby="overviewHeading">
             <div class="page-topbar">
@@ -138,7 +127,7 @@
         <section id="supportTabContent" class="tab-content" aria-labelledby="supportHeading">
             <div class="page-topbar">
                 <div>
-                    <span class="eyebrow"><span class="dot"></span>Support Center</span>
+                    <span class="eyebrow"><span class="dot"></span>مركز الدعم</span>
                     <h1 id="supportHeading">مركز الدعم</h1>
                     <p class="page-subtitle">نقطة البداية لأي مشكلة — من هنا تفتح تذكرة، تتابع تذاكرك، وتعرف حالة الخدمات.</p>
                 </div>
@@ -177,8 +166,8 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                     </span>
                     <span class="action-body">
-                        <span class="action-title">قاعدة المعرفة</span>
-                        <span class="action-text">شروحات وإجابات للأسئلة الشائعة</span>
+                        <span class="action-title">مركز المساعدة</span>
+                        <span class="action-text">شروحات وحلول جاهزة قبل أن تفتح تذكرة</span>
                     </span>
                 </a>
             </div>
@@ -513,6 +502,60 @@
             </div>
         </section>
     </main>
+
+    <!-- ==================== نافذة تفاصيل الإشعار ====================
+         الضغط على إشعار ما بينقلش فورًا. بيفتح التفاصيل هنا الأول، والانتقال
+         بيحصل بزر صريح — فالعميل يقرأ الخبر ويقرر، بدل ما يتشال من مكانه. -->
+    <div id="notificationModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="notificationModalTitle">
+        <div class="modal-content modal-sm">
+            <div class="modal-head">
+                <div class="notif-modal-head">
+                    <span class="notif-icon" id="notificationModalIcon"></span>
+                    <div>
+                        <h2 id="notificationModalTitle">تفاصيل الإشعار</h2>
+                        <p class="panel-subtitle" id="notificationModalCategory"></p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close close-modal" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <p class="notif-modal-message" id="notificationModalMessage"></p>
+
+            <dl class="notif-modal-meta">
+                <div><dt>التاريخ والوقت</dt><dd id="notificationModalTime"></dd></div>
+                <div><dt>الحالة</dt><dd id="notificationModalRead"></dd></div>
+                <div id="notificationModalSeverityRow"><dt>الأهمية</dt><dd id="notificationModalSeverity"></dd></div>
+            </dl>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="notificationModalAction" hidden></button>
+                <button type="button" class="btn btn-secondary close-modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== نافذة تأكيد إبلاغ الإدارة ==================== -->
+    <div id="reportServiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="reportServiceTitle">
+        <div class="modal-content modal-sm">
+            <div class="modal-head">
+                <div>
+                    <h2 id="reportServiceTitle">هل تواجه هذه المشكلة؟</h2>
+                    <p class="panel-subtitle" id="reportServiceName"></p>
+                </div>
+                <button type="button" class="modal-close close-modal" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <p class="notif-modal-message">
+                سيتم إبلاغ فريق الدعم بأنك تواجه مشكلة في هذه الخدمة. هذا ليس تذكرة دعم —
+                هو إشارة تساعد الفريق على معرفة عدد المتأثرين بالعطل.
+            </p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="reportServiceConfirm">إبلاغ الإدارة</button>
+                <button type="button" class="btn btn-secondary close-modal">إلغاء</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ============================ نافذة إنشاء تذكرة ============================ -->
     <div id="createTicketModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="createTicketTitle">
