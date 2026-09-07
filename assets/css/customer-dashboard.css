@@ -89,7 +89,12 @@
     --color-border: rgba(255, 255, 255, .09);
     --color-border-strong: rgba(255, 255, 255, .16);
     --color-nav-text: #FFFFFF;
+    --color-nav-text-dim: rgba(255, 255, 255, .62);
     --color-nav-border: rgba(255, 255, 255, .1);
+    --nav-hover-bg: rgba(255, 255, 255, .1);
+    --nav-hover-strong: rgba(255, 255, 255, .18);
+    --nav-field-bg: rgba(255, 255, 255, .1);
+    --nav-field-border: rgba(255, 255, 255, .16);
 
     /* القائمة الجانبية */
     --color-sidebar-bg: #050912;
@@ -191,7 +196,12 @@
     --color-border: rgba(15, 27, 45, .11);
     --color-border-strong: rgba(15, 27, 45, .2);
     --color-nav-text: #FFFFFF;
+    --color-nav-text-dim: rgba(255, 255, 255, .68);
     --color-nav-border: rgba(255, 255, 255, .12);
+    --nav-hover-bg: rgba(255, 255, 255, .12);
+    --nav-hover-strong: rgba(255, 255, 255, .2);
+    --nav-field-bg: rgba(255, 255, 255, .12);
+    --nav-field-border: rgba(255, 255, 255, .2);
 
     /* قائمة جانبية فاتحة تحت شريط علوي كحلي — نمط شائع وواضح */
     --color-sidebar-bg: #FFFFFF;
@@ -361,6 +371,17 @@ body.customer-shell #sidebarCollapseBtn { display: none; }
     body.customer-shell .sidebar-overlay { display: none !important; }
 
     body.customer-shell .admin-main {
+        /* width:auto + margin-left:0 معًا، والاتنين ضروريين:
+             • width:100% (من القاعدة العامة) بيخلي العنصر أعرض من المساحة
+               الباقية جنب القائمة، فيطلع تمرير أفقي على الصفحات اللي مش
+               flex في <body>.
+             • لكن width:auto وحده ما بيكفيش: margin:0 auto الموروث بيلغي
+               تمدّد الـflex item (auto margins تعطّل stretch)، فالعنصر
+               بيتقلّص لعرض محتواه ويتوسّط.
+           بتصفير الهامش الأيسر بيرجع التمدّد في flex، وبيتحسب العرض من
+           المساحة الباقية في التخطيط العادي. */
+        width: auto;
+        margin-left: 0;
         margin-right: var(--sidebar-current);
         max-width: calc(var(--content-max) - var(--sidebar-current));
         transition: margin-right var(--dur) var(--ease), max-width var(--dur) var(--ease);
@@ -434,7 +455,7 @@ body.customer-shell #sidebarCollapseBtn { display: none; }
         transform: translateY(-50%) translateX(0);
     }
 
-    html[data-sidebar='collapsed'] body.customer-shell .sidebar > div:last-child { padding-inline: 0 !important; }
+    html[data-sidebar='collapsed'] body.customer-shell .sidebar-footer { padding-inline: 0; }
 }
 
 /* من يفضّل تقليل الحركة: التبديل فوري بدون انتقالات */
@@ -489,53 +510,329 @@ body.customer-shell .sidebar-item:focus-visible {
 }
 
 /* الفاصل أسفل القائمة (تسجيل الخروج) */
-body.customer-shell .sidebar > div:last-child {
-    border-top: 1px solid var(--color-sidebar-border) !important;
+body.customer-shell .sidebar-footer {
+    padding: var(--sp-4);
+    border-top: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0;
 }
 
-/* الشريط العلوي يفضل كحليًا في الوضعين (جزء من هوية المنتج)، فنصّه أبيض
-   دايمًا — بس بنأكّد ده هنا عشان ما يورثش لون نص الثيم الفاتح. */
+body.customer-shell .sidebar-item.is-danger { color: var(--color-danger); }
+body.customer-shell .sidebar-item.is-danger:hover { color: var(--color-danger); }
+
+body.customer-shell .sidebar-title { font-weight: 800; font-size: var(--fs-md); }
+
+/* ==================== 2.b الشريط العلوي ====================
+   الشريط كان position:sticky داخل #sidebar-container، والحاوية دي ارتفاعها
+   = ارتفاع الشريط بالظبط. العنصر اللاصق ما بيقدرش يتحرك خارج صندوق أبوه،
+   فكان بيختفي مع أول تمرير وتفضل شريحة فاضية فوق القائمة الجانبية الثابتة.
+   الحل من جذره: الشريط ثابت بالنسبة للنافذة زي القائمة بالظبط، والصفحة
+   بتبدأ من تحته. كده مفيش فجوة ولا حزّ بين الاتنين مهما كان موضع التمرير.
+
+   الشريط يفضل كحليًا في الوضعين (جزء من هوية المنتج)، فنصّه أبيض دايمًا —
+   بنأكّد ده هنا عشان ما يورثش لون نص الثيم الفاتح. */
+body.customer-shell {
+    padding-top: var(--customer-nav-h);
+}
+
 body.customer-shell .admin-nav {
+    position: fixed;
+    top: 0;
+    inset-inline: 0;
+    z-index: 1000;
     background: var(--color-primary);
     border-bottom: 1px solid var(--color-nav-border);
+    padding: 0;
 }
 
+body.customer-shell .nav-container {
+    max-width: none;
+    padding: 0 var(--sp-4);
+    min-height: 56px;
+    gap: var(--sp-3);
+}
+
+body.customer-shell .nav-right,
+body.customer-shell .nav-left {
+    gap: var(--sp-2);
+    min-width: 0;
+}
+
+body.customer-shell .nav-left { flex-shrink: 1; }
+
 body.customer-shell .admin-nav,
-body.customer-shell .admin-nav .admin-title,
 body.customer-shell .admin-nav .nav-btn,
 body.customer-shell .admin-nav .menu-toggle { color: var(--color-nav-text); }
 
-body.customer-shell .admin-nav .nav-btn:hover,
-body.customer-shell .admin-nav .menu-toggle:hover { background: rgba(255, 255, 255, .12); }
+body.customer-shell .admin-nav .nav-btn,
+body.customer-shell .admin-nav .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease);
+}
 
-/* القوائم المنسدلة في الشريط العلوي بتتفتح على أرضية الصفحة مش على الشريط */
-body.customer-shell #notificationMenu,
-body.customer-shell #languageMenu,
-body.customer-shell #customerAvatarMenu {
-    background: var(--color-surface) !important;
-    border-color: var(--color-border) !important;
+body.customer-shell .admin-nav .nav-btn:hover,
+body.customer-shell .admin-nav .menu-toggle:hover { background: var(--nav-hover-bg); }
+
+body.customer-shell .admin-nav .nav-btn:focus-visible,
+body.customer-shell .admin-nav .menu-toggle:focus-visible,
+body.customer-shell .portal-brand:focus-visible {
+    outline: 2px solid var(--color-nav-text);
+    outline-offset: 2px;
+}
+
+/* ---------- الهوية ---------- */
+/* نفس ملف الشعار المستخدم في صفحة الدخول (/logo.png): شعار المنتج الحقيقي
+   بخلفية شفافة. النسخة اللي كانت مستعملة هنا (assets/images/logo.png) ملف
+   JPEG بخلفية فاتحة ونسبة عريضة — بيبان كمستطيل فاتح فوق شريط كحلي. */
+.portal-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+    border-radius: var(--r-sm);
+    padding: var(--sp-1);
+}
+
+.portal-brand-logo {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.portal-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    min-width: 0;
+}
+
+.portal-brand-name {
+    font-weight: 800;
+    font-size: var(--fs-base);
+    color: var(--color-nav-text);
+    white-space: nowrap;
+}
+
+.portal-brand-context {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--color-nav-text-dim);
+    white-space: nowrap;
+}
+
+/* ---------- شارة الإشعارات ---------- */
+.nav-badge {
+    position: absolute;
+    top: -2px;
+    inset-inline-end: -2px;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 .2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-pill);
+    background: var(--count-bg);
+    color: var(--count-text);
+    font-size: .62rem;
+    font-weight: 800;
+    border: 2px solid var(--color-primary);
+    box-sizing: content-box;
+}
+
+/* ---------- حالة النظام ---------- */
+body.customer-shell .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: .3rem .7rem;
+    border-radius: var(--r-pill);
+    background: var(--nav-hover-bg);
+    color: var(--color-nav-text);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease);
+}
+
+body.customer-shell .system-status:hover { background: var(--nav-hover-strong); }
+
+body.customer-shell .system-status .status-dot {
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-text-3);
+}
+
+body.customer-shell .status-dot.status-online      { background: var(--color-success); }
+body.customer-shell .status-dot.status-degraded    { background: var(--color-warning); }
+body.customer-shell .status-dot.status-down        { background: var(--color-danger); }
+body.customer-shell .status-dot.status-maintenance { background: var(--color-accent); }
+
+/* ---------- الصورة الرمزية ---------- */
+body.customer-shell .nav-avatar-btn { width: 2.35rem; height: 2.35rem; }
+
+body.customer-shell .avatar-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: #fff;
+    font-weight: 800;
+    font-size: var(--fs-sm);
+}
+
+/* ---------- القوائم المنسدلة ---------- */
+.portal-menu-wrap { position: relative; display: flex; align-items: center; }
+
+body.customer-shell .portal-menu {
+    position: absolute;
+    top: calc(100% + .45rem);
+    /* خصائص فيزيائية عن قصد، مش inset-inline-*.
+       صف الأدوات هو آخر عنصر في شريط space-between، يعني بيقع على الحافة
+       الخارجية للشاشة: يمينًا في LTR ويسارًا في RTL. القائمة لازم تُربط
+       بنفس الحافة فتفتح ناحية وسط الصفحة. الخصائص المنطقية هنا بتُحلّ
+       باتجاه الكتلة الحاوية مش العنصر، والاتجاه نفسه غير مضمون
+       (language-manager بيضبطه من لغة المتصفح) — فالنتيجة كانت قائمة
+       بتفتح لبرّه الشاشة. القاعدتان تحت صريحتان ولا تعتمدان على ذلك. */
+    right: 0;
+    left: auto;
+    z-index: 1200;
+    min-width: 13rem;
+    /* بريد طويل ما ينفعش يمدّ القائمة لبره الشاشة */
+    max-width: min(22rem, calc(100vw - 1.5rem));
+    padding: var(--sp-2);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    color: var(--color-text);
+    animation: portalMenuIn var(--dur-fast) var(--ease);
+}
+
+/* في RTL صف الأدوات على اليسار، فالقائمة تُربط باليسار وتفتح يمينًا */
+html[dir="rtl"] body.customer-shell .portal-menu,
+body.customer-shell[dir="rtl"] .portal-menu {
+    right: auto;
+    left: 0;
+}
+
+@keyframes portalMenuIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.customer-shell .portal-menu { animation: none; }
+}
+
+body.customer-shell .portal-menu-head {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--sp-2);
+}
+
+.portal-menu-name { font-weight: 800; font-size: var(--fs-sm); color: var(--color-text); }
+.portal-menu-email { font-size: var(--fs-xs); color: var(--color-text-3); word-break: break-all; }
+.portal-menu-state { align-self: flex-start; margin-top: var(--sp-2); }
+
+body.customer-shell .portal-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    border: none;
+    background: none;
+    border-radius: var(--r-sm);
+    color: var(--color-text);
+    text-decoration: none;
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-align: start;
+    cursor: pointer;
+}
+
+body.customer-shell .portal-menu-item:hover { background: var(--hover-bg); }
+body.customer-shell .portal-menu-item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+}
+body.customer-shell .portal-menu-item.is-danger { color: var(--color-danger); }
+body.customer-shell .portal-menu-item svg { flex-shrink: 0; }
+
+/* ==================== 2.c طبقة توافق للصفحات الأقدم ====================
+   صفحات البوابة الأخرى (الباقات، المجتمع، خارطة الطريق، الأمان) مبنية على
+   admin-style.css و styles.css، والاتنين مصمّمين لخلفية فاتحة دايمًا:
+     • .page-header h1 و .section-title و .stat-value بيستخدموا
+       var(--color-primary) كلون نص — وهو كحلي غامق في الثيمين، يعني نص
+       غامق على خلفية غامقة = عنوان غير مقروء في الوضع الليلي.
+     • أسطح بيضاء ثابتة (#fff) بتفضل بيضاء في الوضع الليلي.
+
+   بدل ما نعيد كتابة كل صفحة، بنعيد اشتقاق الأنماط دي من الـtokens **داخل
+   body.customer-shell فقط**، فصفحات الإدارة ما تتأثرش وما بيحصلش تكرار
+   للتصميم في كل صفحة. */
+body.customer-shell .page-header h1,
+body.customer-shell .section-title,
+body.customer-shell .modal-header h2,
+body.customer-shell .stat-info .stat-value,
+body.customer-shell .saas-section > h2 { color: var(--color-text); }
+
+body.customer-shell .page-header p,
+body.customer-shell .saas-section > p { color: var(--color-text-secondary); }
+
+/* أي سطح بيتعرّف كبطاقة في الصفحات الأقدم ياخد نفس زجاج البوابة */
+body.customer-shell .card,
+body.customer-shell .stat-card,
+body.customer-shell .admin-card,
+body.customer-shell .content-card,
+body.customer-shell .empty-state {
+    background: var(--glass-bg);
+    border-color: var(--color-border);
     color: var(--color-text);
 }
 
-body.customer-shell #notificationMenu a,
-body.customer-shell #customerAvatarMenu a,
-body.customer-shell #languageMenu button { color: var(--color-text); }
+body.customer-shell table { color: var(--color-text); }
+body.customer-shell th { color: var(--color-text-secondary); }
+body.customer-shell td,
+body.customer-shell th { border-color: var(--color-border); }
 
-body.customer-shell #notificationMenu a:hover,
-body.customer-shell #customerAvatarMenu a:hover,
-body.customer-shell #languageMenu button:hover { background: var(--hover-bg); }
-
-body.customer-shell #notificationMenu .notification-item { border-bottom-color: var(--color-border) !important; }
-body.customer-shell #notificationMenu .notification-item:hover { background: var(--hover-bg); }
-
-/* بطاقة النقاط وحالة النظام في الشريط العلوي */
-body.customer-shell .wallet-info,
-body.customer-shell .system-status { background: rgba(255, 255, 255, .12) !important; color: var(--color-nav-text); }
-body.customer-shell .wallet-tooltip {
-    background: var(--color-surface);
+/* حقول الإدخال في الصفحات الأقدم.
+   الاستثناءات مقصودة: حقول البوابة نفسها (بحث الشريط العلوي وبحث مركز
+   المساعدة) لها أرضياتها الخاصة، والقاعدة العامة دي أقوى منها في التخصيص
+   فكانت هتلوّنها غلط. */
+body.customer-shell input:not([type="checkbox"]):not([type="radio"]):not(.portal-search-input):not(.help-search-input),
+body.customer-shell select,
+body.customer-shell textarea {
+    background: var(--input-bg, var(--color-surface));
     color: var(--color-text);
     border-color: var(--color-border);
 }
+
+body.customer-shell input::placeholder,
+body.customer-shell textarea::placeholder { color: var(--color-text-3); }
 
 /* ==================== 3) الترويسة ==================== */
 .page-topbar {
@@ -757,6 +1054,44 @@ body.customer-shell .wallet-tooltip {
 .status-confirmed   { background: var(--tint-success); color: var(--on-success); }
 .status-rejected    { background: var(--tint-danger); color: var(--on-danger); }
 .status-neutral     { background: var(--tint-neutral); color: var(--on-neutral); }
+
+/* نبرات حالة الخدمة — تُشتق من service-status-model.js فمصدر التسمية واللون واحد */
+.status-tone-success { background: var(--tint-success); color: var(--on-success); }
+.status-tone-warning { background: var(--tint-warning); color: var(--on-warning); }
+.status-tone-danger  { background: var(--tint-danger);  color: var(--on-danger); }
+.status-tone-accent  { background: var(--tint-accent);  color: var(--on-accent); }
+
+/* زر البلاغ وحالته بعد الإرسال */
+.report-service-btn { margin-inline-start: var(--sp-2); }
+
+.report-done {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    margin-inline-start: var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--on-success);
+    white-space: nowrap;
+}
+
+body.customer-shell .btn-sm {
+    padding: .3rem .7rem;
+    font-size: var(--fs-xs);
+}
+
+body.customer-shell .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-accent);
+    box-shadow: none;
+}
+
+body.customer-shell .btn-ghost:hover {
+    background: var(--tint-accent);
+    border-color: var(--color-accent);
+}
+
 /* حالات بلاغات المكافآت (يستخدمها rewards-dashboard.js عبر .status-badge) */
 .status-pending     { background: var(--tint-warning); color: var(--on-warning); }
 .status-approved    { background: var(--tint-success); color: var(--on-success); }
@@ -1545,20 +1880,19 @@ body.customer-shell .nav-left { min-width: 0; }
 body.customer-shell .nav-right { min-width: 0; flex-shrink: 1; }
 
 @media (max-width: 900px) {
-    body.customer-shell .system-status { display: none !important; }
+    /* المعلومة نفسها معروضة بتفصيل أوضح في قسم "حالة النظام" داخل اللوحة */
+    body.customer-shell .system-status { display: none; }
 }
 
-/* العنوان في الشريط العلوي بيزاحم صف الأزرار الخمسة تحت 520px،
-   واللوجو وحده كافٍ للتعريف في المقاس ده. */
+/* اسم المنتج بيزاحم صف الأزرار تحت 520px، والشعار وحده كافٍ للتعريف */
 @media (max-width: 520px) {
-    body.customer-shell .admin-title { display: none; }
+    body.customer-shell .portal-brand-text { display: none; }
 }
 
 @media (max-width: 480px) {
-    body.customer-shell .nav-actions { gap: .3rem !important; }
-    body.customer-shell .nav-btn { padding: .35rem; }
-    body.customer-shell .wallet-info { padding: .35rem .6rem !important; gap: .3rem !important; }
-    body.customer-shell .admin-logo { height: 26px !important; }
+    body.customer-shell .nav-container { padding: 0 var(--sp-2); gap: var(--sp-1); }
+    body.customer-shell .admin-nav .nav-btn,
+    body.customer-shell .admin-nav .menu-toggle { width: 2.1rem; height: 2.1rem; }
 }
 
 @media (max-width: 360px) {
@@ -1609,27 +1943,30 @@ body.customer-shell .nav-right { min-width: 0; flex-shrink: 1; }
     border: 0;
 }
 
-/* ==================== 25) البحث الشامل ==================== */
+/* ==================== 25) البحث الشامل ====================
+   حقل واحد يعيش في الشريط العلوي، فيوصل من أي صفحة في البوابة.
+   على الشاشات الضيقة بيتحوّل لأيقونة تفتح طبقة بحث تحت الشريط، فالشريط
+   ما بيزدحمش ولا بيطلع منه أي تمرير أفقي. */
 .portal-search {
     position: relative;
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    margin-bottom: var(--sp-5);
-    background: var(--glass-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--r-md);
+    background: var(--nav-field-bg);
+    border: 1px solid var(--nav-field-border);
+    border-radius: var(--r-pill);
     padding: 0 var(--sp-3);
-    max-width: 34rem;
+    width: clamp(10rem, 26vw, 22rem);
+    min-width: 0;
     transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .portal-search:focus-within {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    border-color: var(--color-nav-text);
+    box-shadow: 0 0 0 3px var(--nav-hover-bg);
 }
 
-.portal-search-icon { color: var(--color-text-3); flex-shrink: 0; }
+.portal-search-icon { color: var(--color-nav-text-dim); flex-shrink: 0; }
 
 body.customer-shell .portal-search-input {
     flex: 1;
@@ -1637,36 +1974,46 @@ body.customer-shell .portal-search-input {
     background: transparent;
     border: none;
     outline: none;
-    padding: .7rem 0;
-    color: var(--color-text);
+    padding: .5rem 0;
+    color: var(--color-nav-text);
     font-family: inherit;
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
 }
+
+body.customer-shell .portal-search-input::placeholder { color: var(--color-nav-text-dim); }
+body.customer-shell .portal-search-input::-webkit-search-cancel-button { display: none; }
 
 .portal-search-kbd {
     flex-shrink: 0;
     font-family: inherit;
     font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--color-text-3);
-    border: 1px solid var(--color-border);
+    color: var(--color-nav-text-dim);
+    border: 1px solid var(--nav-field-border);
     border-radius: .35rem;
     padding: .05rem .4rem;
-    background: var(--surface-raised);
+    background: transparent;
 }
+
+/* زر الإغلاق والأيقونة البديلة يخصّان الشاشات الضيقة فقط.
+   التخصيص هنا لازم يطابق قاعدة .nav-btn العامة وإلا هتغلبه وتظهر الأيقونة
+   جنب مربع البحث على الديسكتوب. */
+body.customer-shell .admin-nav .portal-search-close,
+body.customer-shell .admin-nav .portal-search-trigger { display: none; }
 
 .portal-search-results {
     position: absolute;
-    top: calc(100% + .4rem);
+    top: calc(100% + .5rem);
     inset-inline: 0;
-    z-index: 800;
+    z-index: 1200;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--r-md);
     box-shadow: var(--shadow-lg);
-    max-height: 24rem;
+    max-height: min(24rem, 70vh);
     overflow-y: auto;
     padding: var(--sp-2);
+    color: var(--color-text);
 }
 
 .search-group-label {
@@ -1696,10 +2043,115 @@ body.customer-shell .portal-search-input {
 
 .search-result:hover,
 .search-result.is-active { background: var(--hover-bg); }
+.search-result:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .search-result-title { font-weight: 700; }
 .search-result-meta { margin-inline-start: auto; font-size: var(--fs-xs); color: var(--color-text-3); }
 
-@media (max-width: 768px) { .portal-search { max-width: none; } .portal-search-kbd { display: none; } }
+/* ---------- الشاشات الضيقة: البحث كطبقة ---------- */
+@media (max-width: 900px) {
+    .portal-search-kbd { display: none; }
+    .portal-search { width: auto; }
+}
+
+@media (max-width: 768px) {
+    body.customer-shell .admin-nav .portal-search-trigger { display: inline-flex; }
+
+    .portal-search {
+        position: fixed;
+        top: var(--customer-nav-h);
+        inset-inline: 0;
+        width: auto;
+        border-radius: 0;
+        border-inline: none;
+        background: var(--color-primary);
+        border-bottom: 1px solid var(--color-nav-border);
+        padding: var(--sp-2) var(--sp-4);
+        z-index: 1100;
+        display: none;
+    }
+
+    .portal-search.is-open { display: flex; }
+    body.customer-shell .admin-nav .portal-search-close { display: inline-flex; }
+
+    .portal-search-close {
+        background: none;
+        border: none;
+        color: var(--color-nav-text);
+        cursor: pointer;
+        padding: var(--sp-1);
+        border-radius: var(--r-sm);
+        flex-shrink: 0;
+    }
+
+    .portal-search-close:hover { background: var(--nav-hover-bg); }
+
+    .portal-search-results {
+        top: calc(100% + 1px);
+        inset-inline: 0;
+        border-radius: 0 0 var(--r-md) var(--r-md);
+        max-height: 60vh;
+    }
+}
+
+/* ==================== 25b) نافذة تفاصيل الإشعار ==================== */
+body.customer-shell .modal-content.modal-sm { max-width: 32rem; }
+
+.notif-modal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    min-width: 0;
+}
+
+.notif-modal-message {
+    margin: 0 0 var(--sp-4);
+    color: var(--color-text-secondary);
+    font-size: var(--fs-base);
+    line-height: 1.75;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.notif-modal-meta {
+    display: grid;
+    gap: var(--sp-2);
+    margin: 0 0 var(--sp-5);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+}
+
+.notif-modal-meta > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.notif-modal-meta dt {
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text-3);
+}
+
+.notif-modal-meta dd {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text);
+    text-align: end;
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.modal-actions .btn { flex: 1 1 auto; justify-content: center; }
 
 /* ==================== 26) بطاقة حالة الحساب ==================== */
 .health-card {
@@ -1929,8 +2381,11 @@ body.customer-shell .portal-search-input {
 }
 
 /* ==================== 31) زر الرجوع في تفاصيل التذكرة ==================== */
+/* زر الرجوع: نفس الشكل في تفاصيل التذكرة وفي المقال.
+   الفرق إن نسخة التذكرة تخصّ الموبايل فقط (القائمة والتفاصيل جنب بعض على
+   الديسكتوب)، أما نسخة المقال فظاهرة دايمًا لأن المقال بيحلّ محلّ الصفحة. */
+.back-btn,
 .ticket-back-btn {
-    display: none;
     align-items: center;
     gap: var(--sp-2);
     background: none;
@@ -1945,6 +2400,9 @@ body.customer-shell .portal-search-input {
     width: 100%;
     text-align: right;
 }
+
+.back-btn { display: flex; }
+.ticket-back-btn { display: none; }
 
 /* على الشاشات الصغيرة القائمة والتفاصيل مش جنب بعض: اختيار تذكرة بيعرض
    التفاصيل لوحدها مع زر رجوع، بدل تمرير طويل بين الاتنين. */
@@ -1985,4 +2443,281 @@ html[data-sidebar='collapsed'] body.customer-shell .sidebar-group-label {
     margin: 0 auto var(--sp-2);
     width: 1.4rem;
     border-top: 1px solid var(--color-sidebar-border);
+}
+
+/* ==================== 30) مركز المساعدة ====================
+   نفس مفردات البوابة (بطاقات زجاجية، نفس الحواف والمسافات والنبرات)،
+   بلا أي لون أو مقاس مكتوب خارج الـtokens. */
+.help-hero {
+    text-align: center;
+    padding: var(--sp-7) var(--sp-4) var(--sp-6);
+    margin-bottom: var(--sp-5);
+    border-radius: var(--r-xl);
+    border: 1px solid var(--color-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.help-hero h1 {
+    margin: var(--sp-3) 0 var(--sp-2);
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    color: var(--color-text);
+    line-height: 1.25;
+}
+
+.help-hero .page-subtitle {
+    margin: 0 auto var(--sp-5);
+    max-width: 34rem;
+    color: var(--color-text-secondary);
+}
+
+.help-search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-pill);
+    background: var(--color-surface);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.help-search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.help-search-icon { color: var(--color-text-3); flex-shrink: 0; }
+
+body.customer-shell .help-search-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-3) 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--fs-md);
+}
+
+body.customer-shell .help-search-input::-webkit-search-cancel-button { display: none; }
+
+.help-search-clear {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-3);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 var(--sp-1);
+    border-radius: var(--r-sm);
+}
+
+.help-search-clear:hover { color: var(--color-text); }
+
+.help-block { margin-bottom: var(--sp-6); }
+.help-more { margin-top: var(--sp-4); text-align: center; }
+
+/* بطاقات الوصول السريع: نفس بطاقة الإجراء لكن بلا أيقونة، فالمحتوى بيتكدّس
+   عموديًا بدل ما العنوان والنص يتراصّوا جنب بعض ويضيق كل واحد فيهم. */
+#helpQuickAccess .action-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-2);
+}
+
+#helpQuickAccess .action-title { font-size: var(--fs-base); }
+#helpQuickAccess .action-text { color: var(--color-text-secondary); line-height: 1.7; }
+
+/* ---------- بطاقات المقالات ---------- */
+.article-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
+    gap: var(--sp-4);
+}
+
+.article-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    text-align: start;
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--color-text);
+    transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.article-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.article-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.article-card-category,
+.article-category {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: .15rem .55rem;
+    border-radius: var(--r-pill);
+    background: var(--tint-accent);
+    color: var(--on-accent);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+}
+
+.article-card-title {
+    font-size: var(--fs-md);
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--color-text);
+}
+
+.article-card-excerpt {
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+}
+
+.article-card-meta {
+    margin-top: auto;
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+}
+
+/* ---------- المقال ---------- */
+.article-panel { max-width: 48rem; }
+
+.article-title {
+    margin: var(--sp-3) 0 var(--sp-2);
+    font-size: var(--fs-xl);
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--color-text);
+}
+
+.article-meta {
+    margin: 0 0 var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--color-text-3);
+}
+
+.article-toc {
+    margin: 0 0 var(--sp-5);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+}
+
+.article-toc-title {
+    display: block;
+    margin-bottom: var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: 800;
+    color: var(--color-text-3);
+}
+
+.article-toc ul { margin: 0; padding-inline-start: var(--sp-4); }
+.article-toc li { margin-bottom: var(--sp-1); }
+.article-toc a { color: var(--color-accent); font-size: var(--fs-sm); font-weight: 700; }
+
+.article-body { color: var(--color-text-secondary); font-size: var(--fs-base); line-height: 1.9; }
+.article-body p { margin: 0 0 var(--sp-4); overflow-wrap: anywhere; }
+.article-body .article-heading {
+    margin: var(--sp-6) 0 var(--sp-3);
+    font-size: var(--fs-md);
+    font-weight: 800;
+    color: var(--color-text);
+    scroll-margin-top: calc(var(--customer-nav-h) + var(--sp-4));
+}
+.article-body .article-list { margin: 0 0 var(--sp-4); padding-inline-start: var(--sp-5); }
+.article-body .article-list li { margin-bottom: var(--sp-2); }
+
+/* ---------- تقييم المقال ---------- */
+.article-feedback {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--color-border);
+}
+
+.article-feedback-q { margin: 0 0 var(--sp-3); font-weight: 800; color: var(--color-text); }
+body.customer-shell .article-feedback .btn.is-chosen {
+    border-color: var(--color-accent);
+    background: var(--tint-accent);
+    color: var(--on-accent);
+}
+
+.article-feedback-followup {
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+}
+
+.article-feedback-followup p { margin: 0 0 var(--sp-3); font-weight: 700; color: var(--color-text); }
+.article-feedback-thanks { margin: var(--sp-3) 0 0; color: var(--on-success); font-weight: 700; font-size: var(--fs-sm); }
+
+/* ---------- الأسئلة الشائعة ---------- */
+.faq-list { display: grid; gap: var(--sp-2); }
+
+.faq-item {
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--glass-bg);
+    padding: var(--sp-3) var(--sp-4);
+}
+
+.faq-item summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--color-text);
+    list-style: none;
+}
+
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::before { content: "＋ "; color: var(--color-accent); font-weight: 800; }
+.faq-item[open] summary::before { content: "－ "; }
+.faq-item p { margin: var(--sp-3) 0 0; color: var(--color-text-secondary); line-height: 1.8; }
+
+/* ---------- التصعيد للدعم ---------- */
+.help-escalation {
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-xl);
+    background: var(--surface-raised);
+}
+
+.help-escalation h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); font-weight: 800; color: var(--color-text); }
+.help-escalation p { margin: 0 0 var(--sp-4); color: var(--color-text-secondary); }
+.help-escalation .u-row { justify-content: center; }
+
+.chip-count {
+    margin-inline-start: var(--sp-2);
+    font-size: var(--fs-xs);
+    opacity: .75;
+    font-variant-numeric: tabular-nums;
+}
+
+.skeleton-card { height: 8.5rem; border-radius: var(--r-lg); }
+
+@media (max-width: 768px) {
+    .help-hero { padding: var(--sp-5) var(--sp-3); }
+    .help-hero h1 { font-size: var(--fs-xl); }
+    body.customer-shell .help-search-input { font-size: var(--fs-base); }
 }

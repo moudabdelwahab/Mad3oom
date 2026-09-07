@@ -128,20 +128,26 @@ function fixtures(overrides = {}) {
             ticket_ratings: [],
             notifications: [
                 {
+                    // الشكل الكامل بعد migrations/015: الإجراء بيانات على الصف
                     id: 'n1', user_id: USER_ID, title: 'رد جديد على تذكرتك',
                     message: 'فريق الدعم رد على التذكرة #101', is_read: false,
-                    created_at: '2026-09-01T10:01:00Z', category: 'tickets',
-                    // نفس شكل الرابط المخزَّن فعلاً في الإنتاج
-                    link: `customer-dashboard.html?ticket=${TICKET_1}`
+                    type: 'info', created_at: '2026-09-01T10:01:00Z', category: 'tickets',
+                    // نفس شكل الرابط المخزَّن فعلاً في الإنتاج (بنية الروابط العميقة باقية)
+                    link: `customer-dashboard.html?ticket=${TICKET_1}`,
+                    reference_id: TICKET_1, action: 'open_ticket', action_target: TICKET_1,
+                    action_label: null
                 },
                 {
+                    // إشعار بلا وجهة: يفتح تفاصيله، ومن غير زر إجراء وهمي
                     id: 'n2', user_id: USER_ID, title: 'تم حل تذكرتك',
-                    message: 'التذكرة #102 تم حلها', is_read: true,
-                    created_at: '2026-08-02T09:00:00Z', category: 'tickets', link: null
+                    message: 'التذكرة #102 تم حلها', is_read: true, type: 'success',
+                    created_at: '2026-08-02T09:00:00Z', category: 'tickets', link: null,
+                    reference_id: null, action: 'none', action_target: null, action_label: null
                 },
                 {
+                    // صف قديم بلا أعمدة إجراء: الاشتقاق من الرابط لازم يفضل شغّال
                     id: 'n3', user_id: USER_ID, title: 'رصيد الواتساب منخفض',
-                    message: 'الرصيد الحالي 12 EGP', is_read: false,
+                    message: 'الرصيد الحالي 12 EGP', is_read: false, type: 'warning',
                     created_at: '2026-09-02T09:00:00Z', category: 'billing',
                     link: '/customer-dashboard.html#usage'
                 }
@@ -488,6 +494,249 @@ test('تفضيل الثيم محفوظ ويُطبَّق قبل أول رسم ب�
 
 /* ==================== 3) مركز التذاكر ==================== */
 
+/* ============================ الشريط العلوي ============================ */
+
+test('الشريط ثابت أثناء التمرير ولا يترك فجوة فوق القائمة', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    const measure = () => page.evaluate(() => {
+        const nav = document.querySelector('.admin-nav');
+        const sb = document.getElementById('sidebar');
+        const n = nav.getBoundingClientRect();
+        const s = sb.getBoundingClientRect();
+        return {
+            navTop: Math.round(n.top), navBottom: Math.round(n.bottom),
+            sbTop: Math.round(s.top), sbBottom: Math.round(s.bottom),
+            vh: window.innerHeight, scrollY: Math.round(window.scrollY)
+        };
+    });
+
+    const top = await measure();
+    assert.equal(top.navTop, 0, 'الشريط لا يبدأ من أعلى النافذة');
+    assert.equal(top.sbTop, top.navBottom, 'فجوة بين الشريط والقائمة');
+    assert.equal(top.sbBottom, top.vh, 'القائمة لا تصل لأسفل النافذة');
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(250);
+
+    const bottom = await measure();
+    assert.ok(bottom.scrollY > 0, 'الصفحة لم تتمرّر فالاختبار بلا معنى');
+    // ده بالظبط العطل اللي كان: الشريط بيروح مع التمرير وتفضل شريحة فاضية
+    assert.equal(bottom.navTop, 0, 'الشريط اختفى مع التمرير');
+    assert.equal(bottom.sbTop, bottom.navBottom, 'فجوة فوق القائمة بعد التمرير');
+    assert.equal(bottom.sbBottom, bottom.vh, 'فجوة أسفل القائمة بعد التمرير');
+    await context.close();
+});
+
+test('القائمة الطويلة تمرَّر داخلياً بدل أن تمتد خارج الشاشة', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+    // شاشة قصيرة: عناصر القائمة أطول منها حتماً
+    await page.setViewportSize({ width: 1440, height: 520 });
+    await page.waitForTimeout(300);
+
+    const r = await page.evaluate(() => {
+        const sb = document.getElementById('sidebar');
+        const menu = sb.querySelector('.sidebar-menu');
+        return {
+            sbBottom: Math.round(sb.getBoundingClientRect().bottom),
+            vh: window.innerHeight,
+            menuOverflow: getComputedStyle(menu).overflowY,
+            menuScrollable: menu.scrollHeight > menu.clientHeight
+        };
+    });
+
+    assert.equal(r.sbBottom, r.vh, 'القائمة تجاوزت أسفل الشاشة');
+    assert.equal(r.menuOverflow, 'auto', 'محتوى القائمة بلا تمرير داخلي');
+    assert.ok(r.menuScrollable, 'المحتوى ليس أطول من الشاشة فالاختبار بلا معنى');
+    await context.close();
+});
+
+test('المحتوى يملأ المساحة جنب القائمة في الحالتين', { skip: !chromiumPath }, async () => {
+    // الاتجاه المعاكس للتمرير الأفقي: محتوى أضيق من اللازم. حصل فعلاً لما
+    // ضُبط width:auto مع margin:0 auto الموروث — الهوامش التلقائية بتعطّل
+    // تمدّد عنصر الـflex فينكمش لعرض محتواه ويتوسّط.
+    for (const collapsed of [false, true]) {
+        const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+        await page.evaluate(c => {
+            document.documentElement.setAttribute('data-sidebar', c ? 'collapsed' : 'expanded');
+        }, collapsed);
+        await page.waitForTimeout(400);
+
+        const r = await page.evaluate(() => {
+            const main = document.querySelector('.admin-main').getBoundingClientRect();
+            const sb = document.getElementById('sidebar').getBoundingClientRect();
+            return { mainW: main.width, sbW: sb.width, vw: window.innerWidth };
+        });
+
+        const available = r.vw - r.sbW;
+        assert.ok(r.mainW >= available - 40,
+            `المحتوى ${Math.round(r.mainW)}px بينما المتاح ${Math.round(available)}px (collapsed=${collapsed})`);
+        assert.ok(r.mainW <= available + 1,
+            `المحتوى تجاوز المساحة المتاحة (collapsed=${collapsed})`);
+        await context.close();
+    }
+});
+
+test('الشعار هو نفسه المستخدم في صفحة الدخول', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    const src = await page.getAttribute('.portal-brand-logo', 'src');
+    assert.equal(src, '/logo.png', 'شعار مختلف عن شعار صفحة الدخول');
+
+    // نفس الملف اللي بتستعمله login.html فعلاً
+    const loginLogo = fs.readFileSync(path.join(ROOT, 'login.html'), 'utf8')
+        .match(/class="card-logo-img" src="([^"]+)"/)?.[1];
+    assert.equal(src, loginLogo, 'الشعار لا يطابق ما تستخدمه صفحة الدخول');
+
+    // وبيتحمّل فعلاً بأبعاد حقيقية (مش أيقونة مكسورة)
+    const loaded = await page.evaluate(() => {
+        const img = document.querySelector('.portal-brand-logo');
+        return { w: img.naturalWidth, h: img.naturalHeight };
+    });
+    assert.ok(loaded.w > 0 && loaded.h > 0, 'الشعار لم يُحمَّل');
+    await context.close();
+});
+
+test('حالة النظام في الشريط حقيقية لا نص ثابت', { skip: !chromiumPath }, async () => {
+    // الحالة الافتراضية في الـfixtures فيها خدمة متدهورة
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+    await page.waitForSelector('#portalSystemStatus:not([hidden])');
+    const text = await page.textContent('#portalSystemStatusText');
+    assert.match(text, /أداء منخفض/, `النص "${text}" لا يعكس الحالة الفعلية`);
+    assert.ok(!text.includes('النظام شغال'), 'ما زال النص الثابت القديم معروضاً');
+    await context.close();
+
+    // كل الخدمات تعمل → النص يتغيّر
+    const fx = fixtures();
+    fx.tables.services = fx.tables.services.map(s => ({ ...s, status: 'operational' }));
+    const second = await openDashboard(browser, baseUrl, fx);
+    await second.page.waitForSelector('#portalSystemStatus:not([hidden])');
+    assert.match(await second.page.textContent('#portalSystemStatusText'), /كل الخدمات تعمل/);
+    await second.context.close();
+});
+
+test('قائمة الحساب تفتح وتعرض الاسم والبريد وروابطها تعمل', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    assert.ok(await page.isHidden('#customerAvatarMenu'), 'القائمة مفتوحة قبل الضغط');
+    await page.click('#customerAvatarBtn');
+    await page.waitForSelector('#customerAvatarMenu:not([hidden])');
+
+    assert.equal(await page.getAttribute('#customerAvatarBtn', 'aria-expanded'), 'true');
+    assert.match(await page.textContent('#customerMenuName'), /عميل تجريبي/);
+    assert.match(await page.textContent('#customerMenuEmail'), /client@example.com/);
+
+    const items = await page.$$eval('#customerAvatarMenu .portal-menu-item span',
+        els => els.map(e => e.textContent.trim()));
+    for (const expected of ['الملف الشخصي', 'الأمان', 'تسجيل الخروج']) {
+        assert.ok(items.includes(expected), `عنصر "${expected}" غير موجود في قائمة الحساب`);
+    }
+
+    await page.click('#customerProfile');
+    await page.waitForSelector('#profileTabContent.active');
+    assert.ok(await page.isHidden('#customerAvatarMenu'), 'القائمة ظلّت مفتوحة بعد الاختيار');
+    await context.close();
+});
+
+test('Escape يغلق القائمة المفتوحة، والضغط خارجها يغلقها', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    await page.click('#customerAvatarBtn');
+    await page.waitForSelector('#customerAvatarMenu:not([hidden])');
+    await page.keyboard.press('Escape');
+    assert.ok(await page.isHidden('#customerAvatarMenu'), 'Escape لم يغلق القائمة');
+
+    await page.click('#customerAvatarBtn');
+    await page.waitForSelector('#customerAvatarMenu:not([hidden])');
+    await page.click('#overviewHeading');
+    assert.ok(await page.isHidden('#customerAvatarMenu'), 'الضغط خارج القائمة لم يغلقها');
+    await context.close();
+});
+
+test('القوائم المنسدلة تبقى داخل الشاشة في الاتجاهين وكل المقاسات', { skip: !chromiumPath }, async () => {
+    // الاتجاه مش مضمون: language-manager بيضبطه من لغة المتصفح، فصفحة عربية
+    // ممكن تترسم ltr على متصفح إنجليزي. القائمة لازم تفضل داخل الشاشة في
+    // الحالتين — وده بالظبط اللي كان مكسورًا (كانت بتفتح لبرّه الشاشة).
+    for (const dir of ['rtl', 'ltr']) {
+        for (const width of [1440, 1024, 768, 414, 360]) {
+            const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+            await page.setViewportSize({ width, height: 900 });
+            await page.evaluate(d => {
+                document.documentElement.setAttribute('dir', d);
+                document.body.setAttribute('dir', d);
+            }, dir);
+            await page.waitForTimeout(200);
+
+            await page.click('#customerAvatarBtn');
+            await page.waitForSelector('#customerAvatarMenu:not([hidden])');
+
+            const r = await page.evaluate(() => {
+                const m = document.getElementById('customerAvatarMenu').getBoundingClientRect();
+                return { left: m.left, right: m.right, vw: window.innerWidth };
+            });
+            assert.ok(r.right <= r.vw + 1, `القائمة تخرج يميناً عند ${width}px/${dir} (right=${r.right})`);
+            assert.ok(r.left >= -1, `القائمة تخرج يساراً عند ${width}px/${dir} (left=${r.left})`);
+            await context.close();
+        }
+    }
+});
+
+test('فتح قائمة يغلق الأخرى فلا تتراكب قائمتان', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    await page.click('#languageToggleBtn');
+    await page.waitForSelector('#languageMenu:not([hidden])');
+    await page.click('#customerAvatarBtn');
+    await page.waitForSelector('#customerAvatarMenu:not([hidden])');
+
+    assert.ok(await page.isHidden('#languageMenu'), 'قائمتان مفتوحتان في نفس الوقت');
+    assert.equal(await page.getAttribute('#languageToggleBtn', 'aria-expanded'), 'false');
+    await context.close();
+});
+
+test('عناصر الشريط كلها لها تسمية للقارئ الصوتي', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+
+    const missing = await page.evaluate(() =>
+        [...document.querySelectorAll('.admin-nav button')]
+            .filter(b => !b.getAttribute('aria-label') && !b.textContent.trim())
+            .map(b => b.id || b.className));
+
+    assert.deepEqual(missing, [], `أزرار بلا تسمية: ${missing.join(', ')}`);
+    await context.close();
+});
+
+test('شارة الإشعارات تعرض العدد وتنعكس في التسمية', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+    await page.waitForSelector('#notificationBadge:not([hidden])');
+
+    assert.equal((await page.textContent('#notificationBadge')).trim(), '2');
+    assert.match(await page.getAttribute('#notificationBtn', 'aria-label'), /2 غير مقروء/);
+    await context.close();
+});
+
+test('على الموبايل: أيقونة بحث تفتح طبقة، ولا يظهر مربع البحث في الشريط', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+
+    assert.ok(await page.isVisible('#portalSearchTrigger'), 'أيقونة البحث غير ظاهرة على الموبايل');
+    assert.ok(await page.isHidden('#globalSearchInput'), 'مربع البحث ظاهر ويزاحم الشريط');
+
+    await page.click('#portalSearchTrigger');
+    await page.waitForSelector('#globalSearchInput:visible');
+    await page.click('#portalSearchClose');
+    assert.ok(await page.isHidden('#globalSearchInput'), 'طبقة البحث لم تُغلق');
+    await context.close();
+});
+
+test('على الديسكتوب: مربع البحث ظاهر بلا أيقونة مكرّرة', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures());
+    assert.ok(await page.isVisible('#globalSearchInput'));
+    assert.ok(await page.isHidden('#portalSearchTrigger'), 'أيقونة البحث مكرّرة بجوار المربع');
+    await context.close();
+});
+
 test('مجموعات التذاكر تعرض الأعداد الصحيحة وتصفّي فعلياً', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#tickets' });
     await page.waitForSelector('.view-tab');
@@ -597,30 +846,87 @@ test('الضغط على أيقونة الإشعارات يفتح الصفحة ا
     await context.close();
 });
 
-test('الضغط على إشعار تذكرة يفتح التذكرة نفسها', { skip: !chromiumPath }, async () => {
+test('الضغط على إشعار يفتح تفاصيله ولا ينقل تلقائياً', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#notifications' });
     await page.waitForSelector('.notif-item');
 
     await page.click('.notif-item[data-id="n1"]');
-    await page.waitForSelector('#ticketsTabContent.active');
-    await page.waitForSelector('.ticket-detail-title');
-    assert.match(await page.textContent('.ticket-detail-title'), /مشكلة في تسجيل الدخول/);
+    await page.waitForSelector('#notificationModal.active');
+
+    // التفاصيل كاملة داخل النافذة: العنوان والنص والتصنيف والوقت وحالة القراءة
+    assert.match(await page.textContent('#notificationModalTitle'), /رد جديد على تذكرتك/);
+    assert.match(await page.textContent('#notificationModalMessage'), /التذكرة #101/);
+    assert.match(await page.textContent('#notificationModalCategory'), /التذاكر/);
+    assert.ok((await page.textContent('#notificationModalTime')).trim().length > 4);
+
+    // ولا انتقال تلقائي: العميل ما زال في قسم الإشعارات
+    assert.ok(await page.isVisible('#notificationsTabContent.active'), 'حدث انتقال تلقائي غير مطلوب');
+    assert.ok(!(await page.isVisible('#ticketsTabContent.active')), 'انتقل لقسم التذاكر بدون ضغط زر');
     await context.close();
 });
 
-test('الضغط على إشعار مرتبط بقسم يفتح القسم', { skip: !chromiumPath }, async () => {
+test('زر الإجراء داخل النافذة هو وحده ما ينقل لوجهة الإشعار', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#notifications' });
     await page.waitForSelector('.notif-item');
+
+    await page.click('.notif-item[data-id="n1"]');
+    await page.waitForSelector('#notificationModal.active');
+
+    const label = await page.textContent('#notificationModalAction');
+    assert.match(label, /فتح التذكرة/);
+
+    await page.click('#notificationModalAction');
+    await page.waitForSelector('#ticketsTabContent.active');
+    await page.waitForSelector('.ticket-detail-title');
+    assert.match(await page.textContent('.ticket-detail-title'), /مشكلة في تسجيل الدخول/);
+
+    // النافذة تُغلق بعد التنفيذ فلا تحجب الوجهة
+    assert.ok(!(await page.isVisible('#notificationModal.active')), 'النافذة ظلت مفتوحة فوق الوجهة');
+    await context.close();
+});
+
+test('إغلاق النافذة يعيد العميل لنفس المكان بلا انتقال', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#notifications' });
+    await page.waitForSelector('.notif-item');
+
+    await page.click('.notif-item[data-id="n1"]');
+    await page.waitForSelector('#notificationModal.active');
+    await page.click('#notificationModal .modal-close');
+
+    assert.ok(!(await page.isVisible('#notificationModal.active')));
+    assert.ok(await page.isVisible('#notificationsTabContent.active'), 'الإغلاق نقل العميل من مكانه');
+    await context.close();
+});
+
+test('إشعار مرتبط بقسم: نافذة ثم زر ينقل للقسم', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#notifications' });
+    await page.waitForSelector('.notif-item');
+
+    // n3 صف قديم بلا أعمدة إجراء — الاشتقاق من الرابط لازم يفضل شغّال
     await page.click('.notif-item[data-id="n3"]');
+    await page.waitForSelector('#notificationModal.active');
+    assert.match(await page.textContent('#notificationModalAction'), /الاشتراك|الاستهلاك/);
+
+    await page.click('#notificationModalAction');
     await page.waitForSelector('#usageTabContent.active');
     await context.close();
 });
 
-test('الإشعار غير القابل للتنفيذ لا يُعرض كأنه قابل للضغط', { skip: !chromiumPath }, async () => {
+test('الإشعار بلا وجهة يعرض تفاصيله بدون زر إجراء وهمي', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#notifications' });
     await page.waitForSelector('.notif-item');
-    const cls = await page.getAttribute('.notif-item[data-id="n2"]', 'class');
-    assert.ok(!cls.includes('is-actionable'), 'إشعار بلا وجهة ظهر قابلاً للضغط');
+
+    // بلا وجهة لا يعني بلا محتوى: العميل لسه محتاج يقرا النص والتاريخ
+    await page.click('.notif-item[data-id="n2"]');
+    await page.waitForSelector('#notificationModal.active');
+    assert.match(await page.textContent('#notificationModalMessage'), /التذكرة #102/);
+
+    const actionVisible = await page.isVisible('#notificationModalAction');
+    assert.ok(!actionVisible, 'ظهر زر إجراء لإشعار بلا وجهة');
+
+    // ولا تلميح إجراء في القائمة نفسها
+    const cta = await page.$('.notif-item[data-id="n2"] .notif-cta');
+    assert.equal(cta, null, 'عُرض تلميح إجراء لإشعار بلا وجهة');
     await context.close();
 });
 

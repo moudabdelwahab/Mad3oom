@@ -15,6 +15,7 @@
 import { requireAuth, updateProfile, updatePassword } from './auth-client.js';
 import {
     initCustomerSidebar,
+    updateSystemStatusPill,
     setSidebarBadge,
     setActiveSidebarTab
 } from './assets/js/customer-sidebar.js';
@@ -43,6 +44,11 @@ import {
     formatRelativeArabic
 } from './notifications-service.js';
 import { ui } from './ui-service.js';
+// حالات العرض المشتركة مع باقي صفحات البوابة (مركز المساعدة يستخدم نفسها)
+import {
+    escapeHtml, timeAgo, formatDate, formatDateTime,
+    setText, renderState, renderSkeletonLines
+} from './assets/js/customer/portal-ui.js';
 import {
     getPlatformSettings,
     supportAvailability,
@@ -60,7 +66,17 @@ import {
     needsCustomerReply
 } from './assets/js/customer/ticket-view-model.js';
 import {
+    entitlementsFrom,
+    impairedForCustomer,
+    incidentForService,
+    isImpaired,
+    orderForCustomer,
+    statusInfo as serviceStatusInfo,
+    episodeKeyFor
+} from './assets/js/customer/service-status-model.js';
+import {
     resolveNotification,
+    actionLabelFor,
     destinationLabel,
     categoriesPresentIn,
     NOTIFICATION_CATEGORIES
@@ -82,16 +98,6 @@ window.addEventListener('pageshow', (event) => {
 /* =========================================================
    أدوات مشتركة
 ========================================================= */
-
-function escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
 
 function sanitizeUrl(url) {
     if (!url) return '';
@@ -138,59 +144,6 @@ function categoryBadge(category) {
     if (!category) return '';
     const cls = CATEGORY_CLASS[category] || 'cat-other';
     return `<span class="pill ${cls}">${escapeHtml(CATEGORY_LABELS[category] || category)}</span>`;
-}
-
-function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'الآن';
-    if (minutes < 60) return `منذ ${minutes} دقيقة`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `منذ ${hours} ساعة`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `منذ ${days} يوم`;
-    return new Date(dateStr).toLocaleDateString('ar-EG');
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function formatDateTime(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleString('ar-EG');
-}
-
-/** رسم حالة موحّدة (فراغ/خطأ) مع إجراء اختياري — مطلوب في كل قسم. */
-function renderState(container, { variant = 'empty', title, text, icon = true, action } = {}) {
-    if (!container) return;
-    const iconSvg = icon
-        ? (variant === 'error'
-            ? '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-            : '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>')
-        : '';
-    const actionHtml = action
-        ? `<button type="button" class="btn ${action.variant || 'btn-secondary'}"${action.goto ? ` data-goto="${escapeHtml(action.goto)}"` : ''}${action.act ? ` data-action="${escapeHtml(action.act)}"` : ''}${action.retry ? ` data-retry="${escapeHtml(action.retry)}"` : ''}>${escapeHtml(action.label)}</button>`
-        : '';
-    container.innerHTML = `
-        <div class="state-block ${variant === 'error' ? 'state-block--error' : ''}">
-            ${iconSvg}
-            <p class="state-title">${escapeHtml(title || '')}</p>
-            ${text ? `<p class="state-text">${escapeHtml(text)}</p>` : ''}
-            ${actionHtml}
-        </div>`;
-}
-
-function renderSkeletonLines(container, count = 3) {
-    if (!container) return;
-    container.innerHTML = Array.from({ length: count }, () => '<div class="skeleton skeleton-line"></div>').join('');
-}
-
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
 }
 
 /** صف بيانات موحّد. value و note لازم يكونوا HTML آمن مبني مسبقاً. */
@@ -316,6 +269,10 @@ function meter(percent, tone = '') {
 
     initCustomerSidebar({
         onTabChange: (tabName) => showSection(tabName),
+        // اللوحة بترسم نتائج البحث وحالة النظام بنفسها من نفس اللقطة، فالقشرة
+        // ما بتجيبهمش تاني — نفس البيانات مرة واحدة بدل استعلامين.
+        ownsSearch: true,
+        ownsSystemStatus: true,
         onReady: () => {
             updateSidebarUserInfo();
             refreshNotificationBadge();
@@ -324,6 +281,8 @@ function meter(percent, tone = '') {
             });
             setActiveSidebarTab(currentSection);
             setSidebarBadge('tickets', countByView(cachedTickets, user.id).awaiting);
+            bindGlobalSearch();
+            updateSystemStatusPill(snapshot?.systemStatus?.ok ? snapshot.systemStatus.data : null);
         }
     });
 
@@ -346,14 +305,17 @@ function meter(percent, tone = '') {
 
     let snapshot = null;
     let cachedTickets = [];
+    /** بلاغات العميل الحالية — تحدّد إن كان زر "إبلاغ الإدارة" متاحًا لكل عطل. */
+    let myServiceReports = [];
 
     async function loadSnapshot() {
         if (isGuest) {
             snapshot = { tickets: [] };
+            myServiceReports = [];
             return snapshot;
         }
 
-        const [account, planSubs, waSub, wallet, sie, subdomains, systemStatus, badges, tickets] =
+        const [account, planSubs, waSub, wallet, sie, subdomains, systemStatus, badges, tickets, reports] =
             await Promise.all([
                 customerData.fetchAccountStatus(),
                 customerData.fetchPlanSubscriptions(),
@@ -363,11 +325,15 @@ function meter(percent, tone = '') {
                 customerData.fetchSubdomains(),
                 customerData.fetchSystemStatus(),
                 customerData.fetchBadgeProgress(),
-                fetchUserTickets({}).catch(err => { console.error('[Snapshot] tickets:', err); return []; })
+                fetchUserTickets({}).catch(err => { console.error('[Snapshot] tickets:', err); return []; }),
+                customerData.fetchMyServiceReports()
             ]);
 
         cachedTickets = tickets || [];
+        myServiceReports = reports.ok ? reports.data : [];
         snapshot = { account, planSubs, waSub, wallet, sie, subdomains, systemStatus, badges, tickets: cachedTickets };
+        // شارة الحالة في الشريط العلوي بتقرا من نفس اللقطة، فبتتحدّث مع كل تحديث
+        updateSystemStatusPill(systemStatus.ok ? systemStatus.data : null);
         return snapshot;
     }
 
@@ -724,14 +690,14 @@ function meter(percent, tone = '') {
         container.innerHTML = `<div class="data-rows">${rows.map(dataRow).join('')}</div>`;
     }
 
-    const SERVICE_STATUS_LABELS = {
-        operational: 'يعمل بشكل طبيعي',
-        degraded: 'أداء منخفض',
-        partial_outage: 'انقطاع جزئي',
-        major_outage: 'انقطاع كامل',
-        maintenance: 'صيانة'
-    };
-
+    /**
+     * حالة النظام من منظور العميل.
+     *
+     * فرقان مهمّان عن النسخة السابقة:
+     *   • الخدمات اللي العميل بيستخدمها بتتقدّم وبتتعلّم كـ"تخصّك"، والعطل
+     *     في خدمة مالهوش علاقة بيه ما بياخدش نفس الأولوية.
+     *   • كل خدمة متعطّلة ليها زر "إبلاغ الإدارة" — إشارة مش تذكرة.
+     */
     function renderSystemStatus() {
         const container = document.getElementById('systemStatusBody');
         if (!container) return;
@@ -747,7 +713,7 @@ function meter(percent, tone = '') {
             return;
         }
 
-        const { services, incidents, degraded, allOperational } = result.data;
+        const { services, incidents } = result.data;
         if (!services.length) {
             renderState(container, {
                 variant: 'empty',
@@ -757,16 +723,20 @@ function meter(percent, tone = '') {
             return;
         }
 
-        const banner = allOperational
+        const entitlements = entitlementsFrom(snapshot);
+        const mine = impairedForCustomer(result.data, entitlements);
+        const ordered = orderForCustomer(services, entitlements);
+
+        const banner = mine.length === 0
             ? `<div class="alert-item alert-item--success">
                    <span class="alert-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
-                   <div class="alert-body"><p class="alert-title">كل الخدمات تعمل بشكل طبيعي</p></div>
+                   <div class="alert-body"><p class="alert-title">لا يوجد عطل يؤثر على خدماتك</p></div>
                </div>`
             : `<div class="alert-item alert-item--warning">
                    <span class="alert-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                    <div class="alert-body">
-                       <p class="alert-title">${degraded.length} خدمة بها مشكلة حالياً</p>
-                       <p class="alert-text">${escapeHtml(degraded.map(s => s.name).join('، '))}</p>
+                       <p class="alert-title">${mine.length === 1 ? 'خدمة تستخدمها بها مشكلة حالياً' : `${mine.length} خدمات تستخدمها بها مشكلة حالياً`}</p>
+                       <p class="alert-text">${escapeHtml(mine.map(m => m.service.name).join('، '))}</p>
                    </div>
                </div>`;
 
@@ -777,19 +747,98 @@ function meter(percent, tone = '') {
                         <span class="alert-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg></span>
                         <div class="alert-body">
                             <p class="alert-title">${escapeHtml(inc.title)}</p>
-                            <p class="alert-text">${escapeHtml(inc.description || '')} — بدأ ${escapeHtml(timeAgo(inc.created_at))}</p>
+                            <p class="alert-text">${escapeHtml(inc.description || '')} — بدأ ${escapeHtml(timeAgo(inc.created_at))}${inc.updated_at ? ` · آخر تحديث ${escapeHtml(timeAgo(inc.updated_at))}` : ''}</p>
                         </div>
                     </div>`).join('')}
             </div>` : '';
 
-        const rows = services.map(s => dataRow({
-            label: s.name,
-            value: `<span class="pill ${s.status === 'operational' ? 'status-resolved' : 'status-in-progress'}"><span class="pill-dot"></span>${escapeHtml(SERVICE_STATUS_LABELS[s.status] || s.status)}</span>`,
-            note: s.last_checked ? escapeHtml(`آخر فحص ${timeAgo(s.last_checked)}`) : ''
-        })).join('');
+        const rows = ordered.map(service => {
+            const info = serviceStatusInfo(service);
+            const incident = incidentForService(service, incidents);
+            const impaired = isImpaired(service);
+            const notes = [];
+
+            if (impaired && (incident?.created_at || service.status_changed_at)) {
+                notes.push(`بدأت ${escapeHtml(timeAgo(incident?.created_at || service.status_changed_at))}`);
+            }
+            if (service.last_checked) notes.push(`آخر فحص ${escapeHtml(timeAgo(service.last_checked))}`);
+
+            const action = impaired ? renderReportButton(service, incident) : '';
+
+            return dataRow({
+                label: service.name,
+                value: `<span class="pill status-tone-${info.tone}"><span class="pill-dot"></span>${escapeHtml(info.label)}</span>${action}`,
+                note: notes.join(' · ')
+            });
+        }).join('');
 
         container.innerHTML = `${banner}${incidentsHtml}<div class="data-rows" style="margin-top: var(--sp-3);">${rows}</div>`;
     }
+
+    /**
+     * زر البلاغ. لو العميل بلّغ عن نفس النوبة قبل كده، بيتحوّل لحالة "تم
+     * الإبلاغ" معطّلة — القيد الفريد في القاعدة هو الحكم النهائي، وده بس
+     * انعكاسه في الواجهة عشان ما يضغطش على زر هيترفض.
+     */
+    function renderReportButton(service, incident) {
+        const key = episodeKeyFor(service, incident);
+        const existing = myServiceReports.find(r => r.episode_key === key);
+
+        if (existing) {
+            return `<span class="report-done" title="${escapeHtml(`أبلغت ${timeAgo(existing.created_at)}`)}">✓ تم الإبلاغ</span>`;
+        }
+
+        return `<button type="button" class="btn btn-ghost btn-sm report-service-btn"
+                        data-service="${escapeHtml(service.id)}"
+                        data-incident="${incident?.id ? escapeHtml(incident.id) : ''}"
+                        data-name="${escapeHtml(service.name)}">إبلاغ الإدارة</button>`;
+    }
+
+    /* ---------- تدفّق الإبلاغ ---------- */
+    let pendingReport = null;
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.report-service-btn');
+        if (!btn) return;
+
+        pendingReport = {
+            serviceId: btn.dataset.service,
+            incidentId: btn.dataset.incident || null,
+            name: btn.dataset.name
+        };
+        setText('reportServiceName', pendingReport.name);
+        document.getElementById('reportServiceModal')?.classList.add('active');
+    });
+
+    document.getElementById('reportServiceConfirm')?.addEventListener('click', async () => {
+        if (!pendingReport) return;
+        const confirmBtn = document.getElementById('reportServiceConfirm');
+        confirmBtn.disabled = true;
+
+        const result = await customerData.reportServiceIssue({
+            serviceId: pendingReport.serviceId,
+            incidentId: pendingReport.incidentId
+        });
+
+        confirmBtn.disabled = false;
+        document.getElementById('reportServiceModal')?.classList.remove('active');
+
+        if (!result.ok) {
+            ui.showToast('تعذّر إرسال البلاغ. حاول مرة أخرى.', 'error');
+            return;
+        }
+
+        if (result.data.duplicate) {
+            ui.showToast('تم إبلاغ فريق الدعم بهذه المشكلة بالفعل.', 'info');
+        } else {
+            ui.showToast('تم إبلاغ فريق الدعم. شكراً لإبلاغنا.', 'success');
+        }
+
+        const refreshed = await customerData.fetchMyServiceReports();
+        if (refreshed.ok) myServiceReports = refreshed.data;
+        renderSystemStatus();
+        pendingReport = null;
+    });
 
     /* =========================================================
        قسم: التذاكر
@@ -1381,11 +1430,13 @@ function meter(percent, tone = '') {
 
         container.innerHTML = items.map(n => {
             const { meta, destination } = resolveNotification(n);
-            const actionable = destination.kind !== 'none';
-            const cta = destinationLabel(destination);
+            // كل إشعار يفتح تفاصيله — حتى اللي مالوش وجهة، عشان يقرأ نصه كاملاً
+            // وتاريخه. اللي له وجهة بس هو اللي بيعرض تلميح الإجراء، ونافذته
+            // وحدها هي اللي فيها زر انتقال.
+            const cta = destination.kind !== 'none' ? destinationLabel(destination) : '';
             return `
-                <div class="notif-item ${actionable ? 'is-actionable' : ''} ${n.is_read ? '' : 'is-unread'}"
-                     data-id="${escapeHtml(String(n.id))}"${actionable ? ' role="button" tabindex="0"' : ''}>
+                <div class="notif-item is-actionable ${n.is_read ? '' : 'is-unread'}"
+                     data-id="${escapeHtml(String(n.id))}" role="button" tabindex="0">
                     <span class="notif-icon notif-icon--${meta.tone}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${meta.icon}</svg>
                     </span>
@@ -1410,16 +1461,83 @@ function meter(percent, tone = '') {
         }).join('');
     }
 
-    /** يفتح ما يشير إليه الإشعار: تذكرة، قسم، أو صفحة. */
+    /**
+     * الضغط على إشعار = فتح تفاصيله، مش الانتقال لوجهته.
+     *
+     * السلوك القديم كان بينقل العميل فورًا (أو يرجّعه للنظرة العامة لو الوجهة
+     * مش واضحة)، فيفقد مكانه من غير ما يعرف الإشعار بيقول إيه أصلاً.
+     * دلوقتي: تحديد كمقروء ← نافذة تفاصيل ← زر صريح ينقل. لو مفيش وجهة
+     * حقيقية، مفيش زر — بدل زر وهمي.
+     */
+    let activeNotificationDestination = null;
+
     async function activateNotification(notification) {
-        const { destination } = resolveNotification(notification);
+        const { meta, destination } = resolveNotification(notification);
 
         if (!notification.is_read) {
             await markAsRead(notification.id).catch(err => console.error('[Notifications] markAsRead:', err));
             notification.is_read = true;
             refreshNotificationBadge();
             document.dispatchEvent(new CustomEvent('customer:notifications-read'));
+            if (currentSection === 'notifications') renderNotifications();
         }
+
+        openNotificationModal(notification, meta, destination);
+    }
+
+    /** شدّة الإشعار كما يفهمها العميل (notifications.type). */
+    const SEVERITY_LABELS = {
+        error: 'عاجل', warning: 'يحتاج انتباهك', success: 'تم بنجاح', info: 'للعلم'
+    };
+
+    function openNotificationModal(notification, meta, destination) {
+        const modal = document.getElementById('notificationModal');
+        if (!modal) return;
+
+        activeNotificationDestination = destination;
+
+        const iconEl = document.getElementById('notificationModalIcon');
+        if (iconEl) {
+            iconEl.className = `notif-icon notif-icon--${meta.tone}`;
+            iconEl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${meta.icon}</svg>`;
+        }
+
+        setText('notificationModalTitle', notification.title);
+        setText('notificationModalCategory', meta.label);
+        setText('notificationModalMessage', notification.message);
+        setText('notificationModalTime', formatFullDateTime(notification.created_at));
+        setText('notificationModalRead', notification.is_read ? 'مقروء' : 'غير مقروء');
+
+        const severity = SEVERITY_LABELS[notification.type];
+        const severityRow = document.getElementById('notificationModalSeverityRow');
+        if (severityRow) severityRow.hidden = !severity;
+        if (severity) setText('notificationModalSeverity', severity);
+
+        const actionBtn = document.getElementById('notificationModalAction');
+        if (actionBtn) {
+            const label = actionLabelFor(notification, destination);
+            actionBtn.hidden = !label;
+            if (label) actionBtn.textContent = label;
+        }
+
+        modal.classList.add('active');
+        modal.querySelector('.modal-close')?.focus({ preventScroll: true });
+    }
+
+    function formatFullDateTime(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString('ar-EG', {
+            year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    /** زر الإجراء داخل النافذة هو الوحيد اللي بينقل العميل. */
+    document.getElementById('notificationModalAction')?.addEventListener('click', async () => {
+        const destination = activeNotificationDestination;
+        document.getElementById('notificationModal')?.classList.remove('active');
+        if (!destination) return;
 
         switch (destination.kind) {
             case 'ticket':
@@ -1434,10 +1552,8 @@ function meter(percent, tone = '') {
             case 'url':
                 window.location.href = destination.href;
                 break;
-            default:
-                renderNotifications();
         }
-    }
+    });
 
     document.getElementById('notificationFilters')?.addEventListener('click', (e) => {
         const chip = e.target.closest('[data-filter]');
@@ -2245,8 +2361,10 @@ function meter(percent, tone = '') {
        البحث الشامل
     ========================================================= */
 
-    const searchInput = document.getElementById('globalSearchInput');
-    const searchResults = document.getElementById('globalSearchResults');
+    // حقل البحث بقى جزءًا من الشريط العلوي المحقون بعد fetch، فالربط بيتم
+    // في onReady مش وقت تنفيذ الوحدة — قبلها العنصر ما بيكونش موجود أصلاً.
+    let searchInput = null;
+    let searchResults = null;
 
     const SEARCHABLE_SECTIONS = [
         { key: 'support', label: 'مركز الدعم', terms: 'دعم مساعدة تواصل حالة النظام ساعات العمل' },
@@ -2319,20 +2437,37 @@ function meter(percent, tone = '') {
     }
 
     let globalSearchDebounce = null;
-    searchInput?.addEventListener('input', (e) => {
-        clearTimeout(globalSearchDebounce);
-        const value = e.target.value;
-        globalSearchDebounce = setTimeout(() => renderSearchResults(value), 200);
-    });
 
-    searchInput?.addEventListener('focus', () => {
-        // الإشعارات مطلوبة للبحث فيها حتى لو القسم لسه ما اتفتحش
-        if (!cachedNotifications.length && !isGuest) {
-            fetchNotifications().then(list => { cachedNotifications = list; }).catch(() => {});
+    function bindGlobalSearch() {
+        searchInput = document.getElementById('globalSearchInput');
+        searchResults = document.getElementById('globalSearchResults');
+        if (!searchInput || !searchResults) return;
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(globalSearchDebounce);
+            const value = e.target.value;
+            globalSearchDebounce = setTimeout(() => renderSearchResults(value), 200);
+        });
+
+        searchInput.addEventListener('focus', () => {
+            // الإشعارات مطلوبة للبحث فيها حتى لو القسم لسه ما اتفتحش
+            if (!cachedNotifications.length && !isGuest) {
+                fetchNotifications().then(list => { cachedNotifications = list; }).catch(() => {});
+            }
+        });
+
+        // بحث قادم من صفحة أخرى في البوابة (?q=) — نفس المنطق، مصدر واحد
+        const initialQuery = new URLSearchParams(window.location.search).get('q');
+        if (initialQuery) {
+            searchInput.value = initialQuery;
+            renderSearchResults(initialQuery);
         }
-    });
 
-    searchResults?.addEventListener('click', (e) => {
+        bindSearchResultClicks();
+    }
+
+    function bindSearchResultClicks() {
+        searchResults?.addEventListener('click', (e) => {
         const btn = e.target.closest('.search-result');
         if (!btn) return;
         const { kind, id } = btn.dataset;
@@ -2349,7 +2484,8 @@ function meter(percent, tone = '') {
             const notification = cachedNotifications.find(n => String(n.id) === String(id));
             if (notification) activateNotification(notification);
         }
-    });
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (searchResults && !searchResults.hidden && !e.target.closest('.portal-search')) {
@@ -2358,13 +2494,9 @@ function meter(percent, tone = '') {
         }
     });
 
-    // "/" يفتح البحث من أي مكان (اختصار شائع في بوابات الدعم)
+    // اختصار "/" بقى مسؤولية القشرة (customer-sidebar.js) لأن الحقل بقى فيها،
+    // فما بنكرّرش المعالج هنا. اللي فاضل لينا: Escape يقفل النتائج ثم النوافذ.
     document.addEventListener('keydown', (e) => {
-        if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
-            e.preventDefault();
-            searchInput?.focus();
-            return;
-        }
         if (e.key === 'Escape') {
             if (searchResults && !searchResults.hidden) {
                 searchResults.hidden = true;

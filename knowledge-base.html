@@ -1,263 +1,209 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قاعدة المعرفة - منصة مدعوم</title>
-    <link rel="icon" type="image/png" href="/assets/images/logo.png">
-    <link rel="stylesheet" href="styles.css">
+    <title>مركز المساعدة - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script>
-        (function() {
+        /* نفس السكربت الموجود في لوحة العميل: يضبط الثيم وحالة الطي قبل أول
+           رسم، فالبوابة كلها بتفتح بنفس الشكل بلا وميض ولا قفزة. */
+        (function () {
+            var root = document.documentElement;
             try {
-                var theme = localStorage.getItem('theme-preference') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                document.documentElement.setAttribute('data-theme', theme);
-            } catch(e) {
-                document.documentElement.setAttribute('data-theme', 'light');
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
             }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
         })();
     </script>
-    <script src="theme-manager.js" defer></script>
-    <style>
-        .kb-container {
-            padding: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .kb-header {
-            text-align: center;
-            margin-bottom: 3rem;
-            padding: 3rem;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-            border-radius: 1.5rem;
-            color: white;
-            box-shadow: var(--shadow-lg);
-        }
-        .search-box {
-            max-width: 600px;
-            margin: -2rem auto 2rem;
-            position: relative;
-            z-index: 10;
-        }
-        .search-input {
-            width: 100%;
-            padding: 1.25rem 1.5rem;
-            border-radius: 1rem;
-            border: 1px solid var(--color-border);
-            background: var(--color-surface);
-            color: var(--color-text);
-            font-size: 1.1rem;
-            box-shadow: var(--shadow-md);
-            transition: all 0.3s ease;
-        }
-        .search-input:focus {
-            outline: none;
-            border-color: var(--color-accent);
-            box-shadow: 0 0 0 4px rgba(0, 119, 204, 0.15);
-        }
-        .articles-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-        .article-card {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .article-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--color-accent);
-            box-shadow: var(--shadow-md);
-        }
-        .article-category {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--color-accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .article-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin: 0;
-        }
-        .article-excerpt {
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
-            line-height: 1.6;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(4px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: var(--color-surface);
-            padding: 2.5rem;
-            border-radius: 1.25rem;
-            width: 100%;
-            max-width: 800px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--color-border);
-        }
-        .close-modal {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            font-size: 2rem;
-            cursor: pointer;
-            color: var(--color-text-secondary);
-        }
-        .article-full-content {
-            line-height: 1.8;
-            font-size: 1.05rem;
-            white-space: pre-wrap;
-        }
-    </style>
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <script src="/error-tracker.js"></script>
 </head>
-<body>
+<body class="customer-shell">
     <div id="sidebar-container"></div>
 
-    <main class="admin-main">
-        <div class="kb-container">
-            <header class="kb-header">
-                <h1>قاعدة المعرفة</h1>
-                <p>ابحث عن إجابات لأسئلتك التقنية بكل سهولة</p>
-            </header>
+    <main class="admin-main" id="helpMain">
 
-            <div class="search-box">
-                <input type="text" id="kbSearch" class="search-input" placeholder="ابحث عن مقال أو سؤال تقني...">
-            </div>
+        <!-- ======================= مركز المساعدة ======================= -->
+        <section id="helpHomeView">
+            <section class="help-hero">
+                <span class="eyebrow"><span class="dot"></span>مركز المساعدة</span>
+                <h1>كيف يمكننا مساعدتك؟</h1>
+                <p class="page-subtitle">ابحث عن مشكلتك، وإن لم تجد الحل فطريق الدعم على بُعد ضغطة واحدة.</p>
 
-            <div id="articlesList" class="articles-grid">
-                <!-- Articles will be loaded here -->
-                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-                    جاري تحميل المقالات...
+                <div class="help-search" role="search">
+                    <svg class="help-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <label class="visually-hidden" for="helpSearchInput">ابحث في مركز المساعدة</label>
+                    <input type="search" id="helpSearchInput" class="help-search-input" autocomplete="off"
+                           placeholder="ابحث عن مشكلة أو سؤال…">
+                    <button type="button" class="help-search-clear" id="helpSearchClear" hidden aria-label="مسح البحث">&times;</button>
                 </div>
-            </div>
-        </div>
+            </section>
+
+            <!-- عطل معلن يخص العميل: يظهر قبل أي نتيجة بحث -->
+            <div id="helpIncidentBanner" class="alert-list help-block" hidden></div>
+
+            <!-- تذكرة مفتوحة مشابهة لما يبحث عنه -->
+            <div id="helpTicketHint" class="alert-list help-block" hidden></div>
+
+            <!-- ======================= نتائج البحث ======================= -->
+            <section id="helpResultsSection" class="help-block" hidden aria-live="polite">
+                <div class="panel-head">
+                    <h2 class="panel-title" id="helpResultsTitle">نتائج البحث</h2>
+                </div>
+                <div id="helpResultsList" class="article-grid"></div>
+            </section>
+
+            <!-- ======================= الوصول السريع ======================= -->
+            <section class="help-block" id="helpQuickAccess">
+                <div class="panel-head">
+                    <h2 class="panel-title">الوصول السريع</h2>
+                </div>
+                <div class="action-grid">
+                    <a class="action-card" href="/customer-dashboard.html#support">
+                        <span class="action-title">إنشاء تذكرة</span>
+                        <span class="action-text">مشكلة تحتاج متابعة وتوثيق من فريق الدعم.</span>
+                    </a>
+                    <a class="action-card" href="/customer-dashboard.html#tickets">
+                        <span class="action-title">تذاكري</span>
+                        <span class="action-text">تابع ما فتحته سابقاً وردود الفريق عليه.</span>
+                    </a>
+                    <a class="action-card" href="/chat-customer.html">
+                        <span class="action-title">التواصل الفوري</span>
+                        <span class="action-text">محادثة مباشرة عندما تحتاج ردًا سريعًا.</span>
+                    </a>
+                    <a class="action-card" href="/customer-dashboard.html#support">
+                        <span class="action-title">حالة النظام</span>
+                        <span class="action-text">تحقّق إن كانت المشكلة عطلاً معلناً عندنا.</span>
+                    </a>
+                    <a class="action-card" href="/customer-dashboard.html#usage">
+                        <span class="action-title">الاشتراك والاستهلاك</span>
+                        <span class="action-text">باقتك وحدودك ورصيدك في مكان واحد.</span>
+                    </a>
+                    <a class="action-card" href="/customer-dashboard.html#profile">
+                        <span class="action-title">حسابي</span>
+                        <span class="action-text">بياناتك وإعدادات الأمان الخاصة بك.</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- ======================= مقترح لك ======================= -->
+            <section class="help-block" id="helpRecommendedSection" hidden>
+                <div class="panel-head">
+                    <h2 class="panel-title">مقترح لك</h2>
+                    <span class="panel-subtitle">حسب الخدمات المفعّلة في حسابك</span>
+                </div>
+                <div id="helpRecommendedList" class="article-grid"></div>
+            </section>
+
+            <!-- ======================= التصنيفات ======================= -->
+            <section class="help-block" id="helpCategoriesSection">
+                <div class="panel-head">
+                    <h2 class="panel-title">تصفّح حسب الموضوع</h2>
+                </div>
+                <div id="helpCategories" class="filter-chips"></div>
+            </section>
+
+            <!-- ======================= المقالات ======================= -->
+            <section class="help-block">
+                <div class="panel-head">
+                    <h2 class="panel-title" id="helpArticlesTitle">أحدث المقالات</h2>
+                    <button type="button" class="panel-link" id="helpClearCategory" hidden>عرض الكل</button>
+                </div>
+                <div id="helpArticlesList" class="article-grid"></div>
+                <div class="help-more">
+                    <button type="button" class="btn btn-secondary" id="helpLoadMore" hidden>عرض مزيد من المقالات</button>
+                </div>
+            </section>
+
+            <!-- ======================= الأكثر قراءة ======================= -->
+            <section class="help-block" id="helpPopularSection" hidden>
+                <div class="panel-head">
+                    <h2 class="panel-title">الأكثر قراءة</h2>
+                </div>
+                <div id="helpPopularList" class="article-grid"></div>
+            </section>
+
+            <!-- ======================= الأسئلة الشائعة ======================= -->
+            <section class="help-block" id="helpFaqSection" hidden>
+                <div class="panel-head">
+                    <h2 class="panel-title">أسئلة شائعة</h2>
+                </div>
+                <div id="helpFaqList" class="faq-list"></div>
+            </section>
+
+            <!-- ======================= التصعيد للدعم ======================= -->
+            <section class="help-escalation help-block">
+                <h2>لم تجد ما تبحث عنه؟</h2>
+                <p>فريق الدعم موجود. اختر الطريق الأنسب لمشكلتك.</p>
+                <div class="u-row">
+                    <a class="btn btn-primary" href="/customer-dashboard.html#support">إنشاء تذكرة</a>
+                    <a class="btn btn-secondary" href="/chat-customer.html">تواصل فوري</a>
+                </div>
+            </section>
+        </section>
+
+        <!-- ======================= عرض المقال ======================= -->
+        <section id="helpArticleView" hidden>
+            <button type="button" class="back-btn" id="helpBackBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                العودة إلى مركز المساعدة
+            </button>
+
+            <article class="panel article-panel">
+                <span class="article-category" id="articleCategory"></span>
+                <h1 class="article-title" id="articleTitle"></h1>
+                <p class="article-meta" id="articleMeta"></p>
+
+                <nav class="article-toc" id="articleToc" hidden aria-label="محتويات المقال">
+                    <span class="article-toc-title">في هذا المقال</span>
+                    <ul id="articleTocList"></ul>
+                </nav>
+
+                <div class="article-body" id="articleBody"></div>
+
+                <!-- تقييم المقال -->
+                <div class="article-feedback" id="articleFeedback">
+                    <p class="article-feedback-q">هل ساعدك هذا المقال؟</p>
+                    <div class="u-row">
+                        <button type="button" class="btn btn-secondary" data-feedback="yes">👍 نعم، ساعدني</button>
+                        <button type="button" class="btn btn-secondary" data-feedback="no">👎 لا، ما زلت أحتاج مساعدة</button>
+                    </div>
+                    <div class="article-feedback-followup" id="articleFeedbackFollowup" hidden>
+                        <p>هل تريد التواصل مع فريق الدعم؟</p>
+                        <div class="u-row">
+                            <a class="btn btn-primary" href="/customer-dashboard.html#support">إنشاء تذكرة</a>
+                            <a class="btn btn-secondary" href="/chat-customer.html">تواصل فوري</a>
+                        </div>
+                    </div>
+                    <p class="article-feedback-thanks" id="articleFeedbackThanks" hidden>شكراً لتقييمك — يساعدنا في تحسين المحتوى.</p>
+                </div>
+            </article>
+
+            <section class="help-block" id="articleRelatedSection" hidden>
+                <div class="panel-head">
+                    <h2 class="panel-title">مقالات ذات صلة</h2>
+                </div>
+                <div id="articleRelatedList" class="article-grid"></div>
+            </section>
+        </section>
     </main>
 
-    <div id="articleModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" id="closeModal">&times;</span>
-            <div id="modalBody">
-                <!-- Full article content will be loaded here -->
-            </div>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
-        import { supabase } from '/api-config.js';
-
-        // Initialize Sidebar
-        initCustomerSidebar((tab) => {
-            if (tab !== 'kb') {
-                window.location.href = '/customer-dashboard.html';
-            }
-        });
-
-        const articlesList = document.getElementById('articlesList');
-        const kbSearch = document.getElementById('kbSearch');
-        const articleModal = document.getElementById('articleModal');
-        const modalBody = document.getElementById('modalBody');
-        const closeModal = document.getElementById('closeModal');
-
-        let allArticles = [];
-
-        async function fetchArticles() {
-            const { data, error } = await supabase
-                .from('knowledge_base')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching articles:', error);
-                articlesList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--color-danger);">فشل تحميل المقالات.</div>';
-                return;
-            }
-
-            allArticles = data;
-            renderArticles(allArticles);
-        }
-
-        function renderArticles(articles) {
-            if (articles.length === 0) {
-                articlesList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--color-text-secondary);">لا توجد مقالات تطابق بحثك.</div>';
-                return;
-            }
-
-            articlesList.innerHTML = articles.map(article => `
-                <div class="article-card" onclick="window.openArticle('${article.id}')">
-                    <div class="article-category">${article.category}</div>
-                    <h3 class="article-title">${article.title}</h3>
-                    <p class="article-excerpt">${article.excerpt || article.content.substring(0, 100) + '...'}</p>
-                </div>
-            `).join('');
-        }
-
-        window.openArticle = (id) => {
-            const article = allArticles.find(a => a.id === id);
-            if (!article) return;
-
-            modalBody.innerHTML = `
-                <div class="article-category" style="margin-bottom: 0.5rem;">${article.category}</div>
-                <h2 style="margin-bottom: 1.5rem; font-size: 2rem;">${article.title}</h2>
-                <div class="article-full-content">${article.content}</div>
-                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-text-secondary);">
-                    آخر تحديث: ${new Date(article.updated_at).toLocaleDateString('ar-EG')}
-                </div>
-            `;
-            articleModal.classList.add('active');
-        };
-
-        closeModal.onclick = () => articleModal.classList.remove('active');
-        window.onclick = (e) => { if (e.target === articleModal) articleModal.classList.remove('active'); };
-
-        kbSearch.oninput = (e) => {
-            const term = e.target.value.toLowerCase();
-            const filtered = allArticles.filter(a => 
-                a.title.toLowerCase().includes(term) || 
-                a.content.toLowerCase().includes(term) ||
-                a.category.toLowerCase().includes(term)
-            );
-            renderArticles(filtered);
-        };
-
-        // Realtime setup
-        supabase
-            .channel('kb_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'knowledge_base' }, () => {
-                fetchArticles();
-            })
-            .subscribe();
-
-        // Initial load
-        fetchArticles();
-    </script>
+    <script type="module" src="/assets/js/customer/help-center.js"></script>
 </body>
 </html>

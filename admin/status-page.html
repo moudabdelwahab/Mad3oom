@@ -200,6 +200,17 @@
             </div>
         </div>
 
+        <!-- بلاغات العملاء: يقيس اتساع أثر العطل، مش مجرد وجوده -->
+        <div class="section-header">
+            <h2 class="section-title">بلاغات العملاء</h2>
+        </div>
+
+        <div class="incident-log" id="customerReportsContainer">
+            <div class="section-card" style="padding: 2rem; text-align: center;">
+                <p style="color: var(--color-text-secondary); font-weight: 600;">جاري تحميل البلاغات…</p>
+            </div>
+        </div>
+
         <div class="section-header">
             <h2 class="section-title">سجل الحوادث والصيانة</h2>
         </div>
@@ -214,6 +225,7 @@
     <script type="module">
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { serviceStatusManager } from '/service-status.js';
+        import { supabase } from '/api-config.js';
 
         // Initialize Admin Sidebar
         initSidebar();
@@ -248,21 +260,29 @@
                 return;
             }
 
+            // ملاحظة: شريط الإتاحة و"99.9% متوفر" اتشالوا عن قصد — كانوا
+            // مرسومين من Array(30) ثابتة ونص مكتوب، مش من بيانات. الإتاحة
+            // الحقيقية محتاجة سجل في service_status_history (فاضي حالياً)،
+            // وعرض رقم مخترع مكانها أسوأ من عدم عرضه.
             container.innerHTML = filtered.map(s => `
                 <div class="service-status-card">
                     <div class="service-card-header">
-                        <span class="service-title">${s.name}</span>
-                        <span class="status-badge status-${s.status === 'operational' ? 'resolved' : s.status === 'degraded' ? 'pending' : 'danger'}">
-                            ${getStatusLabel(s.status)}
+                        <span class="service-title">${esc(s.name)}</span>
+                        <span class="status-badge ${statusBadgeClass(s.status)}">
+                            ${esc(getStatusLabel(s.status))}
                         </span>
                     </div>
-                    <p style="font-size: 0.95rem; color: var(--color-text-secondary); line-height: 1.5; height: 3rem; overflow: hidden;">${s.description || 'لا يوجد وصف متاح'}</p>
-                    <div class="uptime-visual">
-                        ${Array(30).fill(0).map(() => `<div class="uptime-segment"></div>`).join('')}
-                    </div>
+                    <p style="font-size: 0.95rem; color: var(--color-text-secondary); line-height: 1.5;">${esc(s.description || 'لا يوجد وصف متاح')}</p>
+
+                    <label class="visually-hidden" for="svc-${esc(s.id)}">تغيير حالة ${esc(s.name)}</label>
+                    <select class="form-control service-status-select" id="svc-${esc(s.id)}" data-service="${esc(s.id)}" data-previous="${esc(s.status)}">
+                        ${STATUS_OPTIONS.map(([value, label]) => `
+                            <option value="${value}"${s.status === value ? ' selected' : ''}>${label}</option>`).join('')}
+                    </select>
+
                     <div class="service-card-footer">
-                        <span>⏱️ ${s.response_time || '--'}ms</span>
-                        <span style="color: var(--color-success);">99.9% متوفر</span>
+                        <span>⏱️ ${s.response_time ? esc(String(s.response_time)) + 'ms' : '--'}</span>
+                        <span>${s.status_changed_at ? 'منذ ' + esc(new Date(s.status_changed_at).toLocaleDateString('ar-EG')) : ''}</span>
                     </div>
                 </div>
             `).join('');
@@ -312,9 +332,97 @@
             }
         }
 
+        const STATUS_OPTIONS = [
+            ['operational', 'مستقر'],
+            ['degraded', 'أداء منخفض'],
+            ['partial_outage', 'عطل جزئي'],
+            ['down', 'متوقف'],
+            ['maintenance', 'صيانة مجدولة']
+        ];
+
         function getStatusLabel(status) {
-            const labels = { operational: 'مستقر', degraded: 'أداء منخفض', down: 'متوقف' };
-            return labels[status] || status;
+            const found = STATUS_OPTIONS.find(([value]) => value === status);
+            return found ? found[1] : status;
+        }
+
+        function statusBadgeClass(status) {
+            if (status === 'operational') return 'status-resolved';
+            if (status === 'down' || status === 'partial_outage') return 'status-danger';
+            return 'status-pending';
+        }
+
+        function esc(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        /* ---------- تغيير حالة خدمة ----------
+           الكتابة كانت مرفوضة بصمت من RLS (كان في سياسات SELECT فقط)؛
+           migrations/014 أضاف سياسة كتابة للأدمن/الدعم، فالتحكّم ده بقى
+           له أثر فعلي بدل ما يكون زرًا ميتًا. */
+        document.addEventListener('change', async (e) => {
+            const select = e.target.closest('.service-status-select');
+            if (!select) return;
+
+            const previous = select.dataset.previous || '';
+            select.disabled = true;
+            try {
+                await serviceStatusManager.updateServiceStatus(select.dataset.service, select.value);
+                await refreshStatus();
+            } catch (err) {
+                console.error('Error updating service status:', err);
+                alert('تعذّر تحديث حالة الخدمة: ' + (err.message || 'خطأ غير متوقع'));
+                if (previous) select.value = previous;
+            } finally {
+                select.disabled = false;
+            }
+        });
+
+        /* ---------- بلاغات العملاء ----------
+           get_service_report_summary بتجمّع البلاغات في القاعدة: صف واحد لكل
+           عطل مع العدد وأسماء المبلّغين، بدل ما نجيب كل البلاغات ونعدّها هنا. */
+        async function refreshCustomerReports() {
+            const container = document.getElementById('customerReportsContainer');
+            try {
+                const { data, error } = await supabase.rpc('get_service_report_summary');
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = `
+                        <div class="section-card" style="padding: 2rem; text-align: center;">
+                            <p style="color: var(--color-text-secondary); font-weight: 600;">لا توجد بلاغات عملاء مفتوحة</p>
+                            <p style="color: var(--color-text-secondary); font-size: 0.9rem;">عندما يبلّغ عميل عن عطل في خدمة سيظهر هنا مع عدد المتأثرين.</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = data.map(row => {
+                    const reporters = Array.isArray(row.reporters) ? row.reporters : [];
+                    return `
+                    <div class="incident-entry active">
+                        <div class="incident-entry-header">
+                            <span style="font-weight: 800; font-size: 1.1rem;">${esc(row.service_name)}</span>
+                            <span class="status-badge status-danger">${row.report_count} عميل متأثر</span>
+                        </div>
+                        <p style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 1rem;">
+                            أول بلاغ ${esc(new Date(row.first_reported).toLocaleString('ar-EG'))}
+                            · آخر بلاغ ${esc(new Date(row.last_reported).toLocaleString('ar-EG'))}
+                        </p>
+                        <ul style="margin: 0; padding-inline-start: 1.25rem; color: var(--color-text-secondary); font-size: 0.9rem;">
+                            ${reporters.slice(0, 10).map(r => `
+                                <li>${esc(r.name)} — أبلغ ${esc(new Date(r.reported_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }))}</li>`).join('')}
+                            ${reporters.length > 10 ? `<li>و${reporters.length - 10} عميلاً آخر</li>` : ''}
+                        </ul>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('Error loading customer reports:', err);
+                container.innerHTML = `
+                    <div class="section-card" style="padding: 2rem; text-align: center;">
+                        <p style="color: var(--color-danger); font-weight: 600;">تعذّر تحميل بلاغات العملاء</p>
+                    </div>`;
+            }
         }
 
         // Filter Logic
@@ -332,6 +440,7 @@
 
         // Initial fetch
         refreshStatus();
+        refreshCustomerReports();
 
         // Listen for real-time changes
         serviceStatusManager.subscribeToServiceUpdates(() => refreshStatus());

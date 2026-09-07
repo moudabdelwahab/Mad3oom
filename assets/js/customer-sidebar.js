@@ -17,8 +17,6 @@ const DASHBOARD_PATH = '/customer-dashboard.html';
 const COLLAPSE_KEY = 'mad3oom-sidebar-collapsed';
 
 let tabChangeHandler = null;
-/** الصفحة اللي فيها بحث خاص بيها (اللوحة) بتسجّل معالجها هنا. */
-let searchHandler = null;
 
 /** هل المستخدم مفضّل القائمة مطوية؟ (يُقرأ قبل الرسم لتفادي أي قفزة) */
 export function isSidebarCollapsed() {
@@ -52,15 +50,6 @@ export function setSidebarCollapsed(collapsed, { persist = true } = {}) {
     }
 }
 
-/**
- * تسجيل معالج البحث الشامل. الصفحة اللي عندها نتائج تعرضها (اللوحة) بتسجّل
- * معالجها؛ وأي صفحة تانية بيتنقل فيها البحث للوحة ومعاه النص — فمنطق البحث
- * نفسه مكتوب مرة واحدة.
- */
-export function setPortalSearchHandler(handler) {
-    searchHandler = typeof handler === 'function' ? handler : null;
-}
-
 export function initCustomerSidebar(optionsOrCallback) {
     const options = typeof optionsOrCallback === 'function'
         ? { onTabChange: optionsOrCallback }
@@ -79,7 +68,7 @@ export function initCustomerSidebar(optionsOrCallback) {
         .then(response => response.text())
         .then(html => {
             sidebarContainer.innerHTML = html;
-            setupSidebarLogic(tabChangeHandler);
+            setupSidebarLogic(tabChangeHandler, options);
             setupCollapseToggle();
             syncNavHeight();
             markActivePage();
@@ -203,7 +192,7 @@ async function loadAccountIdentity() {
         const ban = user.profile?.ban_status;
         if (menuState && ban && ban !== 'active') {
             menuState.textContent = ban === 'banned' ? 'الحساب موقوف' : 'الحساب مقيّد';
-            menuState.className = 'badge badge-danger nav-menu-state';
+            menuState.className = 'badge badge-danger portal-menu-state';
             menuState.hidden = false;
         }
     } catch (err) {
@@ -232,9 +221,15 @@ function syncNavHeight() {
     const nav = document.querySelector('.admin-nav');
     if (!nav) return;
 
+    // القيمة دي بتتحكم في padding-top للصفحة، وتغييرها بيغيّر ارتفاع المستند
+    // وبالتالي ظهور شريط التمرير وبالتالي عرض الشريط — يعني ResizeObserver
+    // يقدر يفضل يوقظ نفسه. الحارس ده بيكسر الدورة: ما بنكتبش غير لما يتغيّر
+    // الارتفاع فعلاً.
+    let lastHeight = 0;
     const apply = () => {
         const height = Math.round(nav.getBoundingClientRect().height);
-        if (height > 0) {
+        if (height > 0 && height !== lastHeight) {
+            lastHeight = height;
             document.documentElement.style.setProperty('--customer-nav-h', `${height}px`);
         }
     };
@@ -250,7 +245,7 @@ function syncNavHeight() {
 /** فتح/غلق قائمة منسدلة مع ضبط aria وإغلاق باقي القوائم. */
 function toggleMenu(menu, trigger, force) {
     const open = force !== undefined ? force : menu.hidden;
-    document.querySelectorAll('.nav-menu').forEach(other => {
+    document.querySelectorAll('.portal-menu').forEach(other => {
         if (other !== menu) {
             other.hidden = true;
             const otherTrigger = other.parentElement?.querySelector('[aria-haspopup]');
@@ -261,7 +256,7 @@ function toggleMenu(menu, trigger, force) {
     trigger?.setAttribute('aria-expanded', String(open));
 }
 
-function setupSidebarLogic(onTabChange) {
+function setupSidebarLogic(onTabChange, options = {}) {
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
     const sidebarClose = document.getElementById('sidebarClose');
@@ -374,7 +369,7 @@ function setupSidebarLogic(onTabChange) {
     });
 
     // ── البحث الشامل ─────────────────────────────────────────────────────────
-    setupPortalSearch(onTabChange);
+    setupPortalSearch(options);
 
     // ── اللغة ────────────────────────────────────────────────────────────────
     const languageToggleBtn = document.getElementById('languageToggleBtn');
@@ -431,7 +426,7 @@ function setupSidebarLogic(onTabChange) {
 
     // معالج واحد مسمّى حتى لا تتراكم النسخ عند إعادة تهيئة القائمة
     const closeAllMenus = () => {
-        document.querySelectorAll('.nav-menu').forEach(menu => { menu.hidden = true; });
+        document.querySelectorAll('.portal-menu').forEach(menu => { menu.hidden = true; });
         document.querySelectorAll('[aria-haspopup]').forEach(t => t.setAttribute('aria-expanded', 'false'));
     };
     document.removeEventListener('click', document._sidebarCloseMenus);
@@ -441,7 +436,7 @@ function setupSidebarLogic(onTabChange) {
     // Escape يقفل أي قائمة مفتوحة أو الدرج — مخرج واحد متوقَّع من أي حالة
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        const anyMenuOpen = [...document.querySelectorAll('.nav-menu')].some(m => !m.hidden);
+        const anyMenuOpen = [...document.querySelectorAll('.portal-menu')].some(m => !m.hidden);
         if (anyMenuOpen) { closeAllMenus(); return; }
         if (sidebar.classList.contains('active')) { setDrawer(false); menuToggle.focus(); }
     });
@@ -496,7 +491,7 @@ function setupSidebarLogic(onTabChange) {
  * لو الصفحة سجّلت معالجًا (اللوحة) بترسم نتائجها في مكانها؛ وإلا الإدخال
  * بينقل للوحة ومعاه النص في ?q= فتكمّل هي البحث بنفس منطقها.
  */
-function setupPortalSearch(onTabChange) {
+function setupPortalSearch(options) {
     const wrap = document.getElementById('portalSearch');
     const input = document.getElementById('globalSearchInput');
     const trigger = document.getElementById('portalSearchTrigger');
@@ -530,7 +525,8 @@ function setupPortalSearch(onTabChange) {
         }
     });
 
-    if (searchHandler) return;   // اللوحة بتتولّى الرسم بنفسها
+    // اللوحة بترسم نتائجها بنفسها في نفس الحقل؛ برّه اللوحة الحقل بينقل إليها.
+    if (options.ownsSearch === true) return;
 
     input.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
@@ -541,7 +537,6 @@ function setupPortalSearch(onTabChange) {
 
     // برّه اللوحة مفيش نتائج تُرسم هنا، فبنوضّح ده بدل صندوق فاضي
     input.setAttribute('placeholder', 'ابحث ثم اضغط Enter…');
-    void onTabChange;
 }
 
 async function checkWhatsAppPermission() {

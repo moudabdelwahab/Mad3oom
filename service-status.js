@@ -114,13 +114,16 @@ export const serviceStatusManager = {
     async updateServiceStatus(serviceId, status, responseTime = null) {
         try {
             // Update current service status
+            // response_time بيتحدّث لما يتبعت فعلاً. من غير الشرط ده، تغيير
+            // الحالة من لوحة الإدارة كان بيمسح آخر زمن استجابة مقيس.
+            const patch = { status, last_checked: new Date().toISOString() };
+            if (responseTime !== null && responseTime !== undefined) {
+                patch.response_time = responseTime;
+            }
+
             const { data: updateData, error: updateError } = await supabase
                 .from('services')
-                .update({ 
-                    status,
-                    last_checked: new Date().toISOString(),
-                    response_time: responseTime
-                })
+                .update(patch)
                 .eq('id', serviceId)
                 .select();
 
