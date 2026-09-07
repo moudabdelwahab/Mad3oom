@@ -18,7 +18,10 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-    .page { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
+    /* ملاحظة: تجنّب اسم الصنف page لغلاف الصفحة هنا. admin/styles.css
+       يعرّفه كأداة تبديل تبويبات (display:none إلا مع active)، فأي غلاف
+       بهذا الاسم يختفي تمامًا بلا أي خطأ في الكونسول. */
+    .sub-details-page { max-width: 1000px; margin: 0 auto; padding: 1.5rem; width: 100%; }
     .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
     .page-title { margin: 0; font-size: 1.4rem; font-weight: 800; }
     .card { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e5e7eb);
@@ -55,7 +58,7 @@
 </style>
 </head>
 <body>
-<div class="page">
+<div class="sub-details-page">
     <div class="page-head">
         <h1 class="page-title">تفاصيل الاشتراك</h1>
         <a class="btn btn-outline" href="/admin/subscriptions.html">رجوع للاشتراكات</a>
