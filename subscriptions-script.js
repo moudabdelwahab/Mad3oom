@@ -11,6 +11,12 @@ import {
     renewSubscription,
     subscribeToSubscriptionUpdates
 } from '/whatsapp-subscription-service.js';
+// خطوة بيانات الشركة للباقات التي تستلزمها (subscription_plans.requires_company).
+// المسار نفسه لم يتغيّر: طلب اشتراك → مراجعة الإدارة → تفعيل.
+import {
+    ensureCompanyForPlan,
+    linkSubscriptionIfCompanyPlan
+} from '/assets/js/company/company-onboarding.js';
 
 // بيانات الحسابات/المحافظ الحقيقية لاستقبال التحويلات
 const EXTERNAL_PAYMENT_INSTRUCTIONS = {
@@ -413,6 +419,15 @@ async function handleSubscribe(plan, buttonEl) {
         return;
     }
 
+    // لو الباقة بتستلزم شركة والمستخدم لسه ملهوش واحدة، بنطلب بياناتها الأول.
+    // بيحصل قبل نافذة الدفع عشان العميل ما يدفعش ثم يتعثّر في خطوة بيانات.
+    const companyStep = await ensureCompanyForPlan(plan);
+    if (companyStep.cancelled) return;
+    if (!companyStep.ok) {
+        alert(companyStep.error || 'تعذّر حفظ بيانات الشركة. يرجى المحاولة مرة أخرى.');
+        return;
+    }
+
     const paymentInfo = await openPaymentMethodModal();
     if (!paymentInfo) return; // العميل ألغى العملية
 
@@ -426,6 +441,7 @@ async function handleSubscribe(plan, buttonEl) {
         }
 
         const result = await createSubscriptionTicket(plan, billingCycle, paymentInfo);
+        await linkSubscriptionIfCompanyPlan(plan, result.subscription?.id);
 
         const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
@@ -473,6 +489,7 @@ async function handleRenew() {
         }
 
         const result = await renewSubscription(plan, billingCycle, paymentInfo);
+        await linkSubscriptionIfCompanyPlan(plan, result.subscription?.id);
 
         const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'

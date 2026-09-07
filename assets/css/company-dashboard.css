@@ -1,0 +1,250 @@
+/* ============================================================================
+   company-dashboard.css — الطبقة البصرية الخاصة بلوحة الشركة.
+
+   المبدأ: نفس نظام التصميم بالكامل (نفس التوكنز، نفس .panel و .kpi و .pill
+   و .form-*)، والملف ده بيضيف اللي مش موجود بس: علامة المستوى وبطاقات
+   الحقائق وقوائم الاشتراكات والامتيازات.
+
+   مفيش أي إعادة تعريف لمكوّن موجود في customer-dashboard.css، ومفيش تغيير
+   لـ--color-accent العام (ده هيغيّر القشرة والقائمة الجانبية كمان). التمييز
+   البصري بيتم عبر توكن خاص باللوحة دي فقط.
+   ============================================================================ */
+
+.company-shell {
+    /* هوية المستوى: بنفسجي/نيلي هادي بجانب أزرق المنصة — واضح إنه سياق مختلف
+       من غير ما يخرج عن اللوحة الأصلية. */
+    --company-accent: #7C5CFF;
+    --company-accent-soft: #A48CFF;
+    --company-tint: rgba(124, 92, 255, .12);
+    --company-border: rgba(124, 92, 255, .32);
+}
+
+[data-theme="light"] .company-shell {
+    --company-accent: #5B3FD9;
+    --company-accent-soft: #6B4FE8;
+    --company-tint: rgba(91, 63, 217, .08);
+    --company-border: rgba(91, 63, 217, .24);
+}
+
+/* ── شريط المستوى ───────────────────────────────────────────────────────── */
+.company-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-5);
+    margin-bottom: var(--sp-5);
+    border: 1px solid var(--company-border);
+    border-radius: var(--r-lg);
+    background:
+        linear-gradient(135deg, var(--company-tint), transparent 65%),
+        var(--glass-bg, var(--color-surface));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.company-banner-main { min-width: 0; }
+
+.company-level-tag {
+    display: inline-block;
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    background: var(--company-tint);
+    border: 1px solid var(--company-border);
+    color: var(--company-accent-soft);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    margin-bottom: var(--sp-2);
+}
+
+.company-name {
+    margin: 0;
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.company-meta {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+.company-banner-side {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+/* ── تنبيه داخل اللوحة ──────────────────────────────────────────────────── */
+.company-notice {
+    margin: 0 0 var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+}
+
+.company-notice--danger {
+    background: var(--tint-danger);
+    color: var(--on-danger);
+}
+
+/* ── بيانات الشركة ──────────────────────────────────────────────────────── */
+.company-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+    gap: var(--sp-4);
+    margin: 0;
+}
+
+.company-fact { min-width: 0; }
+
+.company-fact dt {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--sp-1);
+}
+
+.company-fact dd {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.company-fact .is-muted { color: var(--color-text-3); }
+
+.company-form { margin-top: var(--sp-4); }
+
+.company-form-actions {
+    display: flex;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+/* ── اشتراكات الشركة ────────────────────────────────────────────────────── */
+.company-sub-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+
+.company-sub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    background: var(--color-surface-2);
+}
+
+.company-sub-main { min-width: 0; }
+
+.company-sub-plan {
+    margin: 0;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.company-sub-dates {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+}
+
+.company-sub-side {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.company-sub-days {
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── الامتيازات مجمّعة حسب الباقة ───────────────────────────────────────── */
+.company-plan-group + .company-plan-group {
+    margin-top: var(--sp-5);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--color-border);
+}
+
+.company-plan-name {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-base);
+    font-weight: 800;
+    color: var(--company-accent-soft);
+}
+
+.company-feature-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+    gap: var(--sp-3);
+}
+
+.company-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    background: var(--color-surface-2);
+}
+
+.company-feature svg {
+    color: var(--color-success);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.company-feature-name {
+    margin: 0;
+    font-weight: 700;
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+}
+
+.company-feature-desc {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+/* ── الاستجابة ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .company-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .company-banner-side { width: 100%; }
+    .company-sub {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* علامة مدخل لوحة الشركة في القائمة الجانبية المشتركة */
+.sidebar-item.company-nav-item.active,
+.sidebar-item.company-nav-item:hover { color: var(--color-text); }
+.sidebar-item.company-nav-item svg { color: #7C5CFF; }
