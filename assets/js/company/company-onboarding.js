@@ -37,27 +37,28 @@ export async function planNeedsCompany(planKey) {
 
 /**
  * يتأكد إن للمستخدم شركة قبل إرسال طلب اشتراك في باقة تستلزمها.
- * @returns {Promise<{ok: boolean, cancelled: boolean, error: string|null}>}
+ * @returns {Promise<{ok: boolean, cancelled: boolean, created: boolean, error: string|null}>}
  *   ok=true          → يمكن المتابعة (له شركة أصلًا أو أنشأها الآن)
+ *   created=true     → الشركة اتكوّنت في النداء ده، فالمسار يكمّل بتحويله للوحتها
  *   cancelled=true   → العميل أغلق النموذج، والمسار يتوقف بهدوء بلا رسالة خطأ
  */
 export async function ensureCompanyForPlan(planKey) {
     if (!(await planNeedsCompany(planKey))) {
-        return { ok: true, cancelled: false, error: null };
+        return { ok: true, cancelled: false, created: false, error: null };
     }
 
     if (await hasCompany()) {
-        return { ok: true, cancelled: false, error: null };
+        return { ok: true, cancelled: false, created: false, error: null };
     }
 
     const values = await openCompanyModal();
-    if (!values) return { ok: false, cancelled: true, error: null };
+    if (!values) return { ok: false, cancelled: true, created: false, error: null };
 
     const result = await saveCompany(values);
     if (!result.ok) {
-        return { ok: false, cancelled: false, error: result.error };
+        return { ok: false, cancelled: false, created: false, error: result.error };
     }
-    return { ok: true, cancelled: false, error: null };
+    return { ok: true, cancelled: false, created: true, error: null };
 }
 
 /**

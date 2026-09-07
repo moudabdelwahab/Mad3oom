@@ -640,16 +640,16 @@ export async function autoRedirect() {
     if (session?.user) {
         const { profile, error } = await ensureUserProfile(session.user);
 
-        const isMainAdminEmail = session.user.email === 'support@mad3oom.online';
+        // الوجهة تُحسب من حالة الحساب الفعلية (رتبة + وجود شركة) في مكان
+        // واحد مشترك مع login.html، بدل تكرار الشرط في كل صفحة.
+        // ملاحظة: super_user لم تعد تُعامل كرتبة إدارية هنا — هي رتبة عميل
+        // يمنحها شراء باقة الدعم/الشاملة، وكانت تُرسل العميل للوحة الإدارة.
+        const { resolveAccountHome, DESTINATIONS } = await import('/assets/js/account-destination.js');
 
-        let isAdmin = isMainAdminEmail;
+        const target = session.user.email === 'support@mad3oom.online'
+            ? DESTINATIONS.admin
+            : await resolveAccountHome(supabase, profile);
 
-        if (profile) {
-            const role = profile.role;
-            isAdmin = isAdmin || role === 'admin' || role === 'support' || role === 'super_user';
-        }
-
-        const target = isAdmin ? 'admin-dashboard.html' : 'customer-dashboard.html';
         window.location.replace(target);
     }
 }

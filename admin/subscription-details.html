@@ -3,47 +3,332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>تفاصيل الاشتراك</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>تفاصيل الاشتراك — إدارة</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+<link rel="stylesheet" href="/admin/styles.css">
+<script>
+    (function () {
+        try {
+            var theme = localStorage.getItem('theme-preference')
+                || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+    })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-body{font-family:Arial;background:#f5f7fb;padding:20px}
-.header{background:#0d47a1;color:#fff;padding:20px;border-radius:16px;margin-bottom:20px}
-.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:15px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px}
-.label{color:#777;font-size:14px;margin-bottom:5px}
-.value{font-size:18px;font-weight:bold}
+    .page { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
+    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .page-title { margin: 0; font-size: 1.4rem; font-weight: 800; }
+    .card { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e5e7eb);
+            border-radius: 1rem; padding: 1.25rem; margin-bottom: 1rem; }
+    .card h2 { margin: 0 0 1rem; font-size: 1rem; font-weight: 800; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 0; }
+    .fact dt { font-size: .75rem; color: var(--color-text-secondary, #6b7280); margin-bottom: .25rem; font-weight: 700; }
+    .fact dd { margin: 0; font-size: .95rem; font-weight: 600; word-break: break-word; }
+    .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .chip { background: rgba(40,167,69,.12); color: #28a745; border-radius: 999px;
+            padding: .2rem .6rem; font-size: .78rem; font-weight: 700; }
+    .chip.is-none { background: rgba(217,83,79,.12); color: #d9534f; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    .field label { font-size: .8rem; font-weight: 700; color: var(--color-text-secondary, #6b7280); }
+    .field input, .field select, .field textarea {
+        padding: .6rem .75rem; border-radius: .6rem; border: 1px solid var(--color-border, #d1d5db);
+        background: var(--color-surface-2, #fff); color: inherit; font-family: inherit; font-size: .9rem; }
+    .actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+    .btn { padding: .6rem 1.1rem; border-radius: .6rem; border: 1px solid transparent;
+           font-weight: 700; font-family: inherit; cursor: pointer; font-size: .88rem; }
+    .btn-primary { background: var(--color-accent, #0077CC); color: #fff; }
+    .btn-outline { background: transparent; border-color: var(--color-border, #d1d5db); color: inherit; }
+    .btn-danger { background: #d9534f; color: #fff; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .notice { padding: .75rem 1rem; border-radius: .6rem; font-size: .85rem; line-height: 1.7; margin-bottom: 1rem; }
+    .notice-warn { background: rgba(240,173,78,.14); color: #b8860b; }
+    .notice-error { background: rgba(217,83,79,.14); color: #d9534f; }
+    .audit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+    .audit li { border: 1px solid var(--color-border, #e5e7eb); border-radius: .6rem; padding: .7rem .9rem; font-size: .85rem; }
+    .audit .who { font-weight: 700; }
+    .audit .when { color: var(--color-text-secondary, #6b7280); font-size: .75rem; }
+    .impact { font-size: .82rem; line-height: 1.8; }
 </style>
 </head>
 <body>
-<div class="header">
-<h1>تفاصيل اشتراك واتساب</h1>
-<p>عرض تفاصيل العميل والتذكرة والاشتراك</p>
+<div class="page">
+    <div class="page-head">
+        <h1 class="page-title">تفاصيل الاشتراك</h1>
+        <a class="btn btn-outline" href="/admin/subscriptions.html">رجوع للاشتراكات</a>
+    </div>
+    <div id="root"><div class="card">جاري التحميل…</div></div>
 </div>
-<div id="details"></div>
-<script>
-const supabaseUrl='https://srnelrdpqkcntbgudyto.supabase.co';
-const supabaseKey='sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
-const client=supabase.createClient(supabaseUrl,supabaseKey);
-const params=new URLSearchParams(window.location.search);
-const id=params.get('id');
-async function load(){
-const container=document.getElementById('details');
-container.innerHTML='<div class="card">جاري التحميل...</div>';
-const {data,error}=await client.from('whatsapp_subscriptions').select(`*,tickets(ticket_number,title,description,status),profiles(full_name,username,phone,email)`).eq('id',id).single();
-if(error){container.innerHTML=`<div class="card">${error.message}</div>`;return;}
-container.innerHTML=`
-<div class="grid">
-<div class="card"><div class="label">اسم العميل</div><div class="value">${data.profiles?.full_name||'-'}</div></div>
-<div class="card"><div class="label">اسم المستخدم</div><div class="value">${data.profiles?.username||'-'}</div></div>
-<div class="card"><div class="label">رقم الهاتف</div><div class="value">${data.profiles?.phone||'-'}</div></div>
-<div class="card"><div class="label">البريد الإلكتروني</div><div class="value">${data.profiles?.email||'-'}</div></div>
-<div class="card"><div class="label">رقم التذكرة</div><div class="value">#${data.tickets?.ticket_number||'-'}</div></div>
-<div class="card"><div class="label">حالة الاشتراك</div><div class="value">${data.status}</div></div>
-<div class="card"><div class="label">نوع الباقة</div><div class="value">${data.plan_type||'-'}</div></div>
-<div class="card"><div class="label">تاريخ البداية</div><div class="value">${data.start_date||'-'}</div></div>
-<div class="card"><div class="label">تاريخ الانتهاء</div><div class="value">${data.end_date||'-'}</div></div>
-</div>`;
+
+<script type="module">
+/**
+ * شاشة إدارة اشتراك واحد.
+ *
+ * النسخة السابقة كانت معطّلة فعليًا: بتنشئ عميل Supabase مجهول (بلا جلسة)،
+ * فسياسات RLS بترجّع صفر صفوف، وبتعرض عمود اسمه plan_type مش موجود في
+ * الجدول أصلًا (الأعمدة الحقيقية plan و billing_cycle). وكمان ماكانش فيها
+ * أي إجراء إداري.
+ *
+ * دلوقتي: جلسة الأدمن الحقيقية، وكل إجراء بيمر على دالة RPC بتتحقق من
+ * is_admin() في القاعدة وتسجّل التدقيق وتعيد حساب الامتيازات.
+ */
+import { supabase } from '/api-config.js';
+import { requireAuth } from '/auth-client.js';
+import { escapeHtml, showToast, confirmAction } from '/assets/js/admin/admin-utils.js';
+
+const PLAN_LABELS = { support: 'الدعم الفني', whatsapp: 'واتساب', bundle: 'دعم فني + واتساب' };
+const STATUS_LABELS = { active: 'فعّال', pending: 'قيد المراجعة', expired: 'منتهٍ', rejected: 'مرفوض' };
+
+const params = new URLSearchParams(window.location.search);
+const subscriptionId = params.get('id');
+const root = document.getElementById('root');
+
+let record = null;
+
+function fmt(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
 }
+function toInputDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return Number.isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+}
+
+async function load() {
+    const user = await requireAuth();
+    if (!user) return;
+
+    if (!subscriptionId) {
+        root.innerHTML = '<div class="card notice notice-error">لا يوجد معرّف اشتراك في الرابط.</div>';
+        return;
+    }
+
+    // القائمة كاملة ثم الصف المطلوب: نفس مصدر صفحة الاشتراكات، فالشاشتان
+    // لا يمكن أن تختلفا في الحالة أو الامتيازات.
+    const [{ data: rows, error }, { data: audit }] = await Promise.all([
+        supabase.rpc('admin_list_subscriptions'),
+        supabase.rpc('admin_subscription_audit', { p_subscription_id: subscriptionId })
+    ]);
+
+    if (error) {
+        root.innerHTML = `<div class="card notice notice-error">${escapeHtml(error.message)}</div>`;
+        return;
+    }
+
+    record = (rows || []).find(r => r.id === subscriptionId);
+    if (!record) {
+        root.innerHTML = '<div class="card notice notice-error">الاشتراك غير موجود أو لا تملك صلاحية عرضه.</div>';
+        return;
+    }
+
+    render(audit || []);
+}
+
+function render(audit) {
+    const r = record;
+    const features = Array.isArray(r.effective_features) ? r.effective_features : [];
+    const contradictory = r.status === 'active' && r.is_active !== true;
+
+    root.innerHTML = `
+    ${contradictory ? `<div class="notice notice-warn">
+        حالة هذا الاشتراك مسجّلة <strong>فعّال</strong> لكن تاريخ انتهائه فات، فالمنصة تتعامل معه كمنتهٍ.
+        عدّل تاريخ الانتهاء أو غيّر الحالة لتتطابق البيانات مع الواقع.
+    </div>` : ''}
+
+    <div class="card">
+        <h2>العميل والاشتراك</h2>
+        <dl class="facts">
+            <div class="fact"><dt>العميل</dt><dd>${escapeHtml(r.customer_name || '—')}</dd></div>
+            <div class="fact"><dt>البريد الإلكتروني</dt><dd>${escapeHtml(r.customer_email || '—')}</dd></div>
+            <div class="fact"><dt>الهاتف</dt><dd>${escapeHtml(r.customer_phone || '—')}</dd></div>
+            <div class="fact"><dt>الشركة</dt><dd>${r.company_name ? escapeHtml(r.company_name) : 'لا توجد'}</dd></div>
+            <div class="fact"><dt>الباقة</dt><dd>${escapeHtml(r.plan_name_ar || r.plan)}</dd></div>
+            <div class="fact"><dt>دورة الفوترة</dt><dd>${escapeHtml(r.billing_cycle || '—')}</dd></div>
+            <div class="fact"><dt>الحالة المسجّلة</dt><dd>${escapeHtml(STATUS_LABELS[r.status] || r.status)}</dd></div>
+            <div class="fact"><dt>فعّال الآن؟</dt><dd>${r.is_active ? `نعم (${r.days_remaining} يوم متبقٍ)` : 'لا'}</dd></div>
+            <div class="fact"><dt>تاريخ البداية</dt><dd>${escapeHtml(fmt(r.start_date))}</dd></div>
+            <div class="fact"><dt>تاريخ الانتهاء</dt><dd>${escapeHtml(fmt(r.end_date))}</dd></div>
+            <div class="fact"><dt>وسيلة الدفع</dt><dd>${escapeHtml(r.payment_method || '—')}</dd></div>
+            <div class="fact"><dt>التذكرة</dt><dd>${r.ticket_number ? '#' + escapeHtml(String(r.ticket_number)) : '—'}</dd></div>
+        </dl>
+    </div>
+
+    <div class="card">
+        <h2>الخدمات الفعلية للعميل الآن</h2>
+        <p class="impact">محسوبة من كل اشتراكاته الفعّالة، لا من اسم هذه الباقة وحدها.</p>
+        <div class="chips">
+            ${features.length
+                ? features.map(f => `<span class="chip">${escapeHtml(f)}</span>`).join('')
+                : '<span class="chip is-none">لا توجد خدمات فعّالة</span>'}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>تعديل الاشتراك</h2>
+        <p class="impact">
+            الحقول غير المعروضة (العميل، التذكرة، بيانات الدفع) غير قابلة للتعديل عمدًا:
+            هي سجل تاريخي لما حدث فعلًا، وتغييرها يفسد التدقيق.
+        </p>
+        <div class="form-row">
+            <div class="field">
+                <label for="fPlan">الباقة</label>
+                <select id="fPlan">
+                    ${Object.entries(PLAN_LABELS).map(([k, v]) =>
+                        `<option value="${k}"${k === r.plan ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="field">
+                <label for="fStatus">الحالة</label>
+                <select id="fStatus">
+                    ${Object.entries(STATUS_LABELS).map(([k, v]) =>
+                        `<option value="${k}"${k === r.status ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="field">
+                <label for="fStart">تاريخ البداية</label>
+                <input type="date" id="fStart" value="${toInputDate(r.start_date)}">
+            </div>
+            <div class="field">
+                <label for="fEnd">تاريخ الانتهاء</label>
+                <input type="date" id="fEnd" value="${toInputDate(r.end_date)}">
+            </div>
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="fReason">سبب التعديل (يُحفظ في سجل التدقيق)</label>
+                <input type="text" id="fReason" placeholder="مثال: تسوية بعد شكوى العميل">
+            </div>
+        </div>
+        <p class="impact" id="planImpact"></p>
+        <div class="actions">
+            <button class="btn btn-primary" id="saveBtn">حفظ التعديل</button>
+            ${r.status === 'active'
+                ? '<button class="btn btn-danger" id="deactivateBtn">تعطيل الاشتراك</button>' : ''}
+            ${r.status === 'expired'
+                ? '<button class="btn btn-primary" id="reactivateBtn">إعادة تفعيل</button>' : ''}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>سجل التغييرات</h2>
+        ${audit.length ? `<ul class="audit">${audit.map(a => `
+            <li>
+                <div class="who">${escapeHtml(a.actor_email || 'غير معروف')} — ${escapeHtml(actionLabel(a.action))}</div>
+                <div>${escapeHtml(describeChange(a))}</div>
+                ${a.reason ? `<div>السبب: ${escapeHtml(a.reason)}</div>` : ''}
+                <div class="when">${escapeHtml(fmt(a.created_at))}</div>
+            </li>`).join('')}</ul>`
+            : '<p class="impact">لا توجد تغييرات مسجّلة على هذا الاشتراك بعد.</p>'}
+    </div>`;
+
+    document.getElementById('fPlan').addEventListener('change', showPlanImpact);
+    showPlanImpact();
+    document.getElementById('saveBtn').addEventListener('click', onSave);
+    document.getElementById('deactivateBtn')?.addEventListener('click', onDeactivate);
+    document.getElementById('reactivateBtn')?.addEventListener('click', onReactivate);
+}
+
+function actionLabel(action) {
+    return { update: 'تعديل', deactivate: 'تعطيل', reactivate: 'إعادة تفعيل', reject: 'رفض' }[action] || action;
+}
+
+function describeChange(a) {
+    const parts = [];
+    const oldV = a.old_values || {}, newV = a.new_values || {};
+    for (const key of Object.keys(newV)) {
+        if (String(oldV[key]) !== String(newV[key])) {
+            const label = { plan: 'الباقة', status: 'الحالة', start_date: 'البداية', end_date: 'الانتهاء' }[key] || key;
+            parts.push(`${label}: ${oldV[key] ?? '—'} ← ${newV[key] ?? '—'}`);
+        }
+    }
+    return parts.join('، ') || 'بدون تغيير مسجّل';
+}
+
+/** إظهار أثر تغيير الباقة على الخدمات قبل الحفظ، لا بعده. */
+async function showPlanImpact() {
+    const el = document.getElementById('planImpact');
+    const newPlan = document.getElementById('fPlan').value;
+    if (newPlan === record.plan) { el.textContent = ''; return; }
+
+    const { data, error } = await supabase.rpc('plan_feature_keys', { p_plan_key: newPlan });
+    if (error) { el.textContent = ''; return; }
+
+    const next = new Set(data || []);
+    const current = new Set(Array.isArray(record.effective_features) ? record.effective_features : []);
+    const lost = [...current].filter(f => !next.has(f));
+    const gained = [...next].filter(f => !current.has(f));
+
+    el.innerHTML = `تغيير الباقة سيعيد حساب الخدمات:
+        ${gained.length ? `<strong>يُضاف:</strong> ${escapeHtml(gained.join('، '))}. ` : ''}
+        ${lost.length ? `<strong>يُسحب:</strong> ${escapeHtml(lost.join('، '))}.` : ''}
+        ${!gained.length && !lost.length ? 'لا تغيير في الخدمات.' : ''}`;
+}
+
+async function onSave() {
+    const btn = document.getElementById('saveBtn');
+    const plan = document.getElementById('fPlan').value;
+    const status = document.getElementById('fStatus').value;
+    const start = document.getElementById('fStart').value;
+    const end = document.getElementById('fEnd').value;
+    const reason = document.getElementById('fReason').value;
+
+    if (plan !== record.plan) {
+        const ok = await confirmAction(
+            `تغيير الباقة من "${PLAN_LABELS[record.plan] || record.plan}" إلى "${PLAN_LABELS[plan] || plan}" سيعيد حساب خدمات العميل. متابعة؟`);
+        if (!ok) return;
+    }
+
+    btn.disabled = true;
+    const { error } = await supabase.rpc('admin_update_subscription', {
+        p_subscription_id: subscriptionId,
+        p_plan: plan,
+        p_status: status,
+        p_start_date: start ? new Date(start).toISOString() : null,
+        p_end_date: end ? new Date(end).toISOString() : null,
+        p_reason: reason || null
+    });
+    btn.disabled = false;
+
+    if (error) { showToast(error.message, 'error'); return; }
+    showToast('تم حفظ التعديل وإعادة حساب الخدمات', 'success');
+    await load();
+}
+
+async function onDeactivate() {
+    const ok = await confirmAction(
+        `تعطيل اشتراك "${record.customer_name}" سيوقف خدماته فورًا (${(record.effective_features || []).length} خدمة فعّالة). متابعة؟`);
+    if (!ok) return;
+
+    const reason = document.getElementById('fReason').value;
+    const { error } = await supabase.rpc('admin_set_subscription_status', {
+        p_subscription_id: subscriptionId, p_status: 'expired', p_reason: reason || null
+    });
+    if (error) { showToast(error.message, 'error'); return; }
+    showToast('تم تعطيل الاشتراك وإيقاف خدماته', 'success');
+    await load();
+}
+
+async function onReactivate() {
+    const end = document.getElementById('fEnd').value;
+    if (!end || new Date(end) <= new Date()) {
+        showToast('حدّد تاريخ انتهاء في المستقبل قبل إعادة التفعيل', 'error');
+        return;
+    }
+    const ok = await confirmAction(`إعادة تفعيل الاشتراك حتى ${end}؟`);
+    if (!ok) return;
+
+    const reason = document.getElementById('fReason').value;
+    const { error } = await supabase.rpc('admin_set_subscription_status', {
+        p_subscription_id: subscriptionId, p_status: 'active',
+        p_reason: reason || null, p_end_date: new Date(end).toISOString()
+    });
+    if (error) { showToast(error.message, 'error'); return; }
+    showToast('تم إعادة تفعيل الاشتراك', 'success');
+    await load();
+}
+
 load();
 </script>
 </body>

@@ -140,8 +140,12 @@ join (values
         ('bundle',   'support_tickets'),
         ('bundle',   'priority_support'),
         ('bundle',   'sub_users'),
-        ('bundle',   'api_tokens'),
-        ('bundle',   'mcp_client')
+        ('bundle',   'api_tokens')
+        -- الباقة الشاملة = واتساب + الدعم الفني بالضبط، لا أكثر. ده تعريف
+        -- المنصة نفسها للباقة (PLAN_LABELS.bundle = 'دعم فني + واتساب')،
+        -- وعليه بيتبنى منع الاشتراكات المتداخلة في الترحيل 017: أي امتياز
+        -- إضافي هنا كان هيخلي "واتساب + دعم فني" تبدو أقل من الباقة الشاملة
+        -- فيُسمح بشرائها بلا داعٍ.
      ) as f(plan_key, feature_key) on f.plan_key = sp.key
 on conflict (plan_id, feature_key) do nothing;
 

@@ -9,7 +9,8 @@ import {
     createSubscriptionTicket,
     getSubscriptionStatus,
     renewSubscription,
-    subscribeToSubscriptionUpdates
+    subscribeToSubscriptionUpdates,
+    checkPurchaseAllowed
 } from '/whatsapp-subscription-service.js';
 // خطوة بيانات الشركة للباقات التي تستلزمها (subscription_plans.requires_company).
 // المسار نفسه لم يتغيّر: طلب اشتراك → مراجعة الإدارة → تفعيل.
@@ -249,20 +250,49 @@ function updateSubscriptionDisplay() {
 }
 
 /* ==================== Plan button state (اشترك الآن / مشترك بالفعل) ==================== */
-function updatePlanButtonsState(activePlan) {
-    document.querySelectorAll('[data-plan-btn]').forEach(function (btn) {
-        const isActivePlan = activePlan && btn.dataset.planBtn === activePlan;
+/**
+ * حالة كل زر باقة.
+ *
+ * كانت تقارن اسم الباقة الفعّالة باسم زر الباقة فقط، فالعميل صاحب "الباقة
+ * الشاملة" كان يرى زر "اشترك الآن" على واتساب والدعم الفني رغم أن الخدمتين
+ * ضمن اشتراكه بالفعل — ثم يدفع مقابل ما يملكه.
+ *
+ * دلوقتي كل زر بيسأل نفس دالة القاعدة التي تفرض المنع
+ * (subscription_purchase_check)، فالواجهة والقاعدة بيقولوا نفس الشيء دايمًا.
+ * الأزرار هنا مجرد انعكاس للقرار — المنع الحقيقي في الـtrigger.
+ */
+async function updatePlanButtonsState(activePlan) {
+    const buttons = Array.from(document.querySelectorAll('[data-plan-btn]'));
+
+    await Promise.all(buttons.map(async function (btn) {
+        const plan = btn.dataset.planBtn;
+        const isActivePlan = activePlan && plan === activePlan;
 
         if (isActivePlan) {
             btn.textContent = 'مشترك بالفعل';
             btn.disabled = true;
+            btn.title = 'اشتراكك الحالي في هذه الباقة. استخدم زر التجديد لتمديده.';
             btn.classList.add('btn-subscribed');
-        } else {
-            btn.textContent = 'اشترك الآن';
-            btn.disabled = false;
-            btn.classList.remove('btn-subscribed');
+            return;
         }
-    });
+
+        const check = await checkPurchaseAllowed(plan, false);
+
+        if (check && check.allowed === false) {
+            // 'redundant' = الخدمات كلها مملوكة ضمن باقة أخرى (الحالة التي
+            // كانت تظهر كزر شراء عادي)
+            btn.textContent = check.code === 'redundant' ? 'مشمولة في باقتك' : 'غير متاحة';
+            btn.disabled = true;
+            btn.title = check.reason || '';
+            btn.classList.add('btn-subscribed');
+            return;
+        }
+
+        btn.textContent = 'اشترك الآن';
+        btn.disabled = false;
+        btn.title = '';
+        btn.classList.remove('btn-subscribed');
+    }));
 }
 
 /* ==================== Payment method modal ==================== */
@@ -447,6 +477,15 @@ async function handleSubscribe(plan, buttonEl) {
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
             : '';
         alert(`تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
+
+        // إكمال مسار الشركة: لو الشركة اتكوّنت للتو، المستخدم المفروض يشوف
+        // لوحتها بدل ما يفضل في صفحة الباقات ومايعرفش إن ليه لوحة أصلًا.
+        // التحويل مبني على أن الشركة اتكوّنت فعلًا في المسار ده، لا على أي
+        // قيمة في الرابط.
+        if (companyStep.created) {
+            window.location.href = '/company-dashboard/';
+            return;
+        }
 
         await loadSubscriptionStatus();
     } catch (error) {

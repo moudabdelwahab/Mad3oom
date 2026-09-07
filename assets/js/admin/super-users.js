@@ -218,8 +218,10 @@ function setupEventListeners() {
                     body: JSON.stringify({
                         email,
                         password,
-                        full_name: fullName,
-                        super_user_id: selectedAdminId
+                        full_name: fullName
+                        // super_user_id لا يُرسل عمدًا: الدالة تشتقّه من هوية
+                        // المنادي المتحقَّق منها، فلا يمكن توجيه المستخدم
+                        // الفرعي لمسؤول آخر عن طريق تعديل الطلب.
                     })
                 }
             );

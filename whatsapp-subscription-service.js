@@ -342,6 +342,18 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             throw new Error(`عندك بالفعل طلب اشتراك في خطة "${PLAN_LABELS[plan]}" قيد المراجعة. انتظر رد فريق الدعم قبل إرسال طلب جديد.`);
         }
 
+        // قاعدة التداخل: القرار مبني على الخدمات المملوكة فعلًا، لا على اسم
+        // الباقة — فالباقة الشاملة تمنع شراء واتساب أو الدعم منفردين تلقائيًا.
+        // نفس الدالة تفرضها القاعدة في trigger على الجدول، فالنداء هنا لإظهار
+        // السبب بالعربي قبل الإرسال، مش هو الحماية.
+        const { data: purchaseCheck, error: purchaseCheckError } = await supabase
+            .rpc('subscription_purchase_check', { p_plan: plan, p_is_renewal: isRenewal });
+
+        if (purchaseCheckError) throw purchaseCheckError;
+        if (purchaseCheck && purchaseCheck.allowed === false) {
+            throw new Error(purchaseCheck.reason || 'لا يمكن الاشتراك في هذه الباقة حاليًا.');
+        }
+
         // لو تجديد: نجيب الاشتراك النشط الحالي لنفس الخطة عشان نعرف من امتى
         // هنمدد. لو مفيش اشتراك نشط فعلاً، الطلب هيتعامل معاه كاشتراك جديد
         // عادي عند التأكيد (هيبدأ من تاريخ التأكيد).
@@ -454,6 +466,43 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
     } catch (error) {
         console.error('Error creating subscription ticket:', error);
         throw error;
+    }
+}
+
+/**
+ * قاعدة الشراء كما تقرّرها قاعدة البيانات — نفس الدالة التي يفرضها الـtrigger.
+ * تُستخدم في الواجهة لعرض حالة كل باقة (مملوكة / ترقية / تجديد) بدل تخمينها.
+ * @param {string} plan
+ * @param {boolean} [isRenewal=false]
+ * @returns {Promise<{allowed: boolean, code: string, reason: string}>}
+ */
+export async function checkPurchaseAllowed(plan, isRenewal = false) {
+    try {
+        const { data, error } = await supabase
+            .rpc('subscription_purchase_check', { p_plan: plan, p_is_renewal: isRenewal });
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error checking purchase eligibility:', error);
+        // فشل الفحص لا يفتح الباب: القاعدة هي التي تمنع فعليًا، والواجهة
+        // تتصرف بتحفّظ وتترك الزر يحاول ليظهر سبب الرفض الحقيقي.
+        return { allowed: true, code: 'check_failed', reason: '' };
+    }
+}
+
+/**
+ * الخدمات التي يملكها العميل فعليًا عبر كل اشتراكاته الفعّالة.
+ * مصدر واحد مع لوحة الشركة ولوحة الإدارة.
+ * @returns {Promise<string[]>}
+ */
+export async function getOwnedFeatures() {
+    try {
+        const { data, error } = await supabase.rpc('owned_feature_keys');
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching owned features:', error);
+        return [];
     }
 }
 
