@@ -375,68 +375,15 @@ const supabaseKey = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 /* ====================================================================
-   SUBSCRIPTION SOURCES CONFIG
-   -------------------------------------------------------------------
-   Every subscription type on the platform is defined here as a
-   "source". Each source knows how to fetch its rows from Supabase and
-   how to normalize a row into the common shape the UI understands.
-
-   To wire up a NEW subscription type, add another object to this
-   array — you don't need to touch any rendering code below.
-
-   If a source's table doesn't exist yet (or the query errors), it is
-   silently skipped instead of breaking the whole page, so this file
-   works whether subscriptions live in separate tables per type or in
-   one unified table.
-==================================================================== */
-const SUBSCRIPTION_SOURCES = [
-    {
-        key: 'whatsapp',
-        label: 'واتساب',
-        table: 'whatsapp_subscriptions',
-        select: '*,tickets(ticket_number,title),profiles(full_name,username,phone)',
-        normalize: (row) => ({
-            id: `whatsapp-${row.id}`,
-            rawId: row.id,
-            type: 'whatsapp',
-            typeLabel: 'واتساب',
-            table: 'whatsapp_subscriptions',
-            name: row.profiles?.full_name || 'بدون اسم',
-            username: row.profiles?.username ? '@' + row.profiles.username : '',
-            phone: row.profiles?.phone || '',
-            ticketNumber: row.tickets?.ticket_number || null,
-            ticketTitle: row.tickets?.title || null,
-            status: row.status || 'غير محدد',
-            createdAt: row.created_at,
-            detailsUrl: `/admin/subscription-details.html?id=${row.id}&type=whatsapp`
-        })
-    },
-    {
-        // Generic fallback source: a unified `subscriptions` table with a
-        // `type` column, in case other subscription types (premium,
-        // email, sms, ...) are stored this way rather than in their own
-        // dedicated table. Safely skipped if this table doesn't exist.
-        key: 'unified',
-        label: null, // label comes from each row's own `type` column
-        table: 'subscriptions',
-        select: '*,profiles(full_name,username,phone)',
-        normalize: (row) => ({
-            id: `sub-${row.id}`,
-            rawId: row.id,
-            type: row.type || 'other',
-            typeLabel: row.type_label || row.type || 'اشتراك آخر',
-            table: 'subscriptions',
-            name: row.profiles?.full_name || 'بدون اسم',
-            username: row.profiles?.username ? '@' + row.profiles.username : '',
-            phone: row.profiles?.phone || '',
-            ticketNumber: row.ticket_number || null,
-            ticketTitle: row.ticket_title || null,
-            status: row.status || 'غير محدد',
-            createdAt: row.created_at,
-            detailsUrl: `/admin/subscription-details.html?id=${row.id}&type=${row.type || 'other'}`
-        })
-    }
-];
+   مصدر البيانات
+   ====================================================================
+   كان هنا مصفوفة "مصادر" بتقرأ whatsapp_subscriptions مباشرة، وبتحاول
+   كمان جدول "subscriptions" مش موجود في القاعدة أصلًا (وبيتم تخطّيه
+   بصمت). اتشالت لأن القراءة بقت من دالة واحدة في القاعدة:
+   admin_list_subscriptions() — بتجمع العميل والشركة والباقة والتواريخ
+   والخدمات الفعلية، وبتفرض admin-only في القاعدة نفسها.
+   إضافة نوع اشتراك جديد بقت تعديلًا في الدالة دي، مش في الواجهة.
+   ==================================================================== */
 
 /* ==================== State ==================== */
 let allItems = [];
@@ -480,25 +427,42 @@ async function loadAllSources(){
     allItems = [];
     sourceErrors = [];
 
-    const results = await Promise.all(SUBSCRIPTION_SOURCES.map(async (source) => {
-        try{
-            const { data, error } = await client
-                .from(source.table)
-                .select(source.select)
-                .order('created_at', { ascending: false });
+    // مصدر واحد: admin_list_subscriptions() في القاعدة.
+    // قبل كده الصفحة كانت بتقرأ whatsapp_subscriptions مباشرة وتحاول جدول
+    // "subscriptions" غير موجود، وماكانتش بتعرض الباقة ولا التواريخ ولا
+    // الشركة ولا الخدمات الفعلية. الدالة بتجمع ده كله وبتفرض admin-only في
+    // القاعدة نفسها بدل الاعتماد على إن الصفحة تحت /admin.
+    try{
+        const { data, error } = await client.rpc('admin_list_subscriptions');
+        if (error) throw error;
 
-            if (error) throw error;
-            return (data || []).map(source.normalize);
-        }catch(err){
-            // Table might not exist for this platform yet — skip quietly,
-            // but keep a record in case every single source fails.
-            console.warn(`تعذر تحميل بيانات المصدر "${source.table}":`, err.message || err);
-            sourceErrors.push({ table: source.table, message: err.message || String(err) });
-            return [];
-        }
-    }));
+        allItems = (data || []).map(row => ({
+            id: `sub-${row.id}`,
+            rawId: row.id,
+            type: row.plan,
+            typeLabel: row.plan_name_ar || row.plan,
+            name: row.customer_name || 'بدون اسم',
+            username: row.customer_email || '',
+            phone: row.customer_phone || '',
+            companyName: row.company_name || null,
+            status: row.status || 'غير محدد',
+            isActive: row.is_active === true,
+            daysRemaining: row.days_remaining,
+            billingCycle: row.billing_cycle,
+            startDate: row.start_date,
+            endDate: row.end_date,
+            features: Array.isArray(row.effective_features) ? row.effective_features : [],
+            ticketNumber: row.ticket_number || null,
+            ticketTitle: null,
+            createdAt: row.created_at,
+            detailsUrl: `/admin/subscription-details.html?id=${row.id}`
+        }));
+    }catch(err){
+        console.error('تعذر تحميل الاشتراكات:', err.message || err);
+        sourceErrors.push({ table: 'admin_list_subscriptions', message: err.message || String(err) });
+    }
 
-    allItems = results.flat().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    allItems.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
 /* ==================== Rendering ==================== */
@@ -596,7 +560,7 @@ function renderList(){
     const content = document.getElementById('content');
     const items = getFilteredItems();
 
-    if (allItems.length === 0 && sourceErrors.length === SUBSCRIPTION_SOURCES.length){
+    if (allItems.length === 0 && sourceErrors.length > 0){
         content.innerHTML = `
             <div class="state-box error">
                 <h3>تعذر تحميل أي بيانات</h3>
@@ -632,13 +596,31 @@ function renderCard(item){
         <div class="badge-row">
             <span class="badge badge-type">${escapeHtml(item.typeLabel)}</span>
             <span class="badge ${sCls}">${escapeHtml(item.status)}</span>
+            ${item.status === 'active' && !item.isActive
+                ? '<span class="badge badge-status-danger" title="الحالة active لكن تاريخ الانتهاء فات">منتهٍ فعليًا</span>'
+                : ''}
         </div>
 
         <div class="sub-meta">
+            ${item.companyName ? `
+            <div class="sub-meta-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                <span>${escapeHtml(item.companyName)}</span>
+            </div>` : ''}
+            <div class="sub-meta-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>${formatDate(item.startDate)} ← ${formatDate(item.endDate)}${
+                    item.isActive ? ` (${item.daysRemaining} يوم متبقٍ)` : ''}</span>
+            </div>
+            ${item.features.length ? `
+            <div class="sub-meta-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>${item.features.length} خدمة فعّالة للعميل</span>
+            </div>` : ''}
             ${item.ticketNumber ? `
             <div class="sub-meta-row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8V7l-3 2-2-2-2 2-2-2-2 2-2-2-3 2v1a2 2 0 0 0 2 2v6a2 2 0 0 1-2 2v1l3-2 2 2 2-2 2 2 2-2 2 2 3-2v-1a2 2 0 0 1-2-2v-6a2 2 0 0 0 2-2z"/></svg>
-                <span>تذكرة #${escapeHtml(item.ticketNumber)}${item.ticketTitle ? ' — ' + escapeHtml(item.ticketTitle) : ''}</span>
+                <span>تذكرة #${escapeHtml(item.ticketNumber)}</span>
             </div>` : ''}
         </div>
 

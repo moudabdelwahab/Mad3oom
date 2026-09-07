@@ -98,6 +98,18 @@ export async function fetchCompanyRequiringPlans() {
     });
 }
 
+/**
+ * أعضاء الشركة (المالك + المستخدمون الفرعيون).
+ * بلا مُعاملات — الشركة تُشتق من auth.uid() في القاعدة.
+ */
+export async function fetchCompanyMembers() {
+    return safe('companyMembers', async () => {
+        const { data, error } = await supabase.rpc('company_members');
+        if (error) throw error;
+        return data || null;
+    });
+}
+
 /** هل المستخدم الحالي تابع لأي شركة؟ (لإظهار مدخل اللوحة في القائمة) */
 export async function hasCompany() {
     try {

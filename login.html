@@ -1018,6 +1018,7 @@
 
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  import { resolveAccountHome } from '/assets/js/account-destination.js';
   import { validateEmail, validatePhone } from './auth-validation.js';
 
   const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
@@ -1200,7 +1201,7 @@
       'تحديد نوع الحساب'
     );
     const role = profile?.role || 'user';
-    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
+    window.location.href = await resolveDestination(await resolveAccountHome(supabase, { role }));
   }
 
   async function checkExistingSession() {
@@ -1259,7 +1260,7 @@
     }
 
     const role = existing?.role || 'user';
-    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
+    window.location.href = await resolveDestination(await resolveAccountHome(supabase, { role }));
   });
 
   checkExistingSession();
@@ -2016,7 +2017,7 @@
     sessionStorage.removeItem('just_logged_out');
     _handlingAuthManually = false;
     const role = data.role || 'user';
-    window.location.href = await resolveDestination((role === 'admin' || role === 'support' || role === 'super_user') ? 'admin-dashboard.html' : 'customer-dashboard.html');
+    window.location.href = await resolveDestination(await resolveAccountHome(supabase, { role }));
   }
 
   function setPiLoading(panel, loading) {

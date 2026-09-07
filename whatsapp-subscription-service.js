@@ -314,6 +314,7 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
     assertValidProofFile(options.paymentMethod, options.proofFile);
 
     const isRenewal = !!options.isRenewal;
+    const isUpgrade = !!options.isUpgrade;
     const paymentMethod = options.paymentMethod;
     const paymentReference = options.paymentReference ? String(options.paymentReference).trim().slice(0, 500) : null;
     const proofFile = EXTERNAL_PAYMENT_METHODS.includes(paymentMethod) ? options.proofFile : null;
@@ -340,6 +341,18 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
 
         if (existingPending) {
             throw new Error(`عندك بالفعل طلب اشتراك في خطة "${PLAN_LABELS[plan]}" قيد المراجعة. انتظر رد فريق الدعم قبل إرسال طلب جديد.`);
+        }
+
+        // قاعدة التداخل: القرار مبني على الخدمات المملوكة فعلًا، لا على اسم
+        // الباقة — فالباقة الشاملة تمنع شراء واتساب أو الدعم منفردين تلقائيًا.
+        // نفس الدالة تفرضها القاعدة في trigger على الجدول، فالنداء هنا لإظهار
+        // السبب بالعربي قبل الإرسال، مش هو الحماية.
+        const { data: purchaseCheck, error: purchaseCheckError } = await supabase
+            .rpc('subscription_purchase_check', { p_plan: plan, p_is_renewal: isRenewal });
+
+        if (purchaseCheckError) throw purchaseCheckError;
+        if (purchaseCheck && purchaseCheck.allowed === false) {
+            throw new Error(purchaseCheck.reason || 'لا يمكن الاشتراك في هذه الباقة حاليًا.');
         }
 
         // لو تجديد: نجيب الاشتراك النشط الحالي لنفس الخطة عشان نعرف من امتى
@@ -382,7 +395,7 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
         const now = new Date();
         const ticketPayload = {
             user_id: user.id,
-            title: `${isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك'} - ${planLabel} (${billingLabel})`,
+            title: `${isUpgrade ? 'طلب ترقية ودمج الباقة' : (isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك')} - ${planLabel} (${billingLabel})`,
             description,
             status: 'open',
             priority: 'high'
@@ -408,8 +421,35 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
         if (ticketError) throw ticketError;
         createdTicketId = ticket.id;
 
+        // مسار الترقية: الصف بيتعمل في القاعدة عبر request_subscription_upgrade
+        // عشان المبلغ يتحسب هناك ولا يُقبل من العميل، ويرث دورة الاشتراك
+        // الحالية بدل ما يبدأ دورة جديدة.
+        let subscription;
+        if (isUpgrade) {
+            const { data: upgradeResult, error: upgradeError } = await supabase
+                .rpc('request_subscription_upgrade', {
+                    p_plan: plan,
+                    p_ticket_id: ticket.id,
+                    p_payment_method: paymentMethod,
+                    p_payment_reference: paymentReference
+                });
+
+            if (upgradeError) {
+                await supabase.from('tickets').delete().eq('id', createdTicketId);
+                throw upgradeError;
+            }
+
+            createdSubscriptionId = upgradeResult.subscription_id;
+            const { data: upgradeRow } = await supabase
+                .from('whatsapp_subscriptions')
+                .select('*')
+                .eq('id', createdSubscriptionId)
+                .maybeSingle();
+            subscription = upgradeRow;
+        } else {
+
         // Create subscription record with pending status (no payment taken yet)
-        const { data: subscription, error: subError } = await supabase
+        const { data: insertedSubscription, error: subError } = await supabase
             .from('whatsapp_subscriptions')
             .insert({
                 user_id: user.id,
@@ -429,7 +469,9 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             .single();
 
         if (subError) throw subError;
+        subscription = insertedSubscription;
         createdSubscriptionId = subscription.id;
+        }
 
         // إثبات التحويل (لو تحويل بنكي خارجي) بيتخزن كمرفق عادي على نفس
         // التذكرة، فيظهر تلقائيًا في لوحة الإدارة زي أي مرفق تذكرة تاني.
@@ -454,6 +496,80 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
     } catch (error) {
         console.error('Error creating subscription ticket:', error);
         throw error;
+    }
+}
+
+/**
+ * قاعدة الشراء كما تقرّرها قاعدة البيانات — نفس الدالة التي يفرضها الـtrigger.
+ * تُستخدم في الواجهة لعرض حالة كل باقة (مملوكة / ترقية / تجديد) بدل تخمينها.
+ * @param {string} plan
+ * @param {boolean} [isRenewal=false]
+ * @returns {Promise<{allowed: boolean, code: string, reason: string}>}
+ */
+export async function checkPurchaseAllowed(plan, isRenewal = false) {
+    try {
+        const { data, error } = await supabase
+            .rpc('subscription_purchase_check', { p_plan: plan, p_is_renewal: isRenewal });
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error checking purchase eligibility:', error);
+        // فشل الفحص لا يفتح الباب: القاعدة هي التي تمنع فعليًا، والواجهة
+        // تتصرف بتحفّظ وتترك الزر يحاول ليظهر سبب الرفض الحقيقي.
+        return { allowed: true, code: 'check_failed', reason: '' };
+    }
+}
+
+/**
+ * الخدمات التي يملكها العميل فعليًا عبر كل اشتراكاته الفعّالة.
+ * مصدر واحد مع لوحة الشركة ولوحة الإدارة.
+ * @returns {Promise<string[]>}
+ */
+export async function getOwnedFeatures() {
+    try {
+        const { data, error } = await supabase.rpc('owned_feature_keys');
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching owned features:', error);
+        return [];
+    }
+}
+
+/**
+ * عرض الترقية كما تحسبه القاعدة (الباقتان، الأيام المتبقية، الفرق، المستحق الآن،
+ * وسعر التجديد القادم). الواجهة تعرضه ولا تحسب أي مبلغ بنفسها.
+ * @param {string} plan
+ * @returns {Promise<Object|null>}
+ */
+export async function getUpgradeQuote(plan) {
+    try {
+        const { data, error } = await supabase.rpc('subscription_upgrade_quote', { p_plan: plan });
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error fetching upgrade quote:', error);
+        return null;
+    }
+}
+
+/**
+ * أسعار الباقات من قاعدة البيانات — المصدر الوحيد.
+ * صفحات الأسعار تملأ منها بدل الاعتماد على قيم مكتوبة في HTML.
+ * @returns {Promise<Array<{key,name_ar,price_monthly,price_yearly,currency}>>}
+ */
+export async function getPlanPrices() {
+    try {
+        const { data, error } = await supabase
+            .from('subscription_plans')
+            .select('key, name, name_ar, price_monthly, price_yearly, currency, sort_order')
+            .eq('is_active', true)
+            .order('sort_order');
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching plan prices:', error);
+        return [];
     }
 }
 
@@ -767,6 +883,40 @@ export async function confirmPurchaseTicket(ticketId) {
                 success: false,
                 error: 'لا يوجد سجل اشتراك مرتبط بهذه التذكرة (whatsapp_subscriptions). لم يتم تأكيد التذكرة.'
             };
+        }
+
+        // الترقية لها مسار تأكيد خاص: تفعيل الجديد بنفس دورة القديم + تعليم
+        // القديم superseded + إعادة حساب الامتيازات + تدقيق، كلها في معاملة
+        // واحدة داخل القاعدة. لا يمكن تنفيذها بخطوات متفرقة من المتصفح لأن
+        // أي فشل بينها كان هيسيب اشتراكين فعّالين متداخلين.
+        if (subscription.upgraded_from_subscription_id) {
+            const { data: upgradeResult, error: upgradeError } = await supabase
+                .rpc('admin_confirm_subscription_upgrade', { p_subscription_id: subscription.id });
+
+            if (upgradeError) {
+                return { success: false, error: upgradeError.message };
+            }
+
+            const { error: upgradeTicketError } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'confirmed',
+                    last_updated_by: adminUser ? adminUser.id : null,
+                    last_updated_at: new Date().toISOString()
+                })
+                .eq('id', ticketId);
+            if (upgradeTicketError) throw upgradeTicketError;
+
+            const upgradedPlanLabel = PLAN_LABELS[subscription.plan] || subscription.plan;
+            await createNotification({
+                userId: subscription.user_id,
+                title: '✓ تمت ترقية اشتراكك',
+                message: `تم دمج اشتراكك في باقة "${upgradedPlanLabel}" بنفس تاريخ انتهاء اشتراكك الحالي. المبلغ المحصّل: ${upgradeResult.amount_charged}.`,
+                type: 'success',
+                link: '/customer-subscriptions.html'
+            });
+
+            return { success: true, upgrade: upgradeResult };
         }
 
         // احتساب التواريخ الفعلية دلوقتي (وقت التأكيد)، مش وقت إنشاء الطلب

@@ -33,8 +33,13 @@ Secret Key (مفتاح سري):  1x0000000000000000000000000000000AA
 - تم تحديث دالة `signIn` لقبول Turnstile token
 
 ### 5. **auth-user-types.js**
-- تم تحديث دالة `signUpIndividual` لقبول Turnstile token
-- تم تحديث دالة `signUpCompany` لقبول Turnstile token
+- ~~تم تحديث دالة `signUpIndividual` لقبول Turnstile token~~
+- ~~تم تحديث دالة `signUpCompany` لقبول Turnstile token~~
+
+> ملاحظة: الدالتان أعلاه كانتا في `auth-user-types.js` وحُذف الملف بالكامل —
+> لم يكن مستوردًا من أي صفحة أو دالة، وكان سيفشل لو استُخدم لأنه يُدخل صفًا في
+> `profiles` ينشئه `handle_new_user()` تلقائيًا. التسجيل الفعلي يتم في
+> `login.html`، والتحقق من Turnstile موصوف في بقية هذا الدليل.
 
 ## 🚀 كيفية الحصول على مفاتيح الإنتاج
 
