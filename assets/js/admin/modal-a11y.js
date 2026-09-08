@@ -48,11 +48,15 @@ function onModalOpened(modal) {
     if (bodyLockCount === 0) document.body.style.overflow = 'hidden';
     bodyLockCount += 1;
 
-    // أول حقل إدخال هو المقصد الطبيعي؛ وإلا أول عنصر قابل للتركيز؛ وإلا النافذة نفسها
+    // أول حقل إدخال هو المقصد الطبيعي؛ وإلا أول عنصر قابل للتركيز؛ وإلا النافذة نفسها.
+    // الاستثناء: نافذة يعلو محتواها نموذجَها (ملخّص ثم نموذج) — التركيز على أول
+    // حقل فيها يُمرّر الحوار لأسفل فيفتح وقد تجاوز عنوانه، وهو ما يظهر بوضوح
+    // على الجوال. تلك النوافذ تعلّم مقصدها بـdata-modal-initial-focus.
     requestAnimationFrame(() => {
         const focusables = visibleFocusables(modal);
+        const explicit = focusables.find((el) => el.hasAttribute('data-modal-initial-focus'));
         const firstField = focusables.find((el) => /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
-        const target = firstField || focusables[0];
+        const target = explicit || firstField || focusables[0];
         if (target) {
             target.focus();
             target.select?.();
@@ -94,7 +98,13 @@ function onKeyDown(e) {
     else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
 }
 
+/** تُستدعى من أكثر من صفحة/وحدة الآن، والتكرار كان سيضاعف المستمعين. */
+let started = false;
+
 export function init() {
+    if (started) return;
+    started = true;
+
     // نلتقط ما كان مركَّزًا قبل أي نقرة/ضغطة، فهو الزرّ الذي سيفتح النافذة
     document.addEventListener('pointerdown', (e) => { lastActiveBeforeOpen = e.target?.closest?.('button, a, [role="button"]') || document.activeElement; }, true);
     document.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') lastActiveBeforeOpen = document.activeElement; }, true);

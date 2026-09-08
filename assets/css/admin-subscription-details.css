@@ -1,0 +1,303 @@
+/* ============================================================================
+   admin-subscription-details.css
+   عرض تفاصيل الاشتراك — تُستخدم في نافذة منبثقة داخل صفحة الاشتراكات، وفي
+   الصفحة المستقلة للروابط المباشرة. نفس التنسيق في الحالتين لأن الوحدة واحدة.
+
+   ملاحظة: النافذة تحمل صنفَي .modal-overlay و .open لأن
+   assets/js/admin/modal-a11y.js يراقبهما ويمنح تلقائيًا حبس التركيز داخل
+   الحوار، وقفل تمرير الخلفية، وإعادة التركيز إلى الزر الذي فتحها. لا تُغيَّر
+   هذان الاسمان وإلا فقدت النافذة كل ذلك بصمت وبلا خطأ.
+   (الإغلاق بـEscape ليس من عمل modal-a11y — تلك الوحدة تعترض Tab فقط —
+   لذلك تتولّاه الوحدة subscription-details-view.js بنفسها.)
+   ============================================================================ */
+
+.subd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4vh 1rem;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, .55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.subd-overlay.open { display: flex; }
+
+.subd-dialog {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 880px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .28);
+    animation: subdIn .22s cubic-bezier(.16, 1, .3, 1);
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+}
+
+@keyframes subdIn {
+    from { transform: translateY(18px) scale(.985); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .subd-dialog { animation: none; }
+}
+
+/* ── الرأس ──────────────────────────────────────────────────────────────── */
+.subd-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-muted);
+    border-radius: 16px 16px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.subd-title { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.subd-sub {
+    margin: .3rem 0 0;
+    font-size: .82rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.subd-close {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    width: 34px; height: 34px;
+    font-size: 1.35rem; line-height: 1;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+}
+.subd-close:hover { background: var(--color-surface); color: var(--color-text); }
+.subd-close:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.subd-head-actions { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+
+/* رابط الصفحة المستقلة: النافذة أسرع، لكن الرابط المباشر يظل قابلًا للمشاركة */
+.subd-openpage {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: background .15s, color .15s;
+}
+.subd-openpage svg { width: 17px; height: 17px; }
+.subd-openpage:hover { background: var(--color-surface); color: var(--color-text); }
+.subd-openpage:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── الجسم ──────────────────────────────────────────────────────────────── */
+.subd-body { padding: 1.25rem 1.4rem; overflow-y: auto; }
+
+.subd-section + .subd-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.subd-section h3 {
+    margin: 0 0 .85rem;
+    font-size: .9rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+}
+.subd-section h3 svg { width: 16px; height: 16px; color: var(--color-accent); flex-shrink: 0; }
+
+/* ── لوحة الأرقام ───────────────────────────────────────────────────────── */
+.subd-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: .75rem;
+}
+.subd-stat {
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: .8rem .9rem;
+}
+.subd-stat-label { margin: 0; font-size: .72rem; font-weight: 700; color: var(--color-text-secondary); }
+.subd-stat-value { margin: .3rem 0 0; font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.subd-stat--danger  .subd-stat-value { color: var(--color-danger); }
+.subd-stat--warning .subd-stat-value { color: var(--color-warning, #d98e04); }
+.subd-stat--success .subd-stat-value { color: var(--color-success, #28a745); }
+
+/* ── الحقائق ────────────────────────────────────────────────────────────── */
+.subd-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
+    margin: 0;
+}
+.subd-fact dt { font-size: .72rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: .2rem; }
+.subd-fact dd { margin: 0; font-size: .9rem; font-weight: 600; word-break: break-word; }
+.subd-fact .is-empty { color: var(--color-text-3, var(--color-text-secondary)); font-weight: 500; }
+
+/* ── الشارات والخدمات ───────────────────────────────────────────────────── */
+.subd-pills { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .9rem; }
+.subd-pill {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .25rem .7rem; border-radius: 999px;
+    font-size: .76rem; font-weight: 700;
+}
+.subd-pill--ok     { background: rgba(40,167,69,.13);  color: #28a745; }
+.subd-pill--warn   { background: rgba(240,173,78,.16); color: #b8860b; }
+.subd-pill--danger { background: rgba(217,83,79,.13);  color: #d9534f; }
+.subd-pill--muted  { background: var(--color-muted);   color: var(--color-text-secondary); }
+
+.subd-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.subd-chip {
+    background: rgba(40,167,69,.12); color: #28a745;
+    border-radius: 999px; padding: .22rem .65rem;
+    font-size: .76rem; font-weight: 700;
+}
+.subd-chip--none { background: rgba(217,83,79,.12); color: #d9534f; }
+
+/* ── تنبيه ──────────────────────────────────────────────────────────────── */
+.subd-notice {
+    padding: .8rem 1rem; border-radius: 10px;
+    font-size: .83rem; line-height: 1.75; margin-bottom: 1.1rem;
+}
+.subd-notice--warn  { background: rgba(240,173,78,.14); color: #b8860b; }
+.subd-notice--error { background: rgba(217,83,79,.14);  color: #d9534f; }
+.subd-notice--info  { background: var(--color-muted);   color: var(--color-text-secondary); }
+
+/* ── النموذج ────────────────────────────────────────────────────────────── */
+.subd-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+.subd-field { display: flex; flex-direction: column; gap: .35rem; }
+.subd-field.is-full { grid-column: 1 / -1; }
+.subd-field label { font-size: .76rem; font-weight: 700; color: var(--color-text-secondary); }
+.subd-field input, .subd-field select {
+    padding: .6rem .75rem; border-radius: 9px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface); color: inherit;
+    font-family: inherit; font-size: .88rem;
+    transition: border-color .15s, box-shadow .15s;
+}
+.subd-field input:focus, .subd-field select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(0, 119, 204, .16);
+}
+
+.subd-impact {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: .8rem;
+    line-height: 1.8;
+    color: var(--color-text-secondary);
+}
+.subd-impact:empty { display: none; }
+.subd-impact strong { color: var(--color-text); }
+
+/* ── السجل ──────────────────────────────────────────────────────────────── */
+.subd-audit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.subd-audit li {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: .7rem .9rem;
+    font-size: .82rem;
+    background: var(--color-muted);
+}
+.subd-audit .who { font-weight: 700; margin-bottom: .2rem; }
+.subd-audit .when { color: var(--color-text-secondary); font-size: .72rem; margin-top: .25rem; }
+
+/* ── التذييل والإجراءات ─────────────────────────────────────────────────── */
+.subd-foot {
+    display: flex; flex-wrap: wrap; gap: .6rem; align-items: center;
+    padding: 1rem 1.4rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-muted);
+    border-radius: 0 0 16px 16px;
+    position: sticky; bottom: 0;
+}
+.subd-foot .spacer { flex: 1; }
+
+.subd-btn {
+    /* inline-flex و text-decoration لأن الصنف يُستعمل على <a> أيضًا
+       (رابط الرجوع في الصفحة المستقلة) لا على <button> وحده */
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: .6rem 1.15rem; border-radius: 9px;
+    border: 1px solid transparent;
+    font-weight: 700; font-family: inherit; font-size: .86rem;
+    line-height: 1.2; text-decoration: none; color: inherit;
+    cursor: pointer; transition: filter .15s, background .15s;
+}
+.subd-btn:disabled { opacity: .55; cursor: not-allowed; }
+.subd-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.subd-btn--primary { background: var(--color-accent); color: #fff; }
+.subd-btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
+.subd-btn--ghost { background: transparent; border-color: var(--color-border); color: inherit; }
+.subd-btn--ghost:hover:not(:disabled) { background: var(--color-surface); }
+.subd-btn--danger { background: #d9534f; color: #fff; }
+.subd-btn--danger:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* تأكيد داخل النافذة بدل نافذة المتصفح — لا يكسر سياق الحوار */
+.subd-confirm {
+    flex-basis: 100%;
+    display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+    background: rgba(217,83,79,.1);
+    border: 1px solid rgba(217,83,79,.3);
+    border-radius: 10px; padding: .7rem .9rem;
+    font-size: .83rem; line-height: 1.7;
+}
+.subd-confirm .msg { flex: 1; min-width: 200px; }
+
+.subd-status { font-size: .82rem; font-weight: 700; }
+.subd-status--ok    { color: #28a745; }
+.subd-status--error { color: #d9534f; }
+
+/* ── حالة التحميل ───────────────────────────────────────────────────────── */
+.subd-skeleton { display: flex; flex-direction: column; gap: .7rem; }
+.subd-skeleton span {
+    display: block; height: 14px; border-radius: 7px;
+    background: linear-gradient(90deg, var(--color-muted) 25%, var(--color-border) 50%, var(--color-muted) 75%);
+    background-size: 200% 100%;
+    animation: subdShimmer 1.3s linear infinite;
+}
+.subd-skeleton span:nth-child(2) { width: 80%; }
+.subd-skeleton span:nth-child(3) { width: 60%; }
+@keyframes subdShimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .subd-skeleton span { animation: none; } }
+
+/* ── الجوال: تتحول لورقة سفلية ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .subd-overlay { padding: 0; align-items: flex-end; }
+    .subd-dialog { max-width: none; max-height: 94vh; border-radius: 16px 16px 0 0; }
+    .subd-head { border-radius: 16px 16px 0 0; }
+    .subd-foot { border-radius: 0; }
+    /* زرّان في كل صف بدل ثلاثة مضغوطة تنكسر كلماتها في المنتصف */
+    .subd-foot .spacer { display: none; }
+    .subd-foot .subd-btn { flex: 1 1 calc(50% - .3rem); white-space: nowrap; }
+    .subd-foot .subd-status { flex: 1 1 100%; }
+}
+
+/* ── الصفحة المستقلة ────────────────────────────────────────────────────────
+   نفس الأقسام بلا طبقة معتمة: بطاقة واحدة تحوي الجسم والتذييل. الشكل هنا لا
+   في <style> الصفحة، وإلا انحرفت الشاشتان عن بعضهما مع أول تعديل. */
+.subd-standalone {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+.subd-standalone .subd-foot { border-radius: 0; }

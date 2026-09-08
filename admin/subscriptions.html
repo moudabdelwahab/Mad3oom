@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>إدارة الاشتراكات | مدعوم</title>
 <link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="/assets/css/admin-subscription-details.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ==================== Page-specific layout ====================
@@ -374,6 +375,10 @@ const supabaseUrl = 'https://srnelrdpqkcntbgudyto.supabase.co';
 const supabaseKey = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
+/* نافذة التفاصيل وحدة ES منفصلة، وهذا السكربت كلاسيكي: تعريف const أعلاه لا
+   يظهر على window، فنمرّر العميل صراحة بدل أن تنشئ الوحدة جلسة ثانية. */
+window.adminSubscriptionsClient = client;
+
 /* ====================================================================
    مصدر البيانات
    ====================================================================
@@ -626,7 +631,8 @@ function renderCard(item){
 
         <div class="sub-card-footer">
             <span class="sub-date">${formatDate(item.createdAt)}</span>
-            <a class="btn btn-outline btn-sm" href="${item.detailsUrl}">عرض التفاصيل</a>
+            <a class="btn btn-outline btn-sm" href="${item.detailsUrl}"
+               data-details-id="${escapeHtml(item.rawId)}">عرض التفاصيل</a>
         </div>
     </div>`;
 }
@@ -672,6 +678,35 @@ document.getElementById('themeToggle').addEventListener('click', () => {
 
 /* ==================== Init ==================== */
 refreshAll();
+</script>
+
+<script type="module">
+/* ====================================================================
+   نافذة تفاصيل الاشتراك
+   ====================================================================
+   الزر كان ينقل الأدمن إلى صفحة مستقلة ثم يعود ليفقد البحث والتصفية
+   وموضع التمرير في كل مرة. صار يفتح نافذة فوق القائمة نفسها.
+
+   الرابط باقٍ href حقيقيًا لا زرًا: لو فشل تحميل هذه الوحدة لأي سبب،
+   النقر ينتقل إلى الصفحة المستقلة بدل ألا يحدث شيء. والصفحة المستقلة
+   تستخدم نفس الوحدة، فلا يوجد منطق إدارة مكرر في مكانين.
+   ==================================================================== */
+import { openSubscriptionModal } from '/assets/js/admin/subscription-details-view.js';
+
+document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-details-id]');
+    if (!trigger) return;
+    // فتح في تبويب جديد يظل تصرفًا مشروعًا للمستخدم
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+
+    event.preventDefault();
+    openSubscriptionModal({
+        client: window.adminSubscriptionsClient,
+        subscriptionId: trigger.dataset.detailsId,
+        // أي تعديل داخل النافذة يعيد بناء القائمة خلفها، فلا تبقى معروضة بحالة قديمة
+        onChanged: () => window.refreshAll?.()
+    });
+});
 </script>
 </body>
 </html>
