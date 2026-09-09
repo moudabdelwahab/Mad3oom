@@ -296,6 +296,92 @@
         </div>
     </div>
 
+    <!-- نافذة إنشاء مفتاح API.
+         قبل كده كان زر «طلب مفتاح جديد» بيودّي لمركز الدعم لأن api_tokens
+         مالهاش سياسة INSERT، فبدا إن مفيش مسار إنشاء أصلًا. القراءة من
+         الإنتاج أثبتت العكس: الدالة المنشورة create-api-token هي المسار،
+         وبتنشئ الصف بـservice role بعد التحقق من الجلسة — فالسياسة الغائبة
+         **قرار تصميم** لا نقص: العميل لا يكتب في الجدول، الخادم هو من يكتب.
+         الاسم والصلاحيات وتاريخ الانتهاء كلها في عقد الدالة أصلًا. -->
+    <div id="createApiTokenModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="createApiTokenTitle">
+        <div class="modal-content modal-lg">
+            <div class="modal-head">
+                <div>
+                    <h2 id="createApiTokenTitle">إنشاء مفتاح API</h2>
+                    <p class="panel-subtitle">حدّد الصلاحيات وتاريخ الانتهاء. السرّ يظهر مرة واحدة فقط عند الإنشاء.</p>
+                </div>
+                <button type="button" class="modal-close" id="createApiTokenClose" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <form id="createApiTokenForm" class="company-form" novalidate>
+                <div class="form-grid">
+                    <div class="form-field is-full">
+                        <label for="fTokenName">اسم المفتاح <span aria-hidden="true">*</span></label>
+                        <input type="text" id="fTokenName" name="name" class="form-control" required
+                               maxlength="80" autocomplete="off" placeholder="مثال: تكامل نظام المبيعات">
+                        <p class="field-hint">اسم يعرّفك بمكان استخدام المفتاح، عشان تعرف أيّه اللي تُوقفه وقت الحاجة.</p>
+                        <p class="field-error" data-token-error-for="name" hidden></p>
+                    </div>
+                    <div class="form-field is-full">
+                        <label for="fTokenDescription">وصف مختصر</label>
+                        <input type="text" id="fTokenDescription" name="description" class="form-control"
+                               maxlength="200" autocomplete="off" placeholder="اختياري">
+                        <p class="field-error" data-token-error-for="description" hidden></p>
+                    </div>
+                </div>
+
+                <fieldset class="form-fieldset">
+                    <legend>نوع الاعتماد</legend>
+                    <div class="choice-grid" id="apiTokenCredentialTypes"></div>
+                    <p class="field-error" data-token-error-for="credentialType" hidden></p>
+                </fieldset>
+
+                <fieldset class="form-fieldset">
+                    <legend>
+                        الصلاحيات <span aria-hidden="true">*</span>
+                        <span class="legend-side" id="apiTokenScopeCount" aria-live="polite"></span>
+                    </legend>
+                    <p class="field-hint">
+                        امنح أقلّ ما يكفي. أي نداء خارج الصلاحيات المحدَّدة يرفضه الخادم بـ<code>403</code>.
+                    </p>
+                    <div class="scope-groups" id="apiTokenScopes"></div>
+                    <p class="field-error" data-token-error-for="scopes" hidden></p>
+                </fieldset>
+
+                <fieldset class="form-fieldset">
+                    <legend>تاريخ الانتهاء</legend>
+                    <div class="chip-row" id="apiTokenExpiryPresets" role="radiogroup" aria-label="مدّة صلاحية المفتاح"></div>
+                    <div class="form-field" id="apiTokenCustomExpiryField" hidden>
+                        <label for="fTokenExpiry">تاريخ الانتهاء</label>
+                        <input type="date" id="fTokenExpiry" name="expiry" class="form-control">
+                    </div>
+                    <p class="field-hint" id="apiTokenExpiryHint" aria-live="polite"></p>
+                    <p class="field-error" data-token-error-for="expiry" hidden></p>
+                </fieldset>
+
+                <p class="field-error" id="createApiTokenError" role="alert" hidden></p>
+
+                <div class="company-form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitApiTokenBtn">إنشاء المفتاح</button>
+                    <button type="button" class="btn btn-secondary" id="cancelApiTokenBtn">إلغاء</button>
+                </div>
+            </form>
+
+            <!-- لحظة العرض الوحيدة. السرّ مش مخزَّن في القاعدة أصلًا (المخزَّن
+                 hash)، فمفيش طريقة لعرضه تاني لا للمستخدم ولا للخادم. -->
+            <div id="createApiTokenResult" hidden>
+                <p class="company-notice company-notice--warning" role="alert">
+                    انسخ القيم دي دلوقتي. المنصة بتخزّن بصمة مشفَّرة (hash) فقط،
+                    فمفيش طريقة لعرضها مرة تانية — لا من اللوحة ولا من الدعم.
+                </p>
+                <div id="createApiTokenSecrets"></div>
+                <div class="company-form-actions">
+                    <button type="button" class="btn btn-primary" id="doneApiTokenBtn">نسخت القيم — إغلاق</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/assets/js/company/company-dashboard.js"></script>
 </body>
 </html>

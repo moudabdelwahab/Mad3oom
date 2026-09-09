@@ -18,7 +18,8 @@ import { createTicketStream } from '/assets/js/company/company-tickets.js';
 import { initCompanySupport, loadCompanySupport } from '/assets/js/company/company-support.js';
 import { initCompanyNotifications, loadCompanyNotifications, companyDestinationFor } from '/assets/js/company/company-notifications.js';
 import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/company-account.js';
-import { initCompanyApi, setCompanyApiMembers, loadCompanyApi } from '/assets/js/company/company-api.js';
+import { initCompanyApi, setCompanyApiMembers, setCompanyApiEntitlement, loadCompanyApi } from '/assets/js/company/company-api.js';
+import { initApiTokenModal, openApiTokenModal } from '/assets/js/company/api-token-modal.js';
 import { renderCompanyReports } from '/assets/js/company/company-reports.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import {
@@ -38,6 +39,7 @@ import {
     companyAccess,
     entitlementsByPlan,
     canManageMembers,
+    hasEntitlement,
     validateCompanyForm,
     validateMemberForm
 } from '/assets/js/company/company-model.js';
@@ -88,9 +90,12 @@ async function init() {
     });
     customerTickets = createTicketStream('customers', { userId: currentUserId });
 
-    // «طلب مفتاح جديد» ليس مسارًا موازيًا: لا سياسة INSERT على api_tokens،
-    // فالطلب يمرّ بمركز الدعم كتذكرة — نفس البنية القائمة.
-    initCompanyApi({ onRequestNewKey: () => showSection('support') });
+    // إنشاء المفتاح صار في مكانه: نافذة داخل اللوحة تنادي الدالة المنشورة
+    // create-api-token. التوجيه السابق لمركز الدعم كان مبنيًا على قراءة
+    // ناقصة (غياب سياسة INSERT)، والقراءة الكاملة من الإنتاج أظهرت أن
+    // الإنشاء مدعوم عبر الخادم لا عبر الجدول.
+    initCompanyApi({ onCreateToken: openApiTokenModal });
+    initApiTokenModal({ onCreated: () => loadCompanyApi({ selfId: currentUserId }) });
     initCompanyActivity();
     initCompanySupport({ onCreated: onTicketCreated });
     initCompanyNotifications({
@@ -268,6 +273,10 @@ async function load() {
 
     gate.hidden = true;
     content.hidden = false;
+
+    // الاستحقاقات كما رجّعتها القاعدة — الواجهة تقرأ ولا تحسب.
+    setCompanyApiEntitlement(hasEntitlement(dashboard, 'api_tokens'));
+
     renderBanner();
     renderKpis();
     renderProfile();

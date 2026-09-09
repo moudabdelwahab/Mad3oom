@@ -790,19 +790,23 @@ test('قسم API يعرض مفاتيح الشركة وأعضائها بلا أي
     await context.close();
 });
 
-test('قسم API لا يعرض مسار إنشاء مفتاح — الطلب يمرّ بالدعم', async (t) => {
+test('بلا استحقاق api_tokens لا يظهر زر إنشاء مفتاح، ولا كتابة من العميل', async (t) => {
     if (!chromiumPath) return t.skip('no chromium');
+    // حمولة هذا الملف تمنح sub_users وحدها — فحساب الشركة هنا غير مستحق
+    // للمفاتيح، والقسم لازم يقول السبب بدل زر معطّل بلا تفسير.
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
     await openSection(page, 'api');
-    await page.waitForSelector('#companyRequestKey', { timeout: 10000 });
-    await page.locator('#companyRequestKey').click();
+    await page.waitForSelector('#companyKeysList .company-sub, #companyKeysList .state-block',
+        { timeout: 10000 });
 
-    // «طلب مفتاح» ينقل إلى مركز الدعم داخل اللوحة، لا إلى مسار إنشاء موازٍ
-    await page.waitForSelector('#supportTabContent.active', { timeout: 10000 });
+    assert.equal(await page.locator('#companyCreateKey').count(), 0,
+        'ظهر زر إنشاء مفتاح لحساب غير مستحق');
+    assert.match(await page.locator('#companyApi .company-notice').first().textContent(), /api_tokens/);
+
     const writes = await page.evaluate(() => window.__WRITES__ || []);
     assert.equal(writes.some(w => w.table === 'api_tokens' && w.op === 'insert'), false,
-        'الواجهة حاولت إنشاء مفتاح');
+        'الواجهة حاولت إنشاء مفتاح بكتابة مباشرة');
     assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
     await context.close();
 });

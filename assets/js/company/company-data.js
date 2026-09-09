@@ -157,7 +157,7 @@ export async function createCompanyMember({ fullName, email, password }) {
         // ردود الخطأ من Edge Function بتوصل في error.context (Response)، مش
         // في data. من غير القراءة دي كان المستخدم هيشوف "خطأ غير معروف" بدل
         // رسالة الخادم الحقيقية.
-        if (error) throw new Error(await readFunctionError(error));
+        if (error) throw new Error(await readFunctionError(error, 'تعذّر إنشاء المستخدم. حاول مرة أخرى.'));
         if (data?.error) throw new Error(data.error);
         if (!data?.success) throw new Error('تعذّر إنشاء المستخدم. حاول مرة أخرى.');
 
@@ -165,13 +165,64 @@ export async function createCompanyMember({ fullName, email, password }) {
     });
 }
 
-/** يستخرج رسالة الخطأ من رد Edge Function غير الناجح. */
-async function readFunctionError(error) {
+/**
+ * يستخرج رسالة الخطأ من رد Edge Function غير الناجح.
+ * رسائل الدوال دي كلها بالعربي أصلًا، فبنعرضها زي ما هي بدل ترجمة تانية.
+ */
+async function readFunctionError(error, fallback = 'تعذّر تنفيذ الطلب. حاول مرة أخرى.') {
     try {
         const body = await error?.context?.json?.();
         if (body?.error) return body.error;
     } catch { /* الرد مش JSON — نكمّل للرسالة العامة */ }
-    return error?.message || 'تعذّر إنشاء المستخدم. حاول مرة أخرى.';
+    return error?.message || fallback;
+}
+
+/**
+ * إنشاء مفتاح API لحساب الشركة.
+ *
+ * المسار: Edge Function اسمها create-api-token — **منشورة بالفعل** على
+ * الإنتاج (قُرئ مصدرها منه، لا من الذاكرة)، وعقدها كما هو في
+ * assets/js/company/api-token-model.js.
+ *
+ *   POST { name, description?, credential_type?, scopes?, expires_at? }
+ *   Authorization: Bearer <access_token>  ← يضيفه supabase-js من الجلسة،
+ *                                           فمفيش تمرير يدوي لأي رمز هنا.
+ *   200 → { token, secret } | { token, bearer_token } | { credential_group_id, … }
+ *
+ * **user_id لا يُرسَل إطلاقًا** — الدالة تشتقّه من الجلسة المتحقَّق منها،
+ * فلا سبيل لإنشاء مفتاح باسم حساب آخر مهما عُدِّل الطلب.
+ *
+ * بوابة الاستحقاق قبل النداء: نعيد قراءة company_has_feature('api_tokens')
+ * من القاعدة في نفس اللحظة — نفس نمط createCompanyMember. القرار من الخادم
+ * لا من حالة محفوظة في الصفحة ولا من زر ظاهر.
+ *
+ * حدّ معروف يخصّ الخادم لا هذه الطبقة: create-api-token لا تفحص هذا
+ * الاستحقاق ولا رتبة المنادي، فالبوابة هنا **منتَجية لا أمنية**. موضع
+ * الإصلاح الصحيح داخل الدالة نفسها، وهو خارج نطاق تغييرات الواجهة.
+ */
+export async function createCompanyApiToken(payload) {
+    const entitled = await checkCompanyFeature('api_tokens');
+
+    if (!entitled.ok) {
+        return { ok: false, data: null, error: 'تعذّر التحقق من استحقاق حسابك الآن. حاول مرة أخرى.' };
+    }
+    if (entitled.data !== true) {
+        return {
+            ok: false,
+            data: null,
+            error: 'باقتك الحالية لا تشمل مفاتيح API. فعّل باقة تمنح ميزة api_tokens ثم أعد المحاولة.'
+        };
+    }
+
+    return safe('createCompanyApiToken', async () => {
+        const { data, error } = await supabase.functions.invoke('create-api-token', { body: payload });
+
+        if (error) throw new Error(await readFunctionError(error, 'تعذّر إنشاء المفتاح. حاول مرة أخرى.'));
+        if (data?.error) throw new Error(data.error);
+        if (!data) throw new Error('تعذّر إنشاء المفتاح. حاول مرة أخرى.');
+
+        return data;
+    });
 }
 
 /** هل المستخدم الحالي تابع لأي شركة؟ (لإظهار مدخل اللوحة في القائمة) */
