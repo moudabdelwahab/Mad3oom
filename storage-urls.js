@@ -21,22 +21,52 @@ export const SIGNED_URL_TTL = 300;
 export const SIGNED_URL_TTL_DOWNLOAD = 900;
 
 /**
- * يستخرج مسار الكائن من قيمة مخزَّنة، أيًّا كان شكلها.
+ * مسار الكائن، من قيمة مخزَّنة أيًّا كان شكلها.
  *
- * الصفوف القديمة تحمل رابطًا عامًّا مطلقًا، والجديدة تحمل المسار وحده. الاثنان
+ * الصفوف القديمة تحمل رابطًا عامًّا مطلقًا، والجديدة تحمل المسار وحده — والاثنان
  * يمرّان من هنا فلا يحتاج المستدعي أن يعرف أيّهما عنده.
+ *
+ * ⚠️ القرار يُتخذ من `pathname` وحده، مثبَّتًا في أوله.
+ * النسخة الأولى بحثت عن العلامة بـ`indexOf` داخل **نص الرابط كله**، فكان
+ * رابط خارجي يحمل العلامة في استعلامه أو مرساته يُقرأ كأنه مسار تخزين صالح:
+ *     https://evil.test/x?next=/object/public/tickets/secret.pdf  →  'secret.pdf'
+ * لم يكن ذلك تصعيد صلاحية (توقيع المسار يمرّ بـRLS على أي حال)، لكنه تحليل
+ * خاطئ لمدخل يكتبه المستخدم — وCodeQL محقّ في وسمه.
  */
+function normalisePath(raw) {
+    const clean = String(raw || '').replace(/^\/+/, '');
+    if (!clean) return null;
+    // لا صعود في الشجرة، ولا مقاطع فارغة
+    if (clean.split('/').some(seg => seg === '..' || seg === '.')) return null;
+    return clean;
+}
+
+const STORAGE_PATH_RE = /^(?:\/storage\/v1)?\/object\/(?:public|sign)\/([^/]+)\/(.+)$/;
+
 export function toObjectPath(bucket, value) {
     if (!value || typeof value !== 'string') return null;
-    const marker = `/object/public/${bucket}/`;
-    const at = value.indexOf(marker);
-    if (at !== -1) return decodeURIComponent(value.slice(at + marker.length).split('?')[0]);
-    const signedMarker = `/object/sign/${bucket}/`;
-    const atSigned = value.indexOf(signedMarker);
-    if (atSigned !== -1) return decodeURIComponent(value.slice(atSigned + signedMarker.length).split('?')[0]);
-    // ليس رابطًا: نعتبره مسارًا كما هو
-    if (value.startsWith('http://') || value.startsWith('https://')) return null;
-    return value.replace(/^\/+/, '');
+    const trimmed = value.trim();
+
+    // ليست رابطًا مطلقًا؟ إذن هي المسار نفسه.
+    if (!/^https?:\/\//i.test(trimmed)) return normalisePath(trimmed);
+
+    let url;
+    try {
+        url = new URL(trimmed);
+    } catch {
+        return null;
+    }
+
+    const m = STORAGE_PATH_RE.exec(url.pathname);
+    if (!m || m[1] !== bucket) return null;
+
+    let decoded;
+    try {
+        decoded = decodeURIComponent(m[2]);
+    } catch {
+        return null;   // ترميز تالف لا يُخمَّن
+    }
+    return normalisePath(decoded);
 }
 
 /** يوقّع مسارًا واحدًا. يعيد null بدل أن يرمي: مرفق واحد لا يُسقط الصفحة. */
