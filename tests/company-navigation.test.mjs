@@ -107,7 +107,8 @@ const FUNCTION_INVENTORY = [
     { name: 'نظرة عامة',        section: 'overview' },
     { name: 'مستخدمو الشركة',   section: 'members' },
     { name: 'الاشتراكات',       section: 'subscriptions' },
-    { name: 'تذاكر الدعم',      section: 'tickets' },
+    { name: 'تذاكري مع مدعوم',  section: 'tickets' },
+    { name: 'تذاكر العملاء',    section: 'customerTickets' },
     { name: 'مركز الدعم',       section: 'support' },
     { name: 'مقالات المساعدة',  section: 'support' },
     { name: 'حالة النظام',      section: 'support' },
@@ -129,7 +130,9 @@ function declaredSections() {
     const src = read('assets/js/company/company-dashboard.js');
     const match = src.match(/const SECTIONS = \[([^\]]*)\]/);
     assert.ok(match, 'قائمة الأقسام غير موجودة في موجّه لوحة الشركة');
-    return match[1].split(',').map(s => s.trim().replace(/['"]/g, '')).filter(Boolean);
+    // القائمة تحمل تعليقات توضّح كل مسار — نستخرج النصوص المقتبسة وحدها
+    // بدل التقسيم على الفواصل، وإلا التقطنا نص التعليق مع اسم القسم.
+    return [...match[1].matchAll(/['"]([A-Za-z][A-Za-z0-9_]*)['"]/g)].map(m => m[1]);
 }
 
 test('كل وظيفة في الجرد إما قسم حقيقي في لوحة الشركة أو استُبعدت بسبب معلن', () => {
@@ -159,7 +162,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['tickets', 'support', 'notifications', 'profile', 'security']) {
+    for (const section of ['tickets', 'customerTickets', 'support', 'notifications', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
     }
@@ -169,7 +172,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 
 test('أقسام الشركة تُبنى فوق الوحدات المشتركة، لا نسخة ثانية من المنطق', () => {
     const shared = {
-        'assets/js/company/company-tickets.js': ['/tickets-service.js', 'ticket-view-model.js'],
+        'assets/js/company/company-tickets.js': ['/tickets-service.js', 'ticket-view-model.js', 'fetchMemberTickets'],
         'assets/js/company/company-support.js': ['/tickets-service.js', 'customer-data.js', 'service-status-model.js', 'help-data.js'],
         'assets/js/company/company-notifications.js': ['/notifications-service.js', 'notification-router.js'],
         'assets/js/company/company-account.js': ['/auth-client.js', 'customer-data.js', 'activity-model.js']
@@ -225,6 +228,8 @@ test('لم تُضَف أي ترحيلات مع هذا التغيير', () => {
     const migrations = fs.readdirSync(path.join(ROOT, 'migrations')).filter(f => f.endsWith('.sql')).sort();
     // اللقطة المرجعية: آخر ترحيل موجود قبل تعديل تنقّل لوحة الشركة.
     // تغيير واجهة لا يجوز أن يزيد هذا الرقم.
-    assert.equal(migrations[migrations.length - 1], '032_meta_credential_separation.sql',
-        'ظهر ترحيل جديد مع تغيير في الواجهة — راجع السبب');
+    // 033 أُضيف عمدًا: فصل مساري التذاكر كشف تسرّبًا في سياسة الردود لا
+    // يمكن إصلاحه من الواجهة. أي ترحيل بعده يحتاج قرارًا صريحًا.
+    assert.equal(migrations[migrations.length - 1], '033_company_customer_ticket_separation.sql',
+        'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });

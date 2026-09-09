@@ -43,6 +43,8 @@ function startServer() {
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const COMPANY_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const CUSTOMER_ID = '22222222-2222-4222-8222-222222222222';
+const OTHER_CUSTOMER_ID = '99999999-9999-4999-8999-999999999999';
 
 /** حمولة get_my_company_dashboard() المختصرة — يكفي منها ما ترسمه اللوحة. */
 function companyPayload() {
@@ -101,7 +103,17 @@ function fixtures(overrides = {}) {
         },
         functions: overrides.functions || {},
         tables: {
-            profiles: [{ id: USER_ID, email: 'owner@company.test', full_name: 'مالك الشركة', role: 'super_user' }],
+            // مالك الشركة + عميلان تابعان له + عميل شركة أخرى (لا يجب أن يُرى)
+            profiles: [
+                { id: USER_ID, email: 'owner@company.test', full_name: 'مالك الشركة', role: 'super_user', super_user_id: null },
+                { id: CUSTOMER_ID, email: 'cust1@company.test', full_name: 'عميل الشركة', role: 'customer', super_user_id: USER_ID },
+                { id: OTHER_CUSTOMER_ID, email: 'other@rival.test', full_name: 'عميل شركة أخرى', role: 'customer', super_user_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff' }
+            ],
+            tickets: [
+                { id: 'tk-platform', user_id: USER_ID, ticket_number: 101, title: 'مشكلة في الفوترة', description: 'الشركة ← مدعوم', status: 'open', created_at: '2026-09-01T00:00:00Z', archived_by_customer: false },
+                { id: 'tk-customer', user_id: CUSTOMER_ID, ticket_number: 202, title: 'طلب من عميلي', description: 'العميل ← الشركة', status: 'open', created_at: '2026-09-02T00:00:00Z', archived_by_customer: false }
+            ],
+            ticket_replies: [],
             notifications: [], services: [], whatsapp_subscriptions: [], subscription_plans: [],
             ...(overrides.tables || {})
         }
@@ -493,7 +505,8 @@ test('كل قسم يعرض وظيفته الفعلية لا عنوانًا فا�
     const marks = {
         members:       '#addMemberBtn',
         subscriptions: '#companySubscriptions',
-        tickets:       '#companyTicketList',
+        tickets:         '#platformTicketList',
+        customerTickets: '#customersTicketList',
         support:       '#companyTicketForm',        // فتح تذكرة داخل اللوحة
         notifications: '#companyNotificationList',
         profile:       '#companyAccountForm',       // تعديل الملف الشخصي
@@ -553,5 +566,112 @@ test('تسجيل الخروج ينهي الجلسة فعلًا قبل الانت
         fetch('/assets/js/customer-sidebar.js').then(r => r.text()));
     assert.doesNotMatch(shellSrc, /import\('\.\.\/auth-client\.js'\)/,
         'القشرة ما زالت تستورد auth-client بمسار نسبي مكسور');
+    await context.close();
+});
+
+/* ── مسارا التذاكر: الشركة ↔ مدعوم  و  العميل ↔ الشركة ─────────────────── */
+
+test('«تذاكري مع مدعوم» يعرض تذاكر الشركة وحدها، لا تذاكر عملائها', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'tickets');
+    await page.waitForSelector('#platformTicketList', { timeout: 10000 });
+    const text = await page.locator('#ticketsTabContent').innerText();
+
+    assert.match(text, /مشكلة في الفوترة/, 'تذكرة الشركة مع مدعوم غير معروضة');
+    assert.doesNotMatch(text, /طلب من عميلي/, 'تذكرة عميل تسرّبت إلى مسار «مع مدعوم»');
+    assert.match(text, /تذاكري مع مدعوم/);
+    await context.close();
+});
+
+test('«تذاكر العملاء» يعرض تذاكر عملاء هذه الشركة وحدهم', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+    const text = await page.locator('#customerTicketsTabContent').innerText();
+
+    assert.match(text, /طلب من عميلي/, 'تذكرة العميل غير معروضة');
+    assert.doesNotMatch(text, /مشكلة في الفوترة/, 'تذكرة الشركة مع مدعوم تسرّبت إلى مسار العملاء');
+    await context.close();
+});
+
+test('المساران لا يختلطان: لكلٍّ حاويته وقائمته وحالته', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'tickets');
+    await page.waitForSelector('#platformTicketList', { timeout: 10000 });
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+
+    // بحث في مسار لا يغيّر المسار الآخر — دليل أن الحالتين منفصلتان
+    await page.fill('#customersTicketSearch', 'لا يوجد شيء بهذا الاسم');
+    await page.waitForFunction(
+        () => document.querySelector('#customersTicketList')?.textContent.includes('لا توجد تذاكر مطابقة'),
+        null, { timeout: 10000 });
+
+    await openSection(page, 'tickets');
+    assert.match(await page.locator('#platformTicketList').innerText(), /مشكلة في الفوترة/,
+        'بحث مسار العملاء أثّر على مسار «مع مدعوم»');
+    await context.close();
+});
+
+test('الشركة تفتح تذكرة إلى مدعوم من مركز الدعم فتظهر في مسارها الصحيح', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'support');
+    await page.fill('#fTicketTitle', 'انقطاع في خدمة الواتساب');
+    await page.fill('#fTicketBody', 'الخدمة متوقفة منذ ساعة ونحتاج متابعة عاجلة من فريق مدعوم.');
+    await page.locator('#companyTicketSubmit').click();
+
+    // بعد الإنشاء ينتقل تلقائيًا إلى «تذاكري مع مدعوم» — بلا مغادرة اللوحة
+    await page.waitForSelector('#ticketsTabContent.active', { timeout: 10000 });
+    await page.waitForFunction(
+        () => document.querySelector('#platformTicketList')?.textContent.includes('انقطاع في خدمة الواتساب'),
+        null, { timeout: 10000 });
+
+    // ولا تظهر في مسار العملاء
+    await openSection(page, 'customerTickets');
+    assert.doesNotMatch(await page.locator('#customerTicketsTabContent').innerText(), /انقطاع في خدمة الواتساب/,
+        'تذكرة الشركة مع مدعوم ظهرت في مسار العملاء');
+
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('الشركة تفتح تذكرة عميل وتردّ عليه دون مغادرة اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+    await page.locator('[data-stream-ticket="tk-customer"]').click();
+
+    await page.waitForSelector('#customersTicketReplyForm', { timeout: 10000 });
+    // نصّ الزرّ يوضّح أن الشركة هي الجهة المجيبة في هذا المسار
+    assert.match(await page.locator('#customersTicketDetailBody').innerText(), /الردّ على العميل/);
+
+    await page.fill('#customersTicketReplyText', 'استلمنا طلبك وسنعالجه اليوم.');
+    await page.locator('#customersTicketReplyBtn').click();
+
+    await page.waitForFunction(
+        () => (window.__WRITES__ || []).some(w => w.table === 'ticket_replies'),
+        null, { timeout: 10000 });
+
+    const writes = await page.evaluate(() => window.__WRITES__ || []);
+    const reply = writes.find(w => w.table === 'ticket_replies');
+    assert.equal(reply.row.ticket_id, 'tk-customer');
+    assert.equal(reply.row.user_id, '11111111-1111-1111-1111-111111111111');
+    assert.equal(reply.row.is_internal, false);
+
+    // لا محاولة لتغيير حالة التذكرة: الشركة لا تملك UPDATE على تذكرة عميلها
+    assert.equal(writes.some(w => w.table === 'tickets' && w.op === 'update'), false,
+        'حاولت الواجهة تعديل تذكرة العميل — الصلاحية غير ممنوحة عمدًا');
+
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
     await context.close();
 });

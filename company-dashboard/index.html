@@ -181,11 +181,19 @@
                 </section>
             </section>
 
-            <!-- ═══ تذاكر الشركة ═══════════════════════════════════════════
-                 assets/js/company/company-tickets.js فوق tickets-service.js
-                 و ticket-view-model.js المشتركين — بلا نسخ للمنطق. -->
+            <!-- ═══ تذاكري مع مدعوم ════════════════════════════════════════
+                 المسار ①: الشركة ↔ مدعوم. tickets.user_id = هذا الحساب.
+                 لا يراه عملاء الشركة إطلاقًا (tickets_select_policy). -->
             <section class="tab-content" id="ticketsTabContent">
                 <div id="companyTickets"></div>
+            </section>
+
+            <!-- ═══ تذاكر العملاء ══════════════════════════════════════════
+                 المسار ②: العميل ↔ الشركة. تذاكر المستخدمين التابعين لهذا
+                 الحساب وحدهم — لا تذاكر شركة أخرى ولا عملاءها. المسارَان
+                 يستخدمان نفس كود العرض بمصدرَي قراءة مختلفين. -->
+            <section class="tab-content" id="customerTicketsTabContent">
+                <div id="companyCustomerTickets"></div>
             </section>
 
             <!-- ═══ مركز الدعم ═════════════════════════════════════════════

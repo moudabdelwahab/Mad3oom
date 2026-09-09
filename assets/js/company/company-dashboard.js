@@ -14,7 +14,7 @@
 
 import { guardPage } from '/assets/js/page-guard.js';
 import { initCompanyShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
-import { initCompanyTickets, loadCompanyTickets, openCompanyTicket } from '/assets/js/company/company-tickets.js';
+import { createTicketStream } from '/assets/js/company/company-tickets.js';
 import { initCompanySupport, loadCompanySupport } from '/assets/js/company/company-support.js';
 import { initCompanyNotifications, loadCompanyNotifications } from '/assets/js/company/company-notifications.js';
 import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/company-account.js';
@@ -42,6 +42,10 @@ import {
 let dashboard = null;
 let currentUserId = null;
 
+/** المساران المستقلان — لكل واحد حالته وحاويته ومصدر قراءته. */
+let platformTickets = null;   // الشركة ↔ مدعوم
+let customerTickets = null;   // العميل ↔ الشركة
+
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
 
@@ -59,11 +63,17 @@ async function init() {
     // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
     initCompanyShell({ onTabChange: showSection });
 
-    initCompanyTickets(currentUserId, { onNewTicket: () => showSection('support') });
+    // المسارَان يشتركان في كود العرض ويختلفان في مصدر الصفوف — والفصل
+    // الحقيقي مفروض في القاعدة، لا هنا.
+    platformTickets = createTicketStream('platform', {
+        userId: currentUserId,
+        onNewTicket: () => showSection('support')
+    });
+    customerTickets = createTicketStream('customers', { userId: currentUserId });
     initCompanySupport({ onCreated: onTicketCreated });
     initCompanyNotifications({
         onNavigate: showSection,
-        onOpenTicket: (ticketId) => { showSection('tickets'); openCompanyTicket(ticketId); }
+        onOpenTicket: openTicketInItsStream
     });
 
     wireForm();
@@ -78,7 +88,7 @@ async function init() {
     if (query) {
         loadedOnce.add('tickets');
         showSection('tickets');
-        await loadCompanyTickets({ search: query });
+        await platformTickets.load({ search: query });
     } else {
         showSection(sectionFromHash(), { updateHash: false });
     }
@@ -91,11 +101,17 @@ async function init() {
  * لبوابة العميل — وده قرار المنتج اللي بيمنع دورة
  * «لوحة الشركة → بوابة العميل → صفحة الدخول → لوحة الشركة» من الوجود أصلًا.
  */
-const SECTIONS = ['overview', 'members', 'subscriptions', 'tickets', 'support', 'notifications', 'profile', 'security'];
+const SECTIONS = [
+    'overview', 'members', 'subscriptions',
+    'tickets',          // ① الشركة ↔ مدعوم
+    'customerTickets',  // ② العميل  ↔ الشركة
+    'support', 'notifications', 'profile', 'security'
+];
 
 /** الأقسام اللي بتتحمّل عند أول فتح لها فقط. */
 const LOADERS = {
-    tickets: () => loadCompanyTickets(),
+    tickets: () => platformTickets.load(),
+    customerTickets: () => customerTickets.load(),
     support: () => loadCompanySupport(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
@@ -142,11 +158,35 @@ function wireSectionRouting() {
     });
 }
 
-/** بعد فتح تذكرة من مركز الدعم: نعرضها في قسم التذاكر بلا مغادرة اللوحة. */
+/** بعد فتح تذكرة من مركز الدعم: نعرضها في مسار «مع مدعوم» بلا مغادرة اللوحة. */
 async function onTicketCreated() {
     loadedOnce.add('tickets');
     showSection('tickets');
-    await loadCompanyTickets();
+    await platformTickets.load();
+}
+
+/**
+ * إشعار يشير إلى تذكرة: نفتحها في مسارها الصحيح.
+ * التذكرة إمّا في مساري مع مدعوم أو في تذاكر عملائي — لا تنتمي للاثنين،
+ * فنسأل كل مسار عمّا لديه بدل افتراض واحد منهما.
+ */
+async function openTicketInItsStream(ticketId) {
+    if (!loadedOnce.has('tickets')) { loadedOnce.add('tickets'); await platformTickets.load(); }
+    if (platformTickets.has(ticketId)) {
+        showSection('tickets');
+        await platformTickets.open(ticketId);
+        return;
+    }
+
+    if (!loadedOnce.has('customerTickets')) { loadedOnce.add('customerTickets'); await customerTickets.load(); }
+    if (customerTickets.has(ticketId)) {
+        showSection('customerTickets');
+        await customerTickets.open(ticketId);
+        return;
+    }
+
+    // ليست في أي مسار (حُذفت أو خارج النطاق): نفتح المسار الافتراضي بلا خطأ
+    showSection('tickets');
 }
 
 async function load() {

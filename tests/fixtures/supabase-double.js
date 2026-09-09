@@ -11,6 +11,30 @@
 
 const FX = () => (window.__FIXTURES__ || {});
 
+/**
+ * سجل الكتابات. الاختبارات بتستخدمه عشان تتأكد إن الواجهة كتبت اللي
+ * المفروض تكتبه — و**ما حاولتش** تكتب اللي مش مصرَّح لها بيه (مثلاً تعديل
+ * تذكرة عميل من حساب الشركة).
+ */
+function record(op, table, row) {
+    window.__WRITES__ = window.__WRITES__ || [];
+    window.__WRITES__.push({ op, table, row });
+}
+
+/**
+ * القيم الافتراضية للأعمدة كما هي في القاعدة.
+ *
+ * بدونها كان الصفّ المُدرَج من كود الإنتاج يفتقد أعمدة تضعها القاعدة تلقائيًا،
+ * فتُسقطه فلاتر القراءة اللاحقة (مثلاً .eq('archived_by_customer', false))
+ * ويبدو الإدراج وكأنه فشل. البديل الاختباري لازم يطابق عقد القاعدة هنا،
+ * وإلا خبّأ أخطاء حقيقية أو اخترع أخطاء وهمية.
+ */
+const TABLE_DEFAULTS = {
+    tickets:        { status: 'open', archived_by_customer: false, priority: 'medium' },
+    ticket_replies: { is_internal: false },
+    notifications:  { is_read: false }
+};
+
 function resolveRows(table) {
     const rows = FX().tables?.[table];
     return Array.isArray(rows) ? rows.slice() : [];
@@ -60,12 +84,19 @@ function builder(table, mode = 'select') {
         },
         insert(payload) {
             const row = Array.isArray(payload) ? payload[0] : payload;
-            state.inserted = { id: `new-${table}-${Date.now()}`, ticket_number: 9001, ...row };
+            state.inserted = {
+                id: `new-${table}-${Date.now()}`,
+                ticket_number: 9001,
+                created_at: new Date().toISOString(),
+                ...(TABLE_DEFAULTS[table] || {}),
+                ...row
+            };
             (FX().tables?.[table] || []).push(state.inserted);
+            record('insert', table, row);
             return api;
         },
-        update(patch) { state.patch = patch; return api; },
-        delete() { state.deleted = true; return api; },
+        update(patch) { state.patch = patch; record('update', table, patch); return api; },
+        delete() { state.deleted = true; record('delete', table, null); return api; },
         upsert(payload, opts) {
             const row = Array.isArray(payload) ? payload[0] : payload;
             const rows = FX().tables?.[table];
