@@ -100,8 +100,6 @@ const PROOF_MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 // أقصى مدة مسموح بها لمراجعة أي طلب تحويل خارجي (بنكي أو محفظة) قبل التأكيد/الرفض
 const EXTERNAL_PAYMENT_REVIEW_SLA_MS = 60 * 60 * 1000; // ساعة واحدة
 
-// الخطط اللي بتستحق ترقية super_user
-const SUPER_USER_PLANS = ['support', 'bundle'];
 
 function assertValidPlan(plan) {
     if (!PLANS.includes(plan)) {
@@ -151,15 +149,6 @@ function assertValidProofFile(paymentMethod, proofFile) {
 }
 
 /**
- * عدد الأيام التقريبي لكل نوع فترة - قيمة معلوماتية بس (duration_days)،
- * الاحتساب الفعلي لتاريخ النهاية بيتم بإضافة شهر/سنة تقويميًا كاملاً
- * (انظر addBillingPeriod) مش بجمع عدد أيام ثابت.
- */
-function getDurationDays(billingCycle) {
-    return billingCycle === 'yearly' ? 365 : 30;
-}
-
-/**
  * يضيف فترة اشتراك واحدة (شهر أو سنة تقويميًا) لتاريخ معين ويرجع تاريخ جديد.
  */
 function addBillingPeriod(baseDate, billingCycle) {
@@ -173,124 +162,30 @@ function addBillingPeriod(baseDate, billingCycle) {
 }
 
 /**
- * هل عند المستخدم دا اشتراك واتساب/باقة نشط تاني (غير الاشتراك المحدد)؟
- * تُستخدم قبل قفل profiles.whatsapp_enabled عشان منقفلش وصول عميل عنده
- * أكتر من اشتراك نشط (نادر، بس ممكن يحصل لو جدد قبل انتهاء القديم).
+ * إعادة حساب صلاحيات العميل بعد أي تغيير في اشتراكاته.
+ *
+ * كان هنا أربع دوال تدير رتبة super_user من الواجهة (ترقية عند الشراء، تنزيل
+ * عند الانتهاء، وفحصان مساعدان بأسماء باقات مثبَّتة نصًّا). أُزيلت كلها في
+ * إصلاح C2/H4 لسببين:
+ *
+ *   • **الرتبة لم تعد تُشتق من الاشتراك.** امتلاك اشتراك يمنح Entitlements ولا
+ *     يمنح سلطة إدارية. ملكية الشركة تُشتق من العلاقة (companies.user_id و
+ *     profiles.super_user_id) لا من قيمة في عمود role.
+ *   • **كانت تفشل صامتة أصلًا.** حارس القاعدة يشترط الأدمن الرئيسي لأي إسناد
+ *     لـsuper_user، والخطأ كان يُبتلع في console.error — فالميزة لم تعمل قط
+ *     (صفر صفوف في profiles.super_user_id في الإنتاج).
+ *
+ * الباقي هنا هو إعادة حساب الامتيازات فقط، ويمر على دالة القاعدة الواحدة
+ * بدل تكرار قاعدة «أي باقة تمنح واتساب؟» في الواجهة.
  */
-async function hasOtherActiveWhatsappAccess(userId, excludeSubscriptionId) {
-    const now = new Date().toISOString();
-    let query = supabase
-        .from('whatsapp_subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .in('plan', ['whatsapp', 'bundle'])
-        .gt('end_date', now);
-
-    if (excludeSubscriptionId) {
-        query = query.neq('id', excludeSubscriptionId);
-    }
-
-    const { data, error } = await query.limit(1);
+async function recomputeAccess(userId) {
+    const { error } = await supabase.rpc('admin_recompute_user_access', { p_user_id: userId });
     if (error) {
-        console.error('Error checking other active whatsapp access:', error);
-        return true; // في حالة الشك، منقفلش الوصول تفاديًا لأي أثر جانبي
+        // لا نبتلعه: الأدمن يحتاج أن يعرف أن الصلاحيات لم تُحدَّث.
+        console.error('recomputeAccess failed:', error.message);
+        return { ok: false, error };
     }
-    return !!(data && data.length > 0);
-}
-
-/**
- * هل عند المستخدم دا اشتراك support/bundle نشط تاني (غير الاشتراك المحدد)؟
- * تُستخدم قبل تنزيل رتبة super_user لما اشتراك يخلص، عشان منلغيش صلاحية
- * super_user لعميل لسه عنده اشتراك دعم فني/باقة نشط من مصدر تاني.
- */
-async function hasOtherActiveSuperUserAccess(userId, excludeSubscriptionId) {
-    const now = new Date().toISOString();
-    let query = supabase
-        .from('whatsapp_subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .in('plan', SUPER_USER_PLANS)
-        .gt('end_date', now);
-
-    if (excludeSubscriptionId) {
-        query = query.neq('id', excludeSubscriptionId);
-    }
-
-    const { data, error } = await query.limit(1);
-    if (error) {
-        console.error('Error checking other active super_user access:', error);
-        return true; // في حالة الشك، منلغيش الرتبة تفاديًا لأي أثر جانبي
-    }
-    return !!(data && data.length > 0);
-}
-
-/**
- * ترقية العميل لـ super_user، بس لو رتبته الحالية 'user' بالظبط. أي رتبة
- * تانية (admin، رتب مخصصة...) بتفضل زي ما هي.
- */
-async function upgradeToSuperUserIfEligible(userId) {
-    try {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        if (error) {
-            console.error('Error fetching profile for super_user upgrade:', error);
-            return;
-        }
-
-        if (profile && profile.role === 'user') {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ role: 'super_user' })
-                .eq('id', userId);
-
-            if (updateError) {
-                console.error('Error upgrading profile to super_user:', updateError);
-            }
-        }
-    } catch (error) {
-        console.error('Unexpected error upgrading to super_user:', error);
-    }
-}
-
-/**
- * تنزيل رتبة العميل من super_user لـ user، بس لو رتبته الحالية super_user
- * بالظبط ومفيش اشتراك support/bundle نشط تاني عنده.
- */
-async function downgradeFromSuperUserIfNoAccessLeft(userId, excludeSubscriptionId) {
-    try {
-        const stillEligible = await hasOtherActiveSuperUserAccess(userId, excludeSubscriptionId);
-        if (stillEligible) return;
-
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        if (error) {
-            console.error('Error fetching profile for super_user downgrade:', error);
-            return;
-        }
-
-        if (profile && profile.role === 'super_user') {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ role: 'user' })
-                .eq('id', userId);
-
-            if (updateError) {
-                console.error('Error downgrading profile from super_user:', updateError);
-            }
-        }
-    } catch (error) {
-        console.error('Unexpected error downgrading from super_user:', error);
-    }
+    return { ok: true };
 }
 
 /**
@@ -366,18 +261,15 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             }
         }
 
-        const durationDays = getDurationDays(billingCycle);
         const planLabel = PLAN_LABELS[plan];
         const billingLabel = BILLING_LABELS[billingCycle];
         const durationLabel = billingCycle === 'yearly' ? 'سنة واحدة' : 'شهر واحد';
         const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethod];
 
-        // ملاحظة مهمة: start_date/end_date هنا قيم مبدئية (placeholder) فقط
-        // لإن عمود end_date مطلوب (NOT NULL) في قاعدة البيانات. التواريخ
-        // الحقيقية بتتحدد فعليًا فقط عند تأكيد الطلب في confirmPurchaseTicket،
-        // فمفيش أي عميل بيكسب أيام من عمر اشتراكه وهو لسه pending.
-        const placeholderStart = new Date();
-        const placeholderEnd = addBillingPeriod(placeholderStart, billingCycle);
+        // مدة الطلب وتواريخه المبدئية تُحسب كلها في القاعدة داخل
+        // request_subscription_purchase. كانت تُحسب هنا وتُرسَل، وهو ما جعل
+        // العميل قادرًا على اختيارها. التواريخ الحقيقية تُثبَّت عند التأكيد،
+        // فلا يكسب أحد يومًا من عمر اشتراكه وهو pending.
 
         let description;
         if (isRenewal && previousEndDate) {
@@ -448,29 +340,37 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             subscription = upgradeRow;
         } else {
 
-        // Create subscription record with pending status (no payment taken yet)
-        const { data: insertedSubscription, error: subError } = await supabase
-            .from('whatsapp_subscriptions')
-            .insert({
-                user_id: user.id,
-                ticket_id: ticket.id,
-                plan,
-                billing_cycle: billingCycle,
-                start_date: placeholderStart.toISOString(),
-                end_date: placeholderEnd.toISOString(),
-                status: 'pending',
-                is_renewal: isRenewal,
-                duration_days: durationDays,
-                previous_end_date: previousEndDate ? previousEndDate.toISOString() : null,
-                payment_method: paymentMethod,
-                payment_reference: paymentReference
-            })
-            .select()
-            .single();
+        // الإنشاء عبر دالة القاعدة، لا بـINSERT مباشر (إصلاح C1).
+        //
+        // السبب: سياسة INSERT القديمة كانت تتحقق من auth.uid() = user_id فقط،
+        // فكان العميل يكتب لنفسه status='active' وتاريخ انتهاء بعيدًا ويحصل على
+        // كل الخدمات مجانًا. لم تعد هناك سياسة INSERT للمستخدم إطلاقًا؛ الدالة
+        // هي المسار الوحيد وهي التي تفرض 'pending' وتحسب التواريخ في الخادم.
+        //
+        // لاحظ أن التوقيع لا يقبل user_id ولا status ولا تواريخ: ما لا يُمرَّر
+        // لا يمكن تزويره.
+        const { data: created, error: subError } = await supabase
+            .rpc('request_subscription_purchase', {
+                p_plan: plan,
+                p_billing_cycle: billingCycle,
+                p_ticket_id: ticket.id,
+                p_is_renewal: isRenewal,
+                p_payment_method: paymentMethod,
+                p_payment_reference: paymentReference
+            });
 
-        if (subError) throw subError;
-        subscription = insertedSubscription;
-        createdSubscriptionId = subscription.id;
+        if (subError) {
+            await supabase.from('tickets').delete().eq('id', createdTicketId);
+            throw subError;
+        }
+
+        createdSubscriptionId = created.subscription_id;
+        const { data: createdRow } = await supabase
+            .from('whatsapp_subscriptions')
+            .select('*')
+            .eq('id', createdSubscriptionId)
+            .maybeSingle();
+        subscription = createdRow;
         }
 
         // إثبات التحويل (لو تحويل بنكي خارجي) بيتخزن كمرفق عادي على نفس
@@ -480,10 +380,19 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
                 await uploadTicketAttachment(ticket.id, proofFile);
             } catch (uploadError) {
                 console.error('Error uploading subscription payment proof, rolling back:', uploadError);
-                // تراجع (rollback) عن التذكرة والاشتراك اللي اتعملوا عشان منسيبش
-                // طلب تحويل بنكي بدون إثبات معلّق في النظام.
-                await supabase.from('whatsapp_subscriptions').delete().eq('id', createdSubscriptionId);
-                await supabase.from('tickets').delete().eq('id', createdTicketId);
+                // تراجع حقيقي عن الطلب والتذكرة.
+                //
+                // الكود القديم كان ينادي delete() على الجدولين مباشرة — ولا سياسة
+                // DELETE لأي منهما للمستخدم العادي، فالحذف كان **ينجح صامتًا بصفر
+                // صفوف** ويترك طلب تحويل بنكي معلّقًا بلا إثبات (Finding N1).
+                // الدالة تحذف الاثنين بملكية مُتحقَّق منها، وترجع false لو لم تحذف.
+                const { data: cancelled, error: cancelError } =
+                    await supabase.rpc('cancel_my_subscription_request', {
+                        p_subscription_id: createdSubscriptionId
+                    });
+                if (cancelError || cancelled !== true) {
+                    console.error('rollback failed — طلب معلّق بلا إثبات:', cancelError || 'no rows');
+                }
                 throw new Error('فشل رفع صورة/ملف إثبات التحويل. حاول مرة أخرى.');
             }
         }
@@ -780,21 +689,10 @@ export async function expireSubscription(subscriptionId) {
         if (error) throw error;
 
         if (subscription) {
-            // قفل whatsapp_enabled بس لو مفيش اشتراك واتساب/باقة نشط تاني للعميل
-            if (subscription.plan === 'whatsapp' || subscription.plan === 'bundle') {
-                const stillHasAccess = await hasOtherActiveWhatsappAccess(subscription.user_id, subscription.id);
-                if (!stillHasAccess) {
-                    await supabase
-                        .from('profiles')
-                        .update({ whatsapp_enabled: false })
-                        .eq('id', subscription.user_id);
-                }
-            }
-
-            // تنزيل رتبة super_user بس لو مفيش اشتراك support/bundle نشط تاني للعميل
-            if (SUPER_USER_PLANS.includes(subscription.plan)) {
-                await downgradeFromSuperUserIfNoAccessLeft(subscription.user_id, subscription.id);
-            }
+            // الامتيازات تُعاد حسابها من محرك واحد في القاعدة. الكود القديم كان
+            // يكرر هنا قاعدة «أي باقة تمنح واتساب؟» بأسماء مثبَّتة نصًّا، فكان
+            // يختلف عن المحرك عند إضافة أي باقة جديدة. والرتبة لم تعد تُلمس.
+            await recomputeAccess(subscription.user_id);
         }
 
         if (subscription) {
@@ -955,19 +853,10 @@ export async function confirmPurchaseTicket(ticketId) {
             };
         }
 
-        // Only plans that include WhatsApp access should flip this flag
-        if (updatedSubscription.plan === 'whatsapp' || updatedSubscription.plan === 'bundle') {
-            await supabase
-                .from('profiles')
-                .update({ whatsapp_enabled: true })
-                .eq('id', updatedSubscription.user_id);
-        }
-
-        // خطط الدعم الفني/الباقة بس هي اللي بترقّي العميل لـ super_user.
-        // خطة واتساب لوحدها ما بتغيرش الرتبة، تفضل user زي ما هي.
-        if (SUPER_USER_PLANS.includes(updatedSubscription.plan)) {
-            await upgradeToSuperUserIfEligible(updatedSubscription.user_id);
-        }
+        // الصلاحيات تُشتق من الاشتراك عبر محرك واحد (plan_features)، فلا يحتاج
+        // هذا الموضع أن يعرف أي باقة تمنح ماذا. والرتبة لا تُمنح بالشراء إطلاقًا
+        // بعد إصلاح C2/H4: الاشتراك يمنح Entitlements لا سلطة.
+        await recomputeAccess(updatedSubscription.user_id);
 
         const { error: ticketUpdateError } = await supabase
             .from('tickets')

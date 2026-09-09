@@ -5,6 +5,7 @@ import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
+import { signedUrl, signedUrls } from '/storage-urls.js';
 
 console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
 
@@ -140,7 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // التحقق من الدور من البروفايل لضمان الدقة (لصفحة الأدمن فقط)
             const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
             const role = profile?.role || user.user_metadata?.role || 'customer';
-            isAdmin = role === 'admin' || role === 'support' || role === 'super_user' || user.email.includes('admin');
+            isAdmin = role === 'admin' || role === 'support' || user.email.includes('admin');
         }
 
         // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
@@ -386,14 +387,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .from(CHAT_ATTACHMENTS_BUCKET)
                 .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
 
+            // المستودع خاص الآن: نخزّن **المسار** في image_url، ويُوقَّع عند العرض.
+            // حفظ رابط موقَّع في القاعدة كان سينتج صفوفًا بروابط ميتة بعد دقائق.
             let imageUrl = null;
             if (uploadError) {
                 console.error('خطأ في رفع صورة المشكلة:', uploadError);
             } else {
-                const { data: publicData } = supabase.storage
-                    .from(CHAT_ATTACHMENTS_BUCKET)
-                    .getPublicUrl(filePath);
-                imageUrl = publicData?.publicUrl || null;
+                imageUrl = filePath;
             }
 
             if (!imageUrl) {
@@ -441,6 +441,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderQuickOptions(MAIN_MENU_OPTIONS);
     }
 
+
+    /**
+     * يوقّع صور المحادثة بعد إدراجها في الصفحة.
+     *
+     * العرض متزامن والتوقيع غير متزامن، فالصورة تُدرج بلا src ثم تظهر عند وصول
+     * رابطها. الفشل يُخفي الصورة ولا يكسر الرسالة: نص الرسالة أهم من مرفقها.
+     */
+    async function hydrateChatImages(root) {
+        if (!root) return;
+        const imgs = Array.from(root.querySelectorAll('img[data-storage-path]'));
+        if (imgs.length === 0) return;
+        const urls = await signedUrls(CHAT_ATTACHMENTS_BUCKET, imgs.map(el => el.dataset.storagePath));
+        imgs.forEach((el, i) => {
+            el.removeAttribute('data-storage-path');
+            if (urls[i]) {
+                el.src = urls[i];
+                el.style.display = 'block';
+            } else {
+                el.remove();
+            }
+        });
+    }
+
     // ===== APPEND CUSTOMER MESSAGE =====
     function appendCustomerMessage(msg) {
         const chatMessages = document.getElementById('chatMessages');
@@ -452,9 +475,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const text = msg.message_text || '';
 
         // لو الرسالة فيها صورة مرفقة (image_url)، نعرضها فوق النص بأمان
-        const safeImageUrl = sanitizeUrl(msg.image_url);
-        const imgHtml = safeImageUrl
-            ? `<img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:block;margin-bottom:0.4rem;">`
+        // لا src هنا: المسار يخرج كسمة بيانات ويُوقَّع بعد الإدراج (hydrateChatImages).
+        const imgHtml = msg.image_url
+            ? `<img data-storage-path="${escapeHtml(msg.image_url)}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:none;margin-bottom:0.4rem;">`
             : '';
 
         const messageEl = document.createElement('div');
@@ -467,6 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         chatMessages.appendChild(messageEl);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+        hydrateChatImages(messageEl);
     }
 
     // ===== SETUP CUSTOMER CHAT EVENT LISTENERS =====
@@ -829,8 +853,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // الأدوار اللي لو بعتت من نفس حسابها كـ"عميل" بيبقى مهم يبان للفريق إنها
-    // مش عميل عادي (زي super_user اللي دوره الأساسي إدارة، مش عميل)
-    const STAFF_ROLES_AS_CUSTOMER = ['super_user', 'admin', 'support'];
+    // مش عميل عادي. الارتباط بشركة ليس منها: صاحب الشركة عميل دافع لا موظف.
+    const STAFF_ROLES_AS_CUSTOMER = ['admin', 'support'];
 
     function isStaffOriginatedSession(session) {
         return STAFF_ROLES_AS_CUSTOMER.includes(session.profiles?.role);
@@ -955,9 +979,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
         // لو رسالة العميل فيها صورة مرفقة، نعرضها للأدمن كمان في نفس الفقاعة
-        const safeImageUrl = sanitizeUrl(msg.image_url);
-        const imgHtml = safeImageUrl
-            ? `<img src="${safeImageUrl}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:block;margin-bottom:0.4rem;">`
+        // لا src هنا: المسار يخرج كسمة بيانات ويُوقَّع بعد الإدراج (hydrateChatImages).
+        const imgHtml = msg.image_url
+            ? `<img data-storage-path="${escapeHtml(msg.image_url)}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:none;margin-bottom:0.4rem;">`
             : '';
 
         const group = document.createElement('div');
@@ -972,6 +996,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         messagesContainer.appendChild(group);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        hydrateChatImages(group);
     }
 
     function setupEventListeners() {

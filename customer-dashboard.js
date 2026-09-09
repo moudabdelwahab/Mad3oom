@@ -517,8 +517,11 @@ function meter(percent, tone = '') {
                 : `عضو منذ ${formatDate(profile.created_at)}`)
         });
 
+        // is_active يأتي محسوبًا بنفس تعريف القاعدة (الحالة + التاريخان معًا).
+        // الفلترة القديمة كانت تتجاهل start_date، فتعرض تجديدًا مستقبليًا على
+        // أنه فعّال بينما محرك الصلاحيات لا يمنحه شيئًا.
         const activePlans = (snapshot.planSubs?.ok ? snapshot.planSubs.data : [])
-            .filter(s => s.status === 'active' && (!s.end_date || new Date(s.end_date) > new Date()));
+            .filter(s => s.is_active);
         if (activePlans.length) {
             rows.push({
                 label: 'الباقات المفعّلة',
@@ -1290,7 +1293,7 @@ function meter(percent, tone = '') {
         });
     }
 
-    const STAFF_ROLES = new Set(['admin', 'support', 'super_user']);
+    const STAFF_ROLES = new Set(['admin', 'support']);
 
     async function loadRepliesInPanel(ticketId) {
         const list = document.getElementById('panelRepliesList');
@@ -1618,7 +1621,7 @@ function meter(percent, tone = '') {
         const blocks = [];
 
         const plans = snapshot.planSubs?.ok ? snapshot.planSubs.data : [];
-        const activePlans = plans.filter(p => p.status === 'active' && (!p.end_date || new Date(p.end_date) > new Date()));
+        const activePlans = plans.filter(p => p.is_active);   // نفس تعريف القاعدة
         blocks.push(`
             <section class="panel">
                 <div class="panel-header">

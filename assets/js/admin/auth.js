@@ -33,7 +33,9 @@ export function updateAdminUI(user) {
             adminInitial.textContent = nameForInitial.charAt(0).toUpperCase();
         }
 
-        const isAdmin = profile.role === 'admin' || profile.role === 'support' || profile.role === 'super_user';
+        // الارتباط بشركة لا يفتح لوحة الإدارة إطلاقًا (C2/H4): الرتبة هوية حساب،
+        // وصلاحيات الشركة تأتي من العلاقة، والخدمات من الاشتراك.
+        const isAdmin = profile.role === 'admin' || profile.role === 'support';
         if (isAdmin && adminBadgeContainer) {
             adminBadgeContainer.style.display = 'block';
         }

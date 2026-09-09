@@ -562,11 +562,11 @@ export async function requireAuth(requiredRole = null) {
     const isMainAdminEmail = user.email === 'support@mad3oom.online';
     const role = user.profile?.role;
 
+    // الارتباط بشركة ليس رتبة طاقم — أُزيل هنا مع إصلاح C2/H4.
     const isAdmin =
         isMainAdminEmail ||
         role === 'admin' ||
-        role === 'support' ||
-        role === 'super_user';
+        role === 'support';
 
     // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: admin و super_user
     // (والأدمن الرئيسي بإيميله) فقط - مش support. ده تفويض أضيق ومنفصل عن
@@ -574,7 +574,7 @@ export async function requireAuth(requiredRole = null) {
     // الفحص هنا هو نقطة التنفيذ الحقيقية (enforcement) - إخفاء الزرار في
     // الواجهة وحده مش كافي كحماية، لأن أي حد يقدر يكتب ?impersonate=...
     // في العنوان يدويًا لو الفحص مش موجود هنا كمان.
-    const canImpersonate = isMainAdminEmail || role === 'admin' || role === 'super_user';
+    const canImpersonate = isMainAdminEmail || role === 'admin';
 
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
