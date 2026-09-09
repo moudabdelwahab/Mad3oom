@@ -80,6 +80,41 @@ export async function fetchUserTickets(filters = {}) {
 }
 
 /**
+ * تذاكر عملاء الشركة: التذاكر التي فتحها المستخدمون التابعون للحساب الحالي.
+ *
+ * ده المسار الثاني في لوحة الشركة (العميل ↔ الشركة)، ومنفصل تمامًا عن
+ * fetchUserTickets() اللي بترجّع تذاكر الحساب نفسه مع مدعوم. الفصل بين
+ * المسارين ليس تصفية واجهة: صفوف كل مسار مقيَّدة في القاعدة بـ
+ * tickets_select_policy، فحساب الشركة لا يرى تذاكر شركة أخرى ولا عملاءها
+ * مهما عُدِّل الطلب.
+ *
+ * @returns {Promise<Array>} تذاكر التابعين، مرتّبة بالأحدث
+ */
+export async function fetchMemberTickets() {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // التابعون لي وحدهم — profiles_select_policy بتحصر الرؤية في
+    // (auth.uid() = id) أو (super_user_id = auth.uid())
+    const { data: members, error: membersError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('super_user_id', user.id);
+
+    if (membersError) throw membersError;
+    if (!members || members.length === 0) return [];
+
+    const { data, error } = await supabase
+        .from('tickets')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)')
+        .in('user_id', members.map(m => m.id))
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+}
+
+/**
  * إنشاء تذكرة جديدة
  *
  * ملاحظة: الأولوية لم تعد تُحدَّد من قبل العميل. يتم تخزينها بقيمة افتراضية
@@ -491,7 +526,7 @@ export async function deleteTicket(ticketId) {
 /**
  * إضافة رد على تذكرة
  */
-export async function addTicketReply(ticketId, message, isInternal = false) {
+export async function addTicketReply(ticketId, message, isInternal = false, { autoTransition = true } = {}) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -565,7 +600,10 @@ export async function addTicketReply(ticketId, message, isInternal = false) {
     // (من غير ما نكسر إرسال الرد نفسه، لإن الرد اتبعت بنجاح بالفعل)، وكمان
     // بنسجل last_updated_by بهوية الأدمن اللي رد لإن الرد نفسه سبب التحول
     // التلقائي للحالة.
-    if (ticket && ticket.user_id !== user.id) {
+    // autoTransition=false لمسار «العميل ↔ الشركة»: صاحب الشركة لا يملك UPDATE
+    // على تذكرة عميله عمدًا (منحه إياه كان سيسمح بتغيير user_id وتحويل مسار
+    // التذكرة)، فالمحاولة هنا كانت طلبًا مرفوضًا مضمونًا بضجيج في الـconsole.
+    if (autoTransition && ticket && ticket.user_id !== user.id) {
         try {
             const { error: statusUpdateError } = await supabase
                 .from('tickets')

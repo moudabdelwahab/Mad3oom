@@ -43,6 +43,8 @@ function startServer() {
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const COMPANY_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const CUSTOMER_ID = '22222222-2222-4222-8222-222222222222';
+const OTHER_CUSTOMER_ID = '99999999-9999-4999-8999-999999999999';
 
 /** حمولة get_my_company_dashboard() المختصرة — يكفي منها ما ترسمه اللوحة. */
 function companyPayload() {
@@ -101,7 +103,17 @@ function fixtures(overrides = {}) {
         },
         functions: overrides.functions || {},
         tables: {
-            profiles: [{ id: USER_ID, email: 'owner@company.test', full_name: 'مالك الشركة', role: 'super_user' }],
+            // مالك الشركة + عميلان تابعان له + عميل شركة أخرى (لا يجب أن يُرى)
+            profiles: [
+                { id: USER_ID, email: 'owner@company.test', full_name: 'مالك الشركة', role: 'super_user', super_user_id: null },
+                { id: CUSTOMER_ID, email: 'cust1@company.test', full_name: 'عميل الشركة', role: 'customer', super_user_id: USER_ID },
+                { id: OTHER_CUSTOMER_ID, email: 'other@rival.test', full_name: 'عميل شركة أخرى', role: 'customer', super_user_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff' }
+            ],
+            tickets: [
+                { id: 'tk-platform', user_id: USER_ID, ticket_number: 101, title: 'مشكلة في الفوترة', description: 'الشركة ← مدعوم', status: 'open', created_at: '2026-09-01T00:00:00Z', archived_by_customer: false },
+                { id: 'tk-customer', user_id: CUSTOMER_ID, ticket_number: 202, title: 'طلب من عميلي', description: 'العميل ← الشركة', status: 'open', created_at: '2026-09-02T00:00:00Z', archived_by_customer: false }
+            ],
+            ticket_replies: [],
             notifications: [], services: [], whatsapp_subscriptions: [], subscription_plans: [],
             ...(overrides.tables || {})
         }
@@ -136,6 +148,23 @@ async function openPage(browser, baseUrl, fx, urlPath) {
 
     await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'networkidle' });
     return { page, context, visited };
+}
+
+/**
+ * الصفحات التي غادرها المستخدم فعلًا.
+ * تغيّر الـhash داخل /company-dashboard/ تنقّل بين أقسام، لا مغادرة —
+ * والقاعدة المطلوبة هي ألا تغادر لوحة الشركة نفسها.
+ */
+function departures(visited, from = '/company-dashboard/') {
+    return visited
+        .map(u => new URL(u).pathname)
+        .filter(pathname => !pathname.startsWith(from));
+}
+
+/** يفتح قسمًا من قائمة لوحة الشركة كما يفعل المستخدم تمامًا. */
+async function openSection(page, tab) {
+    await page.locator(`.sidebar-item[data-tab="${tab}"]`).click();
+    await page.waitForSelector(`#${tab}TabContent.active`, { timeout: 10000 });
 }
 
 async function openCompanyDashboard(browser, baseUrl, fx) {
@@ -250,12 +279,13 @@ test('المخوَّل يفتح نافذة الإضافة من داخل لوحة
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
 
     assert.equal(await page.locator('#addMemberModal.active').count(), 1, 'النافذة لم تُفتح');
-    // ولا تنقّل واحد: الوظيفة في مكانها
-    assert.equal(visited.length, 1, `حدث تنقّل غير متوقع: ${visited.join(' → ')}`);
+    // الوظيفة في مكانها: لا مغادرة للوحة الشركة إطلاقًا
+    assert.deepEqual(departures(visited), [], `غادر المستخدم لوحة الشركة: ${visited.join(' → ')}`);
     await context.close();
 });
 
@@ -264,6 +294,7 @@ test('الزر مخفي لمن لا تمنحه القاعدة can_manage', async
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     assert.equal(await page.locator('#addMemberBtn').isHidden(), true, 'زر الإضافة ظهر بلا صلاحية');
     await context.close();
@@ -276,6 +307,7 @@ test('غياب can_manage يمنع الإنشاء فعليًا — لا مجرد
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     await page.evaluate(() => {
         document.getElementById('addMemberModal').classList.add('active');
@@ -301,6 +333,7 @@ test('لو أُظهر الزر يدويًا بلا صلاحية، النافذة
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     await page.evaluate(() => { document.getElementById('addMemberBtn').hidden = false; });
     await page.locator('#addMemberBtn').click();
@@ -317,6 +350,7 @@ test('التحقق يمنع الإرسال ويشرح كل حقل', async (t) =>
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberEmail', 'not-an-email');
@@ -339,6 +373,7 @@ test('الإنشاء الناجح: الطلب بعقد create-sub-user، ثم ا
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم جديد');
@@ -377,7 +412,7 @@ test('الإنشاء الناجح: الطلب بعقد create-sub-user، ثم ا
         null, { timeout: 10000 }
     );
     assert.match(await page.locator('#companyMembers').textContent(), /مستخدم جديد/);
-    assert.equal(visited.length, 1, `حدث تنقّل بعد الإنشاء: ${visited.join(' → ')}`);
+    assert.deepEqual(departures(visited), [], `غادر المستخدم لوحة الشركة بعد الإنشاء: ${visited.join(' → ')}`);
     await context.close();
 });
 
@@ -388,6 +423,7 @@ test('فشل الإنشاء يعرض رسالة الخادم كما هي، وب�
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم مكرر');
@@ -415,6 +451,7 @@ test('رفض 403 من الدالة يظهر كخطأ مفهوم لا كصفحة 
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم جديد');
@@ -426,5 +463,215 @@ test('رفض 403 من الدالة يظهر كخطأ مفهوم لا كصفحة 
     await page.waitForSelector('#addMemberError:not([hidden])', { timeout: 10000 });
     assert.match(await page.locator('#addMemberError').textContent(), /Insufficient permissions/);
     assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+/* ── التنقّل الكامل داخل لوحة الشركة ─────────────────────────────────────── */
+
+test('حساب الشركة يتنقّل بين كل الأقسام دون مغادرة لوحة الشركة ولا حلقة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    // كل عنصر في القائمة، بالترتيب، كما يضغطه المستخدم
+    const tabs = await page.evaluate(() =>
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+
+    assert.ok(tabs.length >= 8, `عدد أقسام القائمة أقل من المتوقع: ${tabs.length}`);
+
+    for (const tab of tabs) {
+        await openSection(page, tab);
+        // القسم ظهر فعلاً، ولم يُترك فارغًا
+        const text = await page.locator(`#${tab}TabContent`).innerText();
+        assert.ok(text.trim().length > 0, `القسم ${tab} فتح فارغًا`);
+    }
+
+    // الزيارة الثانية لكل قسم تنتهي لنفس الحالة — كشف الحلقة
+    for (const tab of tabs) {
+        await openSection(page, tab);
+        assert.equal(await page.locator(`#${tab}TabContent.active`).count(), 1);
+    }
+
+    assert.deepEqual(departures(visited), [],
+        `غادر المستخدم لوحة الشركة أثناء التنقّل: ${visited.join(' → ')}`);
+    assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+test('كل قسم يعرض وظيفته الفعلية لا عنوانًا فارغًا', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    // العلامة الدالة على أن الوظيفة نُقلت فعلاً، لا مجرد حاوية باسمها
+    const marks = {
+        members:       '#addMemberBtn',
+        subscriptions: '#companySubscriptions',
+        tickets:         '#platformTicketList',
+        customerTickets: '#customersTicketList',
+        support:       '#companyTicketForm',        // فتح تذكرة داخل اللوحة
+        notifications: '#companyNotificationList',
+        profile:       '#companyAccountForm',       // تعديل الملف الشخصي
+        security:      '#companyPasswordForm'       // تغيير كلمة المرور
+    };
+
+    for (const [tab, selector] of Object.entries(marks)) {
+        await openSection(page, tab);
+        await page.waitForSelector(selector, { state: 'attached', timeout: 10000 });
+        assert.equal(await page.locator(selector).count(), 1, `القسم ${tab} بلا ${selector}`);
+    }
+    await context.close();
+});
+
+test('مركز الدعم يحمل حالة الخدمات ومقالات المساعدة داخل اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        rpc: {
+            search_help_articles: [],
+            get_my_company_dashboard: companyPayload(),
+            current_company_id: COMPANY_ID,
+            company_members: membersPayload()
+        },
+        tables: {
+            services: [{ id: 'sv1', key: 'api', name: 'API', name_ar: 'واجهة البرمجة', status: 'operational' }],
+            knowledge_base: [{ id: 'a1', title: 'كيف أضيف مستخدمًا؟', excerpt: 'من قسم مستخدمي الشركة', category: 'general', view_count: 3 }]
+        }
+    });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await openSection(page, 'support');
+    await page.waitForFunction(
+        () => !document.querySelector('#companyServiceStatus .skeleton')
+            && !document.querySelector('#companyHelpArticles .skeleton'),
+        null, { timeout: 10000 });
+
+    // المساعدة لم تعد صفحة أخرى — صارت هنا
+    assert.match(await page.locator('#companyHelpArticles').innerText(), /كيف أضيف مستخدمًا/);
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('تسجيل الخروج ينهي الجلسة فعلًا قبل الانتقال لصفحة الدخول', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    // المسار كان '../auth-client.js' فيفشل الاستيراد دائمًا، فيُنفَّذ فرع
+    // الـcatch: انتقال لصفحة الدخول بدون signOut — والجلسة الحيّة تعيد
+    // المستخدم للوحته فورًا. حلقة تحويل من باب تسجيل الخروج.
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    const logoutCalls = await page.evaluate(async () => {
+        const mod = await import('/auth-client.js');
+        return typeof mod.logout === 'function';
+    });
+    assert.equal(logoutCalls, true, 'auth-client غير قابل للاستيراد من مسار الصفحة');
+
+    const shellSrc = await page.evaluate(() =>
+        fetch('/assets/js/customer-sidebar.js').then(r => r.text()));
+    assert.doesNotMatch(shellSrc, /import\('\.\.\/auth-client\.js'\)/,
+        'القشرة ما زالت تستورد auth-client بمسار نسبي مكسور');
+    await context.close();
+});
+
+/* ── مسارا التذاكر: الشركة ↔ مدعوم  و  العميل ↔ الشركة ─────────────────── */
+
+test('«تذاكري مع مدعوم» يعرض تذاكر الشركة وحدها، لا تذاكر عملائها', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'tickets');
+    await page.waitForSelector('#platformTicketList', { timeout: 10000 });
+    const text = await page.locator('#ticketsTabContent').innerText();
+
+    assert.match(text, /مشكلة في الفوترة/, 'تذكرة الشركة مع مدعوم غير معروضة');
+    assert.doesNotMatch(text, /طلب من عميلي/, 'تذكرة عميل تسرّبت إلى مسار «مع مدعوم»');
+    assert.match(text, /تذاكري مع مدعوم/);
+    await context.close();
+});
+
+test('«تذاكر العملاء» يعرض تذاكر عملاء هذه الشركة وحدهم', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+    const text = await page.locator('#customerTicketsTabContent').innerText();
+
+    assert.match(text, /طلب من عميلي/, 'تذكرة العميل غير معروضة');
+    assert.doesNotMatch(text, /مشكلة في الفوترة/, 'تذكرة الشركة مع مدعوم تسرّبت إلى مسار العملاء');
+    await context.close();
+});
+
+test('المساران لا يختلطان: لكلٍّ حاويته وقائمته وحالته', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'tickets');
+    await page.waitForSelector('#platformTicketList', { timeout: 10000 });
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+
+    // بحث في مسار لا يغيّر المسار الآخر — دليل أن الحالتين منفصلتان
+    await page.fill('#customersTicketSearch', 'لا يوجد شيء بهذا الاسم');
+    await page.waitForFunction(
+        () => document.querySelector('#customersTicketList')?.textContent.includes('لا توجد تذاكر مطابقة'),
+        null, { timeout: 10000 });
+
+    await openSection(page, 'tickets');
+    assert.match(await page.locator('#platformTicketList').innerText(), /مشكلة في الفوترة/,
+        'بحث مسار العملاء أثّر على مسار «مع مدعوم»');
+    await context.close();
+});
+
+test('الشركة تفتح تذكرة إلى مدعوم من مركز الدعم فتظهر في مسارها الصحيح', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'support');
+    await page.fill('#fTicketTitle', 'انقطاع في خدمة الواتساب');
+    await page.fill('#fTicketBody', 'الخدمة متوقفة منذ ساعة ونحتاج متابعة عاجلة من فريق مدعوم.');
+    await page.locator('#companyTicketSubmit').click();
+
+    // بعد الإنشاء ينتقل تلقائيًا إلى «تذاكري مع مدعوم» — بلا مغادرة اللوحة
+    await page.waitForSelector('#ticketsTabContent.active', { timeout: 10000 });
+    await page.waitForFunction(
+        () => document.querySelector('#platformTicketList')?.textContent.includes('انقطاع في خدمة الواتساب'),
+        null, { timeout: 10000 });
+
+    // ولا تظهر في مسار العملاء
+    await openSection(page, 'customerTickets');
+    assert.doesNotMatch(await page.locator('#customerTicketsTabContent').innerText(), /انقطاع في خدمة الواتساب/,
+        'تذكرة الشركة مع مدعوم ظهرت في مسار العملاء');
+
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('الشركة تفتح تذكرة عميل وتردّ عليه دون مغادرة اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+    await page.locator('[data-stream-ticket="tk-customer"]').click();
+
+    await page.waitForSelector('#customersTicketReplyForm', { timeout: 10000 });
+    // نصّ الزرّ يوضّح أن الشركة هي الجهة المجيبة في هذا المسار
+    assert.match(await page.locator('#customersTicketDetailBody').innerText(), /الردّ على العميل/);
+
+    await page.fill('#customersTicketReplyText', 'استلمنا طلبك وسنعالجه اليوم.');
+    await page.locator('#customersTicketReplyBtn').click();
+
+    await page.waitForFunction(
+        () => (window.__WRITES__ || []).some(w => w.table === 'ticket_replies'),
+        null, { timeout: 10000 });
+
+    const writes = await page.evaluate(() => window.__WRITES__ || []);
+    const reply = writes.find(w => w.table === 'ticket_replies');
+    assert.equal(reply.row.ticket_id, 'tk-customer');
+    assert.equal(reply.row.user_id, '11111111-1111-1111-1111-111111111111');
+    assert.equal(reply.row.is_internal, false);
+
+    // لا محاولة لتغيير حالة التذكرة: الشركة لا تملك UPDATE على تذكرة عميلها
+    assert.equal(writes.some(w => w.table === 'tickets' && w.op === 'update'), false,
+        'حاولت الواجهة تعديل تذكرة العميل — الصلاحية غير ممنوحة عمدًا');
+
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
     await context.close();
 });

@@ -1,22 +1,56 @@
 /**
- * customer-sidebar.js — قشرة بوابة الدعم المشتركة (شريط علوي + قائمة جانبية).
+ * customer-sidebar.js — قشرة البوابة المشتركة (شريط علوي + قائمة جانبية).
  *
- * الملف ده هو نقطة الدخول الوحيدة لكل صفحات بوابة العميل:
- *   customer-dashboard, knowledge-base, customer-subscriptions,
- *   customer-security-settings, community, roadmap.
+ * القشرة دي بتخدم **بوابتين مستقلتين** بنفس المنطق وبلا نسخ:
+ *
+ *   بوابة العميل  → initCustomerSidebar()  ← قائمة العميل، بيتها
+ *                                            customer-dashboard.html
+ *   لوحة الشركة   → initCompanyShell()     ← قائمة الشركة، بيتها
+ *                                            /company-dashboard/
+ *
+ * اللي بيتشارك: الطي، الدرج، القوائم المنسدلة، البحث، شارة الإشعارات،
+ * الهوية، تسجيل الخروج، حالة النظام، وتعليم العنصر النشط. اللي بيختلف:
+ * ملف الـHTML الخاص بالقائمة، وبيت البوابة (الوجهة الافتراضية للأقسام).
+ *
+ * ليه بيتين منفصلين؟ قرار منتج: بمجرد ارتباط الحساب بشركة تصبح لوحة الشركة
+ * لوحته الرسمية، فما ينفعش عنصر في قائمة الشركة يوديه لبوابة العميل ثم يرتد.
+ * الفصل هنا هو ما يجعل ذلك مستحيلًا لا مجرد مُتجنَّب.
  *
  * التوقيع بيقبل الشكلين للتوافق مع النداءات القديمة:
  *   initCustomerSidebar(fn)                        ← الشكل القديم
  *   initCustomerSidebar({ onTabChange, onReady })  ← الشكل الجديد
  *
- * الصفحات اللي مش لوحة العميل ما بتمرّرش onTabChange، فعناصر الأقسام فيها
- * بتشتغل كروابط عادية للوحة (href مكتوب في الـHTML أصلاً) بدل ما تكون ميتة.
+ * الصفحات اللي مش لوحة ما بتمرّرش onTabChange، فعناصر الأقسام فيها بتشتغل
+ * كروابط عادية للوحة (href مكتوب في الـHTML أصلاً) بدل ما تكون ميتة.
  */
 
-const DASHBOARD_PATH = '/customer-dashboard.html';
+/** إعدادات كل بوابة: من أين تُجلب القائمة، وأين "بيتها". */
+const SHELLS = {
+    customer: {
+        component: '/assets/components/customer-sidebar.html',
+        home: '/customer-dashboard.html',
+        // مدخل لوحة الشركة وزر واتساب يخصّان قائمة العميل وحدها
+        showsCompanyEntry: true,
+        showsWhatsapp: true,
+        // بوابة العميل صفحات متعددة: العنصر النشط يُشتقّ من اسم الملف
+        singlePage: false
+    },
+    company: {
+        component: '/assets/components/company-sidebar.html',
+        home: '/company-dashboard/',
+        showsCompanyEntry: false,
+        showsWhatsapp: false,
+        // لوحة الشركة صفحة واحدة بأقسام: العنصر النشط يُضبط من الـhash
+        singlePage: true
+    }
+};
+
 const COLLAPSE_KEY = 'mad3oom-sidebar-collapsed';
 
 let tabChangeHandler = null;
+
+/** بيت البوابة الحالية — يُضبط عند التهيئة ويُقرأ في كل مكان بدل ثابت واحد. */
+let shell = SHELLS.customer;
 
 /** هل المستخدم مفضّل القائمة مطوية؟ (يُقرأ قبل الرسم لتفادي أي قفزة) */
 export function isSidebarCollapsed() {
@@ -50,11 +84,21 @@ export function setSidebarCollapsed(collapsed, { persist = true } = {}) {
     }
 }
 
+/** قشرة لوحة الشركة — نفس المنطق، قائمة وبيت مختلفان. */
+export function initCompanyShell(optionsOrCallback) {
+    return initPortalShell('company', optionsOrCallback);
+}
+
 export function initCustomerSidebar(optionsOrCallback) {
+    return initPortalShell('customer', optionsOrCallback);
+}
+
+function initPortalShell(variant, optionsOrCallback) {
     const options = typeof optionsOrCallback === 'function'
         ? { onTabChange: optionsOrCallback }
         : (optionsOrCallback || {});
 
+    shell = SHELLS[variant] || SHELLS.customer;
     tabChangeHandler = options.onTabChange || null;
 
     const sidebarContainer = document.getElementById('sidebar-container');
@@ -64,7 +108,7 @@ export function initCustomerSidebar(optionsOrCallback) {
     // لحظة بدل ما يتحرك بعد وصول القائمة.
     setSidebarCollapsed(isSidebarCollapsed(), { persist: false });
 
-    return fetch('/assets/components/customer-sidebar.html')
+    return fetch(shell.component)
         .then(response => response.text())
         .then(html => {
             sidebarContainer.innerHTML = html;
@@ -76,7 +120,7 @@ export function initCustomerSidebar(optionsOrCallback) {
             if (options.ownsSystemStatus !== true) loadSystemStatusPill();
             if (typeof options.onReady === 'function') options.onReady();
         })
-        .catch(err => console.error('Error loading customer sidebar:', err));
+        .catch(err => console.error('Error loading portal sidebar:', err));
 }
 
 /**
@@ -114,6 +158,10 @@ export function setActiveSidebarTab(tabName) {
  * بيتحدّد من اسم الملف، مش من قسم داخل اللوحة.
  */
 function markActivePage() {
+    // القشرة أحادية الصفحة (لوحة الشركة) بتضبط عنصرها النشط من الـhash عبر
+    // setActiveSidebarTab، مش من اسم الملف.
+    if (shell.singlePage) return;
+
     const segments = window.location.pathname.split('/').filter(Boolean);
     let file = (segments.pop() || '').replace(/\.html$/, '');
     // مسار مجلد (/company-dashboard/ أو /company-dashboard/index.html):
@@ -178,7 +226,7 @@ async function loadSystemStatusPill() {
 /** اسم المستخدم وبريده وحالته داخل قائمة الحساب. */
 async function loadAccountIdentity() {
     try {
-        const { getCurrentUser } = await import('../auth-client.js');
+        const { getCurrentUser } = await import('/auth-client.js');
         const user = await getCurrentUser();
         if (!user) return;
 
@@ -283,7 +331,7 @@ function setupSidebarLogic(onTabChange, options = {}) {
                 setActiveSidebarTab('notifications');
                 onTabChange('notifications');
             } else {
-                window.location.href = `${DASHBOARD_PATH}#notifications`;
+                window.location.href = `${shell.home}#notifications`;
             }
         });
     }
@@ -335,8 +383,8 @@ function setupSidebarLogic(onTabChange, options = {}) {
 
     refreshUnreadBadge();
     setupNotificationRealtime();
-    checkWhatsAppPermission();
-    checkCompanyMembership();
+    if (shell.showsWhatsapp) checkWhatsAppPermission();
+    if (shell.showsCompanyEntry) checkCompanyMembership();
     document.addEventListener('customer:notifications-read', refreshUnreadBadge);
 
     // ── الدرج على الشاشات الصغيرة ────────────────────────────────────────────
@@ -467,15 +515,21 @@ function setupSidebarLogic(onTabChange, options = {}) {
             e.preventDefault();
             closeAllMenus();
             if (window.openSettingsModal) window.openSettingsModal();
-            else window.location.href = `${DASHBOARD_PATH}#profile`;
+            else window.location.href = `${shell.home}#profile`;
         });
     }
 
     // ── تسجيل الخروج ─────────────────────────────────────────────────────────
+    // ملاحظة على المسار: كان '../auth-client.js' وهو يُحلّ من /assets/js/ إلى
+    // /assets/auth-client.js — ملف غير موجود. فكان الاستيراد يفشل دائمًا،
+    // ويُنفَّذ فرع الـcatch: مسح الجلسة المحلية والانتقال لصفحة الدخول **بدون**
+    // استدعاء logout()، أي بدون signOut من Supabase وبدون علامة
+    // just_logged_out. فتظل الجلسة حيّة، فيعيد login المستخدم إلى لوحته:
+    // نفس حلقة التحويل، من باب تسجيل الخروج هذه المرة. المسار المطلق يصلحها.
     const onLogout = async (e) => {
         e.preventDefault();
         try {
-            const { logout } = await import('../auth-client.js');
+            const { logout } = await import('/auth-client.js');
             await logout();
             window.location.replace('/login.html');
         } catch (err) {
@@ -537,7 +591,7 @@ function setupPortalSearch(options) {
         if (e.key !== 'Enter') return;
         const term = input.value.trim();
         if (!term) return;
-        window.location.href = `${DASHBOARD_PATH}?q=${encodeURIComponent(term)}`;
+        window.location.href = `${shell.home}?q=${encodeURIComponent(term)}`;
     });
 
     // برّه اللوحة مفيش نتائج تُرسم هنا، فبنوضّح ده بدل صندوق فاضي
