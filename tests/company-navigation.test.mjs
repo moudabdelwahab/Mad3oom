@@ -182,7 +182,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 test('أقسام الشركة تُبنى فوق الوحدات المشتركة، لا نسخة ثانية من المنطق', () => {
     const shared = {
         'assets/js/company/company-tickets.js': ['/tickets-service.js', 'ticket-view-model.js', 'fetchMemberTickets'],
-        'assets/js/company/company-api.js': ['customer-data.js', 'fetchApiTokens', 'fetchApiUsage'],
+        'assets/js/company/company-api.js': ['customer-data.js', 'fetchApiUsage'],
         'assets/js/company/company-reports.js': ['ticket-view-model.js', 'company-model.js'],
         'assets/js/company/company-activity.js': ['customer-data.js', 'activity-model.js'],
         'assets/js/company/company-support.js': ['/tickets-service.js', 'customer-data.js', 'service-status-model.js', 'help-data.js'],
@@ -192,8 +192,16 @@ test('أقسام الشركة تُبنى فوق الوحدات المشتركة�
 
     for (const [file, imports] of Object.entries(shared)) {
         const src = read(file);
+        // نفصل كتلة الاستيراد عن جسم الملف: وجود الاسم في import وحده ليس
+        // إعادة استخدام — الاستيراد الميت كان سيمرّ بلا ذلك.
+        const lastImport = src.lastIndexOf("from '");
+        const body = src.slice(src.indexOf('\n', lastImport) + 1);
+
         for (const dep of imports) {
-            assert.ok(src.includes(dep), `${file} لا يعيد استخدام ${dep}`);
+            assert.ok(src.includes(dep), `${file} لا يستورد ${dep}`);
+            if (/^[a-z][A-Za-z]*$/.test(dep)) {
+                assert.ok(body.includes(dep), `${file} يستورد ${dep} ولا يستعمله`);
+            }
         }
     }
 });

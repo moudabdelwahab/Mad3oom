@@ -25,7 +25,7 @@
  */
 
 import { supabase } from '/api-config.js';
-import { fetchApiTokens, fetchApiUsage } from '/assets/js/customer/customer-data.js';
+import { fetchApiUsage } from '/assets/js/customer/customer-data.js';
 import { escapeHtml, formatDate, timeAgo, renderState, renderSkeletonLines }
     from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
@@ -166,7 +166,8 @@ function lastUsedLabel(tokens) {
 /**
  * مفاتيح الشركة وأعضائها.
  *
- * fetchApiTokens المشتركة تقيّد على user_id = أنا، وهو الصحيح لبوابة العميل.
+ * الدالة المشتركة fetchApiTokens تقيّد على user_id = أنا، وهو الصحيح لبوابة
+ * العميل ولذلك لا تُستعمل هنا.
  * هنا نحتاج نطاق الشركة الذي تسمح به السياسة أصلًا، فنقرأ بلا قيد user_id
  * ونترك RLS تحصر النتيجة. لا يمكن أن تعود صفوف خارج النطاق مهما عُدِّل الطلب.
  */
