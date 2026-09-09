@@ -181,22 +181,45 @@ test('verify-2fa scopes the secret lookup to the authenticated user', () => {
   assert.match(twofa, /profiles\?id=eq\.\$\{userId\}/);
 });
 
-// ── Phase B: the legacy plaintext WhatsApp path is untouched, on purpose ────
+// ── Phase B: the legacy plaintext WhatsApp path is now CLOSED ───────────────
+//
+// هذا الاختبار كان يثبّت الحالة القديمة عمدًا («Phase B ما زالت موقوفة»). نُفِّذت
+// المرحلة الآن، فقُلب التأكيد ليثبّت الحالة الجديدة: لا مسار نصّي، ولا حتى
+// قراءة للعمود. الشرط الذي علّقه TODO تحقّق وقيس على الإنتاج قبل الإزالة:
+// كل صفوف integrations لمزوّد whatsapp لديها encrypted_access_token، وصفر صف
+// نصّي فقط. وmigrations/032 يفرّغ العمود بعدها.
 
 test('whatsapp-graph-request is mirrored so this assertion can actually run', () => {
   assert.ok(existsSync(path.join(ROOT, 'supabase/functions/whatsapp-graph-request/index.ts')),
     'a missing file must fail this test, not silently skip it');
 });
 
-test('the legacy plaintext token fallback is still present (Phase B stays blocked)', () => {
+test('the legacy plaintext token fallback is gone (Phase B executed)', () => {
   const src = read('supabase/functions/whatsapp-graph-request/index.ts');
-  assert.match(src, /TODO\(token-migration\)/);
-  // The behaviour itself, not just the comment: encrypted is preferred, and the
-  // plaintext column is still the fallback when it is absent.
-  assert.match(src, /if \(integration\.encrypted_access_token\) \{/);
-  assert.match(src, /accessToken = integration\.access_token;/);
-  assert.match(src, /usedLegacyPlaintextToken = true;/);
-  assert.match(src, /legacy_plaintext_token_used/);
+  // السلوك، لا التعليق: لا إسناد من العمود النصّي، ولا علَم، ولا سجل له.
+  assert.doesNotMatch(src, /accessToken = integration\.access_token;/,
+    'the plaintext fallback assignment is still there');
+  assert.doesNotMatch(src, /usedLegacyPlaintextToken/,
+    'the legacy flag is still there');
+  assert.doesNotMatch(src, /legacy_plaintext_token_used/,
+    'the legacy warning log is still there');
+  // ولا يُقرأ العمود أصلًا: اعتماد نرفض استعماله لا داعي لتحميله في الذاكرة.
+  assert.doesNotMatch(src, /select\("encrypted_access_token, access_token/,
+    'the plaintext column is still being selected');
+  assert.match(src, /select\("encrypted_access_token, metadata"\)/);
+  // والمشفَّر صار شرطًا لا تفضيلًا.
+  assert.match(src, /if \(!integration \|\| !integration\.encrypted_access_token\)/);
+});
+
+test('pi-auth issues a one-time token and never a derived password', () => {
+  const src = read('supabase/functions/pi-auth/index.ts');
+  assert.match(src, /generateLink/, 'session must be issued via a one-time token');
+  // شكل النداء لا الكلمة: التعليق في المصدر يذكر المسار المغلق بالاسم عمدًا.
+  assert.doesNotMatch(src, /signInWithPassword\s*\(/, 'the derived-credential login path is back');
+  assert.match(src, /crypto\.randomUUID\(\)/, 'passwords must be random, not derived');
+  // لا اشتقاق من المعرّف في أي موضع
+  assert.doesNotMatch(src, /Pi_\$\{piUid\}/, 'password is derived from the Pi identifier');
+  assert.match(src, /updateUserById/, 'each exchange must invalidate the old credential');
 });
 
 // ── Phase F: domain migration readiness ─────────────────────────────────────
