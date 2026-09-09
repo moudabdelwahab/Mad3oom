@@ -248,3 +248,23 @@
 .sidebar-item.company-nav-item.active,
 .sidebar-item.company-nav-item:hover { color: var(--color-text); }
 .sidebar-item.company-nav-item svg { color: #7C5CFF; }
+
+/* ── أقسام لوحة الشركة ──────────────────────────────────────────────────────
+   اللوحة صارت صفحة واحدة بأقسام: كل وظيفة يحتاجها حساب الشركة تعيش هنا،
+   فلا يوجد انتقال إلى بوابة العميل من أي مكان. الأنماط أدناه هي الفارق
+   الوحيد الذي احتاجته الأقسام الجديدة فوق نظام التصميم القائم. */
+
+/* صفّ قابل للفتح (تذكرة) — يقرأ كزر لأنه كذلك فعلاً */
+.company-sub.is-clickable { cursor: pointer; }
+.company-sub.is-clickable:hover { background: var(--hover-bg); }
+.company-sub.is-clickable:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+}
+
+/* إشعار غير مقروء: خط جانبي بدل لون خلفية، فيبقى مقروءًا في الوضعين */
+.company-sub.is-unread { border-inline-start: 3px solid var(--color-accent); }
+
+/* الأقسام تتبدّل بلا تنقّل — نفس سلوك بوابة العميل */
+#companyMain .tab-content { display: none; }
+#companyMain .tab-content.active { display: block; }

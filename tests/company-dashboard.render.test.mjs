@@ -219,19 +219,24 @@ test('من لا شركة له يرى بوابة توضّح الخطوة الجا
     await context.close();
 });
 
-test('مدخل لوحة الشركة في القائمة يظهر لصاحب الشركة فقط', async () => {
-    const withCompany = await openCompanyDashboard(browser, baseUrl, fixtures(companyPayload()));
-    await withCompany.page.waitForFunction(
-        () => document.getElementById('companyDashboardLink')?.hidden === false,
-        null, { timeout: 10000 }
-    );
-    assert.equal(await withCompany.page.locator('#companyDashboardLink').isHidden(), false);
-    await withCompany.context.close();
+test('قائمة لوحة الشركة لا تحمل مدخلًا لبوابة العميل إطلاقًا', async () => {
+    // مدخل «لوحة الشركة» عنصر في قائمة **العميل** (يظهر لمن له شركة)، ولا
+    // معنى له داخل لوحة الشركة نفسها. الأهم: قائمة الشركة يجب ألا تحمل أي
+    // رابط لبوابة العميل — وهذا ما يمنع دورة التحويل من الوجود.
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures(companyPayload()));
 
-    const without = await openCompanyDashboard(browser, baseUrl, fixtures(null));
-    assert.equal(await without.page.locator('#companyDashboardLink').isHidden(), true,
-        'مدخل لوحة الشركة ظهر لمن لا شركة له');
-    await without.context.close();
+    assert.equal(await page.locator('#companyDashboardLink').count(), 0,
+        'قائمة الشركة تحمل مدخل لوحة الشركة — عنصر يخصّ قائمة العميل');
+
+    const hrefs = await page.evaluate(() =>
+        [...document.querySelectorAll('#sidebar a[href], .portal-nav a[href]')]
+            .map(a => a.getAttribute('href')));
+    assert.ok(hrefs.length >= 8, `عدد روابط القائمة أقل من المتوقع: ${hrefs.length}`);
+    for (const href of hrefs) {
+        assert.ok(!/customer-dashboard|customer-subscriptions|customer-security|knowledge-base|chat-customer|community\.html|roadmap\.html/.test(href),
+            `رابط في قائمة الشركة يؤدي إلى بوابة العميل: ${href}`);
+    }
+    await context.close();
 });
 
 /* ── الامتيازات تتبع الباقة ─────────────────────────────────────────────── */

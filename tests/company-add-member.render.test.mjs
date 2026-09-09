@@ -138,6 +138,23 @@ async function openPage(browser, baseUrl, fx, urlPath) {
     return { page, context, visited };
 }
 
+/**
+ * الصفحات التي غادرها المستخدم فعلًا.
+ * تغيّر الـhash داخل /company-dashboard/ تنقّل بين أقسام، لا مغادرة —
+ * والقاعدة المطلوبة هي ألا تغادر لوحة الشركة نفسها.
+ */
+function departures(visited, from = '/company-dashboard/') {
+    return visited
+        .map(u => new URL(u).pathname)
+        .filter(pathname => !pathname.startsWith(from));
+}
+
+/** يفتح قسمًا من قائمة لوحة الشركة كما يفعل المستخدم تمامًا. */
+async function openSection(page, tab) {
+    await page.locator(`.sidebar-item[data-tab="${tab}"]`).click();
+    await page.waitForSelector(`#${tab}TabContent.active`, { timeout: 10000 });
+}
+
 async function openCompanyDashboard(browser, baseUrl, fx) {
     const opened = await openPage(browser, baseUrl, fx, '/company-dashboard/index.html');
     await opened.page.waitForFunction(
@@ -250,12 +267,13 @@ test('المخوَّل يفتح نافذة الإضافة من داخل لوحة
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
 
     assert.equal(await page.locator('#addMemberModal.active').count(), 1, 'النافذة لم تُفتح');
-    // ولا تنقّل واحد: الوظيفة في مكانها
-    assert.equal(visited.length, 1, `حدث تنقّل غير متوقع: ${visited.join(' → ')}`);
+    // الوظيفة في مكانها: لا مغادرة للوحة الشركة إطلاقًا
+    assert.deepEqual(departures(visited), [], `غادر المستخدم لوحة الشركة: ${visited.join(' → ')}`);
     await context.close();
 });
 
@@ -264,6 +282,7 @@ test('الزر مخفي لمن لا تمنحه القاعدة can_manage', async
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     assert.equal(await page.locator('#addMemberBtn').isHidden(), true, 'زر الإضافة ظهر بلا صلاحية');
     await context.close();
@@ -276,6 +295,7 @@ test('غياب can_manage يمنع الإنشاء فعليًا — لا مجرد
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     await page.evaluate(() => {
         document.getElementById('addMemberModal').classList.add('active');
@@ -301,6 +321,7 @@ test('لو أُظهر الزر يدويًا بلا صلاحية، النافذة
     const fx = fixtures({ members: { canManage: false } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#companyMembersPanel:not([hidden])', { timeout: 10000 });
     await page.evaluate(() => { document.getElementById('addMemberBtn').hidden = false; });
     await page.locator('#addMemberBtn').click();
@@ -317,6 +338,7 @@ test('التحقق يمنع الإرسال ويشرح كل حقل', async (t) =>
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberEmail', 'not-an-email');
@@ -339,6 +361,7 @@ test('الإنشاء الناجح: الطلب بعقد create-sub-user، ثم ا
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم جديد');
@@ -377,7 +400,7 @@ test('الإنشاء الناجح: الطلب بعقد create-sub-user، ثم ا
         null, { timeout: 10000 }
     );
     assert.match(await page.locator('#companyMembers').textContent(), /مستخدم جديد/);
-    assert.equal(visited.length, 1, `حدث تنقّل بعد الإنشاء: ${visited.join(' → ')}`);
+    assert.deepEqual(departures(visited), [], `غادر المستخدم لوحة الشركة بعد الإنشاء: ${visited.join(' → ')}`);
     await context.close();
 });
 
@@ -388,6 +411,7 @@ test('فشل الإنشاء يعرض رسالة الخادم كما هي، وب�
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم مكرر');
@@ -415,6 +439,7 @@ test('رفض 403 من الدالة يظهر كخطأ مفهوم لا كصفحة 
     });
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
 
+    await openSection(page, 'members');
     await page.waitForSelector('#addMemberBtn:not([hidden])', { timeout: 10000 });
     await page.locator('#addMemberBtn').click();
     await page.fill('#fMemberName', 'مستخدم جديد');
@@ -426,5 +451,107 @@ test('رفض 403 من الدالة يظهر كخطأ مفهوم لا كصفحة 
     await page.waitForSelector('#addMemberError:not([hidden])', { timeout: 10000 });
     assert.match(await page.locator('#addMemberError').textContent(), /Insufficient permissions/);
     assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+/* ── التنقّل الكامل داخل لوحة الشركة ─────────────────────────────────────── */
+
+test('حساب الشركة يتنقّل بين كل الأقسام دون مغادرة لوحة الشركة ولا حلقة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    // كل عنصر في القائمة، بالترتيب، كما يضغطه المستخدم
+    const tabs = await page.evaluate(() =>
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+
+    assert.ok(tabs.length >= 8, `عدد أقسام القائمة أقل من المتوقع: ${tabs.length}`);
+
+    for (const tab of tabs) {
+        await openSection(page, tab);
+        // القسم ظهر فعلاً، ولم يُترك فارغًا
+        const text = await page.locator(`#${tab}TabContent`).innerText();
+        assert.ok(text.trim().length > 0, `القسم ${tab} فتح فارغًا`);
+    }
+
+    // الزيارة الثانية لكل قسم تنتهي لنفس الحالة — كشف الحلقة
+    for (const tab of tabs) {
+        await openSection(page, tab);
+        assert.equal(await page.locator(`#${tab}TabContent.active`).count(), 1);
+    }
+
+    assert.deepEqual(departures(visited), [],
+        `غادر المستخدم لوحة الشركة أثناء التنقّل: ${visited.join(' → ')}`);
+    assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+test('كل قسم يعرض وظيفته الفعلية لا عنوانًا فارغًا', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    // العلامة الدالة على أن الوظيفة نُقلت فعلاً، لا مجرد حاوية باسمها
+    const marks = {
+        members:       '#addMemberBtn',
+        subscriptions: '#companySubscriptions',
+        tickets:       '#companyTicketList',
+        support:       '#companyTicketForm',        // فتح تذكرة داخل اللوحة
+        notifications: '#companyNotificationList',
+        profile:       '#companyAccountForm',       // تعديل الملف الشخصي
+        security:      '#companyPasswordForm'       // تغيير كلمة المرور
+    };
+
+    for (const [tab, selector] of Object.entries(marks)) {
+        await openSection(page, tab);
+        await page.waitForSelector(selector, { state: 'attached', timeout: 10000 });
+        assert.equal(await page.locator(selector).count(), 1, `القسم ${tab} بلا ${selector}`);
+    }
+    await context.close();
+});
+
+test('مركز الدعم يحمل حالة الخدمات ومقالات المساعدة داخل اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        rpc: {
+            search_help_articles: [],
+            get_my_company_dashboard: companyPayload(),
+            current_company_id: COMPANY_ID,
+            company_members: membersPayload()
+        },
+        tables: {
+            services: [{ id: 'sv1', key: 'api', name: 'API', name_ar: 'واجهة البرمجة', status: 'operational' }],
+            knowledge_base: [{ id: 'a1', title: 'كيف أضيف مستخدمًا؟', excerpt: 'من قسم مستخدمي الشركة', category: 'general', view_count: 3 }]
+        }
+    });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await openSection(page, 'support');
+    await page.waitForFunction(
+        () => !document.querySelector('#companyServiceStatus .skeleton')
+            && !document.querySelector('#companyHelpArticles .skeleton'),
+        null, { timeout: 10000 });
+
+    // المساعدة لم تعد صفحة أخرى — صارت هنا
+    assert.match(await page.locator('#companyHelpArticles').innerText(), /كيف أضيف مستخدمًا/);
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('تسجيل الخروج ينهي الجلسة فعلًا قبل الانتقال لصفحة الدخول', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    // المسار كان '../auth-client.js' فيفشل الاستيراد دائمًا، فيُنفَّذ فرع
+    // الـcatch: انتقال لصفحة الدخول بدون signOut — والجلسة الحيّة تعيد
+    // المستخدم للوحته فورًا. حلقة تحويل من باب تسجيل الخروج.
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    const logoutCalls = await page.evaluate(async () => {
+        const mod = await import('/auth-client.js');
+        return typeof mod.logout === 'function';
+    });
+    assert.equal(logoutCalls, true, 'auth-client غير قابل للاستيراد من مسار الصفحة');
+
+    const shellSrc = await page.evaluate(() =>
+        fetch('/assets/js/customer-sidebar.js').then(r => r.text()));
+    assert.doesNotMatch(shellSrc, /import\('\.\.\/auth-client\.js'\)/,
+        'القشرة ما زالت تستورد auth-client بمسار نسبي مكسور');
     await context.close();
 });

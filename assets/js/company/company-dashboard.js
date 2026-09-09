@@ -13,7 +13,11 @@
  */
 
 import { guardPage } from '/assets/js/page-guard.js';
-import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
+import { initCompanyShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
+import { initCompanyTickets, loadCompanyTickets, openCompanyTicket } from '/assets/js/company/company-tickets.js';
+import { initCompanySupport, loadCompanySupport } from '/assets/js/company/company-support.js';
+import { initCompanyNotifications, loadCompanyNotifications } from '/assets/js/company/company-notifications.js';
+import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/company-account.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
@@ -36,6 +40,7 @@ import {
 } from '/assets/js/company/company-model.js';
 
 let dashboard = null;
+let currentUserId = null;
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
@@ -48,10 +53,100 @@ async function init() {
     const user = await guardPage();
     if (!user) return;
 
-    initCustomerSidebar();
+    currentUserId = user.id;
+
+    // قشرة الشركة: قائمتها الخاصة، وكل عناصرها أقسام في هذه الصفحة.
+    // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
+    initCompanyShell({ onTabChange: showSection });
+
+    initCompanyTickets(currentUserId, { onNewTicket: () => showSection('support') });
+    initCompanySupport({ onCreated: onTicketCreated });
+    initCompanyNotifications({
+        onNavigate: showSection,
+        onOpenTicket: (ticketId) => { showSection('tickets'); openCompanyTicket(ticketId); }
+    });
+
     wireForm();
     wireAddMember();
+    wireSectionRouting();
+
     await load();
+
+    // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
+    // نفسها)، فبنفتح التذاكر عليه بدل ما يضيع.
+    const query = new URLSearchParams(window.location.search).get('q');
+    if (query) {
+        loadedOnce.add('tickets');
+        showSection('tickets');
+        await loadCompanyTickets({ search: query });
+    } else {
+        showSection(sectionFromHash(), { updateHash: false });
+    }
+}
+
+/* ── التنقّل بين أقسام لوحة الشركة ───────────────────────────────────────── */
+
+/**
+ * التنقّل كله داخل هذه الصفحة. مفيش قسم بيوديك لصفحة تانية، ومفيش رابط
+ * لبوابة العميل — وده قرار المنتج اللي بيمنع دورة
+ * «لوحة الشركة → بوابة العميل → صفحة الدخول → لوحة الشركة» من الوجود أصلًا.
+ */
+const SECTIONS = ['overview', 'members', 'subscriptions', 'tickets', 'support', 'notifications', 'profile', 'security'];
+
+/** الأقسام اللي بتتحمّل عند أول فتح لها فقط. */
+const LOADERS = {
+    tickets: () => loadCompanyTickets(),
+    support: () => loadCompanySupport(),
+    notifications: () => loadCompanyNotifications(),
+    profile: () => loadCompanyProfile(),
+    security: () => loadCompanySecurity()
+};
+
+const loadedOnce = new Set();
+
+function sectionFromHash() {
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    return SECTIONS.includes(hash) ? hash : 'overview';
+}
+
+export function showSection(name, { updateHash = true } = {}) {
+    const section = SECTIONS.includes(name) ? name : 'overview';
+
+    SECTIONS.forEach(key => {
+        const el = document.getElementById(`${key}TabContent`);
+        if (el) el.classList.toggle('active', key === section);
+    });
+
+    setActiveSidebarTab(section);
+    if (updateHash && window.location.hash.slice(1) !== section) {
+        history.replaceState(null, '', `#${section}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'auto' });
+
+    if (!loadedOnce.has(section) && LOADERS[section]) {
+        loadedOnce.add(section);
+        LOADERS[section]();
+    }
+}
+
+function wireSectionRouting() {
+    // زر الرجوع في المتصفح والروابط الداخلية (#members مثلًا) يبدّلان القسم
+    window.addEventListener('hashchange', () => showSection(sectionFromHash(), { updateHash: false }));
+
+    // أي رابط داخل المحتوى يحمل data-tab يبدّل قسمًا بدل ما ينقل الصفحة
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest('[data-tab]');
+        if (!link || !link.closest('#companyMain')) return;
+        event.preventDefault();
+        showSection(link.getAttribute('data-tab'));
+    });
+}
+
+/** بعد فتح تذكرة من مركز الدعم: نعرضها في قسم التذاكر بلا مغادرة اللوحة. */
+async function onTicketCreated() {
+    loadedOnce.add('tickets');
+    showSection('tickets');
+    await loadCompanyTickets();
 }
 
 async function load() {
@@ -81,7 +176,7 @@ async function load() {
             variant: 'empty',
             title: 'لا توجد شركة مرتبطة بحسابك',
             text: 'لوحة الشركة تُفعَّل عند الاشتراك في باقة تتطلب كيان شركة. اختر باقة من صفحة الاشتراكات وأدخل بيانات شركتك أثناء الطلب.',
-            action: { label: 'استعراض الباقات', goto: '/customer-subscriptions.html', variant: 'btn-primary' }
+            action: { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
         return;
     }
@@ -377,7 +472,7 @@ function renderSubscriptions() {
             variant: 'empty',
             title: 'لا توجد اشتراكات بعد',
             text: 'اشترك في إحدى الباقات لتفعيل خدمات الشركة.',
-            action: { label: 'استعراض الباقات', goto: '/customer-subscriptions.html' }
+            action: { label: 'استعراض الباقات', goto: '/subscriptions.html' }
         });
         return;
     }
@@ -415,7 +510,7 @@ function renderEntitlements() {
             variant: 'empty',
             title: 'لا توجد خدمات مفعّلة حاليًا',
             text: 'الخدمات تظهر هنا تلقائيًا عند تفعيل اشتراك الشركة، وتُسحب عند انتهائه.',
-            action: { label: 'تجديد أو اشتراك', goto: '/customer-subscriptions.html', variant: 'btn-primary' }
+            action: { label: 'تجديد أو اشتراك', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
         return;
     }
