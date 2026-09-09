@@ -627,6 +627,31 @@ export async function addTicketReply(ticketId, message, isInternal = false, { au
 }
 
 /**
+ * إعادة فتح تذكرة — إجراء صريح، لا أثر جانبي لردّ.
+ *
+ * يمرّ عبر دالة القاعدة reopen_ticket_in_my_scope (SECURITY DEFINER،
+ * الترحيل 034) لا عبر UPDATE من العميل. السبب أمني: الحارس على tickets
+ * يقيّد الأعمدة فقط حين المنادي هو صاحب التذكرة، فمنح UPDATE لمالك الشركة
+ * كان سيسمح له بتغيير user_id وتحويل مسار التذكرة. الدالة تكتب الحالة وحدها.
+ *
+ * @returns {Promise<{status: string}>}
+ */
+export async function reopenTicket(ticketId) {
+    const { data, error } = await supabase.rpc('reopen_ticket_in_my_scope', { p_ticket_id: ticketId });
+    if (error) throw new Error(error.message || 'تعذّر إعادة فتح التذكرة');
+    await logActivity('ticket_reopen', { ticket_id: ticketId });
+    return data || { status: 'open' };
+}
+
+/** إغلاق تذكرة — نفس المبدأ: الحالة وحدها، عبر دالة القاعدة. */
+export async function closeTicket(ticketId) {
+    const { data, error } = await supabase.rpc('close_ticket_in_my_scope', { p_ticket_id: ticketId });
+    if (error) throw new Error(error.message || 'تعذّر إغلاق التذكرة');
+    await logActivity('ticket_close', { ticket_id: ticketId });
+    return data || { status: 'resolved' };
+}
+
+/**
  * جلب ردود التذكرة
  */
 export async function fetchTicketReplies(ticketId) {

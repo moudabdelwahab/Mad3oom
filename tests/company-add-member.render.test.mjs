@@ -114,6 +114,16 @@ function fixtures(overrides = {}) {
                 { id: 'tk-customer', user_id: CUSTOMER_ID, ticket_number: 202, title: 'طلب من عميلي', description: 'العميل ← الشركة', status: 'open', created_at: '2026-09-02T00:00:00Z', archived_by_customer: false }
             ],
             ticket_replies: [],
+            api_tokens: [
+                { id: 'key-1', user_id: USER_ID, name: 'مفتاح التكامل', api_key: 'pk_live_company', secret_last_four: '4821', is_active: true, created_at: '2026-08-01T00:00:00Z', last_used_at: '2026-09-08T00:00:00Z', usage_count: 42, revoked_at: null, expires_at: null, scopes: ['tickets:read'] },
+                { id: 'key-2', user_id: CUSTOMER_ID, name: 'مفتاح العميل', api_key: 'pk_live_member', secret_last_four: '9930', is_active: false, created_at: '2026-08-05T00:00:00Z', last_used_at: null, usage_count: 0, revoked_at: null, expires_at: null, scopes: [] }
+            ],
+            api_token_usage_logs: [
+                { id: 'u1', created_at: '2026-09-08T10:00:00Z', endpoint: '/v1/tickets', method: 'get', status_code: 200, token_id: 'key-1', user_id: USER_ID }
+            ],
+            activity_log: [
+                { id: 'act1', action: 'login', created_at: '2026-09-08T09:00:00Z', user_id: USER_ID, metadata: {} }
+            ],
             notifications: [], services: [], whatsapp_subscriptions: [], subscription_plans: [],
             ...(overrides.tables || {})
         }
@@ -673,5 +683,235 @@ test('الشركة تفتح تذكرة عميل وتردّ عليه دون مغ�
         'حاولت الواجهة تعديل تذكرة العميل — الصلاحية غير ممنوحة عمدًا');
 
     assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+/* ── إعادة الفتح والإغلاق كإجراءين صريحين ──────────────────────────────── */
+
+test('الردّ على تذكرة مغلقة لا يعيد فتحها، وزرّ «إعادة الفتح» وحده يفعل', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        tables: {
+            tickets: [
+                { id: 'tk-resolved', user_id: '11111111-1111-1111-1111-111111111111', ticket_number: 303, title: 'تذكرة محلولة', description: 'وصف', status: 'resolved', created_at: '2026-09-01T00:00:00Z', archived_by_customer: false }
+            ]
+        }
+    });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await openSection(page, 'tickets');
+    await page.waitForSelector('#platformTicketList', { timeout: 10000 });
+    await page.locator('[data-stream-ticket="tk-resolved"]').click();
+    await page.waitForSelector('#platformTicketReplyForm', { timeout: 10000 });
+
+    // الأثر موضَّح للمستخدم قبل أن يكتب
+    assert.match(await page.locator('#platformTicketDetailBody').innerText(),
+        /الردّ يُسجَّل ولا يعيد فتحها/);
+
+    await page.fill('#platformTicketReplyText', 'معلومة إضافية على التذكرة المغلقة');
+    await page.locator('#platformTicketReplyBtn').click();
+    await page.waitForFunction(
+        () => (window.__WRITES__ || []).some(w => w.table === 'ticket_replies'),
+        null, { timeout: 10000 });
+
+    const rpcAfterReply = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(rpcAfterReply.includes('reopen_ticket_in_my_scope'), false,
+        'الردّ استدعى إعادة الفتح');
+
+    // زرّ إعادة الفتح موجود ومنفصل
+    assert.equal(await page.locator('#platformTicketReopenBtn').count(), 1, 'زرّ إعادة الفتح غائب');
+    assert.equal(await page.locator('#platformTicketReopenBtn').innerText(), 'إعادة الفتح');
+
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('زرّ «إعادة الفتح» يطلب تأكيدًا ثم يستدعي دالة القاعدة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        tables: {
+            tickets: [
+                { id: 'tk-resolved', user_id: '11111111-1111-1111-1111-111111111111', ticket_number: 303, title: 'تذكرة محلولة', description: 'وصف', status: 'resolved', created_at: '2026-09-01T00:00:00Z', archived_by_customer: false }
+            ]
+        }
+    });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await openSection(page, 'tickets');
+    await page.locator('[data-stream-ticket="tk-resolved"]').click();
+    await page.waitForSelector('#platformTicketReopenBtn', { timeout: 10000 });
+    await page.locator('#platformTicketReopenBtn').click();
+
+    await page.waitForSelector('.ui-dialog', { timeout: 10000 });
+    assert.match(await page.locator('.ui-dialog').innerText(), /إعادة فتح التذكرة/);
+    await page.locator('.ui-dialog button:has-text("إعادة الفتح")').click();
+
+    await page.waitForFunction(
+        () => (window.__RPC_CALLS__ || []).includes('reopen_ticket_in_my_scope'),
+        null, { timeout: 10000 });
+    await context.close();
+});
+
+test('تذكرة عميل مفتوحة تعرض «إغلاق التذكرة» ولا تعرض «إعادة الفتح»', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('#customersTicketList', { timeout: 10000 });
+    await page.locator('[data-stream-ticket="tk-customer"]').click();
+    await page.waitForSelector('#customersTicketReplyForm', { timeout: 10000 });
+
+    assert.equal(await page.locator('#customersTicketCloseBtn').count(), 1, 'زرّ الإغلاق غائب');
+    assert.equal(await page.locator('#customersTicketReopenBtn').count(), 0,
+        'تذكرة مفتوحة عُرض لها زرّ إعادة فتح');
+    await context.close();
+});
+
+/* ── الأقسام المستوحاة من لوحة الإدارة ─────────────────────────────────── */
+
+test('قسم API يعرض مفاتيح الشركة وأعضائها بلا أي سرّ', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'api');
+    await page.waitForSelector('#companyKeysList', { timeout: 10000 });
+    const text = await page.locator('#apiTabContent').innerText();
+
+    assert.match(text, /مفتاح التكامل/, 'مفتاح الشركة غير معروض');
+    assert.match(text, /مفتاح العميل/, 'مفتاح العضو غير معروض');
+    assert.match(text, /••••4821/, 'آخر أربع خانات غير معروضة');
+    assert.match(text, /حساب الشركة/, 'مالك المفتاح غير مبيَّن');
+
+    // ولا أثر لأي سرّ في الصفحة كلها
+    const html = await page.content();
+    for (const secret of ['secret_hash', 'bearer_token_hash', 'credentials_encrypted']) {
+        assert.ok(!html.includes(secret), `تسرّب اسم عمود سرّي إلى الصفحة: ${secret}`);
+    }
+    await context.close();
+});
+
+test('قسم API لا يعرض مسار إنشاء مفتاح — الطلب يمرّ بالدعم', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'api');
+    await page.waitForSelector('#companyRequestKey', { timeout: 10000 });
+    await page.locator('#companyRequestKey').click();
+
+    // «طلب مفتاح» ينقل إلى مركز الدعم داخل اللوحة، لا إلى مسار إنشاء موازٍ
+    await page.waitForSelector('#supportTabContent.active', { timeout: 10000 });
+    const writes = await page.evaluate(() => window.__WRITES__ || []);
+    assert.equal(writes.some(w => w.table === 'api_tokens' && w.op === 'insert'), false,
+        'الواجهة حاولت إنشاء مفتاح');
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('قسم التقارير يبني أرقامه من المسارين معًا', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'reports');
+    await page.waitForSelector('#companyReports .kpi', { timeout: 10000 });
+    const text = await page.locator('#reportsTabContent').innerText();
+
+    assert.match(text, /تذاكر مفتوحة مع مدعوم/);
+    assert.match(text, /تذاكر عملاء مفتوحة/);
+    assert.match(text, /مستخدمو الشركة/);
+    // شفافية النطاق معلنة
+    assert.match(text, /لا بيانات شركة أخرى/);
+    await context.close();
+});
+
+test('قسم النشاط يعرض سجل هذا الحساب', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await openSection(page, 'activity');
+    await page.waitForSelector('#companyActivityList', { timeout: 10000 });
+    assert.match(await page.locator('#activityTabContent').innerText(), /نشاط الحساب/);
+    await context.close();
+});
+
+/* ── جرس الإشعارات ─────────────────────────────────────────────────────── */
+
+test('الجرس يفتح نافذة منبثقة ولا يبدّل القسم', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        tables: {
+            notifications: [
+                { id: 'n1', user_id: '11111111-1111-1111-1111-111111111111', title: 'ردّ جديد على تذكرتك', message: 'من فريق الدعم', is_read: false, created_at: '2026-09-08T00:00:00Z', category: 'tickets', action: 'none' },
+                { id: 'n2', user_id: '11111111-1111-1111-1111-111111111111', title: 'تم تجديد اشتراكك', message: 'الباقة الشاملة', is_read: true, created_at: '2026-09-07T00:00:00Z', category: 'subscription', action: 'none' }
+            ]
+        }
+    });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    // القسم النشط قبل الضغط
+    assert.equal(await page.locator('#overviewTabContent.active').count(), 1);
+
+    await page.locator('#notificationBtn').click();
+    // ظهور العنصر ليس اكتمال التحميل: ننتظر امتلاء الجسم (عناصر أو حالة فراغ)
+    await page.waitForSelector('.portal-notif-item, .portal-notif-empty', { timeout: 10000 });
+
+    const popover = await page.locator('#portalNotificationPopover').innerText();
+    assert.match(popover, /ردّ جديد على تذكرتك/);
+    assert.match(popover, /تم تجديد اشتراكك/);
+    assert.match(popover, /عرض الكل/);
+
+    // حالة مقروء/غير مقروء ظاهرة
+    assert.equal(await page.locator('.portal-notif-item.is-unread').count(), 1);
+
+    // ولم يتغيّر القسم ولم تُغادَر الصفحة
+    assert.equal(await page.locator('#overviewTabContent.active').count(), 1,
+        'الجرس بدّل القسم');
+    assert.equal(await page.locator('#notificationsTabContent.active').count(), 0);
+    assert.deepEqual(departures(visited), [], `غادر المستخدم اللوحة: ${visited.join(' → ')}`);
+    await context.close();
+});
+
+test('«عرض الكل» وحده هو الذي ينقل إلى قسم الإشعارات', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await page.locator('#notificationBtn').click();
+    await page.waitForSelector('#portalNotifSeeAll', { timeout: 10000 });
+    await page.locator('#portalNotifSeeAll').click();
+
+    await page.waitForSelector('#notificationsTabContent.active', { timeout: 10000 });
+    assert.equal(await page.locator('#portalNotificationPopover').count(), 0,
+        'النافذة لم تُغلق بعد الانتقال');
+    await context.close();
+});
+
+test('النافذة تُغلق بالضغط خارجها وبمفتاح Escape', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+
+    await page.locator('#notificationBtn').click();
+    await page.waitForSelector('#portalNotificationPopover', { timeout: 10000 });
+    await page.locator('#companyMain').click({ position: { x: 5, y: 5 } });
+    await page.waitForFunction(() => !document.getElementById('portalNotificationPopover'),
+        null, { timeout: 10000 });
+
+    await page.locator('#notificationBtn').click();
+    await page.waitForSelector('#portalNotificationPopover', { timeout: 10000 });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('portalNotificationPopover'),
+        null, { timeout: 10000 });
+
+    // التركيز يعود للجرس — شرط وصولية أساسي
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'notificationBtn');
+    await context.close();
+});
+
+test('حالة عدم وجود إشعارات معالَجة في النافذة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ tables: { notifications: [] } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await page.locator('#notificationBtn').click();
+    await page.waitForSelector('.portal-notif-empty', { timeout: 10000 });
+    assert.match(await page.locator('#portalNotificationPopover').innerText(), /لا توجد إشعارات/);
     await context.close();
 });

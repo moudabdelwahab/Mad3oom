@@ -207,6 +207,27 @@
                 <div id="companyNotifications"></div>
             </section>
 
+            <!-- ═══ API ════════════════════════════════════════════════════
+                 مبني على api_tokens الموجودة: نطاق الشركة مُنفَّذ في القاعدة
+                 بـ is_owner_or_super_of، ولا سياسة INSERT — فالإنشاء طلبٌ
+                 عبر تذكرة لا مسار موازٍ. السرّ لا يُقرأ ولا يُعرض إطلاقًا. -->
+            <section class="tab-content" id="apiTabContent">
+                <div id="companyApi"></div>
+            </section>
+
+            <!-- ═══ التقارير ═══════════════════════════════════════════════
+                 مستوحى من «الإحصائيات» في لوحة الإدارة، بمقاييس تخصّ الشركة.
+                 كل رقم محسوب من صفوف رآها المستخدم فعلًا عبر RLS. -->
+            <section class="tab-content" id="reportsTabContent">
+                <div id="companyReports"></div>
+            </section>
+
+            <!-- ═══ النشاط ═════════════════════════════════════════════════
+                 مستوحى من «سجل النشاط»، لكن لهذا الحساب وحده. -->
+            <section class="tab-content" id="activityTabContent">
+                <div id="companyActivity"></div>
+            </section>
+
             <!-- ═══ الملف الشخصي ═══════════════════════════════════════════ -->
             <section class="tab-content" id="profileTabContent">
                 <div id="companyAccountProfile"></div>

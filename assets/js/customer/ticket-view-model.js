@@ -103,26 +103,36 @@ export function countByView(tickets, userId) {
 }
 
 /**
- * هل يُسمح للعميل بإعادة فتح التذكرة؟
- * قاعدة البيانات بتمنع العميل من تعديل status (trg_enforce_customer_ticket_update)،
- * فإعادة الفتح بتتم بإضافة ردّ جديد — وده اللي بيرجّع التذكرة لانتباه الفريق.
- * الدالة دي بتحدّد إمتى نعرض الإجراء ده أصلاً.
+ * هل يُسمح بإعادة فتح التذكرة؟
+ *
+ * إعادة الفتح صارت **إجراءً صريحًا** بزرّ مستقل، تنفّذه دالة القاعدة
+ * reopen_ticket_in_my_scope (الترحيل 034). قبل ذلك كان مجرد الردّ على تذكرة
+ * محلولة يعيد فتحها تلقائيًا عبر محفّز — وهو ما أُلغي: من يضيف معلومة على
+ * تذكرة مغلقة لا يريد بالضرورة إعادتها إلى طابور الدعم.
+ *
+ * الحدّ هنا مطابق لحدّ الدالة حرفيًا: 'confirmed' و'rejected' نتيجتا قرار
+ * (شراء تم تأكيده / طلب رُفض)، وإعادتهما بضغطة نقضٌ لقرار لا إعادة فتح.
  */
 export function canReopen(ticket) {
-    // 'confirmed' و'rejected' نتائج قرارات (شراء تم تأكيده / طلب مرفوض) فلا
-    // تُعاد بردّ. الـtrigger في migrations/012 بيطبّق نفس الحد بالظبط، فالواجهة
-    // ما بتعرضش إجراء القاعدة هترفضه.
     return ticket?.status === 'resolved';
+}
+
+/**
+ * هل يُسمح بإغلاق التذكرة؟ نفس حدّ close_ticket_in_my_scope في القاعدة.
+ * الواجهة لا تعرض إجراءً ترفضه القاعدة، ولا تخفي إجراءً تقبله.
+ */
+export function canClose(ticket) {
+    return ticket?.status === 'open' || ticket?.status === 'in-progress';
 }
 
 /** الإجراءات المتاحة على التذكرة حسب حالتها — الواجهة بتعرض دي فقط. */
 export function availableActions(ticket, { userId, ratingAllowed = true } = {}) {
-    const reopenable = canReopen(ticket);
     return {
-        // على التذكرة المحلولة، الردّ **هو** إجراء إعادة الفتح — فالمُنشئ
-        // بيفضل متاح ونصّ الزر بيتغيّر. على المرفوضة/المكتملة بيتقفل.
-        canReply: !isClosed(ticket) || reopenable,
-        canReopen: reopenable,
+        // الردّ متاح على أي حالة: سياسة الإدراج في القاعدة لا تنظر للحالة،
+        // والقرار المنتَجي صريح — الردّ على تذكرة مغلقة مسموح **ولا يفتحها**.
+        canReply: true,
+        canReopen: canReopen(ticket),
+        canClose: canClose(ticket),
         canRate: ratingAllowed && ticket?.status === 'resolved',
         needsReply: needsCustomerReply(ticket, userId),
         canArchive: true

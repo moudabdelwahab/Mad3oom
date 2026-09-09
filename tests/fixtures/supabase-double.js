@@ -183,6 +183,11 @@ const RPC_IMPLEMENTATIONS = {
 export const supabase = {
     from: (table) => builder(table),
     rpc: async (name, args) => {
+        // سجل النداءات: الاختبارات بتتأكد إن الإجراء نُفِّذ — والأهم إنه
+        // **لم** يُنفَّذ حين لا يجب (الردّ لا يستدعي إعادة الفتح مثلاً).
+        window.__RPC_CALLS__ = window.__RPC_CALLS__ || [];
+        window.__RPC_CALLS__.push(name);
+
         // الـfixture لها الأولوية: أي اختبار عايز يجبر نتيجة بعينها يقدر
         const handler = FX().rpc?.[name];
         if (typeof handler === 'function') return { data: handler(args), error: null };

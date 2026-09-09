@@ -20,6 +20,9 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 /** كل ما يُشكّل لوحة الشركة: الصفحة، قائمتها، ووحداتها. */
 const COMPANY_SURFACE = [
     'company-dashboard/index.html',
+    'assets/js/company/company-api.js',
+    'assets/js/company/company-reports.js',
+    'assets/js/company/company-activity.js',
     'assets/components/company-sidebar.html',
     'assets/js/company/company-dashboard.js',
     'assets/js/company/company-tickets.js',
@@ -117,6 +120,11 @@ const FUNCTION_INVENTORY = [
     { name: 'الأمان',           section: 'security' },
     { name: 'سجل الدخول',       section: 'security' },
 
+    // مستوحاة من لوحة الإدارة بعد جرد أقسامها، بمقاييس تخصّ الشركة
+    { name: 'API ومفاتيحه',     section: 'api' },
+    { name: 'التقارير',         section: 'reports' },
+    { name: 'النشاط',           section: 'activity' },
+
     { name: 'الاستهلاك والحدود', dropped: 'استهلاك فردي — استحقاقات الشركة تظهر في قسم الاشتراكات' },
     { name: 'المكافآت والنقاط',  dropped: 'برنامج ولاء فردي لا معنى له لكيان شركة' },
     { name: 'الشارات',           dropped: 'إنجازات فردية' },
@@ -162,7 +170,8 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['tickets', 'customerTickets', 'support', 'notifications', 'profile', 'security']) {
+    for (const section of ['tickets', 'customerTickets', 'support', 'notifications',
+                           'api', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
     }
@@ -173,6 +182,9 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 test('أقسام الشركة تُبنى فوق الوحدات المشتركة، لا نسخة ثانية من المنطق', () => {
     const shared = {
         'assets/js/company/company-tickets.js': ['/tickets-service.js', 'ticket-view-model.js', 'fetchMemberTickets'],
+        'assets/js/company/company-api.js': ['customer-data.js', 'fetchApiTokens', 'fetchApiUsage'],
+        'assets/js/company/company-reports.js': ['ticket-view-model.js', 'company-model.js'],
+        'assets/js/company/company-activity.js': ['customer-data.js', 'activity-model.js'],
         'assets/js/company/company-support.js': ['/tickets-service.js', 'customer-data.js', 'service-status-model.js', 'help-data.js'],
         'assets/js/company/company-notifications.js': ['/notifications-service.js', 'notification-router.js'],
         'assets/js/company/company-account.js': ['/auth-client.js', 'customer-data.js', 'activity-model.js']
@@ -211,6 +223,20 @@ test('لا وحدة من وحدات لوحة الشركة تكتب في جداو
     const WRITE_OPS = /\.\s*(insert|update|upsert|delete)\s*\(/;
     const TENANT_TABLES = ['profiles', 'companies', 'tickets', 'notifications', 'whatsapp_subscriptions'];
 
+    /**
+     * استثناءات مُبرَّرة: كتابة مباشرة تكون سياسة RLS فيها **هي** التفويض
+     * الدقيق، فلا حاجة لدالة وسيطة.
+     *
+     *   api_tokens.update ← السياسة على الإنتاج:
+     *     USING/WITH CHECK (auth.uid() = user_id OR is_admin() OR is_owner_or_super_of(user_id))
+     *   وهي بالضبط القاعدة المطلوبة: صاحب المفتاح أو مالك شركته.
+     *
+     * في المقابل tickets لا تُستثنى: حارسها (enforce_customer_ticket_update)
+     * لا يقيّد مالك الشركة، فمنحه UPDATE كان سيفتح تغيير user_id — ولذلك
+     * إجراءا الحالة هناك يمرّان بدالتَي القاعدة.
+     */
+    const RLS_AUTHORIZED_WRITES = new Set(['api_tokens.update']);
+
     for (const rel of COMPANY_SURFACE.filter(f => f.endsWith('.js'))) {
         const src = read(rel);
 
@@ -218,8 +244,12 @@ test('لا وحدة من وحدات لوحة الشركة تكتب في جداو
             const [, table, tail] = m;
             assert.ok(!TENANT_TABLES.includes(table),
                 `${rel} يصل إلى جدول مستأجر مباشرةً (${table}) — استخدم RPC`);
-            assert.ok(!WRITE_OPS.test(tail),
-                `${rel} يكتب في ${table} مباشرةً — الكتابة عبر RPC أو Edge Function`);
+
+            const write = tail.match(WRITE_OPS);
+            if (write) {
+                assert.ok(RLS_AUTHORIZED_WRITES.has(`${table}.${write[1]}`),
+                    `${rel} يكتب في ${table} مباشرةً بلا مبرّر — الكتابة عبر RPC أو Edge Function`);
+            }
         }
     }
 });
@@ -230,6 +260,80 @@ test('لم تُضَف أي ترحيلات مع هذا التغيير', () => {
     // تغيير واجهة لا يجوز أن يزيد هذا الرقم.
     // 033 أُضيف عمدًا: فصل مساري التذاكر كشف تسرّبًا في سياسة الردود لا
     // يمكن إصلاحه من الواجهة. أي ترحيل بعده يحتاج قرارًا صريحًا.
-    assert.equal(migrations[migrations.length - 1], '033_company_customer_ticket_separation.sql',
+    assert.equal(migrations[migrations.length - 1], '034_explicit_ticket_reopen_and_close.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
+});
+
+/* ── قسم API: لا أسرار، ولا ثقة في الواجهة ─────────────────────────────── */
+
+test('قسم API لا يقرأ ولا يعرض أي سرّ', () => {
+    const src = read('assets/js/company/company-api.js');
+
+    // secret_hash و bearer_token_hash و credentials_encrypted أعمدة سرّية:
+    // لا تُطلب في أي select، فلا يمكن أن تصل للمتصفح أصلًا. نفحص محتوى
+    // نداءات select وحدها — ذِكر اسم العمود في تعليق يشرح أنه محجوب مقصود.
+    const selected = [...src.matchAll(/\.select\(\s*'([^']*)'/g)].map(m => m[1]).join(' ');
+    for (const secret of ['secret_hash', 'bearer_token_hash', 'credentials_encrypted']) {
+        assert.ok(!selected.includes(secret),
+            `قسم API يقرأ عمودًا سرّيًا في select: ${secret}`);
+    }
+
+    // المعروض هو آخر أربع خانات فقط
+    assert.match(src, /secret_last_four/);
+});
+
+test('قسم API لا يخترع مسار إنشاء مفاتيح — لا سياسة INSERT في القاعدة', () => {
+    const src = read('assets/js/company/company-api.js');
+    assert.doesNotMatch(src, /from\(\s*'api_tokens'\s*\)[\s\S]{0,120}\.insert\(/,
+        'الواجهة تحاول إنشاء مفتاح، والقاعدة لا تسمح بذلك');
+    // البديل الصحيح: الطلب عبر الدعم
+    assert.match(src, /onRequestNewKey|onRequestKey/);
+});
+
+test('تغيير حالة التذكرة يمرّ بدوال القاعدة لا بـUPDATE من العميل', () => {
+    const service = read('tickets-service.js');
+    assert.match(service, /rpc\('reopen_ticket_in_my_scope'/);
+    assert.match(service, /rpc\('close_ticket_in_my_scope'/);
+
+    // لا وحدة من وحدات الشركة تحدّث جدول التذاكر مباشرةً
+    for (const rel of ['assets/js/company/company-tickets.js']) {
+        const src = read(rel);
+        assert.doesNotMatch(src, /from\(\s*'tickets'\s*\)/,
+            `${rel} يصل إلى جدول التذاكر مباشرةً`);
+    }
+});
+
+test('الردّ لا يستدعي إعادة الفتح — الفعلان منفصلان في الكود', () => {
+    const src = read('assets/js/company/company-tickets.js');
+    // القصّ ينتهي عند الدالة التالية مباشرةً: onStatusAction هي التي تستدعي
+    // reopenTicket شرعًا، وإدخالها في القصّ كان يقلب النتيجة.
+    const onReply = src.slice(
+        src.indexOf('async function onReply'),
+        src.indexOf('async function onStatusAction')
+    );
+    assert.ok(!onReply.includes('reopenTicket'), 'دالة الردّ تستدعي إعادة الفتح');
+    assert.match(src, /data-stream-action="new"|ReopenBtn/);
+});
+
+/* ── جرس الإشعارات ─────────────────────────────────────────────────────── */
+
+test('الجرس يفتح نافذة منبثقة ولا يبدّل القسم في لوحة الشركة', () => {
+    const shell = read('assets/js/customer-sidebar.js');
+    const router = read('assets/js/company/company-dashboard.js');
+
+    assert.match(router, /notificationsPopover:\s*true/,
+        'لوحة الشركة لم تطلب النافذة المنبثقة');
+    assert.match(shell, /if \(options\.notificationsPopover === true\)[\s\S]{0,120}toggleNotificationPopover/,
+        'الجرس لا يفتح النافذة المنبثقة');
+
+    // «عرض الكل» هو المسار الوحيد إلى القسم
+    assert.match(shell, /onSeeAllNotifications/);
+    assert.match(router, /onSeeAllNotifications: \(\) => showSection\('notifications'\)/);
+});
+
+test('النافذة المنبثقة تُبنى فوق خدمة الإشعارات القائمة لا نظام ثانٍ', () => {
+    const shell = read('assets/js/customer-sidebar.js');
+    const popover = shell.slice(shell.indexOf('async function fillNotificationPopover'));
+    assert.match(popover, /import\('\/notifications-service\.js'\)/,
+        'النافذة لا تستخدم خدمة الإشعارات المشتركة');
 });

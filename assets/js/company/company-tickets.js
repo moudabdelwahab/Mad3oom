@@ -25,13 +25,14 @@
  *   assets/js/customer/portal-ui.js           حالات التحميل/الفراغ/الخطأ
  */
 
-import { fetchUserTickets, fetchMemberTickets, fetchTicketReplies, addTicketReply }
+import { fetchUserTickets, fetchMemberTickets, fetchTicketReplies, addTicketReply, reopenTicket, closeTicket }
     from '/tickets-service.js';
 import {
     TICKET_VIEWS, statusInfo, applyTicketView, countByView, availableActions
 } from '/assets/js/customer/ticket-view-model.js';
 import { escapeHtml, formatDate, timeAgo, renderState, renderSkeletonLines }
     from '/assets/js/customer/portal-ui.js';
+import { ui } from '/ui-service.js';
 
 /**
  * تعريف كل مسار. الفارق الحقيقي بين المسارين هو `load` — مصدر الصفوف —
@@ -220,9 +221,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         const info = statusInfo(ticket.status);
         const actions = availableActions(ticket, { userId });
 
-        // في مسار العملاء الشركة هي الجهة المجيبة، فالردّ متاح ما دامت
-        // التذكرة غير مغلقة — ولا يوجد «إعادة فتح» لأن ذلك حقّ صاحب التذكرة.
-        const canReply = spec.canCreate ? actions.canReply : !info.closed;
+        // الردّ متاح على أي حالة، ولا يغيّرها. تغيير الحالة إجراءان صريحان.
         const customer = spec.showsCustomer
             ? (ticket.profiles?.full_name || ticket.profiles?.email || 'عميل')
             : null;
@@ -237,34 +236,39 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
                         · فُتحت ${escapeHtml(formatDate(ticket.created_at))}
                     </p>
                 </div>
-                <button type="button" class="panel-link" data-stream-action="close">إغلاق التفاصيل</button>
+                <button type="button" class="panel-link" data-stream-action="collapse">إغلاق التفاصيل</button>
             </div>
 
             <p class="company-notice">${escapeHtml(ticket.description || '')}</p>
 
             <div id="${uid('Replies')}"></div>
 
-            ${canReply ? `
             <form id="${uid('ReplyForm')}" class="company-form">
                 <div class="form-field is-full">
-                    <label for="${uid('ReplyText')}">${
-                        spec.canCreate
-                            ? (actions.canReopen ? 'ردّك (سيعيد فتح التذكرة)' : 'إضافة ردّ')
-                            : 'الردّ على العميل'
-                    }</label>
+                    <label for="${uid('ReplyText')}">${spec.canCreate ? 'إضافة ردّ' : 'الردّ على العميل'}</label>
                     <textarea id="${uid('ReplyText')}" class="form-control" rows="3" required></textarea>
+                    ${info.closed ? `
+                    <p class="panel-subtitle">
+                        التذكرة مغلقة. الردّ يُسجَّل ولا يعيد فتحها — استخدم زرّ «إعادة الفتح» لذلك.
+                    </p>` : ''}
                     <p class="field-error" id="${uid('ReplyError')}" hidden></p>
                 </div>
+
+                <p class="field-error" id="${uid('StatusError')}" role="alert" hidden></p>
+
                 <div class="company-form-actions">
-                    <button type="submit" class="btn btn-primary" id="${uid('ReplyBtn')}">${
-                        spec.canCreate && actions.canReopen ? 'إرسال وإعادة الفتح' : 'إرسال الردّ'
-                    }</button>
+                    <button type="submit" class="btn btn-primary" id="${uid('ReplyBtn')}">إرسال الردّ</button>
+                    ${actions.canReopen ? `
+                    <button type="button" class="btn btn-secondary" id="${uid('ReopenBtn')}">إعادة الفتح</button>` : ''}
+                    ${actions.canClose ? `
+                    <button type="button" class="btn btn-secondary" id="${uid('CloseBtn')}">إغلاق التذكرة</button>` : ''}
                 </div>
-            </form>` : `
-            <p class="panel-subtitle">هذه التذكرة مغلقة ولا تقبل ردودًا جديدة.</p>`}`;
+            </form>`;
 
         await renderReplies(ticketId);
         el(uid('ReplyForm'))?.addEventListener('submit', (e) => onReply(e, ticketId));
+        el(uid('ReopenBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'reopen'));
+        el(uid('CloseBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'close'));
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
@@ -348,6 +352,59 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         }
     }
 
+    /**
+     * تغيير الحالة: إجراء صريح بتأكيد. لا يمرّ بالردّ ولا يتأثر به.
+     * القرار الفعلي في القاعدة (reopen/close_ticket_in_my_scope)؛ لو رفضت،
+     * الرسالة تُعرض في مكانها بلا أي تنقّل.
+     */
+    async function onStatusAction(ticketId, action) {
+        const meta = action === 'reopen'
+            ? {
+                run: reopenTicket,
+                title: 'إعادة فتح التذكرة؟',
+                body: 'ستعود التذكرة إلى الحالة «مفتوحة» وتظهر مجددًا لدى الجهة المسؤولة.',
+                confirmLabel: 'إعادة الفتح',
+                done: 'تم إعادة فتح التذكرة'
+              }
+            : {
+                run: closeTicket,
+                title: 'إغلاق التذكرة؟',
+                body: 'ستُعلَّم كـ«تم الحل». يمكن إعادة فتحها لاحقًا بزرّ «إعادة الفتح».',
+                confirmLabel: 'إغلاق التذكرة',
+                done: 'تم إغلاق التذكرة'
+              };
+
+        const confirmed = await confirmAction(meta);
+        if (!confirmed) return;
+
+        const btn = el(uid(action === 'reopen' ? 'ReopenBtn' : 'CloseBtn'));
+        const error = el(uid('StatusError'));
+        const original = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التنفيذ…'; }
+        if (error) error.hidden = true;
+
+        try {
+            await meta.run(ticketId);
+            tickets = (await spec.load()) || [];
+            render();
+            ui?.showToast?.(meta.done, 'success');
+        } catch (err) {
+            if (btn) { btn.disabled = false; btn.textContent = original; }
+            if (error) {
+                error.textContent = err?.message || 'تعذّر تنفيذ الإجراء. حاول مرة أخرى.';
+                error.hidden = false;
+            }
+        }
+    }
+
+    /** تأكيد الإجراءات الحساسة. يستخدم حوار المنصة إن وُجد. */
+    async function confirmAction({ title, body, confirmLabel }) {
+        if (typeof ui?.showConfirm === 'function') {
+            return ui.showConfirm(title, body, { confirmLabel, cancelLabel: 'تراجع', type: 'info' });
+        }
+        return window.confirm(`${title}\n\n${body}`);
+    }
+
     function wire() {
         const box = container();
         if (!box) return;
@@ -366,7 +423,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
             bindRows();
         });
 
-        box.querySelector('[data-stream-action="close"]')?.addEventListener('click', () => {
+        box.querySelector('[data-stream-action="collapse"]')?.addEventListener('click', () => {
             openTicketId = null;
             render();
         });
@@ -392,5 +449,6 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         });
     }
 
-    return { key: spec.key, load, open, has };
+    // rows() تسمح للتقارير بقراءة نفس الصفوف المعروضة، بلا جلب ثانٍ
+    return { key: spec.key, load, open, has, rows: () => tickets.slice() };
 }
