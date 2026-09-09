@@ -1,5 +1,5 @@
 import { supabase } from '/api-config.js';
-import { requireAuth } from '/auth-client.js';
+import { guardPage } from '/assets/js/page-guard.js';
 import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
 import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
@@ -114,11 +114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // مفيش داعي ولا معنى لتبديل هوية الأدمن وهو بيدير شاتات العملاء.
         let user;
         if (window.isCustomerChat) {
-            user = await requireAuth('user');
-            if (!user || user.banned) {
-                window.location.href = '/login.html';
-                return;
-            }
+            // الحساب الموقوف كان بيتحوّل لصفحة الدخول، والجلسة سليمة فبيترجع
+            // فورًا — نفس حلقة التحويل. الحارس دلوقتي بيعرض السبب في مكانه.
+            user = await guardPage('user');
+            if (!user) return;
             isImpersonated = !!user.isImpersonated;
         } else {
             const { data: { user: authUser } } = await supabase.auth.getUser();

@@ -12,7 +12,8 @@
 //   assets/js/customer/activity-model.js      سجل النشاط الآمن للعميل
 //
 // مفيش هنا أي منطق مكرر لحاجة ليها وحدة فوق — الملف ده تنسيق ورسم فقط.
-import { requireAuth, updateProfile, updatePassword } from './auth-client.js';
+import { updateProfile, updatePassword } from './auth-client.js';
+import { guardPage } from './assets/js/page-guard.js';
 import {
     initCustomerSidebar,
     updateSystemStatusPill,
@@ -89,7 +90,7 @@ import { toTimeline } from './assets/js/customer/activity-model.js';
    =========================================================
    لو المستخدم سجّل خروج ثم ضغط "رجوع"، بعض المتصفحات بترجّع نسخة مجمدة من
    الصفحة من الذاكرة من غير ما تعيد تنفيذ الكود، فتبان وكأنه لسه مسجّل دخول.
-   إعادة التحميل القسرية بتخلي requireAuth() يشتغل تاني ويكتشف غياب الجلسة.
+   إعادة التحميل القسرية بتخلي guardPage() يشتغل تاني ويكتشف غياب الجلسة.
 ========================================================= */
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) window.location.reload();
@@ -167,11 +168,10 @@ function meter(percent, tone = '') {
 
 (async function () {
 
-    const user = await requireAuth('user');
-    if (!user) {
-        window.location.replace('login.html');
-        return;
-    }
+    // الحارس هو اللي بيقرر: مفيش جلسة → صفحة الدخول؛ جلسة سليمة بلا
+    // صلاحية → رسالة في مكانها بلا أي تنقّل (وده اللي بيمنع حلقة التحويل).
+    const user = await guardPage('user');
+    if (!user) return;
 
     const isGuest = user.isGuest || false;
     const isImpersonated = !!user.isImpersonated;

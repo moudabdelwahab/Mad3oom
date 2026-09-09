@@ -1,19 +1,16 @@
-import { supabase } from '/api-config.js';
-import { requireAuth, logout } from '/auth-client.js';
+import { logout } from '/auth-client.js';
+import { guardPage } from '/assets/js/page-guard.js';
 
+/**
+ * حارس صفحات لوحة الإدارة.
+ *
+ * كان يحوّل كل رفض إلى /login.html — بما فيه رفض حساب جلسته سليمة تمامًا
+ * (مالك شركة برتبة super_user مثلًا). ولأن login.html بيلاقي الجلسة قائمة
+ * فبيرجّعه للوحة شركته، كانت النتيجة حلقة لا نهائية عند أي زر يقود لصفحة
+ * إدارية. دلوقتي: مفيش جلسة → صفحة الدخول؛ جلسة بلا صلاحية → رسالة صريحة.
+ */
 export async function checkAdminAuth() {
-    try {
-        const user = await requireAuth('admin');
-        if (!user) {
-            window.location.replace('/login.html');
-            return null;
-        }
-        return user;
-    } catch (err) {
-        console.error('Auth error:', err);
-        window.location.replace('/login.html');
-        return null;
-    }
+    return guardPage('admin');
 }
 
 export async function handleLogout() {

@@ -172,6 +172,62 @@
         </div>
     </main>
 
+    <!-- إضافة مستخدم للشركة.
+         كان الزر بينقل إلى /admin/my-users.html — صفحة إدارة يرفضها حارس
+         الأدمن لمالك الشركة، فيتحوّل لصفحة الدخول، فتعيده الجلسة القائمة
+         للوحة الشركة: حلقة لا نهائية. الوظيفة دلوقتي هنا، في سياق الشركة،
+         وبتنادي نفس الـEdge Function الموجودة (create-sub-user). -->
+    <!-- الإظهار بـclass="active" زي باقي نوافذ البوابة، مش بسمة hidden:
+         قاعدة .modal.active{display:flex} كانت هتتغلّب على [hidden] وتفتح
+         النافذة وهي "مخفية". مصدر واحد للحالة. -->
+    <div id="addMemberModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addMemberTitle">
+        <div class="modal-content modal-sm">
+            <div class="modal-head">
+                <div>
+                    <h2 id="addMemberTitle">إضافة مستخدم للشركة</h2>
+                    <p class="panel-subtitle">يُنشأ حساب تابع لشركتك، ويظهر في قائمة المستخدمين فورًا</p>
+                </div>
+                <button type="button" class="modal-close" id="addMemberClose" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <form id="addMemberForm" class="company-form" novalidate>
+                <div class="form-grid">
+                    <div class="form-field is-full">
+                        <label for="fMemberName">اسم المستخدم <span aria-hidden="true">*</span></label>
+                        <input type="text" id="fMemberName" name="fullName" class="form-control" required autocomplete="name">
+                        <p class="field-error" data-member-error-for="fullName" hidden></p>
+                    </div>
+                    <div class="form-field is-full">
+                        <label for="fMemberEmail">البريد الإلكتروني <span aria-hidden="true">*</span></label>
+                        <input type="email" id="fMemberEmail" name="email" class="form-control" required autocomplete="off" inputmode="email">
+                        <p class="field-error" data-member-error-for="email" hidden></p>
+                    </div>
+                    <div class="form-field">
+                        <label for="fMemberPassword">كلمة المرور <span aria-hidden="true">*</span></label>
+                        <input type="password" id="fMemberPassword" name="password" class="form-control" required autocomplete="new-password" aria-describedby="addMemberHint">
+                        <p class="field-error" data-member-error-for="password" hidden></p>
+                    </div>
+                    <div class="form-field">
+                        <label for="fMemberPasswordConfirm">تأكيد كلمة المرور <span aria-hidden="true">*</span></label>
+                        <input type="password" id="fMemberPasswordConfirm" name="passwordConfirm" class="form-control" required autocomplete="new-password">
+                        <p class="field-error" data-member-error-for="passwordConfirm" hidden></p>
+                    </div>
+                </div>
+
+                <p class="panel-subtitle" id="addMemberHint">
+                    8 أحرف على الأقل، وتحتوي على حرف كبير وحرف صغير ورقم.
+                </p>
+
+                <p class="field-error" id="addMemberError" role="alert" hidden></p>
+
+                <div class="company-form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitMemberBtn">إنشاء المستخدم</button>
+                    <button type="button" class="btn btn-secondary" id="cancelMemberBtn">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module" src="/assets/js/company/company-dashboard.js"></script>
 </body>
 </html>

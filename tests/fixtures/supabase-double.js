@@ -165,6 +165,36 @@ export const supabase = {
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
         updateUser: async () => ({ data: {}, error: null })
     },
+    /**
+     * Edge Functions. الردّ بيتقرا من fixtures.functions[name]:
+     *   { data }                       → نجاح
+     *   { error, status }              → فشل بنفس شكل FunctionsHttpError
+     *                                     (الرسالة جوّه error.context.json())
+     * كل نداء بيتسجّل في window.__INVOCATIONS__ عشان الاختبار يقدر يتأكد إن
+     * النداء **لم** يحدث أصلًا في حالات الرفض.
+     */
+    functions: {
+        invoke: async (name, options = {}) => {
+            window.__INVOCATIONS__ = window.__INVOCATIONS__ || [];
+            window.__INVOCATIONS__.push({ name, body: options.body });
+
+            const spec = FX().functions?.[name];
+            if (!spec) return { data: { success: true }, error: null };
+
+            if (spec.error) {
+                const status = spec.status || 400;
+                return {
+                    data: null,
+                    error: {
+                        name: 'FunctionsHttpError',
+                        message: `Edge Function returned a non-2xx status code`,
+                        context: new Response(JSON.stringify({ error: spec.error }), { status })
+                    }
+                };
+            }
+            return { data: spec.data ?? { success: true }, error: null };
+        }
+    },
     channel: () => {
         const chan = { on: () => chan, subscribe: () => chan, unsubscribe: () => {} };
         return chan;
