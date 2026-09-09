@@ -915,3 +915,36 @@ test('حالة عدم وجود إشعارات معالَجة في النافذة
     assert.match(await page.locator('#portalNotificationPopover').innerText(), /لا توجد إشعارات/);
     await context.close();
 });
+
+test('لا تمرير أفقي في أي قسم، على الموبايل وسطح المكتب', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    // الاختبار القائم يفحص القسم الافتراضي وحده. الأقسام الجديدة تحمل جداول
+    // ومفاتيح وأكوادًا — وهي بالضبط ما يكسر العرض الضيّق لو أُهمل.
+    for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 1000 }]) {
+        const context = await browser.newContext({ viewport });
+        const page = await context.newPage();
+        await page.close();
+        await context.close();
+    }
+
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures());
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const tabs = await page.evaluate(() =>
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+
+    for (const tab of tabs) {
+        await page.evaluate((t2) => { window.location.hash = `#${t2}`; }, tab);
+        await page.waitForSelector(`#${tab}TabContent.active`, { timeout: 10000 });
+        // ننتظر انتهاء أي هيكل تحميل قبل القياس
+        await page.waitForFunction(
+            (t3) => !document.querySelector(`#${t3}TabContent .skeleton`),
+            tab, { timeout: 10000 }
+        ).catch(() => {});
+
+        const overflows = await page.evaluate(() =>
+            document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+        assert.equal(overflows, false, `تمرير أفقي في القسم ${tab} على عرض 390`);
+    }
+    await context.close();
+});
