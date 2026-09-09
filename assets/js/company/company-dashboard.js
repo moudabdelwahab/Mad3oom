@@ -12,7 +12,7 @@
  * تابع لشركة، وبتظهر بوابة توضّح الخطوة الجاية.
  */
 
-import { requireAuth } from '/auth-client.js';
+import { guardPage } from '/assets/js/page-guard.js';
 import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
@@ -21,6 +21,7 @@ import { ui } from '/ui-service.js';
 import {
     fetchCompanyDashboard,
     fetchCompanyMembers,
+    createCompanyMember,
     saveCompany
 } from '/assets/js/company/company-data.js';
 import {
@@ -29,19 +30,27 @@ import {
     registrationInfo,
     companyAccess,
     entitlementsByPlan,
-    validateCompanyForm
+    canManageMembers,
+    validateCompanyForm,
+    validateMemberForm
 } from '/assets/js/company/company-model.js';
 
 let dashboard = null;
 
+/** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
+let canManageMembersNow = false;
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    const user = await requireAuth();
+    // اللوحة دي مفتوحة لأي حساب مسجّل؛ اللي بتعرضه بيحدده
+    // get_my_company_dashboard() في القاعدة. مفيش قيد رتبة هنا عمدًا.
+    const user = await guardPage();
     if (!user) return;
 
     initCustomerSidebar();
     wireForm();
+    wireAddMember();
     await load();
 }
 
@@ -93,6 +102,10 @@ async function load() {
  * القسم ده بيعوّض وصول مسؤول الشركة القديم إلى admin/my-users.html بعد ما بقى
  * التحويل بعد الدخول يوديه للوحة شركته. الصلاحية بتتقرر في القاعدة
  * (can_manage = مالك + امتياز sub_users فعّال)، والواجهة بترسم نتيجتها.
+ *
+ * الإضافة نفسها بقت هنا في سياق الشركة (نافذة addMemberModal) بدل التوجيه
+ * إلى لوحة الإدارة: ذاك التوجيه كان يرتد من حارس الأدمن إلى صفحة الدخول،
+ * ومنها ترجع الجلسة القائمة إلى لوحة الشركة — حلقة لا نهائية.
  */
 async function renderMembers() {
     const panel = document.getElementById('companyMembersPanel');
@@ -102,9 +115,11 @@ async function renderMembers() {
     const result = await fetchCompanyMembers();
     if (!result.ok || !result.data) { panel.hidden = true; return; }
 
-    const { members = [], can_manage: canManage } = result.data;
+    // القرار جاي من القاعدة كما هو؛ الواجهة ما بتحسبوش.
+    canManageMembersNow = canManageMembers(result.data);
+    const { members = [] } = result.data;
     panel.hidden = false;
-    addBtn.hidden = !canManage;
+    addBtn.hidden = !canManageMembersNow;
 
     if (!members.length) {
         renderState(container, { variant: 'empty', title: 'لا يوجد مستخدمون بعد', text: '' });
@@ -127,13 +142,120 @@ async function renderMembers() {
                     </div>
                 </li>`).join('')}
         </ul>`;
+}
 
-    addBtn.onclick = () => {
-        // إنشاء المستخدم الفرعي يتم عبر Edge Function اسمها create-sub-user،
-        // وهي تشتق التبعية من هوية المنادي. الشاشة الحالية لذلك في لوحة
-        // الإدارة، فنوجّه إليها بدل تكرار النموذج هنا.
-        window.location.href = '/admin/my-users.html';
+/* ── نافذة إضافة مستخدم ─────────────────────────────────────────────────── */
+
+/**
+ * ربط نافذة الإضافة. بتتنفّذ مرة واحدة عند التهيئة — الربط جوّه renderMembers
+ * كان بيعيد تعيين المعالج مع كل تحميل، وكان بيتخطّى تمامًا لو القائمة فاضية.
+ */
+function wireAddMember() {
+    const modal = document.getElementById('addMemberModal');
+    const form = document.getElementById('addMemberForm');
+    const openBtn = document.getElementById('addMemberBtn');
+    if (!modal || !form || !openBtn) return;
+
+    openBtn.addEventListener('click', () => {
+        // الفتح أولًا: openMemberModal بيمسح الأخطاء، فالتحذير لازم ييجي بعده.
+        openMemberModal();
+        // إخفاء الزر تنظيم للواجهة لا حماية؛ الفحص الحقيقي عند الإرسال
+        // (نداء جديد للقاعدة) وفي القاعدة نفسها.
+        if (!canManageMembersNow) {
+            showMemberError('حسابك غير مخوَّل بإضافة مستخدمين لهذه الشركة.');
+        }
+    });
+
+    document.getElementById('addMemberClose')?.addEventListener('click', closeMemberModal);
+    document.getElementById('cancelMemberBtn')?.addEventListener('click', closeMemberModal);
+
+    // الضغط على الخلفية أو Escape يقفل — نفس سلوك باقي نوافذ البوابة
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeMemberModal();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('active')) closeMemberModal();
+    });
+
+    form.addEventListener('submit', onCreateMember);
+}
+
+function openMemberModal() {
+    const modal = document.getElementById('addMemberModal');
+    clearMemberErrors();
+    document.getElementById('addMemberForm').reset();
+    modal.classList.add('active');
+    document.getElementById('fMemberName')?.focus();
+}
+
+function closeMemberModal() {
+    document.getElementById('addMemberModal')?.classList.remove('active');
+    document.getElementById('addMemberBtn')?.focus();
+}
+
+function clearMemberErrors() {
+    document.querySelectorAll('#addMemberForm [data-member-error-for]').forEach(el => {
+        el.hidden = true;
+        el.textContent = '';
+    });
+    const box = document.getElementById('addMemberError');
+    box.hidden = true;
+    box.textContent = '';
+}
+
+function showMemberFieldErrors(errors) {
+    for (const [field, message] of Object.entries(errors)) {
+        const el = document.querySelector(`#addMemberForm [data-member-error-for="${field}"]`);
+        if (el) { el.textContent = message; el.hidden = false; }
+    }
+}
+
+/** خطأ عام للنموذج. نص فقط — الرسالة قد تكون قادمة من الخادم. */
+function showMemberError(message) {
+    const box = document.getElementById('addMemberError');
+    box.textContent = message;
+    box.hidden = false;
+}
+
+async function onCreateMember(event) {
+    event.preventDefault();
+    clearMemberErrors();
+
+    const values = {
+        fullName: document.getElementById('fMemberName').value,
+        email: document.getElementById('fMemberEmail').value,
+        password: document.getElementById('fMemberPassword').value,
+        passwordConfirm: document.getElementById('fMemberPasswordConfirm').value
     };
+
+    const validation = validateMemberForm(values);
+    if (!validation.isValid) {
+        showMemberFieldErrors(validation.errors);
+        return;
+    }
+
+    const btn = document.getElementById('submitMemberBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'جارٍ الإنشاء…';
+
+    // createCompanyMember بتعيد قراءة can_manage من القاعدة قبل النداء،
+    // فالرفض بيحصل على الخادم حتى لو اتلاعب أحد بالزر في المتصفح.
+    const result = await createCompanyMember(values);
+
+    btn.disabled = false;
+    btn.textContent = original;
+
+    if (!result.ok) {
+        // فشل الإنشاء يظل داخل النافذة كرسالة مفهومة — مفيش أي تحويل،
+        // ولا لصفحة الدخول ولا لغيرها.
+        showMemberError(result.error || 'تعذّر إنشاء المستخدم. حاول مرة أخرى.');
+        return;
+    }
+
+    closeMemberModal();
+    ui?.showToast?.('تم إنشاء المستخدم وإضافته لشركتك', 'success');
+    await renderMembers();
 }
 
 /* ── شريط المستوى ───────────────────────────────────────────────────────── */

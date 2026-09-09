@@ -110,6 +110,70 @@ export async function fetchCompanyMembers() {
     });
 }
 
+/**
+ * إنشاء مستخدم فرعي تابع لشركة المستخدم الحالي.
+ *
+ * المسار: Edge Function اسمها create-sub-user (موجودة ومنشورة بالفعل —
+ * supabase/functions/create-sub-user/index.ts). العقد الفعلي كما هو في الملف:
+ *
+ *   POST  { email, password, full_name }
+ *   Authorization: Bearer <access_token>   ← يضيفه supabase-js تلقائيًا من
+ *                                            الجلسة الحالية، فمفيش تمرير يدوي
+ *                                            لأي رمز هنا.
+ *   200 → { success: true, user: { id, email, full_name } }
+ *   401 → لا رأس تفويض | 403 → رتبة غير كافية | 400 → بيانات ناقصة/إنشاء فشل
+ *
+ * **super_user_id لا يُرسَل في الطلب إطلاقًا** — الدالة تشتقّه من هوية المنادي
+ * المتحقَّق منها. ده اللي بيمنع تزوير تبعية الحساب، وعشان كده الواجهة
+ * لا تملك ولا تحتاج أي معرّف شركة هنا.
+ *
+ * بوابة الصلاحية قبل النداء: نعيد قراءة can_manage من company_members()
+ * (دالة SECURITY DEFINER في القاعدة) في نفس اللحظة. الغرض إن مصدر القرار
+ * يكون الخادم وقت الإرسال، لا حالة محفوظة في الصفحة ولا زر ظاهر في الشاشة.
+ */
+export async function createCompanyMember({ fullName, email, password }) {
+    const permission = await fetchCompanyMembers();
+
+    if (!permission.ok) {
+        return { ok: false, data: null, error: 'تعذّر التحقق من صلاحيتك الآن. حاول مرة أخرى.' };
+    }
+    if (permission.data?.can_manage !== true) {
+        return {
+            ok: false,
+            data: null,
+            error: 'حسابك غير مخوَّل بإضافة مستخدمين لهذه الشركة. الإضافة متاحة لمالك الحساب عند وجود اشتراك يمنح ميزة المستخدمين الفرعيين.'
+        };
+    }
+
+    return safe('createCompanyMember', async () => {
+        const { data, error } = await supabase.functions.invoke('create-sub-user', {
+            body: {
+                email: String(email || '').trim().toLowerCase(),
+                password,
+                full_name: String(fullName || '').trim()
+            }
+        });
+
+        // ردود الخطأ من Edge Function بتوصل في error.context (Response)، مش
+        // في data. من غير القراءة دي كان المستخدم هيشوف "خطأ غير معروف" بدل
+        // رسالة الخادم الحقيقية.
+        if (error) throw new Error(await readFunctionError(error));
+        if (data?.error) throw new Error(data.error);
+        if (!data?.success) throw new Error('تعذّر إنشاء المستخدم. حاول مرة أخرى.');
+
+        return data.user || null;
+    });
+}
+
+/** يستخرج رسالة الخطأ من رد Edge Function غير الناجح. */
+async function readFunctionError(error) {
+    try {
+        const body = await error?.context?.json?.();
+        if (body?.error) return body.error;
+    } catch { /* الرد مش JSON — نكمّل للرسالة العامة */ }
+    return error?.message || 'تعذّر إنشاء المستخدم. حاول مرة أخرى.';
+}
+
 /** هل المستخدم الحالي تابع لأي شركة؟ (لإظهار مدخل اللوحة في القائمة) */
 export async function hasCompany() {
     try {

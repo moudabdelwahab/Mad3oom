@@ -153,6 +153,57 @@ export function validateCompanyForm(values) {
 }
 
 /**
+ * هل تسمح القاعدة لهذا المستخدم بإدارة مستخدمي الشركة؟
+ *
+ * الإجابة تُقرأ من حمولة company_members() فقط — وهي دالة SECURITY DEFINER
+ * بتحسب can_manage = (مالك الشركة) AND (امتياز sub_users فعّال) جوّه القاعدة.
+ * الواجهة **لا تحسب** الشرط ولا تخمّنه؛ بتقرأه. أي true هنا لازم يكون جاي من
+ * نداء حديث للقاعدة، لا من حالة محفوظة في الصفحة.
+ */
+export function canManageMembers(membersPayload) {
+    return membersPayload?.can_manage === true;
+}
+
+/**
+ * تحقّق من نموذج «إضافة مستخدم للشركة».
+ *
+ * القواعد مطابقة لما تفرضه الطبقات الأدنى فعليًا:
+ *   • الحقول الثلاثة إلزامية — create-sub-user بترد 400 بدونها.
+ *   • قوة كلمة المرور نفس قاعدة المنصة في auth-validation.validatePassword.
+ * ده تحقّق **عرض** يوفّر رحلة فاشلة للخادم؛ الرفض النهائي يظل عند القاعدة
+ * والـEdge Function.
+ */
+export function validateMemberForm(values) {
+    const errors = {};
+    const fullName = String(values?.fullName || '').trim();
+    const email = String(values?.email || '').trim();
+    const password = String(values?.password || '');
+    const confirm = String(values?.passwordConfirm || '');
+
+    if (fullName.length < 2) errors.fullName = 'اسم المستخدم مطلوب';
+
+    if (!email) {
+        errors.email = 'البريد الإلكتروني مطلوب';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errors.email = 'بريد إلكتروني غير صالح';
+    }
+
+    if (!password) {
+        errors.password = 'كلمة المرور مطلوبة';
+    } else if (password.length < 8) {
+        errors.password = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+    } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        errors.password = 'كلمة المرور يجب أن تحتوي على حرف كبير وحرف صغير ورقم';
+    }
+
+    if (!errors.password && confirm !== password) {
+        errors.passwordConfirm = 'كلمتا المرور غير متطابقتين';
+    }
+
+    return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/**
  * هل الباقة دي بتستلزم شركة؟ القرار بيانات (subscription_plans.requires_company)
  * مش قائمة أسماء مكتوبة في الواجهة — باقة جديدة بتشتغل من غير تعديل كود.
  */

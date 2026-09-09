@@ -14,7 +14,7 @@
  *   • كل حالة (تحميل/فراغ/خطأ) بتستخدم نفس مكوّنات اللوحة من portal-ui.js.
  */
 
-import { requireAuth } from '/auth-client.js';
+import { guardPage } from '/assets/js/page-guard.js';
 import { initCustomerSidebar } from '/assets/js/customer-sidebar.js';
 import {
     escapeHtml, formatDate, timeAgo,
@@ -34,11 +34,8 @@ import { isClosed } from '/assets/js/customer/ticket-view-model.js';
 const PAGE_SIZE = 12;
 
 (async function () {
-    const user = await requireAuth('user');
-    if (!user) {
-        window.location.replace('/login.html');
-        return;
-    }
+    const user = await guardPage('user');
+    if (!user) return;
 
     initCustomerSidebar({});
 

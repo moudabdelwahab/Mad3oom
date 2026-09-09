@@ -1,5 +1,9 @@
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
+import { ACCESS, classifyAccess, canImpersonate } from './assets/js/access-policy.js';
+
+// يُعاد تصديرها من هنا عشان صفحات الحراسة تستورد مصدرًا واحدًا.
+export { ACCESS };
 
 /* =========================================================
    ✅ جديد: حماية من التعليق اللانهائي (navigator.locks deadlock /
@@ -547,39 +551,48 @@ export async function getCurrentUser() {
    Authorization
 ========================================================= */
 
-export async function requireAuth(requiredRole = null) {
+/**
+ * قرار الوصول لصفحة، **صريحًا**.
+ *
+ * requireAuth() كانت بترجّع `null` لحالتين مختلفتين — «مفيش جلسة» و«فيه جلسة
+ * لكن الرتبة مش مسموحة» — وكل مستدعٍ كان بيترجم `null` إلى «روح login.html».
+ * ولأن login.html بيلاقي الجلسة سليمة فبيرجّع المستخدم لبيته، كانت النتيجة
+ * حلقة تحويل لا نهائية لحساب الشركة. الدالة دي بتفصل الحالتين، والقرار نفسه
+ * دالة خالصة مُختبَرة في assets/js/access-policy.js.
+ *
+ * @returns {Promise<{ status: string, user: object|null, reason: string|null }>}
+ */
+export async function resolveAccess(requiredRole = null) {
     const guestSession = localStorage.getItem('mad3oom-guest-session');
 
     if (guestSession) {
-        return JSON.parse(guestSession);
+        // الزائر جلسة قائمة — الأقسام الممنوعة عليه تتحكم فيها الصفحة نفسها
+        // (GUEST_BLOCKED)، مش حارس الصفحة.
+        return { status: ACCESS.AUTHORIZED, user: JSON.parse(guestSession), reason: null };
     }
 
     const user = await getCurrentUser();
 
-    if (!user) return null;
-    if (user.banned) return { banned: true };
+    if (!user) {
+        return { status: ACCESS.ANONYMOUS, user: null, reason: 'no-session' };
+    }
 
-    const isMainAdminEmail = user.email === 'support@mad3oom.online';
-    const role = user.profile?.role;
+    if (user.banned) {
+        const decision = classifyAccess({ identity: user.profile || {}, banned: true });
+        return { status: decision.status, user: { banned: true, profile: user.profile }, reason: decision.reason };
+    }
 
-    // الارتباط بشركة ليس رتبة طاقم — أُزيل هنا مع إصلاح C2/H4.
-    const isAdmin =
-        isMainAdminEmail ||
-        role === 'admin' ||
-        role === 'support';
-
-    // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: admin و super_user
-    // (والأدمن الرئيسي بإيميله) فقط - مش support. ده تفويض أضيق ومنفصل عن
-    // isAdmin العامة (اللي بتحدد مين يشوف لوحة الإدارة أصلاً بشكل أوسع).
-    // الفحص هنا هو نقطة التنفيذ الحقيقية (enforcement) - إخفاء الزرار في
-    // الواجهة وحده مش كافي كحماية، لأن أي حد يقدر يكتب ?impersonate=...
-    // في العنوان يدويًا لو الفحص مش موجود هنا كمان.
-    const canImpersonate = isMainAdminEmail || role === 'admin';
+    const identity = { email: user.email, role: user.profile?.role };
 
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
 
-    if (impersonateId && canImpersonate) {
+    // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: الأدمن الرئيسي و admin
+    // فقط - مش support ولا super_user. ده تفويض أضيق ومنفصل عن رتبة الطاقم
+    // العامة. الفحص هنا هو نقطة التنفيذ الحقيقية (enforcement) - إخفاء الزرار
+    // في الواجهة وحده مش كافي كحماية، لأن أي حد يقدر يكتب ?impersonate=...
+    // في العنوان يدويًا لو الفحص مش موجود هنا كمان.
+    if (impersonateId && canImpersonate(identity)) {
         const { data: targetProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -588,28 +601,45 @@ export async function requireAuth(requiredRole = null) {
 
         if (targetProfile) {
             return {
-                id: impersonateId,
-                profile: targetProfile,
-                isImpersonated: true,
-                // بيانات الأدمن الحقيقي اللي شغّل الـimpersonation، محفوظة عشان
-                // شريط "الرجوع" يقدر يعرض اسمه ويرجّعه بدون أي session جديدة -
-                // الجلسة الحقيقية (Supabase auth) فضلت زي ما هي طول الوقت.
-                impersonatorId: user.id,
-                impersonatorEmail: user.email,
-                impersonatorName: user.profile?.full_name || null
+                status: ACCESS.AUTHORIZED,
+                reason: null,
+                user: {
+                    id: impersonateId,
+                    profile: targetProfile,
+                    isImpersonated: true,
+                    // بيانات الأدمن الحقيقي اللي شغّل الـimpersonation، محفوظة
+                    // عشان شريط "الرجوع" يقدر يعرض اسمه ويرجّعه بدون أي session
+                    // جديدة - الجلسة الحقيقية فضلت زي ما هي طول الوقت.
+                    impersonatorId: user.id,
+                    impersonatorEmail: user.email,
+                    impersonatorName: user.profile?.full_name || null
+                }
             };
         }
     }
 
-    if (requiredRole === 'admin' && !isAdmin) {
-        return null;
-    }
+    const decision = classifyAccess({
+        identity,
+        requiredRole,
+        impersonating: !!impersonateId
+    });
 
-    if (requiredRole === 'user' && isAdmin && !impersonateId) {
-        return null;
-    }
+    return { status: decision.status, user, reason: decision.reason };
+}
 
-    return user;
+/**
+ * الغلاف المتوافق مع المستدعين القدامى: مستخدم أو `null`.
+ *
+ * تحذير للكود الجديد: `null` هنا **لا يعني** «سجّل الدخول» — هي تجمع 401 و403
+ * معًا، وده بالظبط اللي كان بيصنع حلقة التحويل. استخدم guardPage() من
+ * assets/js/page-guard.js في أي حارس صفحة جديد.
+ */
+export async function requireAuth(requiredRole = null) {
+    const { status, user } = await resolveAccess(requiredRole);
+
+    if (status === ACCESS.AUTHORIZED) return user;
+    if (status === ACCESS.BANNED) return { banned: true };
+    return null;
 }
 
 /* =========================================================
