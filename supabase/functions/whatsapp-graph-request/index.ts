@@ -91,17 +91,16 @@ serve(async (req) => {
       return jsonResponse({ error: "unsupported_operation" }, 400);
     }
 
-    // TODO(token-migration): `access_token` (plaintext) is a legacy column.
-    // exchange-token now writes `encrypted_access_token` exclusively for new/
-    // re-connected integrations, but older rows may still only have the
-    // plaintext column populated. Once all live `integrations` rows have been
-    // confirmed migrated to `encrypted_access_token` (see the one-off backfill
-    // tracked separately from this fix), REMOVE the `access_token` fallback
-    // below and the accompanying warning log, and make `encrypted_access_token`
-    // required again (as this function did before this change).
+    // token-migration: DONE. The plaintext `access_token` fallback that used to
+    // live here is gone, as the TODO it carried instructed. Verified read-only
+    // on production before removal: every `integrations` row of provider
+    // 'whatsapp' has `encrypted_access_token`, and no row is plaintext-only —
+    // so the fallback was already unreachable. migrations/032 then nulls the
+    // legacy column outright, which is why this function no longer selects it:
+    // reading a credential we refuse to use only widens its blast radius.
     const { data: rows, error: fetchError } = await adminClient
       .from("integrations")
-      .select("encrypted_access_token, access_token, metadata")
+      .select("encrypted_access_token, metadata")
       .eq("user_id", userId)
       .eq("provider", "whatsapp");
 
@@ -115,30 +114,16 @@ serve(async (req) => {
       ? rows?.find((r: any) => r.metadata?.phone_number_id === phoneNumberId)
       : rows?.[0];
 
-    if (!integration || (!integration.encrypted_access_token && !integration.access_token)) {
+    if (!integration || !integration.encrypted_access_token) {
       return jsonResponse({ error: "not_connected" }, 404);
     }
 
     let accessToken: string;
-    let usedLegacyPlaintextToken = false;
-
-    if (integration.encrypted_access_token) {
-      try {
-        accessToken = await decryptSecret(integration.encrypted_access_token);
-      } catch (decErr) {
-        console.error("Failed to decrypt access token:", (decErr as Error).message);
-        return jsonResponse({ error: "decryption_failed" }, 500);
-      }
-    } else {
-      // Legacy fallback path — see TODO(token-migration) above.
-      usedLegacyPlaintextToken = true;
-      accessToken = integration.access_token;
-      console.warn(JSON.stringify({
-        event: "whatsapp_graph_request.legacy_plaintext_token_used",
-        user_id: userId,
-        phone_number_id: integration.metadata?.phone_number_id || null,
-        message: "encrypted_access_token missing; fell back to plaintext access_token. This path is temporary — see TODO(token-migration).",
-      }));
+    try {
+      accessToken = await decryptSecret(integration.encrypted_access_token);
+    } catch (decErr) {
+      console.error("Failed to decrypt access token:", (decErr as Error).message);
+      return jsonResponse({ error: "decryption_failed" }, 500);
     }
 
     const targetPhoneId = integration.metadata?.phone_number_id;
@@ -328,7 +313,6 @@ serve(async (req) => {
       success: true,
       data: result,
       message: persistedMessage,
-      legacy_token_used: usedLegacyPlaintextToken || undefined,
     });
   } catch (err) {
     console.error("whatsapp-graph-request error:", (err as Error).message);
