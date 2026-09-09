@@ -166,7 +166,7 @@
 
                 // تحديد الدور والصفحة المطلوبة للتحويل
                 const role = profile?.role || 'customer';
-                const targetPage = (role === 'admin' || role === 'support' || role === 'super_user')
+                const targetPage = (role === 'admin' || role === 'support')
                     ? '/admin-dashboard.html'
                     : '/customer-dashboard.html';
 

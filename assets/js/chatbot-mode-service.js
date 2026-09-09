@@ -82,7 +82,7 @@ export async function hasChatbotEntitlement(userId) {
             console.warn('[chatbot-mode-service] تعذّر التحقق من الأهلية:', error);
             return false;
         }
-        return data.whatsapp_enabled === true || data.role === 'super_user' || data.role === 'admin';
+        return data.whatsapp_enabled === true || data.role === 'admin';
     } catch (err) {
         console.warn('[chatbot-mode-service] استثناء أثناء التحقق من الأهلية:', err?.message || err);
         return false;

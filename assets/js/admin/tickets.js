@@ -124,7 +124,7 @@ async function init() {
     if (!user) return;
 
     isAdminRole = user.profile?.role === 'admin';
-    isStaffRole = ['admin', 'support', 'super_user'].includes(user.profile?.role);
+    isStaffRole = ['admin', 'support'].includes(user.profile?.role);
 
     updateAdminUI(user);
     applyRolePermissions();
@@ -1109,7 +1109,7 @@ async function loadAdminRepliesInPanel(ticketId) {
             list.innerHTML = '<p style="text-align:center; color:var(--color-text-3); font-size:.82rem; padding:1rem;">لا توجد ردود بعد</p>';
             return;
         }
-        const isStaffProfile = (p) => ['admin', 'support', 'super_user'].includes(p?.role);
+        const isStaffProfile = (p) => ['admin', 'support'].includes(p?.role);
         list.innerHTML = replies.map(r => {
             const roleClass = r.is_internal ? 'reply-internal' : (isStaffProfile(r.profiles) ? 'reply-admin' : 'reply-user');
             return `

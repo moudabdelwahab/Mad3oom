@@ -409,7 +409,7 @@ async function loadTicketDistribution() {
         const { data: agents } = await supabase
             .from('profiles')
             .select('id, full_name, email, role')
-            .in('role', ['admin', 'super_user'])
+            .in('role', ['admin', 'support'])
             .order('full_name', { ascending: true });
 
         allAgents = agents || [];

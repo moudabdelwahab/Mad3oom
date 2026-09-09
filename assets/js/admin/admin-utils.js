@@ -37,10 +37,10 @@ export async function impersonateUser(userId, redirectPath = '/customer-dashboar
             .maybeSingle();
 
         const isMainAdminEmail = currentAuthUser.email === 'support@mad3oom.online';
-        const canImpersonate = isMainAdminEmail || currentProfile?.role === 'admin' || currentProfile?.role === 'super_user';
+        const canImpersonate = isMainAdminEmail || currentProfile?.role === 'admin';
 
         if (!canImpersonate) {
-            alert('هذه الميزة متاحة فقط للأدمن والمستخدم المميز (super_user).');
+            alert('هذه الميزة متاحة للإدارة فقط.');
             return;
         }
 

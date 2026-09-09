@@ -332,7 +332,7 @@ function bindActionButtons() {
     document.querySelectorAll('.demote-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (confirm('هل أنت متأكد من إلغاء صلاحيات هذا المسؤول؟')) {
-                const { error } = await supabase.from('profiles').update({ role: 'customer' }).eq('id', btn.dataset.id);
+                const { error } = await supabase.from('profiles').update({ role: 'user' }).eq('id', btn.dataset.id);
                 if (error) alert(error.message);
                 else renderHierarchy();
             }
