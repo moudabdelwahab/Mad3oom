@@ -327,6 +327,15 @@ function setupSidebarLogic(onTabChange, options = {}) {
         notificationBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
+
+            // القشرة التي تطلب نافذة منبثقة (لوحة الشركة): الجرس **لا** يبدّل
+            // القسم ولا ينقل الصفحة — يفتح آخر الإشعارات في مكانها، و«عرض
+            // الكل» وحده هو الذي ينقل إلى القسم.
+            if (options.notificationsPopover === true) {
+                toggleNotificationPopover(options);
+                return;
+            }
+
             if (onTabChange) {
                 setActiveSidebarTab('notifications');
                 onTabChange('notifications');
@@ -336,7 +345,118 @@ function setupSidebarLogic(onTabChange, options = {}) {
         });
     }
 
-    /** يحدّث شارة العدد على الجرس وفي القائمة الجانبية. */
+    /* ── نافذة الإشعارات المنبثقة ──────────────────────────────────────────────
+   تُبنى فوق نفس خدمة الإشعارات وموجّهها — لا نظام إشعارات ثانٍ. الجرس يفتحها
+   ويغلقها، والقسم الكامل يبقى خلف زرّ «عرض الكل» وحده. */
+
+const POPOVER_ID = 'portalNotificationPopover';
+const POPOVER_LIMIT = 6;
+
+function closeNotificationPopover() {
+    const el = document.getElementById(POPOVER_ID);
+    if (!el) return;
+    el.remove();
+    document.getElementById('notificationBtn')?.setAttribute('aria-expanded', 'false');
+}
+
+async function toggleNotificationPopover(options) {
+    if (document.getElementById(POPOVER_ID)) {
+        closeNotificationPopover();
+        document.getElementById('notificationBtn')?.focus();
+        return;
+    }
+
+    const trigger = document.getElementById('notificationBtn');
+    const wrap = trigger?.parentElement;
+    if (!wrap) return;
+
+    // الحاوية تحتاج موضعًا نسبيًا حتى تُرسى النافذة تحت الجرس مباشرةً
+    if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+
+    const popover = document.createElement('div');
+    popover.id = POPOVER_ID;
+    popover.className = 'portal-menu portal-notif-popover';
+    popover.setAttribute('role', 'dialog');
+    popover.setAttribute('aria-label', 'آخر الإشعارات');
+    popover.innerHTML = `
+        <div class="portal-menu-head">
+            <span class="portal-menu-name">الإشعارات</span>
+        </div>
+        <div class="portal-notif-body" aria-live="polite">
+            <div class="skeleton skeleton-line"></div>
+            <div class="skeleton skeleton-line"></div>
+        </div>
+        <button type="button" class="portal-menu-item portal-notif-all" id="portalNotifSeeAll">
+            <span>عرض الكل</span>
+        </button>`;
+
+    popover.addEventListener('click', e => e.stopPropagation());
+    wrap.appendChild(popover);
+    trigger.setAttribute('aria-expanded', 'true');
+
+    // «عرض الكل» وحده هو الذي ينقل إلى القسم
+    document.getElementById('portalNotifSeeAll').addEventListener('click', () => {
+        closeNotificationPopover();
+        if (typeof options.onSeeAllNotifications === 'function') {
+            options.onSeeAllNotifications();
+        } else if (tabChangeHandler) {
+            setActiveSidebarTab('notifications');
+            tabChangeHandler('notifications');
+        } else {
+            window.location.href = `${shell.home}#notifications`;
+        }
+    });
+
+    await fillNotificationPopover(popover, options);
+    popover.querySelector('.portal-notif-item, .portal-notif-all')?.focus?.();
+}
+
+async function fillNotificationPopover(popover, options) {
+    const body = popover.querySelector('.portal-notif-body');
+    let items = [];
+
+    try {
+        const { fetchNotifications } = await import('/notifications-service.js');
+        items = ((await fetchNotifications()) || []).slice(0, POPOVER_LIMIT);
+    } catch (err) {
+        console.error('[PortalShell] notifications popover:', err?.message || err);
+        body.innerHTML = '<p class="portal-notif-empty">تعذّر تحميل الإشعارات. حاول مرة أخرى.</p>';
+        return;
+    }
+
+    if (!items.length) {
+        body.innerHTML = '<p class="portal-notif-empty">لا توجد إشعارات بعد.</p>';
+        return;
+    }
+
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    body.innerHTML = items.map(n => `
+        <button type="button" class="portal-notif-item ${n.is_read ? '' : 'is-unread'}"
+                data-notif-id="${esc(n.id)}">
+            <span class="portal-notif-dot" aria-hidden="true"></span>
+            <span class="portal-notif-text">
+                <span class="portal-notif-title">${esc(n.title)}</span>
+                <span class="portal-notif-msg">${esc(n.message)}</span>
+            </span>
+            <span class="visually-hidden">${n.is_read ? 'مقروء' : 'غير مقروء'}</span>
+        </button>`).join('');
+
+    body.querySelectorAll('[data-notif-id]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-notif-id');
+            const notification = items.find(n => String(n.id) === String(id));
+            closeNotificationPopover();
+            if (typeof options.onOpenNotification === 'function') {
+                options.onOpenNotification(notification);
+            }
+        });
+    });
+}
+
+/** يحدّث شارة العدد على الجرس وفي القائمة الجانبية. */
     async function refreshUnreadBadge() {
         const badge = document.getElementById('notificationBadge');
         try {
@@ -481,6 +601,8 @@ function setupSidebarLogic(onTabChange, options = {}) {
     const closeAllMenus = () => {
         document.querySelectorAll('.portal-menu').forEach(menu => { menu.hidden = true; });
         document.querySelectorAll('[aria-haspopup]').forEach(t => t.setAttribute('aria-expanded', 'false'));
+        // النافذة المنبثقة تُزال لا تُخفى: تُبنى عند كل فتح ببيانات طازجة
+        closeNotificationPopover();
     };
     document.removeEventListener('click', document._sidebarCloseMenus);
     document._sidebarCloseMenus = closeAllMenus;
@@ -489,6 +611,11 @@ function setupSidebarLogic(onTabChange, options = {}) {
     // Escape يقفل أي قائمة مفتوحة أو الدرج — مخرج واحد متوقَّع من أي حالة
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
+        if (document.getElementById(POPOVER_ID)) {
+            closeNotificationPopover();
+            document.getElementById('notificationBtn')?.focus();
+            return;
+        }
         const anyMenuOpen = [...document.querySelectorAll('.portal-menu')].some(m => !m.hidden);
         if (anyMenuOpen) { closeAllMenus(); return; }
         if (sidebar.classList.contains('active')) { setDrawer(false); menuToggle.focus(); }

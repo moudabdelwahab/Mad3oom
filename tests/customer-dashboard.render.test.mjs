@@ -803,7 +803,9 @@ test('تفاصيل التذكرة تعرض كل ما يحتاجه العميل',
     await context.close();
 });
 
-test('التذكرة المحلولة تعرض إعادة الفتح، والمرفوضة لا تعرض ردًا', { skip: !chromiumPath }, async () => {
+test('المحلولة تعرض زرّ إعادة فتح مستقلًا، والمكتملة تقبل ردًّا بلا إعادة فتح', { skip: !chromiumPath }, async () => {
+    // القرار الجديد (الترحيل 034): زرّ الردّ لا يغيّر الحالة أبدًا، وإعادة
+    // الفتح زرّ منفصل يظهر على 'resolved' وحدها.
     const fx = fixtures();
     const { page, context } = await openDashboard(browser, baseUrl, fx, { hash: '#tickets' });
 
@@ -811,16 +813,24 @@ test('التذكرة المحلولة تعرض إعادة الفتح، والم�
     await page.waitForSelector('.ticket-card');
     await page.click(`.ticket-card[data-id="${TICKET_2}"]`);   // resolved
     await page.waitForSelector('.ticket-detail-title');
-    assert.match(await page.textContent('#panelSendReply'), /إعادة فتح/);
+
+    assert.equal(await page.textContent('#panelSendReply'), 'إرسال الرد',
+        'زرّ الردّ ما زال يدّعي إعادة الفتح');
+    assert.equal(await page.locator('#panelReopenTicket').count(), 1, 'زرّ إعادة الفتح غائب');
+    assert.equal(await page.textContent('#panelReopenTicket'), 'إعادة الفتح');
+    assert.match(await page.textContent('.ticket-details-scroll'),
+        /الردّ يُسجَّل ولا يعيد فتحها/, 'الأثر غير موضَّح للمستخدم');
 
     await page.click(`.ticket-card[data-id="${TICKET_3}"]`);   // confirmed
     await page.waitForSelector('.ticket-detail-title');
-    assert.equal(await page.locator('#panelSendReply').count(), 0, 'التذكرة المكتملة عرضت مُنشئ ردّ');
-    assert.match(await page.textContent('.ticket-details-scroll'), /هذه التذكرة مغلقة/);
+    assert.equal(await page.locator('#panelSendReply').count(), 1,
+        'الردّ على تذكرة مكتملة صار مسموحًا ولا يفتحها');
+    assert.equal(await page.locator('#panelReopenTicket').count(), 0,
+        'قرار نهائي عُرض له زرّ إعادة فتح');
     await context.close();
 });
 
-test('إعادة الفتح تطلب تأكيداً وتشرح الأثر', { skip: !chromiumPath }, async () => {
+test('الردّ على تذكرة مغلقة لا يطلب تأكيدًا ولا يعيد فتحها', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#tickets' });
     await page.click('.view-tab[data-view="closed"]');
     await page.waitForSelector('.ticket-card');
@@ -829,8 +839,35 @@ test('إعادة الفتح تطلب تأكيداً وتشرح الأثر', { sk
 
     await page.fill('#panelReplyText', 'المشكلة رجعت تاني');
     await page.click('#panelSendReply');
+
+    // لا حوار تأكيد: الردّ فعل بسيط لا أثر جانبي له على الحالة
+    await page.waitForFunction(() => document.getElementById('panelReplyText')?.value === '',
+        null, { timeout: 10000 });
+    assert.equal(await page.locator('.ui-dialog').count(), 0,
+        'الردّ ما زال يطلب تأكيد إعادة فتح');
+
+    // ولا استُدعيت دالة إعادة الفتح في القاعدة
+    const rpcCalls = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(rpcCalls.includes('reopen_ticket_in_my_scope'), false,
+        'الردّ نادى دالة إعادة الفتح');
+    await context.close();
+});
+
+test('زرّ «إعادة الفتح» وحده يستدعي دالة إعادة الفتح، وبتأكيد', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, fixtures(), { hash: '#tickets' });
+    await page.click('.view-tab[data-view="closed"]');
+    await page.waitForSelector('.ticket-card');
+    await page.click(`.ticket-card[data-id="${TICKET_2}"]`);
+    await page.waitForSelector('#panelReopenTicket');
+
+    await page.click('#panelReopenTicket');
     await page.waitForSelector('.ui-dialog');
-    assert.match(await page.textContent('.ui-dialog'), /سيعيدها لفريق الدعم/);
+    assert.match(await page.textContent('.ui-dialog'), /إعادة فتح التذكرة/);
+
+    await page.click('.ui-dialog button:has-text("إعادة الفتح")');
+    await page.waitForFunction(
+        () => (window.__RPC_CALLS__ || []).includes('reopen_ticket_in_my_scope'),
+        null, { timeout: 10000 });
     await context.close();
 });
 

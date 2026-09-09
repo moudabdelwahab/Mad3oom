@@ -92,19 +92,44 @@ test('إعادة الفتح متاحة على المحلولة فقط — نفس
 });
 
 test('الإجراءات المتاحة تتبع حالة التذكرة', () => {
+    // القرار الجديد (الترحيل 034): الردّ فعل، وإعادة الفتح فعل آخر. الردّ
+    // متاح على أي حالة **ولا يغيّرها**، وتغيير الحالة بزرّين صريحين.
     const open = availableActions(ticket({ status: 'open' }), { userId: ME });
     assert.equal(open.canReply, true);
-    assert.equal(open.canReopen, false);
+    assert.equal(open.canReopen, false, 'المفتوحة لا تُعاد فتحها');
+    assert.equal(open.canClose, true, 'المفتوحة تُغلق');
     assert.equal(open.canRate, false);
 
+    const inProgress = availableActions(ticket({ status: 'in-progress' }), { userId: ME });
+    assert.equal(inProgress.canClose, true);
+    assert.equal(inProgress.canReopen, false);
+
     const resolved = availableActions(ticket({ status: 'resolved' }), { userId: ME });
-    assert.equal(resolved.canReply, true, 'الردّ هو مسار إعادة الفتح فلازم يفضل متاح');
-    assert.equal(resolved.canReopen, true);
+    assert.equal(resolved.canReply, true, 'الردّ على المغلقة مسموح ولا يفتحها');
+    assert.equal(resolved.canReopen, true, 'زرّ إعادة الفتح وحده يفتحها');
+    assert.equal(resolved.canClose, false, 'المغلقة لا تُغلق مرة أخرى');
     assert.equal(resolved.canRate, true);
 
-    const rejected = availableActions(ticket({ status: 'rejected' }), { userId: ME });
-    assert.equal(rejected.canReply, false);
-    assert.equal(rejected.canReopen, false);
+    // قرارات نهائية: يُسمح بالردّ عليها، ولا تُنقَض بضغطة — نفس حدّ الدالة
+    // reopen_ticket_in_my_scope في القاعدة حرفيًا.
+    for (const status of ['rejected', 'confirmed']) {
+        const decided = availableActions(ticket({ status }), { userId: ME });
+        assert.equal(decided.canReply, true, `الردّ على ${status} مسموح`);
+        assert.equal(decided.canReopen, false, `${status} لا تُعاد فتحها`);
+        assert.equal(decided.canClose, false, `${status} مغلقة أصلًا`);
+    }
+});
+
+test('حدّ الواجهة لإعادة الفتح والإغلاق مطابق لحدّ القاعدة حرفيًا', async () => {
+    // لو انفصل الاثنان لعرضت الواجهة إجراءً ترفضه القاعدة (أو أخفت مسموحًا).
+    const fs = await import('node:fs/promises');
+    const sql = await fs.readFile(
+        new URL('../migrations/034_explicit_ticket_reopen_and_close.sql', import.meta.url), 'utf8');
+
+    assert.match(sql, /v_status <> 'resolved'/,
+        'دالة إعادة الفتح لم تعد تشترط resolved — راجع canReopen');
+    assert.match(sql, /v_status not in \('open', 'in-progress'\)/,
+        'دالة الإغلاق لم تعد تشترط open/in-progress — راجع canClose');
 });
 
 test('إطفاء التقييم من لوحة الإدارة يمنع إجراء التقييم', () => {

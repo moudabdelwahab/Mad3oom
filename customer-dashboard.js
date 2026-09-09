@@ -35,7 +35,9 @@ import {
     fetchTicketActivity,
     fetchTicketRating,
     submitTicketRating,
-    uploadTicketAttachment
+    uploadTicketAttachment,
+    reopenTicket,
+    closeTicket
 } from './tickets-service.js';
 import {
     fetchNotifications,
@@ -1125,23 +1127,17 @@ function meter(percent, tone = '') {
                 <h3 class="detail-section-title" style="font-size:var(--fs-base);">المحادثة</h3>
                 <div id="panelRepliesList" class="replies-scroll"></div>
 
-                ${actions.canReply ? `
-                    ${actions.canReopen ? '<p class="field-hint" style="margin-bottom:var(--sp-2);">التذكرة تم حلّها — إرسال ردّ جديد سيعيد فتحها لفريق الدعم.</p>' : ''}
-                    <label class="visually-hidden" for="panelReplyText">اكتب ردك</label>
-                    <textarea id="panelReplyText" class="form-control" rows="3" placeholder="اكتب ردك هنا…"></textarea>
-                    <button type="button" id="panelSendReply" class="btn btn-primary btn-block" style="margin-top:var(--sp-3);">
-                        ${actions.canReopen ? 'إرسال وإعادة فتح التذكرة' : 'إرسال الرد'}
-                    </button>
-                ` : `
-                    <div class="alert-item alert-item--info">
-                        <span class="alert-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg></span>
-                        <div class="alert-body">
-                            <p class="alert-title">هذه التذكرة مغلقة</p>
-                            <p class="alert-text">لو لسه محتاج مساعدة في نفس الموضوع، افتح تذكرة جديدة واذكر رقم هذه التذكرة.</p>
-                        </div>
-                        <button type="button" class="alert-action" data-action="open-create-ticket" style="background:none;border:none;cursor:pointer;font-family:inherit;">تذكرة جديدة</button>
-                    </div>
-                `}
+                ${statusInfo(ticket.status).closed ? `
+                    <p class="field-hint" style="margin-bottom:var(--sp-2);">
+                        التذكرة مغلقة. الردّ يُسجَّل ولا يعيد فتحها${actions.canReopen ? ' — استخدم زرّ «إعادة الفتح» لذلك' : ''}.
+                    </p>` : ''}
+                <label class="visually-hidden" for="panelReplyText">اكتب ردك</label>
+                <textarea id="panelReplyText" class="form-control" rows="3" placeholder="اكتب ردك هنا…"></textarea>
+                <button type="button" id="panelSendReply" class="btn btn-primary btn-block" style="margin-top:var(--sp-3);">إرسال الرد</button>
+                ${actions.canReopen ? `
+                <button type="button" id="panelReopenTicket" class="btn btn-secondary btn-block" style="margin-top:var(--sp-2);">إعادة الفتح</button>` : ''}
+                ${actions.canClose ? `
+                <button type="button" id="panelCloseTicket" class="btn btn-secondary btn-block" style="margin-top:var(--sp-2);">إغلاق التذكرة</button>` : ''}
             </div>
 
             <div style="display:flex; gap:var(--sp-3); border-top:1px solid var(--color-border); padding-top:var(--sp-5); flex-wrap:wrap;">
@@ -1253,29 +1249,16 @@ function meter(percent, tone = '') {
                 return;
             }
 
-            // الردّ على تذكرة محلولة = إعادة فتحها (trigger في migrations/012)
-            if (actions.canReopen) {
-                const ok = await ui.showConfirm(
-                    'إعادة فتح التذكرة؟',
-                    'التذكرة تم حلّها. إرسال ردّ جديد سيعيدها لفريق الدعم للمتابعة.',
-                    { confirmLabel: 'إرسال وإعادة الفتح', cancelLabel: 'تراجع', type: 'info' }
-                );
-                if (!ok) return;
-            }
-
+            // الردّ لم يعد يغيّر الحالة (أُلغي محفّز 012 في الترحيل 034):
+            // إعادة الفتح والإغلاق إجراءان صريحان بزرّيهما أدناه.
             const original = sendBtn.textContent;
             sendBtn.disabled = true;
             sendBtn.textContent = 'جاري الإرسال…';
             try {
                 await addTicketReply(ticket.id, message);
                 replyInput.value = '';
-                if (actions.canReopen) {
-                    await refreshTickets();
-                    ui.showToast('تم إرسال ردك وإعادة فتح التذكرة', 'success');
-                } else {
-                    await loadRepliesInPanel(ticket.id);
-                    ui.showToast('تم إرسال ردك', 'success');
-                }
+                await loadRepliesInPanel(ticket.id);
+                ui.showToast('تم إرسال ردك', 'success');
             } catch (err) {
                 ui.showToast(`تعذّر إرسال الرد: ${err.message || 'خطأ غير متوقع'}`, 'error');
             } finally {
@@ -1291,6 +1274,42 @@ function meter(percent, tone = '') {
                 send();
             }
         });
+
+        /* ── إجراءا الحالة الصريحان ──────────────────────────────────────── */
+        const statusAction = async (btn, run, { title, body, confirmLabel, done }) => {
+            const ok = await ui.showConfirm(title, body,
+                { confirmLabel, cancelLabel: 'تراجع', type: 'info' });
+            if (!ok) return;
+
+            const label = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'جاري التنفيذ…';
+            try {
+                await run(ticket.id);
+                await refreshTickets();
+                ui.showToast(done, 'success');
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = label;
+                ui.showToast(err.message || 'تعذّر تنفيذ الإجراء', 'error');
+            }
+        };
+
+        document.getElementById('panelReopenTicket')?.addEventListener('click', (e) =>
+            statusAction(e.currentTarget, reopenTicket, {
+                title: 'إعادة فتح التذكرة؟',
+                body: 'ستعود التذكرة إلى فريق الدعم للمتابعة.',
+                confirmLabel: 'إعادة الفتح',
+                done: 'تم إعادة فتح التذكرة'
+            }));
+
+        document.getElementById('panelCloseTicket')?.addEventListener('click', (e) =>
+            statusAction(e.currentTarget, closeTicket, {
+                title: 'إغلاق التذكرة؟',
+                body: 'ستُعلَّم كـ«تم الحل». يمكنك إعادة فتحها لاحقًا.',
+                confirmLabel: 'إغلاق التذكرة',
+                done: 'تم إغلاق التذكرة'
+            }));
     }
 
     const STAFF_ROLES = new Set(['admin', 'support']);

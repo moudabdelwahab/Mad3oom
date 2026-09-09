@@ -16,8 +16,11 @@ import { guardPage } from '/assets/js/page-guard.js';
 import { initCompanyShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
 import { createTicketStream } from '/assets/js/company/company-tickets.js';
 import { initCompanySupport, loadCompanySupport } from '/assets/js/company/company-support.js';
-import { initCompanyNotifications, loadCompanyNotifications } from '/assets/js/company/company-notifications.js';
+import { initCompanyNotifications, loadCompanyNotifications, companyDestinationFor } from '/assets/js/company/company-notifications.js';
 import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/company-account.js';
+import { initCompanyApi, setCompanyApiMembers, loadCompanyApi } from '/assets/js/company/company-api.js';
+import { renderCompanyReports } from '/assets/js/company/company-reports.js';
+import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
@@ -46,6 +49,9 @@ let currentUserId = null;
 let platformTickets = null;   // الشركة ↔ مدعوم
 let customerTickets = null;   // العميل ↔ الشركة
 
+/** أعضاء الشركة كما رجّعتهم القاعدة — تُقرأ منها التقارير وقسم API. */
+let companyMembers = [];
+
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
 
@@ -61,7 +67,18 @@ async function init() {
 
     // قشرة الشركة: قائمتها الخاصة، وكل عناصرها أقسام في هذه الصفحة.
     // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
-    initCompanyShell({ onTabChange: showSection });
+    initCompanyShell({
+        onTabChange: showSection,
+        // الجرس يفتح نافذة منبثقة ولا يبدّل القسم؛ «عرض الكل» وحده ينقل إليه.
+        notificationsPopover: true,
+        onSeeAllNotifications: () => showSection('notifications'),
+        onOpenNotification: (notification) => {
+            const destination = companyDestinationFor(notification);
+            if (destination.kind === 'ticket') openTicketInItsStream(destination.ticketId);
+            else if (destination.kind === 'section') showSection(destination.section);
+            else showSection('notifications');
+        }
+    });
 
     // المسارَان يشتركان في كود العرض ويختلفان في مصدر الصفوف — والفصل
     // الحقيقي مفروض في القاعدة، لا هنا.
@@ -70,6 +87,11 @@ async function init() {
         onNewTicket: () => showSection('support')
     });
     customerTickets = createTicketStream('customers', { userId: currentUserId });
+
+    // «طلب مفتاح جديد» ليس مسارًا موازيًا: لا سياسة INSERT على api_tokens،
+    // فالطلب يمرّ بمركز الدعم كتذكرة — نفس البنية القائمة.
+    initCompanyApi({ onRequestNewKey: () => showSection('support') });
+    initCompanyActivity();
     initCompanySupport({ onCreated: onTicketCreated });
     initCompanyNotifications({
         onNavigate: showSection,
@@ -105,7 +127,9 @@ const SECTIONS = [
     'overview', 'members', 'subscriptions',
     'tickets',          // ① الشركة ↔ مدعوم
     'customerTickets',  // ② العميل  ↔ الشركة
-    'support', 'notifications', 'profile', 'security'
+    'support', 'notifications',
+    'api', 'reports', 'activity',
+    'profile', 'security'
 ];
 
 /** الأقسام اللي بتتحمّل عند أول فتح لها فقط. */
@@ -115,7 +139,11 @@ const LOADERS = {
     support: () => loadCompanySupport(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
-    security: () => loadCompanySecurity()
+    security: () => loadCompanySecurity(),
+    api: () => loadCompanyApi({ selfId: currentUserId }),
+    activity: () => loadCompanyActivity(),
+    // التقارير تُبنى من المسارين، فنضمن تحميلهما أولًا بدل عرض أصفار كاذبة
+    reports: () => loadReports()
 };
 
 const loadedOnce = new Set();
@@ -155,6 +183,23 @@ function wireSectionRouting() {
         if (!link || !link.closest('#companyMain')) return;
         event.preventDefault();
         showSection(link.getAttribute('data-tab'));
+    });
+}
+
+/**
+ * التقارير تقرأ المسارين معًا. لو لم يُفتحا بعد نحمّلهما أولًا — تقرير مبني
+ * على قوائم فارغة لم تُقرأ بعدُ أسوأ من انتظار قصير.
+ */
+async function loadReports() {
+    if (!loadedOnce.has('tickets')) { loadedOnce.add('tickets'); await platformTickets.load(); }
+    if (!loadedOnce.has('customerTickets')) { loadedOnce.add('customerTickets'); await customerTickets.load(); }
+
+    renderCompanyReports({
+        dashboard,
+        platformTickets: platformTickets.rows(),
+        customerTickets: customerTickets.rows(),
+        members: companyMembers,
+        userId: currentUserId
     });
 }
 
@@ -253,6 +298,8 @@ async function renderMembers() {
     // القرار جاي من القاعدة كما هو؛ الواجهة ما بتحسبوش.
     canManageMembersNow = canManageMembers(result.data);
     const { members = [] } = result.data;
+    companyMembers = members;
+    setCompanyApiMembers(members);
     panel.hidden = false;
     addBtn.hidden = !canManageMembersNow;
 

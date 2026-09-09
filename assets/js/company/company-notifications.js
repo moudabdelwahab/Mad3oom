@@ -23,7 +23,8 @@ import { escapeHtml, timeAgo, renderState, renderSkeletonLines }
 
 /** الأقسام الموجودة فعلًا في لوحة الشركة. أي وجهة خارجها تُهمَل بأمان. */
 const COMPANY_SECTIONS = new Set([
-    'overview', 'members', 'subscriptions', 'tickets', 'support', 'notifications', 'profile', 'security'
+    'overview', 'members', 'subscriptions', 'tickets', 'customerTickets',
+    'support', 'notifications', 'api', 'reports', 'activity', 'profile', 'security'
 ]);
 
 /**
@@ -33,9 +34,9 @@ const COMPANY_SECTIONS = new Set([
  */
 const SECTION_ALIASES = {
     usage: 'subscriptions',
-    activity: 'security',
     rewards: 'overview',
     badges: 'overview'
+    // activity لها الآن قسم مستقل في لوحة الشركة، فلا تحتاج ترجمة
 };
 
 let container = null;
