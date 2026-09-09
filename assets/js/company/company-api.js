@@ -2,26 +2,30 @@
  * company-api.js — قسم API داخل لوحة الشركة.
  *
  * القسم ده مبني على ما تسمح به البنية الحالية فعلًا، لا على نظام موازٍ.
- * قراءة السياسات على الإنتاج أعطت التصميم كاملًا:
+ * قراءة السياسات على الإنتاج أعطت شكل القراءة والتعديل:
  *
  *   api_tokens
  *     SELECT  auth.uid() = user_id  OR  is_admin() OR is_owner_or_super_of(user_id)
  *     UPDATE  auth.uid() = user_id  OR  is_admin() OR is_owner_or_super_of(user_id)
  *     DELETE  auth.uid() = user_id  OR  is_admin() OR is_owner_or_super_of(user_id)
- *     INSERT  **لا توجد سياسة** ← لا أحد يُنشئ مفتاحًا من العميل إطلاقًا
+ *     INSERT  لا توجد سياسة
  *
  *   is_owner_or_super_of(x) = (auth.uid() = x) OR (x.super_user_id = auth.uid())
  *   أي «أنا أو عضو في شركتي» — نطاق الشركة مُنفَّذ في القاعدة أصلًا.
  *
- * وبناءً عليه:
- *   • الشركة **ترى** مفاتيحها ومفاتيح أعضائها.       ← مدعوم
- *   • الشركة **توقف/تفعّل** المفتاح، و**تسحبه**.      ← مدعوم
- *   • الشركة **لا تُنشئ** مفتاحًا ولا تُدوّره.        ← غير مدعوم في البنية،
- *     فالمسار الصحيح هو طلب من الدعم، وهو موجود: تذكرة. لا نخترع مسارًا.
+ * تصحيح لتعليق سابق في هذا الملف: غياب سياسة INSERT **لا يعني** أن الإنشاء
+ * غير مدعوم. قراءة الدالة المنشورة create-api-token من الإنتاج أثبتت أنها
+ * مسار الإنشاء الرسمي: تتحقق من الجلسة ثم تكتب الصف بـservice role. فغياب
+ * السياسة قرار تصميم مقصود — العميل لا يكتب في الجدول إطلاقًا، الخادم هو
+ * من يكتب بعد التحقق. وعليه:
+ *   • الشركة **ترى** مفاتيحها ومفاتيح أعضائها.       ← سياسة SELECT
+ *   • الشركة **توقف/تفعّل** المفتاح.                  ← سياسة UPDATE
+ *   • الشركة **تُنشئ** مفتاحًا.                       ← create-api-token
  *
  * السرّ: العمود secret_hash لا يُقرأ هنا إطلاقًا، ولا يُعرض. المعروض هو
- * api_key (المعرّف العلني) وآخر أربع خانات فقط — نفس ما تعرضه بوابة العميل.
- * credentials_encrypted في التكاملات لا يُقرأ ولا يُعرض بأي حال.
+ * api_key (المعرّف العلني) وآخر أربع خانات فقط. القيمة الكاملة لا تُعرض إلا
+ * في لحظة الإنشاء داخل النافذة (api-token-modal.js)، لأن المخزَّن في القاعدة
+ * بصمة مشفَّرة لا القيمة — فلا الخادم نفسه يقدر يعرضها بعد ذلك.
  */
 
 import { supabase } from '/api-config.js';
@@ -31,12 +35,24 @@ import { escapeHtml, formatDate, timeAgo, renderState, renderSkeletonLines }
 import { ui } from '/ui-service.js';
 
 let container = null;
-let onRequestKey = null;
+let onCreateKey = null;
 let members = [];
 
-export function initCompanyApi({ onRequestNewKey } = {}) {
+/** هل تمنح باقة الشركة ميزة api_tokens؟ يُقرأ من حمولة القاعدة لا يُحسب هنا. */
+let entitled = false;
+
+export function initCompanyApi({ onCreateToken } = {}) {
     container = document.getElementById('companyApi');
-    onRequestKey = onRequestNewKey || null;
+    onCreateKey = onCreateToken || null;
+}
+
+/**
+ * الاستحقاق كما رجّعته get_my_company_dashboard().
+ * إخفاء الزر تنظيم للواجهة لا حماية: createCompanyApiToken بتعيد سؤال
+ * القاعدة (company_has_feature) عند الإرسال، وهي مصدر القرار.
+ */
+export function setCompanyApiEntitlement(value) {
+    entitled = value === true;
 }
 
 /** أسماء الأعضاء لعرض «مفتاح مَن» — تُمرَّر من اللوحة، بلا استعلام إضافي. */
@@ -59,6 +75,17 @@ export function tokenState(token, now = Date.now()) {
     }
     return { key: 'active', label: 'فعّال', tone: 'success' };
 }
+
+/** أيام متبقية لانتهاء المفتاح — null لمفتاح بلا تاريخ انتهاء. */
+export function daysToExpiry(token, now = Date.now()) {
+    if (!token?.expires_at) return null;
+    const diff = new Date(token.expires_at).getTime() - now;
+    if (Number.isNaN(diff)) return null;
+    return Math.ceil(diff / 86400000);
+}
+
+/** حدّ التنبيه: أسبوعان يكفيان لتدوير مفتاح قبل أن يتوقف الإنتاج فجأة. */
+export const EXPIRY_WARNING_DAYS = 14;
 
 export async function loadCompanyApi({ selfId } = {}) {
     if (!container) return;
@@ -85,6 +112,10 @@ export async function loadCompanyApi({ selfId } = {}) {
     const usage = usageRes.ok ? (usageRes.data || []) : [];
     const active = tokens.filter(t => tokenState(t).key === 'active');
     const calls = tokens.reduce((sum, t) => sum + (Number(t.usage_count) || 0), 0);
+    const expiring = active.filter(t => {
+        const days = daysToExpiry(t);
+        return days != null && days <= EXPIRY_WARNING_DAYS;
+    });
 
     container.innerHTML = `
         <div class="kpi-grid">
@@ -110,11 +141,21 @@ export async function loadCompanyApi({ selfId } = {}) {
                 <div>
                     <h2 class="panel-title" id="companyKeysHeading">مفاتيح API</h2>
                     <p class="panel-subtitle">
-                        السرّ لا يُعرض أبدًا — لا عند الإنشاء ولا بعده. المعروض هو المعرّف العلني وآخر أربع خانات.
+                        السرّ يظهر مرة واحدة عند الإنشاء ثم لا يُعرض أبدًا — المخزَّن بصمة مشفَّرة لا القيمة.
                     </p>
                 </div>
-                <button type="button" class="panel-link" id="companyRequestKey">طلب مفتاح جديد</button>
+                ${entitled ? '<button type="button" class="btn btn-primary btn-sm" id="companyCreateKey">إنشاء مفتاح جديد</button>' : ''}
             </div>
+            ${entitled ? '' : `
+            <p class="company-notice">
+                باقتك الحالية لا تشمل مفاتيح API. المفاتيح القائمة تظهر أدناه ويمكنك إيقافها،
+                لكن إنشاء مفاتيح جديدة يحتاج باقة تمنح ميزة <code>api_tokens</code>.
+            </p>`}
+            ${expiring.length ? `
+            <p class="company-notice company-notice--warning">
+                ${expiring.length} مفتاح ${expiring.length === 1 ? 'ينتهي' : 'تنتهي'} خلال ${EXPIRY_WARNING_DAYS} يومًا.
+                أنشئ البديل وبدّل الاستخدام قبل التوقف، ثم أوقف القديم.
+            </p>` : ''}
             <div id="companyKeysList"></div>
         </section>
 
@@ -137,16 +178,24 @@ export async function loadCompanyApi({ selfId } = {}) {
             </div>
             <dl class="company-facts">
                 <div class="company-fact">
-                    <dt>رأس المصادقة</dt>
-                    <dd><code>Authorization: Bearer &lt;api_key&gt;</code></dd>
+                    <dt>مفتاح + سرّ</dt>
+                    <dd><code>Authorization: Bearer &lt;api_key&gt;.&lt;secret&gt;</code></dd>
+                </div>
+                <div class="company-fact">
+                    <dt>رمز Bearer</dt>
+                    <dd><code>Authorization: Bearer &lt;token&gt;</code></dd>
                 </div>
                 <div class="company-fact">
                     <dt>الصلاحيات</dt>
-                    <dd>محدّدة في <code>scopes</code> على كل مفتاح — النداء خارجها يُرفض من الخادم.</dd>
+                    <dd>محدّدة في <code>scopes</code> على كل مفتاح — النداء خارجها يُرفض من الخادم بـ<code>403</code>.</dd>
+                </div>
+                <div class="company-fact">
+                    <dt>حدّ المعدّل</dt>
+                    <dd>60 نداءً في الدقيقة لكل مفتاح؛ التجاوز يردّ <code>429</code>.</dd>
                 </div>
                 <div class="company-fact">
                     <dt>عند التسريب</dt>
-                    <dd>أوقف المفتاح فورًا من القائمة أعلاه ثم اطلب بديلًا. الإيقاف يسري على الخادم مباشرةً.</dd>
+                    <dd>أوقف المفتاح فورًا من القائمة أعلاه ثم أنشئ بديلًا. الإيقاف يسري على الخادم مباشرةً.</dd>
                 </div>
             </dl>
         </section>`;
@@ -154,7 +203,7 @@ export async function loadCompanyApi({ selfId } = {}) {
     renderKeys(tokens, selfId);
     renderUsage(usage, tokens);
 
-    document.getElementById('companyRequestKey')?.addEventListener('click', () => onRequestKey?.());
+    document.getElementById('companyCreateKey')?.addEventListener('click', () => onCreateKey?.());
 }
 
 /** أحدث استخدام عبر كل المفاتيح. */
@@ -193,11 +242,15 @@ function renderKeys(tokens, selfId) {
         renderState(box, {
             variant: 'empty',
             title: 'لا توجد مفاتيح API على حساب شركتك',
-            text: 'المفاتيح يصدرها فريق مدعوم عند الحاجة. اطلب مفتاحًا وسيصلك عبر تذكرة دعم.',
-            action: { label: 'طلب مفتاح', act: 'request-api-key', variant: 'btn-primary' }
+            text: entitled
+                ? 'أنشئ مفتاحًا، حدّد صلاحياته وتاريخ انتهائه، وانسخ السرّ في اللحظة الوحيدة التي يظهر فيها.'
+                : 'إنشاء المفاتيح متاح للباقات التي تمنح ميزة api_tokens.',
+            action: entitled
+                ? { label: 'إنشاء مفتاح', act: 'create-api-key', variant: 'btn-primary' }
+                : { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
-        box.querySelector('[data-action="request-api-key"]')
-            ?.addEventListener('click', () => onRequestKey?.());
+        box.querySelector('[data-action="create-api-key"]')
+            ?.addEventListener('click', () => onCreateKey?.());
         return;
     }
 
@@ -207,6 +260,8 @@ function renderKeys(tokens, selfId) {
                 const state = tokenState(token);
                 const scopes = Array.isArray(token.scopes) ? token.scopes : [];
                 const last4 = token.secret_last_four || token.bearer_last_four;
+                const days = daysToExpiry(token);
+                const soon = state.key === 'active' && days != null && days <= EXPIRY_WARNING_DAYS;
                 return `
                 <li class="company-sub">
                     <div class="company-sub-main">
@@ -218,8 +273,15 @@ function renderKeys(tokens, selfId) {
                             · ${token.last_used_at ? `آخر استخدام ${escapeHtml(timeAgo(token.last_used_at))}` : 'لم يُستخدم بعد'}
                             · ${escapeHtml(String(token.usage_count || 0))} نداء
                         </p>
-                        ${scopes.length ? `<p class="company-sub-dates">الصلاحيات: ${escapeHtml(scopes.join('، '))}</p>` : ''}
-                        ${token.expires_at ? `<p class="company-sub-dates">ينتهي في ${escapeHtml(formatDate(token.expires_at))}</p>` : ''}
+                        ${scopes.length
+                            ? `<p class="scope-chips">${scopes.map(s => `<code>${escapeHtml(s)}</code>`).join('')}</p>`
+                            : '<p class="company-sub-dates is-muted">بلا صلاحيات محدَّدة</p>'}
+                        <p class="company-sub-dates${soon ? ' is-warning' : ''}">
+                            ${token.expires_at
+                                ? `ينتهي في ${escapeHtml(formatDate(token.expires_at))}${
+                                    days != null && days >= 0 ? ` — ${escapeHtml(String(days))} يومًا متبقية` : ''}`
+                                : 'بلا تاريخ انتهاء'}
+                        </p>
                     </div>
                     <div class="company-sub-side">
                         <span class="pill status-tone-${escapeHtml(state.tone)}">${escapeHtml(state.label)}</span>

@@ -349,3 +349,248 @@
     direction: ltr;
     display: inline-block;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   نافذة إنشاء مفتاح API
+   نفس توكنز نظام التصميم المستخدمة في باقي البوابة — مفيش لوحة ألوان
+   جديدة ولا مقاسات خاصة، عشان القسم يبان جزءًا من المنتج لا ملحقًا به.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.company-notice--warning {
+    background: var(--tint-warning);
+    color: var(--on-warning);
+}
+
+body.customer-shell .modal-content.modal-lg {
+    max-width: 46rem;
+    max-height: min(88vh, 52rem);
+    overflow-y: auto;
+}
+
+/* ── مجموعات الحقول ─────────────────────────────────────────────────────── */
+.form-fieldset {
+    margin: 0 0 var(--sp-4);
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    min-width: 0;
+}
+
+.form-fieldset > legend {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    padding: 0 var(--sp-2, .5rem);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.legend-side {
+    font-weight: 400;
+    font-size: .8em;
+    color: var(--color-text-secondary);
+}
+
+.field-hint {
+    margin: var(--sp-2, .5rem) 0 0;
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+}
+
+/* ── بطاقات الاختيار (نوع الاعتماد) ─────────────────────────────────────── */
+.choice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+    gap: var(--sp-3);
+}
+
+.choice-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.choice-card:hover { background: var(--hover-bg); }
+
+.choice-card:has(input:checked) {
+    border-color: var(--tint-accent-border-strong, var(--color-primary));
+    background: var(--tint-accent);
+}
+
+.choice-card:has(input:focus-visible) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.choice-card input { margin-top: .25rem; flex: none; }
+
+.choice-body { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+
+.choice-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    font-weight: 700;
+    font-size: var(--fs-sm);
+}
+
+.choice-hint {
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+}
+
+.choice-badge {
+    padding: .1rem .4rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 700;
+    background: var(--tint-accent);
+    color: var(--color-primary);
+}
+
+/* ── الصلاحيات ──────────────────────────────────────────────────────────── */
+.scope-groups {
+    display: grid;
+    gap: var(--sp-3);
+}
+
+.scope-group {
+    padding: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+}
+
+.scope-group-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.scope-group-title { margin: 0; font-size: var(--fs-sm); font-weight: 700; }
+
+.scope-group-hint {
+    margin: .15rem 0 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+.scope-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+    gap: var(--sp-2, .5rem);
+}
+
+.scope-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    padding: .45rem .55rem;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    min-width: 0;
+}
+
+.scope-item:hover { background: var(--hover-bg); }
+.scope-item input { flex: none; }
+.scope-label { font-size: var(--fs-sm); }
+
+.scope-key {
+    margin-inline-start: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .72rem;
+    direction: ltr;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.scope-item--danger .scope-label { color: var(--on-danger); }
+
+/* رقائق الصلاحيات في قائمة المفاتيح */
+.scope-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+    margin: .35rem 0 0;
+}
+
+/* ── رقائق مدّة الانتهاء ────────────────────────────────────────────────── */
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2, .5rem);
+}
+
+.chip-row .chip {
+    position: relative;   /* مرساة الـinput المخفي بصريًا داخل الرقاقة */
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .4rem .8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.chip-row .chip:hover { background: var(--hover-bg); }
+.chip-row .chip input { position: absolute; opacity: 0; pointer-events: none; }
+
+.chip-row .chip:has(input:checked) {
+    border-color: var(--tint-accent-border-strong, var(--color-primary));
+    background: var(--tint-accent);
+    font-weight: 700;
+}
+
+.chip-row .chip:has(input:focus-visible) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ── لحظة عرض السرّ ─────────────────────────────────────────────────────── */
+.secret-card {
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+}
+
+.secret-card-title { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); font-weight: 700; }
+
+.secret-field { margin-bottom: var(--sp-3); }
+.secret-field:last-child { margin-bottom: 0; }
+
+.secret-label {
+    display: block;
+    margin-bottom: .3rem;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+.secret-row { display: flex; gap: var(--sp-2, .5rem); align-items: stretch; }
+
+.secret-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8rem;
+    min-width: 0;
+}
+
+.secret-copy { flex: none; white-space: nowrap; }
+
+.is-warning { color: var(--on-warning); }
+
+@media (max-width: 640px) {
+    .secret-row { flex-direction: column; }
+    .scope-key { margin-inline-start: 0; }
+}

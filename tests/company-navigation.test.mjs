@@ -290,12 +290,48 @@ test('قسم API لا يقرأ ولا يعرض أي سرّ', () => {
     assert.match(src, /secret_last_four/);
 });
 
-test('قسم API لا يخترع مسار إنشاء مفاتيح — لا سياسة INSERT في القاعدة', () => {
-    const src = read('assets/js/company/company-api.js');
-    assert.doesNotMatch(src, /from\(\s*'api_tokens'\s*\)[\s\S]{0,120}\.insert\(/,
-        'الواجهة تحاول إنشاء مفتاح، والقاعدة لا تسمح بذلك');
-    // البديل الصحيح: الطلب عبر الدعم
-    assert.match(src, /onRequestNewKey|onRequestKey/);
+test('إنشاء المفتاح يمرّ بالدالة المنشورة لا بكتابة من العميل', () => {
+    // القاعدة بلا سياسة INSERT على api_tokens، وده **قرار تصميم**: الكتابة
+    // من الخادم بعد التحقق من الجلسة، لا من المتصفح. فالممنوع هو الـinsert
+    // المباشر، لا الإنشاء نفسه.
+    for (const rel of ['assets/js/company/company-api.js',
+                       'assets/js/company/api-token-modal.js',
+                       'assets/js/company/company-data.js']) {
+        assert.doesNotMatch(read(rel), /from\(\s*'api_tokens'\s*\)[\s\S]{0,120}\.insert\(/,
+            `${rel} يحاول كتابة مفتاح مباشرةً في الجدول`);
+    }
+
+    // المسار الصحيح: الدالة المنشورة، ومن طبقة البيانات لا من ملف العرض
+    assert.match(read('assets/js/company/company-data.js'),
+        /functions\.invoke\('create-api-token'/);
+    // قسم API يفوّض الفتح للّوحة بدل ما يبني نافذته بنفسه
+    assert.match(read('assets/js/company/company-api.js'), /onCreateToken/);
+});
+
+test('حمولة إنشاء المفتاح بلا أي معرّف هوية — الهوية من الجلسة', () => {
+    const src = read('assets/js/company/api-token-model.js');
+    const payload = src.slice(src.indexOf('export function toCreatePayload'));
+    for (const forbidden of ['user_id', 'userId', 'company_id', 'companyId']) {
+        assert.ok(!payload.includes(`${forbidden}:`),
+            `حمولة الإنشاء تمرّر معرّفًا يمكن تزويره: ${forbidden}`);
+    }
+});
+
+test('لوحة الشركة لا تعرض صلاحيات مشغّل المنصة في نموذج المفاتيح', () => {
+    const src = read('assets/js/company/api-token-model.js');
+    const catalog = src.slice(src.indexOf('export const SCOPE_CATALOG'),
+                              src.indexOf('export const SELECTABLE_SCOPES'));
+    for (const scope of ['admin:full', 'settings:manage', 'oauth:manage']) {
+        assert.ok(!catalog.includes(scope), `صلاحية مشغّل معروضة في اللوحة: ${scope}`);
+    }
+});
+
+test('السرّ لا يُسجَّل ولا يُخزَّن في الواجهة', () => {
+    const src = read('assets/js/company/api-token-modal.js');
+    assert.doesNotMatch(src, /console\.(log|info|warn|error)\(/,
+        'النافذة تكتب في الـconsole، وهي تتعامل مع سرّ يظهر مرة واحدة');
+    assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/,
+        'النافذة تحفظ السرّ في تخزين المتصفح');
 });
 
 test('تغيير حالة التذكرة يمرّ بدوال القاعدة لا بـUPDATE من العميل', () => {
