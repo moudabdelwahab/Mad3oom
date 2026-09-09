@@ -1,4 +1,5 @@
 import { supabase } from './api-config.js';
+import { signedUrl, signedUrls, SIGNED_URL_TTL } from './storage-urls.js';
 import { logActivity } from './activity-service.js';
 import { createNotification } from './notifications-service.js';
 
@@ -333,7 +334,7 @@ export async function fetchSupportAgents() {
     const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role')
-        .in('role', ['admin', 'support', 'super_user'])
+        .in('role', ['admin', 'support'])
         .order('full_name', { ascending: true });
 
     if (error) throw error;
@@ -596,7 +597,7 @@ export async function fetchTicketReplies(ticketId) {
 
     // جلب البروفايل لمعرفة الدور
     const profile = await getCurrentProfile(user.id);
-    const isStaff = profile && ['admin', 'support', 'super_user'].includes(profile.role);
+    const isStaff = profile && ['admin', 'support'].includes(profile.role);
 
     let query = supabase
         .from('ticket_replies')
@@ -747,14 +748,14 @@ export async function uploadTicketAttachment(ticketId, file, replyId = null) {
     });
     if (uploadError) throw uploadError;
 
-    const { data: publicUrlData } = supabase.storage.from('tickets').getPublicUrl(path);
-
+    // نخزّن **المسار** لا الرابط. المستودع خاص الآن، والرابط الموقَّع ينتهي —
+    // فحفظه في القاعدة كان سيُنتج صفوفًا تحمل روابط ميتة بعد خمس دقائق.
     const { data, error } = await supabase
         .from('ticket_attachments')
         .insert({
             ticket_id: ticketId,
             reply_id: replyId,
-            file_url: publicUrlData.publicUrl,
+            file_path: path,
             file_name: file.name,
             file_size: file.size,
             mime_type: file.type || null,
@@ -764,9 +765,23 @@ export async function uploadTicketAttachment(ticketId, file, replyId = null) {
         .single();
 
     if (error) throw error;
-    return data;
+
+    // الرد يحمل رابطًا صالحًا للعرض فورًا، بنفس اسم الحقل الذي تقرؤه الواجهات.
+    return { ...data, file_url: await signedUrl('tickets', data.file_path) };
 }
 
+/**
+ * مرفقات التذكرة، وكل صف يحمل رابطًا **موقَّعًا قصير الأجل** في `file_url`.
+ *
+ * الحقل يحتفظ باسمه عمدًا: كل مستهلك قائم (لوحة العميل، لوحة الأدمن) يقرأ
+ * `a.file_url`، فالتغيير كله محصور هنا ولا يمسّ موضع عرض واحدًا.
+ *
+ * الصفوف القديمة تحمل رابطًا عامًّا مطلقًا في `file_url` والجديدة تحمل المسار
+ * في `file_path`؛ `toObjectPath` يفهم الشكلين، فلا يوجد «قبل وبعد» في العرض.
+ *
+ * الصفوف التي ليست تخزينًا أصلًا (رابط فاتورة عامّ مثلًا) تُترك كما هي: توقيعها
+ * يعيد null، فنُبقي قيمتها الأصلية بدل أن نُفقد الرابط.
+ */
 export async function fetchTicketAttachments(ticketId) {
     const { data, error } = await supabase
         .from('ticket_attachments')
@@ -774,7 +789,12 @@ export async function fetchTicketAttachments(ticketId) {
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true });
     if (error) throw error;
-    return data || [];
+
+    const rows = data || [];
+    if (rows.length === 0) return rows;
+
+    const signed = await signedUrls('tickets', rows.map(r => r.file_path || r.file_url), SIGNED_URL_TTL);
+    return rows.map((r, i) => ({ ...r, file_url: signed[i] ?? r.file_url }));
 }
 
 /* ==================== سجل النشاط (Activity Timeline) ==================== */
