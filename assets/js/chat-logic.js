@@ -455,7 +455,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const urls = await signedUrls(CHAT_ATTACHMENTS_BUCKET, imgs.map(el => el.dataset.storagePath));
         imgs.forEach((el, i) => {
             el.removeAttribute('data-storage-path');
-            if (urls[i]) {
+            // الرابط الموقَّع يأتي من خدمة التخزين، لكن لا يُسند إلى src إلا بعد
+            // التأكد أنه https فعلًا: قيمة لا تطابق ذلك ليست رابطًا نثق به.
+            if (urls[i] && /^https:\/\//i.test(urls[i])) {
                 el.src = urls[i];
                 el.style.display = 'block';
             } else {
