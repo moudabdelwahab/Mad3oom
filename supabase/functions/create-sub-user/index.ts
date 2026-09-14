@@ -1,4 +1,4 @@
-// create-sub-user — إنشاء مستخدم تابع لشركة (company_user).
+// create-sub-user — إنشاء حساب: مستقل (طاقم المنصة) أو عضو شركة (مدير الشركة).
 //
 // ════════════════════════════════════════════════════════════════════════════
 // الخلل الأمني الذي يصلحه هذا الإصدار
@@ -16,18 +16,26 @@
 //   ③ الرتبة نفسها كانت تُمنَح آليًا لكل من يشتري باقة دعم، فالتفويض كان
 //      فعليًا «من اشترى باقة» لا «من يملك شركة».
 //
-// الإصلاح: التفويض يُسأل عنه **القاعدة** بهوية المنادي نفسه، لا يُعاد بناؤه
-// هنا. can_manage_company_members() (الترحيل 035) تتحقق في نداء واحد ذرّي من:
-//     الدور company_admin  ∧  ملكية صف في companies  ∧  استحقاق sub_users فعّال
-// وتُنفَّذ بجلسة المنادي (anon key + Authorization)، فلا سبيل لتزوير أي طرف.
+// ولأن الترحيل 035 قاعد الرتبة super_user، صار شرط `role === "super_user"`
+// لا يتحقق لأحد — فإضافة عضو الشركة مكسورة اليوم حتى يُنشَر هذا الإصدار.
+//
+// ════════════════════════════════════════════════════════════════════════════
+// مساران مشروعان — والفرق بينهما جوهري
+// ════════════════════════════════════════════════════════════════════════════
+//   ① طاقم المنصة   → حساب **مستقل**: super_user_id = null، role = "customer".
+//                     صلاحية إدارية قائمة منذ البداية، محفوظة هنا حرفيًا كما
+//                     كانت. (لوحة الإدارة: my-users و super-users.)
+//   ② مدير الشركة   → **عضو تابع** لشركته: super_user_id = هويته.
+//
+// أيّهما يسلك الطلبُ **تقرّره القاعدة لا هذه الدالة**: sub_user_create_context()
+// (الترحيل 037) تعيد { allowed, actor, attach_to_company } في نداء واحد ذرّي
+// يجمع الرتبة والعلاقة والاستحقاق. فلا يختار الطلب مساره، ولا يُعاد بناء أي
+// شرط في TypeScript — إعادة بنائه كانت ستصنع نسخة ثانية تنحرف عن الأولى.
 //
 // ملاحظة أمنية مقصودة (محفوظة من الإصدار السابق)
 //   super_user_id لا يُقرأ من جسم الطلب ولا من user_metadata إطلاقًا. الميتاداتا
 //   يتحكم فيها المستخدم وقت التسجيل، ولو قُرئ منها العمود لأمكن تزوير تبعية
 //   الحساب. القيمة تُشتق من هوية المنادي المتحقَّق منها وحدها.
-//
-// الدور: لا نكتبه هنا. محفّز sync_company_role في الترحيل 035 يشتقّه من
-// العلاقة فور كتابة super_user_id — فمصدر واحد للحقيقة بدل اثنين قد يفترقا.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -73,19 +81,18 @@ Deno.serve(async (req: Request) => {
     const { data: { user: currentUser }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !currentUser) return json({ error: "Unauthorized" }, 401);
 
-    // ── التفويض: تُقرَّره القاعدة، لا هذه الدالة ───────────────────────────
+    // ── التفويض: تُقرِّره القاعدة، لا هذه الدالة ───────────────────────────
     //
-    // نداء واحد ذرّي يجمع الدور والعلاقة والاستحقاق. أي محاولة لإعادة بناء
-    // الشروط هنا كانت ستصير نسخة ثانية قد تنحرف عن القاعدة.
-    const { data: canManage, error: permError } = await supabaseUser
-      .rpc("can_manage_company_members");
+    // نداء واحد ذرّي يجمع الرتبة والعلاقة والاستحقاق، ويحدّد المسار.
+    const { data: context, error: permError } = await supabaseUser
+      .rpc("sub_user_create_context");
 
-    if (permError) {
-      console.error("permission check failed:", permError.message);
+    if (permError || !context) {
+      console.error("permission check failed:", permError?.message);
       return json({ error: "تعذّر التحقق من صلاحيتك الآن. حاول مرة أخرى." }, 503);
     }
 
-    if (canManage !== true) {
+    if (context.allowed !== true) {
       // رسالة واحدة لكل أسباب الرفض عمدًا: التمييز بين «لست مديرًا» و«لا
       // استحقاق» يكشف حالة حساب الشركة لمن لا يملكه.
       return json({
@@ -94,12 +101,16 @@ Deno.serve(async (req: Request) => {
       }, 403);
     }
 
-    // ── نطاق الشركة يُشتق من الخادم ────────────────────────────────────────
-    const { data: companyId, error: companyError } = await supabaseUser
-      .rpc("current_company_id");
+    // المسار تقرّره القاعدة: عضو تابع، أم حساب مستقل.
+    const attachToCompany = context.attach_to_company === true;
 
-    if (companyError || !companyId) {
-      return json({ error: "حسابك غير مرتبط بشركة." }, 403);
+    // ── نطاق الشركة يُشتق من الخادم (لمسار العضو التابع وحده) ──────────────
+    if (attachToCompany) {
+      const { data: companyId, error: companyError } = await supabaseUser
+        .rpc("current_company_id");
+      if (companyError || !companyId) {
+        return json({ error: "حسابك غير مرتبط بشركة." }, 403);
+      }
     }
 
     // ── المدخلات ───────────────────────────────────────────────────────────
@@ -123,8 +134,9 @@ Deno.serve(async (req: Request) => {
     if (pwProblem) return json({ error: pwProblem }, 400);
 
     // أي معرّف هوية في الجسم يُتجاهَل صراحةً — لا يُقرأ ولا يُمرَّر.
-    // التبعية من هوية المنادي المتحقَّق منها وحدها.
-    const superUserId = currentUser.id;
+    // التبعية من هوية المنادي المتحقَّق منها وحدها، وللمسار الذي قرّرته
+    // القاعدة: طاقم المنصة يُنشئ حسابًا مستقلًا (null) كما كان دائمًا.
+    const superUserId = attachToCompany ? currentUser.id : null;
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -144,13 +156,18 @@ Deno.serve(async (req: Request) => {
     // صف البروفايل أنشأه handle_new_user() عبر trigger على auth.users، فنكمّله
     // بـUPDATE بدل محاولة إنشائه (وهو ما كان يفشل دائمًا قبل الإصلاح السابق).
     //
-    // role لا يُكتب هنا: محفّز sync_company_role يشتقّه من super_user_id.
+    // role: "customer" مكتوبة كما في الإصدار السابق حرفيًا — هي دور الحساب
+    // المستقل الذي يُنشئه طاقم المنصة. وعلى مسار عضو الشركة يرفعها محفّز
+    // sync_company_role (الترحيل 035) إلى company_user لأن super_user_id يشير
+    // إلى مالك شركة. فالمسار الإداري يبقى كما كان بالضبط، والمسار الجديد
+    // يأخذ دوره من العلاقة لا من هذه الدالة.
     const { data: updatedRows, error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
       .update({
         email,
         full_name: fullName,
         username: email.split("@")[0],
+        role: "customer",
         super_user_id: superUserId,
         is_verified: true,
       })
@@ -168,14 +185,22 @@ Deno.serve(async (req: Request) => {
 
     const created = updatedRows[0];
 
-    // تحقّق أخير: الدور المشتقّ لا بد أن يكون company_user. لو لم يكن، فالمحفّز
-    // غائب (لم يُطبَّق الترحيل 035) — والحساب حينها عضو بلا دور، فنتراجع بدل
-    // أن نترك حالة نصف مكتملة.
-    if (created.role !== "company_user") {
+    // ── تحقّق أخير: الناتج يطابق المسار المقصود ───────────────────────────
+    //
+    // مسار العضو: الدور لا بد أن يكون company_user. لو لم يكن فالمحفّز غائب
+    // (لم يُطبَّق الترحيل 035)، والحساب حينها عضو بلا دور — فنتراجع بدل أن
+    // نترك حالة نصف مكتملة.
+    //
+    // مسار الحساب المستقل: التبعية لا بد أن تكون فارغة. أي قيمة فيها تعني
+    // أن حسابًا إداريًا رُبط بشركة عن غير قصد.
+    const mismatch = attachToCompany
+      ? (created.role !== "company_user" ? "لم يُسنَد دور العضو داخل الشركة" : null)
+      : (created.super_user_id !== null ? "رُبط الحساب المستقل بشركة" : null);
+
+    if (mismatch) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      return json({
-        error: "تعذّر إسناد دور المستخدم داخل الشركة. راجع الدعم الفني.",
-      }, 500);
+      console.error("post-create mismatch:", mismatch);
+      return json({ error: "تعذّر إكمال إنشاء الحساب. راجع الدعم الفني." }, 500);
     }
 
     return json({
