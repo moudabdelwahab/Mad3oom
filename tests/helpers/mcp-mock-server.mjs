@@ -1,6 +1,7 @@
 // خادم MCP وهمي ملتزم بمواصفة Streamable HTTP — يُستخدم لإثبات سلوك العميل.
 // يفرض ترويسة Accept، ويصدر Mcp-Session-Id، ويقدر يرد بـ JSON أو SSE.
 import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 
 const TOOLS = [
   { name: 'search_repositories', description: 'ابحث في المستودعات', inputSchema: { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] } },
@@ -50,7 +51,9 @@ export function startMockServer({ mode = 'json', requireSession = true, requireA
       let result;
       const headers = { };
       if (isInit) {
-        const sid = 'sess-' + Math.random().toString(36).slice(2, 10);
+        // randomUUID لا Math.random: مولّد معرّف الجلسة يقع في سياق أمني يرصده
+        // التحليل الساكن، وهذا خادم اختبار فلا داعي أصلًا لمولّد ضعيف.
+        const sid = 'sess-' + randomUUID().slice(0, 8);
         sessions.add(sid);
         headers['Mcp-Session-Id'] = sid;
         result = { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'mock-mcp', version: '9.9.9' } };
