@@ -1,26 +1,33 @@
-// create-sub-user — إنشاء مستخدم فرعي تابع لمسؤول شركة (super_user) أو لأدمن.
+// create-sub-user — إنشاء مستخدم تابع لشركة (company_user).
 //
-// الملف ده كان منشورًا على Supabase وغير موجود في المستودع أصلًا، فاتضاف هنا
-// عشان يبقى تحت إدارة النسخ زي باقي الدوال.
+// ════════════════════════════════════════════════════════════════════════════
+// الخلل الأمني الذي يصلحه هذا الإصدار
+// ════════════════════════════════════════════════════════════════════════════
+// الإصدار السابق كان يفوّض على **الرتبة وحدها**:
 //
-// الخلل اللي اتصلح
-//   الدالة كانت بتنادي auth.admin.createUser ثم تعمل INSERT في public.profiles
-//   لنفس المعرّف. لكن على auth.users فيه trigger اسمه on_auth_user_created
-//   بينفّذ handle_new_user() اللي بينشئ صف البروفايل تلقائيًا. فالـINSERT
-//   الثاني كان بيصطدم بالمفتاح الأساسي، ومسار التراجع كان بيحذف المستخدم
-//   المُنشأ — يعني إنشاء المستخدم الفرعي كان بيفشل دايمًا.
-//   (الدليل في الإنتاج: صفر صفوف في profiles.super_user_id رغم وجود الميزة.)
+//     const isSuperUser = currentProfile.role === "super_user";
+//     if (!isAdmin && !isSuperUser) return 403;
 //
-//   الإصلاح: نكمّل الصف الموجود بـUPDATE بدل ما نحاول إنشاءه من جديد.
-//   وعشان الـUPDATE ده يعدّي، لازم check_super_user_creation يسمح لمفتاح
-//   الخدمة (auth.uid() فارغ) زي باقي الحرّاس في المشروع — ده اتعمل في
-//   migrations/017.
+// وثلاث فجوات تتبع ذلك:
+//   ① لا فحص للعلاقة بالشركة — حامل الرتبة بلا شركة كان يُنشئ «تابعًا» له،
+//      فينتج عضو بلا شركة، ودور معلّق في الفراغ.
+//   ② لا فحص للاستحقاق — شركة بلا ميزة sub_users كانت تُنشئ أعضاء بنداء
+//      مباشر للدالة، متخطّيةً بوابة الواجهة تمامًا.
+//   ③ الرتبة نفسها كانت تُمنَح آليًا لكل من يشتري باقة دعم، فالتفويض كان
+//      فعليًا «من اشترى باقة» لا «من يملك شركة».
 //
-// ملاحظة أمنية مقصودة
-//   super_user_id مابيتبعتش في user_metadata. الميتاداتا دي بيتحكم فيها
-//   المستخدم وقت التسجيل، ولو أي كود مستقبلي قرأ منها العمود ده هيبقى ممكن
-//   تزوير تبعية الحساب (وبالتالي الوصول للوحة شركة غيرك). القيمة بتتحدد هنا
-//   من هوية المنادي المتحقَّق منها فقط.
+// الإصلاح: التفويض يُسأل عنه **القاعدة** بهوية المنادي نفسه، لا يُعاد بناؤه
+// هنا. can_manage_company_members() (الترحيل 035) تتحقق في نداء واحد ذرّي من:
+//     الدور company_admin  ∧  ملكية صف في companies  ∧  استحقاق sub_users فعّال
+// وتُنفَّذ بجلسة المنادي (anon key + Authorization)، فلا سبيل لتزوير أي طرف.
+//
+// ملاحظة أمنية مقصودة (محفوظة من الإصدار السابق)
+//   super_user_id لا يُقرأ من جسم الطلب ولا من user_metadata إطلاقًا. الميتاداتا
+//   يتحكم فيها المستخدم وقت التسجيل، ولو قُرئ منها العمود لأمكن تزوير تبعية
+//   الحساب. القيمة تُشتق من هوية المنادي المتحقَّق منها وحدها.
+//
+// الدور: لا نكتبه هنا. محفّز sync_company_role في الترحيل 035 يشتقّه من
+// العلاقة فور كتابة super_user_id — فمصدر واحد للحقيقة بدل اثنين قد يفترقا.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -37,101 +44,149 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+/** نفس قاعدة المنصة في auth-validation.validatePassword و company-model.js */
+function passwordProblem(password: string): string | null {
+  if (password.length < 8) return "كلمة المرور يجب أن تكون 8 أحرف على الأقل";
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    return "كلمة المرور يجب أن تحتوي على حرف كبير وحرف صغير ورقم";
   }
+  return null;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return json({ error: "Missing authorization header" }, 401);
-    }
+    if (!authHeader) return json({ error: "Missing authorization header" }, 401);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || "",
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    // عميل بهوية المنادي — كل فحص تفويض يمرّ من خلاله، لا من خلال service role.
+    const supabaseUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const { data: { user: currentUser }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !currentUser) {
-      return json({ error: "Unauthorized" }, 401);
+    if (userError || !currentUser) return json({ error: "Unauthorized" }, 401);
+
+    // ── التفويض: تُقرَّره القاعدة، لا هذه الدالة ───────────────────────────
+    //
+    // نداء واحد ذرّي يجمع الدور والعلاقة والاستحقاق. أي محاولة لإعادة بناء
+    // الشروط هنا كانت ستصير نسخة ثانية قد تنحرف عن القاعدة.
+    const { data: canManage, error: permError } = await supabaseUser
+      .rpc("can_manage_company_members");
+
+    if (permError) {
+      console.error("permission check failed:", permError.message);
+      return json({ error: "تعذّر التحقق من صلاحيتك الآن. حاول مرة أخرى." }, 503);
     }
 
-    const { data: currentProfile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (profileError || !currentProfile) {
-      return json({ error: "Profile not found" }, 404);
+    if (canManage !== true) {
+      // رسالة واحدة لكل أسباب الرفض عمدًا: التمييز بين «لست مديرًا» و«لا
+      // استحقاق» يكشف حالة حساب الشركة لمن لا يملكه.
+      return json({
+        error:
+          "إضافة المستخدمين متاحة لمدير الشركة ضمن اشتراك يشمل المستخدمين الفرعيين.",
+      }, 403);
     }
 
-    const isAdmin = currentProfile.role === "admin" || currentProfile.role === "support";
-    const isSuperUser = currentProfile.role === "super_user";
+    // ── نطاق الشركة يُشتق من الخادم ────────────────────────────────────────
+    const { data: companyId, error: companyError } = await supabaseUser
+      .rpc("current_company_id");
 
-    if (!isAdmin && !isSuperUser) {
-      return json({ error: "Insufficient permissions" }, 403);
+    if (companyError || !companyId) {
+      return json({ error: "حسابك غير مرتبط بشركة." }, 403);
     }
 
-    const { email, password, full_name } = await req.json();
-    if (!email || !password || !full_name) {
+    // ── المدخلات ───────────────────────────────────────────────────────────
+    let body: { email?: string; password?: string; full_name?: string };
+    try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const fullName = String(body.full_name || "").trim();
+
+    if (!email || !password || !fullName) {
       return json({ error: "Missing required fields: email, password, full_name" }, 400);
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({ error: "بريد إلكتروني غير صالح" }, 400);
+    }
+    if (fullName.length < 2 || fullName.length > 120) {
+      return json({ error: "اسم المستخدم غير صالح" }, 400);
+    }
+    const pwProblem = passwordProblem(password);
+    if (pwProblem) return json({ error: pwProblem }, 400);
 
-    // التبعية تُشتق من هوية المنادي، ولا تُقرأ من جسم الطلب أبدًا.
-    const superUserId = isSuperUser ? currentUser.id : null;
+    // أي معرّف هوية في الجسم يُتجاهَل صراحةً — لا يُقرأ ولا يُمرَّر.
+    // التبعية من هوية المنادي المتحقَّق منها وحدها.
+    const superUserId = currentUser.id;
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name },
+      user_metadata: { full_name: fullName },
     });
 
     if (createError || !newUser?.user) {
       return json({ error: createError?.message || "Failed to create user" }, 400);
     }
 
-    // صف البروفايل أنشأه handle_new_user() بالفعل عبر trigger على auth.users،
-    // فبنكمّله هنا بدل ما نحاول إنشاءه (وده كان سبب الفشل الدائم).
+    // صف البروفايل أنشأه handle_new_user() عبر trigger على auth.users، فنكمّله
+    // بـUPDATE بدل محاولة إنشائه (وهو ما كان يفشل دائمًا قبل الإصلاح السابق).
+    //
+    // role لا يُكتب هنا: محفّز sync_company_role يشتقّه من super_user_id.
     const { data: updatedRows, error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
       .update({
         email,
-        full_name,
+        full_name: fullName,
         username: email.split("@")[0],
-        role: "customer",
         super_user_id: superUserId,
         is_verified: true,
       })
       .eq("id", newUser.user.id)
-      .select("id");
+      .select("id, role, super_user_id");
 
     if (profileUpdateError || !updatedRows || updatedRows.length === 0) {
-      // تراجع: نشيل المستخدم عشان مايفضلش حساب بلا بروفايل مكتمل
+      // تراجع: نشيل المستخدم عشان ما يفضلش حساب بلا بروفايل مكتمل
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      return json(
-        {
-          error: "Failed to complete profile: " +
-            (profileUpdateError?.message || "profile row not found for the new user"),
-        },
-        400,
-      );
+      return json({
+        error: "Failed to complete profile: " +
+          (profileUpdateError?.message || "profile row not found for the new user"),
+      }, 400);
+    }
+
+    const created = updatedRows[0];
+
+    // تحقّق أخير: الدور المشتقّ لا بد أن يكون company_user. لو لم يكن، فالمحفّز
+    // غائب (لم يُطبَّق الترحيل 035) — والحساب حينها عضو بلا دور، فنتراجع بدل
+    // أن نترك حالة نصف مكتملة.
+    if (created.role !== "company_user") {
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      return json({
+        error: "تعذّر إسناد دور المستخدم داخل الشركة. راجع الدعم الفني.",
+      }, 500);
     }
 
     return json({
       success: true,
       message: "User created successfully",
-      user: { id: newUser.user.id, email: newUser.user.email, full_name },
+      user: {
+        id: newUser.user.id,
+        email: newUser.user.email,
+        full_name: fullName,
+        role: created.role,
+      },
     });
   } catch (error) {
     console.error("Error:", error);

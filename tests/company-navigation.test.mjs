@@ -262,14 +262,59 @@ test('لا وحدة من وحدات لوحة الشركة تكتب في جداو
     }
 });
 
-test('لم تُضَف أي ترحيلات مع هذا التغيير', () => {
+test('لا ترحيل جديد بلا قرار صريح', () => {
     const migrations = fs.readdirSync(path.join(ROOT, 'migrations')).filter(f => f.endsWith('.sql')).sort();
-    // اللقطة المرجعية: آخر ترحيل موجود قبل تعديل تنقّل لوحة الشركة.
-    // تغيير واجهة لا يجوز أن يزيد هذا الرقم.
-    // 033 أُضيف عمدًا: فصل مساري التذاكر كشف تسرّبًا في سياسة الردود لا
-    // يمكن إصلاحه من الواجهة. أي ترحيل بعده يحتاج قرارًا صريحًا.
-    assert.equal(migrations[migrations.length - 1], '034_explicit_ticket_reopen_and_close.sql',
+    // شَرَك مقصود: تغيير واجهة لا يجوز أن يزيد هذا الرقم. كل زيادة هنا
+    // تحتاج قرارًا صريحًا من صاحب المنتج، وتُوثَّق سببها في هذه القائمة.
+    //
+    //   033 — فصل مساري التذاكر كشف تسرّبًا في سياسة الردود لا يُصلَح من الواجهة.
+    //   034 — الردّ لم يعد يعيد فتح التذكرة؛ إعادة الفتح إجراء صريح.
+    //   035 — إدخال company_admin و company_user رسميًا. لا يمكن أن يكون
+    //         تغيير واجهة: الرتبة القديمة كانت تمنح سلطة طاقم منصة في 5 دوال
+    //         و22 سياسة RLS، ودورة الاشتراك كانت تعيد كتابتها كل ساعة.
+    assert.equal(migrations[migrations.length - 1], '035_company_roles.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
+});
+
+/* ── الفصل الصارم بين نطاقات السلطة ─────────────────────────────────────── */
+
+test('أدوار الشركة لا تدخل قائمة طاقم المنصة في أي ملف', () => {
+    // الضمانة الأهم في الواجهة: لو دخل company_admin هنا يومًا، فتح حساب
+    // شركة لوحة الإدارة. القاعدة تمنع البيانات، لكن الصفحة نفسها لا يجب
+    // أن تُفتح له أصلًا.
+    for (const rel of ['assets/js/access-policy.js', 'assets/js/account-destination.js']) {
+        const src = read(rel);
+        const staffLine = src.match(/STAFF_ROLES\s*=\s*\[([^\]]*)\]/);
+        assert.ok(staffLine, `${rel} لا يعرّف STAFF_ROLES`);
+        for (const companyRole of ['company_admin', 'company_user', 'super_user']) {
+            assert.ok(!staffLine[1].includes(companyRole),
+                `${rel}: ${companyRole} دخل قائمة طاقم المنصة — الفصل الأمني مكسور`);
+        }
+        // والطاقم الحقيقي موجود
+        assert.match(staffLine[1], /'admin'/);
+        assert.match(staffLine[1], /'support'/);
+    }
+});
+
+test('الواجهة تقرأ دور الشركة من القاعدة ولا تحسبه', () => {
+    const model = read('assets/js/company/company-model.js');
+    // companyRoleOf تقرأ الحقل كما رجّع، ولا تشتقّه من أي شرط محلي
+    assert.match(model, /membersPayload\?\.company_role/);
+    // الملف خالص: لا استعلام ولا شبكة، فلا يمكن أن يعيد بناء شرط الملكية
+    // من الجداول أصلًا. (ذِكر companies.user_id في تعليق شرحٌ لا حساب.)
+    assert.doesNotMatch(model, /supabase|\.from\(|\.rpc\(/,
+        'company-model.js لم يعد خالصًا — صار يستعلم بدل أن يقرأ ما مُرِّر إليه');
+    // والدور لا يُشتق من قائمة رتب مكتوبة في الواجهة
+    assert.doesNotMatch(model, /role\s*===\s*'company_admin'\s*\|\|/,
+        'الواجهة تشتقّ دور المدير بشرط محلي بدل قراءة قرار القاعدة');
+});
+
+test('إزالة العضو تمرّ بدالة القاعدة لا بحذف صف', () => {
+    const data = read('assets/js/company/company-data.js');
+    assert.match(data, /rpc\('remove_company_member'/);
+    // ولا حذف مباشر لصف بروفايل من الواجهة
+    assert.doesNotMatch(data, /from\(\s*'profiles'\s*\)[\s\S]{0,80}\.delete\(/,
+        'الواجهة تحذف صف بروفايل مباشرةً — الإزالة قطع علاقة لا حذف');
 });
 
 /* ── قسم API: لا أسرار، ولا ثقة في الواجهة ─────────────────────────────── */

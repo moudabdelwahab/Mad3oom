@@ -22,8 +22,12 @@
  * القاعدة)، مش على أي query parameter يقدر المستخدم يتلاعب بيه.
  */
 
-/** رتب فريق المنصة — وحدها تفتح لوحة الإدارة. */
-const STAFF_ROLES = ['admin', 'support'];
+/**
+ * رتب فريق المنصة — وحدها تفتح لوحة الإدارة.
+ * مطابقة لـSTAFF_ROLES في access-policy.js عمدًا، ولا تدخلها أدوار الشركة:
+ * company_admin حساب عميل بلوحة شركته، لا مشغّل منصة.
+ */
+const STAFF_ROLES = ['platform_owner', 'admin', 'support'];
 
 export const DESTINATIONS = {
     admin: 'admin-dashboard.html',

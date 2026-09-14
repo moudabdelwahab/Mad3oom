@@ -594,3 +594,13 @@ body.customer-shell .modal-content.modal-lg {
     .secret-row { flex-direction: column; }
     .scope-key { margin-inline-start: 0; }
 }
+
+/* شارة الدور وأزرار رأس اللوحة */
+.panel-head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.panel-link.is-danger { color: var(--on-danger); }
