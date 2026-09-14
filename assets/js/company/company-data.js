@@ -196,9 +196,9 @@ async function readFunctionError(error, fallback = 'تعذّر تنفيذ الط
  * من القاعدة في نفس اللحظة — نفس نمط createCompanyMember. القرار من الخادم
  * لا من حالة محفوظة في الصفحة ولا من زر ظاهر.
  *
- * حدّ معروف يخصّ الخادم لا هذه الطبقة: create-api-token لا تفحص هذا
- * الاستحقاق ولا رتبة المنادي، فالبوابة هنا **منتَجية لا أمنية**. موضع
- * الإصلاح الصحيح داخل الدالة نفسها، وهو خارج نطاق تغييرات الواجهة.
+ * والخادم يفحص الآن نفس الشرط بنفسه: create-api-token (v26) تنادي
+ * api_token_issue_context() فترفض من لا يستحق بـ403، وترفض أي صلاحية خارج
+ * سقف حسابه. فالبوابة هنا توفّر رحلة فاشلة، والحاجز الفعلي على الخادم.
  */
 export async function createCompanyApiToken(payload) {
     const entitled = await checkCompanyFeature('api_tokens');
