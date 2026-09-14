@@ -18,16 +18,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const {
-    ACCESS, STAFF_ROLES, MAIN_ADMIN_EMAIL,
-    classifyAccess, isStaffIdentity, canImpersonate, accessMessageFor
+    ACCESS, STAFF_ROLES, COMPANY_ROLES, MAIN_ADMIN_EMAIL,
+    classifyAccess, isStaffIdentity, canImpersonate, accessMessageFor,
+    isCompanyIdentity, isCompanyAdminPayload
 } = await import('../assets/js/access-policy.js');
 
 /* ── الخاصية المركزية ───────────────────────────────────────────────────── */
 
 test('جلسة قائمة لا تُنتج ANONYMOUS أبدًا — أيًّا كانت الرتبة أو الصفحة', () => {
-    // رتبة الشركة الفعلية في الإنتاج هي super_user، ومعها بقية ما قد يحمله
-    // عمود role اليوم. ولا واحدة منها يجوز أن تُرسل صاحبها لصفحة الدخول.
-    const roles = ['user', 'customer', 'super_user', 'admin', 'support', undefined, null, ''];
+    // كل ما قد يحمله عمود role اليوم، ومنه أدوار الشركة الجديدة والرتبة
+    // المتقاعدة. ولا واحدة منها يجوز أن تُرسل صاحبها لصفحة الدخول.
+    const roles = ['user', 'customer', 'company_admin', 'company_user',
+                   'super_user', 'platform_owner', 'admin', 'support', undefined, null, ''];
     const pages = [null, 'user', 'admin'];
 
     for (const role of roles) {
@@ -133,4 +135,59 @@ test('تعريف الطاقم واحد في مصدري القرار', async () =
     assert.ok(match, 'STAFF_ROLES غير موجودة في account-destination.js');
     const other = match[1].split(',').map(s => s.trim().replace(/['"]/g, '')).filter(Boolean);
     assert.deepEqual([...other].sort(), [...STAFF_ROLES].sort());
+});
+
+/* ── الفصل الصارم بين نطاقات السلطة (الترحيل 035) ───────────────────────── */
+
+test('دور شركة لا يفتح لوحة الإدارة بأي حال', () => {
+    for (const role of ['company_admin', 'company_user']) {
+        const decision = classifyAccess({ identity: { email: 'owner@co.test', role }, requiredRole: 'admin' });
+        assert.equal(decision.status, ACCESS.FORBIDDEN, `${role} فتح صفحة إدارة`);
+        assert.equal(decision.reason, 'staff-only');
+    }
+});
+
+test('دور شركة ليس طاقمًا، والطاقم ليس دور شركة', () => {
+    assert.equal(isStaffIdentity({ role: 'company_admin' }), false);
+    assert.equal(isStaffIdentity({ role: 'company_user' }), false);
+    // والرتبة المتقاعدة كذلك
+    assert.equal(isStaffIdentity({ role: 'super_user' }), false);
+
+    for (const role of STAFF_ROLES) {
+        assert.equal(isStaffIdentity({ role }), true, `${role} لم يُعرَف كطاقم`);
+        assert.equal(COMPANY_ROLES.includes(role), false, `${role} في قائمتي السلطة معًا`);
+    }
+});
+
+test('قائمة الطاقم لا تتقاطع مع قائمة أدوار الشركة إطلاقًا', () => {
+    const overlap = STAFF_ROLES.filter(r => COMPANY_ROLES.includes(r));
+    assert.deepEqual(overlap, [], `تقاطع بين النطاقين: ${overlap.join(', ')}`);
+});
+
+test('دور شركة لا يملك «الدخول كعضو»', () => {
+    assert.equal(canImpersonate({ role: 'company_admin' }), false);
+    assert.equal(canImpersonate({ role: 'company_user' }), false);
+});
+
+test('حساب شركة يُسمح له بصفحات بوابة العميل — ليس طاقمًا يُمنع منها', () => {
+    for (const role of ['company_admin', 'company_user']) {
+        const decision = classifyAccess({ identity: { email: 'x@co.test', role }, requiredRole: 'user' });
+        assert.equal(decision.status, ACCESS.AUTHORIZED, `${role} مُنع من صفحة عميل`);
+    }
+});
+
+test('تصنيف هوية الشركة يقرأ الدور ولا يخترعه', () => {
+    assert.equal(isCompanyIdentity({ role: 'company_admin' }), true);
+    assert.equal(isCompanyIdentity({ role: 'company_user' }), true);
+    assert.equal(isCompanyIdentity({ role: 'user' }), false);
+    assert.equal(isCompanyIdentity({ role: 'admin' }), false);
+    assert.equal(isCompanyIdentity({}), false);
+});
+
+test('مدير الشركة يُقرأ من حمولة القاعدة لا من الرتبة وحدها', () => {
+    assert.equal(isCompanyAdminPayload({ company_role: 'company_admin' }), true);
+    assert.equal(isCompanyAdminPayload({ company_role: 'company_user' }), false);
+    // حمولة بلا قرار = لا صلاحية. الغياب ليس سماحًا.
+    assert.equal(isCompanyAdminPayload({}), false);
+    assert.equal(isCompanyAdminPayload(null), false);
 });

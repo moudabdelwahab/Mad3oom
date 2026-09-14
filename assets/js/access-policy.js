@@ -32,12 +32,38 @@ export const ACCESS = {
 };
 
 /**
- * رتب فريق المنصة — وحدها سلطة على مستوى المنصة.
- * الارتباط بشركة **ليس** رتبة طاقم، ورتبة super_user القديمة لم تعد كذلك
- * (migrations/024). القائمة هنا مطابقة لـSTAFF_ROLES في account-destination.js
- * عمدًا: مصدرا القرار (أين يذهب / ماذا يرى) لازم يتفقوا على تعريف «طاقم».
+ * ثلاثة نطاقات سلطة لا تتقاطع — نفس الفصل المفروض في القاعدة
+ * (migrations/035_company_roles.sql).
+ *
+ *   Platform Staff  platform_owner · admin · support   ← سلطة على المنصة
+ *   Company Roles   company_admin · company_user       ← سلطة داخل شركة واحدة
+ *   Employee Ops    نطاق emp_ops                       ← هوية مستقلة تمامًا
+ *
+ * القائمة هنا مطابقة لـSTAFF_ROLES في account-destination.js عمدًا: مصدرا
+ * القرار (أين يذهب / ماذا يرى) لازم يتفقوا على تعريف «طاقم».
+ *
+ * **قاعدة لا تُخرَق:** لا يدخل دور شركة هذه القائمة أبدًا. إضافته هنا تجعل
+ * حساب شركة يفتح لوحة الإدارة، واختبار في tests/access-policy.test.mjs يفشل
+ * إن حدث. والقرار الفعلي للبيانات في القاعدة على أي حال — هذا قرار **عرض**.
  */
-export const STAFF_ROLES = ['admin', 'support'];
+export const STAFF_ROLES = ['platform_owner', 'admin', 'support'];
+
+/** أدوار الشركة — سلطتها داخل شركتها وحدها، ولا تمنح شيئًا على المنصة. */
+export const COMPANY_ROLES = ['company_admin', 'company_user'];
+
+/** هل هذه هوية حساب شركة؟ للعرض فقط — النطاق تفرضه القاعدة. */
+export function isCompanyIdentity({ role } = {}) {
+    return COMPANY_ROLES.includes(role);
+}
+
+/**
+ * مدير شركة **بحسب ما رجّعته القاعدة**.
+ * الواجهة لا تحسب الشرط: company_role تأتي محسوبة من company_members()
+ * (دالة SECURITY DEFINER تشترط الرتبة والعلاقة معًا).
+ */
+export function isCompanyAdminPayload(membersPayload) {
+    return membersPayload?.company_role === 'company_admin';
+}
 
 /** الأدمن الرئيسي بإيميله — بديل احتياطي لو عمود الرتبة اتلخبط. */
 export const MAIN_ADMIN_EMAIL = 'support@mad3oom.online';
@@ -49,7 +75,7 @@ export function isStaffIdentity({ email, role } = {}) {
 
 /**
  * من يملك «الدخول كعضو» (impersonation): الأدمن الرئيسي و admin فقط —
- * لا support ولا super_user. تفويض أضيق ومنفصل عن isStaffIdentity.
+ * لا support ولا أي دور شركة. تفويض أضيق ومنفصل عن isStaffIdentity.
  */
 export function canImpersonate({ email, role } = {}) {
     return email === MAIN_ADMIN_EMAIL || role === 'admin';

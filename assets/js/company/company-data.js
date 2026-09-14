@@ -225,6 +225,28 @@ export async function createCompanyApiToken(payload) {
     });
 }
 
+/**
+ * إزالة عضو من الشركة — قطع علاقة لا حذف حساب.
+ *
+ * المسار: دالة القاعدة remove_company_member (الترحيل 035). لا تأخذ معرّف
+ * شركة إطلاقًا: النطاق يُشتق من auth.uid() داخلها، وشرط
+ * `super_user_id = المنادي` هو ما يمنع الـIDOR — فمعرّف عضو في شركة أخرى
+ * لا يطابق أي صف مهما أُرسل.
+ *
+ * حذف صف البروفايل كان ممكنًا قبل 035 لمالك الشركة، وكان ينتج حسابًا قادرًا
+ * على الدخول بلا بروفايل. الإزالة الآن تقطع العلاقة ويسقط دور الشركة معها
+ * بمحفّز، والحساب يبقى حسابًا شخصيًا.
+ */
+export async function removeCompanyMember(memberId) {
+    return safe('removeCompanyMember', async () => {
+        const { data, error } = await supabase.rpc('remove_company_member', {
+            p_member_id: memberId
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
 /** هل المستخدم الحالي تابع لأي شركة؟ (لإظهار مدخل اللوحة في القائمة) */
 export async function hasCompany() {
     try {

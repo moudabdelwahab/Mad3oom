@@ -165,6 +165,53 @@ export function canManageMembers(membersPayload) {
 }
 
 /**
+ * أدوار الشركة كما تعرّفها القاعدة (migrations/035_company_roles.sql).
+ *
+ * الواجهة **تعرض** الدور ولا تحسبه: القاعدة تشترط الرتبة والعلاقة معًا في
+ * is_company_admin()/is_company_member()، وترجّع النتيجة في company_role.
+ */
+export const COMPANY_ROLE_LABELS = {
+    company_admin: { label: 'مدير الشركة', pill: 'status-tone-accent',
+                     hint: 'يدير اللوحة والمستخدمين والاشتراكات ومفاتيح API' },
+    company_user:  { label: 'مستخدم الشركة', pill: 'status-neutral',
+                     hint: 'حساب تابع للشركة بصلاحياته الخاصة' }
+};
+
+/** دور الحساب الحالي داخل شركته، كما رجّعته company_members(). */
+export function companyRoleOf(membersPayload) {
+    return membersPayload?.company_role || null;
+}
+
+/** هل الحساب الحالي مدير شركة؟ قراءة لا حساب. */
+export function isCompanyAdmin(membersPayload) {
+    return companyRoleOf(membersPayload) === 'company_admin';
+}
+
+/**
+ * وصف دور عضو في القائمة.
+ * is_owner يأتي من القاعدة (مقارنة companies.user_id)، والدور يأتي من
+ * profiles.role المشتقّ بمحفّز. نعرض الاثنين متسقَّين، ولو اختلفا نعرض
+ * ما تقوله العلاقة — فهي مصدر الحقيقة.
+ */
+export function memberRoleInfo(member) {
+    if (member?.is_owner) return COMPANY_ROLE_LABELS.company_admin;
+    return COMPANY_ROLE_LABELS[member?.role] || COMPANY_ROLE_LABELS.company_user;
+}
+
+/**
+ * ما الذي يجوز فعله بعضو في القائمة؟
+ * دالة خالصة: القرار النهائي في القاعدة (remove_company_member تتحقق من
+ * can_manage_company_members ومن العلاقة معًا)، وهذه تمنع رحلة فاشلة.
+ */
+export function memberActions(member, { canManage = false } = {}) {
+    return {
+        canRemove: canManage === true
+                   && member?.is_owner !== true
+                   && member?.is_me !== true
+    };
+}
+
+/**
  * تحقّق من نموذج «إضافة مستخدم للشركة».
  *
  * القواعد مطابقة لما تفرضه الطبقات الأدنى فعليًا:

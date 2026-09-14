@@ -21,6 +21,9 @@ import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/comp
 import { initCompanyApi, setCompanyApiMembers, setCompanyApiEntitlement, loadCompanyApi } from '/assets/js/company/company-api.js';
 import { initApiTokenModal, openApiTokenModal } from '/assets/js/company/api-token-modal.js';
 import { renderCompanyReports } from '/assets/js/company/company-reports.js';
+import {
+    analyzeSubscriptions, ANOMALY_NOTES, SUBSCRIPTION_STATES
+} from '/assets/js/company/subscription-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
@@ -30,15 +33,18 @@ import {
     fetchCompanyDashboard,
     fetchCompanyMembers,
     createCompanyMember,
+    removeCompanyMember,
     saveCompany
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
-    summarizeSubscriptions,
     registrationInfo,
     companyAccess,
     entitlementsByPlan,
     canManageMembers,
+    companyRoleOf,
+    memberRoleInfo,
+    memberActions,
     hasEntitlement,
     validateCompanyForm,
     validateMemberForm
@@ -56,6 +62,9 @@ let companyMembers = [];
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
+
+/** دور الحساب داخل شركته كما رجّعته company_members(): company_admin | company_user */
+let myCompanyRole = null;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -306,33 +315,92 @@ async function renderMembers() {
 
     // القرار جاي من القاعدة كما هو؛ الواجهة ما بتحسبوش.
     canManageMembersNow = canManageMembers(result.data);
+    myCompanyRole = companyRoleOf(result.data);
     const { members = [] } = result.data;
     companyMembers = members;
     setCompanyApiMembers(members);
     panel.hidden = false;
     addBtn.hidden = !canManageMembersNow;
+    renderCompanyRoleBadge();
 
     if (!members.length) {
-        renderState(container, { variant: 'empty', title: 'لا يوجد مستخدمون بعد', text: '' });
+        renderState(container, {
+            variant: 'empty',
+            title: 'لا يوجد مستخدمون بعد',
+            text: canManageMembersNow
+                ? 'أضف مستخدمًا ليصبح تابعًا لشركتك ويظهر هنا فورًا.'
+                : 'إضافة المستخدمين متاحة لمدير الشركة ضمن اشتراك يشمل المستخدمين الفرعيين.'
+        });
         return;
     }
 
     container.innerHTML = `
         <ul class="company-sub-list">
-            ${members.map(m => `
+            ${members.map(m => {
+                const role = memberRoleInfo(m);
+                const actions = memberActions(m, { canManage: canManageMembersNow });
+                return `
                 <li class="company-sub">
                     <div class="company-sub-main">
                         <p class="company-sub-plan">${escapeHtml(m.name || m.email || '—')}</p>
-                        <p class="company-sub-dates">${escapeHtml(m.email || '')}</p>
+                        <p class="company-sub-dates">
+                            ${escapeHtml(m.email || '')}
+                            ${m.created_at ? ` · انضم ${escapeHtml(formatDate(m.created_at))}` : ''}
+                        </p>
+                        <p class="company-sub-dates is-muted">${escapeHtml(role.hint)}</p>
                     </div>
                     <div class="company-sub-side">
-                        <span class="pill ${m.is_owner ? 'status-tone-accent' : 'status-neutral'}">
-                            ${m.is_owner ? 'مالك الحساب' : 'مستخدم فرعي'}
-                        </span>
+                        <span class="pill ${escapeHtml(role.pill)}">${escapeHtml(role.label)}</span>
                         ${m.is_me ? '<span class="company-sub-days">أنت</span>' : ''}
+                        ${actions.canRemove ? `
+                        <button type="button" class="panel-link is-danger"
+                                data-remove-member="${escapeHtml(m.id)}"
+                                data-member-name="${escapeHtml(m.name || m.email || 'المستخدم')}">
+                            إزالة من الشركة
+                        </button>` : ''}
                     </div>
-                </li>`).join('')}
+                </li>`;
+            }).join('')}
         </ul>`;
+
+    container.querySelectorAll('[data-remove-member]').forEach(btn => {
+        btn.addEventListener('click', () => onRemoveMember(
+            btn.getAttribute('data-remove-member'),
+            btn.getAttribute('data-member-name')));
+    });
+}
+
+/** شارة دور الحساب الحالي — يعرف المستخدم بأي صفة يتصرّف. */
+function renderCompanyRoleBadge() {
+    const badge = document.getElementById('companyRoleBadge');
+    if (!badge) return;
+    const info = memberRoleInfo({ role: myCompanyRole, is_owner: myCompanyRole === 'company_admin' });
+    badge.hidden = !myCompanyRole;
+    badge.className = `pill ${info.pill}`;
+    badge.textContent = info.label;
+}
+
+/**
+ * إزالة عضو. القرار النهائي في القاعدة: remove_company_member تتحقق من
+ * can_manage_company_members ومن أن العضو تابع للمنادي فعلًا — فإخفاء الزر
+ * تنظيم للواجهة لا حماية.
+ */
+async function onRemoveMember(memberId, memberName) {
+    const ok = await ui.showConfirm(
+        'إزالة المستخدم من الشركة؟',
+        `سيصبح «${memberName}» حسابًا شخصيًا مستقلًا. الحساب لا يُحذف، لكنه يفقد `
+        + 'وصوله إلى لوحة شركتك وبياناتها فورًا.',
+        { confirmLabel: 'إزالة', cancelLabel: 'تراجع', danger: true }
+    );
+    if (!ok) return;
+
+    const result = await removeCompanyMember(memberId);
+    if (!result.ok) {
+        ui?.showToast?.(result.error || 'تعذّرت إزالة المستخدم', 'error');
+        return;
+    }
+    ui?.showToast?.('تمت إزالة المستخدم من الشركة', 'success');
+    await renderMembers();
 }
 
 /* ── نافذة إضافة مستخدم ─────────────────────────────────────────────────── */
@@ -477,7 +545,15 @@ function renderBanner() {
 /* ── بطاقات الأرقام ─────────────────────────────────────────────────────── */
 
 function renderKpis() {
-    const summary = summarizeSubscriptions(dashboard.subscriptions);
+    // نفس مصدر قسم الاشتراكات عمدًا — رقمان لنفس الشيء في شاشتين كانا
+    // سيفترقان عند أول حالة حدّية (اشتراك لم يبدأ بعد مثلًا).
+    const report = analyzeSubscriptions(dashboard.subscriptions);
+    const summary = {
+        active: report.active,
+        pending: report.pending,
+        daysToNearestExpiry: report.daysToNearestExpiry,
+        nearestExpiry: report.nearest?.sub || null
+    };
     const registration = registrationInfo(dashboard.registration);
     const toneClass = { success: 'kpi--success', warning: 'kpi--warning', danger: 'kpi--danger', neutral: '' };
 
@@ -559,6 +635,17 @@ function renderProfile() {
 
 /* ── الاشتراكات ─────────────────────────────────────────────────────────── */
 
+/**
+ * قسم الاشتراكات.
+ *
+ * القراءة كلها من subscription-model.js (خالص ومُختبَر). الأهم فيه أنه
+ * يفرّق بين «لم يبدأ بعد» و«منتهٍ» — وهما يحملان status='active' و
+ * is_active=false معًا، وكانت الواجهة تعرضهما «منتهٍ» بلا تمييز. الفرق بين
+ * القراءتين هو الفرق بين «جدّد الآن» و«لا تفعل شيئًا».
+ *
+ * الأيام المعروضة هي days_remaining كما حسبتها القاعدة بساعتها — ساعة
+ * المتصفح لا تُستعمل إلا لكشف الفارق بين الساعتين وإعلانه.
+ */
 function renderSubscriptions() {
     const container = document.getElementById('companySubscriptions');
     const subscriptions = dashboard.subscriptions || [];
@@ -568,31 +655,115 @@ function renderSubscriptions() {
             variant: 'empty',
             title: 'لا توجد اشتراكات بعد',
             text: 'اشترك في إحدى الباقات لتفعيل خدمات الشركة.',
-            action: { label: 'استعراض الباقات', goto: '/subscriptions.html' }
+            action: { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
         return;
     }
 
+    const report = analyzeSubscriptions(subscriptions);
+
     container.innerHTML = `
+        ${subscriptionSummary(report)}
+        ${report.hasAnomalies ? anomalyPanel(report) : ''}
         <ul class="company-sub-list">
-            ${subscriptions.map(sub => {
-                const info = subscriptionStatusInfo(sub);
-                return `
-                <li class="company-sub">
-                    <div class="company-sub-main">
-                        <p class="company-sub-plan">${escapeHtml(sub.plan_name_ar || sub.plan)}</p>
-                        <p class="company-sub-dates">
-                            ${sub.start_date ? `من ${escapeHtml(formatDate(sub.start_date))}` : ''}
-                            ${sub.end_date ? ` حتى ${escapeHtml(formatDate(sub.end_date))}` : ''}
-                        </p>
-                    </div>
-                    <div class="company-sub-side">
-                        <span class="pill ${info.pill}">${escapeHtml(info.label)}</span>
-                        ${sub.is_active ? `<span class="company-sub-days">${escapeHtml(sub.days_remaining)} يوم متبقٍ</span>` : ''}
-                    </div>
-                </li>`;
-            }).join('')}
+            ${report.rows.map(subscriptionRow).join('')}
         </ul>`;
+}
+
+function subscriptionSummary(report) {
+    const cell = (label, value, hint, tone = '') => `
+        <div class="kpi ${tone}">
+            <p class="kpi-label">${escapeHtml(label)}</p>
+            <p class="kpi-value">${escapeHtml(String(value))}</p>
+            <p class="kpi-hint">${escapeHtml(hint)}</p>
+        </div>`;
+
+    const nearest = report.nearest;
+    return `
+        <div class="kpi-grid">
+            ${cell('اشتراكات نشطة', report.active,
+                   report.scheduled ? `${report.scheduled} لم يبدأ بعد` : 'السارية الآن',
+                   report.active ? 'kpi--success' : 'kpi--danger')}
+            ${cell('أقرب انتهاء',
+                   report.daysToNearestExpiry == null ? '—' : `${report.daysToNearestExpiry} يوم`,
+                   nearest ? `${nearest.sub.plan_name_ar || nearest.sub.plan} — ${formatDate(nearest.sub.end_date)}`
+                           : 'لا اشتراك فعّال',
+                   report.daysToNearestExpiry != null && report.daysToNearestExpiry <= 14 ? 'kpi--warning' : '')}
+            ${cell('قيد المراجعة', report.pending,
+                   report.pending ? 'طلبات بانتظار موافقة الإدارة' : 'لا طلبات معلّقة',
+                   report.pending ? 'kpi--warning' : '')}
+            ${cell('منتهية', report.expired, 'اشتراكات انقضت مدّتها')}
+        </div>`;
+}
+
+/** لوحة التضاربات — تشرح الأثر لا الرمز التقني. */
+function anomalyPanel(report) {
+    const seen = new Map();
+    for (const row of report.anomalies) {
+        for (const key of row.anomalies) {
+            if (!seen.has(key)) seen.set(key, []);
+            seen.get(key).push(row.sub.plan_name_ar || row.sub.plan);
+        }
+    }
+
+    return `
+        <section class="panel" aria-labelledby="companySubIssuesHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companySubIssuesHeading">ملاحظات على التواريخ</h2>
+                    <p class="panel-subtitle">فروق بين ما يظهر وما يُحتسب فعليًا، وسببها</p>
+                </div>
+            </div>
+            ${[...seen.entries()].map(([key, plans]) => {
+                const note = ANOMALY_NOTES[key];
+                if (!note) return '';
+                const toneClass = note.tone === 'danger' ? 'company-notice--danger'
+                    : (note.tone === 'warning' ? 'company-notice--warning' : '');
+                return `
+                <p class="company-notice ${toneClass}">
+                    <strong>${escapeHtml([...new Set(plans)].join('، '))}:</strong>
+                    ${escapeHtml(note.text)}
+                </p>`;
+            }).join('')}
+        </section>`;
+}
+
+function subscriptionRow(row) {
+    const sub = row.sub;
+    const state = row.state;
+
+    const timing = state.key === 'scheduled'
+        ? `يبدأ بعد ${escapeHtml(String(row.daysUntilStart))} يومًا`
+        : (row.daysRemaining != null && (state.key === 'active' || state.key === 'expiring')
+            ? `${escapeHtml(String(row.daysRemaining))} يوم متبقٍ`
+            : '');
+
+    return `
+        <li class="company-sub">
+            <div class="company-sub-main">
+                <p class="company-sub-plan">${escapeHtml(sub.plan_name_ar || sub.plan)}</p>
+                <p class="company-sub-dates">
+                    ${sub.start_date ? `من ${escapeHtml(formatDate(sub.start_date))}` : 'بلا تاريخ بداية'}
+                    ${sub.end_date ? ` حتى ${escapeHtml(formatDate(sub.end_date))}` : ' · بلا تاريخ انتهاء'}
+                    ${sub.billing_cycle ? ` · ${escapeHtml(billingCycleLabel(sub.billing_cycle))}` : ''}
+                </p>
+                ${row.anomalies.length ? `
+                <p class="company-sub-dates is-warning">
+                    ${escapeHtml(row.anomalies.map(k => ANOMALY_NOTES[k]?.text || k).join(' '))}
+                </p>` : ''}
+            </div>
+            <div class="company-sub-side">
+                <span class="pill ${escapeHtml(state.pill)}">${escapeHtml(state.label)}</span>
+                ${timing ? `<span class="company-sub-days">${timing}</span>` : ''}
+            </div>
+        </li>`;
+}
+
+const BILLING_CYCLES = {
+    monthly: 'شهري', yearly: 'سنوي', quarterly: 'ربع سنوي', weekly: 'أسبوعي'
+};
+function billingCycleLabel(cycle) {
+    return BILLING_CYCLES[cycle] || cycle;
 }
 
 /* ── الامتيازات ─────────────────────────────────────────────────────────── */

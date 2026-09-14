@@ -594,3 +594,64 @@ body.customer-shell .modal-content.modal-lg {
     .secret-row { flex-direction: column; }
     .scope-key { margin-inline-start: 0; }
 }
+
+/* شارة الدور وأزرار رأس اللوحة */
+.panel-head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.panel-link.is-danger { color: var(--on-danger); }
+
+/* ── جداول التقارير ──────────────────────────────────────────────────────── */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+}
+
+.report-table th,
+.report-table td {
+    padding: var(--sp-2, .5rem) var(--sp-3);
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.report-table thead th {
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    border-bottom-width: 2px;
+}
+
+.report-table tbody th {
+    font-weight: 600;
+    white-space: normal;
+}
+
+.report-table tbody tr:last-child th,
+.report-table tbody tr:last-child td { border-bottom: 0; }
+
+.report-table tbody tr:hover { background: var(--hover-bg); }
+
+/* عمود المسار الثاني يُميَّز بلمسة خفيفة فلا يختلط العمودان بصريًا */
+.report-table thead th:last-child,
+.report-table tbody td:last-child { background: var(--tint-accent); }
+
+/* زر «إعادة الضبط» يحاذي أسفل الشبكة لا أعلاها */
+.form-field.is-end {
+    display: flex;
+    align-items: flex-end;
+}
+
+@media (max-width: 640px) {
+    .report-table th,
+    .report-table td { padding: .4rem .5rem; }
+}
