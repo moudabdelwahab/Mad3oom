@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { decryptString } from "./mcp-crypto.ts";
 import { ensureFreshAccessToken, type McpConnection } from "./mcp-oauth.ts";
+import { createMcpSession, mcpHandshake, mcpPost, type McpHttpSession } from "./mcp-http.ts";
 
 export interface McpServerDef {
   id: string;
@@ -60,49 +61,58 @@ export async function buildAuthHeaders(adminClient: SupabaseClient, connection: 
   return headers;
 }
 
+/**
+ * نداء JSON-RPC واحد فوق Streamable HTTP.
+ *
+ * كان هذا الجسم ينادي fetch() مباشرة بترويسة Content-Type فقط، ويفترض أن
+ * كل رد JSON. صار يمرّ عبر mcp-http.ts الذي يرسل ترويسة Accept التي تفرضها
+ * المواصفة ويتعامل مع ردود SSE وJSON على السواء. التوقيعات لم تتغيّر،
+ * فكل مستدعٍ حالي يعمل كما هو.
+ */
 async function rpcCall(
   server: McpServerDef,
   headers: Record<string, string>,
   method: string,
   params: Record<string, unknown> | undefined,
   id: number,
-  timeoutMs = 15000
+  timeoutMs = 15000,
+  session?: McpHttpSession
 ): Promise<JsonRpcResult> {
   if (server.transport === "stdio") return { ok: false, error: "stdio transport غير مدعوم لنداءات مباشرة من الـ Edge Function" };
   if (!server.url) return { ok: false, error: "لا يوجد عنوان (URL) للخادم" };
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(server.url, {
-      method: "POST",
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) }),
-    });
-    if (!res.ok) return { ok: false, error: `${method} failed (HTTP ${res.status})` };
-    const data = await res.json();
-    if (data.error) return { ok: false, error: data.error.message || `${method} رجع خطأ` };
-    return { ok: true, result: data.result };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message || `فشل نداء ${method}` };
-  } finally {
-    clearTimeout(timer);
-  }
+  const res = await mcpPost(
+    server.url,
+    headers,
+    session ?? createMcpSession(),
+    { jsonrpc: "2.0", id, method, ...(params ? { params } : {}) },
+    { isInitialize: method === "initialize", timeoutMs }
+  );
+
+  if (!res.ok) return { ok: false, error: res.message || `فشل نداء ${method}` };
+  return { ok: true, result: res.result };
 }
 
-export async function mcpInitialize(server: McpServerDef, headers: Record<string, string>) {
-  return rpcCall(server, headers, "initialize", {
-    protocolVersion: "2025-03-26",
-    capabilities: {},
-    clientInfo: { name: "Mad3oom", version: "1.0.0" },
-  }, 1);
+export async function mcpInitialize(server: McpServerDef, headers: Record<string, string>, session?: McpHttpSession) {
+  if (server.transport === "stdio") return { ok: false, error: "stdio transport غير مدعوم لنداءات مباشرة من الـ Edge Function" };
+  if (!server.url) return { ok: false, error: "لا يوجد عنوان (URL) للخادم" };
+
+  const handshake = await mcpHandshake(server.url, headers, session ?? createMcpSession());
+  if (!handshake.ok) return { ok: false, error: handshake.message || "فشل initialize" };
+  return {
+    ok: true,
+    result: {
+      protocolVersion: handshake.protocolVersion,
+      capabilities: handshake.capabilities,
+      serverInfo: { name: handshake.serverName, version: handshake.serverVersion },
+    },
+  };
 }
 
-export async function mcpListTools(server: McpServerDef, headers: Record<string, string>) {
-  return rpcCall(server, headers, "tools/list", undefined, 2);
+export async function mcpListTools(server: McpServerDef, headers: Record<string, string>, session?: McpHttpSession) {
+  return rpcCall(server, headers, "tools/list", undefined, 2, 15000, session);
 }
 
-export async function mcpCallTool(server: McpServerDef, headers: Record<string, string>, toolName: string, args: Record<string, unknown>) {
-  return rpcCall(server, headers, "tools/call", { name: toolName, arguments: args ?? {} }, 3, 30000);
+export async function mcpCallTool(server: McpServerDef, headers: Record<string, string>, toolName: string, args: Record<string, unknown>, session?: McpHttpSession) {
+  return rpcCall(server, headers, "tools/call", { name: toolName, arguments: args ?? {} }, 3, 30000, session);
 }
