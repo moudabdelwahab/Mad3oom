@@ -40,10 +40,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+// apikey مطلوب في القائمة: supabase-js يرسله في **كل** نداء عبر
+// functions.invoke()، فغيابه هنا يُفشل الـpreflight قبل أن تصل الدالة أصلًا:
+//   "Request header field apikey is not allowed by Access-Control-Allow-Headers"
+// لوحة الإدارة لم تتأثر لأنها تستدعي بـfetch خام بلا هذا الرأس، فظلّ النقص
+// كامنًا حتى استُدعيت الدالة من لوحة الشركة عبر functions.invoke.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const json = (body: unknown, status = 200) =>

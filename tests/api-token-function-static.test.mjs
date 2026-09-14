@@ -172,3 +172,33 @@ test('كلتا الدالتين تتحققان من الجلسة قبل أي ش�
         assert.match(code, /401/, `${label} بلا ردّ 401`);
     }
 });
+
+/* ── CORS: الـpreflight لا بد أن يقبل ما يرسله supabase-js فعلًا ─────────── */
+
+test('كل دالة تُنادى بـfunctions.invoke تسمح برأس apikey في الـpreflight', () => {
+    // supabase-js يرسل apikey في كل نداء عبر functions.invoke(). وغيابه من
+    // Access-Control-Allow-Headers يُفشل الطلب **قبل** أن تصل الدالة:
+    //   "Request header field apikey is not allowed by Access-Control-Allow-Headers"
+    //
+    // خلل حقيقي ظهر على الإنتاج في create-sub-user: لوحة الإدارة تستدعيها
+    // بـfetch خام بلا هذا الرأس فلم تتأثر، ولوحة الشركة تستدعيها بـinvoke
+    // فانكسرت. الاختبار هنا يمنع تكراره في الدالتين اللتين نملكهما.
+    for (const [name, src] of [['create-api-token', SRC], ['create-sub-user', SUB]]) {
+        const header = src.match(/"Access-Control-Allow-Headers":\s*"([^"]*)"/);
+        assert.ok(header, `${name}: لا يعلن Access-Control-Allow-Headers`);
+        for (const required of ['authorization', 'apikey', 'content-type']) {
+            assert.ok(header[1].toLowerCase().includes(required),
+                `${name}: الـpreflight لا يقبل ${required} — الطلب سيُرفض قبل الوصول`);
+        }
+    }
+});
+
+test('كلتا الدالتين تردّان على OPTIONS قبل أي فحص تفويض', () => {
+    for (const [name, code] of [['create-api-token', CODE], ['create-sub-user', SUB_CODE]]) {
+        const optionsIdx = code.indexOf('"OPTIONS"');
+        const authIdx = code.indexOf('auth.getUser()');
+        assert.ok(optionsIdx > -1, `${name}: لا يعالج OPTIONS`);
+        assert.ok(optionsIdx < authIdx,
+            `${name}: الـpreflight يأتي بعد فحص التفويض فيُرفض بـ401 بدل أن يُقبل`);
+    }
+});
