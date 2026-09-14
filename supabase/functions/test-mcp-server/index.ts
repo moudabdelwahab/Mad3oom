@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { decryptString } from "./_shared/mcp-crypto.ts";
 import { ensureFreshAccessToken, type McpConnection } from "./_shared/mcp-oauth.ts";
 import { discoverServerViaBridge, isBridgeEnabledFor } from "./_shared/mcp-arch/bridge/legacy-bridge.js";
+import { createMcpSession, mcpHandshake, mcpPost } from "./_shared/mcp-http.ts";
 
 // ============================================================
 // test-mcp-server (v3 + Phase 1 Legacy Bridge gate)
@@ -280,42 +281,34 @@ async function runTest(adminClient: ReturnType<typeof createClient>, server: Rec
   if (server.headers && typeof server.headers === "object") Object.assign(headers, server.headers);
 
   const start = performance.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
 
-  try {
-    const initRes = await fetch(server.url, {
-      method: "POST", headers, signal: controller.signal,
-      body: JSON.stringify({
-        jsonrpc: "2.0", id: 1, method: "initialize",
-        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "Mad3oom", version: "1.0.0" } },
-      }),
-    });
-    if (!initRes.ok) throw new Error(`Initialize failed (${initRes.status})`);
-    const initData = await initRes.json();
-    if (initData.error) throw new Error(initData.error.message);
+  // المصافحة والاكتشاف صارا يمرّان عبر mcp-http.ts: ترويسة Accept الصحيحة،
+  // ودعم ردود SSE بجانب JSON، وترويسات الجلسة، ورسائل خطأ مفهومة بدل
+  // "Initialize failed (<رقم>)". هذا هو موضع الخطأ 406 المسجَّل على اتصال
+  // Supabase — كان هذا الكود ينادي fetch() مباشرة بلا Accept.
+  const session = createMcpSession();
 
-    const toolsRes = await fetch(server.url, {
-      method: "POST", headers, signal: controller.signal,
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-    });
-    clearTimeout(timer);
-    if (!toolsRes.ok) throw new Error(`tools/list failed (${toolsRes.status})`);
-    const toolsData = await toolsRes.json();
-    const discovered = Array.isArray(toolsData.result?.tools) ? toolsData.result.tools : [];
-    const merged = mergeTools(connection.tools, discovered);
+  const handshake = await mcpHandshake(server.url, headers, session, { timeoutMs: 8000 });
+  if (!handshake.ok) return { ok: false, message: handshake.message ?? "فشل الاتصال" };
 
-    return {
-      ok: true,
-      latency: Math.round(performance.now() - start),
-      serverName: initData.result?.serverInfo?.name ?? null,
-      serverVersion: initData.result?.serverInfo?.version ?? null,
-      protocolVersion: initData.result?.protocolVersion ?? null,
-      mergedTools: merged,
-      message: `تم الاتصال بخادم MCP بنجاح (${merged.length} أداة)`,
-    };
-  } catch (err) {
-    clearTimeout(timer);
-    return { ok: false, message: (err as Error).message || "فشل الاتصال" };
+  const toolsRes = await mcpPost(server.url, headers, session, {
+    jsonrpc: "2.0", id: 2, method: "tools/list",
+  }, { timeoutMs: 8000 });
+
+  if (!toolsRes.ok) {
+    return { ok: false, message: `تعذّر جلب قائمة الأدوات: ${toolsRes.message ?? "سبب غير معروف"}` };
   }
+
+  const discovered = Array.isArray((toolsRes.result as any)?.tools) ? (toolsRes.result as any).tools : [];
+  const merged = mergeTools(connection.tools, discovered);
+
+  return {
+    ok: true,
+    latency: Math.round(performance.now() - start),
+    serverName: handshake.serverName ?? null,
+    serverVersion: handshake.serverVersion ?? null,
+    protocolVersion: handshake.protocolVersion ?? null,
+    mergedTools: merged,
+    message: `تم الاتصال بخادم MCP بنجاح (${merged.length} أداة)`,
+  };
 }

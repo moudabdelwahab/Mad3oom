@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { buildAuthHeaders, mcpCallTool, type McpServerDef } from "./mcp-transport.ts";
+import { buildAuthHeaders, mcpCallTool, mcpInitialize, type McpServerDef } from "./mcp-transport.ts";
+import { createMcpSession } from "./mcp-http.ts";
 import { resolveTool } from "./mcp-tool-registry.ts";
 import { decryptString } from "./mcp-crypto.ts";
 import { ensureFreshAccessToken, type McpConnection } from "./mcp-oauth.ts";
@@ -112,7 +113,14 @@ export async function invokeTool(
   }
   if (server.headers && typeof server.headers === "object") Object.assign(headers, server.headers);
 
-  const callResult = await mcpCallTool(serverDef, headers, tool.name, args || {});
+  // المصافحة قبل الاستدعاء: كان tools/call يُرسَل مباشرة بلا initialize، وهو ما
+  // ترفضه أي خادم يعمل بجلسات (يصدر Mcp-Session-Id ويشترط وجودها). الجلسة
+  // الواحدة تُمرَّر للنداءين معًا حتى تُحمل الترويسة الصحيحة على الثاني.
+  const session = createMcpSession();
+  const handshake = await mcpInitialize(serverDef, headers, session);
+  if (!handshake.ok) return { ok: false, toolName, serverName: server.name, error: handshake.error };
+
+  const callResult = await mcpCallTool(serverDef, headers, tool.name, args || {}, session);
   if (!callResult.ok) return { ok: false, toolName, serverName: server.name, error: callResult.error };
 
   return { ok: true, toolName, serverName: server.name, result: callResult.result };
