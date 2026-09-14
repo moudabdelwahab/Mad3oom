@@ -21,6 +21,9 @@ import { loadCompanyProfile, loadCompanySecurity } from '/assets/js/company/comp
 import { initCompanyApi, setCompanyApiMembers, setCompanyApiEntitlement, loadCompanyApi } from '/assets/js/company/company-api.js';
 import { initApiTokenModal, openApiTokenModal } from '/assets/js/company/api-token-modal.js';
 import { renderCompanyReports } from '/assets/js/company/company-reports.js';
+import {
+    analyzeSubscriptions, ANOMALY_NOTES, SUBSCRIPTION_STATES
+} from '/assets/js/company/subscription-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
@@ -35,7 +38,6 @@ import {
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
-    summarizeSubscriptions,
     registrationInfo,
     companyAccess,
     entitlementsByPlan,
@@ -543,7 +545,15 @@ function renderBanner() {
 /* ── بطاقات الأرقام ─────────────────────────────────────────────────────── */
 
 function renderKpis() {
-    const summary = summarizeSubscriptions(dashboard.subscriptions);
+    // نفس مصدر قسم الاشتراكات عمدًا — رقمان لنفس الشيء في شاشتين كانا
+    // سيفترقان عند أول حالة حدّية (اشتراك لم يبدأ بعد مثلًا).
+    const report = analyzeSubscriptions(dashboard.subscriptions);
+    const summary = {
+        active: report.active,
+        pending: report.pending,
+        daysToNearestExpiry: report.daysToNearestExpiry,
+        nearestExpiry: report.nearest?.sub || null
+    };
     const registration = registrationInfo(dashboard.registration);
     const toneClass = { success: 'kpi--success', warning: 'kpi--warning', danger: 'kpi--danger', neutral: '' };
 
@@ -625,6 +635,17 @@ function renderProfile() {
 
 /* ── الاشتراكات ─────────────────────────────────────────────────────────── */
 
+/**
+ * قسم الاشتراكات.
+ *
+ * القراءة كلها من subscription-model.js (خالص ومُختبَر). الأهم فيه أنه
+ * يفرّق بين «لم يبدأ بعد» و«منتهٍ» — وهما يحملان status='active' و
+ * is_active=false معًا، وكانت الواجهة تعرضهما «منتهٍ» بلا تمييز. الفرق بين
+ * القراءتين هو الفرق بين «جدّد الآن» و«لا تفعل شيئًا».
+ *
+ * الأيام المعروضة هي days_remaining كما حسبتها القاعدة بساعتها — ساعة
+ * المتصفح لا تُستعمل إلا لكشف الفارق بين الساعتين وإعلانه.
+ */
 function renderSubscriptions() {
     const container = document.getElementById('companySubscriptions');
     const subscriptions = dashboard.subscriptions || [];
@@ -634,31 +655,115 @@ function renderSubscriptions() {
             variant: 'empty',
             title: 'لا توجد اشتراكات بعد',
             text: 'اشترك في إحدى الباقات لتفعيل خدمات الشركة.',
-            action: { label: 'استعراض الباقات', goto: '/subscriptions.html' }
+            action: { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
         return;
     }
 
+    const report = analyzeSubscriptions(subscriptions);
+
     container.innerHTML = `
+        ${subscriptionSummary(report)}
+        ${report.hasAnomalies ? anomalyPanel(report) : ''}
         <ul class="company-sub-list">
-            ${subscriptions.map(sub => {
-                const info = subscriptionStatusInfo(sub);
-                return `
-                <li class="company-sub">
-                    <div class="company-sub-main">
-                        <p class="company-sub-plan">${escapeHtml(sub.plan_name_ar || sub.plan)}</p>
-                        <p class="company-sub-dates">
-                            ${sub.start_date ? `من ${escapeHtml(formatDate(sub.start_date))}` : ''}
-                            ${sub.end_date ? ` حتى ${escapeHtml(formatDate(sub.end_date))}` : ''}
-                        </p>
-                    </div>
-                    <div class="company-sub-side">
-                        <span class="pill ${info.pill}">${escapeHtml(info.label)}</span>
-                        ${sub.is_active ? `<span class="company-sub-days">${escapeHtml(sub.days_remaining)} يوم متبقٍ</span>` : ''}
-                    </div>
-                </li>`;
-            }).join('')}
+            ${report.rows.map(subscriptionRow).join('')}
         </ul>`;
+}
+
+function subscriptionSummary(report) {
+    const cell = (label, value, hint, tone = '') => `
+        <div class="kpi ${tone}">
+            <p class="kpi-label">${escapeHtml(label)}</p>
+            <p class="kpi-value">${escapeHtml(String(value))}</p>
+            <p class="kpi-hint">${escapeHtml(hint)}</p>
+        </div>`;
+
+    const nearest = report.nearest;
+    return `
+        <div class="kpi-grid">
+            ${cell('اشتراكات نشطة', report.active,
+                   report.scheduled ? `${report.scheduled} لم يبدأ بعد` : 'السارية الآن',
+                   report.active ? 'kpi--success' : 'kpi--danger')}
+            ${cell('أقرب انتهاء',
+                   report.daysToNearestExpiry == null ? '—' : `${report.daysToNearestExpiry} يوم`,
+                   nearest ? `${nearest.sub.plan_name_ar || nearest.sub.plan} — ${formatDate(nearest.sub.end_date)}`
+                           : 'لا اشتراك فعّال',
+                   report.daysToNearestExpiry != null && report.daysToNearestExpiry <= 14 ? 'kpi--warning' : '')}
+            ${cell('قيد المراجعة', report.pending,
+                   report.pending ? 'طلبات بانتظار موافقة الإدارة' : 'لا طلبات معلّقة',
+                   report.pending ? 'kpi--warning' : '')}
+            ${cell('منتهية', report.expired, 'اشتراكات انقضت مدّتها')}
+        </div>`;
+}
+
+/** لوحة التضاربات — تشرح الأثر لا الرمز التقني. */
+function anomalyPanel(report) {
+    const seen = new Map();
+    for (const row of report.anomalies) {
+        for (const key of row.anomalies) {
+            if (!seen.has(key)) seen.set(key, []);
+            seen.get(key).push(row.sub.plan_name_ar || row.sub.plan);
+        }
+    }
+
+    return `
+        <section class="panel" aria-labelledby="companySubIssuesHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companySubIssuesHeading">ملاحظات على التواريخ</h2>
+                    <p class="panel-subtitle">فروق بين ما يظهر وما يُحتسب فعليًا، وسببها</p>
+                </div>
+            </div>
+            ${[...seen.entries()].map(([key, plans]) => {
+                const note = ANOMALY_NOTES[key];
+                if (!note) return '';
+                const toneClass = note.tone === 'danger' ? 'company-notice--danger'
+                    : (note.tone === 'warning' ? 'company-notice--warning' : '');
+                return `
+                <p class="company-notice ${toneClass}">
+                    <strong>${escapeHtml([...new Set(plans)].join('، '))}:</strong>
+                    ${escapeHtml(note.text)}
+                </p>`;
+            }).join('')}
+        </section>`;
+}
+
+function subscriptionRow(row) {
+    const sub = row.sub;
+    const state = row.state;
+
+    const timing = state.key === 'scheduled'
+        ? `يبدأ بعد ${escapeHtml(String(row.daysUntilStart))} يومًا`
+        : (row.daysRemaining != null && (state.key === 'active' || state.key === 'expiring')
+            ? `${escapeHtml(String(row.daysRemaining))} يوم متبقٍ`
+            : '');
+
+    return `
+        <li class="company-sub">
+            <div class="company-sub-main">
+                <p class="company-sub-plan">${escapeHtml(sub.plan_name_ar || sub.plan)}</p>
+                <p class="company-sub-dates">
+                    ${sub.start_date ? `من ${escapeHtml(formatDate(sub.start_date))}` : 'بلا تاريخ بداية'}
+                    ${sub.end_date ? ` حتى ${escapeHtml(formatDate(sub.end_date))}` : ' · بلا تاريخ انتهاء'}
+                    ${sub.billing_cycle ? ` · ${escapeHtml(billingCycleLabel(sub.billing_cycle))}` : ''}
+                </p>
+                ${row.anomalies.length ? `
+                <p class="company-sub-dates is-warning">
+                    ${escapeHtml(row.anomalies.map(k => ANOMALY_NOTES[k]?.text || k).join(' '))}
+                </p>` : ''}
+            </div>
+            <div class="company-sub-side">
+                <span class="pill ${escapeHtml(state.pill)}">${escapeHtml(state.label)}</span>
+                ${timing ? `<span class="company-sub-days">${timing}</span>` : ''}
+            </div>
+        </li>`;
+}
+
+const BILLING_CYCLES = {
+    monthly: 'شهري', yearly: 'سنوي', quarterly: 'ربع سنوي', weekly: 'أسبوعي'
+};
+function billingCycleLabel(cycle) {
+    return BILLING_CYCLES[cycle] || cycle;
 }
 
 /* ── الامتيازات ─────────────────────────────────────────────────────────── */
