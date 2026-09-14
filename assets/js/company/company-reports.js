@@ -1,61 +1,39 @@
 /**
- * company-reports.js — تقارير الشركة.
+ * company-reports.js — قسم تقارير التذاكر في لوحة الشركة.
  *
  * مستوحى من «الإحصائيات» في لوحة الإدارة، لكن بمقاييس تخصّ صاحب الشركة لا
- * مشغّل المنصة: لا أعداد مستخدمين عامة ولا إيرادات، بل حالة دعمه واشتراكه
- * وفريقه. كل رقم هنا محسوب من صفوف **رآها المستخدم فعلًا** عبر RLS — لا
- * استعلام تجميعي جديد ولا صلاحية إضافية.
+ * مشغّل المنصة: لا أعداد مستخدمين عامة ولا إيرادات منصة، بل حالة دعمه
+ * وفريقه وعملائه.
  *
- * الأرقام تُمرَّر إليه محسوبة من اللوحة (نفس البيانات المعروضة في الأقسام)،
- * فالتقرير لا يعيد الجلب ولا يخترع مصدرًا ثانيًا للحقيقة.
+ * كل رقم محسوب من صفوف **رآها المستخدم فعلًا** عبر RLS — لا استعلام تجميعي
+ * جديد ولا صلاحية إضافية. والحساب نفسه في report-model.js (خالص ومُختبَر)،
+ * فهذا الملف رسم وربط فقط.
+ *
+ * قاعدة حاكمة: المساران لا يُجمعان في رقم واحد أبدًا. «تذاكري مع مدعوم»
+ * و«تذاكر عملائي» قراءتان متعاكستان — جمعهما يخفي أيّهما المتأخر.
  */
 
 import { escapeHtml, formatDate, renderState } from '/assets/js/customer/portal-ui.js';
-import { statusInfo, isClosed, needsCustomerReply } from '/assets/js/customer/ticket-view-model.js';
+import { statusInfo, TICKET_STATUS } from '/assets/js/customer/ticket-view-model.js';
 import { summarizeSubscriptions, registrationInfo } from '/assets/js/company/company-model.js';
+import {
+    summarizeTickets, filterTickets, byCustomer, formatDuration, periodLabel,
+    defaultTimeZone, buildReportSheets, flattenSheets,
+    PRIORITY_LABELS, CATEGORY_LABELS
+} from '/assets/js/company/report-model.js';
+import {
+    downloadCsv, downloadXlsx, printReport, buildPrintDocument
+} from '/assets/js/company/report-export.js';
+import { ui } from '/ui-service.js';
 
-/**
- * ملخّص مسار تذاكر — دالة خالصة، مُختبَرة بمعزل.
- * @param {Array} tickets
- * @param {string} userId هوية الحساب، لتمييز «بانتظار ردّك»
- */
-export function summarizeTickets(tickets, userId) {
-    const rows = Array.isArray(tickets) ? tickets : [];
-    const byStatus = {};
-    for (const ticket of rows) {
-        const key = ticket?.status || 'unknown';
-        byStatus[key] = (byStatus[key] || 0) + 1;
-    }
+/** يُعاد تصديرها: وحدات أخرى واختبارات قائمة تستوردها من هنا. */
+export { summarizeTickets };
+export const formatResponseTime = formatDuration;
 
-    const open = rows.filter(t => !isClosed(t));
-    const awaiting = rows.filter(t => needsCustomerReply(t, userId));
+/** حالة المرشّحات — محلية بالكامل، فلا إعادة جلب عند تغييرها. */
+const filters = { from: '', to: '', status: 'all' };
 
-    // متوسط زمن أول استجابة بالساعات — يُحسب من التذاكر التي استُجيب لها فقط،
-    // فلا تُخفّض التذاكر المفتوحة المتوسط زورًا.
-    const responded = rows.filter(t => t.first_response_at && t.created_at);
-    const avgHours = responded.length
-        ? responded.reduce((sum, t) =>
-              sum + (new Date(t.first_response_at) - new Date(t.created_at)) / 3600000, 0) / responded.length
-        : null;
-
-    return {
-        total: rows.length,
-        open: open.length,
-        closed: rows.length - open.length,
-        awaiting: awaiting.length,
-        byStatus,
-        responded: responded.length,
-        avgFirstResponseHours: avgHours == null ? null : Math.round(avgHours * 10) / 10
-    };
-}
-
-/** صياغة زمن الاستجابة بوحدة مقروءة. */
-export function formatResponseTime(hours) {
-    if (hours == null) return '—';
-    if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} دقيقة`;
-    if (hours < 48) return `${hours} ساعة`;
-    return `${Math.round(hours / 24)} يوم`;
-}
+let snapshot = null;   // آخر بيانات مرسومة، ومنها يُبنى التصدير
 
 export function renderCompanyReports({ dashboard, platformTickets, customerTickets, members, userId }) {
     const container = document.getElementById('companyReports');
@@ -70,42 +48,21 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
         return;
     }
 
-    const platform = summarizeTickets(platformTickets, userId);
-    const customers = summarizeTickets(customerTickets, userId);
+    const timeZone = defaultTimeZone();
+    const platformRows = filterTickets(platformTickets, filters);
+    const customerRows = filterTickets(customerTickets, filters);
+
+    const platform = summarizeTickets(platformRows, userId, { timeZone });
+    const customers = summarizeTickets(customerRows, userId, { timeZone });
     const subs = summarizeSubscriptions(dashboard.subscriptions);
     const registration = registrationInfo(dashboard.registration);
     const memberRows = Array.isArray(members) ? members : [];
 
-    const kpi = (label, value, hint, tone = '') => `
-        <div class="kpi ${tone}">
-            <p class="kpi-label">${escapeHtml(label)}</p>
-            <p class="kpi-value">${escapeHtml(String(value))}</p>
-            <p class="kpi-hint">${escapeHtml(hint)}</p>
-        </div>`;
-
-    const statusRows = (summary, emptyText) => {
-        const entries = Object.entries(summary.byStatus);
-        if (!entries.length) return `<p class="panel-subtitle">${escapeHtml(emptyText)}</p>`;
-        return `
-            <ul class="company-sub-list">
-                ${entries.map(([status, count]) => {
-                    const info = statusInfo(status);
-                    const percent = Math.round((count / summary.total) * 100);
-                    return `
-                    <li class="company-sub">
-                        <div class="company-sub-main">
-                            <p class="company-sub-plan">${escapeHtml(info.label)}</p>
-                            <p class="company-sub-dates">${percent}% من الإجمالي</p>
-                        </div>
-                        <div class="company-sub-side">
-                            <span class="pill ${escapeHtml(info.pill)}">${escapeHtml(String(count))}</span>
-                        </div>
-                    </li>`;
-                }).join('')}
-            </ul>`;
-    };
+    snapshot = { platformRows, customerRows, userId, timeZone, companyName: dashboard.company?.name };
 
     container.innerHTML = `
+        ${filterBar()}
+
         <div class="kpi-grid">
             ${kpi('تذاكر مفتوحة مع مدعوم', platform.open,
                   platform.awaiting ? `${platform.awaiting} بانتظار ردّك` : 'لا شيء ينتظر ردّك',
@@ -113,8 +70,10 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
             ${kpi('تذاكر عملاء مفتوحة', customers.open,
                   `${customers.total} تذكرة من عملائك إجمالًا`,
                   customers.open ? 'kpi--warning' : '')}
-            ${kpi('متوسط أول استجابة لعملائك', formatResponseTime(customers.avgFirstResponseHours),
+            ${kpi('متوسط أول استجابة لعملائك', formatDuration(customers.avgFirstResponseHours),
                   customers.responded ? `محسوب على ${customers.responded} تذكرة` : 'لا استجابات بعد')}
+            ${kpi('متوسط زمن الإغلاق لعملائك', formatDuration(customers.avgResolutionHours),
+                  customers.resolved ? `محسوب على ${customers.resolved} تذكرة مغلقة` : 'لا إغلاقات بعد')}
             ${kpi('مستخدمو الشركة', memberRows.length, 'الحسابات التابعة لشركتك')}
             ${kpi('اشتراكات فعّالة', subs.active,
                   subs.daysToNearestExpiry == null ? 'لا اشتراك فعّال' : `أقرب انتهاء بعد ${subs.daysToNearestExpiry} يوم`,
@@ -124,27 +83,41 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                   registration.tone === 'danger' ? 'kpi--danger' : (registration.tone === 'warning' ? 'kpi--warning' : ''))}
         </div>
 
-        <div class="split-grid">
-            <section class="panel" aria-labelledby="reportPlatformHeading">
-                <div class="panel-header">
-                    <div>
-                        <h2 class="panel-title" id="reportPlatformHeading">تذاكري مع مدعوم — حسب الحالة</h2>
-                        <p class="panel-subtitle">${escapeHtml(String(platform.total))} تذكرة إجمالًا</p>
-                    </div>
+        <section class="panel" aria-labelledby="reportTotalsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="reportTotalsHeading">إجماليات المسارين</h2>
+                    <p class="panel-subtitle">لكل مسار عموده — لا رقم مجمّع يخفي الفرق بينهما</p>
                 </div>
-                ${statusRows(platform, 'لم تفتح تذاكر مع مدعوم بعد.')}
-            </section>
+            </div>
+            ${comparisonTable('المؤشّر', [
+                ['إجمالي التذاكر', platform.total, customers.total],
+                ['مفتوحة', platform.open, customers.open],
+                ['قيد المعالجة', platform.inProgress, customers.inProgress],
+                ['مغلقة', platform.closed, customers.closed],
+                ['بانتظار ردّك', platform.awaiting, customers.awaiting],
+                ['متوسط أول استجابة', formatDuration(platform.avgFirstResponseHours),
+                                       formatDuration(customers.avgFirstResponseHours)],
+                ['متوسط زمن الإغلاق', formatDuration(platform.avgResolutionHours),
+                                      formatDuration(customers.avgResolutionHours)]
+            ])}
+        </section>
 
-            <section class="panel" aria-labelledby="reportCustomersHeading">
-                <div class="panel-header">
-                    <div>
-                        <h2 class="panel-title" id="reportCustomersHeading">تذاكر العملاء — حسب الحالة</h2>
-                        <p class="panel-subtitle">${escapeHtml(String(customers.total))} تذكرة إجمالًا</p>
-                    </div>
-                </div>
-                ${statusRows(customers, 'لم يفتح عملاؤك تذاكر بعد.')}
-            </section>
+        <div class="split-grid">
+            ${distributionPanel('reportStatusHeading', 'التوزيع حسب الحالة',
+                'الحالة', platform.byStatus, customers.byStatus, k => statusInfo(k).label)}
+            ${distributionPanel('reportPriorityHeading', 'التوزيع حسب الأولوية',
+                'الأولوية', platform.byPriority, customers.byPriority, k => PRIORITY_LABELS[k] || k)}
         </div>
+
+        <div class="split-grid">
+            ${distributionPanel('reportCategoryHeading', 'التوزيع حسب التصنيف',
+                'التصنيف', platform.byCategory, customers.byCategory, k => CATEGORY_LABELS[k] || k)}
+            ${distributionPanel('reportPeriodHeading', 'التوزيع حسب الفترة',
+                'الشهر', platform.byPeriod, customers.byPeriod, periodLabel)}
+        </div>
+
+        ${customerBreakdown(customerRows)}
 
         <section class="panel" aria-labelledby="reportScopeHeading">
             <div class="panel-header">
@@ -163,9 +136,237 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                     <dd>يُحسب على التذاكر التي وصلها ردّ من غير صاحبها، لا على المفتوحة بلا ردّ.</dd>
                 </div>
                 <div class="company-fact">
-                    <dt>التحديث</dt>
-                    <dd>لحظي مع كل فتح للقسم — لا نسخة مخزّنة.</dd>
+                    <dt>متوسط زمن الإغلاق</dt>
+                    <dd>يُحسب على المغلقة التي لها طابع إغلاق مسجَّل وحدها.</dd>
+                </div>
+                <div class="company-fact">
+                    <dt>المنطقة الزمنية</dt>
+                    <dd><code>${escapeHtml(timeZone)}</code> — التجميع الشهري بتقويمك المحلي لا بالـUTC.</dd>
+                </div>
+                <div class="company-fact">
+                    <dt>التصدير</dt>
+                    <dd>يحمل نفس الصفوف المعروضة أعلاه بالضبط، بنفس المرشّحات.</dd>
                 </div>
             </dl>
         </section>`;
+
+    wireFilters({ dashboard, platformTickets, customerTickets, members, userId });
+    wireExports();
+}
+
+/* ── مكوّنات العرض ───────────────────────────────────────────────────────── */
+
+function kpi(label, value, hint, tone = '') {
+    return `
+        <div class="kpi ${tone}">
+            <p class="kpi-label">${escapeHtml(label)}</p>
+            <p class="kpi-value">${escapeHtml(String(value))}</p>
+            <p class="kpi-hint">${escapeHtml(hint)}</p>
+        </div>`;
+}
+
+function filterBar() {
+    const statuses = Object.entries(TICKET_STATUS)
+        .map(([key, info]) => `<option value="${escapeHtml(key)}"${filters.status === key ? ' selected' : ''}>${escapeHtml(info.label)}</option>`)
+        .join('');
+    return `
+        <section class="panel" aria-labelledby="reportFiltersHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="reportFiltersHeading">تقارير التذاكر</h2>
+                    <p class="panel-subtitle">صفِّ الفترة والحالة، ثم صدّر بنفس النطاق المعروض</p>
+                </div>
+                <div class="panel-head-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" data-export="csv">تصدير CSV</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-export="xlsx">تصدير XLSX</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-export="pdf">تصدير PDF</button>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="reportFrom">من تاريخ</label>
+                    <input type="date" id="reportFrom" class="form-control" value="${escapeHtml(filters.from)}">
+                </div>
+                <div class="form-field">
+                    <label for="reportTo">إلى تاريخ</label>
+                    <input type="date" id="reportTo" class="form-control" value="${escapeHtml(filters.to)}">
+                </div>
+                <div class="form-field">
+                    <label for="reportStatus">الحالة</label>
+                    <select id="reportStatus" class="form-control">
+                        <option value="all"${filters.status === 'all' ? ' selected' : ''}>كل الحالات</option>
+                        ${statuses}
+                    </select>
+                </div>
+                <div class="form-field is-end">
+                    <button type="button" class="btn btn-secondary" id="reportReset">إعادة ضبط</button>
+                </div>
+            </div>
+        </section>`;
+}
+
+function comparisonTable(firstHeader, rows) {
+    return `
+        <div class="table-scroll">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th scope="col">${escapeHtml(firstHeader)}</th>
+                        <th scope="col">تذاكري مع مدعوم</th>
+                        <th scope="col">تذاكر عملائي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(([label, a, b]) => `
+                        <tr>
+                            <th scope="row">${escapeHtml(label)}</th>
+                            <td>${escapeHtml(String(a))}</td>
+                            <td>${escapeHtml(String(b))}</td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function distributionPanel(headingId, title, keyHeader, platformRows, customerRows, labelOf) {
+    const keys = [...new Set([...platformRows.map(r => r.key), ...customerRows.map(r => r.key)])];
+    const body = keys.length
+        ? comparisonTable(keyHeader, keys.map(key => [
+            labelOf(key),
+            platformRows.find(r => r.key === key)?.count || 0,
+            customerRows.find(r => r.key === key)?.count || 0
+        ]))
+        : '<p class="panel-subtitle">لا تذاكر في هذا النطاق.</p>';
+
+    return `
+        <section class="panel" aria-labelledby="${headingId}">
+            <div class="panel-header">
+                <div><h2 class="panel-title" id="${headingId}">${escapeHtml(title)}</h2></div>
+            </div>
+            ${body}
+        </section>`;
+}
+
+function customerBreakdown(customerRows) {
+    const rows = byCustomer(customerRows);
+    if (!rows.length) {
+        return `
+        <section class="panel" aria-labelledby="reportCustomersHeading">
+            <div class="panel-header">
+                <div><h2 class="panel-title" id="reportCustomersHeading">التذاكر حسب العميل</h2></div>
+            </div>
+            <p class="panel-subtitle">لم يفتح عملاؤك تذاكر في هذا النطاق.</p>
+        </section>`;
+    }
+    return `
+        <section class="panel" aria-labelledby="reportCustomersHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="reportCustomersHeading">التذاكر حسب العميل</h2>
+                    <p class="panel-subtitle">${rows.length} عميلًا فتحوا تذاكر في هذا النطاق</p>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">العميل</th><th scope="col">إجمالي</th>
+                            <th scope="col">مفتوحة</th><th scope="col">مغلقة</th>
+                            <th scope="col">متوسط أول استجابة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(c => `
+                            <tr>
+                                <th scope="row">
+                                    ${escapeHtml(c.name)}
+                                    ${c.email ? `<span class="is-muted"> · ${escapeHtml(c.email)}</span>` : ''}
+                                </th>
+                                <td>${c.total}</td>
+                                <td>${c.open}</td>
+                                <td>${c.closed}</td>
+                                <td>${escapeHtml(formatDuration(c.avgFirstResponseHours))}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </section>`;
+}
+
+/* ── الربط ───────────────────────────────────────────────────────────────── */
+
+function wireFilters(context) {
+    const rerender = () => renderCompanyReports(context);
+
+    document.getElementById('reportFrom')?.addEventListener('change', (e) => {
+        filters.from = e.target.value; rerender();
+    });
+    document.getElementById('reportTo')?.addEventListener('change', (e) => {
+        filters.to = e.target.value; rerender();
+    });
+    document.getElementById('reportStatus')?.addEventListener('change', (e) => {
+        filters.status = e.target.value; rerender();
+    });
+    document.getElementById('reportReset')?.addEventListener('click', () => {
+        filters.from = ''; filters.to = ''; filters.status = 'all'; rerender();
+    });
+}
+
+function fileStamp() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function currentSheets() {
+    return buildReportSheets({
+        platformTickets: snapshot.platformRows,
+        customerTickets: snapshot.customerRows,
+        userId: snapshot.userId,
+        timeZone: snapshot.timeZone,
+        filters
+    });
+}
+
+function wireExports() {
+    document.querySelectorAll('[data-export]').forEach(btn => {
+        btn.addEventListener('click', () => onExport(btn.getAttribute('data-export'), btn));
+    });
+}
+
+async function onExport(format, btn) {
+    if (!snapshot) return;
+    const sheets = currentSheets();
+    const name = `tickets-report-${fileStamp()}`;
+
+    const original = btn.textContent;
+    btn.disabled = true;
+
+    try {
+        if (format === 'csv') {
+            downloadCsv(flattenSheets(sheets), `${name}.csv`);
+        } else if (format === 'xlsx') {
+            btn.textContent = 'جارٍ التحضير…';
+            await downloadXlsx(sheets, `${name}.xlsx`);
+        } else if (format === 'pdf') {
+            const opened = printReport(buildPrintDocument({
+                title: 'تقرير التذاكر',
+                subtitle: snapshot.companyName || 'لوحة الشركة',
+                meta: [
+                    ['من', filters.from || 'البداية'],
+                    ['إلى', filters.to || 'اليوم'],
+                    ['الحالة', filters.status === 'all' ? 'كل الحالات' : statusInfo(filters.status).label],
+                    ['المنطقة الزمنية', snapshot.timeZone],
+                    ['تاريخ الإصدار', formatDate(new Date().toISOString())]
+                ],
+                sections: sheets
+            }));
+            if (!opened) {
+                ui?.showToast?.('المتصفح منع فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.', 'error');
+            }
+        }
+    } catch (err) {
+        ui?.showToast?.(err?.message || 'تعذّر التصدير', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
 }
