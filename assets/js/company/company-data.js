@@ -130,6 +130,11 @@ export async function fetchCompanyMembers() {
  * بوابة الصلاحية قبل النداء: نعيد قراءة can_manage من company_members()
  * (دالة SECURITY DEFINER في القاعدة) في نفس اللحظة. الغرض إن مصدر القرار
  * يكون الخادم وقت الإرسال، لا حالة محفوظة في الصفحة ولا زر ظاهر في الشاشة.
+ *
+ * والخادم يفحص بنفسه أيضًا: الدالة تنادي sub_user_create_context() (الترحيل
+ * 037) فتقرّر القاعدة المسار — مدير الشركة يُنشئ عضوًا تابعًا، وطاقم المنصة
+ * يُنشئ حسابًا مستقلًا من لوحة الإدارة. فالبوابة هنا توفّر رحلة فاشلة،
+ * والحاجز الفعلي على الخادم.
  */
 export async function createCompanyMember({ fullName, email, password }) {
     const permission = await fetchCompanyMembers();

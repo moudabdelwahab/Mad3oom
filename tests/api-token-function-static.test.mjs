@@ -123,23 +123,47 @@ test('الافتراضيات لم تتوسّع عن الإصدار المنشو�
 /* ── create-sub-user: نفس المبدأ ────────────────────────────────────────── */
 
 test('create-sub-user تسأل القاعدة عن التفويض لا عن الرتبة', () => {
-    assert.match(SUB_CODE, /rpc\("can_manage_company_members"\)/);
-    assert.doesNotMatch(SUB_CODE, /role\s*===\s*["'](super_user|admin|support)["']/,
+    assert.match(SUB_CODE, /rpc\("sub_user_create_context"\)/);
+    assert.doesNotMatch(SUB_CODE, /role\s*===\s*["'](super_user|admin|support|company_admin)["']/,
         'ما زالت تفوّض على الرتبة وحدها');
-    assert.match(SUB_CODE, /canManage !== true/);
+    assert.match(SUB_CODE, /context\.allowed !== true/);
+    assert.match(SUB_CODE, /403/);
 });
 
-test('create-sub-user لا تكتب الدور — يشتقّه المحفّز', () => {
+test('المساران مفصولان، والقاعدة هي من يختار بينهما', () => {
+    // attach_to_company تأتي من البوابة — الطلب لا يختار مساره
+    assert.match(SUB_CODE, /context\.attach_to_company === true/);
+    assert.match(SUB_CODE, /const superUserId = attachToCompany \? currentUser\.id : null/,
+        'التبعية لا تتبع المسار الذي قرّرته القاعدة');
+    // ولا تُقرأ من جسم الطلب بحال
+    for (const forged of ['body.super_user_id', 'body.company_id', 'body.attach_to_company']) {
+        assert.ok(!SUB_CODE.includes(forged), `قيمة قابلة للتزوير تُقرأ من الطلب: ${forged}`);
+    }
+});
+
+test('سلوك طاقم المنصة محفوظ حرفيًا: حساب مستقل بدور customer', () => {
     const update = SUB_CODE.slice(SUB_CODE.indexOf('.from("profiles")'), SUB_CODE.indexOf('.eq("id"'));
-    assert.ok(!/role:\s*["']/.test(update), 'تكتب الدور يدويًا بدل اشتقاقه من العلاقة');
-    assert.match(SUB_CODE, /super_user_id: superUserId/);
-    assert.match(SUB_CODE, /const superUserId = currentUser\.id/,
-        'التبعية لا تُشتق من هوية المنادي');
+    // نفس ما كان يكتبه الإصدار السابق بالضبط
+    assert.match(update, /role: "customer"/,
+        'الإصدار السابق كان يكتب customer — تغييرها يغيّر سلوك لوحة الإدارة');
+    assert.match(update, /super_user_id: superUserId/);
 });
 
-test('create-sub-user تتحقق أن الدور المشتقّ صحيح وتتراجع إن لم يكن', () => {
+test('التحقق بعد الإنشاء يطابق كل مسار بمعياره', () => {
+    // مسار العضو: الدور لا بد أن يكون company_user
     assert.match(SUB_CODE, /created\.role !== "company_user"/);
+    // مسار الحساب المستقل: التبعية لا بد أن تكون فارغة
+    assert.match(SUB_CODE, /created\.super_user_id !== null/);
+    // وأي عدم تطابق يتراجع بدل ترك حالة نصف مكتملة
+    assert.match(SUB_CODE, /if \(mismatch\)/);
     assert.match(SUB_CODE, /deleteUser/);
+});
+
+test('نطاق الشركة يُطلب لمسار العضو وحده', () => {
+    const scope = SUB_CODE.slice(SUB_CODE.indexOf('if (attachToCompany)'),
+                                 SUB_CODE.indexOf('let body:'));
+    assert.match(scope, /rpc\("current_company_id"\)/,
+        'مسار العضو لا يتحقق من وجود شركة');
 });
 
 test('كلتا الدالتين تتحققان من الجلسة قبل أي شيء', () => {
