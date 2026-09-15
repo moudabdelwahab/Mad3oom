@@ -118,21 +118,6 @@ function toast(msg, type) {
 
 /* ══════════════════ الشبكة ══════════════════ */
 
-/** بطاقة «أضف خادمًا مخصّصًا» — تفتح النموذج المتقدّم القائم كما هو. */
-function customBlankTile(entry) {
-    return `<div class="mi-tile is-blank">
-        <div class="mi-tile-top">
-            <div class="mi-logo" style="background:${esc(entry.brandColor || '#64748b')}">${iconMarkup(entry)}</div>
-            <div style="min-width:0">
-                <div class="mi-name">${esc(entry.name)}</div>
-                <div class="mi-desc">${esc(entry.description || '')}</div>
-            </div>
-        </div>
-        <div class="mi-meta"><span class="mi-tag">إعداد يدوي</span></div>
-        <div class="mi-acts"><button class="mi-btn primary" data-mi="custom">إضافة خادم مخصّص</button></div>
-    </div>`;
-}
-
 /** بطاقة موحّدة — تُبنى من عنصر كتالوج أو من خادم مضاف يدويًا. */
 function tileBody({ entry, server, isCatalog }) {
     const state = busy.has(server?.id) ? UI_STATES.CONNECTING : deriveUiState(server);
@@ -659,7 +644,8 @@ function detailPanel(serverId) {
               status: server.status,
               last_error: server.last_error || null,
           }, null, 2))}</pre>
-          <div class="mi-hint">للتحكّم الكامل (ترويسات، متغيّرات بيئة، أوامر تشغيل) استخدم تبويب «إعدادات متقدّمة» في هذه الصفحة.</div>
+          <div class="mi-hint">للتحكّم الكامل — الرابط، نوع النقل، الترويسات، متغيّرات البيئة، أوامر التشغيل — افتح الإعدادات الكاملة.</div>
+          <button class="mi-btn" data-mi="edit" data-id="${esc(server.id)}" style="margin-top:.6rem">فتح الإعدادات الكاملة</button>
         </details>
       </div>
       <div class="mi-mfoot">
@@ -772,7 +758,12 @@ document.addEventListener('click', (e) => {
 
     e.preventDefault();
     const id = el.dataset.id;
-    if (act === 'add') openServicePicker();
+    if (act === 'edit') {
+        // التعديل الكامل يبقى للنموذج المتقدّم القائم — لا نكرّر 21 حقلًا هنا.
+        closeModal();
+        if (typeof window.mcpEdit === 'function') window.mcpEdit(id);
+        else toast('النموذج المتقدّم غير متاح في هذه الصفحة', 'error');
+    } else if (act === 'add') openServicePicker();
     else if (act === 'pick') { closeModal(); connectFlow(el.dataset.key); }
     else if (act === 'pick-server') {
         // تعريف خادم موجود بلا اتصال لهذا المستخدم: نحاول الاتصال مباشرة.
