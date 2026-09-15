@@ -18,6 +18,7 @@
  */
 
 import { resolveAccess, ACCESS } from '/auth-client.js';
+import { mountContextBar } from '/assets/js/owner/owner-context.js';
 import { accessMessageFor } from '/assets/js/access-policy.js';
 import { resolveAccountHome, DESTINATIONS } from '/assets/js/account-destination.js';
 
@@ -45,7 +46,20 @@ export async function guardPage(requiredRole = null, options = {}) {
         return null;
     }
 
-    if (access.status === ACCESS.AUTHORIZED) return access.user;
+    if (access.status === ACCESS.AUTHORIZED) {
+        // شريط «واجهة اللوحات» — نقطة تركيب واحدة تخدم كل اللوحات.
+        //
+        // guardPage() تناديها لوحة الإدارة (عبر admin/auth.js) ولوحة الشركة
+        // وبوابة العميل جميعًا، فالتركيب هنا يجعل الزر حاضرًا في كل لوحة بلا
+        // تعديل صفحة واحدة — وبلا احتمال أن تُنسى صفحة عند إضافة لوحة جديدة.
+        //
+        // ولا أثر له على غير المالك: mountContextBar تسأل الخادم أولًا
+        // وتخرج صامتة إن لم يكن المنادي مالك المنصة. ولا ننتظرها حتى لا
+        // تتأخر الصفحة على رحلة شبكة، ولا نُسقط الصفحة إن فشلت.
+        mountContextBar().catch(err =>
+            console.error('[PageGuard] context bar failed:', err?.message || err));
+        return access.user;
+    }
 
     // الحالة الوحيدة التي يجوز فيها التحويل إلى صفحة الدخول.
     if (access.status === ACCESS.ANONYMOUS) {
