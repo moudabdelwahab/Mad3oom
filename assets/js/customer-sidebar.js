@@ -42,6 +42,16 @@ const SHELLS = {
         showsWhatsapp: false,
         // لوحة الشركة صفحة واحدة بأقسام: العنصر النشط يُضبط من الـhash
         singlePage: true
+    },
+    // لوحة المالك: نفس القشرة بالحرف — نفس الطي والدرج والقوائم والبحث وجرس
+    // الإشعارات والهوية والخروج وحالة النظام. المختلف ملف القائمة وبيت البوابة
+    // وحدهما، وهو بالضبط ما صُمّمت له هذه الخريطة.
+    owner: {
+        component: '/assets/components/owner-sidebar.html',
+        home: '/owner-dashboard.html',
+        showsCompanyEntry: false,
+        showsWhatsapp: false,
+        singlePage: true
     }
 };
 
@@ -87,6 +97,11 @@ export function setSidebarCollapsed(collapsed, { persist = true } = {}) {
 /** قشرة لوحة الشركة — نفس المنطق، قائمة وبيت مختلفان. */
 export function initCompanyShell(optionsOrCallback) {
     return initPortalShell('company', optionsOrCallback);
+}
+
+/** قشرة لوحة المالك — نفس المنطق كذلك. لا سطر تفويض هنا: القشرة تعرض، والقاعدة تقرر. */
+export function initOwnerShell(optionsOrCallback) {
+    return initPortalShell('owner', optionsOrCallback);
 }
 
 export function initCustomerSidebar(optionsOrCallback) {
