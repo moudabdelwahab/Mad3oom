@@ -251,3 +251,14 @@
     border-style: dashed;
     background: transparent;
 }
+
+/* ── خطأ حقل واحد ──────────────────────────────────────────── */
+.mi-input.is-bad { border-color: #a83225; }
+.mi-input.is-bad:focus { border-color: #a83225; }
+.mi-fielderr {
+    font-size: 0.76rem; line-height: 1.55; margin: 0.3rem 0 0; color: #a83225;
+}
+@media (prefers-color-scheme: dark) {
+    .mi-input.is-bad, .mi-input.is-bad:focus { border-color: #e9897c; }
+    .mi-fielderr { color: #e9897c; }
+}

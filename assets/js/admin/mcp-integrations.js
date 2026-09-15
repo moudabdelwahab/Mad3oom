@@ -27,7 +27,7 @@
  *   بأنه يحتاج خطوة الـbackend. عرض خيار يبدو فعّالًا وهو لا يفرض شيئًا
  *   أسوأ من عدم عرضه إطلاقًا.
  */
-import { UI_STATES, STATE_LABEL, deriveUiState, explainError } from '/assets/js/admin/mcp-ui-state.js';
+import { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
 import {
     MCP_CLIENT_CATALOG,
     createServer,
@@ -43,7 +43,7 @@ import {
 
 /* المنطق الخالص يعيش في وحدة بلا تبعيات ليمكن اختباره خارج المتصفح
  * (tests/mcp-ui-state.test.mjs). نعيد تصديره هنا ليبقى سطح الوحدة واحدًا. */
-export { UI_STATES, STATE_LABEL, deriveUiState, explainError } from '/assets/js/admin/mcp-ui-state.js';
+export { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
 
 /* ══════════════════ أدوات عرض ══════════════════ */
 
@@ -243,37 +243,71 @@ export function renderIntegrations(container, ctx) {
 /** ما الذي تحتاجه هذه الخدمة فعلًا من المستخدم؟ أقل شيء ممكن. */
 function credentialAsk(entry, server) {
     const auth = entry.auth_type || 'none';
+    const serviceKey = entry.key;
 
     if (auth === 'oauth2') {
-        // لو تطبيق OAuth مسجَّل بالفعل لهذا الخادم، فلا شيء يُطلب إطلاقًا.
-        if (server?.oauth_client_id) return null;
+        // لو تطبيق OAuth مسجَّل بالفعل **وقيمته صالحة**، فلا شيء يُطلب إطلاقًا.
+        // شرط الصلاحية ليس زائدًا: اتصال حُفظ بمعرّف خاطئ كان سيتخطّى السؤال
+        // إلى الأبد، فيعيد المستخدم المحاولة كل مرة على نفس القيمة المكسورة
+        // بلا أي طريق لتصحيحها من هذه الواجهة.
+        if (server?.oauth_client_id && !validateCredential(serviceKey, 'oauth_client_id', server.oauth_client_id)) return null;
+        const uuidish = entry.key === 'supabase';
         return {
             kind: 'oauth_app',
+            serviceKey,
             title: 'هذه الخدمة تحتاج تطبيق OAuth خاص بك',
             hint: entry.setup_note || 'سجّل تطبيق OAuth من لوحة الخدمة، ثم الصق المعرّف والسر هنا. لن نطلبهما مرة أخرى.',
             fields: [
-                { id: 'miOauthId', label: 'Client ID', type: 'text' },
-                { id: 'miOauthSecret', label: 'Client Secret', type: 'password' },
+                {
+                    id: 'miOauthId', name: 'oauth_client_id', label: 'Client ID', type: 'text',
+                    // الشكل المتوقّع معروض في الحقل نفسه: أرخص وسيلة لمنع لصق
+                    // رابط المشروع مكان معرّف التطبيق.
+                    placeholder: uuidish ? '123e4567-e89b-12d3-a456-426614174000' : 'معرّف التطبيق كما تعرضه الخدمة',
+                },
+                { id: 'miOauthSecret', name: 'oauth_client_secret', label: 'Client Secret', type: 'password', placeholder: 'السر الذي عرضته الخدمة مرة واحدة' },
             ],
         };
     }
     if (auth === 'bearer') {
         return {
             kind: 'bearer',
+            serviceKey,
             title: 'الصق رمز الوصول',
             hint: entry.setup_note || 'أنشئ رمز وصول شخصيًا من إعدادات الخدمة والصقه هنا.',
-            fields: [{ id: 'miBearer', label: 'رمز الوصول (Access Token)', type: 'password' }],
+            fields: [{ id: 'miBearer', name: 'bearer_token', label: 'رمز الوصول (Access Token)', type: 'password', placeholder: 'الرمز نفسه، لا رابط الصفحة' }],
         };
     }
     if (auth === 'api_key') {
         return {
             kind: 'api_key',
+            serviceKey,
             title: 'الصق مفتاح API',
             hint: entry.setup_note || 'انسخ المفتاح من إعدادات الخدمة.',
-            fields: [{ id: 'miApiKey', label: 'API Key', type: 'password' }],
+            fields: [{ id: 'miApiKey', name: 'api_key', label: 'API Key', type: 'password', placeholder: 'المفتاح نفسه، لا رابط الصفحة' }],
         };
     }
     return null; // none/custom عبر المسار المتقدّم
+}
+
+/**
+ * يعرض خطأ كل حقل تحته ويعيد true فقط لو كانت كل القيم مقبولة.
+ * @returns {boolean}
+ */
+function showFieldErrors(ask, values) {
+    let firstBad = null;
+    for (const f of ask.fields) {
+        const msg = validateCredential(ask.serviceKey, f.name, values[f.id]);
+        const slot = document.getElementById(`${f.id}Err`);
+        const input = document.getElementById(f.id);
+        if (slot) {
+            slot.textContent = msg || '';
+            slot.hidden = !msg;
+        }
+        input?.classList.toggle('is-bad', Boolean(msg));
+        if (msg && !firstBad) firstBad = input;
+    }
+    firstBad?.focus();
+    return !firstBad;
 }
 
 function typeChooserHtml() {
@@ -312,7 +346,9 @@ function connectFlow(catalogKey) {
              ${ask.fields.map((f) => `
                <div class="mi-field">
                  <label class="mi-label" for="${f.id}">${esc(f.label)}</label>
-                 <input class="mi-input" id="${f.id}" type="${f.type}" dir="ltr" autocomplete="off">
+                 <input class="mi-input" id="${f.id}" type="${f.type}" dir="ltr" autocomplete="off"
+                        placeholder="${esc(f.placeholder || '')}" aria-describedby="${f.id}Err">
+                 <p class="mi-fielderr" id="${f.id}Err" hidden></p>
                </div>`).join('')}
              <div class="mi-hint">${esc(ask.hint)}${entry.docs_url ? ` <a href="${esc(entry.docs_url)}" target="_blank" rel="noopener">فتح التوثيق ↗</a>` : ''}</div>
            </div>`
@@ -347,10 +383,9 @@ async function runConnect(entry, ask) {
     const values = {};
     (ask?.fields || []).forEach((f) => { values[f.id] = document.getElementById(f.id)?.value?.trim() || ''; });
 
-    if (ask && ask.fields.some((f) => !values[f.id])) {
-        toast('أكمل الحقول المطلوبة أولًا', 'error');
-        return;
-    }
+    // نفحص قبل أن نرسل المستخدم إلى المزوّد: قيمة خاطئة تُرفض هناك برسالة
+    // إنجليزية على صفحة أخرى، بعد أن يكون قد غادر المنصّة.
+    if (ask && !showFieldErrors(ask, values)) return;
 
     const steps = ask?.kind === 'oauth_app' || entry.auth_type === 'oauth2'
         ? ['نحفظ الإعداد', 'نفتح صفحة التفويض']
@@ -578,8 +613,12 @@ async function doAuthorize(serverId) {
     const server = servers.find((s) => s.id === serverId);
     if (!server) return;
 
-    // OAuth بإعداد محفوظ: نذهب مباشرة لصفحة الموافقة.
-    if (server.auth_type === 'oauth2' && server.oauth_client_id) {
+    // OAuth بإعداد محفوظ صالح: نذهب مباشرة لصفحة الموافقة. لو كان المحفوظ
+    // مكسورًا نسقط إلى مسار الربط أدناه ليُسأل عنه من جديد.
+    const entryForServer = MCP_CLIENT_CATALOG.find((c) => c.name === server.name);
+    const storedIdOk = server.oauth_client_id
+        && !validateCredential(entryForServer?.key, 'oauth_client_id', server.oauth_client_id);
+    if (server.auth_type === 'oauth2' && storedIdOk) {
         try {
             const { authorize_url } = await startOAuth(serverId);
             window.location.href = authorize_url;
@@ -590,9 +629,8 @@ async function doAuthorize(serverId) {
         }
     }
 
-    // غير ذلك: نعيد فتح مسار الربط لنطلب ما ينقص فقط.
-    const entry = MCP_CLIENT_CATALOG.find((c) => c.name === server.name);
-    if (entry) connectFlow(entry.key);
+    // غير ذلك: نعيد فتح مسار الربط لنطلب ما ينقص أو ما يحتاج تصحيحًا.
+    if (entryForServer) connectFlow(entryForServer.key);
     else doTest(serverId);
 }
 
