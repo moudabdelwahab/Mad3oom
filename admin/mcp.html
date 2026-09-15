@@ -12,6 +12,7 @@
     <!-- رموز الارتفاع والحركة والتركيز — بعد admin-style.css لتكمّله وتصحّح ما لا يتبع السمة -->
     <link rel="stylesheet" href="/assets/js/admin/design-tokens.css">
     <link rel="stylesheet" href="/assets/js/admin/mcp-hub.css">
+    <link rel="stylesheet" href="/assets/js/admin/mcp-integrations.css">
     <link rel="stylesheet" href="/assets/js/admin/ai/ai-styles.css">
     <script src="/theme-manager.js"></script>
     <script src="/language-manager.js"></script>
@@ -617,8 +618,8 @@
                     </button>
                     <button class="client-subtab" data-clientsubtab="server" id="clientSubTabServer">
                         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-                        الخادم
-                        <span class="api-subtab-hint">خوادم مخصّصة يدويًا</span>
+                        إعدادات متقدّمة
+                        <span class="api-subtab-hint">تحكّم كامل: نقل، ترويسات، OAuth يدوي</span>
                     </button>
                 </div>
 
@@ -1511,6 +1512,10 @@
     <!-- Toasts -->
     <div class="toast-container" id="toastContainer"></div>
  
+    <!-- تجربة ربط MCP المبسّطة: وحدة معزولة تُسجّل window.mcpIntegrations.
+         تُحمَّل قبل mcp.js لتكون جاهزة عند أول رسم؛ ولو فشل تحميلها تعمل
+         الصفحة بالعرض القديم كما هو. -->
+    <script type="module" src="/assets/js/admin/mcp-integrations.js"></script>
     <script type="module" src="/assets/js/admin/mcp.js"></script>
 </body>
 </html>

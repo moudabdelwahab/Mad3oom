@@ -223,6 +223,19 @@ function renderConnectorGrid() {
     const grid = document.getElementById('connectorGrid');
     if (!grid) return;
 
+    // التجربة المبسّطة تعيش في وحدة معزولة (mcp-integrations.js) تملك رسم هذه
+    // الشبكة وحدها. لو لم تُحمَّل الوحدة لأي سبب، يكمل العرض القديم أسفله كما
+    // هو بالحرف — لا تعتمد هذه الصفحة على وجودها.
+    if (typeof window.mcpIntegrations?.renderIntegrations === 'function') {
+        window.mcpIntegrations.renderIntegrations(grid, {
+            servers: allServers,
+            search: mcpMarketSearchQuery,
+            category: mcpMarketCategory,
+            onChanged: loadServers,
+        });
+        return;
+    }
+
     const q = mcpMarketSearchQuery.trim().toLowerCase();
     const catalogFiltered = MCP_CLIENT_CATALOG.filter((c) => {
         if (mcpMarketCategory !== 'all' && c.category !== mcpMarketCategory) return false;
@@ -854,8 +867,22 @@ function handleOauthReturn() {
     const oauthResult = params.get('oauth');
     if (!oauthResult) return;
 
-    if (oauthResult === 'success') toast('تم الربط عبر OAuth بنجاح', 'success');
-    else toast(params.get('message') || 'فشل الربط عبر OAuth', 'error');
+    if (oauthResult === 'success') {
+        // الـcallback يضع الحالة «متصل» ويعيد التوجيه، لكنه لا يجلب الأدوات —
+        // فكان عدّاد الأدوات يبقى صفرًا حتى يضغط المستخدم «اختبار» يدويًا.
+        // نكمل الخطوة هنا فور العودة، بلا أي تعديل في الـEdge Function.
+        const returnedServerId = params.get('server_id');
+        if (returnedServerId && typeof window.mcpIntegrations?.finishOAuthReturn === 'function') {
+            window.mcpIntegrations
+                .finishOAuthReturn(returnedServerId)
+                .then(() => loadServers())
+                .catch((err) => console.error('[MCP] tool discovery after OAuth failed:', err));
+        } else {
+            toast('تم الربط عبر OAuth بنجاح', 'success');
+        }
+    } else {
+        toast(params.get('message') || 'فشل الربط عبر OAuth', 'error');
+    }
 
     // تنظيف الرابط عشان ميتكررش عند أي refresh
     const cleanUrl = window.location.pathname;

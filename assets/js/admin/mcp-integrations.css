@@ -1,0 +1,253 @@
+/* ============================================================
+ * mcp-integrations.css — تجربة ربط MCP المبسّطة
+ * ------------------------------------------------------------
+ * كل الأصناف هنا مسبوقة بـ mi- لتفادي أي تصادم مع أنماط
+ * admin/mcp.html الداخلية (113 كيلوبايت من CSS مضمّن). الملف
+ * يستهلك متغيّرات الثيم القائمة فقط (--color-*) فلا يفرض لوحة
+ * ألوان جديدة ويتبع الوضعين الفاتح والداكن تلقائيًا.
+ * ============================================================ */
+
+/* ── شبكة البطاقات ─────────────────────────────────────────── */
+/* الصنف مكرّر عمدًا: الحاوية تحتفظ بصنفها الأصلي .connector-grid المعرَّف
+ * في <style> داخل الصفحة — وهو يأتي بعد هذا الملف في ترتيب المصادر — فنرفع
+ * الخصوصية درجة واحدة ليكون العرض محسومًا بدل أن يعتمد على ترتيب التحميل. */
+.mi-grid.mi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 0.9rem;
+}
+
+.mi-tile {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.mi-tile:hover { box-shadow: 0 6px 20px -14px rgba(0,0,0,.35); }
+.mi-tile.is-connected { border-color: var(--color-border-strong, #cfcfcf); }
+
+.mi-tile-top { display: flex; gap: 0.7rem; align-items: flex-start; }
+
+.mi-logo {
+    width: 38px; height: 38px; flex: 0 0 38px;
+    border-radius: 9px; display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 1rem; overflow: hidden;
+}
+.mi-logo svg { width: 20px; height: 20px; }
+
+.mi-name {
+    font-weight: 600; font-size: 1rem; line-height: 1.35;
+    color: var(--color-text-primary, #111);
+}
+.mi-desc {
+    font-size: 0.8rem; line-height: 1.55; margin-top: 0.15rem;
+    color: var(--color-text-secondary, #666);
+}
+
+.mi-meta {
+    display: flex; gap: 0.45rem; flex-wrap: wrap;
+    align-items: center; min-height: 24px;
+}
+
+/* ── شارات الحالة ──────────────────────────────────────────── */
+.mi-pill {
+    font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem;
+    border-radius: 20px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.mi-pill .mi-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 6px; }
+.mi-pill .mi-spin {
+    width: 11px; height: 11px; flex: 0 0 11px; border-radius: 50%;
+    border: 2px solid currentColor; border-top-color: transparent;
+    animation: mi-rotate .7s linear infinite;
+}
+@keyframes mi-rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mi-pill .mi-spin { animation: none; } }
+
+.mi-pill.s-connected      { background: rgba(23,120,78,.12);  color: #17784e; }
+.mi-pill.s-connecting     { background: rgba(31,91,143,.12);  color: #1f5b8f; }
+.mi-pill.s-auth_required  { background: rgba(140,93,12,.13);  color: #8c5d0c; }
+.mi-pill.s-error          { background: rgba(168,50,37,.12);  color: #a83225; }
+.mi-pill.s-disconnected   { background: rgba(120,120,120,.14); color: var(--color-text-secondary, #666); }
+
+@media (prefers-color-scheme: dark) {
+    .mi-pill.s-connected     { background: rgba(109,203,158,.14); color: #6dcb9e; }
+    .mi-pill.s-connecting    { background: rgba(127,180,227,.14); color: #7fb4e3; }
+    .mi-pill.s-auth_required { background: rgba(224,177,102,.14); color: #e0b166; }
+    .mi-pill.s-error         { background: rgba(233,137,124,.14); color: #e9897c; }
+}
+
+.mi-tag {
+    font-size: 0.72rem; color: var(--color-text-secondary, #666);
+    display: inline-flex; align-items: center; gap: 0.3rem;
+}
+
+/* ── الأزرار ───────────────────────────────────────────────── */
+.mi-acts { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: auto; padding-top: 0.2rem; }
+
+.mi-btn {
+    font: inherit; font-size: 0.82rem; font-weight: 600;
+    border-radius: 8px; padding: 0.5rem 0.9rem; cursor: pointer;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    color: var(--color-text-primary, #111);
+    transition: background .15s ease, border-color .15s ease;
+}
+.mi-btn:hover:not(:disabled) { background: var(--color-surface-alt, #f5f5f5); }
+.mi-btn:focus-visible { outline: 2px solid var(--color-accent, #7b3fbf); outline-offset: 2px; }
+.mi-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.mi-btn.primary {
+    flex: 1;
+    background: var(--color-accent, #7b3fbf);
+    border-color: var(--color-accent, #7b3fbf);
+    color: #fff;
+}
+.mi-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.mi-btn.ghost { border-color: transparent; background: transparent; color: var(--color-text-secondary, #666); }
+.mi-btn.ghost:hover:not(:disabled) { background: var(--color-surface-alt, #f5f5f5); color: var(--color-text-primary, #111); }
+.mi-btn.danger { color: #a83225; }
+
+/* ── النافذة المنبثقة ──────────────────────────────────────── */
+.mi-scrim {
+    position: fixed; inset: 0; z-index: 9000;
+    background: rgba(18,16,23,.55);
+    display: grid; place-items: center; padding: 1.2rem;
+}
+.mi-modal {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 14px; width: min(540px, 100%);
+    max-height: 88vh; overflow: auto;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.5);
+}
+.mi-mhead { padding: 1.25rem 1.35rem 0; display: flex; gap: 0.75rem; align-items: flex-start; }
+.mi-mtitle { font-size: 1.1rem; font-weight: 700; margin: 0; line-height: 1.35; color: var(--color-text-primary, #111); }
+.mi-msub { font-size: 0.82rem; color: var(--color-text-secondary, #666); margin: 0.2rem 0 0; }
+.mi-mbody { padding: 1.1rem 1.35rem 1.35rem; }
+.mi-mfoot { padding: 0 1.35rem 1.35rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.mi-x {
+    margin-inline-start: auto; border: 0; background: transparent; cursor: pointer;
+    font-size: 1.4rem; line-height: 1; padding: 0 0.25rem;
+    color: var(--color-text-secondary, #666);
+}
+.mi-x:hover { color: var(--color-text-primary, #111); }
+
+/* ── اختيار النوع (شخصي/مشترك) ─────────────────────────────── */
+.mi-choice { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.4rem; }
+.mi-opt {
+    display: flex; gap: 0.65rem; align-items: flex-start;
+    padding: 0.8rem 0.85rem; border: 1.5px solid var(--color-border, #e0e0e0);
+    border-radius: 9px; cursor: pointer; transition: border-color .15s ease, background .15s ease;
+}
+.mi-opt:hover { background: var(--color-surface-alt, #f7f7f7); }
+.mi-opt[data-selected="1"] { border-color: var(--color-accent, #7b3fbf); background: rgba(123,63,191,.06); }
+.mi-opt[data-disabled="1"] { opacity: .6; cursor: not-allowed; }
+.mi-opt[data-disabled="1"]:hover { background: transparent; }
+.mi-opt input { margin: 0.2rem 0 0; flex: 0 0 auto; accent-color: var(--color-accent, #7b3fbf); }
+.mi-opt-t { font-weight: 600; font-size: 0.9rem; color: var(--color-text-primary, #111); }
+.mi-opt-d { font-size: 0.78rem; line-height: 1.5; margin-top: 0.1rem; color: var(--color-text-secondary, #666); }
+.mi-badge-soon {
+    font-size: 0.66rem; font-weight: 600; padding: 0.1rem 0.45rem;
+    border-radius: 20px; margin-inline-start: 0.35rem;
+    background: var(--color-surface-alt, #eee); color: var(--color-text-secondary, #666);
+}
+
+/* ── خطوات الربط ───────────────────────────────────────────── */
+.mi-steps { list-style: none; padding: 0; margin: 0.4rem 0 0; display: flex; flex-direction: column; }
+.mi-steps li {
+    display: flex; gap: 0.7rem; align-items: center; padding: 0.55rem 0.1rem;
+    font-size: 0.87rem; color: var(--color-text-secondary, #777);
+}
+.mi-steps .mi-ic {
+    width: 21px; height: 21px; flex: 0 0 21px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 0.68rem; font-weight: 700;
+    background: var(--color-surface-alt, #eee); color: var(--color-text-secondary, #777);
+}
+.mi-steps li[data-state="doing"] { color: var(--color-text-primary, #111); }
+.mi-steps li[data-state="doing"] .mi-ic { background: rgba(31,91,143,.14); color: #1f5b8f; }
+.mi-steps li[data-state="done"] .mi-ic { background: rgba(23,120,78,.14); color: #17784e; }
+.mi-steps li[data-state="fail"] .mi-ic { background: rgba(168,50,37,.14); color: #a83225; }
+
+/* ── صفوف التفاصيل ─────────────────────────────────────────── */
+.mi-rows { display: flex; flex-direction: column; margin-bottom: 1rem; }
+.mi-row {
+    display: flex; justify-content: space-between; gap: 1rem; align-items: center;
+    padding: 0.7rem 0; border-bottom: 1px solid var(--color-border, #eee); font-size: 0.87rem;
+}
+.mi-row:last-child { border-bottom: 0; }
+.mi-row .mi-k { color: var(--color-text-secondary, #666); flex: 0 0 auto; }
+.mi-row .mi-v { font-weight: 500; text-align: end; color: var(--color-text-primary, #111); }
+
+/* ── الخطأ المفهوم ─────────────────────────────────────────── */
+.mi-err { background: rgba(168,50,37,.09); border-radius: 9px; padding: 0.9rem 1rem; margin-bottom: 0.9rem; }
+.mi-err-t { font-weight: 700; color: #a83225; font-size: 0.93rem; margin: 0 0 0.3rem; }
+.mi-err-m { font-size: 0.85rem; line-height: 1.6; margin: 0; color: var(--color-text-primary, #222); }
+@media (prefers-color-scheme: dark) {
+    .mi-err { background: rgba(233,137,124,.1); }
+    .mi-err-t { color: #e9897c; }
+}
+
+.mi-details { margin-top: 0.7rem; }
+.mi-details summary {
+    cursor: pointer; font-size: 0.8rem; font-weight: 500;
+    color: var(--color-text-secondary, #666); list-style: none;
+}
+.mi-details summary::-webkit-details-marker { display: none; }
+.mi-details summary::before { content: "▸ "; display: inline-block; transition: transform .15s ease; }
+.mi-details[open] summary::before { transform: rotate(90deg); }
+.mi-details pre {
+    background: var(--color-surface-alt, #f5f5f5);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 7px; padding: 0.7rem 0.85rem; margin: 0.55rem 0 0;
+    overflow-x: auto; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.73rem; line-height: 1.6; direction: ltr; text-align: left;
+    color: var(--color-text-secondary, #555); white-space: pre-wrap; word-break: break-word;
+}
+
+/* ── الأدوات ───────────────────────────────────────────────── */
+.mi-tools { border: 1px solid var(--color-border, #e5e5e5); border-radius: 9px; overflow: hidden; }
+.mi-tool {
+    display: flex; gap: 0.65rem; align-items: center; padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--color-border, #eee);
+}
+.mi-tool:last-child { border-bottom: 0; }
+.mi-tool-n { font-family: ui-monospace, Menlo, monospace; font-size: 0.76rem; direction: ltr; font-weight: 500; }
+.mi-tool-d {
+    color: var(--color-text-secondary, #777); font-size: 0.75rem;
+    margin-inline-start: auto; text-align: end;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
+}
+
+/* ── حقل مدخل مبسّط ────────────────────────────────────────── */
+.mi-field { margin-bottom: 0.85rem; }
+.mi-label { display: block; font-size: 0.83rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--color-text-primary, #111); }
+.mi-input {
+    width: 100%; padding: 0.6rem 0.75rem; font: inherit; font-size: 0.87rem;
+    border: 1.5px solid var(--color-border, #ddd); border-radius: 8px;
+    background: var(--color-surface, #fff); color: var(--color-text-primary, #111);
+}
+.mi-input:focus { outline: none; border-color: var(--color-accent, #7b3fbf); }
+.mi-hint { font-size: 0.76rem; color: var(--color-text-secondary, #777); margin-top: 0.3rem; line-height: 1.5; }
+
+.mi-note {
+    font-size: 0.8rem; line-height: 1.6; margin-top: 0.9rem;
+    background: var(--color-surface-alt, #f5f5f5); border-radius: 8px; padding: 0.7rem 0.85rem;
+    color: var(--color-text-secondary, #666);
+}
+.mi-note strong { color: var(--color-text-primary, #222); }
+
+@media (max-width: 560px) {
+    .mi-grid { grid-template-columns: 1fr; }
+    .mi-acts .mi-btn { flex: 1 1 auto; }
+}
+
+/* ── بطاقة الإضافة اليدوية ─────────────────────────────────── */
+.mi-tile.is-blank {
+    border-style: dashed;
+    background: transparent;
+}
