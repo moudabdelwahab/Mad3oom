@@ -151,3 +151,31 @@ test('خريطة قدرات السياق في الواجهة مطابقة لنظ
             `القدرة ${cap} غير معرّفة في context_allows بالقاعدة`);
     }
 });
+
+/* ── شريط «واجهة اللوحات» يُركَّب مرة واحدة لكل اللوحات ─────────────────── */
+
+test('شريط تبديل اللوحات مُركَّب في guardPage لا في كل صفحة على حدة', () => {
+    // التركيب في نقطة واحدة ليس تنظيمًا بل ضمانة: لو رُكّب في كل صفحة يدويًّا
+    // لكانت أول لوحة تُضاف لاحقًا بلا زر، ولاكتُشف ذلك بشكوى مستخدم لا باختبار.
+    const guard = codeOnly(read('assets/js/page-guard.js'));
+    assert.match(guard, /mountContextBar\s*\(/, 'guardPage لا تركّب شريط السياق');
+    assert.match(guard, /from\s+'\/assets\/js\/owner\/owner-context\.js'/,
+        'guardPage لا تستورد وحدة السياق');
+
+    // والاستدعاء داخل فرع «مسموح» وحده — لا قبل قرار الوصول.
+    // نبحث عن موضع **النداء** لا سطر الاستيراد، وإلا قارنّا ترتيب الاستيراد.
+    const call = guard.search(/mountContextBar\s*\(/);
+    const authorized = guard.indexOf('ACCESS.AUTHORIZED');
+    assert.ok(authorized !== -1, 'guardPage بلا فحص ACCESS.AUTHORIZED');
+    assert.ok(call > authorized, 'الشريط يُركَّب قبل التحقق من الوصول');
+});
+
+test('الشريط يحمل زر «واجهة اللوحات» ويخرج صامتًا لغير المالك', () => {
+    const mod = codeOnly(read('assets/js/owner/owner-context.js'));
+    assert.match(mod, /واجهة اللوحات/, 'الزر بلا الاسم الذي يعرفه المستخدم');
+    assert.match(mod, /is_platform_owner[\s\S]{0,120}return null/,
+        'الشريط لا يخرج صامتًا لغير مالك المنصة');
+    // ولا مصدر سياق من المتصفح
+    assert.doesNotMatch(mod, /localStorage|sessionStorage|document\.cookie/,
+        'وحدة السياق تقرأ حالة من المتصفح — السياق حالة في القاعدة');
+});

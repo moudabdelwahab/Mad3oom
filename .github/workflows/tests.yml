@@ -35,7 +35,27 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # fetch-depth: 0 مقصود. tests/remediation-static.test.mjs يحسب قاعدة
+      # الفرع بـ`git merge-base HEAD origin/main`، وهو مستحيل على استنساخ
+      # بعمق 1: لا تاريخ ولا مرجع origin/main أصلًا.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # داخل الحاوية نحن root، وملفات الاستنساخ يملكها مستخدم آخر (uid 1001)،
+      # فيرفض git العمل بـ«dubious ownership» — وترفض معه **كل** نداءات git
+      # في الاختبارات، لا نداءً بعينه. وهذا ما أسقط التشغيل الأول.
+      #
+      # ونجلب main صراحةً: fetch-depth: 0 يجلب تاريخ المرجع المفحوص، ولا
+      # يضمن وجود refs/remotes/origin/main في تشغيل pull_request.
+      - name: تهيئة git داخل الحاوية
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory '*'
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main || true
+          git rev-parse --verify refs/remotes/origin/main >/dev/null \
+            && echo "origin/main: $(git rev-parse --short refs/remotes/origin/main)" \
+            || echo "::warning::origin/main غير متاح"
 
       # خادم Postgres حقيقي: حزمة tests/sql تُنشئ مخططًا مؤقتًا لكل ملف
       # وتطبّق الترحيلات عليه فعلًا، فلا تكفيها مكتبة عميل.

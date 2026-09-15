@@ -115,7 +115,8 @@ export async function mountContextBar() {
 
     const switchBtn = document.createElement('a');
     switchBtn.href = '/owner-contexts.html';
-    switchBtn.textContent = 'تبديل السياق';
+    switchBtn.id = 'ownerSwitchBoardsBtn';
+    switchBtn.textContent = 'واجهة اللوحات';
     switchBtn.style.cssText = `
         color:#e6edf7; text-decoration:none; padding:.3rem .8rem;
         border:1px solid #334155; border-radius:.45rem;
