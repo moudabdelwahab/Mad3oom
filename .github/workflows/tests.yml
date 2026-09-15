@@ -1,0 +1,88 @@
+# ============================================================================
+# حزمة الاختبارات — node + SQL/RLS
+#
+# لماذا هذا الملف موجود أصلًا:
+#   كان الريبو يحمل codeql.yml وحده. وCodeQL فحص أنماط، لا يشغّل اختبارًا
+#   واحدًا — فكان «CI أخضر» يعني «لم يُعثر على نمط مشبوه»، لا «الاختبارات
+#   تمرّ». وحزمة tests/sql/ تحديدًا تحرس حدود التفويض في RLS، وهي آخر ما
+#   يصحّ أن يُدمج بلا تشغيل.
+#
+# ولماذا داخل حاوية بدل ubuntu-latest مباشرةً:
+#   tests/run-sql-tests.sh يشغّل Postgres بمستخدم postgres عبر su، وهو يحتاج
+#   جذرًا. مُشغّل GitHub يعمل بمستخدم runner، فكان السكربت سيفشل في بدء
+#   الخادم ثم يخرج بفشل مُضلِّل. داخل حاوية node نحن جذر، فيعمل كما يعمل محليًا.
+# ============================================================================
+name: Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: node + SQL
+    runs-on: ubuntu-latest
+    container: node:22-bookworm
+    timeout-minutes: 20
+
+    steps:
+      # fetch-depth: 0 مقصود. tests/remediation-static.test.mjs يحسب قاعدة
+      # الفرع بـ`git merge-base HEAD origin/main`، وهو مستحيل على استنساخ
+      # بعمق 1: لا تاريخ ولا مرجع origin/main أصلًا.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # داخل الحاوية نحن root، وملفات الاستنساخ يملكها مستخدم آخر (uid 1001)،
+      # فيرفض git العمل بـ«dubious ownership» — وترفض معه **كل** نداءات git
+      # في الاختبارات، لا نداءً بعينه. وهذا ما أسقط التشغيل الأول.
+      #
+      # ونجلب main صراحةً: fetch-depth: 0 يجلب تاريخ المرجع المفحوص، ولا
+      # يضمن وجود refs/remotes/origin/main في تشغيل pull_request.
+      - name: تهيئة git داخل الحاوية
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory '*'
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main || true
+          git rev-parse --verify refs/remotes/origin/main >/dev/null \
+            && echo "origin/main: $(git rev-parse --short refs/remotes/origin/main)" \
+            || echo "::warning::origin/main غير متاح"
+
+      # خادم Postgres حقيقي: حزمة tests/sql تُنشئ مخططًا مؤقتًا لكل ملف
+      # وتطبّق الترحيلات عليه فعلًا، فلا تكفيها مكتبة عميل.
+      - name: تثبيت PostgreSQL
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-client
+          ls -d /usr/lib/postgresql/*/bin
+
+      - name: تثبيت الاعتماديات
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: متصفّح Playwright (لاختبارات العرض)
+        run: npx playwright install --with-deps chromium
+
+      - name: اختبارات node
+        run: npm run test:node
+
+      # السكربت يتخطّى بصمت إن غاب الخادم — وهذا مقبول محليًا لا في CI.
+      # نتحقق صراحةً أنه شغّل فعلًا، وإلا مرّ الدمج بلا فحص RLS إطلاقًا.
+      - name: اختبارات SQL / RLS
+        run: |
+          set -o pipefail
+          npm run test:sql 2>&1 | tee sql-output.txt
+          if grep -q "SKIP: no local PostgreSQL" sql-output.txt; then
+            echo "::error::حزمة SQL تخطّت التشغيل — لا يجوز اعتبار ذلك نجاحًا"
+            exit 1
+          fi
+          grep -q "ALL PLATFORM OWNER CONTEXT TESTS PASSED" sql-output.txt \
+            || { echo "::error::اختبار سياق مالك المنصة لم يُبلّغ بالنجاح"; exit 1; }
