@@ -27,9 +27,10 @@
  *   بأنه يحتاج خطوة الـbackend. عرض خيار يبدو فعّالًا وهو لا يفرض شيئًا
  *   أسوأ من عدم عرضه إطلاقًا.
  */
-import { UI_STATES, STATE_LABEL, deriveUiState, explainError } from '/assets/js/admin/mcp-ui-state.js';
+import { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
 import {
     MCP_CLIENT_CATALOG,
+    MCP_CATALOG_CATEGORIES,
     createServer,
     saveCredentials,
     startOAuth,
@@ -43,7 +44,7 @@ import {
 
 /* المنطق الخالص يعيش في وحدة بلا تبعيات ليمكن اختباره خارج المتصفح
  * (tests/mcp-ui-state.test.mjs). نعيد تصديره هنا ليبقى سطح الوحدة واحدًا. */
-export { UI_STATES, STATE_LABEL, deriveUiState, explainError } from '/assets/js/admin/mcp-ui-state.js';
+export { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
 
 /* ══════════════════ أدوات عرض ══════════════════ */
 
@@ -117,21 +118,6 @@ function toast(msg, type) {
 
 /* ══════════════════ الشبكة ══════════════════ */
 
-/** بطاقة «أضف خادمًا مخصّصًا» — تفتح النموذج المتقدّم القائم كما هو. */
-function customBlankTile(entry) {
-    return `<div class="mi-tile is-blank">
-        <div class="mi-tile-top">
-            <div class="mi-logo" style="background:${esc(entry.brandColor || '#64748b')}">${iconMarkup(entry)}</div>
-            <div style="min-width:0">
-                <div class="mi-name">${esc(entry.name)}</div>
-                <div class="mi-desc">${esc(entry.description || '')}</div>
-            </div>
-        </div>
-        <div class="mi-meta"><span class="mi-tag">إعداد يدوي</span></div>
-        <div class="mi-acts"><button class="mi-btn primary" data-mi="custom">إضافة خادم مخصّص</button></div>
-    </div>`;
-}
-
 /** بطاقة موحّدة — تُبنى من عنصر كتالوج أو من خادم مضاف يدويًا. */
 function tileBody({ entry, server, isCatalog }) {
     const state = busy.has(server?.id) ? UI_STATES.CONNECTING : deriveUiState(server);
@@ -200,42 +186,147 @@ export function renderIntegrations(container, ctx) {
 
     const q = (ctx.search || '').trim().toLowerCase();
     const cat = ctx.category || 'all';
-    const matches = (name, desc) => !q || `${name || ''} ${desc || ''}`.toLowerCase().includes(q);
 
-    // نطابق الكتالوج كاملًا لا المُرشَّح فقط: خادم يخصّ خدمة في تصنيف آخر
-    // يجب ألّا يظهر مرة ثانية كبطاقة «مخصّصة» عند تبديل التصنيف.
-    const claimed = new Set();
-    for (const entry of MCP_CLIENT_CATALOG) {
-        if (entry.isCustomBlank) continue;
-        const match = findConnectedServerForCatalogEntry(entry, servers);
-        if (match) claimed.add(match.id);
-    }
+    // «تكاملاتك» = ما لهذا المستخدم اتصال به فعلًا. باقي صفوف mcp_servers
+    // تعريفات أنشأها غيره ولم يربطها هو بعد، فمكانها نافذة الإضافة لا هنا.
+    const mine = servers.filter((s) => s.connection_id);
+    const shown = mine.filter((s) => {
+        const entry = catalogEntryFor(s);
+        if (cat !== 'all' && (entry?.category || 'custom') !== cat) return false;
+        if (!q) return true;
+        return `${s.name || ''} ${s.description || ''}`.toLowerCase().includes(q);
+    });
 
-    const catalogHtml = MCP_CLIENT_CATALOG
-        .filter((c) => (cat === 'all' || c.category === cat) && matches(c.name, c.description))
-        .map((entry) => (entry.isCustomBlank
-            ? customBlankTile(entry)
-            : tileBody({ entry, server: findConnectedServerForCatalogEntry(entry, servers), isCatalog: true })))
-        .join('');
-
-    // الخوادم المضافة يدويًا من النموذج المتقدّم: تُعرض هنا أيضًا حتى لا
-    // تختفي عن أصحابها بمجرّد أنها ليست في الكتالوج.
-    const extrasHtml = (cat === 'all' || cat === 'custom')
-        ? servers
-            .filter((s) => !claimed.has(s.id) && matches(s.name, s.description))
-            .map((s) => tileBody({ entry: null, server: s, isCatalog: false }))
-            .join('')
-        : '';
-
-    if (!catalogHtml && !extrasHtml) {
+    if (!shown.length) {
         container.classList.remove('mi-grid');
-        container.innerHTML = '<div class="state-block empty"><p>لا توجد خدمات مطابقة.</p></div>';
+        container.innerHTML = mine.length
+            ? '<div class="state-block empty"><p>لا يوجد تكامل مطابق لبحثك.</p></div>'
+            : `<div class="mi-empty">
+                 <div class="mi-empty-ic">
+                   <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
+                 </div>
+                 <h3>لا توجد تكاملات بعد</h3>
+                 <p>اربط خدمة لتستخدم أدواتها داخل مدعوم. الربط لا يتطلّب منك أي إعداد تقني.</p>
+                 <button class="mi-btn primary" data-mi="add">+ إضافة تكامل</button>
+               </div>`;
         return;
     }
 
-    // نضيف صنفنا بدل استبدال صنف الحاوية الأصلي، حتى يبقى المسار الاحتياطي سليمًا.
     container.classList.add('mi-grid');
-    container.innerHTML = catalogHtml + extrasHtml;
+    container.innerHTML = shown
+        .map((s) => {
+            const entry = catalogEntryFor(s);
+            return tileBody({ entry, server: s, isCatalog: Boolean(entry) });
+        })
+        .join('');
+}
+
+/** يطابق صف خادم بعنصر الكتالوج الذي يمثّله (بالرابط ثم بالاسم)، أو null لخادم مخصّص. */
+function catalogEntryFor(server) {
+    if (!server) return null;
+    for (const entry of MCP_CLIENT_CATALOG) {
+        if (entry.isCustomBlank) continue;
+        if (findConnectedServerForCatalogEntry(entry, [server])) return entry;
+    }
+    return null;
+}
+
+/* ══════════════════ نافذة اختيار الخدمة ══════════════════ */
+
+/**
+ * الخطوة الأولى في المسار: «إضافة تكامل» ← اختيار الخدمة.
+ *
+ * فصلها عن الشبكة الرئيسية مقصود: الصفحة صارت تعرض «تكاملاتك» فقط، وما
+ * يمكن إضافته يعيش هنا. قبل ذلك كانت الصفحة تعرض الكتالوج كاملًا فيختلط
+ * ما ربطه المستخدم بما لم يربطه، ولا يظهر له سؤال «ماذا لديّ؟» أبدًا.
+ */
+export function openServicePicker() {
+    let query = '';
+    let category = 'all';
+
+    const render = () => {
+        const q = query.trim().toLowerCase();
+        const claimed = new Set(servers.filter((s) => s.connection_id).map((s) => s.id));
+
+        const cards = [];
+        for (const entry of MCP_CLIENT_CATALOG) {
+            if (entry.isCustomBlank) continue;
+            if (category !== 'all' && entry.category !== category) continue;
+            if (q && !`${entry.name} ${entry.description}`.toLowerCase().includes(q)) continue;
+            const existing = findConnectedServerForCatalogEntry(entry, servers);
+            const already = existing && claimed.has(existing.id);
+            cards.push(pickerCard({
+                key: entry.key, name: entry.name, desc: entry.description,
+                color: entry.brandColor, glyph: iconMarkup(entry), already,
+            }));
+        }
+
+        // تعريفات خوادم موجودة في القاعدة لم يربطها هذا المستخدم بعد.
+        if (category === 'all' || category === 'custom') {
+            for (const s of servers) {
+                if (s.connection_id || catalogEntryFor(s)) continue;
+                if (q && !`${s.name || ''} ${s.description || ''}`.toLowerCase().includes(q)) continue;
+                cards.push(pickerCard({
+                    serverId: s.id, name: s.name, desc: s.description || 'خادم مخصّص مُضاف يدويًا',
+                    color: '#64748b', glyph: esc((s.name || '?').trim().charAt(0).toUpperCase()), already: false,
+                }));
+            }
+        }
+
+        const body = document.getElementById('miPickBody');
+        if (body) {
+            body.innerHTML = cards.length
+                ? `<div class="mi-pickgrid">${cards.join('')}</div>`
+                : '<div class="state-block empty"><p>لا توجد خدمة مطابقة. يمكنك إضافة خادم مخصّص بالأسفل.</p></div>';
+        }
+        document.querySelectorAll('#miPickCats .mi-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.cat === category);
+        });
+    };
+
+    openModal(`
+      <div class="mi-mhead">
+        <div>
+          <p class="mi-mtitle">إضافة تكامل</p>
+          <p class="mi-msub">اختر الخدمة التي تريد ربطها.</p>
+        </div>
+        <button class="mi-x" data-mi-close aria-label="إغلاق">&times;</button>
+      </div>
+      <div class="mi-mbody">
+        <input class="mi-input" id="miPickSearch" type="search" placeholder="ابحث عن خدمة…" autocomplete="off">
+        <div class="mi-chips" id="miPickCats">
+          ${MCP_CATALOG_CATEGORIES.map((c) => `<button type="button" class="mi-chip" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join('')}
+        </div>
+        <div id="miPickBody"></div>
+      </div>
+      <div class="mi-mfoot">
+        <button class="mi-btn" data-mi="custom">إضافة خادم MCP مخصّص</button>
+        <button class="mi-btn ghost" data-mi-close style="margin-inline-start:auto">إلغاء</button>
+      </div>`);
+
+    render();
+    const search = document.getElementById('miPickSearch');
+    search?.addEventListener('input', (e) => { query = e.target.value; render(); });
+    document.getElementById('miPickCats')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mi-chip');
+        if (!btn) return;
+        category = btn.dataset.cat;
+        render();
+    });
+    search?.focus();
+}
+
+function pickerCard({ key, serverId, name, desc, color, glyph, already }) {
+    const attrs = already
+        ? 'disabled'
+        : key ? `data-mi="pick" data-key="${esc(key)}"` : `data-mi="pick-server" data-id="${esc(serverId)}"`;
+    return `<button type="button" class="mi-pick" ${attrs}>
+        <span class="mi-logo" style="background:${esc(color || '#666')}">${glyph}</span>
+        <span class="mi-pick-txt">
+            <span class="mi-pick-n">${esc(name)}${already ? ' <span class="mi-badge-soon">مربوط</span>' : ''}</span>
+            <span class="mi-pick-d">${esc(desc || '')}</span>
+        </span>
+    </button>`;
 }
 
 /* ══════════════════ مسار الربط ══════════════════ */
@@ -243,37 +334,71 @@ export function renderIntegrations(container, ctx) {
 /** ما الذي تحتاجه هذه الخدمة فعلًا من المستخدم؟ أقل شيء ممكن. */
 function credentialAsk(entry, server) {
     const auth = entry.auth_type || 'none';
+    const serviceKey = entry.key;
 
     if (auth === 'oauth2') {
-        // لو تطبيق OAuth مسجَّل بالفعل لهذا الخادم، فلا شيء يُطلب إطلاقًا.
-        if (server?.oauth_client_id) return null;
+        // لو تطبيق OAuth مسجَّل بالفعل **وقيمته صالحة**، فلا شيء يُطلب إطلاقًا.
+        // شرط الصلاحية ليس زائدًا: اتصال حُفظ بمعرّف خاطئ كان سيتخطّى السؤال
+        // إلى الأبد، فيعيد المستخدم المحاولة كل مرة على نفس القيمة المكسورة
+        // بلا أي طريق لتصحيحها من هذه الواجهة.
+        if (server?.oauth_client_id && !validateCredential(serviceKey, 'oauth_client_id', server.oauth_client_id)) return null;
+        const uuidish = entry.key === 'supabase';
         return {
             kind: 'oauth_app',
+            serviceKey,
             title: 'هذه الخدمة تحتاج تطبيق OAuth خاص بك',
             hint: entry.setup_note || 'سجّل تطبيق OAuth من لوحة الخدمة، ثم الصق المعرّف والسر هنا. لن نطلبهما مرة أخرى.',
             fields: [
-                { id: 'miOauthId', label: 'Client ID', type: 'text' },
-                { id: 'miOauthSecret', label: 'Client Secret', type: 'password' },
+                {
+                    id: 'miOauthId', name: 'oauth_client_id', label: 'Client ID', type: 'text',
+                    // الشكل المتوقّع معروض في الحقل نفسه: أرخص وسيلة لمنع لصق
+                    // رابط المشروع مكان معرّف التطبيق.
+                    placeholder: uuidish ? '123e4567-e89b-12d3-a456-426614174000' : 'معرّف التطبيق كما تعرضه الخدمة',
+                },
+                { id: 'miOauthSecret', name: 'oauth_client_secret', label: 'Client Secret', type: 'password', placeholder: 'السر الذي عرضته الخدمة مرة واحدة' },
             ],
         };
     }
     if (auth === 'bearer') {
         return {
             kind: 'bearer',
+            serviceKey,
             title: 'الصق رمز الوصول',
             hint: entry.setup_note || 'أنشئ رمز وصول شخصيًا من إعدادات الخدمة والصقه هنا.',
-            fields: [{ id: 'miBearer', label: 'رمز الوصول (Access Token)', type: 'password' }],
+            fields: [{ id: 'miBearer', name: 'bearer_token', label: 'رمز الوصول (Access Token)', type: 'password', placeholder: 'الرمز نفسه، لا رابط الصفحة' }],
         };
     }
     if (auth === 'api_key') {
         return {
             kind: 'api_key',
+            serviceKey,
             title: 'الصق مفتاح API',
             hint: entry.setup_note || 'انسخ المفتاح من إعدادات الخدمة.',
-            fields: [{ id: 'miApiKey', label: 'API Key', type: 'password' }],
+            fields: [{ id: 'miApiKey', name: 'api_key', label: 'API Key', type: 'password', placeholder: 'المفتاح نفسه، لا رابط الصفحة' }],
         };
     }
     return null; // none/custom عبر المسار المتقدّم
+}
+
+/**
+ * يعرض خطأ كل حقل تحته ويعيد true فقط لو كانت كل القيم مقبولة.
+ * @returns {boolean}
+ */
+function showFieldErrors(ask, values) {
+    let firstBad = null;
+    for (const f of ask.fields) {
+        const msg = validateCredential(ask.serviceKey, f.name, values[f.id]);
+        const slot = document.getElementById(`${f.id}Err`);
+        const input = document.getElementById(f.id);
+        if (slot) {
+            slot.textContent = msg || '';
+            slot.hidden = !msg;
+        }
+        input?.classList.toggle('is-bad', Boolean(msg));
+        if (msg && !firstBad) firstBad = input;
+    }
+    firstBad?.focus();
+    return !firstBad;
 }
 
 function typeChooserHtml() {
@@ -312,7 +437,9 @@ function connectFlow(catalogKey) {
              ${ask.fields.map((f) => `
                <div class="mi-field">
                  <label class="mi-label" for="${f.id}">${esc(f.label)}</label>
-                 <input class="mi-input" id="${f.id}" type="${f.type}" dir="ltr" autocomplete="off">
+                 <input class="mi-input" id="${f.id}" type="${f.type}" dir="ltr" autocomplete="off"
+                        placeholder="${esc(f.placeholder || '')}" aria-describedby="${f.id}Err">
+                 <p class="mi-fielderr" id="${f.id}Err" hidden></p>
                </div>`).join('')}
              <div class="mi-hint">${esc(ask.hint)}${entry.docs_url ? ` <a href="${esc(entry.docs_url)}" target="_blank" rel="noopener">فتح التوثيق ↗</a>` : ''}</div>
            </div>`
@@ -347,10 +474,9 @@ async function runConnect(entry, ask) {
     const values = {};
     (ask?.fields || []).forEach((f) => { values[f.id] = document.getElementById(f.id)?.value?.trim() || ''; });
 
-    if (ask && ask.fields.some((f) => !values[f.id])) {
-        toast('أكمل الحقول المطلوبة أولًا', 'error');
-        return;
-    }
+    // نفحص قبل أن نرسل المستخدم إلى المزوّد: قيمة خاطئة تُرفض هناك برسالة
+    // إنجليزية على صفحة أخرى، بعد أن يكون قد غادر المنصّة.
+    if (ask && !showFieldErrors(ask, values)) return;
 
     const steps = ask?.kind === 'oauth_app' || entry.auth_type === 'oauth2'
         ? ['نحفظ الإعداد', 'نفتح صفحة التفويض']
@@ -518,7 +644,8 @@ function detailPanel(serverId) {
               status: server.status,
               last_error: server.last_error || null,
           }, null, 2))}</pre>
-          <div class="mi-hint">للتحكّم الكامل (ترويسات، متغيّرات بيئة، أوامر تشغيل) استخدم تبويب «إعدادات متقدّمة» في هذه الصفحة.</div>
+          <div class="mi-hint">للتحكّم الكامل — الرابط، نوع النقل، الترويسات، متغيّرات البيئة، أوامر التشغيل — افتح الإعدادات الكاملة.</div>
+          <button class="mi-btn" data-mi="edit" data-id="${esc(server.id)}" style="margin-top:.6rem">فتح الإعدادات الكاملة</button>
         </details>
       </div>
       <div class="mi-mfoot">
@@ -578,8 +705,12 @@ async function doAuthorize(serverId) {
     const server = servers.find((s) => s.id === serverId);
     if (!server) return;
 
-    // OAuth بإعداد محفوظ: نذهب مباشرة لصفحة الموافقة.
-    if (server.auth_type === 'oauth2' && server.oauth_client_id) {
+    // OAuth بإعداد محفوظ صالح: نذهب مباشرة لصفحة الموافقة. لو كان المحفوظ
+    // مكسورًا نسقط إلى مسار الربط أدناه ليُسأل عنه من جديد.
+    const entryForServer = MCP_CLIENT_CATALOG.find((c) => c.name === server.name);
+    const storedIdOk = server.oauth_client_id
+        && !validateCredential(entryForServer?.key, 'oauth_client_id', server.oauth_client_id);
+    if (server.auth_type === 'oauth2' && storedIdOk) {
         try {
             const { authorize_url } = await startOAuth(serverId);
             window.location.href = authorize_url;
@@ -590,9 +721,8 @@ async function doAuthorize(serverId) {
         }
     }
 
-    // غير ذلك: نعيد فتح مسار الربط لنطلب ما ينقص فقط.
-    const entry = MCP_CLIENT_CATALOG.find((c) => c.name === server.name);
-    if (entry) connectFlow(entry.key);
+    // غير ذلك: نعيد فتح مسار الربط لنطلب ما ينقص أو ما يحتاج تصحيحًا.
+    if (entryForServer) connectFlow(entryForServer.key);
     else doTest(serverId);
 }
 
@@ -628,8 +758,21 @@ document.addEventListener('click', (e) => {
 
     e.preventDefault();
     const id = el.dataset.id;
-    if (act === 'custom') {
+    if (act === 'edit') {
+        // التعديل الكامل يبقى للنموذج المتقدّم القائم — لا نكرّر 21 حقلًا هنا.
+        closeModal();
+        if (typeof window.mcpEdit === 'function') window.mcpEdit(id);
+        else toast('النموذج المتقدّم غير متاح في هذه الصفحة', 'error');
+    } else if (act === 'add') openServicePicker();
+    else if (act === 'pick') { closeModal(); connectFlow(el.dataset.key); }
+    else if (act === 'pick-server') {
+        // تعريف خادم موجود بلا اتصال لهذا المستخدم: نحاول الاتصال مباشرة.
+        // ما ينقص من اعتماد يظهر كحالة «يحتاج تفويض» على بطاقته بعدها.
+        closeModal();
+        doTest(el.dataset.id);
+    } else if (act === 'custom') {
         // الإعداد اليدوي يبقى مسؤولية النموذج المتقدّم القائم كما هو.
+        closeModal();
         if (typeof window.mcpAdd === 'function') window.mcpAdd();
         else toast('النموذج المتقدّم غير متاح في هذه الصفحة', 'error');
     } else if (act === 'connect') connectFlow(el.dataset.key);
@@ -684,4 +827,4 @@ export async function finishOAuthReturn(serverId) {
 }
 
 /* يتيح لـmcp.js استدعاء الوحدة دون استيراد دائري. */
-window.mcpIntegrations = { renderIntegrations, finishOAuthReturn, deriveUiState, explainError };
+window.mcpIntegrations = { renderIntegrations, openServicePicker, finishOAuthReturn, deriveUiState, explainError };

@@ -1,4 +1,4 @@
-import { registerTransport } from '../registry.js';
+import { registerAuthProvider } from '../registry.js';
 
 /**
  * تصحيح Phase 1: هذا الملف (Phase 0) كان يفترض Header قابل للتخصيص

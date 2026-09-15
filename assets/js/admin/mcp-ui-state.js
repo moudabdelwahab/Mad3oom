@@ -161,3 +161,48 @@ export function explainError(raw) {
         detail,
     };
 }
+
+/* ══════════════════ التحقق من قيم الاعتماد ══════════════════ */
+
+/**
+ * يمنع القيم التي سترفضها الخدمة لاحقًا، قبل أن يُرسَل المستخدم إليها.
+ *
+ * سبب وجود هذه الدالة: اتصال Supabase حُفظ بـClient ID = رابط المشروع
+ * (`https://<ref>.supabase.co`) بدل معرّف تطبيق OAuth. الواجهة قبلت القيمة
+ * بلا اعتراض، فظهر العطل أخيرًا على صفحة Supabase نفسها كـ
+ * `{"message":"client_id: Invalid UUID"}` — رسالة إنجليزية، في مكان آخر،
+ * بعد أن غادر المستخدم المنصّة. الفحص هنا يوقف ذلك عند الحقل.
+ *
+ * @param {string} serviceKey مفتاح الخدمة في الكتالوج (supabase/github/…)
+ * @param {string} fieldName  oauth_client_id | oauth_client_secret | bearer_token | api_key
+ * @param {string} value      ما أدخله المستخدم
+ * @returns {string|null} رسالة الخطأ، أو null إن كانت القيمة مقبولة
+ */
+export function validateCredential(serviceKey, fieldName, value) {
+    const raw = String(value ?? '');
+    const v = raw.trim();
+
+    if (!v) return 'هذا الحقل مطلوب.';
+
+    // رابط في خانة اعتماد خطأ دائمًا، لأي خدمة: لا مزوّد يستخدم URL كمعرّف
+    // أو مفتاح. وهو أشيع خطأ لصق، فيستحق رسالة تسمّي ما حدث.
+    if (/^https?:\/\//i.test(v)) {
+        return 'هذه القيمة رابط (URL)، وليست معرّف تطبيق أو مفتاحًا. الصق القيمة نفسها من إعدادات الخدمة لا رابط لوحتها.';
+    }
+
+    // المسافات الطرفية تُقصّ قبل الفحص؛ مسافة في المنتصف تعني لصقًا ناقصًا.
+    if (/\s/.test(v)) return 'القيمة تحتوي على مسافات — تأكد أنك نسختها كاملة وبلا زيادة.';
+
+    // Supabase يصدر معرّف تطبيق OAuth على هيئة UUID، ويرفض أي شكل آخر
+    // برسالة "client_id: Invalid UUID" — فنفحصه هنا بدل تركه يفشل هناك.
+    if (serviceKey === 'supabase' && fieldName === 'oauth_client_id' && !isUuid(v)) {
+        return 'معرّف تطبيق OAuth في Supabase يكون على هيئة UUID مثل 123e4567-e89b-12d3-a456-426614174000. راجع إعدادات المنظمة ← OAuth Apps.';
+    }
+
+    return null;
+}
+
+/** @param {string} s */
+export function isUuid(s) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s).trim());
+}

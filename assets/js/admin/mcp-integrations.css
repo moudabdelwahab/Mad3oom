@@ -251,3 +251,56 @@
     border-style: dashed;
     background: transparent;
 }
+
+/* ── خطأ حقل واحد ──────────────────────────────────────────── */
+.mi-input.is-bad { border-color: #a83225; }
+.mi-input.is-bad:focus { border-color: #a83225; }
+.mi-fielderr {
+    font-size: 0.76rem; line-height: 1.55; margin: 0.3rem 0 0; color: #a83225;
+}
+@media (prefers-color-scheme: dark) {
+    .mi-input.is-bad, .mi-input.is-bad:focus { border-color: #e9897c; }
+    .mi-fielderr { color: #e9897c; }
+}
+
+/* ── نافذة اختيار الخدمة ───────────────────────────────────── */
+.mi-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.8rem 0; }
+.mi-chip {
+    font: inherit; font-size: 0.78rem; cursor: pointer;
+    padding: 0.3rem 0.7rem; border-radius: 20px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    background: transparent; color: var(--color-text-secondary, #666);
+}
+.mi-chip:hover { background: var(--color-surface-alt, #f5f5f5); }
+.mi-chip.active {
+    background: var(--color-accent, #7b3fbf); border-color: var(--color-accent, #7b3fbf); color: #fff;
+}
+
+.mi-pickgrid { display: flex; flex-direction: column; gap: 0.4rem; }
+.mi-pick {
+    display: flex; align-items: flex-start; gap: 0.7rem; width: 100%; text-align: start;
+    font: inherit; cursor: pointer; padding: 0.7rem 0.8rem; border-radius: 9px;
+    border: 1px solid var(--color-border, #e5e5e5); background: var(--color-surface, #fff);
+}
+.mi-pick:hover:not(:disabled) { border-color: var(--color-accent, #7b3fbf); background: var(--color-surface-alt, #fafafa); }
+.mi-pick:focus-visible { outline: 2px solid var(--color-accent, #7b3fbf); outline-offset: 2px; }
+.mi-pick:disabled { opacity: .55; cursor: default; }
+.mi-pick-txt { display: flex; flex-direction: column; min-width: 0; }
+.mi-pick-n { font-weight: 600; font-size: 0.88rem; color: var(--color-text-primary, #111); }
+.mi-pick-d {
+    font-size: 0.76rem; line-height: 1.5; margin-top: 0.1rem;
+    color: var(--color-text-secondary, #666);
+}
+
+/* ── لا تكاملات بعد ────────────────────────────────────────── */
+.mi-empty {
+    text-align: center; padding: 3rem 1.25rem;
+    border: 1px dashed var(--color-border, #ddd); border-radius: 12px;
+}
+.mi-empty-ic { color: var(--color-text-secondary, #999); margin-bottom: 0.6rem; }
+.mi-empty h3 { margin: 0 0 0.35rem; font-size: 1.02rem; color: var(--color-text-primary, #111); }
+.mi-empty p {
+    margin: 0 auto 1.1rem; max-width: 34rem; font-size: 0.85rem; line-height: 1.6;
+    color: var(--color-text-secondary, #666);
+}
+.mi-empty .mi-btn.primary { flex: 0 0 auto; }

@@ -15,7 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { UI_STATES, deriveUiState, explainError } from '../assets/js/admin/mcp-ui-state.js';
+import { UI_STATES, deriveUiState, explainError, validateCredential, isUuid } from '../assets/js/admin/mcp-ui-state.js';
 
 /* ────────────────────────── deriveUiState ────────────────────────── */
 
@@ -110,4 +110,45 @@ test('رسالة فارغة لا تُسقط الدالة', () => {
     const out = explainError(undefined);
     assert.ok(out.title);
     assert.equal(out.detail, 'لا توجد تفاصيل إضافية.');
+});
+
+/* ────────────────────── validateCredential ────────────────────── */
+
+test('رابط في خانة اعتماد يُرفض لأي خدمة — العطل الفعلي الذي وقع', () => {
+    // هذه القيمة بالحرف هي ما حُفظ في قاعدة الإنتاج كـClient ID لـSupabase،
+    // فردّت Supabase: {"message":"client_id: Invalid UUID"} — على صفحتها،
+    // بالإنجليزية، بعد أن غادر المستخدم المنصّة.
+    const msg = validateCredential('supabase', 'oauth_client_id', 'https://srnelrdpqkcntbgudyto.supabase.co');
+    assert.ok(msg, 'القيمة مُرّت بلا اعتراض');
+    assert.match(msg, /رابط/);
+
+    for (const svc of ['github', 'notion', undefined]) {
+        assert.ok(validateCredential(svc, 'bearer_token', 'https://github.com/settings/tokens'), `مُرّ الرابط لـ${svc}`);
+    }
+});
+
+test('Supabase يطلب UUID تحديدًا', () => {
+    assert.ok(validateCredential('supabase', 'oauth_client_id', 'sbp_abc123'), 'قيمة ليست UUID مُرّت');
+    assert.match(validateCredential('supabase', 'oauth_client_id', 'sbp_abc123'), /UUID/);
+    assert.equal(validateCredential('supabase', 'oauth_client_id', '123e4567-e89b-12d3-a456-426614174000'), null);
+});
+
+test('قيود UUID لا تُفرض على خدمات لا تستخدمه', () => {
+    // GitHub يصدر رموزًا مثل ghp_… — فرض UUID عليها كان سيمنع ربطًا سليمًا.
+    assert.equal(validateCredential('github', 'bearer_token', 'ghp_0123456789abcdefghijklmnopqrstuvwxyz'), null);
+    assert.equal(validateCredential('notion', 'oauth_client_id', 'some-notion-client-id'), null);
+});
+
+test('القيمة الفارغة والمسافات الداخلية تُرفضان', () => {
+    assert.match(validateCredential('github', 'api_key', ''), /مطلوب/);
+    assert.match(validateCredential('github', 'api_key', '   '), /مطلوب/);
+    assert.match(validateCredential('github', 'api_key', 'abc def'), /مسافات/);
+    // المسافات الطرفية وحدها لا تُعتبر خطأ — تُقصّ.
+    assert.equal(validateCredential('github', 'api_key', '  ghp_abc  '), null);
+});
+
+test('isUuid يميّز الشكل الصحيح', () => {
+    assert.equal(isUuid('123e4567-e89b-12d3-a456-426614174000'), true);
+    assert.equal(isUuid('123e4567e89b12d3a456426614174000'), false);
+    assert.equal(isUuid('https://x.supabase.co'), false);
 });
