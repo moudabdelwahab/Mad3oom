@@ -314,7 +314,16 @@ returns boolean
 language sql
 immutable
 as $$
-  select case p_capability
+  -- coalesce ليس تجميلًا. بلا سياق سارٍ يكون p_context = NULL، و
+  -- `NULL in ('owner','admin')` يعطي NULL لا false — فيتسرّب NULL عبر
+  -- owner_capability إلى كل مُسنَد تفويض. وRLS تُعامل NULL كمنع فلا تنكشف
+  -- بيانات، لكن الحرّاس تنكسر بصمت:
+  --
+  --     if not public.is_admin() then raise ...   -- not NULL = NULL ⇒ لا يرفع
+  --
+  -- أي أن حارس الرتب كان يسقط دون أن يُصدر خطأً. fail-closed يعني false،
+  -- لا «ليس true».
+  select coalesce(case p_capability
     when 'owner_only'     then p_context = 'owner'
     when 'admin'          then p_context in ('owner', 'admin')
     when 'staff'          then p_context in ('owner', 'admin')
@@ -322,7 +331,7 @@ as $$
     when 'company_member' then p_context = 'company_user_preview'
     when 'customer'       then p_context in ('owner', 'customer')
     else false
-  end;
+  end, false);
 $$;
 
 revoke all on function public.context_allows(text, text) from public, anon;
@@ -358,8 +367,10 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  select public.active_context() = p_context
-     and public.context_grants(p_context);
+  -- نفس سبب coalesce أعلاه: بلا سياق، `NULL = p_context` يعطي NULL،
+  -- و`NULL and true` يعطي NULL. الجواب المطلوب false قاطعة.
+  select coalesce(public.active_context() = p_context, false)
+     and coalesce(public.context_grants(p_context), false);
 $$;
 
 revoke all on function public.in_context(text) from public, anon;
@@ -398,13 +409,15 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  select public.is_platform_owner()
-     and public.context_allows(public.active_context(), p_capability)
-     and case p_capability
-           when 'company_admin'  then public.owns_a_company(auth.uid())
-           when 'company_member' then public.owns_a_company(auth.uid())
-           else true
-         end;
+  select coalesce(
+    public.is_platform_owner()
+      and public.context_allows(public.active_context(), p_capability)
+      and case p_capability
+            when 'company_admin'  then public.owns_a_company(auth.uid())
+            when 'company_member' then public.owns_a_company(auth.uid())
+            else true
+          end,
+    false);
 $$;
 
 comment on function public.owner_capability(text) is
