@@ -30,6 +30,7 @@
 import { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
 import {
     MCP_CLIENT_CATALOG,
+    MCP_CATALOG_CATEGORIES,
     createServer,
     saveCredentials,
     startOAuth,
@@ -200,42 +201,147 @@ export function renderIntegrations(container, ctx) {
 
     const q = (ctx.search || '').trim().toLowerCase();
     const cat = ctx.category || 'all';
-    const matches = (name, desc) => !q || `${name || ''} ${desc || ''}`.toLowerCase().includes(q);
 
-    // نطابق الكتالوج كاملًا لا المُرشَّح فقط: خادم يخصّ خدمة في تصنيف آخر
-    // يجب ألّا يظهر مرة ثانية كبطاقة «مخصّصة» عند تبديل التصنيف.
-    const claimed = new Set();
-    for (const entry of MCP_CLIENT_CATALOG) {
-        if (entry.isCustomBlank) continue;
-        const match = findConnectedServerForCatalogEntry(entry, servers);
-        if (match) claimed.add(match.id);
-    }
+    // «تكاملاتك» = ما لهذا المستخدم اتصال به فعلًا. باقي صفوف mcp_servers
+    // تعريفات أنشأها غيره ولم يربطها هو بعد، فمكانها نافذة الإضافة لا هنا.
+    const mine = servers.filter((s) => s.connection_id);
+    const shown = mine.filter((s) => {
+        const entry = catalogEntryFor(s);
+        if (cat !== 'all' && (entry?.category || 'custom') !== cat) return false;
+        if (!q) return true;
+        return `${s.name || ''} ${s.description || ''}`.toLowerCase().includes(q);
+    });
 
-    const catalogHtml = MCP_CLIENT_CATALOG
-        .filter((c) => (cat === 'all' || c.category === cat) && matches(c.name, c.description))
-        .map((entry) => (entry.isCustomBlank
-            ? customBlankTile(entry)
-            : tileBody({ entry, server: findConnectedServerForCatalogEntry(entry, servers), isCatalog: true })))
-        .join('');
-
-    // الخوادم المضافة يدويًا من النموذج المتقدّم: تُعرض هنا أيضًا حتى لا
-    // تختفي عن أصحابها بمجرّد أنها ليست في الكتالوج.
-    const extrasHtml = (cat === 'all' || cat === 'custom')
-        ? servers
-            .filter((s) => !claimed.has(s.id) && matches(s.name, s.description))
-            .map((s) => tileBody({ entry: null, server: s, isCatalog: false }))
-            .join('')
-        : '';
-
-    if (!catalogHtml && !extrasHtml) {
+    if (!shown.length) {
         container.classList.remove('mi-grid');
-        container.innerHTML = '<div class="state-block empty"><p>لا توجد خدمات مطابقة.</p></div>';
+        container.innerHTML = mine.length
+            ? '<div class="state-block empty"><p>لا يوجد تكامل مطابق لبحثك.</p></div>'
+            : `<div class="mi-empty">
+                 <div class="mi-empty-ic">
+                   <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
+                 </div>
+                 <h3>لا توجد تكاملات بعد</h3>
+                 <p>اربط خدمة لتستخدم أدواتها داخل مدعوم. الربط لا يتطلّب منك أي إعداد تقني.</p>
+                 <button class="mi-btn primary" data-mi="add">+ إضافة تكامل</button>
+               </div>`;
         return;
     }
 
-    // نضيف صنفنا بدل استبدال صنف الحاوية الأصلي، حتى يبقى المسار الاحتياطي سليمًا.
     container.classList.add('mi-grid');
-    container.innerHTML = catalogHtml + extrasHtml;
+    container.innerHTML = shown
+        .map((s) => {
+            const entry = catalogEntryFor(s);
+            return tileBody({ entry, server: s, isCatalog: Boolean(entry) });
+        })
+        .join('');
+}
+
+/** يطابق صف خادم بعنصر الكتالوج الذي يمثّله (بالرابط ثم بالاسم)، أو null لخادم مخصّص. */
+function catalogEntryFor(server) {
+    if (!server) return null;
+    for (const entry of MCP_CLIENT_CATALOG) {
+        if (entry.isCustomBlank) continue;
+        if (findConnectedServerForCatalogEntry(entry, [server])) return entry;
+    }
+    return null;
+}
+
+/* ══════════════════ نافذة اختيار الخدمة ══════════════════ */
+
+/**
+ * الخطوة الأولى في المسار: «إضافة تكامل» ← اختيار الخدمة.
+ *
+ * فصلها عن الشبكة الرئيسية مقصود: الصفحة صارت تعرض «تكاملاتك» فقط، وما
+ * يمكن إضافته يعيش هنا. قبل ذلك كانت الصفحة تعرض الكتالوج كاملًا فيختلط
+ * ما ربطه المستخدم بما لم يربطه، ولا يظهر له سؤال «ماذا لديّ؟» أبدًا.
+ */
+export function openServicePicker() {
+    let query = '';
+    let category = 'all';
+
+    const render = () => {
+        const q = query.trim().toLowerCase();
+        const claimed = new Set(servers.filter((s) => s.connection_id).map((s) => s.id));
+
+        const cards = [];
+        for (const entry of MCP_CLIENT_CATALOG) {
+            if (entry.isCustomBlank) continue;
+            if (category !== 'all' && entry.category !== category) continue;
+            if (q && !`${entry.name} ${entry.description}`.toLowerCase().includes(q)) continue;
+            const existing = findConnectedServerForCatalogEntry(entry, servers);
+            const already = existing && claimed.has(existing.id);
+            cards.push(pickerCard({
+                key: entry.key, name: entry.name, desc: entry.description,
+                color: entry.brandColor, glyph: iconMarkup(entry), already,
+            }));
+        }
+
+        // تعريفات خوادم موجودة في القاعدة لم يربطها هذا المستخدم بعد.
+        if (category === 'all' || category === 'custom') {
+            for (const s of servers) {
+                if (s.connection_id || catalogEntryFor(s)) continue;
+                if (q && !`${s.name || ''} ${s.description || ''}`.toLowerCase().includes(q)) continue;
+                cards.push(pickerCard({
+                    serverId: s.id, name: s.name, desc: s.description || 'خادم مخصّص مُضاف يدويًا',
+                    color: '#64748b', glyph: esc((s.name || '?').trim().charAt(0).toUpperCase()), already: false,
+                }));
+            }
+        }
+
+        const body = document.getElementById('miPickBody');
+        if (body) {
+            body.innerHTML = cards.length
+                ? `<div class="mi-pickgrid">${cards.join('')}</div>`
+                : '<div class="state-block empty"><p>لا توجد خدمة مطابقة. يمكنك إضافة خادم مخصّص بالأسفل.</p></div>';
+        }
+        document.querySelectorAll('#miPickCats .mi-chip').forEach((b) => {
+            b.classList.toggle('active', b.dataset.cat === category);
+        });
+    };
+
+    openModal(`
+      <div class="mi-mhead">
+        <div>
+          <p class="mi-mtitle">إضافة تكامل</p>
+          <p class="mi-msub">اختر الخدمة التي تريد ربطها.</p>
+        </div>
+        <button class="mi-x" data-mi-close aria-label="إغلاق">&times;</button>
+      </div>
+      <div class="mi-mbody">
+        <input class="mi-input" id="miPickSearch" type="search" placeholder="ابحث عن خدمة…" autocomplete="off">
+        <div class="mi-chips" id="miPickCats">
+          ${MCP_CATALOG_CATEGORIES.map((c) => `<button type="button" class="mi-chip" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join('')}
+        </div>
+        <div id="miPickBody"></div>
+      </div>
+      <div class="mi-mfoot">
+        <button class="mi-btn" data-mi="custom">إضافة خادم MCP مخصّص</button>
+        <button class="mi-btn ghost" data-mi-close style="margin-inline-start:auto">إلغاء</button>
+      </div>`);
+
+    render();
+    const search = document.getElementById('miPickSearch');
+    search?.addEventListener('input', (e) => { query = e.target.value; render(); });
+    document.getElementById('miPickCats')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mi-chip');
+        if (!btn) return;
+        category = btn.dataset.cat;
+        render();
+    });
+    search?.focus();
+}
+
+function pickerCard({ key, serverId, name, desc, color, glyph, already }) {
+    const attrs = already
+        ? 'disabled'
+        : key ? `data-mi="pick" data-key="${esc(key)}"` : `data-mi="pick-server" data-id="${esc(serverId)}"`;
+    return `<button type="button" class="mi-pick" ${attrs}>
+        <span class="mi-logo" style="background:${esc(color || '#666')}">${glyph}</span>
+        <span class="mi-pick-txt">
+            <span class="mi-pick-n">${esc(name)}${already ? ' <span class="mi-badge-soon">مربوط</span>' : ''}</span>
+            <span class="mi-pick-d">${esc(desc || '')}</span>
+        </span>
+    </button>`;
 }
 
 /* ══════════════════ مسار الربط ══════════════════ */
@@ -666,8 +772,16 @@ document.addEventListener('click', (e) => {
 
     e.preventDefault();
     const id = el.dataset.id;
-    if (act === 'custom') {
+    if (act === 'add') openServicePicker();
+    else if (act === 'pick') { closeModal(); connectFlow(el.dataset.key); }
+    else if (act === 'pick-server') {
+        // تعريف خادم موجود بلا اتصال لهذا المستخدم: نحاول الاتصال مباشرة.
+        // ما ينقص من اعتماد يظهر كحالة «يحتاج تفويض» على بطاقته بعدها.
+        closeModal();
+        doTest(el.dataset.id);
+    } else if (act === 'custom') {
         // الإعداد اليدوي يبقى مسؤولية النموذج المتقدّم القائم كما هو.
+        closeModal();
         if (typeof window.mcpAdd === 'function') window.mcpAdd();
         else toast('النموذج المتقدّم غير متاح في هذه الصفحة', 'error');
     } else if (act === 'connect') connectFlow(el.dataset.key);
@@ -722,4 +836,4 @@ export async function finishOAuthReturn(serverId) {
 }
 
 /* يتيح لـmcp.js استدعاء الوحدة دون استيراد دائري. */
-window.mcpIntegrations = { renderIntegrations, finishOAuthReturn, deriveUiState, explainError };
+window.mcpIntegrations = { renderIntegrations, openServicePicker, finishOAuthReturn, deriveUiState, explainError };

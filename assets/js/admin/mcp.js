@@ -227,6 +227,13 @@ function renderConnectorGrid() {
     // الشبكة وحدها. لو لم تُحمَّل الوحدة لأي سبب، يكمل العرض القديم أسفله كما
     // هو بالحرف — لا تعتمد هذه الصفحة على وجودها.
     if (typeof window.mcpIntegrations?.renderIntegrations === 'function') {
+        // الزر يعيش في HTML مخفيًا ولا يُكشف إلا هنا: وجود الوحدة هو ما يجعل
+        // له سلوكًا، فلا يظهر زر معطّل لو لم تُحمَّل.
+        const addBtn = document.getElementById('mcpAddIntegrationBtn');
+        if (addBtn && addBtn.hidden) {
+            addBtn.hidden = false;
+            addBtn.addEventListener('click', () => window.mcpIntegrations.openServicePicker());
+        }
         window.mcpIntegrations.renderIntegrations(grid, {
             servers: allServers,
             search: mcpMarketSearchQuery,
