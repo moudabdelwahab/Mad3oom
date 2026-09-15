@@ -52,3 +52,22 @@ test('hasCompany يجب أن تكون true صراحةً — لا قيم رخوة
     assert.equal(accountHomeFor({ role: 'user', hasCompany: 1 }), DESTINATIONS.customer);
     assert.equal(accountHomeFor({ role: 'user', hasCompany: null }), DESTINATIONS.customer);
 });
+
+/* ── مالك المنصة: شاشة السياق، لا لوحة ─────────────────────────────────── */
+
+test('مالك المنصة يذهب إلى شاشة اختيار السياق لا إلى لوحة الإدارة', () => {
+    // إرساله مباشرةً إلى لوحة الإدارة كان سيعرض لوحة **فارغة**: صلاحياته في
+    // القاعدة لا تُفعَّل إلا داخل سياق، فكل استعلام كان سيُردّ بلا تفسير.
+    assert.equal(accountHomeFor({ role: 'platform_owner' }), DESTINATIONS.ownerContexts);
+    assert.equal(accountHomeFor({ role: 'platform_owner', hasCompany: true }),
+        DESTINATIONS.ownerContexts, 'ملكية الشركة لا تسحبه إلى لوحة الشركة');
+});
+
+test('وجهة بقية الحسابات لم تتغير', () => {
+    assert.equal(accountHomeFor({ role: 'admin' }), DESTINATIONS.admin);
+    assert.equal(accountHomeFor({ role: 'support' }), DESTINATIONS.admin);
+    assert.equal(accountHomeFor({ role: 'company_admin', hasCompany: true }), DESTINATIONS.company);
+    assert.equal(accountHomeFor({ role: 'company_user', hasCompany: true }), DESTINATIONS.company);
+    assert.equal(accountHomeFor({ role: 'user' }), DESTINATIONS.customer);
+    assert.equal(accountHomeFor({}), DESTINATIONS.customer);
+});

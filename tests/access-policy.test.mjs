@@ -18,8 +18,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const {
-    ACCESS, STAFF_ROLES, COMPANY_ROLES, MAIN_ADMIN_EMAIL,
+    ACCESS, STAFF_ROLES, COMPANY_ROLES, OWNER_CONTEXTS, PLATFORM_OWNER_ROLE,
     classifyAccess, isStaffIdentity, canImpersonate, accessMessageFor,
+    contextAllows, isPlatformOwnerIdentity,
     isCompanyIdentity, isCompanyAdminPayload
 } = await import('../assets/js/access-policy.js');
 
@@ -78,16 +79,102 @@ test('حساب الشركة على صفحة إدارية: FORBIDDEN لا ANONYMO
 /* ── الطاقم ─────────────────────────────────────────────────────────────── */
 
 test('الطاقم يدخل الصفحات الإدارية', () => {
-    for (const role of STAFF_ROLES) {
+    // مالك المنصة مستثنى عمدًا: رتبته وحدها لا تفتح شيئًا، والسياق هو ما
+    // يفتح. له اختباره المستقل أدناه.
+    for (const role of STAFF_ROLES.filter(r => r !== PLATFORM_OWNER_ROLE)) {
         assert.equal(
             classifyAccess({ identity: { role }, requiredRole: 'admin' }).status,
             ACCESS.AUTHORIZED
         );
     }
+});
+
+test('البريد لم يعد يفتح شيئًا — ولا حتى بريد الأدمن الرئيسي السابق', () => {
+    // كان هنا `classifyAccess({ identity: { email: MAIN_ADMIN_EMAIL } })` يمرّ.
+    // بعد نزع البريد من التفويض (migrations/040) صارت الهوية بلا رتبة = لا شيء.
+    const byEmailOnly = classifyAccess({
+        identity: { email: 'support@mad3oom.online' }, requiredRole: 'admin'
+    });
+    assert.equal(byEmailOnly.status, ACCESS.FORBIDDEN);
+    assert.equal(byEmailOnly.reason, 'staff-only');
+
+    assert.equal(isStaffIdentity({ email: 'support@mad3oom.online' }), false);
+    assert.equal(canImpersonate({ email: 'support@mad3oom.online' }), false);
+});
+
+/* ── مالك المنصة: الهوية ثابتة، والسياق هو ما يفتح ──────────────────────── */
+
+test('مالك المنصة بلا سياق لا يفتح شيئًا — fail-closed', () => {
+    const owner = { role: PLATFORM_OWNER_ROLE };
+    for (const requiredRole of ['admin', 'user', null]) {
+        const d = classifyAccess({ identity: owner, requiredRole });
+        assert.equal(d.status, ACCESS.FORBIDDEN, `requiredRole=${requiredRole}`);
+        assert.equal(d.reason, 'context-required');
+    }
+});
+
+test('السياق يفتح ما يسمح به وحده', () => {
+    const owner = { role: PLATFORM_OWNER_ROLE };
+
+    for (const ctx of ['owner', 'admin']) {
+        assert.equal(
+            classifyAccess({ identity: owner, requiredRole: 'admin', activeContext: ctx }).status,
+            ACCESS.AUTHORIZED, `سياق ${ctx} لا يفتح صفحة إدارية`);
+    }
+    for (const ctx of ['company_admin', 'company_user_preview', 'customer']) {
+        const d = classifyAccess({ identity: owner, requiredRole: 'admin', activeContext: ctx });
+        assert.equal(d.status, ACCESS.FORBIDDEN, `سياق ${ctx} فتح صفحة إدارية`);
+        assert.equal(d.reason, 'wrong-context');
+    }
+
+    // بوابة العميل: سياق العميل (أو المالك الشامل) وحدهما
+    for (const ctx of ['customer', 'owner']) {
+        assert.equal(
+            classifyAccess({ identity: owner, requiredRole: 'user', activeContext: ctx }).status,
+            ACCESS.AUTHORIZED, `سياق ${ctx} لا يفتح بوابة العميل`);
+    }
     assert.equal(
-        classifyAccess({ identity: { email: MAIN_ADMIN_EMAIL }, requiredRole: 'admin' }).status,
-        ACCESS.AUTHORIZED
-    );
+        classifyAccess({ identity: owner, requiredRole: 'user', activeContext: 'admin' }).reason,
+        'wrong-context');
+});
+
+test('السياق مُرشِّح لا مصدر — لا يمنح غير المالك شيئًا', () => {
+    for (const role of ['admin', 'support', 'company_admin', 'company_user', 'user']) {
+        const withCtx    = classifyAccess({ identity: { role }, requiredRole: 'admin', activeContext: 'owner' });
+        const withoutCtx = classifyAccess({ identity: { role }, requiredRole: 'admin' });
+        assert.equal(withCtx.status, withoutCtx.status,
+            `سياق مزعوم غيّر قرار ${role}`);
+        assert.equal(withCtx.reason, withoutCtx.reason);
+    }
+});
+
+test('الدخول كعضو: admin دائمًا، والمالك في سياق الإدارة وحده', () => {
+    assert.equal(canImpersonate({ role: 'admin' }), true);
+    assert.equal(canImpersonate({ role: 'support' }), false);
+    assert.equal(canImpersonate({ role: PLATFORM_OWNER_ROLE }), false);
+    assert.equal(canImpersonate({ role: PLATFORM_OWNER_ROLE }, 'admin'), true);
+    assert.equal(canImpersonate({ role: PLATFORM_OWNER_ROLE }, 'owner'), true);
+    assert.equal(canImpersonate({ role: PLATFORM_OWNER_ROLE }, 'company_admin'), false);
+    assert.equal(canImpersonate({ role: PLATFORM_OWNER_ROLE }, 'company_user_preview'), false);
+});
+
+test('خمسة سياقات لا سادس، وكلها fail-closed بلا سياق', () => {
+    assert.equal(OWNER_CONTEXTS.length, 5);
+    assert.deepEqual(OWNER_CONTEXTS,
+        ['owner', 'admin', 'company_admin', 'company_user_preview', 'customer']);
+    assert.equal(contextAllows(null, 'admin'), false);
+    assert.equal(contextAllows(undefined, 'customer'), false);
+    assert.equal(contextAllows('لا-وجود-له', 'admin'), false);
+    assert.equal(isPlatformOwnerIdentity({ role: PLATFORM_OWNER_ROLE }), true);
+    assert.equal(isPlatformOwnerIdentity({ role: 'admin' }), false);
+});
+
+test('معاينة عضو الشركة لا تمنح سلطة إدارة ولا سلطة مدير شركة', () => {
+    assert.equal(contextAllows('company_user_preview', 'admin'), false);
+    assert.equal(contextAllows('company_user_preview', 'staff'), false);
+    assert.equal(contextAllows('company_user_preview', 'owner_only'), false);
+    assert.equal(contextAllows('company_user_preview', 'company_admin'), false);
+    assert.equal(contextAllows('company_user_preview', 'company_member'), true);
 });
 
 test('الطاقم يُمنع من بوابة العميل إلا وهو داخل كعضو — ومع ذلك FORBIDDEN لا ANONYMOUS', () => {

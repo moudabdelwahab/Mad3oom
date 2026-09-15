@@ -65,20 +65,61 @@ export function isCompanyAdminPayload(membersPayload) {
     return membersPayload?.company_role === 'company_admin';
 }
 
-/** الأدمن الرئيسي بإيميله — بديل احتياطي لو عمود الرتبة اتلخبط. */
-export const MAIN_ADMIN_EMAIL = 'support@mad3oom.online';
-
-/** هل هذه هوية حساب طاقم؟ */
-export function isStaffIdentity({ email, role } = {}) {
-    return email === MAIN_ADMIN_EMAIL || STAFF_ROLES.includes(role);
+/**
+ * هل هذه هوية حساب طاقم؟
+ *
+ * كان هنا فرع بالبريد (`email === 'support@mad3oom.online'`) وأُزيل: البريد
+ * لم يعد آلية تفويض في أي طبقة — لا هنا ولا في القاعدة (migrations/040).
+ * ومصدر السلطة الحقيقي صار صفًّا في platform_authority لا عنوانًا مكتوبًا.
+ */
+export function isStaffIdentity({ role } = {}) {
+    return STAFF_ROLES.includes(role);
 }
 
 /**
- * من يملك «الدخول كعضو» (impersonation): الأدمن الرئيسي و admin فقط —
- * لا support ولا أي دور شركة. تفويض أضيق ومنفصل عن isStaffIdentity.
+ * من يملك «الدخول كعضو» (impersonation): admin فقط — لا support ولا أي دور
+ * شركة. أما مالك المنصة فيملكها داخل سياق الإدارة، لا بمجرد كونه مالكًا:
+ * السياق يقيّد أعلى سلطة كما يقيّد أدناها.
  */
-export function canImpersonate({ email, role } = {}) {
-    return email === MAIN_ADMIN_EMAIL || role === 'admin';
+export function canImpersonate({ role } = {}, activeContext = null) {
+    if (role === PLATFORM_OWNER_ROLE) return contextAllows(activeContext, 'admin');
+    return role === 'admin';
+}
+
+/** رتبة مالك المنصة — هوية ثابتة لا تتغير عند تبديل السياق أبدًا. */
+export const PLATFORM_OWNER_ROLE = 'platform_owner';
+
+/** مفاتيح السياقات الخمسة، بنفس ترتيب available_contexts() في الخادم. */
+export const OWNER_CONTEXTS = [
+    'owner', 'admin', 'company_admin', 'company_user_preview', 'customer'
+];
+
+/**
+ * خريطة القدرات — **نسخة طبق الأصل** من public.context_allows() في
+ * migrations/038. اختبار في tests/access-policy.test.mjs يقارن الجدولين
+ * ويفشل إن افترقا، لأن افتراقهما يعني أن الواجهة تعرض ما لا تعطيه القاعدة
+ * (أو تخفي ما تعطيه) — وكلاهما عطب.
+ *
+ * ولا تُستعمل هذه الخريطة كحاجز أمني بحال: القرار الفعلي في RLS ودوال
+ * SECURITY DEFINER. هذه تقرر **ما يُعرَض**، لا ما يُقرأ.
+ */
+export const CONTEXT_CAPABILITIES = {
+    owner:                ['owner_only', 'admin', 'staff', 'company_admin', 'customer'],
+    admin:                ['admin', 'staff'],
+    company_admin:        ['company_admin'],
+    company_user_preview: ['company_member'],
+    customer:             ['customer']
+};
+
+/** هل يسمح هذا السياق بهذه القدرة؟ fail-closed: بلا سياق لا قدرة. */
+export function contextAllows(activeContext, capability) {
+    if (!activeContext) return false;
+    return (CONTEXT_CAPABILITIES[activeContext] || []).includes(capability);
+}
+
+/** هل هذه هوية مالك المنصة؟ للعرض فقط — السلطة تُثبَت في الخادم. */
+export function isPlatformOwnerIdentity({ role } = {}) {
+    return role === PLATFORM_OWNER_ROLE;
 }
 
 /**
@@ -96,7 +137,8 @@ export function classifyAccess({
     identity = null,
     requiredRole = null,
     impersonating = false,
-    banned = false
+    banned = false,
+    activeContext = null
 } = {}) {
     // 401 — الحالة الوحيدة التي يجوز فيها التحويل إلى صفحة الدخول.
     if (!identity) return { status: ACCESS.ANONYMOUS, reason: 'no-session' };
@@ -104,6 +146,30 @@ export function classifyAccess({
     // حساب موقوف: الجلسة قائمة، فالتحويل لصفحة الدخول كان يعيده لبيته فورًا
     // (نفس الحلقة). رسالة صريحة بدل ذلك.
     if (banned === true) return { status: ACCESS.BANNED, reason: 'account-banned' };
+
+    // ── مالك المنصة: السياق يقرر، لا الرتبة ───────────────────────────────
+    //
+    // رتبته وحدها لا تفتح شيئًا. وهذا ليس تشددًا زائدًا بل مطابقة لما تفعله
+    // القاعدة: owner_capability() تشترط سماح السياق، فلو فتحت الواجهة صفحة
+    // بلا سياق لعُرضت له لوحة فارغة تمامًا — كل استعلام فيها يُردّ. المنع
+    // هنا يجعل الرسالة صحيحة («اختر سياقًا») بدل لوحة مكسورة بلا تفسير.
+    //
+    // ولا شيء من هذا الفرع يمسّ غير المالك: activeContext لا يُقرأ أصلًا في
+    // مساره، فسلوك admin و support و company و customer مطابق لما كان.
+    if (isPlatformOwnerIdentity(identity)) {
+        if (!activeContext) {
+            return { status: ACCESS.FORBIDDEN, reason: 'context-required' };
+        }
+        if (requiredRole === 'admin' && !contextAllows(activeContext, 'admin')) {
+            return { status: ACCESS.FORBIDDEN, reason: 'wrong-context' };
+        }
+        if (requiredRole === 'user'
+            && !contextAllows(activeContext, 'customer')
+            && !impersonating) {
+            return { status: ACCESS.FORBIDDEN, reason: 'wrong-context' };
+        }
+        return { status: ACCESS.AUTHORIZED, reason: null };
+    }
 
     const staff = isStaffIdentity(identity);
 
@@ -133,6 +199,16 @@ export const ACCESS_MESSAGES = {
     'account-banned': {
         title: 'الحساب موقوف',
         text: 'تم إيقاف هذا الحساب. تواصل مع الدعم لمعرفة التفاصيل.'
+    },
+    'context-required': {
+        title: 'اختر سياق العمل أولًا',
+        text: 'حسابك مالك المنصة، وصلاحياته لا تُفعَّل إلا داخل سياق تختاره. '
+            + 'ارجع إلى شاشة السياقات واختر السياق الذي تريد العمل فيه.'
+    },
+    'wrong-context': {
+        title: 'هذه الصفحة خارج سياقك الحالي',
+        text: 'أنت داخل سياق لا يشمل هذه الصفحة. بدّل السياق من الشريط العلوي '
+            + 'أو من شاشة السياقات للوصول إليها.'
     }
 };
 

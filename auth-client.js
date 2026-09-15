@@ -1,6 +1,7 @@
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
-import { ACCESS, classifyAccess, canImpersonate } from './assets/js/access-policy.js';
+import { ACCESS, classifyAccess, canImpersonate, isPlatformOwnerIdentity }
+    from './assets/js/access-policy.js';
 
 // يُعاد تصديرها من هنا عشان صفحات الحراسة تستورد مصدرًا واحدًا.
 export { ACCESS };
@@ -584,15 +585,24 @@ export async function resolveAccess(requiredRole = null) {
 
     const identity = { email: user.email, role: user.profile?.role };
 
+    // السياق يُقرأ من **الخادم** وحده، وقبل أي قرار يعتمد عليه.
+    //
+    // لا من query-parameter ولا localStorage ولا cookie ولا claim في JWT: كل
+    // واحد من تلك يكتبه العميل، فيصير السياق مُدخَلًا لا حالة. وحتى هذه
+    // القراءة قرار **عرض** لا تفويض — القاعدة تُعيد فحص المنح عند كل استعلام
+    // عبر owner_capability()، فلو كذب العميل على نفسه هنا رأى صفحةً فارغة
+    // لا بيانات.
+    const activeContext = await fetchActiveContext(identity);
+
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
 
-    // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: الأدمن الرئيسي و admin
-    // فقط - مش support ولا super_user. ده تفويض أضيق ومنفصل عن رتبة الطاقم
-    // العامة. الفحص هنا هو نقطة التنفيذ الحقيقية (enforcement) - إخفاء الزرار
-    // في الواجهة وحده مش كافي كحماية، لأن أي حد يقدر يكتب ?impersonate=...
-    // في العنوان يدويًا لو الفحص مش موجود هنا كمان.
-    if (impersonateId && canImpersonate(identity)) {
+    // مين يقدر "يدخل كعضو" (impersonation) تحديدًا: admin فقط - مش support
+    // ولا أي دور شركة، ومالك المنصة داخل سياق الإدارة وحده. ده تفويض أضيق
+    // ومنفصل عن رتبة الطاقم العامة. الفحص هنا هو نقطة التنفيذ الحقيقية
+    // (enforcement) - إخفاء الزرار في الواجهة وحده مش كافي كحماية، لأن أي حد
+    // يقدر يكتب ?impersonate=... في العنوان يدويًا لو الفحص مش موجود هنا كمان.
+    if (impersonateId && canImpersonate(identity, activeContext)) {
         const { data: targetProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -621,10 +631,46 @@ export async function resolveAccess(requiredRole = null) {
     const decision = classifyAccess({
         identity,
         requiredRole,
-        impersonating: !!impersonateId
+        impersonating: !!impersonateId,
+        activeContext
     });
 
-    return { status: decision.status, user, reason: decision.reason };
+    return { status: decision.status, user, reason: decision.reason, activeContext };
+}
+
+/**
+ * السياق الساري لمالك المنصة، من الخادم.
+ *
+ * يُنادى لمالك المنصة وحده: أي حساب آخر لا سياق له أصلًا، ونداء الدالة له
+ * رحلة شبكة بلا فائدة على كل صفحة محمية.
+ *
+ * وعند فشل النداء نُرجع `null` — أي fail-closed: تعذُّر معرفة السياق يُعامَل
+ * كغياب سياق، فتُعرض «اختر سياقًا» بدل أن تُفتح صفحة على أساس مجهول.
+ */
+async function fetchActiveContext(identity) {
+    if (!isPlatformOwnerIdentity(identity)) return null;
+    try {
+        const { data, error } = await supabase.rpc('active_context');
+        if (error) {
+            console.error('[Auth] active_context failed:', error.message);
+            return null;
+        }
+        return data || null;
+    } catch (err) {
+        console.error('[Auth] active_context threw:', err?.message || err);
+        return null;
+    }
+}
+
+/** حالة السياق الكاملة — يستعملها شريط السياق ولوحة المالك. */
+export async function ownerContextStatus() {
+    try {
+        const { data, error } = await supabase.rpc('owner_context_status');
+        if (error) return null;
+        return data;
+    } catch {
+        return null;
+    }
 }
 
 /**

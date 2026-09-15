@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>اختيار السياق — مالك المنصة</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root {
+    --bg:#070c15; --panel:#0e1726; --line:#1e293b; --ink:#e6edf7;
+    --muted:#94a3b8; --accent:#3b82f6; --warn:#c2410c; --off:#475569;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+    min-height:100vh;
+  }
+  .wrap { max-width:1000px; margin:0 auto; padding:3rem 1.25rem 4rem; }
+  header { margin-bottom:2.25rem; }
+  h1 { margin:0 0 .5rem; font-size:1.6rem; font-weight:700; letter-spacing:-.01em; }
+  .sub { margin:0; color:var(--muted); font-size:.92rem; max-width:62ch; }
+  .identity {
+    display:inline-flex; align-items:center; gap:.5rem; margin-top:1rem;
+    padding:.35rem .8rem; border:1px solid var(--line); border-radius:999px;
+    font-size:.8rem; color:var(--muted); background:var(--panel);
+  }
+  .identity b { color:var(--ink); font-weight:600; }
+  .grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); }
+  .card {
+    text-align:right; display:flex; flex-direction:column; gap:.55rem;
+    padding:1.15rem 1.2rem; background:var(--panel); color:var(--ink);
+    border:1px solid var(--line); border-radius:.75rem; cursor:pointer;
+    font:inherit; transition:border-color .15s, transform .15s;
+  }
+  .card:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-2px); }
+  .card:disabled { cursor:not-allowed; opacity:.45; }
+  .card .name { font-size:1.05rem; font-weight:650; }
+  .card .why { font-size:.78rem; color:var(--muted); }
+  .card .tag {
+    align-self:flex-start; font-size:.7rem; padding:.12rem .55rem;
+    border-radius:999px; background:#1e293b; color:var(--muted);
+  }
+  .card.is-current { border-color:var(--accent); }
+  .card.is-preview .tag { background:var(--warn); color:#fff; }
+  .note {
+    margin-top:2rem; padding:1rem 1.15rem; border:1px solid var(--line);
+    border-radius:.6rem; background:var(--panel); color:var(--muted); font-size:.82rem;
+  }
+  .state { padding:3rem 0; text-align:center; color:var(--muted); }
+  .state.error { color:#fca5a5; }
+  .state a { color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>اختر سياق العمل</h1>
+    <p class="sub">
+      حسابك مالك المنصة. رتبتك ثابتة ولا تتغير باختيارك هنا — السياق يحدّد
+      <b>أي جزء</b> من صلاحياتك يكون ساريًا الآن، ولا يمنحك شيئًا لا تملكه أصلًا.
+      وكل تبديل يُسجَّل.
+    </p>
+    <div class="identity" id="identity" hidden></div>
+  </header>
+
+  <div id="state" class="state">جارٍ قراءة السياقات من الخادم…</div>
+  <div id="grid" class="grid" hidden></div>
+
+  <p class="note" id="note" hidden>
+    القائمة أعلاه يحسبها الخادم، لا هذه الصفحة. وأي سياق تدخله يظل خاضعًا لفحص
+    مستقل عند كل استعلام، فلا يفتح لك بابًا خارج ما تملكه.
+  </p>
+</div>
+
+<script type="module">
+import { loadContexts, enterContext, contextStatus } from '/assets/js/owner/owner-context.js';
+import { supabase } from '/api-config.js';
+
+const $state = document.getElementById('state');
+const $grid  = document.getElementById('grid');
+const $note  = document.getElementById('note');
+const $id    = document.getElementById('identity');
+
+function fail(msg, withLogin = false) {
+  $state.className = 'state error';
+  $state.innerHTML = withLogin
+    ? `${msg} — <a href="/login.html">تسجيل الدخول</a>`
+    : msg;
+  $state.hidden = false;
+  $grid.hidden = true;
+}
+
+(async function init() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) {
+    window.location.replace('/login.html');
+    return;
+  }
+
+  let status;
+  try {
+    status = await contextStatus();
+  } catch (err) {
+    fail('تعذّر التحقق من صلاحيتك: ' + err.message);
+    return;
+  }
+
+  // البوابة الحقيقية في الخادم؛ هذه الرسالة للعرض. غير المالك لا يرى شيئًا
+  // على أي حال لأن available_contexts ترجع له قائمة فارغة.
+  if (!status?.is_platform_owner) {
+    fail('هذه الشاشة مخصّصة لمالك المنصة وحده.');
+    return;
+  }
+
+  $id.hidden = false;
+  $id.innerHTML = `<span>الهوية الثابتة:</span> <b>platform_owner</b>`;
+
+  let contexts;
+  try {
+    contexts = await loadContexts();
+  } catch (err) {
+    fail('تعذّر جلب السياقات: ' + err.message);
+    return;
+  }
+
+  if (!contexts.length) {
+    fail('لا سياقات متاحة لحسابك.');
+    return;
+  }
+
+  $state.hidden = true;
+  $grid.hidden = false;
+  $note.hidden = false;
+
+  for (const c of contexts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'card';
+    if (c.key === status.active_context) btn.classList.add('is-current');
+    if (c.key === 'company_user_preview') btn.classList.add('is-preview');
+    btn.disabled = c.granted !== true;
+
+    const tag = c.key === 'company_user_preview' ? 'قراءة فقط'
+              : c.key === status.active_context  ? 'السياق الحالي'
+              : c.granted === true               ? 'متاح' : 'غير متاح';
+
+    btn.innerHTML = `
+      <span class="tag"></span>
+      <span class="name"></span>
+      <span class="why"></span>`;
+    btn.querySelector('.tag').textContent  = tag;
+    btn.querySelector('.name').textContent = c.label || c.key;
+    btn.querySelector('.why').textContent  = 'مصدر المنح: ' + (c.reason || '—');
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const res = await enterContext(c.key);
+        window.location.href = res.destination;
+      } catch (err) {
+        btn.disabled = false;
+        alert(err.message);
+      }
+    });
+
+    $grid.appendChild(btn);
+  }
+})();
+</script>
+</body>
+</html>

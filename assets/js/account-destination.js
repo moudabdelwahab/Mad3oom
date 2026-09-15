@@ -30,10 +30,21 @@
 const STAFF_ROLES = ['platform_owner', 'admin', 'support'];
 
 export const DESTINATIONS = {
+    ownerContexts: '/owner-contexts.html',
     admin: 'admin-dashboard.html',
     company: '/company-dashboard/',
     customer: 'customer-dashboard.html'
 };
+
+/**
+ * مالك المنصة لا «بيت» له — له شاشة اختيار سياق.
+ *
+ * وهذا ليس تفضيلًا في التنقّل: صلاحياته في القاعدة لا تُفعَّل إلا داخل سياق
+ * (owner_capability تشترط سماح السياق)، فإرساله مباشرةً إلى لوحة الإدارة
+ * كان سيعرض عليه لوحة **فارغة** يُردّ فيها كل استعلام. الشاشة هي الخطوة
+ * الأولى الصحيحة، لا حاجزًا مضافًا.
+ */
+export const PLATFORM_OWNER_ROLE = 'platform_owner';
 
 /**
  * القاعدة نفسها كدالة خالصة — بلا شبكة ولا DOM، عشان تتّختبر مباشرة.
@@ -42,6 +53,7 @@ export const DESTINATIONS = {
  * @returns {string}
  */
 export function accountHomeFor(state = {}) {
+    if (state.role === PLATFORM_OWNER_ROLE) return DESTINATIONS.ownerContexts;
     if (STAFF_ROLES.includes(state.role)) return DESTINATIONS.admin;
     if (state.hasCompany === true) return DESTINATIONS.company;
     return DESTINATIONS.customer;
@@ -55,6 +67,7 @@ export function accountHomeFor(state = {}) {
  */
 export async function resolveAccountHome(supabaseClient, profile) {
     const role = profile?.role;
+    if (role === PLATFORM_OWNER_ROLE) return DESTINATIONS.ownerContexts;
     if (STAFF_ROLES.includes(role)) return DESTINATIONS.admin;
 
     let hasCompany = false;

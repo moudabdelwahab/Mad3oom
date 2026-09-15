@@ -316,8 +316,32 @@ async function applySidebarPermissions() {
 
     if (!profile) return;
 
-    const isMainAdmin = user.email === 'support@mad3oom.online';
-    const isAdmin = profile.role === 'admin';
+    // كان هنا `user.email === 'support@mad3oom.online'`.
+    //
+    // البريد لم يعد آلية تفويض في أي طبقة (migrations/040). والسلطة المرتفعة
+    // تُسأل عنها القاعدة الآن، فالواجهة لا تعرف «من هو المرتفع» ولا يجب أن
+    // تعرف — تسأل فتُجاب. وعند فشل النداء نُعامله كـ«لا سلطة»: إخفاء رابط
+    // لمن يستحقه إزعاج، وإظهاره لمن لا يستحقه عطب.
+    let isMainAdmin = false;
+    let isOwner = false;
+    let activeContext = null;
+    try {
+        const [elevated, owner, ctx] = await Promise.all([
+            supabase.rpc('has_elevated_authority'),
+            supabase.rpc('is_platform_owner'),
+            supabase.rpc('active_context')
+        ]);
+        isMainAdmin  = elevated.data === true;
+        isOwner      = owner.data === true;
+        activeContext = ctx.data || null;
+    } catch (err) {
+        console.error('[Sidebar] authority lookup failed:', err?.message || err);
+    }
+
+    // مالك المنصة داخل سياق الإدارة يرى ما يراه الأدمن — لا لأن رتبته أدمن،
+    // بل لأن سياقه يسمح بذلك. وخارج هذا السياق لا يرى روابط الإدارة أصلًا.
+    const ownerActingAsAdmin = isOwner && (activeContext === 'admin' || activeContext === 'owner');
+    const isAdmin = profile.role === 'admin' || ownerActingAsAdmin;
     const isSupport = profile.role === 'support';
     const isSuperUser = profile.role === 'super_user';
 
