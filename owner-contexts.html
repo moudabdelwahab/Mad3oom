@@ -1,172 +1,190 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>اختيار السياق — مالك المنصة</title>
-<link rel="icon" href="/favicon.ico">
-<style>
-  :root {
-    --bg:#070c15; --panel:#0e1726; --line:#1e293b; --ink:#e6edf7;
-    --muted:#94a3b8; --accent:#3b82f6; --warn:#c2410c; --off:#475569;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin:0; padding:0; background:var(--bg); color:var(--ink);
-    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
-    min-height:100vh;
-  }
-  .wrap { max-width:1000px; margin:0 auto; padding:3rem 1.25rem 4rem; }
-  header { margin-bottom:2.25rem; }
-  h1 { margin:0 0 .5rem; font-size:1.6rem; font-weight:700; letter-spacing:-.01em; }
-  .sub { margin:0; color:var(--muted); font-size:.92rem; max-width:62ch; }
-  .identity {
-    display:inline-flex; align-items:center; gap:.5rem; margin-top:1rem;
-    padding:.35rem .8rem; border:1px solid var(--line); border-radius:999px;
-    font-size:.8rem; color:var(--muted); background:var(--panel);
-  }
-  .identity b { color:var(--ink); font-weight:600; }
-  .grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); }
-  .card {
-    text-align:right; display:flex; flex-direction:column; gap:.55rem;
-    padding:1.15rem 1.2rem; background:var(--panel); color:var(--ink);
-    border:1px solid var(--line); border-radius:.75rem; cursor:pointer;
-    font:inherit; transition:border-color .15s, transform .15s;
-  }
-  .card:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-2px); }
-  .card:disabled { cursor:not-allowed; opacity:.45; }
-  .card .name { font-size:1.05rem; font-weight:650; }
-  .card .why { font-size:.78rem; color:var(--muted); }
-  .card .tag {
-    align-self:flex-start; font-size:.7rem; padding:.12rem .55rem;
-    border-radius:999px; background:#1e293b; color:var(--muted);
-  }
-  .card.is-current { border-color:var(--accent); }
-  .card.is-preview .tag { background:var(--warn); color:#fff; }
-  .note {
-    margin-top:2rem; padding:1rem 1.15rem; border:1px solid var(--line);
-    border-radius:.6rem; background:var(--panel); color:var(--muted); font-size:.82rem;
-  }
-  .state { padding:3rem 0; text-align:center; color:var(--muted); }
-  .state.error { color:#fca5a5; }
-  .state a { color:var(--accent); }
-</style>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>واجهة اللوحات - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في كل صفحات البوابة: يضبط الثيم قبل أول رسم
+           فمفيش وميض ولا قفزة عند الانتقال من لوحة إلى أخرى. منسوخ كما هو
+           عمدًا — أي اختلاف هنا يعني وميضًا في هذه الصفحة وحدها. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>اختر سياق العمل</h1>
-    <p class="sub">
-      حسابك مالك المنصة. رتبتك ثابتة ولا تتغير باختيارك هنا — السياق يحدّد
-      <b>أي جزء</b> من صلاحياتك يكون ساريًا الآن، ولا يمنحك شيئًا لا تملكه أصلًا.
-      وكل تبديل يُسجَّل.
+<body class="customer-shell owner-shell">
+
+<main class="context-page">
+
+    <header class="context-head">
+        <div class="context-brand">
+            <img src="/logo.png" alt="" width="34" height="34" aria-hidden="true">
+            <span>
+                <span class="context-brand-name">مدعوم</span>
+                <span class="context-brand-sub">مالك المنصة</span>
+            </span>
+        </div>
+        <h1 class="context-title">مرحبًا بك في مدعوم</h1>
+        <p class="context-sub">اختر الواجهة التي تريد العمل من خلالها</p>
+    </header>
+
+    <!-- حالات التحميل والخطأ: نفس .state-block المستعمل في كل اللوحات -->
+    <div id="contextState" class="panel">
+        <div class="state-block state-block--compact">
+            <div class="skeleton skeleton-line" style="width:12rem"></div>
+            <p class="state-text">جارٍ قراءة الواجهات المتاحة…</p>
+        </div>
+    </div>
+
+    <div id="contextGrid" class="context-grid" hidden></div>
+
+    <p class="context-note" id="contextNote" hidden>
+        الواجهات أعلاه يحسبها الخادم، لا هذه الصفحة. واختيارك لا يغيّر صلاحية
+        حسابك — يحدّد أي جزء منها يكون ساريًا الآن، ويُسجَّل كل تبديل.
     </p>
-    <div class="identity" id="identity" hidden></div>
-  </header>
 
-  <div id="state" class="state">جارٍ قراءة السياقات من الخادم…</div>
-  <div id="grid" class="grid" hidden></div>
-
-  <p class="note" id="note" hidden>
-    القائمة أعلاه يحسبها الخادم، لا هذه الصفحة. وأي سياق تدخله يظل خاضعًا لفحص
-    مستقل عند كل استعلام، فلا يفتح لك بابًا خارج ما تملكه.
-  </p>
-</div>
+</main>
 
 <script type="module">
-import { loadContexts, enterContext, contextStatus } from '/assets/js/owner/owner-context.js';
+import { loadContexts, enterContext, contextStatus, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
 import { supabase } from '/api-config.js';
 
-const $state = document.getElementById('state');
-const $grid  = document.getElementById('grid');
-const $note  = document.getElementById('note');
-const $id    = document.getElementById('identity');
+const $state = document.getElementById('contextState');
+const $grid  = document.getElementById('contextGrid');
+const $note  = document.getElementById('contextNote');
 
-function fail(msg, withLogin = false) {
-  $state.className = 'state error';
-  $state.innerHTML = withLogin
-    ? `${msg} — <a href="/login.html">تسجيل الدخول</a>`
-    : msg;
-  $state.hidden = false;
-  $grid.hidden = true;
+function showState(title, text, isError) {
+    $state.hidden = false;
+    $grid.hidden = true;
+    $state.innerHTML = `
+        <div class="state-block${isError ? ' state-block--error' : ''}">
+            <p class="state-title"></p>
+            <p class="state-text"></p>
+        </div>`;
+    $state.querySelector('.state-title').textContent = title;
+    $state.querySelector('.state-text').textContent = text;
+}
+
+function icon(name) {
+    const paths = {
+        owner:    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path>',
+        admin:    '<rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect>',
+        company:  '<path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path>',
+        preview:  '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
+        customer: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>'
+    };
+    return `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                 fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.owner}</svg>`;
 }
 
 (async function init() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) {
-    window.location.replace('/login.html');
-    return;
-  }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) { window.location.replace('/login.html'); return; }
 
-  let status;
-  try {
-    status = await contextStatus();
-  } catch (err) {
-    fail('تعذّر التحقق من صلاحيتك: ' + err.message);
-    return;
-  }
+    let status;
+    try {
+        status = await contextStatus();
+    } catch (err) {
+        showState('تعذّر التحقق من صلاحيتك', err.message, true);
+        return;
+    }
 
-  // البوابة الحقيقية في الخادم؛ هذه الرسالة للعرض. غير المالك لا يرى شيئًا
-  // على أي حال لأن available_contexts ترجع له قائمة فارغة.
-  if (!status?.is_platform_owner) {
-    fail('هذه الشاشة مخصّصة لمالك المنصة وحده.');
-    return;
-  }
+    // البوابة الحقيقية في الخادم؛ هذه رسالة عرض. غير المالك يحصل على قائمة
+    // فارغة من available_contexts على أي حال.
+    if (!status?.is_platform_owner) {
+        showState('هذه الشاشة لمالك المنصة وحده',
+                  'حسابك مسجّل دخوله بشكل صحيح، لكن اختيار الواجهات ليس من صفحاته.', true);
+        return;
+    }
 
-  $id.hidden = false;
-  $id.innerHTML = `<span>الهوية الثابتة:</span> <b>platform_owner</b>`;
+    let contexts;
+    try {
+        contexts = await loadContexts();
+    } catch (err) {
+        showState('تعذّر جلب الواجهات', err.message, true);
+        return;
+    }
 
-  let contexts;
-  try {
-    contexts = await loadContexts();
-  } catch (err) {
-    fail('تعذّر جلب السياقات: ' + err.message);
-    return;
-  }
+    if (!contexts.length) {
+        showState('لا واجهات متاحة', 'لم يُرجع الخادم أي واجهة لحسابك.', true);
+        return;
+    }
 
-  if (!contexts.length) {
-    fail('لا سياقات متاحة لحسابك.');
-    return;
-  }
+    $state.hidden = true;
+    $grid.hidden = false;
+    $note.hidden = false;
+    $grid.innerHTML = '';
 
-  $state.hidden = true;
-  $grid.hidden = false;
-  $note.hidden = false;
+    for (const c of contexts) {
+        const p = CONTEXT_PRESENTATION[c.key] || {};
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'context-card';
+        if (c.key === status.active_context) btn.classList.add('is-current');
+        btn.disabled = c.granted !== true;
 
-  for (const c of contexts) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'card';
-    if (c.key === status.active_context) btn.classList.add('is-current');
-    if (c.key === 'company_user_preview') btn.classList.add('is-preview');
-    btn.disabled = c.granted !== true;
+        btn.innerHTML = `
+            <span class="context-card-icon">${icon(p.icon)}</span>
+            <span class="context-card-name"></span>
+            <p class="context-card-desc"></p>
+            <span class="context-card-foot">
+                <span class="context-card-go">
+                    <span data-go></span>
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2"
+                         fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </span>
+                <span class="pill status-neutral" data-tag hidden></span>
+            </span>`;
 
-    const tag = c.key === 'company_user_preview' ? 'قراءة فقط'
-              : c.key === status.active_context  ? 'السياق الحالي'
-              : c.granted === true               ? 'متاح' : 'غير متاح';
+        btn.querySelector('.context-card-name').textContent = p.name || c.label || c.key;
+        btn.querySelector('.context-card-desc').textContent = p.desc || '';
+        btn.querySelector('[data-go]').textContent = c.granted === true ? 'دخول' : 'غير متاح';
 
-    btn.innerHTML = `
-      <span class="tag"></span>
-      <span class="name"></span>
-      <span class="why"></span>`;
-    btn.querySelector('.tag').textContent  = tag;
-    btn.querySelector('.name').textContent = c.label || c.key;
-    btn.querySelector('.why').textContent  = 'مصدر المنح: ' + (c.reason || '—');
+        const tag = btn.querySelector('[data-tag]');
+        if (c.key === status.active_context) {
+            tag.textContent = 'الواجهة الحالية';
+            tag.className = 'pill status-open';
+            tag.hidden = false;
+        } else if (p.readOnly) {
+            tag.textContent = 'قراءة فقط';
+            tag.className = 'pill status-in-progress';
+            tag.hidden = false;
+        }
 
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      try {
-        const res = await enterContext(c.key);
-        window.location.href = res.destination;
-      } catch (err) {
-        btn.disabled = false;
-        alert(err.message);
-      }
-    });
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const res = await enterContext(c.key);
+                window.location.href = res.destination;
+            } catch (err) {
+                btn.disabled = false;
+                showState('تعذّر فتح الواجهة', err.message, true);
+            }
+        });
 
-    $grid.appendChild(btn);
-  }
+        $grid.appendChild(btn);
+    }
 })();
 </script>
 </body>

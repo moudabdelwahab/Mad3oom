@@ -1,0 +1,194 @@
+<!-- ============================================================================
+     قشرة لوحة المالك: شريط علوي + قائمة جانبية.
+
+     الملف **بيانات لا منطق**: كل السلوك (الطي، الدرج، القوائم المنسدلة،
+     البحث، جرس الإشعارات وشارته، الثيم، اللغة، الهوية، الخروج، حالة النظام،
+     تعليم العنصر النشط) يأتي من assets/js/customer-sidebar.js نفسه الذي
+     يخدم بوابة العميل ولوحة الشركة. لم يُكتب هنا سطر سلوك واحد.
+
+     والأنماط: نفس assets/css/customer-dashboard.css — نظام تصميم واحد،
+     وهوية مستوى مختلفة في owner-dashboard.css كما فعلت لوحة الشركة تمامًا.
+
+     قاعدة الأقسام: **لا عنصر بلا وظيفة قائمة**. كل رابط هنا يقود إلى قسم
+     حقيقي في هذه اللوحة أو صفحة إدارة موجودة فعلًا بوحدة JS تخدمها.
+============================================================================ -->
+
+<nav class="admin-nav portal-nav" aria-label="التنقّل العلوي">
+    <div class="nav-container">
+        <div class="nav-right">
+            <button class="menu-toggle" id="menuToggle" aria-label="فتح القائمة الجانبية" aria-expanded="false" aria-controls="sidebar">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+
+            <a class="portal-brand" href="/owner-dashboard.html#overview" aria-label="مدعوم — لوحة المالك">
+                <img src="/logo.png" alt="" class="portal-brand-logo" width="32" height="32" aria-hidden="true">
+                <span class="portal-brand-text">
+                    <span class="portal-brand-name">مدعوم</span>
+                    <span class="portal-brand-context">لوحة المالك</span>
+                </span>
+            </a>
+        </div>
+
+        <div class="nav-left">
+            <div class="portal-search" id="portalSearch" role="search">
+                <svg class="portal-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <label class="visually-hidden" for="globalSearchInput">ابحث في لوحة المالك</label>
+                <input type="search" id="globalSearchInput" class="portal-search-input" autocomplete="off"
+                       placeholder="ابحث في الأقسام…" aria-expanded="false"
+                       aria-controls="globalSearchResults" role="combobox">
+                <kbd class="portal-search-kbd" aria-hidden="true">/</kbd>
+                <button type="button" class="portal-search-close" id="portalSearchClose" aria-label="إغلاق البحث">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                <div id="globalSearchResults" class="portal-search-results" role="listbox" hidden></div>
+            </div>
+
+            <button type="button" class="nav-btn portal-search-trigger" id="portalSearchTrigger" aria-label="فتح البحث">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+
+            <!-- مبدّل السياق: نفس مكوّن القائمة المنسدلة المستخدم للغة والحساب،
+                 لا زر بدائي. يُملأ من الخادم في owner-context.js. -->
+            <div class="portal-menu-wrap">
+                <button class="nav-btn context-switch-btn" id="contextSwitchBtn" aria-haspopup="true" aria-expanded="false" aria-label="تبديل السياق">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                    <span class="context-switch-label" id="contextSwitchLabel">السياق</span>
+                </button>
+                <div class="portal-menu portal-menu-context" id="contextSwitchMenu" role="menu" hidden>
+                    <div class="portal-menu-head">
+                        <span class="portal-menu-name">الواجهة الحالية</span>
+                        <span class="portal-menu-email" id="contextMenuCurrent">—</span>
+                    </div>
+                    <div id="contextMenuList"></div>
+                </div>
+            </div>
+
+            <a class="system-status" id="portalSystemStatus" href="/admin/status-page.html" hidden>
+                <span class="status-dot" id="portalSystemStatusDot"></span>
+                <span id="portalSystemStatusText">جارٍ فحص حالة النظام…</span>
+            </a>
+
+            <button class="nav-btn" id="notificationBtn" aria-label="الإشعارات" title="الإشعارات">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span class="nav-badge" id="notificationBadge" hidden>0</span>
+            </button>
+
+            <button class="nav-btn theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي والنهاري" title="تبديل الوضع الليلي/النهاري">
+                <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+
+            <div class="portal-menu-wrap">
+                <button class="nav-btn" id="languageToggleBtn" aria-label="تغيير اللغة" aria-haspopup="true" aria-expanded="false" title="تغيير اللغة">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                </button>
+                <div class="portal-menu" id="languageMenu" role="menu" hidden>
+                    <button type="button" class="portal-menu-item" id="langArabic" role="menuitem">
+                        <svg class="lang-check" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>العربية</span>
+                    </button>
+                    <button type="button" class="portal-menu-item" id="langEnglish" role="menuitem">
+                        <svg class="lang-check" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>English</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="portal-menu-wrap">
+                <button class="nav-btn nav-avatar-btn" id="customerAvatarBtn" aria-label="قائمة الحساب" aria-haspopup="true" aria-expanded="false">
+                    <span class="avatar-circle" id="customerInitial">M</span>
+                </button>
+                <div class="portal-menu portal-menu-account" id="customerAvatarMenu" role="menu" hidden>
+                    <div class="portal-menu-head">
+                        <span class="portal-menu-name" id="customerMenuName">حسابي</span>
+                        <span class="portal-menu-email" id="customerMenuEmail"></span>
+                        <span class="badge badge-success portal-menu-state" id="customerMenuState" hidden></span>
+                    </div>
+                    <a href="/owner-contexts.html" class="portal-menu-item" role="menuitem">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <span>واجهة اللوحات</span>
+                    </a>
+                    <a href="#" class="portal-menu-item is-danger" id="customerSignOut" role="menuitem">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span>تسجيل الخروج</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<aside class="sidebar" id="sidebar" aria-label="أقسام لوحة المالك">
+    <div class="sidebar-header">
+        <span class="sidebar-title">لوحة المالك</span>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="إغلاق القائمة">&times;</button>
+        <button type="button" id="sidebarCollapseBtn" aria-label="طي القائمة الجانبية" aria-expanded="true" title="طي القائمة">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+    </div>
+
+    <nav class="sidebar-menu" aria-label="أقسام لوحة المالك">
+        <div class="sidebar-group-label">المنصة</div>
+        <a href="/owner-dashboard.html#overview" class="sidebar-item" data-tab="overview" data-label="نظرة عامة">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+            <span>نظرة عامة</span>
+        </a>
+        <a href="/admin/stats.html" class="sidebar-item" data-label="الإحصائيات">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+            <span>الإحصائيات</span>
+        </a>
+
+        <div class="sidebar-group-label">سلطة المنصة</div>
+        <!-- القسمان التاليان owner-only بنيويًا: مصدرهما platform_authority و
+             owner_context_audit، ولا يقرأهما أدمن عادي. -->
+        <a href="/owner-dashboard.html#authority" class="sidebar-item" data-tab="authority" data-label="السلطة والمنح">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+            <span>السلطة والمنح</span>
+        </a>
+        <a href="/owner-dashboard.html#audit" class="sidebar-item" data-tab="audit" data-label="سجل السياق">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <span>سجل السياق</span>
+        </a>
+
+        <div class="sidebar-group-label">الإدارة</div>
+        <a href="/admin/users.html" class="sidebar-item" data-label="المستخدمون">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>المستخدمون</span>
+        </a>
+        <a href="/admin/tickets.html" class="sidebar-item" data-label="التذاكر">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span>التذاكر</span>
+        </a>
+        <a href="/admin/subscriptions.html" class="sidebar-item" data-label="الاشتراكات">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+            <span>الاشتراكات</span>
+        </a>
+        <a href="/admin/activity-log.html" class="sidebar-item" data-label="سجل النشاط">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>سجل النشاط</span>
+        </a>
+
+        <div class="sidebar-group-label">التشغيل</div>
+        <a href="/admin/mcp.html" class="sidebar-item" data-label="التكاملات">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            <span>التكاملات</span>
+        </a>
+        <a href="/admin/settings.html" class="sidebar-item" data-label="الإعدادات">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>الإعدادات</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="/owner-contexts.html" class="sidebar-item" data-label="واجهة اللوحات">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>واجهة اللوحات</span>
+        </a>
+        <a href="#" class="sidebar-item is-danger" id="sidebarSignOut" data-label="تسجيل الخروج">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span>تسجيل الخروج</span>
+        </a>
+    </div>
+</aside>
