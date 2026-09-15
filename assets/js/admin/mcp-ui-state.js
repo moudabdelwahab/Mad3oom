@@ -1,0 +1,163 @@
+/**
+ * mcp-ui-state.js — منطق الحالة والأخطاء لواجهة تكاملات MCP.
+ * ------------------------------------------------------------
+ * مفصول عن mcp-integrations.js عمدًا: هذا الملف بلا أي استيراد، فيمكن
+ * اختباره في Node مباشرة. الوحدة الأخرى تستورد supabase عبر mcp-service.js
+ * ولا تعمل خارج المتصفح.
+ *
+ * ملاحظة على القيم النصّية أدناه ('connected' / 'error'): هي نفس قيم
+ * MCP_STATUSES في mcp-service.js، وهي قيم عمود status في
+ * mcp_server_connections. نكرّرها هنا نصًّا لإبقاء الملف بلا تبعيات؛
+ * أي تغيير في تلك القيم لا بد أن ينعكس هنا.
+ */
+
+const DB_CONNECTED = 'connected';
+const DB_ERROR = 'error';
+
+/* ══════════════════ حالات العرض ══════════════════ */
+
+/**
+ * الحالات المخزّنة في mcp_server_connections.status أربع فقط:
+ * connected / disconnected / error / pending.
+ *
+ * الحالتان المطلوبتان في التصميم — connecting و authorization_required —
+ * غير مخزَّنتين، ولا نضيف عمودًا لأجلهما (لا migration في هذه المرحلة).
+ * فتُشتقّان للعرض فقط:
+ *   connecting            → حالة عابرة في الواجهة أثناء عملية جارية
+ *   authorization_required → يُستنتج من غياب توكن OAuth أو من نص الخطأ
+ *
+ * هذا اشتقاق عرض لا ادّعاء تخزين — لا شيء يُكتب في القاعدة.
+ */
+export const UI_STATES = {
+    CONNECTED: 'connected',
+    CONNECTING: 'connecting',
+    AUTH_REQUIRED: 'auth_required',
+    ERROR: 'error',
+    DISCONNECTED: 'disconnected',
+};
+
+export const STATE_LABEL = {
+    connected: 'متصل',
+    connecting: 'جارٍ الربط',
+    auth_required: 'يحتاج تفويض',
+    error: 'فشل الاتصال',
+    disconnected: 'غير متصل',
+};
+
+/** أنماط تدلّ على أن المشكلة تفويض لا عطل عام. */
+const AUTH_ERROR_PATTERNS = [
+    /\b401\b/, /\b403\b/, /unauthor/i, /forbidden/i, /invalid[_\s-]?token/i,
+    /expired/i, /توكن/, /تفويض/, /صلاحية/, /المصادقة/,
+];
+
+function looksLikeAuthProblem(message) {
+    if (!message) return false;
+    return AUTH_ERROR_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * يشتقّ حالة العرض من صف الاتصال كما تعيده fetchServers().
+ * @param {object|null} server
+ * @returns {string} إحدى قيم UI_STATES
+ */
+export function deriveUiState(server) {
+    if (!server || !server.connection_id) return UI_STATES.DISCONNECTED;
+
+    if (server.status === DB_CONNECTED) return UI_STATES.CONNECTED;
+
+    // اتصال OAuth أُنشئ ولم يكتمل تفويضه بعد: لا توكن ⇒ ينقصه تفويض،
+    // لا «خطأ». التمييز مهم لأن الإجراء المطلوب مختلف تمامًا.
+    const isOauth = server.auth_type === 'oauth2';
+    const hasToken = Boolean(server.oauth_token_expires_at);
+
+    if (server.status === DB_ERROR) {
+        if (isOauth && (!hasToken || looksLikeAuthProblem(server.last_error))) return UI_STATES.AUTH_REQUIRED;
+        if (looksLikeAuthProblem(server.last_error)) return UI_STATES.AUTH_REQUIRED;
+        return UI_STATES.ERROR;
+    }
+
+    if (isOauth && !hasToken) return UI_STATES.AUTH_REQUIRED;
+    return UI_STATES.DISCONNECTED;
+}
+
+/* ══════════════════ ترجمة الأخطاء ══════════════════ */
+
+/**
+ * يحوّل رسالة تقنية إلى شيء يفهمه المستخدم ويعرف ما يفعله حياله.
+ * الرسالة الأصلية لا تُفقد أبدًا — تُعاد في `detail` وتُعرض تحت
+ * «عرض التفاصيل التقنية».
+ *
+ * @param {string} raw
+ * @returns {{title:string, message:string, action:string, detail:string}}
+ */
+export function explainError(raw) {
+    const text = String(raw || '').trim();
+    const detail = text || 'لا توجد تفاصيل إضافية.';
+
+    const rules = [
+        {
+            when: /\b401\b|unauthor|invalid[_\s-]?token|توكن غير|المصادقة مرفوضة/i,
+            title: 'التفويض لم يُقبل',
+            message: 'الخدمة رفضت بيانات الدخول المحفوظة. غالبًا انتهت صلاحيتها أو أُلغيت من جهة الخدمة.',
+            action: 'إعادة الربط',
+        },
+        {
+            when: /\b403\b|forbidden|الوصول مرفوض/i,
+            title: 'الصلاحيات غير كافية',
+            message: 'الحساب مربوط لكنه لا يملك صلاحية تنفيذ هذه العملية على الخدمة.',
+            action: 'إعادة الربط بصلاحيات أوسع',
+        },
+        {
+            when: /\b404\b|not found|غير موجود/i,
+            title: 'العنوان غير صحيح',
+            message: 'لم نجد نقطة نهاية MCP على هذا الرابط. تأكد أنه الرابط الذي توفّره الخدمة للاتصال.',
+            action: 'مراجعة الرابط',
+        },
+        {
+            when: /\b405\b|only post|يحوّل الطلب/i,
+            title: 'الرابط لا يستقبل هذا النوع من الطلبات',
+            message: 'العنوان المُدخل على الأرجح ليس نقطة نهاية MCP، أو أنه يحوّل الطلب إلى عنوان آخر.',
+            action: 'مراجعة الرابط',
+        },
+        {
+            when: /\b406\b/,
+            title: 'الخدمة رفضت صيغة الرد',
+            message: 'حدث تعارض في التفاوض على صيغة الرد مع الخدمة.',
+            action: 'إعادة المحاولة',
+        },
+        {
+            when: /\b429\b|rate limit|حد الطلبات/i,
+            title: 'تم تجاوز حد الطلبات',
+            message: 'الخدمة تستقبل طلبات أكثر مما تسمح به حاليًا.',
+            action: 'إعادة المحاولة بعد قليل',
+        },
+        {
+            when: /timeout|مهلة|abort/i,
+            title: 'الخدمة لم تستجب',
+            message: 'انتهت المهلة قبل أن يصل رد. قد تكون الخدمة متوقفة مؤقتًا أو بطيئة.',
+            action: 'إعادة المحاولة',
+        },
+        {
+            when: /\b5\d\d\b|internal error|خطأ داخلي/i,
+            title: 'عطل لدى الخدمة',
+            message: 'المشكلة من جهة الخدمة نفسها لا من إعدادك.',
+            action: 'إعادة المحاولة لاحقًا',
+        },
+        {
+            when: /access token|لا يوجد OAuth|أعد ربط الخادم عبر OAuth/i,
+            title: 'الربط لم يكتمل',
+            message: 'لم يصلنا تفويض من الخدمة بعد. أكمل تسجيل الدخول والموافقة.',
+            action: 'إكمال الربط',
+        },
+    ];
+
+    const hit = rules.find((r) => r.when.test(text));
+    if (hit) return { title: hit.title, message: hit.message, action: hit.action, detail };
+
+    return {
+        title: 'تعذّر الاتصال بالخدمة',
+        message: 'لم ينجح الاتصال. التفاصيل التقنية بالأسفل تساعد فريق الدعم على تحديد السبب.',
+        action: 'إعادة المحاولة',
+        detail,
+    };
+}
