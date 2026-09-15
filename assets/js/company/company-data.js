@@ -130,6 +130,11 @@ export async function fetchCompanyMembers() {
  * بوابة الصلاحية قبل النداء: نعيد قراءة can_manage من company_members()
  * (دالة SECURITY DEFINER في القاعدة) في نفس اللحظة. الغرض إن مصدر القرار
  * يكون الخادم وقت الإرسال، لا حالة محفوظة في الصفحة ولا زر ظاهر في الشاشة.
+ *
+ * والخادم يفحص بنفسه أيضًا: الدالة تنادي sub_user_create_context() (الترحيل
+ * 037) فتقرّر القاعدة المسار — مدير الشركة يُنشئ عضوًا تابعًا، وطاقم المنصة
+ * يُنشئ حسابًا مستقلًا من لوحة الإدارة. فالبوابة هنا توفّر رحلة فاشلة،
+ * والحاجز الفعلي على الخادم.
  */
 export async function createCompanyMember({ fullName, email, password }) {
     const permission = await fetchCompanyMembers();
@@ -196,9 +201,9 @@ async function readFunctionError(error, fallback = 'تعذّر تنفيذ الط
  * من القاعدة في نفس اللحظة — نفس نمط createCompanyMember. القرار من الخادم
  * لا من حالة محفوظة في الصفحة ولا من زر ظاهر.
  *
- * حدّ معروف يخصّ الخادم لا هذه الطبقة: create-api-token لا تفحص هذا
- * الاستحقاق ولا رتبة المنادي، فالبوابة هنا **منتَجية لا أمنية**. موضع
- * الإصلاح الصحيح داخل الدالة نفسها، وهو خارج نطاق تغييرات الواجهة.
+ * والخادم يفحص الآن نفس الشرط بنفسه: create-api-token (v26) تنادي
+ * api_token_issue_context() فترفض من لا يستحق بـ403، وترفض أي صلاحية خارج
+ * سقف حسابه. فالبوابة هنا توفّر رحلة فاشلة، والحاجز الفعلي على الخادم.
  */
 export async function createCompanyApiToken(payload) {
     const entitled = await checkCompanyFeature('api_tokens');
