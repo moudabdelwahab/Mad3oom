@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: "Invalid JSON body" }, 400);
   }
-  const { action, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method } = body;
+  const { action, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method, granted_scopes } = body;
 
   if (!client_id || !redirect_uri) return json({ error: "بيانات ناقصة" }, 400);
 
@@ -75,8 +75,18 @@ Deno.serve(async (req: Request) => {
   const requestedScopes = (scope || "").split(/\s+/).filter(Boolean);
   const validScopes = requestedScopes.filter((s: string) => ALLOWED_SCOPES.includes(s));
 
+  // الصلاحيات المرتفعة: تُعرض ولا تُمنَح بالافتراضي. شاشة الموافقة تتركها
+  // بلا تحديد، فمنحها يحتاج نقرة صريحة من المستخدم لا مجرد ضغط «موافقة».
+  const PRIVILEGED = ["admin:full", "settings:manage", "oauth:manage"];
+
   if (action === "info") {
-    return json({ client_name: client.client_name, scopes: validScopes });
+    return json({
+      client_name: client.client_name,
+      scopes: validScopes,
+      privileged_scopes: validScopes.filter((s: string) => PRIVILEGED.includes(s)),
+      // الافتراضي المقترح على الواجهة: كل ما طُلب عدا المرتفع.
+      default_scopes: validScopes.filter((s: string) => !PRIVILEGED.includes(s)),
+    });
   }
 
   if (action === "deny") {
@@ -90,6 +100,27 @@ Deno.serve(async (req: Request) => {
     if (!code_challenge) return json({ error: "code_challenge مطلوب" }, 400);
     if (!validScopes.length) return json({ error: "invalid_scope" }, 400);
 
+    // ── ما يُمنَح فعلًا ───────────────────────────────────────────────
+    // المستخدم يختار من شاشة الموافقة، والخادم **يتقاطع** اختياره مع ما
+    // طلبه التطبيق أصلًا. اتجاه واحد فقط: التضييق. لا يمكن لاختيار قادم
+    // من المتصفح أن يضيف صلاحية لم يطلبها التطبيق أو ليست في
+    // ALLOWED_SCOPES، مهما كان محتوى الطلب — لأن المصدر هو validScopes
+    // لا granted_scopes، والأخير مُرشِّح لا مصدر.
+    //
+    // غياب granted_scopes يعني «امنح كل ما طُلب»، حفاظًا على سلوك أي
+    // نسخة مخزَّنة من صفحة الموافقة لا تعرف هذا الحقل بعد. النسخة
+    // الحالية ترسله دائمًا.
+    let grantedScopes = validScopes;
+    if (Array.isArray(granted_scopes)) {
+      const picked = new Set(
+        granted_scopes.filter((s: unknown): s is string => typeof s === "string"),
+      );
+      grantedScopes = validScopes.filter((s: string) => picked.has(s));
+    }
+    if (!grantedScopes.length) {
+      return json({ error: "لم تُحدَّد أي صلاحية - اختر صلاحية واحدة على الأقل أو ارفض الطلب" }, 400);
+    }
+
     const code = `mad3oom_ac_${randomBase62(48)}`;
     const codeHash = await sha256Hex(code);
 
@@ -98,7 +129,7 @@ Deno.serve(async (req: Request) => {
       client_id,
       user_id: userId,
       redirect_uri,
-      scope: validScopes.join(" "),
+      scope: grantedScopes.join(" "),
       code_challenge,
       code_challenge_method: code_challenge_method || "S256",
       expires_at: new Date(Date.now() + 60_000).toISOString(),

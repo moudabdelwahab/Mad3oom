@@ -77,12 +77,34 @@
     }
     .oc-list { list-style: none; margin: 0; padding: 0; }
     .oc-item {
-      display: flex; align-items: flex-start; gap: .5rem;
-      padding: .3rem 0; font-size: .85rem; line-height: 1.55;
+      display: flex; align-items: flex-start; gap: .55rem;
+      padding: .32rem 0; font-size: .85rem; line-height: 1.55;
+      cursor: pointer;
     }
-    .oc-item svg { flex: 0 0 auto; margin-top: .28rem; color: var(--color-success, #2E8A3A); }
-    .oc-item.danger svg { color: var(--color-danger, #D9534F); }
+    .oc-item input {
+      flex: 0 0 auto; margin: .22rem 0 0; width: 1rem; height: 1rem;
+      accent-color: var(--color-accent, #0077CC); cursor: pointer;
+    }
+    .oc-item.danger input { accent-color: var(--color-danger, #D9534F); }
     .oc-item.danger { font-weight: 600; }
+    .oc-item svg { flex: 0 0 auto; margin-top: .28rem; color: var(--color-danger, #D9534F); }
+    /* صلاحية غير محدَّدة تبهت، ليُرى بالنظرة ما سيُمنَح وما لن يُمنَح. */
+    .oc-item:has(input:not(:checked)) { opacity: .5; }
+
+    .oc-bulk {
+      display: flex; gap: .5rem; align-items: center;
+      margin: 0 0 .7rem; font-size: .78rem;
+    }
+    .oc-bulk button {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: var(--color-accent, #0077CC); font-family: inherit;
+      font-size: .78rem; font-weight: 600; text-decoration: underline;
+    }
+    .oc-bulk span { color: var(--color-border, #ddd); }
+    .oc-count {
+      margin-inline-start: auto; color: var(--color-text-secondary, #777);
+      font-weight: 600; text-decoration: none;
+    }
     /* مفتاح تقني لا نعرف له اسمًا عربيًا — يُعرض كما هو، لا يُخفى. */
     .oc-item code {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -99,6 +121,13 @@
     .oc-note {
       font-size: .78rem; color: var(--color-text-secondary, #777);
       margin: 0 0 .85rem; line-height: 1.6;
+    }
+    .oc-err {
+      margin: 0 0 .7rem; padding: .6rem .75rem; border-radius: .5rem;
+      background: rgba(217, 83, 79, .1);
+      border: 1px solid var(--color-danger, #D9534F);
+      color: var(--color-danger, #D9534F);
+      font-size: .8rem; line-height: 1.55;
     }
     .oc-actions { display: flex; gap: .7rem; }
     .oc-actions button {
@@ -173,11 +202,16 @@
       throw new Error('missing params');
     }
 
-    async function callApprove(action) {
-      const { data, error } = await supabase.functions.invoke('oauth-authorize-approve', { body: { ...payload, action } });
+    async function callApprove(action, extra = {}) {
+      const { data, error } = await supabase.functions.invoke('oauth-authorize-approve', { body: { ...payload, action, ...extra } });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       return data;
+    }
+
+    /** الصلاحيات المحدَّدة الآن. الخادم يتقاطعها مع ما طلبه التطبيق فعلًا. */
+    function selectedScopes() {
+      return [...document.querySelectorAll('.oc-cb:checked')].map((cb) => cb.value);
     }
 
     /**
@@ -186,7 +220,7 @@
      * لا يُحذف أي مفتاح: ما لا نعرف له اسمًا عربيًا يظهر بمفتاحه التقني
      * تحت «صلاحيات أخرى». شاشة موافقة تُخفي ما تمنحه هي شاشة تكذب.
      */
-    function renderScopes(scopes) {
+    function renderScopes(scopes, defaultChecked) {
       const groups = new Map();
       let unknownCount = 0;
 
@@ -211,7 +245,10 @@
           <ul class="oc-list">
             ${items.map((d) => `
               <li class="oc-item${d.danger ? ' danger' : ''}">
-                ${d.danger ? ICON_WARN : ICON_OK}
+                <input type="checkbox" class="oc-cb" value="${esc(d.key)}"
+                       ${defaultChecked.has(d.key) ? 'checked' : ''}
+                       aria-label="${esc(d.known ? d.label : d.key)}">
+                ${d.danger ? ICON_WARN : ''}
                 <span>${d.known ? esc(d.label) : `<code>${esc(d.key)}</code>`}</span>
               </li>`).join('')}
           </ul>
@@ -233,7 +270,16 @@
       const info = await callApprove('info');
 
       const scopes = Array.isArray(info.scopes) ? info.scopes : [];
-      const { html: scopesHtml, unknownCount, privileged } = renderScopes(scopes);
+
+      // الافتراضي: كل ما طُلب **عدا** المرتفع. الخادم يرسل default_scopes؛
+      // ولو كان منشورًا بنسخة أقدم لا ترسله، نشتقّه هنا بنفس القاعدة بدل
+      // أن نرجع صامتين إلى «حدِّد كل شيء».
+      const defaultChecked = new Set(
+        Array.isArray(info.default_scopes)
+          ? info.default_scopes
+          : scopes.filter((s) => !describeScope(s).privileged),
+      );
+      const { html: scopesHtml, unknownCount, privileged } = renderScopes(scopes, defaultChecked);
       const appName = info.client_name || 'تطبيق غير مُسمّى';
       const initial = esc(appName.trim().charAt(0).toUpperCase() || '?');
 
@@ -264,12 +310,20 @@
 
           ${warnHtml}
 
-          <p class="oc-sec">سيتمكّن التطبيق من:</p>
+          <p class="oc-sec">اختر ما تمنحه للتطبيق:</p>
+          ${scopes.length ? `
+            <div class="oc-bulk">
+              <button type="button" id="selAll">تحديد الكل</button>
+              <span>|</span>
+              <button type="button" id="selNone">إلغاء الكل</button>
+              <span class="oc-count" id="selCount"></span>
+            </div>` : ''}
           ${scopesHtml || '<p class="oc-raw-note">لم يطلب التطبيق أي صلاحية.</p>'}
           ${unknownCount ? '<p class="oc-raw-note">الصلاحيات المعروضة بمفتاحها التقني ليس لها وصف بالعربي بعد — وهي تُمنَح فعلًا عند الموافقة.</p>' : ''}
         </div>
 
         <div class="oc-foot">
+          <p class="oc-err" id="ocErr" hidden></p>
           <p class="oc-note">يمكنك سحب هذا الربط في أي وقت من إعدادات حسابك. الرفض يعيدك إلى التطبيق بلا منح أي صلاحية.</p>
           <div class="oc-actions">
             <button class="oc-deny" id="denyBtn" type="button">رفض</button>
@@ -279,31 +333,67 @@
 
       const approveBtn = document.getElementById('approveBtn');
       const denyBtn = document.getElementById('denyBtn');
+      const countEl = document.getElementById('selCount');
+      const errEl = document.getElementById('ocErr');
+
+      function showInlineError(msg) {
+        if (!errEl) return;
+        errEl.textContent = msg;
+        errEl.hidden = false;
+      }
+
+      // العدّاد وحالة زر الموافقة يتبعان التحديد: منح صفر صلاحية ليس
+      // موافقة، والخادم يرفضه أصلًا — فالأوضح ألا يكون الزر قابلًا للضغط.
+      function syncSelection() {
+        const n = selectedScopes().length;
+        if (countEl) countEl.textContent = `${n} من ${scopes.length}`;
+        approveBtn.disabled = n === 0;
+        approveBtn.title = n === 0 ? 'اختر صلاحية واحدة على الأقل' : '';
+      }
+
+      document.querySelectorAll('.oc-cb').forEach((cb) => cb.addEventListener('change', syncSelection));
+      document.getElementById('selAll')?.addEventListener('click', () => {
+        document.querySelectorAll('.oc-cb').forEach((cb) => { cb.checked = true; });
+        syncSelection();
+      });
+      document.getElementById('selNone')?.addEventListener('click', () => {
+        document.querySelectorAll('.oc-cb').forEach((cb) => { cb.checked = false; });
+        syncSelection();
+      });
+      syncSelection();
 
       approveBtn.onclick = async () => {
+        const granted = selectedScopes();
+        if (!granted.length) return;
+        if (errEl) errEl.hidden = true;
         approveBtn.disabled = true; denyBtn.disabled = true;
         approveBtn.textContent = 'جاري التحويل…';
         try {
-          const res = await callApprove('approve');
+          const res = await callApprove('approve', { granted_scopes: granted });
           window.location.href = res.redirect_to;
         } catch (err) {
           // إعادة تمكين الأزرار: زر معطّل بلا رسالة يترك المستخدم عالقًا.
-          approveBtn.disabled = false; denyBtn.disabled = false;
+          // الخطأ يُعرَض داخل البطاقة لا بدلها: استبدال الصفحة كان يترك
+          // المستخدم أمام رسالة بلا أي طريق للمحاولة ثانية أو للرفض.
+          denyBtn.disabled = false;
           approveBtn.textContent = 'موافقة والمتابعة';
-          showState(esc(err.message || 'تعذّر إتمام الموافقة.'), true);
+          syncSelection();
+          showInlineError(err.message || 'تعذّر إتمام الموافقة.');
         }
       };
 
       denyBtn.onclick = async () => {
+        if (errEl) errEl.hidden = true;
         approveBtn.disabled = true; denyBtn.disabled = true;
         denyBtn.textContent = 'جاري الرفض…';
         try {
           const res = await callApprove('deny');
           window.location.href = res.redirect_to;
         } catch (err) {
-          approveBtn.disabled = false; denyBtn.disabled = false;
+          denyBtn.disabled = false;
           denyBtn.textContent = 'رفض';
-          showState(esc(err.message || 'تعذّر إتمام الرفض.'), true);
+          syncSelection();
+          showInlineError(err.message || 'تعذّر إتمام الرفض.');
         }
       };
     }
