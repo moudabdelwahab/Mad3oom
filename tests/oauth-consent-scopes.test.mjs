@@ -23,6 +23,15 @@ import {
     decideGrantedScopes, defaultScopesFor, isPrivileged, PRIVILEGED_SCOPES,
 } from '../supabase/functions/oauth-authorize-approve/_shared/scope-grant.js';
 
+/** يُسقط تعليقات السطر والكتلة، ليُفحص الكود لا شرحه. */
+const codeOnly = (src) => src
+    .split('\n')
+    .filter((l) => {
+        const t = l.trim();
+        return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*');
+    })
+    .join('\n');
+
 const ROOT = path.resolve(import.meta.dirname, '..');
 const APPROVE = readFileSync(
     path.join(ROOT, 'supabase/functions/oauth-authorize-approve/index.ts'), 'utf8');
@@ -166,4 +175,70 @@ test('index.ts يستدعي decideGrantedScopes ولا يحتفظ بمسار ب�
 test('الواجهة ترسل granted_scopes دائمًا', () => {
     assert.match(CONSENT, /granted_scopes: granted/);
     assert.match(CONSENT, /\.oc-cb:checked/);
+});
+
+/* ══════════ 6. نسخة oauth-connected-apps لا تفترق ══════════ */
+
+test('نسختا scope-grant.js متطابقتان بايتيًا', () => {
+    // نفس القاعدة تحكم المنح (شاشة الموافقة) والتعديل (التطبيقات المتصلة).
+    // نسختان تفترقان تعني ثغرة في إحداهما لا تظهر في اختبارات الأخرى.
+    // Edge Functions تحزم ملفاتها منفصلة، فالنسخ مفروض — والتطابق يُحرَس.
+    const a = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-authorize-approve/_shared/scope-grant.js'), 'utf8');
+    const b = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-connected-apps/_shared/scope-grant.js'), 'utf8');
+    assert.equal(a, b, 'النسختان اختلفتا — وحّدهما قبل النشر');
+});
+
+test('oauth-connected-apps يضيّق من صلاحيات التوكن الحالية لا من المُرسَل', () => {
+    const src = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-connected-apps/index.ts'), 'utf8');
+    assert.match(src, /decideGrantedScopes\(current, body\?\.scopes\)/,
+        'المصدر يجب أن يكون صلاحيات التوكن الحالية');
+    // التجديد يشتقّ الصلاحيات من oauth_refresh_tokens.scope لا من
+    // api_tokens.scopes، فتحديث الأول وحده كان سيُلغى خلال ساعة.
+    assert.match(src, /from\("oauth_refresh_tokens"\)\.update\(\{ scope: next\.join\(" "\) \}\)/,
+        'يجب تحديث صفّ التجديد أيضًا، وبنصّ مفصول بمسافات لا مصفوفة');
+    assert.match(src, /from\("api_tokens"\)\.update\(\{ scopes: next \}\)/);
+});
+
+test('الفصل يُلغي صفوف التجديد لا التوكن وحده', () => {
+    const src = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-connected-apps/index.ts'), 'utf8');
+    const revoke = src.slice(src.indexOf('action === "revoke"'));
+    assert.match(revoke, /oauth_refresh_tokens"\)\.update\(\{ revoked_at/,
+        'بدون إلغاء صفّ التجديد يستطيع التطبيق سكّ توكن جديد فورًا');
+    assert.match(revoke, /api_tokens"\)\n?\s*\.update\(\{ is_active: false, revoked_at/);
+});
+
+test('كل عملية تتحقق من الملكية قبل التعديل', () => {
+    const src = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-connected-apps/index.ts'), 'utf8');
+    assert.match(src, /token\.user_id !== userId/,
+        'الملكية تُفحص على الصفّ المقروء لا على ما أرسله المتصفح');
+    for (const act of ['update_scopes', 'set_expiry', 'revoke']) {
+        const i = src.indexOf(`action === "${act}"`);
+        assert.ok(i > 0, `${act} غير موجود`);
+        assert.match(src.slice(i, i + 400), /loadOwnedConnection/,
+            `${act} يجب أن يمرّ بفحص الملكية`);
+    }
+});
+
+test('لا يُرجَع أي hash إلى المتصفح', () => {
+    const src = readFileSync(path.join(ROOT,
+        'supabase/functions/oauth-connected-apps/index.ts'), 'utf8');
+    // التعليقات تسمّي select("*") والـhashes عمدًا لتشرح سبب القائمة
+    // البيضاء، ففحص النصّ الخام كان يسقط على شرح القاعدة لا على خرقها.
+    assert.doesNotMatch(codeOnly(src), /select\("\*"\)/, 'قائمة بيضاء صريحة لا select("*")');
+
+    // الفحص على قائمة الحقول نفسها لا على نصّ الملف: التعليقات تسمّي الـ
+    // hashes عمدًا لتشرح سبب القائمة البيضاء، وفحص النصّ كان سيسقط عليها.
+    const m = src.match(/const TOKEN_FIELDS = "([^"]+)"/);
+    assert.ok(m, 'TOKEN_FIELDS غير موجود');
+    const fields = m[1].split(',').map((f) => f.trim());
+    for (const banned of ['secret_hash', 'bearer_token_hash', 'api_key', 'secret_last_four', 'bearer_last_four']) {
+        assert.ok(!fields.includes(banned), `${banned} يجب ألا يخرج للمتصفح`);
+    }
+    assert.ok(fields.includes('scopes') && fields.includes('user_id'),
+        'الحقول اللازمة للعرض وفحص الملكية يجب أن تكون موجودة');
 });

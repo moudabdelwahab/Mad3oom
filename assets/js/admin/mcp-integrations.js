@@ -99,11 +99,13 @@ const busy = new Set();
 
 /* ══════════════════ النافذة المنبثقة ══════════════════ */
 
-function closeModal() {
+/* تُصدَّر ليعيد استخدامها mcp-connected-apps.js: نافذة واحدة بمظهر واحد
+ * في الصفحة، بدل نسخة ثانية تفترق عنها في التفاصيل. */
+export function closeModal() {
     document.getElementById('miLayer')?.remove();
 }
 
-function openModal(html) {
+export function openModal(html) {
     closeModal();
     const layer = document.createElement('div');
     layer.id = 'miLayer';
@@ -117,7 +119,7 @@ function openModal(html) {
 
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-function toast(msg, type) {
+export function toast(msg, type) {
     if (typeof window.mcpToast === 'function') return window.mcpToast(msg, type);
     console[type === 'error' ? 'error' : 'log']('[MCP]', msg);
 }

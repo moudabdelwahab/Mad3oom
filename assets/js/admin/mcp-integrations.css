@@ -353,3 +353,133 @@
     .mi-sum.warn { border-color: #a16207; }
     .mi-sum.warn .mi-sum-n { color: #fbbf24; }
 }
+
+/* ══════════════ التطبيقات المتصلة (مدعوم كخادم) ══════════════ */
+/* الاتجاه معاكس لبقية القسم، فله بادئة مستقلّة ca- لا تختلط بـmi-. */
+
+.ca-list { display: grid; gap: 0.7rem; }
+
+.ca-card {
+    border: 1px solid var(--color-border, #ddd); border-radius: 12px;
+    background: var(--color-surface, #fff); padding: 0.95rem 1rem;
+}
+/* الاتصال الذي يحمل صلاحية مرتفعة يُميَّز بحافّة، فلا يتساوى بصريًا مع غيره. */
+.ca-card.has-priv { border-inline-start: 3px solid var(--color-warning, #E0A800); }
+
+.ca-top { display: flex; align-items: center; gap: 0.7rem; }
+.ca-logo {
+    width: 2.4rem; height: 2.4rem; flex: 0 0 auto; border-radius: 0.6rem;
+    background: var(--color-primary, #003366); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1rem;
+}
+.ca-id { min-width: 0; flex: 1; }
+.ca-name { font-weight: 700; font-size: 0.95rem; color: var(--color-text, #333); }
+.ca-sub {
+    font-size: 0.76rem; color: var(--color-text-secondary, #777); margin-top: 0.1rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ca-live {
+    flex: 0 0 auto; font-size: 0.72rem; font-weight: 700;
+    color: var(--color-success, #2E8A3A);
+    background: rgba(46, 138, 58, 0.1); padding: 0.2rem 0.5rem; border-radius: 999px;
+}
+
+.ca-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.7rem 0 0.8rem; }
+/* .mi-tag نصّ عارٍ في شبكة التكاملات (يجاور حبّة الحالة هناك). داخل بطاقة
+   التطبيق المتصل يجاور حبّة تحذير، فبقاؤه عاريًا كان يجعل الصفّ يبدو
+   غير مكتمل. التنسيق محصور في .ca-meta فلا يمسّ الشبكة الأخرى. */
+.ca-meta .mi-tag {
+    padding: 0.15rem 0.5rem; border-radius: 999px;
+    background: var(--color-muted, #eee);
+    border: 1px solid var(--color-border, #ddd);
+    font-weight: 600;
+}
+.ca-tag-warn {
+    font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px;
+    color: #b45309; background: rgba(224, 168, 0, 0.14);
+    border: 1px solid var(--color-warning, #E0A800);
+}
+
+.ca-acts { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+
+.ca-note {
+    font-size: 0.79rem; line-height: 1.65; padding: 0.7rem 0.8rem; border-radius: 0.6rem;
+    background: var(--color-muted, #eee); color: var(--color-text-secondary, #666);
+    margin-bottom: 0.9rem;
+}
+.ca-warn {
+    font-size: 0.85rem; line-height: 1.7; padding: 0.85rem 0.9rem; border-radius: 0.6rem;
+    background: rgba(217, 83, 79, 0.08);
+    border: 1px solid var(--color-danger, #D9534F);
+    color: var(--color-text, #333);
+}
+
+.ca-presets { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.ca-preset {
+    flex: 1 1 auto; min-width: 6rem; padding: 0.6rem 0.7rem; cursor: pointer;
+    border: 1px solid var(--color-border, #ddd); border-radius: 0.55rem;
+    background: var(--color-surface, #fff); color: var(--color-text, #333);
+    font-family: inherit; font-size: 0.83rem; font-weight: 600;
+    transition: border-color 0.15s, background 0.15s;
+}
+.ca-preset:hover:not(:disabled) {
+    border-color: var(--color-accent, #0077CC); background: var(--color-muted, #eee);
+}
+.ca-preset:disabled { opacity: 0.55; cursor: progress; }
+
+.mi-btn.danger-solid { background: var(--color-danger, #D9534F); color: #fff; border-color: transparent; }
+.mi-btn.danger-solid:hover:not(:disabled) { filter: brightness(0.93); }
+
+@media (prefers-color-scheme: dark) {
+    .ca-card { border-color: #2a2a2a; background: #161616; }
+    .ca-name { color: #ededed; }
+    .ca-note { background: #1e1e1e; }
+    .ca-preset { background: #161616; border-color: #2a2a2a; color: #ededed; }
+    .ca-preset:hover:not(:disabled) { background: #1e1e1e; }
+}
+
+/* لوحة صلاحيات التطبيق المتصل.
+   هذه القواعد مكرَّرة بصريًا مع نظيراتها في admin/oauth-consent.html عن
+   قصد: تلك الصفحة قائمة بذاتها ولا تُحمّل هذا الملف. النسخة الأولى من
+   هذه الوحدة استعارت أصناف .oc-* المعرَّفة داخل تلك الصفحة وحدها،
+   فظهرت اللوحة بلا تنسيق هنا — بنقاط قائمة ظاهرة وبلا تمييز للخطر. */
+.ca-sec {
+    margin: 0 0 .5rem; font-size: .78rem; font-weight: 700;
+    color: var(--color-text-secondary, #777);
+}
+.ca-group { margin-bottom: .9rem; }
+.ca-group-t {
+    font-size: .82rem; font-weight: 700; margin-bottom: .35rem;
+    color: var(--color-primary, #003366);
+}
+.ca-list-scopes { list-style: none; margin: 0; padding: 0; }
+.ca-item {
+    display: flex; align-items: flex-start; gap: .55rem;
+    padding: .32rem 0; font-size: .85rem; line-height: 1.55; cursor: pointer;
+}
+.ca-item input {
+    flex: 0 0 auto; margin: .22rem 0 0; width: 1rem; height: 1rem;
+    accent-color: var(--color-accent, #0077CC); cursor: pointer;
+}
+.ca-item.danger { font-weight: 600; color: var(--color-danger, #D9534F); }
+.ca-item.danger input { accent-color: var(--color-danger, #D9534F); }
+/* المُزالة تبهت، ليُرى بالنظرة ما سيبقى وما سيُسحب. */
+.ca-item:has(input:not(:checked)) { opacity: .5; }
+.ca-item code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8rem; background: var(--color-muted, #eee);
+    padding: .05rem .3rem; border-radius: .3rem; direction: ltr;
+}
+
+.ca-bulk { display: flex; gap: .5rem; align-items: center; margin: 0 0 .7rem; font-size: .78rem; }
+.ca-bulk button {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: var(--color-accent, #0077CC); font-family: inherit;
+    font-size: .78rem; font-weight: 600; text-decoration: underline;
+}
+.ca-count-sel { margin-inline-start: auto; color: var(--color-text-secondary, #777); font-weight: 600; }
+
+@media (prefers-color-scheme: dark) {
+    .ca-item code { background: #1e1e1e; }
+}
