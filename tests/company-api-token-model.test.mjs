@@ -215,3 +215,48 @@ test('كل مجموعة لها تسمية عربية وصلاحية واحدة �
         for (const scope of group.scopes) assert.ok(scope.label, `صلاحية بلا تسمية: ${scope.key}`);
     }
 });
+
+/* ────────── describeScope: أسماء الصلاحيات في شاشة الموافقة ────────── */
+
+import { describeScope, PRIVILEGED_SCOPE_LABELS } from '../assets/js/company/api-token-model.js';
+
+test('كل صلاحية يمنحها تدفّق OAuth لها اسم عربي', () => {
+    // ALLOWED_SCOPES هو ما يستطيع الخادم منحه فعلًا. أي صلاحية تُضاف إليه
+    // بلا اسم عربي كانت ستظهر في شاشة الموافقة بمفتاحها التقني — يعمل،
+    // لكنه يترك من يوافق لا يفهم على ماذا وافق. هذا الحارس يمنع ذلك.
+    const missing = ALLOWED_SCOPES.filter((s) => !describeScope(s).known);
+    assert.deepEqual(missing, [], `صلاحيات بلا اسم عربي: ${missing.join(', ')}`);
+});
+
+test('الصلاحيات المرتفعة موسومة danger و privileged', () => {
+    for (const key of PRIVILEGED_SCOPES) {
+        const d = describeScope(key);
+        assert.equal(d.known, true, `${key} بلا وصف`);
+        assert.equal(d.privileged, true, `${key} يجب أن يُوسم privileged`);
+        assert.equal(d.danger, true, `${key} يجب أن يُوسم danger`);
+    }
+    // admin:full تحديدًا — هي المفتاح الكامل، ووصفها يجب أن يقول ذلك لا أن يلمّح.
+    assert.match(describeScope('admin:full').label, /صلاحية كاملة/);
+});
+
+test('كل مفتاح في PRIVILEGED_SCOPE_LABELS هو فعلًا صلاحية مرتفعة', () => {
+    // يمنع تسرّب صلاحية عادية إلى قائمة «المرتفعة» فتُعرض بتحذير لا تستحقه.
+    for (const key of Object.keys(PRIVILEGED_SCOPE_LABELS)) {
+        assert.ok(PRIVILEGED_SCOPES.includes(key), `${key} ليس في PRIVILEGED_SCOPES`);
+    }
+});
+
+test('الصلاحيات المرتفعة مخفيّة عن نموذج الإنشاء لكنها موصوفة للموافقة', () => {
+    // التمييز الذي تقوم عليه الشاشتان: نموذج الإنشاء يعرض ما يمكن اختياره،
+    // وشاشة الموافقة تعرض ما يُمنَح. الثانية أوسع، ولا يجوز أن تكون أضيق.
+    for (const key of PRIVILEGED_SCOPES) {
+        assert.ok(!SELECTABLE_SCOPES.includes(key), `${key} يجب ألا يكون قابلًا للاختيار`);
+        assert.equal(describeScope(key).known, true, `${key} يجب أن يكون موصوفًا`);
+    }
+});
+
+test('صلاحية غير معروفة تُعرض بمفتاحها ولا تُحذف', () => {
+    const d = describeScope('brand:new:scope');
+    assert.equal(d.known, false);
+    assert.equal(d.label, 'brand:new:scope', 'يجب أن يظهر المفتاح نفسه لا نص فارغ');
+});

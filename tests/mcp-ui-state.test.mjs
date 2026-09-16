@@ -152,3 +152,80 @@ test('isUuid يميّز الشكل الصحيح', () => {
     assert.equal(isUuid('123e4567e89b12d3a456426614174000'), false);
     assert.equal(isUuid('https://x.supabase.co'), false);
 });
+
+/* ────────────────── ملخّص الصحة وترتيب العرض ────────────────── */
+
+import { summarize, sortByHealth, needsAttention, isPopular, POPULAR_KEYS } from '../assets/js/admin/mcp-ui-state.js';
+import { readFileSync } from 'node:fs';
+
+// صفوف مختصرة. كلها تحمل connection_id لأن deriveUiState يعتبر أي صف
+// بلا اتصال «غير متصل» أصلًا — وشريط الملخّص لا يُحسب إلا على الصفوف
+// التي لهذا المستخدم اتصال بها فعلًا.
+const connected = (tools = []) => ({ connection_id: 'c', status: 'connected', tools });
+const failed = () => ({ connection_id: 'c', status: 'error', last_error: 'Initialize failed (500)' });
+const needsAuth = () => ({ connection_id: 'c', status: 'error', last_error: 'unauthorized: token expired' });
+const off = () => ({ connection_id: 'c', status: 'disconnected' });
+
+test('summarize يعدّ المتصل ويحتاج-انتباه والأدوات', () => {
+    const { total, connected: c, attention, tools } = summarize([
+        connected([{ name: 'a' }, { name: 'b' }]),
+        connected([{ name: 'c' }]),
+        failed(),
+        needsAuth(),
+        off(),
+    ]);
+    assert.equal(total, 5);
+    assert.equal(c, 2);
+    assert.equal(attention, 2);
+    assert.equal(tools, 3);
+});
+
+test('summarize لا يعدّ أدوات اتصال غير متصل', () => {
+    // اتصال فاشل قد يحمل أدوات مكتشفة من جلسة سابقة؛ عدّها يعطي رقمًا
+    // لا يقابله شيء قابل للاستدعاء الآن.
+    const { tools } = summarize([{ connection_id: 'c', status: 'error', last_error: 'boom', tools: [{ name: 'x' }] }]);
+    assert.equal(tools, 0);
+});
+
+test('summarize يحتمل مدخلًا فارغًا أو غير مصفوفة', () => {
+    assert.deepEqual(summarize([]), { total: 0, connected: 0, attention: 0, tools: 0 });
+    assert.deepEqual(summarize(null), { total: 0, connected: 0, attention: 0, tools: 0 });
+});
+
+test('needsAttention: الفشل والتفويض نعم، المفصول عمدًا لا', () => {
+    assert.equal(needsAttention(UI_STATES.ERROR), true);
+    assert.equal(needsAttention(UI_STATES.AUTH_REQUIRED), true);
+    assert.equal(needsAttention(UI_STATES.DISCONNECTED), false);
+    assert.equal(needsAttention(UI_STATES.CONNECTED), false);
+});
+
+test('sortByHealth يقدّم ما يحتاج تدخّلًا', () => {
+    const ok = connected();
+    const bad = failed();
+    const gone = off();
+    assert.deepEqual(sortByHealth([ok, gone, bad]), [bad, ok, gone]);
+});
+
+test('sortByHealth ثابت داخل المجموعة الواحدة ولا يعدّل المصدر', () => {
+    const a = { ...connected(), id: 'a' };
+    const b = { ...connected(), id: 'b' };
+    const rows = [a, b];
+    assert.deepEqual(sortByHealth(rows).map((r) => r.id), ['a', 'b']);
+    assert.deepEqual(rows, [a, b], 'المصفوفة الأصلية لم تُمسّ');
+});
+
+test('كل مفتاح في POPULAR_KEYS موجود فعلًا في كتالوج mcp-service.js', () => {
+    // يحرس ضد إعادة تسمية مفتاح في الكتالوج تترك قسم «الأكثر استخدامًا»
+    // فارغًا بصمت. فحص نصّي لا استيراد: mcp-service.js يستورد بمسارات
+    // مطلقة للمتصفح (/api-config.js) فلا يُحمَّل في Node — وهذا بالضبط
+    // سبب فصل mcp-ui-state.js عنه.
+    const src = readFileSync(new URL('../mcp-service.js', import.meta.url), 'utf8');
+    for (const key of POPULAR_KEYS) {
+        assert.ok(
+            src.includes(`key: '${key}'`),
+            `المفتاح ${key} غير موجود في MCP_CLIENT_CATALOG داخل mcp-service.js`,
+        );
+    }
+    assert.equal(isPopular('supabase'), true);
+    assert.equal(isPopular('nope'), false);
+});

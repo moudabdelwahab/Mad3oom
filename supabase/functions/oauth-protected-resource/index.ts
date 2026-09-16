@@ -16,7 +16,10 @@ const CORS_HEADERS: Record<string, string> = {
 // This value is the OAuth issuer identity. Do not flip it independently of
 // oauth-discovery, oauth-protected-resource, oauth-authorize and
 // mcp-oauth-callback — see docs/DOMAIN-MIGRATION.md.
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.online";
+// CUTOVER 2026-09-16: default is now the canonical domain — see
+// docs/MCP-CANONICAL-CUTOVER.md. Rollback: set PUBLIC_SITE_ORIGIN back to
+// https://mad3oom.online (no redeploy needed).
+const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
 
 // RFC 9728 - OAuth 2.0 Protected Resource Metadata
 // يصف mcp/index.ts بالضبط كما هو حاليًا - لا يعدّل أي منطق مصادقة،
@@ -24,9 +27,19 @@ const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oo
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
-  // resource يطابق بالضبط MCP_ENDPOINT_URL الموجود فعليًا في mcp-service.js
-  // (${supabase.supabaseUrl}/functions/v1/mcp) - هو العنوان الفعلي الذي تصل بيه العملاء حاليًا.
-  const resource = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/mcp`;
+  // resource لازم يطابق العنوان الذي يتصل به العميل فعلًا، لا العنوان الداخلي.
+  //
+  // كان `${SUPABASE_URL}/functions/v1/mcp`، وهو العنوان الداخلي. لكن العميل
+  // الخارجي يتصل بـ`${PUBLIC_SITE_ORIGIN}/mcp` (Vercel يعيد الكتابة إلى
+  // Supabase بلا إعادة توجيه). و RFC 9728 §3.3 يُلزم العميل بالتحقق من تطابق
+  // `resource` مع المورد الذي يصل إليه، فعميل صارم كان يرفض البيانات الوصفية
+  // كلها عند هذا الاختلاف.
+  //
+  // تغييره آمن خادميًا بدليل لا بترجيح: لا يوجد أي ربط جمهور في السلسلة —
+  // oauth-token لا يقرأ المعامل `resource` إطلاقًا، ولا وجود لـ`aud` في
+  // mcp/_shared/api-auth.ts، والتوكنات غير شفّافة (mad3oom_bt_*) يُتحقَّق منها
+  // بمطابقة SHA-256 في api_tokens. أي أن القيمة مُعلَنة لا مُتحقَّق منها.
+  const resource = `${PUBLIC_SITE_ORIGIN}/mcp`;
 
   const metadata = {
     resource,

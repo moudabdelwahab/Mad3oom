@@ -16,20 +16,7 @@ import { decryptString } from "./_shared/mcp-crypto.ts";
 // {SUPABASE_URL}/functions/v1/mcp-oauth-callback
 // ============================================================
 
-// ── Public origin ────────────────────────────────────────────────────────────
-// The domain is migrating mad3oom.online → mad3oom.com. Reading it from one
-// environment variable, with the CURRENT value as the default, makes deploying
-// this file a strict no-op: behaviour only changes when PUBLIC_SITE_ORIGIN is
-// set. The cutover is then one variable across every OAuth function, flipped
-// together, instead of four separate code deploys racing each other.
-//
-// Do not flip it independently of oauth-discovery, oauth-protected-resource
-// and oauth-authorize — see docs/DOMAIN-MIGRATION.md.
-// CUTOVER 2026-09-16: default is now the canonical domain — see
-// docs/MCP-CANONICAL-CUTOVER.md. Rollback: set PUBLIC_SITE_ORIGIN back to
-// https://mad3oom.online (no redeploy needed).
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
-const ADMIN_MCP_PAGE_URL = `${PUBLIC_SITE_ORIGIN}/admin/mcp.html`;
+const ADMIN_MCP_PAGE_URL = "https://mad3oom.online/admin/mcp.html";
 
 function redirectToAdmin(params: Record<string, string>): Response {
   const url = new URL(ADMIN_MCP_PAGE_URL);

@@ -206,3 +206,88 @@ export function validateCredential(serviceKey, fieldName, value) {
 export function isUuid(s) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s).trim());
 }
+
+/* ══════════════════ ملخّص الصحة وترتيب العرض ══════════════════ */
+
+/**
+ * الترتيب الذي تُقترح به الخدمات في «الأكثر استخدامًا» داخل نافذة الإضافة.
+ *
+ * قائمة ثابتة مقصودة، لا إحصاء: لا يوجد في القاعدة أي عدّاد استخدام
+ * لخدمات الكتالوج، فادّعاء «الأكثر استخدامًا» من بيانات غير موجودة كذب
+ * في الواجهة. هذه ترتيب افتراضي مُحرَّر يدويًا — أسهل ثلاثة مسارات ربط
+ * أولًا — ويُستبدل بإحصاء حقيقي متى وُجد عمود يحمله.
+ *
+ * تعيش هنا لا في mcp-service.js لأن mcp-service.js له نسختان متطابقتان
+ * في المستودع (الجذر و mcp/)، وإضافة حقل إلى الكتالوج كانت ستُلزم
+ * تعديلهما معًا أو تُفرّقهما. هذا ترتيب عرض بحت، فمكانه وحدة العرض.
+ */
+export const POPULAR_KEYS = ['github', 'supabase', 'notion'];
+
+/** @param {string} key @returns {boolean} */
+export function isPopular(key) {
+    return POPULAR_KEYS.includes(key);
+}
+
+/**
+ * الحالات التي تعني «هذا الاتصال لا يعمل الآن ويحتاج تدخّلًا».
+ * disconnected ليست منها: اتصال مفصول عمدًا ليس عطلًا.
+ */
+const ATTENTION_STATES = [UI_STATES.ERROR, UI_STATES.AUTH_REQUIRED];
+
+/** @param {string} state @returns {boolean} */
+export function needsAttention(state) {
+    return ATTENTION_STATES.includes(state);
+}
+
+/**
+ * عدّادات شريط الملخّص فوق شبكة التكاملات.
+ *
+ * تُحسب من نفس الصفوف المعروضة لا من استعلام منفصل، فلا يمكن أن يختلف
+ * العدّاد عمّا تراه العين. `tools` يجمع أدوات الاتصالات المتصلة فقط:
+ * عدّ أدوات اتصال فاشل يعطي رقمًا لا يقابله شيء قابل للاستدعاء.
+ *
+ * @param {Array} rows صفوف الخوادم المعروضة (كل منها له connection_id)
+ * @param {(server:any)=>string} stateOf دالة اشتقاق الحالة — تُمرَّر
+ *        لتُحقَن حالة «جارٍ الربط» العابرة من الوحدة المستدعية.
+ * @returns {{total:number, connected:number, attention:number, tools:number}}
+ */
+export function summarize(rows, stateOf = deriveUiState) {
+    const list = Array.isArray(rows) ? rows : [];
+    let connected = 0;
+    let attention = 0;
+    let tools = 0;
+
+    for (const server of list) {
+        const state = stateOf(server);
+        if (state === UI_STATES.CONNECTED) {
+            connected += 1;
+            if (Array.isArray(server?.tools)) tools += server.tools.length;
+        }
+        if (needsAttention(state)) attention += 1;
+    }
+
+    return { total: list.length, connected, attention, tools };
+}
+
+/**
+ * يرتّب الصفوف بحيث يظهر ما يحتاج تدخّلًا أولًا.
+ *
+ * ترتيب ثابت (stable): داخل كل مجموعة يبقى ترتيب المصدر كما هو، حتى لا
+ * تقفز البطاقات بين إعادة رسم وأخرى. لا يُعدِّل المصفوفة الأصلية.
+ *
+ * @param {Array} rows
+ * @param {(server:any)=>string} stateOf
+ * @returns {Array}
+ */
+export function sortByHealth(rows, stateOf = deriveUiState) {
+    const rank = (server) => {
+        const state = stateOf(server);
+        if (needsAttention(state)) return 0;
+        if (state === UI_STATES.CONNECTED || state === UI_STATES.CONNECTING) return 1;
+        return 2;
+    };
+    return (Array.isArray(rows) ? rows : [])
+        .map((server, i) => ({ server, i, r: rank(server) }))
+        .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+        .map((x) => x.server);
+}

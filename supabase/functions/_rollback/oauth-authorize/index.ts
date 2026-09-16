@@ -7,22 +7,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
-
-// ── Public origin ────────────────────────────────────────────────────────────
-// The domain is migrating mad3oom.online → mad3oom.com. Reading it from one
-// environment variable, with the CURRENT value as the default, makes deploying
-// this file a strict no-op: behaviour only changes when PUBLIC_SITE_ORIGIN is
-// set. The cutover is then one variable across every OAuth function, flipped
-// together, instead of four separate code deploys racing each other.
-//
-// This value is the OAuth issuer identity. Do not flip it independently of
-// oauth-discovery, oauth-protected-resource, oauth-authorize and
-// mcp-oauth-callback — see docs/DOMAIN-MIGRATION.md.
-// CUTOVER 2026-09-16: default is now the canonical domain — see
-// docs/MCP-CANONICAL-CUTOVER.md. Rollback: set PUBLIC_SITE_ORIGIN back to
-// https://mad3oom.online (no redeploy needed).
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
-const CONSENT_PAGE_URL = `${PUBLIC_SITE_ORIGIN}/admin/oauth-consent.html`;
+const CONSENT_PAGE_URL = "https://mad3oom.online/admin/oauth-consent.html";
 
 function err(desc: string, status = 400) {
   return new Response(JSON.stringify({ error: "invalid_request", error_description: desc }), {

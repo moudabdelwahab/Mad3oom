@@ -136,6 +136,60 @@ export const SELECTABLE_SCOPES = Object.freeze(
     SCOPE_CATALOG.flatMap(group => group.scopes.map(s => s.key))
 );
 
+/**
+ * الصلاحيات المرتفعة — بالعربي أيضًا.
+ *
+ * هذه الثلاث **مخفيّة عمدًا** من `SCOPE_CATALOG` لأن نموذج إنشاء المفاتيح
+ * لا يعرضها (السقف مفروض على الخادم). لكن تدفّق OAuth **يمنحها فعلًا**،
+ * وصفحة الموافقة ملزَمة بعرض ما يُمنَح لا ما يُختار — فعرضها بلا اسم عربي
+ * كان يترك المستخدم يوافق على «admin:full» بلا أن يعرف أنها المفتاح الكامل.
+ */
+export const PRIVILEGED_SCOPE_LABELS = Object.freeze({
+    'admin:full': 'صلاحية كاملة على الحساب — تعادل كل ما سبق مجتمعًا',
+    'settings:manage': 'تغيير إعدادات المنصّة',
+    'oauth:manage': 'إدارة التطبيقات المربوطة وصلاحياتها',
+});
+
+/**
+ * يصف صلاحية واحدة للعرض البشري.
+ *
+ * قاعدة صارمة: صلاحية غير معروفة **تُعرض بمفتاحها التقني**، ولا تُحذف
+ * أبدًا. إخفاء صلاحية تُمنَح فعلًا أسوأ من عرضها بلغة تقنية، لأنه يجعل
+ * شاشة الموافقة تكذب على من يوافق.
+ *
+ * @param {string} key
+ * @returns {{key:string, label:string, group:string|null, danger:boolean,
+ *            privileged:boolean, known:boolean}}
+ */
+export function describeScope(key) {
+    for (const group of SCOPE_CATALOG) {
+        const found = group.scopes.find(s => s.key === key);
+        if (found) {
+            return {
+                key,
+                label: found.label,
+                group: group.label,
+                danger: Boolean(found.danger),
+                privileged: false,
+                known: true,
+            };
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(PRIVILEGED_SCOPE_LABELS, key)) {
+        return {
+            key,
+            label: PRIVILEGED_SCOPE_LABELS[key],
+            group: 'صلاحيات مرتفعة',
+            danger: true,
+            privileged: true,
+            known: true,
+        };
+    }
+
+    return { key, label: key, group: null, danger: false, privileged: false, known: false };
+}
+
 export const CREDENTIAL_TYPES = Object.freeze([
     {
         key: 'api_key_secret',

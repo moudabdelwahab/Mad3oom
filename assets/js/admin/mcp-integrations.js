@@ -27,7 +27,10 @@
  *   بأنه يحتاج خطوة الـbackend. عرض خيار يبدو فعّالًا وهو لا يفرض شيئًا
  *   أسوأ من عدم عرضه إطلاقًا.
  */
-import { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
+import {
+    UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential,
+    POPULAR_KEYS, summarize, sortByHealth,
+} from '/assets/js/admin/mcp-ui-state.js';
 import {
     MCP_CLIENT_CATALOG,
     MCP_CATALOG_CATEGORIES,
@@ -44,7 +47,10 @@ import {
 
 /* المنطق الخالص يعيش في وحدة بلا تبعيات ليمكن اختباره خارج المتصفح
  * (tests/mcp-ui-state.test.mjs). نعيد تصديره هنا ليبقى سطح الوحدة واحدًا. */
-export { UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential } from '/assets/js/admin/mcp-ui-state.js';
+export {
+    UI_STATES, STATE_LABEL, deriveUiState, explainError, validateCredential,
+    isPopular, POPULAR_KEYS, needsAttention, summarize, sortByHealth,
+} from '/assets/js/admin/mcp-ui-state.js';
 
 /* ══════════════════ أدوات عرض ══════════════════ */
 
@@ -197,6 +203,10 @@ export function renderIntegrations(container, ctx) {
         return `${s.name || ''} ${s.description || ''}`.toLowerCase().includes(q);
     });
 
+    // الملخّص يُحسب على «كل تكاملاتي» لا على المُرشَّح: عدّاد يتغيّر مع
+    // كل حرف بحث ليس ملخّصًا لصحة الحساب.
+    renderSummary(container, mine);
+
     if (!shown.length) {
         container.classList.remove('mi-grid');
         container.innerHTML = mine.length
@@ -213,12 +223,54 @@ export function renderIntegrations(container, ctx) {
     }
 
     container.classList.add('mi-grid');
-    container.innerHTML = shown
+    // ما يحتاج تدخّلًا أولًا: اتصال معطوب في آخر الشبكة لا يراه أحد.
+    container.innerHTML = sortByHealth(shown, uiStateOf)
         .map((s) => {
             const entry = catalogEntryFor(s);
             return tileBody({ entry, server: s, isCatalog: Boolean(entry) });
         })
         .join('');
+}
+
+/** الحالة المعروضة فعليًا، بما فيها «جارٍ الربط» العابرة التي لا تُخزَّن. */
+function uiStateOf(server) {
+    return busy.has(server?.id) ? UI_STATES.CONNECTING : deriveUiState(server);
+}
+
+/**
+ * شريط ملخّص فوق الشبكة: متصل / يحتاج انتباه / أدوات متاحة.
+ *
+ * تحقنه الوحدة قبل #connectorGrid بدل وضعه في admin/mcp.html، لسببين:
+ * تبقى الصفحة بلا عنصر ميت إن لم تُحمَّل هذه الوحدة (نفس منطق إخفاء زر
+ * «إضافة تكامل»)، ويبقى تعديل الصفحة الكبيرة صفرًا. العقدة تُنشأ مرة
+ * وتُحدَّث بعدها، فلا تُفقد حالة تمرير ولا يومض الشريط مع كل إعادة رسم.
+ */
+function renderSummary(container, mine) {
+    const parent = container.parentNode;
+    if (!parent) return;
+
+    let bar = document.getElementById('miSummary');
+    if (!mine.length) { bar?.remove(); return; }
+
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'miSummary';
+        bar.className = 'mi-summary';
+        parent.insertBefore(bar, container);
+    }
+
+    const { connected, attention, tools } = summarize(mine, uiStateOf);
+    const cell = (value, label, tone) =>
+        `<div class="mi-sum${tone ? ` ${tone}` : ''}">
+            <span class="mi-sum-n">${value}</span>
+            <span class="mi-sum-l">${label}</span>
+        </div>`;
+
+    bar.innerHTML = [
+        cell(connected, 'متصل', 'ok'),
+        attention ? cell(attention, 'يحتاج انتباه', 'warn') : '',
+        cell(tools, 'أداة متاحة'),
+    ].join('');
 }
 
 /** يطابق صف خادم بعنصر الكتالوج الذي يمثّله (بالرابط ثم بالاسم)، أو null لخادم مخصّص. */
@@ -248,17 +300,41 @@ export function openServicePicker() {
         const q = query.trim().toLowerCase();
         const claimed = new Set(servers.filter((s) => s.connection_id).map((s) => s.id));
 
+        const cardFor = (entry) => {
+            const existing = findConnectedServerForCatalogEntry(entry, servers);
+            return pickerCard({
+                key: entry.key, name: entry.name, desc: entry.description,
+                color: entry.brandColor, glyph: iconMarkup(entry),
+                already: Boolean(existing && claimed.has(existing.id)),
+            });
+        };
+
+        // «الأكثر استخدامًا»: اختصار للحالة الشائعة، ويظهر فقط بلا بحث ولا
+        // تصنيف — ما إن يُرشِّح المستخدم حتى يصبح قسم مقترحات ثابت تشويشًا
+        // لا اختصارًا. الخدمات المربوطة فعلًا تخرج منه: اقتراح ما هو مربوط
+        // بالفعل ليس اقتراحًا.
+        let popularHtml = '';
+        if (!q && category === 'all') {
+            const picks = POPULAR_KEYS
+                .map((k) => MCP_CLIENT_CATALOG.find((c) => c.key === k && !c.isCustomBlank))
+                .filter((entry) => {
+                    if (!entry) return false;
+                    const existing = findConnectedServerForCatalogEntry(entry, servers);
+                    return !(existing && claimed.has(existing.id));
+                });
+            if (picks.length) {
+                popularHtml = `<p class="mi-secl">الأكثر استخدامًا</p>
+                    <div class="mi-pickgrid">${picks.map(cardFor).join('')}</div>
+                    <p class="mi-secl">كل الخدمات</p>`;
+            }
+        }
+
         const cards = [];
         for (const entry of MCP_CLIENT_CATALOG) {
             if (entry.isCustomBlank) continue;
             if (category !== 'all' && entry.category !== category) continue;
             if (q && !`${entry.name} ${entry.description}`.toLowerCase().includes(q)) continue;
-            const existing = findConnectedServerForCatalogEntry(entry, servers);
-            const already = existing && claimed.has(existing.id);
-            cards.push(pickerCard({
-                key: entry.key, name: entry.name, desc: entry.description,
-                color: entry.brandColor, glyph: iconMarkup(entry), already,
-            }));
+            cards.push(cardFor(entry));
         }
 
         // تعريفات خوادم موجودة في القاعدة لم يربطها هذا المستخدم بعد.
@@ -276,8 +352,13 @@ export function openServicePicker() {
         const body = document.getElementById('miPickBody');
         if (body) {
             body.innerHTML = cards.length
-                ? `<div class="mi-pickgrid">${cards.join('')}</div>`
-                : '<div class="state-block empty"><p>لا توجد خدمة مطابقة. يمكنك إضافة خادم مخصّص بالأسفل.</p></div>';
+                ? `${popularHtml}<div class="mi-pickgrid">${cards.join('')}</div>`
+                : `<div class="mi-empty sm">
+                     <h3>لا توجد خدمة بهذا الاسم</h3>
+                     <p>الكتالوج يغطّي الخدمات الجاهزة فقط. أي خادم MCP آخر يُضاف
+                        كخادم مخصّص برابطه، ويعمل بنفس الطريقة تمامًا.</p>
+                     <button class="mi-btn primary" data-mi="custom">إضافة خادم MCP مخصّص</button>
+                   </div>`;
         }
         document.querySelectorAll('#miPickCats .mi-chip').forEach((b) => {
             b.classList.toggle('active', b.dataset.cat === category);
