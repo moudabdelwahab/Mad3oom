@@ -128,6 +128,7 @@
     <script type="module">
         import { supabase } from '/api-config.js';
         import { handleFacebookCallback } from '/facebook-oauth.js';
+        import { resolveAccountHome } from '/assets/js/account-destination.js';
 
         const statusMessage = document.getElementById('statusMessage');
         const errorContainer = document.getElementById('errorContainer');
@@ -164,11 +165,19 @@
                     console.error('[Callback] Profile fetch error:', profileError);
                 }
 
+                // بوابة الحساب: رقم هاتف إلزامي / قائمة انتظار
+                const { data: gate } = await supabase.rpc('my_account_gate');
+                if (gate && gate.status !== 'active' && gate.status !== 'anonymous') {
+                    statusMessage.textContent = 'جاري تحويلك لاستكمال تفعيل الحساب...';
+                    setTimeout(() => window.location.replace('/account-gate.html'), 800);
+                    return;
+                }
+
                 // تحديد الدور والصفحة المطلوبة للتحويل
                 const role = profile?.role || 'customer';
-                const targetPage = (role === 'admin' || role === 'support')
-                    ? '/admin-dashboard.html'
-                    : '/customer-dashboard.html';
+                // نفس قاعدة الوجهة المستعملة بعد الدخول العادي — بما فيها
+                // أن مالك المنصة يذهب لشاشة اختيار اللوحة لا للوحة الإدارة.
+                const targetPage = await resolveAccountHome(supabase, { role });
 
                 statusMessage.textContent = `تم المصادقة بنجاح! جاري التحويل إلى لوحة التحكم...`;
 

@@ -17,7 +17,7 @@
  * SECURITY DEFINER في القاعدة، ولا تعتمد على أي شيء هنا.
  */
 
-import { resolveAccess, ACCESS } from '/auth-client.js';
+import { resolveAccess, ACCESS, redirectIfGated } from '/auth-client.js';
 import { mountContextBar } from '/assets/js/owner/owner-context.js';
 import { accessMessageFor } from '/assets/js/access-policy.js';
 import { resolveAccountHome, DESTINATIONS } from '/assets/js/account-destination.js';
@@ -47,6 +47,13 @@ export async function guardPage(requiredRole = null, options = {}) {
     }
 
     if (access.status === ACCESS.AUTHORIZED) {
+        // بوابة الحساب (رقم الهاتف / قائمة الانتظار) قبل رسم أي لوحة.
+        //
+        // الفرض الحقيقي في القاعدة عبر سياسات RESTRICTIVE؛ ده توجيه عرض
+        // فقط: يعرض الشاشة التي تشرح سبب المنع بدل لوحة تُردّ كل
+        // استعلاماتها. ننتظرها هنا عمدًا حتى لا ترسم الصفحة قبل التحويل.
+        if (await redirectIfGated()) return null;
+
         // شريط «واجهة اللوحات» — نقطة تركيب واحدة تخدم كل اللوحات.
         //
         // guardPage() تناديها لوحة الإدارة (عبر admin/auth.js) ولوحة الشركة

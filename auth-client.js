@@ -683,9 +683,62 @@ export async function ownerContextStatus() {
 export async function requireAuth(requiredRole = null) {
     const { status, user } = await resolveAccess(requiredRole);
 
-    if (status === ACCESS.AUTHORIZED) return user;
+    if (status === ACCESS.AUTHORIZED) {
+        /* =========================================================
+           بوابة الحساب (رقم الهاتف / قائمة الانتظار)
+           =========================================================
+           الفرض الحقيقي في قاعدة البيانات عبر سياسات RESTRICTIVE، فحتى لو
+           تجاوز أحدهم هذا الفحص لن يحصل على أي بيانات. الفحص هنا لتجربة
+           الاستخدام فقط: يوجّه المستخدم للشاشة التي تشرح سبب المنع بدل
+           عرض لوحة فارغة.
+        ========================================================= */
+        if (await redirectIfGated()) {
+            // الصفحة في طريقها للتحويل؛ نوقف تنفيذ كود الصفحة هنا.
+            return await new Promise(() => {});
+        }
+        return user;
+    }
+
     if (status === ACCESS.BANNED) return { banned: true };
     return null;
+}
+
+/* =========================================================
+   يرجع true لو الحساب محجوب وتم بدء التحويل لشاشة البوابة
+   =========================================================
+   مُصدَّرة لأن حارس الصفحة الجديد (assets/js/page-guard.js) هو مسار
+   اللوحات الأساسية، وrequireAuth لم تعد المسار الوحيد.
+========================================================= */
+export async function redirectIfGated() {
+    const path = window.location.pathname;
+
+    // لا تحويل من شاشة البوابة نفسها أو من صفحات المصادقة (منعًا للدوران)
+    if (path.includes('account-gate.html') ||
+        path.includes('login.html') ||
+        path.includes('reset-password.html') ||
+        path.includes('forgot-password.html')) {
+        return false;
+    }
+
+    try {
+        const { data, error } = await withTimeout(
+            supabase.rpc('my_account_gate'),
+            8000,
+            'التحقق من حالة الحساب'
+        );
+
+        // تعذّر الفحص (شبكة/انقطاع): لا نحجب المستخدم اعتمادًا على الواجهة،
+        // لأن قاعدة البيانات هي التي تمنع فعلاً.
+        if (error || !data) return false;
+        if (data.status === 'active' || data.status === 'anonymous') return false;
+
+        const next = encodeURIComponent(path + window.location.search);
+        window.location.replace(`/account-gate.html?next=${next}`);
+        return true;
+    } catch (err) {
+        console.error('Account gate check failed:', err);
+        return false;
+    }
 }
 
 /* =========================================================

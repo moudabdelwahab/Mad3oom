@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أكواد المرور - لوحة المالك</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .pass-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1.5rem;
+        }
+
+        .pass-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .pass-form input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1.5px solid var(--color-border);
+            border-radius: 0.6rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            background: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .pass-form input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        .notice {
+            background: var(--color-muted);
+            border-right: 3px solid var(--color-accent);
+            padding: 1rem 1.25rem;
+            border-radius: 0.6rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            color: var(--color-text-secondary);
+        }
+
+        .denied {
+            text-align: center;
+            padding: 4rem 1rem;
+            color: var(--color-text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .pass-form { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>أكواد المرور</h1>
+            <p>كود المرور يُعفي الحساب من شرط إضافة رقم الهاتف. إدارته مقصورة على مالك المنصة.</p>
+        </header>
+
+        <div id="deniedBox" class="denied" style="display:none;">
+            <h2>غير مصرّح</h2>
+            <p>هذه الصفحة مقصورة على مالك المنصة.</p>
+        </div>
+
+        <div id="mainBox" style="display:none;">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2 class="section-title">إنشاء كود جديد</h2>
+                </div>
+
+                <div class="notice">
+                    الكود يُخزَّن مُشفَّرًا (bcrypt) ولا يمكن استرجاعه بعد الحفظ — احفظه عندك.
+                    تعطيل أي كود يسحب الإعفاء فورًا من كل من استخدمه.
+                </div>
+
+                <div class="pass-form">
+                    <div>
+                        <label for="codeInput">كود المرور (6 خانات على الأقل)</label>
+                        <input type="text" id="codeInput" placeholder="مثال: MAD3OOM-2026" autocomplete="off">
+                    </div>
+                    <div>
+                        <label for="labelInput">وصف (اختياري)</label>
+                        <input type="text" id="labelInput" placeholder="مثال: فريق الدعم" autocomplete="off">
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary" id="createBtn">إنشاء الكود</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card" style="margin-top: 1.5rem;">
+                <div class="section-header">
+                    <h2 class="section-title">الأكواد الحالية</h2>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>الوصف</th>
+                                <th>الحالة</th>
+                                <th>عدد المستخدمين</th>
+                                <th>تاريخ الإنشاء</th>
+                                <th>الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="passcodesBody">
+                            <tr><td colspan="5" style="text-align:center; padding:3rem;">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" style="display:none; position:fixed; bottom:2rem; left:50%; transform:translateX(-50%);
+         background:var(--color-success); color:white; padding:1rem 2rem; border-radius:0.5rem;
+         box-shadow:var(--shadow-lg); z-index:9999; font-weight:600;"></div>
+
+    <script type="module" src="/assets/js/admin/passcodes.js"></script>
+</body>
+</html>

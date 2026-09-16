@@ -576,6 +576,18 @@
     background: #fff;
   }
 
+  /* ══ ACCOUNT TYPE TABS (شخصي / تابع لشركة) ══ */
+  .acct-type-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .acct-type {
+    flex: 1; padding: 0.6rem 0.5rem;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: #f8fbff; color: var(--muted);
+    font-family: 'Cairo', sans-serif; font-size: 0.83rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .acct-type:hover { border-color: rgba(22,119,255,0.4); }
+  .acct-type.selected { border-color: var(--primary); background: rgba(22,119,255,0.07); color: var(--primary); }
+
   /* ══ REGISTRATION VALIDATION POPUP ══ */
   .modal-overlay {
     display: none;
@@ -635,10 +647,30 @@
           <span id="subdomainBannerText"></span>
         </div>
 
+        <div class="acct-type-row" role="tablist" aria-label="نوع الحساب">
+          <button type="button" class="acct-type selected" id="acct-personal" role="tab" aria-selected="true">حساب شخصي</button>
+          <button type="button" class="acct-type" id="acct-company" role="tab" aria-selected="false">حساب تابع لشركة</button>
+        </div>
+
         <form id="login-form" novalidate>
 
+          <div class="form-group" id="company-field" style="display:none;">
+            <label class="form-label" for="company-id">إيميل أو رقم حساب الشركة الرئيسي</label>
+            <div class="input-wrap">
+              <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 21h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M5 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <path d="M16 9h3a2 2 0 0 1 2 2v10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                <line x1="9" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <line x1="9" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <line x1="9" y1="15" x2="12" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <input type="text" id="company-id" name="company-id" placeholder="بريد الشركة أو رقم السجل التجاري" autocomplete="organization">
+            </div>
+          </div>
+
           <div class="form-group">
-            <label class="form-label" for="email">البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم</label>
+            <label class="form-label" for="email" id="identifier-label">البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم</label>
             <div class="input-wrap">
               <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
@@ -1194,7 +1226,33 @@
     }
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     بوابة الحساب: رقم هاتف إلزامي / قائمة انتظار.
+     الفرض الحقيقي في قاعدة البيانات (سياسات RESTRICTIVE)؛ هذا الفحص
+     لتوجيه المستخدم لشاشة تشرح السبب بدل لوحة فارغة.
+     يرجع true لو تم التحويل لشاشة البوابة.
+  ══════════════════════════════════════════════════════════════ */
+  async function redirectIfGated() {
+    try {
+      const { data, error } = await withTimeout(
+        supabase.rpc('my_account_gate'),
+        8000,
+        'التحقق من حالة الحساب'
+      );
+      if (error || !data) return false;
+      if (data.status === 'active' || data.status === 'anonymous') return false;
+
+      window.location.href = '/account-gate.html';
+      return true;
+    } catch (err) {
+      console.error('Account gate check failed:', err);
+      return false;
+    }
+  }
+
   async function redirectByRole(userId) {
+    if (await redirectIfGated()) return;
+
     const { data: profile } = await withTimeout(
       supabase.from('profiles').select('role').eq('id', userId).single(),
       8000,
@@ -1259,8 +1317,7 @@
       }
     }
 
-    const role = existing?.role || 'user';
-    window.location.href = await resolveDestination(await resolveAccountHome(supabase, { role }));
+    await redirectByRole(session.user.id);
   });
 
   checkExistingSession();
@@ -1433,6 +1490,33 @@
   // عشان مفيش أي سيناريو يسيب الزرار عالق على "جاري التحميل" بدون
   // ما ياخد المستخدم رسالة واضحة تقوله يعمل إيه.
   // ══════════════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════════════════
+     تبويب نوع الحساب: شخصي / تابع لشركة
+  ══════════════════════════════════════════════════════════════ */
+  let isCompanyMode = false;
+
+  function setAccountMode(company) {
+    isCompanyMode = company;
+    const personalBtn = document.getElementById('acct-personal');
+    const companyBtn  = document.getElementById('acct-company');
+
+    personalBtn.classList.toggle('selected', !company);
+    companyBtn.classList.toggle('selected', company);
+    personalBtn.setAttribute('aria-selected', String(!company));
+    companyBtn.setAttribute('aria-selected', String(company));
+
+    document.getElementById('company-field').style.display = company ? 'block' : 'none';
+    document.getElementById('identifier-label').textContent = company
+      ? 'إيميل أو رقم العميل المسجل تحت الشركة'
+      : 'البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم';
+    document.getElementById('email').placeholder = company
+      ? 'بريد العضو أو رقم هاتفه'
+      : 'البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم';
+  }
+
+  document.getElementById('acct-personal').addEventListener('click', () => setAccountMode(false));
+  document.getElementById('acct-company').addEventListener('click', () => setAccountMode(true));
+
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn   = e.target.querySelector('.btn-primary');
@@ -1448,7 +1532,37 @@
       // واحدة فقط لكل استعلام - لا يمكن سحب قائمة المستخدمين) ──
       let email = identifier;
 
-      if (!validateEmail(identifier)) {
+      // ── حساب تابع لشركة: العضوية تُثبَت داخل قاعدة البيانات عبر
+      // companies.user_id = profiles.super_user_id. الواجهة لا ترسل أي
+      // company_id موثوق، والدالة لا ترجع بريد العضو إلا بعد ثبوت عضويته
+      // في الشركة المحددة تحديدًا. ──
+      if (isCompanyMode) {
+        const companyId = document.getElementById('company-id').value.trim();
+        if (!companyId) {
+          showToast('أدخل بريد الشركة أو رقم سجلها التجاري');
+          return;
+        }
+
+        const { data: memberEmail, error: companyError } = await withTimeout(
+          supabase.rpc('resolve_company_member_login', {
+            p_company: companyId,
+            p_member: identifier
+          }),
+          10000,
+          'التحقق من عضوية الشركة'
+        );
+
+        if (companyError) {
+          showToast(companyError.message || 'تعذر التحقق من بيانات الشركة');
+          return;
+        }
+        if (!memberEmail) {
+          showToast('بيانات الشركة أو العضو غير صحيحة، أو العضو غير تابع لهذه الشركة');
+          return;
+        }
+
+        email = memberEmail;
+      } else if (!validateEmail(identifier)) {
         if (validatePhone(identifier)) {
           const { data: rows, error: lookupError } = await withTimeout(
             supabase.rpc('get_email_by_phone', { p_phone: identifier.replace(/[\s\-()]/g, '') }),
