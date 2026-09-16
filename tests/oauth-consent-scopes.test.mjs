@@ -1,69 +1,169 @@
 /**
- * حراسة اختيار الصلاحيات في شاشة الموافقة.
+ * حراسة قاعدة منح الصلاحيات لتطبيق خارجي — fail-closed / least privilege.
  *
- * القاعدة الأمنية الوحيدة التي تجعل الاختيار حقيقيًا لا شكليًا:
+ * منطق القرار يعيش في supabase/functions/oauth-authorize-approve/_shared/
+ * scope-grant.js، وهو JavaScript خالص بلا أنواع **عمدًا**: Deno يستورده من
+ * index.ts، وهذا الملف يستورده مباشرة. فالقاعدة تُختبَر بالتنفيذ الحقيقي لا
+ * بفحص نصّ المصدر، ولا يوجد مصدران يفترقان.
  *
- *   المستخدم يستطيع **تضييق** ما طلبه التطبيق، ولا يستطيع توسيعه أبدًا.
+ * ما تحرسه هذه الاختبارات، وهو كل الأمان في هذه النقطة:
  *
- * أي تعديل يجعل `granted_scopes` القادم من المتصفح **مصدرًا** للصلاحيات
- * بدل أن يكون **مُرشِّحًا** عليها يحوّل الشاشة إلى بوابة رفع صلاحيات:
- * يكفي أن يرسل أحدهم الطلب يدويًا بصلاحيات لم يطلبها التطبيق.
+ *   • غياب granted_scopes **لا يمنح شيئًا** — لا كل المطلوب ولا الافتراضي.
+ *   • العميل لا يستطيع توسيع الصلاحيات مهما أرسل.
  *
- * الدالة تعمل على Deno وتستورد من jsr: فلا تُنفَّذ في Node، فتُفحص
- * مصدرًا — نفس أسلوب tests/remediation-static.test.mjs.
+ * هذه منصّة MCP تُستخدم مع Claude و ChatGPT وأي عميل خارجي، فالافتراض أن
+ * الطلب قد يكون مُلفَّقًا.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import {
+    decideGrantedScopes, defaultScopesFor, isPrivileged, PRIVILEGED_SCOPES,
+} from '../supabase/functions/oauth-authorize-approve/_shared/scope-grant.js';
+
 const ROOT = path.resolve(import.meta.dirname, '..');
 const APPROVE = readFileSync(
     path.join(ROOT, 'supabase/functions/oauth-authorize-approve/index.ts'), 'utf8');
 const CONSENT = readFileSync(path.join(ROOT, 'admin/oauth-consent.html'), 'utf8');
 
-test('ما يُكتب في كود التفويض هو المختار لا كل المطلوب', () => {
-    assert.match(APPROVE, /scope:\s*grantedScopes\.join\(" "\)/,
-        'يجب حفظ grantedScopes لا validScopes، وإلا فالاختيار بلا أثر');
+/** ما طلبه تطبيق خارجي فعلًا (Claude يطلب كل شيء). */
+const VALID = [
+    'tickets:read', 'tickets:write', 'tickets:delete',
+    'customers:read', 'admin:full', 'settings:manage', 'oauth:manage',
+];
+
+/* ══════════ 1. غياب الاختيار لا يمنح شيئًا ══════════ */
+
+test('غياب granted_scopes يُرفض ولا يمنح أي صلاحية', () => {
+    for (const absent of [undefined, null]) {
+        const r = decideGrantedScopes(VALID, absent);
+        assert.equal(r.ok, false, 'يجب الرفض عند غياب الاختيار');
+        assert.equal(r.reason, 'missing_granted_scopes');
+        assert.equal(r.scopes, undefined, 'لا يجوز أن تُعاد أي صلاحية مع الرفض');
+    }
+});
+
+test('غياب granted_scopes لا يعني «امنح كل ما طُلب»', () => {
+    // هذا هو الانحراف الذي أُغلق: كان الغياب يمنح VALID كاملة ومنها admin:full.
+    const r = decideGrantedScopes(VALID, undefined);
+    assert.equal(r.ok, false);
+    assert.notDeepEqual(r.scopes, VALID);
+});
+
+test('غياب granted_scopes لا يعني «امنح الافتراضي» أيضًا', () => {
+    // fail-closed لا fail-reduced: حتى المجموعة الآمنة لا تُمنَح بلا اختيار.
+    const r = decideGrantedScopes(VALID, undefined);
+    assert.equal(r.ok, false);
+    assert.notDeepEqual(r.scopes, defaultScopesFor(VALID));
+});
+
+test('نوع خاطئ مكان المصفوفة يُرفض ولا يُفسَّر تساهلًا', () => {
+    for (const bad of ['admin:full', 42, {}, true, 'tickets:read tickets:write']) {
+        const r = decideGrantedScopes(VALID, bad);
+        assert.equal(r.ok, false, `يجب رفض ${JSON.stringify(bad)}`);
+        assert.equal(r.reason, 'missing_granted_scopes');
+    }
+});
+
+/* ══════════ 2. العميل لا يستطيع التوسيع ══════════ */
+
+test('صلاحية لم يطلبها التطبيق تُسقَط', () => {
+    const r = decideGrantedScopes(['tickets:read'], ['tickets:read', 'admin:full']);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read'], 'admin:full لم تكن مطلوبة فتُسقَط');
+});
+
+test('صلاحية مخترَعة بالكامل تُسقَط', () => {
+    const r = decideGrantedScopes(['tickets:read'], ['tickets:read', 'root:everything', '*']);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read']);
+});
+
+test('اختيار كله خارج المطلوب يُرفض ولا يمنح شيئًا', () => {
+    const r = decideGrantedScopes(['tickets:read'], ['admin:full', 'settings:manage']);
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, 'empty_selection');
+    assert.equal(r.scopes, undefined);
+});
+
+test('النتيجة لا تتجاوز المطلوب مهما كان حجم الاختيار', () => {
+    const everything = [...VALID, 'a:b', 'c:d', 'admin:full', 'admin:full'];
+    const r = decideGrantedScopes(['tickets:read', 'customers:read'], everything);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read', 'customers:read']);
+    for (const s of r.scopes) {
+        assert.ok(['tickets:read', 'customers:read'].includes(s));
+    }
+});
+
+test('التكرار في الاختيار لا يُكرِّر المنح', () => {
+    const r = decideGrantedScopes(['tickets:read'], ['tickets:read', 'tickets:read', 'tickets:read']);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read']);
+});
+
+test('قيم غير نصّية داخل الاختيار تُتجاهَل بلا انهيار', () => {
+    const r = decideGrantedScopes(['tickets:read'], [null, 42, {}, 'tickets:read', undefined]);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read']);
+});
+
+/* ══════════ 3. الاختيار الصحيح يعمل ══════════ */
+
+test('التضييق مسموح: يُمنَح ما اختير فقط', () => {
+    const r = decideGrantedScopes(VALID, ['tickets:read', 'customers:read']);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.scopes, ['tickets:read', 'customers:read']);
+});
+
+test('admin:full تُمنَح فقط باختيار صريح', () => {
+    const without = decideGrantedScopes(VALID, ['tickets:read']);
+    assert.equal(without.scopes.includes('admin:full'), false);
+
+    const withIt = decideGrantedScopes(VALID, ['tickets:read', 'admin:full']);
+    assert.equal(withIt.scopes.includes('admin:full'), true, 'الاختيار الصريح يجب أن يعمل');
+});
+
+test('اختيار فارغ يُرفض', () => {
+    const r = decideGrantedScopes(VALID, []);
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, 'empty_selection');
+});
+
+/* ══════════ 4. الافتراضي المُعلَن ══════════ */
+
+test('default_scopes لا تحتوي أي صلاحية مرتفعة', () => {
+    const d = defaultScopesFor(VALID);
+    for (const p of PRIVILEGED_SCOPES) {
+        assert.equal(d.includes(p), false, `${p} يجب ألا تكون في الافتراضي`);
+    }
+    assert.deepEqual(d, ['tickets:read', 'tickets:write', 'tickets:delete', 'customers:read']);
+});
+
+test('isPrivileged يغطّي الثلاث ولا يتجاوزها', () => {
+    assert.deepEqual(PRIVILEGED_SCOPES, ['admin:full', 'settings:manage', 'oauth:manage']);
+    assert.equal(isPrivileged('admin:full'), true);
+    assert.equal(isPrivileged('tickets:read'), false);
+});
+
+/* ══════════ 5. الدالة المنشورة تستعمل هذا المنطق فعلًا ══════════ */
+
+test('index.ts يستدعي decideGrantedScopes ولا يحتفظ بمسار بديل', () => {
+    assert.match(APPROVE, /decideGrantedScopes\(validScopes, granted_scopes\)/,
+        'يجب تمرير validScopes و granted_scopes بهذا الترتيب');
+    assert.match(APPROVE, /if \(!decision\.ok\) return json\(/,
+        'الرفض يجب أن يُنهي الطلب');
+    // أي عودة إلى المسار المتساهل القديم تسقط هنا.
+    assert.doesNotMatch(APPROVE, /let grantedScopes = validScopes;/,
+        'لا يجوز وجود افتراضي متساهل');
     assert.doesNotMatch(APPROVE, /scope:\s*validScopes\.join/,
-        'حفظ validScopes يتجاهل اختيار المستخدم تمامًا');
+        'يجب حفظ المختار لا كل المطلوب');
+    assert.match(APPROVE, /scope:\s*grantedScopes\.join\(" "\)/);
 });
 
-test('الاختيار مُرشِّح على المطلوب لا مصدر مستقل', () => {
-    // الاتجاه حرج: validScopes.filter(...) يضيّق. أما بناء القائمة من
-    // granted_scopes مباشرة فيسمح بصلاحية لم يطلبها التطبيق.
-    assert.match(APPROVE, /grantedScopes\s*=\s*validScopes\.filter\(/,
-        'التقاطع يجب أن ينطلق من validScopes');
-    assert.doesNotMatch(APPROVE, /grantedScopes\s*=\s*granted_scopes\b/,
-        'granted_scopes يجب ألا يصير المصدر مباشرة');
-});
-
-test('غياب الاختيار لا يُسقط التحقّق من ALLOWED_SCOPES', () => {
-    // الافتراضي عند غياب الحقل هو validScopes — وهي أصلًا مُرشَّحة على
-    // ALLOWED_SCOPES، فلا يوجد مسار يتخطّى تلك القائمة.
-    assert.match(APPROVE, /const validScopes = requestedScopes\.filter\(\(s: string\) => ALLOWED_SCOPES\.includes\(s\)\)/);
-    assert.match(APPROVE, /let grantedScopes = validScopes;/,
-        'الافتراضي عند غياب granted_scopes يجب أن يكون validScopes');
-});
-
-test('اختيار فارغ يُرفض على الخادم لا على الواجهة فقط', () => {
-    assert.match(APPROVE, /if \(!grantedScopes\.length\)/,
-        'منح صفر صلاحية يجب أن يُرفض خادميًا');
-});
-
-test('الصلاحيات المرتفعة غير محدَّدة افتراضيًا', () => {
-    // الخادم يقترح default_scopes بلا المرتفع، والواجهة تحترمه.
-    assert.match(APPROVE, /default_scopes: validScopes\.filter\(\(s: string\) => !PRIVILEGED\.includes\(s\)\)/);
-    assert.match(CONSENT, /info\.default_scopes/,
-        'الواجهة يجب أن تقرأ default_scopes من الخادم');
-    // ولو كان الخادم بنسخة أقدم لا ترسله، تشتقّه الواجهة بنفس القاعدة.
-    assert.match(CONSENT, /scopes\.filter\(\(s\) => !describeScope\(s\)\.privileged\)/,
-        'يجب وجود اشتقاق احتياطي لا رجوع صامت إلى «حدِّد كل شيء»');
-});
-
-test('الواجهة ترسل ما هو محدَّد فعلًا', () => {
-    assert.match(CONSENT, /granted_scopes: granted/,
-        'زر الموافقة يجب أن يمرّر الاختيار');
-    assert.match(CONSENT, /\.oc-cb:checked/,
-        'الاختيار يُقرأ من الخانات المحدَّدة');
+test('الواجهة ترسل granted_scopes دائمًا', () => {
+    assert.match(CONSENT, /granted_scopes: granted/);
+    assert.match(CONSENT, /\.oc-cb:checked/);
 });

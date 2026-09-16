@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// JavaScript خالص عمدًا: نفس الملف يُنفَّذ في اختبارات Node، فقاعدة المنح
+// تُختبَر بالتنفيذ لا بفحص النصّ. انظر _shared/scope-grant.js.
+import { decideGrantedScopes, defaultScopesFor, isPrivileged } from "./_shared/scope-grant.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -75,17 +78,14 @@ Deno.serve(async (req: Request) => {
   const requestedScopes = (scope || "").split(/\s+/).filter(Boolean);
   const validScopes = requestedScopes.filter((s: string) => ALLOWED_SCOPES.includes(s));
 
-  // الصلاحيات المرتفعة: تُعرض ولا تُمنَح بالافتراضي. شاشة الموافقة تتركها
-  // بلا تحديد، فمنحها يحتاج نقرة صريحة من المستخدم لا مجرد ضغط «موافقة».
-  const PRIVILEGED = ["admin:full", "settings:manage", "oauth:manage"];
-
   if (action === "info") {
     return json({
       client_name: client.client_name,
       scopes: validScopes,
-      privileged_scopes: validScopes.filter((s: string) => PRIVILEGED.includes(s)),
-      // الافتراضي المقترح على الواجهة: كل ما طُلب عدا المرتفع.
-      default_scopes: validScopes.filter((s: string) => !PRIVILEGED.includes(s)),
+      // الصلاحيات المرتفعة: تُعرض ولا تُقترح. شاشة الموافقة تتركها بلا
+      // تحديد، فمنحها يحتاج نقرة صريحة لا مجرد ضغط «موافقة».
+      privileged_scopes: validScopes.filter((s: string) => isPrivileged(s)),
+      default_scopes: defaultScopesFor(validScopes),
     });
   }
 
@@ -101,25 +101,12 @@ Deno.serve(async (req: Request) => {
     if (!validScopes.length) return json({ error: "invalid_scope" }, 400);
 
     // ── ما يُمنَح فعلًا ───────────────────────────────────────────────
-    // المستخدم يختار من شاشة الموافقة، والخادم **يتقاطع** اختياره مع ما
-    // طلبه التطبيق أصلًا. اتجاه واحد فقط: التضييق. لا يمكن لاختيار قادم
-    // من المتصفح أن يضيف صلاحية لم يطلبها التطبيق أو ليست في
-    // ALLOWED_SCOPES، مهما كان محتوى الطلب — لأن المصدر هو validScopes
-    // لا granted_scopes، والأخير مُرشِّح لا مصدر.
-    //
-    // غياب granted_scopes يعني «امنح كل ما طُلب»، حفاظًا على سلوك أي
-    // نسخة مخزَّنة من صفحة الموافقة لا تعرف هذا الحقل بعد. النسخة
-    // الحالية ترسله دائمًا.
-    let grantedScopes = validScopes;
-    if (Array.isArray(granted_scopes)) {
-      const picked = new Set(
-        granted_scopes.filter((s: unknown): s is string => typeof s === "string"),
-      );
-      grantedScopes = validScopes.filter((s: string) => picked.has(s));
-    }
-    if (!grantedScopes.length) {
-      return json({ error: "لم تُحدَّد أي صلاحية - اختر صلاحية واحدة على الأقل أو ارفض الطلب" }, 400);
-    }
+    // كل القرار في _shared/scope-grant.js، ملف واحد يُنفَّذ في اختبارات
+    // Node. لا يوجد هنا أي مسار بديل: غياب الاختيار يُرفض ولا يُمنَح عنه
+    // شيء، والاختيار الموجود يُرشَّح على validScopes فلا يمكن توسيعه.
+    const decision = decideGrantedScopes(validScopes, granted_scopes);
+    if (!decision.ok) return json({ error: decision.error, reason: decision.reason }, 400);
+    const grantedScopes = decision.scopes;
 
     const code = `mad3oom_ac_${randomBase62(48)}`;
     const codeHash = await sha256Hex(code);
