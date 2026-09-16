@@ -14,9 +14,16 @@ const CORS_HEADERS: Record<string, string> = {
 // together, instead of four separate code deploys racing each other.
 //
 // This value is the OAuth issuer identity. Do not flip it independently of
-// oauth-discovery, oauth-protected-resource, oauth-authorize and
-// mcp-oauth-callback — see docs/DOMAIN-MIGRATION.md.
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.online";
+// oauth-discovery, oauth-protected-resource, oauth-authorize, mcp-oauth-callback
+// and mcp — see docs/MCP-CANONICAL-CUTOVER.md.
+//
+// CUTOVER 2026-09-16: the default is now the canonical domain. Before this, the
+// default was mad3oom.online and every POST in the OAuth chain was dead: the
+// advertised .online host 301s to .com, and per the Fetch spec a 301 turns a
+// POST into a GET, so dynamic client registration answered 405 "Only POST is
+// supported" to a request that WAS a POST. Rollback is this same variable set
+// back to https://mad3oom.online — no redeploy needed.
+const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
 
 // v2: إضافة subscriptions:* وnotifications:* - نفس القائمة المضافة في
 // create-api-token/index.ts وoauth-authorize-approve/index.ts.

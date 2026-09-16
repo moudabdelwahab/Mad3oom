@@ -30,7 +30,18 @@ const SUPPORTED_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05", "2025-11-2
 const DEFAULT_VERSION = "2025-06-18";
 const SERVER_INFO = { name: "mad3oom-mcp", version: "1.1.0" };
 
-const PROTECTED_RESOURCE_METADATA_URL = "https://mad3oom.online/.well-known/oauth-protected-resource";
+// ── Public origin ────────────────────────────────────────────────────────────
+// هذه الترويسة (WWW-Authenticate على 401) هي **أول ما يتبعه أي عميل MCP**
+// لبدء اكتشاف OAuth. كانت مُثبّتة على mad3oom.online، فكانت تُرسل كل عميل إلى
+// الدومين القديم مهما فُعل ببقية الدوال — وهناك تموت السلسلة، لأن .online
+// تُعيد التوجيه 301 إلى .com، و301 تحوّل POST إلى GET وفق مواصفة Fetch.
+//
+// CUTOVER 2026-09-16: صارت تُقرأ من نفس المتغيّر الذي تقرؤه oauth-discovery و
+// oauth-authorize و oauth-protected-resource و mcp-oauth-callback، بالدومين
+// الرسمي كقيمة افتراضية. لا تُقلب منفردة — انظر docs/MCP-CANONICAL-CUTOVER.md.
+// التراجع: ضبط PUBLIC_SITE_ORIGIN على https://mad3oom.online بلا إعادة نشر.
+const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
+const PROTECTED_RESOURCE_METADATA_URL = `${PUBLIC_SITE_ORIGIN}/.well-known/oauth-protected-resource`;
 
 function rpcResult(id: unknown, result: unknown) { return { jsonrpc: "2.0", id, result }; }
 function rpcError(id: unknown, code: number, message: string) { return { jsonrpc: "2.0", id, error: { code, message } }; }

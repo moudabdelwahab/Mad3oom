@@ -18,7 +18,10 @@ const CORS_HEADERS: Record<string, string> = {
 // This value is the OAuth issuer identity. Do not flip it independently of
 // oauth-discovery, oauth-protected-resource, oauth-authorize and
 // mcp-oauth-callback — see docs/DOMAIN-MIGRATION.md.
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.online";
+// CUTOVER 2026-09-16: default is now the canonical domain — see
+// docs/MCP-CANONICAL-CUTOVER.md. Rollback: set PUBLIC_SITE_ORIGIN back to
+// https://mad3oom.online (no redeploy needed).
+const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
 const CONSENT_PAGE_URL = `${PUBLIC_SITE_ORIGIN}/admin/oauth-consent.html`;
 
 function err(desc: string, status = 400) {

@@ -25,7 +25,10 @@ import { decryptString } from "./_shared/mcp-crypto.ts";
 //
 // Do not flip it independently of oauth-discovery, oauth-protected-resource
 // and oauth-authorize — see docs/DOMAIN-MIGRATION.md.
-const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.online";
+// CUTOVER 2026-09-16: default is now the canonical domain — see
+// docs/MCP-CANONICAL-CUTOVER.md. Rollback: set PUBLIC_SITE_ORIGIN back to
+// https://mad3oom.online (no redeploy needed).
+const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
 const ADMIN_MCP_PAGE_URL = `${PUBLIC_SITE_ORIGIN}/admin/mcp.html`;
 
 function redirectToAdmin(params: Record<string, string>): Response {

@@ -229,6 +229,9 @@ const ORIGIN_FILES = [
   'supabase/functions/oauth-protected-resource/index.ts',
   'supabase/functions/oauth-authorize/index.ts',
   'supabase/functions/mcp-oauth-callback/index.ts',
+  // أُضيفت في تحوّل 2026-09-16: ترويسة WWW-Authenticate في mcp/index.ts هي
+  // أول ما يتبعه أي عميل، وكانت الدالة الخامسة المنسيّة في القائمة.
+  'supabase/functions/mcp/index.ts',
 ];
 
 test('every OAuth origin is read from one variable', () => {
@@ -237,10 +240,31 @@ test('every OAuth origin is read from one variable', () => {
   }
 });
 
-test('the default keeps today behaviour exactly, so deploying is a no-op', () => {
+// تحوّل 2026-09-16: قبله كان الثابت «الافتراضي يساوي الدومين القديم، فالنشر
+// بلا أثر» — وكان صحيحًا ما دام التحوّل لم يحدث. بعد التحوّل صار الثابت
+// المطلوب هو العكس: الافتراضي هو الدومين الرسمي، والمتغيّر يبقى مسار التراجع.
+test('the default is the canonical domain', () => {
   for (const f of ORIGIN_FILES) {
-    assert.match(read(f), /\?\?\s*"https:\/\/mad3oom\.online"/, `${f} must default to the current origin`);
+    assert.match(read(f), /\?\?\s*"https:\/\/mad3oom\.com"/, `${f} must default to the canonical origin`);
   }
+});
+
+test('rollback stays one variable: no origin is hard-coded past the env read', () => {
+  for (const f of ORIGIN_FILES) {
+    assert.match(read(f), /Deno\.env\.get\("PUBLIC_SITE_ORIGIN"\)\s*\?\?/,
+      `${f} must keep the env override, so rollback needs no redeploy`);
+  }
+});
+
+// RFC 9728 §3.3: العميل يتحقق من تطابق resource مع المورد الذي يصل إليه.
+// اشتقاقه من SUPABASE_URL كان يعطي العنوان الداخلي لا العنوان الذي يتصل به
+// العميل، فيرفضه عميل صارم.
+test('the protected-resource metadata advertises the public MCP endpoint', () => {
+  const prm = read('supabase/functions/oauth-protected-resource/index.ts');
+  assert.match(prm, /const resource = `\$\{PUBLIC_SITE_ORIGIN\}\/mcp`;/,
+    'resource must be the public endpoint the client actually connects to');
+  assert.doesNotMatch(codeOnly(prm), /SUPABASE_URL/,
+    'resource must no longer be derived from the internal Supabase URL');
 });
 
 test('no OAuth function still hard-codes a .online URL', () => {
