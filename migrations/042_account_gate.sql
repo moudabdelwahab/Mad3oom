@@ -233,8 +233,15 @@ $$;
 -- ── 13) تسجيل دخول عميل تابع لشركة ────────────────────────
 -- العضوية تُثبَت داخل القاعدة عبر companies.user_id = profiles.super_user_id،
 -- ولا يُقبل أي company_id قادم من الواجهة.
+--
+-- VOLATILE **إلزامية هنا ولا تُبدَّل إلى STABLE**، وإن بدت الدالة قارئة:
+-- PostgREST يختار نوع المعاملة من تصنيف الدالة وحدها، فيشغّل STABLE في
+-- معاملة read-only. وهذه الدالة تكتب — لا في جسدها بل على بُعد نداء واحد،
+-- داخل _check_email_lookup_rate_limit التي تسجّل المحاولة. فكانت النتيجة
+-- «cannot execute INSERT in a read-only transaction» (SQLSTATE 25006) عند
+-- كل محاولة دخول لعضو شركة. مقيسٌ في tests/sql/account-gate.test.sql.
 create or replace function public.resolve_company_member_login(p_company text, p_member text)
-returns text language plpgsql stable security definer set search_path to 'public' as $$
+returns text language plpgsql volatile security definer set search_path to 'public' as $$
 declare v_company_id uuid; v_owner_id uuid; v_email text; v_member text;
 begin
   if p_company is null or p_member is null then return null; end if;
