@@ -170,16 +170,16 @@ function scopesPanel(id) {
           يمكنك <strong>إزالة</strong> صلاحيات فقط. إضافة صلاحية جديدة تحتاج أن يطلبها
           التطبيق من جديد وتوافق عليها — وهذا ما يمنع أي تطبيق من توسيع صلاحياته بنفسه.
         </div>
-        <div class="oc-bulk">
+        <div class="ca-bulk">
           <button type="button" id="caNone">إلغاء الكل</button>
-          <span class="oc-count" id="caSelCount"></span>
+          <span class="ca-count-sel" id="caSelCount"></span>
         </div>
         ${ordered.map(([g, items]) => `
-          <div class="oc-group">
-            <div class="oc-group-t">${esc(g)}</div>
-            <ul class="oc-list">
+          <div class="ca-group">
+            <div class="ca-group-t">${esc(g)}</div>
+            <ul class="ca-list-scopes">
               ${items.map((d) => `
-                <li class="oc-item${d.danger ? ' danger' : ''}">
+                <li class="ca-item${d.danger ? ' danger' : ''}">
                   <input type="checkbox" class="ca-cb" value="${esc(d.key)}" checked
                          aria-label="${esc(d.known ? d.label : d.key)}">
                   <span>${d.known ? esc(d.label) : `<code>${esc(d.key)}</code>`}</span>
@@ -253,7 +253,7 @@ function expiryPanel(id) {
           <div class="mi-row"><span class="mi-k">الحالي</span><span class="mi-v">${esc(untilText(app.session_expires_at))}</span></div>
           <div class="mi-row"><span class="mi-k">ينتهي في</span><span class="mi-v">${app.session_expires_at ? esc(new Date(app.session_expires_at).toLocaleString('ar-EG')) : '—'}</span></div>
         </div>
-        <p class="oc-sec" style="margin-top:1rem">اختر مدة جديدة تبدأ من الآن:</p>
+        <p class="ca-sec" style="margin-top:1rem">اختر مدة جديدة تبدأ من الآن:</p>
         <div class="ca-presets">
           ${EXPIRY_PRESETS.map((p) => `<button type="button" class="ca-preset" data-days="${p.days}">${esc(p.label)}</button>`).join('')}
         </div>
