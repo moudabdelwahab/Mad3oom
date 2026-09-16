@@ -1,0 +1,427 @@
+/* ============================================================================
+   owner-dashboard.css — الطبقة البصرية الخاصة بواجهة مالك المنصة.
+
+   المبدأ — نفسه حرفيًا في company-dashboard.css، ولنفس السبب:
+   نظام التصميم كامل يأتي من customer-dashboard.css (التوكنز، .panel، .kpi،
+   .pill، .form-*، .btn، .modal، .skeleton، .state-block، القشرة والقائمة).
+   هذا الملف يضيف **ما لا وجود له** فقط: علامة المستوى، وبطاقات اختيار
+   السياق، ومبدّل السياق في الشريط العلوي.
+
+   قاعدتان لا تُخرقان:
+     ① لا إعادة تعريف لأي مكوّن موجود. لو احتاج شيء تعديلًا فمكانه الملف
+        الأصلي، وإلا انقسم النظام إلى نظامين يتباعدان مع أول تغيير.
+     ② لا مساس بـ--color-accent العام. تغييره يطال القشرة والقائمة وكل
+        لوحة أخرى. التمييز يتم بتوكن مقصور على .owner-shell — وهو بالضبط
+        ما فعلته لوحة الشركة بـ--company-accent.
+
+   الهوية: نيلي هادئ يجاور بنفسجي الشركة وأزرق المنصة. بلا تدرّجات صارخة
+   وبلا لون لكل سياق: التمييز بالأيقونة والنص، لا بقوس قزح.
+   ========================================================================== */
+
+.owner-shell {
+    --owner-accent: #3E6FD9;
+    --owner-accent-soft: #7EA3EC;
+    --owner-tint: rgba(62, 111, 217, .12);
+    --owner-border: rgba(62, 111, 217, .32);
+}
+
+[data-theme="light"] .owner-shell {
+    --owner-accent: #2C51A8;
+    --owner-accent-soft: #3E6FD9;
+    --owner-tint: rgba(44, 81, 168, .08);
+    --owner-border: rgba(44, 81, 168, .24);
+}
+
+/* ── شريط المستوى ───────────────────────────────────────────────────────── */
+/* نفس بنية .company-banner ونفس التوكنز، بلون المستوى الخاص به. */
+.owner-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-5);
+    margin-bottom: var(--sp-5);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background:
+        linear-gradient(135deg, var(--owner-tint), transparent 65%),
+        var(--glass-bg, var(--color-surface));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.owner-banner-main { min-width: 0; }
+
+.owner-level-tag {
+    display: inline-block;
+    padding: .2rem .65rem;
+    border-radius: var(--r-pill);
+    background: var(--owner-tint);
+    border: 1px solid var(--owner-border);
+    color: var(--owner-accent-soft);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    margin-bottom: var(--sp-2);
+}
+
+.owner-title {
+    margin: 0;
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.owner-meta {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+}
+
+.owner-banner-side {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+/* ── مؤشرات اللوحة ──────────────────────────────────────────────────────── */
+/* البطاقات نفسها من .kpi بلا تعديل. لوحة المالك تعرض ستة مؤشرات، و auto-fit
+   كان يوزّعها ٥ + ١ فيترك فراغًا في الصف الثاني. نثبّت ثلاثة أعمدة هنا فقط
+   (٣ + ٣) دون المساس بـ .kpi-grid المشتركة. */
+@media (min-width: 900px) {
+    .owner-shell #ownerKpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ── الجداول ────────────────────────────────────────────────────────────── */
+/* الجدول نفسه .admin-table بلا تعديل. غلافه .table-container يحمل سطحًا وحدًا
+   وظلًا، وهو هنا داخل .panel — أي إطار فوق إطار. نُبقي التمرير الأفقي وحده. */
+.owner-shell .panel .table-container {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin-top: var(--sp-3);
+}
+
+.owner-shell .panel .table-container .admin-table th { background: transparent; }
+
+.owner-cell-muted { color: var(--color-text-secondary); }
+
+/* ── شاشة اختيار السياق ─────────────────────────────────────────────────── */
+/* صفحة قائمة بذاتها (بلا قائمة جانبية)، فتحتاج حاوية خاصة بها.
+   العرض والمسافات من نفس التوكنز. */
+.context-page {
+    /* width: 100% ليس حشوًا. admin-style.css يجعل body حاوية flex عمودية،
+       و`margin-inline: auto` يُلغي تمدّد العنصر في المحور المتقاطع — فتنكمش
+       الصفحة إلى عرض محتواها وتُصبح الشبكة عمودًا واحدًا. */
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: var(--sp-7) var(--sp-5) var(--sp-6);
+    box-sizing: border-box;
+}
+
+.context-head { margin-bottom: var(--sp-6); }
+
+.context-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-5);
+}
+
+.context-brand img { border-radius: var(--r-sm); }
+
+.context-brand-name {
+    font-size: var(--fs-md);
+    font-weight: 800;
+    color: var(--color-text);
+    line-height: 1.2;
+}
+
+.context-brand-sub {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.context-title {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-xl);
+    font-weight: 800;
+    color: var(--color-text);
+    line-height: 1.25;
+}
+
+.context-sub {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    max-width: 58ch;
+}
+
+/* البطاقات: نفس لغة .kpi — نفس الخلفية والحد والحواف ونفس hover
+   (رفع 2px + تلوين الحد). لا تكبير ولا ظل جديد ولا حركة إضافية. */
+.context-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+    gap: var(--sp-4);
+}
+
+.context-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    text-align: right;
+    width: 100%;
+    padding: var(--sp-5);
+    background: var(--glass-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    color: var(--color-text);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.context-card:hover:not(:disabled),
+.context-card:focus-visible:not(:disabled) {
+    border-color: var(--owner-border);
+    transform: translateY(-2px);
+    outline: none;
+}
+
+.context-card:focus-visible { box-shadow: 0 0 0 3px var(--focus-ring); }
+
+.context-card:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.context-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--r-md);
+    background: var(--owner-tint);
+    border: 1px solid var(--owner-border);
+    color: var(--owner-accent-soft);
+    flex-shrink: 0;
+}
+
+.context-card-name {
+    font-size: var(--fs-md);
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.context-card-desc {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.65;
+}
+
+/* «دخول» أولًا دائمًا، والشارة تُدفع إلى الطرف. بـspace-between كانت
+   البطاقة بلا شارة تضع «دخول» في جهة والبطاقة ذات الشارة تضعه في الجهة
+   المقابلة — تنافر يلفت النظر في شبكة واحدة. */
+.context-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--sp-2);
+    width: 100%;
+    margin-top: auto;
+    padding-top: var(--sp-2);
+}
+
+.context-card-foot .pill { margin-inline-start: auto; }
+
+.context-card-go {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--owner-accent-soft);
+}
+
+.context-card:hover:not(:disabled) .context-card-go { color: var(--owner-accent); }
+.context-card-go svg { transition: transform var(--dur-fast) var(--ease); }
+.context-card:hover:not(:disabled) .context-card-go svg { transform: translateX(-3px); }
+
+.context-card.is-current { border-color: var(--owner-border); }
+
+.context-note {
+    margin-top: var(--sp-6);
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+    line-height: 1.8;
+}
+
+/* ── مبدّل السياق في الشريط العلوي ──────────────────────────────────────── */
+/* يستعمل .portal-menu-wrap و.portal-menu و.portal-menu-item كما هي؛
+   المُضاف هنا اللصيقة النصية وحالة العنصر الحالي فقط. */
+.context-switch-btn {
+    width: auto !important;
+    gap: var(--sp-2);
+    padding-inline: var(--sp-3) !important;
+    border: 1px solid var(--owner-border) !important;
+    background: var(--owner-tint) !important;
+    color: var(--owner-accent-soft) !important;
+}
+
+.context-switch-label {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.portal-menu-context { min-width: 16rem; }
+
+.portal-menu-context .portal-menu-item[aria-current="true"] {
+    color: var(--owner-accent-soft);
+    font-weight: 800;
+}
+
+.portal-menu-context .portal-menu-item .context-mi-icon {
+    color: var(--owner-accent-soft);
+    flex-shrink: 0;
+}
+
+.context-mi-preview {
+    margin-inline-start: auto;
+    font-size: .62rem;
+    font-weight: 700;
+    padding: .08rem .4rem;
+    border-radius: var(--r-pill);
+    background: var(--tint-warning);
+    color: var(--on-warning);
+}
+
+/* ── شريط المعاينة: تحذير قراءة-فقط ─────────────────────────────────────── */
+.preview-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-4);
+    border: 1px solid var(--tint-warning-border);
+    background: var(--tint-warning);
+    color: var(--on-warning);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+}
+
+/* ── الاستجابة: نفس نقاط القطع المستعملة في لوحة الشركة ─────────────────── */
+@media (max-width: 720px) {
+    .owner-banner { flex-direction: column; align-items: flex-start; }
+    .owner-banner-side { width: 100%; }
+    .context-page { padding: var(--sp-5) var(--sp-4) var(--sp-6); }
+    .context-title { font-size: var(--fs-lg); }
+    .context-switch-label { display: none; }
+}
+
+/* ── المبدّل المحقون في صفحات لا تُحمّل نظام التصميم ─────────────────────── */
+/*
+   صفحات الإدارة تُحمّل admin-style.css وحده، فـ.portal-menu* غير معرّفة عندها.
+   الكتلة التالية مقصورة على .ctx-wrap (الغلاف المحقون) وتعطي المبدّل قيمًا
+   احتياطية لكل توكن: حيث يوجد نظام التصميم تُورَّث قيمه، وحيث لا يوجد تظهر
+   القيمة الاحتياطية بنفس المقاس. هذا أضيق ما يمكن — لا إعادة تعريف لمكوّن
+   خارج هذا الغلاف، ولا أثر على أي صفحة لا تحمله.
+*/
+.ctx-wrap { position: relative; display: inline-flex; }
+
+.ctx-wrap .context-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    height: 38px;
+    padding: 0 var(--sp-3, .75rem);
+    border-radius: var(--r-sm, .5rem);
+    border: 1px solid var(--owner-border, rgba(62, 111, 217, .32));
+    background: var(--owner-tint, rgba(62, 111, 217, .12));
+    color: var(--owner-accent-soft, #7EA3EC);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--dur, .22s) var(--ease, ease);
+}
+
+.ctx-wrap .context-switch-btn:hover { border-color: var(--owner-accent, #3E6FD9); }
+.ctx-wrap .context-switch-btn:focus-visible {
+    outline: 2px solid var(--owner-accent, #3E6FD9);
+    outline-offset: 2px;
+}
+
+.ctx-wrap .portal-menu {
+    position: absolute;
+    top: calc(100% + var(--sp-2, .5rem));
+    inset-inline-start: 0;
+    min-width: 16rem;
+    padding: var(--sp-2, .5rem);
+    background: var(--color-surface, #0D1622);
+    border: 1px solid var(--color-border, rgba(255, 255, 255, .09));
+    border-radius: var(--r-md, .75rem);
+    box-shadow: var(--shadow-sm, 0 10px 24px -12px rgba(0, 8, 25, .6));
+    z-index: 1200;
+}
+
+.ctx-wrap .portal-menu[hidden] { display: none; }
+
+.ctx-wrap .portal-menu-head {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    padding: var(--sp-2, .5rem) var(--sp-3, .75rem);
+    margin-bottom: var(--sp-1, .25rem);
+    border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, .09));
+}
+
+.ctx-wrap .portal-menu-name {
+    font-size: var(--fs-xs, .72rem);
+    font-weight: 600;
+    color: var(--color-text-secondary, #94A6C2);
+}
+
+.ctx-wrap .portal-menu-email {
+    font-size: var(--fs-sm, .82rem);
+    font-weight: 800;
+    color: var(--color-text, #F3F6FB);
+}
+
+.ctx-wrap .portal-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    width: 100%;
+    padding: var(--sp-2, .5rem) var(--sp-3, .75rem);
+    border: none;
+    background: none;
+    border-radius: var(--r-sm, .5rem);
+    color: var(--color-text, #F3F6FB);
+    font-family: inherit;
+    font-size: var(--fs-sm, .82rem);
+    font-weight: 600;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ctx-wrap .portal-menu-item:hover:not(:disabled) { background: var(--hover-bg, rgba(255, 255, 255, .05)); }
+.ctx-wrap .portal-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.ctx-wrap .portal-menu-item:focus-visible {
+    outline: 2px solid var(--owner-accent, #3E6FD9);
+    outline-offset: -2px;
+}

@@ -1,237 +1,253 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>لوحة المالك — مركز تحكّم المنصة</title>
-<link rel="icon" href="/favicon.ico">
-<style>
-  :root {
-    --bg:#070c15; --panel:#0e1726; --line:#1e293b; --ink:#e6edf7;
-    --muted:#94a3b8; --accent:#3b82f6; --danger:#ef4444; --ok:#22c55e; --warn:#f59e0b;
-  }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
-    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
-  }
-  .wrap { max-width:1180px; margin:0 auto; padding:2rem 1.25rem 4rem; }
-  h1 { margin:0 0 .35rem; font-size:1.55rem; font-weight:700; }
-  .sub { margin:0 0 2rem; color:var(--muted); font-size:.9rem; max-width:70ch; }
-  section { margin-bottom:2.25rem; }
-  h2 {
-    margin:0 0 .85rem; font-size:1.02rem; font-weight:650;
-    display:flex; align-items:center; gap:.6rem;
-  }
-  h2 .hint { font-weight:400; font-size:.76rem; color:var(--muted); }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:.7rem; overflow:hidden; }
-  .stats { display:grid; gap:.85rem; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); }
-  .stat { padding:1rem 1.1rem; background:var(--panel); border:1px solid var(--line); border-radius:.7rem; }
-  .stat .n { font-size:1.6rem; font-weight:700; line-height:1.2; }
-  .stat .k { font-size:.78rem; color:var(--muted); margin-top:.15rem; }
-  table { width:100%; border-collapse:collapse; font-size:.85rem; }
-  th, td { padding:.6rem .85rem; text-align:right; border-bottom:1px solid var(--line); }
-  th { color:var(--muted); font-weight:600; font-size:.76rem; background:#0b1322; }
-  tr:last-child td { border-bottom:0; }
-  .pill { display:inline-block; padding:.1rem .55rem; border-radius:999px; font-size:.72rem; }
-  .pill.owner { background:#1d4ed8; }
-  .pill.elev  { background:#7c3aed; }
-  .pill.admin { background:#334155; }
-  .pill.deny  { background:#7f1d1d; }
-  .scroll { max-height:340px; overflow:auto; }
-  .links { display:grid; gap:.7rem; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
-  .links a {
-    display:block; padding:.85rem 1rem; background:var(--panel); color:var(--ink);
-    border:1px solid var(--line); border-radius:.6rem; text-decoration:none; font-size:.88rem;
-  }
-  .links a:hover { border-color:var(--accent); }
-  .empty { padding:1.2rem; color:var(--muted); font-size:.84rem; }
-  .gate { max-width:620px; margin:6rem auto; text-align:center; }
-  .gate h2 { justify-content:center; font-size:1.2rem; }
-  .gate p { color:var(--muted); font-size:.9rem; }
-  .gate a { color:var(--accent); }
-  .warnbox {
-    padding:.8rem 1rem; border:1px solid #713f12; background:#1c1407;
-    border-radius:.6rem; color:#fcd34d; font-size:.82rem; margin-bottom:1rem;
-  }
-</style>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في كل صفحات البوابة — الثيم وحالة الطي قبل
+           أول رسم، فلا وميض ولا قفزة عند الانتقال بين اللوحات. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
 </head>
-<body>
-<div id="gate" class="gate" hidden>
-  <h2 id="gateTitle"></h2>
-  <p id="gateText"></p>
-  <p><a href="/owner-contexts.html">الذهاب إلى شاشة السياقات</a></p>
-</div>
+<body class="customer-shell owner-shell">
+    <div id="sidebar-container"></div>
 
-<div class="wrap" id="main" hidden>
-  <h1>لوحة المالك</h1>
-  <p class="sub">
-    مركز تحكّم مالك المنصة. ما هنا ليس نسخة من لوحة الإدارة: هذه الصفحة تعرض
-    <b>مصادر السلطة نفسها</b> — من يملك ماذا، ومن حاول ما لا يملك، ومن أين تُمنح
-    الصلاحيات — وهي أمور لا يراها أي أدمن.
-  </p>
+    <main class="admin-main" id="ownerMain">
 
-  <section>
-    <h2>حالة المنصة</h2>
-    <div class="stats" id="stats"></div>
-  </section>
+        <!-- بوابة العرض: تُظهر سبب المنع بدل لوحة فارغة بلا تفسير.
+             القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
 
-  <section>
-    <h2>سلطة المنصة <span class="hint">المصدر الوحيد للتفويض — يُكتب بترحيل فقط، لا من أي جلسة</span></h2>
-    <div class="panel"><div id="authorityBox" class="empty">جارٍ التحميل…</div></div>
-  </section>
+        <div id="ownerContent" hidden>
 
-  <section>
-    <h2>سجل السياق <span class="hint">append-only — لا يُعدَّل ولا يُحذف، ويشمل المحاولات المرفوضة</span></h2>
-    <div class="panel"><div class="scroll" id="auditBox"><div class="empty">جارٍ التحميل…</div></div></div>
-  </section>
+            <!-- شريط المستوى — نفس بنية .company-banner بهوية المالك -->
+            <header class="owner-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك</span>
+                    <h1 class="owner-title">مركز تحكّم المنصة</h1>
+                    <p class="owner-meta">
+                        ما هنا ليس نسخة من لوحة الإدارة: هذه الصفحة تعرض مصادر السلطة نفسها —
+                        من يملك ماذا، ومن حاول ما لا يملك — وهي أمور لا يراها أي أدمن.
+                    </p>
+                </div>
+                <div class="owner-banner-side">
+                    <span class="pill status-open" id="ownerContextPill" hidden></span>
+                </div>
+            </header>
 
-  <section>
-    <h2>الحسابات <span class="hint">رؤية كل الحسابات صلاحية مرتفعة لا يملكها أدمن عادي</span></h2>
-    <div class="panel"><div class="scroll" id="profilesBox"><div class="empty">جارٍ التحميل…</div></div></div>
-  </section>
+            <!-- ═══ نظرة عامة ══════════════════════════════════════════════ -->
+            <!-- ليست .tab-content: تلك مخفية حتى تُضاف .active، وهذه الصفحة
+                 أقسام متتابعة بمراسٍ لا تبويبات. -->
+            <section id="overviewTabContent">
+                <div class="kpi-grid" id="ownerKpis" aria-live="polite"></div>
+            </section>
 
-  <section>
-    <h2>أدوات الإدارة <span class="hint">تُفتح داخل سياق الإدارة</span></h2>
-    <div class="links">
-      <a href="/admin-dashboard.html">لوحة إدارة المنصة</a>
-      <a href="/admin/users.html">المستخدمون</a>
-      <a href="/admin/tickets.html">التذاكر</a>
-      <a href="/admin/subscriptions.html">الاشتراكات</a>
-      <a href="/admin/settings.html">الإعدادات</a>
-      <a href="/owner-contexts.html">تبديل السياق</a>
-    </div>
-  </section>
-</div>
+            <!-- ═══ السلطة والمنح ══════════════════════════════════════════ -->
+            <section class="panel" id="authorityTabContent" aria-labelledby="authorityHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="authorityHeading">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                            سلطة المنصة
+                        </h2>
+                        <p class="panel-subtitle">المصدر الوحيد للتفويض — لا يُكتب من أي جلسة، والتعديل يمرّ بترحيل بمراجعة بشرية</p>
+                    </div>
+                </div>
+                <div id="authorityBody">
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+            </section>
+
+            <!-- ═══ سجل السياق ═════════════════════════════════════════════ -->
+            <section class="panel" id="auditTabContent" aria-labelledby="auditHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="auditHeading">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                            سجل السياق
+                        </h2>
+                        <p class="panel-subtitle">سجل غير قابل للتعديل أو الحذف، ويشمل المحاولات المرفوضة</p>
+                    </div>
+                </div>
+                <div id="auditBody">
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+            </section>
+
+        </div>
+    </main>
 
 <script type="module">
 import { supabase } from '/api-config.js';
-import { contextStatus, mountContextBar } from '/assets/js/owner/owner-context.js';
+import { initOwnerShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
+import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
 
 const $ = (id) => document.getElementById(id);
 
-function gate(title, text) {
-  $('gate').hidden = false;
-  $('gateTitle').textContent = title;
-  $('gateText').textContent = text;
-}
-
-function table(cols, rows, render) {
-  if (!rows.length) return '<div class="empty">لا صفوف.</div>';
-  const head = cols.map(c => `<th>${c}</th>`).join('');
-  const body = rows.map(render).join('');
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-}
-
 const esc = (v) => String(v ?? '—').replace(/[&<>"]/g, c =>
-  ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const when = (t) => t ? new Date(t).toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' }) : '—';
+const when = (t) => t
+    ? new Date(t).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })
+    : '—';
+
+/** نفس جدول صفحات الإدارة: .table-container + .admin-table، بلا أنماط مكتوبة
+    في العنصر. الإطار المزدوج (سطح الغلاف داخل سطح .panel) مُلغى في
+    owner-dashboard.css، فيبقى التمرير الأفقي وحده. */
+function table(cols, rows, render) {
+    if (!rows.length) {
+        return `<div class="state-block state-block--compact">
+                    <p class="state-text">لا صفوف.</p>
+                </div>`;
+    }
+    return `<div class="table-container">
+        <table class="admin-table">
+            <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(render).join('')}</tbody>
+        </table></div>`;
+}
+
+const td = (v) => `<td>${v}</td>`;
+
+function gate(title, text) {
+    $('ownerGate').hidden = false;
+    $('ownerGateBody').innerHTML = `
+        <p class="state-title"></p>
+        <p class="state-text"></p>
+        <a class="panel-link" href="/owner-contexts.html">الذهاب إلى واجهة اللوحات</a>`;
+    $('ownerGateBody').querySelector('.state-title').textContent = title;
+    $('ownerGateBody').querySelector('.state-text').textContent = text;
+}
 
 (async function init() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) { window.location.replace('/login.html'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) { window.location.replace('/login.html'); return; }
 
-  let status;
-  try { status = await contextStatus(); }
-  catch (err) { gate('تعذّر التحقق', err.message); return; }
+    await initOwnerShell({ onReady: () => mountContextBar() });
 
-  if (!status?.is_platform_owner) {
-    gate('هذه اللوحة لمالك المنصة وحده',
-         'حسابك مسجّل دخوله بشكل صحيح، لكن لوحة المالك ليست من صفحاته.');
-    return;
-  }
+    let status;
+    try {
+        status = await contextStatus();
+    } catch (err) {
+        gate('تعذّر التحقق', err.message);
+        return;
+    }
 
-  // اللوحة تعرض السلطة المرتفعة، وهي لا تُفعَّل إلا في سياق المالك. الدخول
-  // إليها من سياق آخر كان سيعرض جداول فارغة بلا تفسير — فالرسالة أوضح.
-  if (status.active_context !== 'owner') {
-    gate('أنت خارج سياق المالك',
-         'لوحة المالك تعمل داخل سياق «لوحة المالك» فقط. اختره من شاشة السياقات.');
-    return;
-  }
+    if (!status?.is_platform_owner) {
+        gate('هذه اللوحة لمالك المنصة وحده',
+             'حسابك مسجّل دخوله بشكل صحيح، لكن لوحة المالك ليست من صفحاته.');
+        return;
+    }
 
-  $('main').hidden = false;
-  mountContextBar();
+    // اللوحة تعرض السلطة المرتفعة، وهي لا تُفعَّل إلا في سياق المالك. الدخول
+    // من سياق آخر كان سيعرض جداول فارغة بلا تفسير — فالرسالة أوضح.
+    if (status.active_context !== 'owner') {
+        const p = CONTEXT_PRESENTATION[status.active_context];
+        gate('أنت خارج واجهة مالك المنصة',
+             `واجهتك الحالية «${p?.name || 'غير محدّدة'}». لوحة المالك تعمل داخل واجهة «مالك المنصة» وحدها.`);
+        return;
+    }
 
-  const [authority, audit, profiles, companies] = await Promise.all([
-    supabase.from('platform_authority').select('user_id, level, granted_at, note'),
-    supabase.from('owner_context_audit')
-            .select('event, from_context, to_context, at, detail')
-            .order('at', { ascending:false }).limit(60),
-    supabase.from('profiles').select('id, email, full_name, role, created_at')
-            .order('created_at', { ascending:false }),
-    supabase.from('companies').select('id', { count:'exact', head:true })
-  ]);
+    $('ownerContent').hidden = false;
+    setActiveSidebarTab((location.hash || '#overview').slice(1));
+    window.addEventListener('hashchange', () =>
+        setActiveSidebarTab((location.hash || '#overview').slice(1)));
 
-  const profileRows = profiles.data || [];
-  const byId = new Map(profileRows.map(p => [p.id, p]));
+    const pill = $('ownerContextPill');
+    pill.textContent = 'الواجهة الحالية: مالك المنصة';
+    pill.hidden = false;
 
-  // ── حالة المنصة ───────────────────────────────────────────────────────
-  const counts = profileRows.reduce((acc, p) => {
-    acc[p.role || 'user'] = (acc[p.role || 'user'] || 0) + 1;
-    return acc;
-  }, {});
-  const denied = (audit.data || []).filter(a => a.event === 'denied').length;
+    const [authority, audit, profiles, companies, subs] = await Promise.all([
+        supabase.from('platform_authority').select('user_id, level, granted_at, note'),
+        supabase.from('owner_context_audit')
+                .select('event, from_context, to_context, at, detail')
+                .order('at', { ascending: false }).limit(50),
+        supabase.from('profiles').select('id, email, full_name, role'),
+        supabase.from('companies').select('id', { count: 'exact', head: true }),
+        supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
+                .eq('status', 'active')
+    ]);
 
-  $('stats').innerHTML = [
-    ['الحسابات', profileRows.length],
-    ['أدمن', counts.admin || 0],
-    ['حسابات شركات', (counts.company_admin || 0) + (counts.company_user || 0)],
-    ['الشركات', companies.count ?? '—'],
-    ['محاولات سياق مرفوضة', denied]
-  ].map(([k, n]) =>
-    `<div class="stat"><div class="n">${esc(n)}</div><div class="k">${esc(k)}</div></div>`
-  ).join('');
+    const rows = profiles.data || [];
+    const byId = new Map(rows.map(p => [p.id, p]));
+    const count = (r) => rows.filter(p => p.role === r).length;
+    const denied = (audit.data || []).filter(a => a.event === 'denied').length;
 
-  // ── السلطة ────────────────────────────────────────────────────────────
-  if (authority.error) {
-    $('authorityBox').innerHTML = `<div class="empty">تعذّر القراءة: ${esc(authority.error.message)}</div>`;
-  } else {
-    const rows = authority.data || [];
-    $('authorityBox').innerHTML =
-      `<div class="warnbox">هذا الجدول لا يُكتب من أي جلسة — ولا من هذه اللوحة.
-       إضافة مالك أو سحب سلطة تمرّ بترحيل قاعدة بيانات بمراجعة بشرية.</div>` +
-      table(['الحساب', 'المستوى', 'مُنحت في', 'ملاحظة'], rows, r => {
-        const p = byId.get(r.user_id);
-        const cls = r.level === 'owner' ? 'owner' : 'elev';
-        return `<tr>
-          <td>${esc(p?.email || r.user_id)}</td>
-          <td><span class="pill ${cls}">${esc(r.level)}</span></td>
-          <td>${when(r.granted_at)}</td>
-          <td>${esc(r.note)}</td></tr>`;
-      });
-  }
+    $('ownerKpis').innerHTML = [
+        ['الحسابات', rows.length, ''],
+        ['أدمن', count('admin'), 'kpi--info'],
+        ['حسابات شركات', count('company_admin') + count('company_user'), ''],
+        ['الشركات', companies.count ?? '—', ''],
+        ['اشتراكات فعّالة', subs.count ?? '—', 'kpi--success'],
+        ['محاولات واجهة مرفوضة', denied, denied > 0 ? 'kpi--warning' : '']
+    ].map(([label, value, tone]) => `
+        <div class="kpi ${tone}">
+            <p class="kpi-label">${esc(label)}</p>
+            <p class="kpi-value">${esc(value)}</p>
+        </div>`).join('');
 
-  // ── سجل السياق ────────────────────────────────────────────────────────
-  if (audit.error) {
-    $('auditBox').innerHTML = `<div class="empty">تعذّر القراءة: ${esc(audit.error.message)}</div>`;
-  } else {
-    $('auditBox').innerHTML = table(
-      ['الحدث', 'من', 'إلى', 'الوقت', 'التفصيل'], audit.data || [], r =>
-      `<tr>
-        <td>${r.event === 'denied'
-              ? '<span class="pill deny">مرفوض</span>'
-              : esc(r.event)}</td>
-        <td>${esc(r.from_context)}</td>
-        <td>${esc(r.to_context)}</td>
-        <td>${when(r.at)}</td>
-        <td>${esc(r.detail)}</td></tr>`);
-  }
+    $('authorityBody').innerHTML = authority.error
+        ? `<div class="state-block state-block--error state-block--compact">
+               <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(authority.error.message)}</p></div>`
+        : table(['الحساب', 'المستوى', 'مُنحت في', 'ملاحظة'], authority.data || [], r => {
+            const u = byId.get(r.user_id);
+            const cls = r.level === 'owner' ? 'status-resolved' : 'status-open';
+            const name = r.level === 'owner' ? 'مالك المنصة' : 'سلطة مرتفعة';
+            return `<tr>
+                ${td(esc(u?.email || r.user_id))}
+                ${td(`<span class="pill ${cls}">${name}</span>`)}
+                ${td(when(r.granted_at))}
+                ${td(`<span class="owner-cell-muted">${esc(r.note)}</span>`)}
+            </tr>`;
+        });
 
-  // ── الحسابات ──────────────────────────────────────────────────────────
-  if (profiles.error) {
-    $('profilesBox').innerHTML = `<div class="empty">تعذّر القراءة: ${esc(profiles.error.message)}</div>`;
-  } else {
-    $('profilesBox').innerHTML = table(
-      ['البريد', 'الاسم', 'الرتبة', 'أنشئ في'], profileRows, p =>
-      `<tr>
-        <td>${esc(p.email)}</td>
-        <td>${esc(p.full_name)}</td>
-        <td><span class="pill ${p.role === 'platform_owner' ? 'owner'
-                               : p.role === 'admin' ? 'admin' : ''}">${esc(p.role)}</span></td>
-        <td>${when(p.created_at)}</td></tr>`);
-  }
+    $('auditBody').innerHTML = audit.error
+        ? `<div class="state-block state-block--error state-block--compact">
+               <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(audit.error.message)}</p></div>`
+        : table(['الحدث', 'من', 'إلى', 'الوقت', 'التفصيل'], audit.data || [], r => {
+            const label = (k) => CONTEXT_PRESENTATION[k]?.name || k || '—';
+            const ev = r.event === 'denied'
+                ? '<span class="pill status-rejected">مرفوض</span>'
+                : r.event === 'enter'
+                    ? '<span class="pill status-resolved">دخول</span>'
+                    : '<span class="pill status-neutral">خروج</span>';
+            return `<tr>
+                ${td(ev)}
+                ${td(esc(label(r.from_context)))}
+                ${td(esc(label(r.to_context)))}
+                ${td(when(r.at))}
+                ${td(`<span class="owner-cell-muted">${esc(r.detail)}</span>`)}
+            </tr>`;
+        });
 })();
 </script>
 </body>

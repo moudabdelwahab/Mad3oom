@@ -418,15 +418,53 @@ RESET ROLE;
 -- ============================================================================
 SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 DO $$
+DECLARE v text; r record;
 BEGIN
   IF NOT public.is_platform_owner() THEN RAISE EXCEPTION 'المالك غير معترَف به'; END IF;
   IF public.active_context() IS NOT NULL THEN RAISE EXCEPTION 'سياق سارٍ بلا اختيار'; END IF;
-  IF public.is_admin()             THEN RAISE EXCEPTION 'is_admin صادقة بلا سياق'; END IF;
-  IF public.is_platform_staff()    THEN RAISE EXCEPTION 'is_platform_staff صادقة بلا سياق'; END IF;
-  IF public.has_elevated_authority() THEN RAISE EXCEPTION 'سلطة مرتفعة بلا سياق'; END IF;
-  IF public.is_company_admin()     THEN RAISE EXCEPTION 'مدير شركة بلا سياق'; END IF;
-  IF public.is_company_member()    THEN RAISE EXCEPTION 'عضو شركة بلا سياق'; END IF;
-  RAISE NOTICE 'PASS 3: بلا سياق لا شيء — الشاشة إلزامية بنيويًا';
+
+  -- **false قاطعة، لا «ليس true».**
+  --
+  -- الصيغة السابقة كانت `IF public.is_admin() THEN RAISE` وهي تمرّ على NULL
+  -- كما تمرّ على false — فأخفت عيبًا حقيقيًا: بلا سياق كان
+  -- `NULL in ('owner','admin')` يعطي NULL، فيتسرّب عبر owner_capability إلى
+  -- كل مُسنَد. وRLS تُعامل NULL كمنع فلا تنكشف بيانات، لكن الحرّاس تنكسر:
+  --
+  --     if not public.is_admin() then raise ...   -- not NULL = NULL ⇒ لا يرفع
+  --
+  -- أي أن guard_profile_role_change كان يسقط صامتًا. ولذلك يُقارَن هنا
+  -- بـIS DISTINCT FROM FALSE: أي شيء غير false الصريحة يفشل الاختبار.
+  FOR r IN
+    SELECT 'is_admin' AS n, public.is_admin() AS v
+    UNION ALL SELECT 'is_platform_staff', public.is_platform_staff()
+    UNION ALL SELECT 'is_support_user', public.is_support_user()
+    UNION ALL SELECT 'has_elevated_authority', public.has_elevated_authority()
+    UNION ALL SELECT 'is_main_admin', public.is_main_admin()
+    UNION ALL SELECT 'is_company_admin', public.is_company_admin()
+    UNION ALL SELECT 'is_company_member', public.is_company_member()
+    UNION ALL SELECT 'preview_mode', public.preview_mode()
+    UNION ALL SELECT 'in_context(owner)', public.in_context('owner')
+    UNION ALL SELECT 'owner_capability(admin)', public.owner_capability('admin')
+    UNION ALL SELECT 'context_allows(NULL,admin)', public.context_allows(NULL, 'admin')
+  LOOP
+    IF r.v IS DISTINCT FROM FALSE THEN
+      RAISE EXCEPTION 'بلا سياق، %() أعطت % والمتوقع false قاطعة', r.n, coalesce(r.v::text,'NULL');
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE 'PASS 3: بلا سياق كل مُسنَد = false قاطعة — لا NULL يتسرّب';
+END $$;
+
+-- ٣ب) والحارس يرفع فعلًا — وهو ما كان NULL يُسقطه صامتًا
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.profiles SET role = 'admin'
+     WHERE id = '66666666-6666-4666-8666-666666666666';
+    RAISE EXCEPTION 'FAIL: المالك بلا سياق منح رتبة admin — الحارس لم يرفع';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'PASS 3ب: حارس الرتب يرفع للمالك بلا سياق';
+  END;
 END $$;
 
 -- ============================================================================
