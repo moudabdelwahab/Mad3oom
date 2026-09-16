@@ -344,6 +344,13 @@ async function applySidebarPermissions() {
     const isAdmin = profile.role === 'admin' || ownerActingAsAdmin;
     const isSupport = profile.role === 'support';
     const isSuperUser = profile.role === 'super_user';
+    const isPlatformOwner = profile.role === 'platform_owner';
+
+    // أكواد المرور: مالك المنصة وحده. الفرض الحقيقي في سياسات
+    // access_passcodes ودوال owner_set_passcode، وهذا إخفاء للواجهة فقط.
+    if (isPlatformOwner) {
+        showLink('passcodesLink');
+    }
 
     // --- الصلاحيات الحالية (بدون أي تغيير في سلوكها) ---
     if (isAdmin) {

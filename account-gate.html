@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script src="/error-tracker.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تفعيل الحساب - منصة مدعوم</title>
+<link rel="icon" type="image/png" href="/assets/images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #1677FF;
+    --primary-dark: #0F52BA;
+    --accent: #00B8FF;
+    --bg: #F0F6FF;
+    --border: #E5EDF7;
+    --text: #0F172A;
+    --muted: #64748B;
+    --success: #22C55E;
+    --shadow: rgba(15,23,42,0.08);
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Cairo', sans-serif;
+    background: linear-gradient(160deg, #f7faff 0%, #eef4ff 100%);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.96);
+    border: 1px solid rgba(255,255,255,0.98);
+    border-radius: 20px;
+    padding: 2rem 1.9rem;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 8px 40px rgba(22,119,255,0.09), 0 2px 12px var(--shadow);
+    animation: card-in 0.45s cubic-bezier(0.22,1,0.36,1) both;
+  }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .card-logo { display: flex; justify-content: center; margin-bottom: 0.9rem; }
+  .card-logo img { width: 66px; height: 66px; object-fit: contain;
+                   filter: drop-shadow(0 4px 12px rgba(22,119,255,0.28)); }
+
+  .icon-badge {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .icon-wait { background: rgba(245,158,11,0.12); color: #d97706; }
+  .icon-phone { background: rgba(22,119,255,0.1); color: var(--primary); }
+  .icon-done { background: rgba(34,197,94,0.12); color: var(--success); }
+
+  h1 { text-align: center; font-size: 1.35rem; font-weight: 800; margin-bottom: 0.4rem; }
+  .sub { text-align: center; font-size: 0.85rem; color: var(--muted);
+         font-weight: 500; margin-bottom: 1.5rem; line-height: 1.7; }
+
+  .form-group { margin-bottom: 1rem; }
+  .form-label { display: block; font-size: 0.84rem; font-weight: 700; margin-bottom: 0.4rem; }
+
+  input[type="text"], input[type="tel"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text);
+    background: #f8fbff;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    outline: none;
+    direction: ltr;
+    text-align: left;
+  }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22,119,255,0.11); background: #fff; }
+
+  .hint { display: block; margin-top: 0.35rem; font-size: 0.78rem; color: var(--muted); }
+  .hint.error { color: #ef4444; }
+  .hint.ok { color: #16a34a; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 0.8rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #fff; border: none; border-radius: 10px;
+    font-family: 'Cairo', sans-serif; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 16px rgba(22,119,255,0.32);
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1.5px); box-shadow: 0 6px 22px rgba(22,119,255,0.42); }
+  .btn-primary:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+  .btn-ghost {
+    width: 100%; padding: 0.7rem; margin-top: 0.6rem;
+    background: transparent; color: var(--muted);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-family: 'Cairo', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+
+  .choice-row { display: flex; gap: 0.7rem; margin-bottom: 1rem; }
+  .choice {
+    flex: 1; padding: 0.8rem; text-align: center;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: #f8fbff; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+    transition: all 0.2s; user-select: none;
+  }
+  .choice:hover { border-color: rgba(22,119,255,0.4); }
+  .choice.selected { border-color: var(--primary); background: rgba(22,119,255,0.07); color: var(--primary); }
+
+  .waiting-text {
+    white-space: pre-line; text-align: right; line-height: 1.9;
+    font-size: 0.9rem; color: var(--text); margin-bottom: 1.4rem;
+  }
+
+  .divider { display: flex; align-items: center; gap: 0.65rem; margin: 1.3rem 0 1rem; }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  #toast {
+    position: fixed; top: 1.2rem; left: 50%; transform: translateX(-50%);
+    padding: 0.75rem 1.4rem; border-radius: 10px;
+    font-size: 0.88rem; font-weight: 600; z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); transition: opacity 0.3s;
+    direction: rtl; max-width: 90vw; text-align: center; line-height: 1.6;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <article class="card">
+
+    <div class="card-logo"><img src="/logo.png" alt="شعار مدعوم"></div>
+
+    <!-- ══ تحميل ══ -->
+    <section class="step active" id="step-loading">
+      <p class="sub" style="margin:0;">جاري التحقق من حالة حسابك...</p>
+    </section>
+
+    <!-- ══ قائمة الانتظار ══ -->
+    <section class="step" id="step-waiting">
+      <div class="icon-badge icon-wait">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h1>حسابك في قائمة الانتظار</h1>
+      <p class="waiting-text" id="waiting-message"></p>
+      <button type="button" class="btn-ghost" id="waiting-logout">تسجيل الخروج</button>
+    </section>
+
+    <!-- ══ إضافة رقم الهاتف ══ -->
+    <section class="step" id="step-phone">
+      <div class="icon-badge icon-phone">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <line x1="11" y1="18" x2="13" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h1>أضف رقم هاتفك</h1>
+      <p class="sub">رقم الهاتف مطلوب لتفعيل حسابك واستخدام المنصة. لا يمكن تسجيل نفس الرقم لأكثر من حساب.</p>
+
+      <div class="form-group">
+        <label class="form-label" for="phone-input">رقم الهاتف</label>
+        <input type="tel" id="phone-input" placeholder="مثال: 01012345678" autocomplete="tel">
+        <small class="hint" id="phone-hint"></small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">هل رقم الهاتف ده مفعل عليه WhatsApp؟</label>
+        <div class="choice-row">
+          <div class="choice selected" id="wa-yes" data-value="yes">نعم</div>
+          <div class="choice" id="wa-no" data-value="no">لا</div>
+        </div>
+      </div>
+
+      <div class="form-group" id="wa-extra" style="display:none;">
+        <label class="form-label" for="wa-input">رقم WhatsApp (اختياري)</label>
+        <input type="tel" id="wa-input" placeholder="مثال: 01098765432" autocomplete="tel">
+        <small class="hint" id="wa-hint">يمكنك تركه فارغًا، لكن رقم الهاتف أعلاه يظل مطلوبًا.</small>
+      </div>
+
+      <button type="button" class="btn-primary" id="phone-submit">حفظ ومتابعة</button>
+
+      <div class="divider" aria-hidden="true">
+        <div class="divider-line"></div><span class="divider-text">أو</span><div class="divider-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="passcode-input">لديك كود مرور؟</label>
+        <input type="text" id="passcode-input" placeholder="أدخل كود المرور" autocomplete="off">
+        <small class="hint" id="passcode-hint"></small>
+      </div>
+      <button type="button" class="btn-ghost" id="passcode-submit">تفعيل بكود المرور</button>
+      <button type="button" class="btn-ghost" id="phone-logout">تسجيل الخروج</button>
+    </section>
+
+    <!-- ══ تم ══ -->
+    <section class="step" id="step-done">
+      <div class="icon-badge icon-done">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <path d="M8 12.4l2.6 2.6L16 9.4" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h1>تم تفعيل حسابك</h1>
+      <p class="sub">جاري تحويلك إلى حسابك...</p>
+    </section>
+
+  </article>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+  import { supabase } from '/api-config.js';
+  import { resolveAccountHome } from '/assets/js/account-destination.js';
+
+  const DEFAULT_WAITING_MESSAGE = [
+    'شكرًا لتسجيلك في مدعوم.',
+    'حسابك حاليًا في قائمة الانتظار بانتظار موافقة الإدارة.',
+    'سنرسل إليك إشعارًا فور تفعيل حسابك.'
+  ].join('\n\n');
+
+  const $ = (id) => document.getElementById(id);
+
+  function showStep(id) {
+    document.querySelectorAll('.step').forEach((s) => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  function toast(msg, type = 'error') {
+    const t = $('toast');
+    t.textContent = msg;
+    t.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
+    t.style.color = type === 'error' ? '#dc2626' : '#16a34a';
+    t.style.border = type === 'error' ? '1px solid #fca5a5' : '1px solid #86efac';
+    t.style.display = 'block';
+    t.style.opacity = '1';
+    clearTimeout(t._t);
+    t._t = setTimeout(() => { t.style.opacity = '0'; }, 5000);
+  }
+
+  async function nextDestination(role) {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next');
+    // نقبل المسارات الداخلية فقط، لا روابط خارجية
+    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+
+    // بلا ?next: نفس قاعدة الوجهة المستعملة بعد الدخول العادي. كانت هنا
+    // قيمة ثابتة لبوابة العميل، فكان موظف المنصة يكمل هاتفه ثم يُلقى في
+    // لوحة العميل بدل لوحته.
+    try {
+      return await resolveAccountHome(supabase, { role });
+    } catch (err) {
+      console.error('destination lookup failed:', err);
+      return '/customer-dashboard.html';
+    }
+  }
+
+  async function signOutAndLeave() {
+    try { await supabase.auth.signOut(); } catch (_) {}
+    sessionStorage.setItem('just_logged_out', 'true');
+    window.location.replace('/login.html');
+  }
+
+  // ── تقييم حالة البوابة ──────────────────────────────────
+  async function evaluate() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    const { data, error } = await supabase.rpc('my_account_gate');
+    if (error) {
+      console.error('gate check failed:', error);
+      toast('تعذر التحقق من حالة الحساب، حاول تحديث الصفحة');
+      return;
+    }
+
+    const status = data?.status;
+
+    if (status === 'active') {
+      showStep('step-done');
+      const dest = await nextDestination(data?.role);
+      setTimeout(() => window.location.replace(dest), 900);
+      return;
+    }
+
+    if (status === 'waiting_approval') {
+      const launch = data?.launch_date || '';
+      const raw = data?.message || DEFAULT_WAITING_MESSAGE;
+      $('waiting-message').textContent = String(raw).replaceAll('{{launch_date}}', launch);
+      showStep('step-waiting');
+      return;
+    }
+
+    showStep('step-phone');
+  }
+
+  // ── سؤال الواتساب ───────────────────────────────────────
+  let hasWhatsapp = true;
+
+  $('wa-yes').addEventListener('click', () => {
+    hasWhatsapp = true;
+    $('wa-yes').classList.add('selected');
+    $('wa-no').classList.remove('selected');
+    $('wa-extra').style.display = 'none';
+  });
+
+  $('wa-no').addEventListener('click', () => {
+    hasWhatsapp = false;
+    $('wa-no').classList.add('selected');
+    $('wa-yes').classList.remove('selected');
+    $('wa-extra').style.display = 'block';
+  });
+
+  // ── حفظ الهاتف ──────────────────────────────────────────
+  $('phone-submit').addEventListener('click', async () => {
+    const btn = $('phone-submit');
+    const phone = $('phone-input').value.trim();
+    const waPhone = $('wa-input').value.trim();
+    const hint = $('phone-hint');
+
+    hint.textContent = '';
+    hint.className = 'hint';
+
+    if (!phone) {
+      hint.textContent = 'أدخل رقم الهاتف';
+      hint.classList.add('error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'جاري الحفظ...';
+
+    try {
+      const { error } = await supabase.rpc('submit_my_phone', {
+        p_phone: phone,
+        p_has_whatsapp: hasWhatsapp,
+        p_whatsapp_phone: hasWhatsapp ? null : (waPhone || null)
+      });
+
+      if (error) {
+        hint.textContent = error.message || 'تعذر حفظ الرقم';
+        hint.classList.add('error');
+        return;
+      }
+
+      toast('تم حفظ رقم الهاتف بنجاح', 'success');
+      await evaluate();
+    } catch (err) {
+      console.error(err);
+      hint.textContent = 'حدث خطأ غير متوقع، حاول مرة أخرى';
+      hint.classList.add('error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'حفظ ومتابعة';
+    }
+  });
+
+  // ── كود المرور ──────────────────────────────────────────
+  $('passcode-submit').addEventListener('click', async () => {
+    const btn = $('passcode-submit');
+    const code = $('passcode-input').value.trim();
+    const hint = $('passcode-hint');
+
+    hint.textContent = '';
+    hint.className = 'hint';
+
+    if (!code) {
+      hint.textContent = 'أدخل كود المرور';
+      hint.classList.add('error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'جاري التحقق...';
+
+    try {
+      const { data, error } = await supabase.rpc('redeem_passcode', { p_code: code });
+
+      if (error || !data?.ok) {
+        hint.textContent = 'كود المرور غير صحيح أو غير مفعّل';
+        hint.classList.add('error');
+        return;
+      }
+
+      toast('تم تفعيل الحساب بكود المرور', 'success');
+      await evaluate();
+    } catch (err) {
+      console.error(err);
+      hint.textContent = 'حدث خطأ غير متوقع، حاول مرة أخرى';
+      hint.classList.add('error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'تفعيل بكود المرور';
+    }
+  });
+
+  $('waiting-logout').addEventListener('click', signOutAndLeave);
+  $('phone-logout').addEventListener('click', signOutAndLeave);
+
+  evaluate();
+</script>
+</body>
+</html>
