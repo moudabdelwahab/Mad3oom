@@ -28,6 +28,21 @@ export async function requireAuth(requiredRole = null) {
     if (status === ACCESS.BANNED) return { banned: true };
     return null;
 }
+/**
+ * بوابة الحساب — لازم تُصدَّر هنا لأن page-guard.js يستوردها بالاسم، والاستيراد
+ * المفقود خطأ ربط يُسقط الوحدة كلها فلا تُرسَم أي لوحة.
+ *
+ * الافتراضي «غير محجوب» حتى تبقى اختبارات العرض القائمة تقيس ما وُضعت له،
+ * وأي اختبار يريد الحجب يضبط `accountGate` في الفيكسچر.
+ */
+export async function redirectIfGated() {
+    const gate = window.__FIXTURES__?.accountGate;
+    if (!gate || gate.status === 'active' || gate.status === 'anonymous') return false;
+    window.__CALLS__ = window.__CALLS__ || [];
+    window.__CALLS__.push(['redirectIfGated', gate.status]);
+    return true;
+}
+
 export async function logout() {}
 export async function updateProfile(updates) {
     window.__CALLS__ = window.__CALLS__ || [];
