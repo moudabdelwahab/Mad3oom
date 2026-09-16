@@ -621,6 +621,13 @@
                         إعدادات متقدّمة
                         <span class="api-subtab-hint">تحكّم كامل: نقل، ترويسات، OAuth يدوي</span>
                     </button>
+                    <!-- الاتجاه المعاكس: مدعوم كخادم تتصل به تطبيقات خارجية.
+                         تبويب مستقلّ لأن «فصل» هنا تعني شيئًا آخر تمامًا. -->
+                    <button class="client-subtab" data-clientsubtab="apps" id="clientSubTabApps">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        التطبيقات المتصلة <span class="tab-count" id="caCount">0</span>
+                        <span class="api-subtab-hint">من يصل إلى حسابك، وبأي صلاحيات</span>
+                    </button>
                 </div>
 
                 <!-- ─────────── العميل: Marketplace (ربط سريع) ─────────── -->
@@ -781,6 +788,18 @@
             </div>
 
                 </div><!-- /clientSubsectionServer -->
+
+                <!-- ─────────── التطبيقات المتصلة (مدعوم كخادم MCP) ─────────── -->
+                <div class="client-subsection" id="clientSubsectionApps">
+                    <div class="subsection-header">
+                        <span class="subsection-icon out"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+                        <div>
+                            <h2>التطبيقات المتصلة</h2>
+                            <p>تطبيقات خارجية ربطت حسابك على مدعوم عبر OAuth — تحكّم في صلاحياتها ومدّتها، أو افصلها</p>
+                        </div>
+                    </div>
+                    <div id="connectedAppsList"></div>
+                </div><!-- /clientSubsectionApps -->
 
             </div><!-- /devSectionMcpClient -->
 
@@ -1520,6 +1539,9 @@
          تُحمَّل قبل mcp.js لتكون جاهزة عند أول رسم؛ ولو فشل تحميلها تعمل
          الصفحة بالعرض القديم كما هو. -->
     <script type="module" src="/assets/js/admin/mcp-integrations.js"></script>
+    <!-- التطبيقات المتصلة: مدعوم كخادم. وحدة مستقلّة تُسجّل
+         window.mcpConnectedApps، ولا تُحمَّل بياناتها إلا عند فتح تبويبها. -->
+    <script type="module" src="/assets/js/admin/mcp-connected-apps.js"></script>
     <script type="module" src="/assets/js/admin/mcp.js"></script>
 </body>
 </html>

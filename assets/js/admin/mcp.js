@@ -1127,9 +1127,17 @@ function switchClientSubTab(subtab) {
     document.querySelectorAll('.client-subtab').forEach((b) => b.classList.toggle('active', b.dataset.clientsubtab === subtab));
     document.getElementById('clientSubsectionClient')?.classList.toggle('active', subtab === 'client');
     document.getElementById('clientSubsectionServer')?.classList.toggle('active', subtab === 'server');
+    document.getElementById('clientSubsectionApps')?.classList.toggle('active', subtab === 'apps');
     rememberSubTab('mcpclient', subtab);
 
     if (subtab === 'server' && !mcpServerLoadedOnce) { mcpServerLoadedOnce = true; loadMcpServerSection(); }
+
+    // التطبيقات المتصلة تُقرأ من الخادم عند أول فتح فقط، ثم تُحدَّث بعد كل
+    // إجراء من داخل الوحدة نفسها. لو لم تُحمَّل الوحدة يبقى التبويب فارغًا
+    // بلا خطأ، كما يفعل مسار التكاملات الاحتياطي.
+    if (subtab === 'apps' && typeof window.mcpConnectedApps?.renderConnectedApps === 'function') {
+        window.mcpConnectedApps.renderConnectedApps(document.getElementById('connectedAppsList'));
+    }
 }
 
 let mcpClientMarketLoadedOnce = false;
