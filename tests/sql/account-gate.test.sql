@@ -86,6 +86,7 @@ RETURNS boolean LANGUAGE sql AS $$ SELECT true; $$;
 
 -- ── الترحيل تحت الاختبار ──────────────────────────────────────────────────
 \i migrations/042_account_gate.sql
+\i migrations/043_company_login_identifiers.sql
 
 -- Supabase يمنح امتيازات الجداول لـauthenticated افتراضيًا على كل جدول جديد
 -- في public، فالـRLS هي المرشِّح الوحيد فعليًا. نحاكي ذلك هنا عمدًا: بدون
@@ -114,6 +115,19 @@ VALUES ('00000000-0000-0000-0000-0000000000a1','owner');
 INSERT INTO public.companies (user_id, company_name, company_email, company_phone,
                               commercial_registration_number, status)
 VALUES ('00000000-0000-0000-0000-0000000000d1','أكمي','billing@acme.com','01000000009','CR-4477','active');
+
+-- شركة على شكل الإنتاج بالضبط: أُنشئت من مسار الاشتراك، فبريدها وهاتفها
+-- فارغان ولا يعرّفها إلا سجلها التجاري أو معرّفات مالكها.
+INSERT INTO public.profiles (id, email, full_name, phone, role, created_at) VALUES
+  ('00000000-0000-0000-0000-0000000000d3','owner@nile.com','صاحب النيل','+201000000041','user','2025-01-01'),
+  ('00000000-0000-0000-0000-0000000000d4','staff@nile.com','موظف النيل',NULL,'user','2025-01-01');
+
+UPDATE public.profiles SET super_user_id = '00000000-0000-0000-0000-0000000000d3'
+ WHERE id = '00000000-0000-0000-0000-0000000000d4';
+
+INSERT INTO public.companies (user_id, company_name, company_email, company_phone,
+                              commercial_registration_number, status)
+VALUES ('00000000-0000-0000-0000-0000000000d3','النيل',NULL,NULL,'CR-9001','active');
 
 -- العميل الجديد يدخل قائمة الانتظار تلقائيًا (نفس ما يفعله مسار التسجيل).
 INSERT INTO public.waitlist_entries (name, email, status, approved_user_id)
@@ -428,6 +442,54 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
+-- ⑦C شركة بلا بريد ولا هاتف تُعرَف بمعرّفات مالكها (الترحيل 043)
+-- ════════════════════════════════════════════════════════════════════════
+-- هذه حالة الإنتاج حرفيًا: الترحيل 016 أسقط NOT NULL عن العمودين، فصار
+-- المالك يكتب بريده هو — كما يوحي نص الحقل — فتعود الدالة بـ NULL.
+DO $$
+DECLARE v_by_owner_email text; v_by_owner_phone text; v_by_cr text;
+        v_owner_self text; v_stranger text; v_acme_unshadowed text;
+BEGIN
+  SELECT public.resolve_company_member_login('owner@nile.com','staff@nile.com')  INTO v_by_owner_email;
+  SELECT public.resolve_company_member_login('+201000000041','staff@nile.com')   INTO v_by_owner_phone;
+  SELECT public.resolve_company_member_login('CR-9001','staff@nile.com')         INTO v_by_cr;
+  SELECT public.resolve_company_member_login('owner@nile.com','owner@nile.com')  INTO v_owner_self;
+
+  -- التوسعة تُغيّر ما يُقبل كمعرّف للشركة، لا ما يُرجَع: غير العضو يظل محجوبًا.
+  SELECT public.resolve_company_member_login('owner@nile.com','stranger@example.com') INTO v_stranger;
+
+  -- ولا تُزيح المطابقة على أعمدة الشركة نفسها.
+  SELECT public.resolve_company_member_login('billing@acme.com','staff@acme.com') INTO v_acme_unshadowed;
+
+  IF v_by_owner_email <> 'staff@nile.com' THEN
+    RAISE EXCEPTION 'FAIL 7C: ببريد المالك = %', v_by_owner_email; END IF;
+  IF v_by_owner_phone <> 'staff@nile.com' THEN
+    RAISE EXCEPTION 'FAIL 7C: بهاتف المالك = %', v_by_owner_phone; END IF;
+  IF v_by_cr <> 'staff@nile.com' THEN
+    RAISE EXCEPTION 'FAIL 7C: بالسجل التجاري = %', v_by_cr; END IF;
+  IF v_owner_self <> 'owner@nile.com' THEN
+    RAISE EXCEPTION 'FAIL 7C: المالك رُفض من شركته'; END IF;
+  IF v_stranger IS NOT NULL THEN
+    RAISE EXCEPTION 'FAIL 7C: غير العضو مُرِّر عبر بريد المالك (%)', v_stranger; END IF;
+  IF v_acme_unshadowed <> 'staff@acme.com' THEN
+    RAISE EXCEPTION 'FAIL 7C: مطابقة بريد الشركة انزاحت = %', v_acme_unshadowed; END IF;
+  RAISE NOTICE 'PASS 7C: الشركة بلا بريد تُعرَف بمالكها، والعضوية ما زالت شرطًا';
+END $$;
+
+-- شركة المالك الموقوفة لا تُسجِّل أحدًا ولو طابقت ببريد مالكها.
+DO $$
+DECLARE v_suspended text;
+BEGIN
+  UPDATE public.companies SET status = 'suspended' WHERE commercial_registration_number = 'CR-9001';
+  SELECT public.resolve_company_member_login('owner@nile.com','staff@nile.com') INTO v_suspended;
+  UPDATE public.companies SET status = 'active'    WHERE commercial_registration_number = 'CR-9001';
+
+  IF v_suspended IS NOT NULL THEN
+    RAISE EXCEPTION 'FAIL 7D: شركة موقوفة سجّلت عضوًا عبر بريد مالكها'; END IF;
+  RAISE NOTICE 'PASS 7D: شرط الشركة الفعّالة صامد على المسار الجديد';
+END $$;
+
+-- ════════════════════════════════════════════════════════════════════════
 -- ⑧ مالك المنصة استثناء دائم — بلا هاتف وبلا كود
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
@@ -494,6 +556,7 @@ END $$;
 -- ⑩ إعادة تطبيق الترحيل لا تفشل ولا تُضاعف السياسات
 -- ════════════════════════════════════════════════════════════════════════
 \i migrations/042_account_gate.sql
+\i migrations/043_company_login_identifiers.sql
 
 DO $$
 DECLARE v_policies int;

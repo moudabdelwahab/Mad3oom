@@ -655,7 +655,7 @@
         <form id="login-form" novalidate>
 
           <div class="form-group" id="company-field" style="display:none;">
-            <label class="form-label" for="company-id">إيميل أو رقم حساب الشركة الرئيسي</label>
+            <label class="form-label" for="company-id">بريد الشركة أو سجلها التجاري أو بريد المالك</label>
             <div class="input-wrap">
               <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M3 21h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -665,7 +665,7 @@
                 <line x1="9" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 <line x1="9" y1="15" x2="12" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
-              <input type="text" id="company-id" name="company-id" placeholder="بريد الشركة أو رقم السجل التجاري" autocomplete="organization">
+              <input type="text" id="company-id" name="company-id" placeholder="بريد الشركة أو السجل التجاري أو بريد المالك" autocomplete="organization">
             </div>
           </div>
 
@@ -1507,7 +1507,7 @@
 
     document.getElementById('company-field').style.display = company ? 'block' : 'none';
     document.getElementById('identifier-label').textContent = company
-      ? 'إيميل أو رقم العميل المسجل تحت الشركة'
+      ? 'بريد العضو أو رقم هاتفه'
       : 'البريد الإلكتروني أو رقم الهاتف أو اسم المستخدم';
     document.getElementById('email').placeholder = company
       ? 'بريد العضو أو رقم هاتفه'
@@ -1539,7 +1539,7 @@
       if (isCompanyMode) {
         const companyId = document.getElementById('company-id').value.trim();
         if (!companyId) {
-          showToast('أدخل بريد الشركة أو رقم سجلها التجاري');
+          showToast('أدخل بريد الشركة أو رقم سجلها التجاري أو بريد المالك');
           return;
         }
 
