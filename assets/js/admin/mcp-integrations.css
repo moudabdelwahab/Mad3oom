@@ -304,3 +304,52 @@
     color: var(--color-text-secondary, #666);
 }
 .mi-empty .mi-btn.primary { flex: 0 0 auto; }
+
+/* نسخة مصغّرة من الحالة الفارغة، لداخل نافذة الإضافة. */
+.mi-empty.sm { padding: 2rem 1rem; }
+.mi-empty.sm h3 { font-size: 0.95rem; }
+.mi-empty.sm p { margin-bottom: 0.9rem; font-size: 0.82rem; }
+
+/* ── شريط الملخّص فوق الشبكة ───────────────────────────────── */
+/* تحقنه الوحدة قبل #connectorGrid؛ لا وجود له في admin/mcp.html. */
+.mi-summary {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin: 0 0 1rem;
+}
+.mi-sum {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    min-width: 7.5rem; padding: 0.6rem 0.85rem;
+    border: 1px solid var(--color-border, #e5e5e5); border-radius: 10px;
+    background: var(--color-surface, #fff);
+}
+.mi-sum-n {
+    font-size: 1.35rem; font-weight: 700; line-height: 1;
+    color: var(--color-text-primary, #111);
+    font-variant-numeric: tabular-nums;
+}
+.mi-sum-l { font-size: 0.75rem; color: var(--color-text-secondary, #666); }
+/* اللون يحمل التشديد، والرقم والنص يحملان المعنى — فلا يعتمد الفهم على
+   تمييز الألوان وحده. */
+.mi-sum.ok .mi-sum-n { color: #16a34a; }
+.mi-sum.warn { border-color: #f59e0b; }
+.mi-sum.warn .mi-sum-n { color: #b45309; }
+
+/* ── عناوين أقسام داخل نافذة الإضافة ───────────────────────── */
+.mi-secl {
+    margin: 0.9rem 0 0.4rem; font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.02em; text-transform: uppercase;
+    color: var(--color-text-secondary, #777);
+}
+.mi-secl:first-child { margin-top: 0; }
+
+@media (max-width: 560px) {
+    .mi-sum { flex: 1 1 calc(50% - 0.25rem); min-width: 0; }
+}
+
+@media (prefers-color-scheme: dark) {
+    .mi-sum { border-color: #2a2a2a; background: #161616; }
+    .mi-sum-n { color: #ededed; }
+    .mi-sum.ok .mi-sum-n { color: #4ade80; }
+    .mi-sum.warn { border-color: #a16207; }
+    .mi-sum.warn .mi-sum-n { color: #fbbf24; }
+}
