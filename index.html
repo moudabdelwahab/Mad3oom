@@ -273,11 +273,17 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 @keyframes chipFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
 @media (max-width:900px){
   .hero-grid{grid-template-columns:1fr;}
-  /* الحلقات الزخرفية مربّعات تدور باستمرار، وصندوق إحاطة المربّع الدوّار
-     أكبر من ضلعه (حتى 1.41×)، فكانت r2 تمدّ الصفحة نحو 17px على الشاشات
-     الضيقة. القصّ هنا لا يُخفي شيئاً مرئياً: المرسوم دائرة داخل المربّع
-     والزوايا المقصوصة فارغة أصلاً. */
-  .hero-robot-wrap{order:-1;min-height:300px;overflow:hidden;}
+  .hero-robot-wrap{order:-1;min-height:300px;}
+}
+
+/* الحلقات الزخرفية مربّعات تدور باستمرار، وصندوق إحاطة المربّع الدوّار
+   أكبر من ضلعه (حتى 1.41×)، فكانت r2 (300px ← 424px فعلياً) تمدّ الصفحة
+   على الشاشات الضيّقة. نُصغّرها بدل قصّ الحاوية: القصّ كان يبتر شرائح
+   النص المحيطة بالروبوت وهي محتوى مقروء لا زخرفة. */
+@media (max-width:480px){
+  .robot-ring{width:170px;height:170px;}
+  .robot-ring.r2{width:200px;height:200px;}
+  .robot-halo{width:200px;height:200px;}
 }
 
 /* ============ Philosophy strip ============ */
