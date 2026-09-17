@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>مصمم الأتمتة — مركز المساعدة</title>
 <style>
 :root{
@@ -346,7 +346,95 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
 ::-webkit-scrollbar{ width:8px; height:8px; }
 ::-webkit-scrollbar-thumb{ background:#D6DAE1; border-radius:10px; }
 ::-webkit-scrollbar-track{ background:transparent; }
+
+/* =====================================================================
+   الجوال — هذه الصفحة لم تكن تحتوي أي قاعدة استجابة إطلاقاً.
+   التخطيط ثلاثي الأعمدة: لوحة العناصر 340px + مساحة الرسم + لوحة
+   الخصائص 380px = 720px ثابتة، أي أكثر من ضعف عرض الهاتف؛ فكانت
+   مساحة الرسم تُسحق واللوحتان تُقصّان خارج الشاشة.
+   الحل: مساحة الرسم تأخذ الشاشة كاملة، واللوحتان تصيران ورقتين
+   تنزلقان من الأسفل بزرّين في الشريط العلوي.
+   ===================================================================== */
+/* على الشاشات الواسعة لا وجود لهذه العناصر أصلاً.
+   لا بدّ أن تسبق استعلام الوسائط: لو جاءت بعده لغلبته بنفس الأولوية. */
+.sheet-grip, .sheet-scrim, .sheet-toggles{ display:none; }
+
+@media (max-width: 900px){
+  /* زرّ قائمة العقدة كان 24×24 — صغير على اللمس. نكبّره إلى 40 دون
+     أن يخرج عن بطاقة العقدة (عرضها ~264px). */
+  .node-menu-btn{ width:40px; height:40px; }
+
+  /* الشريط العلوي: مسار التنقّل زينة تُزاح، والباقي يلتف */
+  .topbar{ height:auto; min-height:56px; flex-wrap:wrap; gap:8px; padding:8px 12px; }
+  .topbar-breadcrumb{ display:none; }
+  .topbar-right, .topbar-left{ min-width:0; gap:8px; }
+  .topbar-left{ margin-inline-start:auto; }
+  .btn{ padding:0 12px; font-size:12.5px; }
+  .status-pill{ font-size:11.5px; padding:4px 8px; }
+
+  /* مساحة الرسم بعرض الشاشة كاملاً */
+  .body-layout{ display:block; position:relative; }
+  .canvas-wrap{ height:100%; }
+  .flow-summary-bar{ padding:10px 14px; }
+  .flow-summary-bar p{ font-size:12.5px; }
+
+  /* اللوحتان: ورقتان سفليّتان */
+  .library-panel, .inspector-panel{
+    position:fixed;
+    inset-inline:0;
+    bottom:0;
+    width:auto;
+    max-height:72dvh;
+    border:0;
+    border-top:1px solid var(--border-strong);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -12px 40px rgba(0,0,0,.22);
+    transform:translateY(100%);
+    transition:transform .22s ease;
+    z-index:60;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  body.sheet-library .library-panel,
+  body.sheet-inspector .inspector-panel{ transform:translateY(0); }
+
+  /* طبقة تعتيم خلف الورقة المفتوحة */
+  .sheet-scrim{
+    position:fixed; inset:0; z-index:55;
+    background:rgba(0,0,0,.45);
+    display:none;
+  }
+  body.sheet-library .sheet-scrim,
+  body.sheet-inspector .sheet-scrim{ display:block; }
+
+  /* مقبض الورقة */
+  .sheet-grip{
+    display:block; width:38px; height:4px; border-radius:99px;
+    background:var(--border-strong); margin:8px auto 4px; flex-shrink:0;
+  }
+
+  /* زرّا فتح اللوحتين */
+  .sheet-toggles{
+    display:flex; gap:8px;
+    position:fixed; inset-block-end:calc(12px + env(safe-area-inset-bottom, 0px));
+    inset-inline-start:50%; transform:translateX(50%);
+    z-index:50;
+  }
+  html[dir="ltr"] .sheet-toggles{ transform:translateX(-50%); }
+  .sheet-toggles button{
+    display:inline-flex; align-items:center; gap:6px;
+    height:44px; padding:0 16px; border-radius:99px;
+    background:var(--bg-surface); border:1px solid var(--border-strong);
+    box-shadow:0 6px 20px rgba(0,0,0,.16);
+    font-size:13px; font-weight:700; color:var(--text-primary);
+  }
+  body.sheet-library .sheet-toggles,
+  body.sheet-inspector .sheet-toggles{ display:none; }
+}
+
 </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute">
@@ -1484,6 +1572,79 @@ function init(){
   selectNodeInstance('email1');
 }
 window.addEventListener('load', init);
+
+/* =====================================================================
+   الأوراق السفلية على الجوال
+   لا يمسّ منطق الصفحة: يضيف الزرّين وطبقة التعتيم ويبدّل أصنافاً على
+   <body> تتكفّل بها قواعد CSS أعلاه. اختيار خطوة يفتح ورقة الخصائص
+   تلقائياً (نراقب تغيّر محتوى inspectorPanel).
+   ===================================================================== */
+(function mobileSheets(){
+  var mq = window.matchMedia('(max-width: 900px)');
+
+  function init(){
+    var lib = document.getElementById('libraryPanel');
+    var insp = document.getElementById('inspectorPanel');
+    var layout = document.querySelector('.body-layout');
+    if(!lib || !insp || !layout) return;
+
+    // مقبض لكل ورقة
+    [lib, insp].forEach(function(panel){
+      var grip = document.createElement('span');
+      grip.className = 'sheet-grip';
+      panel.insertBefore(grip, panel.firstChild);
+      grip.addEventListener('click', closeSheets);
+    });
+
+    var scrim = document.createElement('div');
+    scrim.className = 'sheet-scrim';
+    document.body.appendChild(scrim);
+    scrim.addEventListener('click', closeSheets);
+
+    var bar = document.createElement('div');
+    bar.className = 'sheet-toggles';
+    bar.innerHTML =
+      '<button type="button" data-sheet="library">العناصر</button>' +
+      '<button type="button" data-sheet="inspector">الخصائص</button>';
+    document.body.appendChild(bar);
+
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-sheet]');
+      if(!b) return;
+      openSheet(b.dataset.sheet);
+    });
+
+    function openSheet(name){
+      document.body.classList.remove('sheet-library','sheet-inspector');
+      document.body.classList.add('sheet-' + name);
+    }
+    function closeSheets(){
+      document.body.classList.remove('sheet-library','sheet-inspector');
+    }
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') closeSheets();
+    });
+
+    // اختيار خطوة من التدفق يفتح ورقة الخصائص
+    if(typeof MutationObserver === 'function'){
+      new MutationObserver(function(){
+        if(!mq.matches) return;
+        // الحالة الفارغة لا تستحق فتح الورقة
+        if(insp.querySelector('.inspector-empty')) return;
+        openSheet('inspector');
+      }).observe(insp, {childList:true});
+    }
+
+    var onChange = function(){ if(!mq.matches) closeSheets(); };
+    if(mq.addEventListener) mq.addEventListener('change', onChange);
+    else if(mq.addListener) mq.addListener(onChange);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
 </script>
 
 </body>

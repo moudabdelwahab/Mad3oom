@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
   <meta name="facebook-domain-verification" content="0ap1zj6cyp5tx68ao4r4pdxvtr97mq" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <script>
 (function(){
   try{
@@ -204,12 +204,23 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .mobile-menu{display:none;}
 @media (max-width:900px){
   .nav-links{display:none;} .nav-login{display:none;} .hamburger{display:flex;}
-  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;}
+  /* overflow-y:auto ضروري: القائمة مثبّتة بـ inset:0 فارتفاعها = ارتفاع
+     الشاشة. لو زاد محتواها عن ذلك (شاشة قصيرة أو خط أكبر) فاض أسفلها،
+     ومع translateY(-100%) يظهر الفائض أعلى الصفحة والقائمة «مغلقة».
+     الآن يُمرَّر المحتوى داخلها بدل أن يتسرّب. */
+  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;overflow-y:auto;overscroll-behavior:contain;}
   .mobile-menu.open{transform:translateY(0);}
   .mobile-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;}
   .mobile-menu a{display:block;padding:1rem 0;font-size:1.15rem;font-weight:600;border-bottom:1px solid var(--glass-border);}
   .mobile-menu .btn{margin-top:1.5rem;}
   .close-btn{background:none;border:none;color:var(--text-1);font-size:1.6rem;cursor:pointer;}
+}
+
+/* على الشاشات الضيقة جداً يتقطّع وصف المنصة في عمود بعرض 47px بجانب
+   الشعار؛ الاسم وحده أوضح. */
+@media (max-width:400px){
+  .brand-text small{display:none;}
+  .nav-cta{gap:.5rem;}
 }
 
 /* ============ Theme toggle ============ */
@@ -244,7 +255,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .hero-robot-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;}
 .robot-halo{position:absolute;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle, rgba(0,119,204,.4), transparent 70%);filter:blur(20px);animation:halo 5s ease-in-out infinite;}
 @keyframes halo{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
-.robot-ring{position:absolute;width:230px;height:230px;border-radius:50%;border:1px dashed rgba(77,163,255,.35);animation:spin 30s linear infinite;}
+.robot-ring{position:absolute;width:230px;height:230px;border-radius:50%;border:1px dashed rgba(77,163,255,.35);animation:spin 30s linear infinite;pointer-events:none;}
 .robot-ring.r2{width:300px;height:300px;border-color:rgba(77,163,255,.18);animation-duration:45s;animation-direction:reverse;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .robot-core{position:relative;width:150px;height:150px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);animation:floaty 6s ease-in-out infinite;overflow:hidden;}
@@ -260,7 +271,14 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;let
 .chip-3{bottom:4%;left:14%;animation-delay:1.4s;}
 .chip-4{top:20%;left:-4%;animation-delay:2.1s;}
 @keyframes chipFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
-@media (max-width:900px){.hero-grid{grid-template-columns:1fr;}.hero-robot-wrap{order:-1;min-height:300px;}}
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;}
+  /* الحلقات الزخرفية مربّعات تدور باستمرار، وصندوق إحاطة المربّع الدوّار
+     أكبر من ضلعه (حتى 1.41×)، فكانت r2 تمدّ الصفحة نحو 17px على الشاشات
+     الضيقة. القصّ هنا لا يُخفي شيئاً مرئياً: المرسوم دائرة داخل المربّع
+     والزوايا المقصوصة فارغة أصلاً. */
+  .hero-robot-wrap{order:-1;min-height:300px;overflow:hidden;}
+}
 
 /* ============ Philosophy strip ============ */
 .mission{padding:clamp(3rem,7vw,5rem) 0;}
@@ -606,6 +624,9 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
 }
 body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);}
 </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
 

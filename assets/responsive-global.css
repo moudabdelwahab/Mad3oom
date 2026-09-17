@@ -1,79 +1,305 @@
 /* =====================================================================
    MAD3OOM — Global Responsive Baseline
-   Injected on every page. Mobile-first safety net.
-   Does NOT alter colors, fonts, or component logic — only layout/sizing
-   rules needed so nothing overflows or breaks on small screens.
+   ---------------------------------------------------------------------
+   يُحمَّل في كل صفحة بعد باقي ملفات التنسيق. الهدف: ألّا تنكسر أي صفحة
+   على شاشات الجوال. لا يغيّر الألوان ولا الخطوط ولا منطق المكوّنات —
+   فقط قواعد المقاسات والتخطيط اللازمة للشاشات الصغيرة.
+
+   الصفحة عربية/RTL، لذلك نستخدم الخصائص المنطقية (inline/block) حتى
+   تعمل القواعد في الاتجاهين دون تكرار.
    ===================================================================== */
+
+:root {
+  --gutter-mobile: 16px;
+  --tap-min: 44px;
+}
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body {
+/* منع التمدد الأفقي من مصدر مجهول دون إخفاء المشكلة الحقيقية:
+   نسمح للصفحة أن تُقصّ أفقياً فقط، ويبقى التمرير الرأسي طبيعياً. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+body {
+  overflow-x: clip;          /* لا يكسر position: sticky مثل overflow: hidden */
   max-width: 100%;
-  overflow-x: hidden;
+}
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
 }
 
-img, svg, video, canvas, picture, iframe {
+/* ── الوسائط ───────────────────────────────────────────────────────── */
+img, svg, video, canvas, picture, iframe, embed, object {
   max-width: 100%;
-  height: auto;
 }
+img, video { height: auto; }
 
-/* Any element that scrolls a table horizontally instead of overflowing the page */
-.mad3oom-table-scroll {
-  width: 100%;
+/* ── النصوص الطويلة والروابط لا تكسر التخطيط ──────────────────────── */
+p, li, td, th, dd, dt, h1, h2, h3, h4, h5, h6, label, span {
+  overflow-wrap: break-word;
+}
+/* الروابط داخل النص الجاري تحمل غالباً عناوين URL طويلة بلا مواضع كسر.
+   الفارق مهم: break-word يسمح بالكسر لكنه لا يقلّل العرض الأدنى للعنصر،
+   فيظل الأب المرن يتمدّد لاستيعاب أطول «كلمة»؛ أمّا anywhere فيقلّله فعلاً.
+   نحصره في النص الجاري: لو طُبّق على كل الروابط لانكمشت عناوين أشرطة
+   التنقّل حتى حرف واحد في الصفوف الضيّقة. */
+p a, li a, td a, dd a, figcaption a, blockquote a,
+.contact-info a, .highlight-box a { overflow-wrap: anywhere; }
+pre {
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-.mad3oom-table-scroll > table { min-width: 560px; }
+pre code { white-space: pre; }
+:not(pre) > code { overflow-wrap: break-word; word-break: break-word; }
 
-table { max-width: 100%; }
-
-pre, code {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-input, select, textarea, button {
+/* ── الجداول: تمرير أفقي بدل تمديد الصفحة ─────────────────────────── */
+.table-responsive,
+.mad3oom-table-scroll {
+  width: 100%;
   max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.table-responsive > table,
+.mad3oom-table-scroll > table {
+  min-width: max-content;
+  margin-inline: 0;
 }
 
-/* Touch-friendly tap targets on phones */
-@media (max-width: 768px) {
-  button, .btn, a.btn, [role="button"], input[type="submit"], input[type="button"] {
-    min-height: 44px;
-  }
+/* ── الحقول والأزرار ──────────────────────────────────────────────── */
+input, select, textarea, button { max-width: 100%; font-family: inherit; }
+textarea { resize: vertical; }
+
+/* لحقول الإدخال عرض جوهري افتراضي (نحو 20 حرفاً) يمنعها من الانكماش داخل
+   صفّ flex، فتدفع الأزرار المجاورة خارج الشاشة — كزر الإرسال في المحادثة.
+   تصفير min-width يجعلها تأخذ المساحة المتبقية فعلاً. */
+input, select, textarea { min-width: 0; }
+
+/* =====================================================================
+   شاشات الأجهزة اللوحية فأصغر
+   ===================================================================== */
+@media (max-width: 1024px) {
+  /* أي شبكة بأعمدة ثابتة كثيرة تتقلّص تلقائياً بدل أن تُسحق */
+  .grid-4, .grid-5, .grid-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* Modals / dialogs / popovers: never exceed the viewport on phones */
+/* =====================================================================
+   الجوال
+   ===================================================================== */
 @media (max-width: 768px) {
-  .modal, .modal-content, .dialog, .popup, .popover, [class*="modal"], [class*="Modal"] {
-    max-width: 94vw !important;
-  }
-  .modal, .dialog, [class*="modal"], [class*="Modal"] {
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-}
-
-/* Generic containers/wrappers: never force a fixed width wider than the screen */
-@media (max-width: 768px) {
-  .container, .wrapper, .content, .page, .main, .layout {
+  /* مساحة جانبية موحّدة للحاويات العامة */
+  .container, .wrapper, .page-container, .content-wrapper {
     width: 100%;
     max-width: 100%;
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-inline: var(--gutter-mobile);
+    margin-inline: 0;
   }
+
+  /* عناصر الشبكات/الفلكس تأخذ min-width:auto افتراضياً، أي أنها ترفض
+     الانكماش دون العرض الجوهري لمحتواها. فسطر كود طويل أو كلمة غير قابلة
+     للكسر داخل عمود يمدّ العمود — ثم الصفحة كلها — ويُبطل أي overflow:auto
+     موضوع على العنصر الداخلي. تصفير min-width يُعيد للانكماش معناه. */
+  :is([class*="grid"], [class*="cols"], [class*="flex"], [class*="row"],
+      [class*="bar"],  [class*="group"], [class*="filter"],
+      [class*="toolbar"], [class*="actions"])
+  > :not(a, button, input, select, textarea, label) {
+    min-width: 0;
+  }
+
+  /* شبكات: عمود واحد على الجوال */
+  .grid-2, .grid-3, .grid-4, .grid-5, .grid-6,
+  .stats-grid, .cards-grid, .features-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* أهداف اللمس: 44×44 كحد أدنى (توصية Apple/WCAG 2.5.5) */
+  button, .btn, a.btn, [role="button"],
+  input[type="submit"], input[type="button"], input[type="reset"],
+  select, .tab, .nav-link {
+    min-height: var(--tap-min);
+  }
+  /* الأزرار الأيقونية: الارتفاع وحده لا يكفي — كانت بعرض 17–31px فقط.
+     نضمن مربّع 44×44 مع توسيط الأيقونة بداخله. */
+  button.icon-btn, .icon-btn, .nav-btn, .menu-toggle, .sidebar-close,
+  .close-btn, .back-btn, .password-toggle, .input-toggle,
+  .portal-search-close, .modal-close, button.close,
+  .ib-mini, .mail-list-refresh, .palette-trigger, #sidebarClose,
+  .action-btn {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* استثناء صريح لمن يحتاجه (أزرار داخل خلايا ضيّقة أو لوحة رسم) */
+  .btn-xs, .btn-icon-sm, .node-menu-btn, [data-tap-exempt] {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* روابط التنقّل المستقلة (قوائم، تذييل، فهرس محتويات) كانت بارتفاع
+     23–25px. روابط النص الجاري تبقى كما هي — استثناء WCAG 2.5.5. */
+  li > a,
+  .footer-links a, .footer-grid a, .table-of-contents a,
+  .forgot-link, .recovery-link, .back-link, .nav-back, .gate-back-link,
+  .rm-back, [class*="back-link"] {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+
+  /* روابط أشرطة التنقّل القصيرة (مثل «حول») تحتاج عرضاً كافياً للّمس.
+     نضبط الحد الأدنى للعرض فقط — دون المساس بالحشو حتى لا نُفسد
+     القوائم المنسدلة التي تعتمد حشواً خاصاً بها. */
+  .nav-menu a, .nav-links a, .navbar a { min-width: 32px; }
+
+  /* روابط مباشرة داخل شريط تنقّل (بلا صنف خاص) */
+  nav > a, .nav-container > a, .navbar > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+
+  /* جداول: خط ومساحات أصغر */
+  table { font-size: 0.875rem; }
+  th, td { padding: 10px 8px; }
+
+  /* الصور الكبيرة/الشعارات لا تتجاوز الشاشة */
+  .logo img, .brand img, img.logo { max-height: 44px; width: auto; }
 }
 
-/* Fallback: any flex row that hasn't declared wrapping gets it on very small screens
-   so items don't get crushed. Safe because flex items already size via their own CSS. */
 @media (max-width: 480px) {
-  body [style*="display:flex"], body [style*="display: flex"] {
-    flex-wrap: wrap;
+  /* أشرطة التبويبات/الفلاتر أياً كان اسمها: تُمرَّر أفقياً بدل أن تمدّ
+     الصفحة. width:auto يلغي أي fit-content يمنع الالتزام بعرض الشاشة. */
+  .tabs, .tab-list, .tab-bar, .status-tabs, .filter-tabs, .page-tabs,
+  .segmented, [class*="-tabs"] {
+    width: auto;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar, .tab-list::-webkit-scrollbar,
+  .tab-bar::-webkit-scrollbar, .status-tabs::-webkit-scrollbar,
+  .filter-tabs::-webkit-scrollbar, .page-tabs::-webkit-scrollbar,
+  .segmented::-webkit-scrollbar, [class*="-tabs"]::-webkit-scrollbar { display: none; }
+  .tabs > *, .tab-list > *, .tab-bar > *, .status-tabs > *,
+  .filter-tabs > *, .page-tabs > *, .segmented > *, [class*="-tabs"] > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  h1 { font-size: clamp(1.5rem, 6vw, 2rem); }
+  h2 { font-size: clamp(1.25rem, 5vw, 1.6rem); }
+  h3 { font-size: clamp(1.1rem, 4.5vw, 1.35rem); }
+
+  /* مجموعات الأزرار تتكدّس رأسياً بدل أن تتزاحم */
+  .btn-group, .actions, .form-actions, .modal-actions, .button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-group > *, .actions > *, .form-actions > *, .modal-actions > * {
+    width: 100%;
   }
 }
 
-/* Horizontal scroll safety valve: nothing should ever be able to push the
-   page wider than the viewport, no matter the source. */
+/* =====================================================================
+   الشاشات الضيّقة جداً (≤420px)
+   شبكات auto-fit / auto-fill بحدّ أدنى ثابت — مثل
+   repeat(auto-fit, minmax(250px, 1fr)) — لا يمكن لأعمدتها النزول تحت
+   ذلك الحد، فتمدّ الصفحة عندما يقلّ العرض المتاح عنه. عند هذا العرض
+   يكون العمود الواحد هو التخطيط الصحيح أصلاً.
+   (الأسلوب الأمثل في المصدر هو minmax(min(250px, 100%), 1fr)،
+    وهذه القاعدة شبكة أمان لما لم يُكتب بهذا الشكل.)
+   ===================================================================== */
+@media (max-width: 420px) {
+  [class*="grid"] { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* =====================================================================
+   النوافذ المنبثقة (Modals)
+   نستهدف الصندوق الداخلي فقط — لا الطبقة/الخلفية (overlay) التي يجب
+   أن تبقى بعرض الشاشة كاملاً.
+   ===================================================================== */
+@media (max-width: 640px) {
+  .modal-content, .modal-box, .modal-dialog, .modal-card,
+  .dialog-content, .popup-content, .sheet-content,
+  .mcp-modal-box, .app-modal {
+    width: 100%;
+    max-width: calc(100vw - 24px);
+    /* dvh بدل vh: شريط المتصفح على الجوال يتغيّر ارتفاعه أثناء التمرير،
+       فـ 90vh تجعل أسفل النافذة يختفي خلفه. */
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-inline: auto;
+  }
+
+  /* مساحات داخلية أصغر حتى يبقى للمحتوى مكان */
+  .modal-header, .mcp-modal-header, .app-modal-header { padding-inline: 16px; }
+  .modal-body, .mcp-modal-body, .app-modal-body { padding-inline: 16px; }
+  .modal-footer, .mcp-modal-footer { padding-inline: 16px; flex-wrap: wrap; }
+
+  /* الطبقة الخلفية: تمركز + هامش آمن أسفل الشاشة */
+  .modal, .modal-overlay, .dialog-overlay, .popup-overlay,
+  .mcp-modal, .app-modal-overlay {
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* أزرار الإجراءات داخل النوافذ: عمود كامل العرض يسهل ضغطه */
+  .modal-actions, .app-modal .form-actions, .mcp-modal-footer {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .modal-actions > .btn, .modal-actions > button,
+  .mcp-modal-footer > .btn, .mcp-modal-footer > button { width: 100%; }
+}
+
+/* =====================================================================
+   iOS: يمنع تكبير الصفحة تلقائياً عند التركيز على حقل خطه < 16px
+   ===================================================================== */
 @media (max-width: 768px) {
-  html, body { width: 100%; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+/* =====================================================================
+   المناطق الآمنة على الأجهزة ذات القصّة (notch / home indicator)
+   ===================================================================== */
+@media (max-width: 768px) {
+  .fixed-bottom, .bottom-bar, .sticky-footer, .mobile-action-bar {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* =====================================================================
+   مساعدات عامة يمكن استخدامها في أي صفحة
+   ===================================================================== */
+.hide-on-mobile { }
+.show-on-mobile { display: none; }
+@media (max-width: 768px) {
+  .hide-on-mobile { display: none !important; }
+  .show-on-mobile { display: initial; }
+  .stack-on-mobile { flex-direction: column !important; align-items: stretch !important; }
+  .full-width-mobile { width: 100% !important; max-width: 100% !important; }
+  .scroll-x-mobile { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* احترام تفضيل تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

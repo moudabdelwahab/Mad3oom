@@ -761,7 +761,11 @@ input, textarea{
 }
 
 @media (max-width: 640px){
-  .topbar{ padding: 12px 16px; flex-direction: column; align-items: stretch; }
+  /* flex-wrap:wrap موروث من القاعدة الأساسية. بعد قلب الاتجاه إلى column
+     يصبح الالتفاف على المحور الرأسي، فيُحسب عرض السطر من أعرض عنصر
+     (max-content) بدل عرض الحاوية — فيخرج صندوق البحث عن الشاشة بنحو
+     20px. nowrap يعيد تمدّد العناصر لعرض الحاوية فعلاً. */
+  .topbar{ padding: 12px 16px; flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
   .customer-detail{ padding: 16px 14px 50px; }
   .timeline{ padding-right: 22px; }
 }

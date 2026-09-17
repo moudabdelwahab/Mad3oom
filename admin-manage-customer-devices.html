@@ -3,7 +3,7 @@
 <head>
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>إدارة أجهزة العملاء - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
@@ -47,6 +47,13 @@
             background: var(--color-muted);
             font-weight: 700;
             border-bottom: 1px solid var(--color-border);
+        }
+        /* الشبكة خمسة أعمدة + فجوات وحشو ثابت (~112px) فلا تتّسع لشاشة
+           320px ويُقصّ آخر عمود. على الجوال تُمرَّر أفقياً كبقية جداول
+           المشروع بدل أن يختفي المحتوى. */
+        @media (max-width: 768px) {
+            .devices-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table-header, .device-row { min-width: 560px; }
         }
         .device-row {
             display: grid;
@@ -128,6 +135,9 @@
             opacity: 0.5;
         }
     </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
     <div id="sidebar-container"></div>
