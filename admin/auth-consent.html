@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>طلب ربط تطبيق خارجي - مدعوم</title>
   <link rel="icon" type="image/png" href="/assets/images/logo.png">
   <link rel="stylesheet" href="/styles.css">
@@ -26,6 +26,9 @@
     .spinner { width:28px; height:28px; border:3px solid #e5e7eb; border-top-color:#1677FF; border-radius:50%; margin:0 auto 1rem; animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
   </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
   <div class="box" id="box"><div class="spinner"></div><div class="loading">جاري التحقق من الجلسة...</div></div>

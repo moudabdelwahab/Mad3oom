@@ -3,7 +3,7 @@
 <head>
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>مركز المطورين - منصة مدعوم</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
@@ -466,6 +466,9 @@
         .mcp-card.select-mode .mcp-card-select-cb { display: block; }
         .mcp-card.selected { outline: 2px solid var(--color-accent); outline-offset: -1px; background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface)); }
     </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
     <div id="sidebar-container"></div>

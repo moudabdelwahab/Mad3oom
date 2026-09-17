@@ -3,7 +3,7 @@
 <head>
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>إدارة التذاكر - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
@@ -230,6 +230,9 @@
         @media (max-width: 992px){ .tickets-layout{grid-template-columns:1fr;} .tickets-panel, .details-panel{height:auto;max-height:70vh;} }
         @media (max-width: 768px){ .stats-grid{grid-template-columns:repeat(2,1fr);} }
     </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
     <div id="sidebar-container"></div>

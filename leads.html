@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>العملاء المحتملون · مدعوم</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -346,6 +346,10 @@
     display:flex; align-items:center; justify-content:center; color:var(--text-secondary);
     transition:background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
   }
+  /* على اللمس نرفعها للحد الموصى به (44×44)؛ العرض وحده كان 31px */
+  @media (hover: none), (max-width: 768px){
+    .row-actions button{width:44px; height:44px;}
+  }
   .row-actions button:hover{background:var(--glass-hover); color:var(--text-primary);}
   .row-actions button:nth-child(1):hover{color:var(--accent-blue); border-color:rgba(79,110,201,0.35);}
   .row-actions button:nth-child(2):hover{color:var(--accent-cyan); border-color:rgba(31,143,138,0.35);}
@@ -526,6 +530,13 @@
 
   /* ---- ≤480: single-column stats, compact modal fields ---- */
   @media (max-width: 480px){
+    /* الشريط العلوي: التحية + البحث + الأزرار كانت في صفّ واحد بلا التفاف
+       فتتجاوز عرض الشاشة بنحو 90px. نوزّعها على سطرين والبحث بعرض كامل. */
+    .topbar{flex-wrap:wrap; gap:8px; padding:12px;}
+    .topbar-left{min-width:0; flex:1 1 auto;}
+    .topbar-left h1{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+    .topbar-right{flex:1 1 100%; order:3; gap:8px;}
+    .search-box{width:auto; flex:1 1 auto; min-width:0;}
     .stats-row{grid-template-columns:1fr 1fr; gap:10px;}
     .stat-card{padding:15px;}
     .stat-value{font-size:21px;}
@@ -542,6 +553,9 @@
   }
 </style>
   
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
 

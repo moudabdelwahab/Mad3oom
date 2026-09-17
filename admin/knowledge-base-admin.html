@@ -3,7 +3,7 @@
 <head>
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>إدارة قاعدة المعرفة - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
@@ -41,6 +41,9 @@
         .form-control { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-text); font-family: 'Cairo'; }
         textarea.form-control { min-height: 150px; resize: vertical; }
     </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
     <div id="sidebar-container"></div>

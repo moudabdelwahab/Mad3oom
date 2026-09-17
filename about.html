@@ -3,7 +3,7 @@
 <head>
     <script src="/error-tracker.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>عن مدعوم | Tech Provider Official لدي Meta</title>
     <link rel="icon" type="image/svg+xml" href="logo.svg">
     <link rel="stylesheet" href="styles.css">
@@ -76,7 +76,9 @@
         }
         .features-list {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            /* min(250px, 100%) بدل 250px: بدونها لا ينزل العمود تحت 250px
+               فتمدّ الشبكة الصفحة على الشاشات الأضيق من ذلك. */
+            grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
             gap: 2rem;
             margin-top: 2rem;
         }
@@ -91,6 +93,9 @@
             font-size: 1.2rem;
         }
     </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
     <nav class="navbar">
