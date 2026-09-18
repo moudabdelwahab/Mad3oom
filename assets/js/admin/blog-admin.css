@@ -1,0 +1,491 @@
+/* ============================================================================
+   blog-admin.css — الطبقة البصرية لصفحة إدارة المدوّنة.
+
+   تُحمَّل بعد admin-style.css فتكمّلها ولا تستبدلها: ‎.btn و‎.admin-table
+   و‎.table-container و‎.status-badge و‎.stat-card و‎.modal كلها من هناك كما
+   هي. ما هنا هو ما لا وجود له في لوحة الإدارة أصلًا: محرّر بعمودين بمعاينة
+   حيّة، وقائمة جاهزية تحريرية، وشريط أدوات تنسيق.
+
+   ولا لون ثابت خارج ما ترثه من متغيّرات styles.css — فتبديل الثيم يعمل هنا
+   كما يعمل في بقية اللوحة.
+   ============================================================================ */
+
+/* إخفاء بصري مع الإبقاء على النص لقارئ الشاشة.
+   ‎.visually-hidden معرَّفة في customer-dashboard.css، وصفحات الإدارة لا
+   تُحمّلها (توكنزها تدوس على لوحة الإدارة كلها). بدون التعريف هنا كانت
+   تسميات شريط الأدوات تُرسَم مرئية وتكسر صفّه — أي أن غيابها خطأ تخطيط
+   لا نقص وصول فقط. */
+.blog-toolbar .visually-hidden,
+.blog-editor-modal .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── شريط الأدوات ────────────────────────────────────────────────────────── */
+.blog-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.blog-toolbar .blog-search-field {
+    flex: 1 1 16rem;
+    min-width: 0;
+    position: relative;
+}
+
+.blog-toolbar input[type="search"],
+.blog-toolbar select {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    background: var(--input-bg);
+    color: var(--color-text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+}
+
+.blog-toolbar select { width: auto; min-width: 10rem; }
+
+.blog-toolbar input[type="search"]:focus,
+.blog-toolbar select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.18);
+}
+
+.blog-toolbar-spacer { flex: 1 1 auto; }
+
+/* ── جدول المقالات ──────────────────────────────────────────────────────── */
+.blog-row-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.blog-row-title b {
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.blog-row-slug {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    direction: ltr;
+    text-align: right;
+    word-break: break-all;
+}
+
+.blog-row-flags {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.blog-row-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.blog-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* نبرات الحالة: أسماؤها من POST_STATES في blog-model.js، فمصدر التسمية
+   واللون واحد للوحة وللصفحة العامة معًا. */
+.blog-state-draft     { background: var(--color-muted); color: var(--color-text-secondary); }
+.blog-state-scheduled { background: rgba(224, 168, 0, 0.16); color: var(--color-warning); }
+.blog-state-published { background: rgba(46, 138, 58, 0.16); color: var(--color-success); }
+.blog-state-archived  { background: rgba(217, 83, 79, 0.16); color: var(--color-danger); }
+
+/* ── النوافذ ────────────────────────────────────────────────────────────
+   admin-style.css تعرّف ‎.modal بـdisplay:none ولا تعرّف قاعدة الإظهار
+   إطلاقًا — كل صفحة إدارة تكتب ‎.modal.active بنفسها في كتلة <style> داخلها
+   (انظر admin/knowledge-base-admin.html). بدون هذه القاعدة هنا لا تُفتح
+   نافذة المحرّر أبدًا: الصنف يُضاف والعنصر يبقى مخفيًا.
+
+   و‎.modal-content هناك بـpadding:0 لأنها مصمَّمة لنافذة لها ‎.modal-header
+   ملاصق للحافة. نوافذ هذه الصفحة بلا رأس ملاصق، فتحتاج حشوها. */
+#postModal.active,
+#categoryModal.active {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+#postModal .modal-content,
+#categoryModal .modal-content {
+    padding: 1.75rem;
+    margin: 2vh auto;
+}
+
+/* الإغلاق: ‎.modal-close مفردة لوحة العميل، وصفحات الإدارة تسمّيها
+   ‎.close-modal. نصف الوصف هنا حتى لا يرث الزر شكل المتصفّح الافتراضي. */
+#postModal .modal-close,
+#categoryModal .modal-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    padding: 0 0.25rem;
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+#postModal .modal-close:hover,
+#categoryModal .modal-close:hover { color: var(--color-text); }
+
+.blog-editor-modal .modal-content {
+    max-width: 78rem;
+    width: 100%;
+}
+
+/* عمودان فوق 1000px: النموذج والمعاينة جنبًا إلى جنب. تحتها عمود واحد —
+   معاينة بعرض 40% على شاشة ضيّقة لا تُقرأ، فتصير زينة. */
+.blog-editor-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (min-width: 1000px) {
+    .blog-editor-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+    .blog-editor-preview { position: sticky; top: 0; max-height: 72vh; overflow-y: auto; }
+}
+
+.blog-field { margin-bottom: 1.1rem; }
+
+.blog-field label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--color-text);
+}
+
+.blog-field .hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.76rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+}
+
+.blog-field .error {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--color-danger);
+}
+
+.blog-field input[type="text"],
+.blog-field input[type="url"],
+.blog-field input[type="datetime-local"],
+.blog-field select,
+.blog-field textarea {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.55rem;
+    background: var(--input-bg);
+    color: var(--color-text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+.blog-field input:focus,
+.blog-field select:focus,
+.blog-field textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.18);
+}
+
+.blog-field input[aria-invalid="true"],
+.blog-field textarea[aria-invalid="true"] { border-color: var(--color-danger); }
+
+.blog-field textarea { min-height: 16rem; resize: vertical; }
+
+/* الـslug يُكتب ويُقرأ من اليسار لليمين حتى لو كان عربيًا: هو مسار، والخلط
+   بين اتجاه النص واتجاه المسار يجعل الشرطات تقفز أمام المحرّر وهو يكتب. */
+.blog-slug-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.blog-slug-row input { direction: ltr; text-align: left; }
+
+.blog-field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+    gap: 1rem;
+}
+
+.blog-switch {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    background: var(--color-muted);
+    cursor: pointer;
+}
+
+.blog-switch input { margin-top: 0.25rem; flex-shrink: 0; }
+.blog-switch span { font-size: 0.86rem; line-height: 1.6; }
+.blog-switch b { display: block; font-weight: 700; margin-bottom: 0.15rem; }
+
+/* ── شريط تنسيق المتن ───────────────────────────────────────────────────── */
+.blog-format-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.4rem;
+    margin-bottom: -1px;
+    border: 1px solid var(--color-border);
+    border-radius: 0.55rem 0.55rem 0 0;
+    background: var(--color-muted);
+}
+
+.blog-format-bar + textarea { border-radius: 0 0 0.55rem 0.55rem; }
+
+.blog-format-btn {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.blog-format-btn:hover { background: var(--color-surface); color: var(--color-text); }
+.blog-format-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+/* ── المعاينة ───────────────────────────────────────────────────────────── */
+.blog-editor-preview {
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: var(--color-surface);
+    padding: 1.25rem;
+}
+
+.blog-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.blog-preview-head h3 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--color-text-secondary);
+}
+
+.blog-preview-stats {
+    display: flex;
+    gap: 0.9rem;
+    font-size: 0.76rem;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.blog-preview-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--color-text);
+}
+
+.blog-preview-sub {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--color-text-secondary);
+}
+
+/* المعاينة تعرض نفس مخرجات renderArticleHtml التي تعرضها الصفحة العامة،
+   فوصف الوسوم هنا نسخة مبسّطة من blog.css: المحرّر يرى بنية المقال لا
+   نسخة مطابقة بالبكسل من الصفحة — تلك على بُعد ضغطة «معاينة». */
+.blog-preview-body { font-size: 0.92rem; line-height: 1.95; color: var(--color-text); }
+.blog-preview-body > p { margin: 0 0 0.9rem; }
+.blog-preview-body .blog-heading { margin: 1.4rem 0 0.6rem; font-weight: 800; line-height: 1.45; }
+.blog-preview-body h2.blog-heading { font-size: 1.1rem; }
+.blog-preview-body h3.blog-heading { font-size: 1rem; }
+.blog-preview-body h4.blog-heading { font-size: 0.92rem; color: var(--color-text-secondary); }
+.blog-preview-body .blog-list { margin: 0 0 0.9rem; padding-inline-start: 1.3rem; }
+.blog-preview-body .blog-list li { margin-bottom: 0.35rem; }
+
+.blog-preview-body .blog-quote {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-inline-start: 3px solid var(--color-accent);
+    border-radius: 0.4rem;
+    background: var(--color-muted);
+}
+
+.blog-preview-body .blog-code {
+    margin: 1rem 0;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-muted);
+    overflow-x: auto;
+    direction: ltr;
+    text-align: left;
+}
+
+.blog-preview-body .blog-code code,
+.blog-preview-body .blog-code-inline {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+}
+
+.blog-preview-body .blog-code-inline {
+    padding: 0.08rem 0.32rem;
+    border-radius: 0.3rem;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+.blog-preview-body .blog-figure { margin: 1rem 0; }
+.blog-preview-body .blog-figure img { width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border); }
+.blog-preview-body .blog-figure figcaption { margin-top: 0.4rem; font-size: 0.75rem; color: var(--color-text-secondary); text-align: center; }
+.blog-preview-body .blog-rule { margin: 1.4rem 0; border: none; border-top: 1px solid var(--color-border); }
+.blog-preview-body a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+
+.blog-preview-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+}
+
+/* ── قائمة الجاهزية ─────────────────────────────────────────────────────── */
+.blog-checklist {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.blog-checklist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.blog-progress-track {
+    height: 5px;
+    border-radius: 99px;
+    background: var(--color-muted);
+    overflow: hidden;
+    margin-bottom: 0.85rem;
+}
+
+.blog-progress-track i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--color-accent);
+    transition: width 0.25s ease;
+}
+
+.blog-checklist ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+    gap: 0.4rem 0.9rem;
+}
+
+.blog-checklist li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.blog-checklist li.is-done { color: var(--color-success); }
+.blog-checklist li .mark { font-weight: 800; flex-shrink: 0; }
+
+/* ── التنبيهات داخل النافذة ─────────────────────────────────────────────── */
+.blog-alert {
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.95rem;
+    border-radius: 0.55rem;
+    font-size: 0.85rem;
+    line-height: 1.7;
+}
+
+.blog-alert--danger { background: rgba(217, 83, 79, 0.12); color: var(--color-danger); }
+.blog-alert--warning { background: rgba(224, 168, 0, 0.14); color: var(--color-warning); }
+.blog-alert--info { background: rgba(0, 119, 204, 0.12); color: var(--color-accent); }
+.blog-alert ul { margin: 0.4rem 0 0; padding-inline-start: 1.1rem; }
+
+.blog-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.blog-modal-actions .blog-actions-end { margin-inline-start: auto; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+/* ── حالات فارغة ────────────────────────────────────────────────────────── */
+.blog-empty {
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+}
+
+.blog-empty h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.blog-empty p { margin: 0 auto 1.25rem; max-width: 30rem; line-height: 1.8; }
+
+@media (max-width: 640px) {
+    .blog-editor-modal .modal-content { padding: 1.25rem; }
+    .blog-modal-actions .blog-actions-end { margin-inline-start: 0; width: 100%; }
+    .blog-modal-actions .btn { flex: 1 1 auto; }
+}

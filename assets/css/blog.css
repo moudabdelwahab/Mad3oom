@@ -1,0 +1,907 @@
+/* ============================================================================
+   blog.css — الطبقة البصرية الخاصة بمدوّنة المنصة.
+
+   نفس مبدأ company-dashboard.css بالحرف: نظام التصميم كامل يأتي من
+   customer-dashboard.css (نفس التوكنز، نفس ‎.panel و‎.kpi و‎.pill و‎.btn
+   و‎.form-* و‎.modal)، وهذا الملف يضيف ما لا وجود له هناك فقط: قشرة صفحة
+   عامة بلا قائمة جانبية، وبطاقات المقالات، ونمط المتن المقروء.
+
+   قاعدتان لا تُكسران:
+     ① لا إعادة تعريف لمكوّن قائم. لو احتجنا ‎.panel مختلفًا فهو ‎.panel
+        داخل سياق ‎.blog-shell، لا ‎.panel جديدًا.
+     ② لا لون ثابت (hex/rgba) خارج كتلة التوكنز أدناه. كل لون في الملف
+        ‎var(--…)، وهو ما يجعل تبديل الثيم يعمل فعلًا بدل أن تبقى عناصر
+        محتفظة بلون الوضع الآخر.
+
+   ولا تغيير لـ‎--color-accent العام: ذلك كان سيغيّر القشرة والشريط العلوي
+   في كل صفحات البوابة. التمييز البصري عبر توكن خاص بهذه الصفحات وحدها،
+   تمامًا كما فعلت لوحة الشركة مع ‎--company-accent.
+   ============================================================================ */
+
+.blog-shell {
+    /* هوية المدوّنة: سماوي/فيروزي بجانب أزرق المنصة — قريب بما يكفي ليبدو
+       من العائلة، ومختلف بما يكفي ليُعرف أنه سطح تحريري لا لوحة تحكّم. */
+    --blog-accent: #2FC8D8;
+    --blog-accent-soft: #7DE3EE;
+    --blog-tint: rgba(47, 200, 216, .12);
+    --blog-border: rgba(47, 200, 216, .30);
+    --blog-reading-width: 44rem;
+}
+
+[data-theme="light"] .blog-shell {
+    --blog-accent: #0E8FA0;
+    --blog-accent-soft: #0B7C8B;
+    --blog-tint: rgba(14, 143, 160, .08);
+    --blog-border: rgba(14, 143, 160, .22);
+}
+
+/* ── القشرة العامة ───────────────────────────────────────────────────────
+   ‎.customer-shell يفترض قائمة جانبية ثابتة فوق 1100px، فيزحزح المحتوى
+   بعرضها. المدوّنة صفحة عامة يقرأها زائر بلا جلسة — لا قائمة لها أصلًا،
+   فلولا هذا الإلغاء لظهر عمود فارغ بعرض 290px على يمين كل مقال. */
+@media (min-width: 1100px) {
+    body.blog-shell .admin-main {
+        width: 100%;
+        margin-inline: auto;
+        margin-right: auto;
+        max-width: var(--content-max);
+    }
+}
+
+/* الشريط العلوي للمدوّنة: نفس ‎.admin-nav المثبّت، وروابط بدل أزرار اللوحة. */
+.blog-nav-links {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    min-width: 0;
+}
+
+.blog-nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    color: var(--color-nav-text-dim);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.blog-nav-link:hover,
+.blog-nav-link.is-active {
+    background: var(--nav-hover-bg);
+    color: var(--color-nav-text);
+}
+
+.blog-nav-link:focus-visible {
+    outline: 2px solid var(--color-nav-text);
+    outline-offset: 2px;
+}
+
+.blog-nav-cta {
+    background: var(--color-accent);
+    color: var(--color-nav-text);
+}
+
+.blog-nav-cta:hover { background: var(--color-accent-hover); color: var(--color-nav-text); }
+
+/* الروابط الثانوية تنزوي على الشاشات الضيّقة: الشريط يبقى للهوية والدخول
+   والثيم، والتصفّح الكامل موجود في الصفحة نفسها وفي التذييل. */
+@media (max-width: 720px) {
+    .blog-nav-link[data-optional] { display: none; }
+}
+
+/* ── الواجهة ─────────────────────────────────────────────────────────────
+   مبنية على ‎.help-hero (نفس الزجاج والحواف والمسافات)، بمحاذاة بادئة بدل
+   التوسيط لأن العناوين التحريرية طويلة والتوسيط يجعلها تتأرجح. */
+.blog-hero {
+    position: relative;
+    overflow: hidden;
+    padding: var(--sp-7) var(--sp-5) var(--sp-6);
+    margin-bottom: var(--sp-5);
+    border: 1px solid var(--blog-border);
+    border-radius: var(--r-xl);
+    background:
+        linear-gradient(135deg, var(--blog-tint), transparent 62%),
+        var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.blog-hero-inner { position: relative; max-width: 46rem; }
+
+.blog-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: .3rem .85rem;
+    margin-bottom: var(--sp-3);
+    border: 1px solid var(--blog-border);
+    border-radius: var(--r-pill);
+    background: var(--blog-tint);
+    color: var(--blog-accent-soft);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+}
+
+.blog-eyebrow .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--blog-accent);
+    box-shadow: 0 0 8px var(--blog-accent);
+}
+
+.blog-hero h1 {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--color-text);
+}
+
+.blog-hero-lead {
+    margin: 0 0 var(--sp-5);
+    max-width: 40rem;
+    font-size: var(--fs-md);
+    line-height: 1.85;
+    color: var(--color-text-secondary);
+}
+
+.blog-hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-5);
+    margin-top: var(--sp-5);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.blog-hero-stat { min-width: 0; }
+
+.blog-hero-stat b {
+    display: block;
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.blog-hero-stat span {
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+}
+
+/* ── البحث ──────────────────────────────────────────────────────────────
+   نفس بنية ‎.help-search، وبعرض كامل داخل الواجهة لا متوسّطًا. */
+.blog-search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    max-width: 32rem;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-pill);
+    background: var(--color-surface);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.blog-search:focus-within {
+    border-color: var(--blog-accent);
+    box-shadow: 0 0 0 3px var(--blog-tint);
+}
+
+.blog-search svg { color: var(--color-text-3); flex-shrink: 0; }
+
+body.blog-shell .blog-search-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-3) 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--fs-base);
+}
+
+body.blog-shell .blog-search-input::-webkit-search-cancel-button { display: none; }
+
+.blog-search-clear {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-3);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 var(--sp-1);
+    border-radius: var(--r-sm);
+}
+
+.blog-search-clear:hover { color: var(--color-text); }
+
+/* ── شرائح التصفية ──────────────────────────────────────────────────────
+   تمرير أفقي على الضيّق بدل التفافها إلى ستة صفوف تدفع المقالات تحت الطيّة. */
+.blog-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-5);
+    padding-bottom: var(--sp-2);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.blog-filters::-webkit-scrollbar { height: 4px; }
+.blog-filters::-webkit-scrollbar-thumb { background: var(--track-bg); border-radius: var(--r-pill); }
+
+.blog-chip {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-pill);
+    background: var(--surface-subtle);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.blog-chip:hover { color: var(--color-text); border-color: var(--blog-border); }
+.blog-chip:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
+
+.blog-chip.is-active {
+    background: var(--blog-tint);
+    border-color: var(--blog-border);
+    color: var(--blog-accent-soft);
+}
+
+.blog-chip b {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    opacity: .7;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── المقال المميّز ─────────────────────────────────────────────────────
+   عمودان فوق 860px: الغلاف نصف العرض والنص نصفه. تحتها عمود واحد — صورة
+   بعرض 40% على شاشة هاتف ليست صورة، هي شريط ملوّن. */
+.blog-featured {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: var(--sp-6);
+    border: 1px solid var(--blog-border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.blog-featured:hover { transform: translateY(-2px); border-color: var(--blog-accent); }
+.blog-featured:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 3px; }
+
+@media (min-width: 860px) {
+    .blog-featured { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+}
+
+.blog-featured-media {
+    position: relative;
+    min-height: 14rem;
+    background: linear-gradient(140deg, var(--blog-tint), var(--tint-accent));
+}
+
+.blog-featured-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    position: absolute;
+    inset: 0;
+}
+
+.blog-featured-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-6) var(--sp-5);
+}
+
+.blog-featured-body h2 {
+    margin: 0;
+    font-size: var(--fs-xl);
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--color-text);
+}
+
+.blog-featured-body p {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: 1.85;
+    color: var(--color-text-secondary);
+}
+
+/* ── شبكة المقالات ──────────────────────────────────────────────────────
+   ‎.article-grid موجودة في customer-dashboard.css وأعمدتها 17rem — مقاس
+   بطاقة مساعدة نصيّة. بطاقة المدوّنة تحمل غلافًا، فتحتاج عمودًا أعرض.
+   لا نغيّر تلك القاعدة: شبكة المدوّنة لها اسمها. */
+.blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+    gap: var(--sp-5);
+}
+
+.blog-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.blog-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--blog-accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.blog-card:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 3px; }
+
+.blog-card-media {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(140deg, var(--blog-tint), var(--tint-accent));
+    overflow: hidden;
+}
+
+.blog-card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* البديل حين لا غلاف: أول حرف من العنوان بخط كبير هادئ. أفضل من مستطيل
+   رمادي، ولا يوهم بصورة غير موجودة. */
+.blog-card-media[data-fallback]::after {
+    content: attr(data-fallback);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.2rem;
+    font-weight: 800;
+    color: var(--blog-accent-soft);
+    opacity: .4;
+}
+
+.blog-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-5) var(--sp-5);
+    flex: 1;
+}
+
+.blog-card-title {
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: 800;
+    line-height: 1.45;
+    color: var(--color-text);
+}
+
+.blog-card-excerpt {
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: 1.8;
+    color: var(--color-text-secondary);
+}
+
+.blog-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: auto;
+    padding-top: var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+}
+
+.blog-card-meta .sep { opacity: .5; }
+
+.blog-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+
+/* تُستخدم على <a> و<button> معًا، فلازم تُلغي شكل الزر الافتراضي للمتصفح. */
+.blog-tag {
+    display: inline-flex;
+    padding: .18rem .6rem;
+    border: none;
+    border-radius: var(--r-pill);
+    background: var(--tint-neutral);
+    color: var(--on-neutral);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.blog-tag:hover { background: var(--blog-tint); color: var(--blog-accent-soft); }
+.blog-tag:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
+
+.blog-tag.is-active {
+    background: var(--blog-tint);
+    color: var(--blog-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--blog-border);
+}
+
+/* ── الترقيم ────────────────────────────────────────────────────────────── */
+.blog-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: var(--sp-6);
+}
+
+.blog-page-btn {
+    min-width: 2.4rem;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    background: var(--surface-subtle);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.blog-page-btn:hover:not(:disabled) { color: var(--color-text); border-color: var(--blog-border); }
+.blog-page-btn:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
+.blog-page-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.blog-page-btn.is-current {
+    background: var(--blog-tint);
+    border-color: var(--blog-border);
+    color: var(--blog-accent-soft);
+}
+
+/* ── صفحة المقال ────────────────────────────────────────────────────────── */
+.blog-article {
+    max-width: var(--blog-reading-width);
+    margin-inline: auto;
+}
+
+/* الفهرس عمودٌ لاصق على الشاشات الواسعة، وكتلة فوق المقال على الضيّقة.
+   التلاعب بالعرض هنا مقصود: عمود المقال يبقى بعرض قراءته مهما اتّسعت
+   الشاشة — سطر بعرض 90 حرفًا لا يُقرأ، يُمسَح. */
+.blog-article-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-6);
+    align-items: start;
+}
+
+/* الفهرس نسختان لمكان واحد من المعلومة: كتلة فوق المتن على الضيّق، وعمود
+   لاصق على الواسع. تُعرض واحدة فقط دائمًا — الـHTML يحمل الاثنتين لأن
+   نقل عنصر بين حاويتين عند تغيّر العرض يفقد حالة التمرير والتركيز. */
+.blog-aside { display: none; }
+
+@media (min-width: 1160px) {
+    .blog-article-layout {
+        grid-template-columns: minmax(0, var(--blog-reading-width)) 16rem;
+        justify-content: center;
+    }
+    .blog-article { margin-inline: 0; }
+    .blog-aside {
+        display: block;
+        position: sticky;
+        top: calc(var(--customer-nav-h) + var(--sp-5));
+    }
+    #postTocInline { display: none; }
+}
+
+.blog-article-head { margin-bottom: var(--sp-5); }
+
+.blog-article-title {
+    margin: var(--sp-3) 0 var(--sp-3);
+    font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--color-text);
+}
+
+.blog-article-sub {
+    margin: 0 0 var(--sp-4);
+    font-size: var(--fs-md);
+    line-height: 1.85;
+    color: var(--color-text-secondary);
+}
+
+.blog-byline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-4) 0;
+    border-block: 1px solid var(--color-border);
+    font-size: var(--fs-sm);
+    color: var(--color-text-3);
+}
+
+.blog-avatar {
+    width: 2.4rem;
+    height: 2.4rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--blog-tint);
+    border: 1px solid var(--blog-border);
+    color: var(--blog-accent-soft);
+    font-weight: 800;
+}
+
+.blog-byline-main { min-width: 0; }
+.blog-byline-name { display: block; font-weight: 700; color: var(--color-text); }
+.blog-byline .sep { opacity: .5; }
+
+.blog-cover {
+    margin: var(--sp-5) 0;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+}
+
+.blog-cover img { width: 100%; height: auto; display: block; }
+
+/* ── المتن المقروء ──────────────────────────────────────────────────────
+   كل ما تنتجه renderArticleHtml في blog-model.js موصوف هنا وفقط هنا:
+   الوسوم من عندنا، فمجموعتها مغلقة ومعروفة. */
+.blog-body {
+    font-size: 1.02rem;
+    line-height: 2;
+    color: var(--color-text);
+}
+
+.blog-body > p { margin: 0 0 var(--sp-4); }
+
+.blog-body .blog-heading {
+    margin: var(--sp-6) 0 var(--sp-3);
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--color-text);
+    scroll-margin-top: calc(var(--customer-nav-h) + var(--sp-5));
+}
+
+.blog-body h2.blog-heading { font-size: var(--fs-lg); }
+.blog-body h3.blog-heading { font-size: var(--fs-md); }
+.blog-body h4.blog-heading { font-size: var(--fs-base); color: var(--color-text-secondary); }
+
+.blog-body .blog-list {
+    margin: 0 0 var(--sp-4);
+    padding-inline-start: var(--sp-5);
+}
+
+.blog-body .blog-list li { margin-bottom: var(--sp-2); }
+
+.blog-body .blog-quote {
+    margin: var(--sp-5) 0;
+    padding: var(--sp-4) var(--sp-5);
+    border-inline-start: 3px solid var(--blog-accent);
+    border-radius: var(--r-sm);
+    background: var(--blog-tint);
+    color: var(--color-text);
+    font-size: var(--fs-md);
+    line-height: 1.9;
+}
+
+.blog-body .blog-code {
+    margin: var(--sp-5) 0;
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--color-surface-2);
+    overflow-x: auto;
+    direction: ltr;
+    text-align: left;
+}
+
+.blog-body .blog-code code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .85rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    white-space: pre;
+}
+
+.blog-body .blog-code-inline {
+    padding: .1rem .35rem;
+    border-radius: .3rem;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .85em;
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+.blog-body .blog-figure { margin: var(--sp-5) 0; }
+
+.blog-body .blog-figure img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--r-md);
+    border: 1px solid var(--color-border);
+}
+
+.blog-body .blog-figure figcaption {
+    margin-top: var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+    text-align: center;
+}
+
+.blog-body .blog-rule {
+    margin: var(--sp-6) 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+}
+
+.blog-body a { color: var(--on-accent); text-decoration: underline; text-underline-offset: 3px; }
+.blog-body a:hover { color: var(--color-accent); }
+
+/* ── الفهرس الجانبي ─────────────────────────────────────────────────────── */
+.blog-toc { margin: 0; }
+
+.blog-toc-title {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-xs);
+    font-weight: 800;
+    letter-spacing: .04em;
+    color: var(--color-text-3);
+}
+
+.blog-toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    border-inline-start: 1px solid var(--color-border);
+}
+
+.blog-toc-list a {
+    display: block;
+    padding: var(--sp-2) var(--sp-3);
+    margin-inline-start: -1px;
+    border-inline-start: 2px solid transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.blog-toc-list a:hover { color: var(--color-text); }
+
+.blog-toc-list a.is-current {
+    color: var(--blog-accent-soft);
+    border-inline-start-color: var(--blog-accent);
+}
+
+.blog-toc-list li[data-level="3"] a { padding-inline-start: var(--sp-5); font-size: var(--fs-xs); }
+.blog-toc-list li[data-level="4"] a { padding-inline-start: var(--sp-6); font-size: var(--fs-xs); }
+
+/* شريط تقدّم القراءة: مؤشّر واحد رفيع أسفل الشريط العلوي. */
+.blog-progress {
+    position: fixed;
+    top: var(--customer-nav-h);
+    inset-inline: 0;
+    height: 2px;
+    z-index: 999;
+    background: transparent;
+    pointer-events: none;
+}
+
+.blog-progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--blog-accent), var(--color-accent-2));
+    transition: width .1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .blog-progress i { transition: none; }
+}
+
+.blog-post-tags { margin-top: var(--sp-5); }
+
+/* ── المشاركة ───────────────────────────────────────────────────────────── */
+.blog-share {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--color-border);
+}
+
+.blog-share-label {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-inline-end: var(--sp-2);
+}
+
+.blog-share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-pill);
+    background: var(--surface-subtle);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.blog-share-btn:hover { color: var(--color-text); border-color: var(--blog-border); }
+.blog-share-btn:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
+
+/* ── دعوة الإجراء أسفل المقال ───────────────────────────────────────────── */
+.blog-cta {
+    margin-top: var(--sp-6);
+    padding: var(--sp-6) var(--sp-5);
+    border: 1px solid var(--blog-border);
+    border-radius: var(--r-xl);
+    background:
+        linear-gradient(135deg, var(--blog-tint), transparent 70%),
+        var(--glass-bg);
+    text-align: center;
+}
+
+.blog-cta h2 {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.blog-cta p {
+    margin: 0 auto var(--sp-5);
+    max-width: 34rem;
+    font-size: var(--fs-base);
+    line-height: 1.85;
+    color: var(--color-text-secondary);
+}
+
+.blog-cta-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+}
+
+/* ── التذييل ────────────────────────────────────────────────────────────── */
+.blog-footer {
+    margin-top: var(--sp-7);
+    padding: var(--sp-6) var(--sp-5) var(--sp-5);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-3);
+    font-size: var(--fs-sm);
+}
+
+.blog-footer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+    gap: var(--sp-5);
+    max-width: var(--content-max);
+    margin: 0 auto var(--sp-5);
+}
+
+.blog-footer h3 {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-sm);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.blog-footer ul { list-style: none; margin: 0; padding: 0; }
+.blog-footer li { margin-bottom: var(--sp-2); }
+.blog-footer a { color: var(--color-text-secondary); text-decoration: none; }
+.blog-footer a:hover { color: var(--on-accent); text-decoration: underline; }
+
+.blog-footer-bottom {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+}
+
+/* ── شريط المحرّر ───────────────────────────────────────────────────────
+   يظهر للطاقم وحده حين يفتح المدوّنة العامة: يقول ما حالة هذا المقال ومن
+   أين يُحرَّر. ظهوره يقرّره الخادم (RLS أعادت صفًّا غير منشور)، لا فحصُ
+   رتبة في المتصفح. */
+.blog-editor-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-5);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px dashed var(--color-warning);
+    border-radius: var(--r-md);
+    background: var(--tint-warning);
+    color: var(--on-warning);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+}
+
+.blog-editor-bar a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    margin-inline-start: auto;
+}
+
+/* ── هيكل التحميل ───────────────────────────────────────────────────────── */
+.blog-skeleton-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--glass-bg);
+}
+
+.blog-skeleton-card .blog-card-media { aspect-ratio: 16 / 9; }
+
+@media (max-width: 600px) {
+    .blog-hero { padding: var(--sp-6) var(--sp-4) var(--sp-5); }
+    .blog-hero-stats { gap: var(--sp-4); }
+    .blog-featured-body { padding: var(--sp-5) var(--sp-4); }
+    .blog-body { font-size: .98rem; line-height: 1.95; }
+}

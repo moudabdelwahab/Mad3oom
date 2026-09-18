@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>إدارة المدوّنة - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/blog-admin.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <script src="/theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+            <div>
+                <h1>إدارة المدوّنة</h1>
+                <p>
+                    المدوّنة سطح عامّ يقرأه من لا حساب له. ما يُنشر هنا يظهر على
+                    <a href="/blog/" target="_blank" rel="noopener">mad3oom.com/blog</a> فورًا.
+                </p>
+            </div>
+            <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" id="manageCategoriesBtn">التصنيفات</button>
+                <button type="button" class="btn btn-primary" id="newPostBtn">مقال جديد</button>
+            </div>
+        </div>
+
+        <!-- لا حاوية رفض هنا: guardPage يرسم لوحته الخاصة فوق الصفحة كاملةً
+             ويعيد null، فتخرج التهيئة قبل إظهار مساحة العمل. حاوية ثانية
+             للرسالة كانت ستعني مكانَين لنفس الحالة. -->
+        <div id="blogWorkspace" hidden>
+
+            <div class="stats-grid" id="blogStats" aria-live="polite"></div>
+
+            <div class="blog-toolbar">
+                <div class="blog-search-field">
+                    <label class="visually-hidden" for="blogAdminSearch">ابحث في المقالات</label>
+                    <input type="search" id="blogAdminSearch" placeholder="ابحث بالعنوان أو الرابط المختصر…" autocomplete="off">
+                </div>
+
+                <label class="visually-hidden" for="blogStatusFilter">تصفية بالحالة</label>
+                <select id="blogStatusFilter">
+                    <option value="">كل الحالات</option>
+                    <option value="published">منشور</option>
+                    <option value="scheduled">مجدول</option>
+                    <option value="draft">مسودّة</option>
+                    <option value="archived">مؤرشف</option>
+                </select>
+
+                <label class="visually-hidden" for="blogCategoryFilter">تصفية بالتصنيف</label>
+                <select id="blogCategoryFilter">
+                    <option value="">كل التصنيفات</option>
+                </select>
+
+                <span class="blog-toolbar-spacer"></span>
+                <a class="btn btn-outline btn-sm" href="/blog/" target="_blank" rel="noopener">فتح المدوّنة ↗</a>
+            </div>
+
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>المقال</th>
+                            <th>التصنيف</th>
+                            <th>الحالة</th>
+                            <th>الكاتب</th>
+                            <th>القراءات</th>
+                            <th>آخر تعديل</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blogRows">
+                        <tr><td colspan="7" style="text-align:center; padding:3rem;">جارٍ تحميل المقالات…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- ═══ نافذة المحرّر ══════════════════════════════════════════════════ -->
+    <div id="postModal" class="modal blog-editor-modal" role="dialog" aria-modal="true" aria-labelledby="postModalTitle">
+        <div class="modal-content">
+            <div class="modal-head" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1.25rem;">
+                <div>
+                    <h2 id="postModalTitle" style="margin:0;">مقال جديد</h2>
+                    <p style="margin:0.35rem 0 0; color:var(--color-text-secondary); font-size:0.88rem;" id="postModalHint">
+                        احفظه مسودّة متى شئت — النشر خطوة منفصلة.
+                    </p>
+                </div>
+                <button type="button" class="modal-close" id="postModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <div id="postFormAlert"></div>
+
+            <form id="postForm" novalidate>
+                <input type="hidden" id="postId">
+
+                <div class="blog-editor-grid">
+                    <!-- ── النموذج ─────────────────────────────────────── -->
+                    <div>
+                        <div class="blog-field">
+                            <label for="fTitle">العنوان <span aria-hidden="true">*</span></label>
+                            <input type="text" id="fTitle" maxlength="160" required autocomplete="off">
+                            <span class="hint">العنوان الذي يراه القارئ في نتيجة البحث وفي بطاقة المشاركة.</span>
+                            <span class="error" data-error-for="title" hidden></span>
+                        </div>
+
+                        <div class="blog-field">
+                            <label for="fSlug">الرابط المختصر <span aria-hidden="true">*</span></label>
+                            <div class="blog-slug-row">
+                                <input type="text" id="fSlug" required autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn btn-secondary btn-sm" id="regenSlugBtn">من العنوان</button>
+                            </div>
+                            <span class="hint">
+                                mad3oom.com/blog/post.html?slug=<b id="slugPreview">—</b><br>
+                                تغييره بعد النشر يكسر كل رابط مُشارَك لهذا المقال.
+                            </span>
+                            <span class="error" data-error-for="slug" hidden></span>
+                        </div>
+
+                        <div class="blog-field">
+                            <label for="fSubtitle">العنوان الفرعي</label>
+                            <input type="text" id="fSubtitle" maxlength="200" autocomplete="off">
+                        </div>
+
+                        <div class="blog-field">
+                            <label for="fExcerpt">المقتطف</label>
+                            <textarea id="fExcerpt" rows="2" maxlength="300" style="min-height:auto;"></textarea>
+                            <span class="hint">سطران يظهران في بطاقة المقال وفي نتيجة البحث. بلا مقتطف يُؤخذ أول المتن.</span>
+                        </div>
+
+                        <div class="blog-field">
+                            <label for="fContent">المتن <span aria-hidden="true">*</span></label>
+                            <div class="blog-format-bar" role="toolbar" aria-label="تنسيق المتن">
+                                <button type="button" class="blog-format-btn" data-insert="heading">عنوان</button>
+                                <button type="button" class="blog-format-btn" data-insert="bold">غامق</button>
+                                <button type="button" class="blog-format-btn" data-insert="italic">مائل</button>
+                                <button type="button" class="blog-format-btn" data-insert="ul">قائمة</button>
+                                <button type="button" class="blog-format-btn" data-insert="ol">قائمة مرقّمة</button>
+                                <button type="button" class="blog-format-btn" data-insert="quote">اقتباس</button>
+                                <button type="button" class="blog-format-btn" data-insert="code">كود</button>
+                                <button type="button" class="blog-format-btn" data-insert="link">رابط</button>
+                                <button type="button" class="blog-format-btn" data-insert="image">صورة</button>
+                                <button type="button" class="blog-format-btn" data-insert="rule">فاصل</button>
+                            </div>
+                            <textarea id="fContent" required spellcheck="true"></textarea>
+                            <span class="hint">
+                                تنسيق مبسّط: <code>## عنوان</code> · <code>- عنصر</code> · <code>1. عنصر</code> ·
+                                <code>&gt; اقتباس</code> · <code>**غامق**</code> · <code>[نص](رابط)</code> ·
+                                <code>![وصف](صورة)</code>. أي وسم HTML يُعرض كنصّ لا يُنفَّذ.
+                            </span>
+                            <span class="error" data-error-for="content" hidden></span>
+                        </div>
+
+                        <div class="blog-field-grid">
+                            <div class="blog-field">
+                                <label for="fCategory">التصنيف</label>
+                                <select id="fCategory"><option value="">بلا تصنيف</option></select>
+                            </div>
+                            <div class="blog-field">
+                                <label for="fTags">الوسوم</label>
+                                <input type="text" id="fTags" autocomplete="off" placeholder="واتساب، قوالب، جودة">
+                                <span class="hint">افصل بينها بفاصلة.</span>
+                            </div>
+                        </div>
+
+                        <div class="blog-field-grid">
+                            <div class="blog-field">
+                                <label for="fCover">رابط صورة الغلاف</label>
+                                <input type="url" id="fCover" autocomplete="off" placeholder="https://…" dir="ltr">
+                                <span class="error" data-error-for="cover_url" hidden></span>
+                            </div>
+                            <div class="blog-field">
+                                <label for="fCoverAlt">وصف الصورة</label>
+                                <input type="text" id="fCoverAlt" maxlength="160" autocomplete="off">
+                                <span class="hint">لقارئ الشاشة ولمن لم تُحمَّل عنده الصورة.</span>
+                            </div>
+                        </div>
+
+                        <div class="blog-field-grid">
+                            <div class="blog-field">
+                                <label for="fAuthorName">اسم الكاتب</label>
+                                <input type="text" id="fAuthorName" maxlength="80" autocomplete="off">
+                            </div>
+                            <div class="blog-field">
+                                <label for="fAuthorTitle">صفة الكاتب</label>
+                                <input type="text" id="fAuthorTitle" maxlength="80" autocomplete="off" placeholder="مثال: فريق المنتج">
+                            </div>
+                        </div>
+
+                        <div class="blog-field-grid">
+                            <div class="blog-field">
+                                <label for="fStatus">الحالة</label>
+                                <select id="fStatus">
+                                    <option value="draft">مسودّة — لا يراها أحد خارج اللوحة</option>
+                                    <option value="published">منشور — ظاهر على الإنترنت</option>
+                                    <option value="archived">مؤرشف — أُخرج من الفهرس</option>
+                                </select>
+                            </div>
+                            <div class="blog-field">
+                                <label for="fPublishAt">موعد النشر</label>
+                                <input type="datetime-local" id="fPublishAt">
+                                <span class="hint" id="publishAtHint">اتركه فارغًا لينشر فور الحفظ.</span>
+                                <span class="error" data-error-for="publish_at" hidden></span>
+                            </div>
+                        </div>
+
+                        <div class="blog-field">
+                            <label class="blog-switch" for="fFeatured">
+                                <input type="checkbox" id="fFeatured">
+                                <span>
+                                    <b>مقال مميّز</b>
+                                    يتصدّر صفحة المدوّنة ببطاقة كبيرة. المميّز الأحدث هو الذي يظهر.
+                                </span>
+                            </label>
+                        </div>
+
+                        <details class="blog-field">
+                            <summary style="cursor:pointer; font-weight:600; margin-bottom:0.6rem;">تحسين محرّكات البحث (SEO)</summary>
+                            <div class="blog-field">
+                                <label for="fSeoTitle">عنوان SEO</label>
+                                <input type="text" id="fSeoTitle" maxlength="70" autocomplete="off">
+                                <span class="hint">اتركه فارغًا ليُستخدم عنوان المقال.</span>
+                            </div>
+                            <div class="blog-field" style="margin-bottom:0;">
+                                <label for="fSeoDescription">وصف SEO</label>
+                                <textarea id="fSeoDescription" rows="2" maxlength="180" style="min-height:auto;"></textarea>
+                                <span class="hint">‎150–160 حرفًا هي ما يعرضه محرّك البحث.</span>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- ── المعاينة ────────────────────────────────────── -->
+                    <aside class="blog-editor-preview" aria-live="polite">
+                        <div class="blog-preview-head">
+                            <h3>المعاينة</h3>
+                            <div class="blog-preview-stats">
+                                <span id="previewWords">0 كلمة</span>
+                                <span id="previewMinutes">دقيقة</span>
+                            </div>
+                        </div>
+
+                        <h2 class="blog-preview-title" id="previewTitle"></h2>
+                        <p class="blog-preview-sub" id="previewSubtitle" hidden></p>
+                        <div class="blog-preview-body" id="previewBody"></div>
+
+                        <div class="blog-checklist">
+                            <div class="blog-checklist-head">
+                                <span>جاهزية النشر</span>
+                                <span id="checklistPercent">0%</span>
+                            </div>
+                            <div class="blog-progress-track"><i id="checklistBar"></i></div>
+                            <ul id="checklistItems"></ul>
+                        </div>
+                    </aside>
+                </div>
+
+                <div class="blog-modal-actions">
+                    <button type="button" class="btn btn-danger" id="deletePostBtn" hidden>حذف المقال</button>
+                    <span class="blog-actions-end">
+                        <button type="button" class="btn btn-secondary" id="cancelPostBtn">إلغاء</button>
+                        <button type="submit" class="btn btn-primary" id="savePostBtn">حفظ</button>
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══ نافذة التصنيفات ════════════════════════════════════════════════ -->
+    <div id="categoryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
+        <div class="modal-content" style="max-width:44rem;">
+            <div class="modal-head" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1.25rem;">
+                <div>
+                    <h2 id="categoryModalTitle" style="margin:0;">تصنيفات المدوّنة</h2>
+                    <p style="margin:0.35rem 0 0; color:var(--color-text-secondary); font-size:0.88rem;">
+                        التصنيف بيانات لا ثابت في الكود: ما تضيفه هنا يظهر في المدوّنة فورًا بلا نشر.
+                    </p>
+                </div>
+                <button type="button" class="modal-close" id="categoryModalClose" aria-label="إغلاق">&times;</button>
+            </div>
+
+            <div id="categoryAlert"></div>
+
+            <div class="table-container" style="margin-top:0;">
+                <table class="admin-table">
+                    <thead>
+                        <tr><th>الاسم</th><th>الرابط</th><th>الترتيب</th><th>الحالة</th><th>الإجراءات</th></tr>
+                    </thead>
+                    <tbody id="categoryRows"></tbody>
+                </table>
+            </div>
+
+            <form id="categoryForm" novalidate style="margin-top:1.5rem;">
+                <input type="hidden" id="categoryId">
+                <div class="blog-field-grid">
+                    <div class="blog-field">
+                        <label for="fCatName">الاسم <span aria-hidden="true">*</span></label>
+                        <input type="text" id="fCatName" required maxlength="80" autocomplete="off">
+                    </div>
+                    <div class="blog-field">
+                        <label for="fCatSlug">الرابط المختصر <span aria-hidden="true">*</span></label>
+                        <input type="text" id="fCatSlug" required maxlength="80" autocomplete="off" spellcheck="false" dir="ltr">
+                    </div>
+                    <div class="blog-field">
+                        <label for="fCatOrder">الترتيب</label>
+                        <input type="text" inputmode="numeric" id="fCatOrder" value="100" autocomplete="off">
+                    </div>
+                </div>
+                <div class="blog-field">
+                    <label for="fCatDescription">الوصف</label>
+                    <input type="text" id="fCatDescription" maxlength="200" autocomplete="off">
+                </div>
+                <label class="blog-switch" for="fCatActive">
+                    <input type="checkbox" id="fCatActive" checked>
+                    <span><b>نشط</b> التصنيف المعطَّل يختفي من تصفّح المدوّنة ولا تُحذف مقالاته.</span>
+                </label>
+
+                <div class="blog-modal-actions">
+                    <span class="blog-actions-end">
+                        <button type="button" class="btn btn-secondary" id="resetCategoryBtn">تصنيف جديد</button>
+                        <button type="submit" class="btn btn-primary" id="saveCategoryBtn">حفظ التصنيف</button>
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="/assets/js/admin/blog-admin.js"></script>
+</body>
+</html>
