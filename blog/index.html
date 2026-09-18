@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مدوّنة مدعوم — واتساب والأتمتة وخدمة العملاء</title>
+    <meta name="description" content="مقالات عملية من فريق مدعوم عن WhatsApp Business Platform، والأتمتة، وخدمة العملاء، والأمان — مكتوبة لمن يشغّل المنصة يوميًا.">
+    <link rel="canonical" href="https://mad3oom.com/blog/">
+
+    <!-- بطاقة المشاركة: بلا هذه الوسوم يظهر رابط المدوّنة في واتساب
+         ولينكدإن كسطر عارٍ بلا عنوان ولا صورة. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="منصة مدعوم">
+    <meta property="og:title" content="مدوّنة مدعوم">
+    <meta property="og:description" content="مقالات عملية عن واتساب والأتمتة وخدمة العملاء من فريق مدعوم.">
+    <meta property="og:url" content="https://mad3oom.com/blog/">
+    <meta property="og:image" content="https://mad3oom.com/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في كل صفحات البوابة: يضبط الثيم قبل أول
+           رسم فمفيش وميض ولا قفزة. المدوّنة صفحة عامة، فالافتراضي هنا يتبع
+           تفضيل نظام الزائر لا تفضيلًا محفوظًا قد لا يكون موجودًا أصلًا. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell blog-shell">
+
+    <!-- ═══ الشريط العلوي ══════════════════════════════════════════════════
+         ليس قشرة البوابة: لا قائمة جانبية ولا جرس إشعارات ولا بحث في
+         التذاكر. الزائر هنا قد لا يملك حسابًا أصلًا، وعرض عناصر لوحة لا
+         يستطيع فتحها هو وعدٌ بشيء غير موجود. -->
+    <nav class="admin-nav" aria-label="التنقّل العلوي">
+        <div class="nav-container">
+            <div class="nav-right">
+                <a class="portal-brand" href="/" aria-label="مدعوم — الصفحة الرئيسية">
+                    <img src="/logo.png" alt="" class="portal-brand-logo" width="32" height="32" aria-hidden="true">
+                    <span class="portal-brand-text">
+                        <span class="portal-brand-name">مدعوم</span>
+                        <span class="portal-brand-context">المدوّنة</span>
+                    </span>
+                </a>
+            </div>
+
+            <div class="nav-left">
+                <div class="blog-nav-links">
+                    <a class="blog-nav-link" href="/" data-optional>الرئيسية</a>
+                    <a class="blog-nav-link is-active" href="/blog/">المدوّنة</a>
+                    <a class="blog-nav-link" href="/subscriptions.html" data-optional>الباقات</a>
+                    <a class="blog-nav-link" href="/about.html" data-optional>عن المنصة</a>
+                </div>
+
+                <button class="nav-btn theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي والنهاري" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+
+                <a class="blog-nav-link blog-nav-cta" href="/login.html">دخول</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="admin-main" id="blogMain">
+
+        <!-- شريط المحرّر: يظهر حين تُعيد القاعدة مسودّات — أي حين يكون
+             المنادي من الطاقم. لا فحص رتبة في المتصفح. -->
+        <div class="blog-editor-bar" id="blogEditorBar" hidden>
+            <span id="blogEditorBarText"></span>
+            <a href="/admin/blog.html">إدارة المدوّنة ←</a>
+        </div>
+
+        <!-- ═══ الواجهة ═══════════════════════════════════════════════════ -->
+        <header class="blog-hero">
+            <div class="blog-hero-inner">
+                <span class="blog-eyebrow"><span class="dot"></span>مدوّنة مدعوم</span>
+                <h1>ما تعلّمناه ونحن نُشغّل قنوات تواصل حقيقية</h1>
+                <p class="blog-hero-lead">
+                    مقالات يكتبها الفريق الذي يبني المنصة ويجيب على تذاكرها: قوالب واتساب،
+                    جودة الأرقام، الأتمتة التي توفّر وقتًا فعلًا، وما نتعلّمه من أعطالنا نحن.
+                    بلا مبالغات تسويقية — ما يعمل، وما لا يعمل، ولماذا.
+                </p>
+
+                <div class="blog-search" role="search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <label class="visually-hidden" for="blogSearchInput">ابحث في المدوّنة</label>
+                    <input type="search" id="blogSearchInput" class="blog-search-input" autocomplete="off"
+                           placeholder="ابحث عن موضوع أو سؤال…">
+                    <button type="button" class="blog-search-clear" id="blogSearchClear" hidden aria-label="مسح البحث">&times;</button>
+                </div>
+
+                <div class="blog-hero-stats" id="blogHeroStats" hidden>
+                    <div class="blog-hero-stat"><b id="statPosts">—</b><span>مقالًا منشورًا</span></div>
+                    <div class="blog-hero-stat"><b id="statCategories">—</b><span>موضوعًا</span></div>
+                    <div class="blog-hero-stat"><b id="statLatest">—</b><span>آخر تحديث</span></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ التصفية ═══════════════════════════════════════════════════ -->
+        <nav class="blog-filters" id="blogCategories" aria-label="تصفّح حسب الموضوع"></nav>
+
+        <!-- ═══ المقال المميّز ════════════════════════════════════════════
+             يظهر في الحالة الافتراضية وحدها: مع بحث أو تصفية يصير ضجيجًا
+             فوق النتيجة التي طلبها القارئ. -->
+        <div id="blogFeatured"></div>
+
+        <!-- ═══ النتائج ═══════════════════════════════════════════════════ -->
+        <section aria-labelledby="blogListHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="blogListHeading">أحدث المقالات</h2>
+                    <p class="panel-subtitle" id="blogListSubtitle" aria-live="polite"></p>
+                </div>
+            </div>
+
+            <div class="blog-grid" id="blogList" aria-busy="true"></div>
+            <div id="blogEmpty"></div>
+            <div class="blog-pagination" id="blogPagination"></div>
+        </section>
+
+        <!-- ═══ الوسوم ════════════════════════════════════════════════════ -->
+        <section class="panel" id="blogTagsPanel" hidden aria-labelledby="blogTagsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="blogTagsHeading">تصفّح حسب الوسم</h2>
+                    <p class="panel-subtitle">الوسوم الأكثر ورودًا في المقالات المنشورة</p>
+                </div>
+            </div>
+            <div class="blog-tag-row" id="blogTags"></div>
+        </section>
+
+        <!-- ═══ دعوة الإجراء ══════════════════════════════════════════════ -->
+        <section class="blog-cta">
+            <h2>من القراءة إلى التشغيل</h2>
+            <p>
+                كل ما تقرأه هنا مبنيّ على ما تفعله المنصة فعلًا. لو أردت تجربته على حسابك،
+                ابدأ من الباقات أو تحدّث إلى الفريق مباشرة.
+            </p>
+            <div class="blog-cta-actions">
+                <a class="btn btn-primary" href="/subscriptions.html">استعراض الباقات</a>
+                <a class="btn btn-secondary" href="/knowledge-base.html">مركز المساعدة</a>
+            </div>
+        </section>
+
+        <footer class="blog-footer">
+            <div class="blog-footer-grid">
+                <div>
+                    <h3>منصة مدعوم</h3>
+                    <ul>
+                        <li><a href="/">الرئيسية</a></li>
+                        <li><a href="/about.html">عن المنصة</a></li>
+                        <li><a href="/subscriptions.html">الباقات والأسعار</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>المحتوى</h3>
+                    <ul>
+                        <li><a href="/blog/">المدوّنة</a></li>
+                        <li><a href="/knowledge-base.html">مركز المساعدة</a></li>
+                        <li><a href="/developers.html">مركز المطوّرين</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>قانوني</h3>
+                    <ul>
+                        <li><a href="/privacy.html">سياسة الخصوصية</a></li>
+                        <li><a href="/terms.html">شروط الاستخدام</a></li>
+                        <li><a href="/cookies.html">سياسة الكوكيز</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="blog-footer-bottom">
+                <p>&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة.</p>
+            </div>
+        </footer>
+    </main>
+
+    <script type="module" src="/assets/js/blog/blog-index.js"></script>
+</body>
+</html>

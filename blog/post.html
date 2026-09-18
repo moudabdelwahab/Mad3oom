@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- العنوان والوصف يُكتبان من blog-article.js بعد وصول المقال.
+         القيم هنا هي ما يراه القارئ في لحظة التحميل وما يراه من عطّل
+         الجافاسكربت — فتكون عن المدوّنة لا سلسلة فارغة. -->
+    <title>مقال — مدوّنة مدعوم</title>
+    <meta name="description" content="مقال من مدوّنة منصة مدعوم.">
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="منصة مدعوم">
+    <meta property="og:title" content="مدوّنة مدعوم">
+    <meta property="og:description" content="مقال من مدوّنة منصة مدعوم.">
+    <meta property="og:image" content="https://mad3oom.com/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    <script>
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell blog-shell">
+
+    <nav class="admin-nav" aria-label="التنقّل العلوي">
+        <div class="nav-container">
+            <div class="nav-right">
+                <a class="portal-brand" href="/blog/" aria-label="مدعوم — المدوّنة">
+                    <img src="/logo.png" alt="" class="portal-brand-logo" width="32" height="32" aria-hidden="true">
+                    <span class="portal-brand-text">
+                        <span class="portal-brand-name">مدعوم</span>
+                        <span class="portal-brand-context">المدوّنة</span>
+                    </span>
+                </a>
+            </div>
+
+            <div class="nav-left">
+                <div class="blog-nav-links">
+                    <a class="blog-nav-link" href="/" data-optional>الرئيسية</a>
+                    <a class="blog-nav-link is-active" href="/blog/">المدوّنة</a>
+                    <a class="blog-nav-link" href="/subscriptions.html" data-optional>الباقات</a>
+                </div>
+
+                <button class="nav-btn theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي والنهاري" title="تبديل الوضع الليلي/النهاري">
+                    <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+
+                <a class="blog-nav-link blog-nav-cta" href="/login.html">دخول</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- شريط تقدّم القراءة -->
+    <div class="blog-progress" id="blogProgress" aria-hidden="true"><i></i></div>
+
+    <main class="admin-main" id="blogPostMain">
+
+        <div class="blog-editor-bar" id="blogEditorBar" hidden>
+            <span id="blogEditorBarText"></span>
+            <a href="/admin/blog.html" id="blogEditorBarLink">تحرير في لوحة الإدارة ←</a>
+        </div>
+
+        <!-- حالة التحميل / الخطأ / المقال غير الموجود تُرسم كلها هنا -->
+        <div id="blogPostState"></div>
+
+        <div class="blog-article-layout" id="blogArticleLayout" hidden>
+            <article class="blog-article">
+                <header class="blog-article-head">
+                    <nav class="blog-filters" aria-label="مسار التصفّح">
+                        <a class="blog-chip" href="/blog/">← كل المقالات</a>
+                        <a class="blog-chip" id="postCategoryChip" hidden></a>
+                    </nav>
+
+                    <h1 class="blog-article-title" id="postTitle"></h1>
+                    <p class="blog-article-sub" id="postSubtitle" hidden></p>
+
+                    <div class="blog-byline">
+                        <span class="blog-avatar" id="postAvatar" aria-hidden="true"></span>
+                        <span class="blog-byline-main">
+                            <span class="blog-byline-name" id="postAuthor"></span>
+                            <span id="postAuthorTitle"></span>
+                        </span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span id="postMeta"></span>
+                    </div>
+
+                    <figure class="blog-cover" id="postCover" hidden>
+                        <img id="postCoverImg" src="" alt="">
+                    </figure>
+                </header>
+
+                <!-- الفهرس على الشاشات الضيّقة يظهر هنا فوق المتن -->
+                <nav class="blog-toc panel" id="postTocInline" hidden aria-label="محتويات المقال">
+                    <p class="blog-toc-title">في هذا المقال</p>
+                    <ul class="blog-toc-list" id="postTocInlineList"></ul>
+                </nav>
+
+                <div class="blog-body" id="postBody"></div>
+
+                <div class="blog-tag-row blog-post-tags" id="postTags"></div>
+
+                <div class="blog-share" id="postShare"></div>
+
+                <section class="blog-cta">
+                    <h2>جرّب ما قرأته على حسابك</h2>
+                    <p>
+                        المنصة نفسها التي كُتب عنها هذا المقال: واتساب رسمي، أتمتة، وتذاكر دعم في مكان واحد.
+                    </p>
+                    <div class="blog-cta-actions">
+                        <a class="btn btn-primary" href="/subscriptions.html">استعراض الباقات</a>
+                        <a class="btn btn-secondary" href="/knowledge-base.html">مركز المساعدة</a>
+                    </div>
+                </section>
+
+                <section class="panel" id="postRelatedPanel" hidden aria-labelledby="postRelatedHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="postRelatedHeading">اقرأ بعده</h2>
+                            <p class="panel-subtitle">مقالات في نفس الموضوع</p>
+                        </div>
+                    </div>
+                    <div class="blog-grid" id="postRelated"></div>
+                </section>
+            </article>
+
+            <!-- الفهرس اللاصق على الشاشات الواسعة -->
+            <aside class="blog-aside" id="postAside" hidden>
+                <nav class="blog-toc" aria-label="محتويات المقال">
+                    <p class="blog-toc-title">في هذا المقال</p>
+                    <ul class="blog-toc-list" id="postTocList"></ul>
+                </nav>
+            </aside>
+        </div>
+
+        <footer class="blog-footer">
+            <div class="blog-footer-bottom">
+                <p>&copy; 2026 منصة مدعوم. جميع الحقوق محفوظة. · <a href="/blog/">العودة إلى المدوّنة</a></p>
+            </div>
+        </footer>
+    </main>
+
+    <script type="module" src="/assets/js/blog/blog-article.js"></script>
+</body>
+</html>

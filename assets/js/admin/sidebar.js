@@ -289,7 +289,7 @@ function setupSidebarLogic() {
 const STAFF_ONLY_LINK_IDS = [
     'ticketsLink', 'chatAdminLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
     'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
-    'sendEmailLink', 'knowledgeBaseLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
+    'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
 ];
 
 function showLink(id) {
