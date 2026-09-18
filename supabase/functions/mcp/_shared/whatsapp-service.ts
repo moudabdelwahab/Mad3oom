@@ -1,4 +1,9 @@
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import {
+  loadBillingSettings,
+  preflightBalance,
+  chargeForSentMessage,
+} from "./whatsapp-billing.ts";
 
 const GRAPH_VERSION = "v25.0";
 
@@ -96,9 +101,27 @@ export async function sendTextMessage(params: SendTextParams): Promise<SendResul
   const pid = params.phoneNumberId || integration.metadata?.phone_number_id;
   if (!pid) return { ok: false, status: 400, error: "تعذر تحديد phone_number_id" };
 
+  // ── المحفظة: فحص قبل أي نداء خارجي (H-03) ────────────────────────────────
+  const settings = await loadBillingSettings();
+  const amount = settings.textCharge;
+  const pre = await preflightBalance(params.userId, amount, settings);
+  if (!pre.allowed) {
+    return { ok: false, status: 402, error: "الرصيد غير كافٍ لإرسال الرسالة. اشحن محفظة واتساب ثم أعد المحاولة." };
+  }
+
   const payload = { messaging_product: "whatsapp", recipient_type: "individual", to: params.to, type: "text", text: { body: params.text } };
   const { res, data } = await sendToGraph(pid, token, payload);
   await logMessage({ userId: params.userId, phoneNumberId: pid, to: params.to, text: params.text, messageType: "text", ok: res.ok, raw: data });
+
+  if (res.ok) {
+    await chargeForSentMessage({
+      userId: params.userId,
+      amount,
+      providerMessageId: data?.messages?.[0]?.id ?? null,
+      label: "تكلفة رسالة نصية عبر أداة MCP",
+      settings,
+    });
+  }
 
   return res.ok ? { ok: true, status: 200, data } : { ok: false, status: res.status, error: data?.error?.message || "فشل إرسال الرسالة", data };
 }
@@ -112,12 +135,31 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<S
   const pid = params.phoneNumberId || integration.metadata?.phone_number_id;
   if (!pid) return { ok: false, status: 400, error: "تعذر تحديد phone_number_id" };
 
+  // ── المحفظة: فحص قبل أي نداء خارجي (H-03) ────────────────────────────────
+  // نفس سعر القالب الذي تستعمله integrations-api (template_charge_egp).
+  const settings = await loadBillingSettings();
+  const amount = settings.templateCharge;
+  const pre = await preflightBalance(params.userId, amount, settings);
+  if (!pre.allowed) {
+    return { ok: false, status: 402, error: "الرصيد غير كافٍ لإرسال رسالة القالب. اشحن محفظة واتساب ثم أعد المحاولة." };
+  }
+
   const payload = {
     messaging_product: "whatsapp", recipient_type: "individual", to: params.to, type: "template",
     template: { name: params.template.name, language: { code: params.template.language || "ar" }, components: params.template.components || [] },
   };
   const { res, data } = await sendToGraph(pid, token, payload);
   await logMessage({ userId: params.userId, phoneNumberId: pid, to: params.to, text: `[template:${params.template.name}]`, messageType: "template", ok: res.ok, raw: data });
+
+  if (res.ok) {
+    await chargeForSentMessage({
+      userId: params.userId,
+      amount,
+      providerMessageId: data?.messages?.[0]?.id ?? null,
+      label: `تكلفة رسالة قالب (${params.template.name}) عبر أداة MCP`,
+      settings,
+    });
+  }
 
   return res.ok ? { ok: true, status: 200, data } : { ok: false, status: res.status, error: data?.error?.message || "فشل إرسال التمبلت", data };
 }

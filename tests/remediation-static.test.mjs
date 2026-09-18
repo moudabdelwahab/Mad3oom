@@ -43,8 +43,30 @@ test('gemini-proxy source is gone', () => {
   assert.equal(existsSync(path.join(ROOT, 'supabase/functions/gemini-proxy')), false);
 });
 
-test('nothing in the repository references gemini-proxy', () => {
-  assert.deepEqual(grepRepo('gemini-proxy'), [],
+test('nothing in the repository calls gemini-proxy', () => {
+  // What this guards is a *caller* coming back — code that would invoke the
+  // retired function. Three kinds of match are not callers and are excluded
+  // deliberately, because forcing them out would mean deleting the record of
+  // why the function was retired:
+  //
+  //   - supabase/functions/_retired/ — the archived source, kept on purpose so
+  //     the vulnerable version is reviewable. It is not deployed; that is the
+  //     whole meaning of the directory.
+  //   - Markdown — the audit, the precheck and the hardening plan all have to
+  //     name the function to explain the finding.
+  //   - drift-baseline.json — an inventory of what production still has. It
+  //     records that gemini-proxy is deployed without repo source, which is a
+  //     fact to track, not a call site.
+  //
+  // Everything else still fails, and in the remaining files a match inside a
+  // comment is not a call either — the same rule codeOnly() already applies.
+  const callers = grepRepo('gemini-proxy')
+    .filter((f) => !f.includes('/_retired/'))
+    .filter((f) => !f.endsWith('.md'))
+    .filter((f) => f !== './drift-baseline.json')
+    .filter((f) => codeOnly(read(f)).includes('gemini-proxy'));
+
+  assert.deepEqual(callers, [],
     'a caller reappeared — it must be removed or repointed before deploying the deletion');
 });
 

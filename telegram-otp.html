@@ -152,13 +152,24 @@
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error('لم يتم العثور على جلسة نشطة. يرجى تسجيل الدخول مرة أخرى.');
 
-                // Verify via Edge Function
+                // Verify via Edge Function.
+                // الهوية تُؤخذ من توكن الجلسة داخل الدالة، لا من هذا الجسم — لذلك
+                // لم نعد نرسل userId. والمفتاح هنا `otp`: كان `code` والدالة تقرأ
+                // `otp`، فكان كل تحقق يفشل بـ400 (H-02).
                 const { data, error } = await supabase.functions.invoke('verify-otp', {
-                    body: { userId: user.id, code }
+                    body: { otp: code }
                 });
 
                 if (error || !data?.success) {
-                    throw new Error(data?.message || 'رمز التحقق غير صحيح. حاول مرة أخرى.');
+                    // supabase-js يحوّل أي ردّ غير 2xx إلى `error` ويترك `data` فارغًا،
+                    // فرسالة الخادم (مثل «تم تجاوز عدد المحاولات») تضيع لولا قراءة
+                    // الجسم من السياق. بدونها يرى المستخدم «رمز غير صحيح» وهو محظور،
+                    // فيظل يحاول بلا فائدة.
+                    let serverMessage = data?.message;
+                    if (!serverMessage && error?.context?.json) {
+                        serverMessage = (await error.context.json().catch(() => null))?.message;
+                    }
+                    throw new Error(serverMessage || 'رمز التحقق غير صحيح. حاول مرة أخرى.');
                 }
 
                 // Success! Redirect to dashboard
