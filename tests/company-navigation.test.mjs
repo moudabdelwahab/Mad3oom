@@ -316,7 +316,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         يملك جلسة)، ونقل قرار الخنق إلى القاعدة في otp_attempt_gate
     //         ليكون قابلًا للاختبار داخل transaction بدل HTTP وحده، وفهارس
     //         المسار. (H-02)
-    assert.equal(migrations[migrations.length - 1], '046_otp_verification_hardening.sql',
+    //   047 — عمود الكاتب مربوط بـauth.uid() في سياسات الإنشاء الخمس. الشرط
+    //         كان `auth.uid() IS NOT NULL` وحده، أي «أن تكون مسجّلًا» لا «أن
+    //         تكون أنت» — فأي حساب يكتب موضوعًا أو بلاغًا باسم الإدارة. ولا
+    //         يمكن أن يكون تغيير واجهة: نداء PostgREST مباشر يتجاوزها. (H-05)
+    assert.equal(migrations[migrations.length - 1], '047_forum_author_identity.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
