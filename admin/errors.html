@@ -476,6 +476,29 @@
                 .replace(/"/g, '&quot;');
         }
 
+        /**
+         * رمز آمن لاستعماله داخل سمة class.
+         *
+         * لماذا قائمة بيضاء لا مجرد هروب: `status` و`type` يأتيان من صفٍّ في
+         * site_errors، والجدول **مفتوح للإدراج من anon** بالتصميم (متتبّع
+         * الأخطاء يبلّغ قبل تسجيل الدخول). وكانت `status` تُدرَج هنا بلا هروب
+         * داخل قيمة سمة، فكان مجهول يكتب
+         *     status = 'x"><img src=x onerror=...>'
+         * فيُنفَّذ سكربته داخل جلسة الأدمن على أصل التطبيق — أي سرقة
+         * access_token من localStorage واستيلاء كامل على حساب الإدارة.
+         * (C-06 في FULL_PROJECT_AUDIT.md، مُثبَت على الإنتاج.)
+         *
+         * الهروب وحده كان سيكفي لهذا السياق، لكن القائمة البيضاء لا تنكسر لو
+         * تغيّر السياق يومًا (مثلًا لو نُقلت القيمة إلى سمة بلا علامات اقتباس)،
+         * وهي مطابقة لقيد site_errors_status_check في الترحيل 044.
+         */
+        function cssToken(value, allowed) {
+            return allowed.includes(value) ? value : 'unknown';
+        }
+
+        const ERROR_STATUSES = ['new', 'resolved', 'archived'];
+        const ERROR_TYPES = ['js', 'network', 'promise', 'resource', 'console', 'unhandled'];
+
         function timeAgo(dateStr) {
             const date = new Date(dateStr);
             const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -577,12 +600,12 @@
             const cardId = err.ids ? err.ids[0] : err.id;
             const isGroup = err.count && err.count > 1;
             return `
-                <div class="error-card ${err.status} ${highlight ? 'new-error-highlight' : ''}" id="error-${cardId}">
+                <div class="error-card ${cssToken(err.status, ERROR_STATUSES)} ${highlight ? 'new-error-highlight' : ''}" id="error-${escapeHtml(cardId)}">
                     <div class="error-header">
                         <div class="error-header-right">
-                            <span class="error-type type-${err.type}">${ICONS[err.type] || ''}${err.type}</span>
+                            <span class="error-type type-${cssToken(err.type, ERROR_TYPES)}">${ICONS[err.type] || ''}${escapeHtml(err.type)}</span>
                             ${err.status === 'new' ? `<span class="error-badge-new">جديد</span>` : ''}
-                            ${isGroup ? `<span class="error-count-badge">${ICONS.layers}×${err.count}</span>` : ''}
+                            ${isGroup ? `<span class="error-count-badge">${ICONS.layers}×${Number(err.count) || 0}</span>` : ''}
                         </div>
                         <span class="error-timestamp" title="${new Date(err.created_at).toLocaleString('ar-EG')}">
                             ${ICONS.clock}${timeAgo(err.created_at)}
@@ -591,7 +614,7 @@
                     <div class="error-message">${escapeHtml(err.message)}</div>
                     <div class="error-meta">
                         <span>${ICONS.location}<b>الرابط:</b> <a href="${escapeHtml(err.page_url)}" target="_blank" style="color: var(--color-accent); text-decoration: none;">${escapeHtml(err.page_url)}</a></span>
-                        ${err.file_name ? `<span>${ICONS.file}<b>المصدر:</b> ${escapeHtml(err.file_name)}${err.line_number ? `:${err.line_number}:${err.column_number}` : ''}</span>` : ''}
+                        ${err.file_name ? `<span>${ICONS.file}<b>المصدر:</b> ${escapeHtml(err.file_name)}${err.line_number ? `:${Number(err.line_number) || 0}:${Number(err.column_number) || 0}` : ''}</span>` : ''}
                         <span>${ICONS.user}<b>المستخدم:</b> ${err.user_id ? `<code>${escapeHtml(err.user_id)}</code>` : 'زائر'}</span>
                     </div>
                     <div class="stack-trace" id="stack-${cardId}">${escapeHtml(err.stack_trace) || 'لا توجد تفاصيل إضافية (Stack Trace)'}</div>
@@ -711,7 +734,7 @@
                 `النوع: ${err.type || ''}`,
                 `الرسالة: ${err.message || ''}`,
                 `الرابط: ${err.page_url || ''}`,
-                err.file_name ? `المصدر: ${err.file_name}${err.line_number ? `:${err.line_number}:${err.column_number}` : ''}` : '',
+                err.file_name ? `المصدر: ${err.file_name}${err.line_number ? `:${Number(err.line_number) || 0}:${Number(err.column_number) || 0}` : ''}` : '',
                 `التوقيت: ${err.created_at ? new Date(err.created_at).toLocaleString('ar-EG') : ''}`,
                 err.stack_trace ? `\nStack Trace:\n${err.stack_trace}` : ''
             ].filter(Boolean).join('\n');

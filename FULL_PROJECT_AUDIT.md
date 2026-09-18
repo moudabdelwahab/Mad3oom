@@ -659,7 +659,7 @@ if (appSecret) {                       // ← إن لم يكن مضبوطًا، 
 ```js
 export const TURNSTILE_CONFIG = {
   SITEKEY: '0x4AAAAAADnzinuKMCVrMqHi',
-  SECRET_KEY: '0x4AAAAAADnzik3fto2xkbWahk7EN-qHAwc',   // ← سرّ
+  SECRET_KEY: '0x4AAAAAA…[REDACTED — تم تدويره/يجب تدويره]',   // ← سرّ
 ```
 
 والملف نفسه يحذّر في تعليقه الختامي: «الـ Secret Key يجب أن يبقى سريًا ولا يُرسل للعميل».

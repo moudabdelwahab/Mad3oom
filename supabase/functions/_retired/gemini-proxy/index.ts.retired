@@ -1,0 +1,119 @@
+// ⚠️ ARCHIVED — DO NOT DEPLOY. Vulnerable source of gemini-proxy v46, kept for the record only.
+// Vulnerability: `userId` is taken from the request body (line "const { message, userId } = await req.json();")
+// and then used with a service_role client that bypasses RLS, to read another user's profile name and
+// their 3 most recent tickets. See _retired/gemini-proxy/README.md and audit finding C-07.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const { message, userId } = await req.json();   // ← userId from the BODY: the vulnerability
+    if (!message) throw new Error("No message provided");
+
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!groqKey) throw new Error("GROQ_API_KEY is not configured");
+
+    // 1. Fetch Bot Settings
+    const { data: settings } = await supabase
+      .from("bot_settings")
+      .select("welcome_message")
+      .limit(1)
+      .maybeSingle();
+
+    // 2. Fetch User Profile  ← reads ANY user's name
+    let profileName = "عميل";
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .maybeSingle();
+      profileName = profile?.full_name || profileName;
+    }
+
+    // 3. Fetch Recent Tickets  ← reads ANY user's tickets
+    let ticketsContext = "لا يوجد تذاكر حالياً";
+    if (userId) {
+      const { data: tickets } = await supabase
+        .from("tickets")
+        .select("ticket_number, status, priority, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (tickets?.length) {
+        ticketsContext = tickets
+          .map(
+            (t) => `🔹 تذكرة رقم ${t.ticket_number} | الحالة: ${t.status} | الأولوية: ${t.priority}`
+          )
+          .join("\n");
+      }
+    }
+
+    // 4. Construct AI Context  ← leaks the above back to the caller through the model reply
+    const systemPrompt = `
+أنت مسارد دعم ذكي لمنصة "مدعوم".
+اسم العميل: ${profileName}
+رسالة الترحيب: ${settings?.welcome_message || "مرحباً بك في مدعوم"}
+التذاكر الحالية:
+${ticketsContext}
+
+القوارد:
+- الرد بالعربية فقط.
+- كن ودوداً ومختصراً.
+- إذا سأل عن تذكرة، استخدم البيانات أعلاه.
+`;
+
+    const aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        temperature: 0.5,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("Groq API Error:", errorText);
+      throw new Error("AI service unavailable");
+    }
+
+    const data = await aiResponse.json();
+    const reply = data.choices?.[0]?.message?.content || "نعتذر، حدث خطأ في توليد الرد.";
+
+    return new Response(JSON.stringify({ reply }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error) {
+    console.error("Edge Function Error:", error.message);
+    return new Response(JSON.stringify({ reply: "عذراً، حدث خطأ تقني في البوت." }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  }
+});
