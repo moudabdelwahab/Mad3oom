@@ -1,145 +1,85 @@
 /**
- * Cloudflare Turnstile CAPTCHA Configuration
- * ==========================================
- * 
- * Testing Keys (للاختبار):
- * - Sitekey: 1x00000000000000000000AA
- * - Secret Key: 1x0000000000000000000000000000000AA
- * 
- * هذه المفاتيح مخصصة للاختبار فقط وتُرجع دائماً نتيجة ناجحة
- * للحصول على مفاتيح الإنتاج الخاصة بك، انظر الشرح في نهاية هذا الملف
+ * Cloudflare Turnstile — إعداد الواجهة (المفتاح العام وحده)
+ * =========================================================
+ *
+ * ⚠️ تحذير أمني تاريخي — اقرأه قبل تعديل هذا الملف
+ * -------------------------------------------------
+ * كان هذا الملف يحمل `SECRET_KEY` مكتوبًا بنصّه، ودالة `verifyTurnstileToken`
+ * التي تُرسله إلى Cloudflare **من المتصفح**. والمشروع يُنشَر على Vercel كملفات
+ * ثابتة، أي أن أي زائر كان يقدر يفتح:
+ *
+ *     https://<domain>/turnstile-config.js
+ *
+ * ويقرأ السرّ كاملًا. وكان تعليق الملف نفسه يقول: «الـ Secret Key يجب أن يبقى
+ * سريًا ولا يُرسل للعميل».
+ *
+ * (H-08 في FULL_PROJECT_AUDIT.md.)
+ *
+ * ملاحظة مخفِّفة واحدة، ولا تلغي الخطر: الملف لم يكن مستوردًا من أي مكان —
+ * صفر مرجع في كل المستودع — فأثره الوظيفي كان معدومًا. لكن السرّ كان مكشوفًا
+ * فعلًا على الإنترنت، وما زال في تاريخ Git.
+ *
+ * ⛔ إجراء إلزامي: **المفتاح القديم يجب اعتباره مخترَقًا ويجب تدويره**
+ *    من لوحة Cloudflare (Turnstile → الويدجت → Rotate Secret). حذفه من هنا
+ *    لا يُبطله، ولا يمحوه من تاريخ المستودع.
+ *
+ * القاعدة من الآن: السرّ لا يدخل هذا الملف ولا أي ملف يُخدَم للمتصفح إطلاقًا.
+ * التحقق من التوكن يتم في دالة حافة تقرأ `TURNSTILE_SECRET_KEY` من
+ * `Deno.env` — نفس نمط بقية أسرار المشروع (RESEND_API_KEY، WHATSAPP_TOKEN،
+ * MCP_ENC_KEY …).
  */
 
 export const TURNSTILE_CONFIG = {
-  // مفاتيح الاختبار (Testing Keys)
+  // المفتاح العام (Site Key) — يُعرض في HTML بطبيعته، وليس سرًّا.
   SITEKEY: '0x4AAAAAADnzinuKMCVrMqHi',
-  SECRET_KEY: '0x4AAAAAADnzik3fto2xkbWahk7EN-qHAwc',
-  
-  // API Endpoints
-  SITEVERIFY_URL: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+
+  // عنوان سكربت الويدجت
   WIDGET_SCRIPT_URL: 'https://challenges.cloudflare.com/turnstile/v0/api.js',
-  
-  // Widget Configuration
+
+  // إعدادات العرض
   WIDGET_THEME: 'light', // 'light' أو 'dark'
   WIDGET_SIZE: 'normal', // 'normal' أو 'compact'
-  WIDGET_MODE: 'managed', // 'managed' (افتراضي) أو 'non-interactive'
+  WIDGET_MODE: 'managed',
 };
 
-/**
- * دالة للتحقق من صحة Turnstile Token على جانب العميل
- * (للتحقق الأساسي قبل الإرسال للخادم)
- */
+/** توكن الويدجت الحالي من المتصفح، أو null. */
 export function getTurnstileToken() {
   return new Promise((resolve) => {
     if (window.turnstile) {
-      const token = window.turnstile.getResponse();
-      resolve(token || null);
+      resolve(window.turnstile.getResponse() || null);
     } else {
       resolve(null);
     }
   });
 }
 
-/**
- * دالة لإعادة تعيين Turnstile Widget
- */
+/** إعادة تعيين الويدجت. */
 export function resetTurnstile() {
-  if (window.turnstile) {
-    window.turnstile.reset();
-  }
+  if (window.turnstile) window.turnstile.reset();
 }
 
-/**
- * دالة لإزالة Turnstile Widget
- */
+/** إزالة الويدجت. */
 export function removeTurnstile() {
-  if (window.turnstile) {
-    window.turnstile.remove();
-  }
+  if (window.turnstile) window.turnstile.remove();
 }
 
 /**
- * دالة للتحقق من صحة Turnstile Token على جانب الخادم
- * يجب استدعاء هذه الدالة من Supabase Edge Function
- * 
- * @param {string} token - Turnstile token من العميل
- * @param {string} remoteIP - عنوان IP للعميل (اختياري)
- * @returns {Promise<object>} - نتيجة التحقق
- */
-export async function verifyTurnstileToken(token, remoteIP = null) {
-  try {
-    const formData = new FormData();
-    formData.append('secret', TURNSTILE_CONFIG.SECRET_KEY);
-    formData.append('response', token);
-    
-    if (remoteIP) {
-      formData.append('remoteip', remoteIP);
-    }
-
-    const response = await fetch(TURNSTILE_CONFIG.SITEVERIFY_URL, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Siteverify API returned status ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    return {
-      success: result.success,
-      challenge_ts: result.challenge_ts,
-      hostname: result.hostname,
-      error_codes: result.error_codes || [],
-      score: result.score, // للـ Invisible mode
-      score_reason: result.score_reason, // للـ Invisible mode
-    };
-  } catch (error) {
-    console.error('Turnstile verification error:', error);
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-/**
- * شرح كيفية الحصول على مفاتيح الإنتاج من Cloudflare
- * ================================================
- * 
- * 1. توجه إلى لوحة تحكم Cloudflare:
- *    https://dash.cloudflare.com/
- * 
- * 2. اختر حسابك (Account) من القائمة الجانبية
- * 
- * 3. انتقل إلى: Turnstile (قد تجدها تحت "Security" أو البحث عنها مباشرة)
- *    الرابط المباشر: https://dash.cloudflare.com/?to=/:account/turnstile
- * 
- * 4. اضغط على "Create Site" أو "Add widget"
- * 
- * 5. ملء النموذج:
- *    - Name: اسم الـ Widget (مثل: "mad3oom-login" أو "mad3oom-signup")
- *    - Domains: أضف نطاقاتك (مثل: mad3oom.online, www.mad3oom.online)
- *    - Mode: اختر "Managed" (الوضع الافتراضي والموصى به)
- *    - Widget Mode: اختر "Turnstile" (أو Invisible إذا كنت تريد بدون تفاعل مرئي)
- * 
- * 6. بعد الإنشاء، ستحصل على:
- *    - Site Key (مفتاح عام - يمكن مشاركته)
- *    - Secret Key (مفتاح سري - احفظه بأمان ولا تشاركه)
- * 
- * 7. استبدل القيم في هذا الملف:
- *    SITEKEY: 'YOUR_PRODUCTION_SITEKEY'
- *    SECRET_KEY: 'YOUR_PRODUCTION_SECRET_KEY'
- * 
- * 8. للتحقق من الخادم، ستحتاج إلى:
- *    - إضافة SECRET_KEY إلى Supabase Edge Function
- *    - استدعاء Siteverify API من الخادم (انظر verifyTurnstileToken)
- * 
- * ملاحظات مهمة:
- * ===============
- * - مفاتيح الاختبار تعمل فقط للاختبار المحلي
- * - مفاتيح الإنتاج تتطلب تفاعل حقيقي من المستخدم
- * - يجب التحقق دائماً من الخادم، لا تعتمد على التحقق من جانب العميل وحده
- * - الـ Secret Key يجب أن يبقى سرياً ولا يُرسل للعميل
+ * التحقق من التوكن — **لا يقع هنا**.
+ *
+ * الدالة السابقة بهذا الاسم كانت تُرسل السرّ من المتصفح، وهي سبب التسريب.
+ * أي تحقق حقيقي يجب أن يجري في دالة حافة على الخادم:
+ *
+ *   // supabase/functions/<name>/index.ts
+ *   const form = new FormData();
+ *   form.append('secret', Deno.env.get('TURNSTILE_SECRET_KEY')!);
+ *   form.append('response', token);
+ *   form.append('remoteip', req.headers.get('x-forwarded-for') ?? '');
+ *   const res = await fetch(
+ *     'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+ *     { method: 'POST', body: form },
+ *   );
+ *   const { success } = await res.json();
+ *
+ * التحقق من جانب العميل وحده لا قيمة أمنية له على أي حال: من يتجاوز الويدجت
+ * يتجاوز الفحص الذي يجري في متصفحه هو.
  */

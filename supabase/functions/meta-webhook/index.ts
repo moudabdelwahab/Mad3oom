@@ -1,5 +1,18 @@
 // supabase/functions/meta-webhook/index.ts
 // Webhook Handler: استقبال تحديثات حالة القوالب من Meta
+//
+// ⚠️ حالة تشغيلية مُتحقَّق منها (2026-09-18):
+// الجدولان اللذان تكتب فيهما هذه الدالة — whatsapp_templates و
+// template_status_logs — **غير موجودَين في قاعدة البيانات**. أي أن
+// handleTemplateStatusUpdate يفشل على أول استعلام مهما كان المُدخَل، والدالة
+// تعيد 200 على أي حال (Meta تتطلب 200 سريعًا).
+//
+// نتيجتان:
+//   ① الدالة **لا تكتب أي بيانات اليوم** — فثغرة fail-open التي أُصلحت أدناه
+//      لم تكن قابلة للاستغلال للعبث بالبيانات، لأن الهدف غير موجود أصلًا.
+//   ② الميزة نفسها معطّلة. إما يُعاد إنشاء الجدولين (وحينها يصير التحديث
+//      بحاجة عمود مالك — التحديث بالاسم وحده يطال كل المستأجرين)، أو تُحذف
+//      الدالة. القرار منتج لا أمني، ومتروك لمالك المشروع.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -28,18 +41,30 @@ serve(async (req) => {
   if (req.method === "POST") {
     const rawBody = await req.text();
 
-    // التحقق من توقيع Meta
+    // ── التحقق من توقيع Meta — يفشل **مغلقًا** ────────────────────────────
+    //
+    // كان: `if (appSecret) { ...التحقق... }` — أي أن غياب المتغيّر يتخطّى
+    // التحقق **بالكامل**، فيصير المسار مفتوحًا لأي جهة على الإنترنت. وهذا
+    // هو بالضبط نمط fail-open: العطل في الإعداد يُترجَم إلى انعدام حماية.
+    // (H-06 في FULL_PROJECT_AUDIT.md.)
+    //
+    // الآن: غياب السرّ = خطأ تهيئة، والطلب يُرفض.
     const appSecret = Deno.env.get("META_APP_SECRET");
-    if (appSecret) {
-      const signature = req.headers.get("x-hub-signature-256");
-      if (!signature) {
-        return new Response("Missing signature", { status: 401 });
-      }
-      const expectedSig = "sha256=" + await computeHmac(appSecret, rawBody);
-      if (signature !== expectedSig) {
-        console.error("Invalid webhook signature");
-        return new Response("Invalid signature", { status: 401 });
-      }
+    if (!appSecret) {
+      console.error("[meta-webhook] META_APP_SECRET غير مضبوط — رفض الطلب (fail-closed)");
+      return new Response("Webhook not configured", { status: 500 });
+    }
+
+    const signature = req.headers.get("x-hub-signature-256");
+    if (!signature) {
+      return new Response("Missing signature", { status: 401 });
+    }
+    const expectedSig = "sha256=" + await computeHmac(appSecret, rawBody);
+    // مقارنة ثابتة الزمن: الفارق عبر الشبكة مهمَل عمليًا، لكن لا سبب لترك
+    // مقارنة قصيرة الدائرة على قيمة سرّية.
+    if (!timingSafeEqual(signature, expectedSig)) {
+      console.error("Invalid webhook signature");
+      return new Response("Invalid signature", { status: 401 });
     }
 
     let payload: any;
@@ -142,6 +167,14 @@ async function handleTemplateStatusUpdate(
     raw_payload: value,
     created_at: new Date().toISOString(),
   });
+}
+
+// ─── مقارنة ثابتة الزمن ───────────────────────────────────────────
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 // ─── حساب HMAC-SHA256 ─────────────────────────────────────────────

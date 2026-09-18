@@ -1,119 +1,47 @@
+// huggingface-chatbot — RETIRED 2026-09-18 (audit finding H-07)
+//
+// The previous version was an UNAUTHENTICATED public LLM proxy: verify_jwt was false
+// and the body contained no identity check of any kind, so anyone on the internet could
+// POST a message and have it forwarded to Hugging Face on the platform's
+// HUGGINGFACE_API_KEY. Cost abuse and quota exhaustion, with no rate limit.
+//
+// Verified before retiring: ZERO references anywhere in the repository
+// (html/js/ts/json/sql). Nothing calls this function.
+//
+// This replacement deliberately does NOTHING:
+//   * it never reads HUGGINGFACE_API_KEY, so the key cannot be spent through it
+//   * no database access, no outbound request
+//   * verify_jwt is now true as well, so even the stub is not anonymously reachable
+//   * every request is refused with 410 Gone
+//
+// Same shape as the ai-probe-temp and gemini-proxy retirement stubs in this project.
+// Deleting the function from the Supabase dashboard is the remaining cleanup step;
+// the cost/abuse exposure is already closed by this deployment.
+//
+// Original source archived at: supabase/functions/_retired/huggingface-chatbot/index.ts.retired
+
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req) => {
-  // التعامل مع CORS
+Deno.serve((req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    // قراءة الرسالة
-    const { message } = await req.json();
-
-    if (!message) {
-      return new Response(JSON.stringify({ error: "Message is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    // قراءة التوكن
-    const HF_API_KEY = Deno.env.get("HUGGINGFACE_API_KEY");
-
-    if (!HF_API_KEY) {
-      return new Response(JSON.stringify({ error: "Hugging Face API Key not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    // اختيار الموديل
-    const modelId = "HuggingFaceH4/zephyr-7b-beta";
-
-    // 🧠 Prompt احترافي
-    const prompt = `
-أنت موظف خدمة عملاء محترف.
-
-قواعد:
-- رد باللهجة المصرية
-- خليك واضح ومختصر
-- لو مش فاهم السؤال قول: مش فاهم قصدك
-- متخترعش معلومات
-
-سؤال العميل:
-${message}
-`;
-
-    // إرسال الطلب لـ Hugging Face
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${modelId}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 200,
-            temperature: 0.5,
-            return_full_text: false
-          }
-        }),
-      }
-    );
-
-    // 🔥 معالجة الأخطاء من Hugging Face
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log("HF HTTP ERROR:", errorText);
-
-      return new Response(JSON.stringify({
-        reply: "البوت مش متاح حالياً، حاول تاني بعد شوية"
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    const result = await response.json();
-    console.log("HF RESPONSE:", result);
-
-    // 🔥 استخراج الرد بشكل آمن
-    let reply = "مفيش رد";
-
-    if (Array.isArray(result)) {
-      reply = result[0]?.generated_text || reply;
-    } else if (result.generated_text) {
-      reply = result.generated_text;
-    } else if (result.error) {
-      return new Response(JSON.stringify({
-        reply: "البوت بيجهز نفسه، جرب تاني بعد شوية"
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    // الرد النهائي
-    return new Response(JSON.stringify({ reply }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-
-  } catch (error) {
-    console.error("SERVER ERROR:", error);
-
-    return new Response(JSON.stringify({
-      reply: "حصل خطأ غير متوقع، حاول تاني"
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
+  return new Response(
+    JSON.stringify({
+      error: "gone",
+      message:
+        "huggingface-chatbot has been retired: it was an unauthenticated proxy spending the platform's Hugging Face key. Use ai-gateway or generate-ai-chat-reply instead.",
+    }),
+    {
+      status: 410,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
 });
