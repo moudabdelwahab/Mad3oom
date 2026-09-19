@@ -1006,10 +1006,12 @@ function switchDevTab(tab) {
         document.getElementById(id)?.classList.toggle('active', key === tab);
     });
 
-    // العودة لآخر تبويب فرعي كان مفتوحًا في هذا القسم
+    // العودة لآخر تبويب فرعي كان مفتوحًا في هذا القسم. القوائم تُشتقّ من
+    // التبويبات الموجودة فعلًا في الصفحة، فإضافة تبويب رابع لاحقًا لا تحتاج
+    // تعديل هنا — وهذا ما فات تبويب «التطبيقات المتصلة» حين أُضيف.
     const savedSub = readSubTabs()[tab];
-    if (tab === 'mcpclient' && (savedSub === 'client' || savedSub === 'server')) switchClientSubTab(savedSub);
-    if (tab === 'api' && (savedSub === 'internal' || savedSub === 'external')) switchApiSubTab(savedSub);
+    if (tab === 'mcpclient' && isKnownSubTab('.client-subtab', 'clientsubtab', savedSub)) switchClientSubTab(savedSub);
+    if (tab === 'api' && isKnownSubTab('#devSectionApi .api-subtab', 'apisubtab', savedSub)) switchApiSubTab(savedSub);
 
     if (tab === 'mcpclient' && !mcpClientMarketLoadedOnce) { mcpClientMarketLoadedOnce = true; loadMcpClientMarketplace(); }
     if (tab === 'api') {
@@ -1112,6 +1114,16 @@ function initHub() {
 
     document.getElementById('devHubBack')?.addEventListener('click', showHub);
     initHubParallax();
+}
+
+/**
+ * هل هذه القيمة تبويبًا فرعيًا موجودًا فعلًا في الصفحة؟
+ * تُقرأ من أزرار الـ DOM نفسها لا من قائمة مكتوبة يدويًا، حتى لا يسقط أي
+ * تبويب جديد من مسار الاستعادة كما سقط «التطبيقات المتصلة».
+ */
+function isKnownSubTab(selector, datasetKey, value) {
+    if (!value) return false;
+    return [...document.querySelectorAll(selector)].some((b) => b.dataset[datasetKey] === value);
 }
 
 /** تبويب فرعي داخل قسم API: داخلي (مفاتيح API) / خارجي (التكاملات الخارجية) */
@@ -2351,9 +2363,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     on('apiSubTabInternal', 'click', () => switchApiSubTab('internal'));
     on('apiSubTabExternal', 'click', () => switchApiSubTab('external'));
 
-    // تبويب فرعي: العميل (Marketplace) / الخادم (خوادم مخصّصة) داخل قسم "MCP العميل" المدمج
+    // تبويب فرعي: العميل (Marketplace) / الخادم (خوادم مخصّصة) / التطبيقات
+    // المتصلة (مدعوم كخادم) داخل قسم "MCP" المدمج
     on('clientSubTabClient', 'click', () => switchClientSubTab('client'));
     on('clientSubTabServer', 'click', () => switchClientSubTab('server'));
+    on('clientSubTabApps', 'click', () => switchClientSubTab('apps'));
 
     // MCP Client Marketplace - أحداث البحث والتصنيفات ومستكشف الأدوات
     on('mcpMarketSearch', 'input', debounce((e) => {
