@@ -188,6 +188,14 @@ export async function createServer(payload) {
     const record = normalizePayload(payload, true);
     const useDb = await detectStorageMode();
     if (useDb) {
+        // الخادم مملوك لمنشئه: سياسة الإدراج تشترط auth.uid() = owner_id،
+        // والعمود NOT NULL — فخادم بلا مالك لا يُدرج أصلًا بدل أن يُدرج
+        // ويصير غير مرئي لأحد. راجع migrations/048_mcp_per_account_isolation.sql
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('لازم تسجّل الدخول قبل إضافة خادم');
+        record.owner_id = user.id;
+        record.created_by = user.id;
+
         const { data, error } = await supabase.from(TABLE).insert(record).select().single();
         if (error) throw error;
         await logMcpActivity('created', data.id, { name: data.name });
