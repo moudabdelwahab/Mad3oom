@@ -222,6 +222,32 @@
         }
         .kb-faq-body ul { margin: 0.5rem 0 0; padding-inline-start: 1.25rem; }
         .kb-faq-body li { margin-bottom: 0.35rem; }
+        .kb-faq-body ol { margin: 0.5rem 0 0; padding-inline-start: 1.35rem; }
+        .kb-faq-body ol li { margin-bottom: 0.45rem; }
+        .kb-faq-body p { margin: 0 0 0.6rem; }
+        .kb-faq-body p:last-child { margin-bottom: 0; }
+        .kb-status-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.6rem;
+            font-size: 0.86rem;
+        }
+        .kb-status-table th,
+        .kb-status-table td {
+            text-align: start;
+            padding: 0.55rem 0.6rem;
+            border-bottom: 1px solid var(--color-border);
+            vertical-align: top;
+        }
+        .kb-status-table th { color: var(--color-text); font-weight: 700; }
+        .kb-status-table tr:last-child td { border-bottom: none; }
+        .kb-note {
+            border-inline-start: 3px solid var(--color-accent);
+            background: var(--color-muted);
+            padding: 0.7rem 0.9rem;
+            border-radius: 0.5rem;
+            margin-top: 0.7rem;
+        }
         .kb-faq-body code {
             background: var(--color-muted);
             padding: 0.15rem 0.4rem;
@@ -404,10 +430,10 @@
         <div class="kb-hero-inner">
             <span class="kb-eyebrow">قاعدة المعرفة</span>
             <h1>كل حاجة عن مدعوم في مكان واحد</h1>
-            <p>دليل شامل لكل ميزة في المنصة، وهوية مدعوم وإيه اللي بتقف عليه. اكتب اللي محتاج تعرفه وهنوصّلك للإجابة على طول.</p>
+            <p>دليل شامل لكل ميزة في المنصة: نظام التذاكر وحالاتها، أهداف زمن الرد، لوحة الشركة وبوابة العميل، وقنوات التواصل. اكتب اللي محتاج تعرفه وهنوصّلك للإجابة على طول.</p>
             <div class="kb-search-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="kbSearchInput" placeholder="ابحث في قاعدة المعرفة… مثلاً: النقاط، التذاكر، الشارات" autocomplete="off">
+                <input type="text" id="kbSearchInput" placeholder="ابحث في قاعدة المعرفة… مثلاً: فتح تذكرة، حالات التذكرة، SLA، لوحة الشركة" autocomplete="off">
             </div>
             <p id="kbSearchStatus"></p>
         </div>
@@ -450,9 +476,33 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 هوية مدعوم
             </a>
+            <a href="#getting-started" data-target="getting-started">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                البداية
+            </a>
             <a href="#tickets" data-target="tickets">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>
                 نظام التذاكر
+            </a>
+            <a href="#ticket-status" data-target="ticket-status">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                حالات التذكرة
+            </a>
+            <a href="#sla" data-target="sla">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
+                أهداف زمن الرد (SLA)
+            </a>
+            <a href="#customer-portal" data-target="customer-portal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                بوابة العميل
+            </a>
+            <a href="#company-dashboard" data-target="company-dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                لوحة الشركة
+            </a>
+            <a href="#whatsapp-tickets" data-target="whatsapp-tickets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 11-7.6-14.7 8.38 8.38 0 013.8.9L21 2z"/></svg>
+                التذاكر وواتساب
             </a>
             <a href="#rewards" data-target="rewards">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L6 22l6-3 6 3-2.5-8.5"/></svg>
@@ -493,6 +543,10 @@
             <a href="#emails" data-target="emails">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
                 إشعارات البريد
+            </a>
+            <a href="#faq" data-target="faq">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                الأسئلة الشائعة
             </a>
         </nav>
 
@@ -579,6 +633,66 @@
                 </div>
             </section>
 
+            <!-- ============ البداية ============ -->
+            <section class="kb-section" id="getting-started">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </div>
+                    <div>
+                        <h2>البداية</h2>
+                        <p>أول خطوة بعد تسجيل الدخول</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="بعد تسجيل الدخول أروح فين الصفحة الرئيسية لوحة العميل لوحة الشركة تحويل login redirect البدء باستخدام المنصة">
+                    <summary>بعد تسجيل الدخول هوصل لأنهي لوحة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li>لو حسابك <strong>مرتبط بشركة</strong> → هتفتح على <strong>لوحة الشركة</strong> (<code>/company-dashboard/</code>).</li>
+                            <li>لو حسابك <strong>فردي</strong> → هتفتح على <strong>بوابة العميل</strong> (<code>customer-dashboard.html</code>).</li>
+                        </ul>
+                        القرار بيتاخد من حالة حسابك نفسها، مش من أي رابط بتفتحه.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الفرق بين بوابة العميل ولوحة الشركة أقسام القائمة الجانبية التعرف على لوحة الشركة">
+                    <summary>إيه الفرق بين «بوابة العميل» و«لوحة الشركة»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p><strong>بوابة العميل</strong> هي لوحة حسابك الشخصي، وأقسامها: نظرة عامة · مركز الدعم · تذاكري · الإشعارات · مركز المساعدة · المحادثة الفورية · الاستهلاك والحدود · الباقات والاشتراك · نشاط الحساب · الأمان · الملف الشخصي · المكافآت والنقاط · الشارات · مجتمع مدعوم · خارطة الطريق.</p>
+                        <p><strong>لوحة الشركة</strong> هي لوحة الحساب المرتبط بشركة، وأقسامها: نظرة عامة · مستخدمو الشركة · الاشتراكات والخدمات · تذاكري مع مدعوم · تذاكر العملاء · مركز الدعم · الإشعارات · API · التقارير · النشاط · الملف الشخصي · الأمان.</p>
+                        <p>كل أقسام لوحة الشركة موجودة داخل نفس الصفحة، فالتنقّل بينها بيغيّر القسم من غير ما تخرج من اللوحة.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="لوحة الشركة مش ظاهرة عندي لا توجد شركة مرتبطة بحسابك">
+                    <summary>مش لاقي «لوحة الشركة» في القائمة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        عنصر <strong>لوحة الشركة</strong> بيظهر في القائمة الجانبية لبوابة العميل فقط لو حسابك تابع لشركة فعلًا. ولو فتحت اللوحة وحسابك مش مرتبط بشركة، هتلاقي رسالة <strong>«لا توجد شركة مرتبطة بحسابك»</strong> مع زر <code>استعراض الباقات</code>، والرسالة بتوضّح إن لوحة الشركة بتتفعّل عند الاشتراك في باقة تتطلب كيان شركة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أدوار لوحة الشركة مدير الشركة مستخدم الشركة الصلاحيات">
+                    <summary>إيه الأدوار الموجودة داخل لوحة الشركة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>مدير الشركة</strong> — «يدير اللوحة والمستخدمين والاشتراكات ومفاتيح API».</li>
+                            <li><strong>مستخدم الشركة</strong> — «حساب تابع للشركة بصلاحياته الخاصة».</li>
+                        </ul>
+                        دورك بيظهر كشارة في قسم <strong>مستخدمو الشركة</strong>، وجنب اسمك بيظهر «أنت».
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مركز المساعدة مقالات المساعدة قبل فتح تذكرة البحث في المقالات">
+                    <summary>فين ألاقي حلول جاهزة قبل ما أفتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>من <strong>مركز المساعدة</strong> في القائمة الجانبية. الصفحة فيها: خانة بحث، «الوصول السريع»، «مقترح لك»، «تصفّح حسب الموضوع»، «أحدث المقالات»، «الأكثر قراءة»، و«أسئلة شائعة».</p>
+                        <p>جوه أي مقال بيظهر سؤال هل المقال ساعدك: <code>👍 نعم، ساعدني</code> أو <code>👎 لا، ما زلت أحتاج مساعدة</code>، ومعاه زرّا <code>إنشاء تذكرة</code> و<code>تواصل فوري</code>، وكمان «مقالات ذات صلة».</p>
+                        <p>ولو إنت في <strong>لوحة الشركة</strong>، نفس المقالات ظاهرة داخل قسم <strong>مركز الدعم</strong> تحت «مقالات المساعدة» ومعاها خانة بحث.</p>
+                    </div>
+                </details>
+            </section>
+
             <!-- ============ نظام التذاكر ============ -->
             <section class="kb-section" id="tickets">
                 <div class="kb-section-head">
@@ -587,38 +701,707 @@
                     </div>
                     <div>
                         <h2>نظام التذاكر</h2>
-                        <p>إزاي تفتح تذكرة وتتابعها</p>
+                        <p>دورة حياة التذكرة من أول إنشائها لحد إغلاقها</p>
                     </div>
                 </div>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أفتح تذكرة دعم جديدة إنشاء تذكرة عنوان وصف أولوية">
-                    <summary>إزاي أفتح تذكرة دعم جديدة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف يعمل نظام التذاكر دورة حياة التذكرة من الإنشاء للإغلاق شرح النظام ticket lifecycle">
+                    <summary>إزاي بيشتغل نظام التذاكر؟ (دورة حياة التذكرة)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        من صفحة <strong>تذاكري</strong>، اضغط على <code>إنشاء تذكرة جديدة</code>، واملأ:
-                        <ul>
-                            <li><strong>العنوان</strong>: وصف مختصر للمشكلة</li>
-                            <li><strong>الوصف</strong>: تفاصيل كاملة تساعد فريق الدعم يفهم المشكلة بسرعة</li>
-                            <li><strong>الأولوية</strong>: منخفضة، متوسطة، أو عالية</li>
-                        </ul>
-                        بعد الإرسال، هتوصلك رسالة تأكيد على بريدك مباشرة.
+                        <ol>
+                            <li><strong>إنشاء التذكرة</strong>: بتفتح نموذج التذكرة من لوحتك وبتكتب عنوان المشكلة ووصفها.</li>
+                            <li><strong>تسجيلها باسمك</strong>: التذكرة بتتسجّل على حسابك، وبتاخد <strong>رقم تذكرة</strong> يظهر بالشكل <code>#1234</code>، وبتبدأ بالحالة <strong>مفتوحة</strong>.</li>
+                            <li><strong>ظهورها في القائمة</strong>: بتلاقيها فورًا في «تذاكري» (بوابة العميل) أو «تذاكري مع مدعوم» (لوحة الشركة).</li>
+                            <li><strong>رد فريق الدعم</strong>: أول ما حد من الدعم يرد على تذكرة حالتها «مفتوحة»، الحالة بتتحوّل لـ<strong>قيد المعالجة</strong>، وبيتسجّل وقت <strong>أول رد</strong>.</li>
+                            <li><strong>وصول التنبيه لك</strong>: بيتسجّل إشعار «رد جديد على تذكرتك #الرقم»، والتذكرة بتتعلّم <strong>بانتظار ردّك</strong>.</li>
+                            <li><strong>ردّك داخل نفس التذكرة</strong>: بتكتب ردك في قسم «المحادثة» جوه التذكرة، وكل الردود بتفضل محفوظة بالترتيب.</li>
+                            <li><strong>تحديث الحالة</strong>: فريق الدعم بيغيّر الحالة حسب ما بيتقدّم الشغل، وإنت عندك إجراءان صريحان: «إغلاق التذكرة» و«إعادة الفتح».</li>
+                            <li><strong>الحل</strong>: لما المشكلة تخلص بتبقى الحالة <strong>تم الحل</strong> وبيتسجّل تاريخ الحل.</li>
+                            <li><strong>بعد الحل</strong>: تقدر تقيّم الخدمة من 1 لـ 5 نجوم، وتقدر ترد على التذكرة (الرد بيتسجّل ومش بيفتحها)، ولو المشكلة رجعت تضغط <code>إعادة الفتح</code>.</li>
+                        </ol>
+                        <div class="kb-note">نقطة مهمة: <strong>ردّك على التذكرة ما بيغيّرش حالتها</strong>. تغيير الحالة بيتم من الأزرار الصريحة، أو من فريق الدعم.</div>
                     </div>
                 </details>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="حالات التذكرة مفتوحة قيد المعالجة محلولة تم الحل status">
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أفتح تذكرة دعم جديدة إنشاء تذكرة تذكرة جديدة طلب دعم التواصل مع الدعم مشكلة support ticket new ticket خطوات">
+                    <summary>إزاي أفتح تذكرة من بوابة العميل؟ (خطوة بخطوة)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ol>
+                            <li>افتح <strong>مركز الدعم</strong> أو <strong>تذاكري</strong> من القائمة الجانبية.</li>
+                            <li>اضغط <code>إنشاء تذكرة جديدة</code> (أو بطاقة <code>فتح تذكرة جديدة</code> في مركز الدعم). هتفتح نافذة «إنشاء تذكرة دعم جديدة».</li>
+                            <li><strong>عنوان المشكلة *</strong> — مطلوب، 5 أحرف على الأقل وبحد أقصى 120 حرف.</li>
+                            <li><strong>تصنيف المشكلة</strong> — اختر من: أخرى · الدعم الفني · خدمة الواتساب · الاشتراكات والفواتير · تسجيل الدخول والحساب. والواجهة بتقول: «التصنيف الصحيح يوصل تذكرتك للفريق المختص أسرع».</li>
+                            <li><strong>الأهمية لديك</strong> — منخفضة / متوسطة / عالية (المتوسطة هي الافتراضية). والواجهة بتوضّح: «الأولوية النهائية يحددها فريق الدعم بعد المراجعة».</li>
+                            <li><strong>وصف المشكلة *</strong> — مطلوب، 15 حرف على الأقل. اذكر ما حدث، ومتى، والخطوات اللي أدّت له.</li>
+                            <li><strong>مرفقات (اختياري)</strong> — الحقل ده بيظهر لو الخاصية مفعّلة على المنصة.</li>
+                            <li>اضغط <code>إرسال التذكرة</code>.</li>
+                        </ol>
+                        <p><strong>اللي بيحصل بعد الإرسال:</strong> بتظهر رسالة «تم إنشاء التذكرة #الرقم بنجاح»، وبتتنقل تلقائيًا لقسم <strong>تذاكري</strong> وتفاصيل التذكرة بتتفتح قدّامك على طول.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="فتح تذكرة من لوحة الشركة مركز الدعم شركة إرسال التذكرة تصنيف">
+                    <summary>إزاي أفتح تذكرة من لوحة الشركة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ol>
+                            <li>اضغط <strong>مركز الدعم</strong> من القائمة الجانبية للوحة الشركة.</li>
+                            <li>في لوحة <strong>«فتح تذكرة دعم»</strong> (وتحتها «تُفتح باسم هذا الحساب وتظهر في تذاكر الشركة»):</li>
+                            <li><strong>عنوان المشكلة *</strong> — مطلوب.</li>
+                            <li><strong>التصنيف</strong> — اشتراك · واتساب · تذاكر · تسجيل دخول · أخرى (اختياري).</li>
+                            <li><strong>وصف المشكلة *</strong> — مطلوب، 10 أحرف على الأقل.</li>
+                            <li>اضغط <code>إرسال التذكرة</code> — هتتنقل تلقائيًا لقسم <strong>تذاكري مع مدعوم</strong> وتلاقي التذكرة في القائمة.</li>
+                        </ol>
+                        <p>تقدر كمان تفتح تذكرة من قسم «تذاكري مع مدعوم» نفسه بزرّ <code>فتح تذكرة جديدة</code>، وهو بيوديك لنفس النموذج في مركز الدعم.</p>
+                        <div class="kb-note">نموذج لوحة الشركة مفيهوش حقل أولوية ولا حقل مرفقات.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إرفاق صورة مرفقات في التذكرة حجم الملف أنواع الملفات screenshot attachments">
+                    <summary>أقدر أرفق صور أو ملفات مع التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>في <strong>بوابة العميل</strong>: لو خاصية المرفقات مفعّلة على المنصة، هيظهر حقل <strong>«مرفقات (اختياري)»</strong> داخل نافذة إنشاء التذكرة، وتحته: «حتى 5 ملفات، بحد أقصى 5 ميجابايت لكل ملف».</p>
+                        <ul>
+                            <li>الأنواع المقبولة: صور، و<code>PDF</code>، و<code>txt</code>، و<code>log</code>، و<code>csv</code>.</li>
+                            <li>الملفات اللي بتختارها بتظهر كعناصر تقدر تشيل أي واحد منها قبل الإرسال.</li>
+                            <li>بعد الإنشاء بتلاقيها في قسم <strong>«المرفقات»</strong> داخل تفاصيل التذكرة، وتقدر تفتح أي ملف منها.</li>
+                        </ul>
+                        <p>لو الحقل مش ظاهر عندك، يبقى الخاصية موقوفة على المنصة حاليًا.</p>
+                        <div class="kb-note">الرفع متاح <strong>عند إنشاء التذكرة</strong>. مربع الرد داخل التذكرة في واجهة العميل نصّي فقط، ومفيهوش زر رفع ملفات.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تنبيهات قبل إرسال التذكرة عطل معلن تذكرة مشابهة الحد الأقصى للتذاكر المفتوحة منع التكرار">
+                    <summary>إيه التنبيهات اللي ممكن تظهرلي قبل إرسال التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        نافذة إنشاء التذكرة في بوابة العميل ممكن تعرض قبل الإرسال:
+                        <ul>
+                            <li><strong>«يوجد عُطل معلن حاليًا»</strong> — مع اسم العطل، يعني الفريق شغال عليه بالفعل.</li>
+                            <li><strong>«X خدمة بأداء منخفض حاليًا»</strong> — مع أسماء الخدمات.</li>
+                            <li><strong>«لديك تذكرة مفتوحة مشابهة: #الرقم»</strong> — مع زر <code>افتح التذكرة</code>، لأن المتابعة على تذكرة قائمة أسرع.</li>
+                            <li><strong>«وصلت للحد الأقصى للتذاكر المفتوحة»</strong> — لو الإدارة حدّدت حدًّا أقصى وكنت وصلت له، زر الإرسال بيتعطّل لحد ما تتقفل أو تتحل تذكرة.</li>
+                            <li>ولو خاصية منع التكرار مفعّلة وكان عندك تذكرة مفتوحة <strong>بنفس العنوان بالضبط</strong>، هتظهر رسالة تخيّرك بين <code>افتح التذكرة القائمة</code> و<code>أنشئ تذكرة جديدة</code>.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أتابع حالة تذكرتي متابعة التذكرة أين أجد تذاكري سجل التذاكر البحث عن تذكرة تبويبات">
+                    <summary>إزاي أتابع تذكرتي وأشوف تفاصيلها؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p><strong>في بوابة العميل</strong> — قسم <strong>تذاكري</strong>:</p>
+                        <ul>
+                            <li>فوق القائمة أربع مجموعات وكل واحدة عليها رقم: <strong>كل التذاكر</strong> · <strong>مفتوحة</strong> (ما زال العمل عليها) · <strong>بانتظار ردّك</strong> (ردّ فريق الدعم ولم تردّ بعد) · <strong>مغلقة</strong> (تم حلّها أو إغلاقها).</li>
+                            <li>خانة بحث: «ابحث بالعنوان أو رقم التذكرة…»، وقائمة ترتيب: الأحدث تحديثًا / الأحدث إنشاءً / الأقدم.</li>
+                            <li>كل بطاقة تذكرة بتعرض: رقم التذكرة، شارة الحالة، العنوان، شارة الأولوية والتصنيف، و«آخر تحديث …».</li>
+                            <li>اضغط أي بطاقة عشان تفتح لوحة التفاصيل على اليمين.</li>
+                        </ul>
+                        <p><strong>داخل تفاصيل التذكرة</strong> هتلاقي: العنوان وشارة الحالة، الأولوية والتصنيف، «رقم التذكرة»، «أُنشئت …»، «آخر تحديث …»، و«حُلّت …» لو اتحلّت، و«أُعيد فتحها X مرة» لو حصل، وقسم «وصف المشكلة»، و«المرفقات»، و«سجل التذكرة»، و«المحادثة».</p>
+                        <p><strong>في لوحة الشركة</strong> نفس المنطق داخل «تذاكري مع مدعوم»: نفس المجموعات الأربع بأرقامها، وخانة بحث بالعنوان أو رقم التذكرة، وكل صف بيعرض «#الرقم — العنوان» وتاريخ الفتح و«آخر تحديث …» وشارة الحالة. الضغط على الصف بيفتح التفاصيل تحت القائمة، وزر <code>إغلاق التفاصيل</code> بيقفلها.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أعرف أن فريق الدعم رد آخر تحديث بانتظار ردك إشعار رد جديد سجل التذكرة">
+                    <summary>إزاي أعرف إن فريق الدعم رد أو حدّث التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>الإشعارات</strong>: بيتسجّل إشعار «رد جديد على تذكرتك #الرقم» عند وصول رد، وإشعار «تحديث حالة التذكرة» لما الحالة تتغيّر. الضغط على الإشعار بيفتح التذكرة نفسها.</li>
+                            <li><strong>شارة «بانتظار ردّك»</strong>: بتظهر على بطاقة التذكرة، وفي التفاصيل بالنص الكامل «بانتظار ردّك — فريق الدعم ردّ ولم تردّ بعد».</li>
+                            <li><strong>مجموعة «بانتظار ردّك»</strong>: بتجمّع كل التذاكر اللي الكرة فيها في ملعبك، والرقم على التبويب هو عددها.</li>
+                            <li><strong>«آخر تحديث …»</strong>: مكتوب على كل تذكرة في القائمة وفي التفاصيل.</li>
+                            <li><strong>«سجل التذكرة»</strong>: خط زمني بالأحداث اللي حصلت على التذكرة، وبيوضّح تغييرات الحالة بالاسم.</li>
+                            <li><strong>«المحادثة»</strong>: كل الردود بترتيبها الزمني، وواضح مين كاتب كل رد.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أرد داخل التذكرة إرسال الرد مكان كتابة الرد الرد على فريق الدعم reply">
+                    <summary>إزاي أرد داخل التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p><strong>في بوابة العميل:</strong></p>
+                        <ol>
+                            <li>افتح التذكرة وانزل لقسم <strong>«المحادثة»</strong>.</li>
+                            <li>اكتب ردك في المربع «اكتب ردك هنا…».</li>
+                            <li>اضغط <code>إرسال الرد</code> — أو اضغط <code>Ctrl</code> + <code>Enter</code> (أو <code>⌘</code> + <code>Enter</code>) من لوحة المفاتيح.</li>
+                        </ol>
+                        <p><strong>في لوحة الشركة:</strong> نفس المكان، والحقل اسمه <strong>«إضافة ردّ»</strong> في مسار «تذاكري مع مدعوم»، و<strong>«الردّ على العميل»</strong> في مسار «تذاكر العملاء»، والزر <code>إرسال الردّ</code>. لازم يكون الرد حرفين على الأقل، وإلا هتظهر رسالة «اكتب ردًّا أولًا».</p>
+                        <p>الرد بيظهر في المحادثة مع اسم صاحبه ووقته، وبتظهر رسالة تأكيد «تم إرسال ردك».</p>
+                        <div class="kb-note">ردّك <strong>ما بيغيّرش حالة التذكرة</strong>، ومفيش فرق بين «رد» و«تعليق» في واجهة العميل — كله رد واحد داخل نفس المحادثة.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الرد على تذكرة مغلقة محلولة هل يمكن الرد بعد الإغلاق">
+                    <summary>أقدر أرد على تذكرة مقفولة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه، والرد بيتسجّل عادي في المحادثة. لكن هتلاقي تنبيه فوق مربع الرد بيقول: <strong>«التذكرة مغلقة. الردّ يُسجَّل ولا يعيد فتحها — استخدم زرّ «إعادة الفتح» لذلك.»</strong> يعني لو عايز التذكرة ترجع لطابور الدعم، لازم تضغط الزر بنفسك.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إغلاق التذكرة بنفسي زر إغلاق التذكرة close ticket">
+                    <summary>إزاي أقفل التذكرة بنفسي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        زر <code>إغلاق التذكرة</code> بيظهر تحت مربع الرد، وبيكون متاح لما تكون الحالة <strong>مفتوحة</strong> أو <strong>قيد المعالجة</strong> فقط. لما تضغطه هيطلب منك تأكيد برسالة: «ستُعلَّم كـ«تم الحل». يمكن إعادة فتحها لاحقًا بزرّ «إعادة الفتح».» وبعد التنفيذ بتبقى الحالة <strong>تم الحل</strong>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إعادة فتح التذكرة reopen المشكلة لم تحل بعد الإغلاق">
+                    <summary>إزاي أعيد فتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>زر <code>إعادة الفتح</code> بيظهر <strong>فقط</strong> لما تكون حالة التذكرة <strong>تم الحل</strong>. وبيطلب تأكيد: «ستعود التذكرة إلى الحالة «مفتوحة» وتظهر مجددًا لدى الجهة المسؤولة.»</p>
+                        <p>بعد التنفيذ بترجع الحالة <strong>مفتوحة</strong>، وبيظهر في تفاصيل التذكرة عدّاد «أُعيد فتحها X مرة».</p>
+                        <div class="kb-note">التذاكر اللي حالتها <strong>مكتملة</strong> أو <strong>مرفوضة</strong> مش بتتعاد فتحها من اللوحة — دول نتيجة قرار. لو محتاج تكمل عليها، افتح تذكرة جديدة أو تواصل مع الدعم.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إخفاء التذكرة من قائمتي أرشفة حذف التذكرة">
+                    <summary>زر «إخفاء من قائمتي» بيعمل إيه؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        بيشيل التذكرة من قائمتك إنت بس. رسالة التأكيد بتقول بالنص: «التذكرة #الرقم لن تظهر بعد الآن في قائمتك، لكنها ستبقى محفوظة بالكامل لدى فريق الدعم ويمكنهم متابعتها والرد عليها.»
+                        <div class="kb-note">مفيش زر في واجهة العميل لإرجاع التذكرة المخفية للقائمة، فاستخدم الزر ده وإنت متأكد. لو احتجت ترجعلها، تواصل مع الدعم.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تقييم الخدمة نجوم تقييم التذكرة بعد الحل rating">
+                    <summary>إزاي أقيّم الخدمة بعد حل التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        لما تبقى حالة التذكرة <strong>تم الحل</strong> (ولو خاصية التقييم مفعّلة على المنصة)، بيظهر داخل التفاصيل قسم <strong>«تقييمك للخدمة»</strong>: اختر من 1 لـ 5 نجوم، وتقدر تضيف تعليق اختياري، ثم اضغط <code>إرسال التقييم</code>. بعد الإرسال بتظهر «شكراً لتقييمك» ومعاها تقييمك.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الحد الأقصى للتذاكر المفتوحة أرشفة التذاكر تلقائيا مدة الاحتفاظ">
+                    <summary>يعني إيه السطر اللي فوق صفحة «تذاكري»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        ده سطر بيظهر حسب إعدادات المنصة، وممكن يحتوي على:
+                        <ul>
+                            <li>«لديك X من Y تذاكر مفتوحة مسموح بها في نفس الوقت.» — لو فيه حد أقصى مضبوط.</li>
+                            <li>«تُؤرشف التذاكر تلقائياً بعد N يوماً.» — لو فيه مدة احتفاظ مضبوطة.</li>
+                        </ul>
+                        لو السطر فاضي، يبقى مفيش حدود من دول مضبوطة على حسابك حاليًا.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تذاكر العملاء لوحة الشركة مسار التذاكر الفرق بين تذاكري مع مدعوم وتذاكر العملاء">
+                    <summary>في لوحة الشركة: إيه الفرق بين «تذاكري مع مدعوم» و«تذاكر العملاء»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>تذاكري مع مدعوم</strong> — «التذاكر التي فتحتها شركتك لدى فريق مدعوم». إنت اللي بتفتحها وبتتابعها وبترد عليها، ومتاح فيها أزرار «إغلاق التذكرة» و«إعادة الفتح».</li>
+                            <li><strong>تذاكر العملاء</strong> — «التذاكر التي فتحها مستخدمو شركتك — تقرؤها وتردّ عليها». مفيش فيها زر لفتح تذكرة جديدة (التذكرة بيفتحها المستخدم نفسه)، والقائمة بتعرض اسم العميل جنب كل تذكرة.</li>
+                        </ul>
+                        المساران منفصلان تمامًا ومش بيختلطوا في أي شاشة ولا في أي رقم.
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ حالات التذكرة ============ -->
+            <section class="kb-section" id="ticket-status">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div>
+                        <h2>حالات التذكرة</h2>
+                        <p>يعني إيه كل حالة، وإيه المتاح لك فيها</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="حالات التذكرة مفتوحة قيد المعالجة تم الحل مكتملة مرفوضة معنى الحالة status جدول">
                     <summary>إيه معنى كل حالة من حالات التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
+                        حالة التذكرة بتوضّح المرحلة اللي وصل لها طلبك. الحالات المعروضة في لوحتك خمسة:
+                        <table class="kb-status-table">
+                            <thead><tr><th>الحالة</th><th>معناها</th><th>المتاح لك</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>مفتوحة</strong></td>
+                                    <td>التذكرة وصلت واتسجّلت، ولسه مفيش رد من فريق الدعم عليها.</td>
+                                    <td>الرد · إغلاق التذكرة</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>قيد المعالجة</strong></td>
+                                    <td>فيه رد وصل من فريق الدعم والشغل عليها جارٍ.</td>
+                                    <td>الرد · إغلاق التذكرة</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>تم الحل</strong></td>
+                                    <td>التذكرة اتقفلت، سواء الدعم قفلها أو إنت ضغطت «إغلاق التذكرة».</td>
+                                    <td>الرد (بدون إعادة فتح) · إعادة الفتح · التقييم</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>مكتملة</strong></td>
+                                    <td>حالة نهائية بتظهر على الطلبات اللي اتأكدت (زي طلب اشتراك اتأكد).</td>
+                                    <td>الرد فقط</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>مرفوضة</strong></td>
+                                    <td>حالة نهائية بتظهر على الطلبات اللي اترفضت.</td>
+                                    <td>الرد فقط</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني حالة مفتوحة open هل وصلت التذكرة للدعم">
+                    <summary>حالة «مفتوحة» — إيه المطلوب مني؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
                         <ul>
-                            <li><strong>مفتوحة</strong>: التذكرة وصلت وبانتظار مراجعة فريق الدعم</li>
-                            <li><strong>قيد المعالجة</strong>: فريق الدعم شغال عليها دلوقتي</li>
-                            <li><strong>تم الحل / محلولة</strong>: المشكلة اتحلت. لو لسه محتاج مساعدة، اعمل رد على نفس التذكرة وهتترجع تلقائيًا</li>
+                            <li>التذكرة وصلت فعلًا وليها رقم وظاهرة في قائمة تذاكرك.</li>
+                            <li>مش مطلوب منك أي إجراء — بس لو عندك تفاصيل زيادة تقدر تضيفها كرد.</li>
+                            <li>أول ما يوصل رد من فريق الدعم، الحالة بتتحوّل لـ«قيد المعالجة».</li>
+                            <li>في المجموعات، التذكرة دي بتظهر تحت <strong>«مفتوحة»</strong>.</li>
                         </ul>
                     </div>
                 </details>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="إرفاق صورة مرفقات في التذكرة">
-                    <summary>أقدر أرفق صورة مع التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني قيد المعالجة in progress الدعم يعمل على المشكلة">
+                    <summary>حالة «قيد المعالجة» — إيه اللي بيحصل؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        أيوه، لو المشكلة محتاجة توضيح بصري (سكرين شوت لخطأ مثلاً)، تقدر ترفق صورة عند إنشاء التذكرة أو ضمن الرد، وهتظهر لفريق الدعم في تفاصيل التذكرة مباشرة.
+                        <ul>
+                            <li>الحالة دي بتتحط تلقائيًا أول ما يوصل رد من فريق الدعم على تذكرة كانت «مفتوحة».</li>
+                            <li>تقدر ترد عادي، والمحادثة بتكمل في نفس التذكرة.</li>
+                            <li>الحالة ممكن تتغيّر أثناء الشغل: فريق الدعم ممكن يحوّلها لـ«تم الحل»، وإنت تقدر تضغط «إغلاق التذكرة».</li>
+                            <li>التذكرة دي بتظهر تحت مجموعة <strong>«مفتوحة»</strong> (يعني ما زال العمل عليها جاريًا)، ولو الفريق رد ولسه ما ردّتش، هتظهر كمان تحت <strong>«بانتظار ردّك»</strong>.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الفرق بين مغلقة ومحلولة تم الحل closed resolved ماذا يعني إغلاق التذكرة">
+                    <summary>إيه الفرق بين «مغلقة» و«تم الحل»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>في مدعوم <strong>مفيش حالة اسمها «مغلقة»</strong>. «مغلقة» هي اسم <strong>مجموعة عرض</strong> بتجمع كل التذاكر المنتهية: <strong>تم الحل</strong> + <strong>مكتملة</strong> + <strong>مرفوضة</strong>، ووصفها في الواجهة «تذاكر تم حلّها أو إغلاقها».</p>
+                        <p>وزر <code>إغلاق التذكرة</code> لما تضغطه بيحوّل التذكرة للحالة <strong>تم الحل</strong>.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="المشكلة لم تحل بعد الإغلاق ماذا أفعل إعادة الفتح تذكرة جديدة">
+                    <summary>التذكرة اتقفلت والمشكلة لسه موجودة — أعمل إيه؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li>لو الحالة <strong>تم الحل</strong>: اضغط <code>إعادة الفتح</code> وأكّد، وهترجع الحالة «مفتوحة». وتقدر كمان تكتب رد توضّح فيه إن المشكلة رجعت.</li>
+                            <li>لو الحالة <strong>مكتملة</strong> أو <strong>مرفوضة</strong>: الزر مش هيظهر، لأن دي نتيجة قرار. افتح تذكرة جديدة واشرح الموضوع، أو تواصل مع الدعم.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="من يغير حالة التذكرة الأولوية من يحددها priority">
+                    <summary>مين اللي بيغيّر حالة التذكرة وأولويتها؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>الحالة</strong>: فريق الدعم بيغيّرها أثناء الشغل. وإنت عندك إجراءان بس: <code>إغلاق التذكرة</code> (من «مفتوحة» أو «قيد المعالجة») و<code>إعادة الفتح</code> (من «تم الحل»).</li>
+                            <li><strong>الأولوية</strong>: اللي بتختاره عند الإنشاء اسمه «الأهمية لديك»، والواجهة بتقول صراحة: «الأولوية النهائية يحددها فريق الدعم بعد المراجعة». شارة الأولوية بتظهر لك في تفاصيل التذكرة.</li>
+                            <li><strong>التصنيف</strong>: بتختاره وقت الإنشاء، وبيظهر كشارة في التفاصيل.</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ أهداف زمن الرد (SLA) ============ -->
+            <section class="kb-section" id="sla">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
+                    </div>
+                    <div>
+                        <h2>أهداف زمن الرد (SLA)</h2>
+                        <p>الوقت المستهدف لأول رد على تذكرتك</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ما هو SLA يعني إيه اتفاقية مستوى الخدمة هدف زمن الرد وقت الاستجابة">
+                    <summary>يعني إيه SLA؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p><strong>SLA</strong> في مدعوم معناه <strong>«هدف أول رد»</strong>: الوقت المستهدف اللي المفروض يوصلك فيه أول رد من فريق الدعم على تذكرتك.</p>
+                        <p>فايدته إنك تعرف من البداية إمتى تتوقع أول تواصل، بدل ما تفضل مستني من غير مرجع.</p>
+                        <div class="kb-note"><strong>مهم</strong>: هدف أول رد مش وعد بحل المشكلة في نفس المدة. هو وقت <strong>أول استجابة</strong> بس.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أين أجد هدف زمن الرد مركز الدعم توفر فريق الدعم ساعات العمل">
+                    <summary>فين أشوف أهداف زمن الرد الخاصة بالمنصة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>من <strong>بوابة العميل ← مركز الدعم ← لوحة «توفّر فريق الدعم»</strong>، وتحتها مكتوب «ساعات العمل وأهداف زمن الرد كما حددها فريق الإدارة». اللوحة ممكن تعرض:</p>
+                        <ul>
+                            <li><strong>حالة الفريق الآن</strong>: «متاح الآن» أو «خارج ساعات العمل»، ومعاها سطر اليوم.</li>
+                            <li><strong>هدف أول رد</strong>: شارة لكل أولوية بعدد الساعات، مثلًا «عالية: 4 س».</li>
+                            <li><strong>ساعات العمل</strong>: عدد أيام العمل أسبوعيًا وتفاصيل كل يوم بمواعيده.</li>
+                            <li><strong>واتساب الدعم</strong>: رابط «تواصل مباشر» لو الإدارة ضابطة رقم واتساب.</li>
+                        </ul>
+                        <p>الصفوف دي بتظهر حسب اللي الإدارة ضبطته فعلًا. لو مفيش ساعات عمل محددة، بتظهر رسالة «لم تُحدَّد ساعات عمل بعد» مع زر <code>فتح تذكرة</code> وسطر «يمكنك فتح تذكرة في أي وقت وسيصلك الرد فور توفّر الفريق».</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أعرف حالة SLA على تذكرتي الرد المتوقع تأخر الرد هدف أول رد شارة">
+                    <summary>إزاي أعرف حالة SLA على تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        لو التذكرة عليها هدف زمني لأول رد، هتلاقي على بطاقتها وفي تفاصيلها:
+                        <ul>
+                            <li><strong>«الرد المتوقع خلال …»</strong> — والمدة بتتكتب بالدقائق لو أقل من ساعة، وبالساعات لو أقل من يومين، وبالأيام لو أكتر.</li>
+                            <li><strong>«تأخر الرد — الفريق يتابعها»</strong> — لو الوقت المستهدف عدّى ولسه أول رد ما وصلش.</li>
+                        </ul>
+                        وفي تفاصيل التذكرة كمان بيظهر سطران بالتاريخ والوقت: <strong>«هدف أول رد: …»</strong> و<strong>«أول رد وصل: …»</strong>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="متى يتوقف عداد SLA كيف يحسب أول رد">
+                    <summary>SLA بيتحسب إزاي، وإمتى بيقف؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>اللي بيتقاس</strong>: أول رد يوصل من <strong>حد غير صاحب التذكرة</strong> — يعني ردودك إنت على تذكرتك مش بتحتسب «أول استجابة».</li>
+                            <li><strong>الهدف</strong>: بيتحدد حسب <strong>أولوية التذكرة</strong>، والقيم بتظهرلك في «توفّر فريق الدعم».</li>
+                            <li><strong>إمتى يقف</strong>: أول ما أول رد يتسجّل، بيتحط وقته في «أول رد وصل» وشارة «الرد المتوقع» بتختفي.</li>
+                            <li>الشارة كمان مش بتظهر على التذاكر المقفولة.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الفرق بين SLA ووقت حل المشكلة متوسط زمن الإغلاق متوسط أول استجابة">
+                    <summary>إيه الفرق بين SLA ووقت حل المشكلة الفعلي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>هدف أول رد (SLA)</strong> = من لحظة إنشاء التذكرة لحد أول رد.</li>
+                            <li><strong>وقت الحل الفعلي</strong> = من لحظة الإنشاء لحد ما التذكرة تتقفل فعليًا — وده بيختلف من مشكلة لمشكلة.</li>
+                        </ul>
+                        <p>ولو عندك <strong>لوحة شركة</strong>، قسم <strong>التقارير</strong> بيعرض الرقمين منفصلين: «متوسط أول استجابة» و«متوسط زمن الإغلاق»، ومكتوب تحتهم بالظبط على كام تذكرة اتحسبوا.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مفيش شارة SLA على تذكرتي لماذا لا يظهر الرد المتوقع">
+                    <summary>ليه مش شايف شارة «الرد المتوقع» على تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        الشارة بتختفي في الحالات دي:
+                        <ul>
+                            <li>أول رد وصل بالفعل (هتلاقي بدلها سطر «أول رد وصل: …»).</li>
+                            <li>التذكرة مقفولة (تم الحل / مكتملة / مرفوضة).</li>
+                            <li>مفيش هدف زمني مسجَّل على التذكرة دي.</li>
+                        </ul>
+                        وفي كل الأحوال، حالة التذكرة و«آخر تحديث» ظاهرين في لوحتك دايمًا.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="طلب اشتراك تحويل بنكي مراجعة خلال ساعة SLA إنستاباي محفظة كاش">
+                    <summary>طلبات الاشتراك بالتحويل الخارجي ليها هدف زمني خاص؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        أيوه. لما تطلب اشتراك أو تجديد وتختار وسيلة دفع خارجية (<strong>تحويل بنكي</strong> أو <strong>محفظة كاش</strong> أو <strong>إنستاباي</strong>)، التذكرة اللي بتتفتح للطلب بيتحط عليها هدف أول رد <strong>ساعة واحدة</strong>، وبيتكتب في وصف التذكرة: «طلب تحويل خارجي — يجب مراجعته وتأكيده أو رفضه خلال ساعة كحد أقصى من فريق الدعم».
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ بوابة العميل ============ -->
+            <section class="kb-section" id="customer-portal">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                    </div>
+                    <div>
+                        <h2>بوابة العميل</h2>
+                        <p>كل قسم في لوحتك وإيه اللي تقدر تعمله منه</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="نظرة عامة حالة الحساب لوحة العميل الرئيسية آخر نشاط">
+                    <summary>نظرة عامة<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        الشاشة الأولى بعد الدخول، وبتجمّع صورة حسابك:
+                        <ul>
+                            <li><strong>ملخص حالة الحساب</strong> في أول الصفحة.</li>
+                            <li><strong>لوحة «حالة الحساب»</strong>: حالة الحساب (نشط / مقيّد) و«عضو منذ …»، الباقات المفعّلة، خدمة الواتساب ومتبقّي أيامها، رصيد الواتساب، حصة المحرك الذكي ونسبة استهلاكها، والنطاق الفرعي لو عندك.</li>
+                            <li><strong>لوحة «آخر نشاط»</strong>: أحدث العمليات على حسابك بترتيب زمني.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مركز الدعم بطاقات فتح تذكرة حالة النظام توفر فريق الدعم">
+                    <summary>مركز الدعم<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        «نقطة البداية لأي مشكلة — من هنا تفتح تذكرة، تتابع تذاكرك، وتعرف حالة الخدمات». القسم فيه:
+                        <ul>
+                            <li><strong>أربع بطاقات</strong>: <code>فتح تذكرة جديدة</code> · <code>تذاكري</code> (وتحتها عدد تذاكرك المفتوحة أو اللي بانتظار ردّك) · <code>محادثة فورية</code> · <code>مركز المساعدة</code>.</li>
+                            <li><strong>توفّر فريق الدعم</strong>: حالة الفريق الآن، هدف أول رد لكل أولوية، ساعات العمل، وواتساب الدعم.</li>
+                            <li><strong>حالة النظام</strong>: «قبل فتح تذكرة، اطّلع على حالة الخدمات الحالية».</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تذاكري قسم التذاكر في لوحة العميل البحث الترتيب المجموعات">
+                    <summary>تذاكري<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        كل تذاكرك في مكان واحد: زر <code>إنشاء تذكرة جديدة</code>، والمجموعات الأربع (كل التذاكر / مفتوحة / بانتظار ردّك / مغلقة)، وبحث بالعنوان أو رقم التذكرة، وترتيب، وقائمة التذاكر على الشمال ولوحة التفاصيل على اليمين. التفاصيل الكاملة موضّحة في قسم <a href="#tickets">نظام التذاكر</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الإشعارات تصنيفات الإشعارات تعليم الكل كمقروء جرس الإشعارات">
+                    <summary>الإشعارات<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li>الإشعارات مصنّفة، ومن التصنيفات المتاحة: <strong>التذاكر</strong>، <strong>الاشتراكات</strong>، <strong>الرصيد والفوترة</strong>، <strong>واتساب</strong>، <strong>المحرك الذكي</strong>، <strong>الأمان</strong>، <strong>الحساب</strong>، <strong>المكافآت</strong>، <strong>المحادثة</strong>، <strong>النظام</strong>. التبويبات بتظهر حسب اللي عندك فعلًا.</li>
+                            <li>في أعلى القسم بيظهر عدد غير المقروء، وزر <code>تعليم الكل كمقروء</code>.</li>
+                            <li>الضغط على إشعار بيوديك للمكان المقصود: التذكرة نفسها، أو القسم المناسب في لوحتك، وبيظهر زر واضح زي <code>فتح التذكرة</code> أو <code>عرض التذاكر</code>.</li>
+                            <li>جرس الإشعارات في الشريط العلوي بيعرض عدد غير المقروء.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الاستهلاك والحدود الباقة الحالية رصيد الواتساب سجل العمليات المحرك الذكي النطاقات">
+                    <summary>الاستهلاك والاشتراك (الرصيد وسجل الحركات)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        القسم ده بيعرض — حسب اللي مفعّل على حسابك:
+                        <ul>
+                            <li><strong>الباقة الحالية</strong>: الباقات المفعّلة ومدتها («من … حتى …»)، ولو مفيش باقة بيظهر زر <code>تصفّح الباقات</code>.</li>
+                            <li><strong>خدمة الواتساب</strong>: حالة الاشتراك والأيام المتبقية، و<strong>رصيد الواتساب</strong> بالعملة مع مؤشر مقارنة بالحد الأدنى للتنبيه، وآخر <strong>5 حركات</strong> على الرصيد (كل حركة بوصفها ومقدارها ووقتها، والإضافة بتظهر بعلامة <code>+</code>).</li>
+                            <li>لو الرصيد نزل تحت الحد الأدنى بتظهر ملاحظة: «الرصيد تحت الحد الأدنى (القيمة) — تواصل مع الدعم للشحن».</li>
+                            <li><strong>المحرك الذكي</strong>: الحصة والمستهلك والمتبقي، ووضع الوصول، وتاريخ الانتهاء، وآخر استخدام.</li>
+                            <li><strong>النطاقات الفرعية</strong>: النطاقات المرتبطة بحسابك وحالة كل واحد.</li>
+                        </ul>
+                        <div class="kb-note">شحن الرصيد مش إجراء ذاتي من لوحة العميل — الواجهة بتوجّهك للتواصل مع الدعم.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="نشاط الحساب سجل العمليات تسجيل الدخول التذاكر تحديثات الحساب">
+                    <summary>نشاط الحساب<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        خط زمني بعملياتك على المنصة: «تسجيل الدخول، التذاكر، وتحديثات حسابك»، مع وقت كل عملية والجهاز لو متاح.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الأمان حماية الحساب التحقق بخطوتين 2FA تيليجرام آخر عمليات الدخول مفاتيح API">
+                    <summary>الأمان<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>حماية الحساب</strong>: التحقق بخطوتين (2FA) مفعّل/غير مفعّل، تنبيهات تيليجرام، آخر تغيير لكلمة المرور، وحالة التوثيق. ومعاها رابط <code>تعديل</code> بيفتح إعدادات الأمان.</li>
+                            <li><strong>آخر عمليات الدخول</strong>: «لو فيه دخول مش أنت، غيّر كلمة المرور فوراً».</li>
+                            <li><strong>مفاتيح API</strong>: المفاتيح الفعّالة على حسابك، ولو مفيش بتظهر «لا توجد مفاتيح API على حسابك».</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الملف الشخصي البيانات الشخصية كلمة المرور تعديل الاسم إعدادات حسابي">
+                    <summary>الملف الشخصي<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        فيه لوحتان: <strong>البيانات الشخصية</strong> لتعديل بيانات حسابك، و<strong>كلمة المرور</strong> لتغييرها.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="المكافآت والنقاط الشارات إبلاغ عن مشكلة بلاغاتي">
+                    <summary>المكافآت والنقاط · الشارات<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        قسم <strong>المكافآت والنقاط</strong> فيه «إبلاغ عن مشكلة» و«بلاغاتي»، وقسم <strong>الشارات</strong> بيعرض إنجازاتك. التفاصيل في قسمَي <a href="#rewards">النقاط والمكافآت</a> و<a href="#badges">الشارات</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="القائمة الجانبية الشريط العلوي تبديل المظهر اللغة تسجيل الخروج طي القائمة">
+                    <summary>القائمة الجانبية والشريط العلوي<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li>القائمة الجانبية مقسومة لمجموعات: <strong>الدعم</strong> (نظرة عامة · مركز الدعم · تذاكري · الإشعارات · مركز المساعدة · المحادثة الفورية)، <strong>حسابي</strong> (الاستهلاك والحدود · لوحة الشركة إن وُجدت · الباقات والاشتراك · نشاط الحساب · الأمان · الملف الشخصي)، <strong>أخرى</strong> (المكافآت والنقاط · الشارات · مجتمع مدعوم · خارطة الطريق · واتساب إن كانت مفعّلة).</li>
+                            <li>تقدر تطوي القائمة الجانبية بزر الطي، وفي الشاشات الصغيرة بتفتحها من زر القائمة.</li>
+                            <li>في الشريط العلوي: جرس الإشعارات، زر تبديل المظهر (فاتح/داكن)، زر اللغة (العربية / English)، وقائمة الحساب وفيها تسجيل الخروج.</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ لوحة الشركة ============ -->
+            <section class="kb-section" id="company-dashboard">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                    </div>
+                    <div>
+                        <h2>لوحة الشركة</h2>
+                        <p>شرح كل قسم في لوحة شركتك</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="نظرة عامة لوحة الشركة بطاقات الأرقام بيانات الشركة الخدمات المتاحة السجل التجاري">
+                    <summary>نظرة عامة<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>فوق الصفحة <strong>شريط الشركة</strong>: علامة «لوحة الشركة»، اسم الشركة، وسطر فيه رقم السجل التجاري وصفتك («أنت مالك الحساب» أو «أنت عضو في هذه الشركة»)، وشارة على اليمين بتقول «X اشتراك فعّال» أو «لا يوجد اشتراك فعّال».</p>
+                        <p>وتحتها <strong>أربع بطاقات أرقام</strong>: اشتراكات فعّالة · أقرب انتهاء اشتراك · السجل التجاري · الخدمات المتاحة.</p>
+                        <p>وبعدها لوحات:</p>
+                        <ul>
+                            <li><strong>بيانات الشركة</strong> — «البيانات القانونية والتشغيلية المسجّلة للشركة»: اسم الشركة، رقم السجل التجاري، انتهاء السجل، البريد، الهاتف، المدينة، الدولة، العنوان، الرقم الضريبي، وتاريخ التسجيل. وأي حقل فاضي بيظهر «غير مسجّل». ولو السجل منتهي بتظهر ملاحظة حمراء.</li>
+                            <li><strong>الاشتراكات</strong> و<strong>الخدمات المتاحة</strong> (موضّحين تحت).</li>
+                        </ul>
+                        <div class="kb-note">زر <code>تعديل البيانات</code> بيظهر لمالك الحساب. الحقول المطلوبة عند التعديل: اسم الشركة، رقم السجل التجاري، وتاريخ انتهاء السجل التجاري.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مستخدمو الشركة إضافة مستخدم إزالة مستخدم أعضاء الفريق صلاحيات">
+                    <summary>مستخدمو الشركة (إضافة وإدارة المستخدمين)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>القسم بيعرض «الحسابات التابعة لهذه الشركة»: اسم كل مستخدم وبريده وتاريخ انضمامه وشارة دوره (<strong>مدير الشركة</strong> / <strong>مستخدم الشركة</strong>)، وجنب حسابك بتظهر كلمة «أنت».</p>
+                        <p><strong>إضافة مستخدم</strong> (زر <code>إضافة مستخدم</code> — بيظهر لمن يملك الصلاحية):</p>
+                        <ol>
+                            <li>اضغط <code>إضافة مستخدم</code> — هتفتح نافذة «إضافة مستخدم للشركة»، وتحتها «يُنشأ حساب تابع لشركتك، ويظهر في قائمة المستخدمين فورًا».</li>
+                            <li>املأ: اسم المستخدم * · البريد الإلكتروني * · كلمة المرور * · تأكيد كلمة المرور *.</li>
+                            <li>اضغط <code>إنشاء المستخدم</code>.</li>
+                        </ol>
+                        <p><strong>إزالة مستخدم</strong>: زر <code>إزالة من الشركة</code> بيظهر على الأعضاء اللي ينفع يتشالوا (مش المالك ومش حسابك إنت)، والتأكيد بيقول: «سيصبح «اسم المستخدم» حسابًا شخصيًا مستقلًا. الحساب لا يُحذف، لكنه يفقد وصوله إلى لوحة شركتك وبياناتها فورًا.»</p>
+                        <p>لو الإضافة مش متاحة لحسابك، بتظهر رسالة: «إضافة المستخدمين متاحة لمدير الشركة ضمن اشتراك يشمل المستخدمين الفرعيين».</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الاشتراكات والخدمات لوحة الشركة حالة الاشتراك لم يبدأ بعد منتهي قيد المراجعة الامتيازات">
+                    <summary>الاشتراكات والخدمات<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>فوق القسم أربع بطاقات: <strong>اشتراكات نشطة</strong> · <strong>أقرب انتهاء</strong> · <strong>قيد المراجعة</strong> (طلبات بانتظار موافقة الإدارة) · <strong>منتهية</strong>.</p>
+                        <p>وتحتها قائمة الاشتراكات: اسم الباقة، «من … حتى …»، دورة الفوترة (شهري / سنوي / ربع سنوي / أسبوعي)، شارة الحالة، وعدد الأيام المتبقية أو «يبدأ بعد … يومًا» للاشتراك اللي لسه ما بدأش.</p>
+                        <p>ولو فيه فرق بين التواريخ المعروضة والمحتسبة، بتظهر لوحة <strong>«ملاحظات على التواريخ»</strong> بتشرح السبب بلغة واضحة.</p>
+                        <p>وفي لوحة <strong>«الخدمات المتاحة»</strong> بتلاقي مزايا كل باقة مفعّلة، وتحتها: «مشتقّة من الاشتراكات الفعّالة — تتغيّر تلقائيًا عند التجديد أو الانتهاء». ولو مفيش، بتظهر «لا توجد خدمات مفعّلة حاليًا» مع زر <code>تجديد أو اشتراك</code>.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="تذاكري مع مدعوم تذاكر العملاء لوحة الشركة مساران">
+                    <summary>تذاكري مع مدعوم · تذاكر العملاء<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        مساران منفصلان بنفس طريقة العرض: نفس المجموعات الأربع، ونفس البحث، ونفس لوحة التفاصيل والمحادثة. الفرق إن الأول تذاكر شركتك لدى مدعوم (وتقدر تفتح فيه تذاكر جديدة)، والتاني تذاكر مستخدمي شركتك (تقرأها وترد عليها وبيظهر فيها اسم العميل). التفاصيل في قسم <a href="#tickets">نظام التذاكر</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="مركز الدعم لوحة الشركة فتح تذكرة حالة الخدمات مقالات المساعدة">
+                    <summary>مركز الدعم<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        ثلاث لوحات في مكان واحد:
+                        <ul>
+                            <li><strong>فتح تذكرة دعم</strong> — النموذج الموضّح في <a href="#tickets">نظام التذاكر</a>.</li>
+                            <li><strong>حالة الخدمات</strong> — «الخدمات التي تخصّ اشتراكات شركتك أولًا»، وبتظهر ملاحظة واضحة لو فيه خدمة من خدمات شركتك متأثرة حاليًا.</li>
+                            <li><strong>مقالات المساعدة</strong> — «إجابات جاهزة قبل فتح تذكرة»، ومعاها خانة بحث.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="إشعارات لوحة الشركة تصنيفات تعليم الكل كمقروء">
+                    <summary>الإشعارات<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        نفس نظام الإشعارات والتصنيفات، مع عدد غير المقروء وزر <code>تعليم الكل كمقروء</code>. والضغط على إشعار بيفتح التذكرة في مسارها الصحيح (مع مدعوم أو تذاكر العملاء) أو القسم المناسب داخل لوحة الشركة — من غير ما تخرج من اللوحة. وجرس الإشعارات في الشريط العلوي بيفتح نافذة سريعة وفيها «عرض الكل».
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="API مفاتيح لوحة الشركة إنشاء مفتاح الصلاحيات حد المعدل آخر النداءات">
+                    <summary>API (مفاتيح الشركة)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>مفاتيح API</strong>: قائمة مفاتيح حساب شركتك. وتحت العنوان تحذير مهم: «السرّ يظهر مرة واحدة عند الإنشاء ثم لا يُعرض أبدًا».</li>
+                            <li>زر <code>إنشاء مفتاح جديد</code> بيظهر لو باقتك بتشمل ميزة مفاتيح API. النافذة بتطلب: اسم المفتاح * · وصف مختصر · الصلاحيات · تاريخ الانتهاء.</li>
+                            <li>لو الباقة مش شاملة الميزة، المفاتيح القائمة بتفضل ظاهرة وتقدر توقفها، لكن الإنشاء بيحتاج باقة مناسبة.</li>
+                            <li>تنبيه بيظهر لو فيه مفاتيح قربت تنتهي، وبينصح بإنشاء البديل وتبديل الاستخدام قبل التوقف.</li>
+                            <li><strong>آخر النداءات</strong>: «سجل تدقيق لآخر ما نُفِّذ بمفاتيح هذا الحساب».</li>
+                            <li><strong>كيف تستخدم المفتاح</strong>: طريقة المصادقة، والصلاحيات، وحدّ المعدّل (60 نداءً في الدقيقة لكل مفتاح)، وماذا تفعل عند التسريب (أوقف المفتاح فورًا ثم أنشئ بديلًا).</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="التقارير لوحة الشركة متوسط أول استجابة متوسط زمن الإغلاق تصدير CSV XLSX PDF">
+                    <summary>التقارير<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p><strong>تقارير التذاكر</strong> — «صفِّ الفترة والحالة، ثم صدّر بنفس النطاق المعروض». المرشّحات: <code>من تاريخ</code> · <code>إلى تاريخ</code> · <code>الحالة</code>. والتصدير: <code>تصدير CSV</code> · <code>تصدير XLSX</code> · <code>تصدير PDF</code>.</p>
+                        <p>بطاقات الأرقام: تذاكر مفتوحة مع مدعوم · تذاكر عملاء مفتوحة · متوسط أول استجابة لعملائك · متوسط زمن الإغلاق لعملائك · مستخدمو الشركة · اشتراكات فعّالة · السجل التجاري.</p>
+                        <p>وجدول <strong>«إجماليات المسارين»</strong> بيقارن المسارين صفًّا صفًّا: إجمالي التذاكر، مفتوحة، قيد المعالجة، مغلقة، بانتظار ردّك، متوسط أول استجابة، متوسط زمن الإغلاق. ومعاه توزيعات حسب الحالة والأولوية والتصنيف والفترة الشهرية.</p>
+                        <p>وفي آخر القسم لوحة <strong>«نطاق هذه الأرقام»</strong> بتوضّح بالظبط: المصدر، وإن «متوسط أول استجابة يُحسب على التذاكر التي وصلها ردّ من غير صاحبها»، وإن «متوسط زمن الإغلاق يُحسب على المغلقة التي لها طابع إغلاق مسجَّل وحدها»، والمنطقة الزمنية، وإن التصدير بيحمل نفس الصفوف المعروضة بنفس المرشّحات.</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="النشاط لوحة الشركة سجل نشاط الحساب مجموعات الأمان التذاكر الاشتراك">
+                    <summary>النشاط<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        «ما جرى على حساب شركتك، بترتيب زمني»، مقسّم لمجموعات بتظهر حسب اللي حصل فعلًا: <strong>الأمان والدخول</strong> · <strong>التذاكر</strong> · <strong>الحساب</strong> · <strong>الاشتراك</strong> · <strong>أخرى</strong>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الملف الشخصي الأمان لوحة الشركة تغيير كلمة المرور 2FA آخر عمليات الدخول">
+                    <summary>الملف الشخصي · الأمان<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>الملف الشخصي</strong> — «بيانات حسابك أنت — منفصلة عن بيانات الشركة»: الاسم الكامل * والبريد الإلكتروني ورقم الهاتف. والبريد مكتوب تحته: «البريد يُغيَّر عبر الدعم لأنه هوية الحساب».</li>
+                            <li><strong>الأمان</strong> — لوحة «حماية الحساب» (التحقق بخطوتين، تنبيهات تيليجرام، آخر تغيير لكلمة المرور، حالة التوثيق)، ولوحة <strong>«تغيير كلمة المرور»</strong> (8 أحرف على الأقل وتحتوي على حرف كبير وحرف صغير ورقم)، ولوحة <strong>«آخر عمليات الدخول»</strong> مع تنبيه: «لو فيه دخول ليس منك، غيّر كلمة المرور فورًا».</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="البحث في لوحة الشركة الشريط العلوي حالة النظام اللغة المظهر">
+                    <summary>الشريط العلوي والبحث<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>البحث</strong>: خانة «ابحث في التذاكر والأقسام…» — وتقدر تفتحها بسرعة بزر <code>/</code> من لوحة المفاتيح.</li>
+                            <li><strong>حالة النظام</strong>: مؤشر بيفتح قسم مركز الدعم داخل نفس اللوحة.</li>
+                            <li><strong>جرس الإشعارات</strong> بعدّاد غير المقروء، وزر <strong>تبديل المظهر</strong>، وزر <strong>اللغة</strong> (العربية / English).</li>
+                            <li><strong>قائمة الحساب</strong>: الملف الشخصي · الأمان · مركز الدعم والمساعدة · تسجيل الخروج.</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+
+            <!-- ============ التذاكر وواتساب ============ -->
+            <section class="kb-section" id="whatsapp-tickets">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 11-7.6-14.7 8.38 8.38 0 013.8.9L21 2z"/></svg>
+                    </div>
+                    <div>
+                        <h2>التذاكر وواتساب</h2>
+                        <p>إيه اللي بيحصل فعلًا بين واتساب والتذكرة</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="هل أستطيع فتح تذكرة من واتساب بدء تذكرة من واتساب رسالة واتساب تتحول لتذكرة">
+                    <summary>أقدر أفتح تذكرة من واتساب؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        لأ. التذكرة بتتفتح من لوحتك: <strong>بوابة العميل</strong> (إنشاء تذكرة جديدة) أو <strong>لوحة الشركة</strong> (مركز الدعم ← فتح تذكرة دعم). مفيش في المنصة مسار بيحوّل رسالة واتساب واردة لتذكرة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="متابعة على الواتساب زر التذكرة واتساب الدعم مشاركة تفاصيل التذكرة">
+                    <summary>زر «متابعة على الواتساب» في التذكرة بيعمل إيه؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>في آخر تفاصيل التذكرة في بوابة العميل بيظهر زر أخضر <code>متابعة على الواتساب</code>. لما تضغطه بيفتح محادثة واتساب مع رقم دعم مدعوم، وبيجهّزلك رسالة مكتوبة فيها:</p>
+                        <ul>
+                            <li>رقم التذكرة</li>
+                            <li>العنوان</li>
+                            <li>الحالة</li>
+                            <li>تاريخ الإنشاء</li>
+                            <li>الوصف</li>
+                        </ul>
+                        <p>الزر بيظهر فقط لو الإدارة ضابطة رقم واتساب للدعم. وتقدر كمان توصل لنفس الرقم من «توفّر فريق الدعم» في مركز الدعم عبر رابط «تواصل مباشر».</p>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="هل رسائل واتساب تظهر داخل التذكرة الرد من واتساب سياق التذكرة">
+                    <summary>لو رديت على واتساب، الرد بيتسجّل جوه التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        لأ. محادثة واتساب منفصلة عن التذكرة. <strong>السجل الرسمي للتذكرة هو قسم «المحادثة» جواها</strong>، فعشان ردك يتسجّل رسميًا ويشوفه الفريق في سياق التذكرة، اكتبه في التذكرة من لوحتك.
+                        <div class="kb-note">أفضل طريقة: استخدم زر «متابعة على الواتساب» للتنبيه السريع، وسجّل التفاصيل كرد داخل التذكرة.</div>
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="متابعة حالة التذكرة عبر واتساب هل تصلني تحديثات الحالة على واتساب">
+                    <summary>هل بتوصلني تحديثات حالة التذكرة على واتساب؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        حالة التذكرة وتحديثاتها بتتابعها من <strong>لوحتك</strong> ومن <strong>الإشعارات</strong> داخل المنصة: شارة الحالة، «آخر تحديث»، «بانتظار ردّك»، و«سجل التذكرة». وزر «متابعة على الواتساب» بيبعت لقطة من حالة التذكرة <strong>وقت ما تضغطه إنت</strong>، وهو مش قناة تحديث تلقائي.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="الفرق بين المحادثة والتذكرة متى أستخدم التذكرة ومتى المحادثة">
+                    <summary>إيه الفرق بين المحادثة (واتساب أو المحادثة الفورية) والتذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>التذكرة</strong>: ليها رقم، وحالة، وسجل أحداث، ومحادثة محفوظة، وهدف زمني لأول رد، وبتفضل في حسابك ترجعلها أي وقت.</li>
+                            <li><strong>المحادثة</strong>: وسيلة تواصل سريعة للأسئلة اللي محتاجة رد فوري.</li>
+                        </ul>
+                        القاعدة العملية: أي حاجة محتاجة متابعة أو إثبات أو أكتر من رد → تذكرة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="عنصر واتساب في القائمة الجانبية متى يظهر خدمة واتساب">
+                    <summary>عنصر «واتساب» في القائمة الجانبية بيظهر إمتى؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        بيظهر في بوابة العميل لما يكون عندك <strong>اشتراك واتساب فعّال</strong> أو تكون الخدمة <strong>مفعّلة لحسابك من الإدارة</strong>، وبيفتح خدمة واتساب الخاصة بمدعوم. ولو مش ظاهر، يبقى الخدمة مش مفعّلة على حسابك حاليًا.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="طلب اشتراك واتساب يفتح تذكرة متابعة طلب الاشتراك تجديد ترقية">
+                    <summary>طلب اشتراك واتساب بيتحوّل لتذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <p>أيوه. كل طلب اشتراك أو تجديد أو ترقية بيتعملّه <strong>تذكرة</strong> بعنوان زي «طلب اشتراك - واتساب (شهري)» أو «طلب تجديد اشتراك - …»، ووصف التذكرة بيحتوي على الخطة ونوع الفترة والمدة ووسيلة الدفع، وكمان مرجع التحويل لو أدخلته.</p>
+                        <p>يعني <strong>متابعة طلب الاشتراك بتتم من التذكرة دي</strong> زي أي تذكرة تانية: بتشوف حالتها وبترد عليها. ولما الطلب يتأكد أو يترفض، حالة التذكرة بتوصل لـ<strong>مكتملة</strong> أو <strong>مرفوضة</strong>.</p>
+                        <p>ولو اخترت وسيلة دفع خارجية (تحويل بنكي / محفظة كاش / إنستاباي) لازم ترفق صورة أو ملف PDF كإثبات تحويل، وهدف أول رد بيبقى ساعة واحدة.</p>
                     </div>
                 </details>
             </section>
@@ -694,17 +1477,18 @@
                     </div>
                 </div>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="أوقات عمل الدعم الفني ساعات الرد">
+                <details class="kb-faq" data-kb-searchable data-kb-text="أوقات عمل الدعم الفني ساعات الرد متاح الآن خارج ساعات العمل">
                     <summary>إيه هي أوقات عمل الدعم الفني؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        فريق الدعم متاح يوميًا من الساعة <strong>9 صباحًا</strong> لغاية <strong>6 مساءً</strong> (الأحد للجمعة). لو راسلت برا الأوقات دي، هتترد عليك أول ما فريق الدعم يرجع.
+                        ساعات العمل بتتحدد من فريق الإدارة، وبتلاقيها محدَّثة في لوحتك: <strong>بوابة العميل ← مركز الدعم ← «توفّر فريق الدعم»</strong>. اللوحة بتعرض حالة الفريق دلوقتي (<strong>متاح الآن</strong> أو <strong>خارج ساعات العمل</strong>)، وسطر اليوم بمواعيده، وعدد أيام العمل أسبوعيًا وتفاصيل كل يوم.
+                        <div class="kb-note">تقدر تفتح تذكرة في أي وقت. ولو مفيش ساعات عمل محددة، اللوحة بتقول: «يمكنك فتح تذكرة في أي وقت وسيصلك الرد فور توفّر الفريق».</div>
                     </div>
                 </details>
 
                 <details class="kb-faq" data-kb-searchable data-kb-text="فرق بين المحادثة الفورية والتذكرة">
                     <summary>أستخدم المحادثة الفورية ولا أفتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        المحادثة الفورية أنسب للأسئلة السريعة اللي محتاجة رد فوري وقت أوقات العمل. أما التذاكر فأنسب للمشاكل اللي محتاجة متابعة وتوثيق على مدار وقت أطول، وبتفضل محفوظة في حسابك تقدر ترجعلها في أي وقت.
+                        المحادثة الفورية أنسب للأسئلة السريعة اللي محتاجة رد فوري وقت أوقات العمل. أما <strong>التذكرة</strong> فليها رقم وحالة وسجل أحداث ومحادثة محفوظة وهدف زمني لأول رد، وبتفضل في حسابك تقدر ترجعلها في أي وقت — فهي الأنسب لأي مشكلة محتاجة متابعة أو توثيق. الفرق بالتفصيل في قسم <a href="#whatsapp-tickets" style="color: var(--color-accent); font-weight: 700;">التذاكر وواتساب</a>.
                     </div>
                 </details>
             </section>
@@ -831,21 +1615,29 @@
                 <details class="kb-faq" data-kb-searchable data-kb-text="تغيير الخطة لاحقاً ترقية تخفيض">
                     <summary>أقدر أغيّر خطتي بعد الاشتراك؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        أيوه، تقدر تغيّر خطتك (ترقية أو تخفيض) في أي وقت من صفحة <strong>الاشتراكات</strong>. التغيير بينعكس على دورة الفوترة الجاية.
+                        المتاح حاليًا من صفحة <strong>الاشتراكات</strong> هو <strong>طلب ترقية</strong> لباقة أعلى، و<strong>طلب تجديد</strong>. الترقية بتورث دورة اشتراكك الحالية بدل ما تبدأ دورة جديدة، وبيظهرلك قبل التأكيد الأيام المتبقية والفرق المستحق.
+                        <div class="kb-note">كل طلب اشتراك أو تجديد أو ترقية بيتفتح له <strong>تذكرة</strong> تتابع منها الطلب، وبيتفعّل بعد مراجعة فريق الدعم. مفيش في لوحتك حاليًا إجراء ذاتي لتخفيض الباقة أو إلغاء اشتراك فعّال — لو محتاج كده، افتح تذكرة دعم.</div>
                     </div>
                 </details>
 
                 <details class="kb-faq" data-kb-searchable data-kb-text="طرق الدفع بطاقة ائتمان تحويل بنكي محفظة رقمية">
                     <summary>إيه طرق الدفع المتاحة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        بنقبل بطاقات الائتمان، التحويلات البنكية، والمحافظ الرقمية. مفيش أي عقد أو التزام طويل الأجل — تقدر تلغي اشتراكك في أي وقت.
+                        عند إرسال طلب الاشتراك لازم تختار وسيلة دفع، والمتاح:
+                        <ul>
+                            <li><strong>تحويل بنكي</strong></li>
+                            <li><strong>محفظة كاش</strong></li>
+                            <li><strong>إنستاباي</strong></li>
+                            <li><strong>بوابة دفع إلكترونية (داخلية)</strong></li>
+                        </ul>
+                        التحويل البنكي والمحفظة وإنستاباي كلها <strong>تحويلات خارجية</strong>: بتتطلب إرفاق صورة أو ملف PDF كإثبات تحويل (حتى 8 ميجابايت)، وهدف أول رد على تذكرة الطلب بيبقى <strong>ساعة واحدة</strong>.
                     </div>
                 </details>
 
                 <details class="kb-faq" data-kb-searchable data-kb-text="استخدام النقاط للحصول على خصم على الاشتراك">
                     <summary>أقدر أستخدم نقاطي في خصم على الاشتراك؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        أيوه، النقاط اللي بتجمعها من البلاغات (شوف قسم <strong>النقاط والمكافآت</strong>) تقدر تستبدلها بخصومات على الخطط المدفوعة والمزايا الإضافية.
+                        رصيد نقاطك بيظهر في تبويب <strong>المكافآت والنقاط</strong> في لوحتك، بس مفيش في اللوحة حاليًا إجراء لاستبدال النقاط بخصم على الاشتراك. لو عندك استفسار عن نقاطك، افتح تذكرة دعم.
                     </div>
                 </details>
             </section>
@@ -865,7 +1657,7 @@
                 <details class="kb-faq" data-kb-searchable data-kb-text="إيه هو النطاق الفرعي subdomain اسم الشركة مجاني">
                     <summary>إيه هو "النطاق الفرعي" وليه محتاجه؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        هو رابط خاص بشركتك أو نشاطك على منصة مدعوم، بالشكل ده: <code>yourname.mad3oom.online</code>. بيدّي عملاءك تجربة دعم مخصصة باسمك، وبييجي مجانًا مع خطة <strong>الدعم الفني</strong> أو الباقة الشاملة.
+                        هو رابط خاص بشركتك أو نشاطك على منصة مدعوم، بالشكل ده: <code>yourname.mad3oom.online</code>. بيدّي عملاءك تجربة دعم مخصصة باسمك. وإتاحته بتعتمد على باقتك — تقدر تشوف المزايا المفعّلة لحسابك في <strong>لوحة الشركة ← الاشتراكات والخدمات ← «الخدمات المتاحة»</strong>.
                     </div>
                 </details>
 
@@ -887,10 +1679,10 @@
                     </div>
                 </details>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="تنبيه تيليجرام عند فتح تذكرة جديدة من النطاق">
-                    <summary>أقدر أتنبّه فورًا لما حد يفتح تذكرة من نطاقي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <details class="kb-faq" data-kb-searchable data-kb-text="تنبيه عند فتح تذكرة جديدة متابعة تذاكر عملائي إشعار">
+                    <summary>إزاي أعرف إن حد من عملائي فتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        أيوه، تقدر تربط بوت تيليجرام خاص بنطاقك عشان يوصلك تنبيه فوري كل ما عميل يفتح تذكرة جديدة من صفحتك — من غير ما تفضل فاتح لوحة التحكم طول الوقت.
+                        تذاكر المستخدمين التابعين لشركتك بتظهر في <a href="#company-dashboard" style="color: var(--color-accent); font-weight: 700;">لوحة الشركة</a> تحت قسم <strong>تذاكر العملاء</strong>، وتقدر تقراها وترد عليها من هناك، وتشوف أرقامها في قسم <strong>التقارير</strong>.
                     </div>
                 </details>
             </section>
@@ -910,9 +1702,11 @@
                 <details class="kb-faq" data-kb-searchable data-kb-text="إزاي أنشئ مفتاح API token مصادقة Bearer">
                     <summary>إزاي أنشئ مفتاح API؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        من صفحة <strong>إدارة API</strong> تقدر تنشئ مفتاح (Token) خاص بيك، وتستخدمه للمصادقة على كل الطلبات بإرساله في ترويسة الطلب:
-                        <br><code>Authorization: Bearer YOUR_API_KEY</code>
-                        <br>المفتاح بيتخزن مشفّر (hash) عندنا، فاحتفظ بنسخة منه أول ما تتولد — مش هتقدر تشوفه تاني كامل بعد كده.
+                        من <strong>لوحة الشركة ← قسم API ← زر «إنشاء مفتاح جديد»</strong>. النافذة بتطلب: اسم المفتاح، ووصف مختصر، والصلاحيات، وتاريخ الانتهاء. والزر بيظهر لو باقتك بتشمل ميزة مفاتيح API.
+                        <br>بعد الإنشاء بتستخدم المفتاح في ترويسة الطلب:
+                        <br><code>Authorization: Bearer &lt;api_key&gt;.&lt;secret&gt;</code>
+                        <div class="kb-note"><strong>السرّ بيظهر مرة واحدة بس عند الإنشاء</strong> — المخزَّن عندنا بصمة مشفَّرة لا القيمة نفسها. فانسخه في اللحظة دي واحتفظ بيه. ولو اتسرّب، أوقف المفتاح فورًا من نفس القائمة وأنشئ بديل.
+                        <br>وتقدر تشوف المفاتيح الفعّالة على حسابك من <strong>بوابة العميل ← الأمان ← «مفاتيح API»</strong>.</div>
                     </div>
                 </details>
 
@@ -930,14 +1724,14 @@
                 <details class="kb-faq" data-kb-searchable data-kb-text="مدعوم كخادم MCP Model Context Protocol Claude ChatGPT اتصال وكيل ذكاء اصطناعي">
                     <summary>مدعوم بيتكامل مع Claude وChatGPT إزاي؟ (MCP)<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        مدعوم بيدعم بروتوكول <strong>MCP (Model Context Protocol)</strong> في اتجاهين: تقدر تربط حسابك بخوادم MCP خارجية (مدعوم كعميل)، أو تسمح لعملاء ذكاء اصطناعي زي <strong>Claude</strong> و<strong>ChatGPT</strong> يتصلوا مباشرة بمدعوم (مدعوم كخادم) عن طريق تفويض OAuth آمن، عشان يقدروا يستخدموا أدواتك وبياناتك على المنصة داخل المحادثة. الإعداد كله من تبويب <strong>شبكة MCP</strong> في لوحة الإدارة.
+                        مدعوم بيدعم بروتوكول <strong>MCP (Model Context Protocol)</strong>، فتقدر تسمح لعملاء ذكاء اصطناعي زي <strong>Claude</strong> و<strong>ChatGPT</strong> يتصلوا بمدعوم عن طريق تفويض OAuth آمن، ويستخدموا أدواتك وبياناتك على المنصة داخل المحادثة. تلاقي عنوان الربط وحالة الخادم وقائمة الأدوات المتاحة لحسابك في <a href="/mcp/mcp.html" style="color: var(--color-accent); font-weight: 700;">لوحة المطوّرين</a> ← تبويب <strong>MCP</strong>.
                     </div>
                 </details>
 
                 <details class="kb-faq" data-kb-searchable data-kb-text="webhooks تنبيهات خارجية أحداث التذاكر">
                     <summary>أقدر أستقبل تنبيهات خارجية (Webhooks) لما حاجة تحصل في تذاكري؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        أيوه، تقدر تسجّل رابط (Webhook URL) خاص بيك عشان يتنادى تلقائيًا عند إنشاء تذكرة، تغيّر حالتها، أو حلّها — مفيد لو عايز تربط مدعوم بنظام داخلي عندك زي Slack أو CRM.
+                        مفيش في لوحتك حاليًا مكان تسجّل فيه رابط Webhook خاص بأحداث تذاكرك. المتاح لك لمتابعة التذاكر آليًا هو <strong>مفاتيح API</strong> — تقرأ منها بيانات تذاكرك في الوقت اللي يناسبك. ولو محتاج ربطًا بأحداث لحظية، افتح تذكرة دعم واشرح السيناريو.
                     </div>
                 </details>
             </section>
@@ -988,17 +1782,29 @@
                     </div>
                 </div>
 
-                <details class="kb-faq" data-kb-searchable data-kb-text="إمتى بيوصلني إيميل إشعار تذكرة">
-                    <summary>إمتى بيوصلني إيميل بخصوص تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <details class="kb-faq" data-kb-searchable data-kb-text="إمتى بيوصلني إيميل إشعار تذكرة رسالة بريد من مدعوم">
+                    <summary>هوصلني إيميل بخصوص تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
                     <div class="kb-faq-body">
-                        بيوصلك إيميل تلقائي في 3 حالات: عند <strong>إنشاء</strong> التذكرة، عند <strong>تغيّر حالتها</strong> (خصوصًا لما تتحل/تتقفل)، وعند وصول <strong>رد جديد</strong> من فريق الدعم عليها.
+                        <p>فريق الدعم بيقدر يبعتلك رسائل بريد بخصوص تذكرتك من عناوين مدعوم الرسمية، وقوالب الرسائل بتغطي: <strong>استلام تذكرة جديدة</strong>، و<strong>تحديث حالة التذكرة</strong>، و<strong>رد جديد على التذكرة</strong>.</p>
+                        <div class="kb-note"><strong>القناة المضمونة للتحديثات هي الإشعارات داخل المنصة</strong>: بيتسجّل إشعار عند كل رد جديد وعند كل تغيير في الحالة، وبتلاقيه في قسم «الإشعارات» وفي جرس الشريط العلوي. فخلي اعتمادك الأساسي على لوحتك.</div>
                     </div>
                 </details>
 
-                <div class="kb-channels" data-kb-searchable data-kb-text="عناوين البريد الرسمية support tickets info no-reply">
+                <details class="kb-faq" data-kb-searchable data-kb-text="إشعارات داخل المنصة رد جديد على تذكرتك تحديث حالة التذكرة جرس">
+                    <summary>إيه الإشعارات اللي بتتسجّل لي على التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        <ul>
+                            <li><strong>«رد جديد على تذكرتك #الرقم»</strong> — لما يوصل رد من فريق الدعم.</li>
+                            <li><strong>«تحديث حالة التذكرة»</strong> — لما تتغيّر حالة تذكرتك، والرسالة بتذكر الحالة الجديدة بالاسم.</li>
+                        </ul>
+                        والضغط على أي إشعار منهم بيفتح التذكرة نفسها على طول.
+                    </div>
+                </details>
+
+                <div class="kb-channels" data-kb-searchable data-kb-text="عناوين البريد الرسمية support info no-reply من مين بيجيلي الإيميل">
                     <div class="kb-channel">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
-                        <div><strong>إشعارات التذاكر</strong><span>tickets@mad3oom.online</span></div>
+                        <div><strong>رسائل آلية (بدون رد)</strong><span>no-reply@mad3oom.online</span></div>
                     </div>
                     <div class="kb-channel">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>
@@ -1009,6 +1815,145 @@
                         <div><strong>استفسارات عامة</strong><span>info@mad3oom.online</span></div>
                     </div>
                 </div>
+            </section>
+
+            <!-- ============ الأسئلة الشائعة ============ -->
+            <section class="kb-section" id="faq">
+                <div class="kb-section-head">
+                    <div class="kb-section-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div>
+                        <h2>الأسئلة الشائعة</h2>
+                        <p>إجابات سريعة لأكتر الأسئلة تكرارًا</p>
+                    </div>
+                </div>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أفتح تذكرة سريع إنشاء تذكرة">
+                    <summary>كيف أفتح تذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من بوابة العميل: <strong>مركز الدعم</strong> أو <strong>تذاكري</strong> ← <code>إنشاء تذكرة جديدة</code>. ومن لوحة الشركة: <strong>مركز الدعم</strong> ← <code>إرسال التذكرة</code>. الخطوات بالتفصيل في <a href="#tickets">نظام التذاكر</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أين أجد تذاكري قائمة التذاكر سجل التذاكر">
+                    <summary>أين أجد تذاكري وسجلها؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        في قسم <strong>تذاكري</strong> (بوابة العميل) أو <strong>تذاكري مع مدعوم</strong> (لوحة الشركة). ومجموعة <strong>«مغلقة»</strong> هي اللي بتلاقي فيها التذاكر المنتهية. وسجل كل تذكرة على حدة موجود جواها تحت «سجل التذكرة».
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني حالة مفتوحة">
+                    <summary>ماذا تعني حالة «مفتوحة»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        إن تذكرتك وصلت واتسجّلت ولسه مفيش رد عليها من فريق الدعم. مش مطلوب منك أي إجراء.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني قيد المعالجة">
+                    <summary>ماذا تعني «قيد المعالجة»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        إن فريق الدعم رد على التذكرة والشغل عليها جارٍ. تقدر ترد عادي في نفس التذكرة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني تم الحل محلولة">
+                    <summary>ماذا تعني «تم الحل»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        إن التذكرة اتقفلت. تقدر تقيّم الخدمة، وتقدر ترد (الرد مش بيفتحها)، ولو المشكلة رجعت تضغط <code>إعادة الفتح</code>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا تعني مكتملة مرفوضة">
+                    <summary>ماذا تعني «مكتملة» و«مرفوضة»؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        دول حالتان نهائيتان بتظهروا على الطلبات: <strong>مكتملة</strong> لطلب اتأكد، و<strong>مرفوضة</strong> لطلب اترفض. مش بتتعاد فتحهم من اللوحة.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أرد على فريق الدعم إرسال رد">
+                    <summary>كيف أرد على فريق الدعم؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        افتح التذكرة ← قسم <strong>المحادثة</strong> ← اكتب ردك ← <code>إرسال الرد</code> (أو <code>Ctrl</code> + <code>Enter</code>).
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أعرف أن فريق الدعم رد إشعار">
+                    <summary>كيف أعرف أن فريق الدعم رد؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        بيتسجّل إشعار «رد جديد على تذكرتك»، وبتظهر شارة <strong>«بانتظار ردّك»</strong> على التذكرة، وبتلاقيها مجمّعة في مجموعة «بانتظار ردّك».
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ما هو SLA وقت الاستجابة">
+                    <summary>ما هو SLA؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        هو <strong>هدف أول رد</strong>: الوقت المستهدف لوصول أول رد من فريق الدعم. مش وعد بحل المشكلة في نفس المدة. التفاصيل في قسم <a href="#sla">أهداف زمن الرد</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أعرف حالة SLA الرد المتوقع">
+                    <summary>كيف أعرف حالة SLA على تذكرتي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        من شارة <strong>«الرد المتوقع خلال …»</strong> على التذكرة، أو <strong>«تأخر الرد — الفريق يتابعها»</strong> لو الوقت عدّى. وفي التفاصيل بيظهر «هدف أول رد» و«أول رد وصل».
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="هل أستطيع متابعة التذكرة من واتساب الرد من واتساب">
+                    <summary>هل أستطيع متابعة التذكرة أو الرد عليها من واتساب؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        تقدر تبعت تفاصيل التذكرة لواتساب الدعم بزر <code>متابعة على الواتساب</code>، لكن <strong>ردودك الرسمية لازم تتكتب داخل التذكرة</strong>، وحالة التذكرة بتتابعها من لوحتك. التفاصيل في <a href="#whatsapp-tickets">التذاكر وواتساب</a>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا يحدث بعد حل التذكرة التقييم">
+                    <summary>ماذا يحدث بعد حل التذكرة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        الحالة بتبقى <strong>تم الحل</strong> وبيتسجّل تاريخ الحل، وبتنتقل لمجموعة «مغلقة»، وبيظهر قسم «تقييمك للخدمة»، وبيبقى متاح لك <code>إعادة الفتح</code>.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="ماذا أفعل إذا لم تحل المشكلة">
+                    <summary>ماذا أفعل إذا كانت المشكلة لم تُحل؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        لو الحالة <strong>تم الحل</strong>: اضغط <code>إعادة الفتح</code> واكتب رد يوضّح اللي لسه ناقص. ولو الحالة <strong>مكتملة</strong> أو <strong>مرفوضة</strong>: افتح تذكرة جديدة أو تواصل مع الدعم.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="لماذا لا أستطيع إنشاء تذكرة جديدة زر الإرسال معطل">
+                    <summary>ليه زر إرسال التذكرة معطّل عندي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        غالبًا لأنك وصلت للحد الأقصى للتذاكر المفتوحة: هتلاقي تنبيه «وصلت للحد الأقصى للتذاكر المفتوحة» فيه عدد تذاكرك المفتوحة والحد المسموح. تابع تذكرة قائمة أو استنى حلّها.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="كيف أستخدم لوحة الشركة أقسام لوحة الشركة">
+                    <summary>كيف أستخدم لوحة الشركة؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        كل أقسامها موضّحة واحدًا واحدًا في قسم <a href="#company-dashboard">لوحة الشركة</a>: نظرة عامة، مستخدمو الشركة، الاشتراكات والخدمات، مسارا التذاكر، مركز الدعم، الإشعارات، API، التقارير، النشاط، الملف الشخصي، الأمان.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أين أجد إعدادات حسابي الملف الشخصي كلمة المرور">
+                    <summary>أين أجد إعدادات حسابي؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        في <strong>الملف الشخصي</strong> (بياناتك وكلمة المرور) و<strong>الأمان</strong> (التحقق بخطوتين وآخر عمليات الدخول) — القسمان موجودان في بوابة العميل وفي لوحة الشركة، وكمان من قائمة الحساب في الشريط العلوي.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="أين أجد رصيدي رصيد الواتساب سجل العمليات شحن الرصيد">
+                    <summary>أين أجد رصيدي وسجل العمليات؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        في بوابة العميل ← <strong>الاستهلاك والاشتراك</strong> ← لوحة <strong>«خدمة الواتساب»</strong>: الرصيد الحالي، والحد الأدنى للتنبيه، وآخر 5 حركات. وللشحن، الواجهة بتوجّهك للتواصل مع الدعم.
+                    </div>
+                </details>
+
+                <details class="kb-faq" data-kb-searchable data-kb-text="حذف التذكرة نهائيا هل أستطيع حذف تذكرة">
+                    <summary>أقدر أحذف تذكرة نهائيًا؟<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                    <div class="kb-faq-body">
+                        المتاح لك هو <code>إخفاء من قائمتي</code>، وهو بيشيل التذكرة من قائمتك بس وبتفضل محفوظة لدى فريق الدعم. مفيش حذف نهائي من واجهة العميل.
+                    </div>
+                </details>
             </section>
 
             <!-- No results state -->
