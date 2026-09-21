@@ -1,2 +1,5 @@
 User-agent: *
 Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+Sitemap: https://mad3oom.com/sitemap.xml
