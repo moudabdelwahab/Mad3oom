@@ -61,10 +61,24 @@ globalThis.fetch = async (url, init = {}) => {
   if (u.includes('/auth/v1/user')) {
     return scenario.authOk === false ? json({}, false) : json({ id: USER_ID });
   }
+  if (u.includes('/rest/v1/user_mfa_secrets')) {
+    assert.ok(u.includes(`user_id=eq.${USER_ID}`), 'private lookup must filter by the authenticated user id');
+    if ((init.method || 'GET') === 'PATCH') {
+      assert.match(init.headers.Authorization, /service-role-stub/);
+      scenario.privatePatch = JSON.parse(init.body);
+      return json({});
+    }
+    return json(scenario.privateRow ? [scenario.privateRow] : []);
+  }
   if (u.includes('/rest/v1/profiles')) {
     // The function must scope the lookup to the authenticated user.
     assert.ok(u.includes(`id=eq.${USER_ID}`), 'profile lookup must filter by the authenticated user id');
-    return json([{ two_factor_secret: scenario.storedSecret, two_factor_enabled: !!scenario.storedSecret }]);
+    if ((init.method || 'GET') === 'PATCH') {
+      scenario.profilePatch = JSON.parse(init.body);
+      return json({});
+    }
+    return json([{ two_factor_secret: scenario.storedSecret, two_factor_enabled: !!scenario.storedSecret,
+                   recovery_codes: scenario.legacyCodes || null }]);
   }
   if (u.includes('/rest/v1/twofa_rate_limits')) {
     if ((init.method || 'GET') === 'GET') return json(scenario.rateLimitRow ? [scenario.rateLimitRow] : []);
@@ -87,7 +101,7 @@ function call(body, headers = { authorization: 'Bearer stub-jwt' }) {
 }
 
 function reset(over = {}) {
-  scenario = { storedSecret: null, rateLimitRow: null, upserts: [], ...over };
+  scenario = { storedSecret: null, privateRow: null, rateLimitRow: null, upserts: [], ...over };
 }
 
 // ── The fix ─────────────────────────────────────────────────────────────────
@@ -199,3 +213,52 @@ test('a success still clears the counter', async () => {
 // as soon as the tests are *registered*, which would hand the real fetch back
 // before a single test had actually executed.
 after(() => { globalThis.fetch = realFetch; });
+
+// ── Migration 049 + PS-16: recovery codes at login ─────────────────────────
+
+const sha256 = (c) => crypto.createHash('sha256').update(String(c).trim().toUpperCase()).digest('hex');
+
+test('049: an enrolled secret in user_mfa_secrets is the one verified', async () => {
+  reset({ privateRow: { totp_secret: STORED_SECRET, recovery_code_hashes: [] } });
+  const body = await (await call({ code: totp(STORED_SECRET), tempSecret: ATTACKER_SECRET })).json();
+  assert.equal(body.verified, true);
+  assert.equal(body.enrollment, undefined, 'a private-table secret means enrolled, not enrollment');
+  reset({ privateRow: { totp_secret: STORED_SECRET, recovery_code_hashes: [] } });
+  assert.equal((await (await call({ code: totp(ATTACKER_SECRET), tempSecret: ATTACKER_SECRET })).json()).verified, false);
+});
+
+test('PS-16: a valid recovery code signs in once and is consumed', async () => {
+  reset({ privateRow: { totp_secret: STORED_SECRET, recovery_code_hashes: [sha256('AAAA111111'), sha256('BBBB222222')] } });
+  const body = await (await call({ recoveryCode: ' aaaa111111 ' })).json();
+  assert.equal(body.verified, true);
+  assert.equal(body.usedRecoveryCode, true);
+  assert.equal(body.remainingRecoveryCodes, 1);
+  assert.deepEqual(scenario.privatePatch.recovery_code_hashes, [sha256('BBBB222222')]);
+});
+
+test('PS-16: a wrong recovery code fails and counts as an attempt', async () => {
+  reset({ privateRow: { totp_secret: STORED_SECRET, recovery_code_hashes: [sha256('AAAA111111')] } });
+  const body = await (await call({ recoveryCode: 'ZZZZ999999' })).json();
+  assert.equal(body.verified, false);
+  assert.equal(scenario.privatePatch, undefined, 'nothing consumed');
+  assert.equal(scenario.upserts[0].failed_attempts, 1);
+});
+
+test('PS-16: a recovery code is refused during a lockout', async () => {
+  reset({ privateRow: { totp_secret: STORED_SECRET, recovery_code_hashes: [sha256('AAAA111111')] },
+          rateLimitRow: { failed_attempts: 5, window_start: new Date().toISOString(),
+                          locked_until: new Date(Date.now() + 600000).toISOString() } });
+  assert.equal((await call({ recoveryCode: 'AAAA111111' })).status, 429);
+});
+
+test('PS-16: a recovery code means nothing for an account without 2FA', async () => {
+  reset();
+  assert.equal((await call({ recoveryCode: 'AAAA111111' })).status, 400);
+});
+
+test('PS-16: legacy plaintext codes (before 049) are consumed from profiles', async () => {
+  reset({ storedSecret: STORED_SECRET, legacyCodes: ['AAAA111111', 'BBBB222222'] });
+  const body = await (await call({ recoveryCode: 'bbbb222222' })).json();
+  assert.equal(body.verified, true);
+  assert.deepEqual(scenario.profilePatch, { recovery_codes: ['AAAA111111'] });
+});

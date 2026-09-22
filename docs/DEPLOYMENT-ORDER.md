@@ -79,3 +79,34 @@ sole workflow is CodeQL; sibling pages hard-code their keys inline). Both now
 carry the same public **anon** key already committed in
 `subdomains/create-subdomain.html`. No service-role secret is involved and
 nothing was rotated.
+
+---
+
+## Unit 6 — Profile & Security hardening (migration 049)  ⚠️ order matters
+
+Branch `fix/profile-security-hardening`. Nothing applied or deployed.
+
+| # | Artifact | Action |
+|---|---|---|
+| 1 | `supabase/functions/verify-2fa/`, `supabase/functions/disable-2fa/` | deploy **first** |
+| 2 | frontend (`login.html`, `auth-client.js`, account pages, `assets/js/account/*`) | publish **second** |
+| 3 | `migrations/049_profile_security_hardening.sql` | apply **third** |
+
+**Why this order.** After (3) the TOTP secret and recovery codes live only in
+`user_mfa_secrets` and the `profiles` columns are always NULL. The functions in
+(1) read the new table and fall back to the old columns when it does not exist,
+so they are safe before (3). The old functions are not: applied first, (3)
+would make every 2FA login fail. The frontend in (2) no longer depends on
+reading `two_factor_secret` from the browser, so it also works on both sides of (3).
+
+Verify after (3):
+- `select two_factor_secret, recovery_codes from profiles where two_factor_enabled` → all NULL.
+- The one account with 2FA on can still sign in with its authenticator, and with a recovery code (which is then consumed).
+- A signed-in admin: `PATCH /rest/v1/profiles?id=eq.<other>` with `{"phone":"+20…"}` → 42501.
+- A suspended company owner: `PATCH /rest/v1/companies?id=eq.<own>` with `{"status":"active"}` → 42501.
+- `rpc/get_email_by_phone` with a local `010…` number finds the account.
+
+**Data touched by (3):** the 2FA secret/codes of accounts with 2FA on are moved
+(codes become SHA-256 hashes — they cannot be shown again), and
+`profiles.email` is set to `auth.users.email` where they differ (1 account on
+2026-09-22). Rollback steps are in the migration header.

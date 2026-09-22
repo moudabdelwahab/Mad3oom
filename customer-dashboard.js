@@ -12,7 +12,7 @@
 //   assets/js/customer/activity-model.js      سجل النشاط الآمن للعميل
 //
 // مفيش هنا أي منطق مكرر لحاجة ليها وحدة فوق — الملف ده تنسيق ورسم فقط.
-import { updateProfile, updatePassword } from './auth-client.js';
+import { mountAccountSettings } from './assets/js/account/account-settings.js';
 import { guardPage } from './assets/js/page-guard.js';
 import {
     initCustomerSidebar,
@@ -1779,49 +1779,16 @@ function meter(percent, tone = '') {
         if (!container) return;
         renderSkeletonLines(container, 5);
 
-        const [accountRes, tokensRes, activityRes] = await Promise.all([
-            snapshot?.account ? Promise.resolve(snapshot.account) : customerData.fetchAccountStatus(),
+        const [tokensRes, activityRes] = await Promise.all([
             customerData.fetchApiTokens(),
             customerData.fetchAccountActivity(40)
         ]);
 
-        if (!accountRes.ok) {
-            renderState(container, {
-                variant: 'error',
-                title: 'تعذّر تحميل بيانات الأمان',
-                text: 'تحقق من اتصالك ثم أعد المحاولة.',
-                action: { label: 'إعادة المحاولة', retry: 'security' }
-            });
-            return;
-        }
-
-        const p = accountRes.data || {};
-        const protections = [
-            dataRow({
-                label: 'التحقق بخطوتين (2FA)',
-                value: p.two_factor_enabled
-                    ? '<span class="pill status-resolved"><span class="pill-dot"></span>مفعّل</span>'
-                    : '<span class="pill status-neutral"><span class="pill-dot"></span>غير مفعّل</span>',
-                note: p.two_factor_enabled ? '' : 'تفعيله يحمي حسابك حتى لو تسرّبت كلمة المرور.'
-            }),
-            dataRow({
-                label: 'تنبيهات تيليجرام',
-                value: p.telegram_otp_enabled
-                    ? '<span class="pill status-resolved"><span class="pill-dot"></span>مفعّلة</span>'
-                    : '<span class="pill status-neutral">غير مفعّلة</span>',
-                note: p.telegram_username ? escapeHtml(`الحساب المرتبط: ${p.telegram_username}`) : ''
-            }),
-            dataRow({
-                label: 'آخر تغيير لكلمة المرور',
-                value: escapeHtml(p.last_password_change ? formatDate(p.last_password_change) : 'غير مسجَّل')
-            }),
-            dataRow({
-                label: 'حالة التوثيق',
-                value: p.is_verified
-                    ? '<span class="pill status-resolved"><span class="pill-dot"></span>موثّق</span>'
-                    : '<span class="pill status-neutral">غير موثّق</span>'
-            })
-        ].join('');
+        // حماية الحساب وكلمة المرور و2FA والجلسات والأجهزة: الوحدة الموحّدة
+        // نفسها المستخدمة في لوحتي الشركة والإدارة. تُركَّب في عنصر منفصل
+        // قبل إدراجه، فيظهر القسم كاملًا دفعة واحدة.
+        const accountEl = document.createElement('div');
+        await mountAccountSettings(accountEl, accountMountOptions('security'));
 
         // سجل الدخول من نفس allow-list سجل النشاط — فمفيش أحداث إدارية
         const loginEvents = toTimeline((activityRes.ok ? activityRes.data : []) || [], { limit: 40 })
@@ -1831,43 +1798,31 @@ function meter(percent, tone = '') {
         const tokens = tokensRes.ok ? (tokensRes.data || []) : [];
         const activeTokens = tokens.filter(t => t.is_active && !t.revoked_at);
 
-        container.innerHTML = `
-            <div class="split-grid">
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2 class="panel-title">حماية الحساب</h2>
-                            <p class="panel-subtitle">وسائل الحماية المفعّلة حالياً</p>
-                        </div>
-                        <a class="panel-link" href="/customer-security-settings.html">تعديل</a>
+        const rest = document.createElement('div');
+        rest.innerHTML = `
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">آخر عمليات الدخول</h2>
+                        <p class="panel-subtitle">لو فيه دخول مش أنت، غيّر كلمة المرور فوراً</p>
                     </div>
-                    <div class="data-rows">${protections}</div>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2 class="panel-title">آخر عمليات الدخول</h2>
-                            <p class="panel-subtitle">لو فيه دخول مش أنت، غيّر كلمة المرور فوراً</p>
-                        </div>
-                    </div>
-                    ${loginEvents.length ? `
-                        <div class="activity-timeline">
-                            ${loginEvents.map(item => `
-                                <div class="activity-item">
-                                    <span class="activity-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-                                    <div>
-                                        <div class="activity-text">${escapeHtml(item.label)}</div>
-                                        <div class="activity-time">${escapeHtml(timeAgo(item.createdAt))}${item.device ? ` · ${escapeHtml(item.device)}` : ''}</div>
-                                    </div>
-                                </div>`).join('')}
-                        </div>` : `
-                        <div class="state-block state-block--compact">
-                            <p class="state-title">لا يوجد سجل دخول محفوظ</p>
-                            <p class="state-text">ستظهر هنا عمليات الدخول إلى حسابك.</p>
-                        </div>`}
-                </section>
-            </div>
+                </div>
+                ${loginEvents.length ? `
+                    <div class="activity-timeline">
+                        ${loginEvents.map(item => `
+                            <div class="activity-item">
+                                <span class="activity-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                                <div>
+                                    <div class="activity-text">${escapeHtml(item.label)}</div>
+                                    <div class="activity-time">${escapeHtml(timeAgo(item.createdAt))}${item.device ? ` · ${escapeHtml(item.device)}` : ''}</div>
+                                </div>
+                            </div>`).join('')}
+                    </div>` : `
+                    <div class="state-block state-block--compact">
+                        <p class="state-title">لا يوجد سجل دخول محفوظ</p>
+                        <p class="state-text">ستظهر هنا عمليات الدخول إلى حسابك.</p>
+                    </div>`}
+            </section>
 
             <section class="panel">
                 <div class="panel-header">
@@ -1890,6 +1845,31 @@ function meter(percent, tone = '') {
                         <p class="state-text">مفاتيح API تُصدر من فريق الإدارة عند الحاجة لربط أنظمتك بالمنصة.</p>
                     </div>`}
             </section>`;
+
+        container.replaceChildren(accountEl, ...rest.children);
+    }
+
+    /**
+     * خيارات الوحدة الموحّدة. في التقمّص: الحساب المعروض هو العميل، والعرض
+     * للقراءة فقط — الجلسة جلسة الأدمن، وأي كتابة كانت ستقع على حسابه هو.
+     */
+    function accountMountOptions(section) {
+        return {
+            section,
+            userId: user.id,
+            email: isImpersonated ? (user.profile?.email || '') : (user.email || user.profile?.email || ''),
+            readOnly: isImpersonated,
+            readOnlyReason: 'impersonation',
+            notify: (msg, type) => ui.showToast(msg, type),
+            onAccountChanged: (account) => {
+                if (user.profile) Object.assign(user.profile, {
+                    full_name: account.full_name, phone: account.phone, avatar_url: account.avatar_url
+                });
+                updateSidebarUserInfo();
+                const heading = document.getElementById('overviewHeading');
+                if (heading && account.full_name) heading.textContent = `مرحباً، ${account.full_name}`;
+            }
+        };
     }
 
     /* =========================================================
@@ -1961,137 +1941,12 @@ function meter(percent, tone = '') {
     }
 
     /* =========================================================
-       قسم: الملف الشخصي
+       قسم: الملف الشخصي — الوحدة الموحّدة (assets/js/account)
     ========================================================= */
 
-    let profileBaseline = { full_name: '', phone: '', bio: '' };
-
     async function renderProfileSection() {
-        const result = snapshot?.account?.ok ? snapshot.account : await customerData.fetchAccountStatus();
-        if (!result.ok) return;
-
-        const profile = result.data || {};
-        profileBaseline = {
-            full_name: profile.full_name || '',
-            phone: profile.phone || '',
-            bio: profile.bio || ''
-        };
-
-        const nameInput = document.getElementById('profileFullName');
-        const phoneInput = document.getElementById('profilePhone');
-        const emailInput = document.getElementById('profileEmail');
-        const bioInput = document.getElementById('profileBio');
-        if (nameInput) nameInput.value = profileBaseline.full_name;
-        if (phoneInput) phoneInput.value = profileBaseline.phone;
-        if (bioInput) bioInput.value = profileBaseline.bio;
-        if (emailInput) emailInput.value = profile.email || user.email || '';
+        await mountAccountSettings(document.getElementById('accountProfileMount'), accountMountOptions('profile'));
     }
-
-    document.getElementById('profileForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (isGuest) return;
-
-        const nameInput = document.getElementById('profileFullName');
-        const phoneInput = document.getElementById('profilePhone');
-        const bioInput = document.getElementById('profileBio');
-        const saveBtn = document.getElementById('profileSaveBtn');
-
-        const fullName = nameInput.value.trim();
-        const phone = phoneInput.value.trim();
-        const bio = bioInput ? bioInput.value.trim() : profileBaseline.bio;
-
-        clearFieldError('profileFullName');
-        clearFieldError('profilePhone');
-
-        if (fullName.length < 3) {
-            showFieldError('profileFullName', 'الاسم يجب أن يكون 3 أحرف على الأقل');
-            return;
-        }
-        if (phone && !/^[\d+\-\s()]{7,20}$/.test(phone)) {
-            showFieldError('profilePhone', 'أدخل رقم هاتف صحيح');
-            return;
-        }
-        if (fullName === profileBaseline.full_name && phone === profileBaseline.phone && bio === profileBaseline.bio) {
-            ui.showToast('لا توجد تغييرات لحفظها', 'info');
-            return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'جاري الحفظ…';
-        try {
-            const { error } = await updateProfile({ full_name: fullName, phone: phone || null, bio });
-            if (error) throw new Error(error.message);
-
-            profileBaseline = { full_name: fullName, phone, bio };
-            if (user.profile) user.profile.full_name = fullName;
-            updateSidebarUserInfo();
-            const heading = document.getElementById('overviewHeading');
-            if (heading) heading.textContent = `مرحباً، ${fullName}`;
-            ui.showToast('تم حفظ بياناتك', 'success');
-        } catch (err) {
-            console.error('[Profile] update:', err);
-            ui.showToast(`تعذّر حفظ البيانات: ${err.message || 'خطأ غير متوقع'}`, 'error');
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'حفظ التغييرات';
-        }
-    });
-
-    document.getElementById('profileResetBtn')?.addEventListener('click', () => {
-        document.getElementById('profileFullName').value = profileBaseline.full_name;
-        document.getElementById('profilePhone').value = profileBaseline.phone;
-        const bioInput = document.getElementById('profileBio');
-        if (bioInput) bioInput.value = profileBaseline.bio;
-        clearFieldError('profileFullName');
-        clearFieldError('profilePhone');
-    });
-
-    document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (isGuest) return;
-
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        const saveBtn = document.getElementById('passwordSaveBtn');
-
-        clearFieldError('newPassword');
-        clearFieldError('confirmPassword');
-
-        if (newPassword.length < 8) {
-            showFieldError('newPassword', 'كلمة المرور يجب أن تكون 8 أحرف على الأقل');
-            return;
-        }
-        if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-            showFieldError('newPassword', 'يجب أن تحتوي كلمة المرور على حرف ورقم على الأقل');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            showFieldError('confirmPassword', 'كلمتا المرور غير متطابقتين');
-            return;
-        }
-
-        const confirmed = await ui.showConfirm(
-            'تحديث كلمة المرور؟',
-            'سيتم تغيير كلمة مرور حسابك. استخدم كلمة المرور الجديدة في تسجيل الدخول القادم.',
-            { confirmLabel: 'تحديث', cancelLabel: 'تراجع', type: 'warning' }
-        );
-        if (!confirmed) return;
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'جاري التحديث…';
-        try {
-            const { error } = await updatePassword(newPassword);
-            if (error) throw new Error(error.message);
-            document.getElementById('changePasswordForm').reset();
-            ui.showToast('تم تحديث كلمة المرور بنجاح', 'success');
-        } catch (err) {
-            console.error('[Profile] password:', err);
-            ui.showToast(`تعذّر تحديث كلمة المرور: ${err.message || 'خطأ غير متوقع'}`, 'error');
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'تحديث كلمة المرور';
-        }
-    });
 
     /* =========================================================
        إنشاء تذكرة + مساعدة استباقية

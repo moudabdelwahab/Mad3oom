@@ -1,9 +1,10 @@
 import { supabase } from './api-config.js';
 import { renderChatbotModeInto } from './assets/js/chatbot-mode-selector.js';
 
+// التحقق بخطوتين والأجهزة الموثوقة كانت منسوخة هنا بقواعد مختلفة (رموز
+// استعادة من Math.random، و HTML بلا هروب). صارت في قسم «الأمان» باللوحة
+// عبر الوحدة الموحّدة assets/js/account، وتبويب الأمان هنا رابط إليها.
 let currentUser = null;
-let currentSecret = null;
-let currentRecoveryCodes = [];
 
 /**
  * Initialize the customer settings modal
@@ -31,9 +32,6 @@ async function setupSettingsModalLogic() {
     const modal = document.getElementById('customerSettingsModal');
     const closeBtn = document.getElementById('closeSettingsModal');
     const closeFooterBtn = document.getElementById('closeSettingsBtn');
-    const setupModal = document.getElementById('setupModal');
-    const recoveryModal = document.getElementById('recoveryModal');
-
     if (!modal) return;
 
     // Get current user
@@ -45,17 +43,11 @@ async function setupSettingsModalLogic() {
 
     currentUser = user;
 
-    // Load user profile data
-    await loadUserProfile();
-
     // Setup tab switching
     setupTabSwitching();
 
     // Setup general settings
     setupGeneralSettings();
-
-    // Setup security settings
-    await setupSecuritySettings();
 
     // Close modal handlers
     if (closeBtn) {
@@ -73,58 +65,8 @@ async function setupSettingsModalLogic() {
         }
     });
 
-    // Close nested modals on outside click
-    if (setupModal) {
-        setupModal.addEventListener('click', (e) => {
-            if (e.target === setupModal) {
-                setupModal.classList.remove('active');
-            }
-        });
-    }
-
-    if (recoveryModal) {
-        recoveryModal.addEventListener('click', (e) => {
-            if (e.target === recoveryModal) {
-                recoveryModal.classList.remove('active');
-            }
-        });
-    }
-
-    // Close nested modals with buttons
-    document.getElementById('closeSetupModal')?.addEventListener('click', () => {
-        setupModal.classList.remove('active');
-    });
-
-    document.getElementById('closeRecoveryModal')?.addEventListener('click', () => {
-        recoveryModal.classList.remove('active');
-    });
-
-    document.getElementById('closeRecoveryBtn')?.addEventListener('click', () => {
-        recoveryModal.classList.remove('active');
-    });
-}
-
-/**
- * Load user profile data from Supabase
- */
-async function loadUserProfile() {
-    try {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
-
-        if (error) throw error;
-
-        // حقول الاسم/النبذة/البريد انتقلت لقسم "الملف الشخصي" في لوحة العميل،
-        // فما بقي هنا هو حالة التحقق بخطوتين فقط.
-        if (profile?.two_factor_enabled) {
-            updateTwoFaUI(true);
-        }
-    } catch (err) {
-        console.error('Error loading profile:', err);
-    }
+    // رابط تبويب الأمان يفتح القسم في نفس اللوحة، فتُغلق النافذة معه
+    document.getElementById('openSecuritySectionLink')?.addEventListener('click', () => closeSettingsModal());
 }
 
 /**
@@ -221,333 +163,6 @@ function setupGeneralSettings() {
             showAlert('تم تغيير السمة بنجاح', 'success');
         });
     });
-}
-
-/**
- * Setup account settings (profile and password)
- */
-/**
- * Setup security settings (2FA and trusted devices)
- */
-async function setupSecuritySettings() {
-    const setupTwoFaBtn = document.getElementById('setupTwoFaBtn');
-    const viewRecoveryCodesBtn = document.getElementById('viewRecoveryCodesBtn');
-    const disableTwoFaBtn = document.getElementById('disableTwoFaBtn');
-    const setupModal = document.getElementById('setupModal');
-
-    // Load 2FA status
-    await load2FAStatus();
-
-    // Load trusted devices
-    await loadTrustedDevices();
-
-    // Setup 2FA button
-    if (setupTwoFaBtn) {
-        setupTwoFaBtn.addEventListener('click', async () => {
-            try {
-                // Generate 2FA secret
-                const { data, error } = await supabase.functions.invoke('generate-2fa-secret');
-
-                if (error) throw error;
-
-                const { base32, otpauth_url } = data;
-                currentSecret = base32;
-                sessionStorage.setItem('temp_2fa_secret', base32);
-
-                // Display QR code and secret
-                document.getElementById('secretKeyDisplay').value = base32;
-                const qrContainer = document.getElementById('qrCodeContainer');
-                qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth_url)}" alt="QR Code">`;
-
-                // Reset steps
-                document.getElementById('setupStep1').style.display = 'block';
-                document.getElementById('setupStep2').style.display = 'none';
-                document.getElementById('verificationCode').value = '';
-
-                setupModal.classList.add('active');
-            } catch (err) {
-                console.error('Error generating 2FA secret:', err);
-                showAlert('فشل إنشاء التحقق بخطوتين', 'error');
-            }
-        });
-    }
-
-    // Verify and enable 2FA
-    document.getElementById('verifyAndEnableBtn')?.addEventListener('click', async () => {
-        const verifyBtn = document.getElementById('verifyAndEnableBtn');
-        const code = document.getElementById('verificationCode').value.trim();
-
-        if (code.length !== 6 || !/^\d{6}$/.test(code)) {
-            showAlert('يرجى إدخال رمز مكون من 6 أرقام', 'error');
-            return;
-        }
-
-        if (!currentSecret) {
-            showAlert('حدث خطأ، يرجى إعادة فتح نافذة الإعداد', 'error');
-            return;
-        }
-
-        try {
-            if (verifyBtn) {
-                verifyBtn.disabled = true;
-                verifyBtn.textContent = 'جاري التحقق...';
-            }
-
-            // ✅ اسم الفنكشن الصحيح هو "verify-2fa" (مش "verify-2fa-code")
-            // ✅ الحقل اللي بترجعه الفنكشن هو "verified" (مش "valid")
-            const { data, error } = await supabase.functions.invoke('verify-2fa', {
-                body: { code, tempSecret: currentSecret }
-            });
-
-            if (error || !data?.verified) {
-                throw new Error('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
-            }
-
-            // Generate recovery codes
-            const recoveryCodes = generateRecoveryCodes();
-            currentRecoveryCodes = recoveryCodes;
-
-            // Enable 2FA in database
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({
-                    two_factor_enabled: true,
-                    two_factor_secret: currentSecret,
-                    recovery_codes: recoveryCodes
-                })
-                .eq('id', currentUser.id);
-
-            if (updateError) throw updateError;
-
-            setupModal.classList.remove('active');
-            document.getElementById('verificationCode').value = '';
-            sessionStorage.removeItem('temp_2fa_secret');
-            await load2FAStatus();
-            showRecoveryCodes();
-            showAlert('تم تفعيل التحقق بخطوتين بنجاح', 'success');
-        } catch (err) {
-            console.error('Error enabling 2FA:', err);
-            showAlert(err.message || 'فشل تفعيل التحقق بخطوتين', 'error');
-        } finally {
-            if (verifyBtn) {
-                verifyBtn.disabled = false;
-                verifyBtn.textContent = 'تأكيد وتفعيل';
-            }
-        }
-    });
-
-    // View recovery codes
-    if (viewRecoveryCodesBtn) {
-        viewRecoveryCodesBtn.addEventListener('click', async () => {
-            try {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('recovery_codes')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (profile?.recovery_codes) {
-                    currentRecoveryCodes = profile.recovery_codes;
-                    showRecoveryCodes();
-                }
-            } catch (err) {
-                console.error('Error loading recovery codes:', err);
-                showAlert('فشل تحميل رموز الاستعادة', 'error');
-            }
-        });
-    }
-
-    // Disable 2FA
-    if (disableTwoFaBtn) {
-        disableTwoFaBtn.addEventListener('click', async () => {
-            if (!confirm('هل أنت متأكد من تعطيل التحقق بخطوتين؟ سيقلل هذا من أمان حسابك.')) {
-                return;
-            }
-
-            // إيقاف التحقق بخطوتين بقى محتاج إثبات امتلاك العامل الثاني:
-            // الجلسة وحدها مش دليل، لأن المهاجم اللي معاه كلمة السر بيبقى
-            // معاه جلسة صالحة وهو واقف عند شاشة إدخال الرمز.
-            const proofCode = prompt('لتعطيل التحقق بخطوتين، أدخل الرمز الحالي من تطبيق المصادقة (أو أحد رموز الاستعادة):');
-            if (!proofCode) return;
-            const trimmedProof = proofCode.trim();
-            const proof = /^\d{6}$/.test(trimmedProof)
-                ? { code: trimmedProof }
-                : { recoveryCode: trimmedProof };
-
-            try {
-                const { data: disableResult, error } = await supabase.functions.invoke('disable-2fa', {
-                    body: proof
-                });
-
-                if (error || !disableResult?.disabled) {
-                    throw new Error(disableResult?.error === 'too_many_attempts'
-                        ? 'تم تجاوز عدد المحاولات المسموح بها، حاول بعد قليل'
-                        : 'الرمز الذي أدخلته غير صحيح');
-                }
-
-                await load2FAStatus();
-                showAlert('تم تعطيل التحقق بخطوتين', 'success');
-            } catch (err) {
-                console.error('Error disabling 2FA:', err);
-                showAlert('فشل تعطيل التحقق بخطوتين', 'error');
-            }
-        });
-    }
-
-    // Copy secret button
-    document.getElementById('copySecretBtn')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(currentSecret);
-        const btn = document.getElementById('copySecretBtn');
-        btn.textContent = 'تم النسخ!';
-        setTimeout(() => {
-            btn.textContent = 'نسخ';
-        }, 2000);
-    });
-
-    // Print recovery codes
-    document.getElementById('printCodesBtn')?.addEventListener('click', () => {
-        window.print();
-    });
-
-    // Step navigation
-    document.getElementById('goToStep2')?.addEventListener('click', () => {
-        document.getElementById('setupStep1').style.display = 'none';
-        document.getElementById('setupStep2').style.display = 'block';
-    });
-
-    document.getElementById('backToStep1')?.addEventListener('click', () => {
-        document.getElementById('setupStep1').style.display = 'block';
-        document.getElementById('setupStep2').style.display = 'none';
-    });
-}
-
-/**
- * Load 2FA status
- */
-async function load2FAStatus() {
-    try {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('two_factor_enabled')
-            .eq('id', currentUser.id)
-            .single();
-
-        updateTwoFaUI(profile?.two_factor_enabled || false);
-    } catch (err) {
-        console.error('Error loading 2FA status:', err);
-    }
-}
-
-/**
- * Update 2FA UI based on status
- */
-function updateTwoFaUI(enabled) {
-    const statusIcon = document.getElementById('twoFaStatusIcon');
-    const statusTitle = document.getElementById('twoFaStatusTitle');
-    const statusDesc = document.getElementById('twoFaStatusDesc');
-    const setupBtn = document.getElementById('setupTwoFaBtn');
-    const managementSection = document.getElementById('twoFaManagementSection');
-
-    if (enabled) {
-        statusIcon.classList.remove('disabled');
-        statusIcon.classList.add('enabled');
-        statusIcon.style.background = 'rgba(46, 138, 58, 0.1)';
-        statusIcon.style.color = 'var(--color-success)';
-        statusTitle.textContent = 'التحقق بخطوتين مفعل';
-        statusDesc.textContent = 'حسابك محمي بالتحقق بخطوتين.';
-        setupBtn.style.display = 'none';
-        managementSection.style.display = 'block';
-    } else {
-        statusIcon.classList.add('disabled');
-        statusIcon.classList.remove('enabled');
-        statusIcon.style.background = 'rgba(217, 83, 79, 0.1)';
-        statusIcon.style.color = 'var(--color-danger)';
-        statusTitle.textContent = 'التحقق بخطوتين غير مفعل';
-        statusDesc.textContent = 'أضف طبقة أمان إضافية لحسابك لمنع الوصول غير المصرح به.';
-        setupBtn.style.display = 'inline-block';
-        managementSection.style.display = 'none';
-    }
-}
-
-/**
- * Load trusted devices
- */
-async function loadTrustedDevices() {
-    try {
-        // ✅ العمود الصحيح في جدول trusted_devices هو "last_login" (مش "last_used_at")
-        const { data: devices, error } = await supabase
-            .from('trusted_devices')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('last_login', { ascending: false });
-
-        if (error) throw error;
-
-        const devicesList = document.getElementById('trustedDevicesList');
-        if (!devicesList) return;
-
-        if (!devices || devices.length === 0) {
-            devicesList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">لا توجد أجهزة موثوقة</div>';
-            return;
-        }
-
-        devicesList.innerHTML = devices.map(device => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.75rem;">
-                <div style="flex: 1;">
-                    <h4 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text);">${device.device_name || 'جهاز بدون اسم'}</h4>
-                    <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر تسجيل دخول: ${device.last_login ? new Date(device.last_login).toLocaleString('ar-EG') : 'غير معروف'}</p>
-                </div>
-                <button onclick="window.removeDevice('${device.id}')" style="padding: 0.5rem 1rem; background: rgba(217, 83, 79, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">إزالة</button>
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Error loading trusted devices:', err);
-    }
-}
-
-/**
- * Remove device
- */
-window.removeDevice = async (deviceId) => {
-    if (!confirm('هل أنت متأكد من إزالة هذا الجهاز؟')) {
-        return;
-    }
-
-    try {
-        const { error } = await supabase
-            .from('trusted_devices')
-            .delete()
-            .eq('id', deviceId);
-
-        if (error) throw error;
-
-        await loadTrustedDevices();
-        showAlert('تم إزالة الجهاز بنجاح', 'success');
-    } catch (err) {
-        console.error('Error removing device:', err);
-        showAlert('فشل إزالة الجهاز', 'error');
-    }
-};
-
-/**
- * Generate recovery codes
- */
-function generateRecoveryCodes(count = 8) {
-    const codes = [];
-    for (let i = 0; i < count; i++) {
-        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-        codes.push(code);
-    }
-    return codes;
-}
-
-/**
- * Show recovery codes modal
- */
-function showRecoveryCodes() {
-    const grid = document.getElementById('recoveryCodesGrid');
-    grid.innerHTML = currentRecoveryCodes.map(code => `<div class="recovery-code">${code}</div>`).join('');
-    document.getElementById('recoveryModal').classList.add('active');
 }
 
 /**

@@ -519,8 +519,9 @@ test('كل قسم يعرض وظيفته الفعلية لا عنوانًا فا�
         customerTickets: '#customersTicketList',
         support:       '#companyTicketForm',        // فتح تذكرة داخل اللوحة
         notifications: '#companyNotificationList',
-        profile:       '#companyAccountForm',       // تعديل الملف الشخصي
-        security:      '#companyPasswordForm'       // تغيير كلمة المرور
+        // الوحدة الموحّدة (assets/js/account) نفسها المستخدمة في بوابة العميل
+        profile:       '#profileForm',              // تعديل الملف الشخصي
+        security:      '#acctPasswordForm'          // تغيير كلمة المرور
     };
 
     for (const [tab, selector] of Object.entries(marks)) {

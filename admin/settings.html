@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/account-settings.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script type="module" src="/ads-ticker.js"></script>
     <style>
@@ -427,7 +428,7 @@
 </a>
                 <a href="#device-management" class="nav-link">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-                    إدارة الأجهزة
+                    أمان حسابك
                 </a>
             </nav>
 
@@ -437,33 +438,10 @@
                 <section id="profile" class="settings-card">
                     <div class="card-header">
                         <h2>الملف الشخصي</h2>
-                        <button type="button" class="btn btn-primary btn-sm" id="saveProfileBtn">حفظ التغييرات</button>
                     </div>
                     <div class="card-body">
-                        <div class="avatar-section">
-                            <div class="avatar-preview" id="avatarPreview">A</div>
-                            <div>
-                                <input type="file" id="avatarInput" accept="image/*" style="display: none;">
-                                <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom: 0.5rem;" id="changeAvatarBtn">تغيير الصورة</button>
-                                <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin: 0;">يفضل صورة مربعة بحجم 400x400 بكسل على الأقل</p>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="fullName">الاسم الكامل</label>
-                                <input type="text" id="fullName" class="form-control" placeholder="أدخل اسمك الكامل">
-                            </div>
-                            <div class="form-group">
-                                <label for="email">البريد الإلكتروني</label>
-                                <input type="email" id="email" class="form-control" readonly>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="bio">نبذة تعريفية</label>
-                            <textarea id="bio" class="form-control" rows="4" placeholder="اكتب نبذة قصيرة عنك..."></textarea>
-                        </div>
+                        <!-- الوحدة الموحّدة (assets/js/account) — نفس منطق لوحتي العميل والشركة -->
+                        <div id="adminAccountProfile"></div>
                     </div>
                 </section>
 
@@ -727,9 +705,13 @@
                 <section id="platform-control" class="settings-card" style="display: none;">
                     <div class="card-header">
                         <h2>التحكم في المنصة</h2>
-                        <button type="button" class="btn btn-primary btn-sm" id="savePlatformBtn">حفظ الإعدادات</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="savePlatformBtn" title="القيم تُحفظ فقط ولا تُطبَّق">حفظ القيم (غير مطبّقة)</button>
                     </div>
                     <div class="card-body">
+                        <!-- PS-04: هذه القيم تُحفظ في advanced_settings ولا يقرؤها أي كود في المنصة -->
+                        <div class="policy-not-enforced" role="note" style="padding:.85rem 1rem;margin-bottom:1.25rem;border-radius:.75rem;border:1px solid var(--color-warning,#f5a623);background:rgba(245,166,35,.1);line-height:1.8;">
+                            <strong>غير مطبّقة حاليًا.</strong> مدة الجلسة، ومنع الجلسات المتعددة، وتقييد الدولة وعناوين IP تُحفظ كقيم فقط، ولا يفرضها أي جزء من المنصة بعد — تفعيل أي خيار هنا لا يغيّر شيئًا في الدخول أو الجلسات. لا تعتمد عليها كحماية.
+                        </div>
                         <div class="form-group">
                             <label for="sessionTimeout">مدة الجلسة (بالدقائق)</label>
                             <input type="number" id="sessionTimeout" class="form-control" value="30" min="5">
@@ -1095,9 +1077,13 @@
                 <section id="security-policies" class="settings-card" style="display: none;">
                     <div class="card-header">
                         <h2>سياسات الأمان والحسابات</h2>
-                        <button type="button" class="btn btn-primary btn-sm" id="saveSecurityBtn">حفظ السياسات</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="saveSecurityBtn" title="القيم تُحفظ فقط ولا تُطبَّق">حفظ القيم (غير مطبّقة)</button>
                     </div>
                     <div class="card-body">
+                        <!-- PS-04: هذه القيم تُحفظ في advanced_settings ولا يقرؤها أي كود في المنصة -->
+                        <div class="policy-not-enforced" role="note" style="padding:.85rem 1rem;margin-bottom:1.25rem;border-radius:.75rem;border:1px solid var(--color-warning,#f5a623);background:rgba(245,166,35,.1);line-height:1.8;">
+                            <strong>غير مطبّقة حاليًا.</strong> إجبار 2FA للمشرفين، وقفل الحساب بعد المحاولات الفاشلة، وقوة كلمة المرور ومدة تغييرها تُحفظ كقيم فقط، ولا يفرضها أي جزء من المنصة بعد — تفعيل أي خيار هنا لا يغيّر شيئًا في الدخول أو الجلسات. لا تعتمد عليها كحماية.
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="passwordChangeInterval">تغيير كلمة المرور إجبارياً (يوم)</label>
@@ -1504,18 +1490,13 @@
                     </div>
                 </section>
 
-                <!-- Device Management Section -->
+                <!-- أمان الحساب الشخصي: كلمة المرور و2FA والجلسات والأجهزة الموثوقة -->
                 <section id="device-management" class="settings-card" style="display: none;">
                     <div class="card-header">
-                        <h2>إدارة الأجهزة والجلسات النشطة</h2>
-                        <button type="button" class="btn btn-danger btn-sm" id="logoutAllDevicesBtn">تسجيل الخروج من جميع الأجهزة</button>
+                        <h2>أمان حسابك</h2>
                     </div>
                     <div class="card-body">
-                        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">قائمة بجميع الأجهزة التي سجلت الدخول إلى حسابك مؤخراً</p>
-                        
-                        <div id="activeDevicesList">
-                            <p style="text-align: center; padding: 1rem;">جاري تحميل الأجهزة...</p>
-                        </div>
+                        <div id="adminAccountSecurity"></div>
                     </div>
                 </section>
             </div>

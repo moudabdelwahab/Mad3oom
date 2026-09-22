@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/account-settings.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script>
         /* يعمل قبل أول رسم: يضبط الثيم وحالة طي القائمة معاً، فلا يحدث وميض
@@ -317,9 +318,6 @@
                     <h1 id="securityHeading">الأمان</h1>
                     <p class="page-subtitle">حالة حماية حسابك وآخر عمليات الدخول إليه.</p>
                 </div>
-                <div class="page-topbar-actions">
-                    <a class="btn btn-secondary" href="/customer-security-settings.html">إعدادات الأمان الكاملة</a>
-                </div>
             </div>
             <div id="securityBody">
                 <div class="skeleton skeleton-card"></div>
@@ -439,70 +437,7 @@
                 </div>
             </div>
 
-            <div class="split-grid">
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2 class="panel-title">البيانات الشخصية</h2>
-                            <p class="panel-subtitle">تظهر هذه البيانات لفريق الدعم عند التعامل مع تذاكرك</p>
-                        </div>
-                    </div>
-                    <form id="profileForm" novalidate>
-                        <div class="form-grid">
-                            <div class="form-field">
-                                <label for="profileFullName">الاسم الكامل</label>
-                                <input type="text" id="profileFullName" class="form-control" autocomplete="name">
-                                <p class="field-error u-hidden" id="profileFullNameError"></p>
-                            </div>
-                            <div class="form-field">
-                                <label for="profilePhone">رقم الهاتف</label>
-                                <input type="tel" id="profilePhone" class="form-control" autocomplete="tel" inputmode="tel">
-                                <p class="field-error u-hidden" id="profilePhoneError"></p>
-                            </div>
-                            <div class="form-field is-full">
-                                <label for="profileEmail">البريد الإلكتروني</label>
-                                <input type="email" id="profileEmail" class="form-control" disabled autocomplete="email">
-                                <p class="field-hint">لتغيير البريد الإلكتروني، افتح تذكرة دعم — التغيير يتم بمراجعة من الفريق حفاظاً على أمان حسابك.</p>
-                            </div>
-                            <div class="form-field is-full">
-                                <label for="profileBio">نبذة عنك</label>
-                                <textarea id="profileBio" class="form-control" rows="3" maxlength="500" placeholder="نبذة مختصرة (اختياري)"></textarea>
-                            </div>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary" id="profileSaveBtn">حفظ التغييرات</button>
-                            <button type="button" class="btn btn-secondary" id="profileResetBtn">تراجع</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2 class="panel-title">كلمة المرور</h2>
-                            <p class="panel-subtitle">استخدم كلمة مرور قوية لا تستخدمها في مواقع أخرى</p>
-                        </div>
-                    </div>
-                    <form id="changePasswordForm" novalidate>
-                        <div class="form-grid">
-                            <div class="form-field is-full">
-                                <label for="newPassword">كلمة المرور الجديدة</label>
-                                <input type="password" id="newPassword" class="form-control" autocomplete="new-password">
-                                <p class="field-hint">8 أحرف على الأقل، وتحتوي على حرف ورقم.</p>
-                                <p class="field-error u-hidden" id="newPasswordError"></p>
-                            </div>
-                            <div class="form-field is-full">
-                                <label for="confirmPassword">تأكيد كلمة المرور</label>
-                                <input type="password" id="confirmPassword" class="form-control" autocomplete="new-password">
-                                <p class="field-error u-hidden" id="confirmPasswordError"></p>
-                            </div>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary" id="passwordSaveBtn">تحديث كلمة المرور</button>
-                        </div>
-                    </form>
-                </section>
-            </div>
+            <div id="accountProfileMount"></div>
         </section>
     </main>
 

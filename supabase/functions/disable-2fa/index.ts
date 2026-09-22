@@ -93,14 +93,48 @@ async function getAuthenticatedUserId(authHeader: string | null): Promise<string
   }
 }
 
+/** SHA-256 hex of a normalised recovery code — same as public.hash_recovery_code(). */
+async function hashRecoveryCode(code: string): Promise<string> {
+  const bytes = new TextEncoder().encode(String(code).trim().toUpperCase());
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * 2FA state for the caller. Since migration 049 the secret and the recovery
+ * code hashes live in user_mfa_secrets (service role only) and the profiles
+ * columns are always NULL. Before that migration the table does not exist, so
+ * we fall back to the old columns — which is what lets this function ship first.
+ */
 async function getProfile(userId: string) {
+  const headers = { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` };
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=two_factor_enabled,two_factor_secret,recovery_codes`,
-    { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } }
+    { headers }
   );
   if (!res.ok) throw new Error("profile_lookup_failed");
   const rows = await res.json();
-  return rows?.[0] || null;
+  const profile = rows?.[0];
+  if (!profile) return null;
+
+  const priv = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_mfa_secrets?user_id=eq.${userId}&select=totp_secret,recovery_code_hashes`,
+    { headers }
+  );
+  const row = priv.ok ? (await priv.json())?.[0] : null;
+  if (row?.totp_secret) {
+    return {
+      two_factor_enabled: profile.two_factor_enabled,
+      two_factor_secret: row.totp_secret as string,
+      recoveryHashes: (Array.isArray(row.recovery_code_hashes) ? row.recovery_code_hashes : []) as string[],
+    };
+  }
+  const legacy: string[] = Array.isArray(profile.recovery_codes) ? profile.recovery_codes : [];
+  return {
+    two_factor_enabled: profile.two_factor_enabled,
+    two_factor_secret: profile.two_factor_secret as string | null,
+    recoveryHashes: await Promise.all(legacy.map(hashRecoveryCode)),
+  };
 }
 
 async function getRateLimit(userId: string) {
@@ -207,10 +241,9 @@ Deno.serve(async (req) => {
         }
       }
     } else if (recoveryCode) {
-      const stored: string[] = Array.isArray(profile.recovery_codes) ? profile.recovery_codes : [];
-      const supplied = String(recoveryCode).trim().toUpperCase();
-      for (const candidate of stored) {
-        if (constantTimeEquals(String(candidate).trim().toUpperCase(), supplied)) {
+      const supplied = await hashRecoveryCode(String(recoveryCode));
+      for (const candidate of profile.recoveryHashes) {
+        if (constantTimeEquals(candidate, supplied)) {
           verified = true;
           usedRecoveryCode = candidate;
           break;
