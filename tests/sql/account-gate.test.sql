@@ -78,11 +78,22 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
   SELECT EXISTS (SELECT 1 FROM public.platform_authority a
                   WHERE a.user_id = auth.uid() AND a.level = 'owner'); $$;
 
--- حدّ معدّل الطلبات: نسخة اختبار تسمح دائمًا. سلوك الحدّ نفسه ليس موضوع
--- هذا الملف؛ الموضوع هو أن العضوية تُثبَت في القاعدة.
+-- حدّ معدّل الطلبات: نسخة اختبار تسمح دائمًا **لكنها تكتب**، تمامًا كالأصل.
+--
+-- الكتابة هنا ليست تفصيلًا تجميليًا: كانت النسخة الأولى من هذا البديل دالةً
+-- خالصة `SELECT true`، فكان اختبار دخول عضو الشركة يمرّ بينما المسار مكسور
+-- في الإنتاج. الأصل يسجّل كل محاولة، وهذا التسجيل هو ما جعل الدالة المنادية
+-- كاتبةً على بُعد نداء واحد — وهو بالضبط ما فجّر 25006.
+CREATE TABLE public.email_lookup_attempts (
+  key text, attempted_at timestamptz DEFAULT now());
+
 CREATE OR REPLACE FUNCTION public._check_email_lookup_rate_limit(
   p_key text, p_max int, p_window int)
-RETURNS boolean LANGUAGE sql AS $$ SELECT true; $$;
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  INSERT INTO public.email_lookup_attempts (key) VALUES (p_key);
+  RETURN true;
+END; $$;
 
 -- ── الترحيل تحت الاختبار ──────────────────────────────────────────────────
 \i migrations/042_account_gate.sql
@@ -425,6 +436,34 @@ BEGIN
   IF v_suspended IS NOT NULL THEN RAISE EXCEPTION 'FAIL 7B: شركة موقوفة سجّلت عضوًا'; END IF;
   IF v_missing   IS NOT NULL THEN RAISE EXCEPTION 'FAIL 7B: شركة غير موجودة أعادت بريدًا'; END IF;
   RAISE NOTICE 'PASS 7B: الشركة الموقوفة وغير الموجودة لا تُمرِّران أحدًا';
+END $$;
+
+-- ولا تُصنَّف الدالة STABLE أبدًا. هذا ليس تدقيقًا في الأسلوب:
+-- PostgREST يختار نوع المعاملة من تصنيف الدالة، فيشغّل STABLE في معاملة
+-- read-only. والدالة تكتب — لا في جسدها بل داخل حدّ المعدّل الذي تناديه —
+-- فكانت كل محاولة دخول لعضو شركة تسقط بـ:
+--     cannot execute INSERT in a read-only transaction   (SQLSTATE 25006)
+-- الضابط على التصنيف لا على السلوك عمدًا: السبب في التصنيف، وفحص السلوك
+-- داخل معاملة read-only كان سيفشل بعد الإصلاح أيضًا لأنه يفرض ما يختاره
+-- PostgREST بنفسه.
+DO $$
+DECLARE v_vol "char"; v_writes boolean;
+BEGIN
+  SELECT p.provolatile INTO v_vol
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname='public' AND p.proname='resolve_company_member_login';
+
+  IF v_vol <> 'v' THEN
+    RAISE EXCEPTION 'FAIL 7C: resolve_company_member_login مصنّفة % لا VOLATILE — دخول عضو الشركة سيسقط بـ25006', v_vol;
+  END IF;
+
+  -- وحدّ المعدّل سجّل فعلًا، فالاعتماد الكاتب قائم لا مُتخيَّل.
+  SELECT count(*) > 0 INTO v_writes FROM public.email_lookup_attempts;
+  IF NOT v_writes THEN
+    RAISE EXCEPTION 'FAIL 7C: حدّ المعدّل لم يكتب شيئًا — الاختبار فقد معناه';
+  END IF;
+
+  RAISE NOTICE 'PASS 7C: الدالة VOLATILE، فلا معاملة read-only ولا 25006';
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════

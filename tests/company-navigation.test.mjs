@@ -297,7 +297,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         تُدمج بـAND فوق السياسات القائمة على 17 جدول بيانات عميل —
     //         بلا تعديل سياسة واحدة قائمة، والتراجع حذفها وحدها.
     //         مقيسٌ في tests/sql/account-gate.test.sql.
- main
+    //
+    //   043..048 — وصلت عبر طلبات دمج أخرى، وسببُ كلٍّ منها موثَّق في طلبه:
+    //         043_api_token_mutation_guard · 043_blog ·
+    //         044_site_errors_status_integrity · 045_whatsapp_send_billing_settings ·
+    //         046_otp_verification_hardening · 047_forum_author_identity ·
+    //         048_mcp_per_account_isolation.
+    //         لا أنسب لها هنا تبريرًا لم أكتبه؛ الشرَك يحرس الرقم، والتبرير
+    //         مكانه طلب الدمج الذي أدخل الترحيل.
+    assert.equal(migrations[migrations.length - 1], '048_mcp_per_account_isolation.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
