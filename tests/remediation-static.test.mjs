@@ -325,8 +325,8 @@ test('the operational migration checklist is committed alongside the code', () =
 
 // ── Deferred items must remain untouched ────────────────────────────────────
 
-// The branch point. Everything this work added sits between BASE and HEAD, so
-// diffing that range is what actually proves a deferred file was left alone.
+// The branch point. On a feature branch everything the branch added sits
+// between BASE and HEAD, so that range witnesses "this checkout has changes".
 // `git diff HEAD` compares the worktree to the last commit and is empty the
 // moment anything is committed — it proves nothing, which is what the previous
 // version of this test did.
@@ -361,8 +361,35 @@ function addedIn(file) {
   return commits[0]; // most recent add
 }
 
+/**
+ * A commit range that is non-empty in **every** checkout.
+ *
+ * The sanity assert below exists to prove changedSince() can return a
+ * non-empty list — otherwise a green result means nothing, because a
+ * predicate over an always-empty list passes for free.
+ *
+ * But BASE..HEAD is empty **by definition** on main: there merge-base(HEAD,
+ * origin/main) *is* HEAD, so the range holds no commits. The assert was
+ * written for a feature branch and used unconditionally, so every push-to-main
+ * run failed on the sanity line alone — a red CI on each merge that said
+ * nothing whatever about the invariant being guarded. The invariant itself
+ * was never involved: it diffs from each file's own add commit, not from BASE.
+ *
+ * So: prefer the branch range when there is one, and fall back to the newest
+ * commit's own diff, which is non-empty in any repository with history.
+ */
+function sanityWitness() {
+  const onBranch = changedSince(BASE);
+  if (onBranch.length > 0) return { range: `${BASE}..HEAD`, changed: onBranch };
+
+  const previous = execFileSync('git', ['rev-parse', 'HEAD~1'], { cwd: ROOT, encoding: 'utf8' }).trim();
+  return { range: `${previous}..HEAD`, changed: changedSince(previous) };
+}
+
 test('the deferred files are byte-unchanged since they were mirrored', () => {
-  assert.ok(changedSince(BASE).length > 0, 'sanity: the branch must actually contain changes');
+  const witness = sanityWitness();
+  assert.ok(witness.changed.length > 0,
+    `sanity: ${witness.range} must report changes, otherwise the checks below are vacuous`);
   for (const f of DEFERRED) {
     const changed = changedSince(addedIn(f));
     assert.ok(!changed.includes(f),
