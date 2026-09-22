@@ -1319,3 +1319,31 @@ test('نموذج الملف الشخصي ما زال يحفظ ويتحقق', { s
     assert.equal(call[1].full_name, 'الاسم المحدَّث');
     await context.close();
 });
+
+/* ==================== PS-17) التقمّص لا يكتب على حساب الأدمن ==================== */
+
+test('في وضع «الدخول كعضو» الملف الشخصي والأمان للعميل المستهدف وللقراءة فقط', { skip: !chromiumPath }, async () => {
+    const TARGET = '99999999-9999-4999-8999-999999999999';
+    const fx = fixtures();
+    fx.tables.profiles.push({
+        id: TARGET, email: 'target@example.com', full_name: 'العميل المستهدف', phone: '+201000000009',
+        role: 'user', created_at: '2026-01-01T00:00:00Z', two_factor_enabled: false, telegram_otp_enabled: false
+    });
+    fx.authUser = {
+        id: TARGET, isImpersonated: true, impersonatorId: USER_ID, impersonatorEmail: 'client@example.com',
+        profile: { id: TARGET, full_name: 'العميل المستهدف', email: 'target@example.com', role: 'user' }
+    };
+
+    for (const hash of ['#profile', '#security']) {
+        const { page, context } = await openDashboard(browser, baseUrl, fx, { hash });
+        const sel = hash === '#profile' ? '#accountProfileMount' : '#securityBody';
+        await page.waitForSelector(`${sel} .acct-banner`);
+        const text = await page.textContent(sel);
+        assert.match(text, /للقراءة فقط/);
+        if (hash === '#profile') assert.match(text, /العميل المستهدف/);
+        assert.equal(await page.locator(`${sel} .acct-root form, ${sel} .acct-root input`).count(), 0,
+            `${hash}: نموذج كتابة ظهر أثناء التقمّص`);
+        assert.equal((await page.evaluate(() => window.__CALLS__ || [])).filter(c => c[0] === 'updateProfile').length, 0);
+        await context.close();
+    }
+});

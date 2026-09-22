@@ -1,0 +1,97 @@
+/*
+ * account-settings.css — تخطيط وحدة «الملف الشخصي والأمان» فقط.
+ *
+ * الألوان والخطوط والأزرار والحقول تأتي من اللوحة المضيفة (متغيّرات
+ * --color-* وأصناف panel / form-control / btn)، فتبقى كل لوحة بشكلها.
+ * ما هنا: شبكة، وحالات، وأصناف لا تملكها كل اللوحات (مثل u-hidden في الإدارة).
+ */
+
+.acct-root .u-hidden { display: none !important; }
+
+.acct-root { display: flex; flex-direction: column; gap: 1rem; }
+
+.acct-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+.acct-root .acct-card { margin: 0; }
+.acct-root .panel:not(.acct-card) { margin: 0; }
+
+/* اللوحات التي لا تعرّف .panel (الإدارة) تحصل على بطاقة بسيطة */
+.acct-root .acct-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, rgba(0, 0, 0, .08));
+    border-radius: 1rem;
+    padding: 1.25rem;
+    min-width: 0;
+}
+
+.acct-root .panel-header { margin-bottom: .75rem; }
+.acct-root .panel-title { margin: 0; font-size: 1.05rem; }
+.acct-root .panel-subtitle { margin: .25rem 0 0; color: var(--color-text-secondary, #667); font-size: .9rem; line-height: 1.7; }
+
+.acct-root .form-grid { display: grid; gap: .75rem; }
+.acct-root .form-field { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.acct-root .form-field label { font-weight: 600; font-size: .9rem; }
+.acct-root .field-hint { margin: 0; font-size: .82rem; color: var(--color-text-secondary, #667); line-height: 1.6; }
+.acct-root .field-error { margin: 0; font-size: .82rem; color: var(--color-danger, #c62828); line-height: 1.6; }
+.acct-root .form-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+
+.acct-status { margin: .5rem 0 0; font-size: .88rem; line-height: 1.6; color: var(--color-success, #2e7d32); }
+.acct-status[data-tone="error"] { color: var(--color-danger, #c62828); }
+.acct-status[data-tone="info"] { color: var(--color-text-secondary, #667); }
+
+.acct-banner {
+    padding: .85rem 1rem;
+    border-radius: .75rem;
+    border: 1px solid var(--color-warning, #f5a623);
+    background: color-mix(in srgb, var(--color-warning, #f5a623) 12%, transparent);
+    line-height: 1.7;
+}
+
+.acct-avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.acct-avatar {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: grid; place-items: center; overflow: hidden; flex: none;
+    background: var(--color-muted, #eef1f5);
+    font-size: 1.5rem; font-weight: 700;
+}
+.acct-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+
+.acct-facts { display: grid; gap: .75rem; margin: 0; }
+.acct-facts > div { display: grid; grid-template-columns: minmax(120px, 34%) 1fr; gap: .5rem; align-items: start; }
+.acct-facts dt { font-weight: 600; font-size: .9rem; }
+.acct-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .acct-facts > div { grid-template-columns: 1fr; } }
+
+.acct-root .pill { display: inline-block; padding: .2rem .65rem; border-radius: 999px; font-size: .82rem; font-weight: 600; }
+.acct-root .status-neutral { background: var(--color-muted, #eef1f5); color: var(--color-text-secondary, #556); }
+.acct-root .status-pending { background: color-mix(in srgb, var(--color-warning, #f5a623) 18%, transparent); color: inherit; }
+
+.acct-steps { margin: 0 0 1rem; padding-inline-start: 1.25rem; display: grid; gap: .75rem; line-height: 1.7; }
+.acct-qr { width: 180px; max-width: 100%; margin: .5rem 0; background: #fff; padding: 6px; border-radius: .5rem; }
+.acct-qr svg { display: block; width: 100%; height: auto; }
+.acct-secret { display: inline-block; direction: ltr; overflow-wrap: anywhere; font-size: .9rem; padding: .25rem .5rem; border-radius: .4rem; background: var(--color-muted, #eef1f5); }
+
+.acct-recovery {
+    border: 1px dashed var(--color-warning, #f5a623);
+    border-radius: .75rem; padding: 1rem; margin-bottom: 1rem; line-height: 1.7;
+}
+.acct-code-grid { list-style: none; margin: .75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
+.acct-code-grid code { display: block; text-align: center; direction: ltr; padding: .4rem; border-radius: .4rem; background: var(--color-muted, #eef1f5); letter-spacing: .05em; }
+
+.acct-devices { list-style: none; margin: .75rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.acct-device {
+    display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+    padding: .75rem; border-radius: .75rem; border: 1px solid var(--color-border, rgba(0, 0, 0, .08));
+}
+.acct-device > div { min-width: 0; }
+
+@media print {
+    body * { visibility: hidden; }
+    #acctRecoveryCodes, #acctRecoveryCodes * { visibility: visible; }
+    #acctRecoveryCodes { position: absolute; inset: 0; }
+}

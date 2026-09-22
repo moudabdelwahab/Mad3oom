@@ -3,6 +3,7 @@ import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { logActivity } from '/activity-service.js';
 import * as apiIntegrations from './api-integrations.js';
+import { mountAccountSettings } from '/assets/js/account/account-settings.js';
 let user = null;
 let currentSettings = {};
 let allRoles = [];
@@ -20,19 +21,13 @@ async function init() {
 
 async function loadAllSettings() {
     try {
-        // 1. Load Profile Data
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-        if (profileError) throw profileError;
-
-        document.getElementById('fullName').value = profile.full_name || '';
-        document.getElementById('email').value = user.email || '';
-        document.getElementById('bio').value = profile.bio || '';
-        updateAvatarUI(profile.full_name, profile.avatar_url);
+        // 1. الملف الشخصي وأمان الحساب: الوحدة الموحّدة المستخدمة في لوحتي
+        //    العميل والشركة. إعدادات المنصة أدناه منفصلة عنها عمدًا.
+        const onAccountChanged = (account) => updateAdminUI({ ...user, profile: { ...(user.profile || {}), ...account } });
+        mountAccountSettings(document.getElementById('adminAccountProfile'),
+            { section: 'profile', email: user.email, notify: showAlert, onAccountChanged });
+        mountAccountSettings(document.getElementById('adminAccountSecurity'),
+            { section: 'security', email: user.email, notify: showAlert, onAccountChanged });
 
         // 2. Load Platform Control Settings
         const { data: platformSettings } = await supabase
@@ -187,7 +182,6 @@ await apiIntegrations.loadExternalIntegrations(showAlert);
         await loadRules();
         await loadCustomRoles();
         await loadUsers();
-        await loadActiveDevices();
 
         // 12. Load new admin feature settings
         await loadBranding();
@@ -735,10 +729,6 @@ function setupEventListeners() {
             }
         });
 
-        // Load section specific data if needed
-        if (targetId === 'device-management') {
-            loadActiveDevices();
-        }
     };
 
     // Listen for hash changes
@@ -763,26 +753,6 @@ function setupEventListeners() {
     });
 
     // Save Buttons
-    document.getElementById('saveProfileBtn')?.addEventListener('click', saveProfile);
-    
-    document.getElementById('changeAvatarBtn')?.addEventListener('click', () => {
-        document.getElementById('avatarInput').click();
-    });
-
-    document.getElementById('avatarInput')?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Preview local image
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const preview = document.getElementById('avatarPreview');
-            if (preview) {
-                preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-            }
-        };
-        reader.readAsDataURL(file);
-    });
     
     document.getElementById('savePlatformBtn')?.addEventListener('click', () => {
         const settings = {
@@ -885,19 +855,6 @@ document.getElementById('integrationProvider')?.addEventListener('change', (e) =
 document.getElementById('defaultAiProviderSelect')?.addEventListener('change', () =>
     apiIntegrations.saveDefaultAiProvider(showAlert)
 );
-    document.getElementById('logoutAllDevicesBtn')?.addEventListener('click', async () => {
-        if (confirm('هل أنت متأكد من رغبتك في تسجيل الخروج من جميع الأجهزة الأخرى؟')) {
-            try {
-                const { error } = await supabase.auth.signOut({ scope: 'others' });
-                if (error) throw error;
-                showAlert('تم تسجيل الخروج من جميع الأجهزة الأخرى بنجاح', 'success');
-                loadActiveDevices();
-            } catch (err) {
-                console.error('Error logging out other devices:', err);
-                showAlert('حدث خطأ أثناء تسجيل الخروج', 'error');
-            }
-        }
-    });
 
     // Roles & Users
     document.getElementById('addRoleBtn')?.addEventListener('click', () => {
@@ -1010,73 +967,6 @@ document.getElementById('defaultAiProviderSelect')?.addEventListener('change', (
         reader.onload = (ev) => { document.getElementById('brandFaviconPreview').src = ev.target.result; };
         reader.readAsDataURL(file);
     });
-}
-
-async function saveProfile() {
-    const btn = document.getElementById('saveProfileBtn');
-    const avatarInput = document.getElementById('avatarInput');
-    setLoading(btn, true);
-    
-    try {
-        let avatarUrl = null;
-
-        // 1. Handle Avatar Upload if a new file is selected
-        if (avatarInput.files && avatarInput.files[0]) {
-            const file = avatarInput.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}/${Math.random()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file, { upsert: true });
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-            
-            avatarUrl = publicUrl;
-        }
-
-        // 2. Prepare Updates
-        const updates = {
-            full_name: document.getElementById('fullName').value,
-            bio: document.getElementById('bio').value,
-            updated_at: new Date()
-        };
-
-        if (avatarUrl) {
-            updates.avatar_url = avatarUrl;
-        }
-
-        // 3. Save to Profiles
-        const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-        if (error) throw error;
-
-        // 4. Update UI
-        showAlert('تم تحديث الملف الشخصي بنجاح', 'success');
-        
-        // Fetch fresh profile to ensure updateAdminUI has all data
-        const { data: updatedProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-        updateAdminUI({ ...user, profile: updatedProfile });
-        updateAvatarUI(updatedProfile.full_name, updatedProfile.avatar_url);
-        
-        // Clear file input
-        avatarInput.value = '';
-        
-    } catch (error) {
-        console.error('Update error:', error);
-        showAlert('خطأ في التحديث: ' + error.message, 'error');
-    } finally {
-        setLoading(btn, false);
-    }
 }
 
 // يعرض الوضع المطبَّق فعليًا حسب ما هو مقروء من قاعدة البيانات، مش حسب
@@ -1470,69 +1360,6 @@ async function editRule(id) {
     }
 }
 
-async function loadActiveDevices() {
-    const container = document.getElementById('activeDevicesList');
-    if (!container) return;
-
-    try {
-        const { data: devices, error } = await supabase
-            .from('trusted_devices')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('last_login', { ascending: false });
-
-        if (error) throw error;
-
-        if (!devices || devices.length === 0) {
-            container.innerHTML = '<p style="text-align: center; padding: 1rem;">لا توجد أجهزة موثوقة مسجلة حالياً.</p>';
-            return;
-        }
-
-        container.innerHTML = devices.map(device => {
-            const isMobile = /Mobile|Android|iPhone/i.test(device.device_name || '');
-            return `
-                <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.75rem; margin-bottom: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <div style="width: 40px; height: 40px; background: var(--color-surface); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); border: 1px solid var(--color-border);">
-                            ${isMobile ? '📱' : '💻'}
-                        </div>
-                        <div>
-                            <h4 style="margin: 0; font-size: 1rem;">${device.device_name || 'جهاز غير معروف'}</h4>
-                            <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">آخر ظهور: ${new Date(device.last_login).toLocaleString('ar-EG')}</p>
-                        </div>
-                    </div>
-                    <button class="btn btn-danger btn-sm" onclick="removeDevice('${device.id}')">حذف</button>
-                </div>
-            `;
-        }).join('');
-    } catch (err) {
-        console.error('Error loading devices:', err);
-        container.innerHTML = '<p style="text-align: center; padding: 1rem; color: var(--color-danger);">فشل تحميل قائمة الأجهزة.</p>';
-    }
-}
-
-window.removeDevice = async (deviceId) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الجهاز؟')) return;
-    try {
-        const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
-        if (error) throw error;
-        showAlert('تم حذف الجهاز بنجاح', 'success');
-        loadActiveDevices();
-    } catch (error) {
-        showAlert('خطأ في الحذف: ' + error.message, 'error');
-    }
-};
-
-function getBrowserName(ua) {
-    if (ua.includes("Firefox")) return "Firefox";
-    if (ua.includes("SamsungBrowser")) return "Samsung Browser";
-    if (ua.includes("Opera") || ua.includes("OPR")) return "Opera";
-    if (ua.includes("Edge")) return "Edge";
-    if (ua.includes("Chrome")) return "Chrome";
-    if (ua.includes("Safari")) return "Safari";
-    return "متصفح غير معروف";
-}
-
 function renderWorkingHours() {
     const container = document.getElementById('workingHoursContainer');
     if (!container) return;
@@ -1580,17 +1407,6 @@ function renderWorkingHours() {
             label.textContent = isWorking ? 'مفتوح' : 'مغلق';
         });
     });
-}
-
-function updateAvatarUI(name, url) {
-    const preview = document.getElementById('avatarPreview');
-    if (!preview) return;
-
-    if (url) {
-        preview.innerHTML = `<img src="${url}" alt="${name}">`;
-    } else {
-        preview.textContent = (name || 'A')[0].toUpperCase();
-    }
 }
 
 function showAlert(message, type = 'success') {

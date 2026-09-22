@@ -65,6 +65,13 @@ async function generateTOTP(secretBytes: Uint8Array, counter: number): Promise<s
  * Same shape as get-attachment-url; deliberately no supabase-js import, since
  * this function has always been dependency-free.
  */
+function constantTimeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function getAuthenticatedUserId(authHeader: string | null): Promise<string | null> {
   if (!authHeader) return null;
   try {
@@ -79,6 +86,26 @@ async function getAuthenticatedUserId(authHeader: string | null): Promise<string
   }
 }
 
+const serviceHeaders = {
+  apikey: SERVICE_ROLE_KEY,
+  Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+};
+
+/** SHA-256 hex of a normalised recovery code — same as public.hash_recovery_code(). */
+async function hashRecoveryCode(code: string): Promise<string> {
+  const bytes = new TextEncoder().encode(String(code).trim().toUpperCase());
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+type StoredMfa = {
+  secret: string;
+  /** hashes of the unused recovery codes */
+  recoveryHashes: string[];
+  source: "private" | "legacy";
+  legacyCodes?: string[];
+};
+
 /**
  * The enrolled TOTP secret for this user, or null when 2FA is not yet set up.
  *
@@ -86,21 +113,66 @@ async function getAuthenticatedUserId(authHeader: string | null): Promise<string
  * caller-supplied `tempSecret` is ignored entirely. That is the fix: before,
  * a user with 2FA enabled could hand us any secret plus a matching code and
  * always get {verified:true}.
+ *
+ * Since migration 049 the secret lives in user_mfa_secrets (service role only).
+ * Until that migration runs the table does not exist, so we fall back to the
+ * old profiles columns — which is what lets this function ship first.
  */
-async function getStoredTotpSecret(userId: string): Promise<string | null> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=two_factor_secret,two_factor_enabled`,
-    {
-      headers: {
-        apikey: SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      },
+async function getStoredMfa(userId: string): Promise<StoredMfa | null> {
+  const priv = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_mfa_secrets?user_id=eq.${userId}&select=totp_secret,recovery_code_hashes`,
+    { headers: serviceHeaders }
+  );
+  if (priv.ok) {
+    const row = (await priv.json())?.[0];
+    if (row && typeof row.totp_secret === "string" && row.totp_secret.length > 0) {
+      return {
+        secret: row.totp_secret,
+        recoveryHashes: Array.isArray(row.recovery_code_hashes) ? row.recovery_code_hashes : [],
+        source: "private",
+      };
     }
+  }
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=two_factor_secret,two_factor_enabled,recovery_codes`,
+    { headers: serviceHeaders }
   );
   if (!res.ok) throw new Error("profile_lookup_failed");
   const rows = await res.json();
   const secret = rows?.[0]?.two_factor_secret;
-  return typeof secret === "string" && secret.length > 0 ? secret : null;
+  if (typeof secret !== "string" || secret.length === 0) return null;
+  const legacyCodes: string[] = Array.isArray(rows?.[0]?.recovery_codes) ? rows[0].recovery_codes : [];
+  return {
+    secret,
+    recoveryHashes: await Promise.all(legacyCodes.map(hashRecoveryCode)),
+    source: "legacy",
+    legacyCodes,
+  };
+}
+
+/** Removes one used recovery code so it can never be replayed. */
+async function consumeRecoveryCode(userId: string, stored: StoredMfa, usedHash: string): Promise<number> {
+  if (stored.source === "private") {
+    const remaining = stored.recoveryHashes.filter((h) => h !== usedHash);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_mfa_secrets?user_id=eq.${userId}`, {
+      method: "PATCH",
+      headers: { ...serviceHeaders, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ recovery_code_hashes: remaining, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error("consume_failed");
+    return remaining.length;
+  }
+  const codes = stored.legacyCodes || [];
+  const remaining: string[] = [];
+  for (const c of codes) if ((await hashRecoveryCode(c)) !== usedHash) remaining.push(c);
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+    method: "PATCH",
+    headers: { ...serviceHeaders, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ recovery_codes: remaining }),
+  });
+  if (!res.ok) throw new Error("consume_failed");
+  return remaining.length;
 }
 
 async function getRateLimit(userId: string) {
@@ -146,9 +218,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { code, tempSecret } = await req.json();
+    const { code, tempSecret, recoveryCode } = await req.json();
 
-    if (!code) {
+    if (!code && !recoveryCode) {
       return new Response(
         JSON.stringify({ verified: false, error: "Missing code" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -165,9 +237,9 @@ Deno.serve(async (req) => {
     // after this returns). Every path that gates *access* on {verified:true} —
     // login.html and 2fa-verify.html — reaches the stored branch, because those
     // users have two_factor_enabled = true by definition.
-    let storedSecret: string | null;
+    let stored: StoredMfa | null;
     try {
-      storedSecret = await getStoredTotpSecret(userId);
+      stored = await getStoredMfa(userId);
     } catch {
       return new Response(
         JSON.stringify({ verified: false, error: "Internal Server Error" }),
@@ -175,7 +247,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    const storedSecret = stored?.secret ?? null;
     const isEnrollment = storedSecret === null;
+
+    // A recovery code only means something for an enrolled account.
+    if (recoveryCode && isEnrollment) {
+      return new Response(
+        JSON.stringify({ verified: false, error: "Missing code or secret" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const secretToVerify = storedSecret ?? tempSecret;
 
     if (!secretToVerify) {
@@ -218,11 +299,36 @@ Deno.serve(async (req) => {
     const currentCounter = Math.floor(now / 1000 / period);
 
     let verified = false;
-    for (let errorWindow = -1; errorWindow <= 1; errorWindow++) {
-      const otp = await generateTOTP(secretBytes, currentCounter + errorWindow);
-      if (otp === code) {
-        verified = true;
-        break;
+    let usedRecoveryHash: string | null = null;
+    if (code) {
+      for (let errorWindow = -1; errorWindow <= 1; errorWindow++) {
+        const otp = await generateTOTP(secretBytes, currentCounter + errorWindow);
+        if (otp === code) {
+          verified = true;
+          break;
+        }
+      }
+    } else if (recoveryCode && stored) {
+      const suppliedHash = await hashRecoveryCode(recoveryCode);
+      for (const h of stored.recoveryHashes) {
+        if (constantTimeEquals(h, suppliedHash)) {
+          verified = true;
+          usedRecoveryHash = h;
+          break;
+        }
+      }
+    }
+
+    let remainingRecoveryCodes: number | undefined;
+    if (verified && usedRecoveryHash && stored) {
+      try {
+        remainingRecoveryCodes = await consumeRecoveryCode(userId, stored, usedRecoveryHash);
+      } catch {
+        // A code we cannot burn must not be accepted — it would be replayable.
+        return new Response(
+          JSON.stringify({ verified: false, error: "Internal Server Error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
@@ -245,7 +351,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ verified, enrollment: isEnrollment || undefined }),
+      JSON.stringify({
+        verified,
+        enrollment: isEnrollment || undefined,
+        usedRecoveryCode: usedRecoveryHash ? true : undefined,
+        remainingRecoveryCodes,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

@@ -715,7 +715,7 @@
 
         </form>
 
-        <a href="#" class="forgot-link">هل نسيت كلمة المرور؟</a>
+        <a href="/forgot-password.html" class="forgot-link">هل نسيت كلمة المرور؟</a>
 
         <div class="divider" aria-hidden="true">
           <div class="divider-line"></div>
@@ -767,8 +767,9 @@
 
         <form id="twofa-form" novalidate>
           <div class="form-group">
-            <input type="text" id="twofa-code" class="twofa-code-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+            <input type="text" id="twofa-code" class="twofa-code-input" placeholder="000000" maxlength="16" autocomplete="one-time-code" required>
           </div>
+          <p class="card-subtitle" style="margin-top:-.25rem;font-size:.85rem;">فقدت هاتفك؟ أدخل أحد رموز الاستعادة بدل الرمز — كل رمز يُستخدم مرة واحدة.</p>
 
           <label class="remember-row">
             <input type="checkbox" id="twofa-remember-device">
@@ -1428,8 +1429,12 @@
     const code = document.getElementById('twofa-code').value.trim();
     const rememberDevice = document.getElementById('twofa-remember-device').checked;
 
-    if (!/^\d{6}$/.test(code)) {
-      showToast('يرجى إدخال رمز مكون من 6 أرقام');
+    // 6 أرقام = رمز التطبيق؛ غير ذلك = رمز استعادة (PS-16). الخادم يتحقق من
+    // الاثنين بنفس حد المحاولات، ويحرق رمز الاستعادة بعد استخدامه.
+    const isTotp = /^\d{6}$/.test(code);
+    const isRecovery = !isTotp && /^[A-Za-z0-9-]{8,20}$/.test(code);
+    if (!isTotp && !isRecovery) {
+      showToast('أدخل الرمز المكوّن من 6 أرقام، أو أحد رموز الاستعادة');
       return;
     }
 
@@ -1443,16 +1448,22 @@
 
     try {
       const { data, error } = await withTimeout(
+        // لا يُرسَل أي سرّ من المتصفح: الخادم يتحقق بالسرّ المخزَّن وحده.
         supabase.functions.invoke('verify-2fa', {
-          body: { code, tempSecret: _pendingLoginProfile.two_factor_secret }
+          body: isTotp ? { code } : { recoveryCode: code }
         }),
         10000,
         'التحقق من الرمز'
       );
 
       if (error || !data?.verified) {
-        showToast('الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
+        showToast(error?.context?.status === 429
+          ? 'محاولات كثيرة. انتظر 15 دقيقة ثم حاول مرة أخرى.'
+          : 'الرمز الذي أدخلته غير صحيح، يرجى المحاولة مرة أخرى');
         return;
+      }
+      if (data.usedRecoveryCode) {
+        showToast(`تم الدخول برمز استعادة. تبقّى ${data.remainingRecoveryCodes ?? 0} رمز — أنشئ رموزًا جديدة من إعدادات الأمان إن قاربت على النفاد.`);
       }
 
       if (rememberDevice) {
@@ -1463,7 +1474,9 @@
               user_id: _pendingLoginData.user.id,
               device_name: getDeviceName(),
               device_fingerprint: fingerprint,
-              last_login: new Date().toISOString()
+              last_login: new Date().toISOString(),
+              // الجهاز يتخطّى رمز 2FA لمدة محدودة فقط (PS-18)
+              trusted_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
             }),
             6000,
             'حفظ الجهاز الموثوق'
@@ -1610,7 +1623,7 @@
       const { data: profile, error: profileError } = await withTimeout(
         supabase
           .from('profiles')
-          .select('two_factor_enabled, two_factor_secret, role')
+          .select('two_factor_enabled, role')
           .eq('id', data.user.id)
           .single(),
         8000,
@@ -1621,7 +1634,10 @@
         console.error('Failed to load profile for 2FA check:', profileError);
       }
 
-      if (profile?.two_factor_enabled && profile?.two_factor_secret) {
+      // بعد 049 لا يصل السرّ إلى المتصفح أصلًا (عمود profiles فارغ دائمًا)،
+      // فالشرط على two_factor_enabled وحده. شرط «والسرّ موجود» كان سيتخطّى
+      // خطوة الرمز لكل الحسابات بعد الترحيل.
+      if (profile?.two_factor_enabled) {
         const fingerprint = localStorage.getItem('device_fingerprint');
         let trustedDevice = null;
 
@@ -1636,7 +1652,9 @@
             8000,
             'التحقق من الجهاز الموثوق'
           );
-          trustedDevice = device || null;
+          // جهاز بلا trusted_until أو منتهيه لا يتخطّى الرمز (PS-18)
+          const until = Date.parse(device?.trusted_until || '');
+          trustedDevice = device && Number.isFinite(until) && until > Date.now() ? device : null;
         }
 
         if (trustedDevice) {

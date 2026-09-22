@@ -67,6 +67,13 @@ globalThis.fetch = async (url, init = {}) => {
     scenario.cleared = JSON.parse(init.body);
     return json({});
   }
+  if (u.includes('/rest/v1/user_mfa_secrets')) {
+    // Migration 049: the secret lives here. `privateRow` null models either
+    // "no row" or "table not created yet" (pre-migration deploy order).
+    assert.ok(u.includes(`user_id=eq.${USER_ID}`), 'private lookup must be scoped to the caller');
+    if (scenario.privateMissingTable) return { ok: false, status: 404, json: async () => ({}) };
+    return json(scenario.privateRow ? [scenario.privateRow] : []);
+  }
   if (u.includes('/rest/v1/twofa_rate_limits')) {
     if ((init.method || 'GET') === 'GET') return json(scenario.rateLimitRow ? [scenario.rateLimitRow] : []);
     scenario.upserts.push(JSON.parse(init.body));
@@ -88,7 +95,7 @@ function call(body, headers = { authorization: 'Bearer stub-jwt' }) {
 function reset(over = {}) {
   scenario = {
     enabled: true, secret: SECRET, recoveryCodes: ['AAAA111111', 'BBBB222222'],
-    rateLimitRow: null, upserts: [], cleared: null, ...over,
+    rateLimitRow: null, upserts: [], cleared: null, privateRow: null, ...over,
   };
 }
 
@@ -183,6 +190,39 @@ test('a success resets the failure counter', async () => {
   const last = scenario.upserts[scenario.upserts.length - 1];
   assert.equal(last.failed_attempts, 0);
   assert.equal(last.locked_until, null);
+});
+
+// ── Migration 049: secret in user_mfa_secrets, profiles columns NULL ───────
+
+const sha256 = (c) => crypto.createHash('sha256').update(String(c).trim().toUpperCase()).digest('hex');
+
+test('049: the secret is read from user_mfa_secrets when profiles holds none', async () => {
+  reset({ secret: null, recoveryCodes: null,
+          privateRow: { totp_secret: SECRET, recovery_code_hashes: [sha256('AAAA111111')] } });
+  const res = await call({ code: totp(SECRET) });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).disabled, true);
+});
+
+test('049: a recovery code is matched by its hash', async () => {
+  reset({ secret: null, recoveryCodes: null,
+          privateRow: { totp_secret: SECRET, recovery_code_hashes: [sha256('AAAA111111')] } });
+  assert.equal((await (await call({ recoveryCode: 'aaaa111111' })).json()).disabled, true);
+  reset({ secret: null, recoveryCodes: null,
+          privateRow: { totp_secret: SECRET, recovery_code_hashes: [sha256('AAAA111111')] } });
+  assert.equal((await call({ recoveryCode: sha256('AAAA111111') })).status, 401,
+    'the stored hash itself is not a valid recovery code');
+});
+
+test('049: a code from an attacker-chosen secret is still rejected', async () => {
+  reset({ secret: null, recoveryCodes: null, privateRow: { totp_secret: SECRET, recovery_code_hashes: [] } });
+  assert.equal((await call({ code: totp(OTHER_SECRET) })).status, 401);
+  assert.equal(scenario.cleared, null);
+});
+
+test('deploy-before-migration: a missing user_mfa_secrets table falls back to profiles', async () => {
+  reset({ privateMissingTable: true });
+  assert.equal((await (await call({ code: totp(SECRET) })).json()).disabled, true);
 });
 
 after(() => { globalThis.fetch = realFetch; });

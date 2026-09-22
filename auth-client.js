@@ -273,10 +273,13 @@ export async function signIn(identifier, password, options = {}) {
                     'التحقق من الجهاز الموثوق'
                 );
 
-                if (trustedDevice) {
+                // جهاز بلا trusted_until أو منتهيه لا يتخطّى الرمز (PS-18). والعمود
+                // اسمه last_login — last_used_at غير موجود فكان التحديث يفشل.
+                const trustedUntil = Date.parse(trustedDevice?.trusted_until || '');
+                if (trustedDevice && Number.isFinite(trustedUntil) && trustedUntil > Date.now()) {
                     supabase
                         .from('trusted_devices')
-                        .update({ last_used_at: new Date().toISOString() })
+                        .update({ last_login: new Date().toISOString() })
                         .eq('id', trustedDevice.id)
                         .then(() => {})
                         .catch((err) => {
@@ -483,8 +486,11 @@ export async function logout() {
 
     let signOutError = null;
     try {
+        // الخروج العادي يُنهي هذه الجلسة وحدها. كان 'global' فيُخرج المستخدم من
+        // كل أجهزته في كل مرة دون أن يطلب ذلك (PS-18). الخروج من الأجهزة الأخرى
+        // صار إجراءً صريحًا في قسم «الجلسات» بإعدادات الأمان.
         const { error } = await withTimeout(
-            supabase.auth.signOut({ scope: 'global' }),
+            supabase.auth.signOut({ scope: 'local' }),
             8000,
             'تسجيل الخروج'
         );
@@ -803,6 +809,38 @@ export async function updateProfile(updates) {
     }
 
     return { data };
+}
+
+/**
+ * طلب رابط استعادة كلمة المرور (PS-01).
+ *
+ * forgot-password.html كانت تستورد هذه الدالة ولم تكن موجودة، فتفشل الوحدة
+ * كلها ولا يوجد أي مسار استعادة في المنصة.
+ *
+ * الرد متطابق سواء كان البريد مسجّلًا أم لا — لا نكشف وجود الحسابات. الخطأ
+ * الوحيد الذي يصل للمستخدم هو تجاوز حد الإرسال، لأنه يحتاج أن يعرف أن ينتظر.
+ */
+export async function resetPasswordEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!validateEmail(normalized)) {
+        return { error: { message: 'أدخل بريدًا إلكترونيًا صحيحًا.' } };
+    }
+    try {
+        const { error } = await withTimeout(
+            supabase.auth.resetPasswordForEmail(normalized, {
+                redirectTo: `${window.location.origin}/reset-password.html`
+            }),
+            10000,
+            'إرسال رابط الاستعادة'
+        );
+        if (error && (error.status === 429 || /rate|limit|seconds/i.test(error.message || ''))) {
+            return { error: { message: 'طلبات كثيرة. انتظر دقيقة ثم حاول مرة أخرى.' } };
+        }
+        if (error) console.error('resetPasswordForEmail:', error.message);
+        return { error: null };
+    } catch (err) {
+        return { error: { message: err.message || 'تعذّر الإرسال، حاول مرة أخرى.' } };
+    }
 }
 
 /**

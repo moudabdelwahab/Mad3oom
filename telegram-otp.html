@@ -191,27 +191,13 @@
             }
         });
 
-        resendBtn.onclick = async () => {
-            resendBtn.disabled = true;
-            resendBtn.textContent = 'جاري الإرسال...';
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                await supabase.functions.invoke('telegram-webhook', {
-                    body: { 
-                        message: { 
-                            text: '/otp', 
-                            chat: { id: 'trigger' }, // This is a hack, the function needs to be updated to handle direct calls
-                            from: { username: 'internal_trigger', id: user.id } 
-                        } 
-                    }
-                });
-                alert('تم إرسال رمز جديد إلى تليجرام');
-            } catch (e) {
-                console.error(e);
-            } finally {
-                resendBtn.disabled = false;
-                resendBtn.textContent = 'إعادة إرسال الرمز';
-            }
+        // لا يوجد في المنصة أي مسار يرسل رمز تيليجرام: دالة telegram-webhook
+        // المنشورة لا تعرف إجراء إرسال، ولا توجد دالة تُنشئ الرمز. الزر كان
+        // يعرض «تم إرسال رمز جديد» بعد طلب يفشل دائمًا (PS-03). لا نعرض
+        // إرسالًا لم يحدث.
+        resendBtn.onclick = () => {
+            errorMessage.style.display = 'block';
+            errorText.textContent = 'إرسال الرمز عبر تيليجرام غير متاح حاليًا. سجّل الدخول من جديد، أو تواصل مع الدعم.';
         };
 
         function setLoading(state) {

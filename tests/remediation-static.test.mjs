@@ -406,7 +406,8 @@ test('the 2FA trigger migration exists and is scoped to the three columns', () =
 
 test('no browser code writes the 2FA columns directly any more', () => {
   for (const f of ['2fa-service.js', 'customer-settings-modal.js',
-                   'customer-security-settings.html', 'admin-security-settings.html']) {
+                   'customer-security-settings.html', 'admin-security-settings.html',
+                   'assets/js/account/account-service.js']) {
     const src = read(f);
     assert.doesNotMatch(src, /two_factor_enabled:\s*false/, `${f} still disables 2FA directly`);
     assert.doesNotMatch(src, /two_factor_secret:\s*null/, `${f} still clears the secret directly`);
@@ -415,9 +416,14 @@ test('no browser code writes the 2FA columns directly any more', () => {
 
 test('every disable path goes through the disable-2fa function with proof', () => {
   assert.match(read('2fa-service.js'), /functions\.invoke\('disable-2fa'/);
-  assert.match(read('customer-settings-modal.js'), /functions\.invoke\('disable-2fa'/);
-  for (const page of ['customer-security-settings.html', 'admin-security-settings.html']) {
-    assert.match(read(page), /disable2FA\(currentUser\.id, proof\)/, `${page} must pass proof`);
+  // The unified account module (customer, company and admin panels) is now the
+  // only UI that disables 2FA, and it sends the proof the user typed.
+  assert.match(read('assets/js/account/account-service.js'),
+    /functions\.invoke\('disable-2fa', \{ body: proof \}\)/);
+  // The old per-page copies no longer carry a 2FA path of their own.
+  for (const page of ['customer-settings-modal.js', 'customer-security-settings.html',
+                      'admin-security-settings.html']) {
+    assert.doesNotMatch(read(page), /two_factor_enabled/, `${page} still has its own 2FA path`);
   }
 });
 

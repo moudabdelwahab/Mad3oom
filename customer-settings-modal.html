@@ -63,92 +63,15 @@
             </div>
         </div>
 
-        <!-- TAB 3: Security Settings -->
+        <!-- TAB 3: Security — كل إعدادات الأمان في قسم «الأمان» باللوحة (الوحدة الموحّدة) -->
         <div class="settings-tab-content" data-tab="security" style="display: none;">
-            <!-- 2FA Status Banner -->
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-radius: 1rem; margin-bottom: 2rem; background: var(--color-muted); border: 1px solid var(--color-border);">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <div class="status-icon-wrapper disabled" id="twoFaStatusIcon" style="width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(217, 83, 79, 0.1); color: var(--color-danger);">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    </div>
-                    <div>
-                        <h3 id="twoFaStatusTitle" style="margin: 0; font-size: 1rem; font-weight: 700;">التحقق بخطوتين غير مفعل</h3>
-                        <p id="twoFaStatusDesc" style="margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--color-text-secondary);">أضف طبقة أمان إضافية لحسابك</p>
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="setupTwoFaBtn" style="padding: 0.75rem 1.5rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; white-space: nowrap;">تفعيل الآن</button>
-            </div>
-
-            <!-- 2FA Management Section (Hidden by default) -->
-            <div id="twoFaManagementSection" style="display: none; margin-bottom: 2rem; padding: 1.5rem; background: var(--color-muted); border-radius: 0.75rem; border: 1px solid var(--color-border);">
-                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-text);">إدارة التحقق بخطوتين</h3>
-                <p style="color: var(--color-text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">يمكنك إعادة ضبط إعدادات التحقق أو عرض رموز الاستعادة الخاصة بك.</p>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <button class="btn btn-secondary" id="viewRecoveryCodesBtn" style="padding: 0.75rem 1.5rem; background: var(--color-background); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">رموز الاستعادة</button>
-                    <button class="btn btn-danger" id="disableTwoFaBtn" style="padding: 0.75rem 1.5rem; background: rgba(217, 83, 79, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تعطيل التحقق</button>
-                </div>
-            </div>
-
-            <!-- Trusted Devices Section -->
-            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border);">
-                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--color-text);">الأجهزة الموثوقة</h3>
-                <div id="trustedDevicesList" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <div style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">جاري تحميل الأجهزة...</div>
-                </div>
-            </div>
+            <p style="color: var(--color-text-secondary); line-height: 1.8; margin-bottom: 1rem;">كلمة المرور، والتحقق بخطوتين، والجلسات، والأجهزة الموثوقة تُدار من قسم «الأمان» في لوحتك.</p>
+            <a href="/customer-dashboard.html#security" id="openSecuritySectionLink" class="btn btn-primary" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--color-accent); color: white; border-radius: 0.5rem; font-weight: 600; text-decoration: none;">فتح إعدادات الأمان</a>
         </div>
 
         <!-- Modal Footer -->
         <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: 1rem;">
             <button id="closeSettingsBtn" style="padding: 0.75rem 1.5rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">إغلاق</button>
-        </div>
-    </div>
-</div>
-
-<!-- 2FA Setup Modal (Nested) -->
-<div id="setupModal" class="modal" style="z-index: 10000;">
-    <div class="modal-content" style="max-width: 500px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
-            <h2 style="margin: 0;">تفعيل التحقق بخطوتين</h2>
-            <button class="close-modal" id="closeSetupModal" style="font-size: 2rem; cursor: pointer; background: none; border: none; color: var(--color-text); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
-        </div>
-
-        <!-- Step 1: Scan QR Code -->
-        <div id="setupStep1" style="display: block;">
-            <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">استخدم تطبيق المصادقة (مثل Google Authenticator) لمسح رمز QR أدناه:</p>
-            <div id="qrCodeContainer" style="text-align: center; padding: 1.5rem; background: var(--color-muted); border-radius: 0.75rem; margin-bottom: 1.5rem;"></div>
-            <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 1rem;">أو أدخل المفتاح يدويًا:</p>
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-                <input type="text" id="secretKeyDisplay" readonly style="flex: 1; padding: 0.75rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.5rem; font-family: monospace; color: var(--color-text);">
-                <button id="copySecretBtn" style="padding: 0.75rem 1rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; white-space: nowrap;">نسخ</button>
-            </div>
-            <button id="goToStep2" style="width: 100%; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">التالي</button>
-        </div>
-
-        <!-- Step 2: Verify Code -->
-        <div id="setupStep2" style="display: none;">
-            <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">أدخل رمز التحقق من تطبيق المصادقة الخاص بك:</p>
-            <input type="text" id="verificationCode" placeholder="000000" maxlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-background); color: var(--color-text); font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem; margin-bottom: 1.5rem;">
-            <div style="display: flex; gap: 1rem;">
-                <button id="backToStep1" style="flex: 1; padding: 0.75rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">رجوع</button>
-                <button id="verifyAndEnableBtn" style="flex: 1; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تفعيل</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Recovery Codes Modal (Nested) -->
-<div id="recoveryModal" class="modal" style="z-index: 10000;">
-    <div class="modal-content" style="max-width: 500px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
-            <h2 style="margin: 0;">رموز الاستعادة</h2>
-            <button class="close-modal" id="closeRecoveryModal" style="font-size: 2rem; cursor: pointer; background: none; border: none; color: var(--color-text); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
-        </div>
-        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">احفظ هذه الرموز في مكان آمن. يمكنك استخدام أحد هذه الرموز للوصول إلى حسابك إذا فقدت جهازك:</p>
-        <div id="recoveryCodesGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;"></div>
-        <div style="display: flex; gap: 1rem;">
-            <button id="printCodesBtn" style="flex: 1; padding: 0.75rem; background: var(--color-muted); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.5rem; font-weight: 600; cursor: pointer;">طباعة</button>
-            <button id="closeRecoveryBtn" style="flex: 1; padding: 0.75rem; background: var(--color-accent); color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">تم</button>
         </div>
     </div>
 </div>

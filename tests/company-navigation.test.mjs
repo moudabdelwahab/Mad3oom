@@ -187,7 +187,7 @@ test('أقسام الشركة تُبنى فوق الوحدات المشتركة�
         'assets/js/company/company-activity.js': ['customer-data.js', 'activity-model.js'],
         'assets/js/company/company-support.js': ['/tickets-service.js', 'customer-data.js', 'service-status-model.js', 'help-data.js'],
         'assets/js/company/company-notifications.js': ['/notifications-service.js', 'notification-router.js'],
-        'assets/js/company/company-account.js': ['/auth-client.js', 'customer-data.js', 'activity-model.js']
+        'assets/js/company/company-account.js': ['/assets/js/account/account-settings.js', 'customer-data.js', 'activity-model.js']
     };
 
     for (const [file, imports] of Object.entries(shared)) {
@@ -305,7 +305,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         048_mcp_per_account_isolation.
     //         لا أنسب لها هنا تبريرًا لم أكتبه؛ الشرَك يحرس الرقم، والتبرير
     //         مكانه طلب الدمج الذي أدخل الترحيل.
-    assert.equal(migrations[migrations.length - 1], '048_mcp_per_account_isolation.sql',
+    //   049 — تدقيق الملف الشخصي والأمان (معتمَد: «أضف Migration جديدة لكل
+    //         مشكلة مؤكَّدة»). كلها لا تُصلَح من الواجهة: سرّ TOTP ورموز
+    //         الاستعادة مقروءة لكل أدمن ولصاحب الشركة عبر SELECT (PS-02)،
+    //         والكتابة على أعمدة أمان حساب آخر تمرّ من RLS (PS-07)، والشركة
+    //         الموقوفة ترفع إيقافها بـPATCH (PS-09)، و profiles.email ينفصل عن
+    //         بريد الدخول (PS-13)، والدخول بصيغة الهاتف المحلية يفشل (PS-14).
+    //         مقيسٌ بضوابط سلبية في tests/sql/profile-security-hardening.test.sql.
+    assert.equal(migrations[migrations.length - 1], '049_profile_security_hardening.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
