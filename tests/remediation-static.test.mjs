@@ -305,11 +305,11 @@ test('the OAuth issuer and the metadata endpoints move together', () => {
   assert.match(disc, /service_documentation: issuer/);
 });
 
-test('the subdomain root domain is env-driven and defaults to today value', () => {
+test('the subdomain root domain is env-driven and defaults to mad3oom.com', () => {
   for (const f of ['supabase/functions/create-subdomain/index.ts',
                    'supabase/functions/request-subdomain/index.ts']) {
     const src = read(f);
-    assert.match(src, /Deno\.env\.get\("SUBDOMAIN_ROOT_DOMAIN"\) \?\? "mad3oom\.online"/, f);
+    assert.match(src, /Deno\.env\.get\("SUBDOMAIN_ROOT_DOMAIN"\) \?\? "mad3oom\.com"/, f);
     assert.doesNotMatch(codeOnly(src), /mad3oom\.online/,
       `${f} still has a hard-coded .online literal in code`);
   }

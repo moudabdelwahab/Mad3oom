@@ -633,9 +633,9 @@ export const MCP_ENDPOINT_URL = `${supabase.supabaseUrl}/functions/v1/mcp`;
  *  طريقة مصادقة جديدة...) ينعكس تلقائيًا في الواجهة بدون أي تعديل هنا.
  * ========================================================= */
 
-/** الروابط العامة الثابتة (Reverse Proxy عبر mad3oom.online) - لا تتغيّر حتى لو تغيّر مشروع Supabase */
-export const OAUTH_DISCOVERY_URL = 'https://mad3oom.online/.well-known/oauth-authorization-server';
-export const OAUTH_PROTECTED_RESOURCE_URL = 'https://mad3oom.online/.well-known/oauth-protected-resource';
+/** الروابط العامة الثابتة (Reverse Proxy عبر mad3oom.com) - لا تتغيّر حتى لو تغيّر مشروع Supabase */
+export const OAUTH_DISCOVERY_URL = 'https://mad3oom.com/.well-known/oauth-authorization-server';
+export const OAUTH_PROTECTED_RESOURCE_URL = 'https://mad3oom.com/.well-known/oauth-protected-resource';
 
 /**
  * يرجّع كل إعدادات OAuth تلقائيًا للعرض في لوحة التحكم:

@@ -1120,7 +1120,7 @@
     if (submitBtn) submitBtn.textContent = 'الانضمام لقائمة الانتظار';
   });
 
-  const ROOT_DOMAIN      = 'mad3oom.online';
+  const ROOT_DOMAIN      = 'mad3oom.com';
   const hostname         = window.location.hostname;
   const isSubdomain      = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
   const currentSubdomain = isSubdomain ? hostname.replace('.' + ROOT_DOMAIN, '') : null;
@@ -1135,7 +1135,7 @@
 
   // --- Cross-module return redirect ---------------------------------
   // Modules split into their own repos/subdomains (e.g. WhatsApp module at
-  // whatsapp.mad3oom.online) send unauthenticated users here with
+  // wa.mad3oom.com) send unauthenticated users here with
   // ?redirect=<url-they-came-from> so login can send them back afterwards.
   // Previously this param was parsed nowhere, so every login unconditionally
   // landed on admin-dashboard.html / customer-dashboard.html on THIS domain.
@@ -1152,7 +1152,7 @@
   }
 
   // Builds the final post-login destination: honors ?redirect= when it points
-  // to an allowed mad3oom.online (sub)domain, otherwise falls back to the
+  // to an allowed mad3oom.com (sub)domain, otherwise falls back to the
   // role-based page on this domain. When the destination is a different
   // origin (a split-out module's own subdomain), the freshly created session
   // can't reach it via localStorage (each origin has its own storage), so the

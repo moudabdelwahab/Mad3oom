@@ -649,7 +649,7 @@
     <label>الاسم الجديد</label>
     <div style="display:flex; align-items:center; gap:6px;">
       <input type="text" id="renameInput" placeholder="new-name">
-      <span style="color: var(--text-secondary); font-size: 13px; white-space: nowrap;">.mad3oom.online</span>
+      <span style="color: var(--text-secondary); font-size: 13px; white-space: nowrap;">.mad3oom.com</span>
     </div>
     <p class="modal-error" id="renameError"></p>
     <div class="modal-actions">
@@ -1433,7 +1433,7 @@
     requestsTableBody.innerHTML = items.map(req => `
       <div class="row requests-row" data-id="${req.id}">
         <div class="cell-domain" data-label="النطاق المطلوب">
-          <span>${escapeHtml(req.requested_name)}.mad3oom.online</span>
+          <span>${escapeHtml(req.requested_name)}.mad3oom.com</span>
         </div>
         <div class="cell-client" data-label="العميل">
           <div class="cc-email">${escapeHtml(req.profiles?.email || 'غير معروف')}</div>
@@ -1513,7 +1513,7 @@
 
   function openRejectModal(req) {
     activeRequestId = req.id;
-    rejectDomainName.textContent = `${req.requested_name}.mad3oom.online`;
+    rejectDomainName.textContent = `${req.requested_name}.mad3oom.com`;
     selectedRejectReason = null;
     rejectCustomNote.value = '';
     rejectCustomNote.style.display = 'none';

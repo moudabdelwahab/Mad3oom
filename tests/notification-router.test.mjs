@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-globalThis.window = { location: { origin: 'https://mad3oom.online' } };
+globalThis.window = { location: { origin: 'https://mad3oom.com' } };
 
 const {
     resolveDestination, resolveNotification, destinationLabel,
@@ -29,7 +29,7 @@ test('رابط التذكرة الحقيقي في قاعدة البيانات ي
 });
 
 test('الرابط المطلق لنفس النطاق مقبول أيضاً', () => {
-    const d = resolveDestination(`https://mad3oom.online/customer-dashboard.html?ticket=${TICKET_UUID}`);
+    const d = resolveDestination(`https://mad3oom.com/customer-dashboard.html?ticket=${TICKET_UUID}`);
     assert.equal(d.kind, 'ticket');
 });
 

@@ -7,10 +7,10 @@ import { supabase } from './api-config.js';
 
 /**
  * بدء عملية تسجيل الدخول/إنشاء حساب باستخدام Facebook
- * @param {string} redirectUrl - URL للتحويل بعد المصادقة (مثل: https://mad3oom.online/auth/callback)
+ * @param {string} redirectUrl - URL للتحويل بعد المصادقة (مثل: https://mad3oom.com/auth/callback)
  * @returns {Promise<{error: Error|null}>}
  */
-export async function signInWithFacebook(redirectUrl = 'https://mad3oom.online/auth/callback') {
+export async function signInWithFacebook(redirectUrl = 'https://mad3oom.com/auth/callback') {
     try {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'facebook',
@@ -38,7 +38,7 @@ export async function signInWithFacebook(redirectUrl = 'https://mad3oom.online/a
  * @param {string} redirectUrl - URL للتحويل بعد المصادقة
  * @returns {Promise<{error: Error|null}>}
  */
-export async function linkFacebookIdentity(redirectUrl = 'https://mad3oom.online/auth/callback') {
+export async function linkFacebookIdentity(redirectUrl = 'https://mad3oom.com/auth/callback') {
     try {
         const { data, error } = await supabase.auth.linkIdentity({
             provider: 'facebook',

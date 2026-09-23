@@ -496,7 +496,7 @@ function setSyncBadge(mode){
    Works only when this page is opened as an artifact inside Claude.ai (which proxies calls to
    api.anthropic.com). If opened as a plain standalone file, these calls will fail gracefully
    and the app falls back to the last cached snapshot stored in Supabase. */
-const MCP_SERVERS = { mad3oom: { type:'url', url:'https://mad3oom.online/mcp', name:'mad3oom' } };
+const MCP_SERVERS = { mad3oom: { type:'url', url:'https://mad3oom.com/mcp', name:'mad3oom' } };
 
 async function callClaudeMCP(promptText, servers){
   const res = await fetch('https://api.anthropic.com/v1/messages', {
