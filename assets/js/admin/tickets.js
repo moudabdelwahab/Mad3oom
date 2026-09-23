@@ -1486,6 +1486,62 @@ function exportTicketsToCsv(tickets) {
     URL.revokeObjectURL(url);
 }
 
+/* ==================== الفاتورة: acc ثم زر «إرفاق فاتورة» ==================== */
+
+// الاشتراك المؤكَّد يذهب أولًا إلى النظام المحاسبي (acc): accounting-sync
+// تُنشئ الفاتورة هناك وتسجّلها هنا برمزها العام، دون أن تكتب شيئًا في
+// التذكرة. الإرفاق في الردود يتم بعدها بزر، والصلاحية تُفحص في القاعدة
+// (is_platform_staff: المالك والأدمن والموظفين).
+async function pushSubscriptionToAccounting(subscriptionId) {
+    const { data, error } = await supabase.functions.invoke('accounting-sync', {
+        body: { subscription_id: subscriptionId }
+    });
+    if (error) throw new Error('تعذّر إرسال الاشتراك للنظام المحاسبي');
+    if (data && data.ok === false) throw new Error(data.error || 'تعذّر تسجيل الفاتورة في النظام المحاسبي');
+    return data;
+}
+
+async function renderInvoiceAttach(ticket, subscription) {
+    const box = document.getElementById('invoiceAttachBox');
+    if (!box) return;
+
+    const { data: info, error } = await supabase.rpc('ticket_invoice_status', { p_ticket_id: ticket.id });
+    if (error) {
+        box.innerHTML = '';
+        return;
+    }
+
+    if (info?.state === 'attached') {
+        box.innerHTML = `<div style="font-size:.8rem; color:#3DBE7A; display:flex; align-items:center; gap:.35rem;">${ICONS.checkSmall} تم إرفاق الفاتورة ${escapeHtml(info.invoice_number || '')} في ردود التذكرة</div>`;
+        return;
+    }
+
+    const hint = info?.state === 'ready'
+        ? `الفاتورة ${escapeHtml(info.invoice_number || '')} جاهزة في النظام المحاسبي.`
+        : 'الفاتورة لم تصل من النظام المحاسبي بعد — الضغط يرسل الاشتراك أولًا.';
+    box.innerHTML = `
+        <div style="font-size:.78rem; color:var(--color-text-secondary); margin-bottom:.5rem;">${hint}</div>
+        <button id="attachInvoiceBtn" class="btn btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; border-radius:.6rem; color:#fff; cursor:pointer;">${ICONS.paperclip} إرفاق فاتورة</button>`;
+
+    document.getElementById('attachInvoiceBtn')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'جاري الإرفاق...';
+        try {
+            if (info?.state !== 'ready') {
+                await pushSubscriptionToAccounting(subscription.id);
+            }
+            const { data: result, error: attachError } = await supabase.rpc('attach_accounting_invoice', { p_ticket_id: ticket.id });
+            if (attachError) throw new Error(attachError.message);
+            showToast(result?.status === 'already_attached' ? 'الفاتورة مرفقة بالفعل' : 'تم إرفاق الفاتورة في ردود التذكرة');
+            await showAdminTicketInPanel(ticket.id);
+        } catch (err) {
+            showToast('فشل إرفاق الفاتورة: ' + err.message, 'error');
+            await renderInvoiceAttach(ticket, subscription);
+        }
+    });
+}
+
 /* ==================== إجراءات التذكرة (تأكيد/رفض اشتراك أو تغيير حالة) ==================== */
 
 function renderPanelActions(ticket, subscription, walletTopup) {
@@ -1603,6 +1659,8 @@ function renderPanelActions(ticket, subscription, walletTopup) {
                 </div>`;
         } else if (subscription.status === 'rejected' && subscription.rejection_reason) {
             actionsHtml = `<div style="margin-top:.6rem; font-size:.82rem; color:var(--color-danger);">سبب الرفض: ${escapeHtml(subscription.rejection_reason)}</div>`;
+        } else if (subscription.status === 'active' || subscription.status === 'expired') {
+            actionsHtml = `<div id="invoiceAttachBox" style="margin-top:.85rem;"></div>`;
         }
 
         container.innerHTML = `
@@ -1619,6 +1677,8 @@ function renderPanelActions(ticket, subscription, walletTopup) {
                 ${actionsHtml}
             </div>`;
 
+        renderInvoiceAttach(ticket, subscription);
+
         document.getElementById('confirmSubBtn')?.addEventListener('click', async () => {
             const btn = document.getElementById('confirmSubBtn');
             const rejectBtn = document.getElementById('rejectSubBtn');
@@ -1628,6 +1688,13 @@ function renderPanelActions(ticket, subscription, walletTopup) {
                 const result = await confirmPurchaseTicket(ticket.id);
                 if (!result.success) throw new Error(result.error || 'حدث خطأ غير متوقع');
                 showToast('تم تأكيد الاشتراك وتفعيله بنجاح');
+                // بعد الموافقة يذهب الاشتراك أولًا إلى acc. فشله لا يلغي التأكيد:
+                // زر «إرفاق فاتورة» يعيد المحاولة قبل الإرفاق.
+                try {
+                    await pushSubscriptionToAccounting(subscription.id);
+                } catch (syncErr) {
+                    showToast(syncErr.message + ' — يمكن إعادة المحاولة من زر إرفاق فاتورة', 'error');
+                }
                 await loadTickets();
                 await showAdminTicketInPanel(ticket.id);
             } catch (err) {
