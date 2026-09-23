@@ -63,6 +63,16 @@
                     </p>
                 </div>
                 <div class="owner-banner-side">
+                    <!-- هوية المالك: من is_platform_owner() في القاعدة، لا من البريد -->
+                    <div class="owner-identity" id="ownerIdentity" hidden>
+                        <span class="owner-identity-mark" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"></path><path d="m4 16 2-9 6 5 6-5 2 9z"></path></svg>
+                        </span>
+                        <span class="owner-identity-text">
+                            <span class="owner-identity-role">مالك المنصة <span lang="en" dir="ltr">· Platform Owner</span></span>
+                            <span class="owner-identity-name" id="ownerIdentityName"></span>
+                        </span>
+                    </div>
                     <span class="pill status-open" id="ownerContextPill" hidden></span>
                 </div>
             </header>
@@ -80,13 +90,106 @@
                     <div>
                         <h2 class="panel-title" id="authorityHeading">
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
-                            سلطة المنصة
+                            مركز سلطة المنصة
                         </h2>
-                        <p class="panel-subtitle">المصدر الوحيد للتفويض — لا يُكتب من أي جلسة، والتعديل يمرّ بترحيل بمراجعة بشرية</p>
+                        <p class="panel-subtitle">الملكية لا تُدار من هنا — تُحمى. والإدارة تُمنح وتُسحب من هنا وحده، بتحقق بخطوتين، وكل تغيير مُسجَّل.</p>
                     </div>
                 </div>
-                <div id="authorityBody">
-                    <div class="skeleton skeleton-card"></div>
+
+                <!-- A. الملكية وحمايتها + التحقق بخطوتين -->
+                <div class="owner-subsection owner-subsection--first" id="ownershipBlock" aria-labelledby="ownershipHeading">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title" id="ownershipHeading">الملكية</h3>
+                            <p class="panel-subtitle">مفروضة في قاعدة البيانات، لا في هذه الواجهة.</p>
+                        </div>
+                    </div>
+                    <div class="owner-ownership-grid">
+                        <ul class="owner-protections" aria-label="حمايات حساب المالك">
+                            <li>لا يحظر أحدٌ حسابك أو يقفله أو يحذفه</li>
+                            <li>رتبتك وهويتك (الاسم، البريد، الهاتف) لا يعدّلها غيرك</li>
+                            <li>صف الملكية لا يُكتب من أي جلسة — ترحيل بمراجعة وحده</li>
+                            <li>لا تفويض يصنع مالكًا: القدرات قائمة مغلقة</li>
+                        </ul>
+                        <div class="owner-stepup" id="stepUpBox" aria-live="polite">
+                            <div class="skeleton skeleton-card"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- B. الإداريون والتفويض -->
+                <div class="owner-subsection" id="staffBlock" aria-labelledby="staffHeading">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title" id="staffHeading">فريق المنصة</h3>
+                            <p class="panel-subtitle">مدير المنصة يشغّلها ولا يملكها ولا يدير الإداريين. التفويض «إدارة فريق الدعم» يتيح لإداري إدارة رتبة الدعم وحدها.</p>
+                        </div>
+                    </div>
+                    <div id="staffBody"><div class="skeleton skeleton-card"></div></div>
+                    <form class="owner-staff-add" id="staffAddForm" hidden novalidate>
+                        <div class="form-field">
+                            <label for="staffAddUser">إضافة عضو للفريق</label>
+                            <select class="form-control" id="staffAddUser"></select>
+                        </div>
+                        <div class="form-field">
+                            <label for="staffAddRole">الرتبة</label>
+                            <select class="form-control" id="staffAddRole">
+                                <option value="support">فريق الدعم</option>
+                                <option value="admin">إداري</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" data-critical>إضافة</button>
+                    </form>
+                    <p class="owner-sie-status" id="staffStatus" role="status" aria-live="polite" hidden></p>
+                </div>
+
+                <!-- سلطة SIE — المالك يملكها بقاعدة البيانات (sie_owner_authority()) لا
+                     بهذه الواجهة. كل زر هنا نداء تحرسه RLS أو RPC يرفض غير المالك. -->
+                <div class="owner-subsection" id="sieAuthority" aria-labelledby="sieAuthorityHeading">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title" id="sieAuthorityHeading">محرك الدعم الذكي (SIE)</h3>
+                            <p class="panel-subtitle">سلطتك على SIE مطلقة ومفروضة من قاعدة البيانات: تشغيل المحرك وإيقافه، إعداداته، ومن يدير وصول العملاء إليه.</p>
+                        </div>
+                        <a class="btn btn-outline btn-sm owner-sie-console" href="https://sie.mad3oom.com/sie-admin/login.html" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                            <span>لوحة إدارة SIE</span>
+                        </a>
+                    </div>
+
+                    <div class="owner-sie-engine" id="sieEngineRow">
+                        <div class="skeleton skeleton-line"></div>
+                    </div>
+
+                    <h4 class="owner-subsection-label">مديرو وصول العملاء إلى SIE</h4>
+                    <div id="sieAdminsBody">
+                        <div class="skeleton skeleton-card"></div>
+                    </div>
+
+                    <form class="owner-sie-grant" id="sieGrantForm" hidden novalidate>
+                        <div class="form-field">
+                            <label for="sieGrantUser">عضو فريق المنصة</label>
+                            <select class="form-control" id="sieGrantUser" required></select>
+                        </div>
+                        <div class="form-field">
+                            <label for="sieGrantNote">ملاحظة (اختياري)</label>
+                            <input class="form-control" id="sieGrantNote" type="text" maxlength="200" autocomplete="off" placeholder="سبب المنح">
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="sieGrantBtn" data-critical>منح إدارة SIE</button>
+                    </form>
+                    <p class="field-hint owner-sie-hint">تُمنح لأعضاء فريق المنصة (admin/support) فقط، وكل منح أو سحب يُسجَّل في سجل لا يُعدَّل.</p>
+                    <p class="owner-sie-status" id="sieStatus" role="status" aria-live="polite" hidden></p>
+                </div>
+
+                <!-- D. سجل الامتيازات -->
+                <div class="owner-subsection" id="privAuditBlock" aria-labelledby="privAuditHeading">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title" id="privAuditHeading">سجل الامتيازات</h3>
+                            <p class="panel-subtitle">كل تغيير في الرتب والحظر والسلطة والتفويض وإعدادات SIE — بفاعله وطبقته وسياقه. لا يُعدَّل ولا يُحذف.</p>
+                        </div>
+                    </div>
+                    <div id="privAuditBody"><div class="skeleton skeleton-card"></div></div>
                 </div>
             </section>
 
@@ -113,6 +216,7 @@
 import { supabase } from '/api-config.js';
 import { initOwnerShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
 import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
+import { initAuthorityCenter, applyCriticalState } from '/assets/js/owner/authority-center.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -181,16 +285,24 @@ function gate(title, text) {
     }
 
     $('ownerContent').hidden = false;
-    setActiveSidebarTab((location.hash || '#overview').slice(1));
-    window.addEventListener('hashchange', () =>
-        setActiveSidebarTab((location.hash || '#overview').slice(1)));
+    // الأقسام متتابعة بمراسٍ (#overview / #authority / #audit) — والعنصر الفعلي
+    // يحمل لاحقة TabContent، فكان رابط القائمة لا يحرّك الصفحة أصلًا.
+    const syncSection = (smooth) => {
+        const tab = (location.hash || '#overview').slice(1);
+        setActiveSidebarTab(tab);
+        const target = document.getElementById(`${tab}TabContent`);
+        if (target && tab !== 'overview') {
+            target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+        }
+    };
+    syncSection(false);
+    window.addEventListener('hashchange', () => syncSection(true));
 
     const pill = $('ownerContextPill');
     pill.textContent = 'الواجهة الحالية: مالك المنصة';
     pill.hidden = false;
 
-    const [authority, audit, profiles, companies, subs] = await Promise.all([
-        supabase.from('platform_authority').select('user_id, level, granted_at, note'),
+    const [audit, profiles, companies, subs] = await Promise.all([
         supabase.from('owner_context_audit')
                 .select('event, from_context, to_context, at, detail')
                 .order('at', { ascending: false }).limit(50),
@@ -218,24 +330,20 @@ function gate(title, text) {
             <p class="kpi-value">${esc(value)}</p>
         </div>`).join('');
 
-    $('authorityBody').innerHTML = authority.error
-        ? `<div class="state-block state-block--error state-block--compact">
-               <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(authority.error.message)}</p></div>`
-        : table(['الحساب', 'المستوى', 'مُنحت في', 'ملاحظة'], authority.data || [], r => {
-            const u = byId.get(r.user_id);
-            const cls = r.level === 'owner' ? 'status-resolved' : 'status-open';
-            const name = r.level === 'owner' ? 'مالك المنصة' : 'سلطة مرتفعة';
-            return `<tr>
-                ${td(esc(u?.email || r.user_id))}
-                ${td(`<span class="pill ${cls}">${name}</span>`)}
-                ${td(when(r.granted_at))}
-                ${td(`<span class="owner-cell-muted">${esc(r.note)}</span>`)}
-            </tr>`;
-        });
+    const errorBlock = (message) => `
+        <div class="state-block state-block--error state-block--compact">
+            <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(message)}</p></div>`;
+
+    const accountCell = (userId) => {
+        const u = byId.get(userId);
+        return `<div class="owner-account">
+                    <span class="owner-account-name">${esc(u?.full_name || u?.email || userId)}</span>
+                    ${u?.full_name && u?.email ? `<span class="owner-account-email" dir="ltr">${esc(u.email)}</span>` : ''}
+                </div>`;
+    };
 
     $('auditBody').innerHTML = audit.error
-        ? `<div class="state-block state-block--error state-block--compact">
-               <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(audit.error.message)}</p></div>`
+        ? errorBlock(audit.error.message)
         : table(['الحدث', 'من', 'إلى', 'الوقت', 'التفصيل'], audit.data || [], r => {
             const label = (k) => CONTEXT_PRESENTATION[k]?.name || k || '—';
             const ev = r.event === 'denied'
@@ -251,7 +359,160 @@ function gate(title, text) {
                 ${td(`<span class="owner-cell-muted">${esc(r.detail)}</span>`)}
             </tr>`;
         });
+
+    // هوية المالك في الشريط — من is_platform_owner() (status أعلاه)، لا من البريد
+    const me = rows.find(p => p.id === session.user.id);
+    $('ownerIdentityName').textContent = me?.full_name || me?.email || session.user.email || '';
+    $('ownerIdentity').hidden = false;
+
+    const center = initAuthorityCenter({ supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock });
+    initSieAuthority({ byId, rows, accountCell, errorBlock, center });
 })();
+
+/* ─────────────────────────── سلطة SIE ───────────────────────────
+   لا قرار تفويض هنا. الواجهة تعرض وتنادي، والرفض الحقيقي في القاعدة:
+     • تشغيل/إيقاف المحرك  → RLS sie_settings_write ← is_chat_engine_staff()
+     • منح/سحب مدير SIE     → owner_grant_sie_admin / owner_revoke_sie_admin
+                               (ترفض بـ42501 لغير المالك)
+   فإخفاء زر أو إظهاره من devtools لا يغيّر شيئًا. */
+function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
+    const status = $('sieStatus');
+    const say = (text, tone = 'info') => {
+        status.textContent = text;
+        status.dataset.tone = tone;
+        status.hidden = !text;
+    };
+    const friendly = (error) => {
+        if (!error) return '';
+        if (error.code === '42501') return error.message || 'القاعدة رفضت الطلب: هذه العملية لمالك المنصة وحده.';
+        return error.message || 'حدث خطأ غير متوقع.';
+    };
+
+    // ── تشغيل/إيقاف المحرك ──────────────────────────────────────────────
+    async function renderEngine() {
+        const { data, error } = await supabase.from('sie_settings')
+            .select('value, updated_at, updated_by').eq('key', 'engine_enabled').maybeSingle();
+        const row = $('sieEngineRow');
+        if (error) { row.innerHTML = errorBlock(error.message); return; }
+        const on = data?.value === true;
+        const by = data?.updated_by ? byId.get(data.updated_by) : null;
+        row.innerHTML = `
+            <div class="owner-sie-engine-text">
+                <span class="owner-sie-engine-title">حالة المحرك</span>
+                <span class="pill ${on ? 'status-resolved' : 'status-rejected'}"><span class="pill-dot"></span>${on ? 'يعمل' : 'متوقف'}</span>
+                <span class="owner-cell-muted owner-sie-engine-meta">${data?.updated_at
+                    ? `آخر تغيير ${esc(when(data.updated_at))}${by ? ` — ${esc(by.full_name || by.email)}` : ''}`
+                    : 'لم يُغيَّر بعد'}</span>
+            </div>
+            <button type="button" class="btn btn-sm ${on ? 'btn-danger' : 'btn-primary'}" id="sieEngineToggle">
+                ${on ? 'إيقاف المحرك' : 'تشغيل المحرك'}
+            </button>`;
+        $('sieEngineToggle').addEventListener('click', async (e) => {
+            const next = !on;
+            const warning = next
+                ? 'تشغيل SIE: العملاء الذين يملكون وصولًا سيبدأون تلقّي ردوده فورًا. متابعة؟'
+                : 'إيقاف SIE: سيتوقف المحرك عن الرد على كل العملاء فورًا حتى تعيد تشغيله. متابعة؟';
+            if (!window.confirm(warning)) return;
+            e.currentTarget.disabled = true;
+            // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف.
+            const { data: updated, error: upErr } = await supabase.from('sie_settings')
+                .update({ value: next }).eq('key', 'engine_enabled').select('key');
+            if (upErr || !updated?.length) {
+                say(upErr ? friendly(upErr) : 'لم يُحفظ التغيير — القاعدة لم تسمح بالتعديل.', 'error');
+            } else {
+                say(next ? 'تم تشغيل المحرك.' : 'تم إيقاف المحرك.', 'success');
+            }
+            renderEngine();
+            center.refreshAudit();
+        });
+    }
+
+    // ── مديرو SIE ────────────────────────────────────────────────────────
+    async function renderAdmins() {
+        const [grants, log] = await Promise.all([
+            supabase.from('sie_admin_grants').select('user_id, granted_by, granted_at, note')
+                .order('granted_at', { ascending: true }),
+            supabase.from('sie_authority_audit').select('action, target_user_id, actor_id, at, note')
+                .order('at', { ascending: false }).limit(10)
+        ]);
+        const body = $('sieAdminsBody');
+        if (grants.error) { body.innerHTML = errorBlock(grants.error.message); return; }
+
+        const granted = grants.data || [];
+        const ownerRow = rows.find(p => p.role === 'platform_owner');
+        const list = [
+            ...(ownerRow ? [{ user_id: ownerRow.id, owner: true }] : []),
+            ...granted
+        ];
+        body.innerHTML = table(['الحساب', 'الصلاحية', 'مُنحت في', 'ملاحظة', ''], list, r => `<tr>
+            ${td(accountCell(r.user_id))}
+            ${td(r.owner
+                ? '<span class="pill status-resolved">مطلقة — مالك المنصة</span>'
+                : '<span class="pill status-open">إدارة وصول العملاء</span>')}
+            ${td(r.owner ? '<span class="owner-cell-muted">بحكم الملكية</span>' : when(r.granted_at))}
+            ${td(`<span class="owner-cell-muted">${esc(r.owner ? '' : r.note)}</span>`)}
+            ${td(r.owner ? '' : `<button type="button" class="btn btn-outline btn-sm" data-critical data-revoke="${esc(r.user_id)}">سحب</button>`)}
+        </tr>`);
+
+        body.querySelectorAll('[data-revoke]').forEach(btn => btn.addEventListener('click', async () => {
+            const target = byId.get(btn.dataset.revoke);
+            if (!window.confirm(`سحب إدارة SIE من ${target?.full_name || target?.email || 'هذا الحساب'}؟`)) return;
+            btn.disabled = true;
+            const { error } = await supabase.rpc('owner_revoke_sie_admin', { p_user_id: btn.dataset.revoke });
+            say(error ? friendly(error) : 'تم سحب الصلاحية.', error ? 'error' : 'success');
+            renderAdmins();
+            center.refreshAudit();
+        }));
+
+        // المرشّحون: فريق المنصة ممن لا يملكون المنح بعد. القاعدة ترفض غيرهم أصلًا.
+        const has = new Set(granted.map(g => g.user_id));
+        const candidates = rows.filter(p => ['admin', 'support'].includes(p.role) && !has.has(p.id));
+        const select = $('sieGrantUser');
+        select.innerHTML = candidates.length
+            ? `<option value="">اختر حسابًا…</option>` + candidates
+                .map(p => `<option value="${esc(p.id)}">${esc(p.full_name ? `${p.full_name} — ${p.email}` : p.email)}</option>`).join('')
+            : '<option value="">كل أعضاء الفريق يملكون الصلاحية</option>';
+        select.disabled = !candidates.length;
+        $('sieGrantForm').hidden = false;
+        // منح/سحب مدير SIE عمليتان حرجتان (053): الزر يتبع حالة التحقق بخطوتين
+        applyCriticalState();
+        if (!candidates.length) $('sieGrantBtn').disabled = true;
+
+        if (!log.error && log.data?.length) {
+            body.insertAdjacentHTML('beforeend', `
+                <details class="owner-sie-log">
+                    <summary>آخر التغييرات (${log.data.length})</summary>
+                    <ul>${log.data.map(l => {
+                        const t = byId.get(l.target_user_id);
+                        const a = byId.get(l.actor_id);
+                        return `<li><span class="pill ${l.action === 'grant' ? 'status-resolved' : 'status-neutral'}">${l.action === 'grant' ? 'منح' : 'سحب'}</span>
+                            ${esc(t?.full_name || t?.email || l.target_user_id)}
+                            <span class="owner-cell-muted">— ${esc(a?.full_name || a?.email || 'ترحيل')} · ${esc(when(l.at))}</span></li>`;
+                    }).join('')}</ul>
+                </details>`);
+        }
+    }
+
+    $('sieGrantForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = $('sieGrantUser').value;
+        if (!userId) { say('اختر حسابًا أولًا.', 'error'); $('sieGrantUser').focus(); return; }
+        const btn = $('sieGrantBtn');
+        btn.disabled = true;
+        const { error } = await supabase.rpc('owner_grant_sie_admin', {
+            p_user_id: userId, p_note: $('sieGrantNote').value.trim() || null
+        });
+        btn.disabled = false;
+        if (error) { say(friendly(error), 'error'); return; }
+        $('sieGrantNote').value = '';
+        say('تم منح إدارة SIE.', 'success');
+        renderAdmins();
+        center.refreshAudit();
+    });
+
+    renderEngine();
+    renderAdmins();
+}
 </script>
 </body>
 </html>

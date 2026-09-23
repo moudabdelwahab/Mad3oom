@@ -13,6 +13,7 @@
  */
 
 import { countByView } from './ticket-view-model.js';
+import { isAccountRestricted } from '../account-status.js';
 
 /**
  * @typedef {{severity:'critical'|'warning'|'info', title:string, text:string,
@@ -37,7 +38,7 @@ export function assessAccountHealth(snapshot, { userId } = {}) {
     const plans   = snapshot?.planSubs?.ok ? snapshot.planSubs.data : null;
 
     // ── 1) الحساب مقيّد — أخطر حالة، تسبق كل شيء ───────────────────────────
-    if (profile?.ban_status && !['active', 'none'].includes(profile.ban_status)) {
+    if (isAccountRestricted(profile)) {
         items.push({
             severity: 'critical',
             title: 'حسابك مقيّد حالياً',

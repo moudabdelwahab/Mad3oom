@@ -387,12 +387,8 @@ body.customer-shell #sidebarCollapseBtn { display: none; }
         transition: margin-right var(--dur) var(--ease), max-width var(--dur) var(--ease);
     }
 
-    /* المساعد العائم (robot.css) مثبّت أسفل يمين الشاشة، وهو المكان اللي
-       بقت تحتله القائمة الثابتة. نزحزحه جنبها بدل ما يتغطى تحتها. */
-    body.customer-shell .robot-container {
-        right: calc(var(--sidebar-current) + 30px);
-        transition: right var(--dur) var(--ease);
-    }
+    /* مساعد الإعداد (robot.css) صار في ركن الدعم المباشر (أسفل اليسار)،
+       بعيدًا عن القائمة الثابتة يمينًا — فلا حاجة لإزاحته معها. */
 
     /* ---------- الوضع المطوي: أيقونات فقط ---------- */
     html[data-sidebar='collapsed'] body.customer-shell .sidebar-header .sidebar-title { display: none; }
@@ -462,7 +458,6 @@ body.customer-shell #sidebarCollapseBtn { display: none; }
 @media (prefers-reduced-motion: reduce) {
     body.customer-shell .sidebar,
     body.customer-shell .admin-main,
-    body.customer-shell .robot-container,
     body.customer-shell .sidebar-item::after,
     body.customer-shell #sidebarCollapseBtn svg { transition: none !important; }
 }

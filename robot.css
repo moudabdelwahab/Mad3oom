@@ -1,155 +1,189 @@
-/* Robot Assistant Styles - Ultra Professional Version */
+/* ============================================================================
+   robot.css — مساعد الإعداد في لوحة العميل (robot.js)
+
+   كان صورة PNG ثلاثية الأبعاد بعرض 160px على قاعدة، بطبقة z-index أعلى من
+   كل شيء: تغطي بطاقات المؤشرات، وعلى الجوال تجلس فوق حقل كتابة المحادثة.
+   صار زر إطلاق صغيرًا (44px) بأيقونة SVG بلون الهوية، مكدّسًا فوق زر الدعم
+   المباشر في نفس الركن (نهاية السطر = أسفل اليسار في RTL)، ويختفي حين تكون
+   المحادثة مفتوحة حتى لا يتزاحم عنصران عائمان.
+
+   الألوان من توكنز الصفحة المضيفة (--color-*) بقيم احتياطية، فيتبع الوضع
+   الليلي/النهاري. أنماط Driver.js في آخر الملف كما هي (تستخدمها صفحات أخرى).
+   ========================================================================== */
+
 .robot-container {
+    --ra-surface: var(--color-surface, #ffffff);
+    --ra-surface-2: var(--color-muted, #f3f6fa);
+    --ra-border: var(--color-border, rgba(0, 51, 102, 0.12));
+    --ra-text: var(--color-text, #16202b);
+    --ra-text-2: var(--color-text-secondary, #4d5a69);
+    --ra-accent: var(--color-accent, #0077cc);
+    --ra-brand: #003366;
+    --ra-brand-2: #0055aa;
+
     position: fixed;
-    bottom: 30px;
-    right: 30px;
-    z-index: 9999;
+    /* فوق زر الدعم المباشر (56px + 24px + فاصل 12px) */
+    bottom: 92px;
+    left: 24px;
+    z-index: 9997;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
+    gap: 10px;
     pointer-events: none;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Cairo', system-ui, sans-serif;
+    direction: rtl;
 }
 
-/* الأيقونة الأولية (القديمة/أيقونة الدردشة) */
-.chat-trigger {
-    width: 65px;
-    height: 65px;
-    background: linear-gradient(135deg, var(--color-accent), #0055AA);
+.robot-container > * { pointer-events: auto; }
+
+/* المحادثة المفتوحة تأخذ الركن كله — المساعد يتنحّى */
+body.chat-widget-open .robot-container { display: none; }
+
+/* ── زر الإطلاق ─────────────────────────────────────────────────────────── */
+.robot-avatar {
+    position: relative;
+    order: 2;
+    width: 44px;
+    height: 44px;
+    padding: 0;
     border-radius: 50%;
+    border: 1px solid var(--ra-border);
+    background: var(--ra-surface);
+    color: var(--ra-brand-2);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    pointer-events: auto;
-    box-shadow: 0 10px 25px rgba(0, 119, 204, 0.4);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    animation: pulse 2s infinite;
+    box-shadow: 0 8px 20px -8px rgba(0, 28, 58, 0.35), 0 1px 3px rgba(0, 28, 58, 0.08);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
-.chat-trigger:hover {
-    transform: scale(1.1) rotate(5deg);
-}
+[data-theme='dark'] .robot-avatar { color: #8fc7ff; }
 
-.chat-trigger svg {
-    width: 32px;
-    height: 32px;
-    fill: white;
-}
+.robot-avatar:hover { transform: translateY(-1px); border-color: var(--ra-accent); }
+.robot-avatar:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.35); }
+.robot-avatar[aria-expanded='true'] { border-color: var(--ra-accent); }
+.robot-avatar svg { width: 24px; height: 24px; }
 
-/* الروبوت الجديد */
-.robot-avatar {
-    width: 160px;
-    height: 160px;
-    cursor: pointer;
-    pointer-events: auto;
-    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.25));
-    animation: robotFloat 4s ease-in-out infinite;
-    display: none;
+/* تلميح نصي عند التحويم — ناحية بداية السطر (يمين الزر) */
+.robot-avatar-label {
+    position: absolute;
+    inset-inline-end: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(4px);
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--ra-brand);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
     opacity: 0;
-    transform: translateY(50px) scale(0.5);
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
 }
 
-.robot-avatar.active {
-    display: block;
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
+.robot-avatar:hover .robot-avatar-label,
+.robot-avatar:focus-visible .robot-avatar-label { opacity: 1; transform: translateY(-50%); }
+.robot-avatar[aria-expanded='true'] .robot-avatar-label { display: none; }
 
-.robot-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+.robot-notify-dot {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--color-danger, #e03b3b);
+    border: 2px solid var(--ra-surface);
+    display: none;
 }
+.robot-notify-dot.show { display: block; }
 
-/* نافذة الحوار الاحترافية (الرئيسية) */
+/* ── لوحة المساعد ───────────────────────────────────────────────────────── */
 .speech-bubble {
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(15px);
-    border: 1px solid rgba(0, 119, 204, 0.15);
-    border-radius: 1.5rem;
-    padding: 1.5rem;
-    margin-bottom: 15px;
-    max-width: 320px;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-    position: relative;
-    pointer-events: auto;
-    opacity: 0;
-    transform: translateY(20px) scale(0.9);
-    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    border-right: 6px solid var(--color-accent);
+    order: 1;
+    width: 340px;
+    max-width: calc(100vw - 48px);
+    max-height: min(560px, calc(100vh - 190px));
+    max-height: min(560px, calc(100dvh - 190px));
     display: none;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ra-surface);
+    color: var(--ra-text);
+    border: 1px solid var(--ra-border);
+    border-radius: 16px;
+    box-shadow: 0 24px 50px -14px rgba(0, 28, 58, 0.32), 0 3px 10px rgba(0, 28, 58, 0.08);
+    transform-origin: bottom left;
 }
 
-.speech-bubble.visible {
-    display: block;
-    opacity: 1;
-    transform: translateY(0) scale(1);
+/* كان .assistant-mode يفرض display:flex على اللوحة المخفية بـopacity:0 —
+   أي طبقة غير مرئية بعرض 360px تبتلع النقرات فوق المحتوى. الآن مخفية فعلًا. */
+.speech-bubble.visible { display: flex; animation: raIn .2s cubic-bezier(.2, .8, .2, 1); }
+
+@keyframes raIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
 }
 
 .robot-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
-    padding-bottom: 10px;
+    padding: 14px 14px 10px 14px;
+    flex-shrink: 0;
 }
 
-.robot-name {
-    font-weight: 800;
-    color: var(--color-accent);
-    font-size: 1.1rem;
-    letter-spacing: 0.5px;
+.robot-header-mark {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--ra-brand), var(--ra-brand-2));
 }
+
+.robot-header-mark svg { width: 19px; height: 19px; }
+.robot-header-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.robot-name { font-size: 14px; font-weight: 800; color: var(--ra-text); line-height: 1.3; }
+.robot-subtitle { font-size: 12px; color: var(--ra-text-2); }
 
 .robot-status {
-    width: 10px;
-    height: 10px;
-    background: #2ecc71;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    box-shadow: 0 0 10px #2ecc71;
+    background: var(--color-success, #16a36a);
+    flex-shrink: 0;
 }
 
-.robot-text {
-    font-size: 1rem;
-    color: #2c3e50;
-    margin: 0;
-    line-height: 1.6;
-    font-weight: 500;
-}
+.robot-text { margin: 0; font-size: 14px; line-height: 1.7; color: var(--ra-text); }
 
 .tour-btn {
-    margin-top: 18px;
-    background: linear-gradient(135deg, var(--color-accent), #0055AA);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-size: 0.95rem;
+    width: 100%;
+    margin-top: 12px;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ra-accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 119, 204, 0.3);
 }
 
-.tour-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 20px rgba(0, 119, 204, 0.4);
+@media (max-width: 640px) {
+    .robot-container { bottom: 84px; left: 16px; }
+    .speech-bubble { width: calc(100vw - 32px); max-width: 380px; }
 }
 
-@keyframes robotFloat {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-15px); }
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(0, 119, 204, 0.4); }
-    70% { box-shadow: 0 0 0 20px rgba(0, 119, 204, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(0, 119, 204, 0); }
+@media (prefers-reduced-motion: reduce) {
+    .robot-avatar, .speech-bubble.visible { transition: none; animation: none; }
 }
 
 /* ============================================================

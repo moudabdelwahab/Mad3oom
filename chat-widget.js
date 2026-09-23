@@ -71,15 +71,7 @@ class ChatWidget {
     setNotificationsPref(value) {
         this.notificationsEnabled = value;
         localStorage.setItem('chat_notifications_enabled', String(value));
-    }
-
-    getAvatarGradient(seed) {
-        let hash = 0;
-        const s = String(seed || 'system');
-        for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
-        const hue1 = Math.abs(hash) % 360;
-        const hue2 = (hue1 + 60) % 360;
-        return `linear-gradient(135deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 70%, 55%))`;
+        this.renderUnread?.();
     }
 
     formatEventTimestamp(date) {
@@ -111,37 +103,46 @@ class ChatWidget {
         }
 
         const widgetHTML = `
-      <div class="floating-chat-widget" id="floatingChatWidget">
-        <button class="chat-bubble-btn" id="chatBubbleBtn" title="فتح الدردشة">
-          <div class="chat-bubble-icon">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="floating-chat-widget" id="floatingChatWidget" dir="rtl">
+        <button type="button" class="chat-bubble-btn" id="chatBubbleBtn" aria-label="فتح الدعم المباشر" aria-controls="chatWidgetPanel" aria-expanded="false">
+          <span class="chat-bubble-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              <path d="M8 9h8M8 13h5"></path>
             </svg>
-          </div>
+          </span>
+          <span class="chat-bubble-badge" id="chatBubbleBadge" hidden></span>
         </button>
 
-        <div class="chat-widget-panel" id="chatWidgetPanel">
+        <div class="chat-widget-panel" id="chatWidgetPanel" role="dialog" aria-labelledby="chatWidgetTitle" data-state="idle">
           <!-- Header -->
           <div class="chat-widget-header" id="chatWidgetHeader">
             <div class="chat-widget-header-title">
-              <div class="chat-widget-header-icon">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              <div class="chat-widget-header-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
                 </svg>
+                <span class="chat-widget-presence"></span>
               </div>
               <div>
-                <h3>الدردشة المباشرة</h3>
-                <p id="headerStatus">كيف يمكننا مساعدتك؟</p>
+                <h3 id="chatWidgetTitle">الدعم المباشر</h3>
+                <p id="headerStatus">فريق مدعوم جاهز لمساعدتك</p>
               </div>
             </div>
             <div class="chat-widget-header-actions">
-              <button class="chat-header-icon-btn" id="chatSettingsBtn" title="الإعدادات">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+              <button type="button" class="chat-header-icon-btn" id="chatSettingsBtn" aria-label="خيارات المحادثة" aria-haspopup="true" aria-expanded="false" aria-controls="chatSettingsPanel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
               </button>
-              <button class="chat-header-icon-btn" id="chatMinimizeBtn" title="تصغير">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <button type="button" class="chat-header-icon-btn" id="chatMaximizeBtn" aria-label="تكبير النافذة" data-desktop-only>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
               </button>
-              <button class="chat-header-icon-btn chat-widget-close" id="chatWidgetClose" title="إغلاق">×</button>
+              <button type="button" class="chat-header-icon-btn" id="chatMinimizeBtn" aria-label="تصغير">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button type="button" class="chat-header-icon-btn chat-widget-close" id="chatWidgetClose" aria-label="إغلاق">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
           </div>
 
@@ -149,53 +150,50 @@ class ChatWidget {
           <div id="chatImpersonationBanner" style="display:none;"></div>
 
           <!-- Settings dropdown -->
-          <div class="chat-settings-panel" id="chatSettingsPanel">
+          <div class="chat-settings-panel" id="chatSettingsPanel" role="menu" aria-label="خيارات المحادثة">
             <div class="chat-settings-item" id="contactDetailsItem">
-              <div class="chat-settings-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </div>
-              <span class="chat-settings-label">تقديم بيانات التواصل</span>
-              <a href="/sign-in.html" class="chat-settings-action" id="chatLoginLink">
-                تسجيل الدخول
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </a>
-              <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">تقديم</button>
+              <span class="chat-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </span>
+              <span class="chat-settings-label">إرسال بيانات التواصل</span>
+              <a href="/login.html" class="chat-settings-action" id="chatLoginLink">تسجيل الدخول</a>
+              <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">إرسال</button>
             </div>
-            <div class="chat-settings-item chat-settings-item-clickable" id="chatModeItem">
-              <div class="chat-settings-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
-              </div>
-              <span class="chat-settings-label">وضع الشات بوت</span>
-              <span class="chat-settings-action" id="chatModeCurrentLabel" style="color: var(--chat-text-secondary); font-weight: 600;">تقليدي</span>
+            <div class="chat-settings-item chat-settings-item-clickable" id="chatModeItem" role="menuitem" tabindex="0">
+              <span class="chat-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+              </span>
+              <span class="chat-settings-label">وضع الرد الآلي</span>
+              <span class="chat-settings-value" id="chatModeCurrentLabel">تقليدي</span>
             </div>
-            <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem">
-              <div class="chat-settings-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-              </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem" role="menuitem" tabindex="0">
+              <span class="chat-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              </span>
               <span class="chat-settings-label">تحميل نص المحادثة</span>
             </div>
-            <div class="chat-settings-item chat-settings-item-clickable" id="maximizeItem">
-              <div class="chat-settings-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"></path></svg>
-              </div>
+            <div class="chat-settings-item chat-settings-item-clickable" id="maximizeItem" role="menuitem" tabindex="0">
+              <span class="chat-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"></path></svg>
+              </span>
               <span class="chat-settings-label" id="maximizeLabel">تكبير النافذة</span>
             </div>
             <div class="chat-settings-item">
-              <div class="chat-settings-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
-              </div>
-              <span class="chat-settings-label">الإشعارات</span>
+              <span class="chat-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
+              </span>
+              <label class="chat-settings-label" for="notificationsToggle">تنبيه بالرسائل الجديدة</label>
               <label class="chat-toggle-switch">
-                <input type="checkbox" id="notificationsToggle" ${this.notificationsEnabled ? 'checked' : ''}>
-                <span class="chat-toggle-slider"></span>
+                <input type="checkbox" id="notificationsToggle" role="switch" ${this.notificationsEnabled ? 'checked' : ''}>
+                <span class="chat-toggle-slider" aria-hidden="true"></span>
               </label>
             </div>
           </div>
 
           <!-- Body -->
-          <div class="chat-widget-body" id="chatWidgetBody"></div>
+          <div class="chat-widget-body" id="chatWidgetBody" role="log" aria-live="polite" aria-relevant="additions"></div>
 
-          <div id="chatWidgetTyping" class="chat-widget-typing-row" style="display:none;">
+          <div id="chatWidgetTyping" class="chat-widget-typing-row" style="display:none;" aria-live="polite">
             <div class="chat-widget-typing">
               <span class="chat-widget-typing-dot"></span>
               <span class="chat-widget-typing-dot"></span>
@@ -217,37 +215,78 @@ class ChatWidget {
         const bubbleBtn = document.getElementById('chatBubbleBtn');
         const closeBtn = document.getElementById('chatWidgetClose');
         const minimizeBtn = document.getElementById('chatMinimizeBtn');
+        const maximizeBtn = document.getElementById('chatMaximizeBtn');
         const settingsBtn = document.getElementById('chatSettingsBtn');
         const downloadItem = document.getElementById('downloadTranscriptItem');
         const maximizeItem = document.getElementById('maximizeItem');
         const notifToggle = document.getElementById('notificationsToggle');
         const provideBtn = document.getElementById('chatProvideBtn');
         const chatModeItem = document.getElementById('chatModeItem');
+        const header = document.getElementById('chatWidgetHeader');
 
         if (!bubbleBtn || !closeBtn) {
             console.error('[ChatWidget] Failed to find chat elements');
             return;
         }
 
-        bubbleBtn.addEventListener('click', () => this.openWidget());
+        bubbleBtn.addEventListener('click', () => {
+            const panel = document.getElementById('chatWidgetPanel');
+            if (panel?.classList.contains('active') && !this.isMinimized) this.closeWidget();
+            else this.openWidget();
+        });
         closeBtn.addEventListener('click', () => this.closeWidget());
         minimizeBtn.addEventListener('click', () => this.toggleMinimize());
+        maximizeBtn?.addEventListener('click', () => this.toggleMaximize());
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleSettingsPanel();
         });
         downloadItem.addEventListener('click', () => this.downloadTranscript());
-        maximizeItem.addEventListener('click', () => this.toggleMaximize());
+        maximizeItem.addEventListener('click', () => {
+            this.toggleMaximize();
+            this.toggleSettingsPanel(false);
+        });
         notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
         provideBtn.addEventListener('click', () => this.submitContactDetails());
         chatModeItem.addEventListener('click', () => this.openChatModeDialog());
 
+        // عناصر القائمة القابلة للنقر تعمل بلوحة المفاتيح أيضًا (Enter / Space)
+        [downloadItem, maximizeItem, chatModeItem].forEach(item => {
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    item.click();
+                }
+            });
+        });
+
+        // الرأس في الوضع المصغّر = شريط يُستعاد بالنقر (ما لم يكن سحبًا)
+        header?.addEventListener('click', (e) => {
+            if (!this.isMinimized || this.didDrag) return;
+            if (e.target.closest('.chat-header-icon-btn')) return;
+            this.toggleMinimize();
+        });
+
         document.addEventListener('click', (e) => {
             const panel = document.getElementById('chatSettingsPanel');
             const settingsButton = document.getElementById('chatSettingsBtn');
-            if (this.isSettingsOpen && panel && !panel.contains(e.target) && e.target !== settingsButton) {
+            if (this.isSettingsOpen && panel && !panel.contains(e.target) && !settingsButton?.contains(e.target)) {
                 this.toggleSettingsPanel(false);
             }
+        });
+
+        // Escape: يغلق القائمة أولًا، ثم النافذة — ويعيد التركيز لزر الإطلاق
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const root = document.getElementById('floatingChatWidget');
+            if (!root || !root.contains(document.activeElement)) return;
+            if (this.isSettingsOpen) {
+                this.toggleSettingsPanel(false);
+                document.getElementById('chatSettingsBtn')?.focus();
+                return;
+            }
+            this.closeWidget();
+            document.getElementById('chatBubbleBtn')?.focus();
         });
 
         this.setupDragging();
@@ -273,8 +312,13 @@ class ChatWidget {
 
         const isOnActionButton = (target) => !!target.closest('.chat-header-icon-btn');
 
+        // على الجوال النافذة ورقة كاملة (chat-widget.css) — لا معنى للسحب هناك،
+        // وأي موضع مسحوب محفوظ كان سيُخرجها عن الشاشة.
+        const isCompact = () => window.matchMedia('(max-width: 640px)').matches;
+
         const beginDrag = (clientX, clientY, target) => {
-            if (isOnActionButton(target)) return;
+            this.didDrag = false;
+            if (isOnActionButton(target) || isCompact() || this.isMinimized) return;
             const rect = panel.getBoundingClientRect();
             dragging = true;
             startX = clientX;
@@ -304,6 +348,7 @@ class ChatWidget {
 
             panel.style.left = `${newLeft}px`;
             panel.style.top = `${newTop}px`;
+            if (Math.abs(deltaX) + Math.abs(deltaY) > 3) this.didDrag = true;
             this.dragPosition = { left: newLeft, top: newTop };
         };
 
@@ -330,6 +375,18 @@ class ChatWidget {
             moveDrag(touch.clientX, touch.clientY);
         }, { passive: true });
         document.addEventListener('touchend', endDrag);
+
+        // الانتقال لشاشة صغيرة يلغي أي موضع مسحوب حتى لا تبقى النافذة خارجها
+        window.matchMedia('(max-width: 640px)').addEventListener?.('change', (e) => {
+            if (e.matches) this.resetPanelPosition();
+        });
+    }
+
+    resetPanelPosition() {
+        const panel = document.getElementById('chatWidgetPanel');
+        if (!panel) return;
+        ['position', 'left', 'top', 'bottom', 'right'].forEach(prop => panel.style.removeProperty(prop));
+        this.dragPosition = null;
     }
 
     /**
@@ -402,7 +459,7 @@ class ChatWidget {
 
     openChatModeDialog() {
         if (!this.currentUser) {
-            window.location.href = '/sign-in.html';
+            window.location.href = '/login.html';
             return;
         }
         this.toggleSettingsPanel(false);
@@ -451,10 +508,14 @@ class ChatWidget {
         panel.classList.add('active');
         this.isMinimized = false;
         panel.classList.remove('minimized');
+        this.syncOpenState();
+        this.clearUnread();
 
         if (!this.chatInitialized) {
             this.chatInitialized = true;
             await this.startChat();
+        } else {
+            this.focusComposer();
         }
     }
 
@@ -463,6 +524,7 @@ class ChatWidget {
         if (!panel) return;
         panel.classList.remove('active');
         this.toggleSettingsPanel(false);
+        this.syncOpenState();
         // ملاحظة: إغلاق النافذة مايقفلش المحادثة نفسها - الجلسة تفضل شغالة
         // ولو العميل فتح الويدجت تاني هيكمل من نفس مكانه.
     }
@@ -473,15 +535,34 @@ class ChatWidget {
         this.isMinimized = !this.isMinimized;
         panel.classList.toggle('minimized', this.isMinimized);
         if (this.isMinimized) this.toggleSettingsPanel(false);
+        else { this.clearUnread(); this.focusComposer(); }
+
+        const btn = document.getElementById('chatMinimizeBtn');
+        if (btn) {
+            btn.setAttribute('aria-label', this.isMinimized ? 'استعادة النافذة' : 'تصغير');
+            btn.innerHTML = this.isMinimized
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"></polyline></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+        }
+        this.syncOpenState();
     }
 
     toggleMaximize() {
         const panel = document.getElementById('chatWidgetPanel');
         const label = document.getElementById('maximizeLabel');
+        const btn = document.getElementById('chatMaximizeBtn');
         if (!panel) return;
         this.isMaximized = !this.isMaximized;
         panel.classList.toggle('maximized', this.isMaximized);
+        // نافذة مسحوبة لمكان بعينه قد لا تتسع للحجم الأكبر — نعيدها لركنها
+        if (this.isMaximized) this.resetPanelPosition();
         if (label) label.textContent = this.isMaximized ? 'استعادة الحجم' : 'تكبير النافذة';
+        if (btn) {
+            btn.setAttribute('aria-label', this.isMaximized ? 'استعادة الحجم' : 'تكبير النافذة');
+            btn.innerHTML = this.isMaximized
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+        }
     }
 
     toggleSettingsPanel(force) {
@@ -489,6 +570,61 @@ class ChatWidget {
         if (!panel) return;
         this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
         panel.classList.toggle('active', this.isSettingsOpen);
+        document.getElementById('chatSettingsBtn')?.setAttribute('aria-expanded', String(this.isSettingsOpen));
+    }
+
+    /** حالة الفتح على الجذر وزر الإطلاق و<body> — مساعد الإعداد يختفي حين تكون المحادثة مفتوحة. */
+    syncOpenState() {
+        const panel = document.getElementById('chatWidgetPanel');
+        const open = !!panel?.classList.contains('active');
+        const root = document.getElementById('floatingChatWidget');
+        root?.classList.toggle('is-open', open);
+        root?.classList.toggle('is-minimized', open && this.isMinimized);
+        document.body.classList.toggle('chat-widget-open', open && !this.isMinimized);
+        const bubble = document.getElementById('chatBubbleBtn');
+        if (bubble) {
+            bubble.setAttribute('aria-expanded', String(open && !this.isMinimized));
+            bubble.setAttribute('aria-label', open && !this.isMinimized ? 'إغلاق الدعم المباشر' : 'فتح الدعم المباشر');
+        }
+    }
+
+    focusComposer() {
+        // لا نسرق التركيز على الشاشات اللمسية: لوحة المفاتيح ستغطي نصف المحادثة
+        if (window.matchMedia('(pointer: coarse)').matches) return;
+        document.getElementById('chatWidgetTextInput')?.focus({ preventScroll: true });
+    }
+
+    /* ==================== الرسائل غير المقروءة ==================== */
+
+    /** رسالة وصلت والنافذة مغلقة أو مصغّرة — العدّاد يتبع خيار «تنبيه بالرسائل الجديدة». */
+    noteIncoming() {
+        const panel = document.getElementById('chatWidgetPanel');
+        const visible = panel?.classList.contains('active') && !this.isMinimized;
+        if (visible || !this.notificationsEnabled) return;
+        this.unreadCount = (this.unreadCount || 0) + 1;
+        this.renderUnread();
+    }
+
+    clearUnread() {
+        this.unreadCount = 0;
+        this.renderUnread();
+    }
+
+    renderUnread() {
+        const badge = document.getElementById('chatBubbleBadge');
+        if (!badge) return;
+        const n = this.notificationsEnabled ? (this.unreadCount || 0) : 0;
+        badge.hidden = n === 0;
+        badge.textContent = n > 9 ? '9+' : String(n);
+        badge.setAttribute('aria-label', `${n} رسائل جديدة`);
+    }
+
+    /** نص الحالة في الرأس + نقطة الحضور (idle / online / agent / error / offline). */
+    setHeaderStatus(text, state) {
+        const headerStatus = document.getElementById('headerStatus');
+        if (headerStatus) headerStatus.textContent = text;
+        const panel = document.getElementById('chatWidgetPanel');
+        if (panel && state) panel.dataset.state = state;
     }
 
     /* ==================== تحميل نص المحادثة ==================== */
@@ -648,9 +784,12 @@ class ChatWidget {
         const body = document.getElementById('chatWidgetBody');
         body.innerHTML = '';
         this.transcriptLines = [];
+        this.lastRendered = null;
+        this.renderIntro();
 
         (messages || []).forEach(msg => this.renderMessageBubble(msg));
         body.scrollTop = body.scrollHeight;
+        this.focusComposer();
 
         if (!messages || messages.length === 0) {
             await this.sendInitialGreeting();
@@ -658,10 +797,7 @@ class ChatWidget {
             this.renderQuickOptions(getOptionsForFlow(this.currentSession?.bot_state?.flow));
         }
 
-        if (this.agentJoined) {
-            const headerStatus = document.getElementById('headerStatus');
-            if (headerStatus) headerStatus.textContent = 'فريق الدعم متصل الآن';
-        }
+        if (this.agentJoined) this.setHeaderStatus('فريق الدعم متصل الآن', 'agent');
     }
 
     async sendInitialGreeting() {
@@ -701,39 +837,89 @@ class ChatWidget {
         if (this.agentJoined) return;
         this.agentJoined = true;
         this.appendSystemEvent('فريق الدعم انضم إلى المحادثة');
-        const headerStatus = document.getElementById('headerStatus');
-        if (headerStatus) headerStatus.textContent = 'فريق الدعم متصل الآن';
+        this.setHeaderStatus('فريق الدعم متصل الآن', 'agent');
     }
 
     markAgentLeft() {
         if (!this.agentJoined) return;
         this.agentJoined = false;
         this.appendSystemEvent('فريق الدعم غادر المحادثة');
-        const headerStatus = document.getElementById('headerStatus');
-        if (headerStatus) headerStatus.textContent = 'المحادثة';
+        this.setHeaderStatus('المساعد الآلي يتابع معك', 'online');
     }
 
     /* ==================== عرض الرسائل ==================== */
+
+    /** بطاقة الترحيب أعلى المحادثة — ثابتة، لا تُحسب رسالة ولا تدخل النص المحمَّل. */
+    renderIntro() {
+        const body = document.getElementById('chatWidgetBody');
+        if (!body) return;
+        const intro = document.createElement('div');
+        intro.className = 'chat-widget-intro';
+        intro.innerHTML = `
+      <span class="chat-widget-intro-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      </span>
+      <p class="chat-widget-intro-title">دعم مدعوم</p>
+      <p class="chat-widget-intro-text">المساعد الآلي يرد فورًا، وفريق الدعم ينضم للمحادثة عند الحاجة.</p>
+    `;
+        body.appendChild(intro);
+    }
+
+    dayLabel(date) {
+        const d = new Date(date);
+        const today = new Date();
+        const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+        const diff = Math.round((startOf(today) - startOf(d)) / 86400000);
+        if (diff === 0) return 'اليوم';
+        if (diff === 1) return 'أمس';
+        return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+    }
+
+    senderOf(msg) {
+        const isOwn = !!(this.currentUser && msg.sender_id === this.currentUser.id);
+        if (isOwn) return { key: 'self', who: 'أنت', isOwn: true };
+        if (msg.is_admin_reply) return { key: `agent:${msg.sender_id || ''}`, who: 'فريق الدعم', isAgent: true };
+        return { key: 'bot', who: 'المساعد الآلي' };
+    }
 
     renderMessageBubble(msg) {
         const body = document.getElementById('chatWidgetBody');
         if (!body) return;
 
-        const isOwn = this.currentUser && msg.sender_id === this.currentUser.id;
-        const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        const sender = this.senderOf(msg);
+        const created = msg.created_at ? new Date(msg.created_at) : new Date();
+        const time = created.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
         const text = msg.message_text || '';
 
+        // فاصل يوم عند تغيّر التاريخ، وتجميع الرسائل المتتالية من نفس المرسل
+        const dayKey = created.toDateString();
+        if (this.lastRendered?.day !== dayKey) {
+            const sep = document.createElement('div');
+            sep.className = 'chat-widget-day';
+            sep.textContent = this.dayLabel(created);
+            body.appendChild(sep);
+        }
+        const continued = this.lastRendered?.day === dayKey
+            && this.lastRendered?.sender === sender.key
+            && created - this.lastRendered.at < 5 * 60 * 1000;
+
         const div = document.createElement('div');
-        div.className = `chat-widget-message ${isOwn ? 'user' : 'bot'}`;
+        div.className = `chat-widget-message ${sender.isOwn ? 'user' : 'bot'}${sender.isAgent ? ' is-agent' : ''}${continued ? ' is-continued' : ''}`;
+        const avatar = sender.isOwn ? '' : `<span class="chat-widget-msg-avatar" aria-hidden="true">${sender.isAgent
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"></rect><path d="M12 8V4M9 14h.01M15 14h.01"></path></svg>'}</span>`;
         div.innerHTML = `
-      <div class="chat-widget-bubble">
-        ${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}
-        <div class="chat-widget-msg-time">${time}</div>
+      ${avatar}
+      <div class="chat-widget-message-content">
+        <div class="chat-widget-bubble">${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}</div>
+        <div class="chat-widget-msg-meta">${continued ? '' : `<span class="chat-widget-msg-who">${sender.who}</span>`}<time class="chat-widget-msg-time" datetime="${created.toISOString()}">${time}</time></div>
       </div>
     `;
+        if (msg.id) div.dataset.msgId = String(msg.id);
         body.appendChild(div);
+        this.lastRendered = { day: dayKey, sender: sender.key, at: created };
 
-        const who = isOwn ? 'أنا' : (msg.is_admin_reply ? 'الدعم الفني' : 'البوت');
+        const who = sender.isOwn ? 'أنا' : (msg.is_admin_reply ? 'الدعم الفني' : 'البوت');
         this.transcriptLines.push(`[${time}] ${who}: ${text}`);
     }
 
@@ -744,9 +930,16 @@ class ChatWidget {
     appendMessage(msg) {
         if (msg.is_admin_reply) this.markAgentJoined();
 
+        // الاشتراك الفوري قد يعيد رسالة رُسمت للتو (أو يصل بعد إعادة تحميل)
+        if (msg.id && document.querySelector(`#chatWidgetBody [data-msg-id="${CSS.escape(String(msg.id))}"]`)) return;
+
         this.renderMessageBubble(msg);
         const body = document.getElementById('chatWidgetBody');
+        // الرسالة السريعة تبقى آخر عنصر، تحت الرد لا فوقه
+        const quick = document.getElementById('botQuickOptions');
+        if (quick && body) body.appendChild(quick);
         if (body) body.scrollTop = body.scrollHeight;
+        if (!(this.currentUser && msg.sender_id === this.currentUser.id)) this.noteIncoming();
     }
 
     appendSystemEvent(text) {
@@ -756,13 +949,14 @@ class ChatWidget {
         const time = new Date();
         const wrapper = document.createElement('div');
         wrapper.className = 'chat-widget-system-event';
+        wrapper.setAttribute('role', 'status');
         wrapper.innerHTML = `
-      <div class="chat-widget-avatar" style="background:${this.getAvatarGradient('agent')}"></div>
-      <div class="chat-widget-system-text">${escapeHtml(text)}</div>
-      <div class="chat-widget-system-time">${this.formatEventTimestamp(time)}</div>
+      <span class="chat-widget-system-text">${escapeHtml(text)}</span>
+      <time class="chat-widget-system-time" datetime="${time.toISOString()}">${time.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</time>
     `;
         body.appendChild(wrapper);
         body.scrollTop = body.scrollHeight;
+        this.lastRendered = null;
 
         this.transcriptLines.push(`[${this.formatEventTimestamp(time)}] * ${text}`);
     }
@@ -807,8 +1001,17 @@ class ChatWidget {
         const input = document.getElementById('chatWidgetTextInput');
         const text = (presetText !== undefined ? presetText : input?.value || '').trim();
         if (!text || !this.currentSessionId || !this.currentUser) return;
+        // ضغطتان سريعتان على Enter كانتا ترسلان الرسالة مرتين
+        if (this.isSending) return;
+        this.isSending = true;
+        this.setComposerBusy(true);
+        this.showComposerError(null);
 
-        if (presetText === undefined && input) input.value = '';
+        if (presetText === undefined && input) {
+            input.value = '';
+            this.autoSizeComposer();
+        }
+        const quickOptions = document.getElementById('botQuickOptions');
         this.clearQuickOptions();
         const typingIndicator = document.getElementById('chatWidgetTyping');
         const typingText = document.getElementById('chatWidgetTypingText');
@@ -822,6 +1025,18 @@ class ChatWidget {
 
         if (sendError) {
             console.error('خطأ في إرسال الرسالة:', sendError);
+            // الرسالة لم تصل: نعيد النص لمكانه بدل أن يختفي بصمت، ونعرض سببًا وإعادة محاولة
+            this.isSending = false;
+            this.setComposerBusy(false);
+            if (presetText === undefined && input && !input.value) {
+                input.value = text;
+                this.autoSizeComposer();
+            }
+            if (quickOptions) {
+                quickOptions.querySelectorAll('button').forEach(b => (b.disabled = false));
+                document.getElementById('chatWidgetBody')?.appendChild(quickOptions);
+            }
+            this.showComposerError('تعذّر إرسال رسالتك. تحقّق من الاتصال وحاول مرة أخرى.', () => this.sendMessage(presetText));
             return;
         }
 
@@ -922,6 +1137,8 @@ class ChatWidget {
             });
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
+            this.isSending = false;
+            this.setComposerBusy(false);
         }
     }
 
@@ -964,7 +1181,6 @@ class ChatWidget {
 
     async endChat() {
         if (!this.currentSessionId) return;
-        if (!confirm('هل تريد إنهاء المحادثة؟')) return;
 
         const { error } = await supabase
             .from('chat_sessions')
@@ -973,6 +1189,7 @@ class ChatWidget {
 
         if (error) {
             console.error('خطأ في إنهاء المحادثة:', error);
+            this.showComposerError('تعذّر إنهاء المحادثة. حاول مرة أخرى.');
             return;
         }
 
@@ -990,26 +1207,47 @@ class ChatWidget {
 
     /* ==================== حالات عرض مختلفة (تحميل / خروج / خطأ / إنهاء) ==================== */
 
+    stateHtml({ tone = '', icon, title, text, action = '' }) {
+        const icons = {
+            lock: '<path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"></path><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
+            alert: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+            check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>'
+        };
+        return `
+      <div class="chat-widget-center-state ${tone}">
+        <span class="chat-widget-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[icon] || ''}</svg></span>
+        <p class="chat-widget-center-title">${title}</p>
+        <p>${text}</p>
+        ${action}
+      </div>`;
+    }
+
     renderLoadingState() {
         const body = document.getElementById('chatWidgetBody');
         const footer = document.getElementById('chatWidgetFooter');
-        if (body) body.innerHTML = `<div class="chat-widget-center-state">جاري تحميل المحادثة...</div>`;
+        this.setHeaderStatus('جاري الاتصال…', 'idle');
+        if (body) {
+            body.innerHTML = `
+        <div class="chat-widget-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p class="visually-hidden">جاري تحميل المحادثة...</p>`;
+            body.setAttribute('aria-busy', 'true');
+        }
         if (footer) footer.innerHTML = '';
     }
 
     renderLoggedOutState() {
         const body = document.getElementById('chatWidgetBody');
         const footer = document.getElementById('chatWidgetFooter');
-        const header = document.getElementById('headerStatus');
-        if (header) header.textContent = 'يجب تسجيل الدخول';
+        this.setHeaderStatus('يجب تسجيل الدخول', 'offline');
 
         if (body) {
-            body.innerHTML = `
-        <div class="chat-widget-center-state">
-          <p>محتاج تسجّل دخولك الأول عشان تقدر تبدأ محادثة مع فريق الدعم.</p>
-          <a href="/sign-in.html" class="chat-widget-primary-link">تسجيل الدخول</a>
-        </div>
-      `;
+            body.removeAttribute('aria-busy');
+            body.innerHTML = this.stateHtml({
+                icon: 'lock',
+                title: 'سجّل دخولك للبدء',
+                text: 'محتاج تسجّل دخولك الأول عشان تقدر تبدأ محادثة مع فريق الدعم.',
+                action: '<a href="/login.html" class="chat-widget-primary-link">تسجيل الدخول</a>'
+            });
         }
         if (footer) footer.innerHTML = '';
     }
@@ -1017,35 +1255,99 @@ class ChatWidget {
     renderErrorState() {
         const body = document.getElementById('chatWidgetBody');
         const footer = document.getElementById('chatWidgetFooter');
+        this.setHeaderStatus('تعذّر الاتصال', 'error');
         // لو الخطأ حصل وقت "الدخول كعضو" تحديدًا، الرسالة العامة مضلّلة -
         // بتوحي إن فيه مشكلة عشوائية، بينما فعليًا السبب الأرجح معروف (فرق
         // بين جلسة Supabase الحقيقية وuser_id المستهدف، على مستوى RLS في
         // الباك إند) ومحتاج تدخل هناك، مش مجرد "جرب تاني".
         const message = this.isImpersonated
             ? 'تعذّر فتح محادثة باسم هذا العضو أثناء "الدخول كعضو". هذه مشكلة معروفة في صلاحيات قاعدة البيانات (RLS) تحتاج تعديل من فريق التطوير الخلفي، وليست مشكلة في المتصفح.'
-            : 'حصل خطأ في تحميل المحادثة، جرب تقفل وتفتح الويدجت تاني.';
-        if (body) body.innerHTML = `<div class="chat-widget-center-state">${message}</div>`;
+            : 'حصل خطأ في تحميل المحادثة. تحقّق من اتصالك وحاول مرة أخرى.';
+        if (body) {
+            body.removeAttribute('aria-busy');
+            body.innerHTML = this.stateHtml({
+                tone: 'is-error',
+                icon: 'alert',
+                title: 'تعذّر تحميل المحادثة',
+                text: message,
+                action: this.isImpersonated ? '' : '<button type="button" class="chat-widget-primary-link" id="chatRetryBtn">إعادة المحاولة</button>'
+            });
+            body.querySelector('#chatRetryBtn')?.addEventListener('click', () => {
+                this.chatInitialized = true;
+                this.startChat();
+            });
+        }
         if (footer) footer.innerHTML = '';
     }
 
     renderEndedState() {
         const body = document.getElementById('chatWidgetBody');
         const footer = document.getElementById('chatWidgetFooter');
-        const header = document.getElementById('headerStatus');
-        if (header) header.textContent = 'انتهت المحادثة';
+        this.setHeaderStatus('انتهت المحادثة', 'offline');
+        this.clearQuickOptions();
         if (body) {
             const div = document.createElement('div');
-            div.className = 'chat-widget-center-state';
-            div.innerHTML = `<p>تم إنهاء المحادثة 🌟<br>شكراً لتواصلك معنا.</p>`;
-            body.appendChild(div);
+            div.innerHTML = this.stateHtml({
+                tone: 'is-done',
+                icon: 'check',
+                title: 'تم إنهاء المحادثة',
+                text: 'شكرًا لتواصلك معنا. نص المحادثة متاح للتحميل من قائمة الخيارات.',
+                action: '<button type="button" class="chat-widget-primary-link" data-new-chat>بدء محادثة جديدة</button>'
+            });
+            const state = div.firstElementChild;
+            body.appendChild(state);
+            state.querySelector('[data-new-chat]')?.addEventListener('click', () => {
+                this.chatInitialized = true;
+                this.startChat();
+            });
             body.scrollTop = body.scrollHeight;
         }
         if (footer) footer.innerHTML = '';
     }
 
+    /* ==================== شريط الإدخال ==================== */
+
+    autoSizeComposer() {
+        const input = document.getElementById('chatWidgetTextInput');
+        if (!input) return;
+        input.style.height = 'auto';
+        input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+        const send = document.querySelector('#chatWidgetFooter .chat-widget-send-btn');
+        if (send && !this.isSending) send.disabled = !input.value.trim();
+    }
+
+    setComposerBusy(busy) {
+        const send = document.querySelector('#chatWidgetFooter .chat-widget-send-btn');
+        if (!send) return;
+        send.classList.toggle('is-busy', busy);
+        send.setAttribute('aria-busy', String(busy));
+        send.disabled = busy || !document.getElementById('chatWidgetTextInput')?.value.trim();
+    }
+
+    /** خطأ ظاهر فوق حقل الكتابة (null يخفيه). onRetry اختياري. */
+    showComposerError(message, onRetry) {
+        const footer = document.getElementById('chatWidgetFooter');
+        if (!footer) return;
+        footer.querySelector('.chat-widget-inline-error')?.remove();
+        if (!message) return;
+        const box = document.createElement('div');
+        box.className = 'chat-widget-inline-error';
+        box.setAttribute('role', 'alert');
+        box.innerHTML = `<span>${escapeHtml(message)}</span>`;
+        if (onRetry) {
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'chat-widget-link-btn';
+            retry.textContent = 'إعادة المحاولة';
+            retry.addEventListener('click', () => { box.remove(); onRetry(); });
+            box.appendChild(retry);
+        }
+        footer.prepend(box);
+    }
+
     renderChatShell() {
-        const header = document.getElementById('headerStatus');
-        if (header && !this.agentJoined) header.textContent = 'المحادثة';
+        if (!this.agentJoined) this.setHeaderStatus('المساعد الآلي يرد فورًا', 'online');
+        document.getElementById('chatWidgetBody')?.removeAttribute('aria-busy');
 
         const footer = document.getElementById('chatWidgetFooter');
         if (!footer) return;
@@ -1054,32 +1356,64 @@ class ChatWidget {
         const row = document.createElement('div');
         row.className = 'chat-widget-input-row';
 
-        const input = document.createElement('input');
-        input.type = 'text';
+        const input = document.createElement('textarea');
         input.id = 'chatWidgetTextInput';
         input.className = 'chat-widget-text-input';
+        input.rows = 1;
         input.placeholder = 'اكتب رسالتك هنا...';
+        input.setAttribute('aria-label', 'رسالتك');
         input.autocomplete = 'off';
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
+        input.dir = 'auto';
+        input.addEventListener('input', () => this.autoSizeComposer());
+        input.addEventListener('keydown', (e) => {
+            // Enter يرسل، وShift+Enter سطر جديد. isComposing: لا نرسل أثناء
+            // تركيب حروف لوحة مفاتيح IME.
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                e.preventDefault();
+                this.sendMessage();
+            }
         });
 
         const sendBtn = document.createElement('button');
         sendBtn.type = 'button';
         sendBtn.className = 'chat-widget-send-btn';
-        sendBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`;
+        sendBtn.setAttribute('aria-label', 'إرسال');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`;
         sendBtn.addEventListener('click', () => this.sendMessage());
 
         row.appendChild(input);
         row.appendChild(sendBtn);
         footer.appendChild(row);
 
+        // إنهاء المحادثة بتأكيد داخل الشريط بدل confirm() الخاصة بالمتصفح
+        const meta = document.createElement('div');
+        meta.className = 'chat-widget-footer-meta';
+        const hint = document.createElement('span');
+        hint.textContent = 'Enter للإرسال · Shift+Enter لسطر جديد';
         const endBtn = document.createElement('button');
         endBtn.type = 'button';
-        endBtn.textContent = 'إنهاء المحادثة';
         endBtn.className = 'chat-widget-end-btn';
-        endBtn.addEventListener('click', () => this.endChat());
-        footer.appendChild(endBtn);
+        const idleEnd = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg><span>إنهاء المحادثة</span>';
+        endBtn.innerHTML = idleEnd;
+        let confirmTimer = null;
+        endBtn.addEventListener('click', () => {
+            if (endBtn.dataset.confirm === '1') {
+                clearTimeout(confirmTimer);
+                endBtn.disabled = true;
+                this.endChat().finally(() => { endBtn.disabled = false; });
+                return;
+            }
+            endBtn.dataset.confirm = '1';
+            endBtn.innerHTML = '<span>اضغط مرة أخرى للتأكيد</span>';
+            confirmTimer = setTimeout(() => {
+                delete endBtn.dataset.confirm;
+                endBtn.innerHTML = idleEnd;
+            }, 4000);
+        });
+        meta.appendChild(hint);
+        meta.appendChild(endBtn);
+        footer.appendChild(meta);
     }
 }
 

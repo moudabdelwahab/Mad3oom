@@ -1,293 +1,167 @@
 /* ====================================================================
    onboarding-assistant.css
-   إضافات على robot.css عشان يدعم "مساعد الإعداد" (محادثة متعددة الرسائل
-   جوه نفس الـ speech-bubble) من غير ما نلمس robot.css الأصلي.
-   لازم يتحمّل بعد robot.css في الصفحة.
+   محتوى لوحة «مساعد الإعداد» (robot.js): شريط التقدّم، الرسائل،
+   الاختيارات، وأزرار الرجوع السريع. يُحمَّل بعد robot.css ويستخدم
+   توكنزه (--ra-*) فيتبع الوضع الليلي/النهاري للصفحة.
    ==================================================================== */
 
-/* السماح للـ speech-bubble إنه يبقى أطول شوية ويستوعب تريد من رسالة */
-.speech-bubble.assistant-mode {
-    max-width: 360px;
-    width: 360px;
-    max-height: 70vh;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    overflow: hidden;
-}
-
-.speech-bubble.assistant-mode .robot-header {
-    padding: 1.1rem 1.25rem 0.9rem;
-    margin-bottom: 0;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.speech-bubble.assistant-mode .robot-name {
-    font-size: 1rem;
-}
+.speech-bubble.assistant-mode { padding: 0; }
 
 .bubble-close {
-    position: absolute;
-    left: 1rem;
-    top: 1.1rem;
-    background: var(--color-muted);
-    border: none;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    color: var(--color-text-secondary);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background .2s;
+    background: transparent;
+    color: var(--ra-text-2);
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
 }
-.bubble-close:hover { background: var(--color-border); color: var(--color-text); }
+.bubble-close:hover { background: var(--ra-surface-2); color: var(--ra-text); }
+.bubble-close:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.3); }
+.bubble-close svg { width: 16px; height: 16px; }
 
-/* شريط تقدّم بسيط أعلى الرسائل */
+/* شريط تقدّم مقسّم أعلى الرسائل */
 .robot-progress {
     display: flex;
     gap: 4px;
-    padding: 0 1.25rem 0.85rem;
+    padding: 0 14px 12px;
     flex-shrink: 0;
 }
 .robot-progress i {
     flex: 1;
-    height: 3px;
-    border-radius: 3px;
-    background: var(--color-border);
+    height: 4px;
+    border-radius: 4px;
+    background: var(--ra-surface-2);
     overflow: hidden;
 }
 .robot-progress i span {
     display: block;
     height: 100%;
-    width: 0%;
-    background: var(--color-accent);
-    transition: width .5s ease;
+    width: 0;
+    background: var(--ra-accent);
+    transition: width .4s ease;
 }
-.robot-progress i.done span { width: 100%; }
-.robot-progress i.active span { width: 100%; transition: width 1.1s ease; }
+.robot-progress i.done span,
+.robot-progress i.active span { width: 100%; }
+.robot-progress i.active span { opacity: .55; }
 
-/* حاوية الرسائل (thread) */
+/* المحادثة */
 .robot-body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    padding: 0.9rem 1.1rem 1.1rem;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    background: var(--color-muted);
+    gap: 8px;
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--ra-border);
+    background: var(--ra-surface-2);
     scrollbar-width: thin;
 }
-.robot-body::-webkit-scrollbar { width: 5px; }
-.robot-body::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
 
-/* رسالة مفردة من الروبوت (بديل .robot-text القديمة، بس على هيئة فقاعة) */
 .robot-msg {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
-    padding: 0.7rem 0.9rem;
-    border-radius: 12px 12px 12px 3px;
-    font-size: 0.88rem;
-    line-height: 1.85;
-    max-width: 92%;
     align-self: flex-start;
-    box-shadow: 0 2px 6px rgba(0,0,0,.04);
-    animation: robotMsgRise .3s ease;
-    font-weight: 500;
-}
-@keyframes robotMsgRise {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    max-width: 92%;
+    padding: 9px 12px;
+    border-radius: 14px;
+    border-end-start-radius: 5px;
+    background: var(--ra-surface);
+    border: 1px solid var(--ra-border);
+    color: var(--ra-text);
+    font-size: 13.5px;
+    line-height: 1.75;
+    animation: raMsgIn .22s ease;
 }
 
-/* مؤشر "بيكتب..." */
+@keyframes raMsgIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: none; }
+}
+
 .robot-typing {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    padding: 0.65rem 0.9rem;
-    border-radius: 12px 12px 12px 3px;
-    width: fit-content;
     align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--ra-surface);
+    border: 1px solid var(--ra-border);
 }
 .robot-typing span {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--color-text-secondary);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ra-text-2);
     opacity: .5;
-    animation: robotTypingDot 1.1s infinite ease-in-out;
+    animation: raDot 1.1s infinite ease-in-out;
 }
 .robot-typing span:nth-child(2) { animation-delay: .15s; }
 .robot-typing span:nth-child(3) { animation-delay: .3s; }
-@keyframes robotTypingDot {
-    0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+@keyframes raDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: .45; }
     30% { transform: translateY(-3px); opacity: 1; }
 }
 
-/* أزرار الاختيار (Yes/No وغيره) */
+/* الاختيارات */
 .robot-choices {
+    align-self: flex-start;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    align-self: flex-start;
-    max-width: 92%;
+    gap: 6px;
+    max-width: 100%;
 }
+
 .robot-choice-btn {
-    background: var(--color-surface);
-    border: 1.5px solid var(--color-accent);
-    color: var(--color-accent);
-    font-family: 'Cairo', sans-serif;
+    min-height: 34px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--ra-border);
+    background: var(--ra-surface);
+    color: var(--ra-accent);
+    font-family: inherit;
+    font-size: 13px;
     font-weight: 700;
-    font-size: 0.82rem;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
     cursor: pointer;
-    transition: all .2s;
+    transition: background .15s ease, border-color .15s ease;
 }
-.robot-choice-btn.primary {
-    background: linear-gradient(135deg, var(--color-accent), #0055AA);
-    color: #fff;
-    border-color: transparent;
-}
-.robot-choice-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,119,204,.25); }
-.robot-choice-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+.robot-choice-btn.primary { background: var(--ra-accent); border-color: var(--ra-accent); color: #fff; }
+.robot-choice-btn:hover:not(:disabled) { border-color: var(--ra-accent); }
+.robot-choice-btn.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.robot-choice-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.3); }
+.robot-choice-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* قائمة خطوات (Telegram bot setup) */
-.robot-steplist {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    padding: 0.85rem 0.95rem;
-    max-width: 94%;
-    align-self: flex-start;
-    box-shadow: 0 2px 6px rgba(0,0,0,.04);
-}
-.robot-steplist .cap {
-    font-size: 0.72rem;
-    color: var(--color-text-secondary);
-    margin-bottom: 0.55rem;
-    font-weight: 700;
-}
-.robot-steplist ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
-.robot-steplist li {
-    display: flex; align-items: center; gap: 0.55rem;
-    font-size: 0.8rem; color: var(--color-text-secondary);
-    transition: color .3s;
-}
-.robot-steplist li.on { color: var(--color-text); font-weight: 600; }
-.robot-step-dot {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--color-border);
-    flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .3s;
-}
-.robot-step-dot svg { width: 8px; height: 8px; opacity: 0; transition: opacity .2s; }
-.robot-steplist li.on .robot-step-dot { background: var(--color-success); border-color: var(--color-success); }
-.robot-steplist li.on .robot-step-dot svg { opacity: 1; }
-.robot-steplist li.spin .robot-step-dot { border-color: var(--color-accent); border-top-color: transparent; animation: robotSpin .8s linear infinite; }
-@keyframes robotSpin { to { transform: rotate(360deg); } }
-
-/* فورم إدخال بيانات البوت */
-.robot-field-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    padding: 0.9rem;
-    max-width: 94%;
-    align-self: flex-start;
-    box-shadow: 0 2px 6px rgba(0,0,0,.04);
-    width: 100%;
-}
-.robot-field-card label {
-    font-size: 0.72rem;
-    color: var(--color-text-secondary);
-    display: block;
-    margin-bottom: 0.3rem;
-    font-weight: 600;
-}
-.robot-field-card input {
-    width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 0.55rem 0.6rem;
-    font-family: 'Cairo', sans-serif;
-    font-size: 0.82rem;
-    margin-bottom: 0.65rem;
-    background: var(--color-background);
-    color: var(--color-text);
-    outline: none;
-    box-sizing: border-box;
-}
-.robot-field-card input:focus { border-color: var(--color-accent); }
-.robot-field-card button {
-    width: 100%;
-    background: linear-gradient(135deg, var(--color-accent), #0055AA);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 0.6rem;
-    font-family: 'Cairo', sans-serif;
-    font-weight: 700;
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: opacity .2s;
-}
-.robot-field-card button:disabled { opacity: .5; cursor: not-allowed; }
-
-/* حالة الرجوع (Quick actions) بعد أول جلسة */
-.robot-quick-actions { display: flex; flex-direction: column; gap: 0.5rem; align-self: stretch; }
+/* أزرار الرجوع السريع */
+.robot-quick-actions { align-self: stretch; display: flex; flex-direction: column; gap: 6px; }
 .robot-quick-actions button {
-    text-align: right;
-    background: var(--color-surface);
-    border: 1.5px solid var(--color-border);
-    color: var(--color-text);
-    font-family: 'Cairo', sans-serif;
-    font-weight: 600;
-    font-size: 0.82rem;
-    padding: 0.65rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 12px;
     border-radius: 10px;
+    border: 1px solid var(--ra-border);
+    background: var(--ra-surface);
+    color: var(--ra-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: start;
     cursor: pointer;
-    transition: all .2s;
+    transition: border-color .15s ease, background .15s ease;
 }
-.robot-quick-actions button:hover { border-color: var(--color-accent); background: var(--color-muted); }
+.robot-quick-actions button:hover { border-color: var(--ra-accent); }
+.robot-quick-actions button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 119, 204, 0.3); }
+.robot-quick-actions svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--ra-accent); }
 
-/* حالة فشل تحميل صورة الروبوت -> رجوع لأيقونة الدردشة القديمة */
-.robot-avatar.img-error {
-    width: 65px; height: 65px;
-    background: linear-gradient(135deg, var(--color-accent), #0055AA);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 10px 25px rgba(0, 119, 204, 0.4);
-    animation: pulse 2s infinite;
-}
-.robot-avatar.img-error img { display: none; }
-.robot-avatar.img-error .fallback-icon { display: flex; width: 30px; height: 30px; }
-.robot-avatar .fallback-icon { display: none; }
-.robot-avatar .fallback-icon svg { width: 100%; height: 100%; fill: white; }
-
-/* نقطة تنبيه صغيرة فوق الروبوت لما يكون عنده خطوة جديدة لسه محدش شافها */
-.robot-avatar { position: relative; }
-.robot-notify-dot {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    width: 14px;
-    height: 14px;
-    background: var(--color-danger);
-    border: 2px solid var(--color-surface);
-    border-radius: 50%;
-    display: none;
-    pointer-events: none;
-}
-.robot-notify-dot.show { display: block; }
-
-@media (max-width: 480px) {
-    .speech-bubble.assistant-mode { width: calc(100vw - 2.5rem); max-width: 340px; }
+@media (prefers-reduced-motion: reduce) {
+    .robot-msg, .robot-typing span { animation: none; }
+    .robot-progress i span { transition: none; }
 }

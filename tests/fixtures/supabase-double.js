@@ -187,6 +187,8 @@ export const supabase = {
         // **لم** يُنفَّذ حين لا يجب (الردّ لا يستدعي إعادة الفتح مثلاً).
         window.__RPC_CALLS__ = window.__RPC_CALLS__ || [];
         window.__RPC_CALLS__.push(name);
+        window.__RPC_ARGS__ = window.__RPC_ARGS__ || [];
+        window.__RPC_ARGS__.push([name, args ?? null]);
 
         // الـfixture لها الأولوية: أي اختبار عايز يجبر نتيجة بعينها يقدر
         const handler = FX().rpc?.[name];
