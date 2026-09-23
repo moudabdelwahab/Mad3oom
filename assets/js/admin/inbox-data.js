@@ -92,7 +92,7 @@
 let currentUser = {
     id: 'me',
     name: 'أنت',
-    email: 'support@mad3oom.online',
+    email: 'support@mad3oom.com',
     role: 'admin',
     ownerId: null,
     online: true
@@ -120,7 +120,7 @@ export function setPreviewRole(role) {
 // ═════════════════════════════════════════════════════════════
 
 const CONTACTS = [
-    { id: 'me', name: 'أنت', email: 'support@mad3oom.online', role: 'admin', ownerId: null, online: true },
+    { id: 'me', name: 'أنت', email: 'support@mad3oom.com', role: 'admin', ownerId: null, online: true },
     { id: 'u_1', name: 'محمود عبدالوهاب', email: 'mahmoud@example.com', role: 'member', ownerId: null, online: true },
     { id: 'u_2', name: 'سارة إبراهيم', email: 'sara@example.com', role: 'member', ownerId: null, online: false },
     { id: 'u_3', name: 'كريم مصطفى', email: 'karim@example.com', role: 'member', ownerId: null, online: true },
@@ -133,8 +133,8 @@ const CONTACTS = [
     { id: 'm_2', name: 'عمرو سعيد', email: 'amr@company.com', role: 'member', ownerId: 'su_1', online: false },
     { id: 'm_3', name: 'دينا كمال', email: 'dina@company.com', role: 'member', ownerId: 'su_1', online: true },
 
-    { id: 'st_1', name: 'فريق الدعم', email: 'team@mad3oom.online', role: 'support', ownerId: null, online: true },
-    { id: 'st_2', name: 'هبة سمير', email: 'heba@mad3oom.online', role: 'support', ownerId: null, online: true }
+    { id: 'st_1', name: 'فريق الدعم', email: 'team@mad3oom.com', role: 'support', ownerId: null, online: true },
+    { id: 'st_2', name: 'هبة سمير', email: 'heba@mad3oom.com', role: 'support', ownerId: null, online: true }
 ];
 
 /**

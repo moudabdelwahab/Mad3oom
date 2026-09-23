@@ -190,7 +190,7 @@ function scrollToSection(sectionId) {
 window.scrollToSection = scrollToSection; // used by inline onclick in HTML
 
 function contactSales() {
-    alert('يرجى التواصل معنا عبر البريد الإلكتروني: support@mad3oom.online');
+    alert('يرجى التواصل معنا عبر البريد الإلكتروني: support@mad3oom.com');
 }
 window.contactSales = contactSales; // used by inline onclick in HTML
 

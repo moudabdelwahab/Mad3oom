@@ -312,7 +312,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الموقوفة ترفع إيقافها بـPATCH (PS-09)، و profiles.email ينفصل عن
     //         بريد الدخول (PS-13)، والدخول بصيغة الهاتف المحلية يفشل (PS-14).
     //         مقيسٌ بضوابط سلبية في tests/sql/profile-security-hardening.test.sql.
-    assert.equal(migrations[migrations.length - 1], '049_profile_security_hardening.sql',
+    //   050 — النطاق العام mad3oom.com (مطلوب صراحةً من صاحب المنتج: «أي
+    //         مكان بينادي mad3oom.online غيّره إلى mad3oom.com»). رابط التحقق
+    //         من الفاتورة يُبنى داخل القاعدة من إعداد وقيم افتراضية على .online
+    //         المنتهي، فلا يُصلَح من الواجهة.
+    assert.equal(migrations[migrations.length - 1], '050_public_domain_mad3oom_com.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

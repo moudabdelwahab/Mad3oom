@@ -132,7 +132,7 @@
       <label for="orgName">اسم النطاق المطلوب (بالإنجليزية)</label>
       <div class="input-row">
         <input type="text" id="orgName" placeholder="mtjr" autocomplete="off" autocapitalize="off" spellcheck="false" required>
-        <span class="domain-suffix">.mad3oom.online</span>
+        <span class="domain-suffix">.mad3oom.com</span>
       </div>
       <p class="hint">حروف إنجليزية صغيرة وأرقام وشرطات فقط، بدون مسافات.</p>
       <p class="availability-status" id="availabilityStatus"></p>
@@ -204,7 +204,7 @@
 
   function showResult(success, name, message) {
     resultBox.className = `result-box ${success ? 'success' : 'failure'}`;
-    resultDomain.textContent = `${name}.mad3oom.online`;
+    resultDomain.textContent = `${name}.mad3oom.com`;
     resultMsg.textContent = message;
   }
 
@@ -279,7 +279,7 @@
     myRequestsList.innerHTML = data.map(req => `
       <div class="req-item">
         <div>
-          <div class="req-name">${escapeHtml(req.requested_name)}.mad3oom.online</div>
+          <div class="req-name">${escapeHtml(req.requested_name)}.mad3oom.com</div>
           ${req.status === 'rejected' && req.note ? `<div class="req-note">${escapeHtml(req.note)}</div>` : ''}
         </div>
         <span class="badge ${req.status}">${statusLabel(req.status)}</span>

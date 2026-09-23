@@ -40,7 +40,7 @@ let mcpMarketSearchQuery = '';
 let explorerSearchQuery = '';
 
 /** عنوان ربط مدعوم كـ MCP Connector (OAuth) - نفس الرابط اللي يتضاف كـ Connector في Claude أو أي عميل MCP يدعم Streamable HTTP */
-const MCP_CONNECTOR_URL = 'https://mad3oom.online/mcp';
+const MCP_CONNECTOR_URL = 'https://mad3oom.com/mcp';
 
 let allServers = [];
 let editingId = null;

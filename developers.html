@@ -476,18 +476,18 @@ footer a{color:var(--accent-soft);font-weight:600;}
           <span class="code-block-label">curl — تدفق كامل</span>
           <button class="code-block-copy" onclick="copyCode(this)">نسخ</button>
         </div>
-        <pre><code>curl -X POST https://mad3oom.online/mcp \
+        <pre><code>curl -X POST https://mad3oom.com/mcp \
   -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
   -H "<span class="tok-key">Content-Type</span>: application/json" \
   -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">1</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">initialize</span>"}'
 
 <span class="tok-com"># tools/list</span>
-curl -X POST https://mad3oom.online/mcp \
+curl -X POST https://mad3oom.com/mcp \
   -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
   -d '{"<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">2</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/list</span>"}'
 
 <span class="tok-com"># tools/call</span>
-curl -X POST https://mad3oom.online/mcp \
+curl -X POST https://mad3oom.com/mcp \
   -H "<span class="tok-key">Authorization</span>: Bearer <span class="tok-str">mad3oom_pk_XXXX.mad3oom_sk_YYYY</span>" \
   -d '{
     "<span class="tok-key">jsonrpc</span>":"<span class="tok-str">2.0</span>","<span class="tok-key">id</span>":<span class="tok-num">3</span>,"<span class="tok-key">method</span>":"<span class="tok-fn">tools/call</span>",
@@ -561,7 +561,7 @@ curl -X POST https://mad3oom.online/mcp \
 
       <div class="endpoint-row">
         <span class="method-pill method-post">POST</span>
-        <code>https://mad3oom.online/mcp</code>
+        <code>https://mad3oom.com/mcp</code>
         <span class="arrow">→</span>
         <span class="dest">functions/v1/mcp (Vercel rewrite)</span>
       </div>
@@ -726,7 +726,7 @@ curl -X POST https://mad3oom.online/mcp \
     <!-- 11. Routing -->
     <section class="doc-section" id="routing">
       <div class="doc-section-head"><span class="doc-num">11</span><h2>توجيه Vercel</h2></div>
-      <p class="lead">كل الروابط العامة rewrites (مش redirects) — العميل يرى دومين <code>mad3oom.online</code> فقط طول الوقت، وهو مطلوب لتطابق <code>issuer</code> في RFC 8414/9728.</p>
+      <p class="lead">كل الروابط العامة rewrites (مش redirects) — العميل يرى دومين <code>mad3oom.com</code> فقط طول الوقت، وهو مطلوب لتطابق <code>issuer</code> في RFC 8414/9728.</p>
 
       <div class="endpoint-row"><code>/.well-known/oauth-authorization-server</code><span class="arrow">→</span><span class="dest">oauth-discovery</span></div>
       <div class="endpoint-row"><code>/.well-known/oauth-protected-resource</code><span class="arrow">→</span><span class="dest">oauth-protected-resource</span></div>
