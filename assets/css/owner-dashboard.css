@@ -534,3 +534,116 @@
     .owner-shell .owner-sie-grant { grid-template-columns: 1fr; }
     .owner-shell .owner-sie-grant .btn { width: 100%; }
 }
+
+/* ── هوية المالك في الشريط ──────────────────────────────────────────────── */
+/* ليست زينة: تُظهر أن الجلسة جلسة ملكية لا إدارة. مصدرها is_platform_owner(). */
+.owner-shell .owner-identity {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid var(--owner-border);
+    background: var(--owner-tint);
+}
+.owner-shell .owner-identity-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--owner-accent), #1d3f8f);
+    flex-shrink: 0;
+}
+.owner-shell .owner-identity-text { display: flex; flex-direction: column; min-width: 0; }
+.owner-shell .owner-identity-role { font-size: var(--fs-sm); font-weight: 800; color: var(--color-text); }
+.owner-shell .owner-identity-role [lang='en'] { font-weight: 600; color: var(--color-text-secondary); }
+.owner-shell .owner-identity-name { font-size: var(--fs-xs); color: var(--color-text-secondary); }
+
+/* ── مركز السلطة ────────────────────────────────────────────────────────── */
+.owner-shell .owner-subsection--first { margin-top: var(--sp-4); padding-top: 0; border-top: 0; }
+
+.owner-shell .owner-ownership-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: var(--sp-4);
+    margin-top: var(--sp-3);
+}
+
+.owner-shell .owner-protections {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+}
+.owner-shell .owner-protections li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    line-height: 1.6;
+}
+.owner-shell .owner-protections li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-top: .5em;
+    border-radius: 50%;
+    background: var(--color-success);
+}
+
+.owner-shell .owner-stepup-state {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid var(--owner-border);
+    background: var(--owner-tint);
+}
+.owner-shell .owner-stepup-state--warn { border-color: var(--tint-warning-border); background: var(--tint-warning); }
+.owner-shell .owner-stepup-state--ok   { border-color: var(--tint-success-border); background: var(--tint-success); }
+.owner-shell .owner-stepup-state .btn { align-self: flex-start; }
+.owner-shell .owner-stepup-title { margin: 0; font-weight: 800; color: var(--color-text); }
+.owner-shell .owner-stepup-text { margin: 0; font-size: var(--fs-sm); color: var(--color-text-secondary); line-height: 1.7; }
+.owner-shell .owner-stepup-row { display: flex; gap: var(--sp-2); }
+.owner-shell .owner-stepup-code {
+    max-width: 9rem;
+    text-align: center;
+    letter-spacing: .35em;
+    font-variant-numeric: tabular-nums;
+}
+.owner-shell .owner-stepup-error { margin: 0; font-size: var(--fs-sm); color: var(--on-danger); }
+
+.owner-shell .owner-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.owner-shell .owner-actions [data-danger]:not(:disabled):hover { color: var(--color-danger); border-color: var(--color-danger); }
+.owner-shell [data-critical]:disabled { opacity: .5; cursor: not-allowed; }
+
+.owner-shell .owner-staff-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, .8fr) auto;
+    align-items: end;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+}
+
+@media (max-width: 900px) {
+    .owner-shell .owner-ownership-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+    .owner-shell .owner-staff-add { grid-template-columns: 1fr; }
+    .owner-shell .owner-staff-add .btn { width: 100%; }
+}
+
+.owner-shell .admin-table td:has(.owner-actions) { white-space: normal; min-width: 18rem; }
+.owner-shell .owner-actions .btn { white-space: nowrap; }
+.owner-shell .owner-sie-hint { font-size: var(--fs-xs); color: var(--color-text-secondary); line-height: 1.7; }
