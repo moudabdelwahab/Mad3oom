@@ -164,12 +164,16 @@ function buildNebula(renderer, size) {
         float n = fbm(d * 1.6 + vec3(2.0));
         float n2 = fbm(d * 3.4 + vec3(-3.0, 1.0, 5.0));
         float band = exp(-pow(dot(d, normalize(vec3(0.28, 1.0, 0.32))) * 3.0, 2.0));
-        vec3 base = vec3(0.010, 0.022, 0.055);
-        vec3 blue = vec3(0.09, 0.2, 0.48);
-        vec3 violet = vec3(0.26, 0.19, 0.5);
-        float cloud = smoothstep(-0.1, 0.85, n) * (0.3 + 0.7 * band);
-        vec3 col = base + blue * cloud * 0.5 + violet * smoothstep(0.25, 0.95, n2) * band * 0.22;
-        col *= 0.72 + 0.28 * smoothstep(-0.4, 0.4, fbm(d * 8.0));
+        vec3 base = vec3(0.004, 0.085, 0.19);
+        vec3 blue = vec3(0.13, 0.25, 0.62);
+        vec3 violet = vec3(0.26, 0.26, 0.66);
+        // soft, low-contrast nebula: the reference sky is a smooth royal-navy field
+        float cloud = smoothstep(-0.35, 1.0, n) * (0.35 + 0.65 * band);
+        vec3 col = base + blue * cloud * 0.42 + violet * smoothstep(0.3, 1.0, n2) * band * 0.16;
+        col *= 0.92 + 0.08 * smoothstep(-0.4, 0.4, fbm(d * 8.0));
+        // brighter toward the horizon, darker toward the zenith (reference #163061 → #01132e)
+        col += vec3(0.03, 0.07, 0.16) * smoothstep(0.45, -0.1, d.y);
+        col *= 1.0 - 0.25 * smoothstep(0.35, 0.95, d.y);
         vec3 q = d * 420.0; vec3 id = floor(q);
         float h = fract(sin(dot(id, vec3(127.1, 311.7, 74.7))) * 43758.5453);
         float star = step(0.9962, h) * smoothstep(0.4, 0.0, length(fract(q) - 0.5));
@@ -190,7 +194,7 @@ function buildNebula(renderer, size) {
 
 function buildStars(count) {
   const pos = new Float32Array(count * 3), col = new Float32Array(count * 3), size = new Float32Array(count), phase = new Float32Array(count);
-  const tints = [[1, 1, 1], [0.78, 0.87, 1], [0.66, 0.84, 1], [0.8, 0.95, 1], [0.86, 0.82, 1]];
+  const tints = [[1, 1, 1], [0.78, 0.85, 1], [0.7, 0.78, 1], [0.78, 0.86, 1], [0.84, 0.82, 1]];
   for (let i = 0; i < count; i++) {
     const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, r = 380 + Math.random() * 480;
     const s = Math.sqrt(1 - u * u);
@@ -240,8 +244,8 @@ function buildPlanet(renderer, seg, tex) {
       float h = fbm(d * 2.1);
       float land = smoothstep(0.03, 0.13, h);
       float detail = fbm(d * 9.0) * 0.5 + 0.5;
-      vec3 ocean = mix(vec3(0.02, 0.06, 0.17), vec3(0.05, 0.15, 0.34), smoothstep(-0.5, 0.1, h));
-      vec3 ground = mix(vec3(0.1, 0.2, 0.33), vec3(0.26, 0.4, 0.56), detail);
+      vec3 ocean = mix(vec3(0.03, 0.07, 0.22), vec3(0.07, 0.16, 0.42), smoothstep(-0.5, 0.1, h));
+      vec3 ground = mix(vec3(0.12, 0.2, 0.42), vec3(0.3, 0.42, 0.66), detail);
       float ice = smoothstep(0.8, 0.92, abs(d.y) + detail * 0.08);
       vec3 col = mix(ocean, ground, land);
       col = mix(col, vec3(0.82, 0.9, 1.0), ice);
@@ -254,7 +258,7 @@ function buildPlanet(renderer, seg, tex) {
   const planet = new THREE.Mesh(
     new THREE.SphereGeometry(R, seg, seg / 2),
     new THREE.ShaderMaterial({
-      uniforms: { map: { value: albedo.texture }, sunDir: { value: SUN }, time: { value: 0 }, atmo: { value: new THREE.Color(0x4f9dff) } },
+      uniforms: { map: { value: albedo.texture }, sunDir: { value: SUN }, time: { value: 0 }, atmo: { value: new THREE.Color(0x4a80ff) } },
       vertexShader: /* glsl */ `
         varying vec3 vN; varying vec3 vW; varying vec2 vUv;
         void main(){
@@ -284,7 +288,7 @@ function buildPlanet(renderer, seg, tex) {
           // faint cyan night-side city grid, kept in-palette
           float night = smoothstep(0.1, -0.25, ndl) * (1.0 - clouds);
           float grid = step(0.985, fract(vUv.x * 180.0)) + step(0.985, fract(vUv.y * 90.0));
-          col += vec3(0.25, 0.7, 1.0) * night * grid * step(0.02, lum) * 0.06;
+          col += vec3(0.35, 0.55, 1.0) * night * grid * step(0.02, lum) * 0.06;
           gl_FragColor = vec4(col, 1.0);
           #include <colorspace_fragment>
         }`,
@@ -294,7 +298,7 @@ function buildPlanet(renderer, seg, tex) {
   const atmo = new THREE.Mesh(
     new THREE.SphereGeometry(R * 1.075, seg / 2, seg / 4),
     new THREE.ShaderMaterial({
-      uniforms: { sunDir: { value: SUN }, color: { value: new THREE.Color(0x3f8cff) } },
+      uniforms: { sunDir: { value: SUN }, color: { value: new THREE.Color(0x3f6ff0) } },
       side: THREE.BackSide,
       transparent: true,
       depthWrite: false,
@@ -323,7 +327,7 @@ function buildPlanet(renderer, seg, tex) {
 
   const group = new THREE.Group();
   group.add(planet, atmo);
-  const halo = glow(tex, 0x3a7dff, R * 3.4, 0.22);
+  const halo = glow(tex, 0x3566f0, R * 3.4, 0.22);
   group.add(halo);
   group.position.set(-50, 4, -122);
   planet.rotation.set(0.25, 0.8, -0.18);
@@ -337,7 +341,7 @@ function buildMoon(renderer, r, pos, tint) {
       vec3 d = dirFromUv(vUv);
       float n = fbm(d * 3.0) * 0.5 + 0.5;
       float cr = 1.0 - smoothstep(0.0, 0.18, abs(snoise(d * 9.0)));
-      vec3 col = mix(vec3(0.34, 0.4, 0.52), vec3(0.72, 0.78, 0.9), n) * (1.0 - cr * 0.25);
+      vec3 col = mix(vec3(0.36, 0.42, 0.6), vec3(0.74, 0.78, 0.94), n) * (1.0 - cr * 0.25);
       gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
     }`, 512, 256);
   const m = new THREE.Mesh(
@@ -349,7 +353,7 @@ function buildMoon(renderer, r, pos, tint) {
 }
 
 function buildDeck() {
-  const u = { time: { value: 0 }, boost: { value: 0 }, line: { value: new THREE.Color(0x5cc8ff) }, base: { value: new THREE.Color(0x061126) } };
+  const u = { time: { value: 0 }, boost: { value: 0 }, line: { value: new THREE.Color(0x5b8cf5) }, base: { value: new THREE.Color(0x06163a) } };
   const disk = new THREE.Mesh(
     new THREE.CircleGeometry(17, 96),
     new THREE.ShaderMaterial({
@@ -377,7 +381,7 @@ function buildDeck() {
   disk.rotation.x = -Math.PI / 2;
   const rim = new THREE.Mesh(
     new THREE.TorusGeometry(16.6, 0.09, 8, 160),
-    new THREE.MeshBasicMaterial({ color: 0x6fd6ff, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0x6a9cf5, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   rim.rotation.x = -Math.PI / 2;
   const inner = rim.clone();
@@ -397,9 +401,9 @@ function brandTexture() {
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.font = '900 190px "Cairo", "IBM Plex Sans Arabic", sans-serif';
-  g.shadowColor = "rgba(77,163,255,.95)";
+  g.shadowColor = "rgba(68,124,245,.95)";
   g.shadowBlur = 40;
-  g.fillStyle = "#bfe0ff";
+  g.fillStyle = "#c9d8ff";
   g.fillText("مدعوم", 512, 160);
   g.shadowBlur = 0;
   g.fillStyle = "#f2f8ff";
@@ -416,22 +420,22 @@ function holoTexture(seed) {
   const g = c.getContext("2d");
   let s = seed;
   const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-  g.strokeStyle = "rgba(125,210,255,.9)";
+  g.strokeStyle = "rgba(140,175,255,.9)";
   g.lineWidth = 3;
   g.strokeRect(6, 6, 500, 244);
-  g.fillStyle = "rgba(60,140,255,.12)";
+  g.fillStyle = "rgba(70,110,250,.12)";
   g.fillRect(6, 6, 500, 244);
-  g.fillStyle = "rgba(160,220,255,.9)";
+  g.fillStyle = "rgba(175,200,255,.9)";
   g.fillRect(24, 24, 140, 12);
-  g.fillStyle = "rgba(120,200,255,.5)";
+  g.fillStyle = "rgba(130,165,250,.5)";
   g.fillRect(24, 44, 90, 8);
   for (let i = 0; i < 14; i++) {
     const h = 30 + rnd() * 120;
-    g.fillStyle = `rgba(90,170,255,${0.45 + rnd() * 0.4})`;
+    g.fillStyle = `rgba(100,140,255,${0.45 + rnd() * 0.4})`;
     g.fillRect(24 + i * 22, 226 - h, 14, h);
   }
   g.beginPath();
-  g.strokeStyle = "rgba(125,232,248,.95)";
+  g.strokeStyle = "rgba(108,203,251,.95)";
   g.lineWidth = 3;
   for (let i = 0; i <= 10; i++) {
     const x = 340 + i * 15, y = 200 - rnd() * 110;
@@ -444,10 +448,10 @@ function holoTexture(seed) {
 }
 
 function buildStation(cfg, tex) {
-  const hull = new THREE.MeshStandardMaterial({ color: 0x1b2c48, metalness: 0.78, roughness: 0.34, envMapIntensity: 2.2 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x0c1629, metalness: 0.6, roughness: 0.5, envMapIntensity: 1.4 });
-  const lit = new THREE.MeshBasicMaterial({ color: 0x8fd8ff });
-  const litBlue = new THREE.MeshBasicMaterial({ color: 0x4da3ff });
+  const hull = new THREE.MeshStandardMaterial({ color: 0x1c2f55, metalness: 0.78, roughness: 0.34, envMapIntensity: 2.2 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0c1832, metalness: 0.6, roughness: 0.5, envMapIntensity: 1.4 });
+  const lit = new THREE.MeshBasicMaterial({ color: 0x9cc0ff });
+  const litBlue = new THREE.MeshBasicMaterial({ color: 0x447cf5 });
 
   const g = new THREE.Group();
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 30, 32), hull);
@@ -458,7 +462,7 @@ function buildStation(cfg, tex) {
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 12, 8), dark);
   mast.position.y = 29;
   g.add(mast);
-  const tip = glow(tex, 0x7de8f8, 2.4, 0.9);
+  const tip = glow(tex, 0x6ccbfb, 2.4, 0.9);
   tip.position.y = 35;
   g.add(tip);
   const base = new THREE.Mesh(new THREE.ConeGeometry(2.6, 8, 32), hull);
@@ -533,7 +537,7 @@ function buildStation(cfg, tex) {
   sign.rotation.y = -0.62;
   g.add(sign);
 
-  const halo = glow(tex, 0x2e6fe0, 70, 0.14);
+  const halo = glow(tex, 0x3060e8, 70, 0.14);
   g.add(halo);
 
   g.position.set(40, 0, -66);
@@ -548,8 +552,8 @@ function buildStation(cfg, tex) {
 }
 
 function buildTower(tex) {
-  const hull = new THREE.MeshStandardMaterial({ color: 0x14223b, metalness: 0.8, roughness: 0.3, envMapIntensity: 2 });
-  const lit = new THREE.MeshBasicMaterial({ color: 0x7fcfff });
+  const hull = new THREE.MeshStandardMaterial({ color: 0x15254a, metalness: 0.8, roughness: 0.3, envMapIntensity: 2 });
+  const lit = new THREE.MeshBasicMaterial({ color: 0x86b4ff });
   const g = new THREE.Group();
   const core = new THREE.Mesh(new THREE.BoxGeometry(3, 38, 3), hull);
   g.add(core);
@@ -561,7 +565,7 @@ function buildTower(tex) {
   const strip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 36, 0.16), lit);
   strip.position.set(1.52, 0, 1.52);
   g.add(strip);
-  const beacon = glow(tex, 0x7de8f8, 3, 0.9);
+  const beacon = glow(tex, 0x6ccbfb, 3, 0.9);
   beacon.position.y = 20;
   g.add(beacon);
   g.position.set(-29, 6, -24);
@@ -569,7 +573,7 @@ function buildTower(tex) {
 }
 
 function buildCity(tex, count) {
-  const hull = new THREE.MeshStandardMaterial({ color: 0x0e1a30, metalness: 0.7, roughness: 0.45, envMapIntensity: 1.5 });
+  const hull = new THREE.MeshStandardMaterial({ color: 0x1a2f60, metalness: 0.6, roughness: 0.5, envMapIntensity: 1.5 });
   const geo = new THREE.BoxGeometry(1, 1, 1);
   const inst = new THREE.InstancedMesh(geo, hull, count);
   const m = new THREE.Matrix4();
@@ -584,15 +588,15 @@ function buildCity(tex, count) {
   }
   const tg = new THREE.BufferGeometry();
   tg.setAttribute("position", new THREE.BufferAttribute(tips, 3));
-  const tipPts = new THREE.Points(tg, new THREE.PointsMaterial({ map: tex, color: 0x7de8f8, size: 2.4, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const tipPts = new THREE.Points(tg, new THREE.PointsMaterial({ map: tex, color: 0x6ccbfb, size: 2.4, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   const g = new THREE.Group();
   g.add(inst, tipPts);
   return g;
 }
 
 function buildPlatforms(tex) {
-  const mat = new THREE.MeshStandardMaterial({ color: 0x15253f, metalness: 0.8, roughness: 0.3, envMapIntensity: 2 });
-  const rimMat = new THREE.MeshBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x16284a, metalness: 0.8, roughness: 0.3, envMapIntensity: 2 });
+  const rimMat = new THREE.MeshBasicMaterial({ color: 0x5b8cf5, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
   const g = new THREE.Group();
   const list = [];
   [[-17, -3.4, -34, 3.2], [19, -3.4, -38, 2.6], [-4, -3.5, -84, 4.2], [30, 2, -50, 2.2], [-36, 5, -62, 2.6]].forEach(([x, y, z, r], i) => {
@@ -601,7 +605,7 @@ function buildPlatforms(tex) {
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.05, 0.05, 6, 80), rimMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.26;
-    const under = glow(tex, 0x3f8cff, r * 3, 0.35);
+    const under = glow(tex, 0x3f6ff0, r * 3, 0.35);
     under.position.y = -0.6;
     p.add(disk, rim, under);
     p.position.set(x, y, z);
@@ -643,7 +647,7 @@ function buildHolos() {
 }
 
 function buildShips(tex, n) {
-  const hull = new THREE.MeshStandardMaterial({ color: 0x2a3c5c, metalness: 0.8, roughness: 0.35, envMapIntensity: 2 });
+  const hull = new THREE.MeshStandardMaterial({ color: 0x2a3d66, metalness: 0.8, roughness: 0.35, envMapIntensity: 2 });
   const g = new THREE.Group();
   const ships = [];
   for (let i = 0; i < n; i++) {
@@ -652,7 +656,7 @@ function buildShips(tex, n) {
     body.rotation.z = -Math.PI / 2;
     const wing = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 1.6), hull);
     wing.position.x = -0.2;
-    const engine = glow(tex, i % 2 ? 0x7de8f8 : 0x8fb8ff, 1.6, 0.95);
+    const engine = glow(tex, i % 2 ? 0x6ccbfb : 0x9cb4ff, 1.6, 0.95);
     engine.position.x = -1;
     s.add(body, wing, engine);
     const from = new THREE.Vector3(-160, 8 + Math.random() * 40, -90 - Math.random() * 120);
@@ -687,7 +691,7 @@ function buildStreams(n) {
     const mid = start.clone().lerp(end, 0.5).add(new THREE.Vector3(0, 8 + i * 1.5, 0));
     const curve = new THREE.CatmullRomCurve3([start, mid, end]);
     const mat = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, col: { value: new THREE.Color(i % 2 ? 0x7de8f8 : 0x4da3ff) }, speed: { value: 0.25 + (i % 3) * 0.08 } },
+      uniforms: { time: { value: 0 }, col: { value: new THREE.Color(i % 2 ? 0x6ccbfb : 0x447cf5) }, speed: { value: 0.25 + (i % 3) * 0.08 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -734,7 +738,7 @@ function buildDust(n) {
       void main(){
         float d = length(gl_PointCoord - 0.5);
         float a = smoothstep(0.5, 0.0, d) * vA * 0.55;
-        gl_FragColor = vec4(vec3(0.6, 0.82, 1.0) * a, a);
+        gl_FragColor = vec4(vec3(0.62, 0.74, 1.0) * a, a);
       }`,
   });
   const p = new THREE.Points(g, m);
@@ -755,8 +759,8 @@ function buildCore(tex) {
         void main(){
           float ndv = max(dot(normalize(vN), normalize(vV)), 0.0);
           float nz = snoise(vP * 1.3 + vec3(0.0, time * 0.5, time * 0.3)) * 0.5 + 0.5;
-          vec3 col = mix(vec3(0.1, 0.35, 1.0), vec3(0.55, 0.95, 1.0), nz) * (0.35 + pow(1.0 - ndv, 2.0) * 1.3);
-          col += vec3(0.9, 0.98, 1.0) * pow(ndv, 5.0) * (0.45 + energy * 0.5);
+          vec3 col = mix(vec3(0.14, 0.3, 1.0), vec3(0.55, 0.8, 1.0), nz) * (0.35 + pow(1.0 - ndv, 2.0) * 1.3);
+          col += vec3(0.9, 0.94, 1.0) * pow(ndv, 5.0) * (0.45 + energy * 0.5);
           gl_FragColor = vec4(col * (0.8 + energy * 0.5), 1.0);
           #include <colorspace_fragment>
         }`,
@@ -765,21 +769,21 @@ function buildCore(tex) {
   g.add(orb);
   const shell = new THREE.LineSegments(
     new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(2.9, 1)),
-    new THREE.LineBasicMaterial({ color: 0x5aa9ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.LineBasicMaterial({ color: 0x5a86ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   g.add(shell);
   const rings = [];
   [[3.4, 0.4, 0.2], [4.1, -0.6, 1.1], [4.8, 1.2, -0.4]].forEach(([r, rx, rz], i) => {
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(r, 0.035, 6, 160),
-      new THREE.MeshBasicMaterial({ color: i === 1 ? 0xa78bfa : 0x7de8f8, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: i === 1 ? 0x8a87e2 : 0x6ccbfb, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     ring.rotation.set(rx, 0, rz);
     g.add(ring);
     rings.push(ring);
   });
-  g.add(glow(tex, 0x4da3ff, 13, 0.6));
-  g.add(glow(tex, 0xbdf3ff, 5.5, 0.85));
+  g.add(glow(tex, 0x447cf5, 13, 0.6));
+  g.add(glow(tex, 0xc2dcff, 5.5, 0.85));
   const n = 360, pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     const u2 = Math.random() * 2 - 1, th = Math.random() * 6.283, r = 3.2 + Math.random() * 2.8, s = Math.sqrt(1 - u2 * u2);
@@ -787,9 +791,9 @@ function buildCore(tex) {
   }
   const pg = new THREE.BufferGeometry();
   pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  const motes = new THREE.Points(pg, new THREE.PointsMaterial({ map: tex, color: 0x9fdcff, size: 0.35, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const motes = new THREE.Points(pg, new THREE.PointsMaterial({ map: tex, color: 0xa5c4ff, size: 0.35, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   g.add(motes);
-  const light = new THREE.PointLight(0x4da3ff, 40, 40, 2);
+  const light = new THREE.PointLight(0x447cf5, 40, 40, 2);
   g.add(light);
   g.position.set(0, 2, -62);
   return {
@@ -813,7 +817,7 @@ function buildNetwork(tex) {
   const cols = [[6, 0], [2, -3], [2, 3], [-2, -5], [-2, 0], [-2, 5], [-6, -3], [-6, 3], [-10, 0]];
   const nodes = cols.map(([x, y], i) => new THREE.Vector3(x * 1.2, y * 0.9, Math.sin(i * 1.7) * 2));
   const edges = [[0, 1], [0, 2], [1, 3], [1, 4], [2, 4], [2, 5], [3, 6], [4, 6], [4, 7], [5, 7], [6, 8], [7, 8]];
-  const gem = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.42, 1), new THREE.MeshBasicMaterial({ color: 0x9fdcff }), nodes.length);
+  const gem = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.42, 1), new THREE.MeshBasicMaterial({ color: 0xa5c4ff }), nodes.length);
   const m = new THREE.Matrix4();
   nodes.forEach((p, i) => { m.makeTranslation(p.x, p.y, p.z); gem.setMatrixAt(i, m); });
   g.add(gem);
@@ -821,16 +825,16 @@ function buildNetwork(tex) {
   edges.forEach(([a, b], i) => lp.set([...nodes[a].toArray(), ...nodes[b].toArray()], i * 6));
   const lg = new THREE.BufferGeometry();
   lg.setAttribute("position", new THREE.BufferAttribute(lp, 3));
-  g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x4da3ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
+  g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x447cf5, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
   const pulses = new THREE.Group();
   const pl = edges.map(() => {
-    const s = glow(tex, 0xbdf3ff, 1.1, 0.95);
+    const s = glow(tex, 0xc2dcff, 1.1, 0.95);
     pulses.add(s);
     return s;
   });
   g.add(pulses);
   nodes.forEach(p => {
-    const s = glow(tex, 0x4da3ff, 2.6, 0.45);
+    const s = glow(tex, 0x447cf5, 2.6, 0.45);
     s.position.copy(p);
     g.add(s);
   });
@@ -852,18 +856,18 @@ function buildBars(tex) {
   const nx = 8, nz = 5, n = nx * nz;
   const bars = new THREE.InstancedMesh(
     new THREE.BoxGeometry(0.7, 1, 0.7),
-    new THREE.MeshBasicMaterial({ color: 0x3f8cff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x3f6ff0, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
     n
   );
   g.add(bars);
-  const grid = new THREE.GridHelper(14, 14, 0x3a6fc0, 0x1c355e);
+  const grid = new THREE.GridHelper(14, 14, 0x3a5fc0, 0x1c2f66);
   grid.material.transparent = true;
   grid.material.opacity = 0.5;
   g.add(grid);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(8.5, 0.05, 6, 120), new THREE.MeshBasicMaterial({ color: 0x7de8f8, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(8.5, 0.05, 6, 120), new THREE.MeshBasicMaterial({ color: 0x6ccbfb, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   ring.rotation.x = Math.PI / 2;
   g.add(ring);
-  g.add(glow(tex, 0x2f7fe0, 26, 0.25));
+  g.add(glow(tex, 0x3a64e0, 26, 0.25));
   g.position.set(-26, -1, -88);
   const m = new THREE.Matrix4();
   return {
@@ -907,7 +911,7 @@ function buildWarp() {
         vA = w * (1.0 - tail * 0.9) * smoothstep(-78.0, -40.0, p.z);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       }`,
-    fragmentShader: "varying float vA; void main(){ gl_FragColor = vec4(vec3(0.6, 0.88, 1.0) * vA, vA); }",
+    fragmentShader: "varying float vA; void main(){ gl_FragColor = vec4(vec3(0.62, 0.76, 1.0) * vA, vA); }",
   });
   const lines = new THREE.LineSegments(g, m);
   lines.frustumCulled = false;
@@ -949,7 +953,7 @@ export async function createWorld(canvas, { tier = "high" } = {}) {
   let dpr = Math.min(window.devicePixelRatio || 1, cfg.dpr);
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight, false);
-  renderer.setClearColor(0x030814, 1);
+  renderer.setClearColor(0x010f28, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   if (document.fonts && document.fonts.load) {
@@ -964,13 +968,13 @@ export async function createWorld(canvas, { tier = "high" } = {}) {
   const cube = buildNebula(renderer, cfg.cube);
   scene.background = cube.texture;
   scene.environment = cube.texture;
-  scene.fog = new THREE.FogExp2(0x050c1e, 0.0042);
+  scene.fog = new THREE.FogExp2(0x0b1f4c, 0.006); // far structures dissolve into the navy haze, as in the reference
 
-  scene.add(new THREE.HemisphereLight(0x3d6fc4, 0x050a18, 1.1));
-  const sun = new THREE.DirectionalLight(0xdfeaff, 2.4);
+  scene.add(new THREE.HemisphereLight(0x4a6fe0, 0x061430, 1.1));
+  const sun = new THREE.DirectionalLight(0xdfe6ff, 2.4);
   sun.position.copy(SUN).multiplyScalar(100);
   scene.add(sun);
-  const deckLight = new THREE.PointLight(0x4da3ff, 60, 60, 2);
+  const deckLight = new THREE.PointLight(0x447cf5, 60, 60, 2);
   deckLight.position.set(0, 3, 2);
   scene.add(deckLight);
 

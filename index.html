@@ -80,7 +80,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#030814">
+<meta name="theme-color" content="#010f28">
 <meta name="color-scheme" content="dark">
 <script>
 /* يحدد وضع العرض قبل أول رسم لتفادي القفز:
@@ -106,11 +106,11 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
 <!-- ============ Icon sprite ============ -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7de8f8" stop-opacity=".1"/><stop offset=".5" stop-color="#7de8f8"/><stop offset="1" stop-color="#4da3ff" stop-opacity=".2"/></linearGradient>
-    <linearGradient id="wireGrad" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#7de8f8"/><stop offset="1" stop-color="#4da3ff"/></linearGradient>
-    <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7fe0" stop-opacity=".35"/><stop offset="1" stop-color="#2f7fe0" stop-opacity="0"/></linearGradient>
-    <linearGradient id="fillRecv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7fe0" stop-opacity=".28"/><stop offset="1" stop-color="#2f7fe0" stop-opacity="0"/></linearGradient>
-    <linearGradient id="fillRes" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14a89a" stop-opacity=".22"/><stop offset="1" stop-color="#14a89a" stop-opacity="0"/></linearGradient>
+    <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6ccbfb" stop-opacity=".1"/><stop offset=".5" stop-color="#6ccbfb"/><stop offset="1" stop-color="#447cf5" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="wireGrad" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#6ccbfb"/><stop offset="1" stop-color="#447cf5"/></linearGradient>
+    <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a64e0" stop-opacity=".35"/><stop offset="1" stop-color="#3a64e0" stop-opacity="0"/></linearGradient>
+    <linearGradient id="fillRecv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a64e0" stop-opacity=".28"/><stop offset="1" stop-color="#3a64e0" stop-opacity="0"/></linearGradient>
+    <linearGradient id="fillRes" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26a0dc" stop-opacity=".22"/><stop offset="1" stop-color="#26a0dc" stop-opacity="0"/></linearGradient>
     <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 2.4a9.6 9.6 0 0 0-8.3 14.4L2.4 21.6l4.9-1.3A9.6 9.6 0 1 0 12 2.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.7 7.5c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .6l-.5.7c-.1.2-.1.3 0 .5a7.2 7.2 0 0 0 3.2 2.8c.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4 0 .6-.2 1.3-.8 1.7-.6.4-1.4.6-2.3.4a10 10 0 0 1-6.4-5.9c-.4-1.1-.2-2.4.4-3.1z" fill="currentColor"/></symbol>
     <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8 0 0 1-12.3 7.1L3.5 20l1.3-4A8.5 8 0 1 1 20.5 11.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.3" cy="11.5" r="1.2" fill="currentColor"/><circle cx="12" cy="11.5" r="1.2" fill="currentColor"/><circle cx="15.7" cy="11.5" r="1.2" fill="currentColor"/></symbol>
@@ -246,26 +246,26 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
           <div class="holo-mod glass" style="--r:24deg;--c:#25d366;--d:-1s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-wa"/></svg></span><span class="holo-mod__label">واتساب</span><span class="holo-mod__meta"><b data-live="wa">12</b> محادثة نشطة</span></div>
         </div>
         <div class="holo-slot" data-depth="0.7" data-side="l" style="--x:4.5vw;--y:36vh">
-          <div class="holo-mod glass" style="--r:22deg;--c:#8fc2ff;--d:-3s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-mail"/></svg></span><span class="holo-mod__label">البريد الإلكتروني</span><span class="holo-mod__meta"><b data-live="em">7</b> رسائل جديدة</span></div>
+          <div class="holo-mod glass" style="--r:22deg;--c:#8dabf5;--d:-3s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-mail"/></svg></span><span class="holo-mod__label">البريد الإلكتروني</span><span class="holo-mod__meta"><b data-live="em">7</b> رسائل جديدة</span></div>
         </div>
         <div class="holo-slot" data-depth="1" data-side="l" data-tier="full" style="--x:3vw;--y:55vh" data-fg>
-          <div class="holo-mod glass" style="--r:26deg;--c:#7de8f8;--d:-5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chat"/></svg></span><span class="holo-mod__label">الدردشة الحية</span><span class="holo-mod__meta"><b data-live="lc">5</b> زوار الآن</span></div>
+          <div class="holo-mod glass" style="--r:26deg;--c:#6ccbfb;--d:-5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chat"/></svg></span><span class="holo-mod__label">الدردشة الحية</span><span class="holo-mod__meta"><b data-live="lc">5</b> زوار الآن</span></div>
         </div>
         <div class="holo-slot" data-depth="0.6" data-side="l" data-tier="full" style="--x:15.5vw;--y:31vh">
-          <div class="holo-mod glass" style="--r:18deg;--c:#2aabee;--d:-2s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-tg"/></svg></span><span class="holo-mod__label">تيليجرام</span><span class="holo-mod__meta"><b data-live="tg">3</b> محادثات</span></div>
+          <div class="holo-mod glass" style="--r:18deg;--c:#4fb2f5;--d:-2s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-tg"/></svg></span><span class="holo-mod__label">تيليجرام</span><span class="holo-mod__meta"><b data-live="tg">3</b> محادثات</span></div>
         </div>
         <!-- systems (right wing) -->
         <div class="holo-slot" data-depth="0.9" data-side="r" style="--x:calc(100vw - 6.5vw - 148px);--y:17vh">
-          <div class="holo-mod glass" style="--r:-24deg;--c:#a9c8ff;--d:-4s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-brain"/></svg></span><span class="holo-mod__label">الذكاء الاصطناعي</span><span class="holo-mod__meta"><b data-live="ai">92%</b> دقة الاقتراح</span></div>
+          <div class="holo-mod glass" style="--r:-24deg;--c:#a9bff8;--d:-4s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-brain"/></svg></span><span class="holo-mod__label">الذكاء الاصطناعي</span><span class="holo-mod__meta"><b data-live="ai">92%</b> دقة الاقتراح</span></div>
         </div>
         <div class="holo-slot" data-depth="0.7" data-side="r" style="--x:calc(100vw - 4.5vw - 148px);--y:36vh">
-          <div class="holo-mod glass" style="--r:-22deg;--c:#8fc2ff;--d:-6s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chart"/></svg></span><span class="holo-mod__label">التقارير والتحليلات</span><span class="holo-mod__meta">تحديث لحظي</span></div>
+          <div class="holo-mod glass" style="--r:-22deg;--c:#8dabf5;--d:-6s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chart"/></svg></span><span class="holo-mod__label">التقارير والتحليلات</span><span class="holo-mod__meta">تحديث لحظي</span></div>
         </div>
         <div class="holo-slot" data-depth="1" data-side="r" data-tier="full" style="--x:calc(100vw - 3vw - 148px);--y:55vh" data-fg>
-          <div class="holo-mod glass" style="--r:-26deg;--c:#7de8f8;--d:-1.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span><span class="holo-mod__label">الأتمتة الذكية</span><span class="holo-mod__meta"><b data-live="auto">1,284</b> تشغيل اليوم</span></div>
+          <div class="holo-mod glass" style="--r:-26deg;--c:#6ccbfb;--d:-1.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span><span class="holo-mod__label">الأتمتة الذكية</span><span class="holo-mod__meta"><b data-live="auto">1,284</b> تشغيل اليوم</span></div>
         </div>
         <div class="holo-slot" data-depth="0.6" data-side="r" data-tier="full" style="--x:calc(100vw - 15.5vw - 148px);--y:31vh">
-          <div class="holo-mod glass" style="--r:-18deg;--c:#c4b5fd;--d:-3.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-team"/></svg></span><span class="holo-mod__label">إدارة الفريق</span><span class="holo-mod__meta"><b data-live="team">8</b> موظفين متصلين</span></div>
+          <div class="holo-mod glass" style="--r:-18deg;--c:#a3a5f2;--d:-3.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-team"/></svg></span><span class="holo-mod__label">إدارة الفريق</span><span class="holo-mod__meta"><b data-live="team">8</b> موظفين متصلين</span></div>
         </div>
       </div>
 
@@ -402,7 +402,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
           </div>
           <footer class="pod__foot">رُدّ عليه تلقائيًا خلال 4 ثوانٍ<span class="tag tag--done">محلول</span></footer>
         </article>
-        <article class="pod glass" data-pod="1" style="--pc:#8fc2ff">
+        <article class="pod glass" data-pod="1" style="--pc:#8dabf5">
           <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-mail"/></svg></span><div class="pod__who"><strong>منى إبراهيم</strong><small>البريد الإلكتروني · إلى صندوق الدعم</small></div><span class="pod__code">CH-02</span></header>
           <div class="pod__body mail">
             <div class="mail__subj">طلب استرجاع مبلغ — فاتورة INV-20931</div>
@@ -413,7 +413,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
           </div>
           <footer class="pod__foot">تحوّلت إلى تذكرة ‎#TK-4830<span class="tag tag--open">مفتوح</span></footer>
         </article>
-        <article class="pod glass" data-pod="2" style="--pc:#7de8f8">
+        <article class="pod glass" data-pod="2" style="--pc:#6ccbfb">
           <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-chat"/></svg></span><div class="pod__who"><strong>زائر من صفحة الأسعار</strong><small>الدردشة الحية · الرياض</small></div><span class="pod__code">CH-03</span></header>
           <div class="pod__body">
             <div class="visitor"><span class="tag tag--plain">الصفحة: الأسعار</span><span class="tag tag--plain">الزيارة الثالثة</span></div>
@@ -424,7 +424,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
           </div>
           <footer class="pod__foot">متوسط الانتظار 18 ثانية<span class="tag tag--new">جديد</span></footer>
         </article>
-        <article class="pod glass" data-pod="3" style="--pc:#2aabee">
+        <article class="pod glass" data-pod="3" style="--pc:#4fb2f5">
           <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-tg"/></svg></span><div class="pod__who"><strong>بوت المتجر على تيليجرام</strong><small>تيليجرام · مرتبط بمدعوم</small></div><span class="pod__code">CH-04</span></header>
           <div class="pod__body">
             <div class="msg msg--in"><div class="msg__bubble" dir="ltr" style="text-align:right">/status 88213<span class="msg__time">11:14</span></div></div>
@@ -538,7 +538,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
         <div class="cmd__col">
           <div class="panel glass">
             <div class="panel__head"><div><div class="panel__title">حجم التذاكر — آخر 14 يومًا</div><div class="panel__sub">الواردة مقابل المحلولة يوميًا</div></div><span class="live"><span class="live-dot"></span>مباشر</span></div>
-            <div class="legend"><span><i style="background:#2f7fe0"></i>الواردة</span><span><i style="background:#14a89a"></i>المحلولة</span></div>
+            <div class="legend"><span><i style="background:#3a64e0"></i>الواردة</span><span><i style="background:#26a0dc"></i>المحلولة</span></div>
             <div class="chart" id="volChart"></div>
           </div>
           <div class="panel glass">
@@ -596,7 +596,7 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
       </article>
       <article class="sys glass rv" data-tilt style="--rd:.08s">
         <div class="sys__top"><span>SYS-02</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-orbit"><span class="v-orbit__ring"></span><span class="v-orbit__hub"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="26" height="26" loading="lazy"></span><span class="v-orbit__sat" style="--i:0;--c:#25d366"><svg><use href="#i-wa"/></svg></span><span class="v-orbit__sat" style="--i:1;--c:#8fc2ff"><svg><use href="#i-mail"/></svg></span><span class="v-orbit__sat" style="--i:2;--c:#7de8f8"><svg><use href="#i-chat"/></svg></span><span class="v-orbit__sat" style="--i:3;--c:#2aabee"><svg><use href="#i-tg"/></svg></span></div></div>
+        <div class="sys__viz" aria-hidden="true"><div class="v-orbit"><span class="v-orbit__ring"></span><span class="v-orbit__hub"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="26" height="26" loading="lazy"></span><span class="v-orbit__sat" style="--i:0;--c:#25d366"><svg><use href="#i-wa"/></svg></span><span class="v-orbit__sat" style="--i:1;--c:#8dabf5"><svg><use href="#i-mail"/></svg></span><span class="v-orbit__sat" style="--i:2;--c:#6ccbfb"><svg><use href="#i-chat"/></svg></span><span class="v-orbit__sat" style="--i:3;--c:#4fb2f5"><svg><use href="#i-tg"/></svg></span></div></div>
         <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-layers"/></svg>تكامل متعدد القنوات</h3>
         <p class="sys__desc">واتساب، البريد الإلكتروني، الدردشة الحية والمزيد.</p>
         <div class="sys__stat"><span>القنوات</span><b>صندوق وارد واحد</b></div>

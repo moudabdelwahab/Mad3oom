@@ -109,14 +109,14 @@ function buildVolumeChart(host) {
   const labRecv = svg("text", { class: "label", x: x(last) + 10, y: y(VOL.recv[last]) - 4 });
   const labRes = svg("text", { class: "label", x: x(last) + 10, y: y(VOL.res[last]) + 12 });
   s.append(labRecv, labRes);
-  const endDotRecv = svg("circle", { class: "dot", r: 4.5, fill: "#2f7fe0" });
-  const endDotRes = svg("circle", { class: "dot", r: 4.5, fill: "#14a89a" });
+  const endDotRecv = svg("circle", { class: "dot", r: 4.5, fill: "#3a64e0" });
+  const endDotRes = svg("circle", { class: "dot", r: 4.5, fill: "#26a0dc" });
   s.append(endDotRecv, endDotRes);
 
   // crosshair layer
   const xh = svg("line", { class: "xhair", y1: T, y2: H - B, opacity: 0 });
-  const hRecv = svg("circle", { class: "dot", r: 5, fill: "#2f7fe0", opacity: 0 });
-  const hRes = svg("circle", { class: "dot", r: 5, fill: "#14a89a", opacity: 0 });
+  const hRecv = svg("circle", { class: "dot", r: 5, fill: "#3a64e0", opacity: 0 });
+  const hRes = svg("circle", { class: "dot", r: 5, fill: "#26a0dc", opacity: 0 });
   const hit = svg("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
   s.append(xh, hRecv, hRes, hit);
   host.appendChild(s);
@@ -142,7 +142,7 @@ function buildVolumeChart(host) {
     xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("opacity", 1);
     hRecv.setAttribute("cx", x(i)); hRecv.setAttribute("cy", y(VOL.recv[i])); hRecv.setAttribute("opacity", 1);
     hRes.setAttribute("cx", x(i)); hRes.setAttribute("cy", y(VOL.res[i])); hRes.setAttribute("opacity", 1);
-    tip.innerHTML = `<strong>${VOL.days[i]}</strong><div><span><i style="background:#2f7fe0"></i> الواردة</span><b>${VOL.recv[i]}</b></div><div><span><i style="background:#14a89a"></i> المحلولة</span><b>${VOL.res[i]}</b></div>`;
+    tip.innerHTML = `<strong>${VOL.days[i]}</strong><div><span><i style="background:#3a64e0"></i> الواردة</span><b>${VOL.recv[i]}</b></div><div><span><i style="background:#26a0dc"></i> المحلولة</span><b>${VOL.res[i]}</b></div>`;
     const hr = host.getBoundingClientRect();
     // keep the tooltip inside the chart box at both ends
     const half = tip.offsetWidth / 2 + 4;
