@@ -377,6 +377,7 @@ export function createJourney({ tier = "high", onDashActive = () => {} } = {}) {
       const hv = smooth(0.45, 0.85, c);
       hud.style.opacity = hv.toFixed(3);
       hud.style.pointerEvents = hv > 0.5 ? "auto" : "none";
+      hud.style.visibility = hv < 0.02 ? "hidden" : "visible";
     }
     for (const a of hudItems) a.classList.toggle("is-active", +a.dataset.chapter === hk);
 
@@ -488,6 +489,14 @@ export function createJourney({ tier = "high", onDashActive = () => {} } = {}) {
         t.focus({ preventScroll: true });
       }
     }
+  });
+
+  /* keyboard users tabbing into a scene that has faded out get taken to it */
+  document.addEventListener("focusin", e => {
+    if (mode !== "cinema") return;
+    const sc = e.target.closest && e.target.closest(".scene");
+    if (!sc || sc.classList.contains("is-live")) return;
+    scrollTo({ top: anchors[+sc.dataset.scene], behavior: "auto" });
   });
 
   /* ── lifecycle ─────────────────────────────────────────────────────── */

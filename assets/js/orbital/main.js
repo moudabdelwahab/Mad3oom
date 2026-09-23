@@ -198,6 +198,7 @@ function loadWorld() {
     .then(m => m.createWorld(canvas, { tier }))
     .then(w => {
       world = w;
+      if (window.__orbJourney) window.__orbWorld = w;
       root.classList.add("webgl-ready");
     })
     .catch(err => {

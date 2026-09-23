@@ -579,8 +579,9 @@ function buildCity(tex, count) {
   const m = new THREE.Matrix4();
   const tips = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    const x = -140 + Math.random() * 280, z = -150 - Math.random() * 90;
-    const h = 10 + Math.random() * 38, w = 1.5 + Math.random() * 3;
+    // a low skyline far out in the haze, not monoliths in the middle distance
+    const x = -140 + Math.random() * 280, z = -185 - Math.random() * 95;
+    const h = 6 + Math.random() * 22, w = 1.5 + Math.random() * 3;
     m.makeScale(w, h, w);
     m.setPosition(x, -24 + h / 2, z);
     inst.setMatrixAt(i, m);
@@ -599,7 +600,7 @@ function buildPlatforms(tex) {
   const rimMat = new THREE.MeshBasicMaterial({ color: 0x5b8cf5, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
   const g = new THREE.Group();
   const list = [];
-  [[-17, -3.4, -34, 3.2], [19, -3.4, -38, 2.6], [-4, -3.5, -84, 4.2], [30, 2, -50, 2.2], [-36, 5, -62, 2.6]].forEach(([x, y, z, r], i) => {
+  [[-17, -3.4, -34, 3.2], [19, -3.4, -38, 2.6], [-26, -6, -104, 4.2], [30, 2, -50, 2.2], [-36, 5, -62, 2.6]].forEach(([x, y, z, r], i) => {
     const p = new THREE.Group();
     const disk = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, 0.5, 40), mat);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.05, 0.05, 6, 80), rimMat);
@@ -998,7 +999,9 @@ export async function createWorld(canvas, { tier = "high" } = {}) {
   // chapter-bound objects appear only when their scene (or the wide reveal) is on screen
   const bound = [{ obj: core.group, spans: [[2.3, 2.7, 3.6, 4.0], [5.4, 6.0, 8.8, 9.4]] }];
   if (tier !== "low") {
-    scene.add(buildCity(tex, tier === "high" ? 46 : 26));
+    const city = buildCity(tex, tier === "high" ? 46 : 26);
+    scene.add(city);
+    bound.push({ obj: city, fixed: true, spans: [[-9, -8, 1.2, 1.45], [5.4, 6.0, 99, 100]] });
     const holos = buildHolos();
     scene.add(holos.group);
     updaters.push(holos.update);
@@ -1138,6 +1141,11 @@ export async function createWorld(canvas, { tier = "high" } = {}) {
     frame,
     resize,
     invalidate() { dirty = true; },
+    /** render statistics for audits: draw calls, triangles, GPU memory */
+    info() {
+      const r = renderer.info;
+      return { calls: r.render.calls, triangles: r.render.triangles, points: r.render.points, lines: r.render.lines, geometries: r.memory.geometries, textures: r.memory.textures, programs: r.programs.length, dpr, tier };
+    },
     dispose() {
       renderer.dispose();
     },
