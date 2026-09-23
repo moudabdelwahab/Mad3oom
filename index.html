@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="no-js">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
   <meta name="facebook-domain-verification" content="0ap1zj6cyp5tx68ao4r4pdxvtr97mq" />
@@ -80,792 +80,1364 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#010f28">
-<meta name="color-scheme" content="dark">
-<script>
-/* يحدد وضع العرض قبل أول رسم لتفادي القفز:
-   cinema = مسرح ثلاثي الأبعاد مثبّت (≥900px بدون تقليل حركة)،
-   flow   = الجوال وتقليل الحركة: نفس الهوية بتدفق عادي. */
-(function(){
-  var d = document.documentElement;
-  d.classList.remove('no-js');
-  var rm = false;
-  try { rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-  d.classList.add(!rm && window.innerWidth >= 900 ? 'mode-cinema' : 'mode-flow');
-})();
-</script>
-<link rel="stylesheet" href="/assets/css/orbital.css">
-<!-- الأساس المتجاوب المشترك بين صفحات الموقع -->
-<link rel="stylesheet" href="/assets/responsive-global.css">
-<script src="/assets/responsive-global.js" defer></script>
-<script type="module" src="/assets/js/orbital/main.js"></script>
-</head>
-<body class="orb">
-<a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+<style>
+/* ============ Tokens ============ */
+:root{
+  --bg-void:#060B14;
+  --bg-surface:#0D1622;
+  --bg-elevated:#121F30;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.09);
+  --primary:#0077CC;
+  --primary-deep:#00234A;
+  --accent:#4DA3FF;
+  --accent-soft:#8FC7FF;
+  --success:#22C58B;
+  --danger:#FF6B6B;
+  --whatsapp:#25D366;
+  --mcp-color:#B45FE0;
+  --mcp-soft:#D9B3F5;
+  --text-1:#F3F6FB;
+  --text-2:#94A6C2;
+  --text-3:#5A6A82;
+  --radius-lg:1.5rem;
+  --radius-md:1rem;
+  --radius-sm:.6rem;
+  --shadow-lg:0 30px 80px -25px rgba(0,8,25,.7);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.35);
+  --font-display:'Cairo',sans-serif;
+  --font-body:'IBM Plex Sans Arabic',sans-serif;
+  --font-data:'Space Grotesk',sans-serif;
+  --container:1240px;
+  --pad:clamp(1.25rem,4vw,3rem);
+  /* real product surface (light UI, matches actual app) */
+  --ui-bg:#F3F6FC;
+  --ui-card:#FFFFFF;
+  --ui-ink:#101B2E;
+  --ui-ink-2:#66738B;
+  --ui-border:#E7ECF5;
+  --pill-green-bg:#DCFCE7;--pill-green-text:#16A34A;
+  --pill-amber-bg:#FEF3C7;--pill-amber-text:#B45309;
+  --pill-blue-bg:#DBEAFE;--pill-blue-text:#2563EB;
+  --pill-purple-bg:#F3E8FF;--pill-purple-text:#9333EA;
+  --pill-gray-bg:#EEF1F6;--pill-gray-text:#64748B;
+  /* motion tokens */
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-fast:.18s;
+  --dur-med:.35s;
+  --dur-slow:.6s;
+  /* dark terminal surface for MCP chat mock */
+  --term-bg:#0B1220;
+  --term-card:#131C2E;
+  --term-border:#22304A;
+  --term-ink:#E7ECF7;
+  --term-ink-2:#8493AA;
+  --term-green:#22C58B;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-1);line-height:1.75;overflow-x:hidden;position:relative;}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(0,119,204,.22), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 20%, rgba(77,163,255,.12), transparent 55%),
+    var(--bg-void);}
+body::after{content:"";position:fixed;inset:0;z-index:-1;background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);background-size:34px 34px;mask-image:radial-gradient(60rem 60rem at 60% 0%, black, transparent 70%);opacity:.5;}
+a{color:inherit;text-decoration:none;}
+img{max-width:100%;display:block;}
+ul{list-style:none;}
+button{font-family:inherit;}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;line-height:1.25;letter-spacing:-.01em;}
+::selection{background:var(--primary);color:#fff;}
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:4px;}
+.container{max-width:var(--container);margin:0 auto;padding-inline:var(--pad);}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--accent-soft);background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.4rem 1rem;border-radius:99px;margin-bottom:1.25rem;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.eyebrow.mcp{color:var(--mcp-soft);background:rgba(180,95,224,.12);border-color:rgba(180,95,224,.3);}
+.eyebrow.mcp .dot{background:var(--mcp-color);box-shadow:0 0 8px var(--mcp-color);}
+.section{padding:clamp(4rem,9vw,7rem) 0;}
+.section-head{max-width:660px;margin:0 auto 3rem;text-align:center;}
+.section-head h2{font-size:clamp(1.75rem,3.6vw,2.6rem);margin-bottom:1rem;}
+.section-head p{color:var(--text-2);font-size:1.05rem;}
+.gradient-text{background:linear-gradient(90deg,var(--accent-soft),var(--accent),#B9DCFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.gradient-text.mcp{background:linear-gradient(90deg,var(--mcp-soft),var(--mcp-color),#8FC7FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1.7rem;border-radius:.8rem;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-med) var(--ease-snap), background var(--dur-fast) ease, border-color var(--dur-fast) ease;white-space:nowrap;position:relative;overflow:hidden;will-change:transform;}
+.btn:active{transform:translateY(1px) scale(.97);transition-duration:.08s;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;box-shadow:0 12px 30px -10px rgba(0,119,204,.55);}
+.btn-primary::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,#fff,transparent);opacity:0;transition:opacity var(--dur-med) ease;pointer-events:none;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 20px 40px -10px rgba(0,119,204,.75);}
+.btn-primary:hover::after{opacity:.08;}
+.btn-outline{background:var(--btn-outline-bg);border-color:var(--glass-border);color:var(--text-1);}
+.btn-outline:hover{border-color:var(--accent-soft);background:rgba(77,163,255,.08);transform:translateY(-2px);}
+.btn-sm{padding:.55rem 1.1rem;font-size:.82rem;border-radius:.6rem;}
+.btn-block{width:100%;}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .8s ease, transform .8s ease;}
+.reveal.in{opacity:1;transform:translateY(0);}
 
-<!-- ============ Icon sprite ============ -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6ccbfb" stop-opacity=".1"/><stop offset=".5" stop-color="#6ccbfb"/><stop offset="1" stop-color="#447cf5" stop-opacity=".2"/></linearGradient>
-    <linearGradient id="wireGrad" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#6ccbfb"/><stop offset="1" stop-color="#447cf5"/></linearGradient>
-    <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a64e0" stop-opacity=".35"/><stop offset="1" stop-color="#3a64e0" stop-opacity="0"/></linearGradient>
-    <linearGradient id="fillRecv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a64e0" stop-opacity=".28"/><stop offset="1" stop-color="#3a64e0" stop-opacity="0"/></linearGradient>
-    <linearGradient id="fillRes" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26a0dc" stop-opacity=".22"/><stop offset="1" stop-color="#26a0dc" stop-opacity="0"/></linearGradient>
-    <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 2.4a9.6 9.6 0 0 0-8.3 14.4L2.4 21.6l4.9-1.3A9.6 9.6 0 1 0 12 2.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.7 7.5c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .6l-.5.7c-.1.2-.1.3 0 .5a7.2 7.2 0 0 0 3.2 2.8c.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4 0 .6-.2 1.3-.8 1.7-.6.4-1.4.6-2.3.4a10 10 0 0 1-6.4-5.9c-.4-1.1-.2-2.4.4-3.1z" fill="currentColor"/></symbol>
-    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8 0 0 1-12.3 7.1L3.5 20l1.3-4A8.5 8 0 1 1 20.5 11.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.3" cy="11.5" r="1.2" fill="currentColor"/><circle cx="12" cy="11.5" r="1.2" fill="currentColor"/><circle cx="15.7" cy="11.5" r="1.2" fill="currentColor"/></symbol>
-    <symbol id="i-tg" viewBox="0 0 24 24"><path d="M21.2 3.8 2.9 10.9c-.9.4-.9 1.5.1 1.8l4.6 1.4 1.8 5.5c.2.7 1.1.9 1.6.4l2.6-2.4 4.8 3.5c.6.4 1.4.1 1.6-.6l3-15.3c.2-1-.7-1.8-1.8-1.4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m7.8 14 9.7-6.6-7.3 8.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
-    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2.5 4.6A3.2 3.2 0 0 0 5 17a3 3 0 0 0 4 3.3V3.5zM15 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2.5 4.6A3.2 3.2 0 0 1 19 17a3 3 0 0 1-4 3.3V3.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9H7M9 14H6.5M15 9h2M15 14h2.5M9 3.5c1 0 2 .6 3 1.5 1-.9 2-1.5 3-1.5M12 5v15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
-    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 4.5 13.5H11l-1 8 9-11h-6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2.8 19.5a6.2 6.2 0 0 1 12.4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="9" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.8 14a5 5 0 0 1 4.7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 0 4v0a2 2 0 0 1 0 4v2h18v-2a2 2 0 0 1 0-4 2 2 0 0 0 0-4V6H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2.5"/></symbol>
-    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7 4.5 3.5 5v13.5c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5zM12 6.5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m3 12.5 9 5 9-5M3 16.5l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-flow" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="7" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="14.5" y="14.5" width="7" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9.5v3a2 2 0 0 0 2 2h6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
-    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13.5 5.5 5h13l2.5 8.5V19H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 13.5h5l1.5 2.5h5l1.5-2.5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 12 4 4.5l2.5 7.5L4 19.5z M6.5 12H13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.1-8.1a3.3 3.3 0 0 1 4.7 4.7l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2.5 14 10l7.5 2-7.5 2-2 7.5-2-7.5-7.5-2L10 10z" fill="currentColor"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-  </defs>
+/* ============ Navbar ============ */
+.navbar{position:fixed;top:0;inset-inline:0;z-index:200;padding:1rem 0;transition:background .3s ease, border-color .3s ease, padding .3s ease;}
+.navbar.scrolled{background:var(--scrim);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);padding:.65rem 0;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.65rem;}
+.brand-mark{width:40px;height:40px;border-radius:.8rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px -6px rgba(0,119,204,.6);flex-shrink:0;overflow:hidden;}
+.brand-mark svg{width:24px;height:24px;}
+.brand-mark img{width:100%;height:100%;object-fit:cover;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text strong{font-family:var(--font-display);font-weight:800;font-size:1.05rem;}
+.brand-text small{font-size:.62rem;color:var(--text-2);font-weight:500;}
+.nav-links{display:flex;align-items:center;gap:2rem;}
+.nav-links a{position:relative;font-size:.92rem;color:var(--text-2);font-weight:500;transition:color var(--dur-fast) ease;padding-bottom:.2rem;}
+.nav-links a::after{content:"";position:absolute;right:0;bottom:0;width:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-soft));border-radius:2px;transition:width var(--dur-med) var(--ease-snap);}
+.nav-links a:hover{color:var(--text-1);}
+.nav-links a:hover::after{width:100%;}
+.nav-cta{display:flex;align-items:center;gap:.75rem;}
+.nav-login{font-size:.9rem;font-weight:600;color:var(--text-2);}
+.nav-login:hover{color:var(--text-1);}
+.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:.4rem;}
+.hamburger span{width:22px;height:2px;background:var(--text-1);border-radius:2px;}
+.mobile-menu{display:none;}
+@media (max-width:900px){
+  .nav-links{display:none;} .nav-login{display:none;} .hamburger{display:flex;}
+  /* overflow-y:auto ضروري: القائمة مثبّتة بـ inset:0 فارتفاعها = ارتفاع
+     الشاشة. لو زاد محتواها عن ذلك (شاشة قصيرة أو خط أكبر) فاض أسفلها،
+     ومع translateY(-100%) يظهر الفائض أعلى الصفحة والقائمة «مغلقة».
+     الآن يُمرَّر المحتوى داخلها بدل أن يتسرّب. */
+  .mobile-menu{position:fixed;inset:0;background:var(--scrim-strong);backdrop-filter:blur(10px);z-index:250;display:flex;flex-direction:column;padding:2rem var(--pad);transform:translateY(-100%);transition:transform .35s ease;overflow-y:auto;overscroll-behavior:contain;}
+  .mobile-menu.open{transform:translateY(0);}
+  .mobile-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;}
+  .mobile-menu a{display:block;padding:1rem 0;font-size:1.15rem;font-weight:600;border-bottom:1px solid var(--glass-border);}
+  .mobile-menu .btn{margin-top:1.5rem;}
+  .close-btn{background:none;border:none;color:var(--text-1);font-size:1.6rem;cursor:pointer;}
+}
+
+/* على الشاشات الضيقة جداً يتقطّع وصف المنصة في عمود بعرض 47px بجانب
+   الشعار؛ الاسم وحده أوضح. */
+@media (max-width:400px){
+  .brand-text small{display:none;}
+  .nav-cta{gap:.5rem;}
+}
+
+/* ============ Theme toggle ============ */
+.theme-toggle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;color:var(--text-1);flex-shrink:0;transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-snap);}
+.theme-toggle:hover{border-color:var(--accent-soft);transform:rotate(-12deg) scale(1.06);}
+.theme-toggle:active{transform:scale(.92);}
+.theme-toggle svg{width:18px;height:18px;transition:transform var(--dur-slow) var(--ease-bounce), opacity var(--dur-med) ease;}
+.theme-toggle .sun-icon{display:block;}
+.theme-toggle .moon-icon{display:none;}
+[data-theme="light"] .theme-toggle .sun-icon{display:none;}
+[data-theme="light"] .theme-toggle .moon-icon{display:block;}
+.theme-toggle.spin svg{transform:rotate(180deg);}
+.mobile-theme-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--glass-border);font-size:1.15rem;font-weight:600;}
+
+/* ============ Circuit backdrop (identity motif) ============ */
+.circuit-bg{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.35;}
+.circuit-bg svg{width:100%;height:100%;}
+.circuit-bg path{stroke:url(#circuitGrad);stroke-width:1;fill:none;stroke-dasharray:6 10;animation:dashMove 12s linear infinite;}
+.circuit-bg circle{fill:var(--accent-soft);opacity:.7;}
+@keyframes dashMove{to{stroke-dashoffset:-320;}}
+
+/* ============ Hero V2 ============ */
+.hero{padding:clamp(8rem,14vw,10.5rem) 0 3rem;position:relative;}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:3rem;align-items:center;position:relative;z-index:1;}
+.hero-copy h1{font-size:clamp(2rem,4.4vw,3.15rem);margin-bottom:1.4rem;}
+.problem-lines{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.6rem;}
+.problem-lines li{display:flex;align-items:flex-start;gap:.6rem;color:#c5cbd3;font-size:1.02rem;}
+.problem-lines svg{width:18px;height:18px;color:var(--accent-soft);flex-shrink:0;margin-top:.25rem;}
+.solution-line{font-family:var(--font-display);font-weight:800;font-size:clamp(1.2rem,2.4vw,1.6rem);margin-bottom:1.8rem;}
+.hero-actions{display:flex;gap:1rem;flex-wrap:wrap;}
+
+.hero-robot-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;}
+.robot-halo{position:absolute;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle, rgba(0,119,204,.4), transparent 70%);filter:blur(20px);animation:halo 5s ease-in-out infinite;}
+@keyframes halo{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+.robot-ring{position:absolute;width:230px;height:230px;border-radius:50%;border:1px dashed rgba(77,163,255,.35);animation:spin 30s linear infinite;pointer-events:none;}
+.robot-ring.r2{width:300px;height:300px;border-color:rgba(77,163,255,.18);animation-duration:45s;animation-direction:reverse;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.robot-core{position:relative;width:150px;height:150px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);animation:floaty 6s ease-in-out infinite;overflow:hidden;}
+@keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+.robot-core svg{width:78px;height:78px;color:#fff;}
+.robot-core img{width:100%;height:100%;object-fit:cover;}
+.orbit-chip{position:absolute;display:flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);padding:.5rem .8rem;border-radius:99px;font-size:.75rem;font-weight:700;backdrop-filter:blur(10px);animation:chipFloat 4s ease-in-out infinite;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease, background var(--dur-fast) ease;cursor:default;}
+.orbit-chip svg{width:15px;height:15px;color:var(--accent-soft);transition:transform var(--dur-med) var(--ease-bounce);}
+.orbit-chip:hover{animation-play-state:paused;transform:scale(1.12) translateY(-2px) !important;border-color:var(--accent-soft);background:rgba(77,163,255,.14);}
+.orbit-chip:hover svg{transform:rotate(-10deg) scale(1.15);}
+.chip-1{top:6%;right:4%;animation-delay:0s;}
+.chip-2{bottom:16%;right:-2%;animation-delay:.7s;}
+.chip-3{bottom:4%;left:14%;animation-delay:1.4s;}
+.chip-4{top:20%;left:-4%;animation-delay:2.1s;}
+@keyframes chipFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;}
+  .hero-robot-wrap{order:-1;min-height:300px;}
+  /* الشريحتان مُزاحتان خارج الحاوية عمداً (‎-4%‎ و‎-2%‎) — مقبول على سطح
+     المكتب حيث الحاوية أضيق من الصفحة، لكن بعد تكديس الهيرو تصير الحاوية
+     بعرض الشاشة فتخرج الشريحتان عنها وتمدّان الصفحة. نُدخلهما. */
+  .chip-2{right:2%;}
+  .chip-4{left:2%;}
+}
+
+/* الحلقات الزخرفية مربّعات تدور باستمرار، وصندوق إحاطة المربّع الدوّار
+   أكبر من ضلعه (حتى 1.41×)، فكانت r2 (300px ← 424px فعلياً) تمدّ الصفحة
+   على الشاشات الضيّقة. نُصغّرها بدل قصّ الحاوية: القصّ كان يبتر شرائح
+   النص المحيطة بالروبوت وهي محتوى مقروء لا زخرفة. */
+@media (max-width:480px){
+  .robot-ring{width:170px;height:170px;}
+  .robot-ring.r2{width:200px;height:200px;}
+  .robot-halo{width:200px;height:200px;}
+}
+
+/* ============ Philosophy strip ============ */
+.mission{padding:clamp(3rem,7vw,5rem) 0;}
+.mission-inner{max-width:920px;margin:0 auto;text-align:center;}
+.mission p{font-family:var(--font-display);font-weight:700;font-size:clamp(1.3rem,3vw,2rem);line-height:1.6;}
+.mission .not-line{color:var(--text-2);font-weight:600;font-size:clamp(1rem,2vw,1.2rem);margin-bottom:1rem;text-decoration:line-through;text-decoration-color:var(--accent);text-decoration-thickness:2px;}
+
+/* ============ Journey (signature) ============ */
+.journey-section{position:relative;}
+.journey-wrap{position:relative;max-width:760px;margin:3rem auto 0;padding-inline-end:2.5rem;}
+.journey-track{position:absolute;top:0;bottom:0;right:26px;width:3px;background:var(--glass-border);border-radius:3px;}
+.journey-fill{position:absolute;top:0;right:26px;width:3px;height:0%;background:linear-gradient(180deg,var(--accent),var(--accent-soft));border-radius:3px;box-shadow:0 0 12px var(--accent);transition:height .1s linear;}
+.journey-robot{position:absolute;right:12px;top:0;width:34px;height:34px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(77,163,255,.7);transform:translateY(-50%);transition:top .1s linear;z-index:3;overflow:hidden;}
+.journey-robot img{width:100%;height:100%;object-fit:cover;}
+.journey-step{position:relative;padding:0 3.2rem 3rem 0;opacity:.35;transition:opacity .4s ease;}
+.journey-step.active{opacity:1;}
+.journey-step:last-child{padding-bottom:0;}
+.journey-dot{position:absolute;right:15px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;transition:border-color .4s, background .4s, transform var(--dur-fast) var(--ease-bounce);z-index:2;cursor:default;}
+.journey-step:hover .journey-dot{transform:scale(1.2);}
+.journey-step.active .journey-dot{border-color:var(--accent-soft);background:var(--primary-deep);}
+.journey-dot svg{width:12px;height:12px;color:var(--text-3);transition:color .4s;}
+.journey-step.active .journey-dot svg{color:var(--accent-soft);}
+.journey-step h4{font-size:1.1rem;margin-bottom:.4rem;}
+.journey-step p{color:var(--text-2);font-size:.92rem;max-width:480px;}
+@media (max-width:600px){.journey-wrap{padding-inline-end:1.2rem;}.journey-step{padding-inline-end:2.5rem;}}
+
+/* ============ Product Showcase — real UI recreation ============ */
+.showcase-row{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:center;}
+.showcase-row.reverse .showcase-copy{order:2;}
+.showcase-row + .showcase-row{margin-top:clamp(4rem,8vw,6rem);}
+.showcase-copy .num{font-family:var(--font-data);color:var(--accent-soft);font-weight:700;font-size:.85rem;margin-bottom:.6rem;display:block;}
+.showcase-copy .num.mcp{color:var(--mcp-soft);}
+.showcase-copy h3{font-size:clamp(1.4rem,2.6vw,1.9rem);margin-bottom:1rem;}
+.showcase-copy p{color:var(--text-2);font-size:1rem;margin-bottom:.9rem;}
+.showcase-copy p strong{color:var(--text-1);}
+.mcp-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem;}
+.mcp-tag{display:inline-flex;align-items:center;gap:.4rem;background:var(--glass-strong);border:1px solid var(--glass-border);color:var(--text-2);font-size:.78rem;font-weight:600;padding:.4rem .75rem;border-radius:99px;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease, background var(--dur-fast) ease, color var(--dur-fast) ease;cursor:default;}
+.mcp-tag svg{width:13px;height:13px;color:var(--mcp-soft);transition:transform var(--dur-med) var(--ease-bounce);}
+.mcp-tag:hover{transform:translateY(-3px);border-color:var(--mcp-soft);background:rgba(180,95,224,.1);color:var(--text-1);}
+.mcp-tag:hover svg{transform:scale(1.2) rotate(-8deg);}
+@media (max-width:900px){.showcase-row, .showcase-row.reverse{grid-template-columns:1fr;}.showcase-row.reverse .showcase-copy{order:0;}}
+
+.frame-wrap{position:relative;perspective:1400px;}
+.product-frame{border-radius:1.1rem;overflow:hidden;background:var(--ui-card);box-shadow:var(--shadow-lg);border:1px solid var(--glass-border);transition:transform var(--dur-med) var(--ease-snap), box-shadow var(--dur-med) ease;transform-style:preserve-3d;will-change:transform;}
+.product-frame.tilt-active{transition:none;}
+.frame-wrap:hover .product-frame{box-shadow:0 40px 90px -25px rgba(0,8,25,.8);}
+.frame-topbar{background:linear-gradient(90deg,#0A1B3D,#122a5e);display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;gap:.5rem;}
+.frame-icons{display:flex;align-items:center;gap:.4rem;}
+.frame-icons .ic{width:26px;height:26px;border-radius:.5rem;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
+.frame-icons .ic svg{width:13px;height:13px;color:#cfe0ff;}
+.frame-icons .ic .badge{position:absolute;top:-4px;left:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;font-size:.5rem;color:#fff;display:flex;align-items:center;justify-content:center;}
+.frame-pill{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.62rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;display:flex;align-items:center;gap:.3rem;flex-shrink:0;}
+.frame-pill svg{width:10px;height:10px;}
+.frame-pill.mcp{background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));}
+.frame-brand{display:flex;align-items:center;gap:.4rem;}
+.frame-brand-mark{width:20px;height:20px;border-radius:.4rem;background:linear-gradient(135deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.frame-brand-mark img{width:100%;height:100%;object-fit:cover;}
+.frame-brand span{font-size:.65rem;color:#cfe0ff;font-weight:700;}
+.frame-body{background:var(--ui-bg);padding:1rem;color:var(--ui-ink);}
+
+/* dashboard mini-grid */
+.ui-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;}
+.ui-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.7rem;transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) ease;}
+.ui-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px -10px rgba(16,27,46,.18);}
+.ui-card:hover .ic-badge{transform:scale(1.1) rotate(-6deg);}
+.ui-card .ic-badge{width:26px;height:26px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;transition:transform var(--dur-med) var(--ease-bounce);}
+.ui-card .ic-badge svg{width:13px;height:13px;color:#fff;}
+.ui-card h5{font-size:.72rem;font-weight:700;margin-bottom:.15rem;color:var(--ui-ink);}
+.ui-card small{font-size:.6rem;color:var(--ui-ink-2);}
+.activity-card{grid-column:span 3;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.8rem;margin-top:.6rem;}
+.activity-card .a-title{font-size:.7rem;font-weight:700;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem;}
+.activity-card .a-title .live-dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:pulseDot 1.6s infinite;}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,138,.6);}70%{box-shadow:0 0 0 7px rgba(34,197,138,0);}}
+.activity-row{display:flex;align-items:center;gap:.55rem;padding:.35rem 0;font-size:.66rem;color:var(--ui-ink-2);animation:scanPulse 7s ease-in-out infinite;}
+.activity-row .ic{width:20px;height:20px;border-radius:.4rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.activity-row .ic svg{width:11px;height:11px;color:#fff;}
+.activity-row strong{color:var(--ui-ink);}
+@keyframes scanPulse{0%,85%,100%{opacity:.4;transform:translateX(0);}8%{opacity:1;transform:translateX(-3px);}}
+
+/* ticket management mini */
+.ui-tickets{display:grid;grid-template-columns:.9fr 1.4fr;gap:.6rem;}
+.ui-tstats{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;margin-bottom:.5rem;}
+.ui-stat-chip{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;text-align:center;}
+.ui-stat-chip b{display:block;font-family:var(--font-data);font-size:.85rem;}
+.ui-stat-chip span{font-size:.55rem;color:var(--ui-ink-2);}
+.ticket-list-mini{display:flex;flex-direction:column;gap:.4rem;}
+.ticket-row{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;font-size:.62rem;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.ticket-row:hover{transform:translateX(-3px);border-color:var(--accent-soft);}
+.ticket-row.active{border-color:var(--accent-soft);box-shadow:0 0 0 2px rgba(77,163,255,.15);}
+.ticket-row .status{display:inline-block;font-size:.52rem;font-weight:700;padding:.1rem .4rem;border-radius:99px;margin-bottom:.25rem;}
+.status.open{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
+.status.progress{background:var(--pill-amber-bg);color:var(--pill-amber-text);}
+.status.closed{background:var(--pill-green-bg);color:var(--pill-green-text);}
+.status.purple{background:var(--pill-purple-bg);color:var(--pill-purple-text);}
+.ticket-detail{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.7rem;display:flex;flex-direction:column;gap:.4rem;}
+.ticket-detail .msg-bubble{background:var(--ui-bg);border-radius:.5rem;padding:.5rem .6rem;font-size:.6rem;color:var(--ui-ink-2);}
+.morph-arrow{display:flex;align-items:center;justify-content:center;color:var(--accent-soft);}
+.morph-arrow svg{width:16px;height:16px;animation:morphMove 2.4s ease-in-out infinite;}
+@keyframes morphMove{0%,100%{transform:translateX(0);opacity:.6;}50%{transform:translateX(-6px);opacity:1;}}
+
+/* live chat mini */
+.ui-chat{display:grid;grid-template-columns:1.3fr 1fr;gap:.6rem;}
+.chat-window-mini{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.6rem;display:flex;flex-direction:column;gap:.4rem;min-height:150px;}
+.chat-window-mini .bmsg{max-width:78%;padding:.4rem .6rem;border-radius:.5rem;font-size:.62rem;}
+.chat-window-mini .bmsg.in{background:var(--ui-bg);color:var(--ui-ink);}
+.chat-window-mini .bmsg.out{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;margin-right:auto;}
+.chat-tag{display:inline-flex;align-items:center;gap:.25rem;font-size:.52rem;font-weight:700;padding:.15rem .45rem;border-radius:99px;margin-bottom:.3rem;width:fit-content;}
+.chat-tag.bot{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
+.chat-tag.agent{background:var(--pill-green-bg);color:var(--pill-green-text);animation:tagSwap 5s ease-in-out infinite;}
+@keyframes tagSwap{0%,60%,100%{opacity:0;transform:translateY(4px);}70%,95%{opacity:1;transform:translateY(0);}}
+.convo-list-mini{display:flex;flex-direction:column;gap:.35rem;}
+.convo-row{display:flex;align-items:center;gap:.4rem;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.4rem .5rem;transition:transform var(--dur-fast) var(--ease-snap), border-color var(--dur-fast) ease;}
+.convo-row:hover{transform:translateX(-3px);border-color:var(--accent-soft);}
+.convo-row:hover .convo-avatar{transform:scale(1.12);}
+.convo-avatar{transition:transform var(--dur-med) var(--ease-bounce);}
+.convo-avatar{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.5rem;font-weight:700;color:#fff;flex-shrink:0;}
+.convo-row .meta{font-size:.58rem;color:var(--ui-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.convo-row strong{display:block;font-size:.62rem;color:var(--ui-ink);}
+
+/* analytics mini */
+.ui-analytics{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.6rem;}
+.an-chip{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.5rem;text-align:center;}
+.an-chip b{display:block;font-family:var(--font-data);font-size:.95rem;}
+.an-chip span{font-size:.52rem;color:var(--ui-ink-2);}
+.an-chip .up{color:var(--success);font-size:.5rem;font-weight:700;}
+.ui-charts{display:grid;grid-template-columns:1.1fr .9fr;gap:.6rem;}
+.bar-card, .donut-card{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;padding:.6rem;}
+.bar-card h6, .donut-card h6{font-size:.6rem;font-weight:700;margin-bottom:.5rem;}
+.bars{display:flex;align-items:flex-end;gap:.5rem;height:64px;}
+.bars .bar{flex:1;border-radius:.25rem .25rem 0 0;position:relative;}
+.bars .bar span{position:absolute;top:-14px;left:0;right:0;text-align:center;font-size:.55rem;font-weight:700;color:var(--ui-ink);}
+.donut{width:64px;height:64px;border-radius:50%;margin:0 auto .4rem;background:conic-gradient(var(--primary) 0% 60%, var(--success) 60% 92%, var(--accent-soft) 92% 100%);position:relative;}
+.donut::after{content:"";position:absolute;inset:14px;background:var(--ui-card);border-radius:50%;}
+.donut-legend{display:flex;justify-content:center;gap:.5rem;font-size:.5rem;color:var(--ui-ink-2);}
+.donut-legend span{display:inline-flex;align-items:center;gap:.2rem;}
+.donut-legend i{width:6px;height:6px;border-radius:50%;display:inline-block;}
+
+/* subdomains mini */
+.ui-subdomain-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.ui-subdomain-header .btn-mini{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.58rem;font-weight:700;padding:.3rem .6rem;border-radius:.4rem;}
+.domain-table{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.5rem;overflow:hidden;}
+.domain-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:.4rem;align-items:center;padding:.55rem .7rem;font-size:.6rem;border-bottom:1px solid var(--ui-border);transition:background var(--dur-fast) ease;}
+.domain-row:hover{background:rgba(0,119,204,.04);}
+.domain-row:last-child{border-bottom:none;}
+.domain-row .url{font-family:var(--font-data);color:var(--pill-blue-text);font-weight:600;}
+.domain-row .sub{display:block;color:var(--ui-ink-2);font-size:.54rem;}
+
+/* ===== MCP terminal-chat mock (dark, matches screenshot) ===== */
+.mcp-frame{border-radius:1.1rem;overflow:hidden;background:var(--term-bg);box-shadow:var(--shadow-lg);border:1px solid var(--term-border);transition:transform var(--dur-med) var(--ease-snap), box-shadow var(--dur-med) ease;transform-style:preserve-3d;will-change:transform;}
+.mcp-frame.tilt-active{transition:none;}
+.frame-wrap:hover .mcp-frame{box-shadow:0 40px 90px -25px rgba(0,8,25,.85);}
+.mcp-frame .frame-topbar{background:linear-gradient(90deg,#0A1220,#101B30);}
+.mcp-body{background:var(--term-bg);padding:.85rem;color:var(--term-ink);display:flex;flex-direction:column;gap:.55rem;min-height:300px;}
+.mcp-msg-row{display:flex;flex-direction:column;gap:.3rem;}
+.mcp-author{font-size:.66rem;font-weight:700;color:var(--term-green);}
+.mcp-bubble{background:var(--term-card);border:1px solid var(--term-border);border-radius:.6rem;padding:.55rem .7rem;font-size:.62rem;color:var(--term-ink-2);line-height:1.6;}
+.mcp-bubble strong{color:var(--term-ink);}
+.mcp-bubble ol,.mcp-bubble ul{margin:.3rem 0 0;padding-inline-start:1.1rem;}
+.mcp-bubble li{margin-bottom:.15rem;}
+.mcp-code{background:#0E1626;border:1px solid var(--term-border);border-radius:.4rem;padding:.35rem .55rem;font-family:var(--font-data);font-size:.6rem;color:var(--mcp-soft);display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-top:.3rem;}
+.mcp-code svg{width:12px;height:12px;color:var(--term-ink-2);flex-shrink:0;}
+.mcp-check{display:inline-flex;align-items:center;gap:.3rem;color:var(--term-green);font-weight:700;}
+.mcp-check svg{width:11px;height:11px;}
+.mcp-step-badge{position:absolute;bottom:-14px;inset-inline:0;display:flex;justify-content:center;z-index:5;}
+.mcp-step-pill{display:inline-flex;align-items:center;gap:.5rem;background:var(--mcp-color);color:#fff;font-size:.78rem;font-weight:700;padding:.5rem 1rem;border-radius:99px;box-shadow:0 10px 24px -8px rgba(180,95,224,.6);}
+.mcp-step-num{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:.7rem;}
+
+/* MCP mini-steps strip under the mock */
+.mcp-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-top:2.5rem;}
+.mcp-flow-step{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1rem .9rem;text-align:center;position:relative;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease;}
+.mcp-flow-step:hover{transform:translateY(-6px);border-color:rgba(180,95,224,.4);}
+.mcp-flow-step:hover .fnum{transform:scale(1.15) rotate(-8deg);}
+.mcp-flow-step .fnum{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--mcp-soft),var(--mcp-color));color:#fff;font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto .6rem;transition:transform var(--dur-med) var(--ease-bounce);}
+.mcp-flow-step h5{font-size:.8rem;margin-bottom:.3rem;color:var(--text-1);}
+.mcp-flow-step p{font-size:.72rem;color:var(--text-3);line-height:1.5;}
+.mcp-flow-arrow{display:none;position:absolute;top:13px;left:-1.1rem;color:var(--text-3);}
+@media (min-width:701px){.mcp-flow-step:not(:first-child) .mcp-flow-arrow{display:block;}}
+@media (max-width:700px){.mcp-flow{grid-template-columns:1fr;}}
+
+/* callouts */
+.callout{position:absolute;background:rgba(6,11,20,.92);border:1px solid var(--glass-border);color:var(--text-1);font-size:.72rem;font-weight:600;padding:.45rem .8rem;border-radius:.6rem;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.4rem;z-index:4;}
+.callout svg{width:13px;height:13px;color:var(--accent-soft);flex-shrink:0;}
+.callout.mcp svg{color:var(--mcp-soft);}
+.callout::after{content:"";position:absolute;width:9px;height:9px;background:inherit;border-inline-end:1px solid var(--glass-border);border-block-end:1px solid var(--glass-border);}
+@media (max-width:1050px){.callout{display:none;}}
+
+/* ============ Comparison ============ */
+.compare-cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;}
+.compare-col{border-radius:var(--radius-lg);padding:1.8rem;border:1px solid var(--glass-border);}
+.compare-col.without{background:linear-gradient(160deg, rgba(255,107,107,.06), transparent 60%);}
+.compare-col.with{background:linear-gradient(160deg, rgba(34,197,138,.08), transparent 60%);}
+.compare-col h3{font-size:1.05rem;margin-bottom:.3rem;}
+.compare-col .total{font-size:.82rem;color:var(--text-2);margin-bottom:1.5rem;}
+.compare-col.without .total strong{color:var(--danger);}
+.compare-col.with .total strong{color:var(--success);}
+.tl-item{position:relative;padding-inline-end:1.6rem;padding-bottom:1.4rem;border-inline-end:2px solid var(--glass-border);}
+.tl-item:last-child{border-color:transparent;padding-bottom:0;}
+.tl-item::before{content:"";position:absolute;right:-5px;top:2px;width:9px;height:9px;border-radius:50%;background:var(--text-3);}
+.without .tl-item::before{background:var(--danger);}
+.with .tl-item::before{background:var(--success);}
+.tl-time{font-family:var(--font-data);font-size:.78rem;color:var(--text-2);font-weight:600;margin-bottom:.2rem;}
+.tl-desc{font-size:.9rem;color:var(--text-1);}
+@media (max-width:800px){.compare-cols{grid-template-columns:1fr;}}
+
+/* ============ Pricing (plans from subscriptions.html) ============ */
+.billing-toggle-wrap{display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:.75rem;flex-wrap:wrap;}
+.billing-toggle-label{font-size:.9rem;color:var(--text-2);font-weight:600;}
+.billing-toggle{display:inline-flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:99px;padding:.25rem;gap:.25rem;}
+.billing-toggle button{border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:.85rem;padding:.5rem 1.1rem;border-radius:99px;cursor:pointer;transition:background var(--dur-fast) ease,color var(--dur-fast) ease,transform var(--dur-fast) var(--ease-snap);}
+.billing-toggle button:not(.active):hover{color:var(--text-1);transform:translateY(-1px);}
+.billing-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;}
+.billing-toggle button:active{transform:scale(.95);}
+.launch-offer-banner{text-align:center;color:var(--text-3);font-size:.82rem;margin-bottom:2.25rem;}
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;align-items:stretch;}
+.plan-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:1.75rem 1.5rem;display:flex;flex-direction:column;position:relative;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease, box-shadow var(--dur-med) ease;}
+.plan-card:hover{transform:translateY(-8px);border-color:rgba(77,163,255,.4);box-shadow:0 30px 60px -25px rgba(0,20,50,.5);}
+.plan-card.featured{border-color:rgba(77,163,255,.5);background:linear-gradient(160deg, rgba(0,119,204,.14), rgba(255,255,255,.03));box-shadow:var(--shadow-glow);}
+.plan-card.featured:hover{transform:translateY(-10px) scale(1.015);box-shadow:0 0 90px -10px rgba(0,119,204,.45);}
+.plan-card li{transition:transform var(--dur-fast) ease, color var(--dur-fast) ease;}
+.plan-card:hover li{transform:translateX(-2px);}
+.plan-ribbon{position:absolute;top:-13px;right:1.5rem;background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;font-size:.68rem;font-weight:700;padding:.3rem .8rem;border-radius:99px;}
+.plan-card h3{font-size:1.1rem;margin-bottom:.3rem;}
+.plan-card .plan-desc{color:var(--text-3);font-size:.82rem;margin-bottom:1.25rem;}
+.plan-price-row{display:flex;align-items:baseline;gap:.35rem;flex-wrap:wrap;margin-bottom:.2rem;}
+.plan-price-row .currency{font-size:1rem;font-weight:700;color:var(--text-2);}
+.plan-price-row .amount{font-family:var(--font-data);font-size:2.1rem;font-weight:700;color:var(--text-1);}
+.plan-price-row .period{font-size:.85rem;color:var(--text-3);}
+.plan-price-row .old-price{font-size:.85rem;color:var(--text-3);text-decoration:line-through;}
+.plan-discount-badge{display:inline-block;background:rgba(34,197,138,.12);color:var(--success);font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:99px;margin-bottom:.5rem;width:fit-content;}
+.plan-limited{display:block;color:var(--danger);font-size:.72rem;font-weight:600;margin-bottom:.5rem;}
+.plan-bonus{color:var(--accent-soft);font-size:.75rem;font-weight:600;margin-bottom:1rem;}
+.plan-card ul{margin-bottom:1.5rem;flex:1;}
+.plan-card li{display:flex;gap:.5rem;align-items:flex-start;font-size:.84rem;color:var(--text-2);margin-bottom:.65rem;}
+.plan-card li svg{width:15px;height:15px;color:var(--success);flex-shrink:0;margin-top:.2rem;}
+.plan-card li.disabled{color:var(--text-3);}
+.plan-card li.disabled svg{color:var(--text-3);}
+@media (max-width:1050px){.plan-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:600px){.plan-grid{grid-template-columns:1fr;}}
+
+.plan-comparison{margin-top:4rem;overflow-x:auto;}
+.plan-comparison h3{text-align:center;font-size:1.3rem;margin-bottom:1.75rem;}
+.plan-comparison table{width:100%;border-collapse:collapse;min-width:640px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;}
+.plan-comparison th,.plan-comparison td{padding:.85rem 1rem;text-align:center;font-size:.85rem;border-bottom:1px solid var(--glass-border);color:var(--text-2);transition:background var(--dur-fast) ease;}
+.plan-comparison tbody tr:hover td{background:rgba(0,119,204,.05);}
+.plan-comparison th{color:var(--text-1);font-weight:700;background:var(--glass-strong);}
+.plan-comparison td:first-child,.plan-comparison th:first-child{text-align:right;color:var(--text-1);font-weight:600;}
+.plan-comparison tr:last-child td{border-bottom:none;}
+.plan-comparison .yes{color:var(--success);font-weight:700;}
+.plan-comparison .no{color:var(--text-3);}
+
+/* ============ FAQ ============ */
+.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:.75rem;}
+.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:.3rem .3rem;overflow:hidden;transition:border-color var(--dur-fast) ease;}
+.faq-item:hover{border-color:rgba(77,163,255,.3);}
+.faq-item summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;cursor:pointer;font-weight:700;font-size:.98rem;transition:color var(--dur-fast) ease;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item:hover summary{color:var(--accent-soft);}
+.faq-item .chev svg{width:18px;height:18px;color:var(--text-2);transition:transform var(--dur-med) var(--ease-snap);}
+.faq-item[open] .chev svg{transform:rotate(180deg);}
+.faq-body-inner{padding:0 1.1rem 1.1rem;color:var(--text-2);font-size:.92rem;line-height:1.8;}
+.faq-body{display:grid !important;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--dur-med) var(--ease-snap), opacity var(--dur-fast) ease;}
+.faq-body > div{overflow:hidden;}
+.faq-item[open] .faq-body{grid-template-rows:1fr;opacity:1;}
+
+/* ============ Final CTA ============ */
+.final-cta{border-radius:var(--radius-lg);padding:clamp(2.5rem,6vw,4.5rem);text-align:center;background:linear-gradient(135deg, var(--primary-deep), var(--bg-void) 60%), radial-gradient(50rem 20rem at 50% 0%, rgba(0,119,204,.4), transparent 70%);border:1px solid var(--glass-border);position:relative;overflow:hidden;}
+.final-cta h2{font-size:clamp(1.8rem,4vw,2.7rem);margin-bottom:1rem;}
+.final-cta p{color:var(--text-2);max-width:520px;margin:0 auto 2rem;font-size:1.05rem;}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:var(--bg-surface);}
+.footer-grid{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:2rem;margin-bottom:3rem;}
+.footer-brand p{color:var(--text-3);font-size:.88rem;margin-top:1rem;max-width:260px;}
+.footer-col h5{font-size:.9rem;margin-bottom:1.1rem;color:var(--text-1);}
+.footer-col a{display:block;color:var(--text-3);font-size:.88rem;margin-bottom:.75rem;transition:color .2s;}
+.footer-col a:hover{color:var(--accent-soft);}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;padding-top:2rem;border-top:1px solid var(--glass-border);color:var(--text-3);font-size:.82rem;}
+@media (max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:560px){.footer-grid{grid-template-columns:1fr;}}
+
+/* ============ Floating robot helper / interactive tour ============ */
+.robot-helper{position:fixed;bottom:1.5rem;left:1.5rem;z-index:150;}
+.robot-helper-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,var(--accent),var(--primary-deep));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-glow);border:none;cursor:pointer;animation:floaty 5s ease-in-out infinite;overflow:hidden;transition:transform var(--dur-fast) var(--ease-bounce);position:relative;}
+.robot-helper-btn:hover{transform:scale(1.1) rotate(-6deg);animation-play-state:paused;}
+.robot-helper-btn:active{transform:scale(.94);}
+.robot-helper-btn img{width:100%;height:100%;object-fit:cover;}
+.robot-ping{position:absolute;top:-3px;left:-3px;width:16px;height:16px;border-radius:50%;background:var(--success);border:2px solid var(--bg-void);z-index:2;}
+.robot-ping::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--success);animation:pingWave 1.8s ease-out infinite;}
+@keyframes pingWave{0%{transform:scale(1);opacity:.7;}100%{transform:scale(2.4);opacity:0;}}
+.robot-helper.tour-open .robot-ping{display:none;}
+
+.robot-tour{position:absolute;bottom:70px;left:0;width:290px;background:var(--glass-strong);border:1px solid var(--glass-border);backdrop-filter:blur(16px);border-radius:1.1rem;box-shadow:var(--shadow-lg);padding:1.1rem 1.1rem .9rem;opacity:0;transform:translateY(14px) scale(.94);transform-origin:bottom left;pointer-events:none;visibility:hidden;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce), visibility 0s var(--dur-med);}
+.robot-helper.tour-open .robot-tour{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;visibility:visible;transition:opacity var(--dur-med) var(--ease-snap), transform var(--dur-med) var(--ease-bounce);}
+.robot-tour-close{position:absolute;top:.6rem;left:.6rem;width:22px;height:22px;border-radius:50%;border:none;background:var(--glass);color:var(--text-2);cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center;transition:background var(--dur-fast) ease,color var(--dur-fast) ease;}
+.robot-tour-close:hover{background:rgba(255,107,107,.15);color:var(--danger);}
+.robot-tour-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;}
+.robot-tour-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid var(--accent-soft);}
+.robot-tour-avatar img{width:100%;height:100%;object-fit:cover;}
+.robot-tour-head span{font-size:.72rem;color:var(--text-3);font-weight:600;}
+.robot-tour-track{position:relative;min-height:118px;}
+.robot-tour-slide{display:none;}
+.robot-tour-slide.active{display:block;animation:slideFadeIn .4s var(--ease-snap);}
+@keyframes slideFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.robot-tour-slide .rt-icon{width:34px;height:34px;border-radius:.6rem;background:linear-gradient(135deg,var(--accent-soft),var(--primary));display:flex;align-items:center;justify-content:center;margin-bottom:.6rem;}
+.robot-tour-slide .rt-icon svg{width:18px;height:18px;color:#fff;}
+.robot-tour-slide h5{font-size:.92rem;margin-bottom:.4rem;color:var(--text-1);}
+.robot-tour-slide p{font-size:.8rem;color:var(--text-2);line-height:1.65;}
+.robot-tour-cta{display:inline-flex;margin-top:.6rem;}
+.robot-tour-dots{display:flex;justify-content:center;gap:.35rem;margin:.85rem 0 .7rem;}
+.robot-tour-dots button{width:6px;height:6px;border-radius:50%;background:var(--glass-border);border:none;padding:0;cursor:pointer;transition:transform var(--dur-fast) var(--ease-bounce), background var(--dur-fast) ease, width var(--dur-med) ease;}
+.robot-tour-dots button.active{background:var(--accent);width:16px;border-radius:4px;}
+.robot-tour-actions{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.rt-nav{background:var(--glass);border:1px solid var(--glass-border);color:var(--text-2);font-size:.76rem;font-weight:700;padding:.45rem .85rem;border-radius:.6rem;cursor:pointer;transition:background var(--dur-fast) ease,color var(--dur-fast) ease,transform var(--dur-fast) var(--ease-snap),opacity var(--dur-fast) ease;}
+.rt-nav:hover{color:var(--text-1);transform:translateY(-1px);}
+.rt-nav:active{transform:scale(.95);}
+.rt-nav.primary{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;border-color:transparent;}
+.rt-nav[disabled]{opacity:.35;cursor:default;pointer-events:none;}
+@media (max-width:600px){.robot-helper{bottom:1rem;left:1rem;}.robot-tour{width:min(80vw,290px);}}
+
+/* ============ Light theme overrides ============ */
+:root{
+  --scrim:rgba(6,11,20,.75);
+  --scrim-strong:rgba(6,11,20,.98);
+  --btn-outline-bg:rgba(255,255,255,.03);
+  --dot-color:rgba(255,255,255,.05);
+}
+[data-theme="light"]{
+  --bg-void:#F3F6FC;
+  --bg-surface:#FFFFFF;
+  --bg-elevated:#EDF2FA;
+  --glass:rgba(16,27,46,.035);
+  --glass-strong:rgba(16,27,46,.06);
+  --glass-border:rgba(16,27,46,.09);
+  --text-1:#101B2E;
+  --text-2:#4B5A72;
+  --text-3:#8493AA;
+  --shadow-lg:0 30px 80px -25px rgba(16,27,46,.16);
+  --shadow-glow:0 0 70px -10px rgba(0,119,204,.22);
+  --scrim:rgba(255,255,255,.85);
+  --scrim-strong:rgba(255,255,255,.98);
+  --btn-outline-bg:rgba(16,27,46,.035);
+  --dot-color:rgba(16,27,46,.05);
+}
+body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);}
+</style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<linearGradient id="circuitGrad" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#4DA3FF" stop-opacity="0"/>
+  <stop offset="0.5" stop-color="#4DA3FF" stop-opacity="0.9"/>
+  <stop offset="1" stop-color="#4DA3FF" stop-opacity="0"/>
+</linearGradient>
+<symbol id="icon-mcp-plug" viewBox="0 0 24 24">
+  <path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</symbol>
+</defs>
 </svg>
 
-<!-- ============ The world ============ -->
-<div class="env" aria-hidden="true">
-  <div class="env__stars"></div>
-  <div class="env__planet"></div>
-  <div class="env__moon"></div>
-  <div class="env__horizon"></div>
-</div>
-<canvas id="orbital-canvas" aria-hidden="true"></canvas>
-<div class="env-veil" aria-hidden="true"></div>
-<div class="env-dim" aria-hidden="true"></div>
+<!-- ============ Scroll progress ============ -->
+<div id="scrollProgress" style="position:fixed;top:0;right:0;left:0;height:3px;z-index:300;background:linear-gradient(90deg,var(--accent),var(--accent-soft));transform-origin:right;transform:scaleX(0);transition:transform .08s linear;"></div>
 
-<!-- ============ Navigation ============ -->
-<header class="nav" id="nav">
-  <nav class="nav__bar glass glass--frost" aria-label="التنقل الرئيسي">
-    <a href="#hero" class="brand" aria-label="مدعوم — الرئيسية">
-      <span class="brand__mark"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="24" height="24"></span>
-      <span class="brand__text"><strong>مدعوم</strong><small>Mad3oom</small></span>
+<!-- ============ Navbar ============ -->
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="#" class="brand">
+      <span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span>
+      <span class="brand-text"><strong>مدعوم</strong><small>منصة الدعم الفني الذكي</small></span>
     </a>
-    <div class="nav__links">
-      <a class="nav__link is-current" href="#hero" data-nav="hero">الرئيسية</a>
-      <a class="nav__link" href="#features" data-nav="features">المميزات</a>
-      <a class="nav__link" href="#pricing" data-nav="pricing">الأسعار</a>
-      <div class="nav__drop" id="resDrop">
-        <button class="nav__link" type="button" aria-expanded="false" aria-controls="resMenu">الموارد <svg aria-hidden="true"><use href="#i-chev"/></svg></button>
-        <div class="nav__menu glass glass--frost" id="resMenu">
-          <a href="/blog/">المدوّنة<small>مقالات عن تجربة العملاء والدعم</small></a>
-          <a href="knowledge-base.html">قاعدة المعرفة<small>أدلة الاستخدام خطوة بخطوة</small></a>
-          <a href="developers.html">للمطورين<small>واجهات API وخادم MCP</small></a>
-          <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة<small>جولة في كل مكوّنات مدعوم</small></a>
-          <a href="comparison.html">مقارنة مدعوم<small>كيف نختلف عن الأدوات الأخرى</small></a>
-          <a href="#faq">الأسئلة الشائعة<small>إجابات سريعة قبل أن تبدأ</small></a>
-        </div>
-      </div>
-      <a class="nav__link" href="#contact" data-nav="contact">تواصل معنا</a>
+    <div class="nav-links">
+      <a href="#journey">الرحلة</a>
+      <a href="#showcase">المنتج</a>
+      <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a>
+      <a href="#mcp">دعم MCP</a>
+      <a href="#compare">الفرق</a>
+      <a href="#pricing">الأسعار</a>
+      <a href="#faq">الأسئلة الشائعة</a>
+      <a href="/blog/">المدوّنة</a>
     </div>
-    <div class="nav__actions">
-      <span class="nav__status"><i></i>Online</span>
-      <a href="login.html" class="btn btn--glass">تسجيل الدخول</a>
-      <a href="start.html" class="btn btn--primary">ابدأ الآن</a>
+    <div class="nav-cta">
+      <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل الوضع الليلي/النهاري" title="تبديل الوضع الليلي/النهاري">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <a href="login.html" class="nav-login">حسابي</a>
+      <a href="start.html" class="btn btn-primary btn-sm">ابدأ مجاناً</a>
     </div>
-    <button class="nav__burger" id="navBurger" type="button" aria-label="فتح القائمة" aria-expanded="false" aria-controls="mnav"><span></span></button>
-  </nav>
-</header>
-
-<div class="mnav" id="mnav" role="dialog" aria-modal="true" aria-label="القائمة">
-  <div class="mnav__top">
-    <a href="#hero" class="brand"><span class="brand__mark"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="24" height="24"></span><span class="brand__text"><strong>مدعوم</strong></span></a>
-    <button class="mnav__close" id="mnavClose" type="button" aria-label="إغلاق القائمة">✕</button>
+    <button class="hamburger" id="hamburgerBtn" aria-label="فتح القائمة"><span></span><span></span><span></span></button>
   </div>
-  <a href="#hero">الرئيسية</a>
-  <a href="#features">المميزات</a>
-  <a href="#pricing">الأسعار</a>
-  <a href="#contact">تواصل معنا</a>
-  <span class="mnav__group">الموارد</span>
-  <a href="/blog/">المدوّنة</a>
-  <a href="knowledge-base.html">قاعدة المعرفة</a>
-  <a href="developers.html">للمطورين</a>
-  <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a>
-  <a href="#faq">الأسئلة الشائعة</a>
-  <a href="login.html" class="btn btn--glass btn--block">تسجيل الدخول</a>
-  <a href="start.html" class="btn btn--primary btn--block">ابدأ الآن مجانًا</a>
-</div>
-
-<!-- ============ Journey index (HUD) ============ -->
-<nav class="hud" id="hud" aria-label="مشاهد الرحلة">
-  <a class="hud__item is-active" href="#hero" data-chapter="0">01 <span>المحطة</span></a>
-  <a class="hud__item" href="#inbox" data-chapter="1">02 <span>المحادثات</span></a>
-  <a class="hud__item" href="#channels" data-chapter="2">03 <span>القنوات</span></a>
-  <a class="hud__item" href="#sie" data-chapter="3">04 <span>SIE</span></a>
-  <a class="hud__item" href="#automation" data-chapter="4">05 <span>الأتمتة</span></a>
-  <a class="hud__item" href="#analytics" data-chapter="5">06 <span>التحليلات</span></a>
-  <a class="hud__item" href="#features" data-chapter="6">07 <span>السيطرة</span></a>
-  <a class="hud__item" href="#start" data-chapter="10">08 <span>الانطلاق</span></a>
 </nav>
 
-<main id="main">
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-top">
+    <a href="#" class="brand"><span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span><span class="brand-text"><strong>مدعوم</strong></span></a>
+    <button class="close-btn" id="closeMenuBtn" aria-label="إغلاق القائمة">✕</button>
+  </div>
+  <a href="#journey">الرحلة</a>
+  <a href="#showcase">المنتج</a>
+  <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a>
+  <a href="#mcp">دعم MCP</a>
+  <a href="#compare">الفرق</a>
+  <a href="#pricing">الأسعار</a>
+  <a href="#faq">الأسئلة الشائعة</a>
+  <a href="/blog/">المدوّنة</a>
+  <a href="login.html">حسابي</a>
+  <div class="mobile-theme-row">
+    <span>الوضع الليلي/النهاري</span>
+    <button class="theme-toggle" id="themeToggleBtnMobile" aria-label="تبديل الوضع الليلي/النهاري">
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </div>
+  <a href="start.html" class="btn btn-primary btn-block">ابدأ مجاناً</a>
+</div>
 
-<!-- =====================================================================
-     THE JOURNEY — one pinned stage, six scenes, one continuous camera
-     ===================================================================== -->
-<section class="journey" id="journey" aria-label="جولة داخل مركز قيادة مدعوم">
-  <div class="journey__stage" id="stage">
-
-    <!-- SCENE 01 · The orbital command center -->
-    <div class="scene scene--hero is-live" id="hero" data-scene="0">
-      <div class="hero__copy" id="heroCopy">
-        <span class="pill"><span class="live-dot" aria-hidden="true"></span> منصة دعم عملاء ذكية للشركات العربية</span>
-        <h1 class="hero__title">
-          <span class="line">كل محادثات عملائك</span>
-          <span class="line grad">في مكان واحد</span>
-        </h1>
-        <p class="hero__lead">إدارة التذاكر، واتساب، البريد الإلكتروني، والدردشة الحية مع ذكاء اصطناعي يساعد فريقك على تقديم دعم أسرع وأفضل.</p>
-        <div class="hero__ctas hit">
-          <a href="start.html" class="btn btn--primary btn--lg">ابدأ الآن مجانًا <span class="btn__icon" aria-hidden="true"><svg><use href="#i-arrow"/></svg></span></a>
-          <a href="#inbox" class="btn btn--glass btn--lg" data-journey-link>شاهد كيف يعمل <span class="btn__icon" aria-hidden="true"><svg><use href="#i-play"/></svg></span></a>
-        </div>
-      </div>
-
-      <div class="rig" id="rig" aria-label="قنوات وأنظمة مدعوم">
-        <!-- channels (left wing) -->
-        <div class="holo-slot" data-depth="0.9" data-side="l" style="--x:6.5vw;--y:17vh">
-          <div class="holo-mod glass" style="--r:24deg;--c:#25d366;--d:-1s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-wa"/></svg></span><span class="holo-mod__label">واتساب</span><span class="holo-mod__meta"><b data-live="wa">12</b> محادثة نشطة</span></div>
-        </div>
-        <div class="holo-slot" data-depth="0.7" data-side="l" style="--x:4.5vw;--y:36vh">
-          <div class="holo-mod glass" style="--r:22deg;--c:#8dabf5;--d:-3s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-mail"/></svg></span><span class="holo-mod__label">البريد الإلكتروني</span><span class="holo-mod__meta"><b data-live="em">7</b> رسائل جديدة</span></div>
-        </div>
-        <div class="holo-slot" data-depth="1" data-side="l" data-tier="full" style="--x:3vw;--y:55vh" data-fg>
-          <div class="holo-mod glass" style="--r:26deg;--c:#6ccbfb;--d:-5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chat"/></svg></span><span class="holo-mod__label">الدردشة الحية</span><span class="holo-mod__meta"><b data-live="lc">5</b> زوار الآن</span></div>
-        </div>
-        <div class="holo-slot" data-depth="0.6" data-side="l" data-tier="full" style="--x:15.5vw;--y:31vh">
-          <div class="holo-mod glass" style="--r:18deg;--c:#4fb2f5;--d:-2s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-tg"/></svg></span><span class="holo-mod__label">تيليجرام</span><span class="holo-mod__meta"><b data-live="tg">3</b> محادثات</span></div>
-        </div>
-        <!-- systems (right wing) -->
-        <div class="holo-slot" data-depth="0.9" data-side="r" style="--x:calc(100vw - 6.5vw - 148px);--y:17vh">
-          <div class="holo-mod glass" style="--r:-24deg;--c:#a9bff8;--d:-4s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-brain"/></svg></span><span class="holo-mod__label">الذكاء الاصطناعي</span><span class="holo-mod__meta"><b data-live="ai">92%</b> دقة الاقتراح</span></div>
-        </div>
-        <div class="holo-slot" data-depth="0.7" data-side="r" style="--x:calc(100vw - 4.5vw - 148px);--y:36vh">
-          <div class="holo-mod glass" style="--r:-22deg;--c:#8dabf5;--d:-6s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-chart"/></svg></span><span class="holo-mod__label">التقارير والتحليلات</span><span class="holo-mod__meta">تحديث لحظي</span></div>
-        </div>
-        <div class="holo-slot" data-depth="1" data-side="r" data-tier="full" style="--x:calc(100vw - 3vw - 148px);--y:55vh" data-fg>
-          <div class="holo-mod glass" style="--r:-26deg;--c:#6ccbfb;--d:-1.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span><span class="holo-mod__label">الأتمتة الذكية</span><span class="holo-mod__meta"><b data-live="auto">1,284</b> تشغيل اليوم</span></div>
-        </div>
-        <div class="holo-slot" data-depth="0.6" data-side="r" data-tier="full" style="--x:calc(100vw - 15.5vw - 148px);--y:31vh">
-          <div class="holo-mod glass" style="--r:-18deg;--c:#a3a5f2;--d:-3.5s"><span class="holo-mod__icon" aria-hidden="true"><svg><use href="#i-team"/></svg></span><span class="holo-mod__label">إدارة الفريق</span><span class="holo-mod__meta"><b data-live="team">8</b> موظفين متصلين</span></div>
-        </div>
-      </div>
-
-      <div class="robot" id="robot">
-        <picture>
-          <source srcset="/assets/images/mad3oom-robot-360.webp" type="image/webp">
-          <img class="robot__img" src="/assets/images/mad3oom-robot.png" alt="روبوت مدعوم، المساعد الذكي" width="360" height="426" decoding="async">
-        </picture>
-        <span class="robot__pad" aria-hidden="true"></span>
-      </div>
-
-      <div class="stat-chips" aria-label="مؤشرات من لوحة العرض">
-        <div class="stat-chip glass"><span class="stat-chip__icon" aria-hidden="true"><svg><use href="#i-smile"/></svg></span><div><b class="num">4.8/5</b><small>رضا العملاء</small></div></div>
-        <div class="stat-chip glass"><span class="stat-chip__icon" aria-hidden="true"><svg><use href="#i-clock"/></svg></span><div><b class="num" data-live="frt">1:42</b><small>متوسط أول رد (دقيقة)</small></div></div>
-      </div>
-
-      <div class="scroll-cue" aria-hidden="true"><i></i>مرّر لدخول المحطة</div>
-    </div>
-
-    <!-- SCENE 02 · Approach the dashboard -->
-    <div class="scene scene--inbox" id="inbox" data-scene="1">
-      <div class="scene__head scene__head--center">
-        <span class="kicker"><b>02</b>مركز المحادثات</span>
-        <h2 class="scene__title">كل محادثات عملائك في مكان واحد</h2>
+<!-- ============ Hero ============ -->
+<header class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy reveal">
+      <ul class="problem-lines">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يقضي فريق الدعم ساعات كل يوم في الرد على نفس الأسئلة؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يضيع الموظف وقتاً في جمع بيانات المشكلة قبل أن يبدأ الحل؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين واتساب والبريد والتذاكر؟</li>
+      </ul>
+      <h1>مدعوم <span class="gradient-text">يحل هذه المشكلة</span></h1>
+      <p class="solution-line" style="font-family:var(--font-body);font-weight:400;color:var(--text-2);font-size:1.05rem;">نظام عربي واحد يستقبل عملاءك، يفهم مشاكلهم، وينظّم عمل فريقك تلقائياً — قبل أن تصل المشكلة لموظف الدعم أصلاً.</p>
+      <div class="hero-actions">
+        <a href="start.html" class="btn btn-primary">ابدأ تجربتك المجانية</a>
+        <a href="#journey" class="btn btn-outline">شاهد كيف يعمل النظام</a>
       </div>
     </div>
 
-    <!-- The central Mad3oom interface: a physical object that persists
-         across scenes 01 → 02 and is entered at the start of 03. -->
-    <div class="dash-rig" id="dashRig" role="img" aria-label="لوحة تحكم مدعوم: صندوق وارد موحّد، مساحة عمل الموظف، اقتراحات SIE، وبيانات العميل">
-      <div class="dash-rig__floor" aria-hidden="true"></div>
-      <div class="dash" id="dash" aria-hidden="true">
-        <!-- inbox segment (first = right in RTL) -->
-        <section class="dash__seg dash__seg--start">
-          <div class="db-top">
-            <span class="db-brand"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="20" height="20">مدعوم</span>
-            <span class="db-search"><svg><use href="#i-search"/></svg>ابحث في المحادثات…</span>
-          </div>
-          <div class="db-body">
-            <div class="db-rail">
-              <span class="on"><svg><use href="#i-inbox"/></svg></span>
-              <span><svg><use href="#i-ticket"/></svg></span>
-              <span><svg><use href="#i-users"/></svg></span>
-              <span><svg><use href="#i-book"/></svg></span>
-              <span><svg><use href="#i-flow"/></svg></span>
-              <span><svg><use href="#i-chart"/></svg></span>
-              <span style="margin-top:auto"><svg><use href="#i-gear"/></svg></span>
+    <div class="hero-robot-wrap reveal">
+      <div class="robot-halo"></div>
+      <div class="robot-ring"></div>
+      <div class="robot-ring r2"></div>
+      <div class="robot-core"><img src="/logo.png" alt="مدعوم"></div>
+      <div class="orbit-chip chip-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> محادثة</div>
+      <div class="orbit-chip chip-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> تذكرة</div>
+      <div class="orbit-chip chip-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> واتساب</div>
+      <div class="orbit-chip chip-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg> بريد</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ Philosophy ============ -->
+<section class="mission">
+  <div class="container mission-inner reveal">
+    <div class="not-line">مدعوم لا يبيع تذاكر، أو محادثات، أو واتساب، أو بوت محادثة</div>
+    <p>مدعوم يبيع <span class="gradient-text">راحة فريق الدعم</span> — الوقت الذي يستعيده كل موظف عندما تصله المشكلة جاهزة، لا صفحة فارغة.</p>
+  </div>
+</section>
+
+<!-- ============ Journey (Signature) ============ -->
+<section class="section journey-section" id="journey">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> رحلة العميل داخل مدعوم</div>
+      <h2>من أول رسالة، إلى مشكلة محلولة</h2>
+      <p>مدعوم لا ينتظر أن يتدخل أحد. تابع الرحلة وهي تتحرك بنفسها.</p>
+    </div>
+
+    <div class="journey-wrap" id="journeyWrap">
+      <div class="journey-track"></div>
+      <div class="journey-fill" id="journeyFill"></div>
+      <div class="journey-robot" id="journeyRobot"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></div>
+
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
+        <h4>العميل</h4>
+        <p>يبدأ محادثة من الموقع أو واتساب، في أي وقت.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></div>
+        <h4>Chatbot</h4>
+        <p>يستقبله فوراً بدون انتظار دور أو ساعات عمل.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18h6M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg></div>
+        <h4>Collect Information</h4>
+        <p>يسأل الأسئلة الصحيحة ويجمع كل تفاصيل المشكلة.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+        <h4>Knowledge Base</h4>
+        <p>يبحث أولاً عن حل جاهز قبل أن يزعج أحداً من الفريق.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+        <h4>Create Ticket</h4>
+        <p>إن لم يجد حلاً، ينشئ تذكرة كاملة البيانات تلقائياً.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg></div>
+        <h4>Email Notification</h4>
+        <p>إشعار فوري للعميل، وآخر لفريق الدعم المعني.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <h4>Support Team</h4>
+        <p>يستلم الموظف تذكرة جاهزة، لا صفحة فارغة يبدأ منها.</p>
+      </div>
+      <div class="journey-step">
+        <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h4>Resolved</h4>
+        <p>المشكلة تُحل أسرع، والعميل يشعر أنه أُخذ على محمل الجد.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Product Showcase ============ -->
+<section class="section" id="showcase">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> هذا هو المنتج الحقيقي</div>
+      <h2><span class="gradient-text">هذا ما سيستخدمه فريقك فعلاً</span></h2>
+    </div>
+
+    <!-- Section 1: Dashboard -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">01 — لوحة التحكم</span>
+        <h3>كل قسم من المنصة، من مكان واحد</h3>
+        <p>لا داعي للتنقل بين خمس أدوات مختلفة. <strong>لوحة تحكم مدعوم</strong> تجمع المستخدمين، المحادثات، التذاكر، والإحصائيات في شاشة واحدة تعكس ما يحدث فعلياً الآن.</p>
+        <p>وفي الخلفية، يعمل النظام بنفسه: رسالة تصل، البوت يرد، تُجمع البيانات، تُنشأ التذكرة، ويصل الإشعار — كل هذا قبل أن يفتح موظف الدعم شاشته.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:8%;left:-8%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> بيانات حقيقية محدثة لحظياً</div>
+        <div class="callout" style="bottom:6%;right:-6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> النظام يعمل حتى بلا تدخل</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
-            <div class="db-inbox">
-              <div class="db-tabs"><span class="on">الكل<b class="num" data-live="all">24</b></span><span>لي<b class="num">8</b></span><span>غير معيّنة<b class="num">5</b></span></div>
-              <div class="db-list" id="dbList">
-                <div class="db-conv is-active"><span class="av" style="--h:205">س<span class="ch ch--wa"><svg><use href="#i-wa"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">سارة القحطاني</span><span class="tag tag--high">عالية</span></div><div class="db-conv__prev">الطلب 88213 متأخر يومين…</div></div><div class="db-conv__meta"><span>2د</span><span class="unread">2</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:250">أ<span class="ch ch--em"><svg><use href="#i-mail"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">أحمد العتيبي</span><span class="tag tag--open">مفتوح</span></div><div class="db-conv__prev">طلب استرجاع مبلغ لفاتورة يوليو</div></div><div class="db-conv__meta"><span>6د</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:185">ز<span class="ch ch--lc"><svg><use href="#i-chat"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">زائر ‎#4821</span><span class="tag tag--new">جديد</span></div><div class="db-conv__prev">هل تدعمون الربط مع متجري؟</div></div><div class="db-conv__meta"><span>9د</span><span class="unread">1</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:275">ن<span class="ch ch--tg"><svg><use href="#i-tg"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">نورة الدوسري</span><span class="tag tag--done">محلول</span></div><div class="db-conv__prev">شكرًا، تم تحديث العنوان</div></div><div class="db-conv__meta"><span>14د</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:160">خ<span class="ch ch--wa"><svg><use href="#i-wa"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">خالد المطيري</span><span class="tag tag--wait">بانتظار العميل</span></div><div class="db-conv__prev">أحتاج فاتورة ضريبية باسم الشركة</div></div><div class="db-conv__meta"><span>21د</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:225">م<span class="ch ch--em"><svg><use href="#i-mail"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">منى إبراهيم</span><span class="tag tag--open">مفتوح</span></div><div class="db-conv__prev">مشكلة في تسجيل الدخول للحساب</div></div><div class="db-conv__meta"><span>32د</span></div></div>
-                <div class="db-conv"><span class="av" style="--h:195">ي<span class="ch ch--lc"><svg><use href="#i-chat"/></svg></span></span><div class="db-conv__main"><div class="db-conv__row"><span class="db-conv__name">يوسف منصور</span><span class="tag tag--done">محلول</span></div><div class="db-conv__prev">كم مدة التوصيل للإسكندرية؟</div></div><div class="db-conv__meta"><span>40د</span></div></div>
+            <div class="frame-brand"><span>لوحة الإدارة</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-grid">
+              <div class="ui-card"><div class="ic-badge" style="background:#3B82F6;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><h5>إدارة المستخدمين</h5><small>25 مستخدم — 18 نشط</small></div>
+              <div class="ui-card"><div class="ic-badge" style="background:#EC4899;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><h5>المحادثات الفورية</h5><small>2 جارية — 16 مغلقة</small></div>
+              <div class="ui-card"><div class="ic-badge" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h5>إدارة التذاكر</h5><small>10 مفتوحة — 12 مغلقة</small></div>
+              <div class="activity-card">
+                <div class="a-title"><span class="live-dot"></span> نشاط حي الآن</div>
+                <div class="activity-row"><span class="ic" style="background:#3B82F6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></span> رسالة جديدة من <strong>عميل 04</strong></div>
+                <div class="activity-row"><span class="ic" style="background:#0077CC;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span> البوت بدأ يجمع تفاصيل المشكلة</div>
+                <div class="activity-row"><span class="ic" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span> تم إنشاء <strong>تذكرة #0032</strong> تلقائياً</div>
+                <div class="activity-row"><span class="ic" style="background:#F97316;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg></span> إشعار أُرسل لفريق الدعم</div>
+                <div class="activity-row"><span class="ic" style="background:#10B981;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg></span> بريد تأكيد وصل للعميل</div>
+                <div class="activity-row"><span class="ic" style="background:#2563EB;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <strong>أحمد</strong> استلم التذكرة وبدأ العمل</div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </div>
 
-        <!-- agent workspace -->
-        <section class="dash__seg dash__seg--main">
-          <div class="db-top">
-            <span class="db-icon-btn"><svg><use href="#i-ticket"/></svg></span>
-            <span style="color:var(--t3);font-size:12px">التذاكر / <span style="color:var(--t1)">مساحة العمل</span></span>
-            <span style="margin-inline-start:auto;display:flex;gap:6px;align-items:center">
-              <span class="db-icon-btn"><svg><use href="#i-bell"/></svg><span class="dot"></span></span>
-              <span class="av av--sm" style="--h:285">ر</span>
-            </span>
-          </div>
-          <div class="db-ticket">
-            <span class="av" style="--h:205">س<span class="ch ch--wa"><svg><use href="#i-wa"/></svg></span></span>
-            <div class="db-ticket__title"><strong>تأخر وصول الطلب 88213</strong><small>#TK-4821 · واتساب · معيّنة إلى ريم</small></div>
-            <span class="tag tag--high">أولوية عالية</span>
-            <span class="tag" id="ticketState" data-state="open">مفتوح</span>
-            <span class="sla">SLA <b id="slaClock">00:42:18</b></span>
-          </div>
-          <div class="db-thread" id="dbThread">
-            <div class="msg msg--sys">تم إنشاء التذكرة تلقائيًا من واتساب · 10:24</div>
-            <div class="msg msg--in"><div class="msg__bubble">السلام عليكم، طلبي رقم 88213 كان المفروض يوصل أمس وما وصل لليوم 😕<span class="msg__time">10:24</span></div></div>
-            <div class="msg msg--out"><div class="msg__bubble">وعليكم السلام سارة، نعتذر عن التأخير. أتحقق من حالة الشحنة الآن.<span class="msg__time">10:26 · ريم</span></div></div>
-            <div class="msg msg--note"><div class="msg__bubble">ملاحظة داخلية · ريم: تواصلت مع شركة الشحن، الشحنة وصلت مركز التوزيع في الرياض.</div></div>
-            <div class="msg msg--in"><div class="msg__bubble">طيب، ممكن أعرف متى توصل بالضبط؟<span class="msg__time">10:27</span></div></div>
-          </div>
-          <div class="sie-suggest" id="sieSuggest">
-            <div class="sie-suggest__head"><svg><use href="#i-spark"/></svg>اقتراح SIE<span class="conf num" id="sieConf">ثقة 92%</span></div>
-            <p id="sieText">الشحنة وصلت مركز التوزيع في الرياض، والتسليم المتوقع غدًا قبل الساعة 2 ظهرًا. أضفنا لك كوبون خصم 15% تعويضًا عن التأخير.</p>
-            <div class="sie-suggest__foot"><span class="mini-btn mini-btn--on">استخدام الرد</span><span class="mini-btn">تعديل</span><span class="src"><svg style="width:12px;height:12px"><use href="#i-book"/></svg><span id="sieSrc">سياسة التأخير والتعويض</span></span></div>
-          </div>
-          <div class="db-composer"><svg><use href="#i-clip"/></svg><span>اكتب ردك، أو اضغط / للردود الجاهزة…</span><span class="send"><svg><use href="#i-send"/></svg></span></div>
-        </section>
-
-        <!-- customer + analytics segment (last = left in RTL) -->
-        <section class="dash__seg dash__seg--end">
-          <div class="db-side">
-            <div class="cust"><span class="av av--lg" style="--h:205">س</span><div><strong>سارة القحطاني</strong><small>+966 55 812 4410</small></div></div>
-            <div class="db-tags"><span class="tag tag--plain">عميل مميز</span><span class="tag tag--plain">الرياض</span><span class="tag tag--plain">متجر إلكتروني</span></div>
-            <div class="db-block"><h4>ملخص العميل</h4><div class="db-kv"><div><b>14</b><small>طلبًا</small></div><div><b>3</b><small>تذاكر</small></div><div><b>4.9</b><small>الرضا</small></div></div></div>
-            <div class="db-block"><h4>تحليل SIE للمحادثة</h4><div class="senti"><span id="sentiLabel">منزعج</span><span class="senti__bar"><i id="sentiBar" style="--v:34%"></i></span><span>راضٍ</span></div></div>
-            <div class="db-block"><h4>تذاكر سابقة</h4><div class="db-hist"><div><span>تغيير عنوان التوصيل</span><span>#TK-4102</span></div><div><span>استفسار عن الضمان</span><span>#TK-3877</span></div></div></div>
-            <div class="db-kpis">
-              <div class="db-kpi"><small>تذاكر مفتوحة</small><b data-live="open">128</b><svg viewBox="0 0 100 20" preserveAspectRatio="none" data-spark="18,22,19,25,21,24,20,17,19,16"></svg></div>
-              <div class="db-kpi"><small>أول رد</small><b data-live="frt2">1:42</b><svg viewBox="0 0 100 20" preserveAspectRatio="none" data-spark="30,28,29,24,25,22,20,21,18,17"></svg></div>
+    <!-- Section 2: Ticket Management -->
+    <div class="showcase-row reverse reveal">
+      <div class="showcase-copy">
+        <span class="num">02 — إدارة التذاكر</span>
+        <h3>كل رسالة مهمة تتحول إلى مهمة يمكن تتبعها</h3>
+        <p>محادثة العميل لا تضيع في سجل قديم. بمجرد أن يحتاج الأمر متابعة فعلية، <strong>تتحول المحادثة نفسها إلى تذكرة</strong> — بنفس الرسائل، ونفس السياق، بلا نسخ ولصق يدوي.</p>
+        <p>فريقك يرى فوراً ما هو مفتوح، وما قيد المعالجة، وما تم حله — بلا ملفات إكسل ولا رسائل متفرقة.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:-6%;right:6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة → تذكرة، تلقائياً</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
             </div>
+            <div class="frame-brand"><span>إدارة التذاكر</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
-        </section>
-
-        <!-- scene 02 callouts: tabs on the top edge of each panel -->
-        <span class="callout" style="right:96px" data-callout><i aria-hidden="true"></i>صندوق وارد موحّد لكل القنوات</span>
-        <span class="callout" style="left:470px" data-callout><i aria-hidden="true"></i>مساحة عمل الموظف + اقتراحات SIE</span>
-        <span class="callout" style="left:34px" data-callout><i aria-hidden="true"></i>بيانات العميل كاملة</span>
-      </div>
-    </div>
-
-    <!-- SCENE 03 · Multichannel fly-through -->
-    <div class="scene scene--channels" id="channels" data-scene="2">
-      <div class="scene__head scene__head--center">
-        <span class="kicker"><b>03</b>دعم متعدد القنوات</span>
-        <h2 class="scene__title">كل قناة تصل إلى نفس المحطة</h2>
-        <p class="scene__lead">واتساب، البريد الإلكتروني، الدردشة الحية وتيليجرام — تدخل كلها صندوقًا واحدًا، بنفس السياق ونفس الفريق.</p>
-      </div>
-      <div class="tunnel" id="tunnel">
-        <article class="pod glass" data-pod="0" style="--pc:#25d366">
-          <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-wa"/></svg></span><div class="pod__who"><strong>أحمد العتيبي</strong><small>واتساب · متصل الآن</small></div><span class="pod__code">CH-01</span></header>
-          <div class="pod__body">
-            <div class="msg msg--in"><div class="msg__bubble">مرحبًا، أبغى أغيّر موعد التوصيل لطلبي<span class="msg__time">11:02</span></div></div>
-            <div class="msg msg--out"><div class="msg__bubble">أهلًا أحمد! أي موعد يناسبك؟ المتاح غدًا صباحًا أو مساءً.<span class="msg__time">11:02 · رد تلقائي</span></div></div>
-            <div class="msg msg--sys">SIE: نية العميل ← تعديل موعد التوصيل</div>
-            <div class="msg msg--in"><div class="msg__bubble">بكرة المسا لو سمحت<span class="msg__time">11:03</span></div></div>
-            <div class="msg msg--out"><div class="msg__bubble">تم ✓ حدّثنا الموعد إلى الغد بين 6 و9 مساءً.<span class="msg__time">11:03</span></div></div>
-          </div>
-          <footer class="pod__foot">رُدّ عليه تلقائيًا خلال 4 ثوانٍ<span class="tag tag--done">محلول</span></footer>
-        </article>
-        <article class="pod glass" data-pod="1" style="--pc:#8dabf5">
-          <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-mail"/></svg></span><div class="pod__who"><strong>منى إبراهيم</strong><small>البريد الإلكتروني · إلى صندوق الدعم</small></div><span class="pod__code">CH-02</span></header>
-          <div class="pod__body mail">
-            <div class="mail__subj">طلب استرجاع مبلغ — فاتورة INV-20931</div>
-            <div class="mail__from"><span>منى إبراهيم</span><span>منذ 3 دقائق</span></div>
-            <div class="mail__body">مرحبًا فريق الدعم، تم خصم المبلغ مرتين من بطاقتي لنفس الفاتورة. أرجو استرجاع المبلغ المكرر في أقرب وقت. أرفقت كشف الحساب.</div>
-            <span class="attach"><svg><use href="#i-clip"/></svg>كشف-الحساب.pdf · 212KB</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag tag--plain">تصنيف تلقائي: الفوترة</span><span class="tag tag--high">عالية</span></div>
-          </div>
-          <footer class="pod__foot">تحوّلت إلى تذكرة ‎#TK-4830<span class="tag tag--open">مفتوح</span></footer>
-        </article>
-        <article class="pod glass" data-pod="2" style="--pc:#6ccbfb">
-          <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-chat"/></svg></span><div class="pod__who"><strong>زائر من صفحة الأسعار</strong><small>الدردشة الحية · الرياض</small></div><span class="pod__code">CH-03</span></header>
-          <div class="pod__body">
-            <div class="visitor"><span class="tag tag--plain">الصفحة: الأسعار</span><span class="tag tag--plain">الزيارة الثالثة</span></div>
-            <div class="msg msg--in"><div class="msg__bubble">هل أقدر أربط رقم واتساب الشركة بالمنصة؟<span class="msg__time">11:10</span></div></div>
-            <div class="msg msg--out"><div class="msg__bubble">نعم، باقة واتساب تربط رقمك وتستقبل الرسائل من لوحة التحكم مباشرة. تحب أحوّلك لمختص؟<span class="msg__time">11:10 · بوت مدعوم</span></div></div>
-            <div class="msg msg--in"><div class="msg__bubble">إيه لو سمحت<span class="msg__time">11:11</span></div></div>
-            <div class="msg msg--sys">تم التحويل إلى فريق المبيعات · خالد</div>
-          </div>
-          <footer class="pod__foot">متوسط الانتظار 18 ثانية<span class="tag tag--new">جديد</span></footer>
-        </article>
-        <article class="pod glass" data-pod="3" style="--pc:#4fb2f5">
-          <header class="pod__head"><span class="pod__logo" aria-hidden="true"><svg><use href="#i-tg"/></svg></span><div class="pod__who"><strong>بوت المتجر على تيليجرام</strong><small>تيليجرام · مرتبط بمدعوم</small></div><span class="pod__code">CH-04</span></header>
-          <div class="pod__body">
-            <div class="msg msg--in"><div class="msg__bubble" dir="ltr" style="text-align:right">/status 88213<span class="msg__time">11:14</span></div></div>
-            <div class="msg msg--out"><div class="msg__bubble">الطلب 88213: في مركز التوزيع — التسليم المتوقع غدًا قبل 2 ظهرًا.<span class="msg__time">11:14</span></div></div>
-            <div class="tg-buttons"><span>تتبّع الشحنة</span><span>تحدث مع موظف</span><span>تعديل العنوان</span><span>الفاتورة</span></div>
-          </div>
-          <footer class="pod__foot">إشعارات الطلبات تصل تلقائيًا<span class="tag tag--plain">نشط</span></footer>
-        </article>
-      </div>
-      <div class="chan-rail glass" id="chanRail" aria-hidden="true">
-        <span class="chan-rail__item is-active"><svg><use href="#i-wa"/></svg>واتساب</span>
-        <span class="chan-rail__item"><svg><use href="#i-mail"/></svg>البريد</span>
-        <span class="chan-rail__item"><svg><use href="#i-chat"/></svg>الدردشة الحية</span>
-        <span class="chan-rail__item"><svg><use href="#i-tg"/></svg>تيليجرام</span>
-        <span class="chan-rail__sep"></span>
-        <span class="chan-rail__inbox"><svg style="width:16px;height:16px"><use href="#i-inbox"/></svg>صندوق وارد موحّد</span>
-      </div>
-    </div>
-
-    <!-- SCENE 04 · SIE core -->
-    <div class="scene scene--sie" id="sie" data-scene="3">
-      <div class="scene__head scene__head--center">
-        <span class="kicker"><b>04</b>Support Intelligence Engine</span>
-        <h2 class="scene__title">SIE — ذكاء مدعوم</h2>
-        <p class="scene__lead">المحرك الذي يشغّل المحطة: يفهم سؤال عميلك، يبحث في معرفتك، يشخّص المشكلة، ويقترح الرد قبل أن يبدأ موظفك في الكتابة.</p>
-      </div>
-      <div class="sie" id="sieBoard">
-        <svg class="sie__flows" id="sieFlows" aria-hidden="true"></svg>
-        <div class="sie__col sie__col--in">
-          <div class="sie-step glass" data-step="0">
-            <div class="sie-step__top"><span class="sie-step__num">01</span><span class="sie-step__title">سؤال العميل</span><span class="sie-step__state">وارد</span></div>
-            <div class="sie-step__body">«تم خصم المبلغ مرتين من بطاقتي لنفس الفاتورة، أبغى أسترجع المكرر.»<div class="chips"><span class="tag tag--plain">واتساب</span><span class="tag tag--plain">10:41</span></div></div>
-          </div>
-          <div class="sie-step glass" data-step="1">
-            <div class="sie-step__top"><span class="sie-step__num">02</span><span class="sie-step__title">فهم الطلب</span><span class="sie-step__state">تحليل</span></div>
-            <div class="sie-step__body"><div class="chips"><span class="tag tag--open">النية: استرجاع مبلغ</span><span class="tag tag--plain">INV-20931</span><span class="tag tag--wait">المشاعر: قلق</span></div><div class="meter"><i style="--v:94"></i></div></div>
-          </div>
-          <div class="sie-step glass" data-step="2">
-            <div class="sie-step__top"><span class="sie-step__num">03</span><span class="sie-step__title">استرجاع المعرفة</span><span class="sie-step__state">بحث</span></div>
-            <div class="sie-step__body">
-              <div class="kb-row"><svg style="width:13px;height:13px;color:var(--blue-300)"><use href="#i-book"/></svg><span>سياسة الاسترجاع والإلغاء</span><b>97%</b></div>
-              <div class="kb-row"><svg style="width:13px;height:13px;color:var(--blue-300)"><use href="#i-book"/></svg><span>معالجة الخصم المكرر</span><b>91%</b></div>
-              <div class="kb-row"><svg style="width:13px;height:13px;color:var(--blue-300)"><use href="#i-book"/></svg><span>مدة إعادة المبالغ للبطاقات</span><b>84%</b></div>
+          <div class="frame-body">
+            <div class="ui-tstats">
+              <div class="ui-stat-chip"><b>15</b><span>مفتوحة</span></div>
+              <div class="ui-stat-chip"><b>29</b><span>الإجمالي</span></div>
+            </div>
+            <div class="ui-tickets">
+              <div class="ticket-list-mini">
+                <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — دعم + واتساب</strong></div></div>
+                <div class="ticket-row"><span class="status progress">قيد المعالجة</span><div>مشكلة في الوصول للوحة التحكم</div></div>
+                <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
+              </div>
+              <div class="ticket-detail">
+                <div class="msg-bubble">أريد الاشتراك في باقة الدعم الفني + واتساب الشهرية، ما الخطوات؟</div>
+                <div class="morph-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></div>
+                <div class="msg-bubble" style="background:var(--pill-blue-bg);color:var(--pill-blue-text);font-weight:700;">تذكرة #0001 — القسم: المبيعات — الأولوية: متوسطة</div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="sie__core">
-          <div class="core" aria-hidden="true">
-            <span class="core__ring" style="--i:0%;--s:40s"></span>
-            <span class="core__ring core__ring--dash" style="--i:9%;--s:28s"></span>
-            <span class="core__ring core__ring--tilt" style="--i:14%"></span>
-            <span class="core__ring" style="--i:20%;--s:18s"></span>
-            <span class="core__orb"></span>
-            <span class="core__readout" id="coreReadout">SIE · PROCESSING</span>
-          </div>
-          <div class="core__label"><b>SIE</b><small>محرك ذكاء الدعم</small></div>
-        </div>
-        <div class="sie__col sie__col--out">
-          <div class="sie-step glass" data-step="3">
-            <div class="sie-step__top"><span class="sie-step__num">04</span><span class="sie-step__title">التشخيص</span><span class="sie-step__state">استنتاج</span></div>
-            <div class="sie-step__body">الفاتورة INV-20931 مسجلة مرتين في بوابة الدفع. العميل مؤهل لاسترجاع فوري حسب السياسة.</div>
-          </div>
-          <div class="sie-step glass" data-step="4">
-            <div class="sie-step__top"><span class="sie-step__num">05</span><span class="sie-step__title">الرد المقترح</span><span class="sie-step__state num">96%</span></div>
-            <div class="sie-step__body">«أهلًا منى، تأكدنا من وجود خصم مكرر وبدأنا استرجاع المبلغ الآن. سيظهر في حسابك خلال 3 إلى 5 أيام عمل.»</div>
-          </div>
-          <div class="sie-step glass" data-step="5">
-            <div class="sie-step__top"><span class="sie-step__num">06</span><span class="sie-step__title">الرد النهائي</span><span class="sie-step__state">أُرسل</span></div>
-            <div class="sie-step__body">راجعه الموظف بضغطة واحدة وأُرسل للعميل.<div class="chips"><span class="tag tag--done">محلول</span><span class="tag tag--plain">زمن الحل 38 ث</span></div></div>
-          </div>
-        </div>
       </div>
     </div>
 
-    <!-- SCENE 05 · Automation -->
-    <div class="scene scene--automation" id="automation" data-scene="4">
-      <div class="scene__head scene__head--top">
-        <span class="kicker"><b>05</b>الأتمتة الذكية</span>
-        <h2 class="scene__title">حوّل المهام المتكررة إلى عمليات تعمل تلقائيًا</h2>
-        <p class="scene__lead">قواعد واضحة تربط القنوات وSIE والفريق: كل رسالة تسلك مسارها الصحيح دون أن يحرّكها أحد.</p>
+    <!-- Section 3: Live Chat -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">03 — المحادثة الفورية</span>
+        <h3>البوت لا يرد فقط — بل يقرر متى يحتاج العميل إنساناً</h3>
+        <p>كل محادثة تبدأ مع Chatbot يجيب فوراً على الأسئلة المتكررة. لكن حين يتطلب الأمر حكماً بشرياً، <strong>تنتقل المحادثة لموظف حقيقي بضغطة واحدة</strong>، مع كامل السياق أمامه.</p>
+        <p>لا العميل يكرر كلامه، ولا الموظف يبدأ من الصفر.</p>
       </div>
-      <div class="flow-stats">
-        <div class="flow-stat glass"><small>تشغيلات اليوم</small><b data-live="auto2">1,284</b></div>
-        <div class="flow-stat glass"><small>ساعات وفّرها الفريق</small><b>37.5</b></div>
-      </div>
-      <div class="flowboard" id="flowboard">
-        <div class="flowboard__grid" aria-hidden="true"></div>
-        <svg class="wires" id="wires" aria-hidden="true"></svg>
-        <div class="node node--trigger glass" data-node="0" style="left:910px;top:190px"><div class="node__kind"><svg><use href="#i-bolt"/></svg>Trigger</div><div class="node__title">عند وصول رسالة جديدة</div><div class="node__meta"><span>واتساب · بريد · دردشة</span></div></div>
-        <div class="node node--ai glass" data-node="1" style="left:680px;top:190px"><div class="node__kind"><svg><use href="#i-spark"/></svg>SIE</div><div class="node__title">تصنيف الطلب وتحديد النية</div><div class="node__meta"><span>دقة</span><b>94%</b></div></div>
-        <div class="node node--cond glass" data-node="2" style="left:450px;top:190px"><div class="node__kind"><svg><use href="#i-flow"/></svg>Condition</div><div class="node__title">هل الطلب «استرجاع مبلغ»؟</div><div class="node__meta"><span>نعم / لا</span></div></div>
-        <div class="node node--act glass" data-node="3" style="left:220px;top:40px"><span class="node__branch">نعم</span><div class="node__kind"><svg><use href="#i-ticket"/></svg>Action</div><div class="node__title">تذكرة بأولوية عالية لفريق الفوترة</div><div class="node__meta"><span>اليوم</span><b>312</b></div></div>
-        <div class="node node--act glass" data-node="4" style="left:220px;top:330px"><span class="node__branch">لا</span><div class="node__kind"><svg><use href="#i-book"/></svg>Action</div><div class="node__title">إرسال مقالة مناسبة من قاعدة المعرفة</div><div class="node__meta"><span>اليوم</span><b>972</b></div></div>
-        <div class="node node--done glass" data-node="5" style="left:-10px;top:40px"><div class="node__kind"><svg><use href="#i-bell"/></svg>Notify</div><div class="node__title">رد فوري للعميل وإشعار المشرف</div><div class="node__meta"><span>متوسط التنفيذ</span><b>0.8s</b></div></div>
-        <div class="node node--done glass" data-node="6" style="left:-10px;top:330px"><div class="node__kind"><svg><use href="#i-check"/></svg>Resolve</div><div class="node__title">إغلاق تلقائي عند تأكيد الحل</div><div class="node__meta"><span>مع استبيان رضا</span></div></div>
-      </div>
-    </div>
-
-    <!-- SCENE 06 · Analytics command wall -->
-    <div class="scene scene--analytics" id="analytics" data-scene="5">
-      <div class="scene__head scene__head--center">
-        <span class="kicker"><b>06</b>التقارير والتحليلات</span>
-        <h2 class="scene__title">افهم أداء فريق الدعم وتجربة عملائك</h2>
-      </div>
-      <div class="cmd" id="cmd">
-        <div class="cmd__col cmd__col--start">
-          <div class="kpi glass"><div class="kpi__label">متوسط زمن أول رد</div><div class="kpi__row"><span class="kpi__value" data-live="frt3">1:42<small>د</small></span><span class="kpi__delta kpi__delta--down">18%</span></div><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" data-spark="30,27,28,24,25,21,20,19,17,16"></svg></div>
-          <div class="kpi glass"><div class="kpi__label">رضا العملاء CSAT</div><div class="kpi__row"><span class="kpi__value">4.8<small>/5</small></span><span class="kpi__delta">0.3</span></div><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" data-spark="12,14,13,16,17,16,19,21,22,24"></svg></div>
-          <div class="kpi glass"><div class="kpi__label">الحل من أول تواصل</div><div class="kpi__row"><span class="kpi__value">86<small>%</small></span><span class="kpi__delta">6%</span></div><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" data-spark="14,15,17,16,18,19,19,21,22,23"></svg></div>
-        </div>
-        <div class="cmd__col">
-          <div class="panel glass">
-            <div class="panel__head"><div><div class="panel__title">حجم التذاكر — آخر 14 يومًا</div><div class="panel__sub">الواردة مقابل المحلولة يوميًا</div></div><span class="live"><span class="live-dot"></span>مباشر</span></div>
-            <div class="legend"><span><i style="background:#3a64e0"></i>الواردة</span><span><i style="background:#26a0dc"></i>المحلولة</span></div>
-            <div class="chart" id="volChart"></div>
+      <div class="frame-wrap">
+        <div class="callout" style="bottom:-6%;left:2%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تحويل فوري لموظف عند الحاجة</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>المحادثات</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
-          <div class="panel glass">
-            <div class="panel__head"><div><div class="panel__title">ضغط المحادثات خلال اليوم</div><div class="panel__sub">عدد المحادثات لكل ساعة — الأغمق أعلى</div></div></div>
-            <div class="heat" id="heat" role="img" aria-label="خريطة حرارية لضغط المحادثات حسب الساعة، الذروة بين 11 صباحًا و2 ظهرًا وبين 8 و10 مساءً"></div>
-          </div>
-        </div>
-        <div class="cmd__col cmd__col--end">
-          <div class="panel glass">
-            <div class="panel__head"><div class="panel__title">توزيع القنوات</div></div>
-            <div class="hbars">
-              <div class="hbar"><span>واتساب</span><span class="hbar__track"><i style="--v:46"></i></span><b>46%</b></div>
-              <div class="hbar"><span>البريد</span><span class="hbar__track"><i style="--v:22"></i></span><b>22%</b></div>
-              <div class="hbar"><span>الدردشة</span><span class="hbar__track"><i style="--v:21"></i></span><b>21%</b></div>
-              <div class="hbar"><span>تيليجرام</span><span class="hbar__track"><i style="--v:11"></i></span><b>11%</b></div>
+          <div class="frame-body">
+            <div class="ui-chat">
+              <div class="chat-window-mini">
+                <span class="chat-tag bot">Chatbot يرد</span>
+                <div class="bmsg in">هل يمكنكم مساعدتي في تفعيل الخدمة؟</div>
+                <div class="bmsg out">بالتأكيد، هل يمكنك مشاركة رقم الطلب؟</div>
+                <span class="chat-tag agent">تم التحويل لموظف</span>
+              </div>
+              <div class="convo-list-mini">
+                <div class="convo-row"><span class="convo-avatar" style="background:#0077CC;">ع</span><div><strong>عميل جديد</strong><span class="meta">جديدة</span></div></div>
+                <div class="convo-row"><span class="convo-avatar" style="background:#22C58B;">C2</span><div><strong>Customer 02</strong><span class="meta">نشطة</span></div></div>
+                <div class="convo-row"><span class="convo-avatar" style="background:#8B5CF6;">S1</span><div><strong>Store 01</strong><span class="meta">معلقة</span></div></div>
+              </div>
             </div>
           </div>
-          <div class="panel glass">
-            <div class="panel__head"><div class="panel__title">أداء الفريق اليوم</div></div>
-            <table class="agents">
-              <thead><tr><th>الموظف</th><th class="num">محلولة</th><th class="num">أول رد</th><th class="num">الرضا</th></tr></thead>
-              <tbody>
-                <tr><td><span class="av av--sm" style="--h:285">ر</span>ريم</td><td class="num">42</td><td class="num">1:12</td><td class="num">4.9</td></tr>
-                <tr><td><span class="av av--sm" style="--h:200">ع</span>عمر</td><td class="num">38</td><td class="num">1:35</td><td class="num">4.8</td></tr>
-                <tr><td><span class="av av--sm" style="--h:240">ه</span>هند</td><td class="num">35</td><td class="num">1:48</td><td class="num">4.8</td></tr>
-                <tr><td><span class="av av--sm" style="--h:170">ع</span>عبدالله</td><td class="num">29</td><td class="num">2:05</td><td class="num">4.6</td></tr>
-              </tbody>
-            </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Analytics -->
+    <div class="showcase-row reverse reveal">
+      <div class="showcase-copy">
+        <span class="num">04 — الإحصائيات</span>
+        <h3>مدير الدعم يرى الصورة الكاملة، بلا تقارير يدوية</h3>
+        <p>متوسط وقت الاستجابة، متوسط وقت الحل، وتوزيع الفريق حسب الصلاحيات — كلها في مكان واحد يتحدث عن نفسه، بدل تجميع أرقام من جداول متفرقة كل أسبوع.</p>
+        <p>هذه الأرقام <strong>حقيقية من لوحة تحكم عميل فعلي</strong> — لا تقديرات تسويقية.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="top:4%;left:-8%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تحسّن %18 في وقت الاستجابة</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>الإحصائيات</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-analytics">
+              <div class="an-chip"><b>1.4<small style="font-size:.5rem;">ساعة</small></b><span>وقت الاستجابة</span><div class="up">↑ 18%</div></div>
+              <div class="an-chip"><b>5.2<small style="font-size:.5rem;">ساعة</small></b><span>وقت الحل</span><div class="up">↑ 12%</div></div>
+              <div class="an-chip"><b>29</b><span>إجمالي التذاكر</span></div>
+              <div class="an-chip"><b>8</b><span>تم حلها</span></div>
+            </div>
+            <div class="ui-charts">
+              <div class="bar-card">
+                <h6>حالة التذاكر (آخر 7 أيام)</h6>
+                <div class="bars">
+                  <div class="bar" style="height:60%;background:#8B5CF6;"><span>15</span></div>
+                  <div class="bar" style="height:32%;background:#10B981;"><span>8</span></div>
+                  <div class="bar" style="height:48%;background:#3B82F6;"><span>12</span></div>
+                </div>
+              </div>
+              <div class="donut-card">
+                <h6>توزيع الفريق</h6>
+                <div class="donut"></div>
+                <div class="donut-legend">
+                  <span><i style="background:#0077CC;"></i>60%</span>
+                  <span><i style="background:#22C58B;"></i>32%</span>
+                  <span><i style="background:#8FC7FF;"></i>8%</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="warp" id="warp" aria-hidden="true"></div>
-  </div>
-</section>
-
-<!-- =====================================================================
-     SCENE 07 · Systems aboard the station
-     ===================================================================== -->
-<section class="section" id="features" data-chapter-anchor="6" aria-labelledby="features-title">
-  <div class="container">
-    <div class="section-head rv">
-      <span class="kicker"><b>07</b>كل شيء تحت سيطرتك</span>
-      <h2 id="features-title">ست منظومات، محطة واحدة</h2>
-      <p>كل ميزة في مدعوم نظام مستقل على متن المحطة — وكلها تعمل معًا من أول رسالة يرسلها عميلك حتى آخر تقرير يقرؤه مديرك.</p>
+    <!-- Section 5: Subdomains -->
+    <div class="showcase-row reveal">
+      <div class="showcase-copy">
+        <span class="num">05 — النطاقات الفرعية</span>
+        <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">منصة دعم خاصة، باسمك أنت <span class="eyebrow" style="margin:0;">Premium</span></h3>
+        <p>في الباقة الاحترافية، تحصل شركتك على نطاقها الخاص — مثل <strong>company.mad3oom.com</strong> — وتديرين من خلاله عملاءك، تذاكرك، فريق الدعم، وقاعدة المعرفة، وكأنها منصتك المستقلة بالكامل.</p>
+        <p>لا يشعر عملاؤك أبداً أنهم يتعاملون مع أداة خارجية.</p>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout" style="bottom:-6%;right:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاقك الخاص، مفعّل الآن</div>
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>النطاقات الفرعية</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="ui-subdomain-header"><h5 style="font-size:.75rem;">النطاقات الفرعية — إجمالي 2</h5><span class="btn-mini">+ إضافة نطاق</span></div>
+            <div class="domain-table">
+              <div class="domain-row">
+                <div><span class="url">company.mad3oom.com</span><span class="sub">النطاق الرئيسي</span></div>
+                <div><span class="status closed" style="font-size:.55rem;">مفعّل</span></div>
+                <div style="color:var(--ui-ink-2);">customer@example.com</div>
+              </div>
+              <div class="domain-row">
+                <div><span class="url">support.mad3oom.com</span><span class="sub">الدعم الفني</span></div>
+                <div><span class="status closed" style="font-size:.55rem;">مفعّل</span></div>
+                <div style="color:var(--ui-ink-2);">support@example.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="sys-grid">
-      <article class="sys glass rv" data-tilt style="--rd:0s">
-        <div class="sys__top"><span>SYS-01</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-tickets"><div style="--i:0"><span class="tag tag--new">جديد</span><span>#TK-4832 · تغيير موعد التوصيل</span></div><div style="--i:1"><span class="tag tag--open">مفتوح</span><span>#TK-4830 · استرجاع مبلغ</span></div><div style="--i:2"><span class="tag tag--done">محلول</span><span>#TK-4821 · تأخر الطلب</span></div></div></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-ticket"/></svg>نظام التذاكر</h3>
-        <p class="sys__desc">تنظيم ومتابعة جميع طلبات العملاء في مكان واحد.</p>
-        <div class="sys__stat"><span>دورة الحالة</span><b>جديد ← مفتوح ← محلول</b></div>
-      </article>
-      <article class="sys glass rv" data-tilt style="--rd:.08s">
-        <div class="sys__top"><span>SYS-02</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-orbit"><span class="v-orbit__ring"></span><span class="v-orbit__hub"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="26" height="26" loading="lazy"></span><span class="v-orbit__sat" style="--i:0;--c:#25d366"><svg><use href="#i-wa"/></svg></span><span class="v-orbit__sat" style="--i:1;--c:#8dabf5"><svg><use href="#i-mail"/></svg></span><span class="v-orbit__sat" style="--i:2;--c:#6ccbfb"><svg><use href="#i-chat"/></svg></span><span class="v-orbit__sat" style="--i:3;--c:#4fb2f5"><svg><use href="#i-tg"/></svg></span></div></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-layers"/></svg>تكامل متعدد القنوات</h3>
-        <p class="sys__desc">واتساب، البريد الإلكتروني، الدردشة الحية والمزيد.</p>
-        <div class="sys__stat"><span>القنوات</span><b>صندوق وارد واحد</b></div>
-      </article>
-      <article class="sys glass rv" data-tilt style="--rd:.16s">
-        <div class="sys__top"><span>SYS-03</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-core"><div class="core"><span class="core__ring" style="--i:0%;--s:30s"></span><span class="core__ring core__ring--dash" style="--i:12%;--s:20s"></span><span class="core__orb"></span></div></div></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-brain"/></svg>الذكاء الاصطناعي SIE</h3>
-        <p class="sys__desc">مساعد ذكي يفهم استفسارات عملائك ويقترح الحلول.</p>
-        <div class="sys__stat"><span>اللغة</span><b>عربي أولًا</b></div>
-      </article>
-      <article class="sys glass rv" data-tilt style="--rd:0s">
-        <div class="sys__top"><span>SYS-04</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-archive"><i style="--h:62%;--i:0"></i><i style="--h:80%;--i:1"></i><i style="--h:54%;--i:2"></i><i style="--h:92%;--i:3"></i><i style="--h:70%;--i:4"></i><i style="--h:46%;--i:5"></i><i style="--h:84%;--i:6"></i><i style="--h:60%;--i:7"></i><i style="--h:76%;--i:8"></i><i style="--h:50%;--i:9"></i><i style="--h:88%;--i:10"></i><i style="--h:66%;--i:11"></i></div></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-book"/></svg>قاعدة المعرفة</h3>
-        <p class="sys__desc">مقالات وإجابات جاهزة لفريقك وعملائك.</p>
-        <div class="sys__stat"><span>تغذّي</span><b>اقتراحات SIE</b></div>
-      </article>
-      <article class="sys glass rv" data-tilt style="--rd:.08s">
-        <div class="sys__top"><span>SYS-05</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><svg class="v-nodes" viewBox="0 0 300 130" preserveAspectRatio="xMidYMid meet"><path d="M262 65 C 220 65 210 30 170 30"/><path d="M262 65 C 220 65 210 100 170 100"/><path d="M130 30 C 95 30 90 65 50 65"/><path d="M130 100 C 95 100 90 65 50 65"/><circle cx="270" cy="65" r="11"/><circle cx="150" cy="30" r="11"/><circle cx="150" cy="100" r="11"/><circle cx="40" cy="65" r="11"/></svg></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-bolt"/></svg>الأتمتة الذكية</h3>
-        <p class="sys__desc">حوّل المهام المتكررة إلى عمليات تعمل تلقائيًا.</p>
-        <div class="sys__stat"><span>المحفّز</span><b>كل رسالة جديدة</b></div>
-      </article>
-      <article class="sys glass rv" data-tilt style="--rd:.16s">
-        <div class="sys__top"><span>SYS-06</span><span class="sys__status"><span class="live-dot"></span>يعمل</span></div>
-        <div class="sys__viz" aria-hidden="true"><div class="v-bars" id="sysBars"><i style="--h:40"></i><i style="--h:55"></i><i style="--h:48"></i><i style="--h:70"></i><i style="--h:62"></i><i style="--h:82"></i><i style="--h:74"></i><i style="--h:90"></i></div></div>
-        <h3 class="sys__title"><svg aria-hidden="true"><use href="#i-chart"/></svg>التقارير والتحليلات</h3>
-        <p class="sys__desc">افهم أداء فريق الدعم وتجربة عملائك.</p>
-        <div class="sys__stat"><span>التحديث</span><b>لحظي</b></div>
-      </article>
+
+    <!-- Section 6: MCP Support (NEW) -->
+    <div class="showcase-row reverse reveal" id="mcp-showcase-inline">
+      <div class="showcase-copy">
+        <span class="num mcp">06 — دعم MCP</span>
+        <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">تحدّث مع منصتك بلغتك، وهي تنفّذ فعلياً <span class="eyebrow mcp" style="margin:0;">جديد</span></h3>
+        <p>مدعوم يدعم <strong>Model Context Protocol (MCP)</strong> — بروتوكول يتيح لأي مساعد ذكي متصل (مثل Claude) أن ينشئ تذاكر، يجلب بياناتها، ويحدّث حالتها مباشرة داخل منصتك، بأوامر عربية عادية بدل التنقل بين الشاشات.</p>
+        <p>كل ما يحدث يبقى <strong>محكوماً بصلاحياتك</strong> ومسجلاً في سجل النشاط، فلا تفقد الرقابة على ما يجري.</p>
+        <div class="mcp-tags">
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> إنشاء وتحديث التذاكر</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> جلب بيانات العملاء</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> إرسال رسائل واتساب</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg> إحصائيات فورية</span>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="callout mcp" style="top:-8%;right:4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> 9 أدوات MCP مفعّلة الآن</div>
+        <div class="mcp-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-mcp-plug"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+              <span class="frame-pill mcp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><use href="#icon-mcp-plug"/></svg>MCP متصل</span>
+            </div>
+            <div class="frame-brand"><span>بوت مدعوم</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+          </div>
+          <div class="mcp-body">
+            <div class="mcp-msg-row">
+              <div class="mcp-bubble"><strong>الأدوات المتاحة الآن من منصة مدعوم (9/9 مفعّلة):</strong>
+                <ol>
+                  <li><strong>create_ticket</strong> — إنشاء تذكرة دعم جديدة</li>
+                  <li><strong>update_ticket</strong> — تعديل تذكرة موجودة</li>
+                  <li><strong>get_ticket</strong> — جلب تفاصيل تذكرة</li>
+                  <li><strong>get_dashboard_stats</strong> — إحصائيات لوحة التحكم</li>
+                  <li><strong>send_whatsapp</strong> — إرسال رسالة واتساب</li>
+                </ol>
+              </div>
+            </div>
+            <div class="mcp-msg-row">
+              <span class="mcp-author">Mahmoud Abdelwahab</span>
+              <div class="mcp-bubble">أنشئ تذكرة دعم جديدة — العنوان: تجربة باستخدام hermes mcp</div>
+            </div>
+            <div class="mcp-msg-row">
+              <div class="mcp-bubble">
+                <span class="mcp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> تم إنشاء التذكرة بنجاح على منصة مدعوم</span>
+                <div class="mcp-code"><span>رقم التذكرة #0032 · الأولوية: متوسطة · الحالة: open</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:14px;"></div>
+        </div>
+        <div class="mcp-step-badge"><span class="mcp-step-pill"><span class="mcp-step-num">✓</span> تذكرة أُنشئت من محادثة نصية مباشرة</span></div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ============ MCP ============ -->
-<section class="section" id="mcp" data-chapter-anchor="6.5" style="padding-top:0" aria-labelledby="mcp-title">
+<!-- ============ MCP dedicated section ============ -->
+<section class="section" id="mcp">
   <div class="container">
-    <div class="mcp glass rv">
-      <div>
-        <span class="kicker" style="color:var(--violet-300)"><b style="border-color:rgba(196,181,253,.35);background:rgba(167,139,250,.08)">MCP</b>دعم MCP</span>
-        <h2 id="mcp-title">منصتك، لكن يمكن التحدث معها الآن</h2>
-        <p>مدعوم يوفّر خادم MCP جاهزاً يربط لوحة تحكمك بأي مساعد ذكي يدعم البروتوكول — فتتحول الأوامر النصية العادية إلى إجراءات فعلية داخل حسابك.</p>
-        <ol class="mcp-steps">
-          <li><b>1. اسأل عن الأدوات المتاحة</b><span>تطلب من المساعد عرض كل الأدوات المفعّلة على حسابك في مدعوم — بدون فتح أي شاشة.</span></li>
-          <li><b>2. اطلب الإجراء بجملة عادية</b><span>"أنشئ تذكرة دعم جديدة بعنوان..." — المساعد يستدعي أداة create_ticket تلقائياً بنفس صلاحيات حسابك.</span></li>
-          <li><b>3. مدعوم ينفّذ ويؤكد</b><span>التذكرة تُنشأ فعلياً على المنصة، ويصلك رقمها وحالتها وأولويتها في نفس الرد.</span></li>
-          <li><b>4. تظهر في لوحتك فوراً</b><span>تفتح لوحة تحكم مدعوم فتجد التذكرة موجودة بكل تفاصيلها، جاهزة لمتابعة فريق الدعم.</span></li>
-        </ol>
+    <div class="section-head reveal">
+      <div class="eyebrow mcp"><span class="dot"></span> دعم MCP</div>
+      <h2><span class="gradient-text mcp">منصتك، لكن يمكن التحدث معها الآن</span></h2>
+      <p>مدعوم يوفّر خادم MCP جاهزاً يربط لوحة تحكمك بأي مساعد ذكي يدعم البروتوكول — فتتحول الأوامر النصية العادية إلى إجراءات فعلية داخل حسابك.</p>
+    </div>
+
+    <div class="mcp-flow reveal">
+      <div class="mcp-flow-step">
+        <div class="fnum">1</div>
+        <h5>اسأل عن الأدوات المتاحة</h5>
+        <p>تطلب من المساعد عرض كل الأدوات المفعّلة على حسابك في مدعوم — بدون فتح أي شاشة.</p>
       </div>
-      <div>
-        <div class="mcp-chat">
-          <div class="mcp-chat__head">Mad3oom MCP session<img src="/assets/images/mad3oom-robot-360.webp" alt="" width="22" height="22" loading="lazy"></div>
-          <div class="msg msg--out"><div class="msg__bubble">جلب تفاصيل التذكرة <code>get_ticket</code></div></div>
-          <div class="msg msg--in"><div class="msg__bubble"><span class="ok">✓ تم جلب التذكرة بنجاح</span><br>تجربة باستخدام hermes mcp — الحالة: <strong>open</strong> — الأولوية: <strong>medium</strong></div></div>
-          <div class="msg msg--in"><div class="msg__bubble">عاوز تعدّل عليها أو نعمل إجراء تاني؟</div></div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">2</div>
+        <h5>اطلب الإجراء بجملة عادية</h5>
+        <p>"أنشئ تذكرة دعم جديدة بعنوان..." — المساعد يستدعي أداة create_ticket تلقائياً بنفس صلاحيات حسابك.</p>
+      </div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">3</div>
+        <h5>مدعوم ينفّذ ويؤكد</h5>
+        <p>التذكرة تُنشأ فعلياً على المنصة، ويصلك رقمها وحالتها وأولويتها في نفس الرد.</p>
+      </div>
+      <div class="mcp-flow-step">
+        <svg class="mcp-flow-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l6 6-6 6M21 12H3"/></svg>
+        <div class="fnum">4</div>
+        <h5>تظهر في لوحتك فوراً</h5>
+        <p>تفتح لوحة تحكم مدعوم فتجد التذكرة موجودة بكل تفاصيلها، جاهزة لمتابعة فريق الدعم.</p>
+      </div>
+    </div>
+
+    <div class="section-head reveal" style="margin-top:4rem;margin-bottom:1.5rem;">
+      <div class="eyebrow mcp"><span class="dot"></span> مثال حقيقي</div>
+      <h2 style="font-size:clamp(1.4rem,2.8vw,2rem);">من محادثة نصية، إلى تذكرة في لوحة التحكم</h2>
+    </div>
+    <div class="frame-wrap reveal" style="max-width:900px;margin:0 auto;">
+      <div class="mcp-frame">
+        <div class="frame-topbar">
+          <div class="frame-icons">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-mcp-plug"/></svg></span>
+          </div>
+          <div class="frame-brand"><span>بوت مدعوم — جلسة MCP</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
         </div>
-        <p class="demo-note">* صورة توضيحية من جلسة MCP فعلية على منصة مدعوم لغرض العرض التوضيحي.</p>
+        <div class="mcp-body" style="min-height:auto;">
+          <div class="mcp-msg-row">
+            <span class="mcp-author">Mahmoud Abdelwahab</span>
+            <div class="mcp-bubble">جلب تفاصيل التذكرة get_ticket [مخفي]</div>
+          </div>
+          <div class="mcp-msg-row">
+            <div class="mcp-bubble">
+              <span class="mcp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> تم جلب التذكرة بنجاح</span>
+              <div style="margin-top:.4rem;">تجربة باستخدام hermes mcp — الوصف: تم إنشاء هذه الصفحة عبر hermes agent تجربة ناجحة لدي مدعوم. الحالة: <strong>open</strong> — الأولوية: <strong>medium</strong></div>
+            </div>
+          </div>
+          <div class="mcp-msg-row">
+            <div class="mcp-bubble" style="border-color:var(--mcp-color);">عاوز تعدّل عليها أو نعمل إجراء تاني؟</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="text-align:center;color:var(--text-3);font-size:.85rem;margin-top:1rem;">* صورة توضيحية من جلسة MCP فعلية على منصة مدعوم لغرض العرض التوضيحي.</p>
+  </div>
+</section>
+
+<!-- ============ Comparison ============ -->
+<section class="section" id="compare">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> يوم عمل حقيقي</div>
+      <h2>نفس المشكلة، فرق النتيجة</h2>
+      <p>تخيّل رسالة عميل تصل الساعة 9:00 صباحاً — هذا ما يحدث في الحالتين.</p>
+    </div>
+    <div class="compare-cols">
+      <div class="compare-col without reveal">
+        <h3>يوم عمل بدون مدعوم</h3>
+        <p class="total">إجمالي وقت الحل: <strong>15+ دقيقة</strong> لمجرد فتح تذكرة</p>
+        <div class="tl-item"><div class="tl-time">9:00</div><div class="tl-desc">رسالة تصل من العميل عبر الواتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:03</div><div class="tl-desc">الموظف يرى الرسالة، يسأل عن رقم الطلب</div></div>
+        <div class="tl-item"><div class="tl-time">9:07</div><div class="tl-desc">يجمع البيانات يدوياً من عدة أماكن</div></div>
+        <div class="tl-item"><div class="tl-time">9:12</div><div class="tl-desc">ينشئ Ticket يدوياً في جدول منفصل</div></div>
+        <div class="tl-item"><div class="tl-time">9:15</div><div class="tl-desc">يرسل Email للعميل يدوياً</div></div>
+      </div>
+      <div class="compare-col with reveal">
+        <h3>يوم عمل مع مدعوم</h3>
+        <p class="total">إجمالي وقت الحل: <strong>أقل من دقيقتين</strong> حتى بدء العمل الفعلي</p>
+        <div class="tl-item"><div class="tl-time">9:00:00</div><div class="tl-desc">رسالة تصل من العميل عبر البوت او الواتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:00:04</div><div class="tl-desc">Chatbot يرد فوراً ويبدأ جمع البيانات</div></div>
+        <div class="tl-item"><div class="tl-time">9:00:40</div><div class="tl-desc">يتم إنشاء Ticket تلقائياً بكل التفاصيل</div></div>
+        <div class="tl-item"><div class="tl-time">9:01:00</div><div class="tl-desc">إشعار وEmail يُرسلان تلقائياً للطرفين</div></div>
+        <div class="tl-item"><div class="tl-time">9:01:30</div><div class="tl-desc">الموظف يبدأ العمل الفعلي على الحل</div></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ============ Pricing ============ -->
-<section class="section" id="pricing" data-chapter-anchor="7" aria-labelledby="pricing-title">
+<section class="section" id="pricing">
   <div class="container">
-    <div class="section-head rv">
-      <span class="kicker"><b>$</b>باقات وأسعار</span>
-      <h2 id="pricing-title">خطة تناسب حجم فريقك</h2>
+    <div class="section-head reveal">
+      <div class="eyebrow"><span class="dot"></span> باقات وأسعار</div>
+      <h2>خطة تناسب حجم فريقك</h2>
       <p>ابدأ مجاناً، ووسّع نطاق الأتمتة كلما نما فريقك.</p>
     </div>
 
-    <div class="billing rv">
-      <span>الفترة:</span>
-      <div class="billing__toggle" id="billingToggle" role="group" aria-label="فترة الفوترة">
-        <button type="button" class="active" data-period="monthly" aria-pressed="true">شهري</button>
-        <button type="button" data-period="yearly" aria-pressed="false">سنوي</button>
+    <div class="billing-toggle-wrap reveal">
+      <span class="billing-toggle-label">الفترة:</span>
+      <div class="billing-toggle" id="billingToggle">
+        <button type="button" class="active" data-period="monthly">شهري</button>
+        <button type="button" data-period="yearly">سنوي</button>
       </div>
     </div>
-    <p class="launch-note rv">* أسعار الإطلاق سارية لمدة 6 أشهر أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب</p>
+    <p class="launch-offer-banner reveal">* أسعار الإطلاق سارية لمدة 6 أشهر أو حتى الوصول للعدد المستهدف من العملاء، أيهما أقرب</p>
 
-    <div class="plans">
-      <article class="plan glass rv" style="--rd:0s">
-        <h3 class="plan__name">مجاني</h3>
-        <p class="plan__desc">مثالي للمبتدئين</p>
-        <div class="plan__price"><span class="cur">$</span><span class="amt">0</span><span class="per">/شهر</span></div>
-        <ul class="plan__list">
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>الوصول إلى نظام التذاكر الأساسي</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>محادثة مع فريق الدعم (ساعات العمل)</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>الإبلاغ عن المشاكل والأعطال</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>تجميع النقاط من البلاغات</li>
-          <li class="is-off"><svg aria-hidden="true"><use href="#i-x"/></svg>ربط واتساب أو رد آلي</li>
+    <div class="plan-grid">
+      <!-- Free -->
+      <div class="plan-card reveal">
+        <h3>مجاني</h3>
+        <p class="plan-desc">مثالي للمبتدئين</p>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount">0</span>
+          <span class="period">/شهر</span>
+        </div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> الوصول إلى نظام التذاكر الأساسي</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> محادثة مع فريق الدعم (ساعات العمل)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> الإبلاغ عن المشاكل والأعطال</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تجميع النقاط من البلاغات</li>
+          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ربط واتساب أو رد آلي</li>
         </ul>
-        <a href="subscriptions.html" class="btn btn--glass btn--block">ابدأ الآن</a>
-      </article>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">ابدأ الآن</a>
+      </div>
 
-      <article class="plan glass rv" style="--rd:.08s">
-        <h3 class="plan__name">الدعم الفني</h3>
-        <p class="plan__desc">لإدارة تذاكر الدعم الفني باحترافية</p>
-        <span class="plan__badge" data-monthly="خصم 43%" data-yearly="خصم 21%">خصم 43%</span>
-        <div class="plan__price"><span class="old" data-monthly="35" data-yearly="252">35</span><span class="cur">$</span><span class="amt" data-monthly="20" data-yearly="200">20</span><span class="per" data-monthly="/شهر" data-yearly="/سنة">/شهر</span></div>
-        <span class="plan__limited">* عرض إطلاق لفترة محدودة</span>
-        <ul class="plan__list">
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>عدد لا محدود من التذاكر اليومية</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>نطاق فرعي مجاني (مثل company.mad3oom.com)</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>مدير واحد مع إمكانية إضافة حتى 25 عضوًا</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>نظام الإحصائيات المتقدمة</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>سجل نشاط لكل أعضاء الفريق</li>
+      <!-- Support -->
+      <div class="plan-card reveal">
+        <h3>الدعم الفني</h3>
+        <p class="plan-desc">لإدارة تذاكر الدعم الفني باحترافية</p>
+        <span class="plan-discount-badge" data-monthly="خصم 43%" data-yearly="خصم 21%">خصم 43%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="20" data-yearly="200">20</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="35" data-yearly="252">35</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> عدد لا محدود من التذاكر اليومية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نطاق فرعي مجاني (مثل company.mad3oom.com)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مدير واحد مع إمكانية إضافة حتى 25 عضوًا</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> نظام الإحصائيات المتقدمة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> سجل نشاط لكل أعضاء الفريق</li>
         </ul>
-        <a href="subscriptions.html" class="btn btn--glass btn--block">اشترك الآن</a>
-      </article>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">اشترك الآن</a>
+      </div>
 
-      <article class="plan glass rv" style="--rd:.16s">
-        <h3 class="plan__name">واتساب</h3>
-        <p class="plan__desc">ربط رقم واتساب الخاص بك بنظام الدعم</p>
-        <span class="plan__badge" data-monthly="خصم 38%" data-yearly="خصم 22%">خصم 38%</span>
-        <div class="plan__price"><span class="old" data-monthly="40" data-yearly="320">40</span><span class="cur">$</span><span class="amt" data-monthly="25" data-yearly="250">25</span><span class="per" data-monthly="/شهر" data-yearly="/سنة">/شهر</span></div>
-        <span class="plan__limited">* عرض إطلاق لفترة محدودة</span>
-        <p class="plan__bonus" data-monthly="+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا" data-yearly="+ اشترك بخدمة الرد الآلي واحصل على 3 أشهر إضافية مجانًا">+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا</p>
-        <ul class="plan__list">
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>ربط رقم واتساب الخاص بك بالمنصة</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>استقبال وإرسال الرسائل من داخل لوحة التحكم</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>إشعارات فورية بالرسائل الجديدة</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>إمكانية إضافة خدمة الرد الآلي لاحقًا</li>
+      <!-- WhatsApp -->
+      <div class="plan-card reveal">
+        <h3>واتساب</h3>
+        <p class="plan-desc">ربط رقم واتساب الخاص بك بنظام الدعم</p>
+        <span class="plan-discount-badge" data-monthly="خصم 38%" data-yearly="خصم 22%">خصم 38%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="25" data-yearly="250">25</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="40" data-yearly="320">40</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
+        <p class="plan-bonus" data-monthly="+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا" data-yearly="+ اشترك بخدمة الرد الآلي واحصل على 3 أشهر إضافية مجانًا">+ اشترك بخدمة الرد الآلي واحصل على 14 يوم إضافي مجانًا</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> ربط رقم واتساب الخاص بك بالمنصة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> استقبال وإرسال الرسائل من داخل لوحة التحكم</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إشعارات فورية بالرسائل الجديدة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> إمكانية إضافة خدمة الرد الآلي لاحقًا</li>
         </ul>
-        <a href="subscriptions.html" class="btn btn--glass btn--block">اشترك الآن</a>
-      </article>
+        <a href="subscriptions.html" class="btn btn-outline btn-block">اشترك الآن</a>
+      </div>
 
-      <article class="plan plan--featured glass rv" style="--rd:.24s">
-        <span class="plan__ribbon">الأكثر توفيرًا</span>
-        <h3 class="plan__name">دعم فني + واتساب</h3>
-        <p class="plan__desc">الباقة الشاملة لكل خدمات الدعم</p>
-        <span class="plan__badge" data-monthly="خصم 47%" data-yearly="خصم 23%">خصم 47%</span>
-        <div class="plan__price"><span class="old" data-monthly="75" data-yearly="573">75</span><span class="cur">$</span><span class="amt" data-monthly="40" data-yearly="440">40</span><span class="per" data-monthly="/شهر" data-yearly="/سنة">/شهر</span></div>
-        <span class="plan__limited">* عرض إطلاق لفترة محدودة</span>
-        <ul class="plan__list">
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>جميع مميزات خطة الدعم الفني</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>جميع مميزات خطة الواتساب</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>دعم أولوية 24/7</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>مكافآت نقاط مضاعفة</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>شارة خاصة على الملف الشخصي</li>
+      <!-- Bundle -->
+      <div class="plan-card featured reveal">
+        <div class="plan-ribbon">الأكثر توفيرًا</div>
+        <h3>دعم فني + واتساب</h3>
+        <p class="plan-desc">الباقة الشاملة لكل خدمات الدعم</p>
+        <span class="plan-discount-badge" data-monthly="خصم 47%" data-yearly="خصم 23%">خصم 47%</span>
+        <div class="plan-price-row">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="40" data-yearly="440">40</span>
+          <span class="period">/شهر</span>
+          <span class="old-price" data-monthly="75" data-yearly="573">75</span>
+        </div>
+        <span class="plan-limited">* عرض إطلاق لفترة محدودة</span>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> جميع مميزات خطة الدعم الفني</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> جميع مميزات خطة الواتساب</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> دعم أولوية 24/7</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> مكافآت نقاط مضاعفة</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> شارة خاصة على الملف الشخصي</li>
         </ul>
-        <a href="subscriptions.html" class="btn btn--primary btn--block">اشترك الآن</a>
-      </article>
+        <a href="subscriptions.html" class="btn btn-primary btn-block">اشترك الآن</a>
+      </div>
     </div>
 
-    <div class="compare glass rv">
+    <div class="plan-comparison reveal">
       <h3>مقارنة الخطط</h3>
-      <div class="compare__scroll">
-        <table>
-          <thead><tr><th scope="col">الميزة</th><th scope="col">مجاني</th><th scope="col">الدعم الفني</th><th scope="col">واتساب</th><th scope="col">دعم فني + واتساب</th></tr></thead>
-          <tbody>
-            <tr><td>نظام التذاكر</td><td class="y">✓</td><td class="y">✓ غير محدود</td><td class="n">✗</td><td class="y">✓ غير محدود</td></tr>
-            <tr><td>المحادثة مع الدعم</td><td>ساعات العمل فقط</td><td>24/7</td><td>24/7</td><td>24/7</td></tr>
-            <tr><td>نطاق فرعي مجاني</td><td class="n">✗</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td></tr>
-            <tr><td>عدد أعضاء الفريق</td><td>1</td><td>حتى 25 عضوًا</td><td>1</td><td>حتى 25 عضوًا</td></tr>
-            <tr><td>ربط رقم واتساب</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td></tr>
-            <tr><td>الرد الآلي (إضافة اختيارية)</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td></tr>
-            <tr><td>سجل نشاط الفريق والإحصائيات المتقدمة</td><td class="n">✗</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td></tr>
-            <tr><td>نظام النقاط</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓ مضاعف</td></tr>
-            <tr><td>الدعم الأولوي</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-            <tr><td>شارة خاصة</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>الميزة</th>
+            <th>مجاني</th>
+            <th>الدعم الفني</th>
+            <th>واتساب</th>
+            <th>دعم فني + واتساب</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>نظام التذاكر</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓ غير محدود</td>
+            <td class="no">✗</td>
+            <td class="yes">✓ غير محدود</td>
+          </tr>
+          <tr>
+            <td>المحادثة مع الدعم</td>
+            <td>ساعات العمل فقط</td>
+            <td>24/7</td>
+            <td>24/7</td>
+            <td>24/7</td>
+          </tr>
+          <tr>
+            <td>نطاق فرعي مجاني</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>عدد أعضاء الفريق</td>
+            <td>1</td>
+            <td>حتى 25 عضوًا</td>
+            <td>1</td>
+            <td>حتى 25 عضوًا</td>
+          </tr>
+          <tr>
+            <td>ربط رقم واتساب</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>الرد الآلي (إضافة اختيارية)</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>سجل نشاط الفريق والإحصائيات المتقدمة</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>نظام النقاط</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓ مضاعف</td>
+          </tr>
+          <tr>
+            <td>الدعم الأولوي</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>شارة خاصة</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>دعم MCP (الأدوات الذكية)</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+            <td class="no">✗</td>
+            <td class="yes">✓</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </div>
-</section>
-
-<!-- ============ Communications (trust) ============ -->
-<section class="section" id="trust" data-chapter-anchor="8" aria-labelledby="trust-title">
-  <div class="container">
-    <div class="section-head rv">
-      <span class="kicker"><b>COM</b>مركز الاتصالات</span>
-      <h2 id="trust-title">هكذا يبدو يوم عمل داخل مدعوم</h2>
-      <p>رسائل العملاء، زمن الاستجابة، الرضا، وأداء الفريق — في لوحة واحدة تتحدّث لحظة بلحظة.</p>
-    </div>
-    <div class="comms">
-      <div class="panel glass comms__feed rv">
-        <div class="panel__head"><div><div class="panel__title">رسائل العملاء الآن</div><div class="panel__sub">من كل القنوات، بعد الحل</div></div><span class="live"><span class="live-dot"></span>مباشر</span></div>
-        <div class="feed" id="feed" aria-live="off"></div>
-      </div>
-      <div class="panel glass rv" style="--rd:.08s">
-        <div class="panel__head"><div><div class="panel__title">زمن الاستجابة خلال اليوم</div><div class="panel__sub">متوسط أول رد بالدقائق لكل ساعة</div></div></div>
-        <div class="vbars" id="rtBars" role="img" aria-label="متوسط زمن أول رد لكل ساعة: يرتفع قليلًا وقت الذروة ويبقى تحت 3 دقائق"></div>
-        <div class="vbars-x"><span>08</span><span>11</span><span>14</span><span>17</span><span>20</span><span>23</span></div>
-      </div>
-      <div class="panel glass rv" style="--rd:.16s">
-        <div class="panel__head"><div><div class="panel__title">رضا العملاء</div><div class="panel__sub">تقييمات آخر 30 يومًا</div></div></div>
-        <div class="gauge">
-          <svg viewBox="0 0 140 140" role="img" aria-label="متوسط الرضا 4.8 من 5">
-            <circle class="track" cx="70" cy="70" r="56" transform="rotate(135 70 70)" stroke-dasharray="263.9 351.9"/>
-            <circle class="val" id="gaugeVal" cx="70" cy="70" r="56" transform="rotate(135 70 70)" stroke-dasharray="263.9 351.9" stroke-dashoffset="263.9"/>
-            <text x="70" y="72" text-anchor="middle" font-size="30" font-weight="600">4.8</text>
-            <text x="70" y="94" text-anchor="middle" font-size="11" style="fill:var(--t3)">من 5</text>
-          </svg>
-          <div class="hbars">
-            <div class="hbar"><span>5 نجوم</span><span class="hbar__track"><i style="--v:78"></i></span><b>78%</b></div>
-            <div class="hbar"><span>4 نجوم</span><span class="hbar__track"><i style="--v:15"></i></span><b>15%</b></div>
-            <div class="hbar"><span>3 نجوم</span><span class="hbar__track"><i style="--v:5"></i></span><b>5%</b></div>
-            <div class="hbar"><span>أقل</span><span class="hbar__track"><i style="--v:2"></i></span><b>2%</b></div>
-          </div>
-        </div>
-      </div>
-      <div class="panel glass rv comms__team" style="--rd:.08s" id="teamPanel">
-        <div class="panel__head"><div><div class="panel__title">الفريق المتصل الآن</div><div class="panel__sub">التذاكر المحلولة اليوم لكل موظف</div></div><span class="live"><span class="live-dot"></span><span data-live="team2">8</span> متصلين</span></div>
-        <div class="hbars">
-          <div class="hbar"><span>ريم</span><span class="hbar__track"><i style="--v:84"></i></span><b data-live="r1">42</b></div>
-          <div class="hbar"><span>عمر</span><span class="hbar__track"><i style="--v:76"></i></span><b data-live="r2">38</b></div>
-          <div class="hbar"><span>هند</span><span class="hbar__track"><i style="--v:70"></i></span><b data-live="r3">35</b></div>
-          <div class="hbar"><span>عبدالله</span><span class="hbar__track"><i style="--v:58"></i></span><b data-live="r4">29</b></div>
-        </div>
-      </div>
-    </div>
-    <p class="demo-note">البيانات المعروضة توضيحية من بيئة عرض مدعوم.</p>
   </div>
 </section>
 
 <!-- ============ FAQ ============ -->
-<section class="section" id="faq" data-chapter-anchor="9" aria-labelledby="faq-title">
+<section class="section" id="faq">
   <div class="container">
-    <div class="section-head rv"><h2 id="faq-title">الأسئلة الشائعة</h2></div>
-    <div class="faq rv">
-      <details class="faq__item glass" open><summary>هل مدعوم مجرد بوت رد آلي؟<svg aria-hidden="true"><use href="#i-chev"/></svg></summary><p>لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</p></details>
-      <details class="faq__item glass"><summary>كيف تتحول المحادثة إلى تذكرة فعلياً؟<svg aria-hidden="true"><use href="#i-chev"/></svg></summary><p>بمجرد أن يحدد البوت أن الأمر يحتاج متابعة، يُنشئ تذكرة تلقائياً بنفس محتوى المحادثة، فلا يحتاج فريقك لإعادة كتابة أي شيء يدوياً.</p></details>
-      <details class="faq__item glass"><summary>ما هو دعم MCP، وكيف أستخدمه؟<svg aria-hidden="true"><use href="#i-chev"/></svg></summary><p>MCP هو بروتوكول يسمح لمساعد ذكي متصل (مثل Claude) بتنفيذ إجراءات فعلية داخل حسابك على مدعوم — كإنشاء تذكرة أو جلب إحصائية — بمجرد كتابة أمر بلغة عادية، بدل التنقل بين شاشات لوحة التحكم. تفعّله من إعدادات حسابك في قسم "أدوات MCP".</p></details>
-      <details class="faq__item glass"><summary>هل يمكن تخصيص النطاق الفرعي باسم شركتي؟<svg aria-hidden="true"><use href="#i-chev"/></svg></summary><p>نعم، في الباقة الاحترافية وما فوقها تحصل على نطاق فرعي خاص مثل company.mad3oom.com بهويتك وشعارك.</p></details>
-      <details class="faq__item glass"><summary>هل أحتاج خبرة تقنية لإعداد المنصة؟<svg aria-hidden="true"><use href="#i-chev"/></svg></summary><p>لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</p></details>
+    <div class="section-head reveal"><h2>الأسئلة الشائعة</h2></div>
+    <div class="faq-list reveal">
+      <details class="faq-item" open>
+        <summary>هل مدعوم مجرد بوت رد آلي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div></div>
+      </details>
+      <details class="faq-item">
+        <summary>كيف تتحول المحادثة إلى تذكرة فعلياً؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">بمجرد أن يحدد البوت أن الأمر يحتاج متابعة، يُنشئ تذكرة تلقائياً بنفس محتوى المحادثة، فلا يحتاج فريقك لإعادة كتابة أي شيء يدوياً.</div></div>
+      </details>
+      <details class="faq-item">
+        <summary>ما هو دعم MCP، وكيف أستخدمه؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">MCP هو بروتوكول يسمح لمساعد ذكي متصل (مثل Claude) بتنفيذ إجراءات فعلية داخل حسابك على مدعوم — كإنشاء تذكرة أو جلب إحصائية — بمجرد كتابة أمر بلغة عادية، بدل التنقل بين شاشات لوحة التحكم. تفعّله من إعدادات حسابك في قسم "أدوات MCP".</div></div>
+      </details>
+      <details class="faq-item">
+        <summary>هل يمكن تخصيص النطاق الفرعي باسم شركتي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">نعم، في الباقة الاحترافية وما فوقها تحصل على نطاق فرعي خاص مثل company.mad3oom.com بهويتك وشعارك.</div></div>
+      </details>
+      <details class="faq-item">
+        <summary>هل أحتاج خبرة تقنية لإعداد المنصة؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+        <div class="faq-body"><div class="faq-body-inner">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</div></div>
+      </details>
     </div>
   </div>
 </section>
 
-<!-- =====================================================================
-     SCENE 08 · Back in the command center
-     ===================================================================== -->
-<section class="finale" id="start" data-chapter-anchor="10" aria-labelledby="finale-title">
-  <div class="portal rv">
-    <div class="portal__rings" aria-hidden="true"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><i style="--k:3"></i></div>
-    <div class="portal__glow" aria-hidden="true"></div>
-    <div class="portal__deck" aria-hidden="true"></div>
-    <span class="kicker"><b>08</b>الانطلاق</span>
-    <h2 id="finale-title">جاهز تطور تجربة <br><span class="grad">دعم عملائك؟</span></h2>
-    <p>ابدأ اليوم، وشاهد أول تذكرة تُنشئ نفسها بنفسها.</p>
-    <div class="portal__ctas">
-      <a href="start.html" class="btn btn--primary btn--lg">ابدأ الآن مجانًا <span class="btn__icon" aria-hidden="true"><svg><use href="#i-arrow"/></svg></span></a>
-      <a href="mailto:support@mad3oom.com" class="btn btn--glass btn--lg">تحدث مع فريقنا</a>
+<!-- ============ Final CTA ============ -->
+<section class="section">
+  <div class="container">
+    <div class="final-cta reveal">
+      <h2>هل فريقك جاهز لدعم أقل فوضى؟</h2>
+      <p>ابدأ اليوم، وشاهد أول تذكرة تُنشئ نفسها بنفسها.</p>
+      <div class="hero-actions" style="justify-content:center;">
+        <a href="start.html" class="btn btn-primary">ابدأ تجربتك المجانية</a>
+        <a href="#" class="btn btn-outline">تحدث مع فريق المبيعات</a>
+      </div>
     </div>
   </div>
 </section>
-
-</main>
 
 <!-- ============ Footer ============ -->
-<footer class="site-footer" id="contact">
+<footer>
   <div class="container">
-    <div class="foot">
-      <div>
-        <a href="#hero" class="brand"><span class="brand__mark"><img src="/assets/images/mad3oom-mark-128.png" alt="" width="24" height="24" loading="lazy"></span><span class="brand__text"><strong>مدعوم</strong><small>Mad3oom</small></span></a>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="brand"><span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span><span class="brand-text"><strong>مدعوم</strong></span></a>
         <p>نظام عربي متكامل يقلل ضغط فريق الدعم، ويؤتمت رحلة العميل من أول رسالة حتى الحل.</p>
       </div>
-      <div><h3>المنتج</h3><ul><li><a href="#features">المميزات</a></li><li><a href="#sie">ذكاء SIE</a></li><li><a href="#mcp">دعم MCP</a></li><li><a href="#pricing">الأسعار</a></li><li><a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a></li></ul></div>
-      <div><h3>الموارد</h3><ul><li><a href="/blog/">المدوّنة</a></li><li><a href="knowledge-base.html">قاعدة المعرفة</a></li><li><a href="developers.html">للمطورين</a></li><li><a href="comparison.html">مقارنة مدعوم</a></li><li><a href="#faq">الأسئلة الشائعة</a></li></ul></div>
-      <div><h3>تواصل معنا</h3><ul><li><a href="mailto:support@mad3oom.com">support@mad3oom.com</a></li><li><a href="https://www.linkedin.com/company/mad3oom/" rel="noopener">LinkedIn</a></li><li><a href="about.html">حول مدعوم</a></li></ul></div>
-      <div><h3>قانوني</h3><ul><li><a href="terms.html">شروط الاستخدام</a></li><li><a href="privacy.html">سياسة الخصوصية</a></li><li><a href="cookies.html">سياسة ملفات الارتباط</a></li></ul></div>
+      <div class="footer-col"><h5>المنتج</h5><a href="#showcase">لوحة التحكم</a><a href="#showcase">إدارة التذاكر</a><a href="#mcp">دعم MCP</a><a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a><a href="#pricing">الأسعار</a></div>
+      <div class="footer-col"><h5>الشركة</h5><a href="#">حول مدعوم</a><a href="#">تواصل معنا</a></div>
+      <div class="footer-col"><h5>الدعم</h5><a href="#">مركز المساعدة</a><a href="#faq">الأسئلة الشائعة</a></div>
+      <div class="footer-col"><h5>قانوني</h5><a href="terms.html">شروط الاستخدام</a><a href="privacy.html">سياسة الخصوصية</a></div>
     </div>
-    <div class="foot__bottom">
+    <div class="footer-bottom">
       <span>© <span id="year"></span> مدعوم. جميع الحقوق محفوظة.</span>
-      <span class="num" dir="ltr">Mad3oom · Orbital Support Command</span>
     </div>
   </div>
 </footer>
@@ -873,56 +1445,291 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
 <!-- ============ Floating robot helper / interactive tour ============ -->
 <div class="robot-helper" id="robotHelper">
   <div class="robot-tour" id="robotTour" role="dialog" aria-label="جولة تعريفية بمنصة مدعوم">
-    <button class="robot-tour-close" id="robotTourClose" type="button" aria-label="إغلاق">✕</button>
+    <button class="robot-tour-close" id="robotTourClose" aria-label="إغلاق">✕</button>
     <div class="robot-tour-head">
-      <span class="robot-tour-avatar"><img src="/assets/images/mad3oom-robot-360.webp" alt="" width="30" height="30" loading="lazy"></span>
+      <span class="robot-tour-avatar"><img src="assets/images/mad3oom-robot.png" alt="روبوت مدعوم"></span>
       <span>روبوت مدعوم يشرحلك المنصة</span>
     </div>
+
     <div class="robot-tour-track" id="robotTourTrack">
       <div class="robot-tour-slide active" data-slide="0">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-users"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
         <h5>أهلاً، أنا روبوت مدعوم 👋</h5>
         <p>خلّيني أوريك بسرعة إزاي المنصة بتشتغل وبتوفّر وقت فريق الدعم بتاعك.</p>
       </div>
       <div class="robot-tour-slide" data-slide="1">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-chat"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <h5>أستقبل عملاءك أول ما يكتبوا</h5>
         <p>من الموقع أو واتساب، في أي وقت، من غير ما ينتظروا حد يرد عليهم.</p>
       </div>
       <div class="robot-tour-slide" data-slide="2">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-ticket"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
         <h5>أجمع التفاصيل وأفتح تذكرة</h5>
         <p>لو المشكلة احتاجت متابعة، بجمع كل بياناتها وأنشئ تذكرة كاملة تلقائيًا.</p>
       </div>
       <div class="robot-tour-slide" data-slide="3">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-team"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         <h5>أحوّلك لموظف فورًا لو احتجت إنسان</h5>
         <p>مع كل سياق المحادثة قدامه، فمفيش تكرار كلام ولا بداية من الصفر.</p>
       </div>
       <div class="robot-tour-slide" data-slide="4">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-plug"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 01-6 6 6 6 0 01-6-6V9zM12 18v3"/></svg></div>
         <h5>وبدعم MCP كمان</h5>
         <p>تقدر تتكلم مع حسابك بلغة عادية، وأنا أنفّذ فعليًا داخل لوحة تحكمك.</p>
       </div>
       <div class="robot-tour-slide" data-slide="5">
-        <div class="rt-icon"><svg aria-hidden="true"><use href="#i-check"/></svg></div>
+        <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
         <h5>جاهز تجرب مدعوم؟</h5>
         <p>ابدأ تجربتك المجانية دلوقتي وشوف الفرق في أول رسالة تجيلك.</p>
-        <a href="start.html" class="btn btn--primary robot-tour-cta">ابدأ مجاناً</a>
+        <a href="start.html" class="btn btn-primary btn-sm robot-tour-cta">ابدأ مجاناً</a>
       </div>
     </div>
+
     <div class="robot-tour-dots" id="robotTourDots"></div>
     <div class="robot-tour-actions">
-      <button class="rt-nav" id="rtPrev" type="button">السابق</button>
-      <button class="rt-nav primary" id="rtNext" type="button">التالي</button>
+      <button class="rt-nav" id="rtPrev">السابق</button>
+      <button class="rt-nav primary" id="rtNext">التالي</button>
     </div>
   </div>
-  <button class="robot-helper-btn" id="robotBtn" type="button" aria-label="مساعد مدعوم" aria-expanded="false" aria-controls="robotTour">
-    <span class="robot-ping" aria-hidden="true"></span>
-    <img src="/assets/images/mad3oom-robot-360.webp" alt="" width="46" height="54">
+  <button class="robot-helper-btn" id="robotBtn" aria-label="مساعد مدعوم">
+    <span class="robot-ping" id="robotPing"></span>
+    <img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم">
   </button>
 </div>
 
-<noscript><style>.rv{opacity:1;transform:none;filter:none}</style></noscript>
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => navbar.classList.toggle('scrolled', window.scrollY > 20), { passive:true });
+
+// ============ Scroll progress bar ============
+const scrollProgress = document.getElementById('scrollProgress');
+function updateScrollProgress(){
+  const h = document.documentElement;
+  const scrolled = h.scrollTop;
+  const max = h.scrollHeight - h.clientHeight;
+  const pct = max > 0 ? scrolled / max : 0;
+  scrollProgress.style.transform = `scaleX(${pct})`;
+}
+window.addEventListener('scroll', () => requestAnimationFrame(updateScrollProgress), { passive:true });
+updateScrollProgress();
+
+// ============ Tilt effect on product frames ============
+(function(){
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+  document.querySelectorAll('.frame-wrap').forEach(wrap => {
+    const frame = wrap.querySelector('.product-frame, .mcp-frame');
+    if (!frame) return;
+    let raf = null;
+    wrap.addEventListener('mousemove', (e) => {
+      const rect = wrap.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        frame.classList.add('tilt-active');
+        frame.style.transform = `rotateY(${x * 6}deg) rotateX(${-y * 6}deg) translateZ(0)`;
+      });
+    });
+    wrap.addEventListener('mouseleave', () => {
+      frame.classList.remove('tilt-active');
+      frame.style.transform = '';
+    });
+  });
+})();
+
+// ============ Number count-up on scroll into view ============
+(function(){
+  const targets = document.querySelectorAll('.an-chip b, .ui-stat-chip b');
+  const seen = new WeakSet();
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting || seen.has(entry.target)) return;
+      seen.add(entry.target);
+      const el = entry.target;
+      const raw = el.childNodes[0] ? el.childNodes[0].textContent.trim() : el.textContent.trim();
+      const match = raw.match(/^(\d+(?:\.\d+)?)/);
+      if (!match) return;
+      const end = parseFloat(match[1]);
+      const suffix = raw.slice(match[1].length);
+      const isFloat = match[1].includes('.');
+      const dur = 900;
+      const start = performance.now();
+      const extra = el.querySelector('small');
+      function tick(now){
+        const p = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = end * eased;
+        el.childNodes[0].textContent = (isFloat ? val.toFixed(1) : Math.round(val)) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+        else if (extra) el.appendChild(extra);
+      }
+      if (el.childNodes[0]) requestAnimationFrame(tick);
+    });
+  }, { threshold: 0.4 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+// ============ Stagger reveal timing within shared containers ============
+(function(){
+  const groups = document.querySelectorAll('.plan-grid');
+  groups.forEach(group => {
+    Array.from(group.children).filter(c => c.classList.contains('reveal')).forEach((child, i) => {
+      child.style.transitionDelay = (i * 0.08) + 's';
+    });
+  });
+})();
+
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const closeMenuBtn = document.getElementById('closeMenuBtn');
+const mobileMenu = document.getElementById('mobileMenu');
+hamburgerBtn.addEventListener('click', () => mobileMenu.classList.add('open'));
+closeMenuBtn.addEventListener('click', () => mobileMenu.classList.remove('open'));
+mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => mobileMenu.classList.remove('open')));
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in'); revealObserver.unobserve(entry.target); } });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// Robot helper bubble
+// ============ Robot interactive tour ============
+(function(){
+  const helper = document.getElementById('robotHelper');
+  const btn = document.getElementById('robotBtn');
+  const tour = document.getElementById('robotTour');
+  const closeBtn = document.getElementById('robotTourClose');
+  const track = document.getElementById('robotTourTrack');
+  const dotsWrap = document.getElementById('robotTourDots');
+  const prevBtn = document.getElementById('rtPrev');
+  const nextBtn = document.getElementById('rtNext');
+  if (!helper || !btn || !tour) return;
+
+  const slides = Array.from(track.querySelectorAll('.robot-tour-slide'));
+  let current = 0;
+
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.setAttribute('aria-label', 'الخطوة ' + (i + 1));
+    if (i === 0) dot.classList.add('active');
+    dot.addEventListener('click', () => goTo(i));
+    dotsWrap.appendChild(dot);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  function render(){
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    prevBtn.disabled = current === 0;
+    nextBtn.textContent = current === slides.length - 1 ? 'من جديد' : 'التالي';
+  }
+  function goTo(i){
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    render();
+  }
+  prevBtn.addEventListener('click', () => goTo(current - 1));
+  nextBtn.addEventListener('click', () => {
+    if (current === slides.length - 1) goTo(0);
+    else goTo(current + 1);
+  });
+
+  function openTour(){
+    helper.classList.add('tour-open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  function closeTour(){
+    helper.classList.remove('tour-open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  btn.addEventListener('click', () => {
+    helper.classList.contains('tour-open') ? closeTour() : openTour();
+  });
+  closeBtn.addEventListener('click', closeTour);
+  document.addEventListener('click', (e) => {
+    if (!helper.contains(e.target)) closeTour();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTour();
+  });
+
+  // Hero robot also opens the tour
+  const heroRobot = document.querySelector('.robot-core');
+  if (heroRobot){
+    heroRobot.style.cursor = 'pointer';
+    heroRobot.setAttribute('title', 'اضغط لتعرف على مدعوم');
+    heroRobot.addEventListener('click', () => { goTo(0); openTour(); });
+  }
+
+  render();
+})();
+
+// FAQ single-open
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('toggle', () => {
+    if (item.open) document.querySelectorAll('.faq-item').forEach(o => { if (o !== item) o.removeAttribute('open'); });
+  });
+});
+
+// Scroll-linked journey story
+const journeyWrap = document.getElementById('journeyWrap');
+const journeyFill = document.getElementById('journeyFill');
+const journeyRobot = document.getElementById('journeyRobot');
+const journeySteps = document.querySelectorAll('.journey-step');
+
+function updateJourney() {
+  const rect = journeyWrap.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const total = rect.height;
+  const start = vh * 0.85;
+  const end = vh * 0.35;
+  let progress = (start - rect.top) / (total + (start - end));
+  progress = Math.max(0, Math.min(1, progress));
+  const pct = progress * 100;
+  journeyFill.style.height = pct + '%';
+  journeyRobot.style.top = pct + '%';
+  const activeCount = Math.round(progress * journeySteps.length);
+  journeySteps.forEach((step, i) => step.classList.toggle('active', i < activeCount));
+}
+window.addEventListener('scroll', () => requestAnimationFrame(updateJourney), { passive:true });
+window.addEventListener('resize', () => requestAnimationFrame(updateJourney));
+updateJourney();
+
+// ============ Theme toggle (dark/light) ============
+(function(){
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('theme-preference', t); }catch(e){}
+  }
+  function toggleTheme(btnEl){
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (btnEl){
+      btnEl.classList.add('spin');
+      setTimeout(() => btnEl.classList.remove('spin'), 600);
+    }
+  }
+  const btn = document.getElementById('themeToggleBtn');
+  const btnMobile = document.getElementById('themeToggleBtnMobile');
+  if (btn) btn.addEventListener('click', () => toggleTheme(btn));
+  if (btnMobile) btnMobile.addEventListener('click', () => toggleTheme(btnMobile));
+})();
+
+// ============ Pricing: monthly/yearly billing toggle ============
+(function(){
+  const toggle = document.getElementById('billingToggle');
+  if (!toggle) return;
+  const buttons = toggle.querySelectorAll('button');
+  function setPeriod(period){
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.period === period));
+    document.querySelectorAll('#pricing [data-monthly]').forEach(el => {
+      const val = period === 'yearly' ? el.dataset.yearly : el.dataset.monthly;
+      if (val !== undefined) el.textContent = val;
+    });
+  }
+  buttons.forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.period)));
+})();
+</script>
 </body>
 </html>
