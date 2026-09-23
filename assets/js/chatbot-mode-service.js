@@ -15,7 +15,7 @@
  */
 
 import { supabase } from '/api-config.js';
-import { getSieAccessStatus } from '/assets/js/sie-client.js';
+import { getSieAccessStatusResult } from '/assets/js/sie-client.js';
 
 // ===================== الأوضاع المتاحة =====================
 export const CHATBOT_MODES = {
@@ -233,24 +233,40 @@ export function getAutoModeExplanation() {
 /**
  * يرجّع معلومات جاهزة للعرض في قائمة اختيار الوضع: هل SIE متاح للعميل ده
  * حاليًا (مفعّل + مش منتهي + عنده كوتة)، ونص وصف يعكس الحالة الفعلية.
- * فشل القراءة (خطأ شبكة، RLS، RPC غير موجودة بعد...) يُعامل كـ"غير متاح"
- * بأمان (fail closed) بدل ما يكسر باقي القائمة أو يظهر الخيار بالغلط.
+ * فشل القراءة (خطأ شبكة، 5xx، circuit مفتوح...) يُعامل كـ"غير متاح"
+ * بأمان (fail closed) - SIE مبيتستخدمش - لكن بيرجع معاه checkFailed: true.
+ * "معرفناش نتحقق" مش هو "الصلاحية اتسحبت": المتصلين لازم ميحوّلوش العميل
+ * للوضع التقليدي ولا يحفظوا ده في قاعدة البيانات على أساس عطل مؤقت.
  */
 export async function getSieAccessInfo(userId) {
     if (!userId) {
-        return { available: false, statusLabel: 'غير متاح', description: sieBaseDescription(), row: null };
+        return { available: false, checkFailed: false, statusLabel: 'غير متاح', description: sieBaseDescription(), row: null };
     }
     try {
-        const row = await getSieAccessStatus(supabase, userId);
+        const result = await getSieAccessStatusResult(supabase, userId);
+        if (!result.ok) {
+            return sieCheckFailed(result.error);
+        }
+        const row = result.access;
         if (!row) {
-            return { available: false, statusLabel: null, description: sieBaseDescription(), row: null };
+            return { available: false, checkFailed: false, statusLabel: null, description: sieBaseDescription(), row: null };
         }
         const status = evaluateSieAccessRow(row);
-        return { ...status, description: sieBaseDescription(status), row };
+        return { ...status, checkFailed: false, description: sieBaseDescription(status), row };
     } catch (err) {
-        console.warn('[chatbot-mode-service] تعذّر التحقق من صلاحية SIE:', err?.message || err);
-        return { available: false, statusLabel: null, description: sieBaseDescription(), row: null };
+        return sieCheckFailed(err);
     }
+}
+
+function sieCheckFailed(err) {
+    console.warn('[chatbot-mode-service] تعذّر التحقق من صلاحية SIE:', err?.message || err);
+    return {
+        available: false,
+        checkFailed: true,
+        statusLabel: 'تعذّر التحقق',
+        description: 'محرك الدعم الذكي (SIE): تعذّر التحقق من حالته الآن بسبب مشكلة اتصال مؤقتة. اختيارك محفوظ كما هو - جرّب تاني بعد قليل.',
+        row: null
+    };
 }
 
 /** يحسب "متاح فعليًا الآن؟" من صف customer_sie_access خام. */

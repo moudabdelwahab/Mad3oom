@@ -369,17 +369,33 @@ export async function isCurrentUserSieAdmin(supabase) {
  * @returns {Promise<Object|null>}
  */
 export async function getSieAccessStatus(supabase, userId) {
-    if (!userId) return null;
+    const result = await getSieAccessStatusResult(supabase, userId);
+    return result.ok ? result.access : null;
+}
+
+/**
+ * نفس getSieAccessStatus، لكن بيفرّق بين "السيرفر ردّ: مفيش صلاحية"
+ * و"معرفناش نسأل أصلاً" (شبكة، 5xx، 546، أو الـ circuit breaker مفتوح).
+ *
+ * الفرق ده مش تجميلي: مسار الإرسال بيحوّل العميل للوضع التقليدي ويحفظ
+ * ده في profiles.chatbot_mode لما الصلاحية "اتسحبت". لو عطل مؤقت اتقرا
+ * كسحب صلاحية، عميل مفعّل له SIE بيتحوّل ويتحفظ تحويله بسبب خطأ شبكة -
+ * وده اللي كان بيحصل فعلاً بعد ردّين 546 من sie-api فتحوا الـ circuit.
+ *
+ * @returns {Promise<{ok: true, access: Object|null} | {ok: false, error: Error}>}
+ */
+export async function getSieAccessStatusResult(supabase, userId) {
+    if (!userId) return { ok: true, access: null };
     try {
         const data = await sieRequest(supabase, SIE_ENDPOINTS.ACCESS_STATUS(userId), { timeoutMs: 6000 });
         const access = data?.access;
         if (!access || typeof access !== 'object' || typeof access.is_enabled !== 'boolean') {
-            return null;
+            return { ok: true, access: null };
         }
-        return access;
+        return { ok: true, access };
     } catch (err) {
         warnLog('تعذّر جلب حالة وصول SIE:', err?.message || err);
-        return null;
+        return { ok: false, error: err instanceof Error ? err : new Error(String(err)) };
     }
 }
 

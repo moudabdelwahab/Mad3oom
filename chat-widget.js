@@ -474,6 +474,16 @@ class ChatWidget {
      * محادثة - نحفظ التحويل للتقليدي فعليًا في قاعدة البيانات، نحدّث الحالة
      * المحلية، ونكتب رسالة واضحة داخل نص المحادثة (مش toast ممكن يفوته).
      */
+    async insertSieTemporaryProblem() {
+        await supabase.from('chat_messages').insert({
+            session_id: this.currentSessionId,
+            sender_id: null,
+            message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من إعدادات الشات.',
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
+    }
+
     async handleSieRevokedMidConversation(sieAccess) {
         this.cachedChatbotMode = 'traditional';
         const label = document.getElementById('chatModeCurrentLabel');
@@ -1068,6 +1078,12 @@ class ChatWidget {
 
             if (this.cachedChatbotMode === 'sie') {
                 const sieAccess = await getSieAccessInfo(this.currentUser.id);
+                // عطل مؤقت في التحقق (شبكة، 5xx، circuit مفتوح) مش سحب
+                // صلاحية: منحوّلش العميل ومنحفظش "تقليدي" على أساسه.
+                if (sieAccess.checkFailed) {
+                    await this.insertSieTemporaryProblem();
+                    return;
+                }
                 if (!sieAccess.available) {
                     await this.handleSieRevokedMidConversation(sieAccess);
                     return;
@@ -1080,13 +1096,7 @@ class ChatWidget {
                     botState: freshSession?.bot_state || {}
                 });
                 if (!sieResult) {
-                    await supabase.from('chat_messages').insert({
-                        session_id: this.currentSessionId,
-                        sender_id: null,
-                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من إعدادات الشات.',
-                        is_admin_reply: false,
-                        is_bot_reply: true
-                    });
+                    await this.insertSieTemporaryProblem();
                     return;
                 }
                 // نفس منطق chat-logic.js: SIE بيكتب دور المحادثة بنفسه

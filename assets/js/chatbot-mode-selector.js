@@ -472,6 +472,9 @@ function renderModeList({ body, overlay, userId, entitled, state, sieAccess, int
     // الخيار *يظهر أصلاً* في القائمة، مش مجرد يبان "مقفول" زي أوضاع
     // الاشتراك العادية. لو العميل مش مفعّل له SIE، الخيار مبيتعرضش خالص.
     const sieAvailable = !!sieAccess?.available;
+    // تعذّر التحقق (عطل مؤقت) ≠ الصلاحية اتسحبت. العميل اللي مختار SIE
+    // بيفضل شايفه مختار، ومفيش أي حفظ لـ"تقليدي" على أساس خطأ شبكة.
+    const sieCheckFailed = !!sieAccess?.checkFailed;
 
     // لو العميل كان مختار SIE فعلاً (محفوظ في profiles.chatbot_mode) والصلاحية
     // اتشالت منه بعدين (كوتة خلصت / انتهت الصلاحية / الإدارة عطّلته)، *ممنوع*
@@ -479,7 +482,7 @@ function renderModeList({ body, overlay, userId, entitled, state, sieAccess, int
     // لسه على SIE بينما فعليًا بيرد عليه المحرك التقليدي، وده أخطر من مفيش
     // fallback أصلاً. بدل كده: نحفظ التراجع فعليًا في قاعدة البيانات (مش
     // بس محليًا)، ونوريه بانر واضح بالسبب، ونخليه يختار وضع تاني بنفسه.
-    const wasSieRevoked = state.chatbot_mode === CHATBOT_MODES.SIE && !sieAvailable;
+    const wasSieRevoked = state.chatbot_mode === CHATBOT_MODES.SIE && !sieAvailable && !sieCheckFailed;
     if (wasSieRevoked) {
         selectedMode = CHATBOT_MODES.TRADITIONAL;
         // Fire-and-forget: يحفظ التراجع فورًا في profiles.chatbot_mode بحيث
@@ -496,7 +499,7 @@ function renderModeList({ body, overlay, userId, entitled, state, sieAccess, int
     }
 
     const modesOrder = [CHATBOT_MODES.TRADITIONAL, CHATBOT_MODES.AI_MODEL, CHATBOT_MODES.AUTO];
-    if (sieAvailable) modesOrder.push(CHATBOT_MODES.SIE);
+    if (sieAvailable || (sieCheckFailed && selectedMode === CHATBOT_MODES.SIE)) modesOrder.push(CHATBOT_MODES.SIE);
 
     function modeCardHtml(mode) {
         const available = isModeAvailableForEntitlement(mode, entitled);

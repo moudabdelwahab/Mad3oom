@@ -609,6 +609,16 @@ document.addEventListener('DOMContentLoaded', async () => {
      *  3) نكتب رسالة واضحة *داخل نص المحادثة نفسها* - مش toast ممكن يفوته -
      *     عشان يبقى مؤكد إن العميل شاف واستوعب إنه بقى بيكلم محرك مختلف.
      */
+    async function insertSieTemporaryProblem() {
+        await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            sender_id: null,
+            message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من زر "وضع الشات بوت".',
+            is_admin_reply: false,
+            is_bot_reply: true
+        });
+    }
+
     async function handleSieRevokedMidConversation(sieAccess) {
         cachedChatbotMode = 'traditional';
         const label = document.getElementById('chatModeBtnLabel');
@@ -703,6 +713,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (cachedChatbotMode === CHATBOT_MODES.SIE) {
                 const sieAccess = await getSieAccessInfo(currentUser.id);
+                // عطل مؤقت في التحقق (شبكة، 5xx، circuit مفتوح) مش سحب
+                // صلاحية: منحوّلش العميل ومنحفظش "تقليدي" على أساسه.
+                if (sieAccess.checkFailed) {
+                    await insertSieTemporaryProblem();
+                    if (typingIndicator) typingIndicator.style.display = 'none';
+                    return;
+                }
                 if (!sieAccess.available) {
                     await handleSieRevokedMidConversation(sieAccess);
                     if (typingIndicator) typingIndicator.style.display = 'none';
@@ -720,13 +737,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // كإجابة نهائية بردّ عادي - نبلّغ العميل إن في مشكلة مؤقتة، عشان
                 // الفرق بين "بيرد عليك بوت تاني دلوقتي" و"حصل خطأ، جرّب تاني" يفضل واضح له.
                 if (!sieResult) {
-                    await supabase.from('chat_messages').insert({
-                        session_id: currentSessionId,
-                        sender_id: null,
-                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من زر "وضع الشات بوت".',
-                        is_admin_reply: false,
-                        is_bot_reply: true
-                    });
+                    await insertSieTemporaryProblem();
                     if (typingIndicator) typingIndicator.style.display = 'none';
                     return;
                 }
