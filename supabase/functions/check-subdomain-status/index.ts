@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
   }
 
   hostname = hostname.trim().toLowerCase();
-  // نسمح إما بالدومين الكامل (name.mad3oom.com) أو بالاسم الفرعي فقط (name)
+  // نسمح إما بالدومين الكامل (name.mad3oom.online) أو بالاسم الفرعي فقط (name)
   const subdomain = hostname.includes(".") ? hostname.split(".")[0] : hostname;
 
   if (!subdomain) {
