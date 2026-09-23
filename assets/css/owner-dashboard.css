@@ -425,3 +425,112 @@
     outline: 2px solid var(--owner-accent, #3E6FD9);
     outline-offset: -2px;
 }
+
+/* ── سلطة SIE داخل «السلطة والمنح» ───────────────────────────────────────── */
+/* قسم فرعي داخل نفس .panel: فاصل علوي لا إطار ثانٍ، ومن نفس التوكنز. */
+.owner-shell .owner-subsection {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--color-border);
+}
+
+.owner-shell .owner-subsection-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.owner-shell .owner-subsection-title {
+    margin: 0 0 var(--sp-1);
+    font-size: var(--fs-md);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.owner-shell .owner-subsection-label {
+    margin: var(--sp-5) 0 0;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.owner-shell .owner-sie-console {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.owner-shell .owner-sie-engine {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-md);
+    background: var(--owner-tint);
+}
+
+.owner-shell .owner-sie-engine-text {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-3);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.owner-shell .owner-sie-engine-title { font-weight: 700; color: var(--color-text); }
+.owner-shell .owner-sie-engine-meta { font-size: var(--fs-xs); }
+
+.owner-shell .owner-account { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.owner-shell .owner-account-name { font-weight: 600; color: var(--color-text); }
+/* البريد لاتيني: dir="ltr" على العنصر، ومحاذاته لبداية السطر العربي */
+.owner-shell .owner-account-email {
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    text-align: end;
+    unicode-bidi: isolate;
+}
+
+.owner-shell .owner-sie-grant {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+}
+
+.owner-shell .owner-sie-hint { margin-top: var(--sp-2); }
+
+.owner-shell .owner-sie-status {
+    margin: var(--sp-3) 0 0;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm);
+    background: var(--tint-accent);
+    color: var(--on-accent);
+}
+.owner-shell .owner-sie-status[data-tone='success'] { background: var(--tint-success); color: var(--on-success); }
+.owner-shell .owner-sie-status[data-tone='error']   { background: var(--tint-danger);  color: var(--on-danger); }
+
+.owner-shell .owner-sie-log { margin-top: var(--sp-3); font-size: var(--fs-sm); }
+.owner-shell .owner-sie-log summary { cursor: pointer; color: var(--color-text-secondary); font-weight: 600; }
+.owner-shell .owner-sie-log ul {
+    list-style: none;
+    margin: var(--sp-2) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+@media (max-width: 720px) {
+    .owner-shell .owner-sie-grant { grid-template-columns: 1fr; }
+    .owner-shell .owner-sie-grant .btn { width: 100%; }
+}

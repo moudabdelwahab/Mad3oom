@@ -895,7 +895,12 @@ test('النافذة تُغلق بالضغط خارجها وبمفتاح Escape'
 
     await page.locator('#notificationBtn').click();
     await page.waitForSelector('#portalNotificationPopover', { timeout: 10000 });
-    await page.locator('#companyMain').click({ position: { x: 5, y: 5 } });
+    // نقرة في منتصف المحتوى لا في ركنه: النافذة مربوطة بحافة الشريط الخارجية
+    // (يسارًا في RTL)، فالركن العلوي الأيسر يقع تحتها — والنقر داخلها لا يغلقها.
+    const main = await page.locator('#companyMain').boundingBox();
+    await page.locator('#companyMain').click({
+        position: { x: Math.round(main.width / 2), y: Math.min(320, Math.round(main.height / 2)) }
+    });
     await page.waitForFunction(() => !document.getElementById('portalNotificationPopover'),
         null, { timeout: 10000 });
 

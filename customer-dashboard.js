@@ -14,6 +14,7 @@
 // مفيش هنا أي منطق مكرر لحاجة ليها وحدة فوق — الملف ده تنسيق ورسم فقط.
 import { mountAccountSettings } from './assets/js/account/account-settings.js';
 import { guardPage } from './assets/js/page-guard.js';
+import { isAccountRestricted } from './assets/js/account-status.js';
 import {
     initCustomerSidebar,
     updateSystemStatusPill,
@@ -507,7 +508,7 @@ function meter(percent, tone = '') {
 
         const profile = snapshot.account.data || {};
         const rows = [];
-        const banned = profile.ban_status && !['active', 'none'].includes(profile.ban_status);
+        const banned = isAccountRestricted(profile);
 
         rows.push({
             label: 'حالة الحساب',

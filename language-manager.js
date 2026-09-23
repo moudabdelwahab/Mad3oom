@@ -250,7 +250,13 @@ class LanguageManager {
             const saved = localStorage.getItem('mad3oom-language');
             if (saved === 'ar' || saved === 'en') return saved;
         } catch(e) {}
-        return navigator.language.startsWith('ar') ? 'ar' : 'en';
+        // العربية هي لغة المنصة، والإنجليزية اختيار صريح من قائمة اللغة فقط.
+        // كان الافتراضي يُشتق من لغة المتصفح، فأي متصفح إنجليزي (أغلب الأجهزة
+        // في مصر والخليج) كان يقلب <html dir> إلى ltr على لوحات محتواها عربي
+        // بالكامل: النص يلتصق بالشمال والترتيب ينعكس بينما القائمة ثابتة يمينًا.
+        // وبقية الوحدات (customer-sidebar / admin sidebar / إعدادات العميل)
+        // تفترض 'ar' أصلًا عند غياب الاختيار — فالافتراضي هنا يطابقها.
+        return 'ar';
     }
 
     _applyToHTML(lang) {

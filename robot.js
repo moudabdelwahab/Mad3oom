@@ -31,10 +31,12 @@
  * لسه فيه مفتاح madoum_trigger_onboarding كتفعيل يدوي احتياطي (لو حبينا
  * مستقبلًا نجبر فتح المساعد من صفحة تانية زي صفحة نجاح الدفع مباشرة).
  *
- * ربط الباك إند لاحقًا:
- *   كل نداءات الشبكة الخاصة بإنشاء بوت تيليجرام معزولة جوه OnboardingAPI
- *   تحت. دلوقتي بترجع بيانات وهمية (mock) بعد تأخير بسيط عشان تجربة UI
- *   متسقة. لما الـ backend يجهز، استبدل جسم الدالة بنداء fetch حقيقي.
+ * تنبيهات تيليجرام:
+ *   كانت هنا خطوة «إنشاء بوت» وهمية: نموذج + خطوات متحركة ثم رسالة
+ *   «تم ربط بوت التيليجرام بنجاح ✅» — بينما OnboardingAPI.createTelegramBot
+ *   كانت mock ترجع نجاحًا دائمًا ولا تنشئ شيئًا. العميل كان يُقال له إن
+ *   بوته شغّال وهو غير موجود. أُزيلت: لا يوجد مسار خلفي لإنشاء بوت للعميل،
+ *   فالمساعد يوجّه لفريق الدعم (المحادثة المباشرة الحقيقية) بدل ادّعاء نجاح.
  */
 
 import { supabase } from '/api-config.js';
@@ -45,29 +47,19 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
 
   const STORAGE_KEY = 'madoum_onboarding_v1';
   const TRIGGER_KEY = 'madoum_trigger_onboarding';
-  const IMG_SRC = 'assets/images/mad3oom-robot.png';
+
+  // أيقونة المساعد — SVG بلون الهوية بدل صورة PNG ثقيلة (260KB)
+  const ASSISTANT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"></rect><path d="M12 7V4"></path><circle cx="12" cy="3.2" r="0.9" fill="currentColor"></circle><path d="M9 12.5v.5M15 12.5v.5"></path><path d="M10 16c.6.4 1.2.6 2 .6s1.4-.2 2-.6"></path></svg>';
+  const ICONS = {
+    chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+    replay: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>'
+  };
 
   // ---------------------------------------------------------------------
-  // OnboardingAPI — طبقة معزولة لكل نداءات الباك إند المستقبلية
+  // OnboardingAPI — نقطة توسعة لتتبّع الخطوات (لا نداء شبكة حاليًا)
   // ---------------------------------------------------------------------
   const OnboardingAPI = {
-    /**
-     * إنشاء بوت تيليجرام وربطه بحساب العميل.
-     * TODO: استبدلها بنداء حقيقي، مثال:
-     *   return fetch('/api/telegram/create-bot', {
-     *     method: 'POST',
-     *     headers: { 'Content-Type': 'application/json' },
-     *     body: JSON.stringify({ userId, botName, botUsername })
-     *   }).then(r => r.json());
-     * المتوقع من الباك إند إنه يرجّع:
-     *   { success: true, token: '...', botUsername: '...' }
-     *   أو { success: false, error: 'رسالة الخطأ' }
-     */
-    async createTelegramBot({ userId, botName, botUsername }) {
-      await wait(1400);
-      return { success: true, token: 'MOCK_TOKEN_' + Date.now(), botUsername };
-    },
-
     /**
      * تسجيل إن العميل مرّ على خطوة onboarding معيّنة (لتحليلات لاحقة).
      * TODO: fetch('/api/onboarding/track', { method:'POST', body: JSON.stringify({...}) })
@@ -78,7 +70,6 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     }
   };
 
-  function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
   // ---------------------------------------------------------------------
   // الحالة المحفوظة محليًا
@@ -119,30 +110,27 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     wrap.className = 'robot-container';
     wrap.id = 'madoumRobotContainer';
     wrap.innerHTML = `
-      <div class="speech-bubble assistant-mode" id="madoumSpeechBubble">
+      <section class="speech-bubble assistant-mode" id="madoumSpeechBubble" role="dialog" aria-labelledby="madoumAssistantName">
         <div class="robot-header">
-          <span class="robot-status"></span>
-          <span class="robot-name">مساعد الإعداد</span>
-          <button class="bubble-close" id="madoumBubbleClose" aria-label="إغلاق">×</button>
+          <span class="robot-header-mark">${ASSISTANT_ICON}</span>
+          <span class="robot-header-text">
+            <span class="robot-name" id="madoumAssistantName">مساعد الإعداد</span>
+            <span class="robot-subtitle">خطوات سريعة لتجهيز حسابك</span>
+          </span>
+          <button type="button" class="bubble-close" id="madoumBubbleClose" aria-label="إغلاق المساعد">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
-        <div class="robot-progress" id="madoumProgress"></div>
-        <div class="robot-body" id="madoumRobotBody"></div>
-      </div>
-      <div class="robot-avatar active" id="madoumRobotAvatar">
+        <div class="robot-progress" id="madoumProgress" aria-hidden="true"></div>
+        <div class="robot-body" id="madoumRobotBody" aria-live="polite"></div>
+      </section>
+      <button type="button" class="robot-avatar" id="madoumRobotAvatar" aria-controls="madoumSpeechBubble" aria-expanded="false" aria-label="مساعد الإعداد">
+        ${ASSISTANT_ICON}
+        <span class="robot-avatar-label" aria-hidden="true">مساعد الإعداد</span>
         <span class="robot-notify-dot" id="madoumNotifyDot"></span>
-        <img src="${IMG_SRC}" alt="مساعد مدعوم">
-        <span class="fallback-icon">
-          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </span>
-      </div>
+      </button>
     `;
     document.body.appendChild(wrap);
-
-    // fallback لو صورة الروبوت مش موجودة على السيرفر لسه
-    const img = wrap.querySelector('#madoumRobotAvatar img');
-    img.addEventListener('error', () => {
-      document.getElementById('madoumRobotAvatar').classList.add('img-error');
-    });
   }
 
   // ---------------------------------------------------------------------
@@ -171,7 +159,16 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     this.buildProgressRail();
 
     this.avatar.addEventListener('click', () => this.toggle());
-    document.getElementById('madoumBubbleClose').addEventListener('click', () => this.close());
+    document.getElementById('madoumBubbleClose').addEventListener('click', () => {
+      this.close();
+      this.avatar.focus();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close();
+        this.avatar.focus();
+      }
+    });
 
     // أول مرة نشوف الاشتراك النشط ده (يعني اتفعّل حديثًا) -> افتح المساعد
     // تلقائيًا. لو الاشتراك ده اتشاف قبل كده، سيبه يفضل مقفول واظهر نقطة
@@ -219,6 +216,7 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
   OnboardingController.prototype.open = function (opts) {
     opts = opts || {};
     this.bubble.classList.add('visible');
+    this.avatar.setAttribute('aria-expanded', 'true');
     this.isOpen = true;
     this.notifyDot.classList.remove('show');
 
@@ -234,7 +232,22 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
 
   OnboardingController.prototype.close = function () {
     this.bubble.classList.remove('visible');
+    this.avatar.setAttribute('aria-expanded', 'false');
     this.isOpen = false;
+  };
+
+  /** يفتح المحادثة المباشرة الحقيقية (chat-widget.js) ويغلق المساعد. */
+  OnboardingController.prototype.openSupportChat = function (prefill) {
+    this.close();
+    if (window.chatWidget && typeof window.chatWidget.openWidget === 'function') {
+      window.chatWidget.openWidget().then(() => {
+        const input = document.getElementById('chatWidgetTextInput');
+        if (prefill && input && !input.value) {
+          input.value = prefill;
+          input.dispatchEvent(new Event('input'));
+        }
+      });
+    }
   };
 
   OnboardingController.prototype.scrollDown = function () {
@@ -280,107 +293,6 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     this.scrollDown();
   };
 
-  OnboardingController.prototype.addStepList = function (title, steps, onDone) {
-    const box = document.createElement('div');
-    box.className = 'robot-steplist';
-    const list = document.createElement('ul');
-    steps.forEach((s) => {
-      const li = document.createElement('li');
-      li.innerHTML = `<span class="robot-step-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>${s}</span>`;
-      list.appendChild(li);
-    });
-    box.innerHTML = `<div class="cap">${title}</div>`;
-    box.appendChild(list);
-    this.body.appendChild(box);
-    this.scrollDown();
-
-    const items = [...list.children];
-    let i = 0;
-    const self = this;
-    (function next() {
-      if (i > 0) items[i - 1].classList.remove('spin');
-      if (i >= items.length) { onDone && onDone(); return; }
-      items[i].classList.add('spin');
-      setTimeout(() => {
-        items[i].classList.remove('spin');
-        items[i].classList.add('on');
-        i++;
-        self.scrollDown();
-        setTimeout(next, 250);
-      }, 480);
-    })();
-  };
-
-  OnboardingController.prototype.addBotForm = function () {
-    const row = document.createElement('div');
-    row.className = 'robot-field-card';
-    row.innerHTML = `
-      <label>اسم البوت</label>
-      <input type="text" id="madoumBotName" placeholder="مثال: Madoum Support Bot">
-      <label>يوزر البوت (لازم ينتهي بـ bot)</label>
-      <input type="text" id="madoumBotUser" placeholder="مثال: MadoumSupport_bot">
-      <button id="madoumCreateBotBtn" disabled>Create Bot</button>
-    `;
-    this.body.appendChild(row);
-    this.scrollDown();
-
-    const nameInput = row.querySelector('#madoumBotName');
-    const userInput = row.querySelector('#madoumBotUser');
-    const createBtn = row.querySelector('#madoumCreateBotBtn');
-
-    const validate = () => {
-      createBtn.disabled = !(nameInput.value.trim().length > 1 &&
-        userInput.value.trim().toLowerCase().endsWith('bot'));
-    };
-    nameInput.addEventListener('input', validate);
-    userInput.addEventListener('input', validate);
-
-    createBtn.onclick = () => {
-      nameInput.disabled = true;
-      userInput.disabled = true;
-      createBtn.disabled = true;
-      createBtn.textContent = 'جاري الإنشاء...';
-      this.runTelegramFlow(nameInput.value.trim(), userInput.value.trim());
-    };
-  };
-
-  OnboardingController.prototype.runTelegramFlow = async function (botName, botUsername) {
-    this.setStage(2);
-    await wait(250);
-
-    this.addStepList('بيتم الاتصال بـ BotFather', [
-      'فتح BotFather تلقائيًا',
-      'إنشاء البوت (أقل من دقيقة)',
-      'استلام الـ Token ونسخه',
-      'لصقه في إعدادات موقعك'
-    ], async () => {
-      await wait(150);
-      this.addStepList('موقعك بيجهّز كل حاجة تلقائيًا', [
-        'حفظ الـ Token',
-        'إنشاء قاعدة البيانات',
-        'إعداد الـ Webhook',
-        'تشغيل السيرفر',
-        'إضافة الأوامر',
-        'إرسال رسالة "تم إنشاء البوت" ✅'
-      ], async () => {
-        // نداء الباك إند الحقيقي (حاليًا mock)
-        const result = await OnboardingAPI.createTelegramBot({
-          userId: this.userId, botName, botUsername
-        });
-
-        if (result.success) {
-          this.state.telegramConnected = true;
-          this.state.botUsername = result.botUsername;
-          saveState(this.state);
-          await this.say(`تم ربط بوت التيليجرام بنجاح ✅ من دلوقتي هتوصلك رسالة فورية أول ما حد يدخل رابطك وينشئ تذكرة.`);
-        } else {
-          await this.say(`حصلت مشكلة أثناء إنشاء البوت 😕 تقدر تحاول تاني في أي وقت من هنا.`);
-        }
-        this.goToWhatsappStage();
-      });
-    });
-  };
-
   OnboardingController.prototype.goToWhatsappStage = async function () {
     this.setStage(3);
     await this.say('بالنسبة لتنبيهات <b>الواتساب</b>، الخدمة قريبة جدًا 🚀 وهتوصلك رسالة أول ما تتفعّل.');
@@ -407,9 +319,15 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     await this.say('🎉 مبروك، دلوقتي عندك <b>عدد غير محدود</b> من إنشاء التذاكر. تحب تفعّل تنبيهات تيليجرام؟ لو حد دخل على رابطك وعمل تذكرة، هتوصلك رسالة فورية على البوت بتاعك.');
     this.addChoices([
       {
-        label: 'أه، يلا نربط', primary: true, onClick: async () => {
-          await this.say('تمام! اكتب اسم البوت واليوزر اللي عايزه، وأنا هظبط الباقي.');
-          this.addBotForm();
+        label: 'أه، عايز أفعّلها', primary: true, onClick: async () => {
+          OnboardingAPI.trackStep('telegram_requested');
+          // لا يوجد مسار آلي لإنشاء بوت للعميل — التفعيل يتم مع فريق الدعم
+          // فعليًا، فنقول ذلك بوضوح بدل محاكاة نجاح.
+          await this.say('ربط بوت تيليجرام الخاص بيك بيتم حاليًا مع فريق الدعم مباشرة. ابعتلهم من المحادثة وهيجهّزوه معاك خطوة بخطوة.');
+          this.addChoices([
+            { label: 'راسل الدعم الآن', primary: true, onClick: () => { this.openSupportChat('عايز أفعّل تنبيهات تيليجرام لحسابي'); this.goToWhatsappStage(); } },
+            { label: 'لاحقًا', onClick: () => this.goToWhatsappStage() }
+          ]);
         }
       },
       {
@@ -425,37 +343,28 @@ import { getActiveSubscription } from '/whatsapp-subscription-service.js';
     this.body.innerHTML = '';
     this.setStage(this.state.completed ? 4 : this.stage);
 
+    // لا نعرض «بوتك شغّال» اعتمادًا على telegramConnected المحفوظة محليًا:
+    // تلك القيمة كتبتها خطوة وهمية قديمة ولا تعني أن بوتًا أُنشئ فعلًا.
     const msg = document.createElement('div');
     msg.className = 'robot-msg';
-    msg.innerHTML = this.state.telegramConnected
-      ? `أهلاً بيك تاني 👋 بوت التيليجرام (<b>@${this.state.botUsername || ''}</b>) شغال تمام. محتاج أي مساعدة تانية؟`
-      : 'أهلاً بيك تاني 👋 لسه معندكش بوت تيليجرام متصل، تحب نربطه دلوقتي؟';
+    msg.textContent = 'أهلاً بيك تاني 👋 أقدر أساعدك في إيه؟';
     this.body.appendChild(msg);
 
     const actions = document.createElement('div');
     actions.className = 'robot-quick-actions';
 
-    if (!this.state.telegramConnected) {
-      const connectBtn = document.createElement('button');
-      connectBtn.textContent = '🔗 ربط تيليجرام دلوقتي';
-      connectBtn.onclick = () => { this.body.innerHTML = ''; this.setStage(1); this.addBotForm(); };
-      actions.appendChild(connectBtn);
-    }
-
-    const replayBtn = document.createElement('button');
-    replayBtn.textContent = '🔁 إعادة عرض خطوات الإعداد من الأول';
-    replayBtn.onclick = () => this.startFlow();
-    actions.appendChild(replayBtn);
-
-    const supportBtn = document.createElement('button');
-    supportBtn.textContent = '💬 محتاج مساعدة؟ تواصل مع الدعم';
-    supportBtn.onclick = () => {
-      this.close();
-      if (window.chatWidget && typeof window.chatWidget.openWidget === 'function') {
-        window.chatWidget.openWidget();
-      }
+    const button = (icon, label, onClick) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = `${ICONS[icon]}<span></span>`;
+      btn.querySelector('span').textContent = label;
+      btn.onclick = onClick;
+      actions.appendChild(btn);
     };
-    actions.appendChild(supportBtn);
+
+    button('send', 'تفعيل تنبيهات تيليجرام مع الدعم', () => this.openSupportChat('عايز أفعّل تنبيهات تيليجرام لحسابي'));
+    button('replay', 'إعادة عرض خطوات الإعداد من الأول', () => this.startFlow());
+    button('chat', 'محتاج مساعدة؟ تواصل مع الدعم', () => this.openSupportChat());
 
     this.body.appendChild(actions);
     this.scrollDown();

@@ -2,6 +2,7 @@ import * as dataClient from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { iconize } from '/assets/js/chat-icons.js';
+import { isAccountRestricted } from '/assets/js/account-status.js';
 
 // طبقة الوصول للبيانات - تُستورد من إعدادات المنصة الداخلية فقط
 const db = dataClient.supabase;
@@ -233,7 +234,7 @@ function renderCustomer(profile) {
     document.getElementById('custJoinDate').textContent = profile.created_at ? 'عضو منذ ' + formatDate(profile.created_at) : '—';
 
     const banBadge = document.getElementById('custBanBadge');
-    banBadge.innerHTML = (profile.ban_status && profile.ban_status !== 'none')
+    banBadge.innerHTML = isAccountRestricted(profile)
         ? pillHtml('ch-pill-banned', 'محظور')
         : pillHtml('ch-pill-active', 'نشط');
 
@@ -532,7 +533,7 @@ function renderSummary(profile) {
     const totalChats = customerData.chatSessions.length;
     const totalWa = customerData.waMessages.length;
     const sub = customerData.subscriptions[0];
-    const isBanned = profile.ban_status && profile.ban_status !== 'none';
+    const isBanned = isAccountRestricted(profile);
 
     const points = [];
     const totalInteractions = tickets.length + totalChats + totalWa;

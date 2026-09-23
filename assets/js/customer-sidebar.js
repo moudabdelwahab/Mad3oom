@@ -256,9 +256,12 @@ async function loadAccountIdentity() {
         if (menuEmail) menuEmail.textContent = user.email || '';
 
         // حالة الحساب معلومة يملكها العميل عن نفسه، ومفيدة قبل ما يسأل الدعم.
-        const ban = user.profile?.ban_status;
-        if (menuState && ban && ban !== 'active') {
-            menuState.textContent = ban === 'banned' ? 'الحساب موقوف' : 'الحساب مقيّد';
+        // الشرط نفسه في is_banned() بالقاعدة — 'none' (الافتراضي) و'active'
+        // حسابات سليمة، والحظر المؤقت المنتهي لا يُعرض.
+        const { accountRestrictionLabel } = await import('/assets/js/account-status.js');
+        const restriction = accountRestrictionLabel(user.profile);
+        if (menuState && restriction) {
+            menuState.textContent = restriction;
             menuState.className = 'badge badge-danger portal-menu-state';
             menuState.hidden = false;
         }

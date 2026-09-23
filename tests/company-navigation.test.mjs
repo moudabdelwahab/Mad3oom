@@ -316,7 +316,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         مكان بينادي mad3oom.online غيّره إلى mad3oom.com»). رابط التحقق
     //         من الفاتورة يُبنى داخل القاعدة من إعداد وقيم افتراضية على .online
     //         المنتهي، فلا يُصلَح من الواجهة.
-    assert.equal(migrations[migrations.length - 1], '050_public_domain_mad3oom_com.sql',
+    //   052 — سلطة مالك المنصة على SIE (مطلوب صراحةً: «يجب أن تُفرض على
+    //         مستوى التفويض لا الواجهة»). is_sie_admin() كانت بريد support@
+    //         مكتوبًا في جسم الدالة فلم يكن المالك مدير SIE في أي سياق،
+    //         و platform_authority كانت تُقرأ صفًّا ذاتيًا فقسم «السلطة والمنح»
+    //         لم يعرض إلا المالك. 051 طُبِّق على الإنتاج من خارج المستودع.
+    //         مقيسٌ بضوابط سلبية في tests/sql/owner-sie-authority.test.sql.
+    assert.equal(migrations[migrations.length - 1], '052_owner_sie_authority.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -227,13 +227,8 @@ function setupModalEvents() {
     }
 }
 
-async function impersonateUser(id) { 
-    if (!id) return alert('لا يمكن الدخول لحساب ضيف');
-    const { data: targetUser } = await supabase.from('profiles').select('email').eq('id', id).single();
-    const activityModule = await import('/activity-service.js');
-    activityModule.logActivity('impersonate', { target_user_id: id, target_email: targetUser?.email });
-    await adminImpersonateUser(id);
-    location.href = '/customer-dashboard.html';
-}
+// impersonateUser مستوردة من admin-utils.js (تسجيل النشاط + التنقل في نداء
+// واحد). كانت هنا نسخة محلية بنفس الاسم — وإعادة تعريف اسم مستورد خطأ
+// SyntaxError يُسقط الوحدة كلها، فلم تكن هذه اللوحة تعمل أصلًا.
 
 init();
