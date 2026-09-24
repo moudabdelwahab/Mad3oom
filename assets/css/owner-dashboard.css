@@ -485,6 +485,22 @@
     min-width: 0;
 }
 
+/* إصدارات SIE: رابط للإدارة في لوحة SIE — لا نسخة منها هنا */
+.owner-shell .owner-sie-editions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-3);
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-md);
+}
+.owner-shell .owner-sie-editions .owner-subsection-label { margin: 0 0 var(--sp-1); }
+.owner-shell .owner-sie-editions .panel-subtitle { margin: 0; }
+.owner-shell .owner-sie-editions .btn { white-space: nowrap; text-decoration: none; }
+
 .owner-shell .owner-sie-engine-title { font-weight: 700; color: var(--color-text); }
 .owner-shell .owner-sie-engine-meta { font-size: var(--fs-xs); }
 

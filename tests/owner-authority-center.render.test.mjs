@@ -198,3 +198,14 @@ test('غير المالك يرى البوابة لا المركز', { skip: !chr
     await context.close();
 });
 
+
+test('إصدارات SIE: مدخل واحد يفتح لوحة SIE نفسها (لا نسخة ثانية)', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
+    await page.waitForSelector('#sieEditionsEntry');
+    const links = await page.$$eval('#sieEditionsEntry a', els => els.map(a => ({ href: a.href, rel: a.rel, target: a.target })));
+    assert.deepEqual(links, [{ href: 'https://sie.mad3oom.com/sie-admin/settings.html#/editions', rel: 'noopener', target: '_blank' }]);
+    // لا أزرار تغيير إصدار هنا: الإدارة في لوحة SIE وحدها، والقاعدة ترفض غير المالك.
+    assert.equal(await page.locator('#sieEditionsEntry select, #sieEditionsEntry input, #sieEditionsEntry form').count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
