@@ -34,6 +34,18 @@ CREATE TABLE public.chat_messages (
   is_admin_reply boolean DEFAULT false, is_bot_reply boolean DEFAULT false, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.buckets (id text PRIMARY KEY, public boolean DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text, owner uuid);
+CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[]
+LANGUAGE plpgsql IMMUTABLE AS $sf$
+DECLARE _parts text[];
+BEGIN
+  SELECT string_to_array(name, '/') INTO _parts;
+  RETURN _parts[1 : array_length(_parts,1) - 1];
+END $sf$;
+GRANT EXECUTE ON FUNCTION storage.foldername(text) TO authenticated, anon;
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY objects_read_own ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'chat-attachments' AND (storage.foldername(name))[1] = (auth.uid())::text);
+GRANT SELECT, DELETE ON storage.objects TO authenticated;
 
 -- سياسة الإدراج كما في الإنتاج (مبسّطة للعميل): جلسته، ومرسل هو نفسه أو لا أحد
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
@@ -182,6 +194,41 @@ DO $$ BEGIN
     RAISE EXCEPTION 'FAIL an existing legacy value was rewritten';
   END IF;
   RAISE NOTICE 'PASS new profiles default to sie; existing legacy values are left untouched';
+END $$;
+
+-- ⑩ «الوضع التقليدي» لا يُختار ولا بنداء مباشر --------------------------------
+SELECT pg_temp.must_fail($q$UPDATE public.profiles SET chatbot_mode = 'traditional' WHERE id = 'b0000000-0000-4000-8000-00000000000b'$q$,
+  'setting chatbot_mode to traditional is refused');
+SELECT pg_temp.must_fail($q$UPDATE public.profiles SET chatbot_mode = 'ai_model' WHERE id = 'b0000000-0000-4000-8000-00000000000b'$q$,
+  'setting chatbot_mode to ai_model is refused');
+SELECT pg_temp.must_fail($q$INSERT INTO public.profiles (id, chatbot_mode) VALUES ('d0000000-0000-4000-8000-00000000000d', 'traditional')$q$,
+  'a new profile cannot start on traditional');
+DO $$ BEGIN
+  UPDATE public.profiles SET role = 'user' WHERE id = 'a0000000-0000-4000-8000-00000000000a';   -- legacy row, other column
+  UPDATE public.profiles SET chatbot_mode = 'sie' WHERE id = 'a0000000-0000-4000-8000-00000000000a';
+  RAISE NOTICE 'PASS a legacy row can still be edited, and moved to sie';
+END $$;
+
+-- ⑪ حذف ملف مرفوع: ما دام غير مُرسل فقط ------------------------------------------
+INSERT INTO storage.objects (bucket_id, name) VALUES
+  ('chat-attachments', 'a0000000-0000-4000-8000-00000000000a/s-1-orphan.png');
+SET ROLE authenticated;
+SELECT pg_temp.as_a();
+DELETE FROM storage.objects WHERE name = 'a0000000-0000-4000-8000-00000000000a/s-1-orphan.png';
+DELETE FROM storage.objects WHERE name = 'a0000000-0000-4000-8000-00000000000a/s-1-shot.png';
+DELETE FROM storage.objects WHERE name = 'b0000000-0000-4000-8000-00000000000b/secret.pdf';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE name = 'a0000000-0000-4000-8000-00000000000a/s-1-orphan.png') THEN
+    RAISE EXCEPTION 'FAIL the customer could not clean up an unsent upload';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE name = 'a0000000-0000-4000-8000-00000000000a/s-1-shot.png') THEN
+    RAISE EXCEPTION 'FAIL a file already sent in a message was deleted';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE name = 'b0000000-0000-4000-8000-00000000000b/secret.pdf') THEN
+    RAISE EXCEPTION 'FAIL a customer deleted another customer''s file';
+  END IF;
+  RAISE NOTICE 'PASS an unsent upload can be cleaned up; a sent file or someone else''s cannot';
 END $$;
 
 -- ⑨ ---------------------------------------------------------------------------

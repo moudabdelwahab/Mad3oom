@@ -144,3 +144,44 @@ CREATE TRIGGER trg_guard_chat_message_attachment
 
 -- ④ ---------------------------------------------------------------------------
 ALTER TABLE public.profiles ALTER COLUMN chatbot_mode SET DEFAULT 'sie';
+
+-- ⑤ ---------------------------------------------------------------------------
+-- «الوضع التقليدي» لا يُختار ولا من الـ API: أي قيمة **جديدة** لوضع الرد غير
+-- 'sie' مرفوضة. مُحفِّز لا CHECK: قيد CHECK (ولو NOT VALID) يُفحص عند أي
+-- UPDATE للصف، فكان سيكسر تعديل أي بيانات أخرى لـ31 حسابًا بقيم قديمة.
+-- الصفوف القديمة تبقى كما هي ما لم يتغيّر وضعها.
+CREATE OR REPLACE FUNCTION public.guard_chatbot_mode_value()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.chatbot_mode IS NOT NULL AND NEW.chatbot_mode <> 'sie'
+     AND (TG_OP = 'INSERT' OR NEW.chatbot_mode IS DISTINCT FROM OLD.chatbot_mode) THEN
+    RAISE EXCEPTION 'وضع الرد "%" لم يعد متاحًا — SIE هو وضع الرد الوحيد', NEW.chatbot_mode
+      USING ERRCODE = '22023';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_chatbot_mode_value ON public.profiles;
+CREATE TRIGGER trg_guard_chatbot_mode_value
+  BEFORE INSERT OR UPDATE OF chatbot_mode ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.guard_chatbot_mode_value();
+
+-- ⑥ ---------------------------------------------------------------------------
+-- تنظيف رفع لم يكتمل إرساله: العميل يحذف ملفه **ما دامت لا رسالة تشير إليه**.
+-- ملف أُرسل في محادثة لا يحذفه أحد من الواجهة (دليل لفريق الدعم).
+DROP POLICY IF EXISTS chat_attachments_delete_own_unreferenced ON storage.objects;
+CREATE POLICY chat_attachments_delete_own_unreferenced ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'chat-attachments'
+    AND (storage.foldername(name))[1] = (auth.uid())::text
+    AND NOT EXISTS (
+      SELECT 1 FROM public.chat_messages m
+       WHERE m.image_url = storage.objects.name
+          OR m.audio_url = storage.objects.name
+          OR m.attachment->>'path' = storage.objects.name)
+  );
