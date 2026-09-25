@@ -1,5 +1,5 @@
 -- ============================================================================
--- 054_inbox_helpdesk_core.sql
+-- 055_inbox_helpdesk_core.sql
 --   صندوق الرسائل كـ helpdesk — المرحلة 1: الوصول، الفرق، الإسناد، التحويل،
 --   الوسوم، الملاحظات الداخلية، الأرشفة، والسجل.
 --
@@ -59,12 +59,12 @@ begin
      or to_regprocedure('public.account_is_active()') is null
      or to_regprocedure('public.is_banned(uuid)') is null
      or to_regprocedure('public.guard_preview_read_only()') is null then
-    raise exception '054 يتطلب 040 → 042 (دوال السلطة والمعاينة والبوابة)';
+    raise exception '055 يتطلب 040 → 042 (دوال السلطة والمعاينة والبوابة)';
   end if;
   if to_regclass('public.chat_sessions') is null or to_regclass('public.chat_messages') is null
      or to_regclass('public.ticket_tags') is null or to_regclass('public.platform_authority') is null
      or to_regclass('public.notifications') is null then
-    raise exception '054 يتطلب chat_sessions و chat_messages و ticket_tags و platform_authority و notifications';
+    raise exception '055 يتطلب chat_sessions و chat_messages و ticket_tags و platform_authority و notifications';
   end if;
 end $$;
 
@@ -890,7 +890,7 @@ declare
   t text;
 begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    raise notice '054: لا يوجد supabase_realtime — تخطّي Realtime';
+    raise notice '055: لا يوجد supabase_realtime — تخطّي Realtime';
     return;
   end if;
   foreach t in array array['inbox_conversations', 'inbox_conversation_tags', 'inbox_notes', 'inbox_events'] loop
@@ -912,25 +912,25 @@ begin
   foreach t in array array['inbox_teams', 'inbox_team_members', 'inbox_conversations',
                            'inbox_conversation_tags', 'inbox_notes', 'inbox_events'] loop
     if not (select c.relrowsecurity from pg_class c where c.oid = ('public.' || t)::regclass) then
-      raise exception '054: % بلا RLS', t;
+      raise exception '055: % بلا RLS', t;
     end if;
     if exists (select 1 from pg_policies where schemaname = 'public' and tablename = t
                 and permissive = 'PERMISSIVE' and cmd <> 'SELECT') then
-      raise exception '054: سياسة كتابة مباشرة على %', t;
+      raise exception '055: سياسة كتابة مباشرة على %', t;
     end if;
     if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t
                     and policyname = 'gate_account_active' and permissive = 'RESTRICTIVE') then
-      raise exception '054: % بلا بوابة الحساب', t;
+      raise exception '055: % بلا بوابة الحساب', t;
     end if;
     if not exists (select 1 from pg_trigger where tgrelid = ('public.' || t)::regclass
                     and tgname = 'trg_preview_read_only') then
-      raise exception '054: % بلا حارس المعاينة', t;
+      raise exception '055: % بلا حارس المعاينة', t;
     end if;
     if has_table_privilege('authenticated', 'public.' || t, 'INSERT')
        or has_table_privilege('authenticated', 'public.' || t, 'UPDATE')
        or has_table_privilege('authenticated', 'public.' || t, 'DELETE')
        or has_table_privilege('anon', 'public.' || t, 'SELECT') then
-      raise exception '054: صلاحية جدول زائدة على %', t;
+      raise exception '055: صلاحية جدول زائدة على %', t;
     end if;
   end loop;
 
@@ -938,16 +938,16 @@ begin
   if exists (select 1 from pg_policies where schemaname = 'public'
               and tablename in ('chat_sessions', 'chat_messages')
               and policyname like 'inbox%' and cmd <> 'SELECT') then
-    raise exception '054: سياسة كتابة inbox على جدولي الشات';
+    raise exception '055: سياسة كتابة inbox على جدولي الشات';
   end if;
 
   if has_function_privilege('anon', 'public.inbox_send_reply(uuid, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._inbox_set_assignment(uuid, uuid, uuid, text, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._inbox_notify(uuid, text, text, uuid)', 'EXECUTE') then
-    raise exception '054: دالة داخلية أو عامة مكشوفة لغير المقصود';
+    raise exception '055: دالة داخلية أو عامة مكشوفة لغير المقصود';
   end if;
 
-  raise notice '054: صندوق الرسائل — الوصول والإسناد والفرق والوسوم والملاحظات والأرشفة جاهزة';
+  raise notice '055: صندوق الرسائل — الوصول والإسناد والفرق والوسوم والملاحظات والأرشفة جاهزة';
 end $$;
 
 -- ============================================================================

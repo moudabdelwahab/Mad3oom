@@ -203,7 +203,35 @@
         .ib-text { white-space: pre-wrap; }
         .ib-text svg { vertical-align: -2px; }
         .ib-text mark { background: var(--color-warning); color: #000; border-radius: .2rem; }
-        .ib-image { display: block; max-width: min(100%, 15rem); border-radius: var(--ib-radius-sm); margin-bottom: 0.35rem; }
+        /* المرفقات بترسمها chat-attachments.js (نفس صفحة العميل) بأصناف cw-att؛
+           الشكل هنا بمتغيرات تصميم اللوحة، مش chat-widget.css كله. */
+        .ib-bubble .cw-att { display: block; max-width: 100%; margin-bottom: 0.35rem; }
+        .ib-bubble .cw-att-image {
+            position: relative; padding: 0; border: 0; cursor: zoom-in; overflow: hidden;
+            border-radius: var(--ib-radius-sm); background: var(--color-muted); min-width: 7.5rem; min-height: 5.5rem;
+        }
+        .ib-bubble .cw-att-image img { display: block; max-width: min(15rem, 100%); max-height: 15rem; object-fit: cover; }
+        .ib-bubble .cw-att-loading { position: absolute; inset: 0; background: var(--color-muted); }
+        .ib-bubble .cw-att-image.is-ready .cw-att-loading { display: none; }
+        .ib-bubble .cw-att.is-unavailable { opacity: .6; cursor: default; }
+        .ib-bubble .cw-att-image.is-unavailable::after {
+            content: 'المرفق غير متاح'; position: absolute; inset: 0; display: grid; place-items: center;
+            font-size: 0.7rem; color: var(--color-text-secondary);
+        }
+        .ib-bubble .cw-att-audio { display: flex; align-items: center; gap: 0.4rem; }
+        .ib-bubble .cw-att-audio audio { width: 14rem; max-width: 100%; height: 2.25rem; }
+        .ib-bubble .cw-att-meta { font-size: 0.68rem; opacity: .75; white-space: nowrap; unicode-bidi: isolate; }
+        .ib-bubble .cw-att-file {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.55rem; min-width: 0;
+            border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm);
+            background: var(--color-surface); color: var(--color-text); text-decoration: none;
+        }
+        .ib-bubble .cw-att-file:hover { border-color: var(--color-accent); }
+        .ib-bubble .cw-att-file-icon { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 0.4rem; background: var(--color-muted); color: var(--color-accent); flex-shrink: 0; }
+        .ib-bubble .cw-att-file-icon svg { width: 15px; height: 15px; }
+        .ib-bubble .cw-att-file-text { display: flex; flex-direction: column; min-width: 0; }
+        .ib-bubble .cw-att-file-name { font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12rem; }
+        .ib-msg--mine .ib-bubble .cw-att-file { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #fff; }
 
         .ib-msg-meta { font-size: 0.66rem; color: var(--color-text-secondary); display: flex; gap: 0.3rem; align-items: center; }
         .ib-msg--mine .ib-msg-meta { justify-content: flex-end; }

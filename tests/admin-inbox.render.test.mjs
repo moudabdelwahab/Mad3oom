@@ -55,6 +55,7 @@ function resolveChromium() {
     return null;
 }
 
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 const ADMIN = 'admin-1';
 const S_BOT = 'aaaaaaaa-0000-4000-8000-000000000001';
 const S_MANUAL = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -73,7 +74,7 @@ const customer = (session_id, user_id, full_name, email, role = 'user') =>
     ({ session_id, user_id, full_name, email, role, phone: null, created_at: t(0) });
 
 /**
- * شكل البيانات بعد 054: الجلسات من chat_sessions (برسايلها)، وحالة الـ
+ * شكل البيانات بعد 055: الجلسات من chat_sessions (برسايلها)، وحالة الـ
  * helpdesk من inbox_*، واسم العميل وقائمة الموظفين من RPC (مش embed على
  * profiles، لأن الأدمن غير المرتفع مالوش SELECT على ملفات الآخرين).
  */
@@ -171,11 +172,22 @@ async function openInbox(fx, { query = '', viewport } = {}) {
     const context = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 } });
     const page = await context.newPage();
 
-    const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
+    // التوقيع في البديل المشترك غير موجود؛ نضيفه بنفس شكل chat-page.render.test.mjs
+    // (روابط /__file/… يخدمها الاختبار نفسه).
+    const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8')
+        .replace("getPublicUrl: (p) => ({ data: { publicUrl: `/uploads/${p}` } })",
+            "getPublicUrl: (p) => ({ data: { publicUrl: `/uploads/${p}` } }),"
+            + " createSignedUrls: async (paths, ttl) => { (window.__SIGNED__ = window.__SIGNED__ || []).push([paths, ttl]);"
+            + " return { data: paths.map((p) => ({ path: p, signedUrl: location.origin + '/__file/' + p })), error: null }; },"
+            + " createSignedUrl: async (p) => ({ data: { signedUrl: location.origin + '/__file/' + p }, error: null })");
+    assert.ok(doubleSupabase.includes('createSignedUrls'), 'مقدرتش أضيف التوقيع للبديل');
     const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
     await page.route('**/api-config.js', r => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleSupabase }));
     await page.route('**/auth-client.js', r => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleAuth }));
     await page.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('**/__file/**', r => r.fulfill({
+        contentType: /\.pdf$/.test(r.request().url()) ? 'application/pdf' : /\.webm$/.test(r.request().url()) ? 'audio/webm' : 'image/png',
+        body: /\.webm$/.test(r.request().url()) ? Buffer.alloc(0) : PNG_1PX }));
     await page.addInitScript(data => { window.__FIXTURES__ = data; }, fx);
 
     const errors = [];
@@ -396,6 +408,42 @@ test('إدارة الفرق للمرتفع بس', { skip: !chromiumPath }, async
     await regular.page.waitForSelector('.ib-row');
     assert.equal(await regular.page.locator('#manageTeamsBtn').count(), 0);
     await regular.context.close();
+});
+
+// منقول من chat-page.render.test.mjs («admin chat: …») بعد شيل chat-admin.html:
+// نفس الضمانة، على واجهة الإدارة الوحيدة دلوقتي.
+test('مرفقات العميل (صورة وصوت وملف) بتتعرض موقَّعة للطاقم، والنص التلقائي مخفي', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    const now = t(40);
+    fx.tables.chat_sessions[0].chat_messages.push(
+        { id: 'a', session_id: S_BOT, sender_id: 'u-sara', is_admin_reply: false, is_bot_reply: false, created_at: now,
+          message_text: 'صورة مرفقة', image_url: 'u-sara/a.png', attachment: { kind: 'image', path: 'u-sara/a.png', name: 'a.png' } },
+        { id: 'b', session_id: S_BOT, sender_id: 'u-sara', is_admin_reply: false, is_bot_reply: false, created_at: now,
+          message_text: 'رسالة صوتية', audio_url: 'u-sara/v.webm', attachment: { kind: 'audio', path: 'u-sara/v.webm', name: 'v.webm', duration_ms: 2000 } },
+        { id: 'c', session_id: S_BOT, sender_id: 'u-sara', is_admin_reply: false, is_bot_reply: false, created_at: now,
+          message_text: 'الفاتورة دي', attachment: { kind: 'file', path: 'u-sara/f.pdf', name: 'f.pdf', size: 2048 } },
+        // صف قديم قبل 054: image_url بس
+        { id: 'd', session_id: S_BOT, sender_id: 'u-sara', is_admin_reply: false, is_bot_reply: false, created_at: now,
+          message_text: 'قديمة', image_url: 'u-sara/old.png' });
+    const { page, context, errors } = await openInbox(fx, { query: `?session=${S_BOT}` });
+    await page.waitForFunction(() => document.querySelectorAll('#messageList .cw-att.is-ready').length === 4);
+
+    const text = await page.locator('#messageList').innerText();
+    assert.doesNotMatch(text, /صورة مرفقة|رسالة صوتية/, 'النص التلقائي ظاهر جنب المرفق');
+    assert.match(text, /الفاتورة دي/);
+    assert.match(text, /قديمة/);
+    assert.equal(new URL(await page.getAttribute('#messageList a.cw-att-file', 'href')).pathname, '/__file/u-sara/f.pdf');
+    const srcs = await page.$$eval('#messageList img, #messageList audio', (els) => els.map((e) => new URL(e.src).pathname));
+    assert.deepEqual(srcs.sort(), ['/__file/u-sara/a.png', '/__file/u-sara/old.png', '/__file/u-sara/v.webm']);
+    // الملف بمدة التحميل الأطول، والعرض بالقصيرة — نفس صفحة العميل
+    const ttls = await page.evaluate(() => window.__SIGNED__.map(([paths, ttl]) => [paths.join(','), ttl]));
+    assert.ok(ttls.some(([p, ttl]) => p === 'u-sara/f.pdf' && ttl === 900), `مدد التوقيع ${JSON.stringify(ttls)}`);
+    assert.ok(ttls.some(([p, ttl]) => p.includes('u-sara/a.png') && ttl === 300));
+    // عدّاد المرفقات في التفاصيل
+    await page.click('#detailsBtn');
+    assert.match(await page.locator('#detailsPane').innerText(), /مرفقات\s*4/);
+    assert.deepEqual(errors, []);
+    await context.close();
 });
 
 test('الصفحة مقفولة على الطاقم — السوبر يوزر مابيشوفش محادثات', { skip: !chromiumPath }, async () => {

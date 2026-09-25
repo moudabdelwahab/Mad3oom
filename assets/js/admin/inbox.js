@@ -5,7 +5,7 @@
  * العميل (chat-logic.js)، بكل ردود البوت المحلي و SIE اللي اتكتبت فيها.
  * الصندوق مابيولّدش ردود بوت ولا بينادي SIE — بيقرا اللي اتكتب، وبيضيف
  * طبقة الفريق فوقه: الإسناد، الفرق، التحويل، الوسوم، الملاحظات الداخلية،
- * الأرشفة، والسجل (migrations/054_inbox_helpdesk_core.sql).
+ * الأرشفة، والسجل (migrations/055_inbox_helpdesk_core.sql).
  *
  * بيحل محل chat-admin.html. الروابط القديمة ليها (إشعارات القاعدة
  * `chat-admin.html?session=…`) بتتحوّل هنا من vercel.json، والصفحة دي
@@ -25,6 +25,7 @@
 import { initSidebar } from './sidebar.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { iconize } from '/assets/js/chat-icons.js';
+import { attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, autoLabelFor } from '/assets/js/chat-attachments.js';
 import {
     STATUS_LABELS, senderKind, displayName, initialsOf, isStaffOriginated, isArchived,
     lastMessageOf, lastActivityOf, isAwaitingReply, filterSessions, viewCounts,
@@ -35,7 +36,7 @@ import {
     loadSessions, loadSession, loadThreadExtras, loadAgents, loadTeams, loadTags, createSharedTag,
     loadCustomerContext, sendReply, closeSessions, assign, transfer, addTag, removeTag,
     addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
-    loadCannedReplies, signImagePaths, subscribeInbox
+    loadCannedReplies, signAttachmentPaths, subscribeInbox
 } from './inbox-data.js';
 
 const $ = (id) => document.getElementById(id);
@@ -162,31 +163,38 @@ function fitShellHeight() {
 }
 
 // ═════════════════════════════════════════════════════════════
-// الصور المرفقة (المستودع خاص — التوقيع وقت العرض)
+// المرفقات (صور، صوت، ملفات) — نفس chat-attachments.js بتاع صفحة العميل
 // ═════════════════════════════════════════════════════════════
 
+/**
+ * التوقيع مع كاش قصير: الخط الزمني بيترسم تاني مع كل رسالة جديدة، ومن غير
+ * الكاش كل رسمة كانت طلب توقيع جديد لكل مرفق.
+ */
 const SIGN_REUSE_MS = 4 * 60 * 1000; // الرابط صالح 5 دقايق؛ بنعيد التوقيع قبلها
 const signedCache = new Map();
 
-async function hydrateImages(root) {
-    const imgs = Array.from(root.querySelectorAll('img[data-storage-path]'));
-    if (!imgs.length) return;
-
+async function signCached(paths, { download = false } = {}) {
     const now = Date.now();
-    const missing = [...new Set(imgs.map((el) => el.dataset.storagePath))]
-        .filter((p) => !(signedCache.get(p)?.at > now - SIGN_REUSE_MS));
+    const key = (p) => `${download ? 'd' : 'v'}:${p}`;
+    const missing = [...new Set(paths)].filter((p) => !(signedCache.get(key(p))?.at > now - SIGN_REUSE_MS));
     if (missing.length) {
-        const urls = await signImagePaths(missing).catch(() => []);
-        missing.forEach((p, i) => signedCache.set(p, { url: urls[i] || null, at: now }));
+        const urls = await signAttachmentPaths(missing, { download });
+        missing.forEach((p, i) => signedCache.set(key(p), { url: urls?.[i] || null, at: now }));
     }
-
-    imgs.forEach((el) => {
-        const url = signedCache.get(el.dataset.storagePath)?.url;
-        el.removeAttribute('data-storage-path');
-        // الرابط مابيتسندش لـ src إلا لو https فعلاً.
-        if (url && /^https:\/\//i.test(url)) { el.src = url; el.hidden = false; }
-        else el.remove();
+    // الرابط مابيتسندش لعنصر إلا لو http(s) فعلاً — مش javascript: ولا data:.
+    return paths.map((p) => {
+        const url = signedCache.get(key(p))?.url;
+        return url && /^https?:\/\//i.test(url) ? url : null;
     });
+}
+
+const hydrateMessageAttachments = (root) => hydrateAttachments(root, signCached);
+
+/** المرفق + النص المعروض: النص التلقائي («صورة مرفقة») بيتخفى لأن المرفق نفسه ظاهر. */
+function messageParts(message) {
+    const att = attachmentFromMessage(message);
+    const raw = message.message_text || '';
+    return { att, text: att && raw === autoLabelFor(att) ? '' : raw };
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -301,8 +309,9 @@ function previewOf(session, message) {
 
     const kind = senderKind(message);
     const who = kind === 'agent' ? 'الدعم: ' : kind === 'bot' ? 'البوت: ' : '';
-    const text = stripIcons(message.message_text) || (message.image_url ? 'صورة مرفقة' : '');
-    return `${esc(who)}${esc(text.slice(0, 70))}`;
+    const att = attachmentFromMessage(message);
+    const text = stripIcons(message.message_text) || (att ? autoLabelFor(att) : '');
+    return `${esc(who)}${att ? '📎 ' : ''}${esc(text.slice(0, 70))}`;
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -457,6 +466,7 @@ function renderMessage(message) {
     const side = kind === 'agent' ? 'mine' : kind === 'bot' ? 'bot' : 'theirs';
     const label = senderLabel(message, kind);
     const hit = state.find.hits.includes(message.id);
+    const { att, text } = messageParts(message);
     return `
         <div class="ib-msg ib-msg--${side} ${hit ? 'is-hit' : ''}" data-message="${esc(message.id)}" tabindex="-1">
           ${label ? `<span class="ib-sender">${esc(label)}</span>` : ''}
@@ -464,8 +474,8 @@ function renderMessage(message) {
             <button type="button" data-act="forward" data-id="${esc(message.id)}" title="تحويل كملاحظة داخلية لمحادثة تانية">${ICON.forward}</button>
           </div>` : ''}
           <div class="ib-bubble">
-            ${message.image_url ? `<img class="ib-image" data-storage-path="${esc(message.image_url)}" alt="صورة مرفقة" hidden>` : ''}
-            ${message.message_text ? `<span class="ib-text">${renderBody(message.message_text)}</span>` : ''}
+            ${att ? renderAttachmentHtml(att, esc) : ''}
+            ${text ? `<span class="ib-text">${renderBody(text)}</span>` : ''}
           </div>
           <div class="ib-msg-meta"><span title="${esc(fullTime(message.created_at))}">${esc(shortTime(message.created_at))}</span></div>
         </div>`;
@@ -528,7 +538,12 @@ function renderMessages(session) {
         if (act === 'delete-note') removeNote(id);
     }));
 
-    hydrateImages(container);
+    hydrateMessageAttachments(container);
+    // الصورة بتتفتح بحجمها الكامل (رابط موقَّع قصير العمر) في تبويب جديد.
+    container.querySelectorAll('.cw-att-image').forEach((btn) => btn.addEventListener('click', () => {
+        const src = btn.querySelector('img')?.src;
+        if (src && btn.classList.contains('is-ready')) window.open(src, '_blank', 'noopener');
+    }));
     // محادثة اتفتحت دلوقتي → آخرها. نفس المحادثة → ننزل بس لو الموظف كان
     // تحت أصلاً، عشان رسالة جديدة ماتشدّوش وهو بيقرا اللي فوق.
     const switched = state.renderedId !== session.id;
@@ -627,6 +642,7 @@ function renderDetails() {
         ${kv('من العميل', stats.customer)}
         ${kv('من البوت', stats.bot)}
         ${kv('من الدعم', stats.agent)}
+        ${kv('مرفقات', stats.attachments)}
         ${kv('ملاحظات داخلية', state.thread.sessionId === session.id ? state.thread.notes.filter((n) => !n.deleted_at).length : '…')}
       </div>`;
 

@@ -1,5 +1,5 @@
 -- ============================================================================
--- اختبار تنفيذي لـ 054: صندوق الرسائل كـ helpdesk (المرحلة 1).
+-- اختبار تنفيذي لـ 055: صندوق الرسائل كـ helpdesk (المرحلة 1).
 --
 -- يثبّت، كل خاصية تفشل إن انكسرت:
 --   ① D1=C: الأدمن غير المرتفع لا يرى محادثة لم تُسند له، ويراها بعد الإسناد
@@ -45,7 +45,42 @@ CREATE TABLE public.chat_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid REFERENCES public.chat_sessions(id),
   sender_id uuid, message_text text NOT NULL, is_bot_reply boolean DEFAULT false,
   created_at timestamptz DEFAULT now(), is_admin_reply boolean DEFAULT false,
-  image_url text, audio_url text);
+  image_url text, audio_url text, attachment jsonb);
+
+-- 054_chat_composer_attachments (مطبَّق على الإنتاج قبل 055): حارس المرفقات
+-- على chat_messages منسوخ حرفيًا، حتى يمرّ رد الدعم عبر inbox_send_reply من
+-- نفس المحفّز الذي يمرّ منه في الإنتاج.
+CREATE SCHEMA IF NOT EXISTS storage;
+CREATE TABLE storage.objects (bucket_id text, name text);
+CREATE OR REPLACE FUNCTION public.chat_attachment_path_ok(p_path text, p_sender uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
+  SELECT p_sender IS NOT NULL
+     AND p_path !~ '^[a-zA-Z][a-zA-Z0-9+.-]*:'
+     AND p_path !~ '(^|/)\.\.?(/|$)'
+     AND left(p_path, 1) <> '/'
+     AND split_part(p_path, '/', 1) = p_sender::text
+     AND EXISTS (SELECT 1 FROM storage.objects o
+                  WHERE o.bucket_id = 'chat-attachments' AND o.name = p_path); $$;
+CREATE OR REPLACE FUNCTION public.guard_chat_message_attachment() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE v_path text;
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND NEW.image_url IS NOT DISTINCT FROM OLD.image_url
+     AND NEW.audio_url IS NOT DISTINCT FROM OLD.audio_url
+     AND NEW.attachment IS NOT DISTINCT FROM OLD.attachment THEN
+    RETURN NEW;
+  END IF;
+  FOREACH v_path IN ARRAY ARRAY[NEW.image_url, NEW.audio_url, NEW.attachment->>'path'] LOOP
+    IF v_path IS NOT NULL AND NOT public.chat_attachment_path_ok(v_path, NEW.sender_id) THEN
+      RAISE EXCEPTION 'مرفق غير صالح: يجب أن يكون ملفًا مرفوعًا في مجلد المرسل نفسه' USING ERRCODE = '42501';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER trg_guard_chat_message_attachment
+  BEFORE INSERT OR UPDATE ON public.chat_messages
+  FOR EACH ROW EXECUTE FUNCTION public.guard_chat_message_attachment();
 CREATE TABLE public.ticket_tags (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL,
   color text NOT NULL DEFAULT '#4DA3FF', created_by uuid, created_at timestamptz NOT NULL DEFAULT now());
@@ -145,7 +180,7 @@ INSERT INTO public.chat_messages (id, session_id, sender_id, message_text, is_bo
   ('3e550000-0000-4000-8000-000000000003', '5e550000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-0000000000c2', 'سؤال من عميل تاني', false);
 INSERT INTO public.ticket_tags (id, name) VALUES ('7a900000-0000-4000-8000-000000000001', 'فوترة');
 
-\i migrations/054_inbox_helpdesk_core.sql
+\i migrations/055_inbox_helpdesk_core.sql
 
 -- ── مساعدات الاختبار ─────────────────────────────────────────────────────
 CREATE SCHEMA t;
@@ -483,7 +518,7 @@ END $$;
 RESET ROLE;
 
 -- ⑪ التراجع ────────────────────────────────────────────────────────────────
--- نفس نص التراجع الموثّق في آخر 054 حرفيًا.
+-- نفس نص التراجع الموثّق في آخر 055 حرفيًا.
 drop policy if exists inbox_assigned_select on public.chat_messages;
 drop policy if exists inbox_assigned_select on public.chat_sessions;
 alter publication supabase_realtime drop table public.inbox_conversations,

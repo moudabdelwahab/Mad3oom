@@ -16,7 +16,7 @@
  *   inbox_events                       سجل كل إجراء
  *   inbox_teams / inbox_team_members   الفرق
  *
- * migrations/054_inbox_helpdesk_core.sql فيها الجداول والصلاحيات. شكل
+ * migrations/055_inbox_helpdesk_core.sql فيها الجداول والصلاحيات. شكل
  * الجلسة هنا بعد ما inbox-data.js يجمّعها:
  *
  *   { ...chat_sessions, customer, messages[], meta: {assignee_id, team_id,
@@ -182,10 +182,12 @@ export function viewCounts(sessions, ctx = {}) {
 }
 
 export function messageStats(messages) {
-    const stats = { customer: 0, bot: 0, agent: 0, images: 0 };
+    const stats = { customer: 0, bot: 0, agent: 0, attachments: 0 };
     for (const m of messages || []) {
         stats[senderKind(m)] += 1;
-        if (m.image_url) stats.images += 1;
+        // 054 (مرفقات الشات): attachment للصور والصوت والملفات، و image_url /
+        // audio_url للصفوف الأقدم.
+        if (m.attachment || m.image_url || m.audio_url) stats.attachments += 1;
     }
     return stats;
 }

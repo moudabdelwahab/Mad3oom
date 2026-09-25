@@ -2,7 +2,7 @@
  * inbox-data.js — طبقة البيانات لصندوق الرسائل (بيانات حقيقية)
  * ------------------------------------------------------------
  * القراءة: جداول الشات (نفس صفوف ويدجت العميل وصفحة العميل و SIE) + جداول
- * الـ helpdesk (migrations/054_inbox_helpdesk_core.sql).
+ * الـ helpdesk (migrations/055_inbox_helpdesk_core.sql).
  *
  * الكتابة: **كلها** عبر RPC. مفيش ولا سياسة INSERT/UPDATE على جداول inbox_*،
  * وجدولا الشات مابيتكتبوش من هنا مباشرة. كل RPC بيتحقق من الوصول ويسجّل
@@ -22,13 +22,13 @@
  * والإسناد في جداول منفصلة ماحدش من ناحية العميل يقدر يقراها.
  */
 import { supabase } from '/api-config.js';
-import { signedUrls } from '/storage-urls.js';
+import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
 import { fetchCannedResponses, fetchTags, createTag } from '/tickets-service.js';
 import { sortMessages } from './inbox-model.js';
 
 export const CHAT_ATTACHMENTS_BUCKET = 'chat-attachments';
 
-const MESSAGE_LITE = 'id, session_id, sender_id, message_text, image_url, is_admin_reply, is_bot_reply, created_at';
+const MESSAGE_LITE = 'id, session_id, sender_id, message_text, image_url, audio_url, attachment, is_admin_reply, is_bot_reply, created_at';
 const SESSION_COLS = `id, user_id, guest_id, status, is_manual_mode, created_at, updated_at, chat_messages (${MESSAGE_LITE})`;
 const META_COLS = 'session_id, assignee_id, team_id, archived_at, archived_by, updated_at';
 
@@ -173,15 +173,19 @@ export async function loadCannedReplies() {
     }
 }
 
-/** توقيع صور المحادثة (المستودع خاص) — نفس مسار صفحة العميل. */
-export async function signImagePaths(paths) {
-    if (!paths?.length) return [];
-    return signedUrls(CHAT_ATTACHMENTS_BUCKET, paths);
+/**
+ * توقيع مرفقات المحادثة (المستودع خاص) — بنفس الشكل اللي hydrateAttachments
+ * في chat-attachments.js مستنياه، ونفس مدد صفحة العميل: عرض قصير، وتحميل
+ * أطول شوية لأن الضغطة ممكن تيجي بعد العرض بدقايق.
+ */
+export function signAttachmentPaths(paths, { download = false } = {}) {
+    if (!paths?.length) return Promise.resolve([]);
+    return signedUrls(CHAT_ATTACHMENTS_BUCKET, paths, download ? SIGNED_URL_TTL_DOWNLOAD : SIGNED_URL_TTL);
 }
 
 /**
  * Realtime. RLS بتحدد اللي يوصل: الموظف بيستقبل أحداث المحادثات اللي
- * يوصلها بس (054 ضافت الجداول دي للـ publication).
+ * يوصلها بس (055 ضافت الجداول دي للـ publication).
  * @returns {() => void} إلغاء الاشتراك
  */
 export function subscribeInbox(handlers) {

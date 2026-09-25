@@ -94,7 +94,7 @@ test('مفيش بيانات تجريبية ولا بانر معاينة', async 
     assert.match(data, /from '\/api-config\.js'/, 'طبقة البيانات مش متوصلة بـ Supabase');
 });
 
-test('الصندوق بيقرا من جداول الشات وجداول 054 والجداول الموجودة بس', async () => {
+test('الصندوق بيقرا من جداول الشات وجداول 055 والجداول الموجودة بس', async () => {
     const data = await read('assets/js/admin/inbox-data.js');
     const tables = new Set([...data.matchAll(/\.from\('([^']+)'\)/g)].map((m) => m[1]));
     assert.deepEqual([...tables].sort(), [
@@ -109,10 +109,10 @@ test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', 
     const [data, js] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('assets/js/admin/inbox.js')]);
     assert.ok(!/\.from\('[^']+'\)[\s\S]{0,120}?\.(insert|update|delete|upsert)\(/.test(data + js), 'كتابة مباشرة على جدول');
 
-    const migration = await read('migrations/054_inbox_helpdesk_core.sql');
+    const migration = await read('migrations/055_inbox_helpdesk_core.sql');
     const called = [...data.matchAll(/rpc\('([a-z_]+)'/g)].map((m) => m[1]);
     const missing = called.filter((name) => !new RegExp(`create or replace function public\\.${name}\\(`).test(migration));
-    assert.deepEqual(missing, [], `RPC مش موجود في 054: ${missing.join(', ')}`);
+    assert.deepEqual(missing, [], `RPC مش موجود في 055: ${missing.join(', ')}`);
 });
 
 // ═════════════════════════════════════════════════════════════
@@ -121,7 +121,7 @@ test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', 
 
 test('رد الدعم بيوقّف البوت وبيتكتب كرد أدمن — نفس اللي الويدجت مستنيه', async () => {
     const [data, migration, widget] = await Promise.all([
-        read('assets/js/admin/inbox-data.js'), read('migrations/054_inbox_helpdesk_core.sql'), read('chat-widget.js')]);
+        read('assets/js/admin/inbox-data.js'), read('migrations/055_inbox_helpdesk_core.sql'), read('chat-widget.js')]);
     assert.match(data, /rpc\('inbox_send_reply'/, 'الرد مش بيعدي على inbox_send_reply');
 
     const fn = migration.slice(migration.indexOf('function public.inbox_send_reply'), migration.indexOf('function public.inbox_close'));
@@ -144,9 +144,10 @@ test('chat-logic.js بقى لصفحة العميل بس، ومسار SIE فيه 
     const src = await read('assets/js/chat-logic.js');
     assert.ok(!/loadAllChats|renderChatsList|selectChat\(/.test(src), 'منطق chat-admin لسه موجود');
     assert.match(src, /if \(!window\.isCustomerChat\) return;/);
+    // SIE هو محرك الرد الوحيد في صفحة العميل (PR #90) — الصندوق مالوش دعوة بيه.
     assert.match(src, /import \{ getSieReply \} from '\/assets\/js\/sie-client\.js'/);
-    assert.match(src, /getSieAccessInfo\(currentUser\.id\)/);
-    assert.match(src, /sieResult\.alreadyPersisted/);
+    assert.match(src, /await getSieReply\(/);
+    assert.match(src, /fetchEntitlement\(supabase\)/);
 });
 
 // ═════════════════════════════════════════════════════════════
