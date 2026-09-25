@@ -1,607 +1,255 @@
 /**
- * inbox-data.js — طبقة البيانات لصندوق الرسائل
+ * inbox-data.js — طبقة البيانات لصندوق الرسائل (بيانات حقيقية)
  * ------------------------------------------------------------
- * ⚠️ الملف ده **بيانات تجريبية في الذاكرة**. مفيش قاعدة بيانات ولا
- * Supabase ولا رفع ملفات حقيقي. الواجهة الأمامية بس، زي ما اتطلب.
+ * القراءة: جداول الشات (نفس صفوف ويدجت العميل وصفحة العميل و SIE) + جداول
+ * الـ helpdesk (migrations/055_inbox_helpdesk_core.sql).
  *
- * ------------------------------------------------------------
- * ليه الوهمي في ملف لوحده
+ * الكتابة: **كلها** عبر RPC. مفيش ولا سياسة INSERT/UPDATE على جداول inbox_*،
+ * ولا على chat_message_revisions (056)،
+ * وجدولا الشات مابيتكتبوش من هنا مباشرة. كل RPC بيتحقق من الوصول ويسجّل
+ * في inbox_events.
  *
- * لأن ده مكان الوصلة. `inbox.js` مابيعرفش إن البيانات وهمية — بينده على
- * نفس الدوال اللي الخلفية هتنفّذها بالظبط، وبنفس الشكل. يوم ما الجداول
- * تتعمل، **الملف ده هو اللي بيتغير**، والواجهة كلها ماتتلمسش.
- *
- * ------------------------------------------------------------
- * ده صندوق **دعم**، مش شات
- *
- * الفرق مش شكلي. الشات بيسأل «مين قال إيه»؛ صندوق الدعم بيسأل كمان
- * «الحالة دي مقفولة ولا لأ، ومين ماسكها، وإيه اللي اتقال للعميل وإيه
- * اللي اتقال بين الفريق». عشان كده الموديل هنا فيه:
- *
- *   status      — مفتوحة / قيد المعالجة / مقفولة
- *   assigneeId  — مين مسؤول، عشان محدش يفتكر إن حد تاني رد
- *   visibility  — رسالة للعميل ولا ملاحظة داخلية للفريق
- *
- * الحاجات التلاتة دي هي اللي بتخلي فريق يشتغل على نفس الصندوق من غير ما
- * يدوسوا على بعض.
+ * الصلاحيات (D1=C): صاحب السلطة المرتفعة بيشوف الكل؛ طاقم المنصة بيشوف
+ * المسندة له أو لفريقه. القرار في inbox_can_access() بالقاعدة — الواجهة
+ * بتعرض اللي RLS بترجّعه وبس.
  *
  * ------------------------------------------------------------
- * الأدوار — ودي مش تفصيلة شكلية
+ * العقد مع ويدجت العميل — ماتغيّرهوش من ناحية واحدة
  *
- *   admin / support → كل أعضاء المنصة
- *   super_user      → أعضاؤه هو بس (اللي `owner_id` بتاعهم = هو)
+ * رد الدعم (inbox_send_reply) = chat_sessions.is_manual_mode = true ثم صف في
+ * chat_messages بـ is_admin_reply = true — في معاملة واحدة. الويدجت بيسمع
+ * الاتنين عن طريق Realtime («فريق الدعم انضم» + الرسالة). الإقفال
+ * (status = 'closed') بيعرض «فريق الدعم غادر المحادثة». الملاحظات والوسوم
+ * والإسناد والتفاعلات في جداول منفصلة ماحدش من ناحية العميل يقدر يقراها.
  *
- * الفرق ده **متعمل هنا في `listContacts()`**، مش في الواجهة. لما الخلفية
- * تتعمل، لازم يتفرض تاني في RLS كمان — الواجهة بتخفي، والقاعدة بترفض.
- * إخفاء اسم من قايمة مش حماية.
- *
- * ------------------------------------------------------------
- * الشكل اللي الخلفية هترجّعه
- *
- * @typedef {Object} Contact
- * @property {string} id
- * @property {string} name
- * @property {string} email
- * @property {'admin'|'support'|'super_user'|'member'} role
- * @property {string|null} ownerId
- * @property {boolean} online
- *
- * @typedef {Object} Attachment
- * @property {string} id
- * @property {'document'|'voice'} kind
- * @property {string} name
- * @property {number} size
- * @property {string} [mime]
- * @property {number} [durationSeconds]
- * @property {string|null} url
- *
- * @typedef {Object} Message
- * @property {string} id
- * @property {string} conversationId
- * @property {string} senderId
- * @property {string} body
- * @property {string} createdAt - ISO
- * @property {string|null} editedAt - ISO، أو null لو مااتعدلتش
- * @property {boolean} deleted - الرسالة اتسحبت؛ بتفضل مكانها كأثر
- * @property {'reply'|'note'} visibility - 'note' = للفريق بس
- * @property {Attachment[]} attachments
- * @property {{fromName: string, fromConversation: string}|null} forwardedFrom
- * @property {string|null} replyToId
- * @property {string[]} mentions - معرّفات اللي اتمنشنوا
- * @property {Object<string, string[]>} reactions - رمز -> معرّفات
- * @property {string[]} readBy
- * @property {boolean} starred
- * @property {boolean} pinned
- *
- * @typedef {Object} Conversation
- * @property {string} id
- * @property {'direct'|'group'} kind
- * @property {string} title
- * @property {string[]} memberIds
- * @property {number} unread
- * @property {string|null} lastMessageAt
- * @property {'open'|'pending'|'closed'} status
- * @property {string|null} assigneeId
- * @property {string[]} labels
- * @property {boolean} archived
- * @property {boolean} muted
- * @property {string} draft
+ * المرحلة 2 (056):
+ *   • مرفق الرد بيترفع في مجلد الموظف نفسه (<uid>/…) بنفس
+ *     chat-attachments.js بتاع العميل، والرسالة بتحمل attachment زي رسالة
+ *     العميل بالظبط (محفّز 054 بيتحقق من المسار).
+ *   • تعديل/حذف رد الدعم بيحدّث نفس الصف (edited_at / deleted_at) — الويدجت
+ *     وصفحة العميل بيسمعوا UPDATE ويعرضوا «معدّلة» / «تم حذف هذه الرسالة».
  */
+import { supabase } from '/api-config.js';
+import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
+import { fetchCannedResponses, fetchTags, createTag } from '/tickets-service.js';
+import { sortMessages } from './inbox-model.js';
+import { uploadAttachment } from '/assets/js/chat-attachments.js';
 
-/** مين فاتح الصفحة دلوقتي. الخلفية هتجيبه من الجلسة. */
-let currentUser = {
-    id: 'me',
-    name: 'أنت',
-    email: 'support@mad3oom.com',
-    role: 'admin',
-    ownerId: null,
-    online: true
-};
+export const CHAT_ATTACHMENTS_BUCKET = 'chat-attachments';
 
-export function getCurrentUser() {
-    return { ...currentUser };
+const MESSAGE_LITE = 'id, session_id, sender_id, message_text, image_url, audio_url, attachment, is_admin_reply, is_bot_reply, created_at, edited_at, deleted_at';
+const SESSION_COLS = `id, user_id, guest_id, status, is_manual_mode, created_at, updated_at, chat_messages (${MESSAGE_LITE})`;
+const META_COLS = 'session_id, assignee_id, team_id, archived_at, archived_by, updated_at';
+
+async function rpc(name, args) {
+    const { data, error } = await supabase.rpc(name, args);
+    if (error) throw error;
+    return data;
 }
 
-/**
- * بيبدّل الدور المعروض. موجودة عشان الشخص اللي بيراجع الواجهة يقدر يشوف
- * الشاشتين من غير حسابين — **بتتشال أول ما الجلسة الحقيقية توصل**.
- */
-export function setPreviewRole(role) {
-    currentUser = {
-        ...currentUser,
-        role,
-        name: role === 'super_user' ? 'مالك الفريق' : 'أنت',
-        id: role === 'super_user' ? 'su_1' : 'me'
-    };
-}
+/** الـ RPC بيرجّع صف مركّب؛ بعض الإصدارات بترجّعه جوه مصفوفة. */
+const one = (data) => (Array.isArray(data) ? data[0] ?? null : data ?? null);
 
-// ═════════════════════════════════════════════════════════════
-// الناس
-// ═════════════════════════════════════════════════════════════
-
-const CONTACTS = [
-    { id: 'me', name: 'أنت', email: 'support@mad3oom.com', role: 'admin', ownerId: null, online: true },
-    { id: 'u_1', name: 'محمود عبدالوهاب', email: 'mahmoud@example.com', role: 'member', ownerId: null, online: true },
-    { id: 'u_2', name: 'سارة إبراهيم', email: 'sara@example.com', role: 'member', ownerId: null, online: false },
-    { id: 'u_3', name: 'كريم مصطفى', email: 'karim@example.com', role: 'member', ownerId: null, online: true },
-    { id: 'u_4', name: 'نورهان علي', email: 'nourhan@example.com', role: 'member', ownerId: null, online: false },
-    { id: 'u_5', name: 'أحمد فتحي', email: 'ahmed@example.com', role: 'member', ownerId: null, online: false },
-    { id: 'su_1', name: 'مالك الفريق', email: 'owner@company.com', role: 'super_user', ownerId: null, online: true },
-
-    // أعضاء تبع السوبر يوزر — دول اللي هو بيشوفهم لوحدهم
-    { id: 'm_1', name: 'ياسمين حسن', email: 'yasmin@company.com', role: 'member', ownerId: 'su_1', online: true },
-    { id: 'm_2', name: 'عمرو سعيد', email: 'amr@company.com', role: 'member', ownerId: 'su_1', online: false },
-    { id: 'm_3', name: 'دينا كمال', email: 'dina@company.com', role: 'member', ownerId: 'su_1', online: true },
-
-    { id: 'st_1', name: 'فريق الدعم', email: 'team@mad3oom.com', role: 'support', ownerId: null, online: true },
-    { id: 'st_2', name: 'هبة سمير', email: 'heba@mad3oom.com', role: 'support', ownerId: null, online: true }
-];
-
-/**
- * مين الشخص ده مسموح له يكلّمه.
- *
- * ده الفرق الحقيقي بين الدورين، ومكتوب هنا مرة واحدة عشان مايتكررش في
- * كل شاشة بتعرض ناس (المحادثة الجديدة، المجموعة، التحويل، الإسناد).
- */
-export function listContacts() {
-    const me = getCurrentUser();
-    if (me.role === 'super_user') {
-        return CONTACTS.filter((c) => c.ownerId === me.id || c.role === 'support');
+function assemble(rows, metas, tagLinks, customers) {
+    const metaBy = new Map((metas || []).map((m) => [m.session_id, m]));
+    const custBy = new Map((customers || []).map((c) => [c.session_id, c]));
+    const tagsBy = new Map();
+    for (const link of tagLinks || []) {
+        if (!tagsBy.has(link.session_id)) tagsBy.set(link.session_id, []);
+        tagsBy.get(link.session_id).push(link.tag_id);
     }
-    return CONTACTS.filter((c) => c.id !== me.id);
-}
-
-/** اللي ينفع تسند لهم محادثة: فريق الشغل بس، مش العملاء. */
-export function listAssignableAgents() {
-    const me = getCurrentUser();
-    return CONTACTS.filter((c) => ['admin', 'support', 'super_user'].includes(c.role) && c.id !== me.id)
-        .concat([{ ...me }]);
-}
-
-export function findContact(id) {
-    return CONTACTS.find((c) => c.id === id) || (id === currentUser.id ? getCurrentUser() : null);
-}
-
-/** أول حرفين من الاسم — بديل الصورة الرمزية. */
-export function initialsOf(name) {
-    return String(name || '؟').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('');
-}
-
-// ═════════════════════════════════════════════════════════════
-// الردود الجاهزة
-// ═════════════════════════════════════════════════════════════
-
-/**
- * الردود اللي بتتكتب خمسين مرة في اليوم.
- *
- * `{{الاسم}}` بتتبدّل باسم الطرف التاني وقت الإدراج — رد جاهز بيوصل
- * للعميل باسم حد تاني أسوأ من إنه يتكتب من الأول.
- */
-const CANNED_REPLIES = [
-    { id: 'cr_1', shortcut: 'ترحيب', title: 'ترحيب', body: 'أهلاً {{الاسم}}، معاك فريق دعم مدعوم. إزاي أقدر أساعدك؟' },
-    { id: 'cr_2', shortcut: 'استنى', title: 'طلب مهلة', body: 'تمام {{الاسم}}، براجع الموضوع دلوقتي وهرجعلك خلال شوية.' },
-    { id: 'cr_3', shortcut: 'تفاصيل', title: 'طلب تفاصيل', body: 'ممكن تبعتلي صورة للشاشة اللي ظهرتلك، والوقت التقريبي اللي حصلت فيه المشكلة؟' },
-    { id: 'cr_4', shortcut: 'اتحلت', title: 'تأكيد الحل', body: 'تمام، المشكلة اتحلت من عندنا. جرّب تاني وقولي لو لسه فيه حاجة.' },
-    { id: 'cr_5', shortcut: 'قفل', title: 'إقفال المحادثة', body: 'هقفل المحادثة دي دلوقتي. لو احتجت أي حاجة تانية، ابعتلي في أي وقت.' }
-];
-
-export function listCannedReplies() {
-    return CANNED_REPLIES.map((r) => ({ ...r }));
-}
-
-/** بيحطّ اسم الطرف التاني مكان `{{الاسم}}`. */
-export function fillCannedReply(body, conversationId) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    const name = conversation ? counterpartName(conversation) : '';
-    return body.replace(/\{\{\s*الاسم\s*\}\}/g, name);
-}
-
-function counterpartName(conversation) {
-    const me = getCurrentUser();
-    if (conversation.kind === 'group') return conversation.title;
-    return findContact(conversation.memberIds.find((id) => id !== me.id))?.name || '';
-}
-
-// ═════════════════════════════════════════════════════════════
-// المحادثات
-// ═════════════════════════════════════════════════════════════
-
-export const STATUS_LABELS = { open: 'مفتوحة', pending: 'قيد المعالجة', closed: 'مقفولة' };
-export const LABEL_COLORS = {
-    'عاجل': 'danger', 'فوترة': 'warn', 'تقني': 'accent', 'متابعة': 'muted'
-};
-
-const minutesAgo = (n) => new Date(Date.now() - n * 60000).toISOString();
-
-const baseConversation = {
-    unread: 0, status: 'open', assigneeId: null, labels: [],
-    archived: false, muted: false, draft: ''
-};
-
-let conversations = [
-    { ...baseConversation, id: 'c_1', kind: 'direct', title: '', memberIds: ['me', 'u_1'], unread: 2, lastMessageAt: minutesAgo(4), assigneeId: 'me', labels: ['عاجل', 'تقني'] },
-    { ...baseConversation, id: 'c_2', kind: 'group', title: 'فريق الدعم — الوردية الصباحية', memberIds: ['me', 'st_1', 'st_2', 'u_3'], lastMessageAt: minutesAgo(52) },
-    { ...baseConversation, id: 'c_3', kind: 'direct', title: '', memberIds: ['me', 'u_2'], lastMessageAt: minutesAgo(190), status: 'closed', assigneeId: 'me', labels: ['فوترة'] },
-    { ...baseConversation, id: 'c_4', kind: 'direct', title: '', memberIds: ['me', 'u_4'], unread: 1, lastMessageAt: minutesAgo(1500), status: 'pending', labels: ['متابعة'] },
-    { ...baseConversation, id: 'c_7', kind: 'direct', title: '', memberIds: ['me', 'u_5'], lastMessageAt: minutesAgo(4300), archived: true },
-    // بتوع السوبر يوزر
-    { ...baseConversation, id: 'c_5', kind: 'direct', title: '', memberIds: ['su_1', 'm_1'], unread: 1, lastMessageAt: minutesAgo(12), assigneeId: 'su_1' },
-    { ...baseConversation, id: 'c_6', kind: 'group', title: 'فريقي', memberIds: ['su_1', 'm_1', 'm_2', 'm_3'], lastMessageAt: minutesAgo(300) }
-];
-
-const baseMessage = {
-    editedAt: null, deleted: false, visibility: 'reply', attachments: [],
-    forwardedFrom: null, replyToId: null, mentions: [], reactions: {},
-    readBy: [], starred: false, pinned: false
-};
-
-let messages = [
-    { ...baseMessage, id: 'msg_1', conversationId: 'c_1', senderId: 'u_1', body: 'مساء الخير، عندي مشكلة في ربط رقم واتساب جديد على الباقة.', createdAt: minutesAgo(40), readBy: ['me'], pinned: true },
-    { ...baseMessage, id: 'msg_2', conversationId: 'c_1', senderId: 'me', body: 'أهلاً بيك. ممكن تبعتلي صورة للرسالة اللي ظهرتلك؟', createdAt: minutesAgo(33), readBy: ['u_1'], replyToId: 'msg_1' },
-    { ...baseMessage, id: 'msg_note_1', conversationId: 'c_1', senderId: 'me', body: 'ملاحظة: الحساب ده عليه تذكرتين مقفولين لنفس السبب. لو اتكرر، نصعّد للفريق التقني.', createdAt: minutesAgo(30), visibility: 'note' },
-    { ...baseMessage, id: 'msg_3', conversationId: 'c_1', senderId: 'u_1', body: 'دي الشاشة، وده كمان تقرير من عندنا.', createdAt: minutesAgo(9), readBy: ['me'], reactions: { '👍': ['me'] }, attachments: [{ id: 'a_1', kind: 'document', name: 'تقرير-الربط.pdf', size: 284_512, mime: 'application/pdf', url: null }] },
-    { ...baseMessage, id: 'msg_4', conversationId: 'c_1', senderId: 'u_1', body: '', createdAt: minutesAgo(4), attachments: [{ id: 'a_2', kind: 'voice', name: 'رسالة صوتية', size: 41_800, durationSeconds: 17, url: null }] },
-
-    { ...baseMessage, id: 'msg_5', conversationId: 'c_2', senderId: 'st_1', body: 'تذكير: التذاكر المفتوحة من إمبارح لازم تتقفل النهاردة.', createdAt: minutesAgo(140), pinned: true, readBy: ['me', 'st_2'] },
-    { ...baseMessage, id: 'msg_6', conversationId: 'c_2', senderId: 'u_3', body: 'تمام، أنا خلصت اتنين وباقي واحدة.', createdAt: minutesAgo(52), reactions: { '✅': ['me', 'st_1'] } },
-    { ...baseMessage, id: 'msg_6b', conversationId: 'c_2', senderId: 'st_2', body: '@أنت ممكن تراجع التذكرة ٤١٢ لما تفضى؟', createdAt: minutesAgo(50), mentions: ['me'] },
-
-    { ...baseMessage, id: 'msg_7', conversationId: 'c_3', senderId: 'me', body: 'اتفضلي كشف الحساب بتاع الشهر ده.', createdAt: minutesAgo(200), readBy: ['u_2'], attachments: [{ id: 'a_3', kind: 'document', name: 'كشف-حساب-يوليو.xlsx', size: 61_204, mime: 'application/vnd.ms-excel', url: null }] },
-    { ...baseMessage, id: 'msg_8', conversationId: 'c_3', senderId: 'u_2', body: 'وصلني، شكراً ليك.', createdAt: minutesAgo(190), readBy: ['me'] },
-
-    { ...baseMessage, id: 'msg_9', conversationId: 'c_4', senderId: 'u_4', body: 'ممكن حد يراجع طلب الاسترداد بتاعي؟', createdAt: minutesAgo(1500) },
-    { ...baseMessage, id: 'msg_10', conversationId: 'c_5', senderId: 'm_1', body: 'خلصت المهام اللي بعتهالي، محتاجة مراجعة.', createdAt: minutesAgo(12) },
-    { ...baseMessage, id: 'msg_11', conversationId: 'c_6', senderId: 'su_1', body: 'اجتماع الفريق بكرة الساعة ١١.', createdAt: minutesAgo(300) },
-    { ...baseMessage, id: 'msg_12', conversationId: 'c_7', senderId: 'u_5', body: 'تمام، اتحلت. شكراً.', createdAt: minutesAgo(4300), readBy: ['me'] }
-];
-
-let nextId = 100;
-const makeId = (prefix) => `${prefix}_${nextId++}`;
-
-// ── القراءة ──────────────────────────────────────────────────
-
-/**
- * المحادثات اللي الشخص ده طرف فيها، الأحدث الأول.
- *
- * العضوية هي الفلتر — مش الدور. الأدمن مابيشوفش محادثات الناس مع بعض،
- * بيشوف اللي هو فيها. ده هيبقى نفس شرط الـ RLS بالظبط.
- */
-export function listConversations({ view = 'all', query = '' } = {}) {
-    const me = getCurrentUser();
-    const q = query.trim().toLowerCase();
-
-    return conversations
-        .filter((c) => c.memberIds.includes(me.id))
-        .filter((c) => matchesView(c, view, me))
-        .filter((c) => {
-            if (!q) return true;
-            // البحث بيدوّر في نص الرسايل والعناوين والوسوم — الناس
-            // بتفتكر اللي اتقال أكتر ما بتفتكر مع مين.
-            const hay = [
-                displayTitle(c), ...c.labels,
-                ...listMessages(c.id, { includeNotes: true }).map((m) => m.body)
-            ].join(' ').toLowerCase();
-            return hay.includes(q);
-        })
-        .map((c) => ({ ...c, title: displayTitle(c) }))
-        .sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+    return (rows || []).map(({ chat_messages, ...session }) => ({
+        ...session,
+        customer: custBy.get(session.id) || null,
+        messages: sortMessages(chat_messages),
+        meta: metaBy.get(session.id) || null,
+        tagIds: tagsBy.get(session.id) || []
+    }));
 }
 
 /**
- * المشهد المختار. «المؤرشفة» بتتخفي من كل المشاهد التانية عن قصد — ده
- * معنى الأرشفة أصلاً، وإلا الزرار مابيعملش حاجة.
+ * كل الجلسات اللي RLS بترجّعها، مع حالة الـ helpdesk ووسومها وعملائها.
+ * اسم العميل من inbox_customer_profiles (مش embed على profiles): الأدمن غير
+ * المرتفع مالوش SELECT على ملفات الآخرين.
  */
-function matchesView(conversation, view, me) {
-    if (view === 'archived') return conversation.archived;
-    if (conversation.archived) return false;
+export async function loadSessions() {
+    const [sessions, metas, tagLinks] = await Promise.all([
+        supabase.from('chat_sessions').select(SESSION_COLS).order('updated_at', { ascending: false }),
+        supabase.from('inbox_conversations').select(META_COLS),
+        supabase.from('inbox_conversation_tags').select('session_id, tag_id')
+    ]);
+    for (const r of [sessions, metas, tagLinks]) if (r.error) throw r.error;
 
-    switch (view) {
-        case 'unread': return conversation.unread > 0;
-        case 'mine': return conversation.assigneeId === me.id;
-        case 'unassigned': return !conversation.assigneeId && conversation.status !== 'closed';
-        case 'open': return conversation.status !== 'closed';
-        case 'closed': return conversation.status === 'closed';
-        default: return true;
+    const ids = (sessions.data || []).map((s) => s.id);
+    const customers = ids.length ? await rpc('inbox_customer_profiles', { p_sessions: ids }) : [];
+    return assemble(sessions.data, metas.data, tagLinks.data, customers);
+}
+
+export async function loadSession(sessionId) {
+    const [session, meta, tagLinks] = await Promise.all([
+        supabase.from('chat_sessions').select(SESSION_COLS).eq('id', sessionId).maybeSingle(),
+        supabase.from('inbox_conversations').select(META_COLS).eq('session_id', sessionId).maybeSingle(),
+        supabase.from('inbox_conversation_tags').select('session_id, tag_id').eq('session_id', sessionId)
+    ]);
+    for (const r of [session, meta, tagLinks]) if (r.error) throw r.error;
+    if (!session.data) return null;
+    const customers = await rpc('inbox_customer_profiles', { p_sessions: [sessionId] });
+    return assemble([session.data], meta.data ? [meta.data] : [], tagLinks.data, customers)[0];
+}
+
+/** الملاحظات والسجل والتفاعلات والنسخ السابقة للمحادثة المفتوحة. */
+export async function loadThreadExtras(sessionId) {
+    const [notes, events, reactions, revisions] = await Promise.all([
+        supabase.from('inbox_notes').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
+        supabase.from('inbox_events').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
+        loadReactions(sessionId),
+        supabase.from('chat_message_revisions').select('*').eq('session_id', sessionId).order('created_at', { ascending: true })
+    ]);
+    for (const r of [notes, events, revisions]) if (r.error) throw r.error;
+    return { notes: notes.data || [], events: events.data || [], reactions, revisions: revisions.data || [] };
+}
+
+export async function loadReactions(sessionId) {
+    const { data, error } = await supabase.from('inbox_reactions')
+        .select('id, session_id, message_id, note_id, user_id, emoji, created_at')
+        .eq('session_id', sessionId).order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+/** الموظفون المتاحون للإسناد والمنشن، ومين منهم مرتفع، وفرقهم. */
+export const loadAgents = () => rpc('inbox_list_agents').then((d) => d || []);
+
+export async function loadTeams() {
+    const [teams, members] = await Promise.all([
+        supabase.from('inbox_teams').select('*').is('archived_at', null).order('name', { ascending: true }),
+        supabase.from('inbox_team_members').select('team_id, user_id, role')
+    ]);
+    for (const r of [teams, members]) if (r.error) throw r.error;
+    return (teams.data || []).map((t) => ({
+        ...t, members: (members.data || []).filter((m) => m.team_id === t.id)
+    }));
+}
+
+/** الوسوم نفسها بتاعة التذاكر (ticket_tags) — مفردات واحدة يديرها الأدمن. */
+export const loadTags = () => fetchTags().catch(() => []);
+export const createSharedTag = (name, color) => createTag(name, color);
+
+/**
+ * سياق العميل من جداول موجودة: ملاحظاته (customer_notes) وتذاكره. الاتنين
+ * بيتداروا من أماكنهم (سجل العميل / التذاكر)، والصندوق بيعرضهم بس.
+ */
+export async function loadCustomerContext(userId) {
+    if (!userId) return { notes: [], tickets: [] };
+    const [notes, tickets] = await Promise.all([
+        supabase.from('customer_notes').select('id, note, created_at').eq('customer_id', userId)
+            .order('created_at', { ascending: false }).limit(3),
+        supabase.from('tickets').select('id, ticket_number, title, status, created_at').eq('user_id', userId)
+            .order('created_at', { ascending: false }).limit(5)
+    ]);
+    return { notes: notes.error ? [] : notes.data || [], tickets: tickets.error ? [] : tickets.data || [] };
+}
+
+// ── الكتابة — كلها RPC ───────────────────────────────────────────────────
+
+/**
+ * @param {object|null} attachment - حقل attachment من messageFieldsFor()
+ *   (chat-attachments.js) لملف اترفع بالفعل في مجلد الموظف.
+ */
+export const sendReply = (sessionId, text, attachment = null) =>
+    rpc('inbox_send_reply', { p_session: sessionId, p_body: text, p_attachment: attachment }).then(one);
+
+export const editMessage = (messageId, body) =>
+    rpc('inbox_edit_message', { p_message: messageId, p_body: body }).then(one);
+export const deleteMessage = (messageId) =>
+    rpc('inbox_delete_message', { p_message: messageId }).then(one);
+
+/** @returns {Promise<boolean>} true = اتضاف، false = اتشال */
+export const toggleReaction = ({ messageId = null, noteId = null }, emoji) =>
+    rpc('inbox_toggle_reaction', { p_message: messageId, p_note: noteId, p_emoji: emoji });
+
+export const closeSessions = (ids) => rpc('inbox_close', { p_sessions: ids });
+
+export const assign = (sessionId, assigneeId, teamId) =>
+    rpc('inbox_assign', { p_session: sessionId, p_assignee: assigneeId || null, p_team: teamId || null }).then(one);
+
+export const transfer = (sessionId, toUser, toTeam, reason) =>
+    rpc('inbox_transfer', { p_session: sessionId, p_to_user: toUser || null, p_to_team: toTeam || null, p_reason: reason }).then(one);
+
+export const addTag = (sessionId, tagId) => rpc('inbox_add_tag', { p_session: sessionId, p_tag: tagId });
+export const removeTag = (sessionId, tagId) => rpc('inbox_remove_tag', { p_session: sessionId, p_tag: tagId });
+
+export const addNote = (sessionId, body, mentions) =>
+    rpc('inbox_add_note', { p_session: sessionId, p_body: body, p_mentions: mentions || [] }).then(one);
+export const editNote = (noteId, body) => rpc('inbox_edit_note', { p_note: noteId, p_body: body }).then(one);
+export const deleteNote = (noteId) => rpc('inbox_delete_note', { p_note: noteId });
+export const forwardAsNote = (messageId, toSessionId) =>
+    rpc('inbox_forward_as_note', { p_message: messageId, p_to_session: toSessionId }).then(one);
+
+export const setArchived = (sessionId, archived) =>
+    rpc('inbox_set_archived', { p_session: sessionId, p_archived: archived }).then(one);
+
+export const saveTeam = (id, name, description) =>
+    rpc('inbox_save_team', { p_id: id || null, p_name: name, p_description: description || null }).then(one);
+export const archiveTeam = (id) => rpc('inbox_archive_team', { p_id: id });
+export const setTeamMember = (teamId, userId, role) =>
+    rpc('inbox_set_team_member', { p_team: teamId, p_user: userId, p_role: role || null });
+
+/** الردود الجاهزة من جدول canned_responses — نفس اللي بتستخدمه صفحة التذاكر. */
+export async function loadCannedReplies() {
+    try {
+        return await fetchCannedResponses();
+    } catch (err) {
+        console.warn('[inbox] الردود الجاهزة ماتحمّلتش:', err?.message || err);
+        return [];
     }
 }
 
-/** عدّاد كل مشهد — عشان الأرقام تبان جنب الأسماء من غير ما الواجهة تحسبها. */
-export function viewCounts() {
-    const views = ['all', 'unread', 'mine', 'unassigned', 'open', 'closed', 'archived'];
-    return Object.fromEntries(views.map((v) => [v, listConversations({ view: v }).length]));
-}
-
-export function displayTitle(conversation) {
-    if (conversation.kind === 'group') return conversation.title || 'مجموعة بدون اسم';
-    return counterpartName(conversation) || 'محادثة';
-}
-
-export function findConversation(id) {
-    const conversation = conversations.find((c) => c.id === id);
-    return conversation ? { ...conversation, title: displayTitle(conversation) } : null;
-}
-
 /**
- * @param {string} conversationId
- * @param {{includeNotes?: boolean}} [options] - الملاحظات الداخلية بتتشال
- *   لما نحاكي «إيه اللي العميل شافه»
+ * رفع مرفق رد الدعم — نفس رفع العميل (chat-attachments.js) في مجلد الموظف
+ * نفسه، وسياسة الرفع القائمة هي اللي بتسمح. المسار من buildObjectPath.
  */
-export function listMessages(conversationId, { includeNotes = true } = {}) {
-    return messages
-        .filter((m) => m.conversationId === conversationId)
-        .filter((m) => includeNotes || m.visibility !== 'note')
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-}
+export const uploadReplyFile = ({ path, file, contentType, onProgress, signal }) =>
+    uploadAttachment({ supabase, path, file, contentType, onProgress, signal });
 
-export function findMessage(id) {
-    return messages.find((m) => m.id === id) || null;
-}
-
-export function lastMessageOf(conversationId) {
-    const list = listMessages(conversationId);
-    return list.length ? list[list.length - 1] : null;
-}
-
-/** المثبّتة فوق، عشان اللي بيفتح المحادثة يشوف الأهم من غير ما يمرّر. */
-export function pinnedMessages(conversationId) {
-    return listMessages(conversationId).filter((m) => m.pinned && !m.deleted);
-}
-
-export function starredMessages() {
-    const me = getCurrentUser();
-    const mine = new Set(conversations.filter((c) => c.memberIds.includes(me.id)).map((c) => c.id));
-    return messages.filter((m) => m.starred && mine.has(m.conversationId));
-}
-
-/** كل المرفقات في محادثة — لتبويب الملفات. */
-export function conversationAttachments(conversationId) {
-    return listMessages(conversationId)
-        .filter((m) => !m.deleted)
-        .flatMap((m) => m.attachments.map((a) => ({ ...a, messageId: m.id, senderId: m.senderId, createdAt: m.createdAt })));
-}
-
-/** اللي لسه ماقروش رسالتي — إيصال القراءة في المجموعات. */
-export function readReceipt(message, conversation) {
-    const others = conversation.memberIds.filter((id) => id !== message.senderId);
-    const read = others.filter((id) => message.readBy.includes(id));
-    return { read: read.length, total: others.length, names: read.map((id) => findContact(id)?.name).filter(Boolean) };
-}
-
-// ── الكتابة ──────────────────────────────────────────────────
-
-export function markRead(conversationId) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) conversation.unread = 0;
-
-    const me = getCurrentUser();
-    listMessages(conversationId).forEach((m) => {
-        if (m.senderId !== me.id && !m.readBy.includes(me.id)) m.readBy.push(me.id);
-    });
-}
-
-/**
- * @param {Object} params
- * @param {string} params.conversationId
- * @param {string} [params.body]
- * @param {Attachment[]} [params.attachments]
- * @param {'reply'|'note'} [params.visibility]
- * @param {string|null} [params.replyToId]
- * @param {Object|null} [params.forwardedFrom]
- * @returns {Message}
- */
-export function sendMessage({
-    conversationId, body = '', attachments = [],
-    visibility = 'reply', replyToId = null, forwardedFrom = null
-}) {
-    const message = {
-        ...baseMessage,
-        id: makeId('msg'),
-        conversationId,
-        senderId: getCurrentUser().id,
-        body: body.trim(),
-        createdAt: new Date().toISOString(),
-        attachments,
-        visibility,
-        replyToId,
-        forwardedFrom,
-        mentions: extractMentions(body, conversationId),
-        reactions: {},
-        readBy: []
-    };
-    messages.push(message);
-
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) {
-        // الملاحظة الداخلية مابتحرّكش المحادثة لفوق ولا بتفتحها من تاني —
-        // دي مذكرة للفريق، مش رد على العميل.
-        if (visibility === 'reply') {
-            conversation.lastMessageAt = message.createdAt;
-            if (conversation.status === 'closed') conversation.status = 'open';
-        }
-        conversation.draft = '';
+/** ملف اترفع والرسالة مااتبعتتش — بنشيله بدل ما يفضل يتيم (أفضل مجهود). */
+export async function removeUploadedFile(path) {
+    try {
+        await supabase.storage.from(CHAT_ATTACHMENTS_BUCKET).remove([path]);
+    } catch (err) {
+        console.warn('[inbox] الملف المرفوع ماتشالش:', err?.message || err);
     }
-    return message;
-}
-
-/** «@اسم» -> معرّف، من أعضاء المحادثة بس. */
-function extractMentions(body, conversationId) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (!conversation) return [];
-    return conversation.memberIds.filter((id) => {
-        const name = findContact(id)?.name;
-        return name && body.includes(`@${name}`);
-    });
 }
 
 /**
- * التعديل بيسيب أثر (`editedAt`) عن قصد.
- *
- * رسالة اتغيرت من غير ما حد يعرف بتخلي سجل المحادثة غير موثوق — واللي
- * بيقرا بعد كده مايقدرش يفرّق بين «ده اللي اتقال» و«ده اللي بقى مكتوب».
+ * توقيع مرفقات المحادثة (المستودع خاص) — بنفس الشكل اللي hydrateAttachments
+ * في chat-attachments.js مستنياه، ونفس مدد صفحة العميل: عرض قصير، وتحميل
+ * أطول شوية لأن الضغطة ممكن تيجي بعد العرض بدقايق.
  */
-export function editMessage(messageId, newBody) {
-    const message = messages.find((m) => m.id === messageId);
-    if (!message) return { ok: false, error: 'الرسالة مش موجودة.' };
-    if (message.senderId !== getCurrentUser().id) return { ok: false, error: 'مينفعش تعدّل رسالة حد تاني.' };
-    if (message.deleted) return { ok: false, error: 'الرسالة دي اتسحبت.' };
-
-    const body = String(newBody || '').trim();
-    if (!body) return { ok: false, error: 'الرسالة ماينفعش تبقى فاضية.' };
-
-    message.body = body;
-    message.editedAt = new Date().toISOString();
-    message.mentions = extractMentions(body, message.conversationId);
-    return { ok: true };
+export function signAttachmentPaths(paths, { download = false } = {}) {
+    if (!paths?.length) return Promise.resolve([]);
+    return signedUrls(CHAT_ATTACHMENTS_BUCKET, paths, download ? SIGNED_URL_TTL_DOWNLOAD : SIGNED_URL_TTL);
 }
 
 /**
- * السحب بيسيب مكان الرسالة فاضي بدل ما يشيلها خالص.
- *
- * لأن الرد اللي تحتها بيبقى مالوش معنى من غيرها، ولأن «الرسالة دي
- * اتسحبت» معلومة في حد ذاتها لأي حد كان شايفها.
+ * Realtime. RLS بتحدد اللي يوصل: الموظف بيستقبل أحداث المحادثات اللي
+ * يوصلها بس (055 و 056 ضافوا الجداول دي للـ publication). حدث DELETE
+ * بيوصل بالمفتاح بس (old.id) — ده كفاية لشيل التفاعل.
+ * @returns {() => void} إلغاء الاشتراك
  */
-export function deleteMessage(messageId) {
-    const message = messages.find((m) => m.id === messageId);
-    if (!message) return { ok: false, error: 'الرسالة مش موجودة.' };
-    if (message.senderId !== getCurrentUser().id) return { ok: false, error: 'مينفعش تسحب رسالة حد تاني.' };
-
-    message.deleted = true;
-    message.body = '';
-    message.attachments = [];
-    message.reactions = {};
-    message.pinned = false;
-    return { ok: true };
-}
-
-export function toggleReaction(messageId, emoji) {
-    const message = messages.find((m) => m.id === messageId);
-    if (!message || message.deleted) return;
-
-    const me = getCurrentUser().id;
-    const list = message.reactions[emoji] || [];
-    message.reactions[emoji] = list.includes(me) ? list.filter((id) => id !== me) : [...list, me];
-    if (!message.reactions[emoji].length) delete message.reactions[emoji];
-}
-
-export function toggleStar(messageId) {
-    const message = messages.find((m) => m.id === messageId);
-    if (message) message.starred = !message.starred;
-}
-
-export function togglePin(messageId) {
-    const message = messages.find((m) => m.id === messageId);
-    if (message && !message.deleted) message.pinned = !message.pinned;
-}
-
-export function setStatus(conversationId, status) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation && status in STATUS_LABELS) conversation.status = status;
-}
-
-export function setAssignee(conversationId, assigneeId) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) conversation.assigneeId = assigneeId || null;
-}
-
-export function toggleLabel(conversationId, label) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (!conversation) return;
-    conversation.labels = conversation.labels.includes(label)
-        ? conversation.labels.filter((l) => l !== label)
-        : [...conversation.labels, label];
-}
-
-export function setArchived(conversationId, archived) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) conversation.archived = Boolean(archived);
-}
-
-export function setMuted(conversationId, muted) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) conversation.muted = Boolean(muted);
-}
-
-/**
- * المسودة بتتحفظ لكل محادثة لوحدها.
- *
- * اللي بيشتغل على صندوق دعم بيقفز بين محادثات طول اليوم؛ لو نص الرد
- * بيضيع كل مرة يبص على حاجة تانية، هيبطّل يقفز — أو هيبطّل يكتب ردود
- * طويلة.
- */
-export function saveDraft(conversationId, text) {
-    const conversation = conversations.find((c) => c.id === conversationId);
-    if (conversation) conversation.draft = text;
-}
-
-export function openDirectConversation(contactId) {
-    const me = getCurrentUser();
-    const existing = conversations.find((c) =>
-        c.kind === 'direct' && c.memberIds.length === 2
-        && c.memberIds.includes(me.id) && c.memberIds.includes(contactId));
-    if (existing) {
-        // لو كانت مؤرشفة، بترجع من الأرشيف. من غير كده اللي بيختار الشخص
-        // من «محادثة جديدة» بتتفتحله محادثة مش موجودة في أي قايمة —
-        // يعني يقفلها ومايلاقيهاش تاني.
-        existing.archived = false;
-        return existing;
-    }
-
-    const conversation = {
-        ...baseConversation,
-        id: makeId('c'), kind: 'direct', title: '',
-        memberIds: [me.id, contactId],
-        lastMessageAt: new Date().toISOString()
-    };
-    conversations.push(conversation);
-    return conversation;
-}
-
-export function createGroup({ title, memberIds }) {
-    const name = String(title || '').trim();
-    if (!name) return { conversation: null, error: 'المجموعة محتاجة اسم.' };
-    if (!memberIds.length) return { conversation: null, error: 'اختار عضو واحد على الأقل.' };
-
-    const me = getCurrentUser();
-    const conversation = {
-        ...baseConversation,
-        id: makeId('c'), kind: 'group', title: name,
-        // منشئ المجموعة عضو فيها بالضرورة — مجموعة من غير صاحبها حاجة
-        // محدش يقدر يوصلها.
-        memberIds: [me.id, ...memberIds.filter((id) => id !== me.id)],
-        lastMessageAt: new Date().toISOString()
-    };
-    conversations.push(conversation);
-    return { conversation, error: null };
-}
-
-/**
- * تحويل رسالة لمحادثة تانية.
- *
- * بتتنسخ مع مصدرها، مش بتتنقل: الرسالة الأصلية بتفضل مكانها في سياقها،
- * واللي بيستقبلها بيشوف إنها محوّلة ومن مين — رسالة بتظهر من غير سياق
- * بتتقري كإن اللي محوّلها هو اللي قالها.
- *
- * الملاحظات الداخلية بتتحوّل كملاحظات، مش كردود. تحويل ملاحظة فريق
- * لمحادثة عميل هو بالظبط التسريب اللي الفصل ده موجود عشانه.
- */
-export function forwardMessage({ messageId, toConversationId }) {
-    const original = messages.find((m) => m.id === messageId);
-    if (!original || original.deleted) return null;
-
-    const source = conversations.find((c) => c.id === original.conversationId);
-    return sendMessage({
-        conversationId: toConversationId,
-        body: original.body,
-        attachments: original.attachments.map((a) => ({ ...a, id: makeId('a') })),
-        visibility: original.visibility,
-        forwardedFrom: {
-            fromName: findContact(original.senderId)?.name || 'مستخدم',
-            fromConversation: source ? displayTitle(source) : ''
-        }
-    });
-}
-
-/** إجمالي غير المقروء — للشارة في القايمة الجانبية. */
-export function totalUnread() {
-    return listConversations().reduce((sum, c) => sum + c.unread, 0);
+export function subscribeInbox(handlers) {
+    const on = (table, event, fn) => ch.on('postgres_changes', { event, schema: 'public', table },
+        (payload) => fn?.(payload.eventType, payload.new, payload.old));
+    const ch = supabase.channel('admin-inbox');
+    on('chat_messages', 'INSERT', (_t, row) => handlers.onMessage?.(row));
+    // تعديل/حذف رد (056) — من موظف تاني أو من تبويب تاني.
+    on('chat_messages', 'UPDATE', (_t, row) => handlers.onMessageUpdate?.(row));
+    on('chat_sessions', '*', handlers.onSession);
+    on('inbox_conversations', '*', handlers.onMeta);
+    on('inbox_conversation_tags', '*', handlers.onTag);
+    on('inbox_notes', '*', handlers.onNote);
+    on('inbox_events', 'INSERT', (_t, row) => handlers.onEvent?.(row));
+    on('inbox_reactions', '*', handlers.onReaction);
+    ch.subscribe();
+    return () => supabase.removeChannel(ch);
 }

@@ -25,6 +25,7 @@ import {
     uploadAttachment, uploadErrorText, formatBytes, formatDuration, autoLabelFor
 } from '/assets/js/chat-attachments.js';
 import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
 
 /**
  * ردود البداية بعد الترحيب. SIE هو وضع الرد الوحيد، فهذه نصوص عادية يفهمها
@@ -923,6 +924,13 @@ class ChatWidget {
                 table: 'chat_messages',
                 filter: `session_id=eq.${this.currentSessionId}`
             }, payload => this.appendMessage(payload.new))
+            // فريق الدعم عدّل رده أو حذفه من صندوق الرسائل (056)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'chat_messages',
+                filter: `session_id=eq.${this.currentSessionId}`
+            }, payload => this.updateMessage(payload.new))
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
@@ -1055,10 +1063,7 @@ class ChatWidget {
         const sender = this.senderOf(msg);
         const created = msg.created_at ? new Date(msg.created_at) : new Date();
         const time = created.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        const att = attachmentFromMessage(msg);
-        const rawText = msg.message_text || '';
-        // نص «صورة مرفقة» / «رسالة صوتية» المحفوظ للقوائم لا يُكرَّر تحت المرفق نفسه
-        const text = att && rawText === autoLabelFor(att) ? '' : rawText;
+        const { att, text, deleted } = this.bubbleParts(msg);
 
         // فاصل يوم عند تغيّر التاريخ، وتجميع الرسائل المتتالية من نفس المرسل
         const dayKey = created.toDateString();
@@ -1080,8 +1085,8 @@ class ChatWidget {
         div.innerHTML = `
       ${avatar}
       <div class="chat-widget-message-content">
-        <div class="chat-widget-bubble${att ? ' has-attachment' : ''}">${att ? renderAttachmentHtml(att, escapeHtml) : ''}${text ? `<span class="chat-widget-bubble-text">${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}</span>` : ''}</div>
-        <div class="chat-widget-msg-meta">${continued ? '' : `<span class="chat-widget-msg-who">${sender.who}</span>`}<time class="chat-widget-msg-time" datetime="${created.toISOString()}">${time}</time></div>
+        ${this.bubbleHtml(msg)}
+        <div class="chat-widget-msg-meta">${continued ? '' : `<span class="chat-widget-msg-who">${sender.who}</span>`}<time class="chat-widget-msg-time" datetime="${created.toISOString()}">${time}</time>${this.editedTagHtml(msg)}</div>
       </div>
     `;
         if (msg.id) div.dataset.msgId = String(msg.id);
@@ -1089,8 +1094,44 @@ class ChatWidget {
         this.lastRendered = { day: dayKey, sender: sender.key, at: created };
 
         const who = sender.isOwn ? 'أنا' : (msg.is_admin_reply ? 'الدعم الفني' : 'البوت');
-        this.transcriptLines.push(`[${time}] ${who}: ${[att ? `[${autoLabelFor(att)}]` : '', text].filter(Boolean).join(' ')}`);
+        this.transcriptLines.push(`[${time}] ${who}: ${deleted ? `[${DELETED_MESSAGE_TEXT}]` : [att ? `[${autoLabelFor(att)}]` : '', text].filter(Boolean).join(' ')}`);
         if (att && !deferHydrate) this.hydrateAll(div);
+    }
+
+    /**
+     * المرفق والنص المعروض. نص «صورة مرفقة» / «رسالة صوتية» المحفوظ للقوائم لا
+     * يُكرَّر تحت المرفق نفسه؛ ورد الدعم المحذوف (056) يظهر كأثر بلا نص ولا مرفق.
+     */
+    bubbleParts(msg) {
+        if (isDeletedMessage(msg)) return { att: null, text: '', deleted: true };
+        const att = attachmentFromMessage(msg);
+        const rawText = msg.message_text || '';
+        return { att, text: att && rawText === autoLabelFor(att) ? '' : rawText, deleted: false };
+    }
+
+    bubbleHtml(msg) {
+        const { att, text, deleted } = this.bubbleParts(msg);
+        if (deleted) {
+            return `<div class="chat-widget-bubble is-deleted"><span class="chat-widget-bubble-text">${escapeHtml(DELETED_MESSAGE_TEXT)}</span></div>`;
+        }
+        return `<div class="chat-widget-bubble${att ? ' has-attachment' : ''}">${att ? renderAttachmentHtml(att, escapeHtml) : ''}${text ? `<span class="chat-widget-bubble-text">${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}</span>` : ''}</div>`;
+    }
+
+    editedTagHtml(msg) {
+        return isEditedMessage(msg) ? `<span class="chat-widget-msg-edited">${escapeHtml(EDITED_LABEL)}</span>` : '';
+    }
+
+    /** رد دعم اتعدّل أو اتحذف: الفقاعة نفسها تتحدّث في مكانها (مش رسالة جديدة). */
+    updateMessage(msg) {
+        if (!msg?.id) return;
+        const el = document.querySelector(`#chatWidgetBody [data-msg-id="${CSS.escape(String(msg.id))}"]`);
+        const bubble = el?.querySelector('.chat-widget-bubble');
+        if (!bubble) return;
+        bubble.outerHTML = this.bubbleHtml(msg);
+        const meta = el.querySelector('.chat-widget-msg-meta');
+        meta?.querySelector('.chat-widget-msg-edited')?.remove();
+        if (meta && isEditedMessage(msg)) meta.insertAdjacentHTML('beforeend', this.editedTagHtml(msg));
+        this.hydrateAll(el);
     }
 
     /** يوقّع مرفقات جزء من المحادثة دفعة واحدة (روابط قصيرة العمر، لا تُحفظ). */

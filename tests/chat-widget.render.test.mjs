@@ -43,7 +43,8 @@ const cfg = window.__FAKE_CONFIG || {};
 const state = window.__fake = { inserts: [], rpc: [], removed: [], sessionUpdates: [], listeners: [], sieCalls: [], uploadsFallback: [] };
 let seq = 0;
 const now = () => new Date(Date.now() + (seq++)).toISOString();
-function emit(table, row) { state.listeners.filter(l => l.table === table).forEach(l => setTimeout(() => l.cb({ new: row }), 0)); }
+function emit(table, row, event = 'INSERT') { state.listeners.filter(l => l.table === table && (!l.event || l.event === '*' || l.event === event)).forEach(l => setTimeout(() => l.cb({ eventType: event, new: row }), 0)); }
+state.emit = emit;
 function query(table) {
   const q = { table, filters: [] };
   const result = () => {
@@ -87,7 +88,7 @@ export const supabase = {
     }
     return { data: null, error: null };
   },
-  channel() { const ch = { on(ev, filter, cb) { state.listeners.push({ table: filter.table, cb }); return ch; }, subscribe() { return ch; } }; return ch; },
+  channel() { const ch = { on(ev, filter, cb) { state.listeners.push({ table: filter.table, event: filter.event, cb }); return ch; }, subscribe() { return ch; } }; return ch; },
   removeChannel() {},
   storage: { from(bucket) { return {
     async createSignedUploadUrl(path) {
@@ -495,6 +496,47 @@ test('mobile: full-screen sheet, no horizontal overflow, the menu stays on scree
     await context.close();
 });
 
+
+// 056: فريق الدعم بيعدّل رده أو يحذفه من صندوق الرسائل — نفس الصف بيتحدّث
+// (UPDATE)، والويدجت بيحدّث الفقاعة في مكانها بدل ما يضيف رسالة جديدة.
+test('support reply edited then deleted in the inbox → the same bubble updates in place (UPDATE, not a new message)', async () => {
+    const at = new Date(Date.now() - 60000).toISOString();
+    const reply = { id: 'r1', session_id: 's-1', created_at: at, sender_id: 'staff-1', is_admin_reply: true, message_text: 'الفاتورة اتبعتت', image_url: 'staff-1/s-1-a.png', attachment: { kind: 'image', path: 'staff-1/s-1-a.png', name: 'a.png' } };
+    const { page, context, errors } = await openWidget({ entitlement: ent('pro'), messages: [reply] });
+    await page.waitForSelector('#chatWidgetBody [data-msg-id="r1"] .cw-att-image.is-ready');
+    const count = () => page.locator('#chatWidgetBody [data-msg-id]').count();
+    const before = await count();
+
+    await page.evaluate((r) => window.__fake.emit('chat_messages', { ...r, message_text: 'الفاتورة اتبعتت على الإيميل', edited_at: new Date().toISOString() }, 'UPDATE'), reply);
+    await page.waitForFunction(() => document.querySelector('#chatWidgetBody [data-msg-id="r1"]')?.textContent.includes('على الإيميل'));
+    assert.match(await page.textContent('#chatWidgetBody [data-msg-id="r1"] .chat-widget-msg-meta'), /معدّلة/);
+    assert.equal(await page.locator('#chatWidgetBody [data-msg-id="r1"] .cw-att-image').count(), 1, 'the attachment stays after an edit');
+    assert.equal(await count(), before, 'an UPDATE must not append a message');
+
+    await page.evaluate((r) => window.__fake.emit('chat_messages', { ...r, message_text: '', attachment: null, image_url: null, edited_at: new Date().toISOString(), deleted_at: new Date().toISOString() }, 'UPDATE'), reply);
+    await page.waitForSelector('#chatWidgetBody [data-msg-id="r1"] .chat-widget-bubble.is-deleted');
+    const text = await page.textContent('#chatWidgetBody [data-msg-id="r1"]');
+    assert.match(text, /تم حذف هذه الرسالة/);
+    assert.doesNotMatch(text, /الفاتورة|معدّلة/, 'deleted reply leaks its text or edited label');
+    assert.equal(await page.locator('#chatWidgetBody [data-msg-id="r1"] .cw-att').count(), 0, 'deleted reply still shows its attachment');
+    assert.equal(await count(), before);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('history: an already deleted / edited support reply renders as such on open', async () => {
+    const at = (s) => new Date(Date.now() - s * 1000).toISOString();
+    const messages = [
+        { id: 'r1', session_id: 's-1', created_at: at(60), sender_id: 'staff-1', is_admin_reply: true, message_text: '', deleted_at: at(30) },
+        { id: 'r2', session_id: 's-1', created_at: at(50), sender_id: 'staff-1', is_admin_reply: true, message_text: 'النص الصحيح', edited_at: at(20) }
+    ];
+    const { page, context, errors } = await openWidget({ entitlement: ent('pro'), messages });
+    await page.waitForSelector('#chatWidgetBody [data-msg-id="r2"]');
+    assert.match(await page.textContent('#chatWidgetBody [data-msg-id="r1"]'), /تم حذف هذه الرسالة/);
+    assert.match(await page.textContent('#chatWidgetBody [data-msg-id="r2"]'), /النص الصحيح[\s\S]*معدّلة/);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
 
 // لقطات للمراجعة البصرية: WIDGET_SHOTS=<dir> node --test tests/chat-widget.render.test.mjs
 test('visual: desktop / mobile, light / dark — composer, menu, attachments, recording', { skip: !process.env.WIDGET_SHOTS }, async () => {

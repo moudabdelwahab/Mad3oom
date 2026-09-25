@@ -1,13 +1,13 @@
 /**
  * chat-page.render.test.mjs
  * ------------------------------------------------------------
- * صفحة الشات الكاملة (chat-customer.html) وشات الأدمن (chat-admin.html)
+ * صفحة الشات الكاملة (chat-customer.html)
  * ولوحة خطة SIE في الإعدادات، في Chromium فعلي مقابل بديل لـ Supabase
  * ولعميل SIE — نفس نهج chat-widget.render.test.mjs.
  *
  * يثبت أن الوضع التقليدي لم يعد له أي طريق في هذه الأسطح: SIE هو المحرك
  * الوحيد، وعند تعذّره رسالة واضحة بالسبب بلا بوت بديل؛ وأن المرفقات (صورة،
- * صوت، ملف) تظهر للعميل وللأدمن من المسار الموقَّع.
+ * صوت، ملف) تظهر للعميل من المسار الموقَّع (وللطاقم: admin-inbox.render.test.mjs).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +39,8 @@ let seq = 0;
 const now = () => new Date(Date.now() + (seq++)).toISOString();
 const SESSION = { id: 's-1', user_id: 'u-1', status: 'active', bot_state: {}, is_manual_mode: false, updated_at: now(),
   profiles: { full_name: 'عميل تجريبي', role: 'user' }, chat_messages: [] };
-function emit(table, row) { state.listeners.filter(l => l.table === table).forEach(l => setTimeout(() => l.cb({ new: row }), 0)); }
+function emit(table, row, event = 'INSERT') { state.listeners.filter(l => l.table === table && (!l.event || l.event === '*' || l.event === event)).forEach(l => setTimeout(() => l.cb({ eventType: event, new: row }), 0)); }
+state.emit = emit;
 function query(table) {
   const one = () => {
     if (table === 'chat_sessions') return { data: SESSION, error: null };
@@ -81,7 +82,7 @@ export const supabase = {
     if (fn === 'sie_customer_downgrade') return { data: cfg.downgradeResult || { ok: true, edition: args.p_target }, error: null };
     return { data: null, error: null };
   },
-  channel() { const ch = { on(ev, filter, cb) { state.listeners.push({ table: filter.table, cb }); return ch; }, subscribe() { return ch; } }; return ch; },
+  channel() { const ch = { on(ev, filter, cb) { state.listeners.push({ table: filter.table, event: filter.event, cb }); return ch; }, subscribe() { return ch; } }; return ch; },
   removeChannel() {},
   storage: { from() { return {
     async createSignedUploadUrl(path) { return { data: { signedUrl: location.origin + '/__upload/' + path, path }, error: null }; },
@@ -262,6 +263,25 @@ test('customer page: an image, a voice note and a legacy image_url all render si
     await context.close();
 });
 
+test('customer page: a support reply edited then deleted in the inbox updates in place', async () => {
+    const reply = { id: 'r1', session_id: 's-1', sender_id: 'staff-1', is_admin_reply: true, created_at: new Date().toISOString(), message_text: 'الرد الأول' };
+    const { page, context, errors } = await openCustomer({ entitlement: ent('pro'), messages: [reply] });
+    await page.waitForSelector('#chatMessages [data-msg-id="r1"]');
+    const count = () => page.locator('#chatMessages [data-msg-id]').count();
+    const before = await count();
+
+    await page.evaluate((r) => window.__fake.emit('chat_messages', { ...r, message_text: 'الرد بعد التعديل', edited_at: new Date().toISOString() }, 'UPDATE'), reply);
+    await page.waitForFunction(() => document.querySelector('#chatMessages [data-msg-id="r1"]')?.textContent.includes('بعد التعديل'));
+    assert.match(await page.textContent('#chatMessages [data-msg-id="r1"]'), /معدّلة/);
+
+    await page.evaluate((r) => window.__fake.emit('chat_messages', { ...r, message_text: '', deleted_at: new Date().toISOString() }, 'UPDATE'), reply);
+    await page.waitForFunction(() => document.querySelector('#chatMessages [data-msg-id="r1"]')?.textContent.includes('تم حذف هذه الرسالة'));
+    assert.doesNotMatch(await page.textContent('#chatMessages [data-msg-id="r1"]'), /الرد|معدّلة/);
+    assert.equal(await count(), before, 'an UPDATE must not append a message');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
 test('customer page: the plan chip opens the plan dialog (keyboard, Escape returns focus), downgrade calls the server', async () => {
     const { page, context } = await openCustomer({ entitlement: ent('max') });
     await page.focus('#chatModeInlineBtn');
@@ -328,22 +348,6 @@ test('settings panel: a server refusal of a downgrade is shown and nothing else 
     await context.close();
 });
 
-// ════════════════════════════ شات الأدمن ════════════════════════════
-
-test('admin chat: image, audio and file attachments render signed for staff; the auto label is hidden', async () => {
-    const messages = [
-        { id: 'a', session_id: 's-1', sender_id: 'u-9', is_admin_reply: false, created_at: new Date().toISOString(), message_text: 'صورة مرفقة', image_url: 'u-9/a.png', attachment: { kind: 'image', path: 'u-9/a.png', name: 'a.png' } },
-        { id: 'b', session_id: 's-1', sender_id: 'u-9', is_admin_reply: false, created_at: new Date().toISOString(), message_text: 'رسالة صوتية', audio_url: 'u-9/v.webm', attachment: { kind: 'audio', path: 'u-9/v.webm', name: 'v.webm', duration_ms: 2000 } },
-        { id: 'c', session_id: 's-1', sender_id: 'u-9', is_admin_reply: false, created_at: new Date().toISOString(), message_text: 'الفاتورة دي', attachment: { kind: 'file', path: 'u-9/f.pdf', name: 'f.pdf', size: 2048 } }
-    ];
-    const { page, context, errors } = await openPage('/chat-admin.html', { role: 'admin', messages });
-    await page.waitForSelector('#chatsList .chat-item');
-    await page.click('#chatsList .chat-item');
-    await page.waitForFunction(() => document.querySelectorAll('#messagesContainer .cw-att.is-ready').length === 3);
-    const text = await page.textContent('#messagesContainer');
-    assert.doesNotMatch(text, /صورة مرفقة|رسالة صوتية/);
-    assert.match(text, /الفاتورة دي/);
-    assert.equal(new URL(await page.getAttribute('#messagesContainer a.cw-att-file', 'href')).pathname, '/__file/u-9/f.pdf');
-    assert.deepEqual(errors, []);
-    await context.close();
-});
+// شات الأدمن: chat-admin.html اتشالت؛ admin/inbox.html هي واجهة الإدارة
+// الوحيدة، وضمانة «مرفقات العميل موقَّعة للطاقم والنص التلقائي مخفي» اتنقلت
+// لـ tests/admin-inbox.render.test.mjs.

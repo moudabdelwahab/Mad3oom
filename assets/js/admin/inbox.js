@@ -1,76 +1,92 @@
 /**
- * inbox.js — صندوق الرسائل
+ * inbox.js — صندوق الرسائل: الـ helpdesk الإداري لشات العملاء
  * ------------------------------------------------------------
- * محادثات الأدمن مع أعضاء المنصة، والسوبر يوزر مع أعضائه هو.
+ * المحادثات هنا هي نفس جلسات ويدجت الشات (chat-widget.js) وصفحة شات
+ * العميل (chat-logic.js)، بكل ردود البوت المحلي و SIE اللي اتكتبت فيها.
+ * الصندوق مابيولّدش ردود بوت ولا بينادي SIE — بيقرا اللي اتكتب، وبيضيف
+ * طبقة الفريق فوقه: الإسناد، الفرق، التحويل، الوسوم، الملاحظات الداخلية،
+ * الأرشفة، والسجل (migrations/055_inbox_helpdesk_core.sql)، ومرفقات الدعم
+ * والتفاعلات وتعديل الردود وحذفها (migrations/056_inbox_attachments_reactions_edits.sql).
  *
- * ⚠️ **واجهة أمامية بس.** كل البيانات جاية من `inbox-data.js` وهي وهمية
- * في الذاكرة. مفيش إرسال حقيقي ولا حفظ — التحديث بيمسح كل حاجة.
- *
- * ------------------------------------------------------------
- * الملف ده مابيعرفش إن البيانات وهمية
- *
- * وده مقصود. كل قراءة وكتابة بتعدي على دوال `inbox-data.js`، فالربط
- * بقاعدة البيانات بعدين هو تغيير في **ملف واحد** — الشاشة دي ماتتلمسش.
+ * بيحل محل chat-admin.html. الروابط القديمة ليها (إشعارات القاعدة
+ * `chat-admin.html?session=…`) بتتحوّل هنا من vercel.json، والصفحة دي
+ * بتفتح المحادثة من `?session=` أو `?session_id=`.
  *
  * ------------------------------------------------------------
  * ترتيب الرسم
  *
- * فيه أربع دوال رسم بس، وكل تغيير بينده اللي يخصه:
  *   renderRail()          الرِف والعدادات
  *   renderConversations() القايمة
- *   renderThread()        العنوان + المثبّت + الرسايل
+ *   renderThread()        العنوان + الخط الزمني + شريط الكتابة
  *   renderDetails()       اللوح الجانبي
  *
- * مافيش رسم جزئي لرسالة واحدة. المحادثة كام عشرة عنصر مش كام ألف،
- * وإعادة رسم كاملة أبسط من مزامنة يدوية بتفتكر تحدّث حاجة وتنسى تانية.
+ * مافيش رسم جزئي لعنصر واحد: إعادة رسم كاملة أبسط من مزامنة يدوية
+ * بتفتكر تحدّث حاجة وتنسى تانية.
  */
+import { initSidebar } from './sidebar.js';
+import { checkAdminAuth, updateAdminUI } from './auth.js';
+import { iconize } from '/assets/js/chat-icons.js';
 import {
-    getCurrentUser, setPreviewRole, listContacts, listAssignableAgents, findContact, initialsOf,
-    listConversations, findConversation, displayTitle, viewCounts,
-    listMessages, findMessage, lastMessageOf, pinnedMessages, conversationAttachments, readReceipt,
-    markRead, sendMessage, editMessage, deleteMessage,
-    toggleReaction, toggleStar, togglePin,
-    setStatus, setAssignee, toggleLabel, setArchived, setMuted, saveDraft,
-    openDirectConversation, createGroup, forwardMessage, totalUnread,
-    listCannedReplies, fillCannedReply, STATUS_LABELS, LABEL_COLORS
+    attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, autoLabelFor,
+    FILE_PICKER_ACCEPT, validateFile, downscaleImage, buildObjectPath, messageFieldsFor,
+    uploadErrorText, formatBytes, formatDuration
+} from '/assets/js/chat-attachments.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
+import {
+    STATUS_LABELS, senderKind, displayName, initialsOf, isStaffOriginated, isArchived,
+    lastMessageOf, lastActivityOf, isAwaitingReply, filterSessions, viewCounts,
+    messageStats, fillCannedReply, sessionIdFromSearch, sortMessages,
+    buildTimeline, describeEvent, extractMentions,
+    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf
+} from './inbox-model.js';
+import {
+    loadSessions, loadSession, loadThreadExtras, loadReactions, loadAgents, loadTeams, loadTags, createSharedTag,
+    loadCustomerContext, sendReply, editMessage, deleteMessage, toggleReaction, closeSessions, assign, transfer,
+    addTag, removeTag, addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
+    loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox
 } from './inbox-data.js';
 
-/**
- * القايمة الجانبية بتتحمّل بشكل منفصل عن الصفحة.
- *
- * `sidebar.js` بيستورد `api-config.js`، واللي بدوره بيجيب مكتبة Supabase
- * من CDN. الاستيراد الثابت كان هيوقّع **الصفحة كلها** لو ده فشل، رغم إن
- * الصندوق مش محتاج Supabase في حاجة.
- */
-import('./sidebar.js')
-    .then((module) => {
-        module.initSidebar();
-        setTimeout(fitShellHeight, 300);
-    })
-    .catch((err) => console.warn('[inbox] القايمة الجانبية ماتحمّلتش:', err?.message || err));
-
 const $ = (id) => document.getElementById(id);
+
+function emptyThread(sessionId) {
+    return { sessionId, notes: [], events: [], reactions: [], revisions: [] };
+}
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const state = {
+    me: null,
+    agents: [],
+    teams: [],
+    tags: [],
+    sessions: [],
+    loaded: false,
     view: 'all',
     activeId: null,
     selected: new Set(),
-    pending: [],
+    drafts: new Map(),
+    /** الملاحظات والسجل والتفاعلات والنسخ السابقة للمحادثة المفتوحة بس. */
+    thread: emptyThread(null),
+    customerCtx: new Map(),
+    canned: [],
     mode: 'reply',
-    replyToId: null,
-    editingId: null,
+    editingNoteId: null,
+    /** رد دعم بيتعدّل (056) — نفس شريط التعديل بتاع الملاحظة. */
+    editingMessageId: null,
+    /** مرفق واحد مستني الإرسال مع الرد: {file, kind, mime, ext, durationMs, url, progress}. */
+    pending: null,
     recorder: null,
-    recordingStartedAt: 0,
-    recordingTimer: null,
+    /** العنصر اللي لوحة التفاعلات مفتوحة عليه: {messageId} أو {noteId}. */
+    reactFor: null,
+    /** الرسايل اللي نسخها السابقة ظاهرة. */
+    openRevisions: new Set(),
     forwardingId: null,
-    groupSelection: new Set(),
     detailsOpen: false,
-    /** بحث جوه المحادثة: النص، ومكاننا في النتايج. */
+    sending: false,
+    /** آخر محادثة اترسمت — عشان نعرف إمتى ننزل لآخرها. */
+    renderedId: null,
     find: { query: '', hits: [], index: 0 },
-    /** آخر رسالة كانت مقروءة قبل ما نفتح — عشان فاصل «الجديد». */
-    firstUnreadId: null,
     pop: null
 };
 
@@ -79,31 +95,33 @@ const state = {
 // ═════════════════════════════════════════════════════════════
 
 const ICON = {
-    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>',
-    forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>',
-    reply: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>',
-    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>',
-    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-3V6a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v8z"/></svg>',
-    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
-    smile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
     note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 13h6M9 17h4"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-    checks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 6 7 17 2 12"/><polyline points="22 6 11 17 9 15"/></svg>'
+    forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
+    react: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
 };
 
-const VIEWS = [
+const VIEW_META = [
     { id: 'all', label: 'الكل', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' },
-    { id: 'unread', label: 'غير المقروءة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>' },
+    { id: 'awaiting', label: 'بانتظار رد', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
     { id: 'mine', label: 'المسندة لي', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+    { id: 'team', label: 'فرقي', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
     { id: 'unassigned', label: 'من غير مسؤول', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' },
-    { id: 'open', label: 'المفتوحة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 3 3 9 9 9"/></svg>' },
-    { id: 'closed', label: 'المقفولة', icon: ICON.check },
+    { id: 'open', label: 'النشطة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 3 3 9 9 9"/></svg>' },
+    { id: 'manual', label: 'الدعم ماسكها', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>' },
+    { id: 'bot', label: 'مع البوت', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01"/></svg>' },
+    { id: 'closed', label: 'المقفولة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' },
     { id: 'archived', label: 'الأرشيف', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/></svg>' }
 ];
 
-const QUICK_EMOJI = ['👍', '❤️', '😀', '😅', '🙏', '✅', '🔥', '👏', '🎉', '😍', '🤔', '😢', '😮', '💯', '⚡', '📌'];
+const ROLE_LABELS = {
+    customer: 'عميل', user: 'عميل', admin: 'أدمن', support: 'دعم',
+    super_user: 'سوبر يوزر', platform_owner: 'مالك المنصة'
+};
+const TICKET_STATUS = { open: 'مفتوحة', in_progress: 'قيد المعالجة', pending: 'معلّقة', resolved: 'اتحلت', closed: 'مقفولة' };
+
+const QUICK_EMOJI = ['👍', '🙏', '✅', '😀', '😅', '❤️', '🎉', '👏', '🤔', '😢', '💯', '⚡', '📌', '🔥', '👋', '🙂'];
 
 function toast(message, kind = 'ok') {
     const el = $('toast');
@@ -111,15 +129,22 @@ function toast(message, kind = 'ok') {
     el.className = kind === 'err' ? 'toast toast--err' : 'toast';
     el.hidden = false;
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => { el.hidden = true; }, 3200);
+    toast._t = setTimeout(() => { el.hidden = true; }, 3600);
 }
 
+const errText = (err, fallback) => err?.message || fallback;
+
 function shortTime(iso) {
+    if (!iso) return '';
     const date = new Date(iso);
     const sameDay = date.toDateString() === new Date().toDateString();
     return sameDay
         ? date.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })
         : date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+}
+
+function fullTime(iso) {
+    return iso ? new Date(iso).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 }
 
 function dayLabel(iso) {
@@ -129,24 +154,19 @@ function dayLabel(iso) {
     return date.toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function humanSize(bytes) {
-    if (!Number.isFinite(bytes)) return '';
-    if (bytes < 1024) return `${bytes} بايت`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} ك.ب`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} م.ب`;
-}
+/** رموز [[icon:…]] بتاعة البوت بتتشال من المعاينة — القص ممكن يقطعها نصين. */
+const stripIcons = (text) => String(text || '').replace(/\[\[icon:[^\]]+\]\]\s*/g, '');
 
-const clockFormat = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-function avatarHtml(name, { group = false, online = false, small = false } = {}) {
-    return `<div class="ib-avatar ${group ? 'ib-avatar--group' : ''} ${small ? 'ib-avatar--sm' : ''}" data-online="${online}">${esc(initialsOf(name))}</div>`;
-}
-
-function fillAvatar(element, name, { group = false, online = false } = {}) {
-    element.className = `ib-avatar ${group ? 'ib-avatar--group' : ''}`;
-    element.dataset.online = String(online);
-    element.textContent = initialsOf(name);
-}
+const findSession = (id) => state.sessions.find((s) => s.id === id) || null;
+const activeSession = () => findSession(state.activeId);
+const agentById = (id) => state.agents.find((a) => a.id === id) || null;
+const agentName = (id) => (id === state.me?.id ? 'أنت' : (agentById(id)?.full_name || agentById(id)?.email || null));
+const teamById = (id) => state.teams.find((t) => t.id === id) || null;
+const tagById = (id) => state.tags.find((t) => t.id === id) || null;
+const meAgent = () => agentById(state.me?.id);
+const isElevated = () => !!meAgent()?.is_elevated;
+const viewCtx = () => ({ meId: state.me?.id, myTeamIds: meAgent()?.team_ids || [] });
+const tagNames = () => Object.fromEntries(state.tags.map((t) => [t.id, t.name]));
 
 /**
  * بيخلّي الصندوق يملا الباقي من الشاشة بالظبط.
@@ -165,16 +185,53 @@ function fitShellHeight() {
 }
 
 // ═════════════════════════════════════════════════════════════
+// المرفقات (صور، صوت، ملفات) — نفس chat-attachments.js بتاع صفحة العميل
+// ═════════════════════════════════════════════════════════════
+
+/**
+ * التوقيع مع كاش قصير: الخط الزمني بيترسم تاني مع كل رسالة جديدة، ومن غير
+ * الكاش كل رسمة كانت طلب توقيع جديد لكل مرفق.
+ */
+const SIGN_REUSE_MS = 4 * 60 * 1000; // الرابط صالح 5 دقايق؛ بنعيد التوقيع قبلها
+const signedCache = new Map();
+
+async function signCached(paths, { download = false } = {}) {
+    const now = Date.now();
+    const key = (p) => `${download ? 'd' : 'v'}:${p}`;
+    const missing = [...new Set(paths)].filter((p) => !(signedCache.get(key(p))?.at > now - SIGN_REUSE_MS));
+    if (missing.length) {
+        const urls = await signAttachmentPaths(missing, { download });
+        missing.forEach((p, i) => signedCache.set(key(p), { url: urls?.[i] || null, at: now }));
+    }
+    // الرابط مابيتسندش لعنصر إلا لو http(s) فعلاً — مش javascript: ولا data:.
+    return paths.map((p) => {
+        const url = signedCache.get(key(p))?.url;
+        return url && /^https?:\/\//i.test(url) ? url : null;
+    });
+}
+
+const hydrateMessageAttachments = (root) => hydrateAttachments(root, signCached);
+
+/** المرفق + النص المعروض: النص التلقائي («صورة مرفقة») بيتخفى لأن المرفق نفسه ظاهر. */
+function messageParts(message) {
+    const att = attachmentFromMessage(message);
+    const raw = message.message_text || '';
+    return { att, text: att && raw === autoLabelFor(att) ? '' : raw };
+}
+
+// ═════════════════════════════════════════════════════════════
 // الرِف
 // ═════════════════════════════════════════════════════════════
 
 function renderRail() {
-    const counts = viewCounts();
-    $('viewRail').innerHTML = `<div class="ib-rail-title">الصندوق</div>` + VIEWS.map((view) => `
+    const counts = viewCounts(state.sessions, viewCtx());
+    const views = VIEW_META.filter((v) => v.id !== 'team' || (meAgent()?.team_ids || []).length);
+    $('viewRail').innerHTML = `<div class="ib-rail-title">الصندوق</div>` + views.map((view) => `
         <button class="ib-view ${view.id === state.view ? 'is-active' : ''}" data-view="${view.id}">
           ${view.icon}<span>${esc(view.label)}</span>
           ${counts[view.id] ? `<span class="ib-view-count">${counts[view.id]}</span>` : ''}
-        </button>`).join('');
+        </button>`).join('')
+        + (isElevated() ? `<div class="ib-rail-action"><button type="button" class="btn btn-secondary" id="manageTeamsBtn">إدارة الفرق</button></div>` : '');
 
     $('viewRail').querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
         state.view = b.dataset.view;
@@ -182,6 +239,7 @@ function renderRail() {
         renderRail();
         renderConversations();
     }));
+    $('manageTeamsBtn')?.addEventListener('click', openTeamsDialog);
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -189,49 +247,61 @@ function renderRail() {
 // ═════════════════════════════════════════════════════════════
 
 function currentRows() {
-    return listConversations({ view: state.view, query: $('convSearch').value });
+    return filterSessions(state.sessions, {
+        view: state.view, query: $('convSearch').value, ctx: viewCtx(), tagNames: tagNames()
+    });
+}
+
+function tagChip(tagId) {
+    const tag = tagById(tagId);
+    if (!tag) return '';
+    return `<span class="ib-tag" style="background:${esc(tag.color)}22;color:${esc(tag.color)}">${esc(tag.name)}</span>`;
+}
+
+function sessionTags(session, { withTags = true } = {}) {
+    const tags = [];
+    if (session.status === 'closed') tags.push(['ok', STATUS_LABELS.closed]);
+    else tags.push(session.is_manual_mode ? ['accent', 'الدعم ماسكها'] : ['muted', 'البوت']);
+    if (isAwaitingReply(session)) tags.push(['danger', 'بانتظار رد']);
+    if (isArchived(session)) tags.push(['muted', 'مؤرشفة']);
+    if (isStaffOriginated(session)) tags.push(['warn', 'فريق العمل']);
+    if (!session.user_id) tags.push(['muted', 'زائر']);
+    const meta = session.meta || {};
+    if (meta.assignee_id) tags.push(['muted', `👤 ${agentName(meta.assignee_id) || 'موظف'}`]);
+    if (meta.team_id) tags.push(['muted', `👥 ${teamById(meta.team_id)?.name || 'فريق'}`]);
+    return tags.map(([tone, label]) => `<span class="ib-tag ib-tag--${tone}">${esc(label)}</span>`).join('')
+        + (withTags ? (session.tagIds || []).map(tagChip).join('') : '');
 }
 
 function renderConversations() {
-    const rows = currentRows();
     const list = $('convList');
-
     $('bulkBar').hidden = state.selected.size === 0;
     $('bulkCount').textContent = `${state.selected.size} مختارة`;
 
+    if (!state.loaded) return;
+    const rows = currentRows();
     if (!rows.length) {
         list.innerHTML = `<div class="ib-empty" style="padding:2.5rem 1rem;">
             <p>${$('convSearch').value.trim() ? 'مفيش محادثة مطابقة.' : 'مفيش محادثات في المشهد ده.'}</p></div>`;
         return;
     }
 
-    const me = getCurrentUser();
-    list.innerHTML = rows.map((conversation) => {
-        const last = lastMessageOf(conversation.id);
-        const isGroup = conversation.kind === 'group';
-        const other = isGroup ? null : findContact(conversation.memberIds.find((id) => id !== me.id));
-        const assignee = conversation.assigneeId ? findContact(conversation.assigneeId) : null;
-
+    list.innerHTML = rows.map((session) => {
+        const name = displayName(session);
         return `
-        <div class="ib-row ${conversation.id === state.activeId ? 'is-active' : ''} ${state.selected.has(conversation.id) ? 'is-selected' : ''}"
-             data-conversation="${esc(conversation.id)}" role="button" tabindex="0">
-          <input type="checkbox" class="ib-row-check" data-select="${esc(conversation.id)}"
-                 ${state.selected.has(conversation.id) ? 'checked' : ''} aria-label="اختيار المحادثة">
-          ${avatarHtml(conversation.title, { group: isGroup, online: other?.online })}
+        <div class="ib-row ${session.id === state.activeId ? 'is-active' : ''} ${state.selected.has(session.id) ? 'is-selected' : ''}"
+             data-conversation="${esc(session.id)}" role="button" tabindex="0">
+          <input type="checkbox" class="ib-row-check" data-select="${esc(session.id)}"
+                 ${state.selected.has(session.id) ? 'checked' : ''} aria-label="اختيار المحادثة">
+          <div class="ib-avatar ${session.user_id ? '' : 'ib-avatar--guest'}">${esc(initialsOf(name))}</div>
           <span class="ib-row-main">
             <span class="ib-row-top">
-              <span class="ib-row-title">${esc(conversation.title)}</span>
-              <span class="ib-row-time">${last ? esc(shortTime(last.createdAt)) : ''}</span>
+              <span class="ib-row-title">${esc(name)}</span>
+              <span class="ib-row-time">${esc(shortTime(lastActivityOf(session)))}</span>
             </span>
-            <span class="ib-row-preview">${previewOf(conversation, last)}</span>
-            <span class="ib-row-meta">
-              ${statusTag(conversation.status)}
-              ${assignee ? `<span class="ib-tag ib-tag--muted">${esc(assignee.name)}</span>` : ''}
-              ${conversation.labels.map((l) => `<span class="ib-tag ib-tag--${LABEL_COLORS[l] || 'muted'}">${esc(l)}</span>`).join('')}
-              ${conversation.muted ? '<span class="ib-tag ib-tag--muted">مكتومة</span>' : ''}
-            </span>
+            <span class="ib-row-preview">${previewOf(session, lastMessageOf(session))}</span>
+            <span class="ib-row-meta">${sessionTags(session)}</span>
           </span>
-          ${conversation.unread ? `<span class="ib-unread">${conversation.unread}</span>` : ''}
         </div>`;
     }).join('');
 
@@ -253,271 +323,347 @@ function renderConversations() {
     });
 }
 
-function statusTag(status) {
-    const tone = status === 'closed' ? 'ok' : status === 'pending' ? 'warn' : 'accent';
-    return `<span class="ib-tag ib-tag--${tone}">${esc(STATUS_LABELS[status])}</span>`;
-}
-
-/** سطر المعاينة: المرفق والملاحظة ليهم أيقونة، عشان مايبانوش كنص فاضي. */
-function previewOf(conversation, message) {
-    if (conversation.draft) return `<span style="color:var(--color-danger)">مسودة:</span> ${esc(conversation.draft.slice(0, 45))}`;
+/** سطر المعاينة: مسودة الموظف الأول، وبعدين آخر رسالة ومين كاتبها. */
+function previewOf(session, message) {
+    const draft = state.drafts.get(session.id);
+    if (draft) return `<span style="color:var(--color-danger)">مسودة:</span> ${esc(draft.slice(0, 45))}`;
     if (!message) return '<span style="opacity:.6">مفيش رسايل لسه</span>';
-    if (message.deleted) return '<span style="opacity:.6">رسالة اتسحبت</span>';
 
-    const prefix = message.visibility === 'note' ? ICON.note : '';
-    const voice = message.attachments.find((a) => a.kind === 'voice');
-    if (voice) return `${prefix}${ICON.mic}<span>رسالة صوتية</span>`;
-
-    const doc = message.attachments.find((a) => a.kind === 'document');
-    if (doc && !message.body) return `${prefix}${ICON.doc}<span>${esc(doc.name)}</span>`;
-    return `${prefix}${doc ? ICON.doc : ''}<span>${esc(message.body.slice(0, 60))}</span>`;
+    const kind = senderKind(message);
+    const who = kind === 'agent' ? 'الدعم: ' : kind === 'bot' ? 'البوت: ' : '';
+    if (isDeletedMessage(message)) return `${esc(who)}<i>${esc(DELETED_MESSAGE_TEXT)}</i>`;
+    const att = attachmentFromMessage(message);
+    const text = stripIcons(message.message_text) || (att ? autoLabelFor(att) : '');
+    return `${esc(who)}${att ? '📎 ' : ''}${esc(text.slice(0, 70))}`;
 }
 
 // ═════════════════════════════════════════════════════════════
 // المحادثة
 // ═════════════════════════════════════════════════════════════
 
-function openConversation(id) {
-    const conversation = findConversation(id);
-    if (!conversation) return;
+async function openConversation(id, { refresh = true } = {}) {
+    let session = findSession(id);
+    if (!session) {
+        // رابط مباشر لمحادثة مش في القايمة (أحدث من التحميل مثلاً).
+        session = await loadSession(id).catch(() => null);
+        if (!session) { toast('المحادثة دي مش موجودة أو مش مسموحلك تشوفها.', 'err'); return; }
+        state.sessions.push(session);
+    }
 
-    // أول رسالة مش مقروءة بتتحسب **قبل** التعليم كمقروء، وإلا الفاصل
-    // مايبانش أبدًا.
-    const me = getCurrentUser();
-    const unreadFirst = listMessages(id).find((m) => m.senderId !== me.id && !m.readBy.includes(me.id));
-    state.firstUnreadId = conversation.unread > 0 && unreadFirst ? unreadFirst.id : null;
-
+    if (state.activeId && state.activeId !== id) state.drafts.set(state.activeId, $('messageInput').value);
+    const switching = state.activeId !== id;
     state.activeId = id;
-    markRead(id);
-    clearPending();
-    cancelReply();
+    state.thread = emptyThread(id);
     cancelEdit();
     closeFind();
     closePop();
+    // المرفق مربوط بالمحادثة (مساره فيه رقمها) — مايتنقلش مع الموظف.
+    if (switching) { discardPending(); cancelRecording(); }
+    state.reactFor = null;
+    state.openRevisions.clear();
+
+    // الرابط بيوصف المحادثة المفتوحة — ينفع يتبعت لزميل.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('session_id');
+    url.searchParams.set('session', id);
+    history.replaceState(null, '', url);
 
     $('threadEmpty').hidden = true;
     $('threadBody').hidden = false;
     $('inboxShell').classList.add('is-thread-open');
-
-    // المسودة المحفوظة بترجع مكانها.
-    $('messageInput').value = conversation.draft || '';
+    $('messageInput').value = state.drafts.get(id) || '';
     autoGrow();
 
     renderThread();
-    renderRail();
     renderConversations();
     renderDetails();
-    $('messageInput').focus();
+
+    if (refresh) await refreshThread(id, { withSession: true });
+    if (activeSession()?.status === 'active' || state.mode === 'note') $('messageInput').focus();
+}
+
+/**
+ * الملاحظات والسجل وسياق العميل، والجلسة نفسها لو `withSession`.
+ *
+ * بعد أي إجراء بنجيب الملاحظات والسجل بس: الجلسة بتتحدّث من اللي الـ RPC
+ * رجّعه ومن Realtime، وإعادة قراءتها ممكن ترجّع نسخة أقدم من اللي لسه
+ * اتكتب وتمسح التحديث من الشاشة.
+ */
+async function refreshThread(id, { withSession = false } = {}) {
+    const [fresh, extras] = await Promise.all([
+        withSession ? loadSession(id).catch(() => null) : null,
+        loadThreadExtras(id).catch((err) => { console.warn('[inbox] الملاحظات/السجل:', err?.message || err); return null; })
+    ]);
+    if (state.activeId !== id) return;
+    if (fresh) replaceSession(fresh);
+    if (extras) state.thread = { sessionId: id, ...extras };
+    const userId = findSession(id)?.user_id;
+    if (userId && !state.customerCtx.has(userId)) {
+        state.customerCtx.set(userId, await loadCustomerContext(userId));
+    }
+    if (state.activeId === id) { renderThread(); renderDetails(); renderConversations(); }
+}
+
+function replaceSession(fresh) {
+    const index = state.sessions.findIndex((s) => s.id === fresh.id);
+    if (index >= 0) state.sessions[index] = fresh; else state.sessions.push(fresh);
+}
+
+function dropSession(id) {
+    state.sessions = state.sessions.filter((s) => s.id !== id);
+    state.selected.delete(id);
+    if (state.activeId === id) closeThread();
+}
+
+function closeThread() {
+    state.activeId = null;
+    state.renderedId = null;
+    state.thread = emptyThread(null);
+    cancelEdit();
+    discardPending();
+    cancelRecording();
+    $('threadBody').hidden = true;
+    $('threadEmpty').hidden = false;
+    $('inboxShell').classList.remove('is-thread-open');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('session');
+    url.searchParams.delete('session_id');
+    history.replaceState(null, '', url);
+    renderConversations();
+    renderDetails();
+}
+
+function renderAssignmentControls(session) {
+    const meta = session.meta || {};
+    const team = meta.team_id ? teamById(meta.team_id) : null;
+    // لو فيه فريق، المسؤول لازم يكون من أعضائه (القاعدة بترفض غير كده).
+    const pool = team ? state.agents.filter((a) => team.members.some((m) => m.user_id === a.id)) : state.agents;
+
+    $('assigneeSelect').innerHTML = `<option value="">من غير مسؤول</option>` + pool.map((a) =>
+        `<option value="${esc(a.id)}" ${meta.assignee_id === a.id ? 'selected' : ''}>${esc(a.id === state.me?.id ? `أنا (${a.full_name || a.email})` : (a.full_name || a.email))}</option>`).join('');
+    $('teamSelect').innerHTML = `<option value="">من غير فريق</option>` + state.teams.map((t) =>
+        `<option value="${esc(t.id)}" ${meta.team_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+    $('teamSelect').hidden = state.teams.length === 0;
 }
 
 function renderThread() {
-    const conversation = findConversation(state.activeId);
-    if (!conversation) return;
+    const session = activeSession();
+    if (!session) return;
+    const name = displayName(session);
 
-    const me = getCurrentUser();
-    const isGroup = conversation.kind === 'group';
-    const other = isGroup ? null : findContact(conversation.memberIds.find((id) => id !== me.id));
-
-    fillAvatar($('threadAvatar'), conversation.title, { group: isGroup, online: other?.online });
-    $('threadTitle').textContent = conversation.title;
-    $('threadMembers').textContent = isGroup
-        ? `${conversation.memberIds.length} أعضاء`
-        : (other?.online ? 'متصل دلوقتي' : (other?.email || ''));
-
-    $('statusSelect').innerHTML = Object.entries(STATUS_LABELS)
-        .map(([value, label]) => `<option value="${value}" ${conversation.status === value ? 'selected' : ''}>${esc(label)}</option>`).join('');
-    $('assigneeSelect').innerHTML = `<option value="">من غير مسؤول</option>` + listAssignableAgents()
-        .map((a) => `<option value="${esc(a.id)}" ${conversation.assigneeId === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-
-    $('muteBtn').classList.toggle('is-on', conversation.muted);
-    $('archiveBtn').classList.toggle('is-on', conversation.archived);
+    const avatar = $('threadAvatar');
+    avatar.className = `ib-avatar ${session.user_id ? '' : 'ib-avatar--guest'}`;
+    avatar.textContent = initialsOf(name);
+    $('threadTitle').textContent = name;
+    $('threadSub').textContent = [
+        session.customer?.email,
+        session.status === 'closed' ? 'محادثة مقفولة' : 'محادثة نشطة'
+    ].filter(Boolean).join(' · ');
+    $('threadTags').innerHTML = sessionTags(session, { withTags: false });
     $('detailsBtn').classList.toggle('is-on', state.detailsOpen);
+    $('archiveBtn').classList.toggle('is-on', isArchived(session));
+    $('archiveBtn').title = isArchived(session) ? 'رجّع من الأرشيف' : 'أرشفة';
+    renderAssignmentControls(session);
 
-    renderPinBar(conversation);
-    renderMessages(conversation);
+    const closed = session.status === 'closed';
+    $('closeSessionBtn').hidden = closed;
+    $('closedNote').hidden = !closed;
+    // المقفولة: الرد للعميل مش هيوصل، لكن الملاحظة للفريق لسه مفيدة.
+    const replyBtn = $('modeToggle').querySelector('[data-mode="reply"]');
+    replyBtn.disabled = closed;
+    if (closed && state.mode === 'reply') setMode('note');
+    updateComposerNote(session);
+
+    renderMessages(session);
 }
 
-function renderPinBar(conversation) {
-    const pinned = pinnedMessages(conversation.id);
-    const bar = $('pinBar');
-    bar.hidden = pinned.length === 0;
-    if (!pinned.length) return;
-
-    const first = pinned[0];
-    bar.innerHTML = `${ICON.pin}<span>${esc(first.body || 'مرفق مثبّت')}</span>
-        ${pinned.length > 1 ? `<span class="ib-tag ib-tag--muted">${pinned.length}</span>` : ''}`;
-    bar.onclick = () => jumpTo(first.id);
+function updateComposerNote(session) {
+    $('composerNote').textContent = state.mode === 'note'
+        ? 'ملاحظة داخلية — العميل مش هيشوفها. اكتب @ عشان تذكر حد من الفريق.'
+        : (session.is_manual_mode
+            ? 'الدعم ماسك المحادثة — البوت واقف ومش هيرد على العميل.'
+            : 'البوت شغال في المحادثة دي. أول رد منك هيوقّفه، والعميل هيشوف «فريق الدعم انضم».');
 }
 
-function renderMessages(conversation) {
-    const me = getCurrentUser();
-    const isGroup = conversation.kind === 'group';
-    const list = listMessages(conversation.id);
+function senderLabel(message, kind) {
+    if (kind === 'bot') return 'البوت';
+    if (kind !== 'agent') return '';
+    return agentName(message.sender_id) || 'فريق الدعم';
+}
+
+/** أسماء اللي تفاعلوا — في الـ title بدل ما تزحم الشاشة. */
+function reactorNames(userIds) {
+    return userIds.map((id) => agentName(id) || 'موظف').join('، ');
+}
+
+/** شريط التفاعلات تحت الفقاعة، ولوحة اختيار الرمز لو مفتوحة على العنصر ده. */
+function renderReactions(target) {
+    const groups = groupReactions(state.thread.reactions, target, state.me?.id);
+    const key = target.messageId ? `data-react-msg="${esc(target.messageId)}"` : `data-react-note="${esc(target.noteId)}"`;
+    const open = state.reactFor && (state.reactFor.messageId === target.messageId && state.reactFor.noteId === target.noteId);
+    const chips = groups.map((g) => `<button type="button" class="ib-reaction ${g.mine ? 'is-mine' : ''}" ${key}
+        data-emoji="${esc(g.emoji)}" title="${esc(reactorNames(g.userIds))}" aria-pressed="${g.mine}">
+        <span>${esc(g.emoji)}</span><b>${g.count}</b></button>`).join('');
+    const picker = open ? `<div class="ib-react-pick" role="group" aria-label="تفاعل">${REACTION_EMOJI.map((e) =>
+        `<button type="button" ${key} data-emoji="${esc(e)}" aria-label="تفاعل ${esc(e)}">${esc(e)}</button>`).join('')}</div>` : '';
+    return chips || picker ? `<div class="ib-reactions">${chips}${picker}</div>` : '';
+}
+
+/** نسخ الرد السابقة — للفريق بس (chat_message_revisions)، العميل شايف الأخيرة بس. */
+function renderRevisions(message) {
+    if (!state.openRevisions.has(message.id)) return '';
+    const list = revisionsOf(state.thread.revisions, message.id);
+    if (!list.length) return '';
+    return `<ol class="ib-revisions" aria-label="النسخ السابقة">${list.map((r) => `
+        <li><span class="ib-rev-head">${r.action === 'delete' ? 'قبل الحذف' : 'قبل التعديل'} · ${esc(agentName(r.actor_id) || 'موظف')} · ${esc(fullTime(r.created_at))}</span>
+          <span class="ib-text">${renderBody(r.previous_text)}</span>
+          ${r.previous_attachment ? `<span class="ib-rev-att">📎 ${esc(autoLabelFor({ kind: r.previous_attachment.kind, name: r.previous_attachment.name || '' }))}</span>` : ''}</li>`).join('')}</ol>`;
+}
+
+function renderMessage(message) {
+    const kind = senderKind(message);
+    const side = kind === 'agent' ? 'mine' : kind === 'bot' ? 'bot' : 'theirs';
+    const label = senderLabel(message, kind);
+    const hit = state.find.hits.includes(message.id);
+    const deleted = isDeletedMessage(message);
+    const { att, text } = deleted ? { att: null, text: '' } : messageParts(message);
+    const canEdit = canEditMessage(message, state.me?.id);
+    const canDelete = canDeleteMessage(message, state.me?.id, isElevated());
+    const hasRevisions = revisionsOf(state.thread.revisions, message.id).length > 0;
+    const deletedBy = deleted ? revisionsOf(state.thread.revisions, message.id).find((r) => r.action === 'delete')?.actor_id : null;
+
+    const tools = deleted ? '' : `<div class="ib-tools">
+        <button type="button" data-act="react" data-id="${esc(message.id)}" title="تفاعل (للفريق بس)">${ICON.react}</button>
+        ${message.message_text ? `<button type="button" data-act="forward" data-id="${esc(message.id)}" title="تحويل كملاحظة داخلية لمحادثة تانية">${ICON.forward}</button>` : ''}
+        ${canEdit ? `<button type="button" data-act="edit-message" data-id="${esc(message.id)}" title="تعديل الرد">${ICON.edit}</button>` : ''}
+        ${canDelete ? `<button type="button" data-act="delete-message" data-id="${esc(message.id)}" title="حذف الرد">${ICON.trash}</button>` : ''}
+      </div>`;
+    const history = hasRevisions
+        ? `<button type="button" class="ib-meta-link" data-act="revisions" data-id="${esc(message.id)}" aria-expanded="${state.openRevisions.has(message.id)}">· ${deleted ? 'النص الأصلي' : EDITED_LABEL}</button>`
+        : (isEditedMessage(message) ? `<span>· ${esc(EDITED_LABEL)}</span>` : '');
+    return `
+        <div class="ib-msg ib-msg--${side} ${hit ? 'is-hit' : ''} ${deleted ? 'is-deleted' : ''}" data-message="${esc(message.id)}" tabindex="-1">
+          ${label ? `<span class="ib-sender">${esc(label)}</span>` : ''}
+          ${tools}
+          <div class="ib-bubble">
+            ${deleted
+                ? `<div class="ib-deleted">${esc(DELETED_MESSAGE_TEXT)}${deletedBy ? ` — ${esc(agentName(deletedBy) || 'موظف')}` : ''}</div>`
+                : `${att ? renderAttachmentHtml(att, esc) : ''}${text ? `<span class="ib-text">${renderBody(text)}</span>` : ''}`}
+          </div>
+          ${deleted ? '' : renderReactions({ messageId: message.id })}
+          ${renderRevisions(message)}
+          <div class="ib-msg-meta"><span title="${esc(fullTime(message.created_at))}">${esc(shortTime(message.created_at))}</span>${history}</div>
+        </div>`;
+}
+
+function renderNote(note) {
+    const mine = note.author_id === state.me?.id;
+    const canDelete = mine || isElevated();
+    const hit = state.find.hits.includes(note.id);
+    const tools = note.deleted_at ? '' : `<div class="ib-tools">
+        <button type="button" data-act="react-note" data-id="${esc(note.id)}" title="تفاعل">${ICON.react}</button>
+        ${mine ? `<button type="button" data-act="edit-note" data-id="${esc(note.id)}" title="تعديل">${ICON.edit}</button>` : ''}
+        ${canDelete ? `<button type="button" data-act="delete-note" data-id="${esc(note.id)}" title="سحب">${ICON.trash}</button>` : ''}
+      </div>`;
+    return `
+        <div class="ib-msg ib-msg--note ${hit ? 'is-hit' : ''}" data-note="${esc(note.id)}" tabindex="-1">
+          ${tools}
+          <div class="ib-bubble">
+            <div class="ib-note-flag">${ICON.note}<span>ملاحظة داخلية — العميل مايشوفهاش · ${esc(agentName(note.author_id) || 'موظف')}</span></div>
+            ${note.deleted_at
+                ? '<div class="ib-deleted">الملاحظة دي اتسحبت.</div>'
+                : `<span class="ib-text">${renderBody(note.body, note.mentions)}</span>`}
+          </div>
+          ${note.deleted_at ? '' : renderReactions({ noteId: note.id })}
+          <div class="ib-msg-meta"><span title="${esc(fullTime(note.created_at))}">${esc(shortTime(note.created_at))}</span>
+            ${note.edited_at && !note.deleted_at ? '<span>· اتعدلت</span>' : ''}</div>
+        </div>`;
+}
+
+function renderEvent(event) {
+    // الجملة بصيغة الغائب («هبة أسندت…»)، فالاسم مش «أنت».
+    const fullName = (id) => agentById(id)?.full_name || agentById(id)?.email || null;
+    const text = describeEvent(event, { actor: fullName, agent: fullName, team: (id) => teamById(id)?.name });
+    return `<div class="ib-event" title="${esc(fullTime(event.created_at))}">${esc(text)} · ${esc(shortTime(event.created_at))}</div>`;
+}
+
+function renderMessages(session) {
     const container = $('messageList');
+    const extras = state.thread.sessionId === session.id ? state.thread : emptyThread(session.id);
+    const timeline = buildTimeline(session.messages, extras.notes, extras.events);
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
-    if (!list.length) {
-        container.innerHTML = `<div class="ib-empty"><p>مفيش رسايل لسه. اكتب أول واحدة.</p></div>`;
+    if (!timeline.length) {
+        container.innerHTML = `<div class="ib-empty"><p>مفيش رسايل في المحادثة دي لسه.</p></div>`;
         return;
     }
 
     let lastDay = '';
-    container.innerHTML = list.map((message) => {
-        const mine = message.senderId === me.id;
-        const isNote = message.visibility === 'note';
-        const sender = findContact(message.senderId);
-
-        const day = dayLabel(message.createdAt);
+    container.innerHTML = timeline.map(({ type, at, item }) => {
+        const day = dayLabel(at);
         const daySep = day === lastDay ? '' : `<div class="ib-day">${esc(day)}</div>`;
         lastDay = day;
-
-        const newSep = message.id === state.firstUnreadId ? '<div class="ib-newline">رسايل جديدة</div>' : '';
-        const side = isNote ? 'note' : (mine ? 'mine' : 'theirs');
-
-        return `${daySep}${newSep}
-        <div class="ib-msg ib-msg--${side} ${isHit(message.id) ? 'is-hit' : ''}" data-message="${esc(message.id)}" tabindex="-1">
-          ${!mine && isGroup && !isNote ? `<span class="ib-sender">${esc(sender?.name || 'مستخدم')}</span>` : ''}
-          ${message.deleted ? '' : toolsHtml(message, mine)}
-          <div class="ib-bubble">
-            ${isNote ? `<div class="ib-note-flag">${ICON.note}<span>ملاحظة داخلية — العميل مايشوفهاش · ${esc(sender?.name || '')}</span></div>` : ''}
-            ${message.forwardedFrom ? `<div class="ib-forwarded">${ICON.forward}<span>محوّلة من ${esc(message.forwardedFrom.fromName)}${message.forwardedFrom.fromConversation ? ` — ${esc(message.forwardedFrom.fromConversation)}` : ''}</span></div>` : ''}
-            ${quoteHtml(message)}
-            ${message.deleted
-                ? '<div class="ib-deleted">الرسالة دي اتسحبت.</div>'
-                : (message.body ? `<span class="ib-text">${renderBody(message)}</span>` : '')}
-            ${message.attachments.map(attachmentHtml).join('')}
-            ${reactionsHtml(message)}
-          </div>
-          <div class="ib-msg-meta">
-            <span>${esc(shortTime(message.createdAt))}</span>
-            ${message.editedAt ? '<span>· اتعدلت</span>' : ''}
-            ${message.starred ? '<span title="مميزة">★</span>' : ''}
-            ${message.pinned ? '<span title="مثبّتة">📌</span>' : ''}
-            ${mine && !isNote ? receiptHtml(message, conversation) : ''}
-          </div>
-        </div>`;
+        if (type === 'note') return daySep + renderNote(item);
+        if (type === 'event') return daySep + renderEvent(item);
+        return daySep + renderMessage(item);
     }).join('');
 
-    wireMessageEvents();
-    // آخر رسالة هي اللي المفروض تتشاف، إلا لو فيه فاصل «جديد» فنقف عنده.
-    const target = state.firstUnreadId && container.querySelector(`[data-message="${state.firstUnreadId}"]`);
-    if (target) target.scrollIntoView({ block: 'center' });
-    else container.scrollTop = container.scrollHeight;
+    container.querySelectorAll('[data-act]').forEach((button) => button.addEventListener('click', () => {
+        const { act, id } = button.dataset;
+        if (act === 'forward') openForwardDialog(id);
+        if (act === 'edit-note') startEditNote(id);
+        if (act === 'delete-note') removeNote(id);
+        if (act === 'edit-message') startEditMessage(id);
+        if (act === 'delete-message') removeMessage(id);
+        if (act === 'react') toggleReactPicker({ messageId: id });
+        if (act === 'react-note') toggleReactPicker({ noteId: id });
+        if (act === 'revisions') {
+            if (state.openRevisions.has(id)) state.openRevisions.delete(id); else state.openRevisions.add(id);
+            renderThread();
+        }
+    }));
+    container.querySelectorAll('[data-emoji][data-react-msg], [data-emoji][data-react-note]').forEach((button) =>
+        button.addEventListener('click', () => react(
+            button.dataset.reactMsg ? { messageId: button.dataset.reactMsg } : { noteId: button.dataset.reactNote },
+            button.dataset.emoji)));
+
+    hydrateMessageAttachments(container);
+    // الصورة بتتفتح بحجمها الكامل (رابط موقَّع قصير العمر) في تبويب جديد.
+    container.querySelectorAll('.cw-att-image').forEach((btn) => btn.addEventListener('click', () => {
+        const src = btn.querySelector('img')?.src;
+        if (src && btn.classList.contains('is-ready')) window.open(src, '_blank', 'noopener');
+    }));
+    // محادثة اتفتحت دلوقتي → آخرها. نفس المحادثة → ننزل بس لو الموظف كان
+    // تحت أصلاً، عشان رسالة جديدة ماتشدّوش وهو بيقرا اللي فوق.
+    const switched = state.renderedId !== session.id;
+    state.renderedId = session.id;
+    if (switched || (nearBottom && !state.find.query)) container.scrollTop = container.scrollHeight;
 }
 
-/** المنشن بيتلوّن، ونتيجة البحث بتتعلّم — على النص المهروب بس. */
-function renderBody(message) {
-    let html = esc(message.body);
-
-    for (const id of message.mentions) {
-        const name = findContact(id)?.name;
+/**
+ * النص بيتهرب الأول، وبعدين المنشن وعلامة البحث، وبعدين أيقونات البوت —
+ * iconize() لازم تيجي بعد التنقية دايمًا (راجع chat-icons.js).
+ */
+function renderBody(text, mentions = []) {
+    let html = esc(text);
+    for (const id of mentions || []) {
+        const name = agentById(id)?.full_name;
         if (name) html = html.split(esc(`@${name}`)).join(`<span class="ib-mention">@${esc(name)}</span>`);
     }
-
     const query = state.find.query.trim();
     if (query) {
-        // بنقسم على النص المهروب عشان مانكسرش الوسوم اللي لسه ضفناها.
         const needle = esc(query);
         html = html.split(needle).join(`<mark>${needle}</mark>`);
     }
-    return html;
+    return iconize(html);
 }
 
-function quoteHtml(message) {
-    if (!message.replyToId) return '';
-    const original = findMessage(message.replyToId);
-    if (!original) return '';
-    const who = findContact(original.senderId)?.name || 'مستخدم';
-    const text = original.deleted ? 'رسالة اتسحبت' : (original.body || 'مرفق');
-    return `<div class="ib-quote" data-jump="${esc(original.id)}"><b>${esc(who)}</b><span>${esc(text.slice(0, 80))}</span></div>`;
-}
-
-function reactionsHtml(message) {
-    const entries = Object.entries(message.reactions);
-    if (!entries.length) return '';
-    const me = getCurrentUser().id;
-    return `<div class="ib-reactions">${entries.map(([emoji, ids]) => `
-        <button type="button" class="ib-reaction ${ids.includes(me) ? 'is-mine' : ''}"
-                data-react="${esc(message.id)}" data-emoji="${esc(emoji)}"
-                title="${esc(ids.map((id) => findContact(id)?.name).filter(Boolean).join('، '))}">
-          ${emoji} ${ids.length}
-        </button>`).join('')}</div>`;
-}
-
-function receiptHtml(message, conversation) {
-    const { read, total, names } = readReceipt(message, conversation);
-    if (!total) return '';
-    const all = read === total;
-    const title = read ? `قراها: ${names.join('، ')}` : 'لسه ماحدش قراها';
-    return `<span class="ib-receipt ${all ? 'is-read' : ''}" title="${esc(title)}">${read ? ICON.checks : ICON.check}${conversation.kind === 'group' ? ` ${read}/${total}` : ''}</span>`;
-}
-
-function toolsHtml(message, mine) {
-    return `<div class="ib-tools">
-        <button type="button" data-act="react" data-id="${esc(message.id)}" title="تفاعل">${ICON.smile}</button>
-        <button type="button" data-act="reply" data-id="${esc(message.id)}" title="رد">${ICON.reply}</button>
-        <button type="button" data-act="forward" data-id="${esc(message.id)}" title="تحويل">${ICON.forward}</button>
-        <button type="button" data-act="star" data-id="${esc(message.id)}" title="تمييز" class="${message.starred ? 'is-on' : ''}">${ICON.star}</button>
-        <button type="button" data-act="pin" data-id="${esc(message.id)}" title="تثبيت" class="${message.pinned ? 'is-on' : ''}">${ICON.pin}</button>
-        ${mine ? `<button type="button" data-act="edit" data-id="${esc(message.id)}" title="تعديل">${ICON.edit}</button>
-                  <button type="button" data-act="delete" data-id="${esc(message.id)}" title="سحب">${ICON.trash}</button>` : ''}
-    </div>`;
-}
-
-function attachmentHtml(attachment) {
-    if (attachment.kind === 'voice') {
-        // موجة شكلية بارتفاعات ثابتة — مش تحليل للصوت الحقيقي، وده مقصود:
-        // موجة بتدّعي إنها بتمثّل الصوت وهي مش كده بتكدب على اللي بيبص.
-        const bars = [7, 12, 18, 10, 22, 14, 9, 17, 11, 20, 8, 15].map((h) => `<i style="height:${h}px"></i>`).join('');
-        return `<div class="ib-attach ib-voice">${ICON.mic}<span class="ib-voice-bars">${bars}</span>
-            <span class="ib-attach-size">${esc(clockFormat(attachment.durationSeconds || 0))}</span></div>`;
-    }
-    const inner = `${ICON.doc}<span class="ib-attach-name">${esc(attachment.name)}</span>
-        <span class="ib-attach-size">${esc(humanSize(attachment.size))}</span>`;
-    return attachment.url
-        ? `<a class="ib-attach" href="${esc(attachment.url)}" download="${esc(attachment.name)}">${inner}</a>`
-        : `<div class="ib-attach">${inner}</div>`;
-}
-
-function wireMessageEvents() {
-    const container = $('messageList');
-
-    container.querySelectorAll('[data-jump]').forEach((el) =>
-        el.addEventListener('click', () => jumpTo(el.dataset.jump)));
-
-    container.querySelectorAll('[data-react]').forEach((el) =>
-        el.addEventListener('click', () => {
-            toggleReaction(el.dataset.react, el.dataset.emoji);
-            renderThread();
-        }));
-
-    container.querySelectorAll('[data-act]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const { act, id } = button.dataset;
-            if (act === 'react') return openReactionPicker(id, button);
-            if (act === 'reply') return startReply(id);
-            if (act === 'forward') return openForwardDialog(id);
-            if (act === 'star') { toggleStar(id); renderThread(); return; }
-            if (act === 'pin') { togglePin(id); renderThread(); return; }
-            if (act === 'edit') return startEdit(id);
-            if (act === 'delete') return removeMessage(id);
-        });
-    });
-}
-
-function jumpTo(messageId) {
-    const el = $('messageList').querySelector(`[data-message="${messageId}"]`);
+function jumpTo(id) {
+    const el = $('messageList').querySelector(`[data-message="${id}"], [data-note="${id}"]`);
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.add('is-jumped');
     setTimeout(() => el.classList.remove('is-jumped'), 1300);
-}
-
-function removeMessage(id) {
-    if (!confirm('تسحب الرسالة دي؟ مكانها هيفضل باين ومكتوب إنها اتسحبت.')) return;
-    const { ok, error } = deleteMessage(id);
-    if (!ok) { toast(error, 'err'); return; }
-    renderThread();
-    renderConversations();
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -530,92 +676,241 @@ function renderDetails() {
     $('inboxShell').classList.toggle('has-details', state.detailsOpen);
     if (!state.detailsOpen) return;
 
-    const conversation = findConversation(state.activeId);
-    if (!conversation) { pane.innerHTML = ''; return; }
+    const session = activeSession();
+    if (!session) { pane.innerHTML = ''; return; }
 
-    const files = conversationAttachments(conversation.id);
-    const assignee = conversation.assigneeId ? findContact(conversation.assigneeId) : null;
-    const notes = listMessages(conversation.id).filter((m) => m.visibility === 'note').length;
+    const c = session.customer;
+    const meta = session.meta || {};
+    const stats = messageStats(session.messages);
+    const ctx = state.customerCtx.get(session.user_id) || null;
+    const kv = (k, v) => `<div class="ib-kv"><span>${esc(k)}</span><span>${esc(v)}</span></div>`;
+    const canCreateTag = state.me?.profile?.role === 'admin';
 
     pane.innerHTML = `
+      <button type="button" class="ib-details-back" data-close-details>→ رجوع للمحادثة</button>
       <div class="ib-details-sec">
-        <h3>الحالة</h3>
-        <div class="ib-kv"><span>الحالة</span><span>${esc(STATUS_LABELS[conversation.status])}</span></div>
-        <div class="ib-kv"><span>المسؤول</span><span>${esc(assignee?.name || 'مافيش')}</span></div>
-        <div class="ib-kv"><span>الرسايل</span><span>${listMessages(conversation.id).length}</span></div>
-        <div class="ib-kv"><span>ملاحظات داخلية</span><span>${notes}</span></div>
+        <h3>الإسناد</h3>
+        ${kv('المسؤول', meta.assignee_id ? (agentName(meta.assignee_id) || 'موظف') : 'مافيش')}
+        ${kv('الفريق', meta.team_id ? (teamById(meta.team_id)?.name || 'فريق') : 'مافيش')}
+        ${kv('الحالة', STATUS_LABELS[session.status] || session.status || '—')}
+        ${kv('مين بيرد', session.status === 'closed' ? '—' : (session.is_manual_mode ? 'فريق الدعم' : 'البوت'))}
+        ${isArchived(session) ? kv('مؤرشفة', fullTime(meta.archived_at)) : ''}
       </div>
       <div class="ib-details-sec">
         <h3>الوسوم</h3>
-        <div class="ib-labels">${Object.keys(LABEL_COLORS).map((label) => `
-          <button type="button" class="ib-label-btn ${conversation.labels.includes(label) ? 'is-on' : ''}" data-label="${esc(label)}">${esc(label)}</button>`).join('')}</div>
+        <div class="ib-labels">${state.tags.length ? state.tags.map((tag) => `
+          <button type="button" class="ib-label-btn ${(session.tagIds || []).includes(tag.id) ? 'is-on' : ''}"
+                  style="--tag-color:${esc(tag.color)}" data-tag="${esc(tag.id)}">${esc(tag.name)}</button>`).join('')
+            : '<span class="ib-thread-sub">مفيش وسوم لسه.</span>'}</div>
+        ${canCreateTag ? `<div class="ib-team-add"><input type="text" class="ib-select" style="max-width:none;flex:1" id="newTagName" maxlength="40" placeholder="وسم جديد (للتذاكر والشات)">
+          <button type="button" class="btn btn-secondary" id="createTagBtn" style="padding:.3rem .6rem;font-size:.75rem">إضافة</button></div>` : ''}
       </div>
       <div class="ib-details-sec">
-        <h3>الأعضاء (${conversation.memberIds.length})</h3>
-        ${conversation.memberIds.map((id) => {
-            const person = findContact(id);
-            return `<div class="ib-member">${avatarHtml(person?.name || '؟', { online: person?.online, small: true })}
-              <span>${esc(person?.name || 'مستخدم')}</span></div>`;
-        }).join('')}
+        <h3>العميل</h3>
+        ${c ? [
+            kv('الاسم', c.full_name || '—'),
+            kv('الإيميل', c.email || '—'),
+            kv('الهاتف', c.phone || '—'),
+            kv('الدور', ROLE_LABELS[c.role] || c.role || '—'),
+            kv('عضو من', fullTime(c.created_at))
+        ].join('') : kv('النوع', 'زائر من غير حساب')}
+        ${ctx?.notes?.length ? `<ul class="ib-details-list" style="margin-top:.4rem">${ctx.notes.map((n) =>
+            `<li>${esc(n.note)}<small>${esc(fullTime(n.created_at))}</small></li>`).join('')}</ul>` : ''}
+        ${session.user_id ? `<a class="ib-details-link" href="/customer-history.html?customer_id=${encodeURIComponent(session.user_id)}">سجل العميل وملاحظاته ←</a>` : ''}
       </div>
+      ${ctx?.tickets?.length ? `<div class="ib-details-sec">
+        <h3>تذاكر العميل</h3>
+        <ul class="ib-details-list">${ctx.tickets.map((t) =>
+            `<li>#${esc(t.ticket_number ?? '')} ${esc(t.title || 'تذكرة')}<small>${esc(TICKET_STATUS[t.status] || t.status || '')} · ${esc(fullTime(t.created_at))}</small></li>`).join('')}</ul>
+        <a class="ib-details-link" href="/admin/tickets.html">صفحة التذاكر ←</a>
+      </div>` : ''}
       <div class="ib-details-sec">
-        <h3>الملفات (${files.length})</h3>
-        ${files.length
-            ? files.map((f) => `<div class="ib-file">${f.kind === 'voice' ? ICON.mic : ICON.doc}
-                <span>${esc(f.name)}</span></div>`).join('')
-            : '<p class="ib-thread-sub" style="margin:0">مفيش مرفقات.</p>'}
+        <h3>المحادثة</h3>
+        ${kv('اتفتحت', fullTime(session.created_at))}
+        ${kv('آخر نشاط', fullTime(lastActivityOf(session)))}
+        ${kv('من العميل', stats.customer)}
+        ${kv('من البوت', stats.bot)}
+        ${kv('من الدعم', stats.agent)}
+        ${kv('مرفقات', stats.attachments)}
+        ${kv('ملاحظات داخلية', state.thread.sessionId === session.id ? state.thread.notes.filter((n) => !n.deleted_at).length : '…')}
       </div>`;
 
-    pane.querySelectorAll('[data-label]').forEach((b) => b.addEventListener('click', () => {
-        toggleLabel(conversation.id, b.dataset.label);
+    pane.querySelectorAll('[data-tag]').forEach((b) => b.addEventListener('click', () => toggleTag(session.id, b.dataset.tag)));
+    pane.querySelector('[data-close-details]')?.addEventListener('click', () => {
+        state.detailsOpen = false;
         renderDetails();
-        renderConversations();
-    }));
+        $('detailsBtn').classList.remove('is-on');
+    });
+    $('createTagBtn')?.addEventListener('click', createTagFromDetails);
+}
+
+async function toggleTag(sessionId, tagId) {
+    const session = findSession(sessionId);
+    if (!session) return;
+    const on = (session.tagIds || []).includes(tagId);
+    try {
+        if (on) await removeTag(sessionId, tagId); else await addTag(sessionId, tagId);
+        session.tagIds = on ? session.tagIds.filter((t) => t !== tagId) : [...(session.tagIds || []), tagId];
+    } catch (err) {
+        toast(errText(err, 'الوسم ماتغيرش.'), 'err');
+    }
+    renderAll();
+    if (state.activeId === sessionId) refreshThread(sessionId);
+}
+
+async function createTagFromDetails() {
+    const input = $('newTagName');
+    const name = input?.value.trim();
+    if (!name) return;
+    try {
+        const tag = await createSharedTag(name);
+        state.tags = [...state.tags, tag].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        if (state.activeId) await toggleTag(state.activeId, tag.id);
+    } catch (err) {
+        toast(errText(err, 'الوسم مااتعملش.'), 'err');
+    }
 }
 
 // ═════════════════════════════════════════════════════════════
-// الكتابة: رد / ملاحظة / تعديل / مسودة
+// الإسناد والتحويل والأرشفة والإقفال
+// ═════════════════════════════════════════════════════════════
+
+/**
+ * بعد أي نقل للمحادثة: لو الموظف مابقاش يوصلها (مش مرتفع، ومش هو المسؤول،
+ * ومش في الفريق) القاعدة هتخفيها عنه — فبنشيلها من القايمة فورًا بدل ما
+ * تفضل ظاهرة وكل إجراء عليها يرجع «مش مسموح».
+ */
+function stillHasAccess(meta) {
+    if (isElevated()) return true;
+    if (!meta) return false;
+    return meta.assignee_id === state.me?.id || (meAgent()?.team_ids || []).includes(meta.team_id);
+}
+
+function applyMeta(sessionId, meta) {
+    const session = findSession(sessionId);
+    if (session && meta) session.meta = meta;
+    if (meta && !stillHasAccess(meta)) {
+        dropSession(sessionId);
+        toast('المحادثة اتنقلت ومابقتش في صندوقك.');
+    }
+}
+
+async function onAssignmentChange(changed) {
+    const session = activeSession();
+    if (!session) return;
+    let assignee = $('assigneeSelect').value || null;
+    const teamId = $('teamSelect').value || null;
+    // تغيير الفريق لمسؤول مش عضو فيه: المسؤول بيتشال بدل ما القاعدة ترفض.
+    if (changed === 'team' && teamId && assignee && !teamById(teamId)?.members.some((m) => m.user_id === assignee)) {
+        assignee = null;
+    }
+    try {
+        applyMeta(session.id, await assign(session.id, assignee, teamId));
+        toast(assignee || teamId ? 'اتسندت.' : 'اتشال الإسناد.');
+    } catch (err) {
+        toast(errText(err, 'الإسناد ماتمش.'), 'err');
+    }
+    renderAll();
+    if (state.activeId === session.id) refreshThread(session.id);
+}
+
+function openTransferDialog() {
+    const session = activeSession();
+    if (!session) return;
+    $('transferUser').innerHTML = '<option value="">—</option>' + state.agents
+        .filter((a) => a.id !== session.meta?.assignee_id)
+        .map((a) => `<option value="${esc(a.id)}">${esc(a.full_name || a.email)}${a.is_elevated ? ' (مرتفع)' : ''}</option>`).join('');
+    $('transferTeam').innerHTML = '<option value="">—</option>' + state.teams
+        .map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+    $('transferReason').value = '';
+    $('transferError').textContent = '';
+    $('transferDialog').showModal();
+}
+
+async function confirmTransfer() {
+    const session = activeSession();
+    if (!session) return;
+    const toUser = $('transferUser').value || null;
+    const toTeam = $('transferTeam').value || null;
+    const reason = $('transferReason').value.trim();
+    if (!toUser && !toTeam) { $('transferError').textContent = 'اختار موظف أو فريق.'; return; }
+    if (reason.length < 3) { $('transferError').textContent = 'اكتب سبب التحويل (3 حروف على الأقل).'; return; }
+    if (toUser && toTeam && !teamById(toTeam)?.members.some((m) => m.user_id === toUser)) {
+        $('transferError').textContent = 'الموظف ده مش عضو في الفريق اللي اخترته.'; return;
+    }
+    try {
+        const meta = await transfer(session.id, toUser, toTeam, reason);
+        $('transferDialog').close();
+        toast('المحادثة اتحوّلت.');
+        applyMeta(session.id, meta);
+        renderAll();
+        if (state.activeId === session.id) refreshThread(session.id);
+    } catch (err) {
+        $('transferError').textContent = errText(err, 'التحويل ماتمش.');
+    }
+}
+
+async function toggleArchive(sessionId = state.activeId) {
+    const session = findSession(sessionId);
+    if (!session) return;
+    const archiving = !isArchived(session);
+    try {
+        session.meta = await setArchived(session.id, archiving) || session.meta;
+        toast(archiving ? 'اتأرشفت.' : 'رجعت من الأرشيف.');
+    } catch (err) {
+        toast(errText(err, 'الأرشفة ماتمتش.'), 'err');
+    }
+    renderAll();
+    if (state.activeId === session.id) refreshThread(session.id);
+}
+
+async function closeSelected(ids) {
+    if (!ids.length) return;
+    const msg = ids.length === 1
+        ? 'تقفل المحادثة دي؟ العميل هيشوف إن فريق الدعم غادر.'
+        : `تقفل ${ids.length} محادثة؟ كل عميل هيشوف إن فريق الدعم غادر.`;
+    if (!confirm(msg)) return;
+    try {
+        await closeSessions(ids);
+        ids.forEach((id) => { const s = findSession(id); if (s) s.status = 'closed'; });
+        state.selected.clear();
+        toast(ids.length === 1 ? 'المحادثة اتقفلت.' : `اتقفلت ${ids.length} محادثة.`);
+    } catch (err) {
+        toast(errText(err, 'مقدرناش نقفل المحادثة.'), 'err');
+    }
+    renderAll();
+    if (state.activeId && ids.includes(state.activeId)) refreshThread(state.activeId);
+}
+
+async function bulkArchive() {
+    const ids = [...state.selected].filter((id) => { const s = findSession(id); return s && !isArchived(s); });
+    let done = 0;
+    for (const id of ids) {
+        try { findSession(id).meta = await setArchived(id, true); done++; } catch { /* بيتقال تحت */ }
+    }
+    state.selected.clear();
+    toast(done === ids.length ? `اتأرشفت ${done} محادثة.` : `اتأرشفت ${done} من ${ids.length}.`, done === ids.length ? 'ok' : 'err');
+    renderAll();
+}
+
+// ═════════════════════════════════════════════════════════════
+// الكتابة: رد للعميل (بمرفق أو تسجيل) / ملاحظة داخلية / تعديل
 // ═════════════════════════════════════════════════════════════
 
 function setMode(mode) {
+    const session = activeSession();
+    if (mode === 'reply' && session?.status === 'closed') return;
     state.mode = mode;
+    // تعديل الملاحظة في وضع الملاحظة، وتعديل الرد في وضع الرد.
+    if ((mode === 'reply' && state.editingNoteId) || (mode === 'note' && state.editingMessageId)) cancelEdit();
+    if (mode === 'note') cancelRecording();
     $('composer').classList.toggle('is-note', mode === 'note');
     $('modeToggle').querySelectorAll('button').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === mode));
     $('messageInput').placeholder = mode === 'note'
-        ? 'ملاحظة للفريق — العميل مش هيشوفها…'
-        : 'اكتب رسالتك… (Enter للإرسال، / لرد جاهز، @ لمنشن)';
-}
-
-function startReply(messageId) {
-    const message = findMessage(messageId);
-    if (!message) return;
-    cancelEdit();
-    state.replyToId = messageId;
-    $('replyingBar').hidden = false;
-    $('replyingText').textContent = `${findContact(message.senderId)?.name || ''}: ${message.body || 'مرفق'}`;
-    $('messageInput').focus();
-}
-
-function cancelReply() {
-    state.replyToId = null;
-    $('replyingBar').hidden = true;
-}
-
-function startEdit(messageId) {
-    const message = findMessage(messageId);
-    if (!message) return;
-    cancelReply();
-    state.editingId = messageId;
-    $('editingBar').hidden = false;
-    $('editingText').textContent = message.body;
-    $('messageInput').value = message.body;
-    autoGrow();
-    $('messageInput').focus();
-}
-
-function cancelEdit() {
-    state.editingId = null;
-    $('editingBar').hidden = true;
+        ? 'ملاحظة للفريق — العميل مش هيشوفها… (@ لذكر حد من الفريق)'
+        : 'اكتب ردك للعميل… (Enter للإرسال، / لرد جاهز)';
+    if (session) updateComposerNote(session);
+    closePop();
 }
 
 function autoGrow() {
@@ -624,137 +919,393 @@ function autoGrow() {
     input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
 }
 
-function send() {
-    if (!state.activeId) return;
-    const input = $('messageInput');
-    const body = input.value.trim();
-
-    if (state.editingId) {
-        const { ok, error } = editMessage(state.editingId, body);
-        if (!ok) { toast(error, 'err'); return; }
-        cancelEdit();
-        input.value = '';
-        autoGrow();
-        renderThread();
-        renderConversations();
-        return;
-    }
-
-    if (!body && !state.pending.length) return;
-
-    sendMessage({
-        conversationId: state.activeId,
-        body,
-        attachments: state.pending,
-        visibility: state.mode,
-        replyToId: state.replyToId
-    });
-
-    input.value = '';
+function showEditingBar(label, text) {
+    $('editingLabel').textContent = label;
+    $('editingBar').hidden = false;
+    $('editingText').textContent = text;
+    $('composer').classList.add('is-editing');
+    $('messageInput').value = text;
     autoGrow();
-    // مش بننادي clearPending(): الـ blob URLs راحت مع الرسالة وبتتعرض
-    // فيها، فإلغاؤها هيكسر اللي لسه بيتشاف.
-    state.pending = [];
-    renderPending();
-    cancelReply();
-    closePop();
-
-    renderThread();
-    renderConversations();
-    renderRail();
-    renderDetails();
+    $('messageInput').focus();
 }
 
-// ═════════════════════════════════════════════════════════════
-// المرفقات والصوت
-// ═════════════════════════════════════════════════════════════
-
-function renderPending() {
-    $('pendingAttachments').innerHTML = state.pending.map((a, i) => `
-        <span class="ib-chip">${a.kind === 'voice' ? ICON.mic : ICON.doc}
-          <span>${esc(a.name)}</span>
-          <span style="opacity:.7">${esc(a.kind === 'voice' ? clockFormat(a.durationSeconds || 0) : humanSize(a.size))}</span>
-          <button type="button" data-remove="${i}" aria-label="شيل المرفق">✕</button></span>`).join('');
-
-    $('pendingAttachments').querySelectorAll('[data-remove]').forEach((b) =>
-        b.addEventListener('click', () => {
-            const [removed] = state.pending.splice(Number(b.dataset.remove), 1);
-            if (removed?.url) URL.revokeObjectURL(removed.url);
-            renderPending();
-        }));
+function startEditNote(noteId) {
+    const note = state.thread.notes.find((n) => n.id === noteId);
+    if (!note) return;
+    setMode('note');
+    state.editingNoteId = noteId;
+    showEditingBar('تعديل ملاحظة', note.body);
 }
 
-function clearPending() {
-    state.pending.forEach((a) => { if (a.url) URL.revokeObjectURL(a.url); });
-    state.pending = [];
-    renderPending();
+/** تعديل رد دعم بتاعي — العميل هيشوف النص الجديد وجنبه «معدّلة». */
+function startEditMessage(messageId) {
+    const message = activeSession()?.messages.find((m) => m.id === messageId);
+    if (!canEditMessage(message, state.me?.id)) return;
+    if (activeSession()?.status === 'closed') { toast('المحادثة مقفولة.', 'err'); return; }
+    setMode('reply');
+    cancelRecording();
+    state.editingMessageId = messageId;
+    showEditingBar('تعديل رد للعميل', message.message_text || '');
 }
 
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+function cancelEdit() {
+    if (!state.editingNoteId && !state.editingMessageId) return;
+    state.editingNoteId = null;
+    state.editingMessageId = null;
+    $('editingBar').hidden = true;
+    $('composer').classList.remove('is-editing');
+    $('messageInput').value = state.drafts.get(state.activeId) || '';
+    autoGrow();
+}
 
-function addFiles(files) {
-    for (const file of files) {
-        if (file.size > MAX_ATTACHMENT_BYTES) { toast(`«${file.name}» أكبر من ٢٠ ميجا.`, 'err'); continue; }
-        state.pending.push({
-            id: `pending_${Date.now()}_${state.pending.length}`,
-            kind: 'document', name: file.name, size: file.size,
-            mime: file.type, url: URL.createObjectURL(file)
-        });
+async function removeMessage(messageId) {
+    const message = activeSession()?.messages.find((m) => m.id === messageId);
+    if (!canDeleteMessage(message, state.me?.id, isElevated())) return;
+    const others = message.sender_id !== state.me?.id;
+    if (!confirm(`${others ? 'ده رد موظف تاني. ' : ''}تحذف الرد ده؟ العميل هيشوف «${DELETED_MESSAGE_TEXT}» مكانه، والنص الأصلي هيفضل للفريق بس.`)) return;
+    try {
+        replaceMessage(await deleteMessage(messageId));
+        if (state.editingMessageId === messageId) cancelEdit();
+        await refreshRevisions(message.session_id);
+    } catch (err) {
+        toast(errText(err, 'الرد مااتحذفش.'), 'err');
     }
-    renderPending();
+    renderAll();
 }
+
+async function refreshRevisions(sessionId) {
+    const extras = await loadThreadExtras(sessionId).catch(() => null);
+    if (extras && state.thread.sessionId === sessionId) state.thread = { sessionId, ...extras };
+}
+
+// ── التفاعلات (للفريق بس — D4) ──────────────────────────────
+
+function toggleReactPicker(target) {
+    const same = state.reactFor && state.reactFor.messageId === target.messageId && state.reactFor.noteId === target.noteId;
+    state.reactFor = same ? null : target;
+    renderThread();
+}
+
+async function react(target, emoji) {
+    const sessionId = state.thread.sessionId;
+    state.reactFor = null;
+    try {
+        await toggleReaction(target, emoji);
+        const reactions = await loadReactions(sessionId);
+        if (state.thread.sessionId === sessionId) state.thread.reactions = reactions;
+    } catch (err) {
+        toast(errText(err, 'التفاعل ماتسجلش.'), 'err');
+    }
+    renderThread();
+}
+
+// ── المرفق والتسجيل الصوتي (الرد للعميل بس) ────────────────
 
 /**
- * MediaRecorder محتاج إذن الميكروفون، وممكن يترفض أو المتصفح مايدعمهوش.
- * الحالتين بيتقالوا بصوت عالي — زرار بيضغط ومايحصلش حاجة أسوأ من زرار
- * مقفول.
+ * مرفق واحد لكل رد (inbox_send_reply بياخد مرفق واحد). الفحص هنا تجربة
+ * استخدام؛ الفرض في المستودع (الحجم والنوع) ومحفّز 054 (المسار).
  */
-async function startRecording() {
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-        toast('المتصفح ده مابيدعمش التسجيل الصوتي.', 'err'); return;
-    }
-    let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch { toast('محتاجين إذن الميكروفون عشان نسجّل.', 'err'); return; }
-
-    const chunks = [];
-    const recorder = new MediaRecorder(stream);
-    recorder.addEventListener('dataavailable', (e) => { if (e.data.size) chunks.push(e.data); });
-    recorder.addEventListener('stop', () => {
-        // الميكروفون لازم يتقفل بإيدنا وإلا لمبة التسجيل بتفضل نوّرة بعد
-        // ما المستخدم خلص — وده مقلق بحق.
-        stream.getTracks().forEach((t) => t.stop());
-        clearInterval(state.recordingTimer);
-        if (recorder.cancelled || !chunks.length) return;
-
-        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        state.pending.push({
-            id: `pending_voice_${Date.now()}`, kind: 'voice', name: 'رسالة صوتية',
-            size: blob.size,
-            durationSeconds: Math.max(1, Math.round((Date.now() - state.recordingStartedAt) / 1000)),
-            url: URL.createObjectURL(blob)
-        });
-        renderPending();
-    });
-
-    recorder.start();
-    state.recorder = recorder;
-    state.recordingStartedAt = Date.now();
-    $('recordingTime').textContent = '0:00';
-    state.recordingTimer = setInterval(() => {
-        $('recordingTime').textContent = clockFormat((Date.now() - state.recordingStartedAt) / 1000);
-    }, 500);
-    $('recordBtn').classList.add('ib-icon-btn--recording');
-    $('recordingNote').hidden = false;
+async function setPendingFile(file, { expectKind, durationMs = null } = {}) {
+    const first = validateFile(file, expectKind);
+    if (!first.ok) { toast(first.error, 'err'); return; }
+    const body = first.kind === 'image' ? await downscaleImage(file) : file;
+    const check = validateFile(body, first.kind);
+    if (!check.ok) { toast(check.error, 'err'); return; }
+    discardPending();
+    state.pending = {
+        file: body, kind: check.kind, mime: check.mime, ext: check.ext,
+        name: body.name || file.name, size: body.size, durationMs,
+        url: URL.createObjectURL(body), progress: null
+    };
+    renderPending();
+    $('messageInput').focus();
 }
 
-function stopRecording({ cancelled = false } = {}) {
-    if (!state.recorder) return;
-    state.recorder.cancelled = cancelled;
-    state.recorder.stop();
-    state.recorder = null;
-    $('recordBtn').classList.remove('ib-icon-btn--recording');
-    $('recordingNote').hidden = true;
+function discardPending() {
+    if (state.pending?.url) URL.revokeObjectURL(state.pending.url);
+    state.pending?.controller?.abort();
+    state.pending = null;
+    renderPending();
+}
+
+function renderPending() {
+    const chip = $('attachChip');
+    if (!chip) return;
+    const p = state.pending;
+    chip.hidden = !p;
+    if (!p) { chip.innerHTML = ''; return; }
+    const preview = p.kind === 'image'
+        ? `<img src="${esc(p.url)}" alt="">`
+        : p.kind === 'audio'
+            ? `<audio src="${esc(p.url)}" controls preload="metadata"></audio>`
+            : `<span class="ib-attach-icon">📎</span>`;
+    const meta = [p.kind === 'audio' && p.durationMs ? formatDuration(p.durationMs) : null, formatBytes(p.size)].filter(Boolean).join(' · ');
+    chip.innerHTML = `${preview}
+        <span class="ib-attach-text"><b>${esc(p.kind === 'audio' ? 'رسالة صوتية' : p.name)}</b><span dir="ltr">${esc(meta)}</span>
+          ${p.progress !== null ? `<span class="ib-attach-bar"><span style="width:${Math.round(p.progress * 100)}%"></span></span>` : ''}</span>
+        <button type="button" class="ib-mini" id="removeAttachBtn" aria-label="شيل المرفق" ${state.sending ? 'disabled' : ''}>✕</button>`;
+    $('removeAttachBtn').addEventListener('click', discardPending);
+}
+
+function setPendingProgress(progress) {
+    if (!state.pending) return;
+    state.pending.progress = progress;
+    const bar = $('attachChip').querySelector('.ib-attach-bar > span');
+    if (bar) bar.style.width = `${Math.round(progress * 100)}%`; else renderPending();
+}
+
+/** الرفع في مجلد الموظف، وبعدين حقل attachment للرسالة. */
+async function uploadPending(session) {
+    const p = state.pending;
+    const path = buildObjectPath(state.me.id, session.id, p.ext);
+    p.controller = new AbortController();
+    setPendingProgress(0);
+    try {
+        await uploadReplyFile({
+            path, file: p.file, contentType: p.mime, signal: p.controller.signal,
+            onProgress: setPendingProgress
+        });
+    } finally {
+        p.controller = null;
+    }
+    return messageFieldsFor({ kind: p.kind, path, name: p.name, mime: p.mime, size: p.size, durationMs: p.durationMs ?? undefined }).attachment;
+}
+
+async function startRecording() {
+    if (state.recorder?.state === 'recording' || state.mode !== 'reply' || state.editingMessageId) return;
+    state.recorder = new VoiceRecorder({
+        onState: (recState, detail) => onRecorderState(recState, detail),
+        onTick: (ms) => { $('recordTime').textContent = formatDuration(ms); }
+    });
+    await state.recorder.start();
+}
+
+function onRecorderState(recState, detail) {
+    const recording = recState === 'recording' || recState === 'requesting';
+    $('recordBar').hidden = !recording;
+    $('composer').classList.toggle('is-recording', recording);
+    if (recState === 'requesting') $('recordTime').textContent = '0:00';
+    if (recState === 'error') toast(detail?.message || 'تعذّر التسجيل.', 'err');
+    if (recState === 'stopped' && detail) {
+        const file = new File([detail.blob], 'voice', { type: detail.mime });
+        setPendingFile(file, { expectKind: 'audio', durationMs: detail.durationMs });
+    }
+}
+
+function stopRecording() {
+    state.recorder?.stop();
+}
+
+function cancelRecording() {
+    if (state.recorder && state.recorder.state !== 'idle') state.recorder.cancel();
+}
+
+async function removeNote(noteId) {
+    if (!confirm('تسحب الملاحظة دي؟ مكانها هيفضل باين ومكتوب إنها اتسحبت.')) return;
+    try {
+        await deleteNote(noteId);
+        const note = state.thread.notes.find((n) => n.id === noteId);
+        if (note) Object.assign(note, { deleted_at: new Date().toISOString(), body: '' });
+    } catch (err) {
+        toast(errText(err, 'الملاحظة ماتسحبتش.'), 'err');
+    }
+    renderThread();
+}
+
+function upsertNote(note) {
+    if (!note || note.session_id !== state.thread.sessionId) return;
+    const i = state.thread.notes.findIndex((n) => n.id === note.id);
+    if (i >= 0) state.thread.notes[i] = note; else state.thread.notes.push(note);
+}
+
+async function send() {
+    const session = activeSession();
+    const input = $('messageInput');
+    const text = input.value.trim();
+    const withFile = state.mode === 'reply' && !state.editingMessageId && !!state.pending;
+    if (!session || (!text && !withFile) || state.sending || state.recorder?.state === 'recording') return;
+
+    state.sending = true;
+    $('sendBtn').disabled = true;
+    try {
+        if (state.editingNoteId) {
+            upsertNote(await editNote(state.editingNoteId, text));
+            cancelEdit();
+        } else if (state.editingMessageId) {
+            replaceMessage(await editMessage(state.editingMessageId, text));
+            cancelEdit();
+            await refreshRevisions(session.id);
+        } else if (state.mode === 'note') {
+            const wanted = extractMentions(text, state.agents);
+            const note = await addNote(session.id, text, wanted);
+            upsertNote(note);
+            const dropped = wanted.filter((id) => !(note?.mentions || []).includes(id));
+            if (dropped.length) {
+                toast(`${dropped.map((id) => agentName(id)).join('، ')} مش واصل للمحادثة دي، فماوصلوش إشعار.`, 'err');
+            }
+        } else {
+            let attachment = null;
+            if (withFile) {
+                try {
+                    attachment = await uploadPending(session);
+                } catch (err) {
+                    setPendingProgress(null);
+                    throw new Error(/[\u0600-\u06FF]/.test(err?.message || '') ? err.message : uploadErrorText(err));
+                }
+            }
+            let row;
+            try {
+                // مرفق من غير تعليق: النص التلقائي («صورة مرفقة») زي رسالة العميل بالظبط.
+                row = await sendReply(session.id, text || autoLabelFor(attachment), attachment);
+            } catch (err) {
+                // الملف اترفع والرسالة مااتبعتتش — مانسيبوش يتيم، والمرفق يفضل للمحاولة الجاية.
+                if (attachment) { await removeUploadedFile(attachment.path); setPendingProgress(null); }
+                throw err;
+            }
+            if (attachment) discardPending();
+            session.is_manual_mode = true;
+            addMessage(row);
+            if (session.meta?.archived_at) session.meta = { ...session.meta, archived_at: null, archived_by: null };
+        }
+        input.value = '';
+        state.drafts.delete(session.id);
+        autoGrow();
+        closePop();
+    } catch (err) {
+        // النص بيفضل في الخانة عشان مايضيعش.
+        toast(errText(err, 'مااتبعتتش. جرّب تاني.'), 'err');
+    } finally {
+        state.sending = false;
+        $('sendBtn').disabled = false;
+        renderPending();
+    }
+    renderAll();
+}
+
+/** رد اتعدّل أو اتحذف (من هنا أو Realtime) — الصف كله بيتبدّل. */
+function replaceMessage(row) {
+    const session = row && findSession(row.session_id);
+    if (!session) return false;
+    const i = session.messages.findIndex((m) => m.id === row.id);
+    if (i < 0) return false;
+    session.messages[i] = { ...session.messages[i], ...row };
+    return true;
+}
+
+/** رسالة جديدة (من الإرسال أو Realtime) — مرة واحدة بس لكل id. */
+function addMessage(row) {
+    const session = row && findSession(row.session_id);
+    if (!session) return false;
+    if (session.messages.some((m) => m.id === row.id)) return true;
+    session.messages = sortMessages([...session.messages, row]);
+    return true;
+}
+
+// ═════════════════════════════════════════════════════════════
+// تحويل رسالة كملاحظة داخلية (D3)
+// ═════════════════════════════════════════════════════════════
+
+function openForwardDialog(messageId) {
+    const message = activeSession()?.messages.find((m) => m.id === messageId);
+    if (!message) return;
+    state.forwardingId = messageId;
+    $('forwardPreview').textContent = stripIcons(message.message_text);
+    $('forwardSearch').value = '';
+    renderForwardPicker();
+    $('forwardDialog').showModal();
+}
+
+function renderForwardPicker() {
+    const q = $('forwardSearch').value.trim().toLowerCase();
+    const targets = state.sessions
+        .filter((s) => s.id !== state.activeId)
+        .filter((s) => !q || displayName(s).toLowerCase().includes(q) || (s.customer?.email || '').toLowerCase().includes(q))
+        .sort((a, b) => new Date(lastActivityOf(b) || 0) - new Date(lastActivityOf(a) || 0))
+        .slice(0, 50);
+
+    $('forwardPicker').innerHTML = targets.length
+        ? targets.map((s) => `<button type="button" class="ib-pick" data-target="${esc(s.id)}">
+            <div class="ib-avatar" style="width:1.7rem;height:1.7rem;font-size:.62rem">${esc(initialsOf(displayName(s)))}</div>
+            <span class="ib-pick-main"><span>${esc(displayName(s))}</span>
+              <span class="ib-pick-sub">${esc(STATUS_LABELS[s.status] || '')} · ${esc(shortTime(lastActivityOf(s)))}</span></span>
+          </button>`).join('')
+        : '<div style="padding:1.2rem;text-align:center;color:var(--color-text-secondary);font-size:.83rem;">مفيش محادثة تانية.</div>';
+
+    $('forwardPicker').querySelectorAll('[data-target]').forEach((b) => b.addEventListener('click', async () => {
+        try {
+            await forwardAsNote(state.forwardingId, b.dataset.target);
+            $('forwardDialog').close();
+            toast('اتحوّلت كملاحظة داخلية.');
+        } catch (err) {
+            toast(errText(err, 'التحويل ماتمش.'), 'err');
+        }
+    }));
+}
+
+// ═════════════════════════════════════════════════════════════
+// الفرق (للسلطة المرتفعة)
+// ═════════════════════════════════════════════════════════════
+
+function openTeamsDialog() {
+    $('teamsError').textContent = '';
+    $('newTeamName').value = '';
+    renderTeamsList();
+    $('teamsDialog').showModal();
+}
+
+function renderTeamsList() {
+    const roleLabel = { lead: 'قائد', member: 'عضو' };
+    $('teamsList').innerHTML = state.teams.length ? state.teams.map((team) => {
+        const outside = state.agents.filter((a) => !team.members.some((m) => m.user_id === a.id));
+        return `<div class="ib-team" data-team="${esc(team.id)}">
+          <div class="ib-team-head"><b>${esc(team.name)}</b>
+            <span class="ib-thread-sub">${team.members.length} عضو</span>
+            <button type="button" class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.72rem" data-archive-team="${esc(team.id)}">أرشفة</button></div>
+          ${team.members.map((m) => `<div class="ib-team-member">
+              <span>${esc(agentName(m.user_id) || 'موظف')}</span>
+              <select class="ib-select" data-member-role="${esc(m.user_id)}">
+                ${['lead', 'member'].map((r) => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${roleLabel[r]}</option>`).join('')}
+              </select>
+              <button type="button" class="ib-mini" data-remove-member="${esc(m.user_id)}" aria-label="شيل العضو">✕</button>
+            </div>`).join('')}
+          ${outside.length ? `<div class="ib-team-add">
+            <select class="ib-select" style="max-width:none" data-add-select>${outside.map((a) =>
+                `<option value="${esc(a.id)}">${esc(a.full_name || a.email)}</option>`).join('')}</select>
+            <button type="button" class="btn btn-secondary" style="padding:.3rem .6rem;font-size:.75rem" data-add-member>ضيف</button>
+          </div>` : ''}
+        </div>`;
+    }).join('') : '<p class="ib-thread-sub">مفيش فرق لسه.</p>';
+
+    $('teamsList').querySelectorAll('.ib-team').forEach((box) => {
+        const teamId = box.dataset.team;
+        box.querySelector('[data-archive-team]')?.addEventListener('click', () => teamAction(
+            () => archiveTeam(teamId), `تأرشف الفريق؟ أعضاؤه هيفقدوا الوصول للمحادثات المسندة للفريق.`));
+        box.querySelectorAll('[data-member-role]').forEach((sel) => sel.addEventListener('change', () =>
+            teamAction(() => setTeamMember(teamId, sel.dataset.memberRole, sel.value))));
+        box.querySelectorAll('[data-remove-member]').forEach((b) => b.addEventListener('click', () =>
+            teamAction(() => setTeamMember(teamId, b.dataset.removeMember, null))));
+        box.querySelector('[data-add-member]')?.addEventListener('click', () =>
+            teamAction(() => setTeamMember(teamId, box.querySelector('[data-add-select]').value, 'member')));
+    });
+}
+
+async function teamAction(fn, confirmText) {
+    if (confirmText && !confirm(confirmText)) return;
+    $('teamsError').textContent = '';
+    try {
+        await fn();
+        await refreshDirectory();
+        renderTeamsList();
+        renderAll();
+    } catch (err) {
+        $('teamsError').textContent = errText(err, 'العملية ماتمتش.');
+    }
+}
+
+async function refreshDirectory() {
+    const [agents, teams] = await Promise.all([loadAgents(), loadTeams()]);
+    state.agents = agents;
+    state.teams = teams;
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -767,57 +1318,44 @@ function closePop() {
     $('popPanel').innerHTML = '';
 }
 
-function openPop(kind, items, onPick) {
+function openPop(kind, items, onPick, empty) {
     state.pop = kind;
     const panel = $('popPanel');
     panel.hidden = false;
     panel.innerHTML = items.length
         ? items.map((item, i) => `<button type="button" class="ib-pop-item ${i === 0 ? 'is-active' : ''}" data-pick="${i}">
             <b>${esc(item.title)}</b><span>${esc(item.sub || '')}</span></button>`).join('')
-        : '<div style="padding:.8rem;text-align:center;color:var(--color-text-secondary);font-size:.82rem">مفيش نتايج.</div>';
-
+        : `<div style="padding:.8rem;text-align:center;color:var(--color-text-secondary);font-size:.82rem">${esc(empty)}</div>`;
     panel.querySelectorAll('[data-pick]').forEach((b) =>
         b.addEventListener('click', () => onPick(items[Number(b.dataset.pick)])));
 }
 
 function openCanned(filter = '') {
     const q = filter.trim().toLowerCase();
-    const items = listCannedReplies()
-        .filter((r) => !q || r.shortcut.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
-        // من غير الشرطة المايلة قدّام الاسم: في سياق RTL الشرطة محايدة
-        // فبتتقلب للناحية التانية و«/ترحيب» بتتقري «ترحيب/». والمستخدم
-        // كاتب الشرطة بنفسه أصلاً، فعرضها تكرار مالوش لازمة.
-        .map((r) => ({ title: r.shortcut, sub: r.title, body: r.body }));
-
+    const items = state.canned
+        .filter((r) => !q || (r.shortcut || '').toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q))
+        .map((r) => ({ title: r.shortcut || r.title, sub: r.shortcut ? r.title : r.content, body: r.content }));
     openPop('canned', items, (item) => {
-        // `{{الاسم}}` بتتبدّل باسم الطرف التاني — رد جاهز بيوصل للعميل
-        // باسم حد تاني أسوأ من إنه يتكتب من الأول.
-        $('messageInput').value = fillCannedReply(item.body, state.activeId);
+        $('messageInput').value = fillCannedReply(item.body, activeSession());
         autoGrow();
         closePop();
         $('messageInput').focus();
-    });
+    }, state.canned.length ? 'مفيش رد مطابق.' : 'مفيش ردود جاهزة لسه — بتتضاف من صفحة التذاكر.');
 }
 
 function openMentions(filter = '') {
-    const conversation = findConversation(state.activeId);
-    if (!conversation) return closePop();
     const q = filter.trim().toLowerCase();
-    const me = getCurrentUser().id;
-
-    const items = conversation.memberIds
-        .filter((id) => id !== me)
-        .map((id) => findContact(id)).filter(Boolean)
-        .filter((c) => !q || c.name.toLowerCase().includes(q))
-        .map((c) => ({ title: `@${c.name}`, sub: c.email, name: c.name }));
-
+    const items = state.agents
+        .filter((a) => a.id !== state.me?.id && a.full_name)
+        .filter((a) => !q || a.full_name.toLowerCase().includes(q))
+        .map((a) => ({ title: `@${a.full_name}`, sub: a.email, name: a.full_name }));
     openPop('mention', items, (item) => {
         const input = $('messageInput');
         input.value = input.value.replace(/@[^\s@]*$/, `@${item.name} `);
         autoGrow();
         closePop();
         input.focus();
-    });
+    }, 'مفيش موظف مطابق.');
 }
 
 function openEmoji() {
@@ -834,51 +1372,36 @@ function openEmoji() {
     }));
 }
 
-function openReactionPicker(messageId) {
-    state.pop = 'react';
-    const panel = $('popPanel');
-    panel.hidden = false;
-    panel.innerHTML = `<div class="ib-emoji-grid">${QUICK_EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div>`;
-    panel.querySelectorAll('[data-emoji]').forEach((b) => b.addEventListener('click', () => {
-        toggleReaction(messageId, b.dataset.emoji);
-        closePop();
-        renderThread();
-    }));
-}
-
-/** اللي بيتكتب دلوقتي بيفتح اللوحة المناسبة لوحده. */
 function onInputChanged() {
     const input = $('messageInput');
     autoGrow();
-    saveDraft(state.activeId, input.value);
+    if (state.activeId && !state.editingNoteId) state.drafts.set(state.activeId, input.value);
 
-    const value = input.value;
-    const slash = value.match(/(?:^|\s)\/([^\s/]*)$/);
-    const mention = value.match(/(?:^|\s)@([^\s@]*)$/);
-
+    const slash = input.value.match(/(?:^|\s)\/([^\s/]*)$/);
+    const mention = state.mode === 'note' ? input.value.match(/(?:^|\s)@([^\s@]*)$/) : null;
     if (slash) openCanned(slash[1]);
     else if (mention) openMentions(mention[1]);
     else if (state.pop === 'canned' || state.pop === 'mention') closePop();
-
-    renderConversations();
 }
 
 // ═════════════════════════════════════════════════════════════
-// البحث جوه المحادثة
+// البحث جوه المحادثة (الرسايل والملاحظات)
 // ═════════════════════════════════════════════════════════════
 
-const isHit = (id) => state.find.hits.includes(id);
-
 function runFind() {
-    const query = $('findInput').value.trim().toLowerCase();
-    state.find.query = $('findInput').value.trim();
-    state.find.hits = query
-        ? listMessages(state.activeId).filter((m) => !m.deleted && m.body.toLowerCase().includes(query)).map((m) => m.id)
+    const raw = $('findInput').value.trim();
+    const query = raw.toLowerCase();
+    state.find.query = raw;
+    const session = activeSession();
+    state.find.hits = query && session
+        ? buildTimeline(session.messages, state.thread.notes, [])
+            .filter(({ type, item }) => ((type === 'note' ? item.body : item.message_text) || '').toLowerCase().includes(query))
+            .map(({ item }) => item.id)
         : [];
     state.find.index = 0;
 
     $('findCount').textContent = query
-        ? (state.find.hits.length ? `${state.find.index + 1} / ${state.find.hits.length}` : 'مفيش نتايج')
+        ? (state.find.hits.length ? `1 / ${state.find.hits.length}` : 'مفيش نتايج')
         : '';
 
     renderThread();
@@ -898,129 +1421,123 @@ function openFind() {
 }
 
 function closeFind() {
+    const hadQuery = !!state.find.query;
     $('findBar').hidden = true;
     $('findInput').value = '';
+    $('findCount').textContent = '';
     state.find = { query: '', hits: [], index: 0 };
+    if (hadQuery && state.activeId) renderThread();
+}
+
+// ═════════════════════════════════════════════════════════════
+// التحميل و Realtime
+// ═════════════════════════════════════════════════════════════
+
+function renderAll() {
+    renderRail();
+    renderConversations();
     if (state.activeId) renderThread();
+    renderDetails();
 }
 
-// ═════════════════════════════════════════════════════════════
-// النوافذ
-// ═════════════════════════════════════════════════════════════
-
-function renderContactPicker(containerId, searchId, { multi = false, onPick = null } = {}) {
-    const q = $(searchId).value.trim().toLowerCase();
-    const contacts = listContacts().filter((c) =>
-        !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
-
-    const container = $(containerId);
-    container.innerHTML = contacts.length
-        ? contacts.map((c) => `<button type="button" class="ib-pick" data-contact="${esc(c.id)}">
-            ${multi ? `<input type="checkbox" ${state.groupSelection.has(c.id) ? 'checked' : ''} tabindex="-1">` : ''}
-            ${avatarHtml(c.name, { online: c.online, small: true })}
-            <span class="ib-pick-main"><span>${esc(c.name)}</span><span class="ib-pick-sub">${esc(c.email)}</span></span>
-          </button>`).join('')
-        : '<div style="padding:1.2rem;text-align:center;color:var(--color-text-secondary);font-size:.83rem;">مفيش عضو مطابق.</div>';
-
-    container.querySelectorAll('[data-contact]').forEach((b) =>
-        b.addEventListener('click', () => onPick?.(b.dataset.contact)));
-}
-
-function startChatWith(contactId) {
-    const conversation = openDirectConversation(contactId);
-    $('newChatDialog').close();
-    renderRail();
-    renderConversations();
-    openConversation(conversation.id);
-}
-
-function openNewChatDialog() {
-    $('newChatScope').textContent = getCurrentUser().role === 'super_user'
-        ? 'بتشوف أعضاء فريقك بس.' : 'بتشوف كل أعضاء المنصة.';
-    $('contactSearch').value = '';
-    renderContactPicker('contactPicker', 'contactSearch', { onPick: startChatWith });
-    $('newChatDialog').showModal();
-}
-
-function refreshGroupPicker() {
-    renderContactPicker('groupPicker', 'groupSearch', {
-        multi: true,
-        onPick: (id) => {
-            if (state.groupSelection.has(id)) state.groupSelection.delete(id);
-            else state.groupSelection.add(id);
-            refreshGroupPicker();
-        }
-    });
-    $('groupCount').textContent = state.groupSelection.size ? `(${state.groupSelection.size} مختارين)` : '';
-}
-
-function openForwardDialog(messageId) {
-    state.forwardingId = messageId;
-    const message = findMessage(messageId);
-    $('forwardPreview').textContent = message?.body
-        || (message?.attachments[0]?.kind === 'voice' ? 'رسالة صوتية' : message?.attachments[0]?.name) || '—';
-    $('forwardSearch').value = '';
-    renderForwardPicker();
-    $('forwardDialog').showModal();
-}
-
-function renderForwardPicker() {
-    const q = $('forwardSearch').value.trim().toLowerCase();
-    // المحادثة الحالية مش خيار — تحويل رسالة لنفس مكانها مالوش معنى.
-    const targets = listConversations()
-        .filter((c) => c.id !== state.activeId)
-        .filter((c) => !q || c.title.toLowerCase().includes(q));
-
-    const container = $('forwardPicker');
-    container.innerHTML = targets.length
-        ? targets.map((c) => `<button type="button" class="ib-pick" data-target="${esc(c.id)}">
-            ${avatarHtml(c.title, { group: c.kind === 'group', small: true })}
-            <span class="ib-pick-main"><span>${esc(c.title)}</span>
-              <span class="ib-pick-sub">${c.kind === 'group' ? `${c.memberIds.length} أعضاء` : 'محادثة فردية'}</span></span>
-          </button>`).join('')
-        : '<div style="padding:1.2rem;text-align:center;color:var(--color-text-secondary);font-size:.83rem;">مفيش محادثة تانية.</div>';
-
-    container.querySelectorAll('[data-target]').forEach((b) => b.addEventListener('click', () => {
-        forwardMessage({ messageId: state.forwardingId, toConversationId: b.dataset.target });
-        $('forwardDialog').close();
-        renderConversations();
-        renderRail();
-        toast('الرسالة اتحوّلت.');
-    }));
-}
-
-// ═════════════════════════════════════════════════════════════
-// الإجراءات الجماعية
-// ═════════════════════════════════════════════════════════════
-
-function bulk(action) {
-    if (!state.selected.size) return;
-    const ids = [...state.selected];
-
-    for (const id of ids) {
-        if (action === 'read') markRead(id);
-        if (action === 'archive') setArchived(id, true);
-        if (action === 'close') setStatus(id, 'closed');
+async function reload() {
+    try {
+        state.sessions = await loadSessions();
+        state.loaded = true;
+    } catch (err) {
+        console.error('[inbox] تحميل المحادثات فشل:', err);
+        $('convList').innerHTML = `<div class="ib-empty" style="padding:2.5rem 1rem;">
+            <p>حصل خطأ في تحميل المحادثات.</p>
+            <button type="button" class="btn btn-secondary" id="retryLoad">حاول تاني</button></div>`;
+        $('retryLoad')?.addEventListener('click', reload);
+        return;
     }
-
-    state.selected.clear();
-    renderRail();
-    renderConversations();
-    if (state.activeId && ids.includes(state.activeId)) renderThread();
-    toast(`اتنفّذ على ${ids.length} محادثة.`);
+    if (state.activeId && !findSession(state.activeId)) closeThread();
+    renderAll();
 }
+
+let reloadTimer = null;
+function scheduleReload() {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(reload, 600);
+}
+
+const realtime = {
+    onMessage(row) {
+        if (!row?.session_id) return;
+        if (!addMessage(row)) { scheduleReload(); return; }
+        const session = findSession(row.session_id);
+        if (session && row.created_at) session.updated_at = row.created_at;
+        renderAll();
+    },
+    onSession(eventType, row) {
+        if (eventType === 'DELETE' || !row?.id) return;
+        const session = findSession(row.id);
+        if (!session || eventType === 'INSERT') { scheduleReload(); return; }
+        // الـ payload بيجيب أعمدة الجدول بس، من غير العميل والرسايل.
+        Object.assign(session, { status: row.status, is_manual_mode: row.is_manual_mode, updated_at: row.updated_at });
+        renderAll();
+    },
+    onMeta(eventType, row, old) {
+        const id = row?.session_id || old?.session_id;
+        const session = id && findSession(id);
+        // محادثة اتسندت لي أو لفريقي دلوقتي ولسه مش في القايمة.
+        if (!session) { scheduleReload(); return; }
+        session.meta = eventType === 'DELETE' ? null : row;
+        renderAll();
+    },
+    onTag(eventType, row, old) {
+        const link = eventType === 'DELETE' ? old : row;
+        const session = link?.session_id && findSession(link.session_id);
+        if (!session) return;
+        const has = session.tagIds.includes(link.tag_id);
+        if (eventType === 'DELETE' && has) session.tagIds = session.tagIds.filter((t) => t !== link.tag_id);
+        if (eventType === 'INSERT' && !has) session.tagIds = [...session.tagIds, link.tag_id];
+        renderAll();
+    },
+    async onMessageUpdate(row) {
+        if (!row?.id || !replaceMessage(row)) return;
+        // النسخة السابقة اتكتبت في chat_message_revisions (مش في الـ publication).
+        if (row.session_id === state.thread.sessionId && (row.edited_at || row.deleted_at)) {
+            await refreshRevisions(row.session_id);
+        }
+        renderAll();
+    },
+    onReaction(eventType, row, old) {
+        const reactions = state.thread.reactions;
+        if (eventType === 'DELETE') {
+            if (!old?.id || !reactions.some((r) => r.id === old.id)) return;
+            state.thread.reactions = reactions.filter((r) => r.id !== old.id);
+        } else {
+            if (row?.session_id !== state.thread.sessionId || reactions.some((r) => r.id === row.id)) return;
+            state.thread.reactions = [...reactions, row];
+        }
+        renderThread();
+    },
+    onNote(_eventType, row) {
+        if (row?.session_id !== state.thread.sessionId) return;
+        upsertNote(row);
+        renderThread();
+        renderDetails();
+    },
+    onEvent(row) {
+        if (row?.session_id !== state.thread.sessionId) return;
+        if (!state.thread.events.some((e) => e.id === row.id)) state.thread.events.push(row);
+        renderThread();
+    }
+};
 
 // ═════════════════════════════════════════════════════════════
 // الاختصارات
 // ═════════════════════════════════════════════════════════════
 
-/** بنتجاهل الاختصارات وإحنا بنكتب — وإلا «e» بتأرشف بدل ما تتكتب. */
+/** بنتجاهل الاختصارات وإحنا بنكتب — وإلا «j» بتنقل بدل ما تتكتب. */
 const isTyping = () => ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
 
 function moveSelection(delta) {
     const rows = currentRows();
     if (!rows.length) return;
-    const at = rows.findIndex((c) => c.id === state.activeId);
+    const at = rows.findIndex((s) => s.id === state.activeId);
     const next = rows[Math.min(rows.length - 1, Math.max(0, (at < 0 ? 0 : at + delta)))];
     if (next) openConversation(next.id);
 }
@@ -1028,140 +1545,69 @@ function moveSelection(delta) {
 function onKeydown(event) {
     if (event.key === 'Escape') {
         if (state.pop) return closePop();
+        if (state.reactFor) { state.reactFor = null; return renderThread(); }
+        if (state.recorder?.state === 'recording') return cancelRecording();
         if (!$('findBar').hidden) return closeFind();
-        if (state.editingId) return cancelEdit();
-        if (state.replyToId) return cancelReply();
+        if (state.editingNoteId || state.editingMessageId) return cancelEdit();
         return;
     }
-
     if (event.key === 'f' && (event.ctrlKey || event.metaKey) && state.activeId) {
         event.preventDefault();
         return openFind();
     }
-
-    if (isTyping()) return;
-
+    if (isTyping() || document.querySelector('dialog[open]')) return;
     switch (event.key) {
         case '/': event.preventDefault(); $('convSearch').focus(); break;
         case 'j': moveSelection(1); break;
         case 'k': moveSelection(-1); break;
-        case 'e': if (state.activeId) toggleArchive(); break;
-        case 'm': if (state.activeId) toggleMute(); break;
         case 'n': if (state.activeId) setMode(state.mode === 'reply' ? 'note' : 'reply'); break;
+        case 'e': if (state.activeId) toggleArchive(); break;
         default: break;
     }
-}
-
-function toggleArchive() {
-    const conversation = findConversation(state.activeId);
-    if (!conversation) return;
-    setArchived(conversation.id, !conversation.archived);
-    renderRail();
-    renderConversations();
-    renderThread();
-    toast(conversation.archived ? 'رجعت من الأرشيف.' : 'اتأرشفت.');
-}
-
-function toggleMute() {
-    const conversation = findConversation(state.activeId);
-    if (!conversation) return;
-    setMuted(conversation.id, !conversation.muted);
-    renderThread();
-    renderConversations();
 }
 
 // ═════════════════════════════════════════════════════════════
 // الربط
 // ═════════════════════════════════════════════════════════════
 
-function applyRole() {
-    const me = getCurrentUser();
-    $('inboxSubtitle').textContent = me.role === 'super_user'
-        ? 'محادثاتك مع أعضاء فريقك' : 'محادثاتك مع أعضاء المنصة';
-    $('scopeNote').textContent = me.role === 'super_user'
-        ? '— بيشوف أعضاءه هو بس.' : '— بيشوف كل أعضاء المنصة.';
-
-    // تبديل الدور بيغيّر مين أنت، فالمحادثة المفتوحة غالبًا مابقتش بتاعتك.
-    state.activeId = null;
-    state.selected.clear();
-    state.view = 'all';
-    $('threadBody').hidden = true;
-    $('threadEmpty').hidden = false;
-    $('inboxShell').classList.remove('is-thread-open');
-    state.detailsOpen = false;
-    clearPending();
-    renderRail();
-    renderConversations();
-    renderDetails();
-}
-
 function wire() {
     $('convSearch').addEventListener('input', () => { state.selected.clear(); renderConversations(); });
-
-    $('newChatBtn').addEventListener('click', openNewChatDialog);
-    $('newGroupBtn').addEventListener('click', () => {
-        state.groupSelection.clear();
-        $('groupName').value = ''; $('groupSearch').value = ''; $('groupError').textContent = '';
-        refreshGroupPicker();
-        $('newGroupDialog').showModal();
-    });
-    $('cancelNewChat').addEventListener('click', () => $('newChatDialog').close());
-    $('cancelNewGroup').addEventListener('click', () => $('newGroupDialog').close());
-    $('cancelForward').addEventListener('click', () => $('forwardDialog').close());
-    $('closeShortcuts').addEventListener('click', () => $('shortcutsDialog').close());
+    $('refreshBtn').addEventListener('click', async () => { await refreshDirectory().catch(() => {}); await reload(); });
     $('shortcutsBtn').addEventListener('click', () => $('shortcutsDialog').showModal());
+    $('closeShortcuts').addEventListener('click', () => $('shortcutsDialog').close());
 
-    $('contactSearch').addEventListener('input', () =>
-        renderContactPicker('contactPicker', 'contactSearch', { onPick: startChatWith }));
-    $('groupSearch').addEventListener('input', refreshGroupPicker);
-    $('forwardSearch').addEventListener('input', renderForwardPicker);
-
-    $('createGroupBtn').addEventListener('click', () => {
-        const { conversation, error } = createGroup({ title: $('groupName').value, memberIds: [...state.groupSelection] });
-        if (error) { $('groupError').textContent = error; return; }
-        $('newGroupDialog').close();
-        renderRail();
-        renderConversations();
-        openConversation(conversation.id);
-        toast('المجموعة اتعملت.');
-    });
-
-    $('backBtn').addEventListener('click', () => $('inboxShell').classList.remove('is-thread-open'));
-
-    // رأس المحادثة
-    $('statusSelect').addEventListener('change', (e) => {
-        setStatus(state.activeId, e.target.value);
-        renderRail(); renderConversations(); renderDetails();
-        toast(`الحالة بقت «${STATUS_LABELS[e.target.value]}».`);
-    });
-    $('assigneeSelect').addEventListener('change', (e) => {
-        setAssignee(state.activeId, e.target.value);
-        renderRail(); renderConversations(); renderDetails();
-    });
-    $('muteBtn').addEventListener('click', toggleMute);
-    $('archiveBtn').addEventListener('click', toggleArchive);
+    $('backBtn').addEventListener('click', closeThread);
+    $('closeSessionBtn').addEventListener('click', () => closeSelected(state.activeId ? [state.activeId] : []));
+    $('archiveBtn').addEventListener('click', () => toggleArchive());
+    $('assigneeSelect').addEventListener('change', () => onAssignmentChange('assignee'));
+    $('teamSelect').addEventListener('change', () => onAssignmentChange('team'));
+    $('transferBtn').addEventListener('click', openTransferDialog);
+    $('cancelTransfer').addEventListener('click', () => $('transferDialog').close());
+    $('confirmTransfer').addEventListener('click', confirmTransfer);
     $('detailsBtn').addEventListener('click', () => {
         state.detailsOpen = !state.detailsOpen;
-        renderDetails();
         $('detailsBtn').classList.toggle('is-on', state.detailsOpen);
+        renderDetails();
     });
 
-    // البحث جوه المحادثة
+    $('forwardSearch').addEventListener('input', renderForwardPicker);
+    $('cancelForward').addEventListener('click', () => $('forwardDialog').close());
+
+    $('closeTeams').addEventListener('click', () => $('teamsDialog').close());
+    $('createTeamBtn').addEventListener('click', () => {
+        const name = $('newTeamName').value.trim();
+        if (!name) return;
+        teamAction(async () => { await saveTeam(null, name); $('newTeamName').value = ''; });
+    });
+
     $('findBtn').addEventListener('click', openFind);
     $('findInput').addEventListener('input', runFind);
     $('findNext').addEventListener('click', () => stepFind(1));
     $('findPrev').addEventListener('click', () => stepFind(-1));
     $('findClose').addEventListener('click', closeFind);
 
-    // الكتابة
-    $('modeToggle').querySelectorAll('button').forEach((b) =>
-        b.addEventListener('click', () => setMode(b.dataset.mode)));
-    $('cancelReplyBtn').addEventListener('click', cancelReply);
-    $('cancelEditBtn').addEventListener('click', () => {
-        cancelEdit();
-        $('messageInput').value = '';
-        autoGrow();
-    });
+    $('modeToggle').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    $('cancelEditBtn').addEventListener('click', cancelEdit);
 
     const input = $('messageInput');
     input.addEventListener('input', onInputChanged);
@@ -1178,55 +1624,68 @@ function wire() {
     });
     $('sendBtn').addEventListener('click', send);
 
-    $('attachBtn').addEventListener('click', () => $('fileInput').click());
-    $('fileInput').addEventListener('change', (e) => {
-        addFiles(e.target.files);
-        e.target.value = ''; // عشان اختيار نفس الملف تاني يشتغل
+    // المرفق والتسجيل — الرد للعميل بس (مخفيين في وضع الملاحظة بالـ CSS).
+    $('attachInput').accept = FILE_PICKER_ACCEPT;
+    $('attachBtn').addEventListener('click', () => { $('attachInput').value = ''; $('attachInput').click(); });
+    $('attachInput').addEventListener('change', () => {
+        const file = $('attachInput').files?.[0];
+        if (file) setPendingFile(file);
     });
-    $('recordBtn').addEventListener('click', () => (state.recorder ? stopRecording() : startRecording()));
-    $('cancelRecordBtn').addEventListener('click', () => stopRecording({ cancelled: true }));
+    input.addEventListener('paste', (event) => {
+        const file = event.clipboardData?.files?.[0];
+        if (!file || state.mode !== 'reply' || state.editingMessageId) return;
+        event.preventDefault();
+        setPendingFile(file);
+    });
+    $('recordBtn').hidden = !isVoiceRecordingSupported();
+    $('recordBtn').addEventListener('click', startRecording);
+    $('stopRecordBtn').addEventListener('click', stopRecording);
+    $('cancelRecordBtn').addEventListener('click', cancelRecording);
     $('cannedBtn').addEventListener('click', () => (state.pop === 'canned' ? closePop() : openCanned()));
     $('emojiBtn').addEventListener('click', () => (state.pop === 'emoji' ? closePop() : openEmoji()));
 
-    // الجدولة
-    $('scheduleBtn').addEventListener('click', () => {
-        if (!$('messageInput').value.trim()) { toast('اكتب الرسالة الأول.', 'err'); return; }
-        $('scheduleError').textContent = '';
-        $('scheduleDialog').showModal();
-    });
-    $('cancelSchedule').addEventListener('click', () => $('scheduleDialog').close());
-    $('confirmSchedule').addEventListener('click', () => {
-        const at = $('scheduleAt').value;
-        if (!at || new Date(at) <= new Date()) {
-            $('scheduleError').textContent = 'اختار وقت في المستقبل.';
-            return;
-        }
-        $('scheduleDialog').close();
-        // ⚠️ الجدولة الحقيقية محتاجة الخلفية. هنا بنقول للمستخدم إنها
-        // اتجدولت من غير ما نبعت — وعد بإرسال مش هيحصل أسوأ من زرار مقفول.
-        toast(`اتجدولت للإرسال ${new Date(at).toLocaleString('ar-EG')} (محتاج الخلفية).`);
-    });
-
-    // الإجراءات الجماعية
-    $('bulkReadBtn').addEventListener('click', () => bulk('read'));
-    $('bulkArchiveBtn').addEventListener('click', () => bulk('archive'));
-    $('bulkCloseBtn').addEventListener('click', () => bulk('close'));
+    $('bulkArchiveBtn').addEventListener('click', bulkArchive);
+    $('bulkCloseBtn').addEventListener('click', () => closeSelected(
+        [...state.selected].filter((id) => findSession(id)?.status !== 'closed')));
     $('bulkClearBtn').addEventListener('click', () => { state.selected.clear(); renderConversations(); });
-
-    $('roleSelect').addEventListener('change', (e) => { setPreviewRole(e.target.value); applyRole(); });
 
     document.addEventListener('keydown', onKeydown);
     // ضغطة برّه اللوحة بتقفلها.
     document.addEventListener('click', (e) => {
-        if (state.pop && !e.target.closest('.ib-composer-wrap') && !e.target.closest('.ib-tools')) closePop();
+        if (state.pop && !e.target.closest('.ib-composer-wrap')) closePop();
+        if (state.reactFor && !e.target.closest('.ib-react-pick, [data-act="react"], [data-act="react-note"]')) {
+            state.reactFor = null;
+            renderThread();
+        }
     });
+    window.addEventListener('resize', fitShellHeight);
 }
 
-wire();
-setMode('reply');
-applyRole();
-fitShellHeight();
-window.addEventListener('resize', fitShellHeight);
+async function boot() {
+    initSidebar();
+    const user = await checkAdminAuth();
+    if (!user) return;
+    updateAdminUI(user);
+    state.me = user;
 
-// بيتصدّر عشان الشارة في القايمة الجانبية تقدر تقراه لما تتوصل.
-window.__inboxUnread = totalUnread;
+    wire();
+    setMode('reply');
+    fitShellHeight();
+    setTimeout(fitShellHeight, 300);
+
+    const [, tags] = await Promise.all([
+        refreshDirectory().catch((err) => console.warn('[inbox] الموظفين/الفرق:', err?.message || err)),
+        loadTags()
+    ]);
+    state.tags = tags || [];
+
+    await reload();
+    subscribeInbox(realtime);
+
+    const deepLink = sessionIdFromSearch(window.location.search);
+    if (deepLink) openConversation(deepLink);
+
+    state.canned = await loadCannedReplies();
+}
+
+boot();

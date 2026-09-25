@@ -1,4 +1,16 @@
 {
+  "redirects": [
+    {
+      "source": "/chat-admin.html",
+      "destination": "/admin/inbox.html",
+      "permanent": false
+    },
+    {
+      "source": "/admin/chat-admin.html",
+      "destination": "/admin/inbox.html",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/.well-known/oauth-authorization-server",

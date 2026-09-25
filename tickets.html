@@ -73,7 +73,7 @@
         </div>
         <nav class="sidebar-menu">
             <a href="tickets.html" class="sidebar-item active">إدارة التذاكر</a>
-            <a href="chat-admin.html" class="sidebar-item">محادثات العملاء</a>
+            <a href="/admin/inbox.html" class="sidebar-item">محادثات العملاء</a>
             <a href="rewards.html" class="sidebar-item">إدارة المكافآت</a>
             <a href="/admin/users.html" class="sidebar-item">المستخدمين</a>
             <a href="/admin/banned.html" class="sidebar-item">المحظورين</a>
@@ -159,7 +159,7 @@
                     <td>${new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
                     <td style="display:flex; gap:0.5rem;">
                         <button class="btn btn-primary" onclick="impersonateUser('${t.user_id}')">عرض</button>
-                        ${t.chat_session_id ? `<a href="chat-admin.html" class="btn btn-outline">المحادثة</a>` : ''}
+                        ${t.chat_session_id ? `<a href="/admin/inbox.html?session=${encodeURIComponent(t.chat_session_id)}" class="btn btn-outline">المحادثة</a>` : ''}
                     </td>
                 </tr>
             `}).join('') || '<tr><td colspan="6">لا توجد تذاكر</td></tr>';

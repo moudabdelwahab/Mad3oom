@@ -1147,6 +1147,11 @@
 
 /* ---- المرفقات داخل الرسائل ---- */
 .chat-widget-bubble.has-attachment { display: flex; flex-direction: column; gap: 6px; }
+/* رد دعم اتحذف أو اتعدّل من صندوق الرسائل (056) */
+.chat-widget-bubble.is-deleted .chat-widget-bubble-text { font-style: italic; opacity: .65; }
+.chat-widget-msg-edited { font-size: 11px; opacity: .7; margin-inline-start: 6px; }
+.chat-widget-msg-edited::before { content: '· '; }
+
 .cw-att { display: block; max-width: 100%; }
 .cw-att-image {
     padding: 0;

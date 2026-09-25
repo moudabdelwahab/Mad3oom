@@ -1,0 +1,315 @@
+# صندوق الرسائل كـ Helpdesk حقيقي — مراجعة المعمارية وخطة التنفيذ
+
+> الحالة: القرارات D1–D5 **اتعتمدت كلها كما في التوصيات**.
+> المرحلة 1 **مطبَّقة على الإنتاج** كـ `055_inbox_helpdesk_core` (2026-09-25) بعد الموافقة الصريحة — راجع §5 و§6.
+
+---
+
+## 0) حقائق من المراجعة بتحكم التصميم كله
+
+| # | الحقيقة | ليه مهمة |
+|---|---|---|
+| F1 | قراءة `chat_sessions` و `chat_messages` للطاقم مشروطة بـ `has_elevated_authority()` = أدمن عنده منحة `elevated_admin` أو المالك. **3 أشخاص بس** (أدمنين مرفوعين + المالك). الـ 4 أدمن التانيين وأي `support` **مابيشوفوش ولا محادثة**. | الإسناد لموظف مابيقدرش يقرا المحادثة مالوش معنى. لازم قرار صلاحيات (D1). |
+| F2 | سياسة UPDATE على `chat_sessions` = `user_id = auth.uid() or has_elevated_authority()` — **العميل يقدر يعدّل أي عمود في جلسته**. | أي عمود إسناد/أرشفة يتحط على `chat_sessions` العميل يقدر يغيّره. ⇒ بيانات الـ helpdesk لازم تبقى في جدول جانبي للطاقم بس. |
+| F3 | `chat_messages` مالهاش سياسة UPDATE ولا DELETE. | التعديل والحذف لازم يعدّوا من RPC بـ SECURITY DEFINER — ودي ميزة: التحكم كله في مكان واحد. |
+| F4 | SIE محرك خارجي (`sie-api`) بيكتب بنفسه في `chat_messages` / `chat_sessions` / التذاكر (`alreadyPersisted`). | أي تغيير في مخطط أو سياسات الجدولين دول يُعتبر احتمال كسر لـ SIE. التصميم بيتجنّبه إلا في موضع واحد مبرَّر (عمودين nullable — راجع §3.9). |
+| F5 | مستودع `chat-attachments`: الرفع للمجلد الأول = `auth.uid()` بس، والقراءة لصاحب المجلد أو `is_platform_staff()`. | ملف يرفعه الأدمن في مجلده **العميل مايقدرش يقراه**. محتاج سياسة تخزين جديدة لمسار `inbox/<session_id>/…`. |
+| F6 | ويدجت الشات (`chat-widget.js`) **مابيعرضش `image_url` أصلاً** (صفحة `chat-customer.html` بس اللي بتعرضها)، وبيسمع INSERT على الرسايل بس (مش UPDATE). | مرفقات الأدمن والتعديل/الحذف محتاجين تعديل إضافي (additive) في الويدجت و `chat-logic.js` — من غير لمس مسار SIE فيهم. |
+| F7 | `pg_cron` و `pg_net` مفعّلين، وفيه jobs شغالة بالفعل (`sla-breach-check` كل 15 دقيقة). | الجدولة تنفع تتعمل داخل القاعدة بنفس النمط الموجود، من غير Edge Function جديدة. |
+| F8 | اتفاقيات إجبارية لأي جدول جديد: محفّز `trg_preview_read_only` (041) وسياسة RESTRICTIVE `gate_account_active` (042)، والتفويض عبر `is_platform_staff()` / `has_elevated_authority()` مش عبر البريد (040). | كل جدول في الخطة بياخدهم. |
+| F9 | فيه أجزاء موجودة تتعاد استخدامها: `ticket_tags` (وسوم عامة: اسم + لون، الأدمن بيديرها والطاقم بيقراها)، `canned_responses`، `customer_notes` (ملاحظات على **العميل** مش على المحادثة)، `tickets.chat_session_id` (تذاكر مرتبطة بالمحادثة)، `notifications` + مشتقّات الإجراء (015)، نمط `ticket_activity` للسجل، و `fetchSupportAgents()`. | مفيش تكرار: الوسوم والردود الجاهزة وملاحظات العميل والإشعارات بتتعاد استخدامها. |
+| F10 | جداول بأسماء مغرية **مش صالحة**: `messages` (رسايل واتساب) و `scheduled_messages` (جدولة واتساب — `phone_number NOT NULL`). | استخدامها للشات كان هيخلط بيانات منتجين مختلفين. |
+| F11 | واجهة المعاينة القديمة (قبل الحذف) محفوظة في git عند `19048ba` (`admin/inbox.html`، `assets/js/admin/inbox.js`). | التصميم بيرجع منها لكل ميزة وهي بتتنفذ — مش كواجهة فاضية قبلها. |
+
+---
+
+## 1) المراجعة لكل ميزة
+
+الأعمدة: **البيانات** · **موجود يتعاد استخدامه** · **تنفيذ جزئي موجود** · **خلفية** · **واجهة فقط** · **RLS** · **الويدجت** · **SIE** · **من غير كسر؟**
+
+### 1. الإسناد (Assignment)
+- **البيانات:** مسؤول (موظف) و/أو فريق لكل محادثة، مين أسند وإمتى.
+- **موجود:** `fetchSupportAgents()`، `notifications`، نمط `tickets.assigned_to` + `ticket_activity`.
+- **جزئي:** في التذاكر بس، مش في الشات.
+- **خلفية:** جدول جانبي `inbox_conversations` + RPC `inbox_assign` (تحقق إن المسؤول موظف فعلاً، سجل، إشعار).
+- **واجهة فقط:** لأ.
+- **RLS:** جدول جديد للطاقم. **يعتمد على D1** — لو الموظف مايقدرش يقرا المحادثة، الإسناد له عديم القيمة.
+- **الويدجت / SIE:** مفيش تأثير (جدول منفصل).
+- **من غير كسر:** نعم.
+
+### 2. الوسوم (Tags)
+- **البيانات:** ربط محادثة ↔ وسم.
+- **موجود:** `ticket_tags` (نفس المفردات للتذاكر والشات — الأدمن بيدير الوسوم من مكان واحد).
+- **جزئي:** وسوم التذاكر شغالة بالكامل (`ticket_tag_links`).
+- **خلفية:** جدول ربط جديد `inbox_conversation_tags` (FK على `ticket_tags`) + RPC.
+- **RLS:** للطاقم اللي يقدر يوصل للمحادثة. `ticket_tags` نفسها ماتتلمسش.
+- **الويدجت / SIE:** مفيش.
+- **من غير كسر:** نعم.
+
+### 3. الملاحظات الداخلية (Internal Notes)
+- **البيانات:** نص، كاتب، منشن، تعديل/سحب.
+- **موجود:** `customer_notes` (على العميل — هتتعرض في لوح التفاصيل كما هي)، نمط `ticket_replies.is_internal`.
+- **خلفية:** جدول **منفصل** `inbox_notes` — مش عمود visibility على `chat_messages`، لأن سياسة SELECT على `chat_messages` بتدي العميل كل رسايل جلسته، والويدجت بيسمع INSERT على نفس الجدول: ملاحظة هناك = تسريب للعميل ولـ SIE.
+- **RLS:** للطاقم بس؛ العميل مالوش أي سياسة عليه.
+- **الويدجت / SIE:** مفيش (مابيعرفوش إن الجدول موجود).
+- **من غير كسر:** نعم.
+
+### 4. الأرشفة (Archive)
+- **البيانات:** `archived_at`, `archived_by` لكل محادثة (أرشفة للفريق كله، مش لكل موظف).
+- **خلفية:** عمودين في `inbox_conversations` + RPC.
+- **واجهة:** «المحادثة المؤرشفة بترجع للصندوق لو العميل كتب بعد الأرشفة» — بيتحسب في الواجهة من آخر رسالة عميل مقابل `archived_at`، **من غير محفّز على `chat_messages`** (يفضل الجدول اللي SIE بيكتب فيه من غير أي محفّز جديد).
+- **الويدجت / SIE:** مفيش. (الأرشفة ≠ الإقفال؛ الإقفال بيفضل `status = 'closed'` زي ما هو.)
+- **من غير كسر:** نعم.
+
+### 5. المجموعات / الفرق (Groups / Teams)
+- **البيانات:** فريق (اسم، وصف)، أعضاء (موظفين) بدور `lead`/`member`.
+- **موجود:** لا شيء للطاقم (`company_members` بتاعة الشركات — مش هي).
+- **خلفية:** `inbox_teams` + `inbox_team_members` + RPCs إدارة (للمرفوعين بس).
+- **الاستخدام:** إسناد لفريق، مشهد «فريقي»، تحويل لفريق، وصلاحية وصول (لو D1 = C).
+- **⚠️ D2:** الواجهة القديمة كانت «مجموعة» = غرفة شات جماعية بين أعضاء. ده **نظام شات تاني** كامل. المقترح: الفرق للتوجيه، والنقاش الداخلي بيحصل في الملاحظات الداخلية بمنشن.
+- **الويدجت / SIE:** مفيش.
+
+### 6. التحويل (Transfer)
+- **البيانات:** من مين لمين (موظف/فريق)، السبب، الوقت.
+- **خلفية:** RPC `inbox_transfer` = إسناد + حدث `transferred` + ملاحظة داخلية بالسبب + إشعار للمستلم — في معاملة واحدة.
+- **⚠️ D3:** الواجهة القديمة كانت «تحويل رسالة» لمحادثة تانية. تحويل رسالة عميل لمحادثة عميل تاني = تسريب بيانات. المقترح: تحويل **المحادثة** (handoff)، وتحويل الرسالة مسموح بس **كملاحظة داخلية** في محادثة تانية.
+- **الويدجت / SIE:** مفيش.
+
+### 7. مرفقات الأدمن (Admin Attachments)
+- **البيانات:** مسار التخزين، الاسم، النوع، الحجم، مربوط برسالة.
+- **موجود:** مستودع `chat-attachments` الخاص + `storage-urls.js` (التوقيع) + `image_url` على `chat_messages` (صور العميل).
+- **خلفية:** جدول `chat_message_attachments` (مش أعمدة جديدة على `chat_messages`) + سياستين تخزين لمسار `inbox/<session_id>/…` (رفع للطاقم اللي يوصل للمحادثة، قراءة له ولصاحب الجلسة) + الإرسال داخل `inbox_send_reply` عشان الرسالة ومرفقاتها يتكتبوا مع بعض.
+- **الويدجت:** **تعديل مطلوب (إضافي):** عرض الصور والملفات في `chat-widget.js` و `chat-logic.js` — الويدجت أصلاً مابيعرضش `image_url` (F6).
+- **SIE:** مفيش (SIE مابيقراش الجدول، ومسار SIE في الويدجت ماتلمسش).
+- **من غير كسر:** نعم — سياسات التخزين الحالية مابتتغيرش، بتتضاف سياسات جديدة لمسار جديد.
+
+### 8. التفاعلات (Reactions)
+- **البيانات:** (رسالة أو ملاحظة، موظف، رمز).
+- **خلفية:** `inbox_reactions` + RPC `inbox_toggle_reaction` (رموز من قايمة مسموحة).
+- **⚠️ D4:** المقترح: تفاعلات **داخلية للطاقم** (تأكيد إن حد شاف/هيتابع). عرضها للعميل = تعديل في الويدجت + تفاعل العميل نفسه — نطاق أكبر.
+- **الويدجت / SIE:** مفيش (لو داخلية).
+
+### 9. التعديل والحذف (Edit/Delete)
+- **البيانات:** `edited_at`, `deleted_at` على الرسالة + سجل النسخ السابقة.
+- **خلفية:**
+  - **العمودين دول هما التغيير الوحيد على جدول بيكتب فيه SIE**: `alter table chat_messages add column edited_at timestamptz, add column deleted_at timestamptz` — nullable من غير default، فإدراجات SIE والويدجت والعميل مابتتأثرش.
+  - `chat_message_revisions` (النص القديم، مين، إمتى) — للطاقم بس.
+  - RPCs: `inbox_edit_message` (الكاتب بس، ردود الدعم بس)، `inbox_delete_message` (الكاتب أو المرفوع). الحذف بيحفظ النص في السجل ويفضّي `message_text` — لأن العميل عنده صلاحية SELECT على الصف، فالنص لازم يختفي فعلاً مش بس يتعلّم.
+  - **ممنوع** تعديل/حذف رسايل العميل أو البوت أو SIE — دي سجل المحادثة وأثر تشخيص SIE.
+- **الويدجت:** **تعديل مطلوب (إضافي):** اشتراك UPDATE + عرض «اتعدلت» و «الرسالة دي اتحذفت».
+- **SIE:** لو SIE بيقرا تاريخ المحادثة، هيشوف النص المعدّل/الفاضي لرد الدعم — وده السلوك الصحيح.
+
+### 10. الجدولة (Scheduling)
+- **البيانات:** نص (ومرفقات)، وقت الإرسال، الحالة، الرسالة اللي اتبعتت.
+- **موجود:** `pg_cron` + نمط `sla-breach-check`.
+- **خلفية:** `inbox_scheduled_replies` + RPCs جدولة/إلغاء + دالة `inbox_dispatch_scheduled()` (مش متاحة للمستخدمين) + job كل دقيقة. الإرسال بيعدّي على **نفس** منطق `inbox_send_reply` الداخلي (مفيش مسار إرسال تاني). لو المحادثة اتقفلت أو الكاتب مابقاش موظف وقت الإرسال ⇒ `failed` بسبب مكتوب، مش إرسال صامت.
+- **الويدجت:** مفيش تعديل — الرسالة بتوصل كـ INSERT عادي.
+- **SIE:** مفيش.
+
+---
+
+## 2) قرارات محتاجة موافقتك قبل أي migration
+
+| القرار | الخيارات | المقترح |
+|---|---|---|
+| **D1 — مين يشوف المحادثات** | **A:** زي دلوقتي (المرفوعين والمالك بس — 3 أشخاص). **B:** كل الطاقم (`is_platform_staff()`) يشوف كل المحادثات. **C:** المرفوع يشوف الكل، والموظف يشوف المسندة له أو لفريقه بس. | **C** — أقل صلاحية، ومتسق مع قاعدة 040 «لا توسيع بالخطأ». بيضيف سياسة SELECT إضافية (permissive) على `chat_sessions` و `chat_messages` من غير ما يغيّر أي سياسة قائمة؛ الكتابة كلها عبر RPC فمفيش توسيع لـ INSERT/UPDATE. |
+| **D2 — «المجموعات»** | فرق للتوجيه، أو غرف شات جماعية داخلية. | **فرق.** |
+| **D3 — «التحويل»** | تحويل المحادثة لموظف/فريق، أو تحويل رسالة. | **تحويل المحادثة**، وتحويل الرسالة كملاحظة داخلية بس. |
+| **D4 — التفاعلات** | داخلية للطاقم، أو ظاهرة للعميل. | **داخلية.** |
+| **D5 — التطبيق على الإنتاج** | أطبّق كل مرحلة على قاعدة الإنتاج بعد نجاح اختباراتها محليًا، أو أسلّم ملفات الـ migration وإنت تطبّق. | أطبّق **بعد موافقتك الصريحة لكل مرحلة**. |
+
+---
+
+## 3) التصميم
+
+كل الجداول الجديدة: `enable row level security` + `trg_preview_read_only` + `gate_account_active` (RESTRICTIVE). كل الدوال: `security definer`, `set search_path = public`, `revoke all from public, anon`, `grant execute to authenticated` (عدا دالة الإرسال المجدول). كل migration بتبدأ بكتلة `do $$` تتحقق من المتطلبات (زي 040/041) وبتنتهي بتحقق بَعدي.
+
+### 3.1 دالة الوصول (مصدر واحد للقرار)
+```
+inbox_is_agent()                → is_platform_staff() or has_elevated_authority()
+inbox_can_access(p_session uuid) →
+    has_elevated_authority()
+ or ( is_platform_staff() and not preview_mode() and exists (
+        select 1 from inbox_conversations c
+         where c.session_id = p_session
+           and ( c.assignee_id = auth.uid()
+              or c.team_id in (select team_id from inbox_team_members where user_id = auth.uid()) ) ) )
+```
+(صيغة D1=C. لو A: الفرع التاني بيتشال. لو B: `is_platform_staff()` لوحدها.)
+
+سياسات **مضافة** (مش معدّلة) لو D1 ≠ A:
+```
+create policy inbox_staff_select on chat_sessions for select using (inbox_can_access(id));
+create policy inbox_staff_select on chat_messages for select using (inbox_can_access(session_id));
+```
+Realtime بيحترم RLS، فالموظف بيستقبل أحداث المحادثات اللي يوصلها بس.
+
+### 3.2 الجداول والعلاقات
+```
+inbox_teams              (id pk, name unique not null, description, created_by → profiles, created_at, archived_at)
+inbox_team_members       (team_id → inbox_teams on delete cascade, user_id → profiles on delete cascade,
+                          role text check in ('lead','member'), added_by, created_at, pk(team_id,user_id))
+inbox_conversations      (session_id pk → chat_sessions on delete cascade,
+                          assignee_id → profiles on delete set null, team_id → inbox_teams on delete set null,
+                          archived_at, archived_by, updated_at, updated_by)
+inbox_conversation_tags  (session_id → chat_sessions cascade, tag_id → ticket_tags cascade, added_by, created_at, pk(session_id,tag_id))
+inbox_notes              (id pk, session_id → chat_sessions cascade, author_id → profiles, body not null,
+                          mentions uuid[] default '{}', created_at, edited_at, deleted_at)
+inbox_events             (id bigint identity pk, session_id → chat_sessions cascade, actor_id, kind text check in
+                          ('assigned','unassigned','transferred','tagged','untagged','archived','unarchived',
+                           'closed','note_added','message_edited','message_deleted','scheduled','schedule_cancelled',
+                           'schedule_sent','schedule_failed'), payload jsonb, created_at)   -- إلحاق فقط
+inbox_reactions          (id pk, message_id → chat_messages cascade null, note_id → inbox_notes cascade null,
+                          user_id → profiles cascade, emoji text, created_at,
+                          check (num_nonnulls(message_id, note_id) = 1), unique(message_id,note_id,user_id,emoji))
+chat_message_attachments (id pk, message_id → chat_messages cascade, storage_path not null, file_name, mime_type,
+                          size_bytes, uploaded_by, created_at)
+chat_message_revisions   (id pk, message_id → chat_messages cascade, action check in ('edit','delete'),
+                          previous_text not null, actor_id, created_at)
+inbox_scheduled_replies  (id pk, session_id → chat_sessions cascade, author_id → profiles, body, attachments jsonb default '[]',
+                          send_at not null, status check in ('pending','sent','cancelled','failed') default 'pending',
+                          sent_message_id → chat_messages on delete set null, error text, created_at, updated_at)
+chat_messages            + edited_at timestamptz null, + deleted_at timestamptz null      -- الإضافة الوحيدة لجدول مشترك
+```
+صف `inbox_conversations` بيتعمل عند أول إجراء helpdesk على المحادثة (upsert داخل الـ RPC) — مفيش backfill ولا محفّز على `chat_sessions`.
+
+### 3.3 RLS للجداول الجديدة
+| الجدول | SELECT | INSERT / UPDATE / DELETE |
+|---|---|---|
+| `inbox_teams`, `inbox_team_members` | `inbox_is_agent()` | RPC بس (المرفوعين) |
+| `inbox_conversations`, `inbox_conversation_tags`, `inbox_notes`, `inbox_events`, `inbox_scheduled_replies`, `chat_message_revisions` | `inbox_can_access(session_id)` | RPC بس — مفيش سياسة كتابة مباشرة |
+| `inbox_reactions` | `inbox_can_access(` جلسة الرسالة/الملاحظة `)` | RPC بس |
+| `chat_message_attachments` | `inbox_can_access(session)` **أو** صاحب الجلسة (`chat_sessions.user_id = auth.uid()`) | RPC بس |
+| `storage.objects` (مسار `inbox/<session_id>/…` في `chat-attachments`) | `inbox_can_access(sid)` أو صاحب الجلسة | INSERT: `inbox_can_access(sid)` (مع تحويل آمن للـ uuid — مسار غلط = رفض مش خطأ) |
+
+### 3.4 الـ RPCs
+| الدالة | من يستدعيها | ما تفعله |
+|---|---|---|
+| `inbox_send_reply(session, body, attachments jsonb)` | الطاقم | يتحقق الوصول وإن الجلسة `active` ← `is_manual_mode = true` ← رسالة `is_admin_reply = true` ← المرفقات ← يلغي الأرشفة ← يرجّع الصف. **نفس عقد الويدجت الحالي**، بقى في معاملة واحدة بدل خطوتين من المتصفح. |
+| `inbox_close(sessions uuid[])` | الطاقم | `status = 'closed'` + حدث. |
+| `inbox_assign(session, assignee, team)` | الطاقم | يتحقق إن المسؤول موظف (وعضو في الفريق لو اتحدد) + حدث + إشعار برابط `/admin/inbox.html?session=`. |
+| `inbox_transfer(session, to_user, to_team, reason)` | الطاقم | إسناد + حدث `transferred` + ملاحظة بالسبب + إشعار. السبب إجباري. |
+| `inbox_add_tag` / `inbox_remove_tag` | الطاقم | + حدث. |
+| `inbox_add_note` / `inbox_edit_note` / `inbox_delete_note` | الطاقم (التعديل/السحب للكاتب) | المنشن لازم يكون موظف يوصل للمحادثة ← إشعار. |
+| `inbox_set_archived(session, bool)` | الطاقم | + حدث. |
+| `inbox_toggle_reaction(message\|note, emoji)` | الطاقم | رموز من قايمة مسموحة. |
+| `inbox_edit_message(message, body)` | الكاتب | ردود الدعم بس، مش المحذوفة ← سجل ← `edited_at`. |
+| `inbox_delete_message(message)` | الكاتب أو المرفوع | ردود الدعم بس ← سجل ← `message_text = ''` + `deleted_at` + حذف صفوف المرفقات. |
+| `inbox_schedule_reply(session, body, send_at, attachments)` / `inbox_cancel_scheduled(id)` | الطاقم | `send_at` في المستقبل (≥ دقيقة) وجوه 30 يوم. |
+| `inbox_dispatch_scheduled()` | **pg_cron بس** (`revoke` من authenticated) | `for update skip locked` على المستحق ← نفس منطق الإرسال الداخلي ← `sent` أو `failed` بسبب. |
+| `inbox_create_team` / `inbox_update_team` / `inbox_set_team_member` | المرفوعين | إدارة الفرق. |
+
+### 3.5 Realtime
+إضافة للـ publication: `inbox_conversations`, `inbox_conversation_tags`, `inbox_notes`, `inbox_reactions`, `inbox_scheduled_replies`, `chat_message_attachments`. (`chat_sessions` و `chat_messages` موجودين أصلاً.)
+
+### 3.6 تعديلات الواجهة الأمامية
+- **`admin/inbox.html` / `inbox.js` / `inbox-data.js` / `inbox-model.js`:** إرجاع تصميم كل ميزة من `19048ba` وربطه بالـ RPC بتاعته، مشاهد جديدة (المسندة لي، فريقي، من غير مسؤول، الأرشيف)، الملاحظات في نفس الخط الزمني بشكل مختلف، لوح التفاصيل فيه: الإسناد، الفريق، الوسوم، ملاحظات العميل (`customer_notes`)، التذاكر المرتبطة (`tickets.chat_session_id`)، السجل (`inbox_events`)، المرفقات، الرسايل المجدولة.
+- **صفحة إدارة الفرق:** قسم داخل الصندوق نفسه (للمرفوعين) — مش صفحة جديدة.
+- **`chat-widget.js` و `chat-logic.js` (إضافي بس):** عرض مرفقات الدعم (صور + ملفات موقّعة)، الاشتراك في UPDATE لعرض «اتعدلت» / «الرسالة دي اتحذفت». **مسار SIE والبوت فيهم مايتلمسش.**
+
+### 3.7 اللي مش هيتغيّر
+- معمارية SIE، نقاط نهايته، `sie-client.js`، ومنطق `alreadyPersisted`.
+- أي سياسة قائمة على `chat_sessions` / `chat_messages` / التخزين / `ticket_tags` / `canned_responses`.
+- أعمدة `chat_sessions`.
+- المحفّزين `tr_on_new_chat` و `on_new_chat_message` (إشعارات الأدمن).
+
+### 3.8 المخاطر
+| الخطر | المعالجة |
+|---|---|
+| التوسيع في D1 يكشف محادثات لموظفين | C = المسند له/لفريقه بس، والقرار في دالة واحدة؛ اختبارات SQL بتثبت إن الموظف غير المسند مابيشوفش حاجة. |
+| التعديل/الحذف يغيّر سجل ممكن يكون مرجع | سجل نسخ كامل للطاقم + حدث في `inbox_events` + ممنوع على رسايل العميل/البوت/SIE. |
+| الإرسال المجدول بعد تغيّر الظروف | إعادة تحقق وقت الإرسال (الجلسة مفتوحة، الكاتب لسه موظف ويوصل للمحادثة) و `failed` بسبب ظاهر. |
+| عمودين جداد على `chat_messages` | nullable بلا default ⇒ لا إعادة كتابة للجدول ولا تأثير على الإدراجات؛ الرجوع = `drop column`. |
+
+### 3.9 الرجوع (rollback)
+كل migration معاها ملف `_rollback` بنفس نمط `supabase/functions/_rollback`: يشيل السياسات المضافة والجداول الجديدة والـ job، والعمودين على `chat_messages` في الآخر.
+
+---
+
+## 4) مراحل التنفيذ
+
+| المرحلة | migration | الميزات | اختبارات |
+|---|---|---|---|
+| 1 | `055_inbox_helpdesk_core.sql` | دالة الوصول (D1) + الفرق + الإسناد + التحويل + الوسوم + الملاحظات + الأرشفة + السجل + `inbox_send_reply` / `inbox_close` | `tests/sql/inbox-helpdesk-core.test.sql` (على Postgres 16 المحلي — متاح في البيئة) + اختبارات عرض في المتصفح |
+| 2 | `056_inbox_attachments_reactions_edits.sql` | المرفقات + سياسات التخزين + التفاعلات + التعديل/الحذف + تعديلات الويدجت | SQL + عرض الويدجت + الصندوق |
+| 3 | `057_inbox_scheduled_replies.sql` | الجدولة + job الإرسال | SQL (بما فيها التنفيذ المتوازي و `skip locked`) + عرض |
+
+كل مرحلة: migration + rollback + اختبارات SQL تعدّي محليًا + اختبارات العرض + مراجعة ⇒ **تطبيق على الإنتاج بعد موافقتك (D5)** ⇒ commit.
+
+اختبارات SQL الأساسية لكل مرحلة: العميل مايقدرش يقرا أي جدول `inbox_*` ولا يكتب فيه؛ العميل مايشوفش الملاحظات حتى في جلسته؛ الموظف غير المسند مايشوفش المحادثة (C)؛ المعاينة (041) مابتكتبش؛ الحساب الموقوف (042) مرفوض؛ إدراج بشكل SIE في `chat_messages` لسه شغال بعد إضافة العمودين؛ رد الدعم عبر RPC بيطابق العقد (`is_manual_mode` ثم `is_admin_reply`).
+
+---
+
+## 5) المرحلة 1 — ما اتنفذ فعلاً وما اختلف عن الخطة
+
+**اتنفذ:** دالة الوصول (D1=C)، الفرق وإدارتها (للمرتفعين)، الإسناد، التحويل بسبب إجباري (D3)، تحويل الرسالة كملاحظة داخلية فقط، الوسوم (من `ticket_tags`)، الملاحظات الداخلية بالمنشن، الأرشفة، السجل، الرد والإقفال عبر RPC، والمشاهد: المسندة لي / فرقي / من غير مسؤول / الأرشيف.
+
+**اختلافات ظهرت أثناء التنفيذ:**
+
+| الاختلاف | السبب |
+|---|---|
+| دالتان إضافيتان: `inbox_list_agents()` و `inbox_customer_profiles(uuid[])` | سياسة `profiles_select_policy` مابتدّيش الأدمن غير المرتفع ملفات الآخرين — فكان هيشوف المحادثة المسندة له من غير اسم العميل، ومايقدرش يختار حد يحوّل له. الدالتين بترجّعوا الحد الأدنى، وبيانات العميل للمحادثات اللي يوصلها بس — بدل توسيع `profiles`. |
+| «التذاكر المرتبطة» = تذاكر العميل (`tickets.user_id`) | العمود `tickets.chat_session_id` **مش موجود** في الإنتاج (الرابط في `tickets.html` كود ميت). مفيش ربط بين تذكرة ومحادثة بعينها من غير تغيير schema — ماتعملش. |
+| المحادثة المقفولة بتقبل ملاحظة داخلية (مش رد) | الرد للعميل مش هيوصله (بيفتح جلسة جديدة)، لكن الملاحظة للفريق لسه مفيدة. |
+| المنشن لموظف مايوصلش للمحادثة بيتشال (مش خطأ) والواجهة بتنبّه | الواجهة ماتعرفش صلاحيات غيرها؛ القاعدة هي اللي بتقرر. |
+| ملاحظات العميل (`customer_notes`) للعرض في الصندوق، والإدارة في `customer-history.html` | الإدارة موجودة هناك بالفعل — مفيش تكرار. |
+
+**الاختبارات:** `tests/sql/inbox-helpdesk-core.test.sql` (13 مجموعة، على Postgres 16 محليًا — منها ضابط سلبي: توسيع الوصول لكل الطاقم بيفشّل الاختبار فورًا، واختبار التراجع)، `tests/admin-inbox.render.test.mjs` (13 في متصفح)، `assets/js/admin/tests/inbox-wiring.test.mjs` (29).
+
+**الترقيم والدمج مع main (قبل التطبيق):** وقت الموافقة على التطبيق كان main فيه `054_chat_composer_attachments` (PR #90) ومطبَّق على الإنتاج بالفعل، فالترحيل هنا بقى **`055_inbox_helpdesk_core`** — نص SQL نفسه متطابق حرفيًا ما عدا الرقم. أثره على 055: عمود `chat_messages.attachment` ومحفّز حارس المرفقات؛ رد الدعم عبر `inbox_send_reply` بيعدّي منه (مالوش مرفق وله `sender_id`) — والمحفّز منسوخ في اختبار SQL عشان ده يتثبت مش يتفترض. الصندوق بقى بيعرض مرفقات العميل (صورة/صوت/ملف) بنفس `chat-attachments.js` بتاع صفحة العميل، واختبار «مرفقات الأدمن» اللي كان على `chat-admin.html` اتنقل لـ `tests/admin-inbox.render.test.mjs`. ترقيم المرحلتين 2 و3 بقى 056 و057.
+
+**قبل الدمج:** الواجهة الجديدة بتعتمد على 055. لو الفرع اتدمج واتنشر قبل تطبيق 054، الصندوق هيعرض «حصل خطأ في تحميل المحادثات».
+
+---
+
+## 6) التطبيق على الإنتاج (2026-09-25)
+
+- اتطبّق `055_inbox_helpdesk_core` وسجله في `supabase_migrations.schema_migrations`.
+- **مطابقة حرفية:** بصمة تعريفات الدوال (29) والسياسات (14) والأعمدة (37) على الإنتاج = نفس البصمة من قاعدة محلية مبنية من الملف في المستودع.
+- **سلوك حقيقي (معاملة بتترجع، قراءة بس):** عميل حقيقي شاف 14/14 من جلساته و164/164 من رسايله، وصفر من غيره، وصفر من جداول `inbox_*` — مسار الويدجت والعميل ماتغيّرش. المالك في سياق «عميل» شاف جلساته هو بس ومش agent — سلوك 040 المقصود.
+- **مستشار الأمان:** مفيش تنبيه RLS ولا search_path على الكائنات الجديدة. التنبيه الوحيد إن الـ 18 RPC قابلة للتنفيذ من `authenticated` — ده التصميم (كل واحدة بتتحقق بنفسها)، ونفس فئة 236 دالة قائمة. الدوال الداخلية `_inbox_*` مش ظاهرة لأن صلاحيتها مسحوبة.
+
+**⚠️ حالة قائمة قبل 055 (مش منه):** الـ 6 أدمن — ومنهم المرتفعين — **مالهمش رقم هاتف صالح ولا كود مرور**، فبوابة الحساب (042) قافلة عليهم كل الجداول المحمية: المحادثات والتذاكر والإشعارات، مش الصندوق بس. 055 ماشي على نفس البوابة عمدًا. عشان حد من الفريق يستخدم الصندوق: يضيف رقم هاتفه، أو يستردّ كود مرور. المالك بيعدّي البوابة، وبيشوف كل المحادثات لما يدخل سياق الإدارة.
+
+## 7) المرحلة 2 — `056_inbox_attachments_reactions_edits` (لسه مش متطبّقة على الإنتاج)
+
+### ما اختلف عن الخطة، وليه
+
+الخطة (§1.7) كانت جدول `chat_message_attachments` ومسار `inbox/<session>/…`. بعد كتابتها اتدمج في main
+`054_chat_composer_attachments`: عمود `chat_messages.attachment` ومحفّز بيفرض إن مسار أي مرفق **في مجلد
+مرسل الرسالة** وموجود فعلاً. فمرفق الدعم بقى يمشي نفس طريق مرفق العميل حرفيًا — مفيش جدول مرفقات ولا
+مسار جديد:
+
+| | الخطة | اللي اتنفذ |
+|---|---|---|
+| مكان الملف | `inbox/<session>/…` | مجلد الموظف `<uid>/…` — سياسة الرفع القائمة |
+| الربط بالرسالة | جدول `chat_message_attachments` | عمود `attachment` من 054 (+ `image_url`/`audio_url`) |
+| التحقق | سياسة جديدة | محفّز 054 القائم |
+| قراءة العميل | سياسة جديدة | سياسة **مضافة** واحدة: ملف يشير له رد دعم غير محذوف في جلسة العميل |
+
+### ما في 056
+
+- `chat_messages`: عمودان nullable بلا default (`edited_at`, `deleted_at`) — الإضافة الوحيدة على جدول بيكتب فيه SIE؛ إدراجاته زي ما هي (مثبّت في PASS 7).
+- `inbox_send_reply(session, body, attachment)` بتحل محل `(session, body)`؛ النداء بمعاملين لسه شغال بالافتراضي.
+- `inbox_edit_message` / `inbox_delete_message`: **ردود الدعم بس**. التعديل لصاحب الرد، والحذف كمان للسلطة المرتفعة. رسائل العميل والبوت و SIE ماتتلمسش. الحذف بيمحي النص والمرفق من الصف نفسه (العميل عنده SELECT عليه)، والنص الأصلي في `chat_message_revisions` للطاقم بس.
+- `inbox_reactions` + `inbox_toggle_reaction`: تفاعلات داخلية (D4) بقايمة مقفولة من 8 رموز، على رسالة أو ملاحظة.
+- Realtime: `inbox_reactions` اتضاف للـ publication. تعديل/حذف الرد بيوصل للعميل كـ UPDATE على `chat_messages` (موجود في الـ publication أصلاً).
+
+### الواجهة
+
+- الصندوق: زرار مرفق + تسجيل صوتي (رد للعميل بس — مخفيين في الملاحظة الداخلية وأثناء التعديل)، لصق صورة، شريط تقدّم الرفع، وشيل الملف اليتيم لو الرفع نجح والإرسال فشل. تعديل/حذف ردودك من أدوات الرسالة، و«معدّلة» / «النص الأصلي» بيفتحوا النسخ السابقة. التفاعلات تحت الرسالة أو الملاحظة بأسماء اللي تفاعلوا.
+- ويدجت العميل وصفحة شات العميل: بيسمعوا UPDATE ويحدّثوا الفقاعة في مكانها («معدّلة» أو «تم حذف هذه الرسالة») من غير ما يضيفوا رسالة — `assets/js/chat-message-state.js` مصدر واحد للاتنين. قبل 056 الأعمدة مش موجودة والكود بيتصرف كأن مفيش تعديل ولا حذف (بيقرا `select('*')`).
+
+### ترتيب النشر — مهم
+
+واجهة الصندوق في الفرع ده بتقرا `edited_at` و `deleted_at` و `inbox_reactions` و `chat_message_revisions`،
+فـ **056 لازم يتطبّق قبل دمج الفرع** — وإلا الصندوق (ومعاينات Vercel اللي على قاعدة الإنتاج) هيفشل في تحميل
+المحادثات. ويدجت العميل وصفحة الشات مش متأثرين بالترتيب. لحد ما 056 يتطبّق، فحص الانحراف بالإنتاج
+(`drift-check --remote`) هيعلّم 056 كترحيل غير مطبّق — ده متوقع.
+
+### الاختبار
+
+`tests/sql/inbox-phase2.test.sql` (على Postgres 16 بالمحفّز والسياسات زي الإنتاج)، و6 اختبارات متصفح جديدة في
+`tests/admin-inbox.render.test.mjs`، واختبار UPDATE في ويدجت العميل وصفحة الشات، وفحص إن قايمة الرموز في
+الواجهة = قايمة القاعدة. طفرات اتجربت واتمسكت: تعديل رد زميل، رفع في مجلد العميل، الملف اليتيم، ظهور النص
+الأصلي من غير طلب، شيل اشتراك UPDATE من الويدجت.

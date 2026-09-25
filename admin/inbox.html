@@ -31,9 +31,6 @@
            ظاهر رغم إن الكود مخفيه. */
         [hidden] { display: none !important; }
 
-        .btn-icon { display: inline-flex; align-items: center; gap: 0.45rem; }
-        .btn-icon svg { width: 16px; height: 16px; }
-
         .toast {
             position: fixed; inset-block-end: 1.5rem; inset-inline: 0;
             margin-inline: auto; width: fit-content; z-index: 300;
@@ -44,16 +41,6 @@
             box-shadow: var(--shadow);
         }
         .toast--err { background: var(--color-danger); }
-
-        .inbox-banner {
-            display: flex; align-items: flex-start; gap: 0.6rem;
-            padding: 0.8rem 1rem; margin-bottom: 1rem;
-            border: 1px solid rgba(224, 168, 0, 0.35);
-            background: rgba(224, 168, 0, 0.1);
-            border-radius: var(--ib-radius-sm);
-            font-size: 0.85rem; line-height: 1.8;
-        }
-        .inbox-banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 0.25rem; color: var(--color-warning); }
 
         .inbox-shell {
             display: grid;
@@ -100,8 +87,6 @@
 
         /* ── القايمة ─────────────────────────────────────────── */
         .ib-list-head { padding: 0.7rem; border-bottom: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 0.6rem; }
-        .ib-list-actions { display: flex; gap: 0.4rem; }
-        .ib-list-actions .btn { flex: 1; justify-content: center; font-size: 0.79rem; padding: 0.45rem 0.5rem; }
         .ib-search { position: relative; display: flex; }
         .ib-search input {
             width: 100%; padding: 0.5rem 2rem 0.5rem 0.7rem;
@@ -139,16 +124,10 @@
         .ib-row-time { font-size: 0.68rem; color: var(--color-text-secondary); flex-shrink: 0; }
         .ib-row-preview {
             font-size: 0.77rem; color: var(--color-text-secondary); margin-top: 0.15rem;
-            display: flex; align-items: center; gap: 0.25rem;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .ib-row-preview svg { width: 12px; height: 12px; flex-shrink: 0; }
+        .ib-row-preview svg { width: 12px; height: 12px; vertical-align: -2px; }
         .ib-row-meta { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.3rem; flex-wrap: wrap; }
-        .ib-unread {
-            min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem; border-radius: 999px;
-            background: var(--color-accent); color: #fff; font-size: 0.68rem; font-weight: 700;
-            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; align-self: center;
-        }
 
         .ib-tag {
             font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem;
@@ -165,22 +144,17 @@
 
         .ib-avatar {
             width: 2.35rem; height: 2.35rem; border-radius: 50%;
-            display: grid; place-items: center; flex-shrink: 0; position: relative;
+            display: grid; place-items: center; flex-shrink: 0;
             background: var(--color-accent); color: #fff; font-weight: 700; font-size: 0.78rem;
         }
-        .ib-avatar--group { background: var(--color-primary-variant); }
-        .ib-avatar--sm { width: 1.7rem; height: 1.7rem; font-size: 0.62rem; }
-        .ib-avatar[data-online="true"]::after {
-            content: ""; position: absolute; inset-block-end: 0; inset-inline-end: 0;
-            width: 0.65rem; height: 0.65rem; border-radius: 50%;
-            background: var(--color-success); border: 2px solid var(--color-surface);
-        }
+        .ib-avatar--guest { background: var(--color-text-secondary); }
 
         /* ── المحادثة ────────────────────────────────────────── */
         .ib-thread-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; }
         .ib-thread-head h2 { margin: 0; font-size: 0.92rem; }
         .ib-thread-sub { font-size: 0.73rem; color: var(--color-text-secondary); }
         .ib-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+        .ib-head-actions .btn { padding: 0.3rem 0.65rem; font-size: 0.76rem; }
         .ib-mini {
             background: none; border: 1px solid transparent; border-radius: var(--ib-radius-sm);
             padding: 0.35rem; cursor: pointer; color: var(--color-text-secondary);
@@ -189,37 +163,28 @@
         .ib-mini.is-on { color: var(--color-accent); background: rgba(0,119,204,.12); }
         .ib-mini svg { width: 16px; height: 16px; display: block; }
         .ib-select {
-            padding: 0.3rem 0.5rem; border-radius: var(--ib-radius-sm);
+            padding: 0.3rem 0.5rem; border-radius: var(--ib-radius-sm); max-width: 11rem;
             border: 1px solid var(--color-border); background: var(--input-bg);
             color: var(--color-text); font-family: inherit; font-size: 0.76rem;
         }
         .ib-back { display: none; background: none; border: 0; cursor: pointer; color: var(--color-text); padding: 0.25rem; }
         .ib-back svg { width: 19px; height: 19px; }
 
-        .ib-pinbar {
-            display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.85rem;
-            border-bottom: 1px solid var(--color-border); background: rgba(224,168,0,.08);
-            font-size: 0.78rem; cursor: pointer;
-        }
-        .ib-pinbar svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--color-warning); }
-        .ib-pinbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
         .ib-findbar { display: flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-bottom: 1px solid var(--color-border); }
         .ib-findbar input { flex: 1; padding: 0.35rem 0.6rem; border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm); background: var(--input-bg); color: var(--color-text); font-family: inherit; font-size: 0.8rem; }
         .ib-findbar .count { font-size: 0.74rem; color: var(--color-text-secondary); white-space: nowrap; }
 
         .ib-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; background: var(--color-background); }
-        .ib-day, .ib-newline {
+        .ib-day {
             align-self: center; font-size: 0.7rem; color: var(--color-text-secondary);
             background: var(--color-surface); border: 1px solid var(--color-border);
             padding: 0.18rem 0.7rem; border-radius: 999px; margin: 0.3rem 0;
         }
-        .ib-newline { color: var(--color-danger); border-color: rgba(217,83,79,.4); background: rgba(217,83,79,.08); font-weight: 700; }
 
         .ib-msg { max-width: min(78%, 34rem); display: flex; flex-direction: column; gap: 0.2rem; position: relative; }
-        /* في RTL الـ start هو اليمين: الجاية ناحية بداية القراءة، واللي
-           أنا باعتها للطرف التاني — زي واتساب وتليجرام بالعربي. */
-        .ib-msg--theirs { align-self: flex-start; }
+        /* في RTL الـ start هو اليمين: رسايل العميل والبوت ناحية بداية
+           القراءة، ورد الدعم ناحية التانية — زي واتساب بالعربي. */
+        .ib-msg--theirs, .ib-msg--bot { align-self: flex-start; }
         .ib-msg--mine { align-self: flex-end; }
         .ib-msg.is-hit .ib-bubble { outline: 2px solid var(--color-warning); }
         .ib-msg.is-jumped .ib-bubble { animation: ib-flash 1.2s ease; }
@@ -231,12 +196,47 @@
             font-size: 0.86rem; line-height: 1.8; word-break: break-word;
         }
         .ib-msg--mine .ib-bubble { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
-        /* الأسطر بتتحفظ في نص العميل بس، مش في الفقاعة كلها — وإلا مسافات
+        /* رد البوت (المحلي أو SIE) لازم يبان بنص نظرة إنه مش كلام العميل. */
+        .ib-msg--bot .ib-bubble { background: var(--color-muted); border-style: dashed; }
+        /* الأسطر بتتحفظ في النص بس، مش في الفقاعة كلها — وإلا مسافات
            قالب الـ HTML بتتعرض كأنها محتوى. */
         .ib-text { white-space: pre-wrap; }
-        .ib-text .ib-mention { font-weight: 700; background: rgba(0,119,204,.18); border-radius: 0.25rem; padding: 0 0.2rem; }
-        .ib-msg--mine .ib-text .ib-mention { background: rgba(255,255,255,.25); }
+        .ib-text svg { vertical-align: -2px; }
         .ib-text mark { background: var(--color-warning); color: #000; border-radius: .2rem; }
+        /* المرفقات بترسمها chat-attachments.js (نفس صفحة العميل) بأصناف cw-att؛
+           الشكل هنا بمتغيرات تصميم اللوحة، مش chat-widget.css كله. */
+        .ib-bubble .cw-att { display: block; max-width: 100%; margin-bottom: 0.35rem; }
+        .ib-bubble .cw-att-image {
+            position: relative; padding: 0; border: 0; cursor: zoom-in; overflow: hidden;
+            border-radius: var(--ib-radius-sm); background: var(--color-muted); min-width: 7.5rem; min-height: 5.5rem;
+        }
+        .ib-bubble .cw-att-image img { display: block; max-width: min(15rem, 100%); max-height: 15rem; object-fit: cover; }
+        .ib-bubble .cw-att-loading { position: absolute; inset: 0; background: var(--color-muted); }
+        .ib-bubble .cw-att-image.is-ready .cw-att-loading { display: none; }
+        .ib-bubble .cw-att.is-unavailable { opacity: .6; cursor: default; }
+        .ib-bubble .cw-att-image.is-unavailable::after {
+            content: 'المرفق غير متاح'; position: absolute; inset: 0; display: grid; place-items: center;
+            font-size: 0.7rem; color: var(--color-text-secondary);
+        }
+        .ib-bubble .cw-att-audio { display: flex; align-items: center; gap: 0.4rem; }
+        .ib-bubble .cw-att-audio audio { width: 14rem; max-width: 100%; height: 2.25rem; }
+        .ib-bubble .cw-att-meta { font-size: 0.68rem; opacity: .75; white-space: nowrap; unicode-bidi: isolate; }
+        .ib-bubble .cw-att-file {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.55rem; min-width: 0;
+            border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm);
+            background: var(--color-surface); color: var(--color-text); text-decoration: none;
+        }
+        .ib-bubble .cw-att-file:hover { border-color: var(--color-accent); }
+        .ib-bubble .cw-att-file-icon { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 0.4rem; background: var(--color-muted); color: var(--color-accent); flex-shrink: 0; }
+        .ib-bubble .cw-att-file-icon svg { width: 15px; height: 15px; }
+        .ib-bubble .cw-att-file-text { display: flex; flex-direction: column; min-width: 0; }
+        .ib-bubble .cw-att-file-name { font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12rem; }
+        .ib-msg--mine .ib-bubble .cw-att-file { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #fff; }
+
+        .ib-msg-meta { font-size: 0.66rem; color: var(--color-text-secondary); display: flex; gap: 0.3rem; align-items: center; }
+        .ib-msg--mine .ib-msg-meta { justify-content: flex-end; }
+        .ib-sender { font-size: 0.7rem; font-weight: 700; color: var(--color-accent); }
+        .ib-msg--bot .ib-sender { color: var(--color-text-secondary); }
 
         /* الملاحظة الداخلية شكلها مختلف تمامًا — لازم يبان بنص نظرة إنها
            مش رايحة للعميل. */
@@ -248,33 +248,42 @@
         .ib-note-flag { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; font-weight: 700; color: #8a6500; margin-bottom: 0.3rem; }
         [data-theme='dark'] .ib-note-flag { color: #ffd166; }
         .ib-note-flag svg { width: 12px; height: 12px; }
-
-        .ib-msg-meta { font-size: 0.66rem; color: var(--color-text-secondary); display: flex; gap: 0.3rem; align-items: center; }
-        .ib-msg--mine .ib-msg-meta { justify-content: flex-end; }
-        .ib-msg--theirs .ib-msg-meta { justify-content: flex-start; }
-        .ib-sender { font-size: 0.7rem; font-weight: 700; color: var(--color-accent); }
-        .ib-receipt svg { width: 13px; height: 13px; vertical-align: -2px; }
-        .ib-receipt.is-read { color: var(--color-accent); }
-
-        .ib-quote {
-            border-inline-start: 3px solid currentColor; padding-inline-start: 0.5rem;
-            margin-bottom: 0.35rem; font-size: 0.76rem; opacity: 0.85; cursor: pointer;
-        }
-        .ib-quote b { display: block; font-size: 0.72rem; }
-        .ib-quote span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-        .ib-forwarded { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; opacity: 0.8; margin-bottom: 0.3rem; padding-bottom: 0.3rem; border-bottom: 1px solid currentColor; }
-        .ib-forwarded svg { width: 11px; height: 11px; }
         .ib-deleted { font-style: italic; opacity: 0.6; font-size: 0.8rem; }
+        .ib-msg--mine.is-deleted .ib-bubble { background: var(--color-surface); border: 1px dashed var(--color-border); color: var(--color-text); }
 
-        .ib-reactions { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.3rem; }
+        /* التفاعلات — للفريق بس، العميل مايشوفهاش (D4) */
+        .ib-reactions { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+        .ib-msg--mine .ib-reactions { justify-content: flex-end; }
         .ib-reaction {
-            display: inline-flex; align-items: center; gap: 0.2rem;
-            padding: 0.1rem 0.4rem; border-radius: 999px; cursor: pointer;
-            border: 1px solid var(--color-border); background: var(--color-surface);
-            font-size: 0.72rem; color: var(--color-text);
+            display: inline-flex; align-items: center; gap: 0.2rem; cursor: pointer; font-family: inherit;
+            padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.75rem; line-height: 1.6;
+            border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
         }
+        .ib-reaction b { font-size: 0.68rem; }
         .ib-reaction.is-mine { border-color: var(--color-accent); background: rgba(0,119,204,.12); }
+        .ib-react-pick {
+            display: inline-flex; gap: 0.1rem; padding: 0.15rem; border-radius: 999px;
+            background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);
+        }
+        .ib-react-pick button { border: 0; background: none; cursor: pointer; font-size: 1rem; padding: 0.15rem 0.25rem; border-radius: 50%; line-height: 1; }
+        .ib-react-pick button:hover, .ib-react-pick button:focus-visible { background: var(--color-muted); }
+
+        /* النسخ السابقة لرد اتعدّل أو اتحذف — للفريق بس */
+        .ib-meta-link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; text-decoration: underline dotted; }
+        .ib-revisions {
+            list-style: none; margin: 0; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem;
+            border-radius: var(--ib-radius-sm); border: 1px dashed var(--color-border); background: var(--color-muted); font-size: 0.78rem;
+        }
+        .ib-revisions li { display: flex; flex-direction: column; gap: 0.1rem; }
+        .ib-rev-head, .ib-rev-att { font-size: 0.68rem; color: var(--color-text-secondary); }
+        .ib-text .ib-mention { font-weight: 700; background: rgba(0,119,204,.18); border-radius: 0.25rem; padding: 0 0.2rem; }
+
+        /* سطر حدث من السجل (إسناد، تحويل، وسم…) */
+        .ib-event {
+            align-self: center; max-width: 90%; text-align: center;
+            font-size: 0.7rem; color: var(--color-text-secondary);
+            padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--color-muted);
+        }
 
         .ib-tools {
             position: absolute; inset-block-start: -0.6rem; z-index: 2;
@@ -283,30 +292,14 @@
             border-radius: 999px; box-shadow: var(--shadow-sm);
             opacity: 0; pointer-events: none; transition: opacity .12s ease;
         }
-        .ib-msg--theirs .ib-tools { inset-inline-end: -0.4rem; }
+        .ib-msg--theirs .ib-tools, .ib-msg--bot .ib-tools, .ib-msg--note .ib-tools { inset-inline-end: -0.4rem; }
         .ib-msg--mine .ib-tools { inset-inline-start: -0.4rem; }
         .ib-msg:hover .ib-tools, .ib-msg:focus-within .ib-tools { opacity: 1; pointer-events: auto; }
         .ib-tools button { background: none; border: 0; cursor: pointer; padding: 0.22rem; border-radius: 50%; color: var(--color-text-secondary); line-height: 1; }
         .ib-tools button:hover { background: var(--color-muted); color: var(--color-text); }
-        .ib-tools button.is-on { color: var(--color-warning); }
         .ib-tools svg { width: 13px; height: 13px; display: block; }
 
-        /* ── المرفقات ────────────────────────────────────────── */
-        .ib-attach {
-            display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem; margin-top: 0.35rem;
-            border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm);
-            background: var(--color-surface); color: var(--color-text); font-size: 0.78rem; text-decoration: none;
-        }
-        .ib-msg--mine .ib-attach { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #fff; }
-        .ib-attach svg { width: 17px; height: 17px; flex-shrink: 0; }
-        .ib-attach-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ib-attach-size { font-size: 0.68rem; opacity: 0.75; }
-        .ib-voice { display: flex; align-items: center; gap: 0.45rem; min-width: 10rem; }
-        .ib-voice-bars { display: flex; align-items: center; gap: 2px; flex: 1; height: 1.3rem; }
-        .ib-voice-bars i { flex: 1; background: currentColor; border-radius: 2px; opacity: 0.55; }
-
         /* ── شريط الكتابة ────────────────────────────────────── */
-        .ib-composer { border-top: 1px solid var(--color-border); padding: 0.6rem; background: var(--color-surface); }
         .ib-mode { display: inline-flex; gap: 0.15rem; padding: 0.15rem; border-radius: var(--ib-radius-sm); background: var(--color-muted); margin-bottom: 0.5rem; }
         .ib-mode button {
             border: 0; background: transparent; cursor: pointer; font-family: inherit;
@@ -316,22 +309,47 @@
         .ib-mode button.is-on { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); }
         .ib-mode button.is-on[data-mode="note"] { color: #8a6500; }
         [data-theme='dark'] .ib-mode button.is-on[data-mode="note"] { color: #ffd166; }
-
-        .ib-replying, .ib-editing {
+        .ib-composer.is-note textarea { background: rgba(224,168,0,.08); border-color: rgba(224,168,0,.5); }
+        .ib-composer.is-note .ib-icon-btn--send { background: var(--color-warning); border-color: var(--color-warning); color: #3a2b00; }
+        .ib-editing {
             display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem;
             padding: 0.4rem 0.6rem; border-radius: var(--ib-radius-sm);
-            background: var(--color-muted); font-size: 0.78rem;
-            border-inline-start: 3px solid var(--color-accent);
+            background: var(--color-muted); font-size: 0.78rem; border-inline-start: 3px solid var(--color-warning);
         }
-        .ib-replying b, .ib-editing b { flex-shrink: 0; }
-        .ib-replying span, .ib-editing span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); }
-        .ib-replying button, .ib-editing button { background: none; border: 0; cursor: pointer; color: var(--color-danger); font-size: 0.95rem; line-height: 1; }
-
-        .ib-pending { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.45rem; }
-        .ib-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--color-muted); font-size: 0.73rem; }
-        .ib-chip button { background: none; border: 0; cursor: pointer; color: var(--color-danger); font-size: 0.85rem; line-height: 1; }
-        .ib-chip svg { width: 13px; height: 13px; }
-
+        .ib-editing span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); }
+        .ib-editing button { background: none; border: 0; cursor: pointer; color: var(--color-danger); font-size: 0.95rem; line-height: 1; }
+        .ib-composer { border-top: 1px solid var(--color-border); padding: 0.6rem; background: var(--color-surface); }
+        /* المرفق والتسجيل للعميل بس: مخفيين في الملاحظة الداخلية وأثناء التعديل. */
+        .ib-composer.is-note .ib-reply-only, .ib-composer.is-editing .ib-reply-only { display: none !important; }
+        .ib-composer.is-recording #messageInput, .ib-composer.is-recording #sendBtn { opacity: .45; pointer-events: none; }
+        .ib-attach {
+            display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem;
+            padding: 0.4rem 0.55rem; border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm);
+            background: var(--color-muted); font-size: 0.78rem;
+        }
+        .ib-attach img { width: 2.6rem; height: 2.6rem; object-fit: cover; border-radius: 0.35rem; flex-shrink: 0; }
+        .ib-attach audio { height: 2rem; width: 12rem; max-width: 45%; flex-shrink: 0; }
+        .ib-attach-icon { font-size: 1.1rem; }
+        .ib-attach-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+        .ib-attach-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ib-attach-text span { color: var(--color-text-secondary); font-size: 0.7rem; }
+        .ib-attach-bar { display: block; height: 3px; border-radius: 3px; background: var(--color-border); overflow: hidden; }
+        .ib-attach-bar > span { display: block; height: 100%; background: var(--color-accent); transition: width .15s ease; }
+        .ib-recording {
+            display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem;
+            padding: 0.4rem 0.6rem; border-radius: var(--ib-radius-sm);
+            background: rgba(220,53,69,.08); border: 1px solid rgba(220,53,69,.35); font-size: 0.8rem;
+        }
+        .ib-recording .spacer { flex: 1; }
+        .ib-recording .btn { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+        .ib-rec-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--color-danger); animation: ib-pulse 1s ease-in-out infinite; }
+        @keyframes ib-pulse { 50% { opacity: .3; } }
+        @media (prefers-reduced-motion: reduce) { .ib-rec-dot { animation: none; } }
+        .ib-composer-note { font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.45rem; }
+        .ib-closed-note {
+            border-top: 1px solid var(--color-border); padding: 0.8rem; text-align: center;
+            font-size: 0.8rem; color: var(--color-text-secondary); background: var(--color-muted);
+        }
         .ib-composer-row { display: flex; align-items: flex-end; gap: 0.4rem; }
         .ib-composer textarea {
             flex: 1; resize: none; min-height: 2.5rem; max-height: 9rem;
@@ -339,7 +357,6 @@
             border-radius: var(--ib-radius); background: var(--input-bg); color: var(--color-text);
             font-family: inherit; font-size: 0.86rem; line-height: 1.7;
         }
-        .ib-composer.is-note textarea { background: rgba(224,168,0,.08); border-color: rgba(224,168,0,.5); }
         .ib-icon-btn {
             width: 2.5rem; height: 2.5rem; flex-shrink: 0; display: grid; place-items: center; cursor: pointer;
             border: 1px solid var(--color-border); border-radius: var(--ib-radius);
@@ -350,12 +367,8 @@
         .ib-icon-btn svg { width: 17px; height: 17px; }
         .ib-icon-btn--send { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
         .ib-icon-btn--send:hover:not(:disabled) { background: var(--color-accent-hover); color: #fff; }
-        .ib-composer.is-note .ib-icon-btn--send { background: var(--color-warning); border-color: var(--color-warning); color: #3a2b00; }
-        .ib-icon-btn--recording { background: var(--color-danger); border-color: var(--color-danger); color: #fff; animation: ib-pulse 1.1s ease-in-out infinite; }
-        @keyframes ib-pulse { 50% { opacity: 0.55; } }
-        .ib-recording-note { display: flex; align-items: center; gap: 0.4rem; font-size: 0.77rem; color: var(--color-danger); margin-bottom: 0.45rem; }
 
-        /* لوحة منبثقة فوق شريط الكتابة (ردود جاهزة / إيموجي / منشن) */
+        /* لوحة منبثقة فوق شريط الكتابة (ردود جاهزة / إيموجي) */
         .ib-composer-wrap { position: relative; }
         .ib-pop {
             position: absolute; inset-block-end: 100%; inset-inline-start: 0; inset-inline-end: 0;
@@ -382,14 +395,15 @@
         .ib-details-sec { padding: 0.8rem; border-bottom: 1px solid var(--color-border); }
         .ib-details-sec h3 { margin: 0 0 0.5rem; font-size: 0.78rem; color: var(--color-text-secondary); }
         .ib-kv { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; padding: 0.2rem 0; }
-        .ib-kv span:last-child { color: var(--color-text-secondary); text-align: end; }
-        .ib-member { display: flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0; font-size: 0.8rem; }
-        .ib-file { display: flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0; font-size: 0.78rem; text-decoration: none; color: inherit; }
-        .ib-file svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--color-text-secondary); }
-        .ib-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ib-kv span:last-child { color: var(--color-text-secondary); text-align: end; overflow-wrap: anywhere; }
         .ib-labels { display: flex; flex-wrap: wrap; gap: 0.3rem; }
         .ib-label-btn { border: 1px solid var(--color-border); background: transparent; cursor: pointer; font-family: inherit; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.35rem; color: var(--color-text-secondary); }
-        .ib-label-btn.is-on { border-color: var(--color-accent); color: var(--color-accent); background: rgba(0,119,204,.1); }
+        .ib-label-btn.is-on { border-color: var(--tag-color, var(--color-accent)); color: var(--tag-color, var(--color-accent)); background: rgba(0,119,204,.08); font-weight: 700; }
+        .ib-details-list { margin: 0; padding: 0; list-style: none; font-size: 0.78rem; }
+        .ib-details-list li { padding: 0.25rem 0; border-bottom: 1px dashed var(--color-border); }
+        .ib-details-list li:last-child { border-bottom: 0; }
+        .ib-details-list small { display: block; color: var(--color-text-secondary); font-size: 0.68rem; }
+        .ib-details-link { display: inline-block; margin-top: 0.4rem; font-size: 0.75rem; color: var(--color-accent); }
 
         /* ── الفاضي ─────────────────────────────────────────── */
         .ib-empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 0.5rem; padding: 2rem; text-align: center; color: var(--color-text-secondary); }
@@ -399,7 +413,7 @@
         /* ── النوافذ ────────────────────────────────────────── */
         .ib-dialog {
             border: 1px solid var(--color-border); border-radius: var(--ib-radius);
-            padding: 0; width: min(30rem, calc(100% - 2rem));
+            padding: 0; width: min(32rem, calc(100% - 2rem));
             background: var(--color-surface); color: var(--color-text);
             /* التوسيط بيجي من margin:auto بتاع المتصفح، وستايل عام في
                المشروع بيصفّر الهوامش فالنافذة بتتلزق في الركن. */
@@ -411,11 +425,12 @@
         .ib-dialog .hint { font-size: 0.79rem; color: var(--color-text-secondary); margin: 0 0 0.9rem; }
         .ib-field { display: block; margin-bottom: 0.8rem; }
         .ib-field > span { display: block; margin-bottom: 0.3rem; font-weight: 600; font-size: 0.82rem; }
-        .ib-field input[type=text], .ib-field input[type=search], .ib-field input[type=datetime-local] {
+        .ib-field input[type=text], .ib-field input[type=search], .ib-field select, .ib-field textarea {
             width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--color-border);
             border-radius: var(--ib-radius-sm); background: var(--input-bg); color: var(--color-text);
             font-family: inherit; font-size: 0.84rem;
         }
+        .ib-field textarea { resize: vertical; min-height: 4.5rem; }
         .ib-picker { max-height: 14rem; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm); }
         .ib-pick {
             display: flex; align-items: center; gap: 0.5rem; width: 100%;
@@ -424,12 +439,20 @@
         }
         .ib-pick:last-child { border-bottom: 0; }
         .ib-pick:hover { background: var(--color-muted); }
-        .ib-pick input[type=checkbox] { width: auto; margin: 0; }
         .ib-pick-main { flex: 1; min-width: 0; }
         .ib-pick-sub { display: block; font-size: 0.72rem; color: var(--color-text-secondary); }
+        .ib-error { color: var(--color-danger); font-size: 0.79rem; margin-top: 0.5rem; min-height: 1rem; }
+        .ib-team { border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm); padding: 0.6rem; margin-bottom: 0.6rem; }
+        .ib-team-head { display: flex; align-items: center; gap: 0.4rem; }
+        .ib-team-head b { flex: 1; }
+        .ib-team-member { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; padding: 0.2rem 0; }
+        .ib-team-member span { flex: 1; }
+        .ib-team-add { display: flex; gap: 0.35rem; margin-top: 0.4rem; }
+        .ib-team-add select { flex: 1; }
+        .ib-rail-action { margin-top: auto; padding-top: 0.6rem; }
+        .ib-rail-action .btn { width: 100%; font-size: 0.78rem; padding: 0.4rem; }
         .ib-dialog-actions { display: flex; gap: 0.45rem; margin-top: 1rem; }
         .ib-dialog-actions .spacer { flex: 1; }
-        .ib-error { color: var(--color-danger); font-size: 0.79rem; margin-top: 0.5rem; min-height: 1rem; }
         .ib-keys { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 0.8rem; font-size: 0.83rem; align-items: center; }
         .ib-keys kbd {
             font-family: monospace; font-size: 0.75rem;
@@ -437,13 +460,18 @@
             border-radius: 0.3rem; padding: 0.1rem 0.4rem; white-space: nowrap; justify-self: start;
         }
 
-        .ib-role-switch { display: flex; align-items: center; gap: 0.45rem; font-size: 0.79rem; color: var(--color-text-secondary); flex-wrap: wrap; }
-        .ib-role-switch select { padding: 0.3rem 0.55rem; border-radius: var(--ib-radius-sm); border: 1px solid var(--color-border); background: var(--input-bg); color: var(--color-text); font-family: inherit; font-size: 0.79rem; }
-
         /* ── ضيّق: نخفي التفاصيل، ثم الرِف، ثم نرجع للوح واحد ── */
+        /* على الشاشات الضيقة التفاصيل بتاخد مكان المحادثة بدل ما تختفي —
+           وإلا الوسوم وبيانات العميل ماتبقاش متاحة خالص. */
+        .ib-details-back { display: none; }
         @media (max-width: 1200px) {
             .inbox-shell.has-details { grid-template-columns: var(--ib-rail-width) var(--ib-list-width) minmax(0, 1fr); }
-            .inbox-shell.has-details .ib-details { display: none; }
+            .inbox-shell.has-details .ib-thread-pane { display: none; }
+            .ib-details-back {
+                display: block; width: 100%; padding: 0.6rem 0.8rem; border: 0; cursor: pointer;
+                border-bottom: 1px solid var(--color-border); background: var(--color-muted);
+                color: var(--color-accent); font-family: inherit; font-weight: 700; text-align: start;
+            }
         }
         @media (max-width: 1000px) {
             .inbox-shell, .inbox-shell.has-details { grid-template-columns: var(--ib-list-width) minmax(0, 1fr); }
@@ -451,9 +479,8 @@
         }
         @media (max-width: 800px) {
             :root { --ib-height: calc(100vh - 13rem); }
-            /* ستة أزرار في سطر واحد بتاكل عرض الشاشة وتسيب خانة الكتابة
-               شريط رفيع بيعرض حرف في كل سطر. فالخانة بتاخد سطرها لوحدها
-               فوق، والأزرار تحتها. */
+            /* الأزرار في سطر واحد مع الخانة بتسيبها شريط رفيع بيعرض حرف في
+               كل سطر. فالخانة بتاخد سطرها لوحدها فوق، والأزرار تحتها. */
             .ib-composer-row { flex-wrap: wrap; }
             .ib-composer-row textarea { order: -1; flex: 1 1 100%; }
             .inbox-shell, .inbox-shell.has-details { grid-template-columns: 1fr; }
@@ -466,6 +493,14 @@
             .inbox-shell.is-thread-open .ib-thread-pane { display: flex; }
             .ib-back { display: block; }
             .ib-msg { max-width: 90%; }
+            /* المساحة للرسايل: الوسوم ظاهرة في القايمة، والشرح بيبان في placeholder */
+            #threadTags, .ib-composer-note { display: none !important; }
+            .ib-thread-head { padding: 0.5rem 0.6rem; gap: 0.4rem; }
+            .ib-head-actions { width: 100%; }
+            .ib-head-actions .ib-select { flex: 1 1 40%; min-width: 7.5rem; max-width: none; }
+            .ib-mode { margin-bottom: 0.35rem; }
+            .inbox-shell.is-thread-open.has-details .ib-list-pane { display: none; }
+            .inbox-shell.has-details .ib-details { display: flex; }
         }
     </style>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
@@ -478,28 +513,14 @@
     <main class="admin-main">
         <header class="page-header">
             <h1>صندوق الرسائل</h1>
-            <p id="inboxSubtitle">محادثاتك مع أعضاء المنصة</p>
+            <p>محادثات العملاء من ويدجت الشات وصفحة المحادثة — البوت و SIE وردود الدعم والملاحظات الداخلية في مكان واحد.</p>
         </header>
 
-        <div class="inbox-banner" id="previewBanner">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div>
-                <b>دي واجهة للمعاينة.</b>
-                البيانات كلها تجريبية في المتصفح، والرسايل مابتتبعتش لحد ولا بتتحفظ —
-                هتروح لو عملت تحديث للصفحة. الربط بقاعدة البيانات جاي في خطوة تانية.
-            </div>
-        </div>
-
         <div class="section-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem;">
-                <div class="ib-role-switch">
-                    <label for="roleSelect">اعرض الصفحة بدور:</label>
-                    <select id="roleSelect">
-                        <option value="admin">أدمن المنصة</option>
-                        <option value="super_user">سوبر يوزر</option>
-                    </select>
-                    <span id="scopeNote"></span>
-                </div>
+            <div style="display:flex;justify-content:flex-end;align-items:center;gap:1rem;margin-bottom:0.9rem;">
+                <button class="ib-mini" id="refreshBtn" title="تحديث" aria-label="تحديث">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                </button>
                 <button class="ib-mini" id="shortcutsBtn" title="اختصارات لوحة المفاتيح" aria-label="اختصارات لوحة المفاتيح">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
                 </button>
@@ -510,32 +531,23 @@
 
                 <section class="ib-pane ib-list-pane" aria-label="المحادثات">
                     <div class="ib-list-head">
-                        <div class="ib-list-actions">
-                            <button class="btn btn-primary btn-icon" id="newChatBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                محادثة
-                            </button>
-                            <button class="btn btn-secondary btn-icon" id="newGroupBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                مجموعة
-                            </button>
-                        </div>
                         <div class="ib-search">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-                            <input type="search" id="convSearch" placeholder="دوّر في المحادثات والرسايل…" autocomplete="off">
+                            <input type="search" id="convSearch" placeholder="دوّر بالاسم أو الإيميل أو نص الرسايل…" autocomplete="off">
                         </div>
                     </div>
 
                     <div class="ib-bulk" id="bulkBar" hidden>
                         <b id="bulkCount"></b>
                         <span style="flex:1"></span>
-                        <button class="btn btn-secondary" id="bulkReadBtn">مقروء</button>
                         <button class="btn btn-secondary" id="bulkArchiveBtn">أرشفة</button>
                         <button class="btn btn-secondary" id="bulkCloseBtn">إقفال</button>
                         <button class="btn btn-secondary" id="bulkClearBtn">إلغاء</button>
                     </div>
 
-                    <div class="ib-list" id="convList"></div>
+                    <div class="ib-list" id="convList">
+                        <div class="ib-empty" style="padding:2.5rem 1rem;"><p>جاري تحميل المحادثات…</p></div>
+                    </div>
                 </section>
 
                 <section class="ib-pane ib-thread-pane" id="threadPane" aria-label="المحادثة">
@@ -552,27 +564,25 @@
                             <div class="ib-avatar" id="threadAvatar"></div>
                             <div style="min-width:0;">
                                 <h2 id="threadTitle">—</h2>
-                                <span class="ib-thread-sub" id="threadMembers"></span>
+                                <span class="ib-thread-sub" id="threadSub"></span>
                             </div>
                             <div class="ib-head-actions">
-                                <select class="ib-select" id="statusSelect" title="حالة المحادثة" aria-label="حالة المحادثة"></select>
+                                <span id="threadTags" style="display:flex;gap:0.25rem;flex-wrap:wrap;"></span>
                                 <select class="ib-select" id="assigneeSelect" title="المسؤول" aria-label="المسؤول"></select>
-                                <button class="ib-mini" id="findBtn" title="بحث في المحادثة" aria-label="بحث في المحادثة">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-                                </button>
-                                <button class="ib-mini" id="muteBtn" title="كتم" aria-label="كتم">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                                </button>
+                                <select class="ib-select" id="teamSelect" title="الفريق" aria-label="الفريق"></select>
+                                <button class="btn btn-secondary" id="transferBtn" title="تحويل المحادثة لموظف أو فريق">تحويل</button>
                                 <button class="ib-mini" id="archiveBtn" title="أرشفة" aria-label="أرشفة">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>
+                                </button>
+                                <button class="btn btn-secondary" id="closeSessionBtn" title="إقفال المحادثة">إقفال</button>
+                                <button class="ib-mini" id="findBtn" title="بحث في المحادثة" aria-label="بحث في المحادثة">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
                                 </button>
                                 <button class="ib-mini" id="detailsBtn" title="تفاصيل" aria-label="تفاصيل">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                                 </button>
                             </div>
                         </header>
-
-                        <div class="ib-pinbar" id="pinBar" hidden></div>
 
                         <div class="ib-findbar" id="findBar" hidden>
                             <input type="search" id="findInput" placeholder="دوّر جوه المحادثة…" autocomplete="off">
@@ -584,38 +594,37 @@
 
                         <div class="ib-messages" id="messageList"></div>
 
+                        <div class="ib-closed-note" id="closedNote" hidden>
+                            المحادثة دي مقفولة. لو العميل كتب تاني هتتفتحله محادثة جديدة، فالرد هنا مش هيوصله —
+                            لكن تقدر تكتب ملاحظة داخلية للفريق.
+                        </div>
+
                         <div class="ib-composer" id="composer">
                             <div class="ib-mode" id="modeToggle" role="group" aria-label="نوع الرسالة">
                                 <button type="button" data-mode="reply" class="is-on">رد للعميل</button>
                                 <button type="button" data-mode="note">ملاحظة داخلية</button>
                             </div>
-
-                            <div class="ib-recording-note" id="recordingNote" hidden>
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="12"/></svg>
-                                <span>بيسجّل… <b id="recordingTime">0:00</b></span>
-                                <button type="button" class="btn btn-secondary btn-sm" id="cancelRecordBtn">إلغاء</button>
-                            </div>
-
-                            <div class="ib-replying" id="replyingBar" hidden>
-                                <b>رد على</b><span id="replyingText"></span>
-                                <button type="button" id="cancelReplyBtn" aria-label="إلغاء الرد">✕</button>
-                            </div>
+                            <div class="ib-composer-note" id="composerNote"></div>
                             <div class="ib-editing" id="editingBar" hidden>
-                                <b>تعديل</b><span id="editingText"></span>
+                                <b id="editingLabel">تعديل ملاحظة</b><span id="editingText"></span>
                                 <button type="button" id="cancelEditBtn" aria-label="إلغاء التعديل">✕</button>
                             </div>
-
-                            <div class="ib-pending" id="pendingAttachments"></div>
-
+                            <div class="ib-attach ib-reply-only" id="attachChip" hidden></div>
+                            <div class="ib-recording ib-reply-only" id="recordBar" hidden>
+                                <span class="ib-rec-dot" aria-hidden="true"></span>
+                                <span>بيسجّل…</span><span id="recordTime" dir="ltr">0:00</span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn btn-secondary" id="cancelRecordBtn">إلغاء</button>
+                                <button type="button" class="btn btn-primary" id="stopRecordBtn">إيقاف</button>
+                            </div>
                             <div class="ib-composer-wrap">
                                 <div class="ib-pop" id="popPanel" hidden></div>
+                                <input type="file" id="attachInput" hidden>
                                 <div class="ib-composer-row">
-                                    <input type="file" id="fileInput" multiple hidden
-                                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.png,.jpg,.jpeg">
-                                    <button type="button" class="ib-icon-btn" id="attachBtn" title="إرفاق مستند" aria-label="إرفاق مستند">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                    <button type="button" class="ib-icon-btn ib-reply-only" id="attachBtn" title="إرفاق صورة أو ملف للعميل" aria-label="إرفاق ملف">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                                     </button>
-                                    <button type="button" class="ib-icon-btn" id="recordBtn" title="تسجيل صوتي" aria-label="تسجيل صوتي">
+                                    <button type="button" class="ib-icon-btn ib-reply-only" id="recordBtn" title="تسجيل رسالة صوتية للعميل" aria-label="تسجيل رسالة صوتية">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
                                     </button>
                                     <button type="button" class="ib-icon-btn" id="cannedBtn" title="رد جاهز (اكتب /)" aria-label="رد جاهز">
@@ -624,10 +633,7 @@
                                     <button type="button" class="ib-icon-btn" id="emojiBtn" title="إيموجي" aria-label="إيموجي">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                                     </button>
-                                    <textarea id="messageInput" rows="1" placeholder="اكتب رسالتك… (Enter للإرسال، / لرد جاهز، @ لمنشن)"></textarea>
-                                    <button type="button" class="ib-icon-btn" id="scheduleBtn" title="جدولة الإرسال" aria-label="جدولة الإرسال">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                    </button>
+                                    <textarea id="messageInput" rows="1" placeholder="اكتب ردك للعميل… (Enter للإرسال، / لرد جاهز)"></textarea>
                                     <button type="button" class="ib-icon-btn ib-icon-btn--send" id="sendBtn" title="إرسال" aria-label="إرسال">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                     </button>
@@ -642,41 +648,28 @@
         </div>
     </main>
 
-    <dialog id="newChatDialog" class="ib-dialog">
+    <dialog id="transferDialog" class="ib-dialog">
         <form method="dialog">
-            <h2>محادثة جديدة</h2>
-            <p class="hint" id="newChatScope"></p>
-            <label class="ib-field"><span>دوّر على عضو</span>
-                <input type="search" id="contactSearch" placeholder="بالاسم أو الإيميل…" autocomplete="off"></label>
-            <div class="ib-picker" id="contactPicker"></div>
+            <h2>تحويل المحادثة</h2>
+            <p class="hint">المحادثة هتتنقل للي تختاره، والسبب هيتكتب ملاحظة داخلية يقراها المستلم. لو المحادثة مش مسندة ليك أو لفريقك بعد التحويل، مش هتقدر تشوفها.</p>
+            <label class="ib-field"><span>لموظف</span><select id="transferUser"></select></label>
+            <label class="ib-field"><span>أو لفريق</span><select id="transferTeam"></select></label>
+            <label class="ib-field"><span>السبب</span>
+                <textarea id="transferReason" maxlength="500" placeholder="مثلاً: المشكلة محتاجة حد من الفوترة"></textarea></label>
+            <div class="ib-error" id="transferError"></div>
             <div class="ib-dialog-actions"><span class="spacer"></span>
-                <button type="button" class="btn btn-secondary" id="cancelNewChat">إلغاء</button></div>
-        </form>
-    </dialog>
-
-    <dialog id="newGroupDialog" class="ib-dialog">
-        <form method="dialog">
-            <h2>مجموعة جديدة</h2>
-            <p class="hint">اختار الأعضاء واكتب اسم واضح للمجموعة.</p>
-            <label class="ib-field"><span>اسم المجموعة</span>
-                <input type="text" id="groupName" placeholder="مثلاً: فريق الدعم — الوردية الصباحية" maxlength="60"></label>
-            <label class="ib-field"><span>الأعضاء <em id="groupCount" style="font-style:normal;color:var(--color-text-secondary);font-weight:400;"></em></span>
-                <input type="search" id="groupSearch" placeholder="دوّر على عضو…" autocomplete="off"></label>
-            <div class="ib-picker" id="groupPicker"></div>
-            <div class="ib-error" id="groupError"></div>
-            <div class="ib-dialog-actions"><span class="spacer"></span>
-                <button type="button" class="btn btn-secondary" id="cancelNewGroup">إلغاء</button>
-                <button type="button" class="btn btn-primary" id="createGroupBtn">إنشاء المجموعة</button></div>
+                <button type="button" class="btn btn-secondary" id="cancelTransfer">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="confirmTransfer">حوّل</button></div>
         </form>
     </dialog>
 
     <dialog id="forwardDialog" class="ib-dialog">
         <form method="dialog">
-            <h2>تحويل الرسالة</h2>
-            <p class="hint">هتتنسخ للمحادثة اللي تختارها، ومعاها مصدرها — الأصلية بتفضل مكانها.</p>
+            <h2>تحويل الرسالة كملاحظة داخلية</h2>
+            <p class="hint">الرسالة بتتنسخ كملاحظة داخلية في المحادثة اللي تختارها — عميل المحادثة التانية مش هيشوفها.</p>
             <div class="ib-field"><span>الرسالة</span>
                 <div class="ib-bubble" id="forwardPreview" style="max-height:8rem;overflow:auto;"></div></div>
-            <label class="ib-field"><span>تحويل إلى</span>
+            <label class="ib-field"><span>إلى</span>
                 <input type="search" id="forwardSearch" placeholder="دوّر على محادثة…" autocomplete="off"></label>
             <div class="ib-picker" id="forwardPicker"></div>
             <div class="ib-dialog-actions"><span class="spacer"></span>
@@ -684,16 +677,19 @@
         </form>
     </dialog>
 
-    <dialog id="scheduleDialog" class="ib-dialog">
+    <dialog id="teamsDialog" class="ib-dialog">
         <form method="dialog">
-            <h2>جدولة الإرسال</h2>
-            <p class="hint">الرسالة هتتبعت في الوقت اللي تختاره. مفيدة لما تكتب رد بالليل ومش عايزه يوصل بالليل.</p>
-            <label class="ib-field"><span>الوقت</span>
-                <input type="datetime-local" id="scheduleAt"></label>
-            <div class="ib-error" id="scheduleError"></div>
+            <h2>فرق الدعم</h2>
+            <p class="hint">الفريق بيستقبل المحادثات المسندة له، وكل أعضائه بيشوفوها. أرشفة الفريق بتشيل وصول أعضائه للمحادثات المسندة له.</p>
+            <div id="teamsList"></div>
+            <div class="ib-field"><span>فريق جديد</span>
+                <div class="ib-team-add">
+                    <input type="text" id="newTeamName" maxlength="60" placeholder="اسم الفريق">
+                    <button type="button" class="btn btn-primary" id="createTeamBtn">إضافة</button>
+                </div></div>
+            <div class="ib-error" id="teamsError"></div>
             <div class="ib-dialog-actions"><span class="spacer"></span>
-                <button type="button" class="btn btn-secondary" id="cancelSchedule">إلغاء</button>
-                <button type="button" class="btn btn-primary" id="confirmSchedule">اجدول</button></div>
+                <button type="button" class="btn btn-secondary" id="closeTeams">تمام</button></div>
         </form>
     </dialog>
 
@@ -705,13 +701,12 @@
                 <kbd>/</kbd><span>ركّز على البحث</span>
                 <kbd>j</kbd><span>المحادثة اللي تحت</span>
                 <kbd>k</kbd><span>المحادثة اللي فوق</span>
-                <kbd>e</kbd><span>أرشفة المحادثة المفتوحة</span>
-                <kbd>m</kbd><span>كتم / إلغاء الكتم</span>
                 <kbd>n</kbd><span>بدّل بين الرد والملاحظة الداخلية</span>
+                <kbd>e</kbd><span>أرشفة / إرجاع المحادثة المفتوحة</span>
                 <kbd>Ctrl + F</kbd><span>بحث جوه المحادثة</span>
                 <kbd>Enter</kbd><span>إرسال</span>
                 <kbd>Shift + Enter</kbd><span>سطر جديد</span>
-                <kbd>Esc</kbd><span>إلغاء الرد / التعديل / البحث</span>
+                <kbd>Esc</kbd><span>قفل اللوحة المنبثقة / البحث / التعديل</span>
             </div>
             <div class="ib-dialog-actions"><span class="spacer"></span>
                 <button type="button" class="btn btn-secondary" id="closeShortcuts">تمام</button></div>

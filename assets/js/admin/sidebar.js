@@ -287,7 +287,7 @@ function setupSidebarLogic() {
 // على مستوى المنصة بالكامل (كل العملاء/التذاكر/الإعدادات)، وليست خاصة بحسابه.
 // الأدمن والدعم لا يتأثرون بهذه القائمة إطلاقاً — سلوكهم يبقى كما هو.
 const STAFF_ONLY_LINK_IDS = [
-    'ticketsLink', 'chatAdminLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
+    'ticketsLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
     'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
     'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
 ];
@@ -367,10 +367,11 @@ async function applySidebarPermissions() {
         showLink('myUsersLink');
     }
 
-    // صندوق الرسائل: الأدمن والدعم بيكلموا أعضاء المنصة، والسوبر يوزر
-    // بيكلم أعضاءه هو. العضو العادي مالوش صندوق هنا — ده جوه لوحة
-    // الإدارة أصلاً.
-    if (isAdmin || isSupport || isSuperUser) {
+    // صندوق الرسائل = واجهة الإدارة لشات العملاء (ويدجت الشات + صفحة
+    // المحادثة). للطاقم بس، زي رابط صفحة الإدارة القديمة (chat-admin) اللي حل محله: الصفحة
+    // محروسة بـ guardPage('admin')، و RLS على chat_sessions بترجّع لأي حد
+    // تاني جلساته هو بس — فالسوبر يوزر كان هيشوف صندوق فاضي.
+    if (isAdmin || isSupport) {
         showLink('inboxLink');
     }
 

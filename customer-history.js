@@ -388,7 +388,7 @@ function renderChatsTab() {
                 <div class="ch-bubble-preview">${iconize(escapeHtml(preview))}</div>
                 <div class="ch-record-footer">
                     <span class="ch-chip ch-chip-${s.status}">${s.status === 'active' ? 'جارية' : 'مغلقة'}</span>
-                    <a href="/chat-admin.html?session_id=${s.id}" class="ch-record-link">
+                    <a href="/admin/inbox.html?session=${encodeURIComponent(s.id)}" class="ch-record-link">
                         فتح المحادثة
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                     </a>
