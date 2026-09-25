@@ -1,13 +1,21 @@
 import { supabase } from '/api-config.js';
 import { guardPage } from '/assets/js/page-guard.js';
-import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
 import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
-import { CHATBOT_MODE_LABELS, CHATBOT_MODES, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
+import { fetchEntitlement } from '/assets/js/sie-plan-service.js';
 import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
-import { signedUrl, signedUrls } from '/storage-urls.js';
+import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
+import {
+    CHAT_ATTACHMENTS_BUCKET, FILE_PICKER_ACCEPT, validateFile, buildObjectPath, messageFieldsFor,
+    attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, downscaleImage, uploadAttachment,
+    uploadErrorText, autoLabelFor
+} from '/assets/js/chat-attachments.js';
 
-console.log("CHAT LOGIC VERSION 5.1 - LOCAL BOT ENGINE WITH QUICK-REPLY MENU + IMAGE ATTACH");
+// ردود البداية لمحادثة فاضية — نفس ويدجت الشات (chat-widget.js)، وSIE يفهمهما.
+const STARTER_OPTIONS = Object.freeze([
+    { label: '[[icon:inquiry]] عندي استفسار', value: 'عندي استفسار' },
+    { label: '[[icon:problem]] عندي مشكلة', value: 'عندي مشكلة' }
+]);
 
 /**
  * تنقية أي نص قادم من المستخدم (رسائل الشات، الأسماء...) قبل حقنه داخل innerHTML
@@ -81,14 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let mediaRecorder = null;
     let audioChunks = [];
 
-    // اسم الـ Storage bucket المستخدم لحفظ صور المشاكل المرفقة من العميل.
-    // لازم يكون موجود في Supabase مع policy تسمح للعميل يرفع في مجلده الخاص
-    // (المسار بيبدأ بـ user.id) وتسمح بقراءة عامة للملفات عشان تُعرض في الشات ولوحة الأدمن.
-    const CHAT_ATTACHMENTS_BUCKET = 'chat-attachments';
-
-    // Input مخفي لاختيار صورة المشكلة (يُستخدم مع زرار "إرفاق صورة" في IMAGE_STEP_OPTIONS)
-    let hiddenImageInput = null;
-
     // State
     let currentUser = null;
     let isAdmin = false;
@@ -97,11 +97,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let messageChannel = null;
     let botSettings = null;
     let allSessions = [];
-    // كاش لوضع الشات بوت المختار من العميل (traditional/ai_model/auto/sie) -
-    // بيتقرا مرة عند بداية الجلسة، وبيتحدّث فورًا لما العميل يغيّر اختياره
-    // من نافذة الإعدادات (refreshChatModeButtonLabel)، عشان مفيش استعلام
-    // إضافي لقاعدة البيانات مع كل رسالة بيبعتها العميل.
-    let cachedChatbotMode = 'traditional';
+    // استحقاق SIE من الخادم (sie_my_entitlement) — للعرض فقط؛ الحدود نفسها
+    // مفروضة على الخادم عند كل رسالة. null = لم يُحمَّل بعد.
+    let entitlement = null;
     // هل الجلسة الحالية "دخول كعضو" (impersonation) من أدمن/super_user؟
     // بيتحدد بس على صفحة العميل (window.isCustomerChat)، زي ما هو موضّح فوق.
     let isImpersonated = false;
@@ -145,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
         if (!isAdmin) {
-            await loadBotSettings(); // البوت المحلي محتاج إعدادات bot_settings (رسالة الترحيب وتأكيد التذكرة)
+            await loadBotSettings(); // رسالة الترحيب من bot_settings
             await loadCustomerChat();
             setupCustomerChatEventListeners();
             renderImpersonationBanner();
@@ -242,13 +240,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             (messages || []).forEach(msg => appendCustomerMessage(msg));
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            // لو الجلسة جديدة وملهاش رسائل، نخلي البوت يبدأ بترحيب تلقائي
+            // لو الجلسة جديدة وملهاش رسائل، نخلي البوت يبدأ بترحيب تلقائي.
+            // خيارات SIE مرتبطة بالرد نفسه ولا تُحفظ، فلا تُعاد عند إعادة الفتح.
             if ((messages || []).length === 0) {
                 await sendInitialGreeting();
-            } else if (!currentSession?.is_manual_mode) {
-                // جلسة قديمة عندها رسائل: نعرض تاني الأزرار المناسبة لآخر حالة فلو
-                // محفوظة (مثلاً لو العميل قفل المتصفح وهو لسه في نص فتح تذكرة)
-                renderQuickOptions(getOptionsForFlow(currentSession?.bot_state?.flow));
             }
         }
     }
@@ -319,14 +314,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.onclick = () => {
                 // تعطيل كل الأزرار فورًا عشان العميل مايضغطش مرتين
                 wrap.querySelectorAll('button').forEach(b => b.disabled = true);
-
-                // زرار "إرفاق صورة" خاص: لازم يفتح نافذة اختيار ملف حقيقية
-                // ويرفعها، مش يبعت قيمته كنص عادي في الشات.
-                if (opt.value === '__attach_image__') {
-                    openImagePicker(wrap);
-                    return;
-                }
-
                 sendCustomerMessage(opt.value);
             };
             wrap.appendChild(btn);
@@ -336,77 +323,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // ===== إرفاق صورة المشكلة (تكميل الفيتشر) =====
-    function ensureImageInput() {
-        if (hiddenImageInput) return hiddenImageInput;
-        hiddenImageInput = document.createElement('input');
-        hiddenImageInput.type = 'file';
-        hiddenImageInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
-        hiddenImageInput.style.display = 'none';
-        document.body.appendChild(hiddenImageInput);
-        return hiddenImageInput;
+    // ===== المرفقات (صور وملفات) =====
+    // نفس وحدة الويدجت (chat-attachments.js): تحقق النوع/الحجم، مسار داخل
+    // مجلد العميل، رفع بتقدّم حقيقي. الخادم يفرض نفس القواعد (migration 054).
+    function setComposerStatus(text, tone = 'info') {
+        const el = document.getElementById('chatComposerStatus');
+        if (!el) return;
+        el.textContent = text || '';
+        el.dataset.tone = tone;
+        el.hidden = !text;
     }
 
-    function openImagePicker(optionsWrapEl) {
-        const input = ensureImageInput();
-        input.value = ''; // يسمح باختيار نفس الملف تاني لو حصل إلغاء قبل كده
+    async function handleFilesSelected(files) {
+        const file = files && files[0];
+        if (!file || !currentUser || !currentSessionId) return;
+        const first = validateFile(file);
+        if (!first.ok) { setComposerStatus(first.error, 'error'); return; }
 
-        input.onchange = async (e) => {
-            const file = e.target.files && e.target.files[0];
-
-            // العميل فتح نافذة اختيار الملف وقفلها من غير ما يختار صورة
-            if (!file) {
-                renderQuickOptions(getOptionsForFlow('awaiting_problem_image'));
-                return;
-            }
-
-            await handleImageSelected(file);
-        };
-
-        input.click();
-    }
-
-    async function handleImageSelected(file) {
-        const typingIndicator = document.getElementById('typingIndicator');
-        const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-
-        if (file.size > MAX_SIZE_BYTES) {
-            await appendBotOnlyMessage('الصورة كبيرة عن الحد المسموح (5 ميجا)، جرب صورة أصغر أو دوس "تخطي وإنشاء التذكرة".');
-            renderQuickOptions(getOptionsForFlow('awaiting_problem_image'));
-            return;
-        }
-
+        const attachBtn = document.getElementById('chatAttachBtn');
+        if (attachBtn) attachBtn.disabled = true;
+        let path = null;
         try {
-            if (typingIndicator) typingIndicator.style.display = 'block';
-
-            const safeExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-            const filePath = `${currentUser.id}/${currentSessionId}-${Date.now()}.${safeExt}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from(CHAT_ATTACHMENTS_BUCKET)
-                .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
-
-            // المستودع خاص الآن: نخزّن **المسار** في image_url، ويُوقَّع عند العرض.
-            // حفظ رابط موقَّع في القاعدة كان سينتج صفوفًا بروابط ميتة بعد دقائق.
-            let imageUrl = null;
-            if (uploadError) {
-                console.error('خطأ في رفع صورة المشكلة:', uploadError);
-            } else {
-                imageUrl = filePath;
-            }
-
-            if (!imageUrl) {
-                // فشل الرفع: نكمل إنشاء التذكرة من غير صورة زي ما بيحصل مع "تخطي"،
-                // مع إعلام العميل بالسبب (الرسالة دي كانت جاهزة في المحرك ومش مستخدمة).
-                await appendBotOnlyMessage('حصل خطأ في رفع الصورة، التذكرة هتتفتح من غيرها، تقدر تبعتها بعدين لفريق الدعم مباشرة.');
-                await sendCustomerMessage('تخطي');
-                return;
-            }
-
-            await sendCustomerMessage('تم إرفاق صورة المشكلة', { imageUrl });
+            const body = first.kind === 'image' ? await downscaleImage(file) : file;
+            const check = validateFile(body, first.kind);
+            if (!check.ok) { setComposerStatus(check.error, 'error'); return; }
+            path = buildObjectPath(currentUser.id, currentSessionId, check.ext);
+            setComposerStatus('جاري رفع المرفق… 0%');
+            await uploadAttachment({
+                supabase, path, file: body, contentType: check.mime,
+                onProgress: (p) => setComposerStatus(`جاري رفع المرفق… ${Math.round(p * 100)}%`)
+            });
+            const fields = messageFieldsFor({ kind: check.kind, path, name: body.name || file.name, mime: check.mime, size: body.size });
+            setComposerStatus('');
+            const sent = await sendCustomerMessage(undefined, { fields });
+            if (!sent) await cleanupUpload(path);
+        } catch (err) {
+            console.error('خطأ في رفع المرفق:', err);
+            setComposerStatus(/[\u0600-\u06FF]/.test(err?.message || '') ? err.message : uploadErrorText(err), 'error');
+            if (path) await cleanupUpload(path);
         } finally {
-            if (typingIndicator) typingIndicator.style.display = 'none';
+            if (attachBtn) attachBtn.disabled = false;
         }
+    }
+
+    // ملف رُفع ولم تُحفظ رسالته: يُحذف (سياسة الحذف تسمح فقط بغير المُشار إليه)
+    async function cleanupUpload(path) {
+        try { await supabase.storage.from(CHAT_ATTACHMENTS_BUCKET).remove([path]); }
+        catch (err) { console.warn('تعذّر حذف مرفق لم يُرسل:', err?.message || err); }
     }
 
     // رسالة بوت مباشرة في الشات من غير ما تعتبر رسالة عميل وتُبعت للمحرك
@@ -427,7 +390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
         const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
 
-        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', currentSessionId);
+        await supabase.from('chat_sessions').update({ bot_state: { greeted: true } }).eq('id', currentSessionId);
 
         await supabase.from('chat_messages').insert({
             session_id: currentSessionId,
@@ -437,32 +400,66 @@ document.addEventListener('DOMContentLoaded', async () => {
             is_bot_reply: true
         });
 
-        renderQuickOptions(MAIN_MENU_OPTIONS);
+        renderQuickOptions(STARTER_OPTIONS);
     }
 
 
     /**
-     * يوقّع صور المحادثة بعد إدراجها في الصفحة.
-     *
-     * العرض متزامن والتوقيع غير متزامن، فالصورة تُدرج بلا src ثم تظهر عند وصول
-     * رابطها. الفشل يُخفي الصورة ولا يكسر الرسالة: نص الرسالة أهم من مرفقها.
+     * يوقّع مرفقات المحادثة (صور، صوت، ملفات) بعد إدراجها في الصفحة.
+     * العرض متزامن والتوقيع غير متزامن؛ مرفق فشل توقيعه يُعلَّم «غير متاح»
+     * ولا يكسر الرسالة: نص الرسالة أهم من مرفقها.
      */
-    async function hydrateChatImages(root) {
-        if (!root) return;
-        const imgs = Array.from(root.querySelectorAll('img[data-storage-path]'));
-        if (imgs.length === 0) return;
-        const urls = await signedUrls(CHAT_ATTACHMENTS_BUCKET, imgs.map(el => el.dataset.storagePath));
-        imgs.forEach((el, i) => {
-            el.removeAttribute('data-storage-path');
-            // الرابط الموقَّع يأتي من خدمة التخزين، لكن لا يُسند إلى src إلا بعد
-            // التأكد أنه https فعلًا: قيمة لا تطابق ذلك ليست رابطًا نثق به.
-            if (urls[i] && /^https:\/\//i.test(urls[i])) {
-                el.src = urls[i];
-                el.style.display = 'block';
-            } else {
-                el.remove();
-            }
+    function hydrateChatAttachments(root) {
+        return hydrateAttachments(root, (paths, { download }) =>
+            signedUrls(CHAT_ATTACHMENTS_BUCKET, paths, download ? SIGNED_URL_TTL_DOWNLOAD : SIGNED_URL_TTL));
+    }
+
+    /** HTML المرفق + النص المعروض (النص التلقائي يُخفى لأن المرفق نفسه ظاهر). */
+    function messageParts(msg) {
+        const att = attachmentFromMessage(msg);
+        const raw = msg.message_text || '';
+        const text = att && raw === autoLabelFor(att) ? '' : raw;
+        return { attHtml: att ? renderAttachmentHtml(att, escapeHtml) : '', text };
+    }
+
+    // صورة داخل الفقاعة: فتحها بحجمها الكامل في تبويب جديد (رابط موقَّع قصير العمر)
+    function bindAttachmentClicks(container) {
+        if (!container || container.dataset.attClicks) return;
+        container.dataset.attClicks = '1';
+        container.addEventListener('click', (e) => {
+            const btn = e.target.closest?.('.cw-att-image');
+            if (!btn || !container.contains(btn)) return;
+            const img = btn.querySelector('img');
+            if (img?.src && /^https:\/\//i.test(img.src)) window.open(img.src, '_blank', 'noopener');
         });
+    }
+
+    let attachmentStylesInjected = false;
+    function injectAttachmentStyles() {
+        if (attachmentStylesInjected || document.getElementById('chatAttachmentStyles')) return;
+        attachmentStylesInjected = true;
+        const style = document.createElement('style');
+        style.id = 'chatAttachmentStyles';
+        style.textContent = `
+            .cw-att { display: block; max-width: 100%; margin-bottom: 0.4rem; }
+            .cw-att-image { position: relative; display: block; width: fit-content; max-width: 100%; padding: 0; border: none; background: rgba(0,0,0,0.06); border-radius: 10px; overflow: hidden; cursor: zoom-in; min-width: 80px; min-height: 60px; }
+            .cw-att-image.is-ready { background: transparent; min-width: 0; min-height: 0; }
+            .cw-att-image img { display: block; max-width: 240px; max-height: 240px; object-fit: cover; }
+            .cw-att-image.is-ready .cw-att-loading { display: none; }
+            .cw-att-loading { position: absolute; inset: 0; background: rgba(0,0,0,0.05); }
+            .cw-att.is-unavailable { opacity: .6; cursor: default; }
+            .cw-att-image.is-unavailable::after { content: 'المرفق غير متاح'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+            .cw-att-audio { display: flex; align-items: center; gap: 6px; }
+            .cw-att-audio audio { width: 230px; max-width: 100%; height: 36px; }
+            .cw-att-meta { font-size: 0.72rem; opacity: .75; white-space: nowrap; unicode-bidi: isolate; }
+            .cw-att-file { display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.6rem; border-radius: 10px; border: 1px solid rgba(0,51,102,0.15); background: rgba(255,255,255,0.6); color: inherit; max-width: 260px; }
+            .cw-att-file, .cw-att-file * { text-decoration: none !important; }
+            .cw-att-file-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+            .cw-att-file-icon svg { width: 16px; height: 16px; }
+            .cw-att-file-text { display: flex; flex-direction: column; min-width: 0; }
+            .cw-att-file-name { font-size: 0.8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+        `;
+        document.head.appendChild(style);
     }
 
     // ===== APPEND CUSTOMER MESSAGE =====
@@ -473,25 +470,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // التحقق من هوية المرسل
         const isOwn = currentUser && msg.sender_id === currentUser.id;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        const text = msg.message_text || '';
-
-        // لو الرسالة فيها صورة مرفقة (image_url)، نعرضها فوق النص بأمان
-        // لا src هنا: المسار يخرج كسمة بيانات ويُوقَّع بعد الإدراج (hydrateChatImages).
-        const imgHtml = msg.image_url
-            ? `<img data-storage-path="${escapeHtml(msg.image_url)}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:none;margin-bottom:0.4rem;">`
-            : '';
+        // المرفق (صورة/صوت/ملف) فوق النص. لا روابط هنا: المسار يخرج كسمة
+        // بيانات ويُوقَّع بعد الإدراج (hydrateChatAttachments).
+        injectAttachmentStyles();
+        bindAttachmentClicks(chatMessages);
+        const { attHtml, text } = messageParts(msg);
 
         const messageEl = document.createElement('div');
         messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
         messageEl.innerHTML = `
-            ${imgHtml}
-            <span>${iconize(escapeHtml(text))}</span>
+            ${attHtml}
+            ${text ? `<span>${iconize(escapeHtml(text))}</span>` : ''}
             <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}</div>
         `;
 
         chatMessages.appendChild(messageEl);
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        hydrateChatImages(messageEl);
+        hydrateChatAttachments(messageEl);
     }
 
     // ===== SETUP CUSTOMER CHAT EVENT LISTENERS =====
@@ -499,8 +494,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
         const endChatBtn = document.getElementById('endChatBtn');
-        const chatModeBtn = document.getElementById('chatModeBtn');
-        const chatModeInlineBtn = document.getElementById('chatModeInlineBtn');
+        const planBtn = document.getElementById('chatModeInlineBtn');
+        const attachBtn = document.getElementById('chatAttachBtn');
+        const fileInput = document.getElementById('chatFileInput');
 
         if (sendBtn) {
             sendBtn.onclick = () => sendCustomerMessage();
@@ -518,40 +514,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             endChatBtn.onclick = endCustomerChat;
         }
 
-        if (chatModeBtn) {
-            chatModeBtn.onclick = openChatModeDialogForCustomer;
+        // زر الخطة داخل مربع الكتابة: وضع الرد (SIE) + الخطة + الاستخدام
+        if (planBtn) {
+            planBtn.onclick = openPlanDialogForCustomer;
+            refreshPlanChip();
         }
 
-        // زرار وضع الشات بوت المصغّر جنب مربع الكتابة نفسه - نفس النافذة
-        // بالظبط اللي بيفتحها زرار الهيدر (chatModeBtn)، مجرد نقطة وصول
-        // تانية أقرب للمكان اللي العميل عينه فيه فعلاً وهو بيكتب.
-        if (chatModeInlineBtn) {
-            chatModeInlineBtn.onclick = openChatModeDialogForCustomer;
+        if (attachBtn && fileInput) {
+            fileInput.accept = FILE_PICKER_ACCEPT;
+            attachBtn.onclick = () => { setComposerStatus(''); fileInput.value = ''; fileInput.click(); };
+            fileInput.onchange = () => handleFilesSelected(fileInput.files);
         }
 
-        // تحديث تسمية الوضع مرة واحدة يكفي الاتنين (الزرارين بيقرأوا نفس
-        // الحالة المحفوظة في cachedChatbotMode/CHATBOT_MODE_LABELS)
-        if (chatModeBtn || chatModeInlineBtn) {
-            refreshChatModeButtonLabel();
-        }
-    }
-
-    // ===== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) =====
-    async function refreshChatModeButtonLabel() {
-        if (!currentUser) return;
-        try {
-            const state = await fetchChatbotModeState(currentUser.id);
-            cachedChatbotMode = state.chatbot_mode || 'traditional';
-            const label = document.getElementById('chatModeBtnLabel');
-            if (label) {
-                label.textContent = CHATBOT_MODE_LABELS[cachedChatbotMode] || CHATBOT_MODE_LABELS.traditional;
-            }
-        } catch (err) {
-            console.warn('تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
+        // لصق صورة مباشرة في مربع الكتابة
+        if (chatInput) {
+            chatInput.addEventListener('paste', (e) => {
+                const file = [...(e.clipboardData?.files || [])].find(f => /^image\//.test(f.type));
+                if (file) { e.preventDefault(); handleFilesSelected([file]); }
+            });
         }
     }
 
-    /* ==================== بانر "الدخول كعضو" (impersonation) ==================== */
+    // ===== خطة SIE (من الخادم) =====
+    async function refreshPlanChip() {
+        entitlement = await fetchEntitlement(supabase);
+        const btn = document.getElementById('chatModeInlineBtn');
+        const label = document.getElementById('chatPlanLabel');
+        if (!btn) return entitlement;
+        const ok = entitlement.status === 'ok';
+        if (label) label.textContent = ok ? entitlement.planLabel : '';
+        btn.dataset.tone = !ok ? 'unknown' : entitlement.hasAccess ? 'ok' : 'blocked';
+        btn.title = ok ? `محرك الدعم الذكي (SIE) — الخطة: ${entitlement.planLabel}` : 'محرك الدعم الذكي (SIE)';
+        btn.setAttribute('aria-label', `${btn.title}. عرض الخطة والاستخدام`);
+        return entitlement;
+    }
+
+    /* ==================== بانر "الدخول كعضو" (impersonation) ==================== */    /* ==================== بانر "الدخول كعضو" (impersonation) ==================== */
 
     /**
      * يعرض بانر واضح فوق شات العميل لو الأدمن/super_user فاتح الصفحة دي
@@ -591,89 +589,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = url.pathname + url.search;
     }
 
-    function openChatModeDialogForCustomer() {
+    function openPlanDialogForCustomer() {
         if (!currentUser) return;
         openChatbotModeDialog({
             userId: currentUser.id,
-            onModeChanged: () => refreshChatModeButtonLabel()
+            returnFocus: document.getElementById('chatModeInlineBtn'),
+            onPlanChanged: async (_ent, { label }) => {
+                await refreshPlanChip();
+                await appendBotOnlyMessage(`تم تغيير خطة SIE إلى ${label}.`);
+            }
         });
     }
 
     /**
-     * العميل مختار SIE (chatbot_mode) لكن صلاحيته اتسحبت وهو *في نص محادثة*
-     * فعلاً (اكتشفناها وقت إرسال رسالة، مش وقت فتح نافذة الإعدادات). لازم:
-     *  1) نحفظ التحويل للتقليدي في قاعدة البيانات فعليًا (مش بس متغيّر محلي)
-     *     عشان أي قراءة تانية للحالة (نافذة الإعدادات، تحميل الصفحة تاني)
-     *     تطابق الواقع.
-     *  2) نحدّث الحالة المحلية فورًا (cachedChatbotMode + نص الزرار).
-     *  3) نكتب رسالة واضحة *داخل نص المحادثة نفسها* - مش toast ممكن يفوته -
-     *     عشان يبقى مؤكد إن العميل شاف واستوعب إنه بقى بيكلم محرك مختلف.
+     * SIE غير متاح لهذا العميل الآن (موقوف / منتهي / استهلك حده). لا بوت
+     * بديل: رسالة واضحة بالسبب داخل المحادثة نفسها، والرسالة تبقى لفريق الدعم.
      */
-    async function handleSieRevokedMidConversation(sieAccess) {
-        cachedChatbotMode = 'traditional';
-        const label = document.getElementById('chatModeBtnLabel');
-        if (label) label.textContent = CHATBOT_MODE_LABELS.traditional;
-
-        try {
-            await saveChatbotModeState(currentUser.id, { mode: 'traditional', integrationId: null, modelId: null });
-        } catch (err) {
-            console.warn('تعذّر حفظ التحويل التلقائي عن SIE:', err?.message || err);
-        }
-
-        const reason = sieAccess?.statusLabel;
-        let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة.';
-        if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
-        else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
-        else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
-
-        await supabase.from('chat_messages').insert({
-            session_id: currentSessionId,
-            sender_id: null,
-            message_text: `${why} تم تحويلك تلقائيًا للوضع التقليدي. تقدر تختار وضعًا آخر من زر "وضع الشات بوت"، أو تتواصل مع الدعم لتفعيل SIE مرة أخرى.`,
-            is_admin_reply: false,
-            is_bot_reply: true
-        });
+    async function notifySieUnavailable(ent) {
+        const why = ent?.reasonText || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.';
+        await appendBotOnlyMessage(`${why} رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.`);
     }
 
     // ===== SEND CUSTOMER MESSAGE =====
-    // presetText: لو موجودة (جاية من ضغطة على زرار اختيار)، بتتبعت بدل قراءة قيمة الإنبوت
-    // extra.imageUrl: رابط صورة مرفقة حقيقي (بعد رفعها لـ Storage) بيتحفظ مع الرسالة
-    //                 وبيتمرر لمحرك البوت عشان يربطه بالتذكرة.
+    // presetText: لو موجودة (جاية من ضغطة على زرار اختيار)، بتتبعت بدل قراءة قيمة الإنبوت.
+    // extra.fields: حقول مرفق مرفوع (attachment + image_url/audio_url) من messageFieldsFor.
+    // يرجع true لو اتحفظت رسالة العميل (عشان المرفق المرفوع ما يتحذفش).
     async function sendCustomerMessage(presetText, extra = {}) {
-        const { imageUrl } = extra;
+        const { fields } = extra;
         const chatInput = document.getElementById('chatInput');
         const text = (presetText !== undefined ? presetText : chatInput?.value || '').trim();
-        if (!text || !currentSessionId || !currentUser) return;
+        if ((!text && !fields) || !currentSessionId || !currentUser) return false;
 
+        // يُفرَّغ فورًا (Enter مرتين لا يرسل مرتين) ويُعاد لو فشل الحفظ
         if (presetText === undefined && chatInput) chatInput.value = '';
         clearQuickOptions();
         const typingIndicator = document.getElementById('typingIndicator');
 
-        // 1. حفظ رسالة المستخدم في قاعدة البيانات (مع رابط الصورة لو موجود)
+        // 1. حفظ رسالة العميل (نص المرفق التلقائي لو مفيش تعليق)
         const userMessagePayload = {
             session_id: currentSessionId,
             sender_id: currentUser.id,
-            message_text: text,
-            is_admin_reply: false
+            message_text: text || autoLabelFor(fields.attachment),
+            is_admin_reply: false,
+            ...(fields || {})
         };
-        if (imageUrl) userMessagePayload.image_url = imageUrl;
 
         const { error: sendError } = await supabase.from('chat_messages').insert(userMessagePayload);
 
         if (sendError) {
             console.error('خطأ في إرسال الرسالة:', sendError);
-            alert('فشل في إرسال الرسالة');
-            return;
+            setComposerStatus('فشل إرسال الرسالة. جرّب تاني.', 'error');
+            if (presetText === undefined && chatInput && text && !chatInput.value) chatInput.value = text;
+            return false;
+        }
+        setComposerStatus('');
+
+        // مرفق بلا نص: يصل لفريق الدعم ويظهر في المحادثة، ولا يُرسل لـ SIE
+        // (لا نص يفهمه، ولا نستهلك من حد الرسائل بلا داعٍ).
+        if (!text) {
+            setComposerStatus('وصل المرفق. اكتب وصف المشكلة لو حابب المساعد يساعدك فيها.');
+            return true;
         }
 
-        // 2. الرد عن طريق المحرك المحلي (بدون أي اعتماد على موديل خارجي)
+        // 2. الرد عن طريق SIE — المحرك الوحيد. لا بوت بديل مخفي.
         try {
             if (typingIndicator) typingIndicator.style.display = 'block';
 
             // لو الجلسة في وضع "يدوي" (الأدمن بيرد بنفسه)، البوت يسكت
-            if (currentSession?.is_manual_mode) {
-                return;
-            }
+            if (currentSession?.is_manual_mode) return true;
 
             // جلب أحدث bot_state للجلسة (تحسبًا لتعديل خارجي أو تبويب تاني)
             const { data: freshSession } = await supabase
@@ -682,109 +665,63 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .eq('id', currentSessionId)
                 .single();
 
-            if (freshSession?.is_manual_mode) return;
+            if (freshSession?.is_manual_mode) return true;
 
-            // SIE بقى ليه بوابتان لازم يعدّيهم الاتنين مع بعض (حسب القرار
-            // النهائي: المفهومان يكملوا بعض مش بيتعارضوا):
-            //   1) العميل نفسه لازم يكون *مختار* وضع "محرك الدعم الذكي" من
-            //      قائمة اختيار وضع الشات بوت (profiles.chatbot_mode === 'sie')-
-            //      تفضيل شخصي، بيتغيّر وقت ما العميل يحب.
-            //   2) الإدارة لازم تكون *فعّلت* له الوصول فعليًا من جدول
-            //      customer_sie_access - صلاحية إدارية منفصلة تمامًا.
-            //
-            // مهم: لو العميل مختار SIE (بوابة 1 مفتوحة) لكن الإدارة سحبت
-            // صلاحيته (بوابة 2 اتقفلت) وهو *لسه في نص محادثة*، ممنوع نرجّعه
-            // للمحرك التقليدي بصمت - هيفضل يكتب معتقد إنه لسه بيكلم SIE.
-            // فبنعمل فحص قراءة (مش استهلاك كوتة) قبل استدعاء getSieReply
-            // نفسها، وإذا لقيناه سحب، نوقف الرسالة دي، نبلّغه بوضوح، ونحفظ
-            // تحويله للوضع التقليدي فورًا في قاعدة البيانات (مش محليًا بس).
-            let reply;
-            let options;
-
-            if (cachedChatbotMode === CHATBOT_MODES.SIE) {
-                const sieAccess = await getSieAccessInfo(currentUser.id);
-                if (!sieAccess.available) {
-                    await handleSieRevokedMidConversation(sieAccess);
-                    if (typingIndicator) typingIndicator.style.display = 'none';
-                    return;
-                }
-                const sieResult = await getSieReply({
-                    text,
-                    supabase,
-                    sessionId: currentSessionId,
-                    userId: currentUser.id,
-                    botState: freshSession?.bot_state || {}
-                });
-                // لو الفحص قال متاح لكن getSieReply برضه رجّعت null (سباق نادر،
-                // أو محرك SIE الخارجي مش متاح مؤقتًا/بطيء)، منرجعش صامت للتقليدي
-                // كإجابة نهائية بردّ عادي - نبلّغ العميل إن في مشكلة مؤقتة، عشان
-                // الفرق بين "بيرد عليك بوت تاني دلوقتي" و"حصل خطأ، جرّب تاني" يفضل واضح له.
-                if (!sieResult) {
-                    await supabase.from('chat_messages').insert({
-                        session_id: currentSessionId,
-                        sender_id: null,
-                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من زر "وضع الشات بوت".',
-                        is_admin_reply: false,
-                        is_bot_reply: true
-                    });
-                    if (typingIndicator) typingIndicator.style.display = 'none';
-                    return;
-                }
-                // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted:
-                // رسالة البوت و bot_state والتذكرة لو اتفتحت، كلهم في
-                // معاملة واحدة عنده - عشان أثر التشخيص والتذكرة ما
-                // يفترقوش. لو كتبنا هنا كمان، العميل هيشوف نفس الرد
-                // مرتين وكل دور هيتسجّل مكرر.
-                //
-                // مؤشر الكتابة بيتخفي في finally، فالـ return هنا آمن.
-                if (sieResult.alreadyPersisted) {
-                    renderQuickOptions(sieResult.options);
-                    return;
-                }
-
-                // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
-                // متسيبش الفرع ده - أي رد من واجهة أقدم بيعدي من هنا.
-                reply = sieResult.reply;
-                options = sieResult.options;
-                if (sieResult.botState !== undefined) {
-                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
-                }
-            } else {
-                const botReply = await getBotReply({
-                    text,
-                    supabase,
-                    sessionId: currentSessionId,
-                    userId: currentUser.id,
-                    botState: freshSession?.bot_state || {},
-                    botSettings,
-                    imageUrl
-                });
-                reply = botReply.reply;
-                options = botReply.options;
+            // الاستحقاق معروف ومقفول (موقوف/منتهي/استهلك حده): نقول السبب بوضوح.
+            // غير معروف (فشل التحميل): نحاول SIE — الخادم هو الحكم عند كل رسالة.
+            if (entitlement?.status === 'ok' && !entitlement.hasAccess) {
+                await notifySieUnavailable(entitlement);
+                return true;
             }
 
+            const sieResult = await getSieReply({
+                text,
+                supabase,
+                sessionId: currentSessionId,
+                userId: currentUser.id,
+                botState: freshSession?.bot_state || {}
+            });
+
+            // null = رفض (حد/صلاحية) أو عطل مؤقت. نسأل الخادم عن السبب الفعلي.
+            if (!sieResult) {
+                const ent = await refreshPlanChip();
+                if (ent?.status === 'ok' && !ent.hasAccess) {
+                    await notifySieUnavailable(ent);
+                } else {
+                    await appendBotOnlyMessage('محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني بعد شوية، ورسالتك وصلت لفريق الدعم.');
+                }
+                return true;
+            }
+
+            // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted:
+            // رسالة البوت و bot_state والتذكرة لو اتفتحت، كلهم في معاملة
+            // واحدة عنده. لو كتبنا هنا كمان، العميل هيشوف نفس الرد مرتين.
+            if (sieResult.alreadyPersisted) {
+                renderQuickOptions(sieResult.options);
+                return true;
+            }
+
+            // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
+            // متسيبش الفرع ده - أي رد من واجهة أقدم بيعدي من هنا.
+            if (sieResult.botState !== undefined) {
+                await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
+            }
             await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
                 sender_id: null,
-                message_text: reply,
+                message_text: sieResult.reply,
                 is_admin_reply: false,
                 is_bot_reply: true
             });
-
-            renderQuickOptions(options);
-
+            renderQuickOptions(sieResult.options);
+            return true;
         } catch (err) {
-            console.error("خطأ في البوت:", err);
-
-            await supabase.from('chat_messages').insert({
-                session_id: currentSessionId,
-                sender_id: null,
-                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. تقدر تكتب "عندي مشكلة" وهافتحلك تذكرة دعم مباشرة.',
-                is_admin_reply: false,
-                is_bot_reply: true
-            });
+            console.error('خطأ في الرد الآلي:', err);
+            await appendBotOnlyMessage('عذراً، حدث خطأ أثناء معالجة رسالتك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.');
+            return true;
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
+            refreshPlanChip();
         }
     }
 
@@ -979,25 +916,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isOwn = msg.is_admin_reply;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
-        // لو رسالة العميل فيها صورة مرفقة، نعرضها للأدمن كمان في نفس الفقاعة
-        // لا src هنا: المسار يخرج كسمة بيانات ويُوقَّع بعد الإدراج (hydrateChatImages).
-        const imgHtml = msg.image_url
-            ? `<img data-storage-path="${escapeHtml(msg.image_url)}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:none;margin-bottom:0.4rem;">`
-            : '';
+        // مرفق رسالة العميل (صورة/صوت/ملف) يظهر للأدمن في نفس الفقاعة.
+        // لا روابط هنا: المسار يُوقَّع بعد الإدراج (hydrateChatAttachments) —
+        // سياسة القراءة تسمح لفريق المنصة (is_platform_staff).
+        injectAttachmentStyles();
+        bindAttachmentClicks(messagesContainer);
+        const { attHtml, text } = messageParts(msg);
 
         const group = document.createElement('div');
         group.className = `message-group ${isOwn ? 'sent' : 'received'}`;
         group.innerHTML = `
             <div class="message-bubble ${isOwn ? 'sent' : 'received'}">
-                ${imgHtml}
-                <div>${iconize(escapeHtml(msg.message_text))}</div>
+                ${attHtml}
+                ${text ? `<div>${iconize(escapeHtml(text))}</div>` : ''}
                 <div class="message-time">${time}</div>
             </div>
         `;
 
         messagesContainer.appendChild(group);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        hydrateChatImages(group);
+        hydrateChatAttachments(group);
     }
 
     function setupEventListeners() {

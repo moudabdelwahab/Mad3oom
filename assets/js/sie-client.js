@@ -507,12 +507,12 @@ export async function getSieReply({ text, supabase, sessionId, userId, botState 
         };
     } catch (err) {
         // Rate limiting is the one failure with something worth saying to
-        // the customer. Everything else degrades to null so the
-        // traditional engine answers instead — but falling back here would
-        // be wrong: the customer is sending faster than the service
-        // accepts, and quietly routing them to another engine hides that
-        // and doubles the load. So they get a plain, friendly explanation
-        // with a concrete number of seconds.
+        // the customer. Everything else degrades to null, and the caller
+        // asks the server why (sie_my_entitlement) and shows that reason —
+        // but a generic "temporary problem" here would be wrong: the
+        // customer is sending faster than the service accepts, and a vague
+        // message hides that and invites them to resend at once. So they
+        // get a plain, friendly explanation with a concrete number of seconds.
         if (err?.name === 'SieRateLimitError') {
             const seconds = err.retryAfterSeconds;
             warnLog(`SIE رفض الطلب بسبب حد المعدل — إعادة المحاولة بعد ${seconds}ث`);

@@ -2,8 +2,8 @@
  * ويدجت الدردشة المباشرة العائم (الفقاعة) - Client Side
  * ------------------------------------------------------------
  * ملاحظة مهمة: النسخة دي بقت بتستخدم بالظبط نفس المنطق والجداول اللي
- * بيستخدمها chat-customer.html (chat_sessions / chat_messages / محرك
- * الردود المحلي chatbot-engine.js عبر Supabase)، بدل الـ chatService
+ * بيستخدمها chat-customer.html (chat_sessions / chat_messages، والرد
+ * من محرك SIE عبر assets/js/sie-client.js)، بدل الـ chatService
  * الوهمي (in-memory) اللي كان بيشتغل ببيانات تجريبية بس.
  *
  * هذا الملف الآن ES Module، فلازم يتحمّل بـ:

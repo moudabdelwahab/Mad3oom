@@ -173,6 +173,7 @@
         
         .input-box { 
             flex-grow: 1; 
+            min-width: 0; 
             border: 1px solid #ddd; 
             padding: 0.8rem 1.5rem; 
             border-radius: 2rem; 
@@ -287,13 +288,33 @@
         @media (max-width: 768px) { 
             .view-container { padding: 1rem; } 
             .chat-header-blue { padding: 1rem; } 
-            .chat-footer { padding: 1rem; } 
+            .chat-footer { padding: 1rem; gap: 0.5rem; } 
+            .input-box { padding: 0.8rem 1rem; } 
         } 
 
+        /* مربع الكتابة: [إرفاق][النص][SIE · الخطة][إرسال] */
+        .attach-btn { background: #f0f2f5; color: var(--primary-blue); }
+        .attach-btn:disabled { opacity: 0.5; cursor: progress; }
+        .plan-chip {
+            display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0;
+            height: 45px; padding: 0 0.85rem; border-radius: 999px;
+            border: 1.5px solid rgba(0, 51, 102, 0.18); background: #f0f2f5; color: var(--primary-blue);
+            font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .plan-chip:hover { border-color: var(--primary-blue); }
+        .plan-chip:focus-visible, .attach-btn:focus-visible, #sendBtn:focus-visible { outline: 2px solid #0055aa; outline-offset: 2px; }
+        .plan-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; }
+        .plan-chip[data-tone="blocked"] .plan-chip-dot { background: #d9534f; }
+        .plan-chip[data-tone="unknown"] .plan-chip-dot { background: #9aa3ad; }
+        .plan-chip-plan { font-weight: 600; opacity: 0.8; }
+        .plan-chip-plan:empty { display: none; }
+        .composer-status { margin: 0; padding: 0.35rem 2rem 0; font-size: 0.8rem; color: #5c6570; background: white; }
+        .composer-status[data-tone="error"] { color: #b42318; }
+
         @media (max-width: 480px) {
-            #chatModeBtn { padding: 0.5rem; }
-            #chatModeBtnLabel { display: none; }
-            #chatModeBtn svg { margin-inline-end: 0; }
+            .plan-chip { padding: 0 0.6rem; }
+            .plan-chip-plan { display: none; }
+            .composer-status { padding: 0.35rem 1rem 0; }
         }
         
         footer {
@@ -330,10 +351,6 @@
                             </div>
                         </div>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <button id="chatModeBtn" class="end-chat-btn" style="background: rgba(255,255,255,0.15);" title="وضع الشات بوت">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px; margin-inline-end:0.3rem;"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
-                                <span id="chatModeBtnLabel">تقليدي</span>
-                            </button>
                             <button id="endChatBtn" class="end-chat-btn">إنهاء المحادثة</button>
                         </div>
                     </div>
@@ -345,12 +362,20 @@
 
                     <div id="typingIndicator" style="padding: 0.5rem 2rem; font-size: 0.8rem; color: #666; display: none;">جاري الرد...</div>
 
+                    <p class="composer-status" id="chatComposerStatus" role="status" aria-live="polite" hidden></p>
+
                     <div class="chat-footer">
-                        <button class="action-btn" id="chatModeInlineBtn" style="background: #f0f2f5; color: var(--primary-blue);" title="وضع الشات بوت">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
+                        <button type="button" class="action-btn attach-btn" id="chatAttachBtn" title="إرفاق صورة أو ملف" aria-label="إرفاق صورة أو ملف">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                         </button>
-                        <input type="text" class="input-box" placeholder="اكتب رسالتك هنا..." id="chatInput" autocomplete="off">
-                        <button class="action-btn" id="sendBtn">
+                        <input type="file" id="chatFileInput" hidden>
+                        <input type="text" class="input-box" placeholder="اكتب رسالتك هنا..." id="chatInput" autocomplete="off" aria-label="اكتب رسالتك">
+                        <button type="button" class="plan-chip" id="chatModeInlineBtn" data-tone="unknown" title="محرك الدعم الذكي (SIE)" aria-haspopup="dialog">
+                            <span class="plan-chip-dot" aria-hidden="true"></span>
+                            <span>SIE</span>
+                            <span class="plan-chip-plan" id="chatPlanLabel"></span>
+                        </button>
+                        <button type="button" class="action-btn" id="sendBtn" aria-label="إرسال">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
                         </button>
                     </div>
