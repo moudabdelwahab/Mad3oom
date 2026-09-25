@@ -268,6 +268,16 @@
         .ib-react-pick button { border: 0; background: none; cursor: pointer; font-size: 1rem; padding: 0.15rem 0.25rem; border-radius: 50%; line-height: 1; }
         .ib-react-pick button:hover, .ib-react-pick button:focus-visible { background: var(--color-muted); }
 
+        /* رد مجدول (058): شكل رد الدعم، بإطار متقطع — العميل مش شايفه لسه */
+        .ib-msg--scheduled .ib-bubble { background: var(--color-surface); color: var(--color-text); border: 1px dashed var(--color-accent); }
+        .ib-msg--scheduled .ib-sender { display: inline-flex; align-items: center; gap: 0.25rem; }
+        .ib-msg--scheduled .ib-sender svg { width: 12px; height: 12px; }
+        .ib-msg--scheduled.is-failed .ib-bubble { border-color: var(--color-danger); opacity: .8; }
+        .ib-msg--scheduled.is-failed .ib-sender { color: var(--color-danger); }
+        .ib-sched-reason { font-size: 0.72rem; color: var(--color-danger); }
+        .ib-quick { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+        .ib-quick .btn { padding: 0.3rem 0.65rem; font-size: 0.76rem; }
+
         /* النسخ السابقة لرد اتعدّل أو اتحذف — للفريق بس */
         .ib-meta-link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; text-decoration: underline dotted; }
         .ib-revisions {
@@ -633,6 +643,9 @@
                                     <button type="button" class="ib-icon-btn" id="emojiBtn" title="إيموجي" aria-label="إيموجي">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                                     </button>
+                                    <button type="button" class="ib-icon-btn ib-reply-only" id="scheduleBtn" title="جدولة الرد لوقت لاحق" aria-label="جدولة الرد">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    </button>
                                     <textarea id="messageInput" rows="1" placeholder="اكتب ردك للعميل… (Enter للإرسال، / لرد جاهز)"></textarea>
                                     <button type="button" class="ib-icon-btn ib-icon-btn--send" id="sendBtn" title="إرسال" aria-label="إرسال">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -690,6 +703,20 @@
             <div class="ib-error" id="teamsError"></div>
             <div class="ib-dialog-actions"><span class="spacer"></span>
                 <button type="button" class="btn btn-secondary" id="closeTeams">تمام</button></div>
+        </form>
+    </dialog>
+
+    <dialog id="scheduleDialog" class="ib-dialog">
+        <form method="dialog">
+            <h2>جدولة الرد</h2>
+            <p class="hint">الرد اللي في الخانة (والمرفق لو فيه) هيتبعت للعميل في الميعاد ده باسمك، بالظبط زي ما تكون بعته بنفسك. لو المحادثة اتقفلت أو اتنقلت منك قبل الميعاد، مش هيتبعت وهيوصلك إشعار بالسبب.</p>
+            <div class="ib-quick" id="scheduleQuick"></div>
+            <label class="ib-field"><span>الميعاد (بتوقيت جهازك)</span>
+                <input type="datetime-local" id="scheduleAt"></label>
+            <div class="ib-error" id="scheduleError"></div>
+            <div class="ib-dialog-actions"><span class="spacer"></span>
+                <button type="button" class="btn btn-secondary" id="cancelSchedule">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="confirmSchedule">جدولة</button></div>
         </form>
     </dialog>
 
