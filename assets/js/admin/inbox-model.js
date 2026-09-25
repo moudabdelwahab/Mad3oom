@@ -2,40 +2,41 @@
  * inbox-model.js — منطق صندوق الرسائل من غير أي وصول لقاعدة البيانات
  * ------------------------------------------------------------
  * كل دالة هنا بتاخد بيانات وترجّع بيانات. مفيش Supabase ولا DOM، عشان
- * القواعد اللي بتحدد «مين قال إيه» و«المحادثة دي محتاجة رد ولا لأ»
- * تتختبر لوحدها (assets/js/admin/tests/).
+ * القواعد اللي بتحدد «مين قال إيه» و«المحادثة دي محتاجة رد ولا لأ» و«مين
+ * ماسكها» تتختبر لوحدها (assets/js/admin/tests/).
  *
  * ------------------------------------------------------------
- * الجداول الحقيقية — ومفيش غيرها
+ * مصدر البيانات
  *
- *   chat_sessions  id, user_id, guest_id, status ('active'|'closed'),
- *                  is_manual_mode, bot_state, created_at, updated_at
- *   chat_messages  id, session_id, sender_id, message_text, image_url,
- *                  is_admin_reply, is_bot_reply, created_at
+ *   chat_sessions / chat_messages      المحادثة نفسها — نفس صفوف الويدجت
+ *                                      وصفحة العميل و SIE
+ *   inbox_conversations                المسؤول، الفريق، الأرشفة
+ *   inbox_conversation_tags → ticket_tags   الوسوم
+ *   inbox_notes                        ملاحظات داخلية (العميل مايشوفهاش)
+ *   inbox_events                       سجل كل إجراء
+ *   inbox_teams / inbox_team_members   الفرق
  *
- * ودي نفس الجداول اللي بيكتب فيها ويدجت الشات (chat-widget.js) وصفحة
- * شات العميل (chat-logic.js) ومحرك SIE. الصندوق **بيقرا** اللي هما
- * كتبوه، وبيكتب رد الدعم بنفس الشكل اللي هما مستنيينه — مفيش نظام شات
- * تاني ولا جداول جديدة.
+ * migrations/054_inbox_helpdesk_core.sql فيها الجداول والصلاحيات. شكل
+ * الجلسة هنا بعد ما inbox-data.js يجمّعها:
  *
- * أي خاصية مالهاش عمود هنا (إسناد، وسوم، ملاحظات داخلية، أرشفة،
- * مجموعات…) مش موجودة في الصندوق، لأن عرضها كان هيبقى وعد كداب.
+ *   { ...chat_sessions, customer, messages[], meta: {assignee_id, team_id,
+ *     archived_at, archived_by} | null, tagIds[] }
  */
 
 export const STATUS_LABELS = { active: 'نشطة', closed: 'مقفولة' };
 
 /**
  * الأدوار اللي لو فتحت محادثة من حسابها كعميل، الفريق لازم ياخد باله إنها
- * مش عميل عادي. منقولة من صفحة الأدمن القديمة (chat-admin.html) زي ما هي.
+ * مش عميل عادي. منقولة من صفحة الأدمن القديمة (chat-admin) زي ما هي.
  */
 export const STAFF_ROLES_AS_CUSTOMER = ['admin', 'support'];
 
 /**
  * مين كتب الرسالة.
  *
- * الترتيب مهم: رد الدعم بيتعلّم is_admin_reply، والبوت (المحلي أو SIE)
- * بيتعلّم is_bot_reply. رسالة من غير مُرسِل ومن غير أي علامة بتتحسب بوت —
- * العميل دايمًا بيكتب بـ sender_id بتاعه.
+ * رد الدعم بيتعلّم is_admin_reply، والبوت (المحلي أو SIE) بيتعلّم
+ * is_bot_reply. رسالة من غير مُرسِل ومن غير أي علامة بتتحسب بوت — العميل
+ * دايمًا بيكتب بـ sender_id بتاعه.
  *
  * @returns {'agent'|'bot'|'customer'}
  */
@@ -81,6 +82,25 @@ export function lastActivityOf(session) {
     return lastMessageOf(session)?.created_at || session?.updated_at || session?.created_at || null;
 }
 
+function lastCustomerMessageAt(session) {
+    const list = session?.messages || [];
+    for (let i = list.length - 1; i >= 0; i--) {
+        if (senderKind(list[i]) === 'customer') return list[i].created_at;
+    }
+    return null;
+}
+
+/**
+ * مؤرشفة فعلاً؟ الأرشفة بتتلغي من نفسها لو العميل كتب بعدها — المحادثة رجعت
+ * حية. بيتحسب هنا بدل محفّز على chat_messages (الجدول اللي SIE بيكتب فيه).
+ */
+export function isArchived(session) {
+    const at = session?.meta?.archived_at;
+    if (!at) return false;
+    const lastCustomer = lastCustomerMessageAt(session);
+    return !(lastCustomer && new Date(lastCustomer) > new Date(at));
+}
+
 /**
  * العميل كتب وماحدش من الدعم رد بعده.
  *
@@ -99,11 +119,23 @@ export function isAwaitingReply(session) {
     return false;
 }
 
-export const VIEWS = ['all', 'awaiting', 'open', 'manual', 'bot', 'closed'];
+export const VIEWS = ['all', 'awaiting', 'mine', 'team', 'unassigned', 'open', 'manual', 'bot', 'closed', 'archived'];
 
-export function matchesView(session, view) {
+/**
+ * @param {object} ctx { meId, myTeamIds: string[] }
+ * المؤرشفة بتختفي من كل المشاهد غير «الأرشيف» — ده معنى الأرشفة أصلاً.
+ */
+export function matchesView(session, view, ctx = {}) {
+    const archived = isArchived(session);
+    if (view === 'archived') return archived;
+    if (archived) return false;
+
+    const meta = session.meta || {};
     switch (view) {
         case 'awaiting': return isAwaitingReply(session);
+        case 'mine': return !!ctx.meId && meta.assignee_id === ctx.meId;
+        case 'team': return !!meta.team_id && (ctx.myTeamIds || []).includes(meta.team_id);
+        case 'unassigned': return !meta.assignee_id && !meta.team_id && session.status === 'active';
         case 'open': return session.status === 'active';
         case 'manual': return session.status === 'active' && !!session.is_manual_mode;
         case 'bot': return session.status === 'active' && !session.is_manual_mode;
@@ -113,22 +145,23 @@ export function matchesView(session, view) {
 }
 
 /**
- * البحث بيدوّر في الاسم والإيميل ونص الرسايل — الناس بتفتكر اللي اتقال
- * أكتر ما بتفتكر مع مين.
+ * البحث بيدوّر في الاسم والإيميل ونص الرسايل وأسماء الوسوم — الناس
+ * بتفتكر اللي اتقال أكتر ما بتفتكر مع مين.
  */
-export function matchesQuery(session, query) {
+export function matchesQuery(session, query, tagNames = {}) {
     const q = String(query || '').trim().toLowerCase();
     if (!q) return true;
     const hay = [
         displayName(session), session.customer?.email || '',
+        ...(session.tagIds || []).map((id) => tagNames[id] || ''),
         ...(session.messages || []).map((m) => m.message_text || '')
     ].join(' ').toLowerCase();
     return hay.includes(q);
 }
 
 /**
- * محادثات الفريق فوق دايمًا (زي ما كانت في chat-admin.html) عشان
- * ماتتوهش وسط العملاء، وبعدين الأحدث نشاطًا. ده ترتيب عرض بس، مش صلاحيات.
+ * محادثات الفريق فوق دايمًا (زي ما كانت في chat-admin) عشان ماتتوهش وسط
+ * العملاء، وبعدين الأحدث نشاطًا. ده ترتيب عرض بس، مش صلاحيات.
  */
 export function compareSessions(a, b) {
     const staff = Number(isStaffOriginated(b)) - Number(isStaffOriginated(a));
@@ -136,15 +169,16 @@ export function compareSessions(a, b) {
     return new Date(lastActivityOf(b) || 0) - new Date(lastActivityOf(a) || 0);
 }
 
-export function filterSessions(sessions, { view = 'all', query = '' } = {}) {
+export function filterSessions(sessions, { view = 'all', query = '', ctx = {}, tagNames = {}, tagId = null } = {}) {
     return (sessions || [])
-        .filter((s) => matchesView(s, view))
-        .filter((s) => matchesQuery(s, query))
+        .filter((s) => matchesView(s, view, ctx))
+        .filter((s) => !tagId || (s.tagIds || []).includes(tagId))
+        .filter((s) => matchesQuery(s, query, tagNames))
         .sort(compareSessions);
 }
 
-export function viewCounts(sessions) {
-    return Object.fromEntries(VIEWS.map((v) => [v, (sessions || []).filter((s) => matchesView(s, v)).length]));
+export function viewCounts(sessions, ctx = {}) {
+    return Object.fromEntries(VIEWS.map((v) => [v, (sessions || []).filter((s) => matchesView(s, v, ctx)).length]));
 }
 
 export function messageStats(messages) {
@@ -154,6 +188,69 @@ export function messageStats(messages) {
         if (m.image_url) stats.images += 1;
     }
     return stats;
+}
+
+/**
+ * الخط الزمني للمحادثة: رسايل العميل والبوت والدعم، والملاحظات الداخلية،
+ * وأحداث السجل — كلهم بترتيب حصولهم. الملاحظة والحدث بيتعرضوا بشكل مختلف
+ * تمامًا عن الرسالة، عشان يبان بنص نظرة إن العميل مش شايفهم.
+ *
+ * @returns {Array<{type:'message'|'note'|'event', at:string, item:object}>}
+ */
+export function buildTimeline(messages, notes = [], events = []) {
+    // أحداث ليها أثر ظاهر بالفعل في الخط الزمني مابتتكررش كسطر.
+    const hidden = new Set(['note_added', 'note_edited', 'note_deleted', 'forwarded_as_note']);
+    return [
+        ...(messages || []).map((m) => ({ type: 'message', at: m.created_at, item: m })),
+        ...(notes || []).map((n) => ({ type: 'note', at: n.created_at, item: n })),
+        ...(events || []).filter((e) => !hidden.has(e.kind)).map((e) => ({ type: 'event', at: e.created_at, item: e }))
+    ].sort((a, b) => new Date(a.at) - new Date(b.at));
+}
+
+/**
+ * سطر الحدث بالعربي.
+ * @param {object} names { agent(id)→string, team(id)→string, actor(id)→string }
+ */
+export function describeEvent(event, names = {}) {
+    const p = event?.payload || {};
+    const actor = names.actor?.(event.actor_id) || 'حد من الفريق';
+    const agent = (id) => names.agent?.(id) || 'موظف';
+    const team = (id) => names.team?.(id) || 'فريق';
+    const target = (user, teamId) => [user ? agent(user) : null, teamId ? `فريق ${team(teamId)}` : null]
+        .filter(Boolean).join(' — ');
+
+    switch (event?.kind) {
+        case 'assigned': return `${actor} أسند المحادثة لـ ${target(p.to_user, p.to_team)}`;
+        case 'unassigned': return `${actor} شال المسؤول عن المحادثة`;
+        case 'transferred': return `${actor} حوّل المحادثة لـ ${target(p.to_user, p.to_team)}${p.reason ? ` — ${p.reason}` : ''}`;
+        case 'tagged': return `${actor} ضاف وسم «${p.name || ''}»`;
+        case 'untagged': return `${actor} شال وسم «${p.name || ''}»`;
+        case 'archived': return `${actor} أرشف المحادثة`;
+        case 'unarchived': return p.reason === 'reply' ? 'المحادثة رجعت من الأرشيف بالرد' : `${actor} رجّع المحادثة من الأرشيف`;
+        case 'closed': return `${actor} قفل المحادثة`;
+        default: return `${actor}: ${event?.kind || 'إجراء'}`;
+    }
+}
+
+/**
+ * المنشن: «@الاسم الكامل» لموظف من القايمة. المطابقة على الاسم الكامل عشان
+ * «@أحمد» مايمنشنش كل الأحمدات.
+ */
+export function extractMentions(body, agents = []) {
+    let text = String(body || '');
+    const found = [];
+    // الأطول الأول، والاسم لازم يخلص عند مسافة أو علامة ترقيم — وإلا «@أحمد»
+    // بتلقط جوه «@أحمد علي» وتمنشن اتنين.
+    const byLength = (agents || []).filter((a) => a.full_name).sort((a, b) => b.full_name.length - a.full_name.length);
+    for (const agent of byLength) {
+        const escaped = agent.full_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`@${escaped}(?=$|[\\s.,،!?؟:؛)])`, 'g');
+        if (pattern.test(text)) {
+            found.push(agent.id);
+            text = text.replace(pattern, ' ');
+        }
+    }
+    return found;
 }
 
 /**

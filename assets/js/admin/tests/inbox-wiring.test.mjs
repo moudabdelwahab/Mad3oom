@@ -39,7 +39,9 @@ function importedNames(js, file) {
 test('كل عنصر بيستخدمه inbox.js موجود في inbox.html', async () => {
     const [html, js] = await Promise.all([read('admin/inbox.html'), read('assets/js/admin/inbox.js')]);
     const declared = idsInHtml(html);
-    const missing = [...new Set(idsUsedByJs(js))].filter((id) => !declared.has(id) && id !== 'retryLoad');
+    // عناصر بيرسمها inbox.js بنفسه جوه innerHTML (مش في الـ HTML الثابت).
+    const dynamic = new Set(['retryLoad', 'manageTeamsBtn', 'newTagName', 'createTagBtn']);
+    const missing = [...new Set(idsUsedByJs(js))].filter((id) => !declared.has(id) && !dynamic.has(id));
     assert.deepEqual(missing, [], `عناصر بيتنده عليها ومش موجودة: ${missing.join(', ')}`);
 });
 
@@ -92,10 +94,25 @@ test('مفيش بيانات تجريبية ولا بانر معاينة', async 
     assert.match(data, /from '\/api-config\.js'/, 'طبقة البيانات مش متوصلة بـ Supabase');
 });
 
-test('الصندوق بيقرا من نفس جداول الويدجت ومابيعملش جداول تانية', async () => {
+test('الصندوق بيقرا من جداول الشات وجداول 054 والجداول الموجودة بس', async () => {
     const data = await read('assets/js/admin/inbox-data.js');
     const tables = new Set([...data.matchAll(/\.from\('([^']+)'\)/g)].map((m) => m[1]));
-    assert.deepEqual([...tables].sort(), ['chat_messages', 'chat_sessions', 'profiles']);
+    assert.deepEqual([...tables].sort(), [
+        'chat_sessions', 'customer_notes', 'inbox_conversation_tags', 'inbox_conversations',
+        'inbox_events', 'inbox_notes', 'inbox_team_members', 'inbox_teams', 'tickets'
+    ]);
+    // الأدمن غير المرتفع مالوش SELECT على ملفات الآخرين: الأسماء من RPC مش embed.
+    assert.ok(!/from\('profiles'\)|profiles:user_id/.test(data), 'قراءة مباشرة من profiles');
+});
+
+test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', async () => {
+    const [data, js] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('assets/js/admin/inbox.js')]);
+    assert.ok(!/\.from\('[^']+'\)[\s\S]{0,120}?\.(insert|update|delete|upsert)\(/.test(data + js), 'كتابة مباشرة على جدول');
+
+    const migration = await read('migrations/054_inbox_helpdesk_core.sql');
+    const called = [...data.matchAll(/rpc\('([a-z_]+)'/g)].map((m) => m[1]);
+    const missing = called.filter((name) => !new RegExp(`create or replace function public\\.${name}\\(`).test(migration));
+    assert.deepEqual(missing, [], `RPC مش موجود في 054: ${missing.join(', ')}`);
 });
 
 // ═════════════════════════════════════════════════════════════
@@ -103,12 +120,14 @@ test('الصندوق بيقرا من نفس جداول الويدجت ومابي
 // ═════════════════════════════════════════════════════════════
 
 test('رد الدعم بيوقّف البوت وبيتكتب كرد أدمن — نفس اللي الويدجت مستنيه', async () => {
-    const [data, widget] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('chat-widget.js')]);
-    const fn = data.slice(data.indexOf('export async function sendReply'), data.indexOf('export async function closeSessions'));
+    const [data, migration, widget] = await Promise.all([
+        read('assets/js/admin/inbox-data.js'), read('migrations/054_inbox_helpdesk_core.sql'), read('chat-widget.js')]);
+    assert.match(data, /rpc\('inbox_send_reply'/, 'الرد مش بيعدي على inbox_send_reply');
 
-    assert.match(fn, /update\(\{ is_manual_mode: true \}\)/, 'الرد مش بيوقّف البوت');
-    assert.match(fn, /is_admin_reply: true/, 'الرد مش متعلّم كرد أدمن');
-    assert.ok(fn.indexOf('is_manual_mode: true') < fn.indexOf('is_admin_reply: true'),
+    const fn = migration.slice(migration.indexOf('function public.inbox_send_reply'), migration.indexOf('function public.inbox_close'));
+    assert.match(fn, /set is_manual_mode = true/, 'الرد مش بيوقّف البوت');
+    assert.match(fn, /is_admin_reply\)\s*values \(p_session, auth\.uid\(\), v_body, true\)/, 'الرد مش متعلّم كرد أدمن');
+    assert.ok(fn.indexOf('set is_manual_mode = true') < fn.indexOf('insert into public.chat_messages'),
         'البوت لازم يقف قبل ما الرد يتكتب، وإلا ممكن يرد على نفس الرسالة');
 
     // الناحية التانية من العقد: الويدجت لسه بيسمع الاتنين.
@@ -247,4 +266,69 @@ test('الرسايل بتترتب زمنيًا حتى لو الـ embed رجّع
     const sorted = model.sortMessages([customerMsg('b', 5), botMsg('a', 1)]);
     assert.deepEqual(sorted.map((m) => m.id), ['a', 'b']);
     assert.equal(model.lastMessageOf(session({ messages: sorted })).id, 'b');
+});
+
+// ═════════════════════════════════════════════════════════════
+// الموديل: طبقة الـ helpdesk
+// ═════════════════════════════════════════════════════════════
+
+test('الأرشفة بتتلغي من نفسها لو العميل كتب بعدها', () => {
+    const archived = session({ meta: { archived_at: at(5) }, messages: [customerMsg('1', 1), agentMsg('2', 3)] });
+    assert.equal(model.isArchived(archived), true);
+    assert.equal(model.matchesView(archived, 'all'), false, 'المؤرشفة ظاهرة في الكل');
+    assert.equal(model.matchesView(archived, 'archived'), true);
+
+    const revived = session({ meta: { archived_at: at(5) }, messages: [customerMsg('1', 1), customerMsg('3', 9)] });
+    assert.equal(model.isArchived(revived), false, 'العميل كتب بعد الأرشفة والمحادثة لسه مخفية');
+    // رد البوت بعد الأرشفة مش سبب يرجّعها
+    const botAfter = session({ meta: { archived_at: at(5) }, messages: [customerMsg('1', 1), botMsg('2', 9)] });
+    assert.equal(model.isArchived(botAfter), true);
+});
+
+test('مشاهد المسندة لي وفرقي ومن غير مسؤول', () => {
+    const ctx = { meId: 'me', myTeamIds: ['t1'] };
+    const mine = session({ id: 'm', meta: { assignee_id: 'me' } });
+    const team = session({ id: 't', meta: { team_id: 't1' } });
+    const other = session({ id: 'o', meta: { assignee_id: 'x' } });
+    const free = session({ id: 'f' });
+    const list = [mine, team, other, free];
+    assert.deepEqual(model.filterSessions(list, { view: 'mine', ctx }).map((s) => s.id), ['m']);
+    assert.deepEqual(model.filterSessions(list, { view: 'team', ctx }).map((s) => s.id), ['t']);
+    assert.deepEqual(model.filterSessions(list, { view: 'unassigned', ctx }).map((s) => s.id), ['f']);
+    const counts = model.viewCounts(list, ctx);
+    for (const view of model.VIEWS) {
+        assert.equal(counts[view], model.filterSessions(list, { view, ctx }).length, `عدّاد «${view}» غلط`);
+    }
+});
+
+test('البحث بيلاقي المحادثة باسم الوسم', () => {
+    const s = session({ tagIds: ['tg'] });
+    assert.equal(model.matchesQuery(s, 'فوترة', { tg: 'فوترة' }), true);
+    assert.equal(model.matchesQuery(s, 'فوترة', {}), false);
+});
+
+test('الخط الزمني بيدمج الرسايل والملاحظات والأحداث بالترتيب', () => {
+    const tl = model.buildTimeline(
+        [customerMsg('m1', 1), agentMsg('m2', 5)],
+        [{ id: 'n1', body: 'ملاحظة', created_at: at(3) }],
+        [{ id: 1, kind: 'assigned', payload: {}, created_at: at(2) },
+         { id: 2, kind: 'note_added', payload: {}, created_at: at(3) }]);
+    assert.deepEqual(tl.map((e) => `${e.type}:${e.item.id}`), ['message:m1', 'event:1', 'note:n1', 'message:m2'],
+        'حدث note_added مفروض مايتكررش جنب الملاحظة نفسها');
+});
+
+test('وصف الأحداث بالعربي بأسماء حقيقية', () => {
+    const names = { actor: () => 'هبة', agent: (id) => ({ u1: 'كريم' }[id]), team: (id) => ({ t1: 'الفوترة' }[id]) };
+    assert.equal(model.describeEvent({ kind: 'transferred', payload: { to_team: 't1', reason: 'فاتورة' } }, names),
+        'هبة حوّل المحادثة لـ فريق الفوترة — فاتورة');
+    assert.equal(model.describeEvent({ kind: 'assigned', payload: { to_user: 'u1' } }, names), 'هبة أسند المحادثة لـ كريم');
+    assert.equal(model.describeEvent({ kind: 'unarchived', payload: { reason: 'reply' } }, names), 'المحادثة رجعت من الأرشيف بالرد');
+});
+
+test('المنشن بالاسم الكامل بس', () => {
+    const agents = [{ id: 'a', full_name: 'أحمد علي' }, { id: 'b', full_name: 'أحمد' }, { id: 'c', full_name: null }];
+    assert.deepEqual(model.extractMentions('يا @أحمد علي بص', agents), ['a'], '«@أحمد» اتلقطت جوه «@أحمد علي»');
+    assert.deepEqual(model.extractMentions('@أحمد و @أحمد علي', agents).sort(), ['a', 'b']);
+    assert.deepEqual(model.extractMentions('@أحمدين', agents), [], 'اسم ناقص اتحسب منشن');
+    assert.deepEqual(model.extractMentions('من غير منشن', agents), []);
 });
