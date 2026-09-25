@@ -327,7 +327,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         بخطوتين»). أدمن عادي كان يحظر المالك فيُقفله خارج المنصة، ومدير
     //         المنصة يخفّض زملاءه — لا يُصلَح أيٌّ منهما من الواجهة.
     //         مقيسٌ بضوابط سلبية في tests/sql/owner-authority.test.sql.
-    assert.equal(migrations[migrations.length - 1], '053_owner_authority.sql',
+    //   054 — مرفقات الشات ووضع الرد (معتمَد صراحةً: «Additive nullable
+    //         column» لـchat_messages.attachment). حدود الحجم والنوع على
+    //         المستودع، ومسار المرفق يجب أن يكون في مجلد المرسل وموجودًا،
+    //         و«الوضع التقليدي» لا يُختار ولا بنداء PostgREST مباشر — منعٌ لا
+    //         يُفرَض من الواجهة. مقيسٌ في tests/sql/chat-attachments.test.sql.
+    assert.equal(migrations[migrations.length - 1], '054_chat_composer_attachments.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

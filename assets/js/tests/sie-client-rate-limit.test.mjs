@@ -29,9 +29,9 @@ test('a 429 becomes a friendly reply instead of a silent fallback', async () => 
     const src = await read();
     const handler = src.slice(src.indexOf("if (err?.name === 'SieRateLimitError')"));
     assert.ok(handler.length > 0, 'getSieReply does not handle the rate-limit error');
-    // Returning null here would route the customer to the traditional
-    // engine, hiding the fact that they are sending too fast and doubling
-    // the load rather than slowing it.
+    // Returning null here would show a generic "temporary problem"
+    // message, hiding the fact that they are sending too fast and inviting
+    // an immediate resend rather than slowing down.
     assert.match(handler, /rateLimited: true/);
     assert.match(handler, /retryAfterSeconds/);
     assert.match(handler, /alreadyPersisted: false/, 'the caller must persist this message itself');

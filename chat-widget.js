@@ -2,8 +2,8 @@
  * ويدجت الدردشة المباشرة العائم (الفقاعة) - Client Side
  * ------------------------------------------------------------
  * ملاحظة مهمة: النسخة دي بقت بتستخدم بالظبط نفس المنطق والجداول اللي
- * بيستخدمها chat-customer.html (chat_sessions / chat_messages / محرك
- * الردود المحلي chatbot-engine.js عبر Supabase)، بدل الـ chatService
+ * بيستخدمها chat-customer.html (chat_sessions / chat_messages، والرد
+ * من محرك SIE عبر assets/js/sie-client.js)، بدل الـ chatService
  * الوهمي (in-memory) اللي كان بيشتغل ببيانات تجريبية بس.
  *
  * هذا الملف الآن ES Module، فلازم يتحمّل بـ:
@@ -14,11 +14,39 @@
 
 import { supabase } from '/api-config.js';
 import { requireAuth } from '/auth-client.js';
-import { getBotReply, MAIN_MENU_OPTIONS, getOptionsForFlow } from '/assets/js/chatbot-engine.js';
-import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
-import { CHATBOT_MODE_LABELS, fetchChatbotModeState, getSieAccessInfo, saveChatbotModeState } from '/assets/js/chatbot-mode-service.js';
 import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
+import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
+import { fetchEntitlement, downgradePlan } from '/assets/js/sie-plan-service.js';
+import { usageView } from '/assets/js/sie-plan-model.js';
+import {
+    CHAT_ATTACHMENTS_BUCKET, MAX_ATTACHMENTS_PER_SEND, FILE_PICKER_ACCEPT, validateFile, buildObjectPath,
+    messageFieldsFor, attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, downscaleImage,
+    uploadAttachment, uploadErrorText, formatBytes, formatDuration, autoLabelFor
+} from '/assets/js/chat-attachments.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+
+/**
+ * ردود البداية بعد الترحيب. SIE هو وضع الرد الوحيد، فهذه نصوص عادية يفهمها
+ * SIE (مُختبرة على الإصدار المجاني: «عندي مشكلة» سؤال توضيحي، «عندي استفسار»
+ * رد مباشر) — لا أوامر لمحرك قوائم.
+ */
+const STARTER_OPTIONS = Object.freeze([
+    { label: '[[icon:inquiry]] عندي استفسار', value: 'عندي استفسار' },
+    { label: '[[icon:problem]] عندي مشكلة', value: 'عندي مشكلة' }
+]);
+
+const ICONS = {
+    attach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="18" x2="12" y2="22"></line></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>',
+    stop: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"></polyline></svg>',
+    sie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"></path><path d="M9.5 12l1.8 1.8L15 10"></path></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>'
+};
 
 /**
  * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
@@ -41,9 +69,14 @@ class ChatWidget {
         this.currentSession = null;
         this.botSettings = null;
         this.messageChannel = null;
-        // كاش لوضع الشات بوت المختار من العميل، بنفس منطق chat-logic.js -
-        // بيتحدّث في refreshChatModeLabel() وبعد كل تغيير من نافذة الإعدادات.
-        this.cachedChatbotMode = 'traditional';
+        // خطة SIE والاستخدام كما يراها الخادم (sie_my_entitlement) — عرض فقط؛
+        // الفرض عند كل رسالة في sie_consume_message. null = لم تُحمَّل بعد.
+        this.entitlement = null;
+        this.isModeMenuOpen = false;
+        // مرفقات مختارة لم تُرسل بعد: {id, file, kind, previewUrl, state, progress, error}
+        this.pendingAttachments = [];
+        this.recorder = null;
+        this.recording = null; // {blob, mime, durationMs, url} بعد الإيقاف وقبل الإرسال
         // هل الجلسة الحالية "دخول كعضو" (impersonation) من أدمن/super_user؟
         this.isImpersonated = false;
 
@@ -159,13 +192,6 @@ class ChatWidget {
               <a href="/login.html" class="chat-settings-action" id="chatLoginLink">تسجيل الدخول</a>
               <button type="button" class="chat-settings-action chat-settings-provide-btn" id="chatProvideBtn" style="display:none;">إرسال</button>
             </div>
-            <div class="chat-settings-item chat-settings-item-clickable" id="chatModeItem" role="menuitem" tabindex="0">
-              <span class="chat-settings-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>
-              </span>
-              <span class="chat-settings-label">وضع الرد الآلي</span>
-              <span class="chat-settings-value" id="chatModeCurrentLabel">تقليدي</span>
-            </div>
             <div class="chat-settings-item chat-settings-item-clickable" id="downloadTranscriptItem" role="menuitem" tabindex="0">
               <span class="chat-settings-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -221,7 +247,6 @@ class ChatWidget {
         const maximizeItem = document.getElementById('maximizeItem');
         const notifToggle = document.getElementById('notificationsToggle');
         const provideBtn = document.getElementById('chatProvideBtn');
-        const chatModeItem = document.getElementById('chatModeItem');
         const header = document.getElementById('chatWidgetHeader');
 
         if (!bubbleBtn || !closeBtn) {
@@ -248,10 +273,9 @@ class ChatWidget {
         });
         notifToggle.addEventListener('change', (e) => this.setNotificationsPref(e.target.checked));
         provideBtn.addEventListener('click', () => this.submitContactDetails());
-        chatModeItem.addEventListener('click', () => this.openChatModeDialog());
 
         // عناصر القائمة القابلة للنقر تعمل بلوحة المفاتيح أيضًا (Enter / Space)
-        [downloadItem, maximizeItem, chatModeItem].forEach(item => {
+        [downloadItem, maximizeItem].forEach(item => {
             item.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -273,6 +297,14 @@ class ChatWidget {
             if (this.isSettingsOpen && panel && !panel.contains(e.target) && !settingsButton?.contains(e.target)) {
                 this.toggleSettingsPanel(false);
             }
+            // composedPath() ثابت منذ بداية الحدث: زر داخل القائمة أعيد رسمه
+            // أثناء معالجة الضغطة (رد سريع من الخادم) يبقى «داخلها».
+            const menu = document.getElementById('cwModeMenu');
+            const chip = document.getElementById('cwModeChip');
+            const path = e.composedPath();
+            if (this.isModeMenuOpen && menu && !path.includes(menu) && !(chip && path.includes(chip))) {
+                this.toggleModeMenu(false);
+            }
         });
 
         // Escape: يغلق القائمة أولًا، ثم النافذة — ويعيد التركيز لزر الإطلاق
@@ -280,6 +312,12 @@ class ChatWidget {
             if (e.key !== 'Escape') return;
             const root = document.getElementById('floatingChatWidget');
             if (!root || !root.contains(document.activeElement)) return;
+            if (document.getElementById('cwImageViewer')) { this.closeImageViewer(); return; }
+            if (this.isModeMenuOpen) {
+                this.toggleModeMenu(false);
+                document.getElementById('cwModeChip')?.focus();
+                return;
+            }
             if (this.isSettingsOpen) {
                 this.toggleSettingsPanel(false);
                 document.getElementById('chatSettingsBtn')?.focus();
@@ -287,6 +325,13 @@ class ChatWidget {
             }
             this.closeWidget();
             document.getElementById('chatBubbleBtn')?.focus();
+        });
+
+        // الصور داخل المحادثة: ضغطة تفتح عارضًا أكبر (مستمع واحد على الجسم كله)
+        document.getElementById('chatWidgetBody')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cw-att-image');
+            const img = btn?.querySelector('img');
+            if (btn && img?.src && !img.hidden) this.openImageViewer(img.src, img.alt, btn);
         });
 
         this.setupDragging();
@@ -441,60 +486,173 @@ class ChatWidget {
         window.location.href = url.pathname + url.search;
     }
 
-    /* ==================== وضع الشات بوت (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE) ==================== */
+    /* ==================== وضع الرد وخطة SIE (منتقي داخل شريط الكتابة) ==================== */
 
-    async refreshChatModeLabel() {
-        if (!this.currentUser) return;
-        try {
-            const state = await fetchChatbotModeState(this.currentUser.id);
-            this.cachedChatbotMode = state.chatbot_mode || 'traditional';
-            const label = document.getElementById('chatModeCurrentLabel');
-            if (label) {
-                label.textContent = CHATBOT_MODE_LABELS[this.cachedChatbotMode] || CHATBOT_MODE_LABELS.traditional;
-            }
-        } catch (err) {
-            console.warn('[ChatWidget] تعذّر تحديث تسمية وضع الشات بوت:', err?.message || err);
+    /**
+     * SIE هو وضع الرد الوحيد. الخطة والاستخدام والتنزيلات المسموحة كلها من
+     * الخادم (sie_my_entitlement)؛ هنا عرض فقط. فشل القراءة لا يوقف الشات:
+     * الحدود مفروضة على الخادم مع كل رسالة مهما عرضت الواجهة.
+     */
+    async refreshEntitlement() {
+        if (!this.currentUser) return this.entitlement;
+        this.entitlement = await fetchEntitlement(supabase);
+        this.renderModeChip();
+        if (this.isModeMenuOpen) this.renderModeMenu();
+        return this.entitlement;
+    }
+
+    renderModeChip() {
+        const chip = document.getElementById('cwModeChip');
+        if (!chip) return;
+        const ent = this.entitlement;
+        const plan = ent?.status === 'ok' ? ent.planLabel : null;
+        const tone = ent?.status === 'ok' ? usageView(ent).tone : 'ok';
+        chip.querySelector('.cw-mode-chip-plan').textContent = plan || '';
+        chip.dataset.tone = ent?.status === 'ok' && !ent.hasAccess ? 'full' : tone;
+        chip.setAttribute('aria-label', `وضع الرد: SIE${plan ? `، خطة ${plan}` : ''}. عرض الخطة والاستخدام`);
+    }
+
+    toggleModeMenu(force) {
+        const open = force !== undefined ? force : !this.isModeMenuOpen;
+        this.isModeMenuOpen = open;
+        const chip = document.getElementById('cwModeChip');
+        chip?.setAttribute('aria-expanded', String(open));
+        let menu = document.getElementById('cwModeMenu');
+        if (!open) { menu?.remove(); return; }
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.id = 'cwModeMenu';
+            menu.className = 'cw-mode-menu';
+            menu.setAttribute('role', 'dialog');
+            menu.setAttribute('aria-label', 'وضع الرد وخطة SIE');
+            document.getElementById('chatWidgetFooter')?.prepend(menu);
+            menu.addEventListener('keydown', (e) => this.trapModeMenuFocus(e));
+        }
+        this.renderModeMenu();
+        // بعد الرسم: التركيز على أول عنصر تفاعلي، أو على القائمة نفسها
+        const first = menu.querySelector('button:not([disabled])');
+        (first || menu).focus({ preventScroll: true });
+        this.refreshEntitlement();
+    }
+
+    trapModeMenuFocus(e) {
+        if (e.key !== 'Tab') return;
+        const menu = document.getElementById('cwModeMenu');
+        const items = Array.from(menu?.querySelectorAll('button:not([disabled])') || []);
+        if (!items.length) { e.preventDefault(); return; }
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
+    renderModeMenu({ force = false } = {}) {
+        const menu = document.getElementById('cwModeMenu');
+        if (!menu) return;
+        menu.tabIndex = -1;
+        const ent = this.entitlement;
+        // تحديث صامت بنفس البيانات لا يعيد الرسم: كان يُسقط التركيز من لوحة
+        // المفاتيح ويمسح «تأكيد النزول» الجاري.
+        const sig = JSON.stringify(ent ?? null);
+        if (!force && sig === menu.dataset.sig) return;
+        menu.dataset.sig = sig;
+        const focusKey = menu.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+        const v = usageView(ent);
+
+        let usageHtml;
+        if (!ent) {
+            usageHtml = '<div class="cw-usage-skeleton" aria-hidden="true"></div><p class="visually-hidden">جاري تحميل الاستخدام…</p>';
+        } else if (ent.status !== 'ok') {
+            usageHtml = '<p class="cw-mode-note">تعذّر تحميل بيانات الاستخدام الآن. الشات يعمل كالمعتاد.</p>';
+        } else if (!v.available) {
+            usageHtml = '<p class="cw-mode-note">لا توجد بيانات استخدام بعد.</p>';
+        } else {
+            usageHtml = `
+            <div class="cw-usage" data-tone="${v.tone}">
+              <div class="cw-usage-row"><span class="cw-usage-title">الاستخدام</span>${v.percent !== null ? `<span class="cw-usage-pct">${v.percent}%</span>` : ''}</div>
+              ${v.percent !== null ? `<div class="cw-usage-bar" role="progressbar" aria-label="نسبة الاستخدام" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v.percent}"><span style="width:${v.percent}%"></span></div>` : ''}
+              <div class="cw-usage-row cw-usage-nums"><span dir="ltr">${escapeHtml(v.usedText)}</span><span>${escapeHtml(v.remainingText)}</span></div>
+              ${v.resetText ? `<div class="cw-usage-reset">${escapeHtml(v.resetText)}</div>` : ''}
+            </div>`;
+        }
+
+        const reason = ent?.status === 'ok' && !ent.hasAccess && ent.reasonText
+            ? `<p class="cw-mode-alert" role="status">${escapeHtml(ent.reasonText)} رسائلك تصل لفريق الدعم وهيرد عليك هنا.</p>` : '';
+
+        const downgrades = ent?.status === 'ok' && ent.downgradeTo.length
+            ? `<div class="cw-mode-section">
+                 <span class="cw-mode-section-title">تغيير الخطة</span>
+                 <div class="cw-downgrade-list">${ent.downgradeTo.map((d) => `
+                   <button type="button" class="cw-downgrade-btn" data-plan="${escapeHtml(d.plan)}" data-focus-key="down-${escapeHtml(d.plan)}">النزول إلى ${escapeHtml(d.label)}</button>`).join('')}
+                 </div>
+                 <p class="cw-mode-hint">الترقية لخطة أعلى بتتم من فريق المنصة.</p>
+               </div>` : '';
+
+        menu.innerHTML = `
+          <div class="cw-mode-section">
+            <span class="cw-mode-section-title">وضع الرد</span>
+            <button type="button" class="cw-mode-option is-selected" data-focus-key="mode" aria-pressed="true" aria-describedby="cwModeDesc">
+              <span class="cw-mode-option-icon">${ICONS.sie}</span>
+              <span class="cw-mode-option-text"><span class="cw-mode-option-name">محرك الدعم الذكي (SIE)</span>
+              <span class="cw-mode-option-desc" id="cwModeDesc">يفهم المشكلة، يشخّصها، ويرد أو يفتح تذكرة بنفسه.</span></span>
+              <span class="cw-mode-option-check" aria-hidden="true">✓</span>
+            </button>
+          </div>
+          <div class="cw-mode-section">
+            <div class="cw-plan-row"><span class="cw-mode-section-title">الخطة الحالية</span>
+              <span class="cw-plan-badge">${ent?.status === 'ok' ? `SIE ${escapeHtml(ent.planLabel)}` : '—'}</span></div>
+            ${usageHtml}
+            ${reason}
+          </div>
+          ${downgrades}
+          <p class="cw-mode-error" role="alert" hidden></p>`;
+
+        menu.querySelectorAll('.cw-downgrade-btn').forEach((btn) => {
+            btn.addEventListener('click', () => this.confirmDowngrade(btn));
+        });
+        if (focusKey !== null) {
+            (menu.querySelector(`[data-focus-key="${focusKey}"]`) || menu.querySelector('button:not([disabled])') || menu).focus({ preventScroll: true });
         }
     }
 
-    openChatModeDialog() {
-        if (!this.currentUser) {
-            window.location.href = '/login.html';
+    /** ضغطة أولى تطلب التأكيد (نفس نمط «إنهاء المحادثة»)، والثانية تنفّذ على الخادم. */
+    async confirmDowngrade(btn) {
+        const plan = btn.dataset.plan;
+        const label = this.entitlement?.downgradeTo.find((d) => d.plan === plan)?.label || plan;
+        if (btn.dataset.confirm !== '1') {
+            btn.dataset.confirm = '1';
+            btn.textContent = `تأكيد النزول إلى ${label}؟`;
+            btn.classList.add('is-confirm');
+            clearTimeout(this.downgradeConfirmTimer);
+            this.downgradeConfirmTimer = setTimeout(() => this.renderModeMenu({ force: true }), 5000);
             return;
         }
-        this.toggleSettingsPanel(false);
-        openChatbotModeDialog({
-            userId: this.currentUser.id,
-            onModeChanged: () => this.refreshChatModeLabel()
-        });
+        clearTimeout(this.downgradeConfirmTimer);
+        btn.disabled = true;
+        btn.textContent = 'جاري التغيير…';
+        const result = await downgradePlan(supabase, plan);
+        if (!result.ok) {
+            await this.refreshEntitlement();
+            this.renderModeMenu({ force: true });
+            const err = document.querySelector('#cwModeMenu .cw-mode-error');
+            if (err) { err.textContent = result.errorText; err.hidden = false; }
+            return;
+        }
+        await this.refreshEntitlement();
+        this.renderModeMenu({ force: true });
+        this.appendSystemEvent(`تم تغيير خطة SIE إلى ${label}`);
     }
 
     /**
-     * نفس منطق chat-logic.js: العميل مختار SIE لكن صلاحيته اتسحبت وهو في نص
-     * محادثة - نحفظ التحويل للتقليدي فعليًا في قاعدة البيانات، نحدّث الحالة
-     * المحلية، ونكتب رسالة واضحة داخل نص المحادثة (مش toast ممكن يفوته).
+     * SIE غير متاح لهذا العميل الآن (موقوف / منتهي / استهلك حده). لا بوت
+     * بديل: رسالة واضحة بالسبب داخل المحادثة نفسها، والرسالة تبقى لفريق الدعم.
      */
-    async handleSieRevokedMidConversation(sieAccess) {
-        this.cachedChatbotMode = 'traditional';
-        const label = document.getElementById('chatModeCurrentLabel');
-        if (label) label.textContent = CHATBOT_MODE_LABELS.traditional;
-
-        try {
-            await saveChatbotModeState(this.currentUser.id, { mode: 'traditional', integrationId: null, modelId: null });
-        } catch (err) {
-            console.warn('[ChatWidget] تعذّر حفظ التحويل التلقائي عن SIE:', err?.message || err);
-        }
-
-        const reason = sieAccess?.statusLabel;
-        let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة.';
-        if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
-        else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
-        else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
-
+    async notifySieUnavailable(ent) {
+        const why = ent?.reasonText || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.';
         await supabase.from('chat_messages').insert({
             session_id: this.currentSessionId,
             sender_id: null,
-            message_text: `${why} تم تحويلك تلقائيًا للوضع التقليدي. تقدر تختار وضعًا آخر من إعدادات الشات، أو تتواصل مع الدعم لتفعيل SIE مرة أخرى.`,
+            message_text: `${why} رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.`,
             is_admin_reply: false,
             is_bot_reply: true
         });
@@ -524,6 +682,10 @@ class ChatWidget {
         if (!panel) return;
         panel.classList.remove('active');
         this.toggleSettingsPanel(false);
+        if (this.isModeMenuOpen) this.toggleModeMenu(false);
+        // تسجيل جارٍ لا يبقى يعمل في الخلفية بعد إغلاق النافذة: الميكروفون يُطفأ
+        if (this.recorder?.state === 'recording' || this.recorder?.state === 'requesting') this.recorder.cancel();
+        this.closeImageViewer();
         this.syncOpenState();
         // ملاحظة: إغلاق النافذة مايقفلش المحادثة نفسها - الجلسة تفضل شغالة
         // ولو العميل فتح الويدجت تاني هيكمل من نفس مكانه.
@@ -534,7 +696,10 @@ class ChatWidget {
         if (!panel) return;
         this.isMinimized = !this.isMinimized;
         panel.classList.toggle('minimized', this.isMinimized);
-        if (this.isMinimized) this.toggleSettingsPanel(false);
+        if (this.isMinimized) {
+            this.toggleSettingsPanel(false);
+            if (this.isModeMenuOpen) this.toggleModeMenu(false);
+        }
         else { this.clearUnread(); this.focusComposer(); }
 
         const btn = document.getElementById('chatMinimizeBtn');
@@ -668,7 +833,7 @@ class ChatWidget {
         this.isLoggedIn = true;
         this.updateContactDetailsUI();
         this.renderImpersonationBanner();
-        this.refreshChatModeLabel();
+        this.refreshEntitlement();
 
         await Promise.all([this.loadProfile(), this.loadBotSettings()]);
         await this.loadOrCreateSession();
@@ -787,14 +952,15 @@ class ChatWidget {
         this.lastRendered = null;
         this.renderIntro();
 
-        (messages || []).forEach(msg => this.renderMessageBubble(msg));
+        (messages || []).forEach(msg => this.renderMessageBubble(msg, { deferHydrate: true }));
+        this.hydrateAll(body);
         body.scrollTop = body.scrollHeight;
         this.focusComposer();
 
+        // خيارات SIE مرتبطة بالرد نفسه ولا تُحفظ؛ عند إعادة الفتح تُعرض ردود
+        // البداية فقط لمحادثة فاضية.
         if (!messages || messages.length === 0) {
             await this.sendInitialGreeting();
-        } else if (!this.currentSession?.is_manual_mode) {
-            this.renderQuickOptions(getOptionsForFlow(this.currentSession?.bot_state?.flow));
         }
 
         if (this.agentJoined) this.setHeaderStatus('فريق الدعم متصل الآن', 'agent');
@@ -805,7 +971,7 @@ class ChatWidget {
         const welcome = this.botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
         const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
 
-        await supabase.from('chat_sessions').update({ bot_state: { greeted: true, flow: 'main_menu' } }).eq('id', this.currentSessionId);
+        await supabase.from('chat_sessions').update({ bot_state: { greeted: true } }).eq('id', this.currentSessionId);
 
         // الإدراج هيوصل عن طريق الاشتراك الفوري (subscribeRealtime) ويتعرض تلقائياً
         await supabase.from('chat_messages').insert({
@@ -816,7 +982,7 @@ class ChatWidget {
             is_bot_reply: true
         });
 
-        this.renderQuickOptions(MAIN_MENU_OPTIONS);
+        this.renderQuickOptions(STARTER_OPTIONS);
     }
 
     /* ==================== أحداث الجلسة الفورية (انضمام/مغادرة فريق الدعم) ==================== */
@@ -882,14 +1048,17 @@ class ChatWidget {
         return { key: 'bot', who: 'المساعد الآلي' };
     }
 
-    renderMessageBubble(msg) {
+    renderMessageBubble(msg, { deferHydrate = false } = {}) {
         const body = document.getElementById('chatWidgetBody');
         if (!body) return;
 
         const sender = this.senderOf(msg);
         const created = msg.created_at ? new Date(msg.created_at) : new Date();
         const time = created.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        const text = msg.message_text || '';
+        const att = attachmentFromMessage(msg);
+        const rawText = msg.message_text || '';
+        // نص «صورة مرفقة» / «رسالة صوتية» المحفوظ للقوائم لا يُكرَّر تحت المرفق نفسه
+        const text = att && rawText === autoLabelFor(att) ? '' : rawText;
 
         // فاصل يوم عند تغيّر التاريخ، وتجميع الرسائل المتتالية من نفس المرسل
         const dayKey = created.toDateString();
@@ -911,7 +1080,7 @@ class ChatWidget {
         div.innerHTML = `
       ${avatar}
       <div class="chat-widget-message-content">
-        <div class="chat-widget-bubble">${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}</div>
+        <div class="chat-widget-bubble${att ? ' has-attachment' : ''}">${att ? renderAttachmentHtml(att, escapeHtml) : ''}${text ? `<span class="chat-widget-bubble-text">${iconize(escapeHtml(text)).replace(/\n/g, '<br>')}</span>` : ''}</div>
         <div class="chat-widget-msg-meta">${continued ? '' : `<span class="chat-widget-msg-who">${sender.who}</span>`}<time class="chat-widget-msg-time" datetime="${created.toISOString()}">${time}</time></div>
       </div>
     `;
@@ -920,7 +1089,40 @@ class ChatWidget {
         this.lastRendered = { day: dayKey, sender: sender.key, at: created };
 
         const who = sender.isOwn ? 'أنا' : (msg.is_admin_reply ? 'الدعم الفني' : 'البوت');
-        this.transcriptLines.push(`[${time}] ${who}: ${text}`);
+        this.transcriptLines.push(`[${time}] ${who}: ${[att ? `[${autoLabelFor(att)}]` : '', text].filter(Boolean).join(' ')}`);
+        if (att && !deferHydrate) this.hydrateAll(div);
+    }
+
+    /** يوقّع مرفقات جزء من المحادثة دفعة واحدة (روابط قصيرة العمر، لا تُحفظ). */
+    hydrateAll(root) {
+        hydrateAttachments(root, (paths, { download }) =>
+            signedUrls(CHAT_ATTACHMENTS_BUCKET, paths, download ? SIGNED_URL_TTL_DOWNLOAD : SIGNED_URL_TTL));
+    }
+
+    /** عرض الصورة أكبر داخل الصفحة؛ Escape أو الخلفية أو زر الإغلاق يغلقه ويعيد التركيز. */
+    openImageViewer(src, alt, returnFocusTo) {
+        this.closeImageViewer();
+        const root = document.getElementById('floatingChatWidget');
+        const viewer = document.createElement('div');
+        viewer.id = 'cwImageViewer';
+        viewer.className = 'cw-image-viewer';
+        viewer.setAttribute('role', 'dialog');
+        viewer.setAttribute('aria-modal', 'true');
+        viewer.setAttribute('aria-label', alt || 'صورة مرفقة');
+        viewer.innerHTML = `<button type="button" class="cw-image-viewer-close" aria-label="إغلاق">${ICONS.close}</button><img alt="${escapeHtml(alt || '')}">`;
+        viewer.querySelector('img').src = src;
+        this.viewerReturnFocus = returnFocusTo || null;
+        viewer.addEventListener('click', (e) => { if (e.target === viewer || e.target.closest('.cw-image-viewer-close')) this.closeImageViewer(); });
+        root.appendChild(viewer);
+        viewer.querySelector('.cw-image-viewer-close').focus();
+    }
+
+    closeImageViewer() {
+        const viewer = document.getElementById('cwImageViewer');
+        if (!viewer) return;
+        viewer.remove();
+        this.viewerReturnFocus?.focus?.();
+        this.viewerReturnFocus = null;
     }
 
     /**
@@ -997,56 +1199,114 @@ class ChatWidget {
 
     /* ==================== إرسال رسالة (عبر محرك البوت المحلي) ==================== */
 
+    /**
+     * يرسل ما في شريط الكتابة: النص، والمرفقات المختارة، أو التسجيل الصوتي.
+     *   1) رفع كل مرفق (بتقدّم) — فشل أي رفع يوقف الإرسال ويُبقي كل شيء مكانه.
+     *   2) رسالة لكل مرفق (النص يصاحب أول مرفق)، أو رسالة نصية وحدها.
+     *   3) لو فيه نص: SIE يرد (وضع الرد الوحيد). المرفق وحده لا يستهلك SIE.
+     */
     async sendMessage(presetText) {
         const input = document.getElementById('chatWidgetTextInput');
-        const text = (presetText !== undefined ? presetText : input?.value || '').trim();
-        if (!text || !this.currentSessionId || !this.currentUser) return;
+        const fromComposer = presetText === undefined;
+        const text = (fromComposer ? input?.value || '' : presetText).trim();
+        const files = fromComposer ? this.pendingAttachments.filter((a) => a.state !== 'invalid') : [];
+        const voice = fromComposer ? this.recording : null;
+        if ((!text && !files.length && !voice) || !this.currentSessionId || !this.currentUser) return;
         // ضغطتان سريعتان على Enter كانتا ترسلان الرسالة مرتين
         if (this.isSending) return;
         this.isSending = true;
         this.setComposerBusy(true);
         this.showComposerError(null);
 
-        if (presetText === undefined && input) {
-            input.value = '';
-            this.autoSizeComposer();
-        }
         const quickOptions = document.getElementById('botQuickOptions');
-        this.clearQuickOptions();
         const typingIndicator = document.getElementById('chatWidgetTyping');
         const typingText = document.getElementById('chatWidgetTypingText');
-
-        const { error: sendError } = await supabase.from('chat_messages').insert({
-            session_id: this.currentSessionId,
-            sender_id: this.currentUser.id,
-            message_text: text,
-            is_admin_reply: false
-        });
-
-        if (sendError) {
-            console.error('خطأ في إرسال الرسالة:', sendError);
-            // الرسالة لم تصل: نعيد النص لمكانه بدل أن يختفي بصمت، ونعرض سببًا وإعادة محاولة
+        const restore = (message, retry) => {
             this.isSending = false;
             this.setComposerBusy(false);
-            if (presetText === undefined && input && !input.value) {
-                input.value = text;
-                this.autoSizeComposer();
-            }
+            if (fromComposer && input && !input.value) { input.value = text; this.autoSizeComposer(); }
             if (quickOptions) {
                 quickOptions.querySelectorAll('button').forEach(b => (b.disabled = false));
                 document.getElementById('chatWidgetBody')?.appendChild(quickOptions);
             }
-            this.showComposerError('تعذّر إرسال رسالتك. تحقّق من الاتصال وحاول مرة أخرى.', () => this.sendMessage(presetText));
+            this.showComposerError(message, retry);
+        };
+
+        // ── 1) الرفع ─────────────────────────────────────────────────────
+        const uploaded = [];
+        const items = voice
+            ? [{ id: 'voice', kind: 'audio', file: new File([voice.blob], `voice.${voice.ext}`, { type: voice.mime }), durationMs: voice.durationMs }]
+            : files;
+        for (const item of items) {
+            item.state = 'uploading';
+            item.progress = 0;
+            this.renderAttachmentTray();
+            try {
+                const body = item.kind === 'image' ? await downscaleImage(item.file) : item.file;
+                const check = validateFile(body, item.kind);
+                if (!check.ok) throw new Error(check.error);
+                const path = buildObjectPath(this.currentUser.id, this.currentSessionId, check.ext);
+                await uploadAttachment({
+                    supabase, path, file: body, contentType: check.mime,
+                    onProgress: (p) => { item.progress = p; this.renderAttachmentProgress(item); }
+                });
+                item.state = 'uploaded';
+                uploaded.push({ path, fields: messageFieldsFor({ kind: item.kind, path, name: body.name || item.file.name, mime: check.mime, size: body.size, durationMs: item.durationMs }) });
+            } catch (err) {
+                item.state = 'error';
+                // رسائل التحقق عندنا عربية أصلًا؛ أي خطأ آخر (خادم/شبكة) يُترجم
+                item.error = /[\u0600-\u06FF]/.test(err?.message || '') ? err.message : uploadErrorText(err);
+                console.error('[ChatWidget] upload failed:', err);
+                await this.cleanupUploads(uploaded.map((u) => u.path));
+                this.renderAttachmentTray();
+                restore(voice ? `تعذّر إرسال التسجيل: ${item.error}` : `تعذّر رفع «${item.file.name}»: ${item.error}`,
+                    () => this.sendMessage());
+                return;
+            }
+        }
+
+        if (fromComposer && input) { input.value = ''; this.autoSizeComposer(); }
+        this.clearQuickOptions();
+
+        // ── 2) الرسائل ───────────────────────────────────────────────────
+        const rows = uploaded.length
+            ? uploaded.map((u, i) => ({ ...u.fields, message_text: i === 0 && text ? text : autoLabelFor(u.fields.attachment) }))
+            : [{ message_text: text }];
+        for (const row of rows) {
+            const { error: sendError } = await supabase.from('chat_messages').insert({
+                session_id: this.currentSessionId,
+                sender_id: this.currentUser.id,
+                is_admin_reply: false,
+                ...row
+            });
+            if (sendError) {
+                console.error('خطأ في إرسال الرسالة:', sendError);
+                const sentPaths = new Set(rows.slice(0, rows.indexOf(row)).map((r) => r.attachment?.path));
+                await this.cleanupUploads(uploaded.map((u) => u.path).filter((p) => !sentPaths.has(p)));
+                items.forEach((it) => { if (it.state === 'uploaded') it.state = 'ready'; });
+                this.renderAttachmentTray();
+                restore('تعذّر إرسال رسالتك. تحقّق من الاتصال وحاول مرة أخرى.', () => this.sendMessage(fromComposer ? undefined : presetText));
+                return;
+            }
+        }
+
+        // أُرسل كل شيء: تفريغ الشريط
+        if (fromComposer) {
+            this.clearPendingAttachments();
+            if (voice) this.discardRecording();
+        }
+
+        if (!text) {
+            // مرفق بلا نص: لا نستهلك SIE على شيء لا يقرؤه — فريق الدعم يراه
+            this.isSending = false;
+            this.setComposerBusy(false);
+            this.appendSystemEvent('وصل المرفق. اكتب وصف المشكلة لو حابب المساعد يساعدك فيها.');
             return;
         }
 
+        // ── 3) رد SIE ────────────────────────────────────────────────────
         try {
-            if (typingText) {
-                // "جاري اتخاذ القرار..." لوضع SIE (محرك تشخيص/قرار)، وإلا نص عام
-                // "جاري التفكير..." للمحرك التقليدي. بيفضل ظاهر طول مراحل المعالجة
-                // كلها (مش بس نداء الـ API) لحد ما finally يقفله تحت.
-                typingText.textContent = this.cachedChatbotMode === 'sie' ? 'جاري اتخاذ القرار...' : 'جاري التفكير...';
-            }
+            if (typingText) typingText.textContent = 'جاري اتخاذ القرار...';
             if (typingIndicator) typingIndicator.style.display = 'flex';
 
             if (this.currentSession?.is_manual_mode) return;
@@ -1059,79 +1319,60 @@ class ChatWidget {
 
             if (freshSession?.is_manual_mode) return;
 
-            // نفس منطق البوابتين المزدوج الموجود في chat-logic.js، لكن دلوقتي
-            // بدون silent fallback: لو العميل مختار SIE (this.cachedChatbotMode)
-            // لكن صلاحيته اتسحبت من الإدارة وهو في نص محادثة، بنوقف ونبلّغه
-            // بوضوح جوه الشات نفسه، بدل ما نرجّعه صامت للمحرك التقليدي.
-            let reply;
-            let options;
+            // الواجهة تعرف مسبقًا أن SIE غير متاح (موقوف/منتهي/وصل حده)؟ لا
+            // نطلب ردًا سيُرفض — نشرح السبب. معلومة غير متاحة (null/خطأ) لا
+            // تمنع المحاولة: الخادم هو من يقرر مع كل رسالة.
+            if (this.entitlement?.status === 'ok' && !this.entitlement.hasAccess) {
+                await this.notifySieUnavailable(this.entitlement);
+                return;
+            }
 
-            if (this.cachedChatbotMode === 'sie') {
-                const sieAccess = await getSieAccessInfo(this.currentUser.id);
-                if (!sieAccess.available) {
-                    await this.handleSieRevokedMidConversation(sieAccess);
-                    return;
-                }
-                const sieResult = await getSieReply({
-                    text,
-                    supabase,
-                    sessionId: this.currentSessionId,
-                    userId: this.currentUser.id,
-                    botState: freshSession?.bot_state || {}
-                });
-                if (!sieResult) {
+            const sieResult = await getSieReply({
+                text,
+                supabase,
+                sessionId: this.currentSessionId,
+                userId: this.currentUser.id,
+                botState: freshSession?.bot_state || {}
+            });
+
+            if (!sieResult) {
+                // رفض الخادم (حد/إيقاف) يصل هنا كـ null: نسأل الخادم عن السبب
+                const ent = await this.refreshEntitlement();
+                if (ent?.status === 'ok' && !ent.hasAccess) {
+                    await this.notifySieUnavailable(ent);
+                } else {
                     await supabase.from('chat_messages').insert({
                         session_id: this.currentSessionId,
                         sender_id: null,
-                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، أو اختار وضع تاني من إعدادات الشات.',
+                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، ورسالتك وصلت لفريق الدعم كمان.',
                         is_admin_reply: false,
                         is_bot_reply: true
                     });
-                    return;
                 }
-                // نفس منطق chat-logic.js: SIE بيكتب دور المحادثة بنفسه
-                // لما يقول alreadyPersisted - رسالة البوت و bot_state
-                // والتذكرة لو اتفتحت، كلهم في معاملة واحدة عنده. لو
-                // كتبنا هنا كمان، العميل هيشوف نفس الرد مرتين.
-                if (sieResult.alreadyPersisted) {
-                    this.renderQuickOptions(sieResult.options);
-                    return;
-                }
+                return;
+            }
 
-                // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
-                reply = sieResult.reply;
-                options = sieResult.options;
+            // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted — رسالة
+            // البوت و bot_state والتذكرة لو اتفتحت، في معاملة واحدة عنده.
+            if (!sieResult.alreadyPersisted) {
                 if (sieResult.botState !== undefined) {
                     await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', this.currentSessionId);
                 }
-            } else {
-                const botReply = await getBotReply({
-                    text,
-                    supabase,
-                    sessionId: this.currentSessionId,
-                    userId: this.currentUser.id,
-                    botState: freshSession?.bot_state || {},
-                    botSettings: this.botSettings
+                await supabase.from('chat_messages').insert({
+                    session_id: this.currentSessionId,
+                    sender_id: null,
+                    message_text: sieResult.reply,
+                    is_admin_reply: false,
+                    is_bot_reply: true
                 });
-                reply = botReply.reply;
-                options = botReply.options;
             }
-
-            await supabase.from('chat_messages').insert({
-                session_id: this.currentSessionId,
-                sender_id: null,
-                message_text: reply,
-                is_admin_reply: false,
-                is_bot_reply: true
-            });
-
-            this.renderQuickOptions(options);
+            this.renderQuickOptions(sieResult.options);
         } catch (err) {
-            console.error('خطأ في البوت:', err);
+            console.error('خطأ في SIE:', err);
             await supabase.from('chat_messages').insert({
                 session_id: this.currentSessionId,
                 sender_id: null,
-                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. تقدر تكتب "عندي مشكلة" وهافتحلك تذكرة دعم مباشرة.',
+                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.',
                 is_admin_reply: false,
                 is_bot_reply: true
             });
@@ -1139,6 +1380,19 @@ class ChatWidget {
             if (typingIndicator) typingIndicator.style.display = 'none';
             this.isSending = false;
             this.setComposerBusy(false);
+            // الاستخدام تغيّر: تحديث صامت لمربع الاستخدام
+            this.refreshEntitlement();
+        }
+    }
+
+    /** رفع اكتمل لرسالة لم تُرسل: يُحذف (السياسة تسمح فقط بملف غير مُشار إليه). */
+    async cleanupUploads(paths) {
+        const list = paths.filter(Boolean);
+        if (!list.length) return;
+        try {
+            await supabase.storage.from(CHAT_ATTACHMENTS_BUCKET).remove(list);
+        } catch (err) {
+            console.warn('[ChatWidget] cleanup of unsent uploads failed:', err?.message || err);
         }
     }
 
@@ -1312,16 +1566,35 @@ class ChatWidget {
         if (!input) return;
         input.style.height = 'auto';
         input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
-        const send = document.querySelector('#chatWidgetFooter .chat-widget-send-btn');
-        if (send && !this.isSending) send.disabled = !input.value.trim();
+        this.updateActionButton();
+    }
+
+    /** زر واحد في نهاية الشريط: ميكروفون حين لا شيء للإرسال، وإرسال حين يوجد نص أو مرفق. */
+    hasSomethingToSend() {
+        const input = document.getElementById('chatWidgetTextInput');
+        return !!(input?.value.trim() || this.pendingAttachments.some((a) => a.state !== 'invalid'));
+    }
+
+    updateActionButton() {
+        const btn = document.getElementById('cwActionBtn');
+        if (!btn) return;
+        const canRecord = this.voiceSupported && !this.hasSomethingToSend();
+        btn.dataset.action = canRecord ? 'mic' : 'send';
+        btn.innerHTML = canRecord ? ICONS.mic : ICONS.send;
+        btn.setAttribute('aria-label', canRecord ? 'تسجيل رسالة صوتية' : 'إرسال');
+        btn.classList.toggle('is-mic', canRecord);
+        btn.disabled = !!this.isSending || (!canRecord && !this.hasSomethingToSend());
     }
 
     setComposerBusy(busy) {
-        const send = document.querySelector('#chatWidgetFooter .chat-widget-send-btn');
-        if (!send) return;
-        send.classList.toggle('is-busy', busy);
-        send.setAttribute('aria-busy', String(busy));
-        send.disabled = busy || !document.getElementById('chatWidgetTextInput')?.value.trim();
+        const btn = document.getElementById('cwActionBtn');
+        const attach = document.getElementById('cwAttachBtn');
+        if (attach) attach.disabled = busy;
+        if (!btn) return;
+        this.updateActionButton();
+        btn.classList.toggle('is-busy', busy);
+        btn.setAttribute('aria-busy', String(busy));
+        if (busy) btn.disabled = true;
     }
 
     /** خطأ ظاهر فوق حقل الكتابة (null يخفيه). onRetry اختياري. */
@@ -1342,7 +1615,157 @@ class ChatWidget {
             retry.addEventListener('click', () => { box.remove(); onRetry(); });
             box.appendChild(retry);
         }
-        footer.prepend(box);
+        const composer = footer.querySelector('.cw-composer');
+        composer ? composer.before(box) : footer.prepend(box);
+    }
+
+    /* ---------- المرفقات ---------- */
+
+    addFiles(fileList) {
+        this.showComposerError(null);
+        const incoming = Array.from(fileList || []);
+        const errors = [];
+        for (const file of incoming) {
+            if (this.pendingAttachments.length >= MAX_ATTACHMENTS_PER_SEND) {
+                errors.push(`حد أقصى ${MAX_ATTACHMENTS_PER_SEND} مرفقات في الرسالة الواحدة.`);
+                break;
+            }
+            const check = validateFile(file);
+            if (!check.ok) { errors.push(`«${file.name}»: ${check.error}`); continue; }
+            this.pendingAttachments.push({
+                id: `a${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+                file, kind: check.kind, state: 'ready', progress: 0,
+                previewUrl: check.kind === 'image' ? URL.createObjectURL(file) : null
+            });
+        }
+        this.renderAttachmentTray();
+        this.updateActionButton();
+        if (errors.length) this.showComposerError(errors.join(' '));
+    }
+
+    removeAttachment(id) {
+        const i = this.pendingAttachments.findIndex((a) => a.id === id);
+        if (i < 0) return;
+        const [a] = this.pendingAttachments.splice(i, 1);
+        if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+        this.renderAttachmentTray();
+        this.updateActionButton();
+        document.getElementById('chatWidgetTextInput')?.focus({ preventScroll: true });
+    }
+
+    clearPendingAttachments() {
+        this.pendingAttachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
+        this.pendingAttachments = [];
+        this.renderAttachmentTray();
+        this.updateActionButton();
+    }
+
+    renderAttachmentTray() {
+        const tray = document.getElementById('cwAttachTray');
+        if (!tray) return;
+        tray.hidden = this.pendingAttachments.length === 0;
+        tray.innerHTML = this.pendingAttachments.map((a) => `
+          <div class="cw-chip" data-id="${a.id}" data-state="${a.state}">
+            ${a.kind === 'image'
+                ? `<img class="cw-chip-thumb" src="${a.previewUrl}" alt="">`
+                : `<span class="cw-chip-icon">${ICONS.file}</span>`}
+            <span class="cw-chip-text">
+              <span class="cw-chip-name" dir="auto">${escapeHtml(a.file.name)}</span>
+              <span class="cw-chip-meta" dir="${a.state === 'ready' ? 'ltr' : 'auto'}">${a.state === 'error' ? escapeHtml(a.error || 'فشل الرفع') : a.state === 'uploading' ? 'جاري الرفع…' : formatBytes(a.file.size)}</span>
+            </span>
+            ${a.state === 'uploading' ? `<span class="cw-chip-progress" role="progressbar" aria-label="تقدّم رفع ${escapeHtml(a.file.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(a.progress * 100)}"><span style="width:${Math.round(a.progress * 100)}%"></span></span>` : ''}
+            <button type="button" class="cw-chip-remove" aria-label="إزالة ${escapeHtml(a.file.name)}" ${a.state === 'uploading' ? 'disabled' : ''}>${ICONS.close}</button>
+          </div>`).join('');
+        tray.querySelectorAll('.cw-chip-remove').forEach((btn) => {
+            btn.addEventListener('click', () => this.removeAttachment(btn.closest('.cw-chip').dataset.id));
+        });
+    }
+
+    renderAttachmentProgress(item) {
+        const bar = document.querySelector(`#cwAttachTray .cw-chip[data-id="${item.id}"] .cw-chip-progress`);
+        if (!bar) return;
+        const pct = Math.round(item.progress * 100);
+        bar.setAttribute('aria-valuenow', String(pct));
+        bar.firstElementChild.style.width = `${pct}%`;
+    }
+
+    /* ---------- التسجيل الصوتي ---------- */
+
+    async startRecording() {
+        if (this.isSending) return;
+        this.showComposerError(null);
+        if (!this.recorder) {
+            this.recorder = new VoiceRecorder({
+                onState: (state, detail) => this.onRecorderState(state, detail),
+                onTick: (ms) => {
+                    const el = document.getElementById('cwRecTime');
+                    if (el) el.textContent = formatDuration(ms);
+                }
+            });
+        }
+        this.setComposerMode('recording');
+        await this.recorder.start();
+    }
+
+    onRecorderState(state, detail) {
+        if (state === 'error') {
+            this.setComposerMode('text');
+            this.showComposerError(detail?.message || 'تعذّر التسجيل.');
+        } else if (state === 'stopped' && detail) {
+            const check = validateFile({ name: '', type: detail.mime, size: detail.blob.size }, 'audio');
+            if (!check.ok) {
+                this.setComposerMode('text');
+                this.showComposerError(check.error);
+                return;
+            }
+            this.recording = { ...detail, mime: check.mime, ext: check.ext, url: URL.createObjectURL(detail.blob) };
+            this.setComposerMode('preview');
+        } else if (state === 'idle') {
+            this.setComposerMode('text');
+        }
+    }
+
+    discardRecording() {
+        if (this.recording?.url) URL.revokeObjectURL(this.recording.url);
+        this.recording = null;
+        this.setComposerMode('text');
+    }
+
+    /** text | recording | preview — نفس الشريط، بلا تغيير في ارتفاع المحادثة. */
+    setComposerMode(mode) {
+        const composer = document.querySelector('#chatWidgetFooter .cw-composer');
+        if (!composer) return;
+        composer.dataset.mode = mode;
+        const rec = document.getElementById('cwRecorder');
+        const row = composer.querySelector('.chat-widget-input-row');
+        if (mode === 'text') {
+            rec.hidden = true;
+            rec.innerHTML = '';
+            row.hidden = false;
+            this.updateActionButton();
+            return;
+        }
+        row.hidden = true;
+        rec.hidden = false;
+        if (mode === 'recording') {
+            rec.innerHTML = `
+              <button type="button" class="cw-icon-btn" id="cwRecCancel" aria-label="إلغاء التسجيل">${ICONS.close}</button>
+              <span class="cw-rec-status" role="status"><span class="cw-rec-dot" aria-hidden="true"></span>جاري التسجيل <time id="cwRecTime" dir="ltr">0:00</time></span>
+              <button type="button" class="cw-icon-btn cw-rec-stop" id="cwRecStop" aria-label="إيقاف التسجيل">${ICONS.stop}</button>`;
+            rec.querySelector('#cwRecCancel').addEventListener('click', () => this.recorder?.cancel());
+            rec.querySelector('#cwRecStop').addEventListener('click', () => this.recorder?.stop());
+            rec.querySelector('#cwRecStop').focus({ preventScroll: true });
+        } else if (mode === 'preview') {
+            rec.innerHTML = `
+              <button type="button" class="cw-icon-btn" id="cwRecDiscard" aria-label="حذف التسجيل">${ICONS.trash}</button>
+              <audio class="cw-rec-audio" controls preload="metadata" aria-label="معاينة التسجيل"></audio>
+              <span class="cw-rec-len" dir="ltr">${formatDuration(this.recording?.durationMs)}</span>
+              <button type="button" class="chat-widget-send-btn" id="cwRecSend" aria-label="إرسال التسجيل">${ICONS.send}</button>`;
+            rec.querySelector('audio').src = this.recording.url;
+            rec.querySelector('#cwRecDiscard').addEventListener('click', () => this.discardRecording());
+            rec.querySelector('#cwRecSend').addEventListener('click', () => this.sendMessage());
+            rec.querySelector('#cwRecSend').focus({ preventScroll: true });
+        }
     }
 
     renderChatShell() {
@@ -1352,18 +1775,28 @@ class ChatWidget {
         const footer = document.getElementById('chatWidgetFooter');
         if (!footer) return;
         footer.innerHTML = '';
+        this.isModeMenuOpen = false;
+        this.voiceSupported = isVoiceRecordingSupported();
 
-        const row = document.createElement('div');
-        row.className = 'chat-widget-input-row';
+        const composer = document.createElement('div');
+        composer.className = 'cw-composer';
+        composer.dataset.mode = 'text';
+        composer.innerHTML = `
+          <div class="cw-attach-tray" id="cwAttachTray" hidden></div>
+          <div class="cw-recorder" id="cwRecorder" hidden></div>
+          <div class="chat-widget-input-row">
+            <button type="button" class="cw-icon-btn" id="cwAttachBtn" aria-label="إرفاق صورة أو ملف">${ICONS.attach}</button>
+            <input type="file" id="cwFileInput" accept="${FILE_PICKER_ACCEPT}" multiple hidden>
+            <textarea id="chatWidgetTextInput" class="chat-widget-text-input" rows="1" placeholder="اكتب رسالتك هنا..." aria-label="رسالتك" autocomplete="off" dir="auto"></textarea>
+            <button type="button" class="cw-mode-chip" id="cwModeChip" aria-haspopup="dialog" aria-expanded="false" aria-controls="cwModeMenu" aria-label="وضع الرد: SIE. عرض الخطة والاستخدام">
+              <span class="cw-mode-chip-dot" aria-hidden="true"></span><span class="cw-mode-chip-name">SIE</span><span class="cw-mode-chip-plan"></span>${ICONS.chevron}
+            </button>
+            <button type="button" class="chat-widget-send-btn" id="cwActionBtn" aria-label="إرسال" disabled>${ICONS.send}</button>
+          </div>`;
+        footer.appendChild(composer);
 
-        const input = document.createElement('textarea');
-        input.id = 'chatWidgetTextInput';
-        input.className = 'chat-widget-text-input';
-        input.rows = 1;
-        input.placeholder = 'اكتب رسالتك هنا...';
-        input.setAttribute('aria-label', 'رسالتك');
-        input.autocomplete = 'off';
-        input.dir = 'auto';
+        const input = composer.querySelector('#chatWidgetTextInput');
+        const fileInput = composer.querySelector('#cwFileInput');
         input.addEventListener('input', () => this.autoSizeComposer());
         input.addEventListener('keydown', (e) => {
             // Enter يرسل، وShift+Enter سطر جديد. isComposing: لا نرسل أثناء
@@ -1373,18 +1806,25 @@ class ChatWidget {
                 this.sendMessage();
             }
         });
+        // لصق صورة من الحافظة مباشرة
+        input.addEventListener('paste', (e) => {
+            const files = Array.from(e.clipboardData?.files || []);
+            if (files.length) { e.preventDefault(); this.addFiles(files); }
+        });
+        composer.querySelector('#cwAttachBtn').addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+        fileInput.addEventListener('change', () => this.addFiles(fileInput.files));
+        composer.querySelector('#cwModeChip').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleModeMenu();
+        });
+        composer.querySelector('#cwActionBtn').addEventListener('click', () => {
+            if (composer.querySelector('#cwActionBtn').dataset.action === 'mic') this.startRecording();
+            else this.sendMessage();
+        });
 
-        const sendBtn = document.createElement('button');
-        sendBtn.type = 'button';
-        sendBtn.className = 'chat-widget-send-btn';
-        sendBtn.setAttribute('aria-label', 'إرسال');
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`;
-        sendBtn.addEventListener('click', () => this.sendMessage());
-
-        row.appendChild(input);
-        row.appendChild(sendBtn);
-        footer.appendChild(row);
+        this.renderModeChip();
+        this.renderAttachmentTray();
+        this.updateActionButton();
 
         // إنهاء المحادثة بتأكيد داخل الشريط بدل confirm() الخاصة بالمتصفح
         const meta = document.createElement('div');

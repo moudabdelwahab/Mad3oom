@@ -1,39 +1,26 @@
 /**
  * chatbot-mode-selector.js
  * ------------------------------------------------------------
- * مكوّن واجهة قابل لإعادة الاستخدام: نافذة اختيار "وضع الشات بوت"
- * (تقليدي / نموذج ذكاء اصطناعي / تلقائي / SIE)، بما فيها اختيار
- * المزوّد والموديل عند اختيار وضع "نموذج ذكاء اصطناعي".
+ * لوحة «خطة SIE» للعميل: وضع الرد (SIE فقط)، الخطة الحالية، الاستخدام
+ * (المستخدم / المتبقي / الإجمالي / النسبة / موعد التجدد)، والنزول لخطة أقل.
  *
- * مصمم ليُستخدم من أي سياق (الويدجت العائم chat-widget.js، أو صفحة الشات
- * الكاملة chat-logic.js) عن طريق:
+ * كانت هذه نافذة اختيار «وضع الشات بوت» (تقليدي / نموذج / تلقائي / SIE).
+ * الوضع التقليدي أُزيل، والنموذج/التلقائي مخفيّان لأنهما لم يكن لهما محرك
+ * حقيقي خلفهما. أسماء التصدير بقيت كما هي لأن customer-settings-modal.js
+ * وchat-logic.js يستوردانها:
  *
- *   import { openChatbotModeDialog } from '/assets/js/chatbot-mode-selector.js';
- *   openChatbotModeDialog({
- *     userId: currentUser.id,
- *     onModeChanged: (newState) => { ... }
- *   });
+ *   renderChatbotModeInto(container, { userId })   داخل تبويب الإعدادات
+ *   openChatbotModeDialog({ userId, onPlanChanged }) نافذة منبثقة
  *
- * لا يعتمد على أي إطار عمل (Vanilla JS)، بنفس أسلوب باقي المشروع، ويحقن
- * الـ CSS الخاصة به مرة واحدة فقط بأسماء متغيرات معزولة (--cms-*) حتى لا
- * تتعارض مع أي نظام ألوان موجود في الصفحة المضيفة.
+ * الخادم هو مصدر الحقيقة: sie_my_entitlement() / sie_customer_downgrade()
+ * (sie-plan-service.js). الواجهة لا تحسب أي قاعدة ولا تستخدم localStorage؛
+ * أزرار النزول تُرسم فقط مما يسمح به الخادم، والخادم يرفض غيرها أصلًا.
  * ------------------------------------------------------------
  */
 
 import { supabase } from '/api-config.js';
-import {
-    CHATBOT_MODES,
-    CHATBOT_MODE_LABELS,
-    CHATBOT_MODE_DESCRIPTIONS,
-    isModeAvailableForEntitlement,
-    hasChatbotEntitlement,
-    fetchChatbotModeState,
-    saveChatbotModeState,
-    fetchCustomerVisibleIntegrations,
-    fetchCustomerVisibleModels,
-    getAutoModeExplanation,
-    getSieAccessInfo
-} from '/assets/js/chatbot-mode-service.js';
+import { fetchEntitlement, downgradePlan } from '/assets/js/sie-plan-service.js';
+import { usageView } from '/assets/js/sie-plan-model.js';
 
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
@@ -45,21 +32,16 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-const MODE_ICONS = {
-    [CHATBOT_MODES.TRADITIONAL]: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h6"></path></svg>',
-    [CHATBOT_MODES.AI_MODEL]: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="11" rx="2"></rect><path d="M9 8V5a3 3 0 0 1 6 0v3"></path><circle cx="9" cy="13.5" r="1"></circle><circle cx="15" cy="13.5" r="1"></circle></svg>',
-    [CHATBOT_MODES.AUTO]: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path><circle cx="12" cy="12" r="4"></circle></svg>',
-    [CHATBOT_MODES.SIE]: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"></path><path d="M9.5 12l1.8 1.8L15 10"></path></svg>'
-};
+const SIE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"></path><path d="M9.5 12l1.8 1.8L15 10"></path></svg>';
 
 let stylesInjected = false;
 function injectStyles() {
-    if (stylesInjected) return;
+    if (stylesInjected || document.getElementById('chatbotModeSelectorStyles')) { stylesInjected = true; return; }
     stylesInjected = true;
     const style = document.createElement('style');
     style.id = 'chatbotModeSelectorStyles';
     style.textContent = `
-        .cms-overlay {
+        .cms-scope {
             --cms-bg: #ffffff;
             --cms-bg-elevated: #f4f6f8;
             --cms-border: rgba(0, 51, 102, 0.12);
@@ -67,650 +49,322 @@ function injectStyles() {
             --cms-text-secondary: #5c6570;
             --cms-accent: #003366;
             --cms-accent-hover: #0055aa;
-            --cms-success: #22c55e;
+            --cms-success: #16a34a;
             --cms-danger: #d9534f;
-            --cms-warning: #e0a800;
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 32, 0.45);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100000;
-            padding: 1rem;
+            --cms-warning: #c98a00;
             font-family: 'Cairo', system-ui, sans-serif;
+            color: var(--cms-text);
+            direction: rtl;
+        }
+        .cms-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 32, 0.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100000; padding: 1rem;
             animation: cmsFadeIn 0.15s ease-out;
         }
         @keyframes cmsFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cmsSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
         .cms-dialog {
-            background: var(--cms-bg);
-            border-radius: 16px;
-            width: 100%;
-            max-width: 480px;
-            max-height: min(640px, 88vh);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            background: var(--cms-bg); border-radius: 16px;
+            width: 100%; max-width: 440px; max-height: min(640px, 88vh);
+            display: flex; flex-direction: column; overflow: hidden;
             box-shadow: 0 20px 60px rgba(0,0,0,0.25);
             animation: cmsSlideUp 0.18s ease-out;
-            direction: rtl;
         }
-
         .cms-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1.1rem 1.25rem;
-            background: var(--cms-accent);
-            color: #fff;
-            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.1rem 1.25rem; background: var(--cms-accent); color: #fff; flex-shrink: 0;
         }
         .cms-header h3 { margin: 0; font-size: 1.05rem; font-weight: 700; }
         .cms-header p { margin: 0.2rem 0 0; font-size: 0.78rem; opacity: 0.85; }
         .cms-close-btn {
-            background: rgba(255,255,255,0.12);
-            border: none;
-            color: #fff;
-            width: 30px; height: 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.2rem;
-            line-height: 1;
+            background: rgba(255,255,255,0.12); border: none; color: #fff;
+            width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+            font-size: 1.2rem; line-height: 1; flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.15s ease;
         }
         .cms-close-btn:hover { background: rgba(255,255,255,0.22); }
+        .cms-close-btn:focus-visible, .cms-scope button:focus-visible { outline: 2px solid var(--cms-accent-hover); outline-offset: 2px; }
+        .cms-body { flex: 1; overflow-y: auto; padding: 1rem 1.1rem 1.25rem; }
 
-        .cms-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem 1.1rem 1.25rem;
-        }
-
-        .cms-loading-state, .cms-error-state, .cms-empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            gap: 0.6rem;
-            padding: 2.25rem 1rem;
-            color: var(--cms-text-secondary);
-            font-size: 0.88rem;
+        .cms-loading-state, .cms-error-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: 0.6rem; padding: 2rem 1rem;
+            color: var(--cms-text-secondary); font-size: 0.88rem;
         }
         .cms-spinner {
-            width: 26px; height: 26px;
-            border-radius: 50%;
-            border: 3px solid var(--cms-border);
-            border-top-color: var(--cms-accent);
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 3px solid var(--cms-border); border-top-color: var(--cms-accent);
             animation: cmsSpin 0.7s linear infinite;
         }
         @keyframes cmsSpin { to { transform: rotate(360deg); } }
-        .cms-error-state svg, .cms-empty-state svg { width: 34px; height: 34px; color: var(--cms-text-secondary); }
-        .cms-error-state { color: var(--cms-danger); }
         .cms-retry-btn {
-            margin-top: 0.25rem;
-            border: 1.5px solid var(--cms-accent);
-            color: var(--cms-accent);
-            background: transparent;
-            padding: 0.4rem 1rem;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.82rem;
-            font-weight: 700;
-            cursor: pointer;
+            border: 1.5px solid var(--cms-accent); color: var(--cms-accent); background: transparent;
+            padding: 0.4rem 1rem; border-radius: 8px; font-family: inherit;
+            font-size: 0.82rem; font-weight: 700; cursor: pointer;
         }
-        .cms-retry-btn:hover { background: rgba(0,51,102,0.06); }
 
-        .cms-mode-list { display: flex; flex-direction: column; gap: 0.6rem; }
-
+        .cms-section { margin-bottom: 1rem; }
+        .cms-section:last-child { margin-bottom: 0; }
+        .cms-section-title { display: block; font-size: 0.8rem; font-weight: 700; color: var(--cms-text-secondary); margin-bottom: 0.45rem; }
         .cms-mode-card {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            border: 1.5px solid var(--cms-border);
-            border-radius: 12px;
-            padding: 0.85rem 0.9rem;
-            cursor: pointer;
-            transition: border-color 0.15s ease, background 0.15s ease;
-            text-align: right;
-            background: var(--cms-bg);
+            display: flex; align-items: flex-start; gap: 0.75rem;
+            border: 1.5px solid var(--cms-accent); border-radius: 12px;
+            padding: 0.85rem 0.9rem; background: rgba(0, 51, 102, 0.05);
         }
-        .cms-mode-card:hover:not(.cms-mode-card-disabled) { border-color: var(--cms-accent); background: var(--cms-bg-elevated); }
-        .cms-mode-card.cms-mode-card-active { border-color: var(--cms-accent); background: rgba(0, 51, 102, 0.06); }
-        .cms-mode-card-disabled { opacity: 0.55; cursor: not-allowed; }
-
         .cms-mode-icon {
-            width: 38px; height: 38px;
-            flex-shrink: 0;
-            border-radius: 10px;
-            background: var(--cms-bg-elevated);
-            color: var(--cms-accent);
+            width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px;
+            background: var(--cms-bg); color: var(--cms-accent);
             display: flex; align-items: center; justify-content: center;
         }
         .cms-mode-icon svg { width: 20px; height: 20px; }
-
         .cms-mode-info { flex: 1; min-width: 0; }
-        .cms-mode-title-row { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-        .cms-mode-title { font-weight: 700; font-size: 0.92rem; color: var(--cms-text); }
+        .cms-mode-title { font-weight: 700; font-size: 0.92rem; }
         .cms-mode-desc { font-size: 0.78rem; color: var(--cms-text-secondary); margin-top: 0.2rem; line-height: 1.5; }
+        .cms-check { color: var(--cms-accent); font-weight: 800; }
 
-        .cms-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 0.15rem 0.5rem;
-            border-radius: 999px;
-            display: inline-block;
+        .cms-plan-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .cms-plan-badge {
+            font-size: 0.78rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 999px;
+            background: rgba(0, 51, 102, 0.1); color: var(--cms-accent); white-space: nowrap;
         }
-        .cms-badge-locked { background: rgba(224, 168, 0, 0.15); color: #9a6c00; }
-        .cms-badge-soon { background: rgba(92, 101, 112, 0.15); color: var(--cms-text-secondary); }
-        .cms-badge-active { background: rgba(34, 197, 94, 0.15); color: #15803d; }
+        .cms-usage { background: var(--cms-bg-elevated); border-radius: 12px; padding: 0.75rem 0.85rem; }
+        .cms-usage-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.82rem; }
+        .cms-usage-pct { font-weight: 800; }
+        .cms-usage-bar { height: 8px; border-radius: 999px; background: var(--cms-border); overflow: hidden; margin: 0.45rem 0; }
+        .cms-usage-bar span { display: block; height: 100%; border-radius: inherit; background: var(--cms-success); }
+        .cms-usage[data-tone="warn"] .cms-usage-bar span { background: var(--cms-warning); }
+        .cms-usage[data-tone="full"] .cms-usage-bar span { background: var(--cms-danger); }
+        .cms-usage-nums { color: var(--cms-text-secondary); }
+        .cms-usage-nums span { white-space: nowrap; unicode-bidi: isolate; }
+        .cms-usage-reset { font-size: 0.76rem; color: var(--cms-text-secondary); margin-top: 0.3rem; }
 
-        .cms-radio-dot {
-            width: 20px; height: 20px;
-            border-radius: 50%;
-            border: 2px solid var(--cms-border);
-            flex-shrink: 0;
-            margin-top: 2px;
-            display: flex; align-items: center; justify-content: center;
+        .cms-note { font-size: 0.8rem; color: var(--cms-text-secondary); line-height: 1.6; margin: 0; }
+        .cms-alert {
+            margin: 0.6rem 0 0; font-size: 0.8rem; font-weight: 600; line-height: 1.6;
+            color: #a3231f; background: rgba(217, 83, 79, 0.1);
+            border: 1px solid rgba(217, 83, 79, 0.25); border-radius: 8px; padding: 0.55rem 0.7rem;
         }
-        .cms-mode-card-active .cms-radio-dot { border-color: var(--cms-accent); }
-        .cms-mode-card-active .cms-radio-dot::after {
-            content: '';
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            background: var(--cms-accent);
-        }
+        .cms-error { margin: 0.6rem 0 0; font-size: 0.8rem; color: var(--cms-danger); }
 
-        .cms-locked-note {
-            margin-top: 0.5rem;
-            font-size: 0.74rem;
-            color: #9a6c00;
-            background: rgba(224, 168, 0, 0.1);
-            border-radius: 8px;
-            padding: 0.5rem 0.65rem;
-            line-height: 1.5;
+        .cms-downgrade-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .cms-downgrade-btn {
+            border: 1.5px solid var(--cms-border); background: var(--cms-bg); color: var(--cms-text);
+            padding: 0.5rem 0.9rem; border-radius: 10px; font-family: inherit;
+            font-size: 0.82rem; font-weight: 700; cursor: pointer;
         }
-
-        .cms-revoked-note {
-            margin-top: 0.5rem;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #a3231f;
-            background: rgba(217, 83, 79, 0.1);
-            border: 1px solid rgba(217, 83, 79, 0.25);
-            border-radius: 8px;
-            padding: 0.6rem 0.7rem;
-            line-height: 1.6;
-        }
-
-        .cms-section-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--cms-text);
-            margin: 1.1rem 0 0.5rem;
-        }
-
-        .cms-select {
-            width: 100%;
-            padding: 0.6rem 0.75rem;
-            border-radius: 10px;
-            border: 1.5px solid var(--cms-border);
-            font-family: inherit;
-            font-size: 0.85rem;
-            color: var(--cms-text);
-            background: var(--cms-bg);
-            appearance: none;
-        }
-        .cms-select:disabled { opacity: 0.6; cursor: not-allowed; }
-        .cms-field-help { font-size: 0.74rem; color: var(--cms-text-secondary); margin-top: 0.35rem; line-height: 1.5; }
-
-        .cms-info-box {
-            background: var(--cms-bg-elevated);
-            border-radius: 10px;
-            padding: 0.75rem 0.85rem;
-            font-size: 0.82rem;
-            color: var(--cms-text-secondary);
-            line-height: 1.6;
-            margin-top: 0.6rem;
-        }
-
-        .cms-footer {
-            display: flex;
-            gap: 0.6rem;
-            padding: 0.9rem 1.1rem;
-            border-top: 1px solid var(--cms-border);
-            flex-shrink: 0;
-        }
-        .cms-btn {
-            flex: 1;
-            padding: 0.65rem 1rem;
-            border-radius: 10px;
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            border: none;
-            transition: opacity 0.15s ease, background 0.15s ease;
-        }
-        .cms-btn-primary { background: var(--cms-accent); color: #fff; }
-        .cms-btn-primary:hover:not(:disabled) { background: var(--cms-accent-hover); }
-        .cms-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-        .cms-btn-secondary { background: var(--cms-bg-elevated); color: var(--cms-text); }
-        .cms-btn-secondary:hover { background: var(--cms-border); }
-
-        .cms-toast {
-            position: fixed;
-            bottom: 1.5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--cms-text, #23272b);
-            color: #fff;
-            padding: 0.6rem 1.1rem;
-            border-radius: 10px;
-            font-family: 'Cairo', system-ui, sans-serif;
-            font-size: 0.85rem;
-            z-index: 100001;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-            animation: cmsFadeIn 0.15s ease-out;
-        }
-        .cms-toast-success { background: #15803d; }
-        .cms-toast-error { background: var(--cms-danger, #d9534f); }
+        .cms-downgrade-btn:hover:not(:disabled) { border-color: var(--cms-accent); }
+        .cms-downgrade-btn.is-confirm { border-color: var(--cms-danger); color: var(--cms-danger); }
+        .cms-downgrade-btn:disabled { opacity: 0.6; cursor: progress; }
+        .cms-hint { font-size: 0.74rem; color: var(--cms-text-secondary); margin: 0.45rem 0 0; }
 
         @media (max-width: 480px) {
-            .cms-dialog { max-width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; align-self: flex-end; }
             .cms-overlay { align-items: flex-end; padding: 0; }
+            .cms-dialog { max-width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .cms-overlay, .cms-dialog { animation: none; }
+            .cms-spinner { animation-duration: 2s; }
         }
     `;
     document.head.appendChild(style);
 }
 
-function showToast(message, kind = 'success') {
-    const existing = document.querySelector('.cms-toast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.className = `cms-toast ${kind === 'error' ? 'cms-toast-error' : 'cms-toast-success'}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2600);
+function loadingHtml() {
+    return `<div class="cms-loading-state"><div class="cms-spinner" aria-hidden="true"></div><span>جاري تحميل خطة SIE…</span></div>`;
 }
 
-/**
- * نص واضح وصريح يشرح للعميل *ليه* اتحول تلقائيًا من SIE للوضع التقليدي -
- * عمدًا مش "حصل تغيير" غامضة، عشان العميل يفهم ويقدر يتصرف (يشترك تاني،
- * يكلم الدعم، أو يختار وضع تاني بوعي بدل ما يفضل يكلم بوت مش اللي فاكره).
- */
-function buildSieRevokedMessage(sieAccess) {
-    const reason = sieAccess?.statusLabel;
-    let why = 'صلاحية استخدامك لمحرك الدعم الذكي (SIE) لم تعد متاحة حاليًا.';
-    if (reason === 'انتهت الكوتة') why = 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لك.';
-    else if (reason === 'انتهت الصلاحية') why = 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).';
-    else if (reason === 'غير مفعّل') why = 'تم إلغاء تفعيل محرك الدعم الذكي (SIE) لحسابك.';
-    return `${why} تم تحويلك تلقائيًا للوضع التقليدي، واختيارك محفوظ كذلك. اختر وضعًا آخر من هنا، أو تواصل مع الدعم لتفعيل SIE مرة أخرى.`;
-}
-
-/**
- * يرسم واجهة اختيار الوضع (بدون الفوتر/الحوار) داخل أي عنصر حاوٍ (container)
- * موجود بالفعل في الصفحة. يُستخدم هذا مباشرة من التبويب داخل نافذة إعدادات
- * العميل (customer-settings-modal)، وأيضًا داخليًا من openChatbotModeDialog.
- *
- * @param {HTMLElement} container
- * @param {Object} opts
- * @param {string} opts.userId
- * @param {(state: {mode:string, integrationId:?string, modelId:?string}) => void} [opts.onModeChanged]
- * @param {boolean} [opts.showFooterButtons=true] - هل تُعرض أزرار حفظ/إلغاء منفصلة، أم يُحفظ فور الاختيار (للاستخدام داخل تبويب)
- */
-export function renderChatbotModeInto(container, { userId, onModeChanged, showFooterButtons = true } = {}) {
-    injectStyles();
-    if (!container) return;
-    if (!userId) {
-        container.innerHTML = `<div class="cms-empty-state">يجب تسجيل الدخول لعرض إعدادات وضع الشات بوت.</div>`;
-        return;
-    }
-    container.innerHTML = `
-        <div class="cms-loading-state">
-            <div class="cms-spinner"></div>
-            <span>جاري تحميل الإعدادات...</span>
-        </div>
-    `;
-    loadAndRender({ userId, body: container, onModeChanged, showFooterButtons, isDialog: false });
-}
-
-/**
- * @param {Object} opts
- * @param {string} opts.userId
- * @param {(state: {mode:string, integrationId:?string, modelId:?string}) => void} [opts.onModeChanged]
- */
-export function openChatbotModeDialog({ userId, onModeChanged } = {}) {
-    injectStyles();
-
-    if (!userId) {
-        console.error('[chatbot-mode-selector] userId مطلوب لفتح نافذة اختيار الوضع');
-        return;
+/** HTML اللوحة من حالة الاستحقاق المطبّعة (normalizeEntitlement). دالة نقية. */
+export function planPanelHtml(ent, now = Date.now()) {
+    const v = usageView(ent, now);
+    let usageHtml;
+    if (ent.status === 'signed_out') {
+        usageHtml = '<p class="cms-note">سجّل الدخول لعرض خطتك واستخدامك.</p>';
+    } else if (ent.status !== 'ok') {
+        usageHtml = '<p class="cms-note">تعذّر تحميل بيانات الاستخدام الآن. الشات يعمل كالمعتاد.</p>';
+    } else if (!v.available) {
+        usageHtml = '<p class="cms-note">لا توجد بيانات استخدام بعد.</p>';
+    } else {
+        usageHtml = `
+            <div class="cms-usage" data-tone="${v.tone}">
+                <div class="cms-usage-row"><span>الاستخدام</span>${v.percent !== null ? `<span class="cms-usage-pct">${v.percent}%</span>` : ''}</div>
+                ${v.percent !== null ? `<div class="cms-usage-bar" role="progressbar" aria-label="نسبة الاستخدام" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v.percent}"><span style="width:${v.percent}%"></span></div>` : ''}
+                <div class="cms-usage-row cms-usage-nums"><span dir="ltr">${escapeHtml(v.usedText)}</span><span>${escapeHtml(v.remainingText)}</span></div>
+                ${v.resetText ? `<div class="cms-usage-reset">${escapeHtml(v.resetText)}</div>` : ''}
+            </div>`;
     }
 
-    const overlay = document.createElement('div');
-    overlay.className = 'cms-overlay';
-    overlay.innerHTML = `
-        <div class="cms-dialog" role="dialog" aria-modal="true" aria-label="اختيار وضع الشات بوت">
-            <div class="cms-header">
-                <div>
-                    <h3>وضع الشات بوت</h3>
-                    <p>اختار طريقة رد البوت على رسائلك</p>
-                </div>
-                <button type="button" class="cms-close-btn" id="cmsCloseBtn" aria-label="إغلاق">×</button>
-            </div>
-            <div class="cms-body" id="cmsBody">
-                <div class="cms-loading-state">
-                    <div class="cms-spinner"></div>
-                    <span>جاري تحميل الإعدادات...</span>
-                </div>
+    const reason = ent.status === 'ok' && !ent.hasAccess && ent.reasonText
+        ? `<p class="cms-alert" role="status">${escapeHtml(ent.reasonText)} رسائلك تصل لفريق الدعم وهيرد عليك في المحادثة.</p>` : '';
+
+    const downgrades = ent.status === 'ok' && ent.downgradeTo.length
+        ? `<div class="cms-section">
+               <span class="cms-section-title">تغيير الخطة</span>
+               <div class="cms-downgrade-list">${ent.downgradeTo.map((d) => `
+                   <button type="button" class="cms-downgrade-btn" data-plan="${escapeHtml(d.plan)}" data-focus-key="down-${escapeHtml(d.plan)}">النزول إلى ${escapeHtml(d.label)}</button>`).join('')}
+               </div>
+               <p class="cms-hint">الترقية لخطة أعلى بتتم من فريق المنصة.</p>
+           </div>` : '';
+
+    return `
+        <div class="cms-section">
+            <span class="cms-section-title">وضع الرد</span>
+            <div class="cms-mode-card">
+                <span class="cms-mode-icon">${SIE_ICON}</span>
+                <span class="cms-mode-info">
+                    <span class="cms-mode-title">محرك الدعم الذكي (SIE)</span>
+                    <span class="cms-mode-desc" style="display:block">يفهم المشكلة، يشخّصها، ويرد أو يفتح تذكرة بنفسه.</span>
+                </span>
+                <span class="cms-check" aria-label="الوضع الحالي">✓</span>
             </div>
         </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#cmsCloseBtn').addEventListener('click', close);
-    const escHandler = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); } };
-    document.addEventListener('keydown', escHandler);
-
-    const body = overlay.querySelector('#cmsBody');
-    loadAndRender({ userId, body, overlay, onModeChanged, showFooterButtons: true, isDialog: true });
-
-    return { close };
-}
-
-async function loadAndRender({ userId, body, overlay, onModeChanged, showFooterButtons, isDialog }) {
-    let entitled = false;
-    let state = null;
-    let sieAccess = null;
-    try {
-        [entitled, state, sieAccess] = await Promise.all([
-            hasChatbotEntitlement(userId),
-            fetchChatbotModeState(userId),
-            getSieAccessInfo(userId)
-        ]);
-    } catch (err) {
-        renderErrorState(body, 'حصل خطأ أثناء تحميل إعدادات وضع الشات بوت.', () => loadAndRender({ userId, body, overlay, onModeChanged, showFooterButtons, isDialog }));
-        return;
-    }
-
-    let integrations = [];
-    let integrationsError = null;
-    try {
-        integrations = await fetchCustomerVisibleIntegrations();
-    } catch (err) {
-        console.warn('[chatbot-mode-selector] تعذّر تحميل المزوّدات:', err?.message || err);
-        integrationsError = err;
-    }
-
-    renderModeList({ body, overlay, userId, entitled, state, sieAccess, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog });
-}
-
-function renderErrorState(body, message, onRetry) {
-    body.innerHTML = `
-        <div class="cms-error-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16v.01"></path></svg>
-            <span>${escapeHtml(message)}</span>
-            <button type="button" class="cms-retry-btn" id="cmsRetryBtn">إعادة المحاولة</button>
+        <div class="cms-section">
+            <div class="cms-plan-row">
+                <span class="cms-section-title" style="margin:0">الخطة الحالية</span>
+                <span class="cms-plan-badge">${ent.status === 'ok' ? `SIE ${escapeHtml(ent.planLabel)}` : '—'}</span>
+            </div>
+            ${usageHtml}
+            ${reason}
         </div>
-    `;
-    body.querySelector('#cmsRetryBtn')?.addEventListener('click', onRetry);
+        ${downgrades}
+        <p class="cms-error" role="alert" hidden></p>`;
 }
 
-function renderModeList({ body, overlay, userId, entitled, state, sieAccess, integrations, integrationsError, onModeChanged, showFooterButtons, isDialog }) {
-    let selectedMode = state.chatbot_mode;
-    let selectedIntegrationId = state.chatbot_selected_integration_id;
-    let selectedModelId = state.chatbot_selected_model_id;
+/**
+ * يرسم اللوحة داخل حاوية ويربط أزرار النزول. يرجع دالة إعادة تحميل.
+ * @param {HTMLElement} body
+ * @param {{onPlanChanged?: (ent:Object) => void}} opts
+ */
+function mountPanel(body, { onPlanChanged } = {}) {
+    let confirmTimer = null;
+    let current = null;
 
-    // SIE عنصر مستقل: customer_sie_access (قرار إداري) هو اللي بيحدد هل
-    // الخيار *يظهر أصلاً* في القائمة، مش مجرد يبان "مقفول" زي أوضاع
-    // الاشتراك العادية. لو العميل مش مفعّل له SIE، الخيار مبيتعرضش خالص.
-    const sieAvailable = !!sieAccess?.available;
+    const render = (ent) => {
+        current = ent;
+        const focusKey = body.contains(document.activeElement) ? document.activeElement?.dataset?.focusKey : null;
+        body.innerHTML = planPanelHtml(ent);
+        body.querySelectorAll('.cms-downgrade-btn').forEach((btn) => btn.addEventListener('click', () => onDowngrade(btn)));
+        if (focusKey) body.querySelector(`[data-focus-key="${focusKey}"]`)?.focus({ preventScroll: true });
+    };
 
-    // لو العميل كان مختار SIE فعلاً (محفوظ في profiles.chatbot_mode) والصلاحية
-    // اتشالت منه بعدين (كوتة خلصت / انتهت الصلاحية / الإدارة عطّلته)، *ممنوع*
-    // نرجّعه للوضع التقليدي بصمت في الواجهة بس - العميل هيفضل معتقد إنه
-    // لسه على SIE بينما فعليًا بيرد عليه المحرك التقليدي، وده أخطر من مفيش
-    // fallback أصلاً. بدل كده: نحفظ التراجع فعليًا في قاعدة البيانات (مش
-    // بس محليًا)، ونوريه بانر واضح بالسبب، ونخليه يختار وضع تاني بنفسه.
-    const wasSieRevoked = state.chatbot_mode === CHATBOT_MODES.SIE && !sieAvailable;
-    if (wasSieRevoked) {
-        selectedMode = CHATBOT_MODES.TRADITIONAL;
-        // Fire-and-forget: يحفظ التراجع فورًا في profiles.chatbot_mode بحيث
-        // أي مكان تاني بيقرا الحالة دي (زر الشات المصغّر، مسار الإرسال نفسه)
-        // ما يفضلش شايف "sie" وهي مرفوضة فعليًا. لو الحفظ فشل (شبكة مثلاً)،
-        // البانر التحذيري هيفضل ظاهر على أي حال لحد ما ينجح في مرة تانية.
-        saveChatbotModeState(userId, { mode: CHATBOT_MODES.TRADITIONAL, integrationId: null, modelId: null })
-            .then((result) => {
-                if (result.ok && typeof onModeChanged === 'function') {
-                    onModeChanged({ mode: CHATBOT_MODES.TRADITIONAL, integrationId: null, modelId: null, sieAutoDowngraded: true });
-                }
-            })
-            .catch((err) => console.warn('[chatbot-mode-selector] تعذّر حفظ التراجع التلقائي عن SIE:', err?.message || err));
-    }
-
-    const modesOrder = [CHATBOT_MODES.TRADITIONAL, CHATBOT_MODES.AI_MODEL, CHATBOT_MODES.AUTO];
-    if (sieAvailable) modesOrder.push(CHATBOT_MODES.SIE);
-
-    function modeCardHtml(mode) {
-        const available = isModeAvailableForEntitlement(mode, entitled);
-        const isActive = selectedMode === mode;
-        let badge = '';
-        if (!available) {
-            badge = `<span class="cms-badge cms-badge-locked">للمشتركين فقط</span>`;
-        } else if (isActive) {
-            badge = `<span class="cms-badge cms-badge-active">مفعّل</span>`;
+    const load = async () => {
+        body.innerHTML = loadingHtml();
+        const ent = await fetchEntitlement(supabase);
+        if (ent.status === 'unavailable') {
+            body.innerHTML = `<div class="cms-error-state"><span>تعذّر تحميل خطة SIE الآن. الشات يعمل كالمعتاد.</span>
+                <button type="button" class="cms-retry-btn">إعادة المحاولة</button></div>`;
+            body.querySelector('.cms-retry-btn').addEventListener('click', load);
+            return ent;
         }
-        return `
-            <button type="button" class="cms-mode-card ${isActive ? 'cms-mode-card-active' : ''} ${!available ? 'cms-mode-card-disabled' : ''}" data-mode="${mode}" ${!available ? 'disabled' : ''}>
-                <div class="cms-radio-dot"></div>
-                <div class="cms-mode-icon">${MODE_ICONS[mode]}</div>
-                <div class="cms-mode-info">
-                    <div class="cms-mode-title-row">
-                        <span class="cms-mode-title">${escapeHtml(CHATBOT_MODE_LABELS[mode])}</span>
-                        ${badge}
-                    </div>
-                    <div class="cms-mode-desc">${escapeHtml(mode === CHATBOT_MODES.SIE ? (sieAccess?.description || CHATBOT_MODE_DESCRIPTIONS[mode]) : CHATBOT_MODE_DESCRIPTIONS[mode])}</div>
-                </div>
-            </button>
-        `;
-    }
+        render(ent);
+        return ent;
+    };
 
-    body.innerHTML = `
-        <div class="cms-mode-list" id="cmsModeList">
-            ${modesOrder.map(modeCardHtml).join('')}
-        </div>
-        ${wasSieRevoked ? `<div class="cms-revoked-note">${escapeHtml(buildSieRevokedMessage(sieAccess))}</div>` : ''}
-        ${!entitled ? `<div class="cms-locked-note">الأوضاع المتقدمة (نموذج ذكاء اصطناعي، تلقائي، SIE) متاحة للمشتركين فقط. تقدر تشترك من صفحة الاشتراكات.</div>` : ''}
-        <div id="cmsExtraSection"></div>
-    `;
-
-    renderExtraSection();
-
-    body.querySelectorAll('.cms-mode-card').forEach(card => {
-        card.addEventListener('click', () => {
-            if (card.disabled) return;
-            selectedMode = card.dataset.mode;
-            body.querySelectorAll('.cms-mode-card').forEach(c => c.classList.remove('cms-mode-card-active'));
-            card.classList.add('cms-mode-card-active');
-            const activeBadge = card.querySelector('.cms-badge-locked, .cms-badge-soon');
-            if (!activeBadge) {
-                card.querySelector('.cms-mode-title-row').insertAdjacentHTML('beforeend', `<span class="cms-badge cms-badge-active">مفعّل</span>`);
-            }
-            body.querySelectorAll('.cms-mode-card:not(.cms-mode-card-active) .cms-badge-active').forEach(b => b.remove());
-            renderExtraSection();
-        });
-    });
-
-    function renderExtraSection() {
-        const extra = body.querySelector('#cmsExtraSection');
-        if (!extra) return;
-
-        if (selectedMode === CHATBOT_MODES.AI_MODEL) {
-            extra.innerHTML = buildProviderModelSectionHtml();
-            wireProviderModelSection(extra);
-        } else if (selectedMode === CHATBOT_MODES.AUTO) {
-            extra.innerHTML = `<div class="cms-info-box">${escapeHtml(getAutoModeExplanation())}</div>`;
-        } else if (selectedMode === CHATBOT_MODES.SIE) {
-            extra.innerHTML = `<div class="cms-info-box">${escapeHtml(sieAccess?.description || CHATBOT_MODE_DESCRIPTIONS[CHATBOT_MODES.SIE])}</div>`;
-        } else {
-            extra.innerHTML = '';
-        }
-    }
-
-    function buildProviderModelSectionHtml() {
-        if (integrationsError) {
-            return `
-                <div class="cms-error-state" style="padding:1.1rem 0.5rem;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16v.01"></path></svg>
-                    <span>تعذّر تحميل قائمة المزوّدات المتاحة.</span>
-                    <button type="button" class="cms-retry-btn" id="cmsRetryIntegrations">إعادة المحاولة</button>
-                </div>
-            `;
-        }
-        if (!integrations.length) {
-            return `
-                <div class="cms-empty-state" style="padding:1.1rem 0.5rem;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="11" rx="2"></rect><path d="M9 8V5a3 3 0 0 1 6 0v3"></path></svg>
-                    <span>لا يوجد مزوّدات ذكاء اصطناعي متاحة حاليًا.</span>
-                </div>
-            `;
-        }
-        return `
-            <div class="cms-section-title">المزوّد</div>
-            <select class="cms-select" id="cmsIntegrationSelect">
-                <option value="">اختر مزوّدًا...</option>
-                ${integrations.map(i => `<option value="${i.id}" ${i.id === selectedIntegrationId ? 'selected' : ''}>${escapeHtml(i.display_name)}</option>`).join('')}
-            </select>
-            <div class="cms-section-title">الموديل</div>
-            <select class="cms-select" id="cmsModelSelect" disabled>
-                <option value="">${selectedIntegrationId ? 'جاري التحميل...' : 'اختر مزوّدًا أولاً'}</option>
-            </select>
-            <div class="cms-field-help">لو المزوّد مفعّل لكن مفيش موديلات مكتشفة له بعد، هيتم استخدام الموديل الافتراضي المضبوط من الإدارة تلقائيًا.</div>
-        `;
-    }
-
-    function wireProviderModelSection(extra) {
-        const retryBtn = extra.querySelector('#cmsRetryIntegrations');
-        if (retryBtn) {
-            retryBtn.addEventListener('click', async () => {
-                try {
-                    integrations = await fetchCustomerVisibleIntegrations();
-                    integrationsError = null;
-                } catch (err) {
-                    integrationsError = err;
-                }
-                renderExtraSection();
+    // ضغطة أولى تطلب التأكيد، والثانية تنفّذ على الخادم (نفس نمط الويدجت).
+    const onDowngrade = async (btn) => {
+        const plan = btn.dataset.plan;
+        const label = current?.downgradeTo.find((d) => d.plan === plan)?.label || plan;
+        if (btn.dataset.confirm !== '1') {
+            body.querySelectorAll('.cms-downgrade-btn.is-confirm').forEach((b) => {
+                if (b === btn) return;
+                b.dataset.confirm = '';
+                b.classList.remove('is-confirm');
+                b.textContent = `النزول إلى ${current?.downgradeTo.find((d) => d.plan === b.dataset.plan)?.label || b.dataset.plan}`;
             });
+            btn.dataset.confirm = '1';
+            btn.classList.add('is-confirm');
+            btn.textContent = `تأكيد النزول إلى ${label}؟`;
+            clearTimeout(confirmTimer);
+            confirmTimer = setTimeout(() => current && render(current), 5000);
             return;
         }
-
-        const integrationSelect = extra.querySelector('#cmsIntegrationSelect');
-        const modelSelect = extra.querySelector('#cmsModelSelect');
-        if (!integrationSelect || !modelSelect) return;
-
-        async function loadModelsFor(integrationId) {
-            selectedModelId = null;
-            if (!integrationId) {
-                modelSelect.innerHTML = '<option value="">اختر مزوّدًا أولاً</option>';
-                modelSelect.disabled = true;
-                return;
-            }
-            modelSelect.disabled = true;
-            modelSelect.innerHTML = '<option value="">جاري التحميل...</option>';
-            try {
-                const models = await fetchCustomerVisibleModels(integrationId);
-                if (!models.length) {
-                    // لا توجد موديلات مكتشفة - هذا متوقع لبعض المزوّدات (راجع §3.4:
-                    // fallback إلى DEFAULT_MODELS في الباك إند)، فليس خطأ بل حالة طبيعية.
-                    modelSelect.innerHTML = '<option value="">سيتم استخدام الموديل الافتراضي</option>';
-                    modelSelect.disabled = true;
-                    return;
-                }
-                modelSelect.innerHTML = models.map(m =>
-                    `<option value="${m.model_id}" ${m.model_id === selectedModelId ? 'selected' : ''}>${escapeHtml(m.display_name || m.model_id)}${m.is_default ? ' (افتراضي)' : ''}</option>`
-                ).join('');
-                modelSelect.disabled = false;
-            } catch (err) {
-                console.warn('[chatbot-mode-selector] تعذّر تحميل الموديلات:', err?.message || err);
-                modelSelect.innerHTML = '<option value="">تعذّر تحميل الموديلات</option>';
-                modelSelect.disabled = true;
-            }
-        }
-
-        integrationSelect.addEventListener('change', () => {
-            selectedIntegrationId = integrationSelect.value || null;
-            loadModelsFor(selectedIntegrationId);
-        });
-        modelSelect.addEventListener('change', () => {
-            selectedModelId = modelSelect.value || null;
-        });
-
-        if (selectedIntegrationId) loadModelsFor(selectedIntegrationId);
-    }
-
-    async function doSave(saveBtn) {
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'جاري الحفظ...';
-        }
-
-        const result = await saveChatbotModeState(userId, {
-            mode: selectedMode,
-            integrationId: selectedMode === CHATBOT_MODES.AI_MODEL ? selectedIntegrationId : null,
-            modelId: selectedMode === CHATBOT_MODES.AI_MODEL ? selectedModelId : null
-        });
-
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'حفظ';
-        }
-
+        clearTimeout(confirmTimer);
+        btn.disabled = true;
+        btn.textContent = 'جاري التغيير…';
+        const result = await downgradePlan(supabase, plan);
+        const ent = await fetchEntitlement(supabase);
+        if (ent.status === 'ok') render(ent);
         if (!result.ok) {
-            showToast('حصل خطأ أثناء حفظ الإعدادات، حاول تاني.', 'error');
-            return false;
+            const err = body.querySelector('.cms-error');
+            if (err) { err.textContent = result.errorText; err.hidden = false; }
+            return;
         }
+        onPlanChanged?.(ent.status === 'ok' ? ent : null, { plan, label });
+    };
 
-        showToast('تم حفظ وضع الشات بوت بنجاح');
-        if (typeof onModeChanged === 'function') {
-            onModeChanged({ mode: selectedMode, integrationId: selectedIntegrationId, modelId: selectedModelId });
-        }
-        return true;
+    return load;
+}
+
+/**
+ * يرسم لوحة الخطة داخل حاوية موجودة (تبويب الإعدادات).
+ * @param {HTMLElement} container
+ * @param {{userId?:string, onPlanChanged?:Function, onModeChanged?:Function}} opts
+ */
+export function renderChatbotModeInto(container, { userId, onPlanChanged, onModeChanged } = {}) {
+    injectStyles();
+    if (!container) return null;
+    container.classList.add('cms-scope');
+    if (!userId) {
+        container.innerHTML = '<p class="cms-note">يجب تسجيل الدخول لعرض خطة SIE.</p>';
+        return null;
     }
+    const load = mountPanel(container, { onPlanChanged: onPlanChanged || onModeChanged });
+    load();
+    return { reload: load };
+}
 
-    if (isDialog && showFooterButtons) {
-        // ===== الفوتر (حفظ/إلغاء) - داخل الحوار المنبثق =====
-        const dialog = overlay.querySelector('.cms-dialog');
-        const existingFooter = dialog.querySelector('.cms-footer');
-        if (existingFooter) existingFooter.remove();
-        const footer = document.createElement('div');
-        footer.className = 'cms-footer';
-        footer.innerHTML = `
-            <button type="button" class="cms-btn cms-btn-secondary" id="cmsCancelBtn">إلغاء</button>
-            <button type="button" class="cms-btn cms-btn-primary" id="cmsSaveBtn">حفظ</button>
-        `;
-        dialog.appendChild(footer);
-
-        footer.querySelector('#cmsCancelBtn').addEventListener('click', () => overlay.remove());
-        footer.querySelector('#cmsSaveBtn').addEventListener('click', async () => {
-            const ok = await doSave(footer.querySelector('#cmsSaveBtn'));
-            if (ok) overlay.remove();
-        });
-    } else {
-        // ===== وضع مضمّن (داخل تبويب): زر حفظ ثابت أسفل القائمة، بدون إلغاء/إغلاق =====
-        const existingInlineFooter = body.querySelector('.cms-inline-footer');
-        if (existingInlineFooter) existingInlineFooter.remove();
-        const inlineFooter = document.createElement('div');
-        inlineFooter.className = 'cms-inline-footer';
-        inlineFooter.style.cssText = 'margin-top:1rem;';
-        inlineFooter.innerHTML = `<button type="button" class="cms-btn cms-btn-primary" id="cmsInlineSaveBtn" style="width:100%;">حفظ</button>`;
-        body.appendChild(inlineFooter);
-        inlineFooter.querySelector('#cmsInlineSaveBtn').addEventListener('click', () => doSave(inlineFooter.querySelector('#cmsInlineSaveBtn')));
+/**
+ * نافذة منبثقة بلوحة الخطة (صفحة الشات الكاملة).
+ * @param {{userId?:string, onPlanChanged?:Function, onModeChanged?:Function, returnFocus?:HTMLElement}} opts
+ */
+export function openChatbotModeDialog({ userId, onPlanChanged, onModeChanged, returnFocus } = {}) {
+    injectStyles();
+    if (!userId) {
+        console.error('[chatbot-mode-selector] userId مطلوب لفتح لوحة خطة SIE');
+        return null;
     }
+    document.querySelector('.cms-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cms-overlay cms-scope';
+    overlay.innerHTML = `
+        <div class="cms-dialog" role="dialog" aria-modal="true" aria-labelledby="cmsDialogTitle">
+            <div class="cms-header">
+                <div>
+                    <h3 id="cmsDialogTitle">خطة SIE</h3>
+                    <p>وضع الرد، استخدامك، وتغيير الخطة</p>
+                </div>
+                <button type="button" class="cms-close-btn" aria-label="إغلاق">×</button>
+            </div>
+            <div class="cms-body" id="cmsBody"></div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const dialog = overlay.querySelector('.cms-dialog');
+    const close = () => {
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        returnFocus?.focus?.({ preventScroll: true });
+    };
+    // Esc يغلق، وTab يدور داخل النافذة فقط.
+    const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+        if (e.key !== 'Tab') return;
+        const items = [...dialog.querySelectorAll('button:not([disabled])')];
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        else if (!dialog.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('.cms-close-btn').addEventListener('click', close);
+    overlay.querySelector('.cms-close-btn').focus({ preventScroll: true });
+
+    const load = mountPanel(overlay.querySelector('#cmsBody'), { onPlanChanged: onPlanChanged || onModeChanged });
+    load();
+    return { close, reload: load };
 }

@@ -96,7 +96,7 @@ function setupTabSwitching() {
                 }
             });
 
-            // تحميل قسم "الشات بوت" عند أول فتح فقط (Lazy load) بدل تحميله
+            // تحميل قسم "الشات بوت" (خطة SIE واستخدامها) عند أول فتح فقط (Lazy load) بدل تحميله
             // دايمًا حتى لو المستخدم مافتحش التبويب ده أبدًا في هذه الجلسة
             if (tabName === 'chatbot' && !chatbotTabLoaded) {
                 chatbotTabLoaded = true;
