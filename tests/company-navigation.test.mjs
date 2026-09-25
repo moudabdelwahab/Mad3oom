@@ -347,7 +347,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         المستودع إلا مجلده، فمرفق رد الدعم يحتاج سياسة قراءة مضافة؛
     //         والحذف لازم يمحو النص من صف يملك العميل SELECT عليه — لا يُفرَض
     //         من الواجهة. مقيسٌ في tests/sql/inbox-phase2.test.sql.
-    assert.equal(migrations[migrations.length - 1], '056_inbox_attachments_reactions_edits.sql',
+    //   057 — إصلاح بلاغ إنتاج (المالك في سياق الإدارة أخد 403 على كل رد؛
+    //         معتمَد: «ضمّه مع المرحلة التالتة»). الإشراف على الصندوق كان مربوطًا
+    //         بـ owner_only فقط؛ صار الأدمن المرتفع أو المالك في سياق owner/admin
+    //         — قرار سلطة داخل RPCs الصندوق، لا يُفرَض من الواجهة. مقيسٌ بدوال
+    //         السياق الحقيقية في tests/sql/inbox-owner-context.test.sql.
+    assert.equal(migrations[migrations.length - 1], '057_inbox_owner_admin_context.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

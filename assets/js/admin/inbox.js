@@ -38,10 +38,10 @@ import {
     lastMessageOf, lastActivityOf, isAwaitingReply, filterSessions, viewCounts,
     messageStats, fillCannedReply, sessionIdFromSearch, sortMessages,
     buildTimeline, describeEvent, extractMentions,
-    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf
+    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf, canActOn
 } from './inbox-model.js';
 import {
-    loadSessions, loadSession, loadThreadExtras, loadReactions, loadAgents, loadTeams, loadTags, createSharedTag,
+    loadSessions, loadSession, loadThreadExtras, loadReactions, loadAgents, loadMyAccess, loadTeams, loadTags, createSharedTag,
     loadCustomerContext, sendReply, editMessage, deleteMessage, toggleReaction, closeSessions, assign, transfer,
     addTag, removeTag, addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
     loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox
@@ -57,6 +57,8 @@ const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
 
 const state = {
     me: null,
+    /** {agent, supervisor} من الخادم للجلسة دي (057) — null قبل 057. */
+    access: null,
     agents: [],
     teams: [],
     tags: [],
@@ -164,8 +166,13 @@ const agentName = (id) => (id === state.me?.id ? 'أنت' : (agentById(id)?.full
 const teamById = (id) => state.teams.find((t) => t.id === id) || null;
 const tagById = (id) => state.tags.find((t) => t.id === id) || null;
 const meAgent = () => agentById(state.me?.id);
-const isElevated = () => !!meAgent()?.is_elevated;
-const viewCtx = () => ({ meId: state.me?.id, myTeamIds: meAgent()?.team_ids || [] });
+/**
+ * الإشراف من الخادم (inbox_my_access) — للمالك بيتغيّر بالسياق. is_elevated في
+ * قايمة الموظفين من الصفوف ومابيعرفش السياق، فبقى احتياط لما قبل 057 بس.
+ */
+const isElevated = () => (state.access ? !!state.access.supervisor : !!meAgent()?.is_elevated);
+const viewCtx = () => ({ meId: state.me?.id, myTeamIds: meAgent()?.team_ids || [], supervisor: isElevated() });
+const actionable = (sessions) => sessions.filter((s) => canActOn(s, viewCtx()));
 const tagNames = () => Object.fromEntries(state.tags.map((t) => [t.id, t.name]));
 
 /**
@@ -346,7 +353,7 @@ async function openConversation(id, { refresh = true } = {}) {
     if (!session) {
         // رابط مباشر لمحادثة مش في القايمة (أحدث من التحميل مثلاً).
         session = await loadSession(id).catch(() => null);
-        if (!session) { toast('المحادثة دي مش موجودة أو مش مسموحلك تشوفها.', 'err'); return; }
+        if (!session || !canActOn(session, viewCtx())) { toast('المحادثة دي مش موجودة أو مش مسموحلك تشوفها.', 'err'); return; }
         state.sessions.push(session);
     }
 
@@ -780,11 +787,7 @@ async function createTagFromDetails() {
  * ومش في الفريق) القاعدة هتخفيها عنه — فبنشيلها من القايمة فورًا بدل ما
  * تفضل ظاهرة وكل إجراء عليها يرجع «مش مسموح».
  */
-function stillHasAccess(meta) {
-    if (isElevated()) return true;
-    if (!meta) return false;
-    return meta.assignee_id === state.me?.id || (meAgent()?.team_ids || []).includes(meta.team_id);
-}
+const stillHasAccess = (meta) => canActOn({ meta }, viewCtx());
 
 function applyMeta(sessionId, meta) {
     const session = findSession(sessionId);
@@ -1442,7 +1445,7 @@ function renderAll() {
 
 async function reload() {
     try {
-        state.sessions = await loadSessions();
+        state.sessions = actionable(await loadSessions());
         state.loaded = true;
     } catch (err) {
         console.error('[inbox] تحميل المحادثات فشل:', err);
@@ -1673,11 +1676,23 @@ async function boot() {
     fitShellHeight();
     setTimeout(fitShellHeight, 300);
 
-    const [, tags] = await Promise.all([
+    const [, tags, access] = await Promise.all([
         refreshDirectory().catch((err) => console.warn('[inbox] الموظفين/الفرق:', err?.message || err)),
-        loadTags()
+        loadTags(),
+        loadMyAccess()
     ]);
     state.tags = tags || [];
+    state.access = access;
+
+    // مالك المنصة في سياق مش إداري (العميل، الشركة، …): القاعدة مش هتسمح بأي
+    // إجراء، فبنقول السبب بدل قايمة فاضية أو 403 على كل ضغطة.
+    if (access && !access.agent) {
+        state.loaded = true;
+        renderRail();
+        $('convList').innerHTML = `<div class="ib-empty" style="padding:2.5rem 1rem;" id="noInboxAccess">
+            <p>الصندوق لفريق الدعم. حسابك دلوقتي في سياق مش إداري — بدّل للإدارة أو لمالك المنصة من مبدّل الواجهة فوق، وبعدين حدّث الصفحة.</p></div>`;
+        return;
+    }
 
     await reload();
     subscribeInbox(realtime);

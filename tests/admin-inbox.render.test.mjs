@@ -156,6 +156,14 @@ function fixtures({ role = 'admin', elevated = true } = {}) {
     };
 }
 
+/** أدمن عادي عضو في فريق «الدعم الفني» — فيوصل لمحادثة كريم المسندة للفريق بس. */
+function regularTeamMember() {
+    const fx = fixtures({ elevated: false });
+    fx.rpc.inbox_list_agents[0].team_ids = [TEAM];
+    fx.tables.inbox_team_members.push({ team_id: TEAM, user_id: ADMIN, role: 'member' });
+    return fx;
+}
+
 const rpcCalls = (page, name) => page.evaluate((n) => (window.__RPC_ARGS__ || []).filter(([k]) => k === n).map(([, a]) => a), name);
 
 let browser, server, baseUrl;
@@ -414,7 +422,7 @@ test('إدارة الفرق للمرتفع بس', { skip: !chromiumPath }, async
     assert.match(await elevated.page.locator('#teamsList').innerText(), /الدعم الفني/);
     await elevated.context.close();
 
-    const regular = await openInbox(fixtures({ elevated: false }));
+    const regular = await openInbox(regularTeamMember());
     await regular.page.waitForSelector('.ib-row');
     assert.equal(await regular.page.locator('#manageTeamsBtn').count(), 0);
     await regular.context.close();
@@ -590,7 +598,7 @@ test('تعديل وحذف: ردي بس (والمرتفع يحذف رد غيره)
     await context.close();
 
     // غير المرتفع: رد زميله مالوش حذف
-    const regular = await openInbox(fixtures({ elevated: false }), { query: `?session=${S_MANUAL}` });
+    const regular = await openInbox(regularTeamMember(), { query: `?session=${S_MANUAL}` });
     await regular.page.waitForSelector('[data-message="m4"]');
     assert.deepEqual(await regular.page.$$eval('[data-message="m4"] .ib-tools [data-act]', (bs) => bs.map((b) => b.dataset.act)), ['react', 'forward']);
     await regular.context.close();
@@ -654,6 +662,68 @@ test('الصفحة مقفولة على الطاقم — السوبر يوزر م
     const { page, context } = await openInbox(fixtures({ role: 'super_user' }));
     await page.waitForSelector('#accessDeniedPanel', { timeout: 10000 });
     assert.equal(await page.locator('.ib-row').count(), 0);
+    await context.close();
+});
+
+// ═════════════════════ 057: الإشراف من الخادم حسب السياق ═════════════════════
+
+test('مش مشرف (inbox_my_access): المسندة لي بس، ومحادثتي كعميل مش في الصندوق، ومفيش أزرار إشراف', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ elevated: true });            // الصفوف بتقول مرتفع…
+    fx.rpc.inbox_my_access = { agent: true, supervisor: false };   // …والجلسة بتقول لأ (زي المالك قبل 057)
+    fx.tables.inbox_conversations.push({ session_id: S_BOT, assignee_id: ADMIN, team_id: null, archived_at: null, archived_by: null, updated_at: t(5) });
+    // محادثة من حساب الموظف نفسه كعميل — سياسة «جلساتي» بترجّعها، والصندوق مايقدرش يتصرف فيها
+    fx.tables.chat_sessions.push({ id: 'own-1', user_id: ADMIN, guest_id: null, status: 'active', is_manual_mode: false,
+        created_at: t(50), updated_at: t(50), chat_messages: [msg('own-m', 'own-1', 50, 'تجربة من حسابي', 'customer', ADMIN)] });
+    fx.tables.chat_sessions[1].chat_messages.push({ ...msg('m8', S_MANUAL, 14, 'رد هبة', 'agent', 'staff-2'), edited_at: null, deleted_at: null });
+
+    const { page, context, errors } = await openInbox(fx);
+    await page.waitForSelector('.ib-row');
+    assert.deepEqual(await page.locator('.ib-row-title').allInnerTexts(), ['سارة إبراهيم'], 'غير المسندة ظاهرة');
+    assert.equal(await page.locator('#manageTeamsBtn').count(), 0, 'إدارة الفرق ظاهرة لغير المشرف');
+
+    // رابط مباشر لمحادثة مش مسندة له: رفض واضح بدل 403 على كل ضغطة
+    await page.goto(`${baseUrl}/admin/inbox.html?session=own-1`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => /مش مسموحلك/.test(document.getElementById('toast').textContent));
+    assert.equal(await page.locator('#threadBody').isVisible(), false);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المالك في سياق مش إداري: الصندوق بيقول السبب ومايبعتش حاجة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.inbox_my_access = { agent: false, supervisor: false };
+    const { page, context } = await openInbox(fx, { query: `?session=${S_BOT}` });
+    await page.waitForSelector('#noInboxAccess');
+    assert.match(await page.locator('#noInboxAccess').innerText(), /سياق مش إداري/);
+    assert.equal(await page.locator('.ib-row').count(), 0);
+    assert.equal(await page.locator('#threadBody').isVisible(), false, 'المحادثة اتفتحت رغم إن مفيش صلاحية');
+    assert.equal((await rpcCalls(page, 'inbox_send_reply')).length, 0);
+    await context.close();
+});
+
+test('مشرف (المالك في سياق الإدارة بعد 057): كل المحادثات، وإدارة الفرق، وحذف رد زميل', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ elevated: false });           // حتى لو الصفوف مش مرتفعة، الجلسة مشرفة
+    fx.rpc.inbox_my_access = { agent: true, supervisor: true };
+    fx.tables.chat_sessions[1].chat_messages.push({ ...msg('m8', S_MANUAL, 14, 'رد هبة', 'agent', 'staff-2'), edited_at: null, deleted_at: null });
+    const { page, context, errors } = await openInbox(fx, { query: `?session=${S_MANUAL}` });
+    await page.waitForSelector('[data-message="m8"]');
+    assert.equal(await page.locator('.ib-row').count(), 4);
+    assert.equal(await page.locator('#manageTeamsBtn').count(), 1);
+    assert.deepEqual(await page.$$eval('[data-message="m8"] .ib-tools [data-act]', (bs) => bs.map((b) => b.dataset.act)),
+        ['react', 'forward', 'delete-message']);
+    await page.fill('#messageInput', 'رد من المالك');
+    await page.press('#messageInput', 'Enter');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([k]) => k === 'inbox_send_reply'));
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('قبل 057 (مفيش inbox_my_access): الصندوق بيشتغل بالسلوك القديم', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openInbox(fixtures({ elevated: true }));
+    await page.waitForSelector('.ib-row');
+    assert.equal(await page.locator('.ib-row').count(), 4);
+    assert.equal(await page.locator('#manageTeamsBtn').count(), 1);
+    assert.deepEqual(errors, []);
     await context.close();
 });
 

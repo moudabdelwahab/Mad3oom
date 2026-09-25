@@ -277,6 +277,22 @@ export function sessionIdFromSearch(search) {
     return params.get('session') || params.get('session_id') || null;
 }
 
+/**
+ * الموظف يقدر يتصرف في المحادثة؟ نفس قرار inbox_can_access في القاعدة:
+ * المشرف (ctx.supervisor — من inbox_my_access) كل المحادثات، وغيره المسندة له
+ * أو لفريقه بس.
+ *
+ * ليه محتاجينها والقاعدة بتفلتر أصلاً: سياسة «جلساتي» القائمة على
+ * chat_sessions بترجّع للموظف محادثاته هو **كعميل** كمان — كانت بتظهر في
+ * الصندوق وكل إجراء عليها يرجع 403 (بلاغ المالك في سياق الإدارة، 057).
+ */
+export function canActOn(session, ctx = {}) {
+    if (ctx.supervisor) return true;
+    const meta = session?.meta;
+    if (!meta) return false;
+    return (!!ctx.meId && meta.assignee_id === ctx.meId) || (ctx.myTeamIds || []).includes(meta.team_id);
+}
+
 // ═════════════════════════════════════════════════════════════
 // المرحلة 2: التفاعلات، وتعديل ردود الدعم وحذفها (056)
 // ═════════════════════════════════════════════════════════════

@@ -117,6 +117,20 @@ export async function loadReactions(sessionId) {
     return data || [];
 }
 
+/**
+ * صلاحية **الجلسة الحالية** في الصندوق (057): {agent, supervisor}. للمالك
+ * بتعتمد على السياق اللي هو فيه، فمينفعش تتستنتج من صفوف platform_authority.
+ * قبل 057 الـ RPC مش موجود ⇒ null، والواجهة بترجع لسلوكها القديم.
+ */
+export async function loadMyAccess() {
+    const { data, error } = await supabase.rpc('inbox_my_access');
+    if (error) {
+        console.warn('[inbox] inbox_my_access:', error.message);
+        return null;
+    }
+    return data || null;
+}
+
 /** الموظفون المتاحون للإسناد والمنشن، ومين منهم مرتفع، وفرقهم. */
 export const loadAgents = () => rpc('inbox_list_agents').then((d) => d || []);
 

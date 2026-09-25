@@ -109,11 +109,14 @@ test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', 
     const [data, js] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('assets/js/admin/inbox.js')]);
     assert.ok(!/\.from\('[^']+'\)[\s\S]{0,120}?\.(insert|update|delete|upsert)\(/.test(data + js), 'كتابة مباشرة على جدول');
 
-    const migrations = (await Promise.all([
-        read('migrations/055_inbox_helpdesk_core.sql'), read('migrations/056_inbox_attachments_reactions_edits.sql')])).join('\n');
+    // كل ترحيلات الصندوق من 055 وطالع — كل مرحلة بتضيف RPC.
+    const { readdir } = await import('node:fs/promises');
+    const files = (await readdir(root('migrations'))).filter((f) => /^0(5[5-9]|[6-9]\d)_inbox_/.test(f));
+    assert.ok(files.length >= 3, `ترحيلات الصندوق: ${files}`);
+    const migrations = (await Promise.all(files.map((f) => read(`migrations/${f}`)))).join('\n');
     const called = [...data.matchAll(/rpc\('([a-z_]+)'/g)].map((m) => m[1]);
     const missing = called.filter((name) => !new RegExp(`create or replace function public\\.${name}\\(`).test(migrations));
-    assert.deepEqual(missing, [], `RPC مش موجود في 055/056: ${missing.join(', ')}`);
+    assert.deepEqual(missing, [], `RPC مش موجود في ترحيلات الصندوق: ${missing.join(', ')}`);
 });
 
 // ═════════════════════════════════════════════════════════════
@@ -362,4 +365,16 @@ test('تعديل/حذف في الواجهة بنفس شروط القاعدة: ر
         assert.equal(canEditMessage(m, 'me'), false);
         assert.equal(canDeleteMessage(m, 'me', true), false);
     }
+});
+
+test('canActOn بنفس قرار inbox_can_access: المشرف الكل، وغيره المسند له أو لفريقه', async () => {
+    const { canActOn } = await import('../inbox-model.js');
+    const ctx = { meId: 'me', myTeamIds: ['t1'], supervisor: false };
+    assert.equal(canActOn({ meta: { assignee_id: 'me' } }, ctx), true);
+    assert.equal(canActOn({ meta: { assignee_id: 'x', team_id: 't1' } }, ctx), true);
+    assert.equal(canActOn({ meta: { assignee_id: 'x', team_id: 't2' } }, ctx), false);
+    // محادثتي كعميل (سياسة «جلساتي») من غير إسناد — مش للصندوق
+    assert.equal(canActOn({ user_id: 'me', meta: null }, ctx), false);
+    assert.equal(canActOn({ user_id: 'me', meta: null }, { ...ctx, supervisor: true }), true);
+    assert.equal(canActOn({ meta: { assignee_id: null, team_id: null } }, { meId: 'me' }), false);
 });
