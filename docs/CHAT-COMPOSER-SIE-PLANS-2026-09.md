@@ -2,8 +2,13 @@
 
 Branch `claude/compassionate-franklin-nh9b7p`, in this repo and in `moudabdelwahab/sie`.
 
-**Nothing in this change has been applied to production or deployed.** The
-frontend depends on two migrations. Ship them in the order below.
+**Production state (2026-09-25, applied at the owner's request):**
+
+- Steps 1, 2 and 4 are done: 0011 and 054 are applied, and the engine
+  runs `sie-api` v18 and `sie-channel-telegram` v23, pinned to
+  `d9b777f`.
+- Step 3 (this frontend) ships when this branch is merged.
+- Verification is recorded under "Production record" below.
 
 ---
 
@@ -102,3 +107,48 @@ message stays with the support team.
 | SIE `scripts/test-migrations.sh` | 183 checks |
 | SIE `npm test` | 1027/1027 |
 | SIE `scripts/mutation-check.mjs` | 19/19 killed |
+
+## Production record (2026-09-25)
+
+**Before (read-only):**
+- 33 profiles; 4 SIE rows.
+- `chat_messages.attachment` absent; `chatbot_mode` default `'traditional'`.
+- Bucket `chat-attachments` has no limits.
+- No database function writes `chatbot_mode`.
+- The bucket's 4 existing files are `audio/webm` / `image/jpeg`, under
+  10 MB, stored under `chat-media/`, and referenced by no message.
+
+**After 0011:**
+- 33/33 profiles have a SIE row (29 new Free rows); the 4 existing rows
+  are unchanged.
+- `sie_my_entitlement()` as a real Free user returns Free, 2,500
+  messages/month, resetting on 1 October, with no downgrade offered.
+- `anon` cannot execute the RPCs.
+
+**After 054:**
+- The column, the CHECK constraint and both triggers are present.
+- The bucket allows 10 MB and 18 MIME types.
+- The `chatbot_mode` default is `'sie'`; legacy values are untouched
+  (31 `traditional`, 2 `sie`).
+- The delete policy is present.
+
+**Behaviour on production** (probed in a block that rolls itself back;
+no rows remained):
+
+| Action | Result |
+|---|---|
+| Set `chatbot_mode = 'auto'` | refused (22023) |
+| Set `chatbot_mode = 'sie'` | accepted |
+| Attach a path in another user's folder | refused (42501) |
+| Attach a file the sender doesn't own | refused (42501) |
+| Attachment with no path | refused (23514) |
+
+**Security advisor:**
+- Nothing new of concern.
+- `sie_edition_rank` has a mutable `search_path` (warning; a pure CASE
+  expression that touches no table). Fixing it is a one-line follow-up.
+
+**Engine:**
+- Health 200 with 635 scenarios.
+- Telegram self-check ok; webhook healthy, 0 pending.
+- Boots in 24–47 ms, no errors in the logs.
