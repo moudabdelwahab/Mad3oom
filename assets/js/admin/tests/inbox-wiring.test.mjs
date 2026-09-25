@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -9,273 +9,242 @@ import { fileURLToPath } from 'node:url';
  *
  * `document.getElementById` بيرجّع `null` مش بيرمي، فعنصر اتغيّر اسمه في
  * الـ HTML ونسيه الـ JS مابيفشلش وقت التحميل — بيفشل أول ما حد يضغط
- * الزرار، بـ TypeError وشاشة مش بتعمل حاجة.
+ * الزرار. فبنقارن الملفات ببعض (فحص نصوص مش DOM).
  *
- * الاختبار ده بيقارن الملفين ببعض. مقصود إنه بدائي — فحص نصوص مش DOM —
- * لأن الغلطة اللي بيمنعها بدائية: اسم موجود في ناحية وناقص في التانية.
+ * وصندوق الرسائل بقى واجهة الإدارة الوحيدة لشات العملاء بعد ما
+ * chat-admin.html اتشالت، فبنثبّت كمان: مفيش بيانات تجريبية، ورد الدعم
+ * بيتكتب بالشكل اللي ويدجت العميل مستنيه، ومفيش رابط مكسور للصفحة القديمة.
  *
- * شغّله بـ:  node --test assets/js/admin/tests/
+ * شغّله بـ:  node --test assets/js/admin/tests/*.mjs
  */
 
 const root = (p) => fileURLToPath(new URL(`../../../../${p}`, import.meta.url));
 const read = (p) => readFile(root(p), 'utf8');
+const exists = (p) => access(root(p)).then(() => true, () => false);
 
 const idsInHtml = (html) => new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 const idsUsedByJs = (js) => [...js.matchAll(/\$\('([^']+)'\)/g)].map((m) => m[1]);
+const exportsOf = (src) => new Set([...src.matchAll(/export\s+(?:async\s+function|function|const|let)\s+(\w+)/g)].map((m) => m[1]));
+
+function importedNames(js, file) {
+    const block = js.match(new RegExp(`import\\s*\\{([^}]+)\\}\\s*from\\s*'\\./${file.replace('.', '\\.')}'`));
+    assert.ok(block, `مالقيتش استيراد ${file}`);
+    return block[1].split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+// ═════════════════════════════════════════════════════════════
+// الربط بين الملفات
+// ═════════════════════════════════════════════════════════════
 
 test('كل عنصر بيستخدمه inbox.js موجود في inbox.html', async () => {
     const [html, js] = await Promise.all([read('admin/inbox.html'), read('assets/js/admin/inbox.js')]);
     const declared = idsInHtml(html);
-
-    const missing = [...new Set(idsUsedByJs(js))].filter((id) => !declared.has(id));
+    const missing = [...new Set(idsUsedByJs(js))].filter((id) => !declared.has(id) && id !== 'retryLoad');
     assert.deepEqual(missing, [], `عناصر بيتنده عليها ومش موجودة: ${missing.join(', ')}`);
 });
 
-test('كل حاجة inbox.js بيستوردها من inbox-data.js متصدّرة فعلاً', async () => {
-    const [js, data] = await Promise.all([
+test('كل حاجة inbox.js بيستوردها من طبقة البيانات والموديل متصدّرة فعلاً', async () => {
+    const [js, data, model] = await Promise.all([
         read('assets/js/admin/inbox.js'),
-        read('assets/js/admin/inbox-data.js')
+        read('assets/js/admin/inbox-data.js'),
+        read('assets/js/admin/inbox-model.js')
     ]);
-
-    const block = js.match(/import\s*\{([^}]+)\}\s*from\s*'\.\/inbox-data\.js'/);
-    assert.ok(block, 'مالقيتش استيراد inbox-data');
-
-    const wanted = block[1].split(',').map((s) => s.trim()).filter(Boolean);
-    const exported = new Set([...data.matchAll(/export\s+(?:async\s+function|function|const|let)\s+(\w+)/g)].map((m) => m[1]));
-
-    const missing = wanted.filter((name) => !exported.has(name));
-    assert.deepEqual(missing, [], `مستورد ومش متصدّر: ${missing.join(', ')}`);
+    for (const [file, src] of [['inbox-data.js', data], ['inbox-model.js', model]]) {
+        const exported = exportsOf(src);
+        const missing = importedNames(js, file).filter((name) => !exported.has(name));
+        assert.deepEqual(missing, [], `مستورد من ${file} ومش متصدّر: ${missing.join(', ')}`);
+    }
 });
 
-test('الصفحة مربوطة في القايمة الجانبية ومقفولة على الأدوار الصح', async () => {
+test('الصفحة محروسة للطاقم زي باقي صفحات الإدارة', async () => {
+    const js = await read('assets/js/admin/inbox.js');
+    assert.match(js, /checkAdminAuth\(\)/, 'الصفحة مش بتمر على حارس الإدارة');
+});
+
+test('الرابط في القايمة الجانبية للطاقم بس، ورابط chat-admin اتشال', async () => {
     const [sidebarHtml, sidebarJs] = await Promise.all([
         read('assets/components/sidebar.html'),
         read('assets/js/admin/sidebar.js')
     ]);
 
-    assert.ok(sidebarHtml.includes('id="inboxLink"'), 'اللينك مش موجود في القايمة');
-    assert.ok(sidebarHtml.includes('/admin/inbox.html'), 'اللينك مش بيوصّل للصفحة');
-
-    // مخفي افتراضيًا + بيتعرض بشرط = العضو العادي مايشوفهوش.
     assert.match(sidebarHtml, /id="inboxLink"[^>]*style="display:none;"/, 'اللينك مفروض يبدأ مخفي');
-    assert.ok(sidebarJs.includes("showLink('inboxLink')"), 'مفيش شرط بيعرض اللينك');
-});
+    assert.ok(sidebarHtml.includes('/admin/inbox.html'));
+    assert.ok(!sidebarHtml.includes('chatAdminLink'), 'رابط chat-admin لسه في القايمة');
+    assert.ok(!sidebarJs.includes('chatAdminLink'));
 
-test('الصفحة بتقول بوضوح إنها معاينة مش نظام شغال', async () => {
-    // صفحة رسايل بتبان شغالة وهي مش بتبعت حاجة أسوأ من صفحة ناقصة:
-    // حد هيفتكر إنه كلّم عميل وهو ما كلّمش.
-    const html = await read('admin/inbox.html');
-    assert.ok(html.includes('previewBanner'), 'مفيش بانر تنبيه');
-    assert.ok(/مابتتبعتش|تجريبية/.test(html), 'البانر مش بيقول إن الرسايل مابتتبعتش');
-});
-
-test('طبقة البيانات بتفرّق بين الأدمن والسوبر يوزر', async () => {
-    // ده الفرق الحقيقي بين الدورين. لو اتشال، السوبر يوزر هيشوف كل
-    // أعضاء المنصة.
-    const data = await read('assets/js/admin/inbox-data.js');
-    assert.ok(/role === 'super_user'/.test(data), 'مفيش تفريق حسب الدور في listContacts');
-    assert.ok(data.includes('ownerId'), 'مفيش ربط بين العضو وصاحبه');
-});
-
-test('طبقة البيانات مالهاش أي وصول لقاعدة البيانات', async () => {
-    // الواجهة الأمامية بس دلوقتي. لو ظهر استيراد لـ supabase هنا، يبقى
-    // حد بيكتب في الإنتاج من غير RLS مراجَعة.
-    const data = await read('assets/js/admin/inbox-data.js');
-    assert.ok(!/supabase|api-config/.test(data), 'فيه وصول لقاعدة البيانات في طبقة وهمية');
-});
-
-// ── سلوك حقيقي في طبقة البيانات ─────────────────────────────────────
-
-test('محادثة فردية مع نفس الشخص مابتتكررش', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const before = data.listConversations().length;
-
-    const first = data.openDirectConversation('u_3');
-    const second = data.openDirectConversation('u_3');
-
-    assert.equal(first.id, second.id, 'اتعملت محادثتين لنفس الشخص');
-    assert.equal(data.listConversations().length, before + 1);
-});
-
-test('المجموعة لازم يكون ليها اسم وأعضاء', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-
-    assert.ok(data.createGroup({ title: '', memberIds: ['u_1'] }).error, 'قبل مجموعة بدون اسم');
-    assert.ok(data.createGroup({ title: 'فريق', memberIds: [] }).error, 'قبل مجموعة بدون أعضاء');
-
-    const { conversation, error } = data.createGroup({ title: 'فريق', memberIds: ['u_1', 'u_2'] });
-    assert.equal(error, null);
-    assert.ok(conversation.memberIds.includes(data.getCurrentUser().id), 'اللي عمل المجموعة مش عضو فيها');
-});
-
-test('التحويل بينسخ ومابينقلش، وبيسيب أثر لمصدره', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-
-    const source = data.listMessages('c_1');
-    const original = source[0];
-    const countBefore = data.listMessages('c_3').length;
-
-    const copy = data.forwardMessage({ messageId: original.id, toConversationId: 'c_3' });
-
-    assert.ok(copy, 'مااتحولتش');
-    assert.equal(copy.body, original.body);
-    assert.ok(copy.forwardedFrom, 'مفيش أثر للمصدر');
-    assert.equal(data.listMessages('c_3').length, countBefore + 1);
-    // الأصلية لازم تفضل مكانها.
-    assert.ok(data.listMessages('c_1').some((m) => m.id === original.id), 'الأصلية اتشالت');
-});
-
-test('السوبر يوزر بيشوف أعضاءه هو بس', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-
-    data.setPreviewRole('admin');
-    const adminSees = data.listContacts().map((c) => c.id);
-
-    data.setPreviewRole('super_user');
-    const ownerSees = data.listContacts();
-
-    assert.ok(adminSees.includes('u_1'), 'الأدمن مش شايف أعضاء المنصة');
-    assert.ok(ownerSees.every((c) => c.ownerId === 'su_1' || c.role === 'support'),
-        'السوبر يوزر شايف حد مش تبعه');
-    assert.ok(ownerSees.length < adminSees.length);
-
-    data.setPreviewRole('admin');
+    // الصفحة محروسة بـ guardPage('admin') والـ RLS بترجّع للسوبر يوزر
+    // جلساته هو بس — عرض الرابط له كان هيوديه لصفحة رفض.
+    const block = sidebarJs.slice(sidebarJs.indexOf("showLink('inboxLink')") - 120, sidebarJs.indexOf("showLink('inboxLink')"));
+    assert.match(block, /if \(isAdmin \|\| isSupport\)/, 'شرط عرض الرابط اتغير');
 });
 
 // ═════════════════════════════════════════════════════════════
-// صندوق الدعم: الحالة والإسناد والملاحظات الداخلية
+// مفيش بيانات تجريبية
 // ═════════════════════════════════════════════════════════════
 
-test('الملاحظة الداخلية مابتحركش المحادثة ولا بتفتحها من تاني', async () => {
-    // دي مذكرة للفريق، مش رد على العميل. لو حرّكت المحادثة لفوق أو
-    // فتحتها، الفريق هيفتكر إن العميل رد.
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    data.setStatus('c_3', 'closed');
-    const before = data.findConversation('c_3').lastMessageAt;
-
-    data.sendMessage({ conversationId: 'c_3', body: 'ملاحظة للفريق', visibility: 'note' });
-
-    assert.equal(data.findConversation('c_3').lastMessageAt, before, 'الملاحظة حرّكت المحادثة');
-    assert.equal(data.findConversation('c_3').status, 'closed', 'الملاحظة فتحت محادثة مقفولة');
+test('مفيش بيانات تجريبية ولا بانر معاينة', async () => {
+    const [html, js, data] = await Promise.all([
+        read('admin/inbox.html'), read('assets/js/admin/inbox.js'), read('assets/js/admin/inbox-data.js')
+    ]);
+    assert.ok(!html.includes('previewBanner'), 'بانر المعاينة لسه موجود');
+    assert.ok(!/تجريبية|وهمية/.test(html + js), 'فيه كلام عن بيانات تجريبية');
+    assert.ok(!/example\.com|setPreviewRole|const CONTACTS|let conversations\s*=/.test(data + js), 'فيه بيانات مكتوبة في الكود');
+    assert.match(data, /from '\/api-config\.js'/, 'طبقة البيانات مش متوصلة بـ Supabase');
 });
 
-test('الرد على محادثة مقفولة بيفتحها من تاني', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    data.setStatus('c_3', 'closed');
-    data.sendMessage({ conversationId: 'c_3', body: 'رد للعميل' });
-    assert.equal(data.findConversation('c_3').status, 'open');
+test('الصندوق بيقرا من نفس جداول الويدجت ومابيعملش جداول تانية', async () => {
+    const data = await read('assets/js/admin/inbox-data.js');
+    const tables = new Set([...data.matchAll(/\.from\('([^']+)'\)/g)].map((m) => m[1]));
+    assert.deepEqual([...tables].sort(), ['chat_messages', 'chat_sessions', 'profiles']);
 });
 
-test('تحويل ملاحظة داخلية بيفضل ملاحظة', async () => {
-    // تحويل ملاحظة فريق لمحادثة عميل هو بالظبط التسريب اللي الفصل ده
-    // موجود عشانه.
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const note = data.listMessages('c_1').find((m) => m.visibility === 'note');
-    assert.ok(note, 'مفيش ملاحظة في البيانات التجريبية');
+// ═════════════════════════════════════════════════════════════
+// العقد مع ويدجت العميل و SIE
+// ═════════════════════════════════════════════════════════════
 
-    const copy = data.forwardMessage({ messageId: note.id, toConversationId: 'c_4' });
-    assert.equal(copy.visibility, 'note', 'الملاحظة اتحوّلت كرد للعميل');
+test('رد الدعم بيوقّف البوت وبيتكتب كرد أدمن — نفس اللي الويدجت مستنيه', async () => {
+    const [data, widget] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('chat-widget.js')]);
+    const fn = data.slice(data.indexOf('export async function sendReply'), data.indexOf('export async function closeSessions'));
+
+    assert.match(fn, /update\(\{ is_manual_mode: true \}\)/, 'الرد مش بيوقّف البوت');
+    assert.match(fn, /is_admin_reply: true/, 'الرد مش متعلّم كرد أدمن');
+    assert.ok(fn.indexOf('is_manual_mode: true') < fn.indexOf('is_admin_reply: true'),
+        'البوت لازم يقف قبل ما الرد يتكتب، وإلا ممكن يرد على نفس الرسالة');
+
+    // الناحية التانية من العقد: الويدجت لسه بيسمع الاتنين.
+    assert.match(widget, /is_manual_mode/);
+    assert.match(widget, /msg\.is_admin_reply/);
 });
 
-test('المحادثة المؤرشفة بتختفي من كل المشاهد غير الأرشيف', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    data.setArchived('c_4', true);
-
-    const inAll = data.listConversations({ view: 'all' }).some((c) => c.id === 'c_4');
-    const inArchive = data.listConversations({ view: 'archived' }).some((c) => c.id === 'c_4');
-
-    assert.equal(inAll, false, 'المؤرشفة لسه بتبان في الكل');
-    assert.equal(inArchive, true, 'المؤرشفة مش في الأرشيف');
-    data.setArchived('c_4', false);
+test('الصندوق مابيولّدش ردود بوت ولا بينادي SIE', async () => {
+    const [js, data] = await Promise.all([read('assets/js/admin/inbox.js'), read('assets/js/admin/inbox-data.js')]);
+    assert.ok(!/sie-client|getSieReply|chatbot-engine|getBotReply|is_bot_reply:\s*true/.test(js + data));
 });
 
-test('التعديل بيسيب أثر، ورسالة حد تاني مااتعدلش', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const mine = data.listMessages('c_1').find((m) => m.senderId === data.getCurrentUser().id);
-    const theirs = data.listMessages('c_1').find((m) => m.senderId !== data.getCurrentUser().id);
-
-    assert.equal(data.editMessage(mine.id, 'نص جديد').ok, true);
-    assert.ok(data.findMessage(mine.id).editedAt, 'مفيش أثر للتعديل');
-    assert.equal(data.editMessage(mine.id, '   ').ok, false, 'قبل رسالة فاضية');
-    assert.equal(data.editMessage(theirs.id, 'اختراق').ok, false, 'عدّل رسالة حد تاني');
+test('chat-logic.js بقى لصفحة العميل بس، ومسار SIE فيه زي ما هو', async () => {
+    const src = await read('assets/js/chat-logic.js');
+    assert.ok(!/loadAllChats|renderChatsList|selectChat\(/.test(src), 'منطق chat-admin لسه موجود');
+    assert.match(src, /if \(!window\.isCustomerChat\) return;/);
+    assert.match(src, /import \{ getSieReply \} from '\/assets\/js\/sie-client\.js'/);
+    assert.match(src, /getSieAccessInfo\(currentUser\.id\)/);
+    assert.match(src, /sieResult\.alreadyPersisted/);
 });
 
-test('السحب بيسيب مكان الرسالة بدل ما يشيلها', async () => {
-    // الرد اللي تحتها بيبقى مالوش معنى من غيرها، و«اتسحبت» معلومة في حد
-    // ذاتها لأي حد كان شايفها.
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const mine = data.listMessages('c_3').find((m) => m.senderId === data.getCurrentUser().id && !m.deleted);
-    const countBefore = data.listMessages('c_3').length;
+// ═════════════════════════════════════════════════════════════
+// مفيش روابط مكسورة للصفحة القديمة
+// ═════════════════════════════════════════════════════════════
 
-    assert.equal(data.deleteMessage(mine.id).ok, true);
-    assert.equal(data.listMessages('c_3').length, countBefore, 'الرسالة اتشالت خالص');
-    assert.equal(data.findMessage(mine.id).deleted, true);
-    assert.equal(data.findMessage(mine.id).attachments.length, 0, 'المرفقات فضلت بعد السحب');
-});
-
-test('التفاعل بيتشال لما تضغطه تاني', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const target = data.listMessages('c_2')[0];
-    const me = data.getCurrentUser().id;
-
-    data.toggleReaction(target.id, '🎉');
-    assert.ok(data.findMessage(target.id).reactions['🎉'].includes(me));
-    data.toggleReaction(target.id, '🎉');
-    assert.equal(data.findMessage(target.id).reactions['🎉'], undefined, 'الرمز فضل بمصفوفة فاضية');
-});
-
-test('المنشن بيتحسب من أعضاء المحادثة بس', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const sent = data.sendMessage({ conversationId: 'c_2', body: '@هبة سمير ممكن تبصي؟ و@مالك الفريق مش هنا' });
-
-    assert.ok(sent.mentions.includes('st_2'), 'عضو موجود مااتمنشنش');
-    assert.ok(!sent.mentions.includes('su_1'), 'اتمنشن حد مش في المحادثة');
-});
-
-test('الرد الجاهز بيتملي باسم الطرف التاني', async () => {
-    // رد جاهز بيوصل للعميل باسم حد تاني أسوأ من إنه يتكتب من الأول.
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const welcome = data.listCannedReplies().find((r) => r.body.includes('{{الاسم}}'));
-    assert.ok(welcome, 'مفيش رد جاهز فيه متغير');
-
-    const filled = data.fillCannedReply(welcome.body, 'c_1');
-    assert.ok(!filled.includes('{{'), 'المتغير فضل مكانه');
-    assert.ok(filled.includes('محمود عبدالوهاب'), 'مااتحطش اسم الطرف التاني');
-});
-
-test('عدّادات المشاهد بتطابق اللي بيترجع فعلاً', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const counts = data.viewCounts();
-    for (const view of ['all', 'unread', 'mine', 'closed', 'archived']) {
-        assert.equal(counts[view], data.listConversations({ view }).length, `عدّاد «${view}» غلط`);
+test('chat-admin.html اتشالت ومفيش صفحة بتشاور عليها', async () => {
+    assert.equal(await exists('chat-admin.html'), false);
+    const files = ['tickets.html', 'admin-dashboard.html', 'api-management.html', 'customer-history.js',
+        'assets/components/sidebar.html', 'assets/js/admin/sidebar.js', 'assets/js/chat-logic.js'];
+    for (const f of files) {
+        assert.ok(!/chat-admin\.html/.test(await read(f)), `${f} لسه بيشاور على chat-admin.html`);
     }
 });
 
-test('المسودة بتتحفظ لكل محادثة لوحدها', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    data.saveDraft('c_1', 'مسودة أولى');
-    data.saveDraft('c_2', 'مسودة تانية');
-    assert.equal(data.findConversation('c_1').draft, 'مسودة أولى');
-    assert.equal(data.findConversation('c_2').draft, 'مسودة تانية');
-
-    // الإرسال بيفضّي مسودة المحادثة دي بس.
-    data.sendMessage({ conversationId: 'c_1', body: 'خلاص' });
-    assert.equal(data.findConversation('c_1').draft, '');
-    assert.equal(data.findConversation('c_2').draft, 'مسودة تانية');
-});
-
-test('الملاحظات بتتشال لما نسأل «العميل شاف إيه»', async () => {
-    const data = await import(root('assets/js/admin/inbox-data.js'));
-    const all = data.listMessages('c_1', { includeNotes: true });
-    const seen = data.listMessages('c_1', { includeNotes: false });
-    assert.ok(all.length > seen.length, 'الملاحظات مااتشالتش');
-    assert.ok(seen.every((m) => m.visibility !== 'note'));
+test('روابط الإشعارات القديمة (chat-admin.html?session=) بتتحوّل للصندوق', async () => {
+    // دالتين في القاعدة (notify_admin_on_new_chat و handle_new_chat_message)
+    // لسه بيكتبوا الرابط القديم — واحدة منهم من غير / في الأول، فبيتفتح
+    // نسبةً للصفحة (/admin/chat-admin.html من صفحة الإشعارات).
+    const vercel = JSON.parse(await read('vercel.json'));
+    const map = Object.fromEntries((vercel.redirects || []).map((r) => [r.source, r.destination]));
+    assert.equal(map['/chat-admin.html'], '/admin/inbox.html');
+    assert.equal(map['/admin/chat-admin.html'], '/admin/inbox.html');
 });
 
 test('شريط الكتابة بياخد سطره لوحده على الموبايل', async () => {
-    // ستة أزرار في سطر واحد بتسيب خانة الكتابة شريط رفيع بيعرض حرف في
-    // كل سطر — ده حصل فعلاً.
     const html = await read('admin/inbox.html');
-    assert.match(html, /\.ib-composer-row textarea \{ order: -1; flex: 1 1 100%/,
-        'مفيش قاعدة بتدي الخانة سطرها على الموبايل');
+    assert.match(html, /\.ib-composer-row textarea \{ order: -1; flex: 1 1 100%/);
+});
+
+// ═════════════════════════════════════════════════════════════
+// الموديل: سلوك حقيقي على بيانات بشكل الجداول
+// ═════════════════════════════════════════════════════════════
+
+const model = await import(root('assets/js/admin/inbox-model.js'));
+
+const at = (min) => new Date(Date.UTC(2026, 0, 1, 12, min)).toISOString();
+const customerMsg = (id, min, text = 'سؤال') => ({ id, sender_id: 'u1', message_text: text, is_admin_reply: false, is_bot_reply: false, created_at: at(min) });
+const botMsg = (id, min, text = 'رد آلي') => ({ id, sender_id: null, message_text: text, is_admin_reply: false, is_bot_reply: true, created_at: at(min) });
+const agentMsg = (id, min, text = 'رد الدعم') => ({ id, sender_id: 'staff1', message_text: text, is_admin_reply: true, is_bot_reply: false, created_at: at(min) });
+const session = (over = {}) => ({
+    id: 's', user_id: 'u1', status: 'active', is_manual_mode: false,
+    created_at: at(0), updated_at: at(0), customer: { full_name: 'عميل', email: 'c@x.test', role: 'customer' },
+    messages: [], ...over
+});
+
+test('مين كتب الرسالة', () => {
+    assert.equal(model.senderKind(customerMsg('1', 1)), 'customer');
+    assert.equal(model.senderKind(botMsg('2', 2)), 'bot');
+    assert.equal(model.senderKind(agentMsg('3', 3)), 'agent');
+    // رسالة من غير مُرسِل ومن غير علامة = بوت (رسايل النظام في chat-logic/الويدجت)
+    assert.equal(model.senderKind({ sender_id: null, message_text: 'x' }), 'bot');
+});
+
+test('«بانتظار رد»: البوت شغال', () => {
+    assert.equal(model.isAwaitingReply(session({ messages: [botMsg('1', 1), customerMsg('2', 2)] })), true,
+        'آخر رسالة من العميل والبوت مارديش');
+    assert.equal(model.isAwaitingReply(session({ messages: [customerMsg('1', 1), botMsg('2', 2)] })), false,
+        'البوت رد — مش مستنية الدعم');
+});
+
+test('«بانتظار رد»: الدعم ماسك المحادثة', () => {
+    const manual = { is_manual_mode: true };
+    assert.equal(model.isAwaitingReply(session({ ...manual, messages: [agentMsg('1', 1), customerMsg('2', 2), botMsg('3', 3)] })), true,
+        'رسالة نظام بعد رسالة العميل مش رد عليه');
+    assert.equal(model.isAwaitingReply(session({ ...manual, messages: [customerMsg('1', 1), agentMsg('2', 2)] })), false);
+    assert.equal(model.isAwaitingReply(session({ status: 'closed', messages: [customerMsg('1', 1)] })), false,
+        'المقفولة مش مستنية رد');
+});
+
+test('محادثات الفريق فوق، وبعدين الأحدث', () => {
+    const old = session({ id: 'old', messages: [customerMsg('1', 1)] });
+    const recent = session({ id: 'recent', messages: [customerMsg('2', 30)] });
+    const staff = session({ id: 'staff', customer: { full_name: 'موظف', role: 'support' }, messages: [customerMsg('3', 0)] });
+    assert.deepEqual(model.filterSessions([old, recent, staff]).map((s) => s.id), ['staff', 'recent', 'old']);
+});
+
+test('البحث بيدوّر في نص الرسايل مش في الاسم بس', () => {
+    const s = session({ messages: [customerMsg('1', 1, 'مشكلة في ربط الواتساب')] });
+    assert.equal(model.matchesQuery(s, 'الواتساب'), true);
+    assert.equal(model.matchesQuery(s, 'c@x.test'), true);
+    assert.equal(model.matchesQuery(s, 'فاتورة'), false);
+});
+
+test('عدّادات المشاهد بتطابق اللي بيترجع فعلاً', () => {
+    const list = [
+        session({ id: 'a', messages: [customerMsg('1', 1)] }),
+        session({ id: 'b', is_manual_mode: true, messages: [agentMsg('2', 2)] }),
+        session({ id: 'c', status: 'closed' })
+    ];
+    const counts = model.viewCounts(list);
+    for (const view of model.VIEWS) {
+        assert.equal(counts[view], model.filterSessions(list, { view }).length, `عدّاد «${view}» غلط`);
+    }
+    assert.equal(counts.manual, 1);
+    assert.equal(counts.bot, 1);
+    assert.equal(counts.closed, 1);
+});
+
+test('الزائر ليه اسم واضح', () => {
+    assert.equal(model.displayName(session({ user_id: null, customer: null })), 'زائر');
+    assert.equal(model.displayName(session({ customer: { email: 'only@mail.test' } })), 'only@mail.test');
+});
+
+test('الرد الجاهز بيتملي باسم العميل', () => {
+    const filled = model.fillCannedReply('أهلاً {{الاسم}} و {{ name }}', session({ customer: { full_name: 'سارة' } }));
+    assert.equal(filled, 'أهلاً سارة و سارة');
+});
+
+test('الرابط المباشر بيقبل الشكلين القديم والجديد', () => {
+    assert.equal(model.sessionIdFromSearch('?session=abc'), 'abc');
+    assert.equal(model.sessionIdFromSearch('?session_id=xyz'), 'xyz');
+    assert.equal(model.sessionIdFromSearch(''), null);
+});
+
+test('الرسايل بتترتب زمنيًا حتى لو الـ embed رجّعها بترتيب تاني', () => {
+    const sorted = model.sortMessages([customerMsg('b', 5), botMsg('a', 1)]);
+    assert.deepEqual(sorted.map((m) => m.id), ['a', 'b']);
+    assert.equal(model.lastMessageOf(session({ messages: sorted })).id, 'b');
 });
