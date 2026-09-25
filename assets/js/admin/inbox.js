@@ -5,7 +5,8 @@
  * العميل (chat-logic.js)، بكل ردود البوت المحلي و SIE اللي اتكتبت فيها.
  * الصندوق مابيولّدش ردود بوت ولا بينادي SIE — بيقرا اللي اتكتب، وبيضيف
  * طبقة الفريق فوقه: الإسناد، الفرق، التحويل، الوسوم، الملاحظات الداخلية،
- * الأرشفة، والسجل (migrations/055_inbox_helpdesk_core.sql).
+ * الأرشفة، والسجل (migrations/055_inbox_helpdesk_core.sql)، ومرفقات الدعم
+ * والتفاعلات وتعديل الردود وحذفها (migrations/056_inbox_attachments_reactions_edits.sql).
  *
  * بيحل محل chat-admin.html. الروابط القديمة ليها (إشعارات القاعدة
  * `chat-admin.html?session=…`) بتتحوّل هنا من vercel.json، والصفحة دي
@@ -25,21 +26,32 @@
 import { initSidebar } from './sidebar.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { iconize } from '/assets/js/chat-icons.js';
-import { attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, autoLabelFor } from '/assets/js/chat-attachments.js';
+import {
+    attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, autoLabelFor,
+    FILE_PICKER_ACCEPT, validateFile, downscaleImage, buildObjectPath, messageFieldsFor,
+    uploadErrorText, formatBytes, formatDuration
+} from '/assets/js/chat-attachments.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
 import {
     STATUS_LABELS, senderKind, displayName, initialsOf, isStaffOriginated, isArchived,
     lastMessageOf, lastActivityOf, isAwaitingReply, filterSessions, viewCounts,
     messageStats, fillCannedReply, sessionIdFromSearch, sortMessages,
-    buildTimeline, describeEvent, extractMentions
+    buildTimeline, describeEvent, extractMentions,
+    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf
 } from './inbox-model.js';
 import {
-    loadSessions, loadSession, loadThreadExtras, loadAgents, loadTeams, loadTags, createSharedTag,
-    loadCustomerContext, sendReply, closeSessions, assign, transfer, addTag, removeTag,
-    addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
-    loadCannedReplies, signAttachmentPaths, subscribeInbox
+    loadSessions, loadSession, loadThreadExtras, loadReactions, loadAgents, loadTeams, loadTags, createSharedTag,
+    loadCustomerContext, sendReply, editMessage, deleteMessage, toggleReaction, closeSessions, assign, transfer,
+    addTag, removeTag, addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
+    loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox
 } from './inbox-data.js';
 
 const $ = (id) => document.getElementById(id);
+
+function emptyThread(sessionId) {
+    return { sessionId, notes: [], events: [], reactions: [], revisions: [] };
+}
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -54,12 +66,21 @@ const state = {
     activeId: null,
     selected: new Set(),
     drafts: new Map(),
-    /** الملاحظات والسجل للمحادثة المفتوحة بس. */
-    thread: { sessionId: null, notes: [], events: [] },
+    /** الملاحظات والسجل والتفاعلات والنسخ السابقة للمحادثة المفتوحة بس. */
+    thread: emptyThread(null),
     customerCtx: new Map(),
     canned: [],
     mode: 'reply',
     editingNoteId: null,
+    /** رد دعم بيتعدّل (056) — نفس شريط التعديل بتاع الملاحظة. */
+    editingMessageId: null,
+    /** مرفق واحد مستني الإرسال مع الرد: {file, kind, mime, ext, durationMs, url, progress}. */
+    pending: null,
+    recorder: null,
+    /** العنصر اللي لوحة التفاعلات مفتوحة عليه: {messageId} أو {noteId}. */
+    reactFor: null,
+    /** الرسايل اللي نسخها السابقة ظاهرة. */
+    openRevisions: new Set(),
     forwardingId: null,
     detailsOpen: false,
     sending: false,
@@ -77,6 +98,7 @@ const ICON = {
     note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 13h6M9 17h4"/></svg>',
     forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
+    react: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
 };
 
@@ -309,6 +331,7 @@ function previewOf(session, message) {
 
     const kind = senderKind(message);
     const who = kind === 'agent' ? 'الدعم: ' : kind === 'bot' ? 'البوت: ' : '';
+    if (isDeletedMessage(message)) return `${esc(who)}<i>${esc(DELETED_MESSAGE_TEXT)}</i>`;
     const att = attachmentFromMessage(message);
     const text = stripIcons(message.message_text) || (att ? autoLabelFor(att) : '');
     return `${esc(who)}${att ? '📎 ' : ''}${esc(text.slice(0, 70))}`;
@@ -328,11 +351,16 @@ async function openConversation(id, { refresh = true } = {}) {
     }
 
     if (state.activeId && state.activeId !== id) state.drafts.set(state.activeId, $('messageInput').value);
+    const switching = state.activeId !== id;
     state.activeId = id;
-    state.thread = { sessionId: id, notes: [], events: [] };
+    state.thread = emptyThread(id);
     cancelEdit();
     closeFind();
     closePop();
+    // المرفق مربوط بالمحادثة (مساره فيه رقمها) — مايتنقلش مع الموظف.
+    if (switching) { discardPending(); cancelRecording(); }
+    state.reactFor = null;
+    state.openRevisions.clear();
 
     // الرابط بيوصف المحادثة المفتوحة — ينفع يتبعت لزميل.
     const url = new URL(window.location.href);
@@ -390,8 +418,10 @@ function dropSession(id) {
 function closeThread() {
     state.activeId = null;
     state.renderedId = null;
-    state.thread = { sessionId: null, notes: [], events: [] };
+    state.thread = emptyThread(null);
     cancelEdit();
+    discardPending();
+    cancelRecording();
     $('threadBody').hidden = true;
     $('threadEmpty').hidden = false;
     $('inboxShell').classList.remove('is-thread-open');
@@ -461,23 +491,68 @@ function senderLabel(message, kind) {
     return agentName(message.sender_id) || 'فريق الدعم';
 }
 
+/** أسماء اللي تفاعلوا — في الـ title بدل ما تزحم الشاشة. */
+function reactorNames(userIds) {
+    return userIds.map((id) => agentName(id) || 'موظف').join('، ');
+}
+
+/** شريط التفاعلات تحت الفقاعة، ولوحة اختيار الرمز لو مفتوحة على العنصر ده. */
+function renderReactions(target) {
+    const groups = groupReactions(state.thread.reactions, target, state.me?.id);
+    const key = target.messageId ? `data-react-msg="${esc(target.messageId)}"` : `data-react-note="${esc(target.noteId)}"`;
+    const open = state.reactFor && (state.reactFor.messageId === target.messageId && state.reactFor.noteId === target.noteId);
+    const chips = groups.map((g) => `<button type="button" class="ib-reaction ${g.mine ? 'is-mine' : ''}" ${key}
+        data-emoji="${esc(g.emoji)}" title="${esc(reactorNames(g.userIds))}" aria-pressed="${g.mine}">
+        <span>${esc(g.emoji)}</span><b>${g.count}</b></button>`).join('');
+    const picker = open ? `<div class="ib-react-pick" role="group" aria-label="تفاعل">${REACTION_EMOJI.map((e) =>
+        `<button type="button" ${key} data-emoji="${esc(e)}" aria-label="تفاعل ${esc(e)}">${esc(e)}</button>`).join('')}</div>` : '';
+    return chips || picker ? `<div class="ib-reactions">${chips}${picker}</div>` : '';
+}
+
+/** نسخ الرد السابقة — للفريق بس (chat_message_revisions)، العميل شايف الأخيرة بس. */
+function renderRevisions(message) {
+    if (!state.openRevisions.has(message.id)) return '';
+    const list = revisionsOf(state.thread.revisions, message.id);
+    if (!list.length) return '';
+    return `<ol class="ib-revisions" aria-label="النسخ السابقة">${list.map((r) => `
+        <li><span class="ib-rev-head">${r.action === 'delete' ? 'قبل الحذف' : 'قبل التعديل'} · ${esc(agentName(r.actor_id) || 'موظف')} · ${esc(fullTime(r.created_at))}</span>
+          <span class="ib-text">${renderBody(r.previous_text)}</span>
+          ${r.previous_attachment ? `<span class="ib-rev-att">📎 ${esc(autoLabelFor({ kind: r.previous_attachment.kind, name: r.previous_attachment.name || '' }))}</span>` : ''}</li>`).join('')}</ol>`;
+}
+
 function renderMessage(message) {
     const kind = senderKind(message);
     const side = kind === 'agent' ? 'mine' : kind === 'bot' ? 'bot' : 'theirs';
     const label = senderLabel(message, kind);
     const hit = state.find.hits.includes(message.id);
-    const { att, text } = messageParts(message);
+    const deleted = isDeletedMessage(message);
+    const { att, text } = deleted ? { att: null, text: '' } : messageParts(message);
+    const canEdit = canEditMessage(message, state.me?.id);
+    const canDelete = canDeleteMessage(message, state.me?.id, isElevated());
+    const hasRevisions = revisionsOf(state.thread.revisions, message.id).length > 0;
+    const deletedBy = deleted ? revisionsOf(state.thread.revisions, message.id).find((r) => r.action === 'delete')?.actor_id : null;
+
+    const tools = deleted ? '' : `<div class="ib-tools">
+        <button type="button" data-act="react" data-id="${esc(message.id)}" title="تفاعل (للفريق بس)">${ICON.react}</button>
+        ${message.message_text ? `<button type="button" data-act="forward" data-id="${esc(message.id)}" title="تحويل كملاحظة داخلية لمحادثة تانية">${ICON.forward}</button>` : ''}
+        ${canEdit ? `<button type="button" data-act="edit-message" data-id="${esc(message.id)}" title="تعديل الرد">${ICON.edit}</button>` : ''}
+        ${canDelete ? `<button type="button" data-act="delete-message" data-id="${esc(message.id)}" title="حذف الرد">${ICON.trash}</button>` : ''}
+      </div>`;
+    const history = hasRevisions
+        ? `<button type="button" class="ib-meta-link" data-act="revisions" data-id="${esc(message.id)}" aria-expanded="${state.openRevisions.has(message.id)}">· ${deleted ? 'النص الأصلي' : EDITED_LABEL}</button>`
+        : (isEditedMessage(message) ? `<span>· ${esc(EDITED_LABEL)}</span>` : '');
     return `
-        <div class="ib-msg ib-msg--${side} ${hit ? 'is-hit' : ''}" data-message="${esc(message.id)}" tabindex="-1">
+        <div class="ib-msg ib-msg--${side} ${hit ? 'is-hit' : ''} ${deleted ? 'is-deleted' : ''}" data-message="${esc(message.id)}" tabindex="-1">
           ${label ? `<span class="ib-sender">${esc(label)}</span>` : ''}
-          ${message.message_text ? `<div class="ib-tools">
-            <button type="button" data-act="forward" data-id="${esc(message.id)}" title="تحويل كملاحظة داخلية لمحادثة تانية">${ICON.forward}</button>
-          </div>` : ''}
+          ${tools}
           <div class="ib-bubble">
-            ${att ? renderAttachmentHtml(att, esc) : ''}
-            ${text ? `<span class="ib-text">${renderBody(text)}</span>` : ''}
+            ${deleted
+                ? `<div class="ib-deleted">${esc(DELETED_MESSAGE_TEXT)}${deletedBy ? ` — ${esc(agentName(deletedBy) || 'موظف')}` : ''}</div>`
+                : `${att ? renderAttachmentHtml(att, esc) : ''}${text ? `<span class="ib-text">${renderBody(text)}</span>` : ''}`}
           </div>
-          <div class="ib-msg-meta"><span title="${esc(fullTime(message.created_at))}">${esc(shortTime(message.created_at))}</span></div>
+          ${deleted ? '' : renderReactions({ messageId: message.id })}
+          ${renderRevisions(message)}
+          <div class="ib-msg-meta"><span title="${esc(fullTime(message.created_at))}">${esc(shortTime(message.created_at))}</span>${history}</div>
         </div>`;
 }
 
@@ -486,18 +561,20 @@ function renderNote(note) {
     const canDelete = mine || isElevated();
     const hit = state.find.hits.includes(note.id);
     const tools = note.deleted_at ? '' : `<div class="ib-tools">
+        <button type="button" data-act="react-note" data-id="${esc(note.id)}" title="تفاعل">${ICON.react}</button>
         ${mine ? `<button type="button" data-act="edit-note" data-id="${esc(note.id)}" title="تعديل">${ICON.edit}</button>` : ''}
         ${canDelete ? `<button type="button" data-act="delete-note" data-id="${esc(note.id)}" title="سحب">${ICON.trash}</button>` : ''}
       </div>`;
     return `
         <div class="ib-msg ib-msg--note ${hit ? 'is-hit' : ''}" data-note="${esc(note.id)}" tabindex="-1">
-          ${mine || canDelete ? tools : ''}
+          ${tools}
           <div class="ib-bubble">
             <div class="ib-note-flag">${ICON.note}<span>ملاحظة داخلية — العميل مايشوفهاش · ${esc(agentName(note.author_id) || 'موظف')}</span></div>
             ${note.deleted_at
                 ? '<div class="ib-deleted">الملاحظة دي اتسحبت.</div>'
                 : `<span class="ib-text">${renderBody(note.body, note.mentions)}</span>`}
           </div>
+          ${note.deleted_at ? '' : renderReactions({ noteId: note.id })}
           <div class="ib-msg-meta"><span title="${esc(fullTime(note.created_at))}">${esc(shortTime(note.created_at))}</span>
             ${note.edited_at && !note.deleted_at ? '<span>· اتعدلت</span>' : ''}</div>
         </div>`;
@@ -512,7 +589,7 @@ function renderEvent(event) {
 
 function renderMessages(session) {
     const container = $('messageList');
-    const extras = state.thread.sessionId === session.id ? state.thread : { notes: [], events: [] };
+    const extras = state.thread.sessionId === session.id ? state.thread : emptyThread(session.id);
     const timeline = buildTimeline(session.messages, extras.notes, extras.events);
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
@@ -536,7 +613,19 @@ function renderMessages(session) {
         if (act === 'forward') openForwardDialog(id);
         if (act === 'edit-note') startEditNote(id);
         if (act === 'delete-note') removeNote(id);
+        if (act === 'edit-message') startEditMessage(id);
+        if (act === 'delete-message') removeMessage(id);
+        if (act === 'react') toggleReactPicker({ messageId: id });
+        if (act === 'react-note') toggleReactPicker({ noteId: id });
+        if (act === 'revisions') {
+            if (state.openRevisions.has(id)) state.openRevisions.delete(id); else state.openRevisions.add(id);
+            renderThread();
+        }
     }));
+    container.querySelectorAll('[data-emoji][data-react-msg], [data-emoji][data-react-note]').forEach((button) =>
+        button.addEventListener('click', () => react(
+            button.dataset.reactMsg ? { messageId: button.dataset.reactMsg } : { noteId: button.dataset.reactNote },
+            button.dataset.emoji)));
 
     hydrateMessageAttachments(container);
     // الصورة بتتفتح بحجمها الكامل (رابط موقَّع قصير العمر) في تبويب جديد.
@@ -805,14 +894,16 @@ async function bulkArchive() {
 }
 
 // ═════════════════════════════════════════════════════════════
-// الكتابة: رد للعميل / ملاحظة داخلية / تعديل ملاحظة
+// الكتابة: رد للعميل (بمرفق أو تسجيل) / ملاحظة داخلية / تعديل
 // ═════════════════════════════════════════════════════════════
 
 function setMode(mode) {
     const session = activeSession();
     if (mode === 'reply' && session?.status === 'closed') return;
     state.mode = mode;
-    if (mode === 'reply') cancelEdit();
+    // تعديل الملاحظة في وضع الملاحظة، وتعديل الرد في وضع الرد.
+    if ((mode === 'reply' && state.editingNoteId) || (mode === 'note' && state.editingMessageId)) cancelEdit();
+    if (mode === 'note') cancelRecording();
     $('composer').classList.toggle('is-note', mode === 'note');
     $('modeToggle').querySelectorAll('button').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === mode));
     $('messageInput').placeholder = mode === 'note'
@@ -828,24 +919,185 @@ function autoGrow() {
     input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
 }
 
+function showEditingBar(label, text) {
+    $('editingLabel').textContent = label;
+    $('editingBar').hidden = false;
+    $('editingText').textContent = text;
+    $('composer').classList.add('is-editing');
+    $('messageInput').value = text;
+    autoGrow();
+    $('messageInput').focus();
+}
+
 function startEditNote(noteId) {
     const note = state.thread.notes.find((n) => n.id === noteId);
     if (!note) return;
     setMode('note');
     state.editingNoteId = noteId;
-    $('editingBar').hidden = false;
-    $('editingText').textContent = note.body;
-    $('messageInput').value = note.body;
-    autoGrow();
-    $('messageInput').focus();
+    showEditingBar('تعديل ملاحظة', note.body);
+}
+
+/** تعديل رد دعم بتاعي — العميل هيشوف النص الجديد وجنبه «معدّلة». */
+function startEditMessage(messageId) {
+    const message = activeSession()?.messages.find((m) => m.id === messageId);
+    if (!canEditMessage(message, state.me?.id)) return;
+    if (activeSession()?.status === 'closed') { toast('المحادثة مقفولة.', 'err'); return; }
+    setMode('reply');
+    cancelRecording();
+    state.editingMessageId = messageId;
+    showEditingBar('تعديل رد للعميل', message.message_text || '');
 }
 
 function cancelEdit() {
-    if (!state.editingNoteId) return;
+    if (!state.editingNoteId && !state.editingMessageId) return;
     state.editingNoteId = null;
+    state.editingMessageId = null;
     $('editingBar').hidden = true;
+    $('composer').classList.remove('is-editing');
     $('messageInput').value = state.drafts.get(state.activeId) || '';
     autoGrow();
+}
+
+async function removeMessage(messageId) {
+    const message = activeSession()?.messages.find((m) => m.id === messageId);
+    if (!canDeleteMessage(message, state.me?.id, isElevated())) return;
+    const others = message.sender_id !== state.me?.id;
+    if (!confirm(`${others ? 'ده رد موظف تاني. ' : ''}تحذف الرد ده؟ العميل هيشوف «${DELETED_MESSAGE_TEXT}» مكانه، والنص الأصلي هيفضل للفريق بس.`)) return;
+    try {
+        replaceMessage(await deleteMessage(messageId));
+        if (state.editingMessageId === messageId) cancelEdit();
+        await refreshRevisions(message.session_id);
+    } catch (err) {
+        toast(errText(err, 'الرد مااتحذفش.'), 'err');
+    }
+    renderAll();
+}
+
+async function refreshRevisions(sessionId) {
+    const extras = await loadThreadExtras(sessionId).catch(() => null);
+    if (extras && state.thread.sessionId === sessionId) state.thread = { sessionId, ...extras };
+}
+
+// ── التفاعلات (للفريق بس — D4) ──────────────────────────────
+
+function toggleReactPicker(target) {
+    const same = state.reactFor && state.reactFor.messageId === target.messageId && state.reactFor.noteId === target.noteId;
+    state.reactFor = same ? null : target;
+    renderThread();
+}
+
+async function react(target, emoji) {
+    const sessionId = state.thread.sessionId;
+    state.reactFor = null;
+    try {
+        await toggleReaction(target, emoji);
+        const reactions = await loadReactions(sessionId);
+        if (state.thread.sessionId === sessionId) state.thread.reactions = reactions;
+    } catch (err) {
+        toast(errText(err, 'التفاعل ماتسجلش.'), 'err');
+    }
+    renderThread();
+}
+
+// ── المرفق والتسجيل الصوتي (الرد للعميل بس) ────────────────
+
+/**
+ * مرفق واحد لكل رد (inbox_send_reply بياخد مرفق واحد). الفحص هنا تجربة
+ * استخدام؛ الفرض في المستودع (الحجم والنوع) ومحفّز 054 (المسار).
+ */
+async function setPendingFile(file, { expectKind, durationMs = null } = {}) {
+    const first = validateFile(file, expectKind);
+    if (!first.ok) { toast(first.error, 'err'); return; }
+    const body = first.kind === 'image' ? await downscaleImage(file) : file;
+    const check = validateFile(body, first.kind);
+    if (!check.ok) { toast(check.error, 'err'); return; }
+    discardPending();
+    state.pending = {
+        file: body, kind: check.kind, mime: check.mime, ext: check.ext,
+        name: body.name || file.name, size: body.size, durationMs,
+        url: URL.createObjectURL(body), progress: null
+    };
+    renderPending();
+    $('messageInput').focus();
+}
+
+function discardPending() {
+    if (state.pending?.url) URL.revokeObjectURL(state.pending.url);
+    state.pending?.controller?.abort();
+    state.pending = null;
+    renderPending();
+}
+
+function renderPending() {
+    const chip = $('attachChip');
+    if (!chip) return;
+    const p = state.pending;
+    chip.hidden = !p;
+    if (!p) { chip.innerHTML = ''; return; }
+    const preview = p.kind === 'image'
+        ? `<img src="${esc(p.url)}" alt="">`
+        : p.kind === 'audio'
+            ? `<audio src="${esc(p.url)}" controls preload="metadata"></audio>`
+            : `<span class="ib-attach-icon">📎</span>`;
+    const meta = [p.kind === 'audio' && p.durationMs ? formatDuration(p.durationMs) : null, formatBytes(p.size)].filter(Boolean).join(' · ');
+    chip.innerHTML = `${preview}
+        <span class="ib-attach-text"><b>${esc(p.kind === 'audio' ? 'رسالة صوتية' : p.name)}</b><span dir="ltr">${esc(meta)}</span>
+          ${p.progress !== null ? `<span class="ib-attach-bar"><span style="width:${Math.round(p.progress * 100)}%"></span></span>` : ''}</span>
+        <button type="button" class="ib-mini" id="removeAttachBtn" aria-label="شيل المرفق" ${state.sending ? 'disabled' : ''}>✕</button>`;
+    $('removeAttachBtn').addEventListener('click', discardPending);
+}
+
+function setPendingProgress(progress) {
+    if (!state.pending) return;
+    state.pending.progress = progress;
+    const bar = $('attachChip').querySelector('.ib-attach-bar > span');
+    if (bar) bar.style.width = `${Math.round(progress * 100)}%`; else renderPending();
+}
+
+/** الرفع في مجلد الموظف، وبعدين حقل attachment للرسالة. */
+async function uploadPending(session) {
+    const p = state.pending;
+    const path = buildObjectPath(state.me.id, session.id, p.ext);
+    p.controller = new AbortController();
+    setPendingProgress(0);
+    try {
+        await uploadReplyFile({
+            path, file: p.file, contentType: p.mime, signal: p.controller.signal,
+            onProgress: setPendingProgress
+        });
+    } finally {
+        p.controller = null;
+    }
+    return messageFieldsFor({ kind: p.kind, path, name: p.name, mime: p.mime, size: p.size, durationMs: p.durationMs ?? undefined }).attachment;
+}
+
+async function startRecording() {
+    if (state.recorder?.state === 'recording' || state.mode !== 'reply' || state.editingMessageId) return;
+    state.recorder = new VoiceRecorder({
+        onState: (recState, detail) => onRecorderState(recState, detail),
+        onTick: (ms) => { $('recordTime').textContent = formatDuration(ms); }
+    });
+    await state.recorder.start();
+}
+
+function onRecorderState(recState, detail) {
+    const recording = recState === 'recording' || recState === 'requesting';
+    $('recordBar').hidden = !recording;
+    $('composer').classList.toggle('is-recording', recording);
+    if (recState === 'requesting') $('recordTime').textContent = '0:00';
+    if (recState === 'error') toast(detail?.message || 'تعذّر التسجيل.', 'err');
+    if (recState === 'stopped' && detail) {
+        const file = new File([detail.blob], 'voice', { type: detail.mime });
+        setPendingFile(file, { expectKind: 'audio', durationMs: detail.durationMs });
+    }
+}
+
+function stopRecording() {
+    state.recorder?.stop();
+}
+
+function cancelRecording() {
+    if (state.recorder && state.recorder.state !== 'idle') state.recorder.cancel();
 }
 
 async function removeNote(noteId) {
@@ -870,15 +1122,19 @@ async function send() {
     const session = activeSession();
     const input = $('messageInput');
     const text = input.value.trim();
-    if (!session || !text || state.sending) return;
+    const withFile = state.mode === 'reply' && !state.editingMessageId && !!state.pending;
+    if (!session || (!text && !withFile) || state.sending || state.recorder?.state === 'recording') return;
 
     state.sending = true;
     $('sendBtn').disabled = true;
     try {
         if (state.editingNoteId) {
             upsertNote(await editNote(state.editingNoteId, text));
-            state.editingNoteId = null;
-            $('editingBar').hidden = true;
+            cancelEdit();
+        } else if (state.editingMessageId) {
+            replaceMessage(await editMessage(state.editingMessageId, text));
+            cancelEdit();
+            await refreshRevisions(session.id);
         } else if (state.mode === 'note') {
             const wanted = extractMentions(text, state.agents);
             const note = await addNote(session.id, text, wanted);
@@ -888,7 +1144,25 @@ async function send() {
                 toast(`${dropped.map((id) => agentName(id)).join('، ')} مش واصل للمحادثة دي، فماوصلوش إشعار.`, 'err');
             }
         } else {
-            const row = await sendReply(session.id, text);
+            let attachment = null;
+            if (withFile) {
+                try {
+                    attachment = await uploadPending(session);
+                } catch (err) {
+                    setPendingProgress(null);
+                    throw new Error(/[\u0600-\u06FF]/.test(err?.message || '') ? err.message : uploadErrorText(err));
+                }
+            }
+            let row;
+            try {
+                // مرفق من غير تعليق: النص التلقائي («صورة مرفقة») زي رسالة العميل بالظبط.
+                row = await sendReply(session.id, text || autoLabelFor(attachment), attachment);
+            } catch (err) {
+                // الملف اترفع والرسالة مااتبعتتش — مانسيبوش يتيم، والمرفق يفضل للمحاولة الجاية.
+                if (attachment) { await removeUploadedFile(attachment.path); setPendingProgress(null); }
+                throw err;
+            }
+            if (attachment) discardPending();
             session.is_manual_mode = true;
             addMessage(row);
             if (session.meta?.archived_at) session.meta = { ...session.meta, archived_at: null, archived_by: null };
@@ -903,8 +1177,19 @@ async function send() {
     } finally {
         state.sending = false;
         $('sendBtn').disabled = false;
+        renderPending();
     }
     renderAll();
+}
+
+/** رد اتعدّل أو اتحذف (من هنا أو Realtime) — الصف كله بيتبدّل. */
+function replaceMessage(row) {
+    const session = row && findSession(row.session_id);
+    if (!session) return false;
+    const i = session.messages.findIndex((m) => m.id === row.id);
+    if (i < 0) return false;
+    session.messages[i] = { ...session.messages[i], ...row };
+    return true;
 }
 
 /** رسالة جديدة (من الإرسال أو Realtime) — مرة واحدة بس لكل id. */
@@ -1210,6 +1495,25 @@ const realtime = {
         if (eventType === 'INSERT' && !has) session.tagIds = [...session.tagIds, link.tag_id];
         renderAll();
     },
+    async onMessageUpdate(row) {
+        if (!row?.id || !replaceMessage(row)) return;
+        // النسخة السابقة اتكتبت في chat_message_revisions (مش في الـ publication).
+        if (row.session_id === state.thread.sessionId && (row.edited_at || row.deleted_at)) {
+            await refreshRevisions(row.session_id);
+        }
+        renderAll();
+    },
+    onReaction(eventType, row, old) {
+        const reactions = state.thread.reactions;
+        if (eventType === 'DELETE') {
+            if (!old?.id || !reactions.some((r) => r.id === old.id)) return;
+            state.thread.reactions = reactions.filter((r) => r.id !== old.id);
+        } else {
+            if (row?.session_id !== state.thread.sessionId || reactions.some((r) => r.id === row.id)) return;
+            state.thread.reactions = [...reactions, row];
+        }
+        renderThread();
+    },
     onNote(_eventType, row) {
         if (row?.session_id !== state.thread.sessionId) return;
         upsertNote(row);
@@ -1241,8 +1545,10 @@ function moveSelection(delta) {
 function onKeydown(event) {
     if (event.key === 'Escape') {
         if (state.pop) return closePop();
+        if (state.reactFor) { state.reactFor = null; return renderThread(); }
+        if (state.recorder?.state === 'recording') return cancelRecording();
         if (!$('findBar').hidden) return closeFind();
-        if (state.editingNoteId) return cancelEdit();
+        if (state.editingNoteId || state.editingMessageId) return cancelEdit();
         return;
     }
     if (event.key === 'f' && (event.ctrlKey || event.metaKey) && state.activeId) {
@@ -1317,6 +1623,24 @@ function wire() {
         }
     });
     $('sendBtn').addEventListener('click', send);
+
+    // المرفق والتسجيل — الرد للعميل بس (مخفيين في وضع الملاحظة بالـ CSS).
+    $('attachInput').accept = FILE_PICKER_ACCEPT;
+    $('attachBtn').addEventListener('click', () => { $('attachInput').value = ''; $('attachInput').click(); });
+    $('attachInput').addEventListener('change', () => {
+        const file = $('attachInput').files?.[0];
+        if (file) setPendingFile(file);
+    });
+    input.addEventListener('paste', (event) => {
+        const file = event.clipboardData?.files?.[0];
+        if (!file || state.mode !== 'reply' || state.editingMessageId) return;
+        event.preventDefault();
+        setPendingFile(file);
+    });
+    $('recordBtn').hidden = !isVoiceRecordingSupported();
+    $('recordBtn').addEventListener('click', startRecording);
+    $('stopRecordBtn').addEventListener('click', stopRecording);
+    $('cancelRecordBtn').addEventListener('click', cancelRecording);
     $('cannedBtn').addEventListener('click', () => (state.pop === 'canned' ? closePop() : openCanned()));
     $('emojiBtn').addEventListener('click', () => (state.pop === 'emoji' ? closePop() : openEmoji()));
 
@@ -1329,6 +1653,10 @@ function wire() {
     // ضغطة برّه اللوحة بتقفلها.
     document.addEventListener('click', (e) => {
         if (state.pop && !e.target.closest('.ib-composer-wrap')) closePop();
+        if (state.reactFor && !e.target.closest('.ib-react-pick, [data-act="react"], [data-act="react-note"]')) {
+            state.reactFor = null;
+            renderThread();
+        }
     });
     window.addEventListener('resize', fitShellHeight);
 }

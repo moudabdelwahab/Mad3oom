@@ -87,6 +87,7 @@ CREATE TABLE public.ticket_tags (
 CREATE TABLE public.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, title text NOT NULL, message text NOT NULL,
   type text DEFAULT 'info', is_read boolean DEFAULT false, link text, created_at timestamptz DEFAULT now());
+DROP PUBLICATION IF EXISTS supabase_realtime;
 CREATE PUBLICATION supabase_realtime;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_sessions, public.chat_messages;
 
@@ -183,6 +184,7 @@ INSERT INTO public.ticket_tags (id, name) VALUES ('7a900000-0000-4000-8000-00000
 \i migrations/055_inbox_helpdesk_core.sql
 
 -- ── مساعدات الاختبار ─────────────────────────────────────────────────────
+DROP SCHEMA IF EXISTS t CASCADE;
 CREATE SCHEMA t;
 GRANT USAGE ON SCHEMA t TO authenticated;
 CREATE OR REPLACE FUNCTION t.act(p uuid) RETURNS void LANGUAGE sql AS $$

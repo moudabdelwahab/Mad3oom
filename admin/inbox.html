@@ -249,6 +249,33 @@
         [data-theme='dark'] .ib-note-flag { color: #ffd166; }
         .ib-note-flag svg { width: 12px; height: 12px; }
         .ib-deleted { font-style: italic; opacity: 0.6; font-size: 0.8rem; }
+        .ib-msg--mine.is-deleted .ib-bubble { background: var(--color-surface); border: 1px dashed var(--color-border); color: var(--color-text); }
+
+        /* التفاعلات — للفريق بس، العميل مايشوفهاش (D4) */
+        .ib-reactions { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+        .ib-msg--mine .ib-reactions { justify-content: flex-end; }
+        .ib-reaction {
+            display: inline-flex; align-items: center; gap: 0.2rem; cursor: pointer; font-family: inherit;
+            padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.75rem; line-height: 1.6;
+            border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
+        }
+        .ib-reaction b { font-size: 0.68rem; }
+        .ib-reaction.is-mine { border-color: var(--color-accent); background: rgba(0,119,204,.12); }
+        .ib-react-pick {
+            display: inline-flex; gap: 0.1rem; padding: 0.15rem; border-radius: 999px;
+            background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);
+        }
+        .ib-react-pick button { border: 0; background: none; cursor: pointer; font-size: 1rem; padding: 0.15rem 0.25rem; border-radius: 50%; line-height: 1; }
+        .ib-react-pick button:hover, .ib-react-pick button:focus-visible { background: var(--color-muted); }
+
+        /* النسخ السابقة لرد اتعدّل أو اتحذف — للفريق بس */
+        .ib-meta-link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; text-decoration: underline dotted; }
+        .ib-revisions {
+            list-style: none; margin: 0; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem;
+            border-radius: var(--ib-radius-sm); border: 1px dashed var(--color-border); background: var(--color-muted); font-size: 0.78rem;
+        }
+        .ib-revisions li { display: flex; flex-direction: column; gap: 0.1rem; }
+        .ib-rev-head, .ib-rev-att { font-size: 0.68rem; color: var(--color-text-secondary); }
         .ib-text .ib-mention { font-weight: 700; background: rgba(0,119,204,.18); border-radius: 0.25rem; padding: 0 0.2rem; }
 
         /* سطر حدث من السجل (إسناد، تحويل، وسم…) */
@@ -292,6 +319,32 @@
         .ib-editing span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); }
         .ib-editing button { background: none; border: 0; cursor: pointer; color: var(--color-danger); font-size: 0.95rem; line-height: 1; }
         .ib-composer { border-top: 1px solid var(--color-border); padding: 0.6rem; background: var(--color-surface); }
+        /* المرفق والتسجيل للعميل بس: مخفيين في الملاحظة الداخلية وأثناء التعديل. */
+        .ib-composer.is-note .ib-reply-only, .ib-composer.is-editing .ib-reply-only { display: none !important; }
+        .ib-composer.is-recording #messageInput, .ib-composer.is-recording #sendBtn { opacity: .45; pointer-events: none; }
+        .ib-attach {
+            display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem;
+            padding: 0.4rem 0.55rem; border: 1px solid var(--color-border); border-radius: var(--ib-radius-sm);
+            background: var(--color-muted); font-size: 0.78rem;
+        }
+        .ib-attach img { width: 2.6rem; height: 2.6rem; object-fit: cover; border-radius: 0.35rem; flex-shrink: 0; }
+        .ib-attach audio { height: 2rem; width: 12rem; max-width: 45%; flex-shrink: 0; }
+        .ib-attach-icon { font-size: 1.1rem; }
+        .ib-attach-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+        .ib-attach-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ib-attach-text span { color: var(--color-text-secondary); font-size: 0.7rem; }
+        .ib-attach-bar { display: block; height: 3px; border-radius: 3px; background: var(--color-border); overflow: hidden; }
+        .ib-attach-bar > span { display: block; height: 100%; background: var(--color-accent); transition: width .15s ease; }
+        .ib-recording {
+            display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem;
+            padding: 0.4rem 0.6rem; border-radius: var(--ib-radius-sm);
+            background: rgba(220,53,69,.08); border: 1px solid rgba(220,53,69,.35); font-size: 0.8rem;
+        }
+        .ib-recording .spacer { flex: 1; }
+        .ib-recording .btn { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+        .ib-rec-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--color-danger); animation: ib-pulse 1s ease-in-out infinite; }
+        @keyframes ib-pulse { 50% { opacity: .3; } }
+        @media (prefers-reduced-motion: reduce) { .ib-rec-dot { animation: none; } }
         .ib-composer-note { font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.45rem; }
         .ib-closed-note {
             border-top: 1px solid var(--color-border); padding: 0.8rem; text-align: center;
@@ -553,12 +606,27 @@
                             </div>
                             <div class="ib-composer-note" id="composerNote"></div>
                             <div class="ib-editing" id="editingBar" hidden>
-                                <b>تعديل ملاحظة</b><span id="editingText"></span>
+                                <b id="editingLabel">تعديل ملاحظة</b><span id="editingText"></span>
                                 <button type="button" id="cancelEditBtn" aria-label="إلغاء التعديل">✕</button>
+                            </div>
+                            <div class="ib-attach ib-reply-only" id="attachChip" hidden></div>
+                            <div class="ib-recording ib-reply-only" id="recordBar" hidden>
+                                <span class="ib-rec-dot" aria-hidden="true"></span>
+                                <span>بيسجّل…</span><span id="recordTime" dir="ltr">0:00</span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn btn-secondary" id="cancelRecordBtn">إلغاء</button>
+                                <button type="button" class="btn btn-primary" id="stopRecordBtn">إيقاف</button>
                             </div>
                             <div class="ib-composer-wrap">
                                 <div class="ib-pop" id="popPanel" hidden></div>
+                                <input type="file" id="attachInput" hidden>
                                 <div class="ib-composer-row">
+                                    <button type="button" class="ib-icon-btn ib-reply-only" id="attachBtn" title="إرفاق صورة أو ملف للعميل" aria-label="إرفاق ملف">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                    </button>
+                                    <button type="button" class="ib-icon-btn ib-reply-only" id="recordBtn" title="تسجيل رسالة صوتية للعميل" aria-label="تسجيل رسالة صوتية">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                                    </button>
                                     <button type="button" class="ib-icon-btn" id="cannedBtn" title="رد جاهز (اكتب /)" aria-label="رد جاهز">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
                                     </button>

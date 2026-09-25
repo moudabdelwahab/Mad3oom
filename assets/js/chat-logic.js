@@ -5,6 +5,7 @@ import { fetchEntitlement } from '/assets/js/sie-plan-service.js';
 import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
+import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
 import {
     CHAT_ATTACHMENTS_BUCKET, FILE_PICKER_ACCEPT, validateFile, buildObjectPath, messageFieldsFor,
     attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, downscaleImage, uploadAttachment,
@@ -141,6 +142,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 filter: `session_id=eq.${session.id}`
             }, payload => {
                 appendCustomerMessage(payload.new);
+            })
+            // فريق الدعم عدّل رده أو حذفه من صندوق الرسائل (056)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'chat_messages',
+                filter: `session_id=eq.${session.id}`
+            }, payload => {
+                updateCustomerMessage(payload.new);
             })
             .subscribe();
     }
@@ -340,6 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     /** HTML المرفق + النص المعروض (النص التلقائي يُخفى لأن المرفق نفسه ظاهر). */
     function messageParts(msg) {
+        if (isDeletedMessage(msg)) return { attHtml: '', text: DELETED_MESSAGE_TEXT, deleted: true };
         const att = attachmentFromMessage(msg);
         const raw = msg.message_text || '';
         const text = att && raw === autoLabelFor(att) ? '' : raw;
@@ -398,19 +409,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         // بيانات ويُوقَّع بعد الإدراج (hydrateChatAttachments).
         injectAttachmentStyles();
         bindAttachmentClicks(chatMessages);
-        const { attHtml, text } = messageParts(msg);
+        // الاشتراك الفوري قد يعيد رسالة رُسمت للتو
+        if (msg.id && chatMessages.querySelector(`[data-msg-id="${CSS.escape(String(msg.id))}"]`)) return;
 
         const messageEl = document.createElement('div');
         messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
-        messageEl.innerHTML = `
-            ${attHtml}
-            ${text ? `<span>${iconize(escapeHtml(text))}</span>` : ''}
-            <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}</div>
-        `;
+        if (msg.id) messageEl.dataset.msgId = String(msg.id);
+        messageEl.innerHTML = customerMessageHtml(msg, time);
 
         chatMessages.appendChild(messageEl);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         hydrateChatAttachments(messageEl);
+    }
+
+    function customerMessageHtml(msg, time) {
+        const { attHtml, text, deleted } = messageParts(msg);
+        const body = deleted
+            ? `<span style="font-style: italic; opacity: 0.65;">${escapeHtml(text)}</span>`
+            : (text ? `<span>${iconize(escapeHtml(text))}</span>` : '');
+        const edited = isEditedMessage(msg) ? ` · ${escapeHtml(EDITED_LABEL)}` : '';
+        return `
+            ${attHtml}
+            ${body}
+            <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}${edited}</div>
+        `;
+    }
+
+    /** رد دعم اتعدّل أو اتحذف (056): الرسالة تتحدّث في مكانها. */
+    function updateCustomerMessage(msg) {
+        const chatMessages = document.getElementById('chatMessages');
+        const el = msg?.id && chatMessages?.querySelector(`[data-msg-id="${CSS.escape(String(msg.id))}"]`);
+        if (!el) return;
+        const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        el.innerHTML = customerMessageHtml(msg, time);
+        hydrateChatAttachments(el);
     }
 
     // ===== SETUP CUSTOMER CHAT EVENT LISTENERS =====

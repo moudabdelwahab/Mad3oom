@@ -15,8 +15,11 @@
  *   inbox_notes                        ملاحظات داخلية (العميل مايشوفهاش)
  *   inbox_events                       سجل كل إجراء
  *   inbox_teams / inbox_team_members   الفرق
+ *   inbox_reactions                    تفاعلات الفريق على رسالة أو ملاحظة
+ *   chat_message_revisions             النسخ السابقة لرد دعم اتعدّل أو اتحذف
  *
- * migrations/055_inbox_helpdesk_core.sql فيها الجداول والصلاحيات. شكل
+ * migrations/055_inbox_helpdesk_core.sql و 056_inbox_attachments_reactions_edits.sql
+ * فيهم الجداول والصلاحيات. شكل
  * الجلسة هنا بعد ما inbox-data.js يجمّعها:
  *
  *   { ...chat_sessions, customer, messages[], meta: {assignee_id, team_id,
@@ -201,7 +204,9 @@ export function messageStats(messages) {
  */
 export function buildTimeline(messages, notes = [], events = []) {
     // أحداث ليها أثر ظاهر بالفعل في الخط الزمني مابتتكررش كسطر.
-    const hidden = new Set(['note_added', 'note_edited', 'note_deleted', 'forwarded_as_note']);
+    // الرسالة المعدّلة أو المحذوفة بتقول ده بنفسها («معدّلة» / «اتحذفت»).
+    const hidden = new Set(['note_added', 'note_edited', 'note_deleted', 'forwarded_as_note',
+        'message_edited', 'message_deleted']);
     return [
         ...(messages || []).map((m) => ({ type: 'message', at: m.created_at, item: m })),
         ...(notes || []).map((n) => ({ type: 'note', at: n.created_at, item: n })),
@@ -230,6 +235,8 @@ export function describeEvent(event, names = {}) {
         case 'archived': return `${actor} أرشف المحادثة`;
         case 'unarchived': return p.reason === 'reply' ? 'المحادثة رجعت من الأرشيف بالرد' : `${actor} رجّع المحادثة من الأرشيف`;
         case 'closed': return `${actor} قفل المحادثة`;
+        case 'message_edited': return `${actor} عدّل رد`;
+        case 'message_deleted': return `${actor} حذف رد`;
         default: return `${actor}: ${event?.kind || 'إجراء'}`;
     }
 }
@@ -268,4 +275,53 @@ export function fillCannedReply(body, session) {
 export function sessionIdFromSearch(search) {
     const params = new URLSearchParams(search || '');
     return params.get('session') || params.get('session_id') || null;
+}
+
+// ═════════════════════════════════════════════════════════════
+// المرحلة 2: التفاعلات، وتعديل ردود الدعم وحذفها (056)
+// ═════════════════════════════════════════════════════════════
+
+/**
+ * التفاعلات المسموحة — نفس القايمة المقفولة في inbox_toggle_reaction بالقاعدة
+ * (القاعدة بترفض أي رمز تاني). إشارة للفريق («شفته»، «هتابع»)، مش نص حر.
+ */
+export const REACTION_EMOJI = Object.freeze(['👍', '✅', '👀', '🙏', '❤️', '😂', '⚠️', '🔥']);
+
+/**
+ * تفاعلات عنصر واحد متجمّعة بالرمز، بترتيب REACTION_EMOJI.
+ * @param {Array} reactions صفوف inbox_reactions للمحادثة
+ * @param {{messageId?:string, noteId?:string}} target
+ * @returns {Array<{emoji:string, count:number, userIds:string[], mine:boolean}>}
+ */
+export function groupReactions(reactions, { messageId = null, noteId = null } = {}, meId = null) {
+    const byEmoji = new Map();
+    for (const r of reactions || []) {
+        if (messageId ? r.message_id !== messageId : r.note_id !== noteId) continue;
+        if (!byEmoji.has(r.emoji)) byEmoji.set(r.emoji, []);
+        byEmoji.get(r.emoji).push(r.user_id);
+    }
+    return REACTION_EMOJI.filter((e) => byEmoji.has(e)).map((emoji) => {
+        const userIds = byEmoji.get(emoji);
+        return { emoji, count: userIds.length, userIds, mine: !!meId && userIds.includes(meId) };
+    });
+}
+
+/**
+ * نفس شروط _inbox_own_reply في القاعدة: رد دعم بس (رسائل العميل والبوت و SIE
+ * سجل ماينفعش يتلمس)، مش محذوف. التعديل لصاحب الرد وحده؛ الحذف كمان لصاحب
+ * السلطة المرتفعة.
+ */
+export function canEditMessage(message, meId) {
+    return !!message?.is_admin_reply && !message.deleted_at && !!meId && message.sender_id === meId;
+}
+
+export function canDeleteMessage(message, meId, elevated = false) {
+    if (!message?.is_admin_reply || message.deleted_at) return false;
+    return (!!meId && message.sender_id === meId) || !!elevated;
+}
+
+/** النسخ السابقة لرسالة، الأقدم الأول. */
+export function revisionsOf(revisions, messageId) {
+    return (revisions || []).filter((r) => r.message_id === messageId)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 }

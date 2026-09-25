@@ -5,6 +5,7 @@
  * الـ helpdesk (migrations/055_inbox_helpdesk_core.sql).
  *
  * الكتابة: **كلها** عبر RPC. مفيش ولا سياسة INSERT/UPDATE على جداول inbox_*،
+ * ولا على chat_message_revisions (056)،
  * وجدولا الشات مابيتكتبوش من هنا مباشرة. كل RPC بيتحقق من الوصول ويسجّل
  * في inbox_events.
  *
@@ -19,16 +20,24 @@
  * chat_messages بـ is_admin_reply = true — في معاملة واحدة. الويدجت بيسمع
  * الاتنين عن طريق Realtime («فريق الدعم انضم» + الرسالة). الإقفال
  * (status = 'closed') بيعرض «فريق الدعم غادر المحادثة». الملاحظات والوسوم
- * والإسناد في جداول منفصلة ماحدش من ناحية العميل يقدر يقراها.
+ * والإسناد والتفاعلات في جداول منفصلة ماحدش من ناحية العميل يقدر يقراها.
+ *
+ * المرحلة 2 (056):
+ *   • مرفق الرد بيترفع في مجلد الموظف نفسه (<uid>/…) بنفس
+ *     chat-attachments.js بتاع العميل، والرسالة بتحمل attachment زي رسالة
+ *     العميل بالظبط (محفّز 054 بيتحقق من المسار).
+ *   • تعديل/حذف رد الدعم بيحدّث نفس الصف (edited_at / deleted_at) — الويدجت
+ *     وصفحة العميل بيسمعوا UPDATE ويعرضوا «معدّلة» / «تم حذف هذه الرسالة».
  */
 import { supabase } from '/api-config.js';
 import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
 import { fetchCannedResponses, fetchTags, createTag } from '/tickets-service.js';
 import { sortMessages } from './inbox-model.js';
+import { uploadAttachment } from '/assets/js/chat-attachments.js';
 
 export const CHAT_ATTACHMENTS_BUCKET = 'chat-attachments';
 
-const MESSAGE_LITE = 'id, session_id, sender_id, message_text, image_url, audio_url, attachment, is_admin_reply, is_bot_reply, created_at';
+const MESSAGE_LITE = 'id, session_id, sender_id, message_text, image_url, audio_url, attachment, is_admin_reply, is_bot_reply, created_at, edited_at, deleted_at';
 const SESSION_COLS = `id, user_id, guest_id, status, is_manual_mode, created_at, updated_at, chat_messages (${MESSAGE_LITE})`;
 const META_COLS = 'session_id, assignee_id, team_id, archived_at, archived_by, updated_at';
 
@@ -88,14 +97,24 @@ export async function loadSession(sessionId) {
     return assemble([session.data], meta.data ? [meta.data] : [], tagLinks.data, customers)[0];
 }
 
-/** الملاحظات والسجل للمحادثة المفتوحة. */
+/** الملاحظات والسجل والتفاعلات والنسخ السابقة للمحادثة المفتوحة. */
 export async function loadThreadExtras(sessionId) {
-    const [notes, events] = await Promise.all([
+    const [notes, events, reactions, revisions] = await Promise.all([
         supabase.from('inbox_notes').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
-        supabase.from('inbox_events').select('*').eq('session_id', sessionId).order('created_at', { ascending: true })
+        supabase.from('inbox_events').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
+        loadReactions(sessionId),
+        supabase.from('chat_message_revisions').select('*').eq('session_id', sessionId).order('created_at', { ascending: true })
     ]);
-    for (const r of [notes, events]) if (r.error) throw r.error;
-    return { notes: notes.data || [], events: events.data || [] };
+    for (const r of [notes, events, revisions]) if (r.error) throw r.error;
+    return { notes: notes.data || [], events: events.data || [], reactions, revisions: revisions.data || [] };
+}
+
+export async function loadReactions(sessionId) {
+    const { data, error } = await supabase.from('inbox_reactions')
+        .select('id, session_id, message_id, note_id, user_id, emoji, created_at')
+        .eq('session_id', sessionId).order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
 }
 
 /** الموظفون المتاحون للإسناد والمنشن، ومين منهم مرتفع، وفرقهم. */
@@ -133,8 +152,21 @@ export async function loadCustomerContext(userId) {
 
 // ── الكتابة — كلها RPC ───────────────────────────────────────────────────
 
-export const sendReply = (sessionId, text) =>
-    rpc('inbox_send_reply', { p_session: sessionId, p_body: text }).then(one);
+/**
+ * @param {object|null} attachment - حقل attachment من messageFieldsFor()
+ *   (chat-attachments.js) لملف اترفع بالفعل في مجلد الموظف.
+ */
+export const sendReply = (sessionId, text, attachment = null) =>
+    rpc('inbox_send_reply', { p_session: sessionId, p_body: text, p_attachment: attachment }).then(one);
+
+export const editMessage = (messageId, body) =>
+    rpc('inbox_edit_message', { p_message: messageId, p_body: body }).then(one);
+export const deleteMessage = (messageId) =>
+    rpc('inbox_delete_message', { p_message: messageId }).then(one);
+
+/** @returns {Promise<boolean>} true = اتضاف، false = اتشال */
+export const toggleReaction = ({ messageId = null, noteId = null }, emoji) =>
+    rpc('inbox_toggle_reaction', { p_message: messageId, p_note: noteId, p_emoji: emoji });
 
 export const closeSessions = (ids) => rpc('inbox_close', { p_sessions: ids });
 
@@ -174,6 +206,22 @@ export async function loadCannedReplies() {
 }
 
 /**
+ * رفع مرفق رد الدعم — نفس رفع العميل (chat-attachments.js) في مجلد الموظف
+ * نفسه، وسياسة الرفع القائمة هي اللي بتسمح. المسار من buildObjectPath.
+ */
+export const uploadReplyFile = ({ path, file, contentType, onProgress, signal }) =>
+    uploadAttachment({ supabase, path, file, contentType, onProgress, signal });
+
+/** ملف اترفع والرسالة مااتبعتتش — بنشيله بدل ما يفضل يتيم (أفضل مجهود). */
+export async function removeUploadedFile(path) {
+    try {
+        await supabase.storage.from(CHAT_ATTACHMENTS_BUCKET).remove([path]);
+    } catch (err) {
+        console.warn('[inbox] الملف المرفوع ماتشالش:', err?.message || err);
+    }
+}
+
+/**
  * توقيع مرفقات المحادثة (المستودع خاص) — بنفس الشكل اللي hydrateAttachments
  * في chat-attachments.js مستنياه، ونفس مدد صفحة العميل: عرض قصير، وتحميل
  * أطول شوية لأن الضغطة ممكن تيجي بعد العرض بدقايق.
@@ -185,7 +233,8 @@ export function signAttachmentPaths(paths, { download = false } = {}) {
 
 /**
  * Realtime. RLS بتحدد اللي يوصل: الموظف بيستقبل أحداث المحادثات اللي
- * يوصلها بس (055 ضافت الجداول دي للـ publication).
+ * يوصلها بس (055 و 056 ضافوا الجداول دي للـ publication). حدث DELETE
+ * بيوصل بالمفتاح بس (old.id) — ده كفاية لشيل التفاعل.
  * @returns {() => void} إلغاء الاشتراك
  */
 export function subscribeInbox(handlers) {
@@ -193,11 +242,14 @@ export function subscribeInbox(handlers) {
         (payload) => fn?.(payload.eventType, payload.new, payload.old));
     const ch = supabase.channel('admin-inbox');
     on('chat_messages', 'INSERT', (_t, row) => handlers.onMessage?.(row));
+    // تعديل/حذف رد (056) — من موظف تاني أو من تبويب تاني.
+    on('chat_messages', 'UPDATE', (_t, row) => handlers.onMessageUpdate?.(row));
     on('chat_sessions', '*', handlers.onSession);
     on('inbox_conversations', '*', handlers.onMeta);
     on('inbox_conversation_tags', '*', handlers.onTag);
     on('inbox_notes', '*', handlers.onNote);
     on('inbox_events', 'INSERT', (_t, row) => handlers.onEvent?.(row));
+    on('inbox_reactions', '*', handlers.onReaction);
     ch.subscribe();
     return () => supabase.removeChannel(ch);
 }

@@ -40,7 +40,7 @@ test('كل عنصر بيستخدمه inbox.js موجود في inbox.html', async
     const [html, js] = await Promise.all([read('admin/inbox.html'), read('assets/js/admin/inbox.js')]);
     const declared = idsInHtml(html);
     // عناصر بيرسمها inbox.js بنفسه جوه innerHTML (مش في الـ HTML الثابت).
-    const dynamic = new Set(['retryLoad', 'manageTeamsBtn', 'newTagName', 'createTagBtn']);
+    const dynamic = new Set(['retryLoad', 'manageTeamsBtn', 'newTagName', 'createTagBtn', 'removeAttachBtn']);
     const missing = [...new Set(idsUsedByJs(js))].filter((id) => !declared.has(id) && !dynamic.has(id));
     assert.deepEqual(missing, [], `عناصر بيتنده عليها ومش موجودة: ${missing.join(', ')}`);
 });
@@ -94,12 +94,12 @@ test('مفيش بيانات تجريبية ولا بانر معاينة', async 
     assert.match(data, /from '\/api-config\.js'/, 'طبقة البيانات مش متوصلة بـ Supabase');
 });
 
-test('الصندوق بيقرا من جداول الشات وجداول 055 والجداول الموجودة بس', async () => {
+test('الصندوق بيقرا من جداول الشات وجداول 055/056 والجداول الموجودة بس', async () => {
     const data = await read('assets/js/admin/inbox-data.js');
     const tables = new Set([...data.matchAll(/\.from\('([^']+)'\)/g)].map((m) => m[1]));
     assert.deepEqual([...tables].sort(), [
-        'chat_sessions', 'customer_notes', 'inbox_conversation_tags', 'inbox_conversations',
-        'inbox_events', 'inbox_notes', 'inbox_team_members', 'inbox_teams', 'tickets'
+        'chat_message_revisions', 'chat_sessions', 'customer_notes', 'inbox_conversation_tags', 'inbox_conversations',
+        'inbox_events', 'inbox_notes', 'inbox_reactions', 'inbox_team_members', 'inbox_teams', 'tickets'
     ]);
     // الأدمن غير المرتفع مالوش SELECT على ملفات الآخرين: الأسماء من RPC مش embed.
     assert.ok(!/from\('profiles'\)|profiles:user_id/.test(data), 'قراءة مباشرة من profiles');
@@ -109,10 +109,11 @@ test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', 
     const [data, js] = await Promise.all([read('assets/js/admin/inbox-data.js'), read('assets/js/admin/inbox.js')]);
     assert.ok(!/\.from\('[^']+'\)[\s\S]{0,120}?\.(insert|update|delete|upsert)\(/.test(data + js), 'كتابة مباشرة على جدول');
 
-    const migration = await read('migrations/055_inbox_helpdesk_core.sql');
+    const migrations = (await Promise.all([
+        read('migrations/055_inbox_helpdesk_core.sql'), read('migrations/056_inbox_attachments_reactions_edits.sql')])).join('\n');
     const called = [...data.matchAll(/rpc\('([a-z_]+)'/g)].map((m) => m[1]);
-    const missing = called.filter((name) => !new RegExp(`create or replace function public\\.${name}\\(`).test(migration));
-    assert.deepEqual(missing, [], `RPC مش موجود في 055: ${missing.join(', ')}`);
+    const missing = called.filter((name) => !new RegExp(`create or replace function public\\.${name}\\(`).test(migrations));
+    assert.deepEqual(missing, [], `RPC مش موجود في 055/056: ${missing.join(', ')}`);
 });
 
 // ═════════════════════════════════════════════════════════════
@@ -120,13 +121,15 @@ test('كل كتابة عبر RPC — مفيش insert/update/delete مباشر', 
 // ═════════════════════════════════════════════════════════════
 
 test('رد الدعم بيوقّف البوت وبيتكتب كرد أدمن — نفس اللي الويدجت مستنيه', async () => {
+    // 056 استبدلت inbox_send_reply (ضافت المرفق)، فالعقد بيتفحص على آخر تعريف.
     const [data, migration, widget] = await Promise.all([
-        read('assets/js/admin/inbox-data.js'), read('migrations/055_inbox_helpdesk_core.sql'), read('chat-widget.js')]);
+        read('assets/js/admin/inbox-data.js'), read('migrations/056_inbox_attachments_reactions_edits.sql'), read('chat-widget.js')]);
     assert.match(data, /rpc\('inbox_send_reply'/, 'الرد مش بيعدي على inbox_send_reply');
 
-    const fn = migration.slice(migration.indexOf('function public.inbox_send_reply'), migration.indexOf('function public.inbox_close'));
+    const fn = migration.slice(migration.indexOf('function public.inbox_send_reply'), migration.indexOf('function public._inbox_own_reply'));
+    assert.ok(fn.length > 200, 'مالقيتش inbox_send_reply في 056');
     assert.match(fn, /set is_manual_mode = true/, 'الرد مش بيوقّف البوت');
-    assert.match(fn, /is_admin_reply\)\s*values \(p_session, auth\.uid\(\), v_body, true\)/, 'الرد مش متعلّم كرد أدمن');
+    assert.match(fn, /is_admin_reply,[\s\S]{0,80}\)\s*values \(p_session, auth\.uid\(\), v_body, true,/, 'الرد مش متعلّم كرد أدمن');
     assert.ok(fn.indexOf('set is_manual_mode = true') < fn.indexOf('insert into public.chat_messages'),
         'البوت لازم يقف قبل ما الرد يتكتب، وإلا ممكن يرد على نفس الرسالة');
 
@@ -332,4 +335,31 @@ test('المنشن بالاسم الكامل بس', () => {
     assert.deepEqual(model.extractMentions('@أحمد و @أحمد علي', agents).sort(), ['a', 'b']);
     assert.deepEqual(model.extractMentions('@أحمدين', agents), [], 'اسم ناقص اتحسب منشن');
     assert.deepEqual(model.extractMentions('من غير منشن', agents), []);
+});
+
+// ═════════════════════════════════════════════════════════════
+// المرحلة 2 (056)
+// ═════════════════════════════════════════════════════════════
+
+test('رموز التفاعل في الواجهة هي نفس القايمة المقفولة في القاعدة', async () => {
+    const [{ REACTION_EMOJI }, migration] = await Promise.all([
+        import('../inbox-model.js'), read('migrations/056_inbox_attachments_reactions_edits.sql')]);
+    const sql = migration.match(/p_emoji = any \(array\[([^\]]+)\]\)/);
+    assert.ok(sql, 'مالقيتش قايمة الرموز في inbox_toggle_reaction');
+    const allowed = [...sql[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // رمز في الواجهة مش في القاعدة = زرار بيرجع خطأ دايمًا.
+    assert.deepEqual([...REACTION_EMOJI], allowed);
+});
+
+test('تعديل/حذف في الواجهة بنفس شروط القاعدة: رد دعم بس، والتعديل لصاحبه', async () => {
+    const { canEditMessage, canDeleteMessage } = await import('../inbox-model.js');
+    const reply = { id: 'm', is_admin_reply: true, sender_id: 'me', deleted_at: null };
+    assert.equal(canEditMessage(reply, 'me'), true);
+    assert.equal(canEditMessage(reply, 'other'), false, 'تعديل رد زميل');
+    assert.equal(canDeleteMessage(reply, 'other', false), false);
+    assert.equal(canDeleteMessage(reply, 'other', true), true, 'المرتفع يحذف');
+    for (const m of [{ ...reply, is_admin_reply: false }, { ...reply, is_admin_reply: false, is_bot_reply: true }, { ...reply, deleted_at: 'x' }]) {
+        assert.equal(canEditMessage(m, 'me'), false);
+        assert.equal(canDeleteMessage(m, 'me', true), false);
+    }
 });
