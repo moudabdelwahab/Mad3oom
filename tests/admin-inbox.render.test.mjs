@@ -727,6 +727,91 @@ test('قبل 057 (مفيش inbox_my_access): الصندوق بيشتغل بال�
     await context.close();
 });
 
+// ═════════════════════════════ المرحلة 3 (058): الجدولة ═════════════════════════════
+
+/** RPC الجدولة بيرجّع الصف زي القاعدة، والإلغاء بيرجّعه ملغي. */
+const echoSchedule = () => {
+    window.__FIXTURES__.rpc.inbox_schedule_reply = (a) => ({
+        id: 'sch-new', session_id: a.p_session, author_id: 'admin-1', body: a.p_body, attachment: a.p_attachment,
+        send_at: a.p_send_at, status: 'pending', message_id: null, failure_reason: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    });
+    window.__FIXTURES__.rpc.inbox_cancel_scheduled = (a) => ({ id: a.p_id, status: 'cancelled' });
+};
+
+test('الجدولة: الرد اللي في الخانة بيتجدول عبر inbox_schedule_reply ويظهر كرد مستني', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openInbox(fixtures(), { query: `?session=${S_BOT}`, init: echoSchedule });
+    await page.waitForSelector('.ib-msg');
+
+    // من غير نص ولا مرفق: مفيش حاجة تتجدول
+    await page.click('#scheduleBtn');
+    assert.equal(await page.locator('#scheduleDialog').isVisible(), false);
+    assert.match(await page.locator('#toast').innerText(), /اكتب الرد/);
+
+    await page.fill('#messageInput', 'هنبعتلك الفاتورة الصبح');
+    await page.click('#scheduleBtn');
+    await page.waitForSelector('#scheduleDialog[open]');
+    // ميعاد فات: رفض من الواجهة قبل القاعدة
+    await page.fill('#scheduleAt', '2020-01-01T09:00');
+    await page.click('#confirmSchedule');
+    assert.match(await page.locator('#scheduleError').innerText(), /بعد دقيقة/);
+    assert.equal((await rpcCalls(page, 'inbox_schedule_reply')).length, 0);
+
+    await page.click('#scheduleQuick [data-quick]:has-text("بكرة 9 الصبح")');
+    await page.click('#confirmSchedule');
+    await page.waitForSelector('[data-scheduled="sch-new"]');
+
+    const [call] = await rpcCalls(page, 'inbox_schedule_reply');
+    assert.equal(call.p_session, S_BOT);
+    assert.equal(call.p_body, 'هنبعتلك الفاتورة الصبح');
+    assert.equal(call.p_attachment, null);
+    const at = new Date(call.p_send_at);
+    assert.equal(at.getHours(), 9, 'مش 9 الصبح بتوقيت الجهاز');
+    assert.ok(at > new Date(), 'الميعاد في الماضي');
+    assert.match(call.p_send_at, /Z$/, 'الميعاد مش متبعت UTC');
+
+    assert.equal((await rpcCalls(page, 'inbox_send_reply')).length, 0, 'اتبعت فورًا بدل ما يتجدول');
+    assert.equal(await page.inputValue('#messageInput'), '');
+    assert.match(await page.locator('[data-scheduled="sch-new"]').innerText(), /مجدول لـ[\s\S]*العميل مش شايفه لسه/);
+    assert.deepEqual(await page.evaluate(() => window.__WRITES__ || []), [], 'كتابة مباشرة على جدول');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('الجدولة: المستني بيتلغي، والفاشل بسببه، والمرفق بيترفع في مجلد الكاتب', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.tables.inbox_scheduled_replies = [
+        { id: 'sch-1', session_id: S_BOT, author_id: ADMIN, body: 'تذكير بالدفع', attachment: null, status: 'pending',
+          send_at: new Date(Date.now() + 3600e3).toISOString(), failure_reason: null, updated_at: t(20) },
+        { id: 'sch-2', session_id: S_BOT, author_id: 'staff-2', body: 'رد هبة المجدول', attachment: null, status: 'failed',
+          send_at: t(8), failure_reason: 'الكاتب مابقاش يوصل للمحادثة (اتنقلت أو اتشال من الفريق)', updated_at: t(8) }
+    ];
+    const { page, context, errors } = await openInbox(fx, { query: `?session=${S_BOT}`, init: echoSchedule });
+    await page.waitForSelector('[data-scheduled="sch-2"]');
+    assert.match(await page.locator('[data-scheduled="sch-2"]').innerText(), /رد مجدول ماتبعتش[\s\S]*مابقاش يوصل للمحادثة/);
+    assert.equal(await page.locator('[data-scheduled="sch-2"] [data-act="cancel-scheduled"]').count(), 0, 'إلغاء لرد فاشل');
+
+    page.once('dialog', (d) => d.accept());
+    await page.click('[data-scheduled="sch-1"] [data-act="cancel-scheduled"]');
+    await page.waitForFunction(() => !document.querySelector('[data-scheduled="sch-1"]'));
+    assert.deepEqual(await rpcCalls(page, 'inbox_cancel_scheduled'), [{ p_id: 'sch-1' }]);
+
+    // مرفق مجدول: بيترفع دلوقتي في مجلد الكاتب، والقاعدة بتتحقق منه وقت الجدولة
+    await page.setInputFiles('#attachInput', { name: 'invoice.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+    await page.waitForSelector('#attachChip:not([hidden])');
+    await page.click('#scheduleBtn');
+    await page.click('#confirmSchedule');
+    await page.waitForSelector('[data-scheduled="sch-new"] .cw-att-file');
+    const [call] = await rpcCalls(page, 'inbox_schedule_reply');
+    assert.equal(call.p_body, 'ملف مرفق: invoice.pdf');
+    assert.match(call.p_attachment.path, new RegExp(`^admin-1/${S_BOT}-`));
+    assert.equal(await page.locator('#attachChip').isHidden(), true);
+    await page.click('#detailsBtn');
+    assert.match(await page.locator('#detailsPane').innerText(), /ردود مجدولة\s*1/);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
 // لقطات للمراجعة البصرية: INBOX_SHOTS=<dir> node --test tests/admin-inbox.render.test.mjs
 test('visual: المرحلة 2 — مرفق، تفاعلات، رد معدّل ومحذوف، تعديل', { skip: !chromiumPath || !process.env.INBOX_SHOTS }, async () => {
     const dir = process.env.INBOX_SHOTS;
@@ -745,6 +830,12 @@ test('visual: المرحلة 2 — مرفق، تفاعلات، رد معدّل �
         { id: 'rx1', session_id: S_MANUAL, message_id: 'm3', note_id: null, user_id: 'staff-2', emoji: '👀', created_at: t(12) },
         { id: 'rx2', session_id: S_MANUAL, message_id: null, note_id: 'n1', user_id: ADMIN, emoji: '👍', created_at: t(12) }
     ];
+    fx.tables.inbox_scheduled_replies = [
+        { id: 'sch-f', session_id: S_MANUAL, author_id: 'staff-2', body: 'تذكير بميعاد التجديد', attachment: null, status: 'failed',
+          send_at: t(19), failure_reason: 'المحادثة مقفولة — العميل مش هيشوف الرد', updated_at: t(19) },
+        { id: 'sch-p', session_id: S_MANUAL, author_id: ADMIN, body: 'صباح الخير يا كريم، الفاتورة وصلتك؟', attachment: null, status: 'pending',
+          send_at: new Date(Date.now() + 20 * 3600e3).toISOString(), failure_reason: null, updated_at: t(20) }
+    ];
     for (const [name, viewport] of [['desktop', { width: 1400, height: 900 }], ['mobile', { width: 390, height: 844 }]]) {
         for (const theme of ['light', 'dark']) {
             const { page, context } = await openInbox(fx, { query: `?session=${S_MANUAL}`, viewport });
@@ -757,6 +848,10 @@ test('visual: المرحلة 2 — مرفق، تفاعلات، رد معدّل �
             await page.waitForSelector('#attachChip:not([hidden])');
             await page.waitForTimeout(250);
             await page.screenshot({ path: path.join(dir, `${name}-${theme}-thread.png`) });
+            await page.click('#scheduleBtn');
+            await page.waitForSelector('#scheduleDialog[open]');
+            await page.screenshot({ path: path.join(dir, `${name}-${theme}-schedule.png`) });
+            await page.click('#cancelSchedule');
             await page.hover('[data-message="m10"]');
             await page.click('[data-message="m10"] [data-act="edit-message"]');
             await page.waitForTimeout(150);

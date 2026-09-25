@@ -97,16 +97,31 @@ export async function loadSession(sessionId) {
     return assemble([session.data], meta.data ? [meta.data] : [], tagLinks.data, customers)[0];
 }
 
-/** الملاحظات والسجل والتفاعلات والنسخ السابقة للمحادثة المفتوحة. */
+/** الملاحظات والسجل والتفاعلات والنسخ السابقة والردود المجدولة للمحادثة المفتوحة. */
 export async function loadThreadExtras(sessionId) {
-    const [notes, events, reactions, revisions] = await Promise.all([
+    const [notes, events, reactions, revisions, scheduled] = await Promise.all([
         supabase.from('inbox_notes').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
         supabase.from('inbox_events').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
         loadReactions(sessionId),
-        supabase.from('chat_message_revisions').select('*').eq('session_id', sessionId).order('created_at', { ascending: true })
+        supabase.from('chat_message_revisions').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
+        loadScheduled(sessionId)
     ]);
     for (const r of [notes, events, revisions]) if (r.error) throw r.error;
-    return { notes: notes.data || [], events: events.data || [], reactions, revisions: revisions.data || [] };
+    return { notes: notes.data || [], events: events.data || [], reactions, revisions: revisions.data || [], scheduled };
+}
+
+/**
+ * الردود المجدولة (058): المستنية والفاشلة، والمبعوتة بتظهر كرسالة عادية.
+ * قبل 058 الجدول مش موجود ⇒ [] بدل ما المحادثة كلها ماتفتحش.
+ */
+export async function loadScheduled(sessionId) {
+    const { data, error } = await supabase.from('inbox_scheduled_replies').select('*')
+        .eq('session_id', sessionId).order('send_at', { ascending: true });
+    if (error) {
+        console.warn('[inbox] الردود المجدولة:', error.message);
+        return [];
+    }
+    return data || [];
 }
 
 export async function loadReactions(sessionId) {
@@ -177,6 +192,11 @@ export const editMessage = (messageId, body) =>
     rpc('inbox_edit_message', { p_message: messageId, p_body: body }).then(one);
 export const deleteMessage = (messageId) =>
     rpc('inbox_delete_message', { p_message: messageId }).then(one);
+
+/** @param {string} sendAt ISO — القاعدة بتفرض دقيقة..30 يوم. */
+export const scheduleReply = (sessionId, text, sendAt, attachment = null) =>
+    rpc('inbox_schedule_reply', { p_session: sessionId, p_body: text, p_send_at: sendAt, p_attachment: attachment }).then(one);
+export const cancelScheduled = (id) => rpc('inbox_cancel_scheduled', { p_id: id }).then(one);
 
 /** @returns {Promise<boolean>} true = اتضاف، false = اتشال */
 export const toggleReaction = ({ messageId = null, noteId = null }, emoji) =>
@@ -264,6 +284,7 @@ export function subscribeInbox(handlers) {
     on('inbox_notes', '*', handlers.onNote);
     on('inbox_events', 'INSERT', (_t, row) => handlers.onEvent?.(row));
     on('inbox_reactions', '*', handlers.onReaction);
+    on('inbox_scheduled_replies', '*', handlers.onScheduled);
     ch.subscribe();
     return () => supabase.removeChannel(ch);
 }

@@ -94,12 +94,12 @@ test('مفيش بيانات تجريبية ولا بانر معاينة', async 
     assert.match(data, /from '\/api-config\.js'/, 'طبقة البيانات مش متوصلة بـ Supabase');
 });
 
-test('الصندوق بيقرا من جداول الشات وجداول 055/056 والجداول الموجودة بس', async () => {
+test('الصندوق بيقرا من جداول الشات وجداول الصندوق (055..058) والجداول الموجودة بس', async () => {
     const data = await read('assets/js/admin/inbox-data.js');
     const tables = new Set([...data.matchAll(/\.from\('([^']+)'\)/g)].map((m) => m[1]));
     assert.deepEqual([...tables].sort(), [
         'chat_message_revisions', 'chat_sessions', 'customer_notes', 'inbox_conversation_tags', 'inbox_conversations',
-        'inbox_events', 'inbox_notes', 'inbox_reactions', 'inbox_team_members', 'inbox_teams', 'tickets'
+        'inbox_events', 'inbox_notes', 'inbox_reactions', 'inbox_scheduled_replies', 'inbox_team_members', 'inbox_teams', 'tickets'
     ]);
     // الأدمن غير المرتفع مالوش SELECT على ملفات الآخرين: الأسماء من RPC مش embed.
     assert.ok(!/from\('profiles'\)|profiles:user_id/.test(data), 'قراءة مباشرة من profiles');
@@ -377,4 +377,40 @@ test('canActOn بنفس قرار inbox_can_access: المشرف الكل، وغ�
     assert.equal(canActOn({ user_id: 'me', meta: null }, ctx), false);
     assert.equal(canActOn({ user_id: 'me', meta: null }, { ...ctx, supervisor: true }), true);
     assert.equal(canActOn({ meta: { assignee_id: null, team_id: null } }, { meId: 'me' }), false);
+});
+
+// ═════════════════════════════════════════════════════════════
+// المرحلة 3 (058): الجدولة
+// ═════════════════════════════════════════════════════════════
+
+test('حدود الجدولة في الواجهة = حدود inbox_schedule_reply (دقيقة..30 يوم) بهامش', async () => {
+    const { scheduleError, quickScheduleOptions, toLocalInputValue } = await import('../inbox-model.js');
+    const now = new Date('2026-09-25T10:00:00');
+    assert.match(scheduleError(new Date('2026-09-25T10:01:00'), now), /دقيقة/);   // دقيقة بالظبط — مفيش هامش
+    assert.equal(scheduleError(new Date('2026-09-25T10:05:00'), now), null);
+    assert.match(scheduleError(new Date('2026-10-26T10:00:00'), now), /30 يوم/);
+    assert.match(scheduleError(null, now), /اختار/);
+    assert.match(scheduleError('مش تاريخ', now), /اختار/);
+    for (const o of quickScheduleOptions(now)) assert.equal(scheduleError(o.at, now), null, o.label);
+    assert.equal(quickScheduleOptions(now)[2].at.getHours(), 9);
+    assert.equal(toLocalInputValue(new Date('2026-09-25T08:05:00')), '2026-09-25T08:05');
+
+    const sql = await read('migrations/058_inbox_scheduled_replies.sql');
+    assert.match(sql, /p_send_at < now\(\) \+ interval '1 minute'/);
+    assert.match(sql, /p_send_at > now\(\) \+ interval '30 days'/);
+});
+
+test('الخط الزمني: المستني والفاشل كبطاقة، والمبعوت رسالة عادية بس', async () => {
+    const { buildTimeline, canCancelScheduled } = await import('../inbox-model.js');
+    const rows = ['pending', 'failed', 'sent', 'cancelled'].map((status, i) =>
+        ({ id: status, status, author_id: 'me', send_at: `2026-09-25T1${i}:00:00Z` }));
+    const events = [{ kind: 'scheduled', created_at: '2026-09-25T09:00:00Z' }, { kind: 'schedule_sent', created_at: '2026-09-25T12:00:00Z' },
+                    { kind: 'schedule_failed', created_at: '2026-09-25T11:00:00Z', payload: {} }];
+    const tl = buildTimeline([], [], events, rows);
+    assert.deepEqual(tl.filter((x) => x.type === 'scheduled').map((x) => x.item.id), ['pending', 'failed']);
+    assert.deepEqual(tl.filter((x) => x.type === 'event').map((x) => x.item.kind), ['schedule_failed']);
+    assert.equal(canCancelScheduled(rows[0], 'me'), true);
+    assert.equal(canCancelScheduled(rows[0], 'other'), false);
+    assert.equal(canCancelScheduled(rows[0], 'other', true), true);
+    assert.equal(canCancelScheduled(rows[1], 'me', true), false, 'إلغاء الفاشل');
 });

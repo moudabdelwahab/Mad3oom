@@ -6,7 +6,8 @@
  * الصندوق مابيولّدش ردود بوت ولا بينادي SIE — بيقرا اللي اتكتب، وبيضيف
  * طبقة الفريق فوقه: الإسناد، الفرق، التحويل، الوسوم، الملاحظات الداخلية،
  * الأرشفة، والسجل (migrations/055_inbox_helpdesk_core.sql)، ومرفقات الدعم
- * والتفاعلات وتعديل الردود وحذفها (migrations/056_inbox_attachments_reactions_edits.sql).
+ * والتفاعلات وتعديل الردود وحذفها (migrations/056_inbox_attachments_reactions_edits.sql)،
+ * وجدولة الرد (migrations/058_inbox_scheduled_replies.sql).
  *
  * بيحل محل chat-admin.html. الروابط القديمة ليها (إشعارات القاعدة
  * `chat-admin.html?session=…`) بتتحوّل هنا من vercel.json، والصفحة دي
@@ -38,19 +39,21 @@ import {
     lastMessageOf, lastActivityOf, isAwaitingReply, filterSessions, viewCounts,
     messageStats, fillCannedReply, sessionIdFromSearch, sortMessages,
     buildTimeline, describeEvent, extractMentions,
-    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf, canActOn
+    REACTION_EMOJI, groupReactions, canEditMessage, canDeleteMessage, revisionsOf, canActOn,
+    scheduleError, quickScheduleOptions, toLocalInputValue, canCancelScheduled
 } from './inbox-model.js';
 import {
     loadSessions, loadSession, loadThreadExtras, loadReactions, loadAgents, loadMyAccess, loadTeams, loadTags, createSharedTag,
     loadCustomerContext, sendReply, editMessage, deleteMessage, toggleReaction, closeSessions, assign, transfer,
     addTag, removeTag, addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
-    loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox
+    loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox,
+    scheduleReply, cancelScheduled
 } from './inbox-data.js';
 
 const $ = (id) => document.getElementById(id);
 
 function emptyThread(sessionId) {
-    return { sessionId, notes: [], events: [], reactions: [], revisions: [] };
+    return { sessionId, notes: [], events: [], reactions: [], revisions: [], scheduled: [] };
 }
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -100,6 +103,7 @@ const ICON = {
     note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 13h6M9 17h4"/></svg>',
     forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     react: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
 };
@@ -594,10 +598,32 @@ function renderEvent(event) {
     return `<div class="ib-event" title="${esc(fullTime(event.created_at))}">${esc(text)} · ${esc(shortTime(event.created_at))}</div>`;
 }
 
+/**
+ * رد مجدول (058): مستني ميعاده، أو فشل وقت الإرسال بسبب مكتوب. لما يتبعت
+ * بيختفي من هنا ويظهر كرسالة عادية (نفس صف chat_messages اللي العميل شايفه).
+ */
+function renderScheduled(row) {
+    const failed = row.status === 'failed';
+    const att = row.attachment ? attachmentFromMessage({ attachment: row.attachment }) : null;
+    const text = att && row.body === autoLabelFor(att) ? '' : row.body;
+    const author = agentName(row.author_id) || 'موظف';
+    const canCancel = canCancelScheduled(row, state.me?.id, isElevated());
+    return `
+        <div class="ib-msg ib-msg--mine ib-msg--scheduled ${failed ? 'is-failed' : ''}" data-scheduled="${esc(row.id)}" tabindex="-1">
+          <span class="ib-sender">${ICON.clock}${failed ? 'رد مجدول ماتبعتش' : `مجدول لـ ${esc(fullTime(row.send_at))}`} · ${esc(author)}</span>
+          <div class="ib-bubble">
+            ${att ? renderAttachmentHtml(att, esc) : ''}${text ? `<span class="ib-text">${renderBody(text)}</span>` : ''}
+          </div>
+          ${failed ? `<div class="ib-sched-reason">${esc(row.failure_reason || 'سبب غير معروف')}</div>` : ''}
+          <div class="ib-msg-meta">${failed ? `<span title="${esc(fullTime(row.updated_at))}">${esc(shortTime(row.updated_at))}</span>` : '<span>العميل مش شايفه لسه</span>'}
+            ${canCancel ? `<button type="button" class="ib-meta-link" data-act="cancel-scheduled" data-id="${esc(row.id)}">· إلغاء</button>` : ''}</div>
+        </div>`;
+}
+
 function renderMessages(session) {
     const container = $('messageList');
     const extras = state.thread.sessionId === session.id ? state.thread : emptyThread(session.id);
-    const timeline = buildTimeline(session.messages, extras.notes, extras.events);
+    const timeline = buildTimeline(session.messages, extras.notes, extras.events, extras.scheduled);
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
     if (!timeline.length) {
@@ -612,6 +638,7 @@ function renderMessages(session) {
         lastDay = day;
         if (type === 'note') return daySep + renderNote(item);
         if (type === 'event') return daySep + renderEvent(item);
+        if (type === 'scheduled') return daySep + renderScheduled(item);
         return daySep + renderMessage(item);
     }).join('');
 
@@ -624,6 +651,7 @@ function renderMessages(session) {
         if (act === 'delete-message') removeMessage(id);
         if (act === 'react') toggleReactPicker({ messageId: id });
         if (act === 'react-note') toggleReactPicker({ noteId: id });
+        if (act === 'cancel-scheduled') removeScheduled(id);
         if (act === 'revisions') {
             if (state.openRevisions.has(id)) state.openRevisions.delete(id); else state.openRevisions.add(id);
             renderThread();
@@ -740,6 +768,7 @@ function renderDetails() {
         ${kv('من الدعم', stats.agent)}
         ${kv('مرفقات', stats.attachments)}
         ${kv('ملاحظات داخلية', state.thread.sessionId === session.id ? state.thread.notes.filter((n) => !n.deleted_at).length : '…')}
+        ${kv('ردود مجدولة', state.thread.sessionId === session.id ? state.thread.scheduled.filter((r) => r.status === 'pending').length : '…')}
       </div>`;
 
     pane.querySelectorAll('[data-tag]').forEach((b) => b.addEventListener('click', () => toggleTag(session.id, b.dataset.tag)));
@@ -1185,6 +1214,88 @@ async function send() {
     renderAll();
 }
 
+// ── الجدولة (058) ────────────────────────────────────────────
+
+/** الجدولة بتاخد نفس اللي في شريط الكتابة: النص و/أو المرفق. */
+function openScheduleDialog() {
+    const session = activeSession();
+    if (!session || state.mode !== 'reply' || state.editingMessageId || state.sending) return;
+    if (!$('messageInput').value.trim() && !state.pending) {
+        toast('اكتب الرد أو ارفق ملف الأول، وبعدين جدوله.', 'err');
+        return;
+    }
+    const now = new Date();
+    $('scheduleAt').min = toLocalInputValue(new Date(now.getTime() + 2 * 60 * 1000));
+    $('scheduleAt').max = toLocalInputValue(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+    $('scheduleAt').value = toLocalInputValue(quickScheduleOptions(now)[0].at);
+    $('scheduleError').textContent = '';
+    $('scheduleQuick').innerHTML = quickScheduleOptions(now).map((o) =>
+        `<button type="button" class="btn btn-secondary" data-quick="${esc(toLocalInputValue(o.at))}">${esc(o.label)}</button>`).join('');
+    $('scheduleQuick').querySelectorAll('[data-quick]').forEach((b) => b.addEventListener('click', () => {
+        $('scheduleAt').value = b.dataset.quick;
+        $('scheduleError').textContent = '';
+    }));
+    $('scheduleDialog').showModal();
+}
+
+async function confirmSchedule() {
+    const session = activeSession();
+    if (!session || state.sending) return;
+    // datetime-local بيتقري بتوقيت الجهاز، و toISOString بيبعته UTC للقاعدة.
+    const at = new Date($('scheduleAt').value);
+    const problem = scheduleError($('scheduleAt').value ? at : null);
+    if (problem) { $('scheduleError').textContent = problem; return; }
+
+    const text = $('messageInput').value.trim();
+    state.sending = true;
+    $('confirmSchedule').disabled = true;
+    let attachment = null;
+    try {
+        if (state.pending) {
+            try {
+                attachment = await uploadPending(session);
+            } catch (err) {
+                setPendingProgress(null);
+                throw new Error(/[؀-ۿ]/.test(err?.message || '') ? err.message : uploadErrorText(err));
+            }
+        }
+        const row = await scheduleReply(session.id, text || autoLabelFor(attachment), at.toISOString(), attachment);
+        if (row && state.thread.sessionId === session.id && !state.thread.scheduled.some((r) => r.id === row.id)) {
+            state.thread.scheduled = [...state.thread.scheduled, row];
+        }
+        if (attachment) discardPending();
+        $('messageInput').value = '';
+        state.drafts.delete(session.id);
+        autoGrow();
+        $('scheduleDialog').close();
+        toast(`اتجدول — هيتبعت ${fullTime(at.toISOString())}.`);
+    } catch (err) {
+        if (attachment) { await removeUploadedFile(attachment.path); setPendingProgress(null); }
+        $('scheduleError').textContent = errText(err, 'الجدولة ماتمتش.');
+    } finally {
+        state.sending = false;
+        $('confirmSchedule').disabled = false;
+        renderPending();
+    }
+    renderAll();
+}
+
+async function removeScheduled(id) {
+    const row = state.thread.scheduled.find((r) => r.id === id);
+    if (!row || !canCancelScheduled(row, state.me?.id, isElevated())) return;
+    if (!confirm('تلغي الرد المجدول ده؟ مش هيتبعت للعميل.')) return;
+    try {
+        const updated = await cancelScheduled(id);
+        state.thread.scheduled = state.thread.scheduled.map((r) => (r.id === id ? (updated || { ...r, status: 'cancelled' }) : r));
+        // ملف الرد المجدول ماحدش بيشاور عليه في chat_messages — نشيله لو هو بتاعي.
+        if (row.attachment?.path && row.author_id === state.me?.id) await removeUploadedFile(row.attachment.path);
+        toast('الرد المجدول اتلغى.');
+    } catch (err) {
+        toast(errText(err, 'الإلغاء ماتمش.'), 'err');
+    }
+    renderAll();
+}
+
 /** رد اتعدّل أو اتحذف (من هنا أو Realtime) — الصف كله بيتبدّل. */
 function replaceMessage(row) {
     const session = row && findSession(row.session_id);
@@ -1506,6 +1617,18 @@ const realtime = {
         }
         renderAll();
     },
+    onScheduled(eventType, row, old) {
+        const list = state.thread.scheduled;
+        if (eventType === 'DELETE') {
+            state.thread.scheduled = list.filter((r) => r.id !== old?.id);
+        } else {
+            if (row?.session_id !== state.thread.sessionId) return;
+            const i = list.findIndex((r) => r.id === row.id);
+            state.thread.scheduled = i >= 0 ? list.map((r) => (r.id === row.id ? row : r)) : [...list, row];
+        }
+        renderThread();
+        renderDetails();
+    },
     onReaction(eventType, row, old) {
         const reactions = state.thread.reactions;
         if (eventType === 'DELETE') {
@@ -1626,6 +1749,10 @@ function wire() {
         }
     });
     $('sendBtn').addEventListener('click', send);
+    $('scheduleBtn').addEventListener('click', openScheduleDialog);
+    $('cancelSchedule').addEventListener('click', () => $('scheduleDialog').close());
+    $('confirmSchedule').addEventListener('click', confirmSchedule);
+    $('scheduleAt').addEventListener('input', () => { $('scheduleError').textContent = ''; });
 
     // المرفق والتسجيل — الرد للعميل بس (مخفيين في وضع الملاحظة بالـ CSS).
     $('attachInput').accept = FILE_PICKER_ACCEPT;

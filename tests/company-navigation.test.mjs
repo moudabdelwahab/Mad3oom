@@ -352,7 +352,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         بـ owner_only فقط؛ صار الأدمن المرتفع أو المالك في سياق owner/admin
     //         — قرار سلطة داخل RPCs الصندوق، لا يُفرَض من الواجهة. مقيسٌ بدوال
     //         السياق الحقيقية في tests/sql/inbox-owner-context.test.sql.
-    assert.equal(migrations[migrations.length - 1], '057_inbox_owner_admin_context.sql',
+    //   058 — الصندوق، المرحلة 3: جدولة رد الدعم (معتمَد: «ضمّه مع المرحلة
+    //         التالتة وابدأ فيها»، على §1.10 من الخطة). الرد المجدول لازم
+    //         يتبعت في ميعاده والموظف مش فاتح الصفحة — مهمة pg_cron تنادي دالة
+    //         غير متاحة للمستخدمين، ومسار الإرسال نفسه (_inbox_post_reply)
+    //         مشترك مع الرد الفوري. مقيسٌ (بما فيه جلستين متوازيتين) في
+    //         tests/sql/inbox-scheduled.test.sql.
+    assert.equal(migrations[migrations.length - 1], '058_inbox_scheduled_replies.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

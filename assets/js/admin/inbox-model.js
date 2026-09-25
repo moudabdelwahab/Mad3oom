@@ -17,6 +17,7 @@
  *   inbox_teams / inbox_team_members   الفرق
  *   inbox_reactions                    تفاعلات الفريق على رسالة أو ملاحظة
  *   chat_message_revisions             النسخ السابقة لرد دعم اتعدّل أو اتحذف
+ *   inbox_scheduled_replies            ردود مجدولة (058) — pg_cron بيبعتها في ميعادها
  *
  * migrations/055_inbox_helpdesk_core.sql و 056_inbox_attachments_reactions_edits.sql
  * فيهم الجداول والصلاحيات. شكل
@@ -202,15 +203,19 @@ export function messageStats(messages) {
  *
  * @returns {Array<{type:'message'|'note'|'event', at:string, item:object}>}
  */
-export function buildTimeline(messages, notes = [], events = []) {
+export function buildTimeline(messages, notes = [], events = [], scheduled = []) {
     // أحداث ليها أثر ظاهر بالفعل في الخط الزمني مابتتكررش كسطر.
-    // الرسالة المعدّلة أو المحذوفة بتقول ده بنفسها («معدّلة» / «اتحذفت»).
+    // الرسالة المعدّلة أو المحذوفة بتقول ده بنفسها («معدّلة» / «اتحذفت»)، والرد
+    // المجدول ظاهر كبطاقة لحد ما يتبعت فيبقى رسالة عادية.
     const hidden = new Set(['note_added', 'note_edited', 'note_deleted', 'forwarded_as_note',
-        'message_edited', 'message_deleted']);
+        'message_edited', 'message_deleted', 'scheduled', 'schedule_sent']);
     return [
         ...(messages || []).map((m) => ({ type: 'message', at: m.created_at, item: m })),
         ...(notes || []).map((n) => ({ type: 'note', at: n.created_at, item: n })),
-        ...(events || []).filter((e) => !hidden.has(e.kind)).map((e) => ({ type: 'event', at: e.created_at, item: e }))
+        ...(events || []).filter((e) => !hidden.has(e.kind)).map((e) => ({ type: 'event', at: e.created_at, item: e })),
+        // المستني في ميعاده (مستقبل ⇒ آخر الخط)، والفاشل مكان ميعاده بسببه.
+        ...(scheduled || []).filter((r) => r.status === 'pending' || r.status === 'failed')
+            .map((r) => ({ type: 'scheduled', at: r.send_at, item: r }))
     ].sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 
@@ -237,6 +242,10 @@ export function describeEvent(event, names = {}) {
         case 'closed': return `${actor} قفل المحادثة`;
         case 'message_edited': return `${actor} عدّل رد`;
         case 'message_deleted': return `${actor} حذف رد`;
+        case 'scheduled': return `${actor} جدول رد`;
+        case 'schedule_cancelled': return `${actor} لغى رد مجدول`;
+        case 'schedule_sent': return 'اتبعت رد مجدول';
+        case 'schedule_failed': return `رد مجدول ماتبعتش${p.reason ? ` — ${p.reason}` : ''}`;
         default: return `${actor}: ${event?.kind || 'إجراء'}`;
     }
 }
@@ -340,4 +349,50 @@ export function canDeleteMessage(message, meId, elevated = false) {
 export function revisionsOf(revisions, messageId) {
     return (revisions || []).filter((r) => r.message_id === messageId)
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+}
+
+// ═════════════════════════════════════════════════════════════
+// المرحلة 3: الجدولة (058)
+// ═════════════════════════════════════════════════════════════
+
+/** نفس حدود inbox_schedule_reply في القاعدة. */
+export const SCHEDULE_MIN_MS = 60 * 1000;
+export const SCHEDULE_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * سبب رفض ميعاد، أو null لو سليم. هامش 30 ثانية فوق الدقيقة: الموظف بيختار
+ * وبعدين بيدوس — من غير هامش، «بعد دقيقة» كانت هتوصل القاعدة أقل من دقيقة.
+ */
+export function scheduleError(date, now = new Date()) {
+    const at = date instanceof Date ? date : new Date(date);
+    if (!date || Number.isNaN(at.getTime())) return 'اختار ميعاد الإرسال.';
+    const diff = at.getTime() - now.getTime();
+    if (diff < SCHEDULE_MIN_MS + 30 * 1000) return 'الميعاد لازم يكون بعد دقيقة ونص على الأقل.';
+    if (diff > SCHEDULE_MAX_MS) return 'الميعاد لازم يكون خلال 30 يوم.';
+    return null;
+}
+
+/** اختيارات سريعة: بعد ساعة، بعد 3 ساعات، بكرة 9 الصبح (بتوقيت الجهاز). */
+export function quickScheduleOptions(now = new Date()) {
+    const tomorrow9 = new Date(now);
+    tomorrow9.setDate(tomorrow9.getDate() + 1);
+    tomorrow9.setHours(9, 0, 0, 0);
+    return [
+        { id: 'h1', label: 'بعد ساعة', at: new Date(now.getTime() + 60 * 60 * 1000) },
+        { id: 'h3', label: 'بعد 3 ساعات', at: new Date(now.getTime() + 3 * 60 * 60 * 1000) },
+        { id: 't9', label: 'بكرة 9 الصبح', at: tomorrow9 }
+    ];
+}
+
+/** قيمة input[type=datetime-local] بالتوقيت المحلي (من غير ثواني). */
+export function toLocalInputValue(date) {
+    const d = new Date(date);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** الكاتب يلغي رده، والمشرف يلغي أي رد — المستني بس (نفس inbox_cancel_scheduled). */
+export function canCancelScheduled(row, meId, supervisor = false) {
+    if (row?.status !== 'pending') return false;
+    return (!!meId && row.author_id === meId) || !!supervisor;
 }
