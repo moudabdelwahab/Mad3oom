@@ -36,51 +36,6 @@ function sanitizeUrl(url) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // DOM Elements
-    const chatsList = document.getElementById('chatsList');
-    const chatMain = document.getElementById('chatMain');
-    const emptyState = document.getElementById('emptyState');
-    const chatHeader = document.getElementById('chatHeader');
-    const messagesContainer = document.getElementById('messagesContainer');
-    const inputArea = document.getElementById('inputArea');
-    const messageInput = document.getElementById('messageInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const searchInput = document.getElementById('searchInput');
-    const closeChat = document.getElementById('closeChat');
-
-    // Modal Elements
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsModal = document.getElementById('settingsModal');
-    const closeSettingsModal = document.getElementById('closeSettingsModal');
-    const saveSettings = document.getElementById('saveSettings');
-    const cancelSettings = document.getElementById('cancelSettings');
-
-    const exportModal = document.getElementById('exportModal');
-    const exportExcel = document.getElementById('exportExcel');
-    const exportPDF = document.getElementById('exportPDF');
-    const archiveChats = document.getElementById('archiveChats');
-    const closeExportModal = document.getElementById('closeExportModal');
-    const cancelExport = document.getElementById('cancelExport');
-
-    const exportSingleModal = document.getElementById('exportSingleModal');
-    const exportSingleExcel = document.getElementById('exportSingleExcel');
-    const exportSinglePDF = document.getElementById('exportSinglePDF');
-    const closeExportSingleModal = document.getElementById('closeExportSingleModal');
-    const cancelExportSingle = document.getElementById('cancelExportSingle');
-    const exportSingleChatBtn = document.getElementById('exportSingleChatBtn');
-
-    const searchInChatBtn = document.getElementById('searchInChatBtn');
-    const searchChatBar = document.getElementById('searchChatBar');
-    const searchChatInput = document.getElementById('searchChatInput');
-    const closeSearchChat = document.getElementById('closeSearchChat');
-
-    const imageUploadBtn = document.getElementById('imageUploadBtn');
-    const imageInput = document.getElementById('imageInput');
-    const voiceRecordBtn = document.getElementById('voiceRecordBtn');
-
-    let mediaRecorder = null;
-    let audioChunks = [];
-
     // اسم الـ Storage bucket المستخدم لحفظ صور المشاكل المرفقة من العميل.
     // لازم يكون موجود في Supabase مع policy تسمح للعميل يرفع في مجلده الخاص
     // (المسار بيبدأ بـ user.id) وتسمح بقراءة عامة للملفات عشان تُعرض في الشات ولوحة الأدمن.
@@ -91,12 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // State
     let currentUser = null;
-    let isAdmin = false;
     let currentSessionId = null;
     let currentSession = null;
     let messageChannel = null;
     let botSettings = null;
-    let allSessions = [];
     // كاش لوضع الشات بوت المختار من العميل (traditional/ai_model/auto/sie) -
     // بيتقرا مرة عند بداية الجلسة، وبيتحدّث فورًا لما العميل يغيّر اختياره
     // من نافذة الإعدادات (refreshChatModeButtonLabel)، عشان مفيش استعلام
@@ -108,54 +61,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== INITIALIZATION =====
     async function init() {
-        // صفحة شات العميل (chat-customer.html) لازم تحترم "الدخول كعضو"
-        // (impersonation) عشان الأدمن/super_user يقدر يشوف الشات بحساب أي
-        // عضو فتحه بـ ?impersonate=. صفحة الأدمن (chat-admin.html) لأ -
-        // مفيش داعي ولا معنى لتبديل هوية الأدمن وهو بيدير شاتات العملاء.
-        let user;
-        if (window.isCustomerChat) {
-            // الحساب الموقوف كان بيتحوّل لصفحة الدخول، والجلسة سليمة فبيترجع
-            // فورًا — نفس حلقة التحويل. الحارس دلوقتي بيعرض السبب في مكانه.
-            user = await guardPage('user');
-            if (!user) return;
-            isImpersonated = !!user.isImpersonated;
-        } else {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (!authUser) {
-                window.location.href = '/login.html';
-                return;
-            }
-            user = authUser;
-        }
+        // الملف ده بقى بيخدم صفحة شات العميل (chat-customer.html) بس. واجهة
+        // الإدارة للشات هي admin/inbox.html (assets/js/admin/inbox.js) —
+        // صفحة الأدمن القديمة (chat-admin) اتشالت، والمنطق بتاعها اللي
+        // كان هنا اتشال معاها عشان مايبقاش فيه نسختين من شاشة الإدارة.
+        if (!window.isCustomerChat) return;
 
+        // الصفحة لازم تحترم "الدخول كعضو" (impersonation) عشان الأدمن/
+        // super_user يقدر يشوف الشات بحساب أي عضو فتحه بـ ?impersonate=.
+        // الحساب الموقوف كان بيتحوّل لصفحة الدخول، والجلسة سليمة فبيترجع
+        // فورًا — نفس حلقة التحويل. الحارس دلوقتي بيعرض السبب في مكانه.
+        const user = await guardPage('user');
+        if (!user) return;
+        isImpersonated = !!user.isImpersonated;
         currentUser = user;
 
-        // لو الصفحة دي هي صفحة شات العميل المخصّصة (chat.html بتحدد الفلاج ده)،
-        // نضمن إنها تتعامل كصفحة عميل دايمًا، حتى لو المستخدم دوره أدمن أو إيميله
-        // فيه كلمة "admin" — عشان منستخدمش عناصر DOM بتاعة صفحة الأدمن
-        // (زي messageInput) اللي مش موجودة في الصفحة دي أصلاً.
-        if (window.isCustomerChat) {
-            isAdmin = false;
-        } else {
-            // التحقق من الدور من البروفايل لضمان الدقة (لصفحة الأدمن فقط)
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-            const role = profile?.role || user.user_metadata?.role || 'customer';
-            isAdmin = role === 'admin' || role === 'support' || user.email.includes('admin');
-        }
-
-        // إذا كان العميل (وليس أدمن)، قم بتحميل دردشة العميل بدلاً من دردشة الأدمن
-        if (!isAdmin) {
-            await loadBotSettings(); // البوت المحلي محتاج إعدادات bot_settings (رسالة الترحيب وتأكيد التذكرة)
-            await loadCustomerChat();
-            setupCustomerChatEventListeners();
-            renderImpersonationBanner();
-            return;
-        }
-
-        // إذا كان أدمن، قم بتحميل دردشة الأدمن
-        await loadBotSettings();
-        await loadAllChats();
-        setupEventListeners();
+        await loadBotSettings(); // البوت المحلي محتاج إعدادات bot_settings (رسالة الترحيب وتأكيد التذكرة)
+        await loadCustomerChat();
+        setupCustomerChatEventListeners();
+        renderImpersonationBanner();
     }
 
     // ===== LOAD CUSTOMER CHAT =====
@@ -820,238 +744,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         botSettings = data;
-    }
-
-    // ===== LOAD ALL CHATS (ADMIN) =====
-    // ملحوظة: شيلنا avatar_url من الكويري لأن جدول profiles مفيهوش العمود ده أصلاً،
-    // وده كان سبب فشل الكويري بالكامل وضل شاشة "جاري تحميل المحادثات..." معلقة للأبد.
-    // التصميم نفسه (شكل الواتساب) متغيرش، بس JS بقى مطابق لنفس الكلاسات الموجودة عندك في chat-admin.html
-    async function loadAllChats() {
-        const { data, error } = await supabase
-            .from('chat_sessions')
-            .select(`
-                *,
-                profiles:user_id (full_name, role),
-                chat_messages (message_text, created_at)
-            `)
-            .order('updated_at', { ascending: false });
-
-        if (error) {
-            console.error('Error loading chats:', error);
-            if (chatsList) {
-                chatsList.innerHTML = '<div style="padding: 2rem 1rem; text-align: center; color: var(--text-light);">حصل خطأ في تحميل المحادثات، حاول تعمل تحديث للصفحة</div>';
-            }
-            return;
-        }
-
-        allSessions = data || [];
-        renderChatsList(allSessions);
-    }
-
-    function getInitial(name) {
-        const trimmed = (name || '').trim();
-        return trimmed ? trimmed.charAt(0) : 'ع';
-    }
-
-    // الأدوار اللي لو بعتت من نفس حسابها كـ"عميل" بيبقى مهم يبان للفريق إنها
-    // مش عميل عادي. الارتباط بشركة ليس منها: صاحب الشركة عميل دافع لا موظف.
-    const STAFF_ROLES_AS_CUSTOMER = ['admin', 'support'];
-
-    function isStaffOriginatedSession(session) {
-        return STAFF_ROLES_AS_CUSTOMER.includes(session.profiles?.role);
-    }
-
-    function renderChatsList(sessions) {
-        if (!chatsList) return;
-        chatsList.innerHTML = '';
-
-        if (!sessions || sessions.length === 0) {
-            chatsList.innerHTML = '<div style="padding: 2rem 1rem; text-align: center; color: var(--text-light);">لا توجد محادثات حتى الآن</div>';
-            return;
-        }
-
-        // نظهر محادثات الفريق (زي super_user بيستخدم حسابه كعميل) في الأعلى
-        // دايمًا، عشان تلفت النظر فورًا ومتتوهش وسط باقي التذاكر العادية.
-        // ملحوظة: ده ترتيب عرض في الواجهة فقط، ومش نظام توجيه/صلاحيات حقيقي -
-        // أي موظف دعم لسه يقدر يفتح ويرد على أي محادثة، بما فيها دي، لأن
-        // جدول chat_sessions معندوش عمود "المستلم المقصود" أصلاً في الباك إند.
-        const sorted = [...sessions].sort((a, b) => {
-            const aStaff = isStaffOriginatedSession(a) ? 1 : 0;
-            const bStaff = isStaffOriginatedSession(b) ? 1 : 0;
-            if (aStaff !== bStaff) return bStaff - aStaff;
-            return new Date(b.updated_at) - new Date(a.updated_at);
-        });
-
-        sorted.forEach(session => {
-            const messages = session.chat_messages || [];
-            const lastMsg = messages.length ? messages[messages.length - 1] : null;
-            const time = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
-            const name = session.profiles?.full_name || 'عميل مجهول';
-            const statusClass = session.status === 'closed' ? 'status-closed' : 'status-open';
-            const statusLabel = session.status === 'closed' ? 'مغلقة' : 'نشطة';
-            const staffBadge = isStaffOriginatedSession(session)
-                ? `<span class="status-badge" style="background: rgba(224, 168, 0, 0.15); color: #9a6c00;" title="هذا الحساب دوره الأساسي إدارة/دعم، وبيستخدم الشات بوت هنا بصفته عميل">فريق العمل</span>`
-                : '';
-
-            const item = document.createElement('div');
-            item.className = `chat-item ${currentSessionId === session.id ? 'active' : ''}`;
-            item.onclick = () => selectChat(session);
-
-            item.innerHTML = `
-                <div class="chat-avatar">${escapeHtml(getInitial(name))}</div>
-                <div class="chat-info">
-                    <div class="chat-header-text">
-                        <span class="chat-name">
-                            ${escapeHtml(name)}
-                            <span class="status-badge ${statusClass}">${statusLabel}</span>
-                            ${staffBadge}
-                        </span>
-                        <span class="chat-time">${time}</span>
-                    </div>
-                    <div class="chat-preview">${iconize(escapeHtml(lastMsg?.message_text || 'لا توجد رسائل'))}</div>
-                </div>
-            `;
-            chatsList.appendChild(item);
-        });
-    }
-
-    async function selectChat(session) {
-        currentSessionId = session.id;
-        currentSession = session;
-
-        const emptyStateEl = document.getElementById('emptyState');
-        const chatHeaderEl = document.getElementById('chatHeader');
-        const inputAreaEl = document.getElementById('inputArea');
-        const chatMainEl = document.getElementById('chatMain');
-
-        if (emptyStateEl) emptyStateEl.style.display = 'none';
-        if (chatHeaderEl) chatHeaderEl.style.display = 'flex';
-        if (inputAreaEl) inputAreaEl.style.display = 'flex';
-        if (chatMainEl) chatMainEl.classList.add('active'); // لتفعيل وضع الموبايل المعرّف أصلاً في الـ CSS بتاعك
-
-        // Update Header
-        const name = session.profiles?.full_name || 'عميل مجهول';
-        const headerName = document.getElementById('headerName');
-        const headerAvatar = document.getElementById('headerAvatar');
-        const headerStatus = document.getElementById('headerStatus');
-        if (headerName) headerName.textContent = name;
-        if (headerAvatar) headerAvatar.textContent = getInitial(name);
-        if (headerStatus) headerStatus.textContent = session.status === 'closed' ? 'محادثة مغلقة' : 'نشط الآن';
-
-        await loadMessages(session.id);
-
-        // Subscribe to changes
-        if (messageChannel) supabase.removeChannel(messageChannel);
-        messageChannel = supabase.channel(`chat:${session.id}`)
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'chat_messages',
-                filter: `session_id=eq.${session.id}`
-            }, payload => {
-                appendMessage(payload.new);
-            })
-            .subscribe();
-
-        renderChatsList(allSessions);
-    }
-
-    async function loadMessages(sessionId) {
-        const { data, error } = await supabase
-            .from('chat_messages')
-            .select('*')
-            .eq('session_id', sessionId)
-            .order('created_at', { ascending: true });
-
-        if (error) return;
-
-        if (messagesContainer) {
-            messagesContainer.innerHTML = '';
-            data.forEach(msg => appendMessage(msg));
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    }
-
-    function appendMessage(msg) {
-        if (!messagesContainer) return;
-
-        // is_admin_reply = رد الأدمن (يظهر يمين زي رسائلك انت)، أي حاجة تانية (عميل أو بوت) تظهر شمال
-        const isOwn = msg.is_admin_reply;
-        const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-        // لو رسالة العميل فيها صورة مرفقة، نعرضها للأدمن كمان في نفس الفقاعة
-        // لا src هنا: المسار يخرج كسمة بيانات ويُوقَّع بعد الإدراج (hydrateChatImages).
-        const imgHtml = msg.image_url
-            ? `<img data-storage-path="${escapeHtml(msg.image_url)}" alt="صورة مرفقة" style="max-width:220px;border-radius:10px;display:none;margin-bottom:0.4rem;">`
-            : '';
-
-        const group = document.createElement('div');
-        group.className = `message-group ${isOwn ? 'sent' : 'received'}`;
-        group.innerHTML = `
-            <div class="message-bubble ${isOwn ? 'sent' : 'received'}">
-                ${imgHtml}
-                <div>${iconize(escapeHtml(msg.message_text))}</div>
-                <div class="message-time">${time}</div>
-            </div>
-        `;
-
-        messagesContainer.appendChild(group);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        hydrateChatImages(group);
-    }
-
-    function setupEventListeners() {
-        // حماية إضافية: sendMessage (نسخة الأدمن) بتعتمد على messageInput.
-        // لو العنصر ده مش موجود في الصفحة الحالية (زي صفحة شات العميل)، منربطش
-        // الدالة دي أصلاً عشان منوصلش لخطأ "Cannot read properties of null".
-        if (sendBtn && messageInput) sendBtn.onclick = sendMessage;
-        if (messageInput) {
-            messageInput.onkeypress = (e) => {
-                if (e.key === 'Enter') sendMessage();
-            };
-        }
-        if (searchInput) {
-            searchInput.oninput = (e) => {
-                const term = e.target.value.toLowerCase();
-                const filtered = allSessions.filter(s =>
-                    (s.profiles?.full_name || '').toLowerCase().includes(term)
-                );
-                renderChatsList(filtered);
-            };
-        }
-        if (closeChat) {
-            closeChat.onclick = () => {
-                const emptyStateEl = document.getElementById('emptyState');
-                const chatHeaderEl = document.getElementById('chatHeader');
-                const inputAreaEl = document.getElementById('inputArea');
-                const chatMainEl = document.getElementById('chatMain');
-                if (messageChannel) { supabase.removeChannel(messageChannel); messageChannel = null; }
-                currentSessionId = null;
-                currentSession = null;
-                if (chatHeaderEl) chatHeaderEl.style.display = 'none';
-                if (inputAreaEl) inputAreaEl.style.display = 'none';
-                if (emptyStateEl) emptyStateEl.style.display = 'flex';
-                if (chatMainEl) chatMainEl.classList.remove('active'); // رجوع لوضعية الموبايل (القائمة)
-                renderChatsList(allSessions);
-            };
-        }
-    }
-
-    async function sendMessage() {
-        const text = messageInput.value.trim();
-        if (!text || !currentSessionId) return;
-
-        messageInput.value = '';
-
-        // لما الأدمن يرد يدوي، نوقف البوت في الجلسة دي عشان منردش مرتين
-        await supabase.from('chat_sessions').update({ is_manual_mode: true }).eq('id', currentSessionId);
-
-        await supabase.from('chat_messages').insert({
-            session_id: currentSessionId,
-            sender_id: currentUser.id,
-            message_text: text,
-            is_admin_reply: true
-        });
     }
 
     // Start Init
