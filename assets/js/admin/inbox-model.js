@@ -219,6 +219,12 @@ export function buildTimeline(messages, notes = [], events = [], scheduled = [])
     ].sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 
+// أسباب التسليم الافتراضية رموز داخلية مش كلام للموظف — بتتعرض بس لو حد كتب سبب.
+const HANDOFF_REASON_CODES = new Set(['human_reply', 'manual_takeover', 'returned_by_agent', 'unspecified']);
+function handoffReason(reason) {
+    return reason && !HANDOFF_REASON_CODES.has(reason) && !String(reason).startsWith('sie:') ? ` — ${reason}` : '';
+}
+
 /**
  * سطر الحدث بالعربي.
  * @param {object} names { agent(id)→string, team(id)→string, actor(id)→string }
@@ -246,6 +252,12 @@ export function describeEvent(event, names = {}) {
         case 'schedule_cancelled': return `${actor} لغى رد مجدول`;
         case 'schedule_sent': return 'اتبعت رد مجدول';
         case 'schedule_failed': return `رد مجدول ماتبعتش${p.reason ? ` — ${p.reason}` : ''}`;
+        case 'handoff_to_human': {
+            if (p.source === 'sie') return 'SIE سلّم المحادثة لفريق الدعم — البوت وقف';
+            if (p.source === 'inbox_reply') return `${actor} مسك المحادثة بالرد — البوت وقف`;
+            return `${actor} مسك المحادثة — البوت وقف${handoffReason(p.reason)}`;
+        }
+        case 'handoff_to_ai': return `${actor} رجّع المحادثة للبوت${handoffReason(p.reason)}`;
         default: return `${actor}: ${event?.kind || 'إجراء'}`;
     }
 }

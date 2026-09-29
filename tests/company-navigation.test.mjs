@@ -358,7 +358,16 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         غير متاحة للمستخدمين، ومسار الإرسال نفسه (_inbox_post_reply)
     //         مشترك مع الرد الفوري. مقيسٌ (بما فيه جلستين متوازيتين) في
     //         tests/sql/inbox-scheduled.test.sql.
-    assert.equal(migrations[migrations.length - 1], '058_inbox_scheduled_replies.sql',
+    //   059 — ضمان التسليم للإنسان، Phase 2 (معتمَد: «Database changes are
+    //         allowed in this phase» ثم «كمل Phase 2 بناءً على القرارات دي»).
+    //         الحارس الوحيد كان فحص is_manual_mode في المتصفح: persist_bot_turn
+    //         وتذكرة SIE وإدراجات المتصفح و service_role كانوا يكتبوا رد البوت
+    //         بعد رد الدعم (8 رسايل في الإنتاج)، والعميل يرجّع البوت بتحديث
+    //         مباشر. لا يُفرَض من الواجهة: الحارس محفّز يقفل صف الجلسة جوه
+    //         معاملة الكتابة، والرجوع للبوت مسار خادم مسجَّل للموظف وحده.
+    //         مقيسٌ (بما فيه سباق بجلسات متوازية حقيقية) في
+    //         tests/sql/handoff-guarantee.test.sql.
+    assert.equal(migrations[migrations.length - 1], '059_inbox_handoff_guarantee.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
