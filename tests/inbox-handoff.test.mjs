@@ -67,3 +67,26 @@ test('the RPCs the UI calls exist in 059 and are granted to staff, not anon', as
         assert.ok(body.indexOf('perform public._inbox_require(p_session)') < body.indexOf('_handoff_set('), fn);
     }
 });
+
+test('legacy SIE path: bot_state is written only after the bot message is stored', async () => {
+    // لو الدعم مسك المحادثة وسط الدور، الخادم بيرفض رد البوت (059)؛ الحالة
+    // لازم ماتتقدمش لرد العميل ماشافوش.
+    for (const f of ['chat-widget.js', 'assets/js/chat-logic.js']) {
+        const src = await read(f);
+        const insert = src.search(/const \{ error: botInsertError \} = await supabase\.from\('chat_messages'\)\.insert\(\{[^}]*message_text: sieResult\.reply/s);
+        const state = src.indexOf('if (!botInsertError && sieResult.botState !== undefined)');
+        assert.ok(insert > 0, `${f}: bot message insert checks its error`);
+        assert.ok(state > insert, `${f}: bot_state follows a successful insert`);
+        assert.equal(src.match(/update\(\{ bot_state: sieResult\.botState \}\)/g)?.length, 1, `${f}: one bot_state write`);
+    }
+});
+
+test('060: Take over / Return to AI lock the session row before checking closed', async () => {
+    const sql = await read('migrations/060_inbox_handoff_close_lock.sql');
+    for (const fn of ['inbox_take_over', 'inbox_return_to_ai']) {
+        const body = sql.slice(sql.indexOf(`function public.${fn}(`));
+        const lock = body.indexOf('for update');
+        assert.ok(body.indexOf('perform public._inbox_require(p_session)') < lock, fn);
+        assert.ok(lock > 0 && lock < body.indexOf("= 'closed'") && lock < body.indexOf('_handoff_set('), fn);
+    }
+});

@@ -298,6 +298,7 @@ CREATE TABLE public._t_fp AS
   SELECT md5(pg_get_functiondef('public._inbox_post_reply(uuid, uuid, text, jsonb)'::regprocedure)) AS before_059;
 
 \i migrations/059_inbox_handoff_guarantee.sql
+\i migrations/060_inbox_handoff_close_lock.sql
 
 -- ── مساعدات الاختبار ─────────────────────────────────────────────────────
 DROP SCHEMA IF EXISTS t CASCADE;
@@ -670,6 +671,38 @@ BEGIN
   IF t.bot_count('5e550000-0000-4000-8000-000000000003') <> before + 2 THEN RAISE EXCEPTION 'FAIL 7j: مش الاتنين اتكتبوا'; END IF;
   RAISE NOTICE 'PASS 7d: ردّين بوت متوازيين في وضع البوت اتكتبوا بالترتيب من غير deadlock';
 END $$;
+-- ⑦هـ الإقفال والرجوع للبوت على نفس المحادثة (060): الرجوع يستنى الإقفال ويشوفه
+SELECT * FROM t.dblink('human', $s$select public.inbox_take_over('5e550000-0000-4000-8000-000000000003', 'تجهيز 7هـ')::text$s$) AS r(x text);
+SELECT t.conn('staff2');
+SELECT t.dblink_exec('staff2', $s$set request.jwt.claim.sub = '00000000-0000-4000-8000-0000000000a1'$s$);
+SELECT t.dblink_exec('staff2', $s$set request.jwt.claim.role = 'authenticated'$s$);
+SELECT t.dblink_exec('staff2', 'set role authenticated');
+SELECT t.dblink_exec('staff2', $s$set lock_timeout = '5s'$s$);
+DO $$
+DECLARE busy int; refused boolean := false; ev_before int;
+BEGIN
+  SELECT count(*) INTO ev_before FROM t.handoff_events('5e550000-0000-4000-8000-000000000003') WHERE kind = 'handoff_to_ai';
+  PERFORM t.dblink_exec('human', 'begin');
+  PERFORM * FROM t.dblink('human', $s$select public.inbox_close(array['5e550000-0000-4000-8000-000000000003']::uuid[])::text$s$) AS r(x text);
+  PERFORM t.dblink_send_query('staff2', $s$select public.inbox_return_to_ai('5e550000-0000-4000-8000-000000000003', 'سباق الإقفال')::text$s$);
+  PERFORM pg_sleep(0.5);
+  busy := t.dblink_is_busy('staff2');
+  IF busy <> 1 THEN RAISE EXCEPTION 'FAIL 7k: الرجوع للبوت ماستناش الإقفال (busy=%)', busy; END IF;
+  PERFORM t.dblink_exec('human', 'commit');
+  BEGIN
+    PERFORM * FROM t.dblink_get_result('staff2') AS r(x text);
+  EXCEPTION WHEN others THEN
+    refused := position('مقفولة' in sqlerrm) > 0;
+  END;
+  PERFORM * FROM t.dblink_get_result('staff2', false) AS r(x text);  -- تفريغ
+  IF NOT refused THEN RAISE EXCEPTION 'FAIL 7l: محادثة اتقفلت للتو رجعت للبوت'; END IF;
+  IF NOT t.manual('5e550000-0000-4000-8000-000000000003')
+     OR (SELECT count(*) FROM t.handoff_events('5e550000-0000-4000-8000-000000000003') WHERE kind = 'handoff_to_ai') <> ev_before THEN
+    RAISE EXCEPTION 'FAIL 7m: الحالة أو السجل اتغيروا بعد الإقفال';
+  END IF;
+  RAISE NOTICE 'PASS 7e: الإقفال والرجوع للبوت بيتسلسلوا — محادثة اتقفلت مابترجعش للبوت';
+END $$;
+SELECT t.dblink_disconnect('staff2');
 SELECT t.dblink_disconnect('human');
 SELECT t.dblink_disconnect('ai');
 SELECT t.dblink_disconnect('ai2');
@@ -677,6 +710,7 @@ SELECT t.dblink_disconnect('ai2');
 -- ⑧ إعادة تشغيل الترحيل: idempotent ولا أثر جانبي ──────────────────────────
 DO $$ BEGIN PERFORM set_config('t.events_before', (SELECT count(*)::text FROM public.inbox_events), false); END $$;
 \i migrations/059_inbox_handoff_guarantee.sql
+\i migrations/060_inbox_handoff_close_lock.sql
 DO $$
 BEGIN
   IF (SELECT count(*) FROM pg_trigger WHERE tgname IN ('trg_guard_ai_reply_handoff','trg_guard_handoff_state','trg_log_handoff_change')) <> 3
@@ -686,6 +720,21 @@ BEGIN
   -- جلسات موجودة قبل الترحيل ولسه ماتلمستش: شغالة زي ما هي
   IF t.manual('5e550000-0000-4000-8000-000000000005') THEN RAISE EXCEPTION 'FAIL 8b: الحالة القديمة اتغيرت'; END IF;
   RAISE NOTICE 'PASS 8: الترحيل قابل لإعادة التشغيل، والمحادثات القائمة ما اتغيرتش';
+END $$;
+
+-- ⑨أ تراجع 060: الدالتين يرجعوا نص 059 حرفيًا
+DO $$ BEGIN PERFORM set_config('t.ret_060', md5(pg_get_functiondef('public.inbox_return_to_ai(uuid, text)'::regprocedure)), false); END $$;
+\i migrations/_rollback/060_inbox_handoff_close_lock.down.sql
+DO $$
+BEGIN
+  IF md5(pg_get_functiondef('public.inbox_return_to_ai(uuid, text)'::regprocedure)) = current_setting('t.ret_060') THEN
+    RAISE EXCEPTION 'FAIL 9d: تراجع 060 ماغيّرش الدالة';
+  END IF;
+  IF has_function_privilege('anon', 'public.inbox_return_to_ai(uuid, text)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.inbox_return_to_ai(uuid, text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'FAIL 9e: صلاحيات الدالة اتغيرت بعد تراجع 060';
+  END IF;
+  RAISE NOTICE 'PASS 9a: تراجع 060 رجّع نسخة 059 بنفس الصلاحيات';
 END $$;
 
 -- ⑨ التراجع: يرجّع سلوك 058 حرفيًا، والسجل يفضل ────────────────────────────
@@ -710,5 +759,6 @@ BEGIN
 END $$;
 -- وتاني لقدّام بعد التراجع
 \i migrations/059_inbox_handoff_guarantee.sql
+\i migrations/060_inbox_handoff_close_lock.sql
 RESET ROLE;
 DO $$ BEGIN RAISE NOTICE 'ALL handoff-guarantee: PASS'; END $$;

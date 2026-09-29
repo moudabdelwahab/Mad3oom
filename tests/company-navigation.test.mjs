@@ -367,7 +367,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         معاملة الكتابة، والرجوع للبوت مسار خادم مسجَّل للموظف وحده.
     //         مقيسٌ (بما فيه سباق بجلسات متوازية حقيقية) في
     //         tests/sql/handoff-guarantee.test.sql.
-    assert.equal(migrations[migrations.length - 1], '059_inbox_handoff_guarantee.sql',
+    //   060 — تكملة 059 من مراجعة الـPR (نفس Phase 2 المعتمدة): «امسك» و«رجّع
+    //         للبوت» كانوا بيفحصوا الإقفال من غير قفل، فـ inbox_close بين الفحص
+    //         والتسليم كان يرجّع محادثة مقفولة للبوت. القفل قبل الفحص — قرار
+    //         تزامن في الخادم، لا يُفرَض من الواجهة. مقيسٌ بجلستين متوازيتين
+    //         حقيقيتين في tests/sql/handoff-guarantee.test.sql (⑦هـ).
+    assert.equal(migrations[migrations.length - 1], '060_inbox_handoff_close_lock.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

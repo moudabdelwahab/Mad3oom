@@ -659,16 +659,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
             // متسيبش الفرع ده - أي رد من واجهة أقدم بيعدي من هنا.
-            if (sieResult.botState !== undefined) {
-                await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
-            }
-            await supabase.from('chat_messages').insert({
+            // الرسالة الأول، و bot_state بعدها بس لو اتخزنت: لو الدعم مسك
+            // المحادثة في النص، الخادم بيرفض رد البوت (059) ومانسيبش حالة
+            // لرد العميل ماشافوش.
+            const { error: botInsertError } = await supabase.from('chat_messages').insert({
                 session_id: currentSessionId,
                 sender_id: null,
                 message_text: sieResult.reply,
                 is_admin_reply: false,
                 is_bot_reply: true
             });
+            if (!botInsertError && sieResult.botState !== undefined) {
+                await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
+            }
             renderQuickOptions(sieResult.options);
             return true;
         } catch (err) {

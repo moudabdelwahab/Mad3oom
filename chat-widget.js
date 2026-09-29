@@ -1396,16 +1396,19 @@ class ChatWidget {
             // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted — رسالة
             // البوت و bot_state والتذكرة لو اتفتحت، في معاملة واحدة عنده.
             if (!sieResult.alreadyPersisted) {
-                if (sieResult.botState !== undefined) {
-                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', this.currentSessionId);
-                }
-                await supabase.from('chat_messages').insert({
+                // الرسالة الأول، و bot_state بعدها بس لو اتخزنت: لو الدعم مسك
+                // المحادثة في النص، الخادم بيرفض رد البوت (059) ومانسيبش حالة
+                // لرد العميل ماشافوش.
+                const { error: botInsertError } = await supabase.from('chat_messages').insert({
                     session_id: this.currentSessionId,
                     sender_id: null,
                     message_text: sieResult.reply,
                     is_admin_reply: false,
                     is_bot_reply: true
                 });
+                if (!botInsertError && sieResult.botState !== undefined) {
+                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', this.currentSessionId);
+                }
             }
             this.renderQuickOptions(sieResult.options);
         } catch (err) {
