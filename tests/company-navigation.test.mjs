@@ -383,7 +383,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الإدراج بقت رسايل العميل هو بس، الـ RPCين للخادم بس، وحارس على
     //         bot_state — قرار سلطة في قاعدة البيانات، مش في الواجهة. بيتطبّق بعد
     //         نشر sie-api والواجهة. مقيسٌ (بما فيه الثغرات قبله) في نفس الملف.
-    assert.equal(migrations[migrations.length - 1], '062_chat_message_authority.sql',
+    //   063 — W1 من خطة Conversation Core (معتمَد: «ابدأ التنفيذ… W1 → P0 → B»):
+    //         رسالة واتساب الواردة كانت بتتخزّن من غير wa_message_id ومن غير
+    //         قيد، فإعادة إرسال ميتا بتخزّنها مرتين وتشغّل التدفق مرتين (مجموعتين
+    //         في الإنتاج). قيد فريد جزئي + إدراج ذري ON CONFLICT DO NOTHING، والنسخ
+    //         الموجودة بتتعلّم بـ duplicate_of_id من غير حذف — قرار تزامن في
+    //         قاعدة البيانات، مش قراءة قبل الكتابة. مقيسٌ (بجلستين حقيقيتين
+    //         والتراجع) في tests/sql/whatsapp-inbound-idempotency.test.sql.
+    assert.equal(migrations[migrations.length - 1], '063_whatsapp_inbound_idempotency.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

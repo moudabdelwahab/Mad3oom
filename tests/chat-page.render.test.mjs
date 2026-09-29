@@ -41,6 +41,31 @@ const SESSION = { id: 's-1', user_id: 'u-1', status: 'active', bot_state: {}, is
   profiles: { full_name: 'عميل تجريبي', role: 'user' }, chat_messages: [] };
 function emit(table, row, event = 'INSERT') { state.listeners.filter(l => l.table === table && (!l.event || l.event === '*' || l.event === event)).forEach(l => setTimeout(() => l.cb({ eventType: event, new: row }), 0)); }
 state.emit = emit;
+// الخادم (061 + sie-api): رسايل البوت بيكتبها الخادم، مش المتصفح. serverRows
+// = اللي كتبه الخادم، inserts = اللي كتبه المتصفح بنفسه (062 بيرفض فيه أي علم بوت/دعم).
+state.serverRows = []; state.notices = [];
+const NOTICE_REASON = { disabled: 'تم إيقاف محرك الدعم الذكي (SIE) لحسابك.', expired: 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).',
+  quota_exceeded: 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لحسابك.', edition_monthly_limit: 'وصلت لحد رسائل الشهر في خطتك الحالية.' };
+function serverWrite(text) {
+  const row = { id: 'srv-' + (seq++), created_at: now(), session_id: 's-1', sender_id: null, message_text: text, is_admin_reply: false, is_bot_reply: true };
+  state.serverRows.push(row);
+  emit('chat_messages', row);
+  return row.id;
+}
+state.serverWrite = serverWrite;
+function postNotice(args) {
+  state.notices.push({ kind: args.p_kind, seconds: args.p_seconds ?? null });
+  let text;
+  if (args.p_kind === 'greeting') text = 'أهلاً بيك\\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:';
+  else if (args.p_kind === 'sie_unavailable') {
+    const e = typeof cfg.entitlement === 'function' ? cfg.entitlement(state) : cfg.entitlement;
+    if (e?.has_access) return null;
+    text = (NOTICE_REASON[e?.reason] || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.') + ' رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.';
+  } else if (args.p_kind === 'sie_error') text = 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، ورسالتك وصلت لفريق الدعم كمان.';
+  else if (args.p_kind === 'error') text = 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.';
+  else text = 'بعتّ رسايل كتير في وقت قصير. استنى ' + (args.p_seconds || 1) + ' ثانية وابعت تاني.';
+  return serverWrite(text);
+}
 function query(table) {
   const one = () => {
     if (table === 'chat_sessions') return { data: SESSION, error: null };
@@ -79,6 +104,7 @@ export const supabase = {
       const e = typeof cfg.entitlement === 'function' ? cfg.entitlement(state) : cfg.entitlement;
       return { data: e ?? null, error: null };
     }
+    if (fn === 'chat_post_notice') return { data: postNotice(args), error: null };
     if (fn === 'sie_customer_downgrade') return { data: cfg.downgradeResult || { ok: true, edition: args.p_target }, error: null };
     return { data: null, error: null };
   },
@@ -99,7 +125,10 @@ export async function getSieReply(args) {
   window.__fake.sieCalls.push({ text: args.text });
   const r = window.__FAKE_CONFIG?.sieReply;
   if (r === null) return null;
-  return r || { reply: 'رد من SIE', options: [], botState: {}, alreadyPersisted: false };
+  if (r) return r;
+  // sie-api بيكتب الدور بعميل الخادم ويرجّع alreadyPersisted.
+  window.__fake.serverWrite('رد من SIE');
+  return { reply: 'رد من SIE', options: [], botState: {}, alreadyPersisted: true };
 }`;
 const PANEL_HOST = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"></head><body>
 <div id="panel"></div><button id="opener">فتح</button>
@@ -174,8 +203,11 @@ test('customer page: composer is [attach][input][SIE · plan][send]; no Traditio
     const starters = await page.$$eval('.bot-quick-option-btn', (b) => b.map((x) => x.textContent.trim()));
     assert.deepEqual(starters, ['عندي استفسار', 'عندي مشكلة']);
     assert.doesNotMatch(await page.textContent('body'), /تقليدي|Traditional/i);
-    const greet = (await fake(page)).sessionUpdates.find((u) => u.patch.bot_state);
-    assert.deepEqual(greet.patch.bot_state, { greeted: true }, 'no traditional flow state is written');
+    // الترحيب والعلامة greeted بيكتبهم الخادم (chat_post_notice)، مش المتصفح.
+    const f = await fake(page);
+    assert.deepEqual(f.notices, [{ kind: 'greeting', seconds: null }]);
+    assert.equal(f.sessionUpdates.filter((u) => 'bot_state' in u.patch).length, 0, 'the browser never writes bot_state');
+    assert.equal(f.inserts.filter((i) => i.row.is_bot_reply || i.row.is_admin_reply).length, 0);
     assert.deepEqual(errors, []);
     await context.close();
 });
@@ -183,9 +215,13 @@ test('customer page: composer is [attach][input][SIE · plan][send]; no Traditio
 test('customer page: every text goes to SIE (Free) and the reply is stored — no other engine', async () => {
     const { page, context, errors } = await openCustomer({ entitlement: ent('free', { downgrade_to: [] }) });
     await sendText(page, 'عندي مشكلة في الدفع');
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => i.row.message_text === 'رد من SIE'));
+    await page.waitForFunction(() => document.getElementById('chatMessages')?.textContent.includes('رد من SIE'));
     const f = await fake(page);
     assert.deepEqual(f.sieCalls.map((c) => c.text), ['عندي مشكلة في الدفع']);
+    // الرد محفوظ على الخادم (sie-api)، والمتصفح كتب رسالة العميل بس.
+    assert.ok(f.serverRows.some((r) => r.message_text === 'رد من SIE'));
+    assert.deepEqual(f.inserts.filter((i) => i.table === 'chat_messages').map((i) => [i.row.sender_id, !!i.row.is_bot_reply]), [['u-1', false]]);
+    assert.deepEqual(f.notices.map((n) => n.kind), ['greeting'], 'no error notice after a persisted reply');
     assert.equal(await page.inputValue('#chatInput'), '');
     assert.deepEqual(errors, []);
     await context.close();
@@ -195,18 +231,22 @@ test('customer page: SIE blocked (limit reached) → a clear reason in the chat,
     const { page, context } = await openCustomer({ entitlement: ent('free', { has_access: false, reason: 'edition_monthly_limit', downgrade_to: [] }) });
     assert.equal(await page.getAttribute('#chatModeInlineBtn', 'data-tone'), 'blocked');
     await sendText(page, 'محتاج مساعدة');
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => /وصلت لفريق الدعم/.test(i.row.message_text || '')));
+    await page.waitForFunction(() => window.__fake.notices.some((n) => n.kind === 'sie_unavailable'));
+    await page.waitForFunction(() => /وصلت لفريق الدعم/.test(document.getElementById('chatMessages')?.textContent || ''));
     const rows = await msgInserts(page);
     assert.ok(rows.some((r) => r.sender_id === 'u-1' && r.message_text === 'محتاج مساعدة'), 'customer message is stored for support');
+    assert.ok(rows.every((r) => !r.is_bot_reply && !r.is_admin_reply), 'the reason is written by the server, not the browser');
     assert.equal((await fake(page)).sieCalls.length, 0);
-    assert.doesNotMatch(rows.map((r) => r.message_text).join('\n'), /تقليدي|وضع تاني/);
+    assert.doesNotMatch((await fake(page)).serverRows.map((r) => r.message_text).join('\n'), /تقليدي|وضع تاني/);
     await context.close();
 });
 
 test('customer page: SIE null reply → asks the server why; a temporary problem is said as such', async () => {
     const { page, context } = await openCustomer({ entitlement: ent('max'), sieReply: null });
     await sendText(page, 'سؤال');
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => /مشكلة مؤقتة/.test(i.row.message_text || '')));
+    await page.waitForFunction(() => window.__fake.notices.some((n) => n.kind === 'sie_error'));
+    await page.waitForFunction(() => /مشكلة مؤقتة/.test(document.getElementById('chatMessages')?.textContent || ''));
+    assert.ok((await msgInserts(page)).every((r) => !r.is_bot_reply));
     const calls = (await fake(page)).rpc.filter((c) => c.fn === 'sie_my_entitlement').length;
     assert.ok(calls >= 2, 'the entitlement is re-read after the refusal');
     await context.close();
@@ -296,7 +336,9 @@ test('customer page: the plan chip opens the plan dialog (keyboard, Escape retur
     await page.click('.cms-downgrade-btn[data-plan="pro"]');
     await page.waitForFunction(() => window.__fake.rpc.some((c) => c.fn === 'sie_customer_downgrade'));
     assert.deepEqual((await fake(page)).rpc.find((c) => c.fn === 'sie_customer_downgrade').args, { p_target: 'pro' });
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => /تم تغيير خطة SIE إلى برو/.test(i.row.message_text || '')));
+    // إشعار على الشاشة بس (مش رسالة بوت محفوظة — 062).
+    await page.waitForFunction(() => /تم تغيير خطة SIE إلى برو/.test(document.getElementById('chatComposerStatus')?.textContent || ''));
+    assert.ok((await msgInserts(page)).every((r) => !r.is_bot_reply));
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('.cms-overlay'));
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'chatModeInlineBtn');
