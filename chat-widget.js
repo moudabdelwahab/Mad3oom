@@ -648,15 +648,23 @@ class ChatWidget {
      * SIE غير متاح لهذا العميل الآن (موقوف / منتهي / استهلك حده). لا بوت
      * بديل: رسالة واضحة بالسبب داخل المحادثة نفسها، والرسالة تبقى لفريق الدعم.
      */
-    async notifySieUnavailable(ent) {
-        const why = ent?.reasonText || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.';
-        await supabase.from('chat_messages').insert({
-            session_id: this.currentSessionId,
-            sender_id: null,
-            message_text: `${why} رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.`,
-            is_admin_reply: false,
-            is_bot_reply: true
+    async notifySieUnavailable() {
+        // السبب بيتحسب على الخادم (sie_my_entitlement) والنص هناك كمان.
+        await this.postNotice('sie_unavailable');
+    }
+
+    /**
+     * رسالة بوت ثابتة (ترحيب / SIE مش متاح / عطل / حد المعدل). المتصفح مابيكتبش
+     * رسايل البوت بنفسه (062): بيطلب «النوع» والخادم يكتب النص
+     * (chat_post_notice — 061). لو المحادثة مع فريق الدعم أو مقفولة الخادم مابيكتبش.
+     */
+    async postNotice(kind, seconds = null) {
+        if (!this.currentSessionId) return null;
+        const { data, error } = await supabase.rpc('chat_post_notice', {
+            p_session: this.currentSessionId, p_kind: kind, p_seconds: seconds
         });
+        if (error) console.error('[ChatWidget] chat_post_notice failed:', kind, error.message || error);
+        return error ? null : data;
     }
 
     /* ==================== فتح / إغلاق / تصغير / تكبير ==================== */
@@ -976,20 +984,10 @@ class ChatWidget {
 
     async sendInitialGreeting() {
         if (!this.currentSessionId) return;
-        const welcome = this.botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
-        const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
-
-        await supabase.from('chat_sessions').update({ bot_state: { greeted: true } }).eq('id', this.currentSessionId);
-
-        // الإدراج هيوصل عن طريق الاشتراك الفوري (subscribeRealtime) ويتعرض تلقائياً
-        await supabase.from('chat_messages').insert({
-            session_id: this.currentSessionId,
-            sender_id: null,
-            message_text: greetingText,
-            is_admin_reply: false,
-            is_bot_reply: true
-        });
-
+        // الخادم بيكتب الترحيب (من إعدادات شات الموقع) مرة واحدة بس، حتى لو
+        // اتفتح الشات في تبويبين، ويعلّم greeted في bot_state. الرسالة هتوصل عن
+        // طريق الاشتراك الفوري (subscribeRealtime) وتتعرض تلقائياً.
+        await this.postNotice('greeting');
         this.renderQuickOptions(STARTER_OPTIONS);
     }
 
@@ -1364,7 +1362,7 @@ class ChatWidget {
             // نطلب ردًا سيُرفض — نشرح السبب. معلومة غير متاحة (null/خطأ) لا
             // تمنع المحاولة: الخادم هو من يقرر مع كل رسالة.
             if (this.entitlement?.status === 'ok' && !this.entitlement.hasAccess) {
-                await this.notifySieUnavailable(this.entitlement);
+                await this.notifySieUnavailable();
                 return;
             }
 
@@ -1380,46 +1378,29 @@ class ChatWidget {
                 // رفض الخادم (حد/إيقاف) يصل هنا كـ null: نسأل الخادم عن السبب
                 const ent = await this.refreshEntitlement();
                 if (ent?.status === 'ok' && !ent.hasAccess) {
-                    await this.notifySieUnavailable(ent);
+                    await this.notifySieUnavailable();
                 } else {
-                    await supabase.from('chat_messages').insert({
-                        session_id: this.currentSessionId,
-                        sender_id: null,
-                        message_text: 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، ورسالتك وصلت لفريق الدعم كمان.',
-                        is_admin_reply: false,
-                        is_bot_reply: true
-                    });
+                    await this.postNotice('sie_error');
                 }
                 return;
             }
 
-            // SIE بيكتب دور المحادثة بنفسه لما يقول alreadyPersisted — رسالة
-            // البوت و bot_state والتذكرة لو اتفتحت، في معاملة واحدة عنده.
+            // SIE بيكتب دور المحادثة بنفسه (رسالة البوت و bot_state والتذكرة لو
+            // اتفتحت) في معاملة واحدة على الخادم. المتصفح مابيكتبش رد البوت ولا
+            // bot_state أبدًا (062). الحالة الوحيدة اللي مفيهاش رد محفوظ: حد
+            // المعدل (الرسالة بيكتبها الخادم برضه)، أو خادم قديم مابيحفظش.
             if (!sieResult.alreadyPersisted) {
-                // الرسالة الأول، و bot_state بعدها بس لو اتخزنت: لو الدعم مسك
-                // المحادثة في النص، الخادم بيرفض رد البوت (059) ومانسيبش حالة
-                // لرد العميل ماشافوش.
-                const { error: botInsertError } = await supabase.from('chat_messages').insert({
-                    session_id: this.currentSessionId,
-                    sender_id: null,
-                    message_text: sieResult.reply,
-                    is_admin_reply: false,
-                    is_bot_reply: true
-                });
-                if (!botInsertError && sieResult.botState !== undefined) {
-                    await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', this.currentSessionId);
+                if (sieResult.rateLimited) {
+                    await this.postNotice('rate_limited', sieResult.retryAfterSeconds ?? null);
+                } else {
+                    console.warn('[ChatWidget] SIE reply was not persisted by the server — not writing it from the browser');
+                    await this.postNotice('sie_error');
                 }
             }
             this.renderQuickOptions(sieResult.options);
         } catch (err) {
             console.error('خطأ في SIE:', err);
-            await supabase.from('chat_messages').insert({
-                session_id: this.currentSessionId,
-                sender_id: null,
-                message_text: 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.',
-                is_admin_reply: false,
-                is_bot_reply: true
-            });
+            await this.postNotice('error');
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
             this.isSending = false;

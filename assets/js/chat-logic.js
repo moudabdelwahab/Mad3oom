@@ -306,34 +306,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         catch (err) { console.warn('تعذّر حذف مرفق لم يُرسل:', err?.message || err); }
     }
 
-    // رسالة بوت مباشرة في الشات من غير ما تعتبر رسالة عميل وتُبعت للمحرك
-    async function appendBotOnlyMessage(text) {
-        if (!currentSessionId) return;
-        await supabase.from('chat_messages').insert({
-            session_id: currentSessionId,
-            sender_id: null,
-            message_text: text,
-            is_admin_reply: false,
-            is_bot_reply: true
+    // رسالة بوت ثابتة (ترحيب / SIE مش متاح / عطل / حد المعدل). المتصفح مابيكتبش
+    // رسايل البوت بنفسه (062): بيطلب «النوع» والخادم يكتب النص (chat_post_notice
+    // — 061). لو المحادثة مع فريق الدعم أو مقفولة الخادم مابيكتبش.
+    async function postNotice(kind, seconds = null) {
+        if (!currentSessionId) return null;
+        const { data, error } = await supabase.rpc('chat_post_notice', {
+            p_session: currentSessionId, p_kind: kind, p_seconds: seconds
         });
+        if (error) console.error('chat_post_notice failed:', kind, error.message || error);
+        return error ? null : data;
     }
 
     // ===== INITIAL GREETING (أول ما العميل يفتح الشات) =====
+    // الخادم بيكتب الترحيب (من إعدادات شات الموقع) مرة واحدة بس ويعلّم greeted.
     async function sendInitialGreeting() {
         if (!currentSessionId) return;
-        const welcome = botSettings?.welcome_message || 'أهلاً بيك في منصة مدعوم! 👋';
-        const greetingText = `${welcome}\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:`;
-
-        await supabase.from('chat_sessions').update({ bot_state: { greeted: true } }).eq('id', currentSessionId);
-
-        await supabase.from('chat_messages').insert({
-            session_id: currentSessionId,
-            sender_id: null,
-            message_text: greetingText,
-            is_admin_reply: false,
-            is_bot_reply: true
-        });
-
+        await postNotice('greeting');
         renderQuickOptions(STARTER_OPTIONS);
     }
 
@@ -552,7 +541,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             returnFocus: document.getElementById('chatModeInlineBtn'),
             onPlanChanged: async (_ent, { label }) => {
                 await refreshPlanChip();
-                await appendBotOnlyMessage(`تم تغيير خطة SIE إلى ${label}.`);
+                // إشعار على الشاشة بس، زي الويدجت — مش رسالة بوت محفوظة (062).
+                setComposerStatus(`تم تغيير خطة SIE إلى ${label}.`);
             }
         });
     }
@@ -561,9 +551,9 @@ document.addEventListener('DOMContentLoaded', async () => {
      * SIE غير متاح لهذا العميل الآن (موقوف / منتهي / استهلك حده). لا بوت
      * بديل: رسالة واضحة بالسبب داخل المحادثة نفسها، والرسالة تبقى لفريق الدعم.
      */
-    async function notifySieUnavailable(ent) {
-        const why = ent?.reasonText || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.';
-        await appendBotOnlyMessage(`${why} رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.`);
+    async function notifySieUnavailable() {
+        // السبب بيتحسب على الخادم (sie_my_entitlement) والنص هناك كمان.
+        await postNotice('sie_unavailable');
     }
 
     // ===== SEND CUSTOMER MESSAGE =====
@@ -626,7 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // الاستحقاق معروف ومقفول (موقوف/منتهي/استهلك حده): نقول السبب بوضوح.
             // غير معروف (فشل التحميل): نحاول SIE — الخادم هو الحكم عند كل رسالة.
             if (entitlement?.status === 'ok' && !entitlement.hasAccess) {
-                await notifySieUnavailable(entitlement);
+                await notifySieUnavailable();
                 return true;
             }
 
@@ -642,9 +632,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!sieResult) {
                 const ent = await refreshPlanChip();
                 if (ent?.status === 'ok' && !ent.hasAccess) {
-                    await notifySieUnavailable(ent);
+                    await notifySieUnavailable();
                 } else {
-                    await appendBotOnlyMessage('محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني بعد شوية، ورسالتك وصلت لفريق الدعم.');
+                    await postNotice('sie_error');
                 }
                 return true;
             }
@@ -657,26 +647,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return true;
             }
 
-            // الشكل القديم: SIE بيرجّع بيانات بس والكتابة علينا.
-            // متسيبش الفرع ده - أي رد من واجهة أقدم بيعدي من هنا.
-            // الرسالة الأول، و bot_state بعدها بس لو اتخزنت: لو الدعم مسك
-            // المحادثة في النص، الخادم بيرفض رد البوت (059) ومانسيبش حالة
-            // لرد العميل ماشافوش.
-            const { error: botInsertError } = await supabase.from('chat_messages').insert({
-                session_id: currentSessionId,
-                sender_id: null,
-                message_text: sieResult.reply,
-                is_admin_reply: false,
-                is_bot_reply: true
-            });
-            if (!botInsertError && sieResult.botState !== undefined) {
-                await supabase.from('chat_sessions').update({ bot_state: sieResult.botState }).eq('id', currentSessionId);
+            // مفيش رد محفوظ: حد المعدل (الخادم بيكتب رسالته)، أو خادم قديم
+            // مابيحفظش — المتصفح مابيكتبش رد البوت ولا bot_state أبدًا (062).
+            if (sieResult.rateLimited) {
+                await postNotice('rate_limited', sieResult.retryAfterSeconds ?? null);
+            } else {
+                console.warn('SIE reply was not persisted by the server — not writing it from the browser');
+                await postNotice('sie_error');
             }
             renderQuickOptions(sieResult.options);
             return true;
         } catch (err) {
             console.error('خطأ في الرد الآلي:', err);
-            await appendBotOnlyMessage('عذراً، حدث خطأ أثناء معالجة رسالتك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.');
+            await postNotice('error');
             return true;
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
