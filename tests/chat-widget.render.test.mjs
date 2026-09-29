@@ -45,6 +45,31 @@ let seq = 0;
 const now = () => new Date(Date.now() + (seq++)).toISOString();
 function emit(table, row, event = 'INSERT') { state.listeners.filter(l => l.table === table && (!l.event || l.event === '*' || l.event === event)).forEach(l => setTimeout(() => l.cb({ eventType: event, new: row }), 0)); }
 state.emit = emit;
+// الخادم (061 + sie-api): رسايل البوت بيكتبها الخادم، مش المتصفح. serverRows
+// = اللي كتبه الخادم، inserts = اللي كتبه المتصفح بنفسه (062 بيرفض فيه أي علم بوت/دعم).
+state.serverRows = []; state.notices = [];
+const NOTICE_REASON = { disabled: 'تم إيقاف محرك الدعم الذكي (SIE) لحسابك.', expired: 'انتهت صلاحية استخدامك لمحرك الدعم الذكي (SIE).',
+  quota_exceeded: 'استهلكت كل رسائل محرك الدعم الذكي (SIE) المتاحة لحسابك.', edition_monthly_limit: 'وصلت لحد رسائل الشهر في خطتك الحالية.' };
+function serverWrite(text) {
+  const row = { id: 'srv-' + (seq++), created_at: now(), session_id: 's-1', sender_id: null, message_text: text, is_admin_reply: false, is_bot_reply: true };
+  state.serverRows.push(row);
+  emit('chat_messages', row);
+  return row.id;
+}
+state.serverWrite = serverWrite;
+function postNotice(args) {
+  state.notices.push({ kind: args.p_kind, seconds: args.p_seconds ?? null });
+  let text;
+  if (args.p_kind === 'greeting') text = 'أهلاً بيك\\nاختار من الاختيارات دي 👇 أو اكتبلي طلبك بحريتك:';
+  else if (args.p_kind === 'sie_unavailable') {
+    const e = typeof cfg.entitlement === 'function' ? cfg.entitlement(state) : cfg.entitlement;
+    if (e?.has_access) return null;
+    text = (NOTICE_REASON[e?.reason] || 'محرك الدعم الذكي (SIE) غير متاح لحسابك حاليًا.') + ' رسالتك وصلت لفريق الدعم وهيرد عليك هنا في أقرب وقت.';
+  } else if (args.p_kind === 'sie_error') text = 'محرك الدعم الذكي (SIE) واجه مشكلة مؤقتة في الرد على رسالتك. جرّب تبعتها تاني، ورسالتك وصلت لفريق الدعم كمان.';
+  else if (args.p_kind === 'error') text = 'عذراً، حدث خطأ بسيط أثناء معالجة طلبك. رسالتك وصلت لفريق الدعم وهيرد عليك هنا.';
+  else text = 'بعتّ رسايل كتير في وقت قصير. استنى ' + (args.p_seconds || 1) + ' ثانية وابعت تاني.';
+  return serverWrite(text);
+}
 function query(table) {
   const q = { table, filters: [] };
   const result = () => {
@@ -82,6 +107,7 @@ export const supabase = {
       const e = typeof cfg.entitlement === 'function' ? cfg.entitlement(state) : cfg.entitlement;
       return { data: e ?? null, error: null };
     }
+    if (fn === 'chat_post_notice') return { data: postNotice(args), error: null };
     if (fn === 'sie_customer_downgrade') {
       const r = cfg.downgrade ? cfg.downgrade(args, state) : { ok: true, edition: args.p_target };
       return { data: r, error: null };
@@ -112,7 +138,10 @@ export async function getSieReply(args) {
   window.__fake.sieCalls.push({ text: args.text });
   const r = window.__FAKE_CONFIG?.sieReply;
   if (r === null) return null;
-  return r || { reply: 'رد من SIE', options: [], botState: {}, alreadyPersisted: false };
+  if (r) return r;
+  // sie-api بيكتب الدور بعميل الخادم ويرجّع alreadyPersisted.
+  window.__fake.serverWrite('رد من SIE');
+  return { reply: 'رد من SIE', options: [], botState: {}, alreadyPersisted: true };
 }`;
 
 const RESET = new Date(Date.now() + (2 * 60 + 17) * 60000 + 30000).toISOString();
@@ -288,11 +317,15 @@ test('SIE answers on Free, Pro and Max: the text goes to SIE and the reply is st
         const { page, context } = await openWidget({ entitlement: ent(edition) });
         await page.fill('#chatWidgetTextInput', 'مش عارف ادخل على حسابي');
         await page.keyboard.press('Enter');
-        await page.waitForFunction(() => window.__fake.inserts.some((i) => i.row.is_bot_reply && i.row.message_text === 'رد من SIE'));
+        await page.waitForFunction(() => window.__fake.serverRows.some((r) => r.message_text === 'رد من SIE'));
         const f = await fake(page);
         assert.deepEqual(f.sieCalls, [{ text: 'مش عارف ادخل على حسابي' }], edition);
         const own = f.inserts.filter((i) => i.row.sender_id === 'u-1');
         assert.equal(own.length, 1);
+        // الرد والحالة بيكتبهم sie-api على الخادم؛ المتصفح مابيكتبش رد بوت ولا bot_state.
+        assert.equal(f.inserts.filter((i) => i.row.is_bot_reply || i.row.is_admin_reply).length, 0, edition);
+        assert.equal(f.sessionUpdates.filter((u) => 'bot_state' in u.patch).length, 0, edition);
+        assert.ok(!f.notices.some((n) => n.kind !== 'greeting'), edition);
         await context.close();
     }
 });
@@ -303,11 +336,13 @@ test('SIE unavailable (limit reached): no SIE call, a clear reason in the chat, 
     assert.equal(await page.getAttribute('#cwModeChip', 'data-tone'), 'full');
     await page.fill('#chatWidgetTextInput', 'عندي مشكلة');
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => i.row.is_bot_reply && /حد رسائل الشهر/.test(i.row.message_text)));
+    await page.waitForFunction(() => window.__fake.serverRows.some((r) => /حد رسائل الشهر/.test(r.message_text)));
     const f = await fake(page);
     assert.equal(f.sieCalls.length, 0);
     assert.ok(f.inserts.some((i) => i.row.sender_id === 'u-1' && i.row.message_text === 'عندي مشكلة'), 'the customer message is stored');
-    assert.match(f.inserts.find((i) => i.row.is_bot_reply && /حد/.test(i.row.message_text)).row.message_text, /فريق الدعم/);
+    assert.ok(f.notices.some((n) => n.kind === 'sie_unavailable'), 'the browser asks the server for the notice');
+    assert.equal(f.inserts.filter((i) => i.row.is_bot_reply).length, 0, 'the browser writes no bot text');
+    assert.match(f.serverRows.find((r) => /حد/.test(r.message_text)).message_text, /فريق الدعم/);
     await context.close();
 });
 
@@ -320,7 +355,8 @@ test('SIE refused on the server (null reply): the widget asks the server why and
     calls++;
     await page.fill('#chatWidgetTextInput', 'سؤال');
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => window.__fake.inserts.some((i) => i.row.is_bot_reply && /استهلكت كل رسائل/.test(i.row.message_text)));
+    await page.waitForFunction(() => window.__fake.serverRows.some((r) => /استهلكت كل رسائل/.test(r.message_text)));
+    assert.equal((await fake(page)).inserts.filter((i) => i.row.is_bot_reply).length, 0);
     assert.ok(calls);
     await context.close();
 });
