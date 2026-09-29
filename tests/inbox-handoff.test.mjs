@@ -68,16 +68,13 @@ test('the RPCs the UI calls exist in 059 and are granted to staff, not anon', as
     }
 });
 
-test('legacy SIE path: bot_state is written only after the bot message is stored', async () => {
-    // لو الدعم مسك المحادثة وسط الدور، الخادم بيرفض رد البوت (059)؛ الحالة
-    // لازم ماتتقدمش لرد العميل ماشافوش.
+test('legacy SIE path: the browser never writes the bot reply or bot_state (superseded by Phase 3 / 062)', async () => {
+    // 059 كان بيرفض رد البوت وقت التسليم، فكان لازم الحالة ماتتقدمش لرد ماتخزنش.
+    // من 062 المتصفح مابيكتبش لا رد البوت ولا bot_state أصلًا — الخادم بس.
     for (const f of ['chat-widget.js', 'assets/js/chat-logic.js']) {
         const src = await read(f);
-        const insert = src.search(/const \{ error: botInsertError \} = await supabase\.from\('chat_messages'\)\.insert\(\{[^}]*message_text: sieResult\.reply/s);
-        const state = src.indexOf('if (!botInsertError && sieResult.botState !== undefined)');
-        assert.ok(insert > 0, `${f}: bot message insert checks its error`);
-        assert.ok(state > insert, `${f}: bot_state follows a successful insert`);
-        assert.equal(src.match(/update\(\{ bot_state: sieResult\.botState \}\)/g)?.length, 1, `${f}: one bot_state write`);
+        assert.ok(!/is_bot_reply:\s*true/.test(src), `${f}: writes a bot message`);
+        assert.ok(!/update\(\{\s*bot_state/.test(src), `${f}: writes bot_state`);
     }
 });
 
