@@ -47,7 +47,7 @@ import {
     loadCustomerContext, sendReply, editMessage, deleteMessage, toggleReaction, closeSessions, assign, transfer,
     addTag, removeTag, addNote, editNote, deleteNote, forwardAsNote, setArchived, saveTeam, archiveTeam, setTeamMember,
     loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox,
-    scheduleReply, cancelScheduled
+    scheduleReply, cancelScheduled, takeOver, returnToAi
 } from './inbox-data.js';
 
 const $ = (id) => document.getElementById(id);
@@ -729,6 +729,9 @@ function renderDetails() {
         ${kv('الفريق', meta.team_id ? (teamById(meta.team_id)?.name || 'فريق') : 'مافيش')}
         ${kv('الحالة', STATUS_LABELS[session.status] || session.status || '—')}
         ${kv('مين بيرد', session.status === 'closed' ? '—' : (session.is_manual_mode ? 'فريق الدعم' : 'البوت'))}
+        ${session.status === 'closed' ? '' : (session.is_manual_mode
+            ? '<button type="button" class="btn btn-secondary" data-return-ai style="padding:.3rem .6rem;font-size:.75rem">رجّع المحادثة للبوت</button>'
+            : '<button type="button" class="btn btn-secondary" data-take-over style="padding:.3rem .6rem;font-size:.75rem">امسك المحادثة ووقّف البوت</button>')}
         ${isArchived(session) ? kv('مؤرشفة', fullTime(meta.archived_at)) : ''}
       </div>
       <div class="ib-details-sec">
@@ -778,6 +781,28 @@ function renderDetails() {
         $('detailsBtn').classList.remove('is-on');
     });
     $('createTagBtn')?.addEventListener('click', createTagFromDetails);
+    pane.querySelector('[data-return-ai]')?.addEventListener('click', () => setHandoff(session.id, false));
+    pane.querySelector('[data-take-over]')?.addEventListener('click', () => setHandoff(session.id, true));
+}
+
+/**
+ * مين بيرد على العميل. الخادم (059) هو اللي بيقرر: بيتحقق إن الموظف له وصول
+ * للمحادثة، ويغيّر الحالة، ويسجّل حدث handoff في السجل. الواجهة بتعكس
+ * النتيجة بس — مفيش تحديث مباشر لـ is_manual_mode من هنا.
+ */
+async function setHandoff(sessionId, toHuman) {
+    const session = findSession(sessionId);
+    if (!session) return;
+    if (!toHuman && !confirm('ترجّع المحادثة للبوت؟ البوت هيرد على رسايل العميل الجاية.')) return;
+    try {
+        if (toHuman) await takeOver(session.id); else await returnToAi(session.id);
+        session.is_manual_mode = toHuman;
+        toast(toHuman ? 'مسكت المحادثة — البوت وقف.' : 'المحادثة رجعت للبوت.');
+    } catch (err) {
+        toast(errText(err, toHuman ? 'مقدرناش نوقّف البوت.' : 'مقدرناش نرجّع المحادثة للبوت.'), 'err');
+    }
+    renderAll();
+    if (state.activeId === session.id) refreshThread(session.id);
 }
 
 async function toggleTag(sessionId, tagId) {

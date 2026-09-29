@@ -203,6 +203,12 @@ export const toggleReaction = ({ messageId = null, noteId = null }, emoji) =>
     rpc('inbox_toggle_reaction', { p_message: messageId, p_note: noteId, p_emoji: emoji });
 
 export const closeSessions = (ids) => rpc('inbox_close', { p_sessions: ids });
+// التسليم (059): المسار الرسمي الوحيد لتغيير مين بيرد. الخادم بيتحقق من الوصول
+// ويسجّل الحدث؛ is_manual_mode نفسه ماينفعش يتكتب مباشرة من أي عميل.
+export const takeOver = (sessionId, reason = null) =>
+    rpc('inbox_take_over', { p_session: sessionId, p_reason: reason });
+export const returnToAi = (sessionId, reason = null) =>
+    rpc('inbox_return_to_ai', { p_session: sessionId, p_reason: reason });
 
 export const assign = (sessionId, assigneeId, teamId) =>
     rpc('inbox_assign', { p_session: sessionId, p_assignee: assigneeId || null, p_team: teamId || null }).then(one);
