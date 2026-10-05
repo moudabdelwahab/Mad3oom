@@ -1,0 +1,744 @@
+-- ============================================================================
+-- 064_conversation_core — حدود Conversation Core الذرّية (المرحلة B)
+--
+-- المرجع: تدقيق «Conversation Core + Agent Runtime» (D1–D6). مفيش جدول
+-- محادثات موحّد: الموقع وتيليجرام (وأندرويد، لأنه بيشارك جلسات الموقع) على
+-- chat_sessions / chat_messages، وواتساب زي ما هو على messages (063).
+--
+-- كل حاجة هنا إضافية. المسارات القديمة شغالة زي ما هي، والأعلام مقفولة:
+-- مفيش قناة بتعدّي على Core لحد ما حد يفتح علمها.
+--
+--   ① أنواع أحداث جديدة في inbox_events (توسيع CHECK بس):
+--      conversation_created, message_received, agent_replied, human_reply.
+--      HumanTakeover / AgentResumed = handoff_to_human / handoff_to_ai (059)،
+--      و ConversationClosed = closed (055) — نفس الأنواع، مش نسخة تانية.
+--   ② أعمدة إضافية nullable (أو بقيمة افتراضية ثابتة):
+--      chat_sessions: channel, external_thread_id, state_version, channel_identity_id
+--      chat_messages: channel, external_id, seq, metadata, delivery_*
+--      والعميل (anon/authenticated) مايقدرش يكتب فيها (حارس، زي bot_state في 062).
+--   ③ ترتيب: seq لكل رسالة جديدة في المحادثة، من أي مسار (محفّز). القفل هو
+--      قفل صف الجلسة FOR NO KEY UPDATE — نفس القفل اللي حارس رد البوت (059)
+--      بياخده، فمفيش ترتيب أقفال جديد يعمل deadlock. الرسايل القديمة seq = NULL
+--      (مفيش تحديث جماعي للإنتاج)، وكلها أقدم من أي رسالة ليها seq.
+--   ④ فهارس فريدة: محادثة نشطة واحدة لكل (user_id, channel, external_thread_id)،
+--      (session_id, seq)، و (session_id, external_id).
+--   ⑤ الأحداث في نفس المعاملة بمحفّزات (أي مسار، مش Core بس): رسالة ⇒
+--      message_received / agent_replied / human_reply، جلسة جديدة ⇒
+--      conversation_created، إقفال ⇒ closed (مرة واحدة حتى لو inbox_close سجّله).
+--      التسليم للإنسان/للبوت بيزوّد state_version.
+--   ⑥ conv_ingest_message: المحادثة (إيجاد/تبنّي جلسة قديمة/إنشاء) + منع
+--      التكرار + seq + المالك + state_version — في معاملة واحدة، service_role بس.
+--   ⑦ conv_commit_turn(expected_version): الرد + الحالة + التذكرة الاختيارية +
+--      سجل الإرسال + الحدث، ذريًا. بيفشل لو النسخة اتغيرت، أو المحادثة مع
+--      إنسان، أو مقفولة — ومفيش أي أثر بيتكتب.
+--   ⑧ conv_claim_delivery / conv_record_delivery: رسالة صادرة واحدة لكل رد،
+--      وإعادة المحاولة بتستعمل نفس الصف.
+--   ⑨ أعلام sie_settings مقفولة: core_ingest_website, core_ingest_telegram,
+--      agent_runtime_enabled.
+--
+-- مفيش حذف بيانات. قابل لإعادة التشغيل.
+-- التراجع: migrations/_rollback/064_conversation_core.down.sql
+-- ============================================================================
+
+-- ── ① أنواع الأحداث (توسيع فقط) ─────────────────────────────────────────────
+alter table public.inbox_events drop constraint if exists inbox_events_kind_check;
+alter table public.inbox_events add constraint inbox_events_kind_check check (kind in (
+  'assigned', 'unassigned', 'transferred', 'tagged', 'untagged', 'archived', 'unarchived',
+  'closed', 'note_added', 'note_edited', 'note_deleted', 'forwarded_as_note',
+  'message_edited', 'message_deleted',
+  'scheduled', 'schedule_cancelled', 'schedule_sent', 'schedule_failed',
+  'handoff_to_human', 'handoff_to_ai',
+  'conversation_created', 'message_received', 'agent_replied', 'human_reply'));
+
+-- ── ② الأعمدة ──────────────────────────────────────────────────────────────
+alter table public.chat_sessions add column if not exists channel text;
+alter table public.chat_sessions add column if not exists external_thread_id text;
+alter table public.chat_sessions add column if not exists state_version integer not null default 0;
+alter table public.chat_sessions add column if not exists channel_identity_id uuid;
+
+alter table public.chat_messages add column if not exists channel text;
+alter table public.chat_messages add column if not exists external_id text;
+alter table public.chat_messages add column if not exists seq bigint;
+alter table public.chat_messages add column if not exists metadata jsonb;
+alter table public.chat_messages add column if not exists delivery_state text;
+alter table public.chat_messages add column if not exists delivery_attempts integer not null default 0;
+alter table public.chat_messages add column if not exists provider_message_id text;
+alter table public.chat_messages add column if not exists delivery_error text;
+alter table public.chat_messages add column if not exists delivery_updated_at timestamptz;
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'chat_sessions_channel_identity_id_fkey') then
+    alter table public.chat_sessions add constraint chat_sessions_channel_identity_id_fkey
+      foreign key (channel_identity_id) references public.channel_identities(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'chat_sessions_channel_check') then
+    alter table public.chat_sessions add constraint chat_sessions_channel_check
+      check (channel is null or (channel in ('website', 'telegram') and external_thread_id is not null));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'chat_messages_channel_check') then
+    alter table public.chat_messages add constraint chat_messages_channel_check
+      check (channel is null or channel in ('website', 'telegram'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'chat_messages_delivery_state_check') then
+    alter table public.chat_messages add constraint chat_messages_delivery_state_check
+      check (delivery_state is null or delivery_state in ('pending', 'sending', 'sent', 'delivered', 'read', 'failed'));
+  end if;
+end $$;
+
+comment on column public.chat_sessions.channel is
+  'Conversation Core (064): قناة المحادثة لو دخلت من Core (website يشمل الودجت وصفحة الشات وأندرويد). NULL = جلسة قديمة ماعدّتش على Core.';
+comment on column public.chat_sessions.external_thread_id is
+  'Conversation Core (064): معرّف المحادثة عند القناة (chat id في تيليجرام، '''' للموقع).';
+comment on column public.chat_sessions.state_version is
+  'Conversation Core (064): بيزيد مع كل رسالة عميل من Core، كل رد مُثبَّت، وكل تسليم. conv_commit_turn بيرفض نسخة قديمة.';
+comment on column public.chat_messages.seq is
+  'Conversation Core (064): ترتيب الرسالة في المحادثة (1، 2، ...). NULL = رسالة قبل 064، وكلها أقدم من أي رسالة ليها seq.';
+comment on column public.chat_messages.external_id is
+  'Conversation Core (064): مفتاح منع التكرار — معرّف الرسالة عند القناة، أو turn:<key> لرد الوكيل.';
+comment on column public.chat_messages.metadata is
+  'Conversation Core (064): أجزاء الرسالة القياسية (parts) وبيانات المصدر. مفيش هياكل خاصة بمزوّد.';
+comment on column public.chat_messages.delivery_state is
+  'Conversation Core (064): حالة الإرسال للقناة (pending → sending → sent → delivered → read، أو failed). NULL = مش محتاجة إرسال.';
+
+-- ── ② حارس الأعمدة: الخادم بس ──────────────────────────────────────────────
+create or replace function public.guard_conversation_core_columns()
+returns trigger
+language plpgsql
+security invoker
+set search_path to 'public'
+as $$
+begin
+  if current_user not in ('anon', 'authenticated') then
+    return new;
+  end if;
+  if tg_table_name = 'chat_sessions' then
+    if tg_op = 'INSERT' then
+      if new.channel is null and new.external_thread_id is null and new.channel_identity_id is null
+         and new.state_version = 0 then
+        return new;
+      end if;
+    elsif new.channel is not distinct from old.channel
+      and new.external_thread_id is not distinct from old.external_thread_id
+      and new.channel_identity_id is not distinct from old.channel_identity_id
+      and new.state_version is not distinct from old.state_version then
+      return new;
+    end if;
+  else
+    if tg_op = 'INSERT' then
+      if new.channel is null and new.external_id is null and new.metadata is null
+         and new.delivery_state is null and new.delivery_attempts = 0
+         and new.provider_message_id is null and new.delivery_error is null
+         and new.delivery_updated_at is null then
+        return new;
+      end if;
+    elsif new.channel is not distinct from old.channel
+      and new.external_id is not distinct from old.external_id
+      and new.seq is not distinct from old.seq
+      and new.metadata is not distinct from old.metadata
+      and new.delivery_state is not distinct from old.delivery_state
+      and new.delivery_attempts is not distinct from old.delivery_attempts
+      and new.provider_message_id is not distinct from old.provider_message_id
+      and new.delivery_error is not distinct from old.delivery_error
+      and new.delivery_updated_at is not distinct from old.delivery_updated_at then
+      return new;
+    end if;
+  end if;
+  raise exception 'بيانات المحادثة الأساسية بتتكتب من الخادم بس'
+    using errcode = '42501', hint = 'Conversation Core columns are written by conv_* functions';
+end;
+$$;
+revoke all on function public.guard_conversation_core_columns() from public, anon, authenticated;
+
+drop trigger if exists trg_guard_core_columns on public.chat_sessions;
+create trigger trg_guard_core_columns
+  before insert or update on public.chat_sessions
+  for each row execute function public.guard_conversation_core_columns();
+drop trigger if exists trg_guard_core_columns on public.chat_messages;
+create trigger trg_guard_core_columns
+  before insert or update on public.chat_messages
+  for each row execute function public.guard_conversation_core_columns();
+
+-- ── ③ الترتيب ─────────────────────────────────────────────────────────────
+-- قفل صف الجلسة ثم max(seq)+1. المعاملة اللي قبلها في نفس الجلسة لازم تخلص
+-- (commit/rollback) قبل ما القفل يتساب، والـ SELECT بعده بلقطة جديدة
+-- (READ COMMITTED) فبيشوف رسالتها. أي seq جاي من المُدرِج بيتجاهل.
+create or replace function public.conv_assign_seq()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  new.seq := null;
+  if new.session_id is null then
+    return new;
+  end if;
+  perform 1 from public.chat_sessions s where s.id = new.session_id for no key update;
+  select coalesce(max(m.seq), 0) + 1 into new.seq
+    from public.chat_messages m where m.session_id = new.session_id;
+  return new;
+end;
+$$;
+revoke all on function public.conv_assign_seq() from public, anon, authenticated;
+
+drop trigger if exists trg_seq_assign on public.chat_messages;
+create trigger trg_seq_assign
+  before insert on public.chat_messages
+  for each row execute function public.conv_assign_seq();
+
+-- ── ④ الفهارس ─────────────────────────────────────────────────────────────
+create unique index if not exists chat_messages_session_seq_key
+  on public.chat_messages (session_id, seq) where seq is not null;
+create unique index if not exists chat_messages_session_external_id_key
+  on public.chat_messages (session_id, external_id) where external_id is not null;
+create unique index if not exists chat_sessions_active_thread_key
+  on public.chat_sessions (user_id, channel, external_thread_id)
+  where channel is not null and status = 'active';
+
+-- ── ⑤ الأحداث ─────────────────────────────────────────────────────────────
+-- actor_id بس لو المرسل موجود في profiles (FK)، والمحتوى مابيتكتبش في الحدث.
+create or replace function public.conv_log_message_event()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_kind text;
+  v_actor uuid;
+begin
+  if new.session_id is null then return null; end if;
+  v_kind := case when coalesce(new.is_admin_reply, false) then 'human_reply'
+                 when coalesce(new.is_bot_reply, false) then 'agent_replied'
+                 else 'message_received' end;
+  select p.id into v_actor from public.profiles p where p.id = new.sender_id;
+  insert into public.inbox_events (session_id, actor_id, kind, payload)
+  values (new.session_id, v_actor, v_kind, jsonb_strip_nulls(jsonb_build_object(
+    'message_id', new.id,
+    'seq', new.seq,
+    'channel', new.channel,
+    'source', coalesce(nullif(current_setting('conv.source', true), ''), 'legacy'),
+    'agent_id', case when v_kind = 'agent_replied'
+                     then nullif(current_setting('conv.agent_id', true), '') end)));
+  return null;
+end;
+$$;
+revoke all on function public.conv_log_message_event() from public, anon, authenticated;
+
+drop trigger if exists trg_conv_message_event on public.chat_messages;
+create trigger trg_conv_message_event
+  after insert on public.chat_messages
+  for each row execute function public.conv_log_message_event();
+
+create or replace function public.conv_log_session_created()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_actor uuid;
+begin
+  select p.id into v_actor from public.profiles p where p.id = auth.uid();
+  insert into public.inbox_events (session_id, actor_id, kind, payload)
+  values (new.id, v_actor, 'conversation_created', jsonb_strip_nulls(jsonb_build_object(
+    'channel', new.channel,
+    'source', coalesce(nullif(current_setting('conv.source', true), ''), 'legacy'))));
+  return null;
+end;
+$$;
+revoke all on function public.conv_log_session_created() from public, anon, authenticated;
+
+drop trigger if exists trg_conv_session_created on public.chat_sessions;
+create trigger trg_conv_session_created
+  after insert on public.chat_sessions
+  for each row execute function public.conv_log_session_created();
+
+-- الإقفال: مؤجَّل لآخر المعاملة، ومايتكتبش لو 'closed' اتسجّل بالفعل في نفس
+-- المعاملة (inbox_close بيسجّله بنفسه). «نفس المعاملة» = created_at = now()
+-- (وقت بداية المعاملة، ثابت حتى جوه savepoint). أي مسار تاني (العميل قفل من الودجت)
+-- كان بيقفل من غير حدث.
+create or replace function public.conv_log_session_closed()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_actor uuid;
+begin
+  if new.status is distinct from 'closed' or old.status is not distinct from 'closed' then
+    return null;
+  end if;
+  if exists (select 1 from public.inbox_events e
+              where e.session_id = new.id and e.kind = 'closed'
+                and e.created_at = now()) then
+    return null;
+  end if;
+  select p.id into v_actor from public.profiles p where p.id = auth.uid();
+  insert into public.inbox_events (session_id, actor_id, kind, payload)
+  values (new.id, v_actor, 'closed', jsonb_build_object(
+    'source', coalesce(nullif(current_setting('conv.source', true), ''), 'legacy')));
+  return null;
+end;
+$$;
+revoke all on function public.conv_log_session_closed() from public, anon, authenticated;
+
+drop trigger if exists trg_conv_session_closed on public.chat_sessions;
+create constraint trigger trg_conv_session_closed
+  after update of status on public.chat_sessions
+  deferrable initially deferred
+  for each row execute function public.conv_log_session_closed();
+
+-- التسليم بيغيّر المالك ⇒ نسخة جديدة. دور وكيل بدأ قبل الاستلام والإرجاع
+-- مايتثبّتش على حالة شافها إنسان.
+create or replace function public.conv_bump_version_on_handoff()
+returns trigger
+language plpgsql
+security invoker
+set search_path to 'public'
+as $$
+begin
+  if new.is_manual_mode is distinct from old.is_manual_mode then
+    new.state_version := old.state_version + 1;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.conv_bump_version_on_handoff() from public, anon, authenticated;
+
+drop trigger if exists trg_conv_handoff_version on public.chat_sessions;
+create trigger trg_conv_handoff_version
+  before update of is_manual_mode on public.chat_sessions
+  for each row execute function public.conv_bump_version_on_handoff();
+
+-- ── تمثيل المحادثة في نتيجة الدوال ─────────────────────────────────────────
+create or replace function public._conv_json(s public.chat_sessions)
+returns jsonb
+language sql
+stable
+set search_path to 'public'
+as $$
+  select jsonb_build_object(
+    'id', s.id,
+    'userId', s.user_id,
+    'channel', s.channel,
+    'externalThreadId', s.external_thread_id,
+    'status', s.status,
+    'owner', case when coalesce(s.is_manual_mode, false) then 'human' else 'agent' end,
+    'stateVersion', s.state_version,
+    'channelIdentityId', s.channel_identity_id,
+    'createdAt', s.created_at);
+$$;
+revoke all on function public._conv_json(public.chat_sessions) from public, anon, authenticated;
+
+-- ── ⑥ conv_ingest_message ────────────────────────────────────────────────
+-- رسالة عميل واردة. القفل الاستشاري على مفتاح المحادثة (user, channel,
+-- thread) بيسلسل كل الإدخالات لنفس المحادثة: الإيجاد/الإنشاء، فحص التكرار،
+-- والإدراج. الفهارس الفريدة شبكة أمان تحته، مش هي الضمان الوحيد.
+--
+-- منع التكرار على نطاق المحادثة (مش القناة كلها): معرّف رسالة تيليجرام فريد
+-- جوه الـ chat بس، ومعرّف يبعته عميل الموقع مايقدرش «يحجز» رسالة عميل تاني.
+-- الفحص بيشمل الجلسات المقفولة لنفس المحادثة: إعادة إرسال بعد الإقفال مكررة.
+--
+-- p_idle_after: سياسة القناة (تيليجرام 24 ساعة في المسار القديم). المحادثة
+-- النشطة اللي آخر تحديث ليها أقدم من كده بتتقفل وتتفتح واحدة جديدة.
+create or replace function public.conv_ingest_message(
+  p_channel text,
+  p_user_id uuid,
+  p_external_thread_id text,
+  p_external_id text,
+  p_text text,
+  p_parts jsonb default '[]'::jsonb,
+  p_metadata jsonb default '{}'::jsonb,
+  p_channel_identity_id uuid default null,
+  p_idle_after interval default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_thread text := coalesce(p_external_thread_id, '');
+  v_ext text := nullif(btrim(coalesce(p_external_id, '')), '');
+  v_s public.chat_sessions;
+  v_dup record;
+  v_msg record;
+  v_how text;
+begin
+  if p_channel is null or p_channel not in ('website', 'telegram') then
+    raise exception 'قناة غير معروفة: %', p_channel using errcode = '22023';
+  end if;
+  if p_user_id is null then
+    raise exception 'المحادثة لازم تكون لحساب' using errcode = '22023';
+  end if;
+  if v_ext is null then
+    raise exception 'external_id مطلوب لمنع التكرار' using errcode = '22023';
+  end if;
+  if p_channel = 'website' and v_thread <> '' then
+    raise exception 'محادثة الموقع واحدة لكل حساب (external_thread_id فاضي)' using errcode = '22023';
+  end if;
+  if p_channel <> 'website' and v_thread = '' then
+    raise exception 'external_thread_id مطلوب للقناة %', p_channel using errcode = '22023';
+  end if;
+  if p_parts is not null and jsonb_typeof(p_parts) <> 'array' then
+    raise exception 'parts لازم تكون مصفوفة' using errcode = '22023';
+  end if;
+  if p_metadata is not null and jsonb_typeof(p_metadata) <> 'object' then
+    raise exception 'metadata لازم تكون كائن' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(
+    format('conv:%s:%s:%s', p_user_id, p_channel, v_thread), 0));
+
+  -- التكرار: قبل أي كتابة، وتحت نفس القفل.
+  select m.id, m.seq, m.session_id into v_dup
+    from public.chat_messages m
+    join public.chat_sessions s on s.id = m.session_id
+   where s.user_id = p_user_id and s.channel = p_channel and s.external_thread_id = v_thread
+     and m.external_id = v_ext
+   limit 1;
+  if found then
+    select * into v_s from public.chat_sessions where id = v_dup.session_id;
+    return jsonb_build_object(
+      'created', false, 'duplicate', true,
+      'conversation', public._conv_json(v_s),
+      'message', jsonb_build_object('id', v_dup.id, 'seq', v_dup.seq),
+      'owner', case when coalesce(v_s.is_manual_mode, false) then 'human' else 'agent' end,
+      'stateVersion', v_s.state_version);
+  end if;
+
+  perform set_config('conv.source', 'core:' || p_channel, true);
+
+  -- المحادثة: النشطة بتاعة Core، وإلا الجلسة القديمة النشطة (تبنّي)، وإلا جديدة.
+  select * into v_s from public.chat_sessions
+   where user_id = p_user_id and channel = p_channel and external_thread_id = v_thread
+     and status = 'active'
+   for no key update;
+  if found then
+    v_how := 'existing';
+    if p_idle_after is not null and v_s.updated_at < now() - p_idle_after then
+      update public.chat_sessions set status = 'closed' where id = v_s.id;
+      v_s := null;
+    end if;
+  end if;
+
+  if v_s.id is null then
+    select * into v_s from public.chat_sessions
+     where user_id = p_user_id and channel is null and status = 'active'
+       and (case when p_channel = 'website' then guest_id is null
+                 else guest_id = 'channel:' || p_channel || ':' || v_thread end)
+       and (p_idle_after is null or updated_at >= now() - p_idle_after)
+     order by created_at desc, id desc
+     limit 1
+     for no key update;
+    if found then
+      update public.chat_sessions
+         set channel = p_channel,
+             external_thread_id = v_thread,
+             channel_identity_id = coalesce(channel_identity_id, p_channel_identity_id)
+       where id = v_s.id
+       returning * into v_s;
+      v_how := 'adopted';
+    end if;
+  end if;
+
+  if v_s.id is null then
+    insert into public.chat_sessions (user_id, status, guest_id, channel, external_thread_id, channel_identity_id)
+    values (p_user_id, 'active',
+            case when p_channel = 'website' then null else 'channel:' || p_channel || ':' || v_thread end,
+            p_channel, v_thread, p_channel_identity_id)
+    returning * into v_s;
+    v_how := 'created';
+  end if;
+
+  insert into public.chat_messages (session_id, sender_id, message_text, is_bot_reply, is_admin_reply,
+                                    channel, external_id, metadata)
+  values (v_s.id, p_user_id, coalesce(p_text, ''), false, false, p_channel, v_ext,
+          jsonb_build_object('parts', coalesce(p_parts, '[]'::jsonb)) || coalesce(p_metadata, '{}'::jsonb))
+  returning id, seq, created_at into v_msg;
+
+  update public.chat_sessions
+     set state_version = state_version + 1, updated_at = now()
+   where id = v_s.id
+   returning * into v_s;
+
+  return jsonb_build_object(
+    'created', true, 'duplicate', false,
+    'conversation', public._conv_json(v_s) || jsonb_build_object('resolution', v_how),
+    'message', jsonb_build_object('id', v_msg.id, 'seq', v_msg.seq, 'createdAt', v_msg.created_at),
+    'owner', case when coalesce(v_s.is_manual_mode, false) then 'human' else 'agent' end,
+    'stateVersion', v_s.state_version);
+end;
+$$;
+revoke all on function public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval)
+  from public, anon, authenticated;
+
+-- ── ⑦ conv_commit_turn ───────────────────────────────────────────────────
+-- دور الوكيل بيتثبّت كله أو مايتثبّتش خالص. الفحوص تحت قفل صف الجلسة
+-- (FOR NO KEY UPDATE — نفس قفل 059 و ③):
+--   1) نفس الدور (turn_key) اتثبّت قبل كده ⇒ نفس النتيجة، ولا رد تاني
+--   2) مقفولة ⇒ closed     3) مع إنسان ⇒ human_owner
+--   4) state_version اتغيرت ⇒ version_conflict
+-- الرفض مابيرميش استثناء: بيرجّع committed=false والسبب، ومفيش أي أثر.
+create or replace function public.conv_commit_turn(
+  p_conversation_id uuid,
+  p_expected_version integer,
+  p_turn_key text,
+  p_reply_text text,
+  p_reply_parts jsonb default '[]'::jsonb,
+  p_state jsonb default null,
+  p_agent_id text default null,
+  p_delivery_required boolean default false,
+  p_ticket jsonb default null,
+  p_handoff_reason text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_key text := nullif(btrim(coalesce(p_turn_key, '')), '');
+  v_s public.chat_sessions;
+  v_prev record;
+  v_msg record;
+  v_ticket bigint;
+  v_handoff boolean := false;
+  v_reject text;
+begin
+  if p_conversation_id is null or p_expected_version is null then
+    raise exception 'المحادثة والنسخة المتوقعة مطلوبين' using errcode = '22023';
+  end if;
+  if v_key is null then
+    raise exception 'turn_key مطلوب لمنع التكرار' using errcode = '22023';
+  end if;
+  if p_reply_text is null or btrim(p_reply_text) = '' then
+    raise exception 'الرد فاضي' using errcode = '22023';
+  end if;
+  if p_state is not null and jsonb_typeof(p_state) <> 'object' then
+    raise exception 'الحالة لازم تكون كائن' using errcode = '22023';
+  end if;
+  if p_reply_parts is not null and jsonb_typeof(p_reply_parts) <> 'array' then
+    raise exception 'parts لازم تكون مصفوفة' using errcode = '22023';
+  end if;
+  if p_ticket is not null and jsonb_typeof(p_ticket) <> 'object' then
+    raise exception 'التذكرة لازم تكون كائن' using errcode = '22023';
+  end if;
+
+  -- طلب التسليم هياخد FOR UPDATE جوه _handoff_set: ناخده من الأول بدل ما
+  -- نرقّي القفل في النص (الترقية ممكن تستنى معاملة ماسكة KEY SHARE).
+  if nullif(btrim(coalesce(p_handoff_reason, '')), '') is not null then
+    select * into v_s from public.chat_sessions where id = p_conversation_id for update;
+  else
+    select * into v_s from public.chat_sessions where id = p_conversation_id for no key update;
+  end if;
+  if not found then
+    raise exception 'المحادثة غير موجودة' using errcode = 'P0002';
+  end if;
+  if v_s.channel is null then
+    raise exception 'المحادثة دي مش على Conversation Core' using errcode = '22023';
+  end if;
+
+  select m.id, m.seq, m.delivery_state into v_prev
+    from public.chat_messages m
+   where m.session_id = v_s.id and m.external_id = 'turn:' || v_key;
+  if found then
+    return jsonb_build_object('committed', true, 'duplicate', true,
+      'messageId', v_prev.id, 'seq', v_prev.seq, 'deliveryState', v_prev.delivery_state,
+      'stateVersion', v_s.state_version);
+  end if;
+
+  v_reject := case when v_s.status = 'closed' then 'closed'
+                   when coalesce(v_s.is_manual_mode, false) then 'human_owner'
+                   when v_s.state_version <> p_expected_version then 'version_conflict' end;
+  if v_reject is not null then
+    return jsonb_build_object('committed', false, 'reason', v_reject,
+      'owner', case when coalesce(v_s.is_manual_mode, false) then 'human' else 'agent' end,
+      'stateVersion', v_s.state_version);
+  end if;
+
+  perform set_config('conv.source', 'core:agent', true);
+  perform set_config('conv.agent_id', coalesce(p_agent_id, ''), true);
+
+  -- التذكرة بنفس شكل create_ticket_with_message_and_session_update.
+  if p_ticket is not null then
+    insert into public.tickets (user_id, title, description, category, status)
+    values (v_s.user_id,
+            left(coalesce(nullif(p_ticket->>'category', ''), 'دعم عام') || ' — عبر محرك الدعم الذكي', 200),
+            coalesce(p_ticket->>'description', ''),
+            nullif(p_ticket->>'category', ''),
+            'open')
+    returning tickets.ticket_number into v_ticket;
+  end if;
+
+  insert into public.chat_messages (session_id, sender_id, message_text, is_bot_reply, is_admin_reply,
+                                    channel, external_id, metadata, delivery_state, delivery_updated_at)
+  values (v_s.id, null, p_reply_text, true, false, v_s.channel, 'turn:' || v_key,
+          jsonb_strip_nulls(jsonb_build_object('parts', coalesce(p_reply_parts, '[]'::jsonb),
+                                               'agentId', p_agent_id, 'turnKey', v_key,
+                                               'ticketNumber', v_ticket)),
+          case when p_delivery_required then 'pending' end,
+          case when p_delivery_required then now() end)
+  returning id, seq, created_at into v_msg;
+
+  update public.chat_sessions
+     set bot_state = coalesce(p_state, bot_state),
+         state_version = state_version + 1,
+         updated_at = now()
+   where id = v_s.id;
+
+  if nullif(btrim(coalesce(p_handoff_reason, '')), '') is not null then
+    v_handoff := public._handoff_set(v_s.id, true, p_handoff_reason, 'agent', null);
+  end if;
+
+  perform set_config('conv.agent_id', '', true);
+  select * into v_s from public.chat_sessions where id = v_s.id;
+  return jsonb_build_object('committed', true, 'duplicate', false,
+    'messageId', v_msg.id, 'seq', v_msg.seq, 'createdAt', v_msg.created_at,
+    'deliveryState', case when p_delivery_required then 'pending' end,
+    'ticketNumber', v_ticket, 'handoff', v_handoff,
+    'owner', case when coalesce(v_s.is_manual_mode, false) then 'human' else 'agent' end,
+    'stateVersion', v_s.state_version);
+end;
+$$;
+revoke all on function public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text)
+  from public, anon, authenticated;
+
+-- ── ⑧ الإرسال ─────────────────────────────────────────────────────────────
+-- المطالبة: مُرسِل واحد بس لكل رسالة. pending أو failed ⇒ sending (والمحاولات
+-- +1). sending أقدم من p_lease ⇒ يتطالب تاني (المُرسل وقع في النص) — ده الحالة
+-- الوحيدة اللي ممكن فيها إرسال مرتين، وهي «مرة على الأقل» مقصودة، موثّقة.
+create or replace function public.conv_claim_delivery(p_message_id uuid, p_lease interval default interval '2 minutes')
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v record;
+begin
+  update public.chat_messages
+     set delivery_state = 'sending',
+         delivery_attempts = delivery_attempts + 1,
+         delivery_updated_at = now(),
+         delivery_error = null
+   where id = p_message_id
+     and (delivery_state in ('pending', 'failed')
+          or (delivery_state = 'sending' and delivery_updated_at < now() - coalesce(p_lease, interval '2 minutes')))
+  returning id, session_id, channel, delivery_attempts, message_text, metadata into v;
+  if found then
+    return jsonb_build_object('claimed', true, 'messageId', v.id, 'conversationId', v.session_id,
+      'channel', v.channel, 'attempt', v.delivery_attempts, 'text', v.message_text, 'metadata', v.metadata);
+  end if;
+  select id, delivery_state, provider_message_id into v from public.chat_messages where id = p_message_id;
+  if not found then
+    raise exception 'الرسالة غير موجودة' using errcode = 'P0002';
+  end if;
+  return jsonb_build_object('claimed', false, 'deliveryState', v.delivery_state,
+    'providerMessageId', v.provider_message_id);
+end;
+$$;
+revoke all on function public.conv_claim_delivery(uuid, interval) from public, anon, authenticated;
+
+-- التسجيل: للأمام بس (sent → delivered → read)، و failed من sending بس.
+-- نفس الحالة تاني = لا شيء (إشعارات المزوّد بتتكرر).
+create or replace function public.conv_record_delivery(
+  p_message_id uuid, p_state text, p_provider_message_id text default null, p_error text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_cur text;
+  v_rank_cur int;
+  v_rank_new int;
+begin
+  if p_state is null or p_state not in ('sent', 'delivered', 'read', 'failed') then
+    raise exception 'حالة إرسال غير معروفة: %', p_state using errcode = '22023';
+  end if;
+  select delivery_state into v_cur from public.chat_messages where id = p_message_id for update;
+  if not found then
+    raise exception 'الرسالة غير موجودة' using errcode = 'P0002';
+  end if;
+  v_rank_cur := case v_cur when 'sending' then 1 when 'sent' then 2 when 'delivered' then 3 when 'read' then 4 else 0 end;
+  v_rank_new := case p_state when 'sent' then 2 when 'delivered' then 3 when 'read' then 4 else 0 end;
+
+  if p_state = 'failed' then
+    if v_cur is distinct from 'sending' then
+      return jsonb_build_object('updated', false, 'deliveryState', v_cur);
+    end if;
+  elsif v_cur is null or v_cur in ('pending', 'failed') or v_rank_new <= v_rank_cur then
+    return jsonb_build_object('updated', false, 'deliveryState', v_cur);
+  end if;
+
+  update public.chat_messages
+     set delivery_state = p_state,
+         delivery_updated_at = now(),
+         provider_message_id = coalesce(provider_message_id, nullif(p_provider_message_id, '')),
+         delivery_error = case when p_state = 'failed' then left(coalesce(p_error, 'unknown'), 1000) end
+   where id = p_message_id;
+  return jsonb_build_object('updated', true, 'deliveryState', p_state);
+end;
+$$;
+revoke all on function public.conv_record_delivery(uuid, text, text, text) from public, anon, authenticated;
+
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function
+      public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval),
+      public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text),
+      public.conv_claim_delivery(uuid, interval),
+      public.conv_record_delivery(uuid, text, text, text)
+      to service_role;
+  end if;
+end $$;
+
+-- ── ⑨ الأعلام — مقفولة ─────────────────────────────────────────────────────
+-- ON CONFLICT DO NOTHING: إعادة التشغيل مابترجّعش علم حد فتحه.
+insert into public.sie_settings (key, value) values
+  ('core_ingest_website', 'false'::jsonb),
+  ('core_ingest_telegram', 'false'::jsonb),
+  ('agent_runtime_enabled', 'false'::jsonb)
+on conflict (key) do nothing;
+
+-- ============================================================================
+-- التحقق
+-- ============================================================================
+do $$
+declare
+  f text;
+  t text;
+begin
+  foreach f in array array[
+    'public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval)',
+    'public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text)',
+    'public.conv_claim_delivery(uuid, interval)',
+    'public.conv_record_delivery(uuid, text, text, text)'] loop
+    if has_function_privilege('authenticated', f, 'EXECUTE') or has_function_privilege('anon', f, 'EXECUTE') then
+      raise exception '064: % متاحة لعميل', f;
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'service_role')
+       and not has_function_privilege('service_role', f, 'EXECUTE') then
+      raise exception '064: service_role مايقدرش ينادي %', f;
+    end if;
+  end loop;
+  foreach t in array array['chat_messages:trg_seq_assign', 'chat_messages:trg_conv_message_event',
+                           'chat_messages:trg_guard_core_columns', 'chat_sessions:trg_guard_core_columns',
+                           'chat_sessions:trg_conv_session_created', 'chat_sessions:trg_conv_session_closed',
+                           'chat_sessions:trg_conv_handoff_version'] loop
+    if not exists (select 1 from pg_trigger where tgrelid = ('public.' || split_part(t, ':', 1))::regclass
+                    and tgname = split_part(t, ':', 2) and not tgisinternal) then
+      raise exception '064: المحفّز % ناقص', t;
+    end if;
+  end loop;
+  if (select count(*) from pg_indexes where schemaname = 'public' and indexname in
+       ('chat_messages_session_seq_key', 'chat_messages_session_external_id_key', 'chat_sessions_active_thread_key')) <> 3 then
+    raise exception '064: فهرس فريد ناقص';
+  end if;
+  if (select count(*) from public.sie_settings
+       where key in ('core_ingest_website', 'core_ingest_telegram', 'agent_runtime_enabled')) <> 3 then
+    raise exception '064: أعلام Core ناقصة';
+  end if;
+  raise notice '064: Conversation Core جاهز — الأعلام مقفولة';
+end $$;

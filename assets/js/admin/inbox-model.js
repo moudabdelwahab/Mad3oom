@@ -207,8 +207,11 @@ export function buildTimeline(messages, notes = [], events = [], scheduled = [])
     // أحداث ليها أثر ظاهر بالفعل في الخط الزمني مابتتكررش كسطر.
     // الرسالة المعدّلة أو المحذوفة بتقول ده بنفسها («معدّلة» / «اتحذفت»)، والرد
     // المجدول ظاهر كبطاقة لحد ما يتبعت فيبقى رسالة عادية.
+    // أحداث Conversation Core (064) لكل رسالة وكل محادثة جديدة: الرسالة نفسها
+    // هي اللي ظاهرة، فالحدث بتاعها سجل للأنظمة مش سطر للموظف.
     const hidden = new Set(['note_added', 'note_edited', 'note_deleted', 'forwarded_as_note',
-        'message_edited', 'message_deleted', 'scheduled', 'schedule_sent']);
+        'message_edited', 'message_deleted', 'scheduled', 'schedule_sent',
+        'conversation_created', 'message_received', 'agent_replied', 'human_reply']);
     return [
         ...(messages || []).map((m) => ({ type: 'message', at: m.created_at, item: m })),
         ...(notes || []).map((n) => ({ type: 'note', at: n.created_at, item: n })),
