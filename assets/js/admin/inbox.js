@@ -125,7 +125,7 @@ const ROLE_LABELS = {
     customer: 'عميل', user: 'عميل', admin: 'أدمن', support: 'دعم',
     super_user: 'سوبر يوزر', platform_owner: 'مالك المنصة'
 };
-const TICKET_STATUS = { open: 'مفتوحة', in_progress: 'قيد المعالجة', pending: 'معلّقة', resolved: 'اتحلت', closed: 'مقفولة' };
+const TICKET_STATUS = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', pending: 'معلّقة', resolved: 'اتحلت', closed: 'مقفولة' };
 
 const QUICK_EMOJI = ['👍', '🙏', '✅', '😀', '😅', '❤️', '🎉', '👏', '🤔', '😢', '💯', '⚡', '📌', '🔥', '👋', '🙂'];
 

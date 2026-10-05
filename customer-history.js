@@ -310,7 +310,7 @@ function renderTicketsTab() {
 }
 
 function ticketStatusLabel(s) {
-    return { open: 'مفتوحة', in_progress: 'قيد المعالجة', resolved: 'تم الحل', confirmed: 'مؤكدة', rejected: 'مرفوضة' }[s] || s;
+    return { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم الحل', confirmed: 'مؤكدة', rejected: 'مرفوضة' }[s] || s;
 }
 
 function priorityLabel(p) {

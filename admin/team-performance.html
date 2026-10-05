@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>أداء الفريق - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* نفس هوية صفحة التذاكر (admin/tickets.html) */
+        :root,
+        :root[data-theme='light'],
+        :root[data-theme='dark']{
+            --color-primary:#00234A; --color-primary-variant:#0077CC; --color-accent:#0077CC; --color-accent-2:#4DA3FF;
+            --color-background:#060B14; --color-surface:#0D1622; --color-surface-2:#121F30;
+            --color-text:#F3F6FB; --color-text-secondary:#94A6C2; --color-text-3:#5A6A82; --color-muted:#101B2C;
+            --color-success:#22C58B; --color-warning:#F5A623; --color-danger:#FF6B6B;
+            --color-border:rgba(255,255,255,.09); --color-sidebar-bg:#050912; --color-sidebar-active:#0077CC;
+            --input-bg:#0F1A2A; --modal-overlay:rgba(3,7,15,.75);
+            --shadow:0 30px 80px -25px rgba(0,8,25,.7); --shadow-sm:0 10px 24px -12px rgba(0,8,25,.6);
+        }
+        body{ font-family:'IBM Plex Sans Arabic','Cairo',sans-serif; position:relative; }
+        body::before{ content:""; position:fixed; inset:0; z-index:-2; background:
+            radial-gradient(60rem 40rem at 90% -10%, rgba(0,119,204,.20), transparent 60%),
+            radial-gradient(50rem 35rem at -10% 30%, rgba(77,163,255,.10), transparent 55%), var(--color-background); }
+        body::after{ content:""; position:fixed; inset:0; z-index:-1; background-image:radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px);
+            background-size:32px 32px; mask-image:radial-gradient(60rem 60rem at 70% 0%, black, transparent 70%); opacity:.6; }
+        h1,h2,h3,h4{ font-family:'Cairo',sans-serif; }
+        .gradient-text{ background:linear-gradient(90deg,#8FC7FF,#4DA3FF,#B9DCFF); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+        .page-header{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem; }
+        .page-header h1{ font-size:clamp(1.5rem,3vw,2rem); }
+        .eyebrow{ display:inline-flex; align-items:center; gap:.5rem; font-size:.75rem; font-weight:700; color:#8FC7FF; background:rgba(0,119,204,.14);
+            border:1px solid rgba(77,163,255,.25); padding:.3rem .85rem; border-radius:99px; margin-bottom:.6rem; }
+        .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--color-accent-2); box-shadow:0 0 8px var(--color-accent-2); }
+        .glass-card{ background:rgba(255,255,255,.04); border:1px solid var(--color-border); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:1.1rem; }
+        .icon-btn{ display:inline-flex; align-items:center; gap:.4rem; padding:.55rem .9rem; border-radius:.65rem; border:1px solid var(--color-border);
+            background:rgba(255,255,255,.03); color:var(--color-text); font-size:.82rem; font-weight:700; cursor:pointer; transition:all .2s ease; font-family:inherit; }
+        .icon-btn:hover{ border-color:var(--color-accent-2); background:rgba(77,163,255,.1); }
+        .icon-btn svg{ flex-shrink:0; }
+
+        .header-tools{ display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
+        .segmented{ display:inline-flex; padding:.25rem; gap:.2rem; border-radius:.75rem; border:1px solid var(--color-border); background:rgba(255,255,255,.03); }
+        .segmented button{ font-family:inherit; font-size:.8rem; font-weight:700; color:var(--color-text-secondary); background:transparent; border:0; padding:.45rem .85rem; border-radius:.55rem; cursor:pointer; transition:all .2s ease; }
+        .segmented button:hover{ color:var(--color-text); }
+        .segmented button.active{ background:rgba(77,163,255,.16); color:#8FC7FF; box-shadow:inset 0 0 0 1px rgba(77,163,255,.35); }
+        .live-badge{ display:inline-flex; align-items:center; gap:.45rem; font-size:.75rem; font-weight:700; color:#22C58B; background:rgba(34,197,139,.1);
+            border:1px solid rgba(34,197,139,.28); padding:.38rem .8rem; border-radius:99px; }
+        .live-badge .pulse{ width:7px; height:7px; border-radius:50%; background:#22C58B; box-shadow:0 0 0 0 rgba(34,197,139,.6); animation:livePulse 2s infinite; }
+        .live-badge.off{ color:var(--color-text-secondary); background:rgba(255,255,255,.04); border-color:var(--color-border); }
+        .live-badge.off .pulse{ background:var(--color-text-3); animation:none; }
+        @keyframes livePulse{ 0%{box-shadow:0 0 0 0 rgba(34,197,139,.55)} 70%{box-shadow:0 0 0 7px rgba(34,197,139,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,139,0)} }
+
+        .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:1rem; margin:1.5rem 0 1.5rem; }
+        .stat-card{ padding:1.1rem 1.2rem; display:flex; align-items:center; gap:.9rem; }
+        .stat-icon{ width:44px; height:44px; min-width:44px; border-radius:.85rem; display:flex; align-items:center; justify-content:center; background:rgba(0,119,204,.15); color:#8FC7FF; }
+        .stat-icon.ok{ background:rgba(34,197,139,.15); color:#22C58B; } .stat-icon.warn{ background:rgba(245,166,35,.15); color:#F5A623; }
+        .stat-icon.danger{ background:rgba(255,107,107,.15); color:#FF6B6B; } .stat-icon.star{ background:rgba(245,198,35,.14); color:#F5C623; }
+        .stat-info .stat-label{ font-size:.78rem; color:var(--color-text-secondary); font-weight:600; }
+        .stat-info .stat-value{ font-size:1.5rem; font-weight:800; color:var(--color-text); font-family:'Space Grotesk','Cairo',sans-serif; line-height:1.3; }
+        .stat-info .stat-sub{ font-size:.7rem; color:var(--color-text-3); }
+
+        .board{ overflow:hidden; }
+        .board-header{ padding:1rem 1.25rem; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; background:rgba(255,255,255,.02); }
+        .board-header h3{ font-size:1rem; font-weight:800; margin:0; }
+        .board-header p{ margin:.15rem 0 0; font-size:.78rem; color:var(--color-text-secondary); }
+        .table-wrap{ overflow-x:auto; }
+        table.perf{ width:100%; border-collapse:collapse; min-width:980px; }
+        table.perf th{ font-size:.74rem; font-weight:700; color:var(--color-text-secondary); text-align:right; padding:.8rem 1rem; border-bottom:1px solid var(--color-border); white-space:nowrap; user-select:none; }
+        table.perf th[data-sort]{ cursor:pointer; }
+        table.perf th[data-sort]:hover{ color:var(--color-text); }
+        table.perf th.sorted{ color:#8FC7FF; }
+        table.perf th .arrow{ display:inline-block; margin-inline-start:.3rem; font-size:.7rem; opacity:.85; }
+        table.perf td{ padding:.85rem 1rem; border-bottom:1px solid rgba(255,255,255,.05); font-size:.86rem; vertical-align:middle; white-space:nowrap; }
+        table.perf tbody tr{ cursor:pointer; transition:background .18s ease; }
+        table.perf tbody tr:hover{ background:rgba(77,163,255,.06); }
+        table.perf tbody tr.selected{ background:rgba(0,119,204,.12); }
+        .agent-cell{ display:flex; align-items:center; gap:.7rem; }
+        .avatar{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.78rem; font-weight:800; color:#fff; flex-shrink:0; }
+        .agent-name{ font-weight:700; color:var(--color-text); }
+        .agent-role{ font-size:.72rem; color:var(--color-text-secondary); }
+        .rank{ width:22px; text-align:center; font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--color-text-3); font-size:.8rem; }
+        .num{ font-family:'Space Grotesk','Cairo',sans-serif; font-weight:700; }
+        .muted{ color:var(--color-text-3); }
+        .bar-cell{ display:flex; align-items:center; gap:.55rem; min-width:120px; }
+        .bar-track{ display:block; flex:1; height:7px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden; min-width:60px; }
+        .bar-fill{ display:block; height:100%; background:linear-gradient(90deg,#4DA3FF,#0077CC); border-radius:99px; transition:width .5s ease; }
+        .pill{ display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem; border-radius:99px; font-size:.72rem; font-weight:700; }
+        .tone-ok{ background:rgba(34,197,139,.16); color:#22C58B; } .tone-warn{ background:rgba(245,166,35,.16); color:#F5A623; }
+        .tone-bad{ background:rgba(255,107,107,.16); color:#FF6B6B; } .tone-none{ background:rgba(148,166,194,.12); color:#94A6C2; }
+        .stars{ color:#F5C623; letter-spacing:1px; }
+        .empty-state{ text-align:center; padding:3rem 1.5rem; color:var(--color-text-secondary); }
+
+        /* لوحة الموظف */
+        .drawer-overlay{ position:fixed; inset:0; background:var(--modal-overlay); z-index:3000; opacity:0; pointer-events:none; transition:opacity .25s ease; }
+        .drawer-overlay.open{ opacity:1; pointer-events:auto; }
+        .drawer{ position:fixed; top:0; bottom:0; left:0; width:min(520px, 100%); z-index:3001; background:#0B1420; border-inline-end:1px solid var(--color-border);
+            box-shadow:var(--shadow); transform:translateX(-102%); transition:transform .32s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; }
+        .drawer.open{ transform:none; }
+        .drawer-head{ padding:1.3rem 1.4rem; border-bottom:1px solid var(--color-border); display:flex; align-items:center; gap:.9rem; }
+        .drawer-head .avatar{ width:48px; height:48px; font-size:1rem; }
+        .drawer-head h3{ margin:0; font-size:1.15rem; }
+        .drawer-close{ margin-inline-start:auto; }
+        .drawer-body{ padding:1.2rem 1.4rem 2rem; overflow-y:auto; flex:1; }
+        .mini-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:.7rem; margin-bottom:1.3rem; }
+        .mini{ background:rgba(255,255,255,.03); border:1px solid var(--color-border); border-radius:.8rem; padding:.8rem; text-align:center; }
+        .mini .v{ font-family:'Space Grotesk','Cairo',sans-serif; font-weight:800; font-size:1.2rem; color:#8FC7FF; }
+        .mini .l{ font-size:.7rem; color:var(--color-text-secondary); margin-top:.15rem; }
+        .section-label{ font-size:.8rem; font-weight:800; color:var(--color-text-secondary); margin:0 0 .7rem; }
+        .trend{ display:flex; align-items:flex-end; gap:5px; height:90px; padding:.6rem .7rem .4rem; background:rgba(255,255,255,.025); border:1px solid var(--color-border); border-radius:.8rem; margin-bottom:.35rem; }
+        .trend .col{ flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }
+        .trend .b{ width:100%; border-radius:4px 4px 2px 2px; background:linear-gradient(180deg,#4DA3FF,#0077CC); min-height:3px; }
+        .trend .b.zero{ background:rgba(255,255,255,.08); }
+        .trend-axis{ display:flex; justify-content:space-between; font-size:.66rem; color:var(--color-text-3); margin-bottom:1.3rem; padding:0 .3rem; }
+        .ticket-row{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.7rem .8rem; border:1px solid var(--color-border); border-radius:.75rem; margin-bottom:.5rem;
+            background:rgba(255,255,255,.025); text-decoration:none; color:inherit; transition:border-color .2s ease; }
+        .ticket-row:hover{ border-color:rgba(77,163,255,.35); }
+        .ticket-row .t-title{ font-weight:700; font-size:.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .ticket-row .t-meta{ font-size:.7rem; color:var(--color-text-secondary); }
+        .status-open{ background:rgba(77,163,255,.14); color:#6EB4FF; } .status-in-progress{ background:rgba(245,166,35,.16); color:#F5A623; }
+        @media (max-width: 768px){ .stats-grid{ grid-template-columns:repeat(2,1fr); } .mini-grid{ grid-template-columns:repeat(2,1fr); } }
+    </style>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <div>
+                <span class="eyebrow"><span class="dot"></span> أداء الفريق</span>
+                <h1>أداء <span class="gradient-text">الفريق</span></h1>
+                <p style="color:var(--color-text-secondary); margin-top:.35rem;">تابع أداء كل موظف لحظة بلحظة — من أول رد لحد حل المشكلة</p>
+            </div>
+            <div class="header-tools">
+                <span class="live-badge off" id="liveBadge"><span class="pulse"></span><span id="liveText">جاري الاتصال...</span></span>
+                <div class="segmented" id="periodPicker" role="tablist" aria-label="الفترة"></div>
+                <button id="refreshBtn" class="icon-btn" title="تحديث"></button>
+            </div>
+        </header>
+
+        <div class="stats-grid" id="teamStats"></div>
+
+        <section class="board glass-card">
+            <div class="board-header">
+                <div>
+                    <h3>أداء الموظفين</h3>
+                    <p id="boardHint">اضغط على أي موظف لعرض تفاصيل أدائه وتذاكره الحالية</p>
+                </div>
+                <span class="muted" style="font-size:.78rem;" id="lastUpdated"></span>
+            </div>
+            <div class="table-wrap">
+                <table class="perf">
+                    <thead>
+                        <tr>
+                            <th style="width:34px">#</th>
+                            <th data-sort="name">الموظف</th>
+                            <th data-sort="workload" title="التذاكر المفتوحة وقيد المعالجة المسندة له الآن">الحِمل الحالي</th>
+                            <th data-sort="resolved">المحلولة</th>
+                            <th data-sort="firstResponse" title="متوسط الوقت من فتح التذكرة لأول رد">متوسط أول رد</th>
+                            <th data-sort="resolution" title="متوسط الوقت من فتح التذكرة لحلها">متوسط زمن الحل</th>
+                            <th data-sort="sla" title="نسبة التذاكر المحلولة قبل موعد الـ SLA">الالتزام بالـ SLA</th>
+                            <th data-sort="replies">ردود التذاكر</th>
+                            <th data-sort="chats">ردود المحادثات</th>
+                            <th data-sort="rating">تقييم العملاء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="perfBody">
+                        <tr><td colspan="10" class="empty-state">جاري تحميل أداء الفريق...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="drawer" id="agentDrawer" aria-hidden="true">
+        <div class="drawer-head" id="drawerHead"></div>
+        <div class="drawer-body" id="drawerBody"></div>
+    </aside>
+
+    <script type="module" src="/assets/js/admin/team-performance.js"></script>
+</body>
+</html>

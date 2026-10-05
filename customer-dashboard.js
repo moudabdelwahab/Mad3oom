@@ -87,6 +87,8 @@ import {
 } from './assets/js/customer/notification-router.js';
 import { assessAccountHealth } from './assets/js/customer/account-health.js';
 import { toTimeline } from './assets/js/customer/activity-model.js';
+import { fetchTicketWallet } from '/assets/js/ticket-wallet.js';
+import { walletView, resetText } from '/assets/js/plan-pricing-model.js';
 
 /* =========================================================
    حماية من bfcache (Back-Forward Cache)
@@ -1664,6 +1666,29 @@ function meter(percent, tone = '') {
                         <a class="btn btn-primary" href="/customer-subscriptions.html">تصفّح الباقات</a>
                     </div>`}
             </section>`);
+
+        // رصيد التذاكر الشهري — نفس ما يفرضه محفّز التذاكر في القاعدة (migrations/063).
+        const ticketWallet = walletView(await fetchTicketWallet().catch(() => null));
+        if (ticketWallet) {
+            const tone = ticketWallet.tone === 'empty' ? 'meter-fill--danger' : ticketWallet.tone === 'warn' ? 'meter-fill--warning' : '';
+            blocks.push(`
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">رصيد التذاكر</h2>
+                        <p class="panel-subtitle">${escapeHtml(ticketWallet.planLabel)} — ${escapeHtml(ticketWallet.headline)}</p>
+                    </div>
+                    <a class="panel-link" href="/my-subscription.html">تفاصيل اشتراكي</a>
+                </div>
+                <div class="data-rows">${dataRow({
+                    label: 'المستخدم هذا الشهر',
+                    value: escapeHtml(ticketWallet.unlimited ? `${ticketWallet.used} تذكرة` : `${ticketWallet.used} / ${ticketWallet.limit}`),
+                    note: ticketWallet.unlimited
+                        ? '<span>تذاكر غير محدودة</span>'
+                        : `${meter(ticketWallet.percent, tone)}<span>${escapeHtml(resetText(ticketWallet.daysToReset))}</span>`
+                })}</div>
+            </section>`);
+        }
 
         const wa = snapshot.waSub?.ok ? snapshot.waSub.data : null;
         const wallet = snapshot.wallet?.ok ? snapshot.wallet.data : null;

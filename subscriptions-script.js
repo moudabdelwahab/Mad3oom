@@ -14,6 +14,7 @@ import {
     getUpgradeQuote,
     getPlanPrices
 } from '/whatsapp-subscription-service.js';
+import { formatMoney, currencySymbol, discountPercent } from '/assets/js/plan-pricing-model.js';
 // خطوة بيانات الشركة للباقات التي تستلزمها (subscription_plans.requires_company).
 // المسار نفسه لم يتغيّر: طلب اشتراك → مراجعة الإدارة → تفعيل.
 import {
@@ -74,7 +75,7 @@ async function loadPricesFromDatabase() {
         }
         const currencyEl = card.querySelector('.currency');
         if (currencyEl && plan.currency) {
-            currencyEl.textContent = plan.currency === 'USD' ? '$' : plan.currency;
+            currencyEl.textContent = currencySymbol(plan.currency);
         }
     }
 
@@ -148,16 +149,20 @@ function updatePricing(period) {
         const bonusEl = card.querySelector('.bonus-note');
 
         if (amountEl && amountEl.dataset[period] !== undefined) {
-            amountEl.textContent = amountEl.dataset[period];
+            amountEl.textContent = Number(amountEl.dataset[period]).toLocaleString('en-US');
         }
         if (periodEl) {
             periodEl.textContent = periodLabel;
         }
         if (oldPriceEl && oldPriceEl.dataset[period] !== undefined) {
-            oldPriceEl.textContent = oldPriceEl.dataset[period];
+            oldPriceEl.textContent = Number(oldPriceEl.dataset[period]).toLocaleString('en-US');
         }
-        if (discountEl && discountEl.dataset[period] !== undefined) {
-            discountEl.textContent = discountEl.dataset[period];
+        // نسبة الخصم تُحسب من السعرين نفسهما بدل نص مكتوب يمكن أن يخالفهما.
+        if (discountEl && amountEl && oldPriceEl) {
+            const pct = discountPercent(oldPriceEl.dataset[period], amountEl.dataset[period]);
+            discountEl.textContent = pct ? `خصم ${pct}%` : '';
+            discountEl.style.display = pct ? '' : 'none';
+            oldPriceEl.style.display = pct ? '' : 'none';
         }
         if (bonusEl && bonusEl.dataset[period] !== undefined) {
             bonusEl.textContent = bonusEl.dataset[period];
@@ -313,10 +318,9 @@ async function updatePlanButtonsState(activePlan) {
         // العميل يعرف إنه هيدفع فرق السعر لا السعر الكامل.
         const quote = await getUpgradeQuote(plan);
         if (quote && quote.eligible === true) {
-            const cy = quote.currency === 'USD' ? '$' : (quote.currency || '');
             btn.textContent = 'ترقية ودمج الباقة';
             btn.disabled = false;
-            btn.title = `تدفع فرق السعر فقط (${cy}${quote.amount_due}) عن ${quote.remaining_days} يومًا متبقية، بنفس تاريخ انتهاء اشتراكك الحالي.`;
+            btn.title = `تدفع فرق السعر فقط (${formatMoney(quote.amount_due, quote.currency)}) عن ${quote.remaining_days} يومًا متبقية، بنفس تاريخ انتهاء اشتراكك الحالي.`;
             btn.classList.remove('btn-subscribed');
             return;
         }
@@ -496,7 +500,7 @@ function initPlanButtons() {
 function openUpgradeModal(quote) {
     return new Promise((resolve) => {
         const cur = quote.current, tgt = quote.target;
-        const cy = quote.currency === 'USD' ? '$' : (quote.currency || '');
+        const money = (v) => formatMoney(v, quote.currency);
         const cycleLabel = BILLING_LABELS[cur.billing_cycle] || cur.billing_cycle;
         const fmtDate = (d) => new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
         const row = (label, value, strong) => `
@@ -521,22 +525,22 @@ function openUpgradeModal(quote) {
                 وتدفع فرق السعر عن الأيام المتبقية فقط.
             </p>
             <div style="border:1px solid var(--color-border); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
-                ${row('الباقة الحالية', `${cur.plan_name_ar} — ${cy}${cur.price}`)}
-                ${row('الباقة الجديدة', `${tgt.plan_name_ar} — ${cy}${tgt.price}`)}
+                ${row('الباقة الحالية', `${cur.plan_name_ar} — ${money(cur.price)}`)}
+                ${row('الباقة الجديدة', `${tgt.plan_name_ar} — ${money(tgt.price)}`)}
                 ${row('دورة الفوترة', cycleLabel)}
                 ${row('ينتهي اشتراكك في', fmtDate(cur.end_date))}
                 ${row('الأيام المتبقية', `${quote.remaining_days} من ${quote.cycle_days}`)}
-                ${row('فرق السعر للدورة كاملة', `${cy}${quote.price_difference}`)}
+                ${row('فرق السعر للدورة كاملة', `${money(quote.price_difference)}`)}
             </div>
             <div style="border:1px solid var(--color-accent); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
-                ${row('المبلغ المطلوب الآن', `${cy}${quote.amount_due}`, true)}
+                ${row('المبلغ المطلوب الآن', `${money(quote.amount_due)}`, true)}
                 <p style="margin:.5rem 0 0; font-size:.78rem; color:var(--color-text-secondary); line-height:1.7;">
                     فرق السعر محسوبًا على ${quote.remaining_days} يومًا متبقية.
                 </p>
             </div>
             <p style="margin:0 0 1.25rem; font-size:.8rem; color:var(--color-text-secondary); line-height:1.7;">
                 عند التجديد بعد ${fmtDate(cur.end_date)} ستُجدَّد باقة "${tgt.plan_name_ar}"
-                بالسعر الكامل ${cy}${quote.next_renewal_price} ${cycleLabel}.
+                بالسعر الكامل ${money(quote.next_renewal_price)} ${cycleLabel}.
             </p>
             <div style="display:flex; gap:.6rem;">
                 <button id="upConfirm" style="flex:1; padding:.75rem; border:none; border-radius:.6rem;
@@ -603,7 +607,7 @@ async function handleSubscribe(plan, buttonEl) {
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
             : '';
         alert(isUpgrade
-            ? `تم إرسال طلب الترقية بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\nالمبلغ المطلوب: ${result.subscription?.upgrade_amount ?? quote.amount_due}\n\nلن تتغيّر باقتك قبل تأكيد الدفع من فريق الدعم.${reviewNote}`
+            ? `تم إرسال طلب الترقية بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\nالمبلغ المطلوب: ${formatMoney(result.subscription?.upgrade_amount ?? quote.amount_due, quote.currency)}\n\nلن تتغيّر باقتك قبل تأكيد الدفع من فريق الدعم.${reviewNote}`
             : `تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
 
         // إكمال مسار الشركة: لو الشركة اتكوّنت للتو، المستخدم المفروض يشوف

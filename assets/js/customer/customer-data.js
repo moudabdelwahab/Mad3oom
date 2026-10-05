@@ -64,9 +64,10 @@ export async function fetchAccountStatus() {
 
 /** أسماء الباقات للعرض. مفاتيحها هي نفسها في subscription_plans.key. */
 const PLAN_CATALOGUE = {
-    support:  { key: 'support',  name: 'Support',  name_ar: 'الدعم الفني' },
-    whatsapp: { key: 'whatsapp', name: 'WhatsApp', name_ar: 'واتساب' },
-    bundle:   { key: 'bundle',   name: 'Bundle',   name_ar: 'دعم فني + واتساب' }
+    support:  { key: 'support',  name: 'Advanced', name_ar: 'الخطة المتقدمة' },
+    ultimate: { key: 'ultimate', name: 'Ultimate', name_ar: 'الخطة الفائقة' },
+    whatsapp: { key: 'whatsapp', name: 'WhatsApp', name_ar: 'واتساب بيزنس' },
+    bundle:   { key: 'bundle',   name: 'Bundle',   name_ar: 'الباقة الشاملة' }
 };
 
 

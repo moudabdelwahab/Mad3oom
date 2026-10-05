@@ -115,3 +115,50 @@ MCP/OAuth. **لم تُلمس** ولا تدخل في هذا النطاق. قائ�
 > لا تُسرَد أسماؤها هنا عمدًا: `tests/remediation-static.test.mjs` يمنع
 > ظهور اسم إحدى الدوال المحذوفة في أي ملف خارج قائمة الاستثناء، وهذا
 > الملف ليس ضمنها.
+
+
+---
+
+## 4. P0 — الدوال المنشورة من غير مصدر (2026-09-29)
+
+مخرَج **P0** من خطة Conversation Core + Agent Runtime: كل دالة منشورة على الإنتاج مالهاش
+مصدر في **أي** من المستودعات الثلاثة (`Mad3oom` و`whatsapp-mad3oom` و`sie`) اتحفظت هنا
+**حرفيًا، من غير أي تعديل سلوك**. الهدف تحويل كود الإنتاج لمصدر تحت التحكم، مش إعادة تصميمه.
+
+**طريقة الحصر:** `list_edge_functions` (60 دالة منشورة) ناقص كل مجلدات
+`supabase/functions/` في المستودعات الثلاثة. النتيجة 14 دالة بلا مصدر خالص، و`gemini-proxy`
+اللي مصدرها الوحيد كان النسخة الضعيفة المؤرشفة (v46) بينما الإنتاج شغّال بالبديل المتقاعد (v48).
+
+**طريقة النسخ:** مخرَج `get_edge_function` اتكتب على القرص **آليًا** (سكربت بيقرا نتيجة الأداة
+كما هي) — مش منسوخ باليد. كل ملف ليه sha256 في `README.md` بتاع مجلده.
+
+| الدالة | النسخة | `ezbr_sha256` | `verify_jwt` | ملفات | المجلد |
+|---|---|---|---|---|---|
+| `telegram-webhook` | 37 | `69d1687d92ba5bd7f1950cc7bba53cbd92e208528f33e784d15963ae302ebcea` | `false` | 1 | `telegram-webhook/` |
+| `exchange-token` | 41 | `127aaa0cdda336a9b6f88bfe3c5d9058491430e4c78fe2f8bcd4642ac7d2c5a8` | `true` | 2 | `exchange-token/` |
+| `manage-subdomain` | 27 | `13eb269796962cd320cce72d549f64f89f695100c30abcbca9733ea498dc7a2a` | `false` | 1 | `manage-subdomain/` |
+| `subdomain-auth-check` | 16 | `593e28cec83d6f59ed5866cd93c133f12f4506e13b161d52e0560928172c8f51` | `false` | 1 | `subdomain-auth-check/` |
+| `inbound-email-webhook` | 16 | `230b21242a2f1d851235c522091801b9f558628a7019431813e43642e1ac66e6` | `false` | 1 | `inbound-email-webhook/` |
+| `resend-inbound-webhook` | 16 | `dece3cc0693e640a229aca8e1ec3dfd25529794dc0613a4dd4a7e27d90c05431` | `false` | 1 | `resend-inbound-webhook/` |
+| `telegram-connect-bot` | 15 | `cd2a2e9c2f1173e62264cd28e2daea8e615dc5feb298d72e03ad2fadf88e3b06` | `true` | 1 | `telegram-connect-bot/` |
+| `regenerate-api-token-secret` | 18 | `ed608ea3f9f2022785755b21579413dc1683c78797f2c5a645452f36d73c2240` | `true` | 1 | `regenerate-api-token-secret/` |
+| `test-integration-connection` | 17 | `0692e29566d93e93854d9de268fed7e56054400426e4367f9232e0ae63e8aa63` | `true` | 1 | `test-integration-connection/` |
+| `whatsapp-phone-status` | 13 | `1b5cfb2c8ba4f56dca1f6e8f0b9af8289446ada4023c2e2e7d88e5fee3bca7d8` | `true` | 2 | `whatsapp-phone-status/` |
+| `wf-executor` | 45 | `fe51f82a224a9038745b2b33d58477a6c7219ac2ed54cfe8e5b1a41d03bceb57` | `false` | 1 | `wf-executor/` |
+| `chat-bot-reply` | 14 | `8022f314f729de0ed21f060fe858908ff74a55d56342ea634ad0041c1812c7f6` | `true` | 1 | `chat-bot-reply/` |
+| `agent-manager` | 15 | `6de59bbc5e00183c9996307a45bbb53945b7fbea5cb8092a74033383b25fe575` | `true` | 1 | `agent-manager/` |
+| `aqar-auth` | 10 | `bbbc89619f079e78b1033ae9b9b07fedc457ee50747e5c04c944c239877bc106` | `false` | 3 | `aqar-auth/` |
+| `gemini-proxy` | 48 | `7597780475e3d870afdb38002cecb94cdbcccc7ba563fb4046a5b21619b8a53c` | `true` | 1 | `_retired/gemini-proxy/deployed/` |
+
+ملاحظات:
+
+- `gemini-proxy` اتحفظ جوه `_retired/gemini-proxy/deployed/` مش في مجلد فعّال: قرار التقاعد (C-07)
+  واختبار `remediation-static` بيمنعوا مجلد `supabase/functions/gemini-proxy`. الإنتاج فيه البديل
+  اللي بيرد 410 بس، فده اللي اتحفظ.
+- `drift-baseline.json` اتقلّص من 19 لـ5: الـ14 دول بقالهم مصدر. الباقيين (`gemini-proxy` و`integrations-api`
+  و`register-whatsapp` و`sie-api` و`whatsapp-webhook`) مصدرهم في مستودعات تانية أو في `_retired/`
+  — والكاشف بيعدّ مستودع Mad3oom بس.
+- **ما لم يُتحقق منه:** المطابقة البايتية مع حزمة eszip المنشورة نفسها (نفس قيد القسم ١). المطابقة
+  هنا مع مخرَج واجهة الإدارة للنسخة المذكورة.
+- أي ملاحظة على الكود ده (مثلًا `SYSTEM_FALLBACK_USER_ID` ومعرّف أدمن مكتوب في `wf-executor`) مكانها
+  PR منفصل بعد مراجعة: اللقطة بتسجّل الواقع، مش بتصلّحه.

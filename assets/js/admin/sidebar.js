@@ -287,7 +287,7 @@ function setupSidebarLogic() {
 // على مستوى المنصة بالكامل (كل العملاء/التذاكر/الإعدادات)، وليست خاصة بحسابه.
 // الأدمن والدعم لا يتأثرون بهذه القائمة إطلاقاً — سلوكهم يبقى كما هو.
 const STAFF_ONLY_LINK_IDS = [
-    'ticketsLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
+    'ticketsLink', 'teamPerformanceLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
     'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
     'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
 ];

@@ -391,7 +391,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         والأعلام مقفولة. قرار تزامن وسلطة في الخادم، مش في الواجهة. مقيسٌ
     //         (الإثباتات السبعة بجلسات حقيقية، المسارات القديمة، والتراجع) في
     //         tests/sql/conversation-core.test.sql.
-    assert.equal(migrations[migrations.length - 1], '064_conversation_core.sql',
+    //   063 و064 — محجوزان لفرعَي keen-rubin-ogkj72 (063 مطبَّق في الإنتاج
+    //         باسم whatsapp_inbound_idempotency)، فلا يُعاد استخدام رقمهما.
+    //   065 — خطط الدعم بالجنيه (معتمَد: «القيود علي الخطة المجانيه تتنفذ
+    //         بالفعل»): حد 20 تذكرة شهريًا للمجانية و300 للمتقدمة وبلا حد
+    //         للفائقة، يفرضه محفّز قبل الإدراج على tickets بقفل لكل حساب، مش
+    //         الواجهة. ومعاه بوابة النطاق الفرعي ورصيد my_ticket_wallet للمحفظة.
+    //         مقيسٌ في tests/sql/ticket-quota.test.sql.
+    assert.equal(migrations[migrations.length - 1], '065_support_plans_egp_ticket_quota.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
