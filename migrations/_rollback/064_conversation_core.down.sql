@@ -19,7 +19,7 @@
 drop function if exists public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval);
 drop function if exists public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text);
 drop function if exists public.conv_claim_delivery(uuid, interval);
-drop function if exists public.conv_record_delivery(uuid, text, text, text);
+drop function if exists public.conv_record_delivery(uuid, text, text, text, integer);
 drop function if exists public._conv_json(public.chat_sessions);
 
 drop trigger if exists trg_seq_assign on public.chat_messages;

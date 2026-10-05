@@ -532,7 +532,7 @@ BEGIN
   END IF;
   FOREACH f IN ARRAY ARRAY['public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval)',
                            'public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text)',
-                           'public.conv_claim_delivery(uuid, interval)', 'public.conv_record_delivery(uuid, text, text, text)',
+                           'public.conv_claim_delivery(uuid, interval)', 'public.conv_record_delivery(uuid, text, text, text, integer)',
                            'public._conv_json(public.chat_sessions)', 'public.conv_assign_seq()',
                            'public.conv_log_message_event()', 'public.guard_conversation_core_columns()'] LOOP
     IF has_function_privilege('authenticated', f, 'EXECUTE') OR has_function_privilege('anon', f, 'EXECUTE') THEN
@@ -847,9 +847,9 @@ BEGIN
     RAISE EXCEPTION 'FAIL C7b: % / %', c1, c2;
   END IF;
   -- فشل ⇒ إعادة المطالبة على نفس الصف (المحاولة 2)، ثم وصل.
-  PERFORM public.conv_record_delivery(mid, 'failed', null, 'timeout');
+  PERFORM public.conv_record_delivery(mid, 'failed', null, 'timeout', (c1->>'attempt')::int);
   c1 := public.conv_claim_delivery(mid);
-  PERFORM public.conv_record_delivery(mid, 'sent', 'tg-msg-55');
+  PERFORM public.conv_record_delivery(mid, 'sent', 'tg-msg-55', null, (c1->>'attempt')::int);
   c2 := public.conv_claim_delivery(mid);
   IF (c1->>'attempt')::int IS DISTINCT FROM 2 OR t.b(c2, 'claimed') OR c2->>'providerMessageId' IS DISTINCT FROM 'tg-msg-55'
      OR t.bot_count(sid) IS DISTINCT FROM 1 THEN
@@ -859,9 +859,9 @@ BEGIN
   -- (بالترتيب: OR في SQL مالوش ترتيب تقييم مضمون)
   c1 := public.conv_record_delivery(mid, 'delivered');
   c2 := public.conv_record_delivery(mid, 'delivered');
-  r := public.conv_record_delivery(mid, 'sent');
+  r := public.conv_record_delivery(mid, 'sent', null, null, 2);
   IF NOT t.b(c1, 'updated') OR t.b(c2, 'updated') OR t.b(r, 'updated')
-     OR t.b(public.conv_record_delivery(mid, 'failed'), 'updated')
+     OR t.b(public.conv_record_delivery(mid, 'failed', null, null, 2), 'updated')
      OR (SELECT delivery_state FROM public.chat_messages WHERE id = mid) IS DISTINCT FROM 'delivered' THEN
     RAISE EXCEPTION 'FAIL C7d: % / % / %', c1, c2, r;
   END IF;
@@ -891,6 +891,33 @@ BEGIN
   END IF;
   RAISE NOTICE 'PASS C7b: مُرسلين في نفس اللحظة ⇒ واحد بس طالب الرسالة';
 END $$;
+
+-- مُرسل انتهت مهلته وتقريره وصل بعد ما مُرسل تاني طالب الرسالة ⇒ تقريره مالوش أثر.
+SET ROLE service_role;
+DO $$
+DECLARE mid uuid; a jsonb; b jsonb; late jsonb; ok jsonb;
+BEGIN
+  SELECT (v->>'messageId')::uuid INTO mid FROM t.ctx WHERE k = 'c7b-turn';
+  a := (SELECT jsonb_build_object('attempt', delivery_attempts) FROM public.chat_messages WHERE id = mid);
+  RESET ROLE;
+  UPDATE public.chat_messages SET delivery_updated_at = now() - interval '10 minutes' WHERE id = mid;
+  SET LOCAL ROLE service_role;
+  b := public.conv_claim_delivery(mid);
+  late := public.conv_record_delivery(mid, 'failed', null, 'old sender timed out', (a->>'attempt')::int);
+  IF NOT t.b(b, 'claimed') OR (b->>'attempt')::int IS DISTINCT FROM (a->>'attempt')::int + 1
+     OR t.b(late, 'updated') OR (SELECT delivery_state FROM public.chat_messages WHERE id = mid) IS DISTINCT FROM 'sending' THEN
+    RAISE EXCEPTION 'FAIL C7f: % / % / %', a, b, late;
+  END IF;
+  IF NOT t.fails(format($q$select public.conv_record_delivery(%L, 'sent')$q$, mid), '22023') THEN
+    RAISE EXCEPTION 'FAIL C7g: sent من غير رقم محاولة اتقبل';
+  END IF;
+  ok := public.conv_record_delivery(mid, 'sent', 'p-2', null, (b->>'attempt')::int);
+  IF NOT t.b(ok, 'updated') OR (SELECT delivery_state FROM public.chat_messages WHERE id = mid) IS DISTINCT FROM 'sent' THEN
+    RAISE EXCEPTION 'FAIL C7h: %', ok;
+  END IF;
+  RAISE NOTICE 'PASS C7c: تقرير متأخر من محاولة قديمة مالوش أثر؛ المحاولة الحالية بس تسجّل sent/failed';
+END $$;
+RESET ROLE;
 
 -- ══ Ⓒ8 الترتيب من أي مسار ═══════════════════════════════════════════════
 -- رسالتين قديمتين (مش Core، مفيش قفل استشاري) لنفس الجلسة في نفس اللحظة ⇒

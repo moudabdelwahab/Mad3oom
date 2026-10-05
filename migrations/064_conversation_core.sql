@@ -641,9 +641,14 @@ $$;
 revoke all on function public.conv_claim_delivery(uuid, interval) from public, anon, authenticated;
 
 -- التسجيل: للأمام بس (sent → delivered → read)، و failed من sending بس.
+-- sent و failed نتيجة محاولة بعينها، فلازم معاها رقم المحاولة اللي رجّعته
+-- conv_claim_delivery (p_attempt): مُرسل قديم انتهت مهلته وحد تاني طالب الرسالة
+-- بعده، تقريره المتأخر مايلمسش المحاولة الجديدة. delivered / read جايين من
+-- المزوّد على الرسالة نفسها، من غير محاولة.
 -- نفس الحالة تاني = لا شيء (إشعارات المزوّد بتتكرر).
 create or replace function public.conv_record_delivery(
-  p_message_id uuid, p_state text, p_provider_message_id text default null, p_error text default null)
+  p_message_id uuid, p_state text, p_provider_message_id text default null, p_error text default null,
+  p_attempt integer default null)
 returns jsonb
 language plpgsql
 security definer
@@ -651,25 +656,31 @@ set search_path to 'public'
 as $$
 declare
   v_cur text;
+  v_attempts int;
   v_rank_cur int;
   v_rank_new int;
 begin
   if p_state is null or p_state not in ('sent', 'delivered', 'read', 'failed') then
     raise exception 'حالة إرسال غير معروفة: %', p_state using errcode = '22023';
   end if;
-  select delivery_state into v_cur from public.chat_messages where id = p_message_id for update;
+  if p_state in ('sent', 'failed') and p_attempt is null then
+    raise exception 'نتيجة المحاولة (%) محتاجة رقم المحاولة من conv_claim_delivery', p_state using errcode = '22023';
+  end if;
+  select delivery_state, delivery_attempts into v_cur, v_attempts
+    from public.chat_messages where id = p_message_id for update;
   if not found then
     raise exception 'الرسالة غير موجودة' using errcode = 'P0002';
   end if;
   v_rank_cur := case v_cur when 'sending' then 1 when 'sent' then 2 when 'delivered' then 3 when 'read' then 4 else 0 end;
   v_rank_new := case p_state when 'sent' then 2 when 'delivered' then 3 when 'read' then 4 else 0 end;
 
-  if p_state = 'failed' then
-    if v_cur is distinct from 'sending' then
-      return jsonb_build_object('updated', false, 'deliveryState', v_cur);
+  if p_state in ('sent', 'failed') then
+    -- نتيجة محاولة: لازم تكون المحاولة الحالية ولسه شغالة.
+    if v_cur is distinct from 'sending' or p_attempt is distinct from v_attempts then
+      return jsonb_build_object('updated', false, 'deliveryState', v_cur, 'attempt', v_attempts);
     end if;
   elsif v_cur is null or v_cur in ('pending', 'failed') or v_rank_new <= v_rank_cur then
-    return jsonb_build_object('updated', false, 'deliveryState', v_cur);
+    return jsonb_build_object('updated', false, 'deliveryState', v_cur, 'attempt', v_attempts);
   end if;
 
   update public.chat_messages
@@ -678,10 +689,10 @@ begin
          provider_message_id = coalesce(provider_message_id, nullif(p_provider_message_id, '')),
          delivery_error = case when p_state = 'failed' then left(coalesce(p_error, 'unknown'), 1000) end
    where id = p_message_id;
-  return jsonb_build_object('updated', true, 'deliveryState', p_state);
+  return jsonb_build_object('updated', true, 'deliveryState', p_state, 'attempt', v_attempts);
 end;
 $$;
-revoke all on function public.conv_record_delivery(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function public.conv_record_delivery(uuid, text, text, text, integer) from public, anon, authenticated;
 
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
@@ -689,7 +700,7 @@ do $$ begin
       public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval),
       public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text),
       public.conv_claim_delivery(uuid, interval),
-      public.conv_record_delivery(uuid, text, text, text)
+      public.conv_record_delivery(uuid, text, text, text, integer)
       to service_role;
   end if;
 end $$;
@@ -714,7 +725,7 @@ begin
     'public.conv_ingest_message(text, uuid, text, text, text, jsonb, jsonb, uuid, interval)',
     'public.conv_commit_turn(uuid, integer, text, text, jsonb, jsonb, text, boolean, jsonb, text)',
     'public.conv_claim_delivery(uuid, interval)',
-    'public.conv_record_delivery(uuid, text, text, text)'] loop
+    'public.conv_record_delivery(uuid, text, text, text, integer)'] loop
     if has_function_privilege('authenticated', f, 'EXECUTE') or has_function_privilege('anon', f, 'EXECUTE') then
       raise exception '064: % متاحة لعميل', f;
     end if;
