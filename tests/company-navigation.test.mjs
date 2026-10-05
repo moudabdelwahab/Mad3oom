@@ -390,7 +390,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         للفائقة، يفرضه محفّز قبل الإدراج على tickets بقفل لكل حساب، مش
     //         الواجهة. ومعاه بوابة النطاق الفرعي ورصيد my_ticket_wallet للمحفظة.
     //         مقيسٌ في tests/sql/ticket-quota.test.sql.
-    assert.equal(migrations[migrations.length - 1], '065_support_plans_egp_ticket_quota.sql',
+    //   066 — قائمة الانتظار تلتقط كل تسجيل (معتمَد: «عايز قايمة الانتظار تكون
+    //         شغالة… شوف حل للعملا الجديدة اللي مسجلة ومش مضافة»): تسجيل Google
+    //         كان يتخطى نموذج الانتظار فلا يظهر للأدمن. محفّز على profiles يضيفه
+    //         للقائمة، وإدراج الحسابات الناقصة — في القاعدة لأن OAuth لا يمر
+    //         بالواجهة. مقيسٌ في tests/sql/waitlist-capture.test.sql.
+    assert.equal(migrations[migrations.length - 1], '066_waitlist_capture_all_signups.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

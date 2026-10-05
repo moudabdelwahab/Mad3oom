@@ -14,6 +14,17 @@ const STATUS_LABELS = {
     rejected: 'مرفوض'
 };
 
+// من أين جاء الطلب (migration 066): النموذج، أو حساب أُنشئ مباشرة فأُضيف تلقائيًا.
+const SOURCE_LABELS = {
+    form: 'نموذج قائمة الانتظار',
+    google: 'حساب Google',
+    github: 'حساب GitHub',
+    email: 'تسجيل مباشر بالبريد',
+    admin: 'أضافه فريق الإدارة'
+};
+
+const sourceLabel = (entry) => SOURCE_LABELS[entry.source] || SOURCE_LABELS.form;
+
 const STATUS_CLASSES = {
     pending: 'status-pending',
     approved: 'status-resolved',
@@ -70,7 +81,7 @@ function renderEntries() {
 
     body.innerHTML = filtered.map((entry) => `
         <tr>
-            <td>${escapeHtml(entry.name)}</td>
+            <td>${escapeHtml(entry.name)}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">${escapeHtml(sourceLabel(entry))}</div></td>
             <td>${escapeHtml(entry.email)}</td>
             <td>${escapeHtml(entry.phone || '—')}</td>
             <td><span class="status-badge ${STATUS_CLASSES[entry.status] || 'status-pending'}">${STATUS_LABELS[entry.status] || entry.status}</span></td>
@@ -93,6 +104,7 @@ function openDetailModal(entryId) {
     document.getElementById('detailName').textContent = entry.name;
     document.getElementById('detailEmail').textContent = entry.email;
     document.getElementById('detailPhone').textContent = entry.phone || '—';
+    document.getElementById('detailSource').textContent = sourceLabel(entry);
     document.getElementById('detailStatus').textContent = STATUS_LABELS[entry.status] || entry.status;
     document.getElementById('detailCreatedAt').textContent = new Date(entry.created_at).toLocaleString('ar-EG');
 
@@ -122,10 +134,11 @@ async function approveEntry() {
     if (!activeEntryId) return;
 
     const entryId = activeEntryId;
+    const entry = allEntries.find((e) => e.id === entryId);
     const approveBtn = document.getElementById('detailApproveBtn');
     const originalLabel = approveBtn.textContent;
     approveBtn.disabled = true;
-    approveBtn.textContent = 'جاري إنشاء الحساب...';
+    approveBtn.textContent = entry?.approved_user_id ? 'جاري تفعيل الحساب...' : 'جاري إنشاء الحساب...';
 
     try {
         const { data, error } = await supabase.functions.invoke('approve-waitlist-entry', {
@@ -186,6 +199,7 @@ async function rejectEntry() {
 // كلمة المرور المؤقتة تُعرض مرة واحدة فقط ولا تُخزَّن، فلازم الأدمن ينسخها الآن.
 function showCredentials(result) {
     document.getElementById('credEmail').textContent = result.email;
+    document.getElementById('credHeader').textContent = result.linked_existing ? 'تم تفعيل الحساب' : 'تم إنشاء الحساب';
 
     const passwordRow = document.getElementById('credPasswordRow');
     const note = document.getElementById('credNote');
@@ -197,7 +211,9 @@ function showCredentials(result) {
     } else {
         passwordRow.style.display = 'none';
         document.getElementById('credPassword').textContent = '';
-        note.textContent = result.already_approved
+        note.textContent = result.linked_existing
+            ? `الحساب موجود بالفعل (${SOURCE_LABELS[result.source] || 'سجّل بنفسه'}) واتفعّل دلوقتي. العميل يدخل بنفس الطريقة اللي سجّل بيها — مفيش كلمة مرور جديدة، وهيُطلب منه رقم الهاتف أول مرة.`
+            : result.already_approved
             ? 'الطلب ده متوافق عليه قبل كده والحساب موجود بالفعل. لو العميل نسي كلمة المرور، استخدم "نسيت كلمة المرور".'
             : 'البريد ده كان له حساب بالفعل، فتم ربط الطلب بالحساب القائم بدون تغيير كلمة مروره.';
     }
