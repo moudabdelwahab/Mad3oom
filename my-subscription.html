@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>اشتراكي - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <script>
+        /* نفس سكربت صفحات البوابة: الثيم وحالة طي القائمة قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') root.setAttribute('data-sidebar', 'collapsed');
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="theme-manager.js" defer></script>
+    <script src="language-manager.js"></script>
+    <style>
+        .ms-wrap { max-width: 1080px; }
+        .ms-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .ms-header h1 { font-weight: 800; font-size: 1.75rem; margin: 0; }
+        .ms-header p { color: var(--color-text-secondary); margin: .4rem 0 0; }
+        .ms-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+        .ms-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 1.4rem 1.5rem; }
+        .ms-card h2 { font-size: 1rem; font-weight: 800; margin: 0 0 1rem; }
+        .ms-plan-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+        .ms-eyebrow { font-size: .78rem; font-weight: 700; color: var(--color-text-secondary); }
+        .ms-plan-name { font-size: 1.9rem; font-weight: 800; margin: .15rem 0 .25rem; line-height: 1.25; }
+        .ms-price { font-size: 1rem; font-weight: 700; color: var(--color-accent-soft, #8FC7FF); }
+        .ms-pill { display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 800; padding: .3rem .8rem; border-radius: 999px; white-space: nowrap; }
+        .ms-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .tone-ok { background: rgba(34,197,139,.14); color: #22C58B; }
+        .tone-warn { background: rgba(245,166,35,.16); color: #F5A623; }
+        .tone-bad { background: rgba(255,107,107,.15); color: #FF6B6B; }
+        .tone-muted { background: rgba(148,166,194,.14); color: #94A6C2; }
+        .tone-free { background: rgba(77,163,255,.14); color: #4DA3FF; }
+        .ms-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin: 1.25rem 0 .9rem; }
+        .ms-date { background: rgba(127,127,127,.06); border: 1px solid var(--color-border); border-radius: 12px; padding: .75rem .85rem; }
+        .ms-date .l { font-size: .74rem; color: var(--color-text-secondary); font-weight: 600; }
+        .ms-date .v { font-size: 1rem; font-weight: 800; margin-top: .2rem; }
+        .ms-bar { height: 9px; border-radius: 999px; background: rgba(127,127,127,.18); overflow: hidden; }
+        .ms-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4DA3FF, #0077CC); }
+        .ms-bar.is-warn span { background: linear-gradient(90deg, #F5C623, #F5A623); }
+        .ms-bar.is-empty span { background: linear-gradient(90deg, #FF8A8A, #FF6B6B); }
+        .ms-bar-note { font-size: .78rem; color: var(--color-text-secondary); margin-top: .45rem; }
+        .ms-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.2rem; }
+        .ms-actions .btn { flex: 1; min-width: 150px; text-align: center; }
+        .ms-wallet .tw-big { font-size: 2.4rem; font-weight: 800; line-height: 1.2; }
+        .ms-wallet .tw-big small { font-size: .9rem; font-weight: 600; color: var(--color-text-secondary); }
+        .ms-wallet .tw-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
+        .ms-wallet .tw-title { font-weight: 800; }
+        .ms-wallet .tw-plan { display: none; }
+        .ms-wallet .tw-bar { height: 10px; border-radius: 999px; background: rgba(127,127,127,.18); overflow: hidden; margin: .8rem 0 .5rem; }
+        .ms-wallet .tw-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4DA3FF, #0077CC); }
+        .ms-wallet .tw-bar.is-warn span { background: linear-gradient(90deg, #F5C623, #F5A623); }
+        .ms-wallet .tw-bar.is-empty span { background: linear-gradient(90deg, #FF8A8A, #FF6B6B); }
+        .ms-wallet .tw-sub { font-size: .85rem; color: var(--color-text-secondary); line-height: 1.8; }
+        .ms-wallet .tw-note { font-size: .8rem; color: var(--color-text-secondary); margin-top: .6rem; padding: .55rem .7rem; border-radius: 10px; background: rgba(127,127,127,.08); }
+        .ms-wallet .tw-actions { display: none; }
+        .ms-features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .55rem 1.25rem; }
+        .ms-features li { display: flex; align-items: center; gap: .55rem; font-size: .9rem; padding: .45rem 0; border-bottom: 1px dashed var(--color-border); }
+        .ms-features li .v { margin-inline-start: auto; font-weight: 700; font-size: .82rem; color: var(--color-text-secondary); }
+        .ms-features li.no { color: var(--color-text-secondary); }
+        .ms-features svg { width: 17px; height: 17px; flex-shrink: 0; }
+        .ms-features li.yes svg { color: #22C58B; }
+        .ms-features li.no svg { color: var(--color-text-secondary); opacity: .6; }
+        .ms-upsell { margin-top: 1.1rem; padding: .9rem 1rem; border-radius: 12px; border: 1px dashed rgba(77,163,255,.45); background: rgba(77,163,255,.06); display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; font-size: .9rem; }
+        .ms-table-wrap { overflow-x: auto; }
+        .ms-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+        .ms-table th { font-size: .76rem; color: var(--color-text-secondary); font-weight: 700; text-align: right; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border); }
+        .ms-table td { padding: .75rem; border-bottom: 1px solid var(--color-border); font-size: .88rem; }
+        .ms-empty { text-align: center; color: var(--color-text-secondary); padding: 1.5rem; font-size: .9rem; }
+        .ms-note { font-size: .82rem; color: var(--color-text-secondary); margin-top: .75rem; line-height: 1.8; }
+        .ms-skeleton { color: var(--color-text-secondary); padding: 2rem; text-align: center; }
+        @media (max-width: 900px) { .ms-grid { grid-template-columns: 1fr; } .ms-features { grid-template-columns: 1fr; } }
+        @media (max-width: 560px) { .ms-dates { grid-template-columns: 1fr 1fr; } .ms-plan-name { font-size: 1.5rem; } }
+    </style>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <div class="ms-wrap">
+            <header class="ms-header">
+                <div>
+                    <h1>اشتراكي</h1>
+                    <p>كل تفاصيل خطتك ورصيد تذاكرك في مكان واحد</p>
+                </div>
+                <a href="/customer-subscriptions.html" class="btn btn-secondary">كل الخطط والأسعار</a>
+            </header>
+
+            <div id="msContent"><div class="ms-skeleton">جارٍ تحميل تفاصيل اشتراكك…</div></div>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/customer/my-subscription.js"></script>
+</body>
+</html>

@@ -48,7 +48,7 @@ async function loadTicketsStats() {
         
         if (tickets) {
             const open = tickets.filter(t => t.status === 'open').length;
-            const inProgress = tickets.filter(t => t.status === 'in_progress').length;
+            const inProgress = tickets.filter(t => t.status === 'in-progress').length;
             const resolved = tickets.filter(t => t.status === 'resolved').length;
             
             updateElement('ticketsOpen', open);

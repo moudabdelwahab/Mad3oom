@@ -162,6 +162,9 @@ export async function createTicket({ title, description, priority, category = nu
         throw new Error(error.message || 'فشل إنشاء التذكرة');
     }
 
+    // محفظة التذاكر في الشريط العلوي تسمع الحدث وتحدّث الرصيد فورًا.
+    try { window.dispatchEvent(new CustomEvent('mad3oom:tickets-changed')); } catch { /* بيئة بلا window */ }
+
     // إشعار للأدمن فقط عند إنشاء تذكرة جديدة من قبل العميل
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
     if (admins) {
