@@ -29,7 +29,7 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-export const PLAN_LABELS = { support: 'الدعم الفني', whatsapp: 'واتساب', bundle: 'دعم فني + واتساب' };
+export const PLAN_LABELS = { support: 'الخطة المتقدمة', ultimate: 'الخطة الفائقة', whatsapp: 'واتساب بيزنس', bundle: 'الباقة الشاملة' };
 export const STATUS_LABELS = {
     active: 'فعّال', pending: 'قيد المراجعة', expired: 'منتهٍ',
     rejected: 'مرفوض', superseded: 'مُستبدَل بترقية'

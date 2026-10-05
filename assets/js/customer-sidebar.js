@@ -133,6 +133,12 @@ function initPortalShell(variant, optionsOrCallback) {
             markActivePage();
             loadAccountIdentity();
             if (options.ownsSystemStatus !== true) loadSystemStatusPill();
+            // محفظة التذاكر لبوابة العميل ولوحة الشركة (لوحة المالك لا تملك رصيدًا).
+            if (variant !== 'owner') {
+                import('/assets/js/ticket-wallet.js')
+                    .then(m => m.mountTicketWallet())
+                    .catch(err => console.warn('[Shell] ticket wallet:', err?.message || err));
+            }
             if (typeof options.onReady === 'function') options.onReady();
         })
         .catch(err => console.error('Error loading portal sidebar:', err));

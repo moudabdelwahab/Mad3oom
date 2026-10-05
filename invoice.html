@@ -107,7 +107,8 @@
 import { SUPABASE_CONFIG } from './supabase-config.js';
 
 const PLAN_LABELS = {
-  support: 'الدعم الفني',
+  support: 'الخطة المتقدمة',
+  ultimate: 'الخطة الفائقة',
   whatsapp: 'واتساب بيزنس',
   bundle: 'الباقة الشاملة',
   free: 'الخطة المجانية'
@@ -130,7 +131,7 @@ function money(value, currency) {
   const n = Number(value);
   if (!isFinite(n)) return '—';
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    + ' ' + esc(currency || 'USD');
+    + ' ' + esc(({ EGP: 'ج.م', USD: 'USD' })[currency || 'USD'] || currency);
 }
 
 function row(label, value) {
