@@ -53,7 +53,10 @@ Deno.serve(async (req) => {
     .eq("id", userData.user.id)
     .maybeSingle();
 
-  if (callerProfile?.role !== "admin") {
+  // is_admin() = أدمن أو مالك المنصة بقدرة الإدارة — نفس مُسنَد RLS على القائمة.
+  const { data: callerIsAdmin } = await userClient.rpc("is_admin");
+
+  if (callerProfile?.role !== "admin" && callerIsAdmin !== true) {
     return json({ error: "هذه الميزة مقصورة على فريق الإدارة" }, 403);
   }
 
@@ -68,7 +71,7 @@ Deno.serve(async (req) => {
 
   const { data: entry, error: entryError } = await admin
     .from("waitlist_entries")
-    .select("id, name, email, phone, status, approved_user_id")
+    .select("id, name, email, phone, status, approved_user_id, source")
     .eq("id", entryId)
     .maybeSingle();
 
@@ -76,7 +79,7 @@ Deno.serve(async (req) => {
   if (!entry) return json({ error: "الطلب غير موجود" }, 404);
 
   // موافقة سابقة أنتجت حسابًا بالفعل: لا نعيد إنشاءه ولا نغيّر كلمة مروره.
-  if (entry.approved_user_id) {
+  if (entry.status === "approved" && entry.approved_user_id) {
     return json({
       user_id: entry.approved_user_id,
       email: entry.email,
@@ -86,6 +89,47 @@ Deno.serve(async (req) => {
   }
 
   const email = String(entry.email).trim().toLowerCase();
+
+  // ── طلب مربوط بحساب قائم (سجّل عبر Google/GitHub أو أُضيف تلقائيًا) ──
+  // الحساب موجود ويدخل بطريقته المعتادة: نختم الموافقة فقط، بلا حساب جديد
+  // ولا كلمة مرور ولا تعديل لبياناته. قبل ذلك كان هذا الطلب يُعامَل كأنه
+  // «متوافق عليه» فيرجع دون تغيير حالته، فيبقى صاحبه محجوبًا للأبد.
+  if (entry.approved_user_id) {
+    const { data: linkedProfile } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .eq("id", entry.approved_user_id)
+      .maybeSingle();
+
+    if (linkedProfile) {
+      if (!linkedProfile.full_name && entry.name) {
+        await admin.from("profiles").update({ full_name: entry.name }).eq("id", linkedProfile.id);
+      }
+
+      const { error: approveError } = await admin
+        .from("waitlist_entries")
+        .update({
+          status: "approved",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: userData.user.id,
+        })
+        .eq("id", entry.id);
+
+      if (approveError) return json({ error: approveError.message }, 500);
+
+      return json({
+        user_id: linkedProfile.id,
+        email,
+        created: false,
+        already_approved: false,
+        linked_existing: true,
+        source: entry.source ?? null,
+        temp_password: null,
+      });
+    }
+    // الحساب المربوط حُذف: نكمل كطلب عادي وننشئ حسابًا.
+  }
+
   const tempPassword = generateTempPassword();
 
   // ── إنشاء الحساب مؤكَّدًا بدون إرسال بريد تحقق ──
