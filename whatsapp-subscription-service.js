@@ -56,14 +56,18 @@
 import { supabase } from '/api-config.js';
 import { createNotification } from '/notifications-service.js';
 import { uploadTicketAttachment } from '/tickets-service.js';
+import { PLAN_LABELS as CATALOG_LABELS } from '/assets/js/plan-pricing-model.js';
 
-export const PLANS = ['support', 'whatsapp', 'bundle'];
+// 'ultimate' (الخطة الفائقة) من migrations/063. واتساب والشاملة باقيتان هنا لأن
+// مشتركيهما الحاليين يجددون، لكنهما مخفيتان من صفحات البيع (SALE_PLAN_KEYS).
+export const PLANS = ['support', 'ultimate', 'whatsapp', 'bundle'];
 export const BILLING_CYCLES = ['monthly', 'yearly'];
 
 export const PLAN_LABELS = {
-    support: 'الدعم الفني',
-    whatsapp: 'واتساب',
-    bundle: 'دعم فني + واتساب'
+    support: CATALOG_LABELS.support,
+    ultimate: CATALOG_LABELS.ultimate,
+    whatsapp: CATALOG_LABELS.whatsapp,
+    bundle: CATALOG_LABELS.bundle
 };
 
 export const BILLING_LABELS = {
@@ -290,7 +294,10 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             title: `${isUpgrade ? 'طلب ترقية ودمج الباقة' : (isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك')} - ${planLabel} (${billingLabel})`,
             description,
             status: 'open',
-            priority: 'high'
+            priority: 'high',
+            // تذاكر الفوترة خارج رصيد التذاكر الشهري (migrations/063): عميل
+            // استهلك رصيده لازم يقدر يطلب الترقية أو التجديد.
+            category: 'subscription'
         };
 
         // طلبات التحويل البنكي الخارجي لازم تُراجع خلال ساعة كحد أقصى، بغض

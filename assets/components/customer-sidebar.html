@@ -50,6 +50,15 @@
                 <span id="portalSystemStatusText">جارٍ فحص حالة النظام…</span>
             </a>
 
+            <!-- محفظة التذاكر: الرصيد الشهري المتبقي (my_ticket_wallet) -->
+            <div class="ticket-wallet" id="ticketWallet" hidden>
+                <button type="button" class="nav-btn ticket-wallet-btn" id="ticketWalletBtn" aria-label="محفظة التذاكر" aria-haspopup="dialog" aria-expanded="false" title="محفظة التذاكر">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h15V7"></path><path d="M16 14h.01"></path></svg>
+                    <span class="ticket-wallet-count" id="ticketWalletCount"></span>
+                </button>
+                <div class="ticket-wallet-panel" id="ticketWalletPanel" role="dialog" aria-label="رصيد التذاكر" hidden></div>
+            </div>
+
             <button class="nav-btn" id="notificationBtn" aria-label="الإشعارات" title="الإشعارات">
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                 <span class="nav-badge" id="notificationBadge" hidden>0</span>
@@ -161,6 +170,10 @@
         <a href="/company-dashboard/" class="sidebar-item company-nav-item" data-page="company-dashboard" data-label="لوحة الشركة" id="companyDashboardLink" hidden>
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path></svg>
             <span>لوحة الشركة</span>
+        </a>
+        <a href="/my-subscription.html" class="sidebar-item" data-page="my-subscription" data-label="اشتراكي ورصيد التذاكر">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h15V7"></path><path d="M16 14h.01"></path></svg>
+            <span>اشتراكي ورصيد التذاكر</span>
         </a>
         <a href="/customer-subscriptions.html" class="sidebar-item" data-page="customer-subscriptions" data-label="الباقات والاشتراك">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
