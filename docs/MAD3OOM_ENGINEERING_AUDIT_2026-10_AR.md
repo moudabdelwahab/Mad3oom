@@ -37,7 +37,7 @@
 
 **أقوى 5 حاجات:**
 1. هندسة الـ RLS/SECURITY DEFINER في الـ migrations الأخيرة (024→066): حراس أعمدة، `with check`، advisory locks على الحصص، اختبارات تزامن حقيقية بـ `dblink`.
-2. **Conversation Core (064)**: تصميم ذرّي ممتاز (ingest idempotent، optimistic concurrency بـ `state_version`، delivery lease بـ attempt fencing). أحسن قطعة معمارية في المشروع — **لكنها مطفية** (الأعلام `false`، ومفيش مستهلك في الريبو).
+2. **Conversation Core (064)**: تصميم ذرّي ممتاز (ingest idempotent، optimistic concurrency بـ `state_version`، delivery lease بـ attempt fencing). أحسن قطعة معمارية في المشروع — **لكنها مش مطبّقة على الإنتاج أصلًا** (سجل الترحيلات بيقفز من 063 لـ 065a)، ومفيش مستهلك في الريبو. التفاصيل في `docs/CONVERSATION_CORE_064_PRODUCTION_PLAN_AR.md`.
 3. ثقافة توثيق وأدلة: `_AUDIT_NOTES.md`، `_PRODUCTION_SNAPSHOTS.md`، drift detection يومي ضد الإنتاج. نادر جدًا.
 4. Inbox/Handoff (055–060): ضمانات تسليم إنسان↔بوت مثبتة بالاختبار.
 5. CI بيشغّل SQL tests على Postgres حقيقي وبيفشل لو اتخطّت.
@@ -187,7 +187,7 @@ flowchart LR
 | **Live chat (web)** | يعمل عبر SIE | كتابة رسالة العميل من المتصفح منفصلة عن طلب الرد؛ مفيش idempotency key للإرسال | 6/10 |
 | **chat-bot-reply** | منشور، legacy | فهم خاطئ منهجي + أسعار قديمة + `bot_settings.single()` بيفشل دايمًا (§9) | **2/10** |
 | **Inbox/Handoff** | ممتاز DB-wise | الـ UI ملف 1858 سطر | 8/10 |
-| **Conversation Core** | مصمم ممتاز، **مطفي** | مفيش consumer؛ قيمة صفر لحد ما يتفعل | تصميم 9/10 · أثر 0 |
+| **Conversation Core** | مصمم ممتاز، **غير مطبّق على الإنتاج** | مفيش consumer؛ قيمة صفر لحد ما يتطبق ويتفعل | تصميم 9/10 · أثر 0 |
 | **WhatsApp send** | يعمل | توكن منصة مشترك + billing fail-open + rate limit fail-open | 4/10 |
 | **WhatsApp inbound** | غير متحقق (ريبو تاني) | 063 أضاف idempotency على `(user_id, wa_message_id)` — جيد | — |
 | **Telegram (SIE channel)** | يعمل | dedupe في الذاكرة لكل isolate فقط؛ أي exception → 200 (رسالة ضايعة بصمت) | 6/10 |
@@ -273,7 +273,7 @@ flowchart LR
 ## 6. Database Audit
 
 ### 6.1 أكبر مشكلة: الـ schema مش تحت version control
-- الـ migrations تبدأ من `001_create_status_tables` — **مفيش** DDL لـ `profiles`, `tickets`, `chat_sessions`, `chat_messages`, `messages`, `integrations`, `notifications`, `bot_settings`, `whatsapp_subscriptions`… `[كود]`.
+- الـ migrations في الريبو تبدأ من `001_create_status_tables`. سجل الإنتاج (`supabase_migrations.schema_migrations`) فيه ~250 ترحيلة من يناير 2026 **مش موجودة في الريبو**، يعني **مفيش** DDL في الريبو لـ `profiles`, `tickets`, `chat_sessions`, `chat_messages`, `messages`, `integrations`, `notifications`, `bot_settings`, `whatsapp_subscriptions`… `[كود]`.
 - `drift-baseline.json` بيعدّ ~180 دالة حية بلا مصدر.
 - اختبارات SQL بتبني **نسخة يدوية** من شكل الإنتاج (`CREATE TABLE public.profiles (...)` جوه كل ملف اختبار) → لو الإنتاج اتغير، الاختبارات تفضل خضرا وهي بتختبر عالم مش موجود. **ده false confidence هيكلي.**
 - ترقيم: `043_api_token_mutation_guard.sql` و`043_blog.sql` بنفس الرقم؛ 026 و051 ناقصين؛ 065 «طُبّق على خمس دفعات 065a..065e بلا drop if exists» — يعني الملف ≠ ما طُبّق.
@@ -430,7 +430,7 @@ normalize → extract {subject: whatsapp|tickets|plan…, aspect: price|how_to|s
 
 ### مفقود
 - **Queue + DLQ**: كل الـ async = `pg_net` fire-and-forget. مفيش retry policy، مفيش dead-letter.
-- **Idempotency على الإرسال من المتصفح**: `chat_messages` insert بدون client message id (064 فيه الحل ومطفي).
+- **Idempotency على الإرسال من المتصفح**: `chat_messages` insert بدون client message id (064 فيه الحل، ومش مطبّق على الإنتاج).
 - **Circuit breakers على الخدمات الخارجية من السيرفر** (موجود في المتصفح لـ SIE بس).
 - **Timeouts موحدة** (موجودة في أماكن، ناقصة في `callGateway`).
 - **Backups/restore drills**: معتمدين على Supabase بالكامل، ومن غير baseline schema الـ restore لبيئة تانية صعب.
@@ -540,7 +540,7 @@ normalize → extract {subject: whatsapp|tickets|plan…, aspect: price|how_to|s
 7. **Naming debt**: `whatsapp_subscriptions` لكل الخطط؛ `bot_settings` عالمي+per-tenant؛ 3 جداول معرفة.
 8. **وثائق مكدسة**: ~20 ملف MD في الجذر بعضها متناقض/قديم؛ الحقيقة موزعة.
 9. **Legacy مازال منشور**: `chat-bot-reply`, `inbound-email-webhook`, `ai-probe-temp`, gemini-proxy البديل.
-10. **Feature flags كثيرة مطفية لشهور** (Core flags) = كود بيتصان من غير ما يدّي قيمة.
+10. **ترحيلات مكتوبة ومدموجة ومش مطبّقة** (064) = كود بيتصان من غير ما يدّي قيمة، والريبو بيوصف نظام غير اللي شغال.
 
 ---
 
