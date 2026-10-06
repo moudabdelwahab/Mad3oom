@@ -87,3 +87,15 @@ test('060: Take over / Return to AI lock the session row before checking closed'
         assert.ok(lock > 0 && lock < body.indexOf("= 'closed'") && lock < body.indexOf('_handoff_set('), fn);
     }
 });
+
+test('064: per-message Conversation Core events never become timeline lines', async () => {
+    const { buildTimeline } = await import('../assets/js/admin/inbox-model.js');
+    const at = '2026-10-05T10:00:00Z';
+    const kinds = ['conversation_created', 'message_received', 'agent_replied', 'human_reply'];
+    const timeline = buildTimeline([{ id: 'm1', created_at: at }], [],
+        [...kinds, 'closed', 'handoff_to_human'].map((kind, i) => ({ id: i, kind, created_at: at, payload: {} })));
+    assert.deepEqual(timeline.filter((r) => r.type === 'event').map((r) => r.item.kind), ['closed', 'handoff_to_human']);
+    // كل نوع اتضاف في 064 لازم يبقى مخفي أو ليه جملة — مفيش «فلان: message_received».
+    const sql = await read('migrations/064_conversation_core.sql');
+    for (const k of kinds) assert.ok(sql.includes(`'${k}'`), k);
+});
