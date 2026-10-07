@@ -91,3 +91,6 @@ jobs:
           fi
           grep -q "ALL PLATFORM OWNER CONTEXT TESTS PASSED" sql-output.txt \
             || { echo "::error::اختبار سياق مالك المنصة لم يُبلّغ بالنجاح"; exit 1; }
+          # بوابة Conversation Core على نسخة الإنتاج: لو اتخطّت بصمت، 064/067 يتدمجوا من غير إثبات.
+          grep -q "ALL CONVERSATION CORE GATE TESTS PASSED" sql-output.txt \
+            || { echo "::error::بوابة Conversation Core لم تُبلّغ بالنجاح"; exit 1; }
