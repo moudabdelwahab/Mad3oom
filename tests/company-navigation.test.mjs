@@ -415,7 +415,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         كان يتخطى نموذج الانتظار فلا يظهر للأدمن. محفّز على profiles يضيفه
     //         للقائمة، وإدراج الحسابات الناقصة — في القاعدة لأن OAuth لا يمر
     //         بالواجهة. مقيسٌ في tests/sql/waitlist-capture.test.sql.
-    assert.equal(migrations[migrations.length - 1], '066_waitlist_capture_all_signups.sql',
+    //   067 — بوابة Conversation Core (معتمَد: «اعتمد Production» — 064 و067
+    //         على الإنتاج والأعلام مقفولة، اتطبّقوا 2026-10-08): تقفل فجوات 064
+    //         قبل أي تشغيل — الحصة جوه savepoint، ترتيب الأقفال، المرفقات، ملكية
+    //         الإنسان، الكاتب الواحد، بوابة الحساب، مساحة turn:، حد محاولات
+    //         الإرسال، وأعلام تدريجية. قرار تزامن وسلطة في الخادم. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/conversation-core-gate.test.sql.
+    assert.equal(migrations[migrations.length - 1], '067_conversation_core_gate.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

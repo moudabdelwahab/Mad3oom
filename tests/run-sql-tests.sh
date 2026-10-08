@@ -34,11 +34,11 @@ for f in "$ROOT"/tests/sql/*.test.sql; do
   echo "── $(basename "$f")"
   out=$( cd "$ROOT" && psql -h "$TMP/sock" -U postgres -q -f "$f" postgres 2>&1 )
   status=$?
-  echo "$out" | grep -E "PASS|FAIL|ERROR|ALL " || true
+  echo "$out" | grep -E "PASS|FAIL|ERROR|ALL |PROVEN" || true
   if [ $status -ne 0 ]; then
     rc=1
     echo "   ↑ psql exited $status"
   fi
-  psql -h "$TMP/sock" -U postgres -q -c "drop schema if exists public cascade; create schema public; drop schema if exists auth cascade; drop schema if exists storage cascade;" postgres >/dev/null 2>&1
+  psql -h "$TMP/sock" -U postgres -q -c "drop schema if exists public cascade; create schema public; drop schema if exists auth cascade; drop schema if exists storage cascade; drop schema if exists net, extensions, vault, emp_ops, t cascade;" postgres >/dev/null 2>&1
 done
 exit $rc
