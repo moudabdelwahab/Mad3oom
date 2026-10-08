@@ -651,20 +651,27 @@ BEGIN
   IF st <> 'ok' THEN RAISE EXCEPTION 'FAIL D4g: (%)', st; END IF;
   RESET ROLE;
 
-  -- تعديل الجلسة من العميل: الإقفال بس
+  -- تعديل جلسة Core من العميل: الإقفال بس (C2 برا الطرح — الحارس على الجلسة مش على العلم)
+  PERFORM t.act('00000000-0000-4000-8000-0000000000c2');
+  SET LOCAL ROLE authenticated;
+  IF t.try(format($s$update public.chat_sessions set guest_id = 'channel:telegram:999' where id = %L$s$, sid2)) <> '42501'
+     OR t.try(format($s$update public.chat_sessions set created_at = now() - interval '1 year' where id = %L$s$, sid2)) <> '42501' THEN
+    RAISE EXCEPTION 'FAIL D4h: العميل غيّر أصل جلسة Core';
+  END IF;
+  UPDATE public.chat_sessions SET status = 'closed' WHERE id = sid2;
+  IF t.try(format($s$update public.chat_sessions set status = 'active' where id = %L$s$, sid2)) <> '42501' THEN
+    RAISE EXCEPTION 'FAIL D4i: العميل رجّع جلسة Core مقفولة';
+  END IF;
+  RESET ROLE;
+  IF (SELECT status FROM public.chat_sessions WHERE id = sid2) <> 'closed' THEN RAISE EXCEPTION 'FAIL D4j: الإقفال من العميل اتمنع'; END IF;
+  -- الجلسات القديمة: سلوك ما قبل 067 بالظبط (التثبيت مايغيّرش حاجة قائمة)
   INSERT INTO public.chat_sessions (user_id) VALUES ('00000000-0000-4000-8000-0000000000c2') RETURNING id INTO legacy;
   PERFORM t.act('00000000-0000-4000-8000-0000000000c2');
   SET LOCAL ROLE authenticated;
-  IF t.try(format($s$update public.chat_sessions set guest_id = 'channel:telegram:999' where id = %L$s$, legacy)) <> '42501'
-     OR t.try(format($s$update public.chat_sessions set created_at = now() - interval '1 year' where id = %L$s$, legacy)) <> '42501' THEN
-    RAISE EXCEPTION 'FAIL D4h: العميل غيّر أصل الجلسة';
-  END IF;
   UPDATE public.chat_sessions SET status = 'closed' WHERE id = legacy;
-  IF t.try(format($s$update public.chat_sessions set status = 'active' where id = %L$s$, legacy)) <> '42501' THEN
-    RAISE EXCEPTION 'FAIL D4i: العميل رجّع جلسة مقفولة';
-  END IF;
+  st := t.try(format($s$update public.chat_sessions set status = 'active' where id = %L$s$, legacy));
   RESET ROLE;
-  IF (SELECT status FROM public.chat_sessions WHERE id = legacy) <> 'closed' THEN RAISE EXCEPTION 'FAIL D4j: الإقفال من العميل اتمنع'; END IF;
+  IF st <> 'ok' THEN RAISE EXCEPTION 'FAIL D4j2: حارس 067 غيّر سلوك جلسة قديمة (%)', st; END IF;
 
   -- 100% ⇒ الكل؛ مقفول ⇒ الرجوع للسلوك القديم (حتى في جلسة اتبنّت)
   PERFORM t.flag('website', '{"enabled":true,"percent":100}');
@@ -675,7 +682,7 @@ BEGIN
   st := t.try(format($s$insert into public.chat_messages (session_id, sender_id, message_text) values (%L, '00000000-0000-4000-8000-0000000000c1', 'بعد الرجوع')$s$, sid1));
   RESET ROLE;
   IF st <> 'ok' THEN RAISE EXCEPTION 'FAIL D4l: الرجوع (العلم مقفول) ماسمحش للمتصفح (%)', st; END IF;
-  RAISE NOTICE 'PASS D4: العلم مفتوح لـ C1 ⇒ كتابة مباشرة (55000) وجلسة جديدة و conv_* (42501) مرفوضين؛ C2 برا الطرح ⇒ قديم؛ الإقفال بس مسموح للعميل؛ قفل العلم ⇒ رجوع كامل';
+  RAISE NOTICE 'PASS D4: العلم مفتوح لـ C1 ⇒ كتابة مباشرة (55000) وجلسة جديدة و conv_* (42501) مرفوضين؛ C2 برا الطرح ⇒ قديم؛ جلسة Core: الإقفال بس للعميل؛ الجلسات القديمة سلوكها زي ما هو؛ قفل العلم ⇒ رجوع كامل';
 END $$;
 
 -- D4 كتّاب الخادم القدام: sie-api / Android / تيليجرام القديم / الإشعارات

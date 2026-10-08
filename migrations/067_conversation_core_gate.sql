@@ -26,7 +26,7 @@
 --         «المالك مابيتغيرش إلا عبر _handoff_set أو إقفال صريح».
 --   D4  كاتب واحد: لما علم القناة يتفتح، العميل مايقدرش يكتب رسالة في محادثة
 --       Core ولا ينشئ جلسة موقع بنفسه (سياسات RESTRICTIVE). والعميل عمومًا
---       مايقدرش يرجّع جلسة مقفولة ولا يغيّر user_id / guest_id / created_at.
+--       مايقدرش يرجّع جلسة Core مقفولة ولا يغيّر user_id / guest_id / created_at فيها.
 --       العلم مقفول ⇒ السلوك القديم بالظبط (ده اللي بيخلّي الرجوع ممكن).
 --       وكمان كتّاب الخادم القدام (persist_bot_turn، create_ticket_with_message_…،
 --       chat_post_notice، مسار تيليجرام القديم): محفّز على chat_messages بيرفض
@@ -130,8 +130,10 @@ create policy core_single_writer on public.chat_sessions
   as restrictive for insert to authenticated
   with check (public.has_elevated_authority() or not public.conv_channel_enabled('website', auth.uid()));
 
--- تعديل العميل للجلسة: الإقفال بس (active → closed). مفيش رجوع لجلسة مقفولة
--- (كانت بتفتح محادثة نشطة تانية جنب واحدة موجودة)، ولا تغيير هوية أو أصل.
+-- تعديل العميل لجلسة Core: الإقفال بس (active → closed). مفيش رجوع لجلسة
+-- مقفولة (كانت بتفتح محادثة نشطة تانية جنب واحدة موجودة)، ولا تغيير هوية أو أصل.
+-- الجلسات القديمة (channel IS NULL) ماتتلمسش عن قصد: التثبيت لازم مايغيّرش أي
+-- سلوك قائم والأعلام مقفولة — والجلسة بتبقى Core بس لما conv_ingest_message يتبنّاها.
 -- الطاقم المرتفع والدوال المالكة والخادم بيعدّوا (نفس فكرة 062 و 064).
 create or replace function public.guard_client_session_update()
 returns trigger
@@ -140,7 +142,8 @@ security invoker
 set search_path to 'public'
 as $$
 begin
-  if current_user not in ('anon', 'authenticated') or public.has_elevated_authority() then
+  if current_user not in ('anon', 'authenticated') or old.channel is null
+     or public.has_elevated_authority() then
     return new;
   end if;
   if new.user_id is distinct from old.user_id
