@@ -12,8 +12,16 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //   2. invoices  — كل اشتراك مؤكَّد (active/expired) ينتج فاتورة
 //      واحدة. السعر من كتالوج service_plans في المحاسبة، لأن
 //      whatsapp_subscriptions لا تحمل مبلغاً.
-//   3. outbox    — الفواتير الصادرة تُسجَّل هنا وتُضاف داخل التذكرة
-//      كرد مرفق، ثم يُكتب رابطها العام في المحاسبة ليُطبع كـ QR.
+//   3. outbox    — الفواتير الصادرة تُسجَّل هنا (ويصدر رمزها العام)،
+//      ثم يُكتب رابطها العام في المحاسبة ليُطبع كـ QR. الإرفاق داخل
+//      التذكرة لم يعد هنا: يتم بزر «إرفاق فاتورة» في لوحة التذاكر
+//      (attach_accounting_invoice، الترحيل 051).
+//
+// طريقتان للنداء:
+//   - x-sync-secret: مزامنة كاملة لكل الاشتراكات القابلة للفوترة.
+//   - جلسة طاقم المنصة (Authorization: Bearer <JWT>) مع
+//     { "subscription_id": "..." }: اشتراك واحد فقط. تناديها لوحة
+//     التذاكر بعد الموافقة على الاشتراك، وقبل الإرفاق إن لم تصل بعد.
 //
 // كل مرحلة قابلة لإعادة التشغيل بأمان: التكرار محكوم بفهارس فريدة
 // على الطرفين (customers.external_id و invoices.external_subscription_id
@@ -97,9 +105,29 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
 
+  const body = await req.json().catch(() => ({})) as Json;
+  const subscriptionId = typeof body.subscription_id === "string" ? body.subscription_id : null;
+  if (subscriptionId && !/^[0-9a-f-]{36}$/i.test(subscriptionId)) {
+    return jsonResponse({ error: "subscription_id غير صالح" }, 400);
+  }
+
+  // مزامنة كاملة بالسر، أو اشتراك واحد بجلسة طاقم المنصة
   const syncSecret = Deno.env.get("SYNC_SECRET");
-  if (!syncSecret || req.headers.get("x-sync-secret") !== syncSecret) {
-    return jsonResponse({ error: "unauthorized" }, 401);
+  const bySecret = !!syncSecret && req.headers.get("x-sync-secret") === syncSecret;
+  if (!bySecret) {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!subscriptionId || !authHeader.startsWith("Bearer ")) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
+    const caller = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: isStaff, error: staffErr } = await caller.rpc("is_platform_staff");
+    if (staffErr || isStaff !== true) {
+      return jsonResponse({ error: "forbidden" }, 403);
+    }
   }
 
   const acctUrl = Deno.env.get("ACCOUNTING_URL");
@@ -129,10 +157,12 @@ Deno.serve(async (req) => {
 
   try {
     // ---------- 1) العملاء ----------
-    const { data: subs, error: subsErr } = await mad3oom
+    let subsQuery = mad3oom
       .from("whatsapp_subscriptions")
       .select("id, user_id, ticket_id, plan, billing_cycle, status, start_date, end_date")
       .in("status", BILLABLE_STATUSES);
+    if (subscriptionId) subsQuery = subsQuery.eq("id", subscriptionId);
+    const { data: subs, error: subsErr } = await subsQuery;
     if (subsErr) throw new Error(`قراءة الاشتراكات: ${subsErr.message}`);
 
     const userIds = [...new Set((subs ?? []).map((s) => s.user_id))];
@@ -182,6 +212,8 @@ Deno.serve(async (req) => {
     const planKey = (code: unknown, cycle: unknown) => `${code}|${cycle}`;
     const planMap = new Map(plans.map((p) => [planKey(p.code, p.billing_cycle), p]));
 
+    const invoiceIds: string[] = [];
+
     for (const sub of subs ?? []) {
       const customerId = customerByExternal.get(String(sub.user_id));
       const plan = planMap.get(planKey(sub.plan, sub.billing_cycle));
@@ -219,16 +251,36 @@ Deno.serve(async (req) => {
       });
 
       const created = await readJson(res, "إنشاء فاتورة");
-      if (created.length > 0) report.invoices_created++;
-      else report.invoices_skipped++;
+      if (created.length > 0) {
+        report.invoices_created++;
+        invoiceIds.push(String(created[0].id));
+      } else {
+        report.invoices_skipped++;
+        // موجودة من قبل: في وضع الاشتراك الواحد نحتاج معرّفها لتسليم حدثها
+        if (subscriptionId) {
+          const existing = await readJson(
+            await accounting(`invoices?external_subscription_id=eq.${sub.id}&select=id`, { ...acct, method: "GET" }),
+            "قراءة الفاتورة الموجودة",
+          );
+          if (existing[0]?.id) invoiceIds.push(String(existing[0].id));
+        }
+      }
     }
 
-    // ---------- 3) تسليم الطابور إلى داخل التذاكر ----------
-    const outboxRes = await accounting(
-      "integration_outbox?status=eq.pending&event_type=eq.invoice.issued&order=created_at.asc&limit=100&select=id,payload",
-      { ...acct, method: "GET" },
-    );
-    const events = await readJson(outboxRes, "قراءة الطابور");
+    // ---------- 3) تسليم الطابور: تسجيل الفاتورة ورمزها (الإرفاق بالزر) ----------
+    // وضع الاشتراك الواحد يسلّم حدث فاتورته فقط
+    const invoiceFilter = subscriptionId
+      ? `&invoice_id=in.(${invoiceIds.join(",")})`
+      : "";
+    const events = subscriptionId && invoiceIds.length === 0
+      ? []
+      : await readJson(
+        await accounting(
+          `integration_outbox?status=eq.pending&event_type=eq.invoice.issued${invoiceFilter}&order=created_at.asc&limit=100&select=id,payload`,
+          { ...acct, method: "GET" },
+        ),
+        "قراءة الطابور",
+      );
 
     for (const event of events) {
       const payload = (event.payload ?? {}) as Json;
