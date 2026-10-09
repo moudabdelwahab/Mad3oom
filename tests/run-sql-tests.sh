@@ -18,8 +18,11 @@ mkdir -p "$TMP/data" "$TMP/sock" && chown -R "$RUNAS" "$TMP"
 cleanup() { su "$RUNAS" -s /bin/bash -c "$PGBIN/pg_ctl -D $TMP/data -m immediate stop" >/dev/null 2>&1; rm -rf "$TMP"; }
 trap cleanup EXIT
 
+# UTF8 صراحةً، مثل الإنتاج. بلا ذلك يأخذ initdb لغة البيئة، وحاوية CI بلا
+# لغة فتصير القاعدة SQL_ASCII: دوال النص تعمل بالبايت فتفشل اختبارات عربية
+# تنجح محليًا وفي الإنتاج (company-account-requests R2).
 su "$RUNAS" -s /bin/bash -c "
-  $PGBIN/initdb -D $TMP/data -A trust -U postgres > $TMP/initdb.log 2>&1 &&
+  $PGBIN/initdb -D $TMP/data -A trust -U postgres -E UTF8 --locale=C.UTF-8 > $TMP/initdb.log 2>&1 &&
   $PGBIN/pg_ctl -D $TMP/data -o '-k $TMP/sock -c listen_addresses=' -l $TMP/pg.log -w start > /dev/null 2>&1
 " || { echo "FAIL: could not start PostgreSQL"; tail -5 "$TMP"/*.log; exit 1; }
 
