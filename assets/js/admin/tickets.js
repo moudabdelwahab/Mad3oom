@@ -12,6 +12,8 @@ import {
     fetchSavedFilters, createSavedFilter, deleteSavedFilter
 } from '/tickets-service.js';
 import { impersonateUser } from './admin-utils.js';
+import { PLATFORM_OWNER_ROLE } from '/assets/js/access-policy.js';
+import { attachInvoicePdf } from './invoice-pdf.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
 import { confirmWalletTopupTicket, rejectWalletTopupTicket } from 'https://wa.mad3oom.com/whatsapp-wallet-topup-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
@@ -123,8 +125,11 @@ async function init() {
     user = await checkAdminAuth();
     if (!user) return;
 
-    isAdminRole = user.profile?.role === 'admin';
-    isStaffRole = ['admin', 'support'].includes(user.profile?.role);
+    // مالك المنصة هنا معناه إنه في سياق owner/admin: guardPage('admin') بترفضه
+    // في أي سياق تاني. والقاعدة بتعيد الفحص بـ is_admin() (070/071).
+    const isOwner = user.profile?.role === PLATFORM_OWNER_ROLE;
+    isAdminRole = user.profile?.role === 'admin' || isOwner;
+    isStaffRole = ['admin', 'support'].includes(user.profile?.role) || isOwner;
 
     updateAdminUI(user);
     applyRolePermissions();
@@ -1486,12 +1491,13 @@ function exportTicketsToCsv(tickets) {
     URL.revokeObjectURL(url);
 }
 
-/* ==================== الفاتورة: acc ثم زر «إرفاق فاتورة» ==================== */
+/* ==================== الفاتورة: acc ثم زر «إرفاق فاتورة PDF» ==================== */
 
 // الاشتراك المؤكَّد يذهب أولًا إلى النظام المحاسبي (acc): accounting-sync
 // تُنشئ الفاتورة هناك وتسجّلها هنا برمزها العام، دون أن تكتب شيئًا في
-// التذكرة. الإرفاق في الردود يتم بعدها بزر، والصلاحية تُفحص في القاعدة
-// (is_platform_staff: المالك والأدمن والموظفين).
+// التذكرة. الإرفاق في الردود يتم بعدها بزر: ملف PDF كامل بتصميم acc
+// (invoice-pdf.js، 072)، والصلاحية تُفحص في القاعدة (is_platform_staff:
+// المالك والأدمن والموظفين).
 async function pushSubscriptionToAccounting(subscriptionId) {
     const { data, error } = await supabase.functions.invoke('accounting-sync', {
         body: { subscription_id: subscriptionId }
@@ -1511,29 +1517,35 @@ async function renderInvoiceAttach(ticket, subscription) {
         return;
     }
 
-    if (info?.state === 'attached') {
-        box.innerHTML = `<div style="font-size:.8rem; color:#3DBE7A; display:flex; align-items:center; gap:.35rem;">${ICONS.checkSmall} تم إرفاق الفاتورة ${escapeHtml(info.invoice_number || '')} في ردود التذكرة</div>`;
+    // مرفقة PDF ⇒ خلاص. مرفقة قبل 072 كرابط بس ⇒ الزر بيحوّل نفس المرفق لـ PDF.
+    if (info?.state === 'attached' && info?.has_pdf) {
+        box.innerHTML = `<div style="font-size:.8rem; color:#3DBE7A; display:flex; align-items:center; gap:.35rem;">${ICONS.checkSmall} تم إرفاق الفاتورة ${escapeHtml(info.invoice_number || '')} (PDF) في ردود التذكرة</div>`;
         return;
     }
 
-    const hint = info?.state === 'ready'
-        ? `الفاتورة ${escapeHtml(info.invoice_number || '')} جاهزة في النظام المحاسبي.`
-        : 'الفاتورة لم تصل من النظام المحاسبي بعد — الضغط يرسل الاشتراك أولًا.';
+    const number = escapeHtml(info?.invoice_number || '');
+    const hint = info?.state === 'attached'
+        ? `الفاتورة ${number} مرفقة كرابط فقط — أرفق نسخة PDF كاملة منها.`
+        : info?.state === 'ready'
+            ? `الفاتورة ${number} جاهزة في النظام المحاسبي.`
+            : 'الفاتورة لم تصل من النظام المحاسبي بعد — الضغط يرسل الاشتراك أولًا ثم يرفق الفاتورة PDF.';
+    const label = info?.state === 'attached' ? 'إرفاق نسخة PDF' : 'إرفاق فاتورة PDF';
     box.innerHTML = `
         <div style="font-size:.78rem; color:var(--color-text-secondary); margin-bottom:.5rem;">${hint}</div>
-        <button id="attachInvoiceBtn" class="btn btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; border-radius:.6rem; color:#fff; cursor:pointer;">${ICONS.paperclip} إرفاق فاتورة</button>`;
+        <button id="attachInvoiceBtn" class="btn btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; border-radius:.6rem; color:#fff; cursor:pointer;">${ICONS.paperclip} ${label}</button>`;
 
     document.getElementById('attachInvoiceBtn')?.addEventListener('click', async (event) => {
         const btn = event.currentTarget;
         btn.disabled = true;
-        btn.textContent = 'جاري الإرفاق...';
+        btn.textContent = 'جاري تجهيز الفاتورة PDF...';
         try {
-            if (info?.state !== 'ready') {
+            if (!info || info.state === 'none') {
                 await pushSubscriptionToAccounting(subscription.id);
             }
-            const { data: result, error: attachError } = await supabase.rpc('attach_accounting_invoice', { p_ticket_id: ticket.id });
-            if (attachError) throw new Error(attachError.message);
-            showToast(result?.status === 'already_attached' ? 'الفاتورة مرفقة بالفعل' : 'تم إرفاق الفاتورة في ردود التذكرة');
+            const result = await attachInvoicePdf(ticket.id);
+            showToast(result?.status === 'already_attached'
+                ? 'الفاتورة مرفقة PDF بالفعل'
+                : 'تم إرفاق الفاتورة PDF في ردود التذكرة');
             await showAdminTicketInPanel(ticket.id);
         } catch (err) {
             showToast('فشل إرفاق الفاتورة: ' + err.message, 'error');
