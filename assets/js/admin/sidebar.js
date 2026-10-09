@@ -374,6 +374,8 @@ async function applySidebarPermissions() {
     // تاني جلساته هو بس — فالسوبر يوزر كان هيشوف صندوق فاضي.
     if (isAdmin || isSupport) {
         showLink('inboxLink');
+        // مساحة العمل تستضيف الصندوق والتذاكر وسجل العميل — نفس الجمهور.
+        showLink('workspaceLink');
     }
 
     if (isMainAdmin || isAdmin || profile.whatsapp_enabled) {
