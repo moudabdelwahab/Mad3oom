@@ -35,6 +35,15 @@ const TABLE_DEFAULTS = {
     notifications:  { is_read: false }
 };
 
+/**
+ * أعمدة NOT NULL بلا قيمة افتراضية كما هي في القاعدة. الإدراج الناقص يرجع
+ * نفس خطأ Postgres (23502) بدل ما ينجح في الاختبار ويفشل في الإنتاج — وده
+ * بالظبط اللي خبّى فشل رفع كل مرفقات التذاكر من 2026-09-09.
+ */
+const TABLE_REQUIRED = {
+    ticket_attachments: ['ticket_id', 'file_url']
+};
+
 function resolveRows(table) {
     const rows = FX().tables?.[table];
     return Array.isArray(rows) ? rows.slice() : [];
@@ -84,6 +93,15 @@ function builder(table, mode = 'select') {
         },
         insert(payload) {
             const row = Array.isArray(payload) ? payload[0] : payload;
+            const missing = (TABLE_REQUIRED[table] || []).find(col => row?.[col] === undefined || row?.[col] === null);
+            if (missing) {
+                state.insertError = {
+                    code: '23502',
+                    message: `null value in column "${missing}" of relation "${table}" violates not-null constraint`
+                };
+                record('insert_rejected', table, row);
+                return api;
+            }
             state.inserted = {
                 id: `new-${table}-${Date.now()}`,
                 ticket_number: 9001,
@@ -129,7 +147,8 @@ function builder(table, mode = 'select') {
         maybeSingle() { state.maybeSingle = true; return api; },
         then(onFulfilled, onRejected) {
             let result;
-            if (state.inserted) result = { data: state.inserted, error: null };
+            if (state.insertError) result = { data: null, error: state.insertError };
+            else if (state.inserted) result = { data: state.inserted, error: null };
             else if (state.patch || state.deleted) result = { data: null, error: null };
             else result = run();
             return Promise.resolve(result).then(onFulfilled, onRejected);
@@ -245,6 +264,10 @@ export const supabase = {
     storage: {
         from: () => ({
             upload: async () => ({ error: null }),
+            // توقيع افتراضي. قبل getPublicUrl عمدًا: اختبارات بتحقن نسختها
+            // المُسجِّلة بعد سطر getPublicUrl، والمفتاح الأخير هو اللي بيكسب.
+            createSignedUrl: async (p) => ({ data: { signedUrl: `/signed/${p}` }, error: null }),
+            createSignedUrls: async (ps) => ({ data: ps.map(p => ({ path: p, signedUrl: `/signed/${p}` })), error: null }),
             getPublicUrl: (p) => ({ data: { publicUrl: `/uploads/${p}` } })
         })
     }

@@ -92,7 +92,7 @@ test.before(async () => {
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
-async function open(fx, url, { viewport } = {}) {
+async function open(fx, url, { viewport, dialogs = null } = {}) {
     const context = await browser.newContext({ viewport: viewport || { width: 1280, height: 900 } });
     const page = await context.newPage();
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
@@ -103,7 +103,10 @@ async function open(fx, url, { viewport } = {}) {
     await page.addInitScript(data => { window.__FIXTURES__ = data; }, fx);
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    page.on('dialog', d => { errors.push(`unexpected dialog: ${d.message()}`); d.dismiss(); });
+    page.on('dialog', d => {
+        if (dialogs) dialogs.push(d.message()); else errors.push(`unexpected dialog: ${d.message()}`);
+        d.dismiss();
+    });
     await page.goto(`${baseUrl}${url}`, { waitUntil: 'networkidle' });
     return { page, context, errors };
 }
@@ -257,6 +260,65 @@ test('صفحة «الاشتراكات» داخل البوابة تسأل نفس 
     // على عرض الجوال الخياران تحت بعض ولا تمرير أفقي
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 0, `تمرير أفقي ${overflow}px`);
+    await context.close();
+});
+
+test('فرد + تحويل بنكي + PDF ⇒ الطلب يتسجّل والإثبات يتحفظ (file_url NOT NULL)', { skip: !chromiumPath }, async () => {
+    // المسار اللي كان بيفشل في الإنتاج من 2026-09-09: الرفع للتخزين ينجح، ثم
+    // إدراج ticket_attachments يترفض (23502 على file_url) فيُلغى الطلب كله.
+    // البديل الاختباري بقى يفرض نفس NOT NULL، فالاختبار ده كان هيفشل قبل الإصلاح.
+    const fx = customer();
+    fx.tables.tickets = [];
+    fx.tables.ticket_attachments = [];
+    fx.rpc.subscription_purchase_check = { allowed: true };
+    fx.rpc.submit_subscription_request = {
+        subscription_id: 'sub-1', status: 'pending',
+        ticket: { id: 'tk-1', ticket_number: 1121, category: 'subscription', status: 'open' }
+    };
+    fx.rpc.cancel_my_subscription_request = true;
+    const dialogs = [];
+    const { page, context, errors } = await open(fx, '/subscriptions.html', { dialogs });
+
+    await clickSubscribe(page);
+    await page.locator('[data-account-type="individual"]').click();
+    await page.getByText('اختر وسيلة الدفع').waitFor();
+    await page.check('input[name="pm_method"][value="bank_transfer"]');
+    await page.setInputFiles('#pmProofInput', {
+        name: 'إثبات تحويل.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test')
+    });
+    await page.click('#pmConfirmBtn');
+    await page.waitForFunction(() => (window.__WRITES__ || []).some(w => w.table === 'ticket_attachments'));
+    await page.waitForTimeout(300);
+
+    const attach = (await writes(page)).filter(w => w.table === 'ticket_attachments');
+    assert.deepEqual(attach.map(w => w.op), ['insert'], `الإدراج اترفض: ${JSON.stringify(attach)}`);
+    const row = attach[0].row;
+    assert.match(row.file_path, /^tk-1\/\d+_[a-z0-9]+_.+\.pdf$/);
+    assert.equal(row.file_url, `/uploads/${row.file_path}`, 'file_url = الرابط العام للمسار نفسه (وسيلة الرجوع في 030)');
+    assert.equal(row.mime_type, 'application/pdf');
+    assert.equal(row.file_name, 'إثبات تحويل.pdf');
+
+    assert.deepEqual(await called(page, 'cancel_my_subscription_request'), [], 'الطلب اتلغى بعد الرفع');
+
+    // التذكرة والطلب نداء واحد على الخادم (069): المتصفح مابيدرجش تذكرة ولا
+    // بيبعت تصنيف/أولوية/صاحب — دول بيفرضهم الخادم.
+    assert.deepEqual((await writes(page)).filter(w => w.table === 'tickets'), []);
+    assert.deepEqual(await called(page, 'request_subscription_purchase'), []);
+    const submit = await called(page, 'submit_subscription_request');
+    assert.equal(submit.length, 1);
+    const args = submit[0][1];
+    assert.deepEqual(Object.keys(args).sort(), ['p_billing_cycle', 'p_is_renewal', 'p_payment_method',
+        'p_payment_reference', 'p_plan', 'p_ticket_description', 'p_ticket_title']);
+    assert.equal(args.p_plan, 'support');
+    assert.equal(args.p_payment_method, 'bank_transfer');
+    assert.equal(args.p_is_renewal, false);
+    assert.match(args.p_ticket_title, /^طلب اشتراك - /);
+    assert.match(args.p_ticket_description, /طلب تحويل خارجي/);
+    assert.equal(dialogs.length, 1);
+    assert.match(dialogs[0], /تم إرسال طلب الاشتراك بنجاح/);
+    assert.match(dialogs[0], /#1121/);
+    assert.match(dialogs[0], /سيتم مراجعة إثبات التحويل/);
+    assert.deepEqual(errors, []);
     await context.close();
 });
 
