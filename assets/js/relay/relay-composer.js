@@ -406,7 +406,7 @@ function describeError(err) {
     }
     if (err?.code === 'not_found' && err.field === 'sources') return 'رسالة أو أكتر من المختارة مبقتش متاحة لك. ارجع وراجع الاختيار.';
     if (err?.code === 'validation_failed' && err.reason === 'sensitive_content') return 'الرسائل فيها بيانات حساسة. أكّد إنك فاهم قبل المتابعة.';
-    if (err?.code === 'validation_failed' && err.reason === 'not_eligible') return 'الموظف ده مش متاح يكون مالك للسجل.';
+    if (err?.code === 'validation_failed' && err.reason === 'not_eligible') return 'الموظف ده حسابه مش نشط (مش مكمّل التحقق من الحساب أو محظور)، فمينفعش يبقى مالك للسجل.';
     if (err?.code === 'validation_failed' && err.field === 'due.at') return 'راجع الموعد: لازم يكون في المستقبل وخلال سنة.';
     return err?.message || 'حصل خطأ غير متوقع.';
 }

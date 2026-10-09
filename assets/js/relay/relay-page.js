@@ -227,6 +227,19 @@ function patchFromForm(form, record) {
     return patch;
 }
 
+// رسائل أوضح لرفض الخادم المتوقع؛ الخادم هو اللي بيقرر، ده عرض بس.
+const INACTIVE_STAFF = 'حسابه مش نشط (مش مكمّل التحقق من الحساب أو محظور)';
+function friendlyError(err) {
+    if (err?.code === 'validation_failed' && err.reason === 'not_eligible') {
+        if (err.field === 'user_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش ياخد صلاحية الإسناد. فعّل حسابه الأول.`;
+        if (err.field === 'owner_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش يبقى مالك للسجل.`;
+    }
+    if (err?.code === 'forbidden' && (err.field === 'owner_id' || err.field === 'team_id')) {
+        return 'مش مسموح لك تنقل السجل لموظف تاني أو لفريق. تقدر تاخده لنفسك أو تسيبه من غير مالك.';
+    }
+    return err?.message || 'حصل خطأ';
+}
+
 async function act(fn, okText) {
     if (state.busy) return;
     state.busy = true;
@@ -241,7 +254,7 @@ async function act(fn, okText) {
         }
         await reloadList();
     } catch (err) {
-        toast(err.code === 'version_conflict' ? err.message : err.message || 'حصل خطأ', 'err');
+        toast(friendlyError(err), 'err');
         if (err.code === 'version_conflict' && state.current?.record?.id) await openRecord(state.current.record.id, { push: false });
     } finally {
         state.busy = false;
@@ -334,7 +347,7 @@ function wire() {
                 toast('اتسحبت الصلاحية');
             } else return;
         } catch (err) {
-            toast(err.message, 'err');
+            toast(friendlyError(err), 'err');
         }
         renderAssigners();
     });
