@@ -548,7 +548,7 @@ test('تغيّر تذكرة يحدّث سجل العميل المفتوح — إ
     const { page, context, errors } = await openWorkspace(fixtures(), { local });
     const ticket = await frameFor(page, 'view=ticket');
     const customer = await frameFor(page, 'view=customer');
-    await customer.waitForFunction(() => document.getElementById('custName').textContent === 'كريم مصطفى');
+    await customer.waitForFunction(() => document.getElementById('custName')?.textContent === 'كريم مصطفى');
     await ticket.waitForSelector('#adminTicketDetailsContent h2');
 
     const changed = (id, customerId) => ticket.evaluate(({ id, customerId }) => window.parent.postMessage(
@@ -556,7 +556,7 @@ test('تغيّر تذكرة يحدّث سجل العميل المفتوح — إ
 
     await customer.evaluate(() => { document.getElementById('custName').textContent = 'قديم'; });
     await changed(T_KARIM, KARIM);
-    await customer.waitForFunction(() => document.getElementById('custName').textContent === 'كريم مصطفى', null, { timeout: 4000 });
+    await customer.waitForFunction(() => document.getElementById('custName')?.textContent === 'كريم مصطفى', null, { timeout: 4000 });
 
     await customer.evaluate(() => { document.getElementById('custName').textContent = 'قديم'; });
     // خانة الملاحظات في تبويب داخلي غير ظاهر؛ نكتب فيها كما يكتب المتصفح
@@ -610,7 +610,7 @@ test('الإطارات كسولة ومحدودة: لا تُنشأ قبل ظهو�
     await page.waitForFunction(() => document.querySelectorAll('.ws-tab-title')[8]?.textContent === 'عميل 8');
 
     const first = await frameFor(page, ids[0]);
-    await first.waitForFunction(() => document.getElementById('custName').textContent === 'عميل 0');
+    await first.waitForFunction(() => document.getElementById('custName')?.textContent === 'عميل 0');
     await first.evaluate(() => { const b = document.getElementById('newNoteText'); b.value = 'ملاحظة'; b.dispatchEvent(new Event('input', { bubbles: true })); });
 
     for (const id of tabs.slice(1)) {
@@ -624,7 +624,7 @@ test('الإطارات كسولة ومحدودة: لا تُنشأ قبل ظهو�
     // تبويب فُرِّغ إطاره يُحمَّل من جديد عند عرضه
     await page.locator(`.ws-tab[data-panel="${tabs[1]}"]`).click();
     const again = await frameFor(page, ids[1]);
-    await again.waitForFunction(() => document.getElementById('custName').textContent === 'عميل 1');
+    await again.waitForFunction(() => document.getElementById('custName')?.textContent === 'عميل 1');
     assert.deepEqual(errors, []);
     await context.close();
 });

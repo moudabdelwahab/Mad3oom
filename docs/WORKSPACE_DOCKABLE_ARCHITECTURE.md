@@ -294,9 +294,9 @@ Pre-existing issues observed during reconnaissance (**not changed here**, report
 |---|---|
 | `node --test tests/workspace-dock-model.test.mjs` | 28/28 pass — engine (groups, tabs, dedupe, move, dock ×4 edges + centre, nested splits, flattening, resize clamps, close/collapse, open-beside policy) and registry (URL allowlist, link parsing, roles); serialize→parse round trip; hostile layouts rejected or sanitised |
 | `node --test tests/workspace.render.test.mjs` | 21/21 pass — real Chromium, real page code on the Supabase test doubles (list in §11.1) |
-| `npm run test:node` (full suite) | 904 tests: **865 pass**, 2 skipped, 37 fail — the **same 37** environment-only failures as `main` (§0), compared test-by-test; 0 new failures |
-| `npm run test:sql` (full SQL/RLS suite, local Postgres 16) | 47 files (46 existing + `workspace-layouts.test.sql`, 11 checks), exit 0, no `FAIL`/`ERROR`; CI sentinels for platform-owner context and conversation-core gate present |
-| `node scripts/drift-check.mjs` + `node --test tests/drift-check.test.mjs` | repo inventory OK (74 migrations, 294 functions); 9/9 pass |
+| `npm run test:node` (full suite, after merging `main` with Relay Phase C) | 928 tests: 888 pass, 2 skipped, 38 fail = the **same 37** environment-only failures as `main` (§0) + 1 timing race in a new workspace test (a predicate read `#custName` before the re-created frame had it). Fixed with a null-safe predicate; the workspace render file then passed 21/21 in 3 consecutive runs |
+| `npm run test:sql` (full SQL/RLS suite, local Postgres 16, merged tree) | 48 files (incl. Relay `relay-phase-c` and `workspace-layouts`, 11 checks), exit 0, no `FAIL`/`ERROR`; CI sentinels for platform-owner context and conversation-core gate present |
+| `node scripts/drift-check.mjs` + `node --test tests/drift-check.test.mjs` | repo inventory OK (75 migrations, 304 functions); 9/9 pass |
 
 ### 11.1 What the render tests prove
 
@@ -351,6 +351,11 @@ mode via the shell's theme.
 * Moving the inbox's open conversation to its own tab (the "open as tab" button) does not carry the draft
   typed in the inbox panel; the draft stays in the inbox panel.
 * Embedded pages keep their existing Arabic-only text; the workspace chrome follows the language switch.
+* Relay (073/074, merged after this work started) is not a registered panel type yet. Its composer
+  dialog works inside an inbox panel, but the "open record" link in its toast loads the full
+  `/admin/relay.html` page inside that panel, and text typed in the composer is not counted as unsent
+  work. Registering a `relay-record` panel type and adding the composer to `hasUnsentWork()` is the
+  follow-up.
 * No automated axe/contrast audit was run (none is set up in the repository); a11y is covered by the
   ARIA/keyboard assertions above.
 * Touch drag-and-drop is not supported (HTML5 DnD); small screens use compact mode instead.
