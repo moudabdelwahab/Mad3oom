@@ -814,13 +814,22 @@ export async function uploadTicketAttachment(ticketId, file, replyId = null) {
     });
     if (uploadError) throw uploadError;
 
-    // نخزّن **المسار** لا الرابط. المستودع خاص الآن، والرابط الموقَّع ينتهي —
-    // فحفظه في القاعدة كان سيُنتج صفوفًا تحمل روابط ميتة بعد خمس دقائق.
+    // نخزّن **المسار** لا الرابط الموقَّع. المستودع خاص الآن، والرابط الموقَّع
+    // ينتهي — فحفظه في القاعدة كان سيُنتج صفوفًا تحمل روابط ميتة بعد خمس دقائق.
+    //
+    // ومعه file_url بالشكل العام: العمود NOT NULL في القاعدة، وهو وسيلة الرجوع
+    // في 030 (قلب المستودع عامًّا ثانيةً يُعيد كل الروابط). من غيره كان كل إدراج
+    // يُرفض بـ23502 منذ 2026-09-09، فيفشل رفع أي مرفق — منه إثبات التحويل.
+    // getPublicUrl حساب نصّي بلا نداء شبكة، ولا يجعل الملف متاحًا: العرض يمر
+    // دائمًا بتوقيع file_path.
+    const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(path);
+
     const { data, error } = await supabase
         .from('ticket_attachments')
         .insert({
             ticket_id: ticketId,
             reply_id: replyId,
+            file_url: publicUrl,
             file_path: path,
             file_name: file.name,
             file_size: file.size,
