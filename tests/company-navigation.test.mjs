@@ -471,7 +471,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         you to execute Phase B only»). جداول ودوال جديدة فقط، Relay مطفأ
     //         (enabled=false). قاعدة C3 (المقتطف يحتاج وصولًا حاليًا للمحادثة) والحجب
     //         بعد 365 يومًا من الإغلاق لا يمكن فرضهما من الواجهة. مقيسٌ على نسخة بشكل
-    //         الإنتاج في tests/sql/relay-core.test.sql. غير مطبَّق على الإنتاج.
+    //         الإنتاج في tests/sql/relay-core.test.sql. اتطبّق 2026-10-09 واتفعّل.
+    //   074 — Relay المرحلة C (صاحب المنصة 2026-10-09 14:21 UTC: الإسناد عند الإنشاء
+    //         «Only supervisors and staff explicitly authorized»، و14:24 «Restrict
+    //         owners» لإعادة الإسناد). جدول منح relay_assigners وعمود تصنيف، وإعادة
+    //         تعريف خمس دوال من 073. القيد على الخادم لا الواجهة. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/relay-phase-c.test.sql. غير مطبَّق على الإنتاج.
     //   075 — ترتيب «مساحة العمل» لكل موظف (مواصفة مساحة العمل القابلة للإرساء من
     //         صاحب المنصة: «If Supabase persistence is appropriate, propose a minimal
     //         schema and migration using the repository's existing conventions»). جدول

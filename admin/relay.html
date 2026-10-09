@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Relay - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/relay.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .toast {
+            position: fixed; inset-block-end: 1.5rem; inset-inline: 0; margin-inline: auto; width: fit-content; z-index: 300;
+            padding: 0.75rem 1.2rem; border-radius: 0.6rem; background: var(--color-success); color: #fff;
+            font-weight: 600; font-size: 0.85rem; max-width: 90vw; box-shadow: var(--shadow);
+        }
+        .toast--err { background: var(--color-danger); }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>Relay</h1>
+            <p>سجلات الاستمرارية: المتابعات والمشاكل المفتوحة اللي اتعملت من محادثات صندوق الرسائل.</p>
+        </header>
+
+        <div class="rl-banner" id="rlBanner" hidden role="status"></div>
+
+        <div class="rl-page" id="rlPage">
+            <section class="rl-panel rl-panel--list" aria-label="السجلات">
+                <div class="rl-panel-head">
+                    <label class="rl-select"><span class="rl-sr">الحالة</span>
+                        <select id="rlFilterStatus" aria-label="الحالة">
+                            <option value="active">النشطة</option>
+                            <option value="closed">المقفولة</option>
+                            <option value="all">الكل</option>
+                        </select></label>
+                    <label class="rl-select"><span class="rl-sr">المالك</span>
+                        <select id="rlFilterOwner" aria-label="المالك">
+                            <option value="">كل اللي أشوفه</option>
+                            <option value="me">سجلاتي</option>
+                            <option value="unassigned">بدون مالك</option>
+                        </select></label>
+                    <label class="rl-select"><span class="rl-sr">النوع</span>
+                        <select id="rlFilterCategory" aria-label="النوع"></select></label>
+                </div>
+                <ul class="rl-list" id="rlList"></ul>
+            </section>
+
+            <section class="rl-panel rl-panel--detail" aria-label="تفاصيل السجل">
+                <div class="rl-detail" id="rlDetail"><p class="rl-empty">اختار سجل من القائمة.</p></div>
+            </section>
+        </div>
+
+        <section class="rl-panel" id="rlAssigners" hidden aria-labelledby="rlAssignersH" style="margin-top:1rem;">
+            <div class="rl-detail">
+                <h3 id="rlAssignersH">صلاحية الإسناد</h3>
+                <p class="rl-muted">المشرفين يقدروا يسندوا السجلات لأي موظف. هنا تمنح نفس الصلاحية لموظفين بعينهم أو تسحبها. الصلاحية دي ما بتديش رؤية سجلات أو محادثات زيادة.</p>
+                <div id="rlAssignersBody"></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="/assets/js/relay/relay-page.js"></script>
+</body>
+</html>
