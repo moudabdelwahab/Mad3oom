@@ -465,9 +465,17 @@ end $$;
 create or replace function public._relay_sensitive_kinds(p text)
 returns text[] language plpgsql immutable set search_path to 'public' as $$
 declare
-  v text := translate(coalesce(p, ''), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789');
+  v text := coalesce(p, '');
   k text[] := '{}';
+  ar text[] := array['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+  fa text[] := array['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+  i int;
 begin
+  -- replace بعناصر مصفوفة كاملة، لا translate/substr: الاثنان يعملان بالبايت على
+  -- قاعدة بترميز SQL_ASCII (حاوية CI) فيفوّتان الأرقام العربية؛ هذا صحيح بأي ترميز.
+  for i in 1..10 loop
+    v := replace(replace(v, ar[i], (i - 1)::text), fa[i], (i - 1)::text);
+  end loop;
   if v ~ '(^|[^0-9])[23][0-9]{13}([^0-9]|$)' then k := array_append(k, 'national_id'); end if;
   if v ~ '(^|[^0-9])([0-9][ -]?){12,18}[0-9]([^0-9]|$)' then k := array_append(k, 'card_number'); end if;
   if v ~* '(otp|one[- ]time|verification|code|pin|كود|رمز|الرمز|التحقق)[^0-9]{0,25}[0-9]{4,8}([^0-9]|$)' then
