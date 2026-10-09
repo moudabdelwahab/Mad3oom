@@ -337,6 +337,22 @@ test('الترتيبات الجاهزة وإعادة الضبط لا تعيد ا
 
 /* ====================  لوحة المفاتيح وإمكانية الوصول  ==================== */
 
+test('لوحة تحمّل في الخلفية لا تسحب التركيز من تبويبات مساحة العمل', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openWorkspace(fixtures());
+    await quickOpen(page, 'كريم', 'كريم مصطفى');
+    await page.waitForFunction(() => document.querySelectorAll('.ws-tab').length === 3);
+    // التركيز على التبويب قبل أن تنتهي المحادثة المضمّنة من التحميل
+    const tab = page.locator('.ws-group').first().locator('[role="tab"][aria-selected="true"]');
+    await tab.focus();
+    const conv = await frameFor(page, 'view=thread');
+    await conv.waitForSelector('.ib-msg');
+    await conv.evaluate(() => new Promise(r => setTimeout(r, 50)));
+    assert.equal(await page.evaluate(() => document.activeElement.classList.contains('ws-tab')), true, 'الإطار سحب التركيز');
+    assert.equal(await conv.evaluate(() => document.activeElement?.id === 'messageInput'), false);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
 test('لوحة المفاتيح: أسهم بحسب الاتجاه، Enter، قائمة التبويب (Shift+F10)، وتغيير الحجم بالفاصل', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openWorkspace(fixtures());
     await quickOpen(page, 'كريم', 'كريم مصطفى');

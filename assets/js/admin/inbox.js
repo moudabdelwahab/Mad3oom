@@ -411,7 +411,10 @@ async function openConversation(id, { refresh = true } = {}) {
     renderDetails();
 
     if (refresh) await refreshThread(id, { withSession: true });
-    if (activeSession()?.status === 'active' || state.mode === 'note') $('messageInput').focus();
+    // داخل مساحة العمل: اللوحة اللي بتحمّل في الخلفية ماتسحبش التركيز من
+    // الموظف وهو بيتنقل بين التبويبات. لو هو جوه اللوحة نفسها، نركّز عادي.
+    const mayFocus = !EMBED || document.hasFocus();
+    if (mayFocus && (activeSession()?.status === 'active' || state.mode === 'note')) $('messageInput').focus();
 }
 
 /**
