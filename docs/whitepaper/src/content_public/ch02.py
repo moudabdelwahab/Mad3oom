@@ -32,7 +32,7 @@ CHAPTER = chapter(2, ("Vision and Problem Statement", "الرؤية وبيان �
 
     H3("2. Context is lost when switching", "2. ضياع السياق عند التنقل"),
     P("Moving from a conversation to a ticket to the customer's history usually means leaving one view to open another, "
-      "and half-written replies and the reasoning behind a decision are left behind.",
+      "and half-written replies, the reasoning behind a decision and the reader's place in a long thread are left behind.",
       "يعني الانتقال من محادثة إلى تذكرة إلى سجل العميل في الغالب مغادرة عرض لفتح آخر. فتُترك الردود غير المكتملة، والمنطق الذي "
       "قام عليه القرار، والموضع الذي بلغه القارئ في سلسلة طويلة."),
 
@@ -86,8 +86,8 @@ CHAPTER = chapter(2, ("Vision and Problem Statement", "الرؤية وبيان �
           "قوائم مصفّاة بحسب المسؤول والحالة والفئة مع الإشارة إلى العمل غير المسند. أما لوحة المتابعة التي توضّح سبب حاجة السجل إلى انتباه فمخطَّطة."),
          ("Relay", "Relay"), ("{{E}} {{P}}", "{{E}} {{P}}")],
         [("Inconsistent intelligence", "عدم اتساق الذكاء"),
-         ("One layered, deterministic engine behind every channel, with a recorded reason for each decision.",
-          "محرك واحد حتمي متعدد الطبقات خلف كل قناة، مع تسجيل سبب كل قرار."),
+         ("One layered, deterministic engine shared across channels, with a recorded reason for each decision.",
+          "محرك واحد حتمي متعدد الطبقات مشترك بين القنوات، مع تسجيل سبب كل قرار."),
          ("SIE", "SIE"), ("{{E}} {{D}}", "{{E}} {{D}}")],
     ], widths=[20, 44, 22, 14], cls="compact",
         caption=("Problems, design responses and stage. Where two stages appear, the first covers what exists and the second what is planned.",

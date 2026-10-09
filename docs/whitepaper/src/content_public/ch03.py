@@ -2,8 +2,8 @@ from lib import *
 
 CHAPTER = chapter(3, ("The Mad3oom Solution", "حل مدعوم"),
     ("Mad3oom's answer is not another silo. It is a connected set of parts: the records of support work, a surface to work on "
-     "them, a layer that keeps work from being dropped, and an engine that understands customer messages.",
-     "جواب مدعوم ليس معزلًا جديدًا، بل مجموعة مترابطة من الأجزاء: سجلات العمل في الدعم، وسطح للعمل عليها، وطبقة تمنع ضياع "
+     "them, a layer designed to keep work from being dropped, and an engine that understands customer messages.",
+     "جواب مدعوم ليس معزلًا جديدًا، بل مجموعة مترابطة من الأجزاء: سجلات العمل في الدعم، وسطح للعمل عليها، وطبقة تهدف إلى منع ضياع "
      "العمل، ومحرك يفهم رسائل العملاء."),
     [
     H2("A unified approach", "نهج موحَّد"),

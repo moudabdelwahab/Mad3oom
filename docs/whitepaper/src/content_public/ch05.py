@@ -108,43 +108,39 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
 
     H2("Governance of evidence", "حوكمة الأدلة"),
     P("Relay copies a small piece of customer conversation into another place, so its design treats that copy carefully. "
-      "These rules are implemented in the database and covered by automated tests.",
-      "تنسخ Relay جزءًا صغيرًا من محادثة العميل إلى موضع آخر، ولذلك يعامل تصميمها هذه النسخة بحذر. وهذه القواعد منفَّذة في قاعدة "
-      "البيانات وتغطيها اختبارات آلية."),
+      "These rules are designed to be enforced in the database layer and are exercised by automated tests.",
+      "تنسخ Relay جزءًا صغيرًا من محادثة العميل إلى موضع آخر، ولذلك يعامل تصميمها هذه النسخة بحذر. وهذه القواعد مصمَّمة لتُفرَض في "
+      "طبقة قاعدة البيانات وتُجرى عليها اختبارات آلية."),
     UL(("**Minimal capture.** Only the messages the user selects are stored, up to 4,000 characters per source.",
         "**التقاط أدنى.** لا تُخزَّن إلا الرسائل التي يحدّدها المستخدم، بحد أقصى 4,000 حرف للمصدر الواحد."),
        ("**Access follows the conversation.** An excerpt is shown only to someone who has access to the record and who still has access to the "
-        "original conversation. The check runs on every read and fails closed.",
+        "original conversation. The check is designed to run each time an excerpt is shown.",
         "**الوصول يتبع المحادثة.** لا يُعرض المقتطف إلا لمن له حق الوصول إلى السجل ولا يزال له حق الوصول إلى المحادثة الأصلية. "
-        "ويجري الفحص عند كل قراءة، ويُغلَق عند الشك."),
+        "والفحص مصمَّم ليجري عند كل عرض للمقتطف."),
        ("**Retention and redaction.** Excerpts are hidden 365 days after a record is closed and then redacted by a scheduled process. "
-        "Redaction cannot be undone, and a customer's data-deletion request is handled by a supervisor redaction.",
-        "**الاحتفاظ والمحو.** تُخفى المقتطفات بعد 365 يومًا من إغلاق السجل ثم تُمحى بعملية مجدولة. ولا رجعة في المحو، وتُعالَج "
-        "طلبات حذف بيانات العميل بمحو يجريه مشرف."),
-       ("**Sensitive content.** Content that looks like a card number, a one-time code, a password or a national identifier needs "
-        "an explicit acknowledgement before it is saved.",
-        "**المحتوى الحساس.** المحتوى الذي يشبه رقم بطاقة أو رمزًا لمرة واحدة أو كلمة مرور أو رقمًا قوميًا يتطلب إقرارًا صريحًا قبل حفظه."),
-       ("**History without content.** Audit events hold identifiers and changes, never excerpt text or free-text values, so "
+        "Redaction cannot be undone.",
+        "**الاحتفاظ والمحو.** تُخفى المقتطفات بعد 365 يومًا من إغلاق السجل ثم تُمحى بعملية مجدولة. ولا رجعة في المحو."),
+       ("**Sensitive content.** Content that looks sensitive needs an explicit acknowledgement before it is saved.",
+        "**المحتوى الحساس.** المحتوى الذي يبدو حساسًا يتطلب إقرارًا صريحًا قبل حفظه."),
+       ("**History without content.** Audit events are designed to hold identifiers and changes, not excerpt text or free-text values, so "
         "content can be removed without breaking the history.",
-        "**تاريخ بلا محتوى.** تحمل أحداث التدقيق المعرّفات والتغييرات، ولا تحمل نص المقتطف ولا القيم النصية الحرة، "
+        "**تاريخ بلا محتوى.** صُمِّمت أحداث التدقيق لتحمل المعرّفات والتغييرات لا نص المقتطف ولا القيم النصية الحرة، "
         "فيمكن إزالة المحتوى دون كسر التاريخ."),
-       ("**Trash and restore.** A removed source goes to a trash and can be restored. Stricter controls on permanent erasure are part of "
-        "this work and are in development.",
-        "**السلة والاسترجاع.** يذهب المصدر المُزال إلى سلة ويمكن استرجاعه. والضوابط الأشد على المحو النهائي جزء من هذا العمل "
-        "وهي قيد التطوير.")),
+       ("**Trash and restore.** A removed source goes to a trash and can be restored. This capability is in development.",
+        "**السلة والاسترجاع.** يذهب المصدر المُزال إلى سلة ويمكن استرجاعه. وهذه الإمكانية قيد التطوير.")),
 
     H2("Stage and limits", "المرحلة والحدود"),
     TABLE([("Phase", "المرحلة"), ("Content", "المحتوى"), ("Stage", "الحالة")], [
         [("Core persistence and access rules", "الحفظ الأساسي وقواعد الوصول"),
-         ("Records, sources, snapshots, events, ownership rules, retention. Used within the platform's own support operations.",
-          "السجلات والمصادر واللقطات والأحداث وقواعد المسؤولية والاحتفاظ. تُستخدم ضمن عمليات الدعم الخاصة بالمنصة."),
+         ("Records, sources, snapshots, events, ownership rules, retention.",
+          "السجلات والمصادر واللقطات والأحداث وقواعد المسؤولية والاحتفاظ."),
          ("{{E}}", "{{E}}")],
         [("Native selection and conversion", "الاختيار والتحويل داخل المنصة"),
          ("The inbox dialog, type preview, the Relay page and assignment permissions.",
           "حوار الصندوق ومعاينة النوع وصفحة Relay وصلاحيات الإسناد."),
          ("{{E}}", "{{E}}")],
         [("Trash and restore", "السلة والاسترجاع"),
-         ("Removal with restore; stricter controls on permanent erasure.", "إزالة مع استرجاع؛ وضوابط أشد على المحو النهائي."),
+         ("Removal with restore.", "إزالة مع استرجاع."),
          ("{{D}}", "{{D}}")],
         [("Handover", "التسليم"), ("Handover records with acceptance, clarification and decline; end-of-shift bundles.",
                                     "سجلات تسليم مع القبول والاستيضاح والرفض؛ وحزم نهاية الوردية."),
@@ -161,12 +157,12 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
          ("{{F}}", "{{F}}")],
     ], widths=[26, 56, 18], cls="compact",
         caption=("Relay by delivery phase.", "Relay بحسب مراحل التسليم.")),
-    NOTE("Relay currently works only in the platform's own support inbox, for platform staff; company workspaces are not yet supported. "
+    NOTE("Relay is currently scoped to the platform's own support inbox and to platform staff; company workspaces are not yet supported. "
          "It is not yet linked to tickets, to Workspace panels or to SIE. It sends no reminders, and it produces no automatic summaries. The "
          "measures intended to show its value (records created per source, share of active records with an owner and a next action, overdue "
          "count and age, handover acceptance time, reminders delivered against failed) are defined but not yet reported, so this paper makes no "
          "claim about how much it reduces missed requests.",
-         "تعمل Relay حاليًا في صندوق الدعم الخاص بالمنصة فقط، ولطاقم المنصة؛ ومساحات الشركات غير مدعومة بعدُ. وهي غير "
+         "تقتصر Relay حاليًا على صندوق الدعم الخاص بالمنصة ولطاقم المنصة؛ ومساحات الشركات غير مدعومة بعدُ. وهي غير "
          "مرتبطة بعدُ بالتذاكر ولا بلوحات Workspace ولا بـ SIE. ولا ترسل تذكيرات، ولا تنتج ملخصات آلية. والمقاييس المقصودة لإثبات "
          "قيمتها (السجلات المنشأة لكل مصدر، ونسبة السجلات النشطة التي لها مسؤول وإجراء تالٍ، وعدد المتأخر وعمره، وزمن قبول التسليم، "
          "والتذكيرات المرسلة مقابل الفاشلة) معرَّفة لكنها لم تُرصد بعد، فلا تقدّم هذه الورقة ادعاءً بمدى تقليلها للطلبات الفائتة.",

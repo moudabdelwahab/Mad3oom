@@ -98,9 +98,9 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
                  "مجالات الأمان وأهدافها التصميمية والضمانات التي يمكن تتبّعها إلى المشروع.")),
 
     H2("Governance and continuous improvement", "الحوكمة والتحسين المستمر"),
-    UL(("Internal engineering reviews take place during development and inform priorities. They are an internal quality practice, not an "
+    UL(("Engineering reviews take place during development and inform priorities. They are an internal quality practice, not an "
         "independent assessment.",
-        "تجري مراجعات هندسية داخلية أثناء التطوير وتسهم في تحديد الأولويات. وهي ممارسة جودة داخلية، وليست تقييمًا مستقلًا."),
+        "تجري مراجعات هندسية أثناء التطوير وتسهم في تحديد الأولويات. وهي ممارسة جودة داخلية، وليست تقييمًا مستقلًا."),
        ("Security, privacy and operability hardening is tracked as part of the product work and is a condition of general availability. "
         "Mad3oom has not launched, and a controlled pilot is the intended first step.",
         "يُتابَع تعزيز الأمان والخصوصية وقابلية التشغيل بوصفه جزءًا من العمل على المنتج، وهو شرط للإتاحة العامة. ولم تُطلَق مدعوم بعد، "

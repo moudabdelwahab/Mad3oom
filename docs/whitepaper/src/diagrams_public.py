@@ -114,7 +114,7 @@ def fig_glance(lang):
 </div></div>
 <div class="dg-down">{ARROW_D}</div>
 <div class="dg-band soft"><div class="dg-lab">{tx(fnd, lang)}</div><div class="dg-row">
- {B(("Supabase", "Supabase"), ("Postgres with RLS, Auth, Edge Functions, Realtime", "قاعدة Postgres مع RLS، والمصادقة، وEdge Functions، وRealtime"), keys="E")}
+ {B(("Supabase", "Supabase"), ("Postgres, Auth, Edge Functions, Realtime", "قاعدة Postgres، والمصادقة، وEdge Functions، وRealtime"), keys="E")}
  {B(("Vercel", "Vercel"), ("Static web delivery", "نشر الواجهات الثابتة"), keys="E")}
  {B(("Integrations", "التكاملات"), ("MCP, OAuth 2.1, API tokens", "MCP وOAuth 2.1 ورموز API"), keys="E")}
 </div></div></div>"""
@@ -136,14 +136,14 @@ def fig_workspace(lang):
  </div>
  <div class="ws-body">
   <div class="ws-pane big"><div class="ph">{t("Inbox", "صندوق الوارد")} <small>· {t("existing page, embed mode", "صفحة قائمة بوضع التضمين")}</small></div>{bars()}{bars()}</div>
-  <div class="ws-pane"><div class="ph">{t("Ticket", "تذكرة")} <small>· {t("same origin", "الأصل نفسه")}</small></div>{bars()}</div>
-  <div class="ws-pane"><div class="ph">{t("Customer record", "سجل العميل")} <small>· {t("same origin", "الأصل نفسه")}</small></div>{bars()}</div>
+  <div class="ws-pane"><div class="ph">{t("Ticket", "تذكرة")} <small>· {t("embedded page", "صفحة مضمَّنة")}</small></div>{bars()}</div>
+  <div class="ws-pane"><div class="ph">{t("Customer record", "سجل العميل")} <small>· {t("embedded page", "صفحة مضمَّنة")}</small></div>{bars()}</div>
  </div>
 </div>
 <div class="col3" style="margin-top:2.6mm">
- {box(lang, ("Layout engine", "محرك التخطيط"), ("Pure functions: groups, tabs, splits, resize, validation of saved layouts", "دوال خالصة: مجموعات وتبويبات وتقسيم وتغيير حجم والتحقق من التخطيطات المحفوظة"), keys="E")}
- {box(lang, ("Panel registry", "سجل اللوحات"), ("Six panel types; parameters validated; URLs built from a fixed template", "ست أنواع من اللوحات؛ معاملات مُتحقَّق منها؛ وعناوين تُبنى من قالب ثابت"), keys="E")}
- {box(lang, ("Message bridge", "جسر الرسائل"), ("Same-origin messages: title, unsaved-work flag, open-record, refresh hint", "رسائل من الأصل نفسه: العنوان وعلم العمل غير المحفوظ وفتح السجل وتلميح التحديث"), keys="E")}
+ {box(lang, ("Layout engine", "محرك التخطيط"), ("Pure functions: groups, tabs, splits, resize, saved layouts", "دوال خالصة: مجموعات وتبويبات وتقسيم وتغيير حجم وتخطيطات محفوظة"), keys="E")}
+ {box(lang, ("Panel registry", "سجل اللوحات"), ("Six panel types: list pages and single-record panels", "ست أنواع من اللوحات: صفحات قوائم ولوحات لسجل منفرد"), keys="E")}
+ {box(lang, ("Message bridge", "جسر الرسائل"), ("Messages between shell and panels: title, unsaved-work flag, request to open a record, refresh hint", "رسائل بين الغلاف واللوحات: العنوان وعلم العمل غير المحفوظ وطلب فتح سجل وتلميح التحديث"), keys="E")}
 </div></div>"""
 
 
@@ -157,7 +157,7 @@ def fig_sie_layers(lang):
     grp = lambda a, b: f'<div class="dg-group">{tx((a, b), lang)}</div>'
     return f"""<div class="dg">
 <div class="trust"><div class="dg-t">{tx(("Trust boundary (cross-cutting)", "حد الثقة (طبقة عابرة)"), lang)}
- {chips("E", lang)}</div><div class="dg-s">{tx(("Treats customer text as untrusted data at four crossing points, before it can influence evidence, facts or actions.", "يعامل نص العميل بوصفه بيانات غير موثوقة عند أربع نقاط عبور قبل أن يؤثر في الأدلة أو الحقائق أو الإجراءات."), lang)}</div></div>
+ {chips("E", lang)}</div><div class="dg-s">{tx(("Treats customer text as untrusted data.", "يعامل نص العميل بوصفه بيانات غير موثوقة."), lang)}</div></div>
 {grp("Interpret the customer's message", "تفسير رسالة العميل")}
 {row("L1", ("Language and normalization", "اللغة والتطبيع"), ("Tokenization, glossary, dialect and Arabizi canonicalization, negation, reply polarity", "التجزئة والمعجم وتوحيد اللهجات والعربيزي والنفي واتجاه الرد"), "ED")}
 {row("L2", ("Scenario catalog", "كتالوج السيناريوهات"), ("A closed, authored set of diagnosable situations, grouped into editions", "مجموعة مغلقة مؤلَّفة من الحالات القابلة للتشخيص، مقسَّمة إلى إصدارات"), "ED")}
@@ -165,7 +165,7 @@ def fig_sie_layers(lang):
 {row("L4", ("Ranking", "الترتيب"), ("Deterministic ordering of candidates, specificity and ambiguity", "ترتيب حتمي للمرشحين ومراعاة التخصيص والالتباس"), "E")}
 {row("L5", ("Decision", "القرار"), ("One action from a closed vocabulary, by ordered, explainable rules", "إجراء واحد من مجموعة مغلقة وفق قواعد مرتَّبة قابلة للتفسير"), "ED")}
 {grp("Respond", "صياغة الاستجابة")}
-{row("L7", ("Knowledge", "المعرفة"), ("Attaches knowledge to an answer; live account data is not yet grounded", "يُرفق المعرفة بالإجابة؛ ربط بيانات الحساب الحية لم يكتمل بعد"), "ED")}
+{row("L7", ("Knowledge", "المعرفة"), ("Attaches knowledge to an answer; grounding in live account data is in development", "يُرفق المعرفة بالإجابة؛ ربط الإجابة ببيانات الحساب الحية قيد التطوير"), "ED")}
 {row("L6", ("Dialogue", "الحوار"), ("Renders the decision as a message in Arabic or English from templates", "يصوغ القرار رسالةً بالعربية أو الإنجليزية من قوالب"), "ED")}
 {grp("Commit and observe", "الحفظ والرصد")}
 {row("L8", ("Action", "التنفيذ"), ("The only writer: message, state and ticket commit in one atomic transaction", "الكاتب الوحيد: الرسالة والحالة والتذكرة تُحفظ في معاملة ذرية واحدة"), "E")}
@@ -201,9 +201,9 @@ def fig_connectivity(lang):
 <div class="col3">
  {col(("APIs and tools", "الواجهات والأدوات"), stack(
     ch(("MCP server and client", "خادم وعميل MCP"), "E", ("OAuth 2.1 with PKCE", "OAuth 2.1 مع PKCE")),
-    ch(("API tokens · integration API v1", "رموز API · واجهة التكامل v1"), "E")))}
+    ch(("API tokens · integration API", "رموز API · واجهة التكامل"), "E")))}
  {col(("Event-driven work", "العمل المدفوع بالأحداث"), stack(
-    ch(("Database triggers and cron", "المحفِّزات والجدولة في القاعدة"), "E", ("notifications, email, SLA checks", "إشعارات وبريد وفحوص SLA")),
+    ch(("Background and scheduled jobs", "المهام الخلفية والمجدولة"), "E", ("notifications, email, SLA checks", "إشعارات وبريد وفحوص SLA")),
     ch(("Outbox with retries", "صندوق صادر مع إعادة المحاولة"), "R")))}
  {col(("Future connectors", "موصِّلات مستقبلية"), stack(
     ch(("Browser capture for Relay", "التقاط من المتصفح لـ Relay"), "P"),
@@ -225,18 +225,18 @@ def fig_architecture(lang):
     B(("Admin console and Workspace", "لوحة الإدارة وWorkspace"), ("no bundler, no framework", "بلا مُجمِّع ولا إطار عمل"), "E"),
     B(("Messaging apps and external systems", "تطبيقات المراسلة والأنظمة الخارجية"), ("via adapters and APIs", "عبر المحوِّلات والواجهات"), "E")), "soft")}
 {down}
-{band(("Delivery", "النشر"), row(B(("Vercel", "Vercel"), ("Static pages; redirects and rewrites for OAuth and MCP discovery", "صفحات ثابتة؛ إعادة توجيه وإعادة كتابة لاكتشاف OAuth وMCP"), "E")))}
+{band(("Delivery", "النشر"), row(B(("Vercel", "Vercel"), ("Static pages and redirects", "صفحات ثابتة وإعادة توجيه"), "E")))}
 {down}
 {band(("Backend services (Supabase)", "الخدمات الخلفية (Supabase)"), row(
-    B(("Auth", "المصادقة"), ("sign-in, 2FA, OAuth 2.1", "الدخول والتحقق الثنائي وOAuth 2.1"), "E"),
-    B(("Postgres", "Postgres"), ("RLS, SECURITY DEFINER RPCs, triggers", "RLS ودوال RPC بصلاحية SECURITY DEFINER ومحفِّزات"), "E", "hl"),
+    B(("Auth", "المصادقة"), ("sign-in and authorization", "تسجيل الدخول والتفويض"), "E"),
+    B(("Postgres", "Postgres"), ("data, access rules and business logic", "البيانات وقواعد الوصول ومنطق الأعمال"), "E", "hl"),
     B(("Edge Functions", "Edge Functions"), ("webhooks, integrations, SIE runtime", "ويب هوك وتكاملات وبيئة تشغيل SIE"), "E"),
-    B(("Realtime and cron", "Realtime والجدولة"), ("pg_cron, pg_net", "pg_cron وpg_net"), "E")))}
+    B(("Realtime and scheduled jobs", "Realtime والمهام المجدولة"), ("live updates, background jobs", "تحديثات حية ومهام في الخلفية"), "E")))}
 {down}
 {band(("Intelligence and integrations", "الذكاء والتكاملات"), row(
     B(("SIE engine", "محرك SIE"), ("deterministic ES modules, no npm dependencies", "وحدات ES حتمية، بلا اعتماديات npm"), "ED"),
     B(("AI gateway", "بوابة الذكاء الاصطناعي"), ("multi-provider registry for AI features", "سجل متعدد المزوّدين لميزات الذكاء الاصطناعي"), "E"),
-    B(("External services", "خدمات خارجية"), ("Telegram, email provider, Meta Cloud API", "تيليجرام ومزوّد البريد وواجهة Meta السحابية"), "E", "dash")), "soft")}
+    B(("External services", "خدمات خارجية"), ("messaging and email providers", "مزوّدو المراسلة والبريد الإلكتروني"), "E", "dash")), "soft")}
 </div>"""
 
 
@@ -253,11 +253,10 @@ def fig_roadmap(lang):
             ("SIE engine; website and Telegram", "محرك SIE؛ الموقع وتيليجرام"),
             ("CI, SQL and render tests", "التكامل المستمر واختبارات SQL والعرض")]),
         "c2": (("2 · Current development", "2 · التطوير الحالي"), [
-            ("SIE remediation program (WP4–WP9 next)", "برنامج معالجة SIE (WP4–WP9 التالية)"),
-            ("Relay trash and owner control (076)", "سلة محذوفات Relay وتحكم المالك (076)"),
-            ("Workspace server-side layouts (075)", "تخطيطات Workspace على الخادم (075)"),
-            ("Conversation Core: installed, flags closed", "نواة المحادثات: مثبَّتة وأعلامها مغلقة"),
-            ("Security and operability hardening", "تعزيز الأمان وقابلية التشغيل")]),
+            ("SIE refinement and extension", "تحسين SIE وتوسيعه"),
+            ("Relay trash and restore", "سلة محذوفات Relay واستعادتها"),
+            ("Workspace server-side layouts", "تخطيطات Workspace على الخادم"),
+            ("Conversation Core: in development", "نواة المحادثات: قيد التطوير")]),
         "c3": (("3 · Planned capabilities", "3 · الإمكانات المخطَّطة"), [
             ("Relay handovers with acceptance", "تسليمات Relay مع القبول"),
             ("Relay reminders, escalation, monitor", "تذكيرات Relay والتصعيد ولوحة المتابعة"),
@@ -447,5 +446,5 @@ def fig_lifecycle(lang):
     s.line(20, 455, 80, 455, "#2074D0", None, 2.6, False)
     s.text(80 + 20 + 90, 460, t("implemented transitions", "انتقالات منفَّذة"), 14.4, 500, "#14233B")
     s.line(330, 455, 390, 455, "#8FB3E3", "7 6", 2.6, False)
-    s.text(390 + 20 + 90, 460, t("designed, not enabled", "مصمَّمة وغير مفعَّلة"), 14.4, 500, "#14233B")
+    s.text(390 + 20 + 90, 460, t("designed, not yet available", "مصمَّمة وغير متاحة بعد"), 14.4, 500, "#14233B")
     return s.render()

@@ -17,9 +17,9 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
         "This is designed so that a stranger who finds the bot cannot consume a paying customer's allowance.",
         "**الهوية قبل الإنفاق.** يربط رمز لمرة واحدة ومحدود الصلاحية حساب المراسلة بحساب في المنصة قبل أن يرد المحرك. "
         "وقد صُمّم ذلك بحيث لا يستطيع غريب وجد الروبوت أن يستهلك حصة عميل مدفوعة."),
-       ("**Verify and de-duplicate before cost.** Each adapter verifies requests from its provider and detects duplicate deliveries "
-        "before anything is charged.",
-        "**التحقق وإزالة التكرار قبل التكلفة.** يتحقق كل محوِّل من الطلبات الواردة من مزوّده، ويكتشف عمليات التسليم المكررة قبل احتساب أي رسوم."),
+       ("**Verify and de-duplicate before cost.** Each adapter is designed to verify requests from its provider and to detect duplicate "
+        "deliveries before anything is charged.",
+        "**التحقق وإزالة التكرار قبل التكلفة.** صُمّم كل محوِّل ليتحقق من الطلبات الواردة من مزوّده وليكتشف عمليات التسليم المكررة قبل احتساب أي رسوم."),
        ("**Open, standard interfaces.** OAuth 2.1, the Model Context Protocol and token-based APIs, rather than private conventions.",
         "**واجهات مفتوحة وقياسية.** OAuth 2.1 وبروتوكول سياق النموذج MCP وواجهات قائمة على الرموز، بدل اصطلاحات خاصة.")),
 
@@ -52,10 +52,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "أشكال المحوِّلات معرَّفة في طبقة القنوات للمحرك؛ ولا يوجد نقل متصل."),
          ("{{P}}", "{{P}}")],
         [("**MCP server and client; OAuth 2.1**", "**خادم وعميل MCP؛ OAuth 2.1**"),
-         ("Mad3oom can expose tools to MCP-compatible AI clients and connect to external MCP servers. Its authorization server uses mandatory PKCE, "
+         ("Mad3oom can expose tools to MCP-compatible AI clients and connect to external MCP servers. Its authorization server uses PKCE, "
           "scoped tokens and a page where users revoke connected apps.",
-          "يمكن لمدعوم إتاحة أدوات لعملاء الذكاء الاصطناعي المتوافقين مع MCP، والاتصال بخوادم MCP خارجية. ويستخدم خادم التفويض لديها PKCE "
-          "إلزاميًا، ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
+          "يمكن لمدعوم إتاحة أدوات لعملاء الذكاء الاصطناعي المتوافقين مع MCP، والاتصال بخوادم MCP خارجية. ويستخدم خادم التفويض لديها PKCE، "
+          "ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
          ("{{E}}", "{{E}}")],
         [("**API tokens and the integration API**", "**رموز API وواجهة التكامل**"),
          ("Users can issue scoped API tokens. A versioned integration API lets an approved external application request a pre-approved template "
@@ -69,10 +69,6 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "تنتج المحفِّزات والمهام المجدولة في قاعدة البيانات الإشعارات والبريد وفحوص SLA ومهام الاحتفاظ والردود المجدولة؛ ويشغّل منشئ أتمتة "
           "قواعد عند إنشاء التذاكر؛ وتبلّغ ويب هوك صادرة الأنظمة الأخرى."),
          ("{{E}}", "{{E}}")],
-        [("", ""),
-         ("Reliable delivery of notifications and webhooks through queued processing, with retries and visible failures.",
-          "تسليم موثوق للإشعارات وويب هوك عبر معالجة بالطابور، مع إعادة المحاولة وإظهار حالات الفشل."),
-         ("{{R}}", "{{R}}")],
         [("**Relay API and browser capture**", "**واجهة Relay والالتقاط من المتصفح**"),
          ("A token-based API for Relay and a browser extension, using the same authorization server.",
           "واجهة Relay قائمة على الرموز وإضافة متصفح، تستخدمان خادم التفويض نفسه."),
@@ -82,7 +78,7 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "التحويل من الكلام إلى نص، وردود منطوقة، ودعم صوتي. وهي رؤية استكشافية وليست على الجدول الحالي."),
          ("{{F}}", "{{F}}")],
     ], widths=[24, 58, 18], cls="compact long",
-        caption=("Integrations by stage. A row with no name continues the row above.", "التكاملات بحسب المرحلة. الصف الخالي من الاسم يكمل الصف الذي يسبقه.")),
+        caption=("Integrations by stage.", "التكاملات بحسب المرحلة.")),
 
     H2("WhatsApp Cloud API: three different things", "واجهة WhatsApp Cloud API: ثلاثة أمور مختلفة"),
     NOTE("WhatsApp is not part of Mad3oom's initial launch scope. Nothing in this paper announces it as an available, generally launched "
@@ -94,11 +90,11 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
     TABLE([("Question", "السؤال"), ("What the evidence says", "ما تقوله الأدلة"), ("Stage", "المرحلة")], [
         [("**1. Integration engineering work that exists**", "**1. أعمال هندسة التكامل القائمة**"),
          ("A separate WhatsApp module with its own web application and Edge Functions. It connects a business number through Meta's Embedded Signup, "
-          "verifies the signature of requests from Meta, stores each inbound message once, runs auto-reply flows that stop when "
-          "a human takes over, and charges template messages against a prepaid wallet. Contract tests cover signature checking, provisioning and the integration API.",
+          "verifies requests from Meta, stores each inbound message once, runs auto-reply flows that stop when "
+          "a human takes over, and charges template messages against a prepaid wallet. Contract tests cover request verification, provisioning and the integration API.",
           "وحدة واتساب مستقلة بتطبيق ويب ودوال Edge Functions خاصة بها. تربط رقمًا تجاريًا عبر Embedded Signup من Meta، "
-          "وتتحقق من توقيع الطلبات الواردة من Meta، وتخزّن كل رسالة واردة مرة واحدة، وتشغّل مسارات رد آلي تتوقف حين "
-          "يستلم إنسان المحادثة، وتحاسب رسائل القوالب من محفظة مدفوعة مسبقًا. وتغطي اختبارات العقود التحقق من التوقيع والتهيئة وواجهة التكامل."),
+          "وتتحقق من الطلبات الواردة من Meta، وتخزّن كل رسالة واردة مرة واحدة، وتشغّل مسارات رد آلي تتوقف حين "
+          "يستلم إنسان المحادثة، وتحاسب رسائل القوالب من محفظة مدفوعة مسبقًا. وتغطي اختبارات العقود التحقق من الطلبات والتهيئة وواجهة التكامل."),
          ("{{D}}", "{{D}}")],
         [("**2. Technical-provider activities**", "**2. أنشطة مزوّد الخدمة التقني**"),
          ("Meta runs programs for providers that onboard other businesses' accounts, including business verification and app review. Completing them and the "

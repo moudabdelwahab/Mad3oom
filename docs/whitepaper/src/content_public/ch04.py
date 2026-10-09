@@ -65,10 +65,10 @@ CHAPTER = chapter(4, ("Mad3oom Workspace", "Mad3oom Workspace"),
     H2("How it is built", "كيف بُني"),
     P("The inbox and tickets pages own global state and fixed element identifiers, so they cannot be mounted twice in one page. "
       "Rewriting roughly 3,600 lines of tested helpdesk code was ruled out. Workspace therefore **hosts the existing pages** in "
-      "same-origin frames running in an embed mode, which removes the surrounding chrome and narrows each page to one record. "
+      "frames running in an embed mode, which removes the surrounding chrome and narrows each page to one record. "
       "A tab behaves like a browser tab of that page, with the page's own logic, access checks and live updates intact.",
       "تملك صفحتا الصندوق والتذاكر حالة عامة ومعرّفات عناصر ثابتة، فلا يمكن تركيب أي منهما مرتين في صفحة واحدة. واستُبعدت إعادة كتابة "
-      "نحو 3,600 سطر من شيفرة الدعم المختبَرة. لذلك **يستضيف Workspace الصفحات القائمة** في إطارات من الأصل نفسه تعمل بوضع تضمين "
+      "نحو 3,600 سطر من شيفرة الدعم المختبَرة. لذلك **يستضيف Workspace الصفحات القائمة** في إطارات تعمل بوضع تضمين "
       "يزيل ما حولها من عناصر ويقصر كل صفحة على سجل واحد. فيعمل التبويب كأنه تبويب متصفح لتلك الصفحة، مع بقاء منطقها وفحوص الوصول "
       "والتحديثات الحية فيها كما هي."),
     FIG("workspace", ("The Workspace model. A shell arranges tabs and split groups; each panel is an existing page in embed mode. The three "
@@ -91,14 +91,14 @@ CHAPTER = chapter(4, ("Mad3oom Workspace", "Mad3oom Workspace"),
         "وطلب فتح سجل مرتبط.")),
 
     H2("Integrity and access rules", "قواعد السلامة والوصول"),
-    P("These rules are enforced in code and covered by the repository's tests.",
-      "تُنفَّذ هذه القواعد في الشيفرة وتغطيها اختبارات المستودع."),
+    P("Workspace is designed to follow these rules.",
+      "صُمِّم Workspace ليلتزم بهذه القواعد."),
     UL(("Moving, docking or splitting a tab never reloads or recreates its frame.",
         "نقل التبويب أو تثبيته أو تقسيمه لا يعيد تحميل إطاره ولا ينشئه من جديد."),
        ("Closing a tab, closing others, resetting the layout or leaving the page checks for unsent work first. The cap on live frames never unloads a panel that holds unsent work.",
         "إغلاق تبويب أو بقية التبويبات أو إعادة ضبط التخطيط أو مغادرة الصفحة يفحص أولًا وجود عمل غير مرسل. والحد الأقصى للإطارات الحية لا يُفرغ لوحةً تحمل عملًا غير مرسل."),
-       ("Workspace never calls a write operation itself. Every write happens inside the hosted page through its existing routes, so the shell cannot duplicate a submission.",
-        "لا يستدعي Workspace بنفسه أي عملية كتابة. فكل كتابة تجري داخل الصفحة المستضافة عبر مساراتها القائمة، فلا يستطيع الغلاف تكرار إرسال."),
+       ("Workspace does not call a write operation itself. Every write happens inside the hosted page, so the shell does not duplicate a submission.",
+        "لا يستدعي Workspace بنفسه أي عملية كتابة. فكل كتابة تجري داخل الصفحة المستضافة، فلا يكرر الغلاف أي إرسال."),
        ("Saved layouts are validated, and each record panel is checked against the user's own access before it opens; a record that is no longer visible appears as an unavailable tab.",
         "يُتحقَّق من التخطيطات المحفوظة، وتُفحص كل لوحة سجل مقابل صلاحيات المستخدم نفسه قبل فتحها؛ والسجل الذي لم يعد مرئيًا يظهر تبويبًا غير متاح."),
        ("A saved layout contains only panel types and record identifiers, never names, email addresses or message text.",

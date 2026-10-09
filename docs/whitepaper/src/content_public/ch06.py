@@ -99,16 +99,14 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
         "**النمطية.** تسير الاعتماديات في اتجاه واحد: فالمحرك لا يستورد شيئًا من شيفرة القنوات أو المنصة، "
         "ويفرض اختبار الحدّ نفسه من جهة القنوات. والسيناريوهات والمعجم بيانات خلف واجهات مزوّدين، وليست شيفرة."),
        ("**Testability.** Layers are pure functions with an injected clock, so the suite runs without a database or network. At the time of writing "
-        "all 1,264 tests in the engine repository pass. Behavioral guarantees are registered and linked to tests.",
+        "all 1,264 tests in the engine repository pass.",
         "**قابلية الاختبار.** الطبقات دوال خالصة بساعة محقونة، فتعمل المجموعة دون قاعدة بيانات أو شبكة. وقت كتابة هذه الورقة تنجح "
-        "جميع اختبارات مستودع المحرك وعددها 1,264. وتُسجَّل الضمانات السلوكية وتُربط باختبارات."),
+        "جميع اختبارات مستودع المحرك وعددها 1,264."),
        ("**Maintainability.** Each layer has its own tests and a narrow contract, there is a single writer, and every decision carries the rules "
         "that produced it, so a surprising reply can be traced to a cause.",
         "**قابلية الصيانة.** لكل طبقة اختباراتها وعقدها الضيق، وكاتب واحد، وكل قرار يحمل القواعد التي أنتجته، فيمكن ردّ الرد المفاجئ إلى سببه."),
-       ("**Controlled evolution.** Behavioral changes ship behind settings flags that default to current behavior, and changes proceed "
-        "in staged steps with stated exit criteria.",
-        "**تطور منضبط.** تُطرح التغييرات السلوكية خلف أعلام إعداد افتراضيها السلوك الحالي، وتمضي التغييرات على مراحل متدرجة "
-        "لها معايير إنجاز معلنة.")),
+       ("**Controlled evolution.** Behavioral changes ship behind settings flags that default to current behavior.",
+        "**تطور منضبط.** تُطرح التغييرات السلوكية خلف أعلام إعداد افتراضيها السلوك الحالي.")),
 
     H2("What has been verified, and what has not", "ما جرى التحقق منه وما لم يجرِ"),
     TABLE([("Evidence", "الدليل"), ("What it shows", "ما يبيّنه")], [
