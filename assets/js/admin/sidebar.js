@@ -357,6 +357,7 @@ async function applySidebarPermissions() {
         showLink('errorTrackerLink');
         showLink('rewardsLink');
         showLink('waitlistLink');
+        showLink('companyRequestsLink');
     }
 
     if (isMainAdmin) {

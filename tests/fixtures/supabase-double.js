@@ -190,6 +190,10 @@ export const supabase = {
         window.__RPC_ARGS__ = window.__RPC_ARGS__ || [];
         window.__RPC_ARGS__.push([name, args ?? null]);
 
+        // رفض القاعدة: rpcErrors[name] = رسالة raise exception كما تصل من PostgREST
+        const failure = FX().rpcErrors?.[name];
+        if (failure) return { data: null, error: { message: failure, code: 'P0001' } };
+
         // الـfixture لها الأولوية: أي اختبار عايز يجبر نتيجة بعينها يقدر
         const handler = FX().rpc?.[name];
         if (typeof handler === 'function') return { data: handler(args), error: null };

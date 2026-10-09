@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>طلبات حسابات الشركات - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/robot.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .cr-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .cr-toolbar input[type="text"],
+        .cr-toolbar select {
+            padding: 0.65rem 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.6rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .cr-toolbar input[type="text"] {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .cr-modal {
+            display: none;
+            position: fixed;
+            z-index: 4000;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .cr-modal-content {
+            background-color: var(--color-surface);
+            margin: 5% auto;
+            padding: 1.75rem;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 540px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .cr-modal-header {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 0.25rem;
+        }
+
+        .cr-modal-sub {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.7;
+        }
+
+        .cr-section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            margin: 1rem 0 0.25rem;
+        }
+
+        .cr-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 0.9rem;
+        }
+
+        .cr-row span:first-child {
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .cr-row span:last-child {
+            text-align: left;
+            word-break: break-word;
+        }
+
+        .cr-note-field {
+            margin-top: 1.25rem;
+        }
+
+        .cr-note-field label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            color: var(--color-text);
+        }
+
+        .cr-note-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 80px;
+            padding: 0.65rem 0.9rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.6rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: var(--color-background);
+            color: var(--color-text);
+            resize: vertical;
+        }
+
+        .cr-error {
+            display: none;
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--color-danger);
+            line-height: 1.6;
+        }
+
+        .cr-footer {
+            display: flex;
+            gap: 0.625rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .cr-expired {
+            color: var(--color-danger);
+            font-weight: 700;
+        }
+    </style>
+  <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
+  <link rel="stylesheet" href="/assets/responsive-global.css">
+  <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>طلبات حسابات الشركات</h1>
+            <p>عملاء اختاروا «شركة» عند الاشتراك. الموافقة تحوّل الحساب إلى حساب شركة، والرفض يصل للعميل بسببه.</p>
+        </header>
+
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">الطلبات</h2>
+            </div>
+
+            <div class="cr-toolbar">
+                <input type="text" id="crSearch" placeholder="ابحث باسم الشركة أو العميل أو البريد أو رقم السجل...">
+                <select id="crStatusFilter">
+                    <option value="pending" selected>قيد المراجعة</option>
+                    <option value="">كل الحالات</option>
+                    <option value="approved">تمت الموافقة</option>
+                    <option value="rejected">مرفوض</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>الشركة</th>
+                            <th>العميل</th>
+                            <th>الباقة المطلوبة</th>
+                            <th>الحالة</th>
+                            <th>تاريخ الطلب</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crBody">
+                        <tr><td colspan="6" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div class="cr-modal" id="crModal" role="dialog" aria-modal="true" aria-labelledby="crModalTitle">
+        <div class="cr-modal-content">
+            <div class="cr-modal-header" id="crModalTitle">طلب حساب شركة</div>
+            <div class="cr-modal-sub" id="crModalSub"></div>
+
+            <div class="cr-section-title">بيانات الشركة</div>
+            <div class="cr-row"><span>اسم الشركة</span><span id="crCompanyName"></span></div>
+            <div class="cr-row"><span>رقم السجل التجاري</span><span id="crCrNumber"></span></div>
+            <div class="cr-row"><span>انتهاء السجل التجاري</span><span id="crCrExpiry"></span></div>
+            <div class="cr-row"><span>بريد الشركة</span><span id="crCompanyEmail"></span></div>
+            <div class="cr-row"><span>هاتف الشركة</span><span id="crCompanyPhone"></span></div>
+
+            <div class="cr-section-title">العميل</div>
+            <div class="cr-row"><span>الاسم</span><span id="crCustomerName"></span></div>
+            <div class="cr-row"><span>البريد الإلكتروني</span><span id="crCustomerEmail"></span></div>
+            <div class="cr-row"><span>الهاتف</span><span id="crCustomerPhone"></span></div>
+            <div class="cr-row"><span>الباقة المطلوبة</span><span id="crPlan"></span></div>
+
+            <div id="crReviewedBlock" style="display:none;">
+                <div class="cr-section-title">المراجعة</div>
+                <div class="cr-row"><span>الحالة</span><span id="crStatus"></span></div>
+                <div class="cr-row"><span>بواسطة</span><span id="crReviewer"></span></div>
+                <div class="cr-row"><span>التاريخ</span><span id="crReviewedAt"></span></div>
+                <div class="cr-row"><span>الملاحظة</span><span id="crReviewNote"></span></div>
+            </div>
+
+            <div class="cr-note-field" id="crNoteField">
+                <label for="crNote">ملاحظة للعميل <span style="font-weight:400; color:var(--color-text-secondary);">(إلزامية عند الرفض)</span></label>
+                <textarea id="crNote" placeholder="مثال: صورة السجل التجاري غير واضحة، يرجى إعادة الإرسال"></textarea>
+            </div>
+            <p class="cr-error" id="crError" role="alert"></p>
+
+            <div class="cr-footer">
+                <button type="button" class="btn btn-secondary btn-sm" id="crCloseBtn">إغلاق</button>
+                <button type="button" class="btn btn-danger btn-sm" id="crRejectBtn">رفض</button>
+                <button type="button" class="btn btn-success btn-sm" id="crApproveBtn">موافقة وتحويل الحساب لشركة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--color-success); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 9999; font-weight: 600;"></div>
+
+    <script type="module" src="/assets/js/admin/company-requests.js"></script>
+</body>
+</html>

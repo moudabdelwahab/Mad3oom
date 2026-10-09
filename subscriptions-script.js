@@ -15,11 +15,12 @@ import {
     getPlanPrices
 } from '/whatsapp-subscription-service.js';
 import { formatMoney, currencySymbol, discountPercent } from '/assets/js/plan-pricing-model.js';
-// خطوة بيانات الشركة للباقات التي تستلزمها (subscription_plans.requires_company).
-// المسار نفسه لم يتغيّر: طلب اشتراك → مراجعة الإدارة → تفعيل.
+// سؤال «فرد أم شركة؟» قبل الشراء (migrations/068). الفرد يكمل للدفع، والشركة
+// تُرسل بياناتها كطلب تراجعه الإدارة. مسار الاشتراك نفسه لم يتغيّر:
+// طلب اشتراك → مراجعة الإدارة → تفعيل.
 import {
-    ensureCompanyForPlan,
-    linkSubscriptionIfCompanyPlan
+    choosePurchaseAccount,
+    linkSubscriptionToMyCompany
 } from '/assets/js/company/company-onboarding.js';
 
 // بيانات الحسابات/المحافظ الحقيقية لاستقبال التحويلات
@@ -570,6 +571,13 @@ async function handleSubscribe(plan, buttonEl) {
         return;
     }
 
+    const billingCycle = getActiveBillingCycle();
+
+    // أول سؤال: فرد أم شركة؟ حساب الشركة القائم لا يُسأل. اختيار «شركة» يرسل
+    // طلبًا للإدارة ويقف هنا — لا دفع قبل أن يصير الحساب حساب شركة فعلًا.
+    const account = await choosePurchaseAccount({ plan, billingCycle });
+    if (!account.proceed) return;
+
     // ترقية أم شراء جديد؟ القاعدة هي التي تقرّر، لا الواجهة.
     const quote = await getUpgradeQuote(plan);
     const isUpgrade = !!(quote && quote.eligible === true);
@@ -579,19 +587,9 @@ async function handleSubscribe(plan, buttonEl) {
         if (!confirmed) return;
     }
 
-    // لو الباقة بتستلزم شركة والمستخدم لسه ملهوش واحدة، بنطلب بياناتها الأول.
-    // بيحصل قبل نافذة الدفع عشان العميل ما يدفعش ثم يتعثّر في خطوة بيانات.
-    const companyStep = await ensureCompanyForPlan(plan);
-    if (companyStep.cancelled) return;
-    if (!companyStep.ok) {
-        alert(companyStep.error || 'تعذّر حفظ بيانات الشركة. يرجى المحاولة مرة أخرى.');
-        return;
-    }
-
     const paymentInfo = await openPaymentMethodModal();
     if (!paymentInfo) return; // العميل ألغى العملية
 
-    const billingCycle = getActiveBillingCycle();
     const originalText = buttonEl ? buttonEl.textContent : '';
 
     try {
@@ -601,7 +599,7 @@ async function handleSubscribe(plan, buttonEl) {
         }
 
         const result = await createSubscriptionTicket(plan, billingCycle, { ...paymentInfo, isUpgrade });
-        await linkSubscriptionIfCompanyPlan(plan, result.subscription?.id);
+        if (account.asCompany) await linkSubscriptionToMyCompany(result.subscription?.id);
 
         const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
@@ -609,15 +607,6 @@ async function handleSubscribe(plan, buttonEl) {
         alert(isUpgrade
             ? `تم إرسال طلب الترقية بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\nالمبلغ المطلوب: ${formatMoney(result.subscription?.upgrade_amount ?? quote.amount_due, quote.currency)}\n\nلن تتغيّر باقتك قبل تأكيد الدفع من فريق الدعم.${reviewNote}`
             : `تم إرسال طلب الاشتراك بنجاح!\n\nرقم التذكرة: #${result.ticket.ticket_number}\n\nسيتم التواصل معك قريباً من فريق الدعم للموافقة على طلبك.${reviewNote}`);
-
-        // إكمال مسار الشركة: لو الشركة اتكوّنت للتو، المستخدم المفروض يشوف
-        // لوحتها بدل ما يفضل في صفحة الباقات ومايعرفش إن ليه لوحة أصلًا.
-        // التحويل مبني على أن الشركة اتكوّنت فعلًا في المسار ده، لا على أي
-        // قيمة في الرابط.
-        if (companyStep.created) {
-            window.location.href = '/company-dashboard/';
-            return;
-        }
 
         await loadSubscriptionStatus();
     } catch (error) {
@@ -660,7 +649,7 @@ async function handleRenew() {
         }
 
         const result = await renewSubscription(plan, billingCycle, paymentInfo);
-        await linkSubscriptionIfCompanyPlan(plan, result.subscription?.id);
+        await linkSubscriptionToMyCompany(result.subscription?.id);
 
         const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(paymentInfo.paymentMethod)
             ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.'
