@@ -514,6 +514,22 @@ test('record page: Relay off or not a member shows a reason and calls nothing el
     await context.close();
 });
 
+test('record page: granting to a staff member whose account is not active explains why (server refusal)', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures({ access: { member: true, enabled: true, supervisor: true, can_assign: true } });
+    fx.rpc.relay_list_assigners = [];
+    fx.rpcErrors = { relay_grant_assigner: { code: '22023', message: 'بيانات غير صالحة: user_id',
+        details: '{"code":"validation_failed","field":"user_id","reason":"not_eligible"}' } };
+    const { page, context } = await openPage(fx, { url: '/admin/relay.html' });
+    await page.waitForSelector('#rlGrantUser');
+    await page.locator('#rlGrantUser').selectOption(STAFF);
+    page.on('dialog', (d) => d.accept());
+    await page.locator('#rlGrantBtn').click();
+    await page.waitForFunction(() => /حسابه مش نشط/.test(document.querySelector('#toast')?.innerText || ''));
+    assert.match(await page.locator('#toast').innerText(), /مينفعش ياخد صلاحية الإسناد/);
+    assert.deepEqual(await rpcCalls(page, 'relay_grant_assigner'), [{ p_user: STAFF }]);
+    await context.close();
+});
+
 test('sidebar: the Relay link appears only when Relay is on and the caller is a member (hidden before 074)', { skip: !chromiumPath }, async () => {
     const cases = [
         [{ member: true, enabled: true, supervisor: false, can_assign: false }, true],
