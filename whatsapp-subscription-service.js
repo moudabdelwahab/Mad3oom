@@ -101,8 +101,7 @@ const PROOF_ALLOWED_MIME_PREFIXES = ['image/'];
 const PROOF_ALLOWED_MIME_EXACT = ['application/pdf'];
 const PROOF_MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 
-// أقصى مدة مسموح بها لمراجعة أي طلب تحويل خارجي (بنكي أو محفظة) قبل التأكيد/الرفض
-const EXTERNAL_PAYMENT_REVIEW_SLA_MS = 60 * 60 * 1000; // ساعة واحدة
+// مهلة الساعة لمراجعة التحويل الخارجي يضعها الخادم على تذكرة الطلب (069).
 
 
 function assertValidPlan(plan) {
@@ -218,7 +217,6 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
     const paymentReference = options.paymentReference ? String(options.paymentReference).trim().slice(0, 500) : null;
     const proofFile = EXTERNAL_PAYMENT_METHODS.includes(paymentMethod) ? options.proofFile : null;
 
-    let createdTicketId = null;
     let createdSubscriptionId = null;
 
     try {
@@ -288,97 +286,53 @@ export async function createSubscriptionTicket(plan, billingCycle, options = {})
             description += `\nمرجع التحويل: ${paymentReference}`;
         }
 
-        const now = new Date();
-        const ticketPayload = {
-            user_id: user.id,
-            title: `${isUpgrade ? 'طلب ترقية ودمج الباقة' : (isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك')} - ${planLabel} (${billingLabel})`,
-            description,
-            status: 'open',
-            priority: 'high',
-            // تذاكر الفوترة خارج رصيد التذاكر الشهري (migrations/063): عميل
-            // استهلك رصيده لازم يقدر يطلب الترقية أو التجديد.
-            category: 'subscription'
-        };
+        const ticketTitle = `${isUpgrade ? 'طلب ترقية ودمج الباقة' : (isRenewal ? 'طلب تجديد اشتراك' : 'طلب اشتراك')} - ${planLabel} (${billingLabel})`;
 
-        // طلبات التحويل البنكي الخارجي لازم تُراجع خلال ساعة كحد أقصى، بغض
-        // النظر عن مهلة الـ SLA الافتراضية للأولوية العالية (4 ساعات). القيمة
-        // دي بتتحدد صراحةً هنا عشان الـ trigger set_ticket_sla() ما يغيّرهاش
-        // (بيتفعّل بس لو العمود NULL وقت الإدراج).
+        // طلبات التحويل الخارجي تُراجَع خلال ساعة كحد أقصى؛ المهلة نفسها
+        // يضعها الخادم على التذكرة، والسطر هنا للفريق وهو يقرأها.
         if (EXTERNAL_PAYMENT_METHODS.includes(paymentMethod)) {
-            ticketPayload.sla_response_due_at = new Date(now.getTime() + EXTERNAL_PAYMENT_REVIEW_SLA_MS).toISOString();
             description += `\n\n⚠️ طلب تحويل خارجي (${paymentMethodLabel}) - يجب مراجعته وتأكيده أو رفضه خلال ساعة كحد أقصى من فريق الدعم.`;
-            ticketPayload.description = description;
         }
 
-        // Create a support ticket for the subscription request
-        const { data: ticket, error: ticketError } = await supabase
-            .from('tickets')
-            .insert(ticketPayload)
-            .select()
-            .single();
-
-        if (ticketError) throw ticketError;
-        createdTicketId = ticket.id;
-
-        // مسار الترقية: الصف بيتعمل في القاعدة عبر request_subscription_upgrade
-        // عشان المبلغ يتحسب هناك ولا يُقبل من العميل، ويرث دورة الاشتراك
-        // الحالية بدل ما يبدأ دورة جديدة.
-        let subscription;
-        if (isUpgrade) {
-            const { data: upgradeResult, error: upgradeError } = await supabase
-                .rpc('request_subscription_upgrade', {
-                    p_plan: plan,
-                    p_ticket_id: ticket.id,
-                    p_payment_method: paymentMethod,
-                    p_payment_reference: paymentReference
-                });
-
-            if (upgradeError) {
-                await supabase.from('tickets').delete().eq('id', createdTicketId);
-                throw upgradeError;
-            }
-
-            createdSubscriptionId = upgradeResult.subscription_id;
-            const { data: upgradeRow } = await supabase
-                .from('whatsapp_subscriptions')
-                .select('*')
-                .eq('id', createdSubscriptionId)
-                .maybeSingle();
-            subscription = upgradeRow;
-        } else {
-
-        // الإنشاء عبر دالة القاعدة، لا بـINSERT مباشر (إصلاح C1).
+        // التذكرة والطلب في نداء واحد على الخادم (migrations/069).
         //
-        // السبب: سياسة INSERT القديمة كانت تتحقق من auth.uid() = user_id فقط،
-        // فكان العميل يكتب لنفسه status='active' وتاريخ انتهاء بعيدًا ويحصل على
-        // كل الخدمات مجانًا. لم تعد هناك سياسة INSERT للمستخدم إطلاقًا؛ الدالة
-        // هي المسار الوحيد وهي التي تفرض 'pending' وتحسب التواريخ في الخادم.
+        // كانت التذكرة تُنشأ هنا من المتصفح بتصنيف 'subscription' ثم يُنادى
+        // request_subscription_purchase/upgrade — فالقاعدة ما كانتش تفرّق بين
+        // طلب اشتراك حقيقي وتذكرة دعم عادية بنفس التصنيف، والاتنين كانوا خارج
+        // رصيد التذاكر. دلوقتي الإعفاء لتذكرة يفتحها الخادم مع طلب فعلي بس،
+        // والعملية ذرّية: فشل الطلب يرجّع التذكرة معاه (مفيش حذف من المتصفح).
         //
-        // لاحظ أن التوقيع لا يقبل user_id ولا status ولا تواريخ: ما لا يُمرَّر
-        // لا يمكن تزويره.
-        const { data: created, error: subError } = await supabase
-            .rpc('request_subscription_purchase', {
+        // التوقيع لا يقبل user_id ولا status ولا تواريخ ولا تصنيف: ما لا
+        // يُمرَّر لا يمكن تزويره (إصلاح C1 كما هو داخل الدالتين القائمتين).
+        // مسار الترقية: المبلغ يتحسب في القاعدة ويرث دورة الاشتراك الحالية.
+        const { data: created, error: submitError } = isUpgrade
+            ? await supabase.rpc('submit_subscription_upgrade', {
+                p_plan: plan,
+                p_ticket_title: ticketTitle,
+                p_ticket_description: description,
+                p_payment_method: paymentMethod,
+                p_payment_reference: paymentReference
+            })
+            : await supabase.rpc('submit_subscription_request', {
                 p_plan: plan,
                 p_billing_cycle: billingCycle,
-                p_ticket_id: ticket.id,
+                p_ticket_title: ticketTitle,
+                p_ticket_description: description,
                 p_is_renewal: isRenewal,
                 p_payment_method: paymentMethod,
                 p_payment_reference: paymentReference
             });
 
-        if (subError) {
-            await supabase.from('tickets').delete().eq('id', createdTicketId);
-            throw subError;
-        }
+        if (submitError) throw submitError;
 
+        const ticket = created.ticket;
         createdSubscriptionId = created.subscription_id;
-        const { data: createdRow } = await supabase
+
+        const { data: subscription } = await supabase
             .from('whatsapp_subscriptions')
             .select('*')
             .eq('id', createdSubscriptionId)
             .maybeSingle();
-        subscription = createdRow;
-        }
 
         // إثبات التحويل (لو تحويل بنكي خارجي) بيتخزن كمرفق عادي على نفس
         // التذكرة، فيظهر تلقائيًا في لوحة الإدارة زي أي مرفق تذكرة تاني.

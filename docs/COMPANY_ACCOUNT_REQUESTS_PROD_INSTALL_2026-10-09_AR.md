@@ -32,10 +32,10 @@
   `drop table if exists pg_temp.<غير موجود>` انتهت مهلته. الملف محتاج `DROP POLICY` لقفل الإنشاء
   الذاتي، فاتطبّق من SQL Editor زي 064/067، من غير أي تحايل على التأكيد.
 
-**السجل (`schema_migrations`)**: لسه مش متسجّل — نفس السبب (النص المخزّن نفسه فيه `DROP`).
-`scripts/ledger/register_068.sql` جاهز بنفس شكل `register_064_067.sql`: صف واحد
-`20261009062230 / 068_company_account_requests`، بيتضاف بس لو md5 النص = md5 الملف، ومتحقق في الآخر.
-يتشغّل من SQL Editor.
+**السجل (`schema_migrations`)**: الأداة مقدرتش تكتبه (النص المخزّن نفسه فيه `DROP`)، فاتسجّل
+من SQL Editor بـ `scripts/ledger/register_068.sql` (بنفس شكل `register_064_067.sql`). متحقق
+بعدها: صف واحد `20261009062230 / 068_company_account_requests`، `created_by = info@mad3oom.online`،
+و md5(statements[1]) = `c9fabd07…` = md5 الملف.
 
 ## VERIFIED
 
@@ -103,7 +103,7 @@
 
 ```
 068 installed      = YES (SQL Editor, 06:22:30 UTC)
-068 in ledger      = NO  (register_068.sql جاهز)
+068 in ledger      = YES (register_068.sql، md5 = الملف)
 Customer data      = unchanged
-New UI live        = NO  (PR #102 لسه ما اندمجش)
+New UI live        = YES (PR #102 اندمج 06:33 UTC)
 ```

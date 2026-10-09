@@ -271,7 +271,10 @@ test('فرد + تحويل بنكي + PDF ⇒ الطلب يتسجّل والإث�
     fx.tables.tickets = [];
     fx.tables.ticket_attachments = [];
     fx.rpc.subscription_purchase_check = { allowed: true };
-    fx.rpc.request_subscription_purchase = { subscription_id: 'sub-1' };
+    fx.rpc.submit_subscription_request = {
+        subscription_id: 'sub-1', status: 'pending',
+        ticket: { id: 'tk-1', ticket_number: 1121, category: 'subscription', status: 'open' }
+    };
     fx.rpc.cancel_my_subscription_request = true;
     const dialogs = [];
     const { page, context, errors } = await open(fx, '/subscriptions.html', { dialogs });
@@ -290,14 +293,30 @@ test('فرد + تحويل بنكي + PDF ⇒ الطلب يتسجّل والإث�
     const attach = (await writes(page)).filter(w => w.table === 'ticket_attachments');
     assert.deepEqual(attach.map(w => w.op), ['insert'], `الإدراج اترفض: ${JSON.stringify(attach)}`);
     const row = attach[0].row;
-    assert.match(row.file_path, /^new-tickets-\d+\/\d+_[a-z0-9]+_.+\.pdf$/);
+    assert.match(row.file_path, /^tk-1\/\d+_[a-z0-9]+_.+\.pdf$/);
     assert.equal(row.file_url, `/uploads/${row.file_path}`, 'file_url = الرابط العام للمسار نفسه (وسيلة الرجوع في 030)');
     assert.equal(row.mime_type, 'application/pdf');
     assert.equal(row.file_name, 'إثبات تحويل.pdf');
 
     assert.deepEqual(await called(page, 'cancel_my_subscription_request'), [], 'الطلب اتلغى بعد الرفع');
+
+    // التذكرة والطلب نداء واحد على الخادم (069): المتصفح مابيدرجش تذكرة ولا
+    // بيبعت تصنيف/أولوية/صاحب — دول بيفرضهم الخادم.
+    assert.deepEqual((await writes(page)).filter(w => w.table === 'tickets'), []);
+    assert.deepEqual(await called(page, 'request_subscription_purchase'), []);
+    const submit = await called(page, 'submit_subscription_request');
+    assert.equal(submit.length, 1);
+    const args = submit[0][1];
+    assert.deepEqual(Object.keys(args).sort(), ['p_billing_cycle', 'p_is_renewal', 'p_payment_method',
+        'p_payment_reference', 'p_plan', 'p_ticket_description', 'p_ticket_title']);
+    assert.equal(args.p_plan, 'support');
+    assert.equal(args.p_payment_method, 'bank_transfer');
+    assert.equal(args.p_is_renewal, false);
+    assert.match(args.p_ticket_title, /^طلب اشتراك - /);
+    assert.match(args.p_ticket_description, /طلب تحويل خارجي/);
     assert.equal(dialogs.length, 1);
     assert.match(dialogs[0], /تم إرسال طلب الاشتراك بنجاح/);
+    assert.match(dialogs[0], /#1121/);
     assert.match(dialogs[0], /سيتم مراجعة إثبات التحويل/);
     assert.deepEqual(errors, []);
     await context.close();
