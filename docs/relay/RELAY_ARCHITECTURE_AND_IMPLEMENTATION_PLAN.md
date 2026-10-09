@@ -842,3 +842,47 @@ The privilege is `_relay_can_assign()`: an active Relay member who is a supervis
 
 ### 27.5 Validation performed (local only)
 Exact commands and totals are in the PR description. Production was not touched.
+
+Status update: PR #107 was merged, and Mahmoud applied 074 to production at 15:20 UTC on 2026-10-09 (ledger `20261009152023`, verified). U18 is closed in production.
+
+## 28. Trash and platform-owner control (076, 2026-10-09)
+
+Mahmoud's request at 15:33 UTC asked for three things. A message removed from a record should go to a "deleted" section that supports undo. The platform owner's account should hold the strongest control over Relay. Confirmations should be in-page dialogs, which shipped separately in PR #110. At 15:39 UTC he chose "محذوفات + مسح للمالك". The migration is numbered 076 because `075_workspace_layouts.sql` already exists.
+
+### 28.1 Rules (normative)
+| # | Rule | Where it is enforced |
+|---|---|---|
+| **T1** | Anyone who can view a record may remove one of its sources, which moves it to المحذوفات, and may restore it. Both need an active (not closed) record and the current version. Removing hides nothing more than the source's place in the record: an excerpt in the trash is still shown only under C3, rechecked on every read. | `relay_remove_source`, `relay_restore_source`, `_relay_full` (`removed`), `relay_list_removed`. |
+| **T2** | Permanent erase is owner-only and cannot be undone. It covers manual erase (`relay_redact_source(…, 'manual')`) and emptying the trash (`relay_purge_removed`, for one record or for all records). Erase redacts the snapshot and stamps `purged_at`. An erased source disappears from the record and the trash, cannot be restored or removed again, and cannot be re-captured, because the dedupe key still blocks it. | `_relay_is_owner()` in those RPCs. Trigger `trg_relay_source_trash_guard` blocks changing a purged row even for the superuser. |
+| **T3** | Only the owner may grant, revoke or list the assign privilege. Before 076 supervisors could. Supervisors still assign records themselves (P3 and P4 are unchanged). | `_relay_require_owner()` in `relay_grant_assigner`, `relay_revoke_assigner` and `relay_list_assigners`. |
+
+"Owner" means `public.is_platform_owner()`: an `owner` row in `platform_authority` and the `platform_owner` role. The check reads no email. The owner must also be an active Relay member, which means the admin context, and must not be calling through `relay-api`. `relay_my_access` now returns `owner`.
+
+Unchanged:
+- Data-subject requests (M8): `relay_redact_for_subject` and `relay_redact_source(…, 'data_subject_request')` stay supervisor-only. They redact the snapshot and do not hide the source.
+- Retention (C5) also applies to sources in the trash.
+- Excerpt rules (C3/M11) and the P1–P4 rules.
+
+### 28.2 What shipped
+- `migrations/076_relay_trash_owner.sql` and `migrations/_rollback/076_relay_trash_owner.down.sql`.
+  - The rollback restores the nine redefined functions to their exact pre-076 text and drops the new columns.
+  - It refuses to run while anything is in the trash or erased, unless the session sets `relay.rollback_discard_data=on`.
+- New columns on `relay_sources`: `removed_at`/`removed_by` and `purged_at`/`purged_by`, with pairing checks.
+- Four new RPCs: `relay_remove_source`, `relay_restore_source`, `relay_list_removed` and `relay_purge_removed`. `authenticated` can now execute 19 Relay RPCs.
+- Redefined functions:
+  - `_relay_full` returns `sources` without removed ones, plus a separate `removed` list.
+  - `relay_list` counts only sources that are not removed.
+  - `relay_find_by_source` ignores removed sources.
+  - `relay_attach_sources` restores a removed (not erased) source when its message is attached again, instead of silently skipping it.
+- Events (no text): `source_removed`, `source_restored`, and `source_redacted` with `purged: true`.
+- `admin/relay.html`:
+  - "إزالة" on every source.
+  - An "المحذوفات" section in the record, with "استرجاع", plus "مسح نهائي" and "تفريغ المحذوفات" for the owner.
+  - A page-level "المحذوفات" panel across all visible records.
+  - The assign-privilege panel is shown only to the owner.
+  - Before 076 is applied, `relay_my_access` has no `owner` key and the page keeps the 074 behavior.
+
+### 28.3 Residual risks
+- **U20:** An erased message cannot be attached to the same record again, because the dedupe key remains. It can still be attached to a different record. This is intentional: erase is final.
+- **U21:** The trash is per record and has no automatic expiry. Removed sources keep their excerpt until the owner erases them or the C5 retention sweep runs after the record closes.
+- **U22:** Supervisors who could redact manually under 073/074 no longer can. Only the owner erases. The data-subject path is unchanged.

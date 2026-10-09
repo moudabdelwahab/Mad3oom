@@ -367,4 +367,5 @@ export const EVENT_LABELS = Object.freeze({
     created: 'أنشأ السجل', updated: 'عدّل السجل', assigned: 'غيّر المالك', transitioned: 'غيّر الحالة',
     resolved: 'قفل السجل كمحلول', cancelled: 'ألغى السجل', reopened: 'أعاد فتح السجل',
     source_attached: 'أرفق رسالة', source_redacted: 'حذف محتوى مصدر', sensitive_ack: 'أكّد إرفاق محتوى حساس',
+    source_removed: 'شال رسالة للمحذوفات', source_restored: 'رجّع رسالة من المحذوفات', source_purged: 'مسح رسالة نهائيًا',
 });

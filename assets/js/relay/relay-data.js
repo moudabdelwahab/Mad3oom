@@ -19,13 +19,17 @@ async function call(name, args) {
     return data;
 }
 
-const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: false, can_assign: false });
+const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: false, can_assign: false, owner: false, trash: false });
 
-/** استشاري للواجهة: أي فشل (أو قاعدة قبل 074) = لا شيء ظاهر. */
+/**
+ * استشاري للواجهة: أي فشل (أو قاعدة قبل 074) = لا شيء ظاهر.
+ * trash: القاعدة فيها 076 (relay_my_access بيرجّع owner). قبلها الصفحة تشتغل بقواعد 074.
+ */
 export async function loadRelayAccess() {
     try {
         const data = await call('relay_my_access');
-        return data && typeof data === 'object' ? { ...NO_ACCESS, ...data } : NO_ACCESS;
+        return data && typeof data === 'object'
+            ? { ...NO_ACCESS, ...data, trash: Object.prototype.hasOwnProperty.call(data, 'owner') } : NO_ACCESS;
     } catch {
         return NO_ACCESS;
     }
@@ -49,7 +53,14 @@ export const attachSources = (id, messageIds, version, sensitiveAck = false) => 
     p_expected_version: version,
     p_sensitive_ack: Boolean(sensitiveAck),
 });
-export const redactSource = (sourceId) => call('relay_redact_source', { p_source: sourceId, p_reason: 'manual' });
+/** 076: الإزالة للمحذوفات والاسترجاع لمن يرى السجل؛ المسح النهائي لمالك المنصة فقط. */
+export const removeSource = (sourceId, version) =>
+    call('relay_remove_source', { p_source: sourceId, p_expected_version: version });
+export const restoreSource = (sourceId, version) =>
+    call('relay_restore_source', { p_source: sourceId, p_expected_version: version });
+export const listRemoved = () => call('relay_list_removed', { p_limit: 100 });
+export const purgeSource = (sourceId) => call('relay_redact_source', { p_source: sourceId, p_reason: 'manual' });
+export const purgeRemoved = (recordId = null) => call('relay_purge_removed', { p_record: recordId });
 export const loadEvents = (id) => call('relay_events_for', { p_record: id, p_before: null, p_limit: 50 });
 export const listAssigners = () => call('relay_list_assigners');
 export const grantAssigner = (userId) => call('relay_grant_assigner', { p_user: userId });

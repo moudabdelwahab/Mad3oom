@@ -632,3 +632,143 @@ test('record page at 390px: list first, record replaces it, no horizontal overfl
     assert.ok(await page.locator('.rl-panel--list').isVisible());
     await context.close();
 });
+
+/* ── 076: المحذوفات والتحكم الأكبر للمالك ───────────────────────────────── */
+const ACCESS_076 = { member: true, enabled: true, supervisor: true, can_assign: true, owner: false };
+function trashFixtures({ access = ACCESS_076, status = 'open' } = {}) {
+    const fx = pageFixtures({ access });
+    fx.rpc.relay_get.record.status = status;
+    fx.rpc.relay_get.removed = [
+        { id: 's3', position: 3, source_type: 'mad3oom_message', provider: 'mad3oom', captured_at: at(9, 0),
+          chat_session_id: S, chat_message_id: 'm1', excerpt: 'مرحبًا، أريد الاستفسار', sender_label: 'العميل',
+          original_created_at: at(7, 24), truncated: false, source_deleted: false, edited_after_capture: false,
+          removed_at: at(10, 0), removed_by: STAFF },
+    ];
+    fx.rpc.relay_list_removed = [{ record: { id: REC, title: 'متابعة الشحنة', status, version: 3 }, source: fx.rpc.relay_get.removed[0] }];
+    fx.rpc.relay_remove_source = fx.rpc.relay_get;
+    fx.rpc.relay_restore_source = fx.rpc.relay_get;
+    fx.rpc.relay_redact_source = fx.rpc.relay_get;
+    fx.rpc.relay_purge_removed = { purged: 1 };
+    return fx;
+}
+
+test('trash (076): «إزالة» moves a source to المحذوفات and «استرجاع» brings it back; no erase for a non-owner', { skip: !chromiumPath }, async () => {
+    const native = [];
+    const { page, context, errors } = await openPage(trashFixtures(), { url: `/admin/relay.html?record=${REC}` });
+    page.on('dialog', (d) => { native.push(d.type()); d.dismiss(); });
+    await page.waitForSelector('#rlRemoved');
+    // المصادر: «إزالة» على كل مصدر (حتى المخفي)، ولا حذف نهائي قديم
+    assert.equal(await page.locator('#rlDetail [data-redact]').count(), 0);
+    assert.equal(await page.locator('[data-remove][data-source="s2"]').count(), 1);
+    await page.locator('[data-remove][data-source="s1"]').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_remove_source'));
+    assert.deepEqual(await rpcCalls(page, 'relay_remove_source'), [{ p_source: 's1', p_expected_version: 3 }]);
+    await page.waitForFunction(() => /المحذوفات/.test(document.querySelector('#toast')?.innerText || ''));
+    // المحذوفات في السجل: النص (الخادم رجّعه)، مين شالها، واسترجاع بس
+    const removed = page.locator('#rlRemoved');
+    assert.match(await removed.locator('h3').innerText(), /المحذوفات \(1\)/);
+    assert.match(await removed.innerText(), /مرحبًا، أريد الاستفسار/);
+    assert.match(await removed.innerText(), /شالها هبة سمير/);
+    assert.equal(await removed.locator('[data-purge]').count(), 0, 'erase shown to a non-owner');
+    assert.equal(await page.locator('#rlPurgeRecord').count(), 0);
+    await removed.locator('[data-restore][data-source="s3"]').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_restore_source'));
+    assert.deepEqual(await rpcCalls(page, 'relay_restore_source'), [{ p_source: 's3', p_expected_version: 3 }]);
+    // لوحة المحذوفات عبر السجلات: اسم السجل يفتحه، بلا «تفريغ الكل» لغير المالك
+    await page.waitForSelector('#rlTrash:not([hidden]) .rl-trash-item');
+    assert.match(await page.locator('#rlTrash').innerText(), /متابعة الشحنة/);
+    assert.equal(await page.locator('#rlPurgeAll').isHidden(), true);
+    assert.equal(await page.locator('#rlTrash [data-purge]').count(), 0);
+    // صلاحية الإسناد بعد 076 للمالك بس، حتى لو المتصل مشرف
+    assert.equal(await page.locator('#rlAssigners').isHidden(), true, 'assigner admin shown to a supervisor after 076');
+    assert.deepEqual(await rpcCalls(page, 'relay_list_assigners'), []);
+    assert.deepEqual(await rpcCalls(page, 'relay_redact_source'), []);
+    assert.deepEqual(native, []);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('trash (076): the platform owner erases one, empties a record, empties all, each behind a danger dialog', { skip: !chromiumPath }, async () => {
+    const native = [];
+    const { page, context, errors } = await openPage(trashFixtures({ access: { ...ACCESS_076, owner: true } }), { url: `/admin/relay.html?record=${REC}` });
+    page.on('dialog', (d) => { native.push(d.type()); d.dismiss(); });
+    await page.waitForSelector('#rlRemoved [data-purge]');
+    await page.waitForSelector('#rlAssigners:not([hidden]) .rl-assigners li');
+    // مسح واحد: إلغاء لا يرسل شيئًا، والتأكيد يرسل manual
+    await page.locator('#rlRemoved [data-purge][data-source="s3"]').click();
+    await page.waitForSelector('#rlConfirm[open]');
+    assert.match(await page.locator('#rlConfirmTitle').innerText(), /مسح الرسالة نهائيًا/);
+    assert.match(await page.locator('#rlConfirmOk').getAttribute('class'), /btn-danger/);
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await rpcCalls(page, 'relay_redact_source'), []);
+    await page.locator('#rlRemoved [data-purge][data-source="s3"]').click();
+    await page.locator('#rlConfirm[open] #rlConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_redact_source'));
+    assert.deepEqual(await rpcCalls(page, 'relay_redact_source'), [{ p_source: 's3', p_reason: 'manual' }]);
+    // تفريغ محذوفات السجل
+    await page.waitForSelector('#rlPurgeRecord');
+    await page.locator('#rlPurgeRecord').click();
+    await page.waitForSelector('#rlConfirm[open]');
+    assert.match(await page.locator('#rlConfirmMsg').innerText(), /1 رسالة/);
+    await page.locator('#rlConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_purge_removed'));
+    assert.deepEqual(await rpcCalls(page, 'relay_purge_removed'), [{ p_record: REC }]);
+    // تفريغ الكل
+    await page.waitForSelector('#rlPurgeAll:not([hidden])');
+    await page.locator('#rlPurgeAll').click();
+    await page.waitForSelector('#rlConfirm[open]');
+    assert.match(await page.locator('#rlConfirmTitle').innerText(), /تفريغ كل المحذوفات/);
+    await page.locator('#rlConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'relay_purge_removed').length === 2);
+    assert.deepEqual((await rpcCalls(page, 'relay_purge_removed'))[1], { p_record: null });
+    assert.deepEqual(native, []);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('trash (076): a closed record has no remove or restore; the server refusal for erase is explained', { skip: !chromiumPath }, async () => {
+    const fx = trashFixtures({ access: { ...ACCESS_076, owner: true }, status: 'resolved' });
+    fx.rpcErrors = { relay_redact_source: { code: '42501', message: 'غير مسموح', details: '{"code":"forbidden","field":"owner"}' } };
+    const { page, context } = await openPage(fx, { url: `/admin/relay.html?record=${REC}` });
+    await page.waitForSelector('#rlRemoved');
+    assert.equal(await page.locator('#rlDetail [data-remove]').count(), 0);
+    assert.equal(await page.locator('#rlDetail [data-restore]').count(), 0);
+    assert.match(await page.locator('#rlRemoved').innerText(), /أعد فتحه/);
+    await page.waitForSelector('#rlTrash:not([hidden]) .rl-trash-item');
+    assert.equal(await page.locator('#rlTrash [data-restore]').count(), 0);
+    await page.locator('#rlRemoved [data-purge]').click();
+    await page.locator('#rlConfirm[open] #rlConfirmOk').click();
+    await page.waitForFunction(() => /مالك المنصة/.test(document.querySelector('#toast')?.innerText || ''));
+    assert.match(await page.locator('#toast').innerText(), /لحساب مالك المنصة بس/);
+    await context.close();
+});
+
+test('trash (076) at 390px: actions are 44px, nothing overflows', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openPage(trashFixtures({ access: { ...ACCESS_076, owner: true } }),
+        { url: `/admin/relay.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#rlRemoved [data-purge]');
+    await page.waitForSelector('#rlTrash:not([hidden]) .rl-trash-item');
+    for (const sel of ['[data-remove][data-source="s1"]', '#rlRemoved [data-restore]', '#rlRemoved [data-purge]', '#rlPurgeRecord', '#rlPurgeAll', '.rl-trash-record']) {
+        const b = await page.locator(sel).first().boundingBox();
+        assert.ok(b && b.height >= 44, `${sel} touch target ${b?.height}`);
+    }
+    const wide = await page.evaluate(() => [...document.querySelectorAll('main *')]
+        .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > window.innerWidth + 1; })
+        .map((el) => el.className || el.tagName));
+    assert.deepEqual(wide, []);
+    await context.close();
+});
+
+test('before 076 (relay_my_access without owner): the page keeps the 074 behavior', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures({ access: { member: true, enabled: true, supervisor: true, can_assign: true } });
+    fx.rpcErrors = { relay_list_removed: { code: 'PGRST202', message: 'Could not find the function public.relay_list_removed' } };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/relay.html?record=${REC}` });
+    await page.waitForSelector('#rlRecordTitle');
+    assert.equal(await page.locator('[data-redact="s1"]').count(), 1);
+    assert.equal(await page.locator('[data-remove]').count(), 0);
+    assert.equal(await page.locator('#rlTrash').isHidden(), true);
+    await page.waitForSelector('#rlAssigners:not([hidden])');
+    assert.deepEqual(await rpcCalls(page, 'relay_list_removed'), []);
+    assert.deepEqual(errors, []);
+    await context.close();
+});

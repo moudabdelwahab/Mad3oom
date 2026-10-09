@@ -4,7 +4,10 @@
  * القائمة (relay_list: بلا مقتطفات) وتفاصيل سجل (relay_get: المقتطف يظهر فقط لو
  * الخادم قرر في القراءة دي إن عندك وصول حالي للمحادثة — C3). التعديل والإسناد
  * والانتقالات والحجب كلها عبر الـRPC، والأدوات المعروضة تعكس relay_my_access
- * وقواعد 074 للعرض فقط: الخادم هو اللي يرفض.
+ * وقواعد 074/076 للعرض فقط: الخادم هو اللي يرفض.
+ *
+ * 076: «إزالة» رسالة من سجل تنقلها للمحذوفات (ترجع بـ«استرجاع»). المسح النهائي
+ * وتفريغ المحذوفات وصلاحية الإسناد لحساب مالك المنصة بس (access.owner).
  */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
@@ -15,7 +18,8 @@ import {
     allowedTransitions, assignmentOptions, toZonedInput,
 } from './relay-model.js';
 import {
-    loadRelayAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, redactSource, loadEvents,
+    loadRelayAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
+    removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams,
 } from './relay-data.js';
 import { RELAY_ICONS } from './relay-icons.js';
@@ -31,7 +35,7 @@ const fmt = (iso, tz) => {
 };
 
 const state = {
-    me: null, access: null, agents: [], teams: [], records: [], current: null, events: [], assigners: null,
+    me: null, access: null, agents: [], teams: [], records: [], current: null, events: [], assigners: null, trash: [],
     filters: { status: 'active', owner: '', category: '' }, busy: false,
 };
 const agentName = (id) => {
@@ -117,8 +121,22 @@ async function openRecord(id, { push = true } = {}) {
     renderList();
 }
 
-function sourceHtml(s) {
+const isClosed = (status) => status === 'resolved' || status === 'cancelled';
+
+/** mode: 'main' (مصادر السجل) أو 'removed' (المحذوفات). closed = السجل مقفول. */
+function sourceHtml(s, { mode = 'main', closed = false, version = null, recordId = null } = {}) {
     const d = describeSource(s);
+    const data = `data-source="${esc(s.id)}"${version != null ? ` data-version="${esc(version)}"` : ''}${recordId ? ` data-record="${esc(recordId)}"` : ''}`;
+    let actions = '';
+    if (mode === 'main' && !state.access.trash) {
+        // قبل 076: الحجب النهائي كما في 074 (المالك أو المنشئ أو المشرف).
+        if (d.state === 'visible' && canRedactLegacy()) actions = `<button type="button" class="btn btn-secondary rl-btn-sm" data-redact="${esc(s.id)}">حذف المحتوى</button>`;
+    } else if (mode === 'main' && !closed) {
+        actions = `<button type="button" class="btn btn-secondary rl-btn-sm" data-remove ${data}>إزالة</button>`;
+    } else if (mode === 'removed') {
+        actions = `${closed ? '' : `<button type="button" class="btn btn-secondary rl-btn-sm" data-restore ${data}>استرجاع</button>`}
+            ${state.access.owner ? `<button type="button" class="btn btn-danger rl-btn-sm" data-purge ${data}>مسح نهائي</button>` : ''}`;
+    }
     const head = `<div class="rl-source-head"><span>#${s.position}</span>
         ${d.state === 'visible' && d.senderLabel ? `<b>${esc(d.senderLabel)}</b>` : ''}
         ${d.state === 'visible' && s.original_created_at ? `<span>${esc(fmt(s.original_created_at))}</span>` : ''}
@@ -126,21 +144,45 @@ function sourceHtml(s) {
         ${d.editedAfterCapture ? '<span class="rl-pill">اتعدّلت بعد الإرفاق</span>' : ''}
         <span class="rl-spacer"></span>
         ${d.state === 'visible' && s.chat_session_id ? `<a href="/admin/inbox.html?session=${encodeURIComponent(s.chat_session_id)}">فتح المحادثة</a>` : ''}
-        ${d.state === 'visible' && canRedact() ? `<button type="button" class="btn btn-secondary" data-redact="${esc(s.id)}">حذف المحتوى</button>` : ''}
       </div>`;
-    if (d.state === 'visible') return `<li class="rl-source" data-source="${esc(s.id)}">${head}<p>${esc(d.excerpt)}</p></li>`;
-    return `<li class="rl-source is-hidden" data-source="${esc(s.id)}" data-state="${d.state}">${head}<p>${RELAY_ICONS.lock}${esc(d.label)}</p></li>`;
+    const foot = `${mode === 'removed' && s.removed_at
+        ? `<small class="rl-removed-by">شالها ${esc(agentName(s.removed_by))} · ${esc(fmt(s.removed_at))}</small>` : ''}
+        ${actions ? `<div class="rl-source-actions">${actions}</div>` : ''}`;
+    if (d.state === 'visible') return `<li class="rl-source" ${data}>${head}<p>${esc(d.excerpt)}</p>${foot}</li>`;
+    return `<li class="rl-source is-hidden" ${data} data-state="${d.state}">${head}<p>${RELAY_ICONS.lock}${esc(d.label)}</p>${foot}</li>`;
 }
 
-const canRedact = () => {
+const canRedactLegacy = () => {
     const r = state.current?.record;
     return Boolean(r && (state.access.supervisor || r.owner_id === state.me?.id || r.created_by === state.me?.id));
 };
 
+const eventLabel = (e) => EVENT_LABELS[e.kind === 'source_redacted' && e.payload?.purged ? 'source_purged' : e.kind] || e.kind;
+
+/** أزرار المصدر نفسها في تفاصيل السجل وفي لوحة المحذوفات. */
+async function sourceAction(el) {
+    const id = el.dataset.source;
+    const version = Number(el.dataset.version);
+    if (!id) return undefined;
+    if ('remove' in el.dataset) {
+        return act(() => removeSource(id, version), 'اتنقلت للمحذوفات. تقدر ترجّعها من «المحذوفات».');
+    }
+    if ('restore' in el.dataset) {
+        return act(() => restoreSource(id, version), 'رجعت للسجل');
+    }
+    if ('purge' in el.dataset) {
+        if (!await relayConfirm({ title: 'مسح الرسالة نهائيًا', danger: true, confirmText: 'مسح نهائي',
+            message: 'المحتوى هيتمسح ومش هيرجع، ومش هتقدر ترفق نفس الرسالة للسجل ده تاني.' })) return undefined;
+        return act(() => purgeSource(id), 'اتمسحت نهائيًا');
+    }
+    return undefined;
+}
+
 function renderRecord() {
     const r = state.current?.record;
     if (!r) return;
-    const closed = r.status === 'resolved' || r.status === 'cancelled';
+    const closed = isClosed(r.status);
+    const removed = state.current.removed || [];
     const deadline = retentionDeadline(r.closed_at);
     const transitions = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor });
     const assign = assignmentOptions(r, { agents: state.agents, meId: state.me?.id, canAssign: state.access.can_assign });
@@ -198,13 +240,21 @@ function renderRecord() {
 
       <section aria-labelledby="rlSourcesH">
         <h3 id="rlSourcesH">المصادر (${state.current.sources.length})</h3>
-        ${state.current.sources.length ? `<ul class="rl-sources">${state.current.sources.map(sourceHtml).join('')}</ul>`
+        ${state.current.sources.length ? `<ul class="rl-sources">${state.current.sources.map((s) => sourceHtml(s, { closed, version: r.version })).join('')}</ul>`
             : '<p class="rl-muted">مفيش رسائل مرفقة. أرفق رسائل من صندوق الرسائل: «سجل استمرارية» ← «إرفاق بسجل موجود».</p>'}
+        ${state.access.trash && !closed && state.current.sources.length ? '<p class="rl-muted">«إزالة» بتنقل الرسالة للمحذوفات وتقدر ترجّعها.</p>' : ''}
       </section>
+
+      ${removed.length ? `<section aria-labelledby="rlRemovedH" class="rl-removed" id="rlRemoved">
+        <div class="rl-section-head"><h3 id="rlRemovedH">المحذوفات (${removed.length})</h3>
+          ${state.access.owner ? '<button type="button" class="btn btn-danger rl-btn-sm" id="rlPurgeRecord">تفريغ المحذوفات</button>' : ''}</div>
+        <ul class="rl-sources">${removed.map((s) => sourceHtml(s, { mode: 'removed', closed, version: r.version })).join('')}</ul>
+        ${closed ? '<p class="rl-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
+      </section>` : ''}
 
       <section aria-labelledby="rlEventsH">
         <h3 id="rlEventsH">السجل</h3>
-        <ul class="rl-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(EVENT_LABELS[e.kind] || e.kind)}</li>`).join('')}</ul>
+        <ul class="rl-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
       </section>`;
 }
 
@@ -235,6 +285,9 @@ function friendlyError(err) {
         if (err.field === 'user_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش ياخد صلاحية الإسناد. فعّل حسابه الأول.`;
         if (err.field === 'owner_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش يبقى مالك للسجل.`;
     }
+    if (err?.code === 'forbidden' && err.field === 'owner') {
+        return 'المسح النهائي وصلاحية الإسناد لحساب مالك المنصة بس.';
+    }
     if (err?.code === 'forbidden' && (err.field === 'owner_id' || err.field === 'team_id')) {
         return 'مش مسموح لك تنقل السجل لموظف تاني أو لفريق. تقدر تاخده لنفسك أو تسيبه من غير مالك.';
     }
@@ -254,6 +307,7 @@ async function act(fn, okText) {
             await openRecord(result.record.id, { push: false });
         }
         await reloadList();
+        renderTrash();
     } catch (err) {
         toast(friendlyError(err), 'err');
         if (err.code === 'version_conflict' && state.current?.record?.id) await openRecord(state.current.record.id, { push: false });
@@ -263,11 +317,35 @@ async function act(fn, okText) {
 }
 
 // ═════════════════════════════════════════════════════════════
-// صلاحية الإسناد (للمشرف)
+// المحذوفات (كل السجلات اللي تشوفها)
+// ═════════════════════════════════════════════════════════════
+async function renderTrash() {
+    const box = $('rlTrash');
+    if (!state.access.trash) { box.hidden = true; return; }
+    try {
+        state.trash = await listRemoved() || [];
+    } catch (err) {
+        box.hidden = false;
+        $('rlTrashBody').innerHTML = `<p class="rl-error">${esc(friendlyError(err))}</p>`;
+        return;
+    }
+    box.hidden = !state.trash.length;
+    $('rlTrashCount').textContent = state.trash.length ? `(${state.trash.length})` : '';
+    $('rlPurgeAll').hidden = !state.access.owner || !state.trash.length;
+    $('rlTrashBody').innerHTML = `<ul class="rl-sources">${state.trash.map((x) => `<li class="rl-trash-item">
+        <button type="button" class="rl-trash-record" data-open-record="${esc(x.record.id)}">${esc(x.record.title)}
+          ${isClosed(x.record.status) ? `<span class="rl-pill">${esc(STATUS_LABELS[x.record.status])}</span>` : ''}</button>
+        <ul class="rl-sources">${sourceHtml(x.source, { mode: 'removed', closed: isClosed(x.record.status), version: x.record.version, recordId: x.record.id })}</ul>
+      </li>`).join('')}</ul>`;
+}
+
+// ═════════════════════════════════════════════════════════════
+// صلاحية الإسناد (لمالك المنصة، 076)
 // ═════════════════════════════════════════════════════════════
 async function renderAssigners() {
     const box = $('rlAssigners');
-    if (!state.access.supervisor) { box.hidden = true; return; }
+    // 076: المنح والسحب للمالك. قبل 076 كانوا للمشرف (074).
+    if (!(state.access.trash ? state.access.owner : state.access.supervisor)) { box.hidden = true; return; }
     box.hidden = false;
     try {
         state.assigners = await listAssigners();
@@ -334,15 +412,35 @@ function wire() {
             }
             return act(() => transitionRecord(r.id, t.to, details, r.version), 'اتغيّرت الحالة');
         }
+        if (el.id === 'rlPurgeRecord') {
+            const n = (state.current.removed || []).length;
+            if (!await relayConfirm({ title: 'تفريغ المحذوفات', danger: true, confirmText: 'مسح نهائي',
+                message: `${n} رسالة هتتمسح من السجل ده نهائيًا. مفيش رجوع، ومش هتقدر ترفقها تاني.` })) return undefined;
+            return act(async () => { await purgeRemoved(r.id); return getRecord(r.id); }, 'اتمسحت المحذوفات');
+        }
         if (el.dataset.redact) {
             const ok = await relayConfirm({
                 title: 'حذف محتوى المصدر نهائيًا', danger: true, confirmText: 'حذف نهائي',
                 message: 'مفيش رجوع: المحتوى مش هيرجع حتى لو أرفقت نفس الرسالة تاني.',
             });
             if (!ok) return undefined;
-            return act(() => redactSource(el.dataset.redact), 'اتحذف المحتوى');
+            return act(() => purgeSource(el.dataset.redact), 'اتحذف المحتوى');
         }
-        return undefined;
+        return sourceAction(el);
+    });
+    $('rlTrash').addEventListener('click', async (e) => {
+        const el = e.target.closest('button');
+        if (!el) return undefined;
+        if (el.dataset.openRecord) return openRecord(el.dataset.openRecord);
+        if (el.id === 'rlPurgeAll') {
+            if (!await relayConfirm({ title: 'تفريغ كل المحذوفات', danger: true, confirmText: 'مسح الكل نهائيًا',
+                message: `${state.trash.length} رسالة في المحذوفات هتتمسح من كل السجلات نهائيًا. مفيش رجوع.` })) return undefined;
+            return act(async () => {
+                await purgeRemoved(null);
+                return state.current?.record?.id ? getRecord(state.current.record.id) : null;
+            }, 'اتفرّغت المحذوفات');
+        }
+        return sourceAction(el);
     });
     $('rlAssigners').addEventListener('click', async (e) => {
         const el = e.target.closest('button');
@@ -399,6 +497,7 @@ async function boot() {
     await reloadList();
     const deep = new URLSearchParams(location.search).get('record');
     if (deep) await openRecord(deep, { push: false });
+    renderTrash();
     renderAssigners();
 }
 

@@ -234,6 +234,20 @@
 .rl-assigners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
 .rl-assigners li { display: flex; align-items: center; gap: .5rem; }
 .rl-assigners li span { flex: 1; }
+/* المحذوفات (076) */
+.rl-section-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-block-end: .5rem; }
+.rl-section-head h3 { margin: 0; }
+.rl-btn-sm { min-height: 2.75rem; padding-inline: .9rem; font-size: .85rem; }
+.rl-source-actions { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
+.rl-removed-by { color: var(--color-text-secondary); font-size: .75rem; }
+.rl-removed .rl-source, .rl-trash-item .rl-source { border-style: dashed; background: var(--color-muted); }
+.rl-removed .rl-source p, .rl-trash-item .rl-source p { color: var(--color-text-secondary); }
+.rl-trash-item { display: flex; flex-direction: column; gap: .35rem; }
+.rl-trash-record { align-self: flex-start; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; padding: 0; border: 0; background: none; color: var(--color-accent); font: inherit; font-weight: 700; cursor: pointer; text-align: start; }
+.rl-trash-record:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+    .rl-source-actions .btn { flex: 1 1 auto; }
+}
 @media (max-width: 900px) {
     .rl-page { grid-template-columns: 1fr; }
     .rl-page.has-record .rl-panel--list { display: none; }

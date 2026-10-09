@@ -56,10 +56,19 @@
             </section>
         </div>
 
+        <section class="rl-panel" id="rlTrash" hidden aria-labelledby="rlTrashH" style="margin-top:1rem;">
+            <div class="rl-detail">
+                <div class="rl-section-head"><h3 id="rlTrashH">المحذوفات <span id="rlTrashCount"></span></h3>
+                    <button type="button" class="btn btn-danger rl-btn-sm" id="rlPurgeAll" hidden>تفريغ الكل</button></div>
+                <p class="rl-muted">الرسائل اللي اتشالت من السجلات. «استرجاع» يرجّعها لسجلها، والمسح النهائي لحساب مالك المنصة بس.</p>
+                <div id="rlTrashBody"></div>
+            </div>
+        </section>
+
         <section class="rl-panel" id="rlAssigners" hidden aria-labelledby="rlAssignersH" style="margin-top:1rem;">
             <div class="rl-detail">
                 <h3 id="rlAssignersH">صلاحية الإسناد</h3>
-                <p class="rl-muted">المشرفين يقدروا يسندوا السجلات لأي موظف. هنا تمنح نفس الصلاحية لموظفين بعينهم أو تسحبها. الصلاحية دي ما بتديش رؤية سجلات أو محادثات زيادة.</p>
+                <p class="rl-muted">المشرفين يقدروا يسندوا السجلات لأي موظف. هنا تمنح نفس الصلاحية لموظفين بعينهم أو تسحبها، والمنح والسحب لحساب مالك المنصة بس. الصلاحية دي ما بتديش رؤية سجلات أو محادثات زيادة.</p>
                 <div id="rlAssignersBody"></div>
             </div>
         </section>
