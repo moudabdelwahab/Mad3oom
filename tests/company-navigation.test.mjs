@@ -459,7 +459,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         بنصها. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/owner-admin-context-billing-requests.test.sql. اتطبّق 2026-10-09
     //         («الاتنين»، docs/OWNER_BILLING_REQUESTS_AND_ACCOUNTING_SYNC_PROD_INSTALL_2026-10-09_AR.md).
-    assert.equal(migrations[migrations.length - 1], '071_owner_admin_context_billing_requests.sql',
+    //   072 — طلب صاحب المنصة: «محتاج ارفاقها ك pdf ضروري وتكون فاتوره كامله زي
+    //         اللي بتكون موجوده في نظام المحاسبه». زر 051 كان بيرفق رابط صفحة
+    //         التحقق (text/html) بس. ticket_invoice_document بتدّي الطاقم بيانات
+    //         الفاتورة الكاملة، المتصفح بيرسمها بتصميم acc ويرفعها PDF في مجلد
+    //         التذكرة، و attach_accounting_invoice_pdf بتتحقق من الملف في التخزين
+    //         (المسار، النوع، الرافع) قبل ما تربطه — وبترقّي مرفق 051 لنفس الـ PDF.
+    //         مقيسٌ على نسخة بشكل الإنتاج في tests/sql/invoice-pdf-attachment.test.sql،
+    //         والرسم في tests/invoice-pdf.render.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '072_invoice_pdf_attachment.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
