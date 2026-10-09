@@ -12,6 +12,7 @@ import {
     fetchSavedFilters, createSavedFilter, deleteSavedFilter
 } from '/tickets-service.js';
 import { impersonateUser } from './admin-utils.js';
+import { PLATFORM_OWNER_ROLE } from '/assets/js/access-policy.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
 import { confirmWalletTopupTicket, rejectWalletTopupTicket } from 'https://wa.mad3oom.com/whatsapp-wallet-topup-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
@@ -123,8 +124,11 @@ async function init() {
     user = await checkAdminAuth();
     if (!user) return;
 
-    isAdminRole = user.profile?.role === 'admin';
-    isStaffRole = ['admin', 'support'].includes(user.profile?.role);
+    // مالك المنصة هنا معناه إنه في سياق owner/admin: guardPage('admin') بترفضه
+    // في أي سياق تاني. والقاعدة بتعيد الفحص بـ is_admin() (070/071).
+    const isOwner = user.profile?.role === PLATFORM_OWNER_ROLE;
+    isAdminRole = user.profile?.role === 'admin' || isOwner;
+    isStaffRole = ['admin', 'support'].includes(user.profile?.role) || isOwner;
 
     updateAdminUI(user);
     applyRolePermissions();

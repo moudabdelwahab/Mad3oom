@@ -450,7 +450,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         («طبق 070 على الانتاج»).
     //   069 و070 اتطبّقوا على الإنتاج 2026-10-09
     //         (docs/BILLING_TICKETS_AND_OWNER_CONTEXT_PROD_INSTALL_2026-10-09_AR.md).
-    assert.equal(migrations[migrations.length - 1], '070_owner_admin_context_tickets.sql',
+    //   071 — بلاغ إنتاج تابع لـ 070 (صاحب المنصة: «المفترض في تذاكر الاشتراك
+    //         يكون في زر تاكيد الاشتراك او رفض … ملقيتش الزر موجود … من حساب
+    //         مالك المنصه»، #1121). سياستا الإدارة على whatsapp_subscriptions و
+    //         whatsapp_wallet_topup_requests كانتا بالرتبة الحرفية 'admin'، فلوحة
+    //         التذاكر ماتقراش صف الطلب وماترسمش الأزرار. صارتا is_admin()،
+    //         و admin_recompute_user_access (024، غير موجودة على الإنتاج) اتعرّفت
+    //         بنصها. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/owner-admin-context-billing-requests.test.sql.
+    assert.equal(migrations[migrations.length - 1], '071_owner_admin_context_billing_requests.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
