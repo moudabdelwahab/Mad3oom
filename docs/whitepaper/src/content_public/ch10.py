@@ -26,7 +26,7 @@ CHAPTER = chapter(10, ("Product Differentiation and Value", "تميّز المن
         [("**Specialized support intelligence through SIE**", "**ذكاء دعم متخصص عبر SIE**"),
          ("Predictable, explainable and testable behavior that stays inside a closed set of actions.",
           "سلوك متوقَّع وقابل للتفسير والاختبار، يبقى داخل مجموعة إجراءات مغلقة."),
-         ("The core engine. {{E}} Remediation under way. {{D}}", "المحرك الأساسي. {{E}} المعالجة جارية. {{D}}"),
+         ("The core engine. {{E}} Further development under way. {{D}}", "المحرك الأساسي. {{E}} مزيد من التطوير جارٍ. {{D}}"),
          ("Resolution and hand-off quality measured on real conversations, with a defined method.", "جودة الحل والتسليم مقيسةً على محادثات حقيقية بمنهج محدد.")],
         [("**A modular foundation for integrations**", "**أساس نمطي للتكاملات**"),
          ("New channels and tools can be added without changing the engine.",
