@@ -466,8 +466,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         التذكرة، و attach_accounting_invoice_pdf بتتحقق من الملف في التخزين
     //         (المسار، النوع، الرافع) قبل ما تربطه — وبترقّي مرفق 051 لنفس الـ PDF.
     //         مقيسٌ على نسخة بشكل الإنتاج في tests/sql/invoice-pdf-attachment.test.sql،
-    //         والرسم في tests/invoice-pdf.render.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '072_invoice_pdf_attachment.sql',
+    //         والرسم في tests/invoice-pdf.render.test.mjs. اتطبّق 2026-10-09 («طبّق 072»).
+    //   073 — Relay المرحلة B (معتمَد صراحةً من صاحب المنصة 2026-10-09: «authorized
+    //         you to execute Phase B only»). جداول ودوال جديدة فقط، Relay مطفأ
+    //         (enabled=false). قاعدة C3 (المقتطف يحتاج وصولًا حاليًا للمحادثة) والحجب
+    //         بعد 365 يومًا من الإغلاق لا يمكن فرضهما من الواجهة. مقيسٌ على نسخة بشكل
+    //         الإنتاج في tests/sql/relay-core.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '073_relay_core.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
