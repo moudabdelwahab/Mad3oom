@@ -25,6 +25,23 @@
 .rl-actions .btn-primary { min-width: 12rem; }
 .rl-actions .btn[disabled] { opacity: .5; cursor: not-allowed; }
 
+/* نافذة التأكيد/الإدخال داخل الصفحة (بدل confirm/prompt المتصفح) */
+.rl-dialog--sm { width: min(28rem, calc(100% - 2rem)); }
+.rl-dialog--sm .rl-head { padding-block-end: .25rem; }
+.rl-dialog--sm .rl-head h2 { font-size: 1.15rem; }
+.rl-dialog--sm .rl-head p { font-size: .92rem; line-height: 1.7; }
+.rl-dialog--sm .rl-actions { border-block-start: 0; padding-block-start: .5rem; }
+.rl-dialog--sm .rl-actions .btn-primary, .rl-dialog--sm .rl-actions .btn-danger { min-width: 0; flex: 1; }
+.rl-confirm-icon {
+    display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; flex-shrink: 0; border-radius: 50%;
+    background: rgba(0, 119, 204, .1); color: var(--color-accent);
+}
+.rl-confirm-icon svg { width: 1.25rem; height: 1.25rem; }
+.rl-confirm.is-danger .rl-confirm-icon { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
+.rl-dialog--sm[open] { animation: rl-pop .16s ease-out; }
+@keyframes rl-pop { from { opacity: 0; transform: translateY(.5rem) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rl-dialog--sm[open] { animation: none; } }
+
 .rl-icon-btn {
     display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0;
     border: 0; border-radius: .6rem; background: transparent; color: var(--color-text-secondary); cursor: pointer;
@@ -162,6 +179,8 @@
 @media (max-width: 640px) {
     .rl-dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
     .rl-sheet { height: 100dvh; max-height: 100dvh; }
+    .rl-dialog.rl-dialog--sm { height: fit-content; max-height: 90dvh; margin-block-end: 0; border-radius: 1rem 1rem 0 0; border: 1px solid var(--color-border); border-block-end: 0; }
+    .rl-dialog--sm .rl-sheet { height: auto; }
     .rl-head { padding: 1rem 1rem .4rem; }
     .rl-head h2 { font-size: 1.2rem; }
     .rl-body { padding: .4rem 1rem .8rem; }

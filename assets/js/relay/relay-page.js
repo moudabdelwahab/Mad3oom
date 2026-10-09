@@ -9,6 +9,7 @@
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { describeSource, retentionDeadline, LIMITS } from './relay-contract.js';
+import { relayConfirm, relayPrompt } from './relay-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput,
@@ -305,7 +306,7 @@ function wire() {
         if (!Object.keys(patch).length) { toast('مفيش تغيير'); return; }
         act(() => updateRecord(r.id, patch, r.version), 'اتحفظ');
     });
-    $('rlDetail').addEventListener('click', (e) => {
+    $('rlDetail').addEventListener('click', async (e) => {
         const r = state.current?.record;
         const el = e.target.closest('button');
         if (el?.id === 'rlBackToList') return closeRecord();
@@ -313,21 +314,32 @@ function wire() {
         if (el.id === 'rlAssignBtn') {
             const owner = $('rlAssignOwner').value || null;
             const team = $('rlAssignTeam') ? ($('rlAssignTeam').value || null) : r.team_id;
-            if (!window.confirm(owner && owner !== state.me?.id ? `نقل السجل لـ ${agentName(owner)}؟` : 'تأكيد تغيير المالك؟')) return undefined;
+            const ok = await relayConfirm(owner && owner !== state.me?.id
+                ? { title: 'نقل السجل', message: `السجل هيتنقل لـ ${agentName(owner)}، وهيظهر عنده في سجلاته.`, confirmText: 'نقل السجل' }
+                : { title: 'تغيير المالك', message: owner ? 'السجل هيبقى باسمك.' : 'السجل هيفضل من غير مالك لحد ما حد ياخده.', confirmText: 'تأكيد' });
+            if (!ok) return undefined;
             return act(() => assignRecord(r.id, owner, team, r.version), 'اتغيّر المالك');
         }
         if (el.dataset.to) {
             const t = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor }).find((x) => x.to === el.dataset.to);
             let details = {};
-            if (t?.needs) {
-                const text = window.prompt(t.prompt);
-                if (!text || !text.trim()) return undefined;
-                details = { [t.needs]: text.trim() };
-            } else if (t?.to === 'cancelled' && !window.confirm('إلغاء السجل؟')) return undefined;
+            if (!t) return undefined;
+            if (t.needs) {
+                const text = await relayPrompt({
+                    title: t.label, label: t.prompt, confirmText: t.label, danger: t.to === 'cancelled',
+                    message: t.to === 'cancelled' ? 'السجل هيتقفل ومش هيتعدّل تاني إلا لو اتفتح من جديد.' : '',
+                });
+                if (!text) return undefined;
+                details = { [t.needs]: text };
+            }
             return act(() => transitionRecord(r.id, t.to, details, r.version), 'اتغيّرت الحالة');
         }
         if (el.dataset.redact) {
-            if (!window.confirm('حذف محتوى المصدر نهائيًا؟ مفيش رجوع، والمحتوى مش هيرجع حتى لو أرفقت نفس الرسالة تاني.')) return undefined;
+            const ok = await relayConfirm({
+                title: 'حذف محتوى المصدر نهائيًا', danger: true, confirmText: 'حذف نهائي',
+                message: 'مفيش رجوع: المحتوى مش هيرجع حتى لو أرفقت نفس الرسالة تاني.',
+            });
+            if (!ok) return undefined;
             return act(() => redactSource(el.dataset.redact), 'اتحذف المحتوى');
         }
         return undefined;
@@ -338,11 +350,13 @@ function wire() {
         try {
             if (el.id === 'rlGrantBtn') {
                 const id = $('rlGrantUser').value;
-                if (!window.confirm(`منح ${agentName(id)} صلاحية إسناد السجلات لأي موظف؟`)) return;
+                if (!await relayConfirm({ title: 'منح صلاحية الإسناد', confirmText: 'منح الصلاحية',
+                    message: `${agentName(id)} هيقدر يسند السجلات لأي موظف أو فريق.` })) return;
                 await grantAssigner(id);
                 toast('اتمنحت الصلاحية');
             } else if (el.dataset.revoke) {
-                if (!window.confirm('سحب صلاحية الإسناد؟')) return;
+                if (!await relayConfirm({ title: 'سحب صلاحية الإسناد', danger: true, confirmText: 'سحب الصلاحية',
+                    message: 'السجلات اللي أسندها قبل كده هتفضل زي ما هي.' })) return;
                 await revokeAssigner(el.dataset.revoke);
                 toast('اتسحبت الصلاحية');
             } else return;

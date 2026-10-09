@@ -498,8 +498,13 @@ test('record page: no assignment tools on someone else\'s record without the pri
     assert.equal(await r.page.locator('#rlAssignTeam').count(), 1);
     await r.page.waitForSelector('#rlAssigners:not([hidden]) .rl-assigners li');
     assert.match(await r.page.locator('#rlAssigners').innerText(), /هبة سمير/);
-    r.page.on('dialog', (d) => d.accept());
+    const native = [];
+    r.page.on('dialog', (d) => { native.push(d.type()); d.dismiss(); });
     await r.page.locator(`[data-revoke="${STAFF}"]`).click();
+    await r.page.waitForSelector('#rlConfirm[open]');
+    assert.match(await r.page.locator('#rlConfirmTitle').innerText(), /سحب صلاحية الإسناد/);
+    await r.page.locator('#rlConfirmOk').click();
+    assert.deepEqual(native, [], 'native browser dialog used');
     await r.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_revoke_assigner'));
     assert.deepEqual(await rpcCalls(r.page, 'relay_revoke_assigner'), [{ p_user: STAFF }]);
     await r.context.close();
@@ -522,11 +527,71 @@ test('record page: granting to a staff member whose account is not active explai
     const { page, context } = await openPage(fx, { url: '/admin/relay.html' });
     await page.waitForSelector('#rlGrantUser');
     await page.locator('#rlGrantUser').selectOption(STAFF);
-    page.on('dialog', (d) => d.accept());
     await page.locator('#rlGrantBtn').click();
+    await page.locator('#rlConfirm[open] #rlConfirmOk').click();
     await page.waitForFunction(() => /حسابه مش نشط/.test(document.querySelector('#toast')?.innerText || ''));
     assert.match(await page.locator('#toast').innerText(), /مينفعش ياخد صلاحية الإسناد/);
     assert.deepEqual(await rpcCalls(page, 'relay_grant_assigner'), [{ p_user: STAFF }]);
+    await context.close();
+});
+
+test('record page: confirmations use the in-page dialog (no browser confirm/prompt); cancel and Escape do nothing', { skip: !chromiumPath }, async () => {
+    const native = [];
+    const { page, context, errors } = await openPage(pageFixtures(), { url: `/admin/relay.html?record=${REC}` });
+    page.on('dialog', (d) => { native.push(d.type()); d.dismiss(); });
+    await page.waitForSelector('#rlRecordTitle');
+    // إلغاء من الزر ثم Escape: لا نداء للخادم، والتركيز يرجع للزر
+    await page.locator('[data-redact="s1"]').click();
+    const dlg = page.locator('#rlConfirm');
+    await page.waitForSelector('#rlConfirm[open]');
+    assert.equal(await dlg.getAttribute('dir'), 'rtl');
+    assert.match(await page.locator('#rlConfirmTitle').innerText(), /حذف محتوى المصدر نهائيًا/);
+    assert.match(await page.locator('#rlConfirmOk').getAttribute('class'), /btn-danger/);
+    await page.locator('#rlConfirm .rl-actions [data-dlg="cancel"]').click();
+    assert.equal(await dlg.count(), 0);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.redact), 's1', 'focus not returned');
+    await page.locator('[data-redact="s1"]').click();
+    await page.waitForSelector('#rlConfirm[open]');
+    await page.keyboard.press('Escape');
+    assert.equal(await dlg.count(), 0);
+    assert.deepEqual(await rpcCalls(page, 'relay_redact_source'), []);
+    // تأكيد ⇒ النداء مرة واحدة
+    await page.locator('[data-redact="s1"]').click();
+    await page.locator('#rlConfirm[open] #rlConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_redact_source'));
+    assert.equal((await rpcCalls(page, 'relay_redact_source')).length, 1);
+    // انتقال يحتاج نص: الزر مقفول لحد ما يتكتب، والنص المتقصوص هو اللي يتبعت
+    await page.waitForSelector('[data-to="waiting"]');
+    await page.locator('[data-to="waiting"]').click();
+    await page.waitForSelector('#rlConfirm[open] #rlConfirmInput');
+    assert.equal(await page.locator('#rlConfirmOk').isDisabled(), true);
+    await page.locator('#rlConfirmInput').fill('   ');
+    assert.equal(await page.locator('#rlConfirmOk').isDisabled(), true);
+    await page.locator('#rlConfirmInput').fill('  رد شركة الشحن ');
+    await page.locator('#rlConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'relay_transition'));
+    const [tr] = await rpcCalls(page, 'relay_transition');
+    assert.equal(tr.p_to, 'waiting');
+    assert.deepEqual(tr.p_details, { waiting_on: 'رد شركة الشحن' });
+    assert.deepEqual(native, [], 'native browser dialog used');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('record page at 390px: the confirmation is a bottom sheet inside the viewport', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openPage(pageFixtures(), { url: `/admin/relay.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#rlRecordTitle');
+    await page.locator('[data-redact="s1"]').click();
+    await page.waitForSelector('#rlConfirm[open]');
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState === 'finished')); // حركة الظهور
+    const box = await page.locator('#rlConfirm').boundingBox();
+    assert.ok(box.x >= -1 && box.x + box.width <= 391, `dialog overflows horizontally: ${JSON.stringify(box)}`);
+    assert.ok(Math.abs(box.y + box.height - 844) <= 2, `not anchored to the bottom: ${JSON.stringify(box)}`);
+    assert.ok(box.height < 844 * 0.5, `should be a compact sheet, not full screen: ${box.height}`);
+    for (const sel of ['#rlConfirmOk', '#rlConfirm .rl-actions [data-dlg="cancel"]']) {
+        const b = await page.locator(sel).boundingBox();
+        assert.ok(b.height >= 44, `${sel} touch target ${b.height}`);
+    }
     await context.close();
 });
 
