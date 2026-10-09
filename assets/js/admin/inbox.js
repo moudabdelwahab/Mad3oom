@@ -49,6 +49,8 @@ import {
     loadCannedReplies, signAttachmentPaths, uploadReplyFile, removeUploadedFile, subscribeInbox,
     scheduleReply, cancelScheduled, takeOver, returnToAi
 } from './inbox-data.js';
+import { loadRelayAccess } from '/assets/js/relay/relay-data.js';
+import { openRelayComposer } from '/assets/js/relay/relay-composer.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -62,6 +64,8 @@ const state = {
     me: null,
     /** {agent, supervisor} من الخادم للجلسة دي (057) — null قبل 057. */
     access: null,
+    /** relay_my_access (074) — للعرض فقط: زر «سجل استمرارية» وقائمة المالكين. */
+    relay: null,
     agents: [],
     teams: [],
     tags: [],
@@ -475,6 +479,7 @@ function renderThread() {
     $('archiveBtn').classList.toggle('is-on', isArchived(session));
     $('archiveBtn').title = isArchived(session) ? 'رجّع من الأرشيف' : 'أرشفة';
     renderAssignmentControls(session);
+    $('relayBtn').hidden = !(state.relay?.member && state.relay?.enabled);
 
     const closed = session.status === 'closed';
     $('closeSessionBtn').hidden = closed;
@@ -1717,6 +1722,32 @@ function onKeydown(event) {
     }
 }
 
+/**
+ * Relay (المرحلة C): اختيار رسائل من المحادثة المفتوحة وإنشاء سجل استمرارية أو
+ * إرفاقها بسجل موجود. الصلاحيات كلها على الخادم (073/074)؛ هنا العرض فقط.
+ */
+function openRelay() {
+    const session = activeSession();
+    if (!session || !state.relay?.member) return;
+    openRelayComposer({
+        session,
+        messages: session.messages || [],
+        customerName: displayName(session),
+        customerContact: session.customer?.phone || session.customer?.email || '',
+        agents: state.agents,
+        teams: state.teams,
+        me: state.me,
+        access: state.relay,
+        onDone: ({ mode, result }) => {
+            const id = result?.record?.id;
+            toast(mode === 'existing' ? 'اترفقت الرسائل بالسجل' : 'اتعمل سجل الاستمرارية');
+            if (id && result?.access !== 'lost') {
+                $('toast').innerHTML += ` <a href="/admin/relay.html?record=${encodeURIComponent(id)}" style="color:inherit;text-decoration:underline;">افتح السجل</a>`;
+            }
+        }
+    });
+}
+
 // ═════════════════════════════════════════════════════════════
 // الربط
 // ═════════════════════════════════════════════════════════════
@@ -1733,6 +1764,7 @@ function wire() {
     $('assigneeSelect').addEventListener('change', () => onAssignmentChange('assignee'));
     $('teamSelect').addEventListener('change', () => onAssignmentChange('team'));
     $('transferBtn').addEventListener('click', openTransferDialog);
+    $('relayBtn').addEventListener('click', openRelay);
     $('cancelTransfer').addEventListener('click', () => $('transferDialog').close());
     $('confirmTransfer').addEventListener('click', confirmTransfer);
     $('detailsBtn').addEventListener('click', () => {
@@ -1828,13 +1860,15 @@ async function boot() {
     fitShellHeight();
     setTimeout(fitShellHeight, 300);
 
-    const [, tags, access] = await Promise.all([
+    const [, tags, access, relay] = await Promise.all([
         refreshDirectory().catch((err) => console.warn('[inbox] الموظفين/الفرق:', err?.message || err)),
         loadTags(),
-        loadMyAccess()
+        loadMyAccess(),
+        loadRelayAccess()
     ]);
     state.tags = tags || [];
     state.access = access;
+    state.relay = relay;
 
     // مالك المنصة في سياق مش إداري (العميل، الشركة، …): القاعدة مش هتسمح بأي
     // إجراء، فبنقول السبب بدل قايمة فاضية أو 403 على كل ضغطة.

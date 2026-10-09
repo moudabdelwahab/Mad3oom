@@ -118,7 +118,7 @@ Phase 1 ships the native experience in the platform support inbox, where Mad3oom
 
 ## 5. Reference screenshots and UX requirements
 
-The two reference screenshots from the original request are **not available to this planning session** (they did not carry over). The interpretation below is from the written description and must be checked against the images before Phase C.
+The two reference screenshots were re-attached by Mahmoud on 2026-10-09 (14:21 UTC) and are design references only, not backend behavior. They supersede the earlier reading of Reference B: the second screen picks one of **nine categories** (a suggested one marked "موصى به" plus a grid) and an optional note; the record kind (follow-up or issue), title, next action, owner and due date come in a third "details" step. What Phase C built from them is in §27.
 
 **Reference A — message selection.** Conversation of message cards; multi-select with a clear selected state; selection count; easy deselection and cancel; native Arabic RTL; no retyping.
 → In the inbox conversation pane: a "تحديد رسائل" toggle; each message card gets a checkbox (44px touch target) and a selected style from existing inbox tokens; a sticky bar "٣ رسائل مختارة · إلغاء · إنشاء سجل استمرارية" reusing the existing conversation `bulkBar` pattern. Keyboard: Tab to card, Space toggles, Esc cancels, focus ring visible. Messages from both customer and staff are selectable; the same message cannot be added twice.
@@ -553,14 +553,14 @@ Each phase is one PR with its migration, rollback file, tests, and a production-
 - **Phase B may start only when** (1) decisions C1, C3 (revised), C4, C5 are recorded (done, §24), (2) Mahmoud explicitly approves this plan, and (3) the migration number is re-checked against `origin/main`, open PRs and `list_migrations`. Recording decisions is not approval.
 - **Phase B must include** the revised C3 excerpt check (M11) and controls M1, M4–M8 and M10 in the schema/RPCs, with the tests in §17. M2–M3 need the sweep and land in Phase E, but the `source_deleted_at` column ships in B.
 - **Owner instruction (2026-10-09 11:22 UTC):** C5 must ship with "the specified daily sweep and actual content removal, not merely a UI mask". The retention sweep (M7) therefore moved from Phase E into Phase B as its own daily `pg_cron` job (`relay-retention-sweep`). Deleted-source stamping and the M3 notice stay in Phase E.
-- **Phase C** needs the reference screenshots. **Phase D** needs C2. **Phase G** needs C6 and the `oauth-token` hardening.
+- **Phase C** needed the reference screenshots (received 2026-10-09) and the permission decisions P1–P4 (§27). **Phase D** needs C2. **Phase G** needs C6 and the `oauth-token` hardening.
 - **Production apply of any phase** needs a separate explicit approval.
 
 | Phase | Content | Migration |
 |---|---|---|
 | **A** Design sign-off | This document; approval checklist §24; screenshots | — |
 | **B** Core persistence + security | platform workspace only (C1); records, sources, snapshots (`origin_session_id`, C4 fields), per-read excerpt check (C3 revised, M11), events (M5); `relay_can_access`; create/get/list/update/assign/transition/attach/redact/redact_for_subject/find_by_source; read-path retention mask (M6); idempotency; contract module; SQL tests | `0NN_relay_core.sql` (first free number, currently `073`) |
-| **C** Native selection + conversion | inbox selection mode, `mad3oom-inbox` + `manual` adapters, conversion dialog, deterministic extraction, record detail, Relay page shell, sidebar | — (frontend only) |
+| **C** Native selection + conversion | inbox selection dialog, type preview (9 categories), details step, deterministic suggestions, record detail, Relay page, sidebar; server-side assignment rules P3–P4 and the category column (§27) | `074_relay_phase_c.sql` (was "frontend only"; P3–P4 need server enforcement) |
 | **D** Lifecycle + handover | handover tables/RPCs, acceptance policy, end-of-shift bundle, timeline, handover tab | next free number |
 | **E** Scheduling + monitor | `relay_jobs`, `relay_tick`, cron job, notifications (M4), escalation, deleted-source stamping + notice (M2–M3), retention sweep (M7), monitor incl. `retention_overdue` | next free number |
 | **F** Verification + release | full suite, advisors, `EXPLAIN` on list/monitor, mobile RTL pass, staging smoke, install doc | — |
@@ -647,7 +647,7 @@ Scope: the areas Mahmoud asked to be checked. Each finding says whether it was a
 | Blocks | Item | Needed |
 |---|---|---|
 | Phase B | Explicit approval of this plan (C1, C3 revised, C4, C5 are recorded) | Mahmoud's approval |
-| Phase C | The two reference screenshots | Re-attach in the thread |
+| ~~Phase C~~ | ~~The two reference screenshots~~ | Received 2026-10-09; see §27 |
 | Phase D | Decision C2 (acceptance default) | §24 |
 | Phase G | OAuth refresh rotation is read-then-revoke (two concurrent refreshes can both succeed) and reused refresh tokens are not detected | Fix in `oauth-token` before any extension ships; it is shared with MCP, so it is its own PR |
 | Phase G | Decision C6 (owner via extension) | §24 |
@@ -791,3 +791,54 @@ Authorized by Mahmoud at 11:22 UTC: Phase B only. No production apply, no deploy
 
 ### 26.4 Validation performed (local, disposable PostgreSQL 16 only)
 Exact commands and totals are in the PR description. Production was used only read-only (`list_migrations`).
+
+---
+
+## 27. Phase C implementation record (2026-10-09)
+
+Authorized by Mahmoud at 14:21 UTC: the selection and type-preview flow, the approved permissions below, tests and a reviewable PR. No merge, no production migration, no deploy, no production configuration or data change. Relay stays as it is in production (073 applied and enabled).
+
+### 27.1 Permission decisions (normative)
+| # | Rule | Where it is enforced |
+|---|---|---|
+| **P1** | Anyone who can view a Relay record may edit it. | `relay_update` (unchanged from 073: `relay_can_access` on an active record). |
+| **P2** | Anyone who can view a Relay record may attach sources to it. Every attached message still needs current `inbox_can_access` on its conversation. Viewing a record never grants an excerpt (C3, M11 unchanged). | `relay_attach_sources` and `_relay_attach` (unchanged). |
+| **P3** | Only supervisors and staff explicitly granted the assign privilege may create a record owned by someone else or tied to a team. Everyone else may create with owner = self or no owner, and no team. | `relay_create` in 074. The check runs before the eligibility check, so a refusal says nothing about the target (`42501`, detail `{"code":"forbidden","field":"owner_id"|"team_id"}`). |
+| **P4** ("Restrict owners", 14:24 UTC) | On an existing record, a current owner without the privilege may set the owner only to themselves or to nobody, and cannot change the team. Claiming an unassigned record for yourself (team unchanged) stays allowed. Assigners may assign any eligible owner or team. | `relay_assign` in 074. |
+
+The privilege is `_relay_can_assign()`: an active Relay member who is a supervisor (`_relay_is_supervisor`) or holds an active row in `relay_assigners`. Grants and revokes are supervisor-only (`relay_grant_assigner`, `relay_revoke_assigner`), only eligible owners can be granted, and history is kept (a revoke only sets `revoked_at`; one trigger blocks un-revoking and retargeting a row, another blocks `TRUNCATE`, and no role has direct table privileges). A banned or deactivated grantee loses the privilege through the existing account-active checks, because `_relay_is_member` fails for them.
+
+### 27.2 What shipped
+- `migrations/074_relay_phase_c.sql` and `migrations/_rollback/074_relay_phase_c.down.sql`.
+- `relay_records.category`: nullable, one of nine values (`order_status`, `order_problem`, `general_inquiry`, `return_exchange`, `payment_billing`, `product_service`, `technical_issue`, `complaint`, `other`). It is returned by `relay_get`/`relay_list`, filterable in `relay_list`, editable with `relay_update`, and logged in events as a value (never message text).
+- New RPCs (authenticated only): `relay_my_access`, `relay_list_assigners`, `relay_grant_assigner`, `relay_revoke_assigner`. `authenticated` can now execute 15 Relay RPCs.
+- Inbox: a "سجل استمرارية" button on the open conversation (shown only when `relay_my_access` says member and enabled) opens a three-step dialog: select messages, type preview, details (new record, or attach to an existing one).
+- `admin/relay.html`: list with status, owner and category filters; record detail with edit, assignment, transitions, sources, redaction and events; supervisor management of assigners. A sidebar link appears only when Relay is on and the caller is a member.
+- Frontend modules: `assets/js/relay/relay-model.js` (pure), `relay-data.js` (RPC wrappers), `relay-composer.js`, `relay-page.js`, `relay-icons.js`, and `assets/css/relay.css`.
+- Production install note: `docs/relay/RELAY_PHASE_C_PROD_INSTALL.md` (not executed).
+
+### 27.3 Decisions taken while implementing
+| Topic | Implementation | Why |
+|---|---|---|
+| Phase C needs a migration | 074 adds the category column and the P3–P4 rules. The plan had Phase C as frontend only. | The approved assignment rules must be enforced on the server. |
+| Type suggestion | Deterministic keyword matching over the selected messages; generic categories weigh half. With no match nothing is pre-selected and the user must pick. The reason (matched words) is shown on demand. | No AI in Phase 1 (C8). The suggestion is never saved until confirmed. |
+| Title, summary, next action | Never pre-filled from message text. The optional note from the type step (the user's own words) pre-fills the summary. | M5: events and record fields must not copy excerpts. |
+| Due date | Only explicit dates and times written in a message are offered, anchored to that message's day in the chosen time zone. A missing time is flagged and defaults to 09:00; past candidates are shown but cannot be picked. | §16 deterministic extraction. |
+| Owner default | The caller. Without the privilege the list holds only "me" and "no owner", and the team field is hidden. | P3; the server still decides. |
+| Idempotency | The same payload reuses its idempotency key after an error; any change makes a new key. | A retry after a lost response returns the first record instead of a duplicate. |
+| Sensitive content | If the selected messages look sensitive (M1 categories), creating or attaching needs an explicit acknowledgement. | M1, unchanged. |
+| Before 074 is applied | `relay_my_access` does not exist, the client treats any error as "no access", and the button, page and sidebar link stay hidden or show a reason. | Merging the frontend before applying 074 cannot expose anything. |
+| API path | A grant applies through the future `relay-api` too; supervisor status still does not (073 R2-2). | A grant belongs to the person, not to a dashboard context. Worth confirming before Phase G. |
+| NULL-safe checks | The allow conditions in `relay_assign` and `_relay_can_assign` are wrapped in `coalesce(…, false)`, so an unknown value refuses. A no-change call on an unassigned record by a non-assigner is now refused instead of passing. | Closes the 073 hole in U18 and keeps a later edit from reopening it. |
+| Rollback of `relay_assign` | The rollback restores the 073 text of `relay_assign` with one change: the same `coalesce` around its allow condition. The other four functions are restored word for word. | A rollback should not bring back a known hole. |
+
+### 27.4 Residual risks
+- **U14:** Never re-run `073_relay_core.sql` after 074. It would restore the Phase B versions of five functions (without P3–P4), and its own verification block would then fail on the 074 RPCs. The 074 header and the install note say so.
+- **U15:** A revoked or banned assigner keeps the assignments they already made; revocation is not retroactive. A grant is inert while its holder is inactive or no longer eligible, but it is not revoked automatically and works again if the person is restored. Supervisors should revoke it when someone leaves. Grants cannot be revoked while Relay is switched off (they are inert then too).
+- **U18 (in production now, found in the Phase C review):** in 073's `relay_assign`, on a record with no owner, `r.owner_id = auth.uid()` is NULL and `if not (…)` does not refuse. Anyone who can view an unassigned record (its creator or a member of its team) can assign it to any eligible owner or change its team. Reproduced on the prod-shape fixture (`HOLE-073` in `tests/sql/relay-phase-c.test.sql`); production was not touched. 074 closes it. Applying 074, or a one-line hotfix, is a production change that needs Mahmoud's approval.
+- **U19:** If a record's team is archived, a non-assigner cannot claim or release it, because the team check rejects archived teams (same as 073). A supervisor or assigner can.
+- **U16:** Category suggestion is keyword-based and Arabic-dialect coverage is partial; a wrong suggestion costs one click, and nothing is saved without confirmation.
+- **U17:** The 390px and RTL checks run in headless Chromium only; Safari and Firefox were not tested.
+
+### 27.5 Validation performed (local only)
+Exact commands and totals are in the PR description. Production was not touched.
