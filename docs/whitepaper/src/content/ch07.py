@@ -34,8 +34,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "أداة محادثة تعمل في متصفح العميل بجلسته الخاصة وتستدعي المحرك؛ ولوحات للعملاء وللشركات."),
          ("{{E}}", "{{E}}")],
         [("**Telegram**", "**تيليجرام**"),
-         ("A support channel handled by the engine, with webhook secret verification and account linking; also notifications and one-time codes for staff and customers.",
-          "قناة دعم يتولاها المحرك، مع التحقق من سر الويب هوك وربط الحسابات؛ وإشعارات ورموز لمرة واحدة للطاقم والعملاء."),
+         ("A support channel handled by the engine, with webhook secret verification and account linking; also alerts for staff and one-time codes. "
+          "The platform repository holds no customer-facing screen for requesting a linking code, so customer use of this channel is not confirmed.",
+          "قناة دعم يتولاها المحرك، مع التحقق من سر الويب هوك وربط الحسابات؛ وتنبيهات للطاقم ورموز لمرة واحدة. "
+          "ولا توجد في مستودع المنصة شاشة للعميل لطلب رمز الربط، فلا يثبت استخدام العملاء لهذه القناة."),
          ("{{E}}", "{{E}}")],
         [("**Email**", "**البريد الإلكتروني**"),
          ("Ticket emails sent through an email provider, and an inbound-mail webhook that receives replies.",

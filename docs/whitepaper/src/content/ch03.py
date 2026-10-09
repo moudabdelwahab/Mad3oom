@@ -13,9 +13,9 @@ CHAPTER = chapter(3, ("The Mad3oom Solution", "حل مدعوم"),
     TABLE([("Element", "العنصر"), ("What it provides", "ما يقدّمه"), ("Stage", "المرحلة")], [
         [("**Support tickets**", "**تذاكر الدعم**"),
          ("A ticket lifecycle from opening to resolution, including customer confirmation, rejection or reopening of a resolution; "
-          "SLA targets; assignment and distribution; notifications in the platform, by email and through Telegram.",
+          "SLA targets; assignment and distribution; in-platform notifications, ticket email templates, and Telegram alerts for staff.",
           "دورة حياة للتذكرة من الفتح إلى الحل، تشمل تأكيد العميل للحل أو رفضه أو إعادة فتح التذكرة؛ وأهداف مستوى الخدمة SLA؛ "
-          "والإسناد والتوزيع؛ والإشعارات داخل المنصة وبالبريد الإلكتروني وعبر تيليجرام."),
+          "والإسناد والتوزيع؛ والإشعارات داخل المنصة، وقوالب بريد للتذاكر، وتنبيهات تيليجرام للطاقم."),
          ("{{E}}", "{{E}}")],
         [("**Customer conversations**", "**محادثات العملاء**"),
          ("Website chat and Telegram feed a helpdesk inbox with teams, assignment, tags, internal notes, attachments, scheduled replies "
