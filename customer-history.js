@@ -3,6 +3,7 @@ import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import { isAccountRestricted } from '/assets/js/account-status.js';
+import { embedContext, initEmbed, reportTitle, reportUnavailable } from '/assets/js/admin/workspace/embed-bridge.js';
 
 // طبقة الوصول للبيانات - تُستورد من إعدادات المنصة الداخلية فقط
 const db = dataClient.supabase;
@@ -14,6 +15,23 @@ const db = dataClient.supabase;
  */
 
 let activeCustomer = null;
+
+/** داخل مساحة العمل: view=customer = تبويب لعميل واحد (بلا البحث). */
+const EMBED = embedContext();
+const SINGLE_CUSTOMER = EMBED?.view === 'customer';
+const hasUnsentNote = () => !!document.getElementById('newNoteText')?.value.trim();
+
+/**
+ * سجل مرتبط تغيّر في تبويب آخر (حالة تذكرة أو محادثة). الصفحة دي مالهاش
+ * Realtime، فبنعيد تحميل العميل — إلا لو فيه ملاحظة مكتوبة لم تُحفظ.
+ */
+let refreshTimer = null;
+function onWorkspaceRefresh(hint) {
+    if (!activeCustomer || hint.dirty) return;
+    if (hint.customerId && hint.customerId !== activeCustomer.id) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => { if (!hasUnsentNote()) loadCustomer(activeCustomer.id); }, 800);
+}
 let customerData = {
     tickets: [],
     ticketReplies: {},
@@ -26,9 +44,10 @@ let customerData = {
 };
 
 async function init() {
-    initSidebar();
+    initEmbed({ isDirty: hasUnsentNote, onRefresh: onWorkspaceRefresh });
+    if (!EMBED) initSidebar();
     const user = await checkAdminAuth();
-    if (!user) return;
+    if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
 
     setupSearch();
@@ -153,6 +172,7 @@ async function loadCustomer(customerId) {
 
         if (!profile) {
             showState('emptyState', 'لم يتم العثور على هذا العميل', 'تأكد من صحة الرابط أو جرّب البحث يدويًا.');
+            if (SINGLE_CUSTOMER) reportUnavailable('missing');
             return;
         }
 
@@ -229,6 +249,7 @@ function renderCustomer(profile) {
 
     document.getElementById('custAvatar').textContent = initial;
     document.getElementById('custName').textContent = name;
+    if (SINGLE_CUSTOMER) reportTitle(name);
     document.getElementById('custEmail').textContent = profile.email || '—';
     document.getElementById('custPhone').textContent = profile.phone || 'لا يوجد رقم هاتف';
     document.getElementById('custJoinDate').textContent = profile.created_at ? 'عضو منذ ' + formatDate(profile.created_at) : '—';

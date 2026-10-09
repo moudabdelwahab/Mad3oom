@@ -17,6 +17,8 @@ import { attachInvoicePdf } from './invoice-pdf.js';
 import { confirmPurchaseTicket, rejectPurchaseTicket, PLAN_LABELS, BILLING_LABELS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS } from '/whatsapp-subscription-service.js';
 import { confirmWalletTopupTicket, rejectWalletTopupTicket } from 'https://wa.mad3oom.com/whatsapp-wallet-topup-service.js';
 import { ICONS, starRow } from './ticket-icons.js';
+import { embedContext, initEmbed, reportTitle, reportChanged, reportUnavailable, openInWorkspace } from './workspace/embed-bridge.js';
+import { UUID_RE } from './workspace/panel-registry.js';
 
 /**
  * تنقية أي نص قادم من المستخدم/قاعدة البيانات قبل حقنه داخل innerHTML
@@ -106,6 +108,21 @@ let slaTickInterval = null;
 let notificationChannel = null;
 let soundEnabled = localStorage.getItem('mad3oom_tickets_sound') !== 'off';
 
+/**
+ * ?ticket_id= يفتح التذكرة مباشرةً (سجل العميل بيربط هنا بالشكل ده من زمان،
+ * والصفحة كانت بتتجاهله). وداخل مساحة العمل view=ticket يحوّل الصفحة لتذكرة
+ * واحدة: تُحمَّل وحدها، وتنبيهات «تذكرة جديدة» تفضل للوحة التذاكر وحدها.
+ */
+const EMBED = embedContext();
+const DEEP_LINK_TICKET = (() => {
+    const id = new URLSearchParams(window.location.search).get('ticket_id');
+    return id && UUID_RE.test(id) ? id.toLowerCase() : null;
+})();
+const SINGLE_TICKET = EMBED?.view === 'ticket' ? DEEP_LINK_TICKET : null;
+
+/** رد مكتوب لم يُرسل — مساحة العمل تسأل قبل إغلاق التبويب. */
+const hasUnsentReply = () => !!document.getElementById('adminPanelReplyText')?.value.trim();
+
 function agentName(id) {
     if (!id) return null;
     const a = supportAgents.find(x => x.id === id);
@@ -121,9 +138,10 @@ function agentColor(id) {
 }
 
 async function init() {
-    initSidebar();
+    initEmbed({ isDirty: hasUnsentReply });
+    if (!EMBED) initSidebar();
     user = await checkAdminAuth();
-    if (!user) return;
+    if (!user) { reportUnavailable('forbidden'); return; }
 
     // مالك المنصة هنا معناه إنه في سياق owner/admin: guardPage('admin') بترفضه
     // في أي سياق تاني. والقاعدة بتعيد الفحص بـ is_admin() (070/071).
@@ -138,7 +156,7 @@ async function init() {
     await Promise.all([loadTags(), loadAgents(), loadCannedResponses(), loadSavedFilters()]);
     await loadTickets();
 
-    subscribeToTickets(() => loadTickets());
+    subscribeToTickets((payload) => { loadTickets(); onOpenTicketChanged(payload); });
     setupNotificationChannel();
     setupModalEvents();
     setupFilters();
@@ -150,6 +168,32 @@ async function init() {
 
     if (slaTickInterval) clearInterval(slaTickInterval);
     slaTickInterval = setInterval(updateSlaBadgesOnly, 30000);
+
+    if (DEEP_LINK_TICKET) {
+        document.querySelector(`.ticket-card[data-ticket-id="${DEEP_LINK_TICKET}"]`)?.classList.add('selected');
+        showAdminTicketInPanel(DEEP_LINK_TICKET);
+    }
+}
+
+/**
+ * تبويب تذكرة واحدة: التذكرة اتغيرت (من هنا أو من موظف تاني). نبلغ مساحة
+ * العمل (سجل العميل يتحدّث)، ونعيد رسم اللوحة — إلا لو فيها رد لم يُرسل:
+ * إعادة الرسم بتمسح الخانة، فبدلها شريط «اتحدّثت — اعرض الجديد».
+ */
+function onOpenTicketChanged(payload) {
+    const row = payload?.new;
+    if (!SINGLE_TICKET || !row?.id || row.id !== currentTicketId) return;
+    reportChanged('ticket', row.id, { customerId: row.user_id || null });
+    if (!hasUnsentReply()) { showAdminTicketInPanel(row.id); return; }
+    if (row.last_updated_by && row.last_updated_by === user?.id) return;
+    const panel = document.getElementById('adminTicketDetailsContent');
+    if (!panel || panel.querySelector('.ws-stale-bar')) return;
+    const bar = document.createElement('div');
+    bar.className = 'ws-stale-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<span>التذكرة اتحدّثت. ردك المكتوب لسه هنا — اعرض الجديد بعد ما تبعته أو تنسخه.</span><button type="button">اعرض الجديد</button>';
+    bar.querySelector('button').addEventListener('click', () => showAdminTicketInPanel(row.id));
+    panel.prepend(bar);
 }
 
 /**
@@ -267,10 +311,12 @@ async function loadSavedFilters() {
 }
 
 async function loadTickets() {
-    const { data: tickets, error } = await supabase
+    let query = supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email)')
-        .order('created_at', { ascending: false });
+        .select('*, profiles!tickets_user_profile_fk(full_name, email)');
+    // تبويب تذكرة واحدة: القائمة مخفية، فلا داعي لتحميل كل التذاكر مع كل تحديث.
+    if (SINGLE_TICKET) query = query.eq('id', SINGLE_TICKET);
+    const { data: tickets, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
         console.error("Error fetching tickets:", error);
@@ -688,8 +734,10 @@ async function showAdminTicketInPanel(ticketId) {
 
     if (error || !ticket) {
         panel.innerHTML = '<p style="text-align:center; color:var(--color-danger);">خطأ في جلب بيانات التذكرة</p>';
+        if (SINGLE_TICKET && ticketId === SINGLE_TICKET) reportUnavailable(error ? 'error' : 'missing');
         return;
     }
+    if (SINGLE_TICKET && ticket.id === SINGLE_TICKET) reportTitle(`#${ticket.ticket_number ?? ''} ${ticket.title || ''}`);
 
     const { data: subscription } = await supabase
         .from('whatsapp_subscriptions')
@@ -721,7 +769,10 @@ async function showAdminTicketInPanel(ticketId) {
             <div style="border-bottom:2px solid var(--color-border); padding-bottom:1rem; margin-bottom:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:.75rem; gap:.75rem;">
                     <h2 style="margin:0; font-size:1.25rem; line-height:1.4;">${escapeHtml(ticket.title)}</h2>
-                    <span class="pill status-${escapeHtml(ticket.status)}" style="white-space:nowrap;">${escapeHtml(STATUS_MAP[ticket.status] || ticket.status)}</span>
+                    <span style="display:flex; gap:.4rem; align-items:center;">
+                        <button type="button" id="wsOpenTicketTab" class="icon-btn ws-embed-only" title="افتح التذكرة في تبويب مستقل" aria-label="افتح التذكرة في تبويب مستقل">${ICONS.external}</button>
+                        <span class="pill status-${escapeHtml(ticket.status)}" style="white-space:nowrap;">${escapeHtml(STATUS_MAP[ticket.status] || ticket.status)}</span>
+                    </span>
                 </div>
                 <div style="display:flex; gap:1.25rem; font-size:.82rem; color:var(--color-text-secondary); flex-wrap:wrap;">
                     <span>رقم التذكرة: <strong style="color:var(--color-text);">#${escapeHtml(ticket.ticket_number || '---')}</strong></span>
@@ -734,6 +785,7 @@ async function showAdminTicketInPanel(ticketId) {
                         <div style="font-size:.8rem; color:var(--color-text-secondary); margin-bottom:.2rem;">العميل</div>
                         <div style="font-weight:700;">${escapeHtml(ticket.profiles?.full_name || 'مستخدم')}</div>
                         <div style="font-size:.8rem; color:var(--color-text-secondary);">${escapeHtml(ticket.profiles?.email || '')}</div>
+                        ${ticket.user_id ? `<a href="/customer-history.html?customer_id=${encodeURIComponent(ticket.user_id)}" style="font-size:.78rem; color:var(--color-accent); text-decoration:none; font-weight:700;">سجل العميل ←</a>` : ''}
                     </div>
                     <button id="impersonateBtn" class="icon-btn" style="padding:.4rem .7rem; font-size:.75rem;">${ICONS.userSwitch} الدخول كالعميل</button>
                 </div>
@@ -839,6 +891,7 @@ async function showAdminTicketInPanel(ticketId) {
     renderCannedChips();
 
     document.getElementById('impersonateBtn')?.addEventListener('click', () => impersonateUser(ticket.profiles?.id));
+    document.getElementById('wsOpenTicketTab')?.addEventListener('click', () => openInWorkspace({ type: 'ticket', params: { ticketId: ticket.id } }, { side: true }));
 
     document.getElementById('panelStatusSelect')?.addEventListener('change', async (e) => {
         const previous = ticket.status;
@@ -1158,6 +1211,8 @@ function setupNotificationChannel() {
     notificationChannel = supabase
         .channel('admin-tickets-notification-channel')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
+            // تبويب تذكرة واحدة: «تذكرة جديدة» للوحة التذاكر — وإلا تكرر الصوت مع كل تبويب مفتوح.
+            if (SINGLE_TICKET) return;
             if (soundEnabled) playNotificationSound();
             showToast(`تذكرة جديدة: #${payload.new?.ticket_number || ''} ${payload.new?.title || ''}`.trim());
         })
@@ -1165,7 +1220,8 @@ function setupNotificationChannel() {
             const reply = payload.new;
             if (!reply || reply.is_internal) return;
             if (user && reply.user_id === user.id) return;
-            if (soundEnabled) playNotificationSound();
+            if (SINGLE_TICKET && reply.ticket_id !== currentTicketId) return;
+            if (soundEnabled && !SINGLE_TICKET) playNotificationSound();
             if (reply.ticket_id === currentTicketId) {
                 loadAdminRepliesInPanel(currentTicketId);
             } else {

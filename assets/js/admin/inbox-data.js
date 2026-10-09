@@ -275,16 +275,21 @@ export function signAttachmentPaths(paths, { download = false } = {}) {
  * Realtime. RLS بتحدد اللي يوصل: الموظف بيستقبل أحداث المحادثات اللي
  * يوصلها بس (055 و 056 ضافوا الجداول دي للـ publication). حدث DELETE
  * بيوصل بالمفتاح بس (old.id) — ده كفاية لشيل التفاعل.
+ *
+ * @param {{sessionId?: string|null}} scope محادثة واحدة (تبويب في مساحة العمل):
+ *        الفلترة على الخادم بدل استقبال أحداث كل المحادثات وإهمالها. المعرّف
+ *        لازم يكون UUID متحقق منه — بيدخل في نص الفلتر.
  * @returns {() => void} إلغاء الاشتراك
  */
-export function subscribeInbox(handlers) {
-    const on = (table, event, fn) => ch.on('postgres_changes', { event, schema: 'public', table },
+export function subscribeInbox(handlers, { sessionId = null } = {}) {
+    const scope = (column) => (sessionId ? { filter: `${column}=eq.${sessionId}` } : {});
+    const on = (table, event, fn, column = 'session_id') => ch.on('postgres_changes', { event, schema: 'public', table, ...scope(column) },
         (payload) => fn?.(payload.eventType, payload.new, payload.old));
-    const ch = supabase.channel('admin-inbox');
+    const ch = supabase.channel(sessionId ? `admin-inbox-${sessionId}` : 'admin-inbox');
     on('chat_messages', 'INSERT', (_t, row) => handlers.onMessage?.(row));
     // تعديل/حذف رد (056) — من موظف تاني أو من تبويب تاني.
     on('chat_messages', 'UPDATE', (_t, row) => handlers.onMessageUpdate?.(row));
-    on('chat_sessions', '*', handlers.onSession);
+    on('chat_sessions', '*', handlers.onSession, 'id');
     on('inbox_conversations', '*', handlers.onMeta);
     on('inbox_conversation_tags', '*', handlers.onTag);
     on('inbox_notes', '*', handlers.onNote);

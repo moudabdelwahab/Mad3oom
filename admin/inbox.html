@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <script src="/error-tracker.js"></script>
+    <script src="/assets/js/admin/workspace/embed-early.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>صندوق الرسائل - لوحة الإدارة</title>
@@ -515,6 +516,7 @@
     </style>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
+  <link rel="stylesheet" href="/assets/css/workspace-embed.css">
   <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
@@ -587,6 +589,9 @@
                                 <button class="btn btn-secondary" id="closeSessionBtn" title="إقفال المحادثة">إقفال</button>
                                 <button class="ib-mini" id="findBtn" title="بحث في المحادثة" aria-label="بحث في المحادثة">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                                </button>
+                                <button class="ib-mini ws-embed-only" id="wsPopOutBtn" title="افتح المحادثة في تبويب مستقل" aria-label="افتح المحادثة في تبويب مستقل">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><polyline points="15 9 18 12 15 15"/></svg>
                                 </button>
                                 <button class="ib-mini" id="detailsBtn" title="تفاصيل" aria-label="تفاصيل">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>

@@ -1,0 +1,129 @@
+/* ============================================================================
+   وضع التضمين — الصفحات القائمة داخل تبويبات مساحة العمل
+   ----------------------------------------------------------------------------
+   كل القواعد مشروطة بـ html.ws-embedded (يضعها embed-early.js فقط حين تكون
+   الصفحة داخل مساحة العمل)، فالصفحة المفتوحة مباشرةً لا تتأثر بشيء هنا.
+
+   مساحة العمل تملك شريط التنقل والقائمة الجانبية؛ والتبويب يعرض المحتوى
+   وحده. وأوضاع العرض تضيّق الصفحة على سجل واحد:
+     ws-view-thread    محادثة واحدة (الصندوق بلا الرف والقائمة)
+     ws-view-ticket    تذكرة واحدة (التذاكر بلا الإحصاءات والقائمة)
+     ws-view-customer  عميل واحد (سجل العميل بلا البحث)
+   ========================================================================== */
+
+html.ws-embedded #sidebar-container,
+html.ws-embedded .page-header {
+    display: none !important;
+}
+
+html.ws-embedded body {
+    min-height: 100vh;
+}
+
+html.ws-embedded .admin-main {
+    max-width: none;
+    padding: 0.6rem;
+}
+
+/* زر «افتح في تبويب» لا معنى له خارج مساحة العمل */
+.ws-embed-only { display: none !important; }
+html.ws-embedded .ws-embed-only { display: inline-flex !important; }
+html.ws-embedded:is(.ws-view-thread, .ws-view-ticket, .ws-view-customer) .ws-embed-only { display: none !important; }
+
+/* ── الصندوق ─────────────────────────────────────────────────────────── */
+/* fitShellHeight() في inbox.js يقيس من حجم المحتوى، وداخل إطار أقصر من
+   الصفحة يثبت على تقديره الأول فيترك فراغًا ولا يكبر مع اللوحة. هنا flexbox
+   يملأ الإطار مباشرةً ويتبع أي تغيير في حجمه. */
+html.ws-embedded body:has(#inboxShell) {
+    height: 100vh;
+    overflow: hidden;
+}
+html.ws-embedded body:has(#inboxShell) .admin-main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+html.ws-embedded .section-card:has(> #inboxShell) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    margin: 0;
+}
+html.ws-embedded .inbox-shell {
+    flex: 1;
+    height: auto !important;
+    min-height: 0 !important;
+}
+html.ws-embedded .section-card > div:has(> #refreshBtn) {
+    margin-bottom: 0.4rem !important;
+}
+
+html.ws-view-thread .ib-rail,
+html.ws-view-thread .ib-list-pane,
+html.ws-view-thread #backBtn,
+html.ws-view-thread .section-card > div:has(> #refreshBtn) {
+    display: none !important;
+}
+html.ws-view-thread .inbox-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+html.ws-view-thread .inbox-shell.has-details {
+    grid-template-columns: minmax(0, 1fr) var(--ib-details-width) !important;
+}
+html.ws-view-thread .ib-thread-pane {
+    display: flex !important;
+    border-inline-start: 0 !important;
+}
+@media (max-width: 800px) {
+    html.ws-view-thread .inbox-shell.has-details { grid-template-columns: minmax(0, 1fr) !important; }
+    html.ws-view-thread .inbox-shell.has-details .ib-thread-pane { display: none !important; }
+}
+
+/* ── التذاكر ─────────────────────────────────────────────────────────── */
+html.ws-view-ticket .stats-grid,
+html.ws-view-ticket .toolbar,
+html.ws-view-ticket .tickets-panel {
+    display: none !important;
+}
+html.ws-view-ticket .tickets-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+html.ws-view-ticket .details-panel {
+    height: calc(100vh - 1.2rem) !important;
+    max-height: none !important;
+    min-height: 0 !important;
+}
+
+/* ── سجل العميل ──────────────────────────────────────────────────────── */
+html.ws-view-customer .ch-search-shell {
+    display: none !important;
+}
+
+/* شريط «تغيّر هذا السجل» حين يكون في الصفحة كلام لم يُرسل بعد */
+.ws-stale-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.8rem;
+    margin-bottom: 0.6rem;
+    border-radius: 0.6rem;
+    background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+    color: var(--color-text);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.ws-stale-bar button {
+    margin-inline-start: auto;
+    font: inherit;
+    padding: 0.3rem 0.7rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+}
