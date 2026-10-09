@@ -457,7 +457,8 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         التذاكر ماتقراش صف الطلب وماترسمش الأزرار. صارتا is_admin()،
     //         و admin_recompute_user_access (024، غير موجودة على الإنتاج) اتعرّفت
     //         بنصها. مقيسٌ على نسخة بشكل الإنتاج في
-    //         tests/sql/owner-admin-context-billing-requests.test.sql.
+    //         tests/sql/owner-admin-context-billing-requests.test.sql. اتطبّق 2026-10-09
+    //         («الاتنين»، docs/OWNER_BILLING_REQUESTS_AND_ACCOUNTING_SYNC_PROD_INSTALL_2026-10-09_AR.md).
     assert.equal(migrations[migrations.length - 1], '071_owner_admin_context_billing_requests.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
