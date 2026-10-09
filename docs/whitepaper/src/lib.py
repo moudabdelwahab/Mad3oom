@@ -1,7 +1,13 @@
-"""Content model and HTML renderer for the Mad3oom White Paper (EN + AR from one source).
+"""Content model and HTML renderer for the Mad3oom White Paper (EN + AR + EG from one source).
 
-Every content block carries both languages, so the two editions cannot drift apart
-structurally: the renderer walks the same block list once per language.
+Every content block carries English and Modern Standard Arabic, so the two editions cannot drift
+apart structurally: the renderer walks the same block list once per language.
+
+The Egyptian-Arabic edition (EG) is rendered exactly like the Arabic one (same blocks, same
+right-to-left layout); every Arabic string is passed through ``A()``, which swaps it for its
+Egyptian-Arabic counterpart from a translation overlay.  The overlay is keyed by the Modern
+Standard Arabic string, so it cannot silently drift from the source: a string with no
+translation is reported and fails the build.
 """
 from __future__ import annotations
 import html
@@ -9,6 +15,27 @@ import re
 from dataclasses import dataclass, field
 
 LANGS = ("en", "ar")
+
+_AR = re.compile("[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFC]")
+OVERLAY = None      # dict {MSA string: Egyptian string}; set by build.py for the Egyptian edition only
+COLLECT = None      # dict {string: first context}; when not None every Arabic string the renderer asks for is recorded
+CTX = ["shell"]     # what is being rendered right now (chapter slug, figure name ...), recorded with collected strings
+MISSING = set()     # Arabic strings that were requested while OVERLAY was active but have no translation
+
+
+def A(s):
+    """Arabic-slot text, translated through the Egyptian overlay when that edition is being built."""
+    if not s or not _AR.search(s):
+        return s
+    if COLLECT is not None:
+        COLLECT.setdefault(s, CTX[0])
+    if OVERLAY is not None:
+        eg = OVERLAY.get(s)
+        if eg is None:
+            MISSING.add(s)
+            return s
+        return eg
+    return s
 
 # --- status vocabulary (used for chips, legends and the roadmap) ------------------------------
 STATUS = {
@@ -79,8 +106,9 @@ def KEY(title, *items):
     return Block("key", dict(title=title, items=list(items)))
 
 
-def LEGEND():
-    return Block("legend")
+def LEGEND(rows=None):
+    """Status legend. ``rows`` optionally overrides the default definitions: [(key, (en, ar)), ...]."""
+    return Block("legend", dict(rows=rows))
 
 
 @dataclass
@@ -129,18 +157,18 @@ def inline(text: str, lang: str) -> str:
 
     def chip(m):
         k = m.group(1)
-        return f'<span class="chip chip-{k}">{STATUS[k][idx]}</span>'
+        return f'<span class="chip chip-{k}">{STATUS[k][0] if idx == 0 else A(STATUS[k][1])}</span>'
     s = re.sub(r"\{\{([EDPFR])\}\}", chip, s)
 
     def ref(m):
         n = int(m.group(1))
-        label = f"Chapter {n}" if lang == "en" else f"الفصل {CHAPTER_WORD_AR[n]}"
+        label = f"Chapter {n}" if lang == "en" else f"{A('الفصل')} {A(CHAPTER_WORD_AR[n])}"
         return f'<a class="xref" href="#ch{n}">{label}</a>'
     s = re.sub(r"\{\{ch(\d+)\}\}", ref, s)
 
     def appref(m):
         L = m.group(1)
-        label = f"Appendix {L}" if lang == "en" else f"الملحق {({'A':'أ','B':'ب','C':'ج'})[L]}"
+        label = f"Appendix {L}" if lang == "en" else f"{A('الملحق')} {({'A':'أ','B':'ب','C':'ج'})[L]}"
         return f'<a class="xref" href="#app{L}">{label}</a>'
     s = re.sub(r"\{\{app([A-C])\}\}", appref, s)
 
@@ -162,13 +190,17 @@ def inline(text: str, lang: str) -> str:
     return s
 
 
+def pick(pair, lang):
+    return pair[0] if lang == "en" else A(pair[1])
+
+
 def T(pair, lang):
-    return inline(pair[0 if lang == "en" else 1], lang)
+    return inline(pick(pair, lang), lang)
 
 
 def plain(pair, lang):
     """Plain (unmarked) text for PDF outline / TOC strings."""
-    s = pair[0 if lang == "en" else 1]
+    s = pick(pair, lang)
     s = re.sub(r"\{\{[^}]+\}\}", "", s)
     s = s.replace("**", "").replace("`", "")
     return s.strip()
@@ -239,16 +271,18 @@ class Renderer:
             return self.render_table(d)
         if k == "fig":
             self.fig_no += 1
+            CTX[0] = "figure:" + d["name"]
             svg = DIAGRAMS[d["name"]](L)
+            CTX[0] = ch.slug
             cap = T(d["caption"], L)
-            word = "Figure" if L == "en" else "الشكل"
+            word = "Figure" if L == "en" else A("الشكل")
             return (f'<figure><div class="fig-svg">{svg}</div>'
                     f'<figcaption><span class="cap-no">{word} {self.fig_no}.</span> {cap}</figcaption></figure>')
         if k == "key":
             items = "".join(f"<li>{T(i, L)}</li>" for i in d["items"])
             return f'<aside class="key"><div class="key-h">{T(d["title"], L)}</div><ul>{items}</ul></aside>'
         if k == "legend":
-            return self.render_legend()
+            return self.render_legend(d.get("rows"))
         raise ValueError(k)
 
     def render_table(self, d):
@@ -267,7 +301,7 @@ class Renderer:
         cap = ""
         if d["caption"]:
             self.tab_no += 1
-            word = "Table" if L == "en" else "الجدول"
+            word = "Table" if L == "en" else A("الجدول")
             cap = f'<p class="tcap"><span class="cap-no">{word} {self.tab_no}.</span> {T(d["caption"], L)}</p>'
         cls = f' class="{d["cls"]}"' if d["cls"] else ""
         keep = len(d["rows"]) <= 9 and "long" not in d["cls"]
@@ -275,9 +309,9 @@ class Renderer:
                f'<thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>')
         return f'<div class="keep">{tbl}</div>' if keep else tbl
 
-    def render_legend(self):
+    def render_legend(self, custom=None):
         L = self.lang
-        rows = [
+        rows = custom or [
             ("E", ("Implemented in the project repositories, with automated tests where noted. It does not imply "
                    "production maturity, wide use or independent validation.",
                    "منفَّذ في مستودعات المشروع، مع اختبارات آلية حيث يُذكر ذلك. ولا يعني نضجًا إنتاجيًا "
@@ -294,7 +328,7 @@ class Renderer:
         ]
         out = ['<table class="legend"><tbody>']
         for k, desc in rows:
-            out.append(f'<tr><td class="lg-chip"><span class="chip chip-{k}">{STATUS[k][0 if L == "en" else 1]}</span></td>'
+            out.append(f'<tr><td class="lg-chip"><span class="chip chip-{k}">{STATUS[k][0] if L == "en" else A(STATUS[k][1])}</span></td>'
                        f'<td>{T(desc, L)}</td></tr>')
         out.append("</tbody></table>")
         return "".join(out)
@@ -302,13 +336,14 @@ class Renderer:
     # chapter ------------------------------------------------------------------------
     def render_chapter(self, ch: Chapter) -> str:
         L = self.lang
+        CTX[0] = ch.slug
         sec = [0]
         title = plain(ch.title, L)
         if ch.kind == "chapter":
-            label_en, label_ar = f"CHAPTER {ch.num}", f"الفصل {CHAPTER_WORD_AR[ch.num]}"
+            label_en, label_ar = f"CHAPTER {ch.num}", f"{A('الفصل')} {A(CHAPTER_WORD_AR[ch.num])}"
             big = f"{ch.num:02d}"
         elif ch.kind == "appendix":
-            label_en, label_ar = f"APPENDIX {ch.letter}", f"الملحق {({'A':'أ','B':'ب','C':'ج'})[ch.letter]}"
+            label_en, label_ar = f"APPENDIX {ch.letter}", f"{A('الملحق')} {({'A':'أ','B':'ب','C':'ج'})[ch.letter]}"
             big = ch.letter if L == 'en' else {'A': 'أ', 'B': 'ب', 'C': 'ج'}[ch.letter]
         else:
             label_en = label_ar = ""

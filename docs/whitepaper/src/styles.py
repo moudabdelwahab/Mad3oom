@@ -37,12 +37,12 @@ def _q(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def page_rules(lang: str, pages: list[tuple[str, str]], foot_left: str) -> str:
+def page_rules(lang: str, pages: list[tuple[str, str]], foot_left: str, doc_name: str | None = None) -> str:
     """Named @page rules: running header (document name | chapter), footer (edition | page no.)."""
     rtl = lang == "ar"
     fam = '"Readex Pro","Inter"' if rtl else '"Inter"'
     spacing = "0" if rtl else ".14em"
-    doc_name = "وثيقة مدعوم الأساسية" if rtl else "MAD3OOM WHITE PAPER"
+    doc_name = doc_name or ("وثيقة مدعوم الأساسية" if rtl else "MAD3OOM WHITE PAPER")
     out = []
     # physical positions: in RTL the document name sits at the right (start) edge
     name_pos, chap_pos = ("right", "left") if rtl else ("left", "right")
@@ -63,6 +63,22 @@ def page_rules(lang: str, pages: list[tuple[str, str]], foot_left: str) -> str:
       color: {NAVY}; text-align: {chap_pos}; vertical-align: top; padding-top: 5pt; }}
 }}""")
     return "\n".join(out)
+
+
+# Arabic cover: the supplied artwork with its English text removed (src/tools/make_arabic_cover_base.py), with live
+# Arabic typography set over it in the same navy and blue as the English cover.  Positions are in mm on the A4 page
+# and follow the English cover's layout (title block, rule, subtitle, footer line).
+COVER_AR_CSS = """
+.cover.cover-ar { direction:rtl; font-family:"Readex Pro","Inter",sans-serif; color:#0A2A6B; }
+.cover-ar .cv { position:absolute; left:0; right:0; text-align:center; margin:0; padding:0 14mm; }
+.cover-ar .cv-t1 { top:151mm; font-weight:700; font-size:58pt; line-height:1.2; letter-spacing:0; color:#0A2A6B; white-space:nowrap; }
+.cover-ar .cv-t2 { top:180mm; font-weight:700; font-size:27pt; line-height:1.3; color:#0A2A6B; white-space:nowrap; }
+.cover-ar .cv-rule { position:absolute; top:203mm; left:50%; width:28mm; margin-left:-14mm; height:0; border-top:1.1pt solid #2074D0; }
+.cover-ar .cv-sub { top:209mm; font-weight:500; font-size:15.5pt; line-height:1.55; color:#0A2A6B; padding:0 26mm; }
+.cover-ar .cv-edition { top:240mm; font-weight:500; font-size:10.5pt; color:#2074D0; }
+.cover-ar .cv-tag { top:271.5mm; font-weight:600; font-size:8.6pt; letter-spacing:0; color:#0A2A6B; }
+.cover-ar .cv-date { top:279.5mm; font-weight:400; font-size:8.6pt; color:#55657F; }
+"""
 
 
 def base_css(lang: str) -> str:
@@ -92,6 +108,7 @@ a.xref {{ color:var(--blue); font-weight:500; }}
 /* cover */
 .cover {{ page:cover; height:296.6mm; width:210mm; position:relative; overflow:hidden; break-after:page; }}
 .cover img {{ position:absolute; inset:0; width:210mm; height:297mm; object-fit:cover; display:block; }}
+{COVER_AR_CSS}
 
 /* chapters */
 .chap {{ break-before: page; }}
