@@ -1,8 +1,8 @@
 -- ============================================================================
--- مساحة العمل — 074_workspace_layouts على نسخة مطابقة لشكل الإنتاج
+-- مساحة العمل — 075_workspace_layouts على نسخة مطابقة لشكل الإنتاج
 --
---   ① قبل 074: لا شيء موجود (الواجهة تحفظ محليًا)
---   ② بعد 074: الحفظ والقراءة، النسخ والتعارض، العزل بين الموظفين، الأدوار
+--   ① قبل 075: لا شيء موجود (الواجهة تحفظ محليًا)
+--   ② بعد 075: الحفظ والقراءة، النسخ والتعارض، العزل بين الموظفين، الأدوار
 --      المرفوضة، لا وصول مباشر للجدول، رفض الحمولات غير الصالحة، الحذف المتتالي
 --   ③ التراجع وإعادة التطبيق
 -- ============================================================================
@@ -93,17 +93,17 @@ INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALU
   ('00000000-0000-4000-8000-0000000000b0', 'bn@t.io', 'دعم محظور', 'support', '01000000065', '2026-09-01');
 UPDATE public.profiles SET ban_status = 'banned' WHERE id = '00000000-0000-4000-8000-0000000000b0';
 
--- ── ① قبل 074 ───────────────────────────────────────────────────────────────
+-- ── ① قبل 075 ───────────────────────────────────────────────────────────────
 DO $$
 BEGIN
   PERFORM t.ok(to_regclass('public.workspace_layouts') IS NULL
                AND to_regprocedure('public.workspace_get_layout()') IS NULL, '0: موجود قبل الترحيلة');
   PERFORM t.ok(t.err('00000000-0000-4000-8000-0000000000a5', '(select 1 from public.workspace_get_layout())') = '42883',
-               '0: النداء قبل 074 يجب أن يكون «دالة غير موجودة» (الواجهة تتحول للحفظ المحلي)');
-  RAISE NOTICE 'PASS 0: قبل 074 الدالة غير موجودة (42883) — الواجهة تعرف ذلك وتحفظ محليًا';
+               '0: النداء قبل 075 يجب أن يكون «دالة غير موجودة» (الواجهة تتحول للحفظ المحلي)');
+  RAISE NOTICE 'PASS 0: قبل 075 الدالة غير موجودة (42883) — الواجهة تعرف ذلك وتحفظ محليًا';
 END $$;
 
-\i migrations/074_workspace_layouts.sql
+\i migrations/075_workspace_layouts.sql
 SET search_path = public, extensions;
 
 -- ── ② الحفظ والقراءة ────────────────────────────────────────────────────────
@@ -203,16 +203,16 @@ BEGIN
 END $$;
 
 -- ── إعادة التشغيل ─────────────────────────────────────────────────────────
-\i migrations/074_workspace_layouts.sql
+\i migrations/075_workspace_layouts.sql
 DO $$
 BEGIN
   PERFORM t.ok((t.load('00000000-0000-4000-8000-0000000000a5') ->> 'revision')::int = 4
                AND (SELECT count(*) FROM public.workspace_layouts) = 2, '8: البيانات بعد إعادة التشغيل');
-  RAISE NOTICE 'PASS 8: 074 قابلة لإعادة التشغيل بلا فقد';
+  RAISE NOTICE 'PASS 8: 075 قابلة لإعادة التشغيل بلا فقد';
 END $$;
 
 -- ── ③ التراجع وإعادة التطبيق ──────────────────────────────────────────────
-\i migrations/_rollback/074_workspace_layouts.down.sql
+\i migrations/_rollback/075_workspace_layouts.down.sql
 DO $$
 BEGIN
   PERFORM t.ok(to_regclass('public.workspace_layouts') IS NULL
@@ -220,7 +220,7 @@ BEGIN
   PERFORM t.ok(t.err('00000000-0000-4000-8000-0000000000a5', '(select 1 from public.workspace_get_layout())') = '42883', '9b');
   RAISE NOTICE 'PASS 9: التراجع يحذف الجدول والدالتين، والنداء يرجع 42883 فتعود الواجهة للحفظ المحلي';
 END $$;
-\i migrations/074_workspace_layouts.sql
+\i migrations/075_workspace_layouts.sql
 DO $$
 DECLARE r jsonb;
 BEGIN

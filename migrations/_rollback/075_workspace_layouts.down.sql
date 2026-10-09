@@ -1,5 +1,5 @@
 -- ============================================================================
--- تراجع 074_workspace_layouts
+-- تراجع 075_workspace_layouts
 --
 -- يحذف ترتيبات مساحة العمل المحفوظة على الخادم. هي تفضيل واجهة لا أكثر:
 -- الواجهة تعود للحفظ المحلي (localStorage) تلقائيًا حين تختفي الدالتان، ولا
@@ -17,9 +17,9 @@ begin
   if to_regclass('public.workspace_layouts') is not null
      or to_regprocedure('public.workspace_get_layout()') is not null
      or to_regprocedure('public.workspace_save_layout(jsonb,bigint)') is not null then
-    raise exception 'تراجع 074: كائنات ما زالت موجودة';
+    raise exception 'تراجع 075: كائنات ما زالت موجودة';
   end if;
-  raise notice 'تراجع 074: اكتمل';
+  raise notice 'تراجع 075: اكتمل';
 end $$;
 
 commit;

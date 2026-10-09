@@ -1,5 +1,5 @@
 -- ============================================================================
--- 074_workspace_layouts.sql
+-- 075_workspace_layouts.sql
 --   ترتيب «مساحة العمل» لكل موظف (admin/workspace.html) — تفضيل واجهة فقط
 --
 -- ما يُحفظ: بنية التقسيمات والتبويبات وأنواع اللوحات ومعرّفات السجلات (UUID).
@@ -20,7 +20,7 @@
 --   الدالتين فقط (نفس نمط 073).
 --
 -- اختياري للواجهة: بدونه تحفظ مساحة العمل محليًا (localStorage) وتعمل كاملة.
--- قابل لإعادة التشغيل. التراجع: migrations/_rollback/074_workspace_layouts.down.sql
+-- قابل لإعادة التشغيل. التراجع: migrations/_rollback/075_workspace_layouts.down.sql
 -- ============================================================================
 
 
@@ -33,11 +33,11 @@ begin
   foreach f in array array['public.inbox_is_agent()', 'public.account_is_active()',
                            'public.preview_mode()', 'public.guard_preview_read_only()'] loop
     if to_regprocedure(f) is null then
-      raise exception '074 يتطلب %', f;
+      raise exception '075 يتطلب %', f;
     end if;
   end loop;
   if to_regclass('public.profiles') is null then
-    raise exception '074 يتطلب public.profiles';
+    raise exception '075 يتطلب public.profiles';
   end if;
 end $$;
 
@@ -58,7 +58,7 @@ create table if not exists public.workspace_layouts (
 
 comment on table public.workspace_layouts is
   'ترتيب مساحة العمل لكل موظف (تفضيل واجهة). بنية ومعرّفات فقط — لا محتوى. '
-  'الوصول عبر workspace_get_layout / workspace_save_layout فقط (074).';
+  'الوصول عبر workspace_get_layout / workspace_save_layout فقط (075).';
 
 
 -- ============================================================================
@@ -180,33 +180,33 @@ declare f text;
 begin
   if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workspace_layouts'
                 and permissive = 'PERMISSIVE') then
-    raise exception '074: سياسة سماح على workspace_layouts';
+    raise exception '075: سياسة سماح على workspace_layouts';
   end if;
   if has_table_privilege('authenticated', 'public.workspace_layouts', 'SELECT')
      or has_table_privilege('authenticated', 'public.workspace_layouts', 'INSERT')
      or has_table_privilege('authenticated', 'public.workspace_layouts', 'UPDATE')
      or has_table_privilege('authenticated', 'public.workspace_layouts', 'DELETE')
      or has_table_privilege('anon', 'public.workspace_layouts', 'SELECT') then
-    raise exception '074: صلاحية مباشرة على workspace_layouts';
+    raise exception '075: صلاحية مباشرة على workspace_layouts';
   end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.workspace_layouts'::regclass
                     and tgname = 'trg_preview_read_only')
      or not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workspace_layouts'
                        and policyname = 'gate_account_active' and permissive = 'RESTRICTIVE') then
-    raise exception '074: workspace_layouts بلا اتفاقيات 041/042';
+    raise exception '075: workspace_layouts بلا اتفاقيات 041/042';
   end if;
   foreach f in array array['public.workspace_get_layout()', 'public.workspace_save_layout(jsonb,bigint)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then
-      raise exception '074: % مكشوفة لـ anon', f;
+      raise exception '075: % مكشوفة لـ anon', f;
     end if;
     if not has_function_privilege('authenticated', f, 'EXECUTE') then
-      raise exception '074: % غير متاحة لـ authenticated', f;
+      raise exception '075: % غير متاحة لـ authenticated', f;
     end if;
   end loop;
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
               where n.nspname = 'public' and p.proname in ('workspace_get_layout', 'workspace_save_layout')
                 and (not p.prosecdef or not coalesce(p.proconfig::text like '%search_path=public%', false))) then
-    raise exception '074: دالة بلا SECURITY DEFINER أو بلا search_path ثابت';
+    raise exception '075: دالة بلا SECURITY DEFINER أو بلا search_path ثابت';
   end if;
-  raise notice '074: ترتيب مساحة العمل جاهز';
+  raise notice '075: ترتيب مساحة العمل جاهز';
 end $$;

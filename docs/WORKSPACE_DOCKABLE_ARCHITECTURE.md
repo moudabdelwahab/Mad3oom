@@ -1,7 +1,7 @@
 # Mad3oom Dockable Workspace — Architecture and Implementation Report
 
 > Status: implemented on branch `claude/beautiful-mendel-mu5ev2` (not merged, not deployed).
-> Migration `074_workspace_layouts.sql` is written and tested against the local production-shape
+> Migration `075_workspace_layouts.sql` is written and tested against the local production-shape
 > database only. It is **not applied to production**; the workspace works without it (see §7).
 > Section §12 records what is implemented, what is tested, and what is still pending.
 
@@ -17,7 +17,7 @@ Labels: **[repo]** read in this checkout, **[prod]** read-only against Supabase 
 | Branch | [repo] `git status -sb` | `claude/beautiful-mendel-mu5ev2` = `origin/main` (`e8065a6`), clean tree |
 | Open PRs | [gh] `list_pull_requests state=open` | none |
 | Last migration in repo | [repo] `ls migrations` | `073_relay_core.sql` |
-| Last migrations in prod | [prod] `list_migrations` | `072_invoice_pdf_attachment`, `073_relay_core`; **no `074`** |
+| Last migrations in prod | [prod] `list_migrations` | `072_invoice_pdf_attachment`, `073_relay_core`; no `074`/`075` |
 | Node test suite on `main` | [repo] `npm run test:node` | 855 tests: 816 pass, 2 skipped, **37 fail — all environmental** (below) |
 | SQL/RLS suite on `main` | [repo] `npm run test:sql` | 46 files, exit 0, no `FAIL`/`ERROR` lines |
 
@@ -115,7 +115,7 @@ admin/workspace.html                       (guardPage('admin'), sidebar, theme)
    ├─ workspace-view.js      renderer — split containers, dividers, tab bars, drop zones,
    │                         context menu, compact (small-screen) mode
    ├─ frame-host.js          iframe overlay — lazy creation, positioning, live cap, messaging
-   ├─ workspace-store.js     persistence — localStorage + optional server RPC (074)
+   ├─ workspace-store.js     persistence — localStorage + optional server RPC (075)
    ├─ workspace-data.js      shell-side reads: access revalidation + titles, quick-open search
    ├─ quick-open.js          Ctrl+K dialog (open panels, records, commands)
    ├─ embed-early.js         classic <head> script: sets embed classes before first paint
@@ -227,17 +227,17 @@ same origin) so a stale `dirty` message can never let a draft be discarded.
 
 * **Local (always):** `localStorage['mad3oom.workspace.v1.<userId>']` = `{ savedAt, layout }`, written
   synchronously on every change, so a refresh restores instantly.
-* **Server (when 074 is installed):** `workspace_get_layout()` / `workspace_save_layout(p_layout,
+* **Server (when 075 is installed):** `workspace_get_layout()` / `workspace_save_layout(p_layout,
   p_base_revision)`, debounced (1.5 s), flushed on `pagehide`. On load, the newer of local/server wins.
   Missing RPC (`PGRST202`/`42883`) disables server sync for the session without errors; preview mode is
   refused server-side and the client stays local.
 * **Conflicts** (two windows): last writer wins, explicitly; the server reports `conflict = true` when the
   base revision was stale, and the client notes it once.
-* **Migration 074** (`workspace_layouts`): one row per user, `layout jsonb` (object, `version` 1–999,
+* **Migration 075** (`workspace_layouts`): one row per user, `layout jsonb` (object, `version` 1–999,
   ≤ 64 KB), `revision`, `updated_at`; RLS on, `gate_account_active`, `trg_preview_read_only`, **no**
   direct grants to `anon`/`authenticated`/`service_role`; RPCs are `SECURITY DEFINER`, check
   `auth.uid()` and `inbox_is_agent()` (the inbox audience), refuse preview mode, and can only touch
-  the caller's row. Rollback: `migrations/_rollback/074_workspace_layouts.down.sql`.
+  the caller's row. Rollback: `migrations/_rollback/075_workspace_layouts.down.sql`.
 
 ## 8. Performance
 
@@ -274,9 +274,9 @@ same origin) so a stale `dirty` message can never let a draft be discarded.
 | Embedded pages' own shortcuts (`/`, `j`, `k`, `?`) only act inside the focused frame | intended; Ctrl/⌘+K is forwarded to the shell |
 | A page change that breaks embed mode | render tests boot each page embedded |
 | Same agent in two windows | LWW + conflict flag (§7) |
-| Migration 074 not installed | workspace is local-only; no error surfaced to agents |
+| Migration 075 not installed | workspace is local-only; no error surfaced to agents |
 
-| `production-drift` CI job lists `074_workspace_layouts.sql` as unapplied | expected until 074 is installed; the baseline is deliberately **not** widened to hide it (§13) |
+| `production-drift` CI job lists `075_workspace_layouts.sql` as unapplied | expected until 075 is installed; the baseline is deliberately **not** widened to hide it (§13) |
 
 Pre-existing issues observed during reconnaissance (**not changed here**, reported for follow-up):
 * `customer-history.js` builds a PostgREST `.or()` filter by string-interpolating the search input
@@ -335,7 +335,7 @@ audience as the inbox); dock engine; registry with six panel types over the exis
 customer-history pages; embed mode in those three pages; drag-and-drop docking on four edges + centre,
 nested splits, resizable dividers; tab menu, keyboard alternatives, quick open, starter layouts, reset,
 reopen-closed; dirty-text protection; cross-panel links and change relay; local persistence; server
-persistence RPCs (074, local Postgres only); access revalidation on restore; compact mode; RTL/LTR; dark
+persistence RPCs (075, local Postgres only); access revalidation on restore; compact mode; RTL/LTR; dark
 mode via the shell's theme.
 
 **Behaviour changes to existing pages (all additive):** `admin/tickets.html` now honours
@@ -343,8 +343,8 @@ mode via the shell's theme.
 "سجل العميل ←" link; both apply outside the workspace too. Everything else is gated on embed mode.
 
 **Not done / limitations:**
-* Migration 074 is **not applied to production** (no authorization was given). Until it is, layouts
-  persist per device only; the `production-drift` CI job lists 074 as unapplied.
+* Migration 075 is **not applied to production** (no authorization was given). Until it is, layouts
+  persist per device only; the `production-drift` CI job lists 075 as unapplied.
 * A panel is a full page instance: each live panel has its own supabase-js client and realtime socket
   (bounded by the live cap). A shared-client architecture would require refactoring the inbox and
   tickets pages and was out of scope.
@@ -361,8 +361,8 @@ mode via the shell's theme.
 environment variables, no feature flag needed — the page is reachable from the sidebar for admin/support.
 
 **Deploy (optional server persistence) — requires explicit authorization:**
-1. Apply `migrations/074_workspace_layouts.sql` to production (its post-check block raises on any
-   deviation and prints `074: ترتيب مساحة العمل جاهز`).
+1. Apply `migrations/075_workspace_layouts.sql` to production (its post-check block raises on any
+   deviation and prints `075: ترتيب مساحة العمل جاهز`).
 2. Verify read-only: `select to_regprocedure('public.workspace_save_layout(jsonb,bigint)')` is not null and
    `has_table_privilege('authenticated','public.workspace_layouts','SELECT')` is false.
 3. Record it in the ledger the same way as 068 (`scripts/ledger/`) if it was applied outside the migration tool.
@@ -371,6 +371,6 @@ environment variables, no feature flag needed — the page is reachable from the
 **Rollback:**
 * Frontend: revert the merge. Embedded pages fall back to their pre-change behaviour (embed mode is never
   entered outside the workspace); bookmarks to `/admin/workspace.html` 404.
-* Server: run `migrations/_rollback/074_workspace_layouts.down.sql`. It drops only the layout table and
+* Server: run `migrations/_rollback/075_workspace_layouts.down.sql`. It drops only the layout table and
   its two functions; the client detects the missing RPC (`PGRST202`/`42883`) and continues locally. No
   support data (conversations, tickets, customers) is touched by either step.
