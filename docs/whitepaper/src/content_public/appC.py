@@ -7,10 +7,8 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
     H2("Sources reviewed", "المصادر التي روجعت"),
     UL(("The source code and engineering documents of three repositories: the Mad3oom platform, the SIE engine and the WhatsApp module, as they stood on 9 October 2026.",
         "الشيفرة المصدرية والوثائق الهندسية لثلاثة مستودعات: منصة Mad3oom ومحرك SIE ووحدة واتساب، كما كانت في 9 أكتوبر 2026."),
-       ("Architecture and implementation records, including the Workspace and Relay design documents, the SIE architecture, guarantee registry and nine-layer audit, "
-        "the conversation-core gate and installation notes, and the October 2026 engineering audit of the platform.",
-        "سجلات المعمارية والتنفيذ، ومنها وثائق تصميم Workspace وRelay، ومعمارية SIE وسجل ضماناته وتدقيق طبقاته التسع، وبوابة نواة المحادثات "
-        "وملاحظات تثبيتها، والتدقيق الهندسي للمنصة في أكتوبر 2026."),
+       ("Design documents, architecture and implementation records and installation notes.",
+        "وثائق التصميم وسجلات المعمارية والتنفيذ وملاحظات التثبيت."),
        ("Database migrations, rollback scripts and the automated tests in each repository.", "ترحيلات قاعدة البيانات وسكربتات التراجع والاختبارات الآلية في كل مستودع.")),
 
     H2("Method", "المنهج"),
@@ -29,6 +27,9 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
         [("Whether each merged change is live for end users", "هل كل تغيير مدموج متاح للمستخدمين النهائيين"), ("“Existing” means implemented in the repositories, not confirmed live.", "«قائم» تعني منفَّذًا في المستودعات، لا مؤكَّدًا في الإنتاج.")],
         [("Real-world accuracy of SIE", "الدقة الفعلية لـ SIE في الواقع"), ("No accuracy, resolution or satisfaction figures are reported.", "لا تُذكر أرقام للدقة أو الحل أو الرضا.")],
         [("Security assessment by a third party", "تقييم أمني من طرف ثالث"), ("No certification or compliance is claimed.", "لا يُدَّعى حصول على شهادة أو امتثال.")],
+        [("Independent verification of security controls", "التحقق المستقل من الضوابط الأمنية"),
+         ("Not performed. Security descriptions are design objectives and safeguards traceable to the project, not independently verified guarantees.",
+          "لم يُجرَ. الأوصاف الأمنية أهداف تصميمية وتدابير حماية يمكن تتبعها إلى المشروع، وليست ضمانات جرى التحقق منها بصورة مستقلة.")],
         [("Meta provider status and commercial terms", "صفة المزوّد لدى Meta والشروط التجارية"), ("No partnership or provider status is stated.", "لا تُذكر شراكة ولا صفة مزوّد.")],
         [("Changes after 9 October 2026", "التغييرات بعد 9 أكتوبر 2026"), ("They are not reflected in this edition.", "لا تنعكس في هذا الإصدار.")],
     ], widths=[34, 66], cls="compact"),
@@ -40,8 +41,8 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
         "لا يُعرض نجاح الاختبارات الآلية دليلًا على الموثوقية في الإنتاج."),
        ("No competitor is named and no superiority is claimed. No credentials, customer data or exploitable security detail is included.",
         "لا يُسمَّى منافس ولا يُدَّعى تفوّق. ولا تُدرج بيانات اعتماد ولا بيانات عملاء ولا تفاصيل أمنية يمكن استغلالها."),
-       ("Other public material, such as the website's roadmap page last updated in July 2026, is not used as evidence. Where it differs from this paper, this paper follows the repository evidence.",
-        "لا تُستخدم المواد العامة الأخرى، كصفحة خارطة الطريق في الموقع التي حُدّثت آخر مرة في يوليو 2026، دليلًا. وحيث تختلف عن هذه الورقة، تتبع الورقة أدلة المستودعات.")),
+       ("This public edition omits operational and implementation detail that could weaken the platform's security.",
+        "تُغفل هذه النسخة العامة التفاصيل التشغيلية والتنفيذية التي قد تُضعف أمن المنصة.")),
 
     H2("Document history", "سجل الوثيقة"),
     TABLE([("Version", "الإصدار"), ("Date", "التاريخ"), ("Note", "ملاحظة")], [
