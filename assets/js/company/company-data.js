@@ -45,9 +45,10 @@ export async function checkCompanyFeature(featureKey) {
 }
 
 /**
- * إنشاء/تحديث بيانات شركة المستخدم الحالي.
+ * تحديث بيانات شركة المستخدم الحالي (لوحة الشركة).
  * القاعدة هي اللي بتفرض: المالك فقط يعدّل، والعضو الفرعي يُرفض، ورقم السجل
  * التجاري فريد. الواجهة بتعرض رسالة القاعدة زي ما هي (كلها بالعربي).
+ * إنشاء شركة جديدة مش هنا: بقى طلبًا تراجعه الإدارة (submitCompanyAccountRequest).
  */
 export async function saveCompany(values) {
     return safe('saveCompany', async () => {
@@ -83,18 +84,37 @@ export async function linkSubscriptionToCompany(subscriptionId) {
 }
 
 /**
- * الباقات التي تستلزم شركة. بيانات مش شرط في الكود: أي باقة جديدة
- * requires_company = true بتدخل المسار تلقائيًا.
+ * طلب تحويل حساب المستخدم الحالي إلى حساب شركة (migrations/068).
+ * لا يُنشئ شركة: الطلب ينتظر موافقة الإدارة، والموافقة هي اللي بتُنشئها.
+ * صاحب الطلب بيتحدد من auth.uid() في القاعدة، فمفيش مُعامل هنا يوجّهه
+ * لحساب تاني. الباقة ودورة الفوترة بيتسجّلوا عشان إخطار الموافقة يقول
+ * للعميل يكمل اشتراكه فيها.
  */
-export async function fetchCompanyRequiringPlans() {
-    return safe('companyRequiringPlans', async () => {
-        const { data, error } = await supabase
-            .from('subscription_plans')
-            .select('key, name, name_ar, requires_company')
-            .eq('is_active', true)
-            .eq('requires_company', true);
+export async function submitCompanyAccountRequest(values, { plan = null, billingCycle = null } = {}) {
+    return safe('submitCompanyAccountRequest', async () => {
+        const { data, error } = await supabase.rpc('submit_company_account_request', {
+            p_company_name: values.companyName,
+            p_commercial_registration_number: values.crNumber,
+            p_commercial_registration_expiry: values.crExpiry,
+            p_company_email: values.companyEmail || null,
+            p_company_phone: values.companyPhone || null,
+            p_requested_plan: plan || null,
+            p_requested_billing_cycle: billingCycle || null
+        });
         if (error) throw error;
-        return data || [];
+        return data;
+    });
+}
+
+/**
+ * آخر طلب حساب شركة للمستخدم الحالي (الطلب قيد المراجعة أولًا)، أو null.
+ * بيرجّع الحالة وسبب الرفض بس — مش بيانات الشركة القانونية كاملة.
+ */
+export async function fetchMyCompanyAccountRequest() {
+    return safe('myCompanyAccountRequest', async () => {
+        const { data, error } = await supabase.rpc('my_company_account_request');
+        if (error) throw error;
+        return data || null;
     });
 }
 
