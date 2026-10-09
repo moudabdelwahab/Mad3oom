@@ -19,7 +19,7 @@
  * والتشكيل والتطويل. بدون هذا يفشل البحث عن "اعدادات" في "إعدادات"، وهو أشيع
  * خطأ إملائي في الكتابة السريعة بالعربية.
  */
-function normalize(str) {
+export function normalize(str) {
     return String(str ?? '')
         .toLowerCase()
         .replace(/[ً-ْـ]/g, '')   // تشكيل وتطويل
@@ -35,7 +35,7 @@ function normalize(str) {
  * التسلسل الجزئي (subsequence) يكفي — "مفت api" يجد "مفاتيح API" — مع مكافأة
  * للتطابق من بداية كلمة حتى تتقدّم النتائج البديهية على المتناثرة.
  */
-function score(haystack, needle) {
+export function score(haystack, needle) {
     if (!needle) return 0;
     const h = normalize(haystack);
     const n = normalize(needle);

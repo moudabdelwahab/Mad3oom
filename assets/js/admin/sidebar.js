@@ -374,6 +374,8 @@ async function applySidebarPermissions() {
     // تاني جلساته هو بس — فالسوبر يوزر كان هيشوف صندوق فاضي.
     if (isAdmin || isSupport) {
         showLink('inboxLink');
+        // مساحة العمل تستضيف الصندوق والتذاكر وسجل العميل — نفس الجمهور.
+        showLink('workspaceLink');
         // Relay (073/074): نفس جمهور الصندوق، ويظهر فقط لو Relay مفعّل والحساب عضو.
         // قبل تطبيق 074 الدالة غير موجودة ⇒ يفضل مخفي. إخفاء للواجهة فقط؛ الخادم يقرر.
         supabase.rpc('relay_my_access').then(({ data, error }) => {

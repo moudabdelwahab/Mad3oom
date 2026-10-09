@@ -1,0 +1,498 @@
+/* ============================================================================
+   مساحة العمل — admin/workspace.html
+   ----------------------------------------------------------------------------
+   لا ألوان جديدة: كل لون من رموز styles.css (‎--color-*) وكل ظل وحركة وحلقة
+   تركيز من design-tokens.css، فالسمة الداكنة تعمل وحدها.
+
+   الطبقات داخل ‎.ws-root (من الأسفل للأعلى):
+     ‎.ws-tree    التقسيمات والمجموعات وأشرطة التبويب والأجسام الفارغة
+     ‎.ws-frames  الإطارات، موضوعة فوق أجسام المجموعات (frame-host.js)
+     ‎.ws-drop    مؤشر الإفلات أثناء السحب
+   القوائم والنوافذ خارج ‎.ws-root تمامًا فتعلو كل شيء.
+   ========================================================================== */
+
+body.ws-page {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.ws-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem 0.75rem;
+    box-sizing: border-box;
+}
+
+/* ── شريط الأدوات ─────────────────────────────────────────────────────── */
+.ws-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.2rem;
+}
+.ws-heading {
+    margin: 0;
+    margin-inline-end: 0.4rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+.ws-quick-btn {
+    flex: 0 1 26rem;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.42rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.55rem;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease-out);
+}
+.ws-quick-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-quick-btn:hover { border-color: var(--color-accent); }
+.ws-quick-btn kbd,
+.ws-quick kbd {
+    margin-inline-start: auto;
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.3rem;
+    background: var(--color-muted);
+    direction: ltr;
+}
+.ws-save-status {
+    margin-inline-start: auto;
+    font-size: 0.72rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ws-save-status[data-state='error'] { color: var(--color-danger); }
+
+/* ── الجذر والطبقات ───────────────────────────────────────────────────── */
+.ws-root {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+.ws-tree {
+    position: absolute;
+    inset: 0;
+    display: flex;
+}
+.ws-tree > * { flex: 1; min-width: 0; min-height: 0; }
+
+.ws-frames {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+.ws-frame {
+    position: absolute;
+    border: 0;
+    pointer-events: auto;
+    background: var(--color-background);
+    border-end-start-radius: 0.6rem;
+    border-end-end-radius: 0.6rem;
+}
+.ws-frame.is-hidden { visibility: hidden; pointer-events: none; }
+/* أثناء السحب وتغيير الحجم: الإطار لا يبتلع أحداث المؤشر */
+.ws-frames.is-passive .ws-frame { pointer-events: none; }
+
+.ws-drop {
+    position: absolute;
+    z-index: 3;
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 2px solid var(--color-accent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    transition: left var(--dur-fast) var(--ease-out), top var(--dur-fast) var(--ease-out),
+                width var(--dur-fast) var(--ease-out), height var(--dur-fast) var(--ease-out);
+}
+.ws-drop--tab {
+    border: 0;
+    border-radius: 2px;
+    background: var(--color-accent);
+}
+.ws-root.is-dragging { cursor: grabbing; }
+
+/* ── التقسيمات والفواصل ──────────────────────────────────────────────── */
+.ws-split { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.ws-split--row { flex-direction: row; }
+.ws-split--column { flex-direction: column; }
+.ws-cell { display: flex; min-width: 0; min-height: 0; }
+.ws-cell > * { flex: 1; min-width: 0; min-height: 0; }
+
+.ws-divider {
+    position: relative;
+    flex: 0 0 8px;
+    touch-action: none;
+}
+.ws-divider--row { cursor: col-resize; }
+.ws-divider--column { cursor: row-resize; }
+.ws-divider::after {
+    content: '';
+    position: absolute;
+    border-radius: 2px;
+    background: transparent;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.ws-divider--row::after { inset-block: 25%; inset-inline: 3px; }
+.ws-divider--column::after { inset-inline: 25%; inset-block: 3px; }
+.ws-divider:hover::after,
+.ws-divider.is-dragging::after,
+.ws-divider:focus-visible::after { background: var(--color-accent); }
+.ws-divider:focus-visible { outline: none; }
+
+/* ── المجموعة ─────────────────────────────────────────────────────────── */
+.ws-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.65rem;
+    overflow: hidden;
+    box-shadow: var(--elev-1);
+}
+.ws-group.is-active { border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border)); }
+
+.ws-tabbar {
+    display: flex;
+    align-items: stretch;
+    min-height: 2.35rem;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-muted) 55%, var(--color-surface));
+}
+.ws-tabs {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+.ws-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 6.5rem;
+    max-width: 15rem;
+    padding-inline: 0.65rem 0.3rem;
+    border-inline-end: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+.ws-tab:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 60%, transparent); }
+.ws-tab.is-active { background: var(--color-surface); color: var(--color-text); }
+.ws-group.is-active .ws-tab.is-active::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: var(--color-accent);
+}
+.ws-tab-icon { display: inline-flex; flex-shrink: 0; }
+.ws-tab.is-unavailable .ws-tab-icon { color: var(--color-warning); }
+.ws-tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws-tab-dirty {
+    flex-shrink: 0;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-warning);
+}
+.ws-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0;
+}
+.ws-tab:hover .ws-tab-close,
+.ws-tab.is-active .ws-tab-close,
+.ws-tab:focus-visible .ws-tab-close { opacity: 0.75; }
+.ws-tab-close:hover { opacity: 1; background: var(--color-muted); }
+.ws-tab.is-drag-source { opacity: 0.45; }
+@media (hover: none) { .ws-tab-close { opacity: 0.75; } }
+
+.ws-tabbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding-inline: 0.25rem;
+}
+.ws-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.95rem;
+    height: 1.95rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+.ws-toolbar .ws-icon-btn { border: 1px solid var(--color-border); background: var(--color-surface); }
+.ws-icon-btn:hover:not(:disabled) { background: var(--color-muted); color: var(--color-text); }
+.ws-icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+.ws-group-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-background);
+}
+.ws-group-body:focus { outline: none; }
+
+/* ── حلقة التركيز ────────────────────────────────────────────────────── */
+.ws-tab:focus-visible,
+.ws-tab-close:focus-visible,
+.ws-icon-btn:focus-visible,
+.ws-quick-btn:focus-visible,
+.ws-btn:focus-visible,
+.ws-menu-item:focus-visible,
+.ws-quick-item:focus-visible {
+    outline: var(--focus-outline-width) solid var(--color-accent);
+    outline-offset: -2px;
+}
+.ws-divider:focus-visible { box-shadow: var(--focus-ring); }
+
+/* ── الحالات ──────────────────────────────────────────────────────────── */
+.ws-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: 24rem;
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+}
+.ws-state h3 { margin: 0; font-size: 0.95rem; color: var(--color-text); }
+.ws-state p { margin: 0; line-height: 1.6; }
+.ws-state--warn svg { color: var(--color-warning); }
+.ws-state-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+.ws-spinner {
+    width: 1.4rem;
+    height: 1.4rem;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: ws-spin 0.8s linear infinite;
+}
+@keyframes ws-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ws-spinner { animation-duration: 3s; } }
+
+.ws-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+    border: 1px dashed var(--color-border);
+    border-radius: 0.8rem;
+    background: var(--color-surface);
+}
+.ws-empty h2 { margin: 0; font-size: 1.1rem; color: var(--color-text); }
+.ws-empty p { margin: 0; max-width: 34rem; line-height: 1.7; font-size: 0.88rem; }
+.ws-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.3rem; }
+
+.ws-btn {
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.ws-btn:hover { border-color: var(--color-accent); }
+.ws-btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.ws-btn--danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+
+/* ── القائمة ──────────────────────────────────────────────────────────── */
+.ws-menu {
+    position: fixed;
+    z-index: 1100;
+    min-width: 15rem;
+    max-width: min(22rem, calc(100vw - 16px));
+    padding: 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--elev-3);
+    font-family: inherit;
+}
+.ws-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.82rem;
+    text-align: start;
+    cursor: pointer;
+}
+.ws-menu-item:hover:not(:disabled),
+.ws-menu-item:focus { background: var(--color-muted); outline: none; }
+.ws-menu-item:disabled { opacity: 0.45; cursor: default; }
+.ws-menu-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-menu-gap { display: inline-block; width: 14px; flex-shrink: 0; }
+.ws-menu-sep { height: 1px; margin: 0.3rem 0.2rem; background: var(--color-border); }
+
+/* ── الفتح السريع ─────────────────────────────────────────────────────── */
+/* styles.css يصفّر الهوامش لكل العناصر (* { margin: 0 })، فيضيع margin: auto
+   الذي يضع النافذة المنبثقة في المنتصف — نعيده صراحةً. */
+.ws-quick {
+    width: min(36rem, calc(100vw - 2rem));
+    margin: 10vh auto auto;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--elev-3);
+    font-family: 'Cairo', sans-serif;
+}
+.ws-quick::backdrop { background: rgba(0, 0, 0, 0.35); }
+.ws-quick-head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--color-border);
+}
+.ws-quick-head svg { width: 17px; height: 17px; color: var(--color-text-secondary); flex-shrink: 0; }
+.ws-quick-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.95rem;
+}
+.ws-quick-input:focus { outline: none; }
+.ws-quick-list { max-height: min(55vh, 26rem); overflow-y: auto; padding: 0.3rem; }
+.ws-quick-group {
+    padding: 0.5rem 0.6rem 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--color-text-secondary);
+}
+.ws-quick-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.45rem;
+    cursor: pointer;
+}
+.ws-quick-item.is-selected { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+.ws-quick-icon { display: inline-flex; color: var(--color-text-secondary); }
+.ws-quick-text { display: flex; flex-direction: column; min-width: 0; }
+.ws-quick-title { font-size: 0.86rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-quick-sub { font-size: 0.72rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-quick-empty { padding: 1rem; text-align: center; font-size: 0.82rem; color: var(--color-text-secondary); }
+.ws-quick-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.45rem 0.85rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+}
+
+/* ── التأكيد والتنبيه ─────────────────────────────────────────────────── */
+.ws-confirm {
+    width: min(28rem, calc(100vw - 2rem));
+    margin: auto;
+    padding: 1.2rem 1.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--elev-3);
+    font-family: 'Cairo', sans-serif;
+}
+.ws-confirm::backdrop { background: rgba(0, 0, 0, 0.4); }
+.ws-confirm h2 { margin: 0 0 0.5rem; font-size: 1.02rem; }
+.ws-confirm p { margin: 0.3rem 0; font-size: 0.85rem; line-height: 1.6; }
+.ws-confirm-list { margin: 0.3rem 0; padding-inline-start: 1.2rem; font-size: 0.85rem; font-weight: 700; }
+.ws-confirm-note { color: var(--color-text-secondary); }
+.ws-confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+
+.ws-toast {
+    position: fixed;
+    inset-block-end: 1.25rem;
+    inset-inline: 0;
+    z-index: 1200;
+    width: fit-content;
+    max-width: 90vw;
+    margin-inline: auto;
+    padding: 0.7rem 1.1rem;
+    border-radius: 0.6rem;
+    background: var(--color-success);
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 600;
+    box-shadow: var(--elev-2);
+}
+.ws-toast--err { background: var(--color-danger); }
+[hidden] { display: none !important; }
+
+/* ── الشاشات الصغيرة: لوحة واحدة في كل مرة ───────────────────────────── */
+@media (max-width: 900px) {
+    .ws-main { padding: 0.45rem; gap: 0.4rem; }
+    .ws-heading, .ws-quick-btn kbd, .ws-save-status { display: none; }
+    .ws-quick-btn { flex: 1; }
+    .ws-tab { min-width: 5.5rem; }
+}

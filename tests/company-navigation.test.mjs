@@ -477,7 +477,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         owners» لإعادة الإسناد). جدول منح relay_assigners وعمود تصنيف، وإعادة
     //         تعريف خمس دوال من 073. القيد على الخادم لا الواجهة. مقيسٌ على نسخة
     //         بشكل الإنتاج في tests/sql/relay-phase-c.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '074_relay_phase_c.sql',
+    //   075 — ترتيب «مساحة العمل» لكل موظف (مواصفة مساحة العمل القابلة للإرساء من
+    //         صاحب المنصة: «If Supabase persistence is appropriate, propose a minimal
+    //         schema and migration using the repository's existing conventions»). جدول
+    //         واحد بلا أي صلاحية مباشرة، ودالتان SECURITY DEFINER لا تلمسان إلا صف
+    //         المنادي. تفضيل واجهة لا تفويض: الواجهة تعمل بدونه (حفظ محلي) وتعامل ما
+    //         يرجع منه كمُدخل غير موثوق. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/workspace-layouts.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '075_workspace_layouts.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مساحة العمل - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/design-tokens.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/workspace.css">
+    <script src="/theme-manager.js"></script>
+    <script src="/language-manager.js"></script>
+</head>
+<body class="ws-page">
+    <div id="sidebar-container"></div>
+
+    <main class="ws-main" id="wsMain">
+        <div class="ws-toolbar">
+            <h1 class="ws-heading">مساحة العمل</h1>
+            <button type="button" class="ws-quick-btn" id="wsQuickBtn" aria-keyshortcuts="Control+K Meta+K">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span>ابحث أو افتح…</span>
+                <kbd>Ctrl K</kbd>
+            </button>
+            <button type="button" class="ws-icon-btn" id="wsNewBtn" title="تبويب جديد (Ctrl+K)" aria-label="تبويب جديد">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button type="button" class="ws-icon-btn" id="wsLayoutBtn" title="الترتيب" aria-label="الترتيب" aria-haspopup="menu">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="12" y1="12" x2="21" y2="12"/></svg>
+            </button>
+            <span class="ws-save-status" id="wsSaveStatus" role="status" aria-live="polite"></span>
+        </div>
+
+        <div class="ws-root" id="wsRoot">
+            <div class="ws-tree" id="wsTree"></div>
+            <div class="ws-frames" id="wsFrames"></div>
+            <div class="ws-drop" id="wsDrop" hidden></div>
+        </div>
+    </main>
+
+    <dialog class="ws-confirm" id="wsConfirm" aria-labelledby="wsConfirmTitle">
+        <h2 id="wsConfirmTitle"></h2>
+        <p class="ws-confirm-body"></p>
+        <ul class="ws-confirm-list"></ul>
+        <p class="ws-confirm-note"></p>
+        <div class="ws-confirm-actions">
+            <button type="button" class="ws-btn" data-cancel></button>
+            <button type="button" class="ws-btn ws-btn--danger" data-confirm></button>
+        </div>
+    </dialog>
+
+    <div class="ws-toast" id="wsToast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="/assets/js/admin/workspace/workspace.js"></script>
+</body>
+</html>

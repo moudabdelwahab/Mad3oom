@@ -51,8 +51,21 @@ import {
 } from './inbox-data.js';
 import { loadRelayAccess } from '/assets/js/relay/relay-data.js';
 import { openRelayComposer } from '/assets/js/relay/relay-composer.js';
+import { embedContext, initEmbed, reportTitle, reportChanged, reportUnavailable, openInWorkspace } from './workspace/embed-bridge.js';
+import { UUID_RE } from './workspace/panel-registry.js';
 
 const $ = (id) => document.getElementById(id);
+
+/**
+ * داخل مساحة العمل (admin/workspace.html) التبويب يعرض الصندوق كله، أو محادثة
+ * واحدة (view=thread) — وعندها نحمّل تلك الجلسة وحدها ونشترك في أحداثها وحدها
+ * بدل الصندوق كله. خارج مساحة العمل الاثنان null والصفحة كما كانت.
+ */
+const EMBED = embedContext();
+const THREAD = (() => {
+    const id = EMBED?.view === 'thread' ? sessionIdFromSearch(window.location.search) : null;
+    return id && UUID_RE.test(id) ? id.toLowerCase() : null;
+})();
 
 function emptyThread(sessionId) {
     return { sessionId, notes: [], events: [], reactions: [], revisions: [], scheduled: [] };
@@ -361,7 +374,11 @@ async function openConversation(id, { refresh = true } = {}) {
     if (!session) {
         // رابط مباشر لمحادثة مش في القايمة (أحدث من التحميل مثلاً).
         session = await loadSession(id).catch(() => null);
-        if (!session || !canActOn(session, viewCtx())) { toast('المحادثة دي مش موجودة أو مش مسموحلك تشوفها.', 'err'); return; }
+        if (!session || !canActOn(session, viewCtx())) {
+            if (THREAD) reportUnavailable('missing');
+            toast('المحادثة دي مش موجودة أو مش مسموحلك تشوفها.', 'err');
+            return;
+        }
         state.sessions.push(session);
     }
 
@@ -431,6 +448,8 @@ function dropSession(id) {
 }
 
 function closeThread() {
+    // تبويب محادثة واحدة: المحادثة اتنقلت أو اتشالت ⇒ مساحة العمل تعرض «غير متاح».
+    if (THREAD) reportUnavailable('closed');
     state.activeId = null;
     state.renderedId = null;
     state.thread = emptyThread(null);
@@ -470,6 +489,7 @@ function renderThread() {
     avatar.className = `ib-avatar ${session.user_id ? '' : 'ib-avatar--guest'}`;
     avatar.textContent = initialsOf(name);
     $('threadTitle').textContent = name;
+    if (THREAD) reportTitle(name);
     $('threadSub').textContent = [
         session.customer?.email,
         session.status === 'closed' ? 'محادثة مقفولة' : 'محادثة نشطة'
@@ -1584,9 +1604,26 @@ function renderAll() {
     renderDetails();
 }
 
+/** تبويب محادثة واحدة: الجلسة دي بس، مش كل الصندوق. */
+async function loadThreadOnly() {
+    const session = await loadSession(THREAD);
+    return session ? [session] : [];
+}
+
+/**
+ * هل في الصندوق كلام لم يُرسل؟ مساحة العمل تسأل قبل إغلاق التبويب. المسودة
+ * المحفوظة للمحادثة المفتوحة قديمة (الخانة هي الحقيقة)، فبتتشال من الحسبة.
+ */
+function hasUnsentWork() {
+    if ($('messageInput')?.value.trim()) return true;
+    if (state.pending || state.recorder?.state === 'recording') return true;
+    if (state.editingNoteId || state.editingMessageId) return true;
+    return [...state.drafts.entries()].some(([id, text]) => id !== state.activeId && String(text || '').trim());
+}
+
 async function reload() {
     try {
-        state.sessions = actionable(await loadSessions());
+        state.sessions = actionable(THREAD ? await loadThreadOnly() : await loadSessions());
         state.loaded = true;
     } catch (err) {
         console.error('[inbox] تحميل المحادثات فشل:', err);
@@ -1618,8 +1655,11 @@ const realtime = {
         if (eventType === 'DELETE' || !row?.id) return;
         const session = findSession(row.id);
         if (!session || eventType === 'INSERT') { scheduleReload(); return; }
+        // updated_at بيتغير مع كل رسالة؛ سجل العميل يهمه الإقفال والتسليم بس.
+        const changed = session.status !== row.status || session.is_manual_mode !== row.is_manual_mode;
         // الـ payload بيجيب أعمدة الجدول بس، من غير العميل والرسايل.
         Object.assign(session, { status: row.status, is_manual_mode: row.is_manual_mode, updated_at: row.updated_at });
+        if (THREAD && changed) reportChanged('conversation', row.id, { customerId: session.user_id || null });
         renderAll();
     },
     onMeta(eventType, row, old) {
@@ -1759,6 +1799,10 @@ function wire() {
     $('closeShortcuts').addEventListener('click', () => $('shortcutsDialog').close());
 
     $('backBtn').addEventListener('click', closeThread);
+    // داخل مساحة العمل: انقل المحادثة المفتوحة لتبويب مستقل بجانب الصندوق.
+    $('wsPopOutBtn')?.addEventListener('click', () => {
+        if (state.activeId) openInWorkspace({ type: 'conversation', params: { sessionId: state.activeId } }, { side: true });
+    });
     $('closeSessionBtn').addEventListener('click', () => closeSelected(state.activeId ? [state.activeId] : []));
     $('archiveBtn').addEventListener('click', () => toggleArchive());
     $('assigneeSelect').addEventListener('change', () => onAssignmentChange('assignee'));
@@ -1849,9 +1893,11 @@ function wire() {
 }
 
 async function boot() {
-    initSidebar();
+    initEmbed({ isDirty: hasUnsentWork });
+    // داخل مساحة العمل الشريط والقائمة ملك مساحة العمل نفسها.
+    if (!EMBED) initSidebar();
     const user = await checkAdminAuth();
-    if (!user) return;
+    if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
     state.me = user;
 
@@ -1881,7 +1927,7 @@ async function boot() {
     }
 
     await reload();
-    subscribeInbox(realtime);
+    subscribeInbox(realtime, THREAD ? { sessionId: THREAD } : {});
 
     const deepLink = sessionIdFromSearch(window.location.search);
     if (deepLink) openConversation(deepLink);
