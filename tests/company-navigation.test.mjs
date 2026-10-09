@@ -476,7 +476,7 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         «Only supervisors and staff explicitly authorized»، و14:24 «Restrict
     //         owners» لإعادة الإسناد). جدول منح relay_assigners وعمود تصنيف، وإعادة
     //         تعريف خمس دوال من 073. القيد على الخادم لا الواجهة. مقيسٌ على نسخة
-    //         بشكل الإنتاج في tests/sql/relay-phase-c.test.sql. غير مطبَّق على الإنتاج.
+    //         بشكل الإنتاج في tests/sql/relay-phase-c.test.sql. اتطبّق 2026-10-09 15:20 UTC.
     //   075 — ترتيب «مساحة العمل» لكل موظف (مواصفة مساحة العمل القابلة للإرساء من
     //         صاحب المنصة: «If Supabase persistence is appropriate, propose a minimal
     //         schema and migration using the repository's existing conventions»). جدول
@@ -484,7 +484,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         المنادي. تفضيل واجهة لا تفويض: الواجهة تعمل بدونه (حفظ محلي) وتعامل ما
     //         يرجع منه كمُدخل غير موثوق. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/workspace-layouts.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '075_workspace_layouts.sql',
+    //   076 — Relay المحذوفات (صاحب المنصة 2026-10-09 15:39 UTC: «محذوفات + مسح
+    //         للمالك»). إزالة مصدر من سجل تنقله للمحذوفات مع استرجاع لمن يرى السجل،
+    //         والمسح النهائي ومنح/سحب صلاحية الإسناد لمالك المنصة فقط
+    //         (is_platform_owner). أعمدة على relay_sources وأربع دوال جديدة. مقيسٌ على
+    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '076_relay_trash_owner.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
