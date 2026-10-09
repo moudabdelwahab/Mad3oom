@@ -121,18 +121,18 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
           "على كتالوجات مولَّدة بقي زمن الحساب في حدود أجزاء من الثانية حتى 10,000 سيناريو؛ وما يحدّ الأحجام الأكبر هو الذاكرة المقيمة وزمن بناء "
           "الفهرس لا الحساب. وهي قياسات تركيبية، وليست نتائج حمل إنتاجي.")],
         [("Trust boundary", "حد الثقة"),
-         ("On a synthetic corpus it caught 18 of 18 hostile messages and escalated none of 338 legitimate ones. The false-positive rate on real traffic is unmeasured.",
-          "على مجموعة تركيبية التقط 18 من 18 رسالة عدائية ولم يُصعِّد أيًّا من 338 رسالة مشروعة. أما نسبة الإنذار الكاذب على حركة حقيقية فغير مقيسة.")],
+         ("Exercised in tests on synthetic hostile and legitimate messages. Its behavior on real traffic has not been measured.",
+          "جرى اختباره على رسائل تركيبية عدائية ومشروعة. أما سلوكه على حركة حقيقية فلم يُقَس.")],
         [("Accuracy, resolution rate, satisfaction", "الدقة ونسبة الحل والرضا"),
          ("Not measured. No such figure is claimed.", "غير مقيسة. ولا يُدَّعى أي رقم من هذا النوع.")],
     ], widths=[26, 74], cls="compact",
         caption=("The evidence behind SIE, stated with its limits.", "الأدلة التي يستند إليها SIE، مع حدودها.")),
 
     H2("Where SIE runs", "أين يعمل SIE"),
-    P("SIE is deployed behind the website chat and the Telegram channel as Supabase Edge Functions, each pinned to an exact engine commit. "
-      "Channels reach it through a shared adapter layer ({{ch7}}). It is offered in editions that differ in scenario coverage, "
-      "and administrators set its behavior through a settings schema. Its operation is pre-launch and at limited volume.",
-      "يعمل SIE خلف محادثة الموقع وقناة تيليجرام بوصفه دوال Supabase Edge Functions، كل منها مثبّتة على إصدار محدد من المحرك. وتصل "
-      "القنوات إليه عبر طبقة محوِّلات مشتركة ({{ch7}}). ويُقدَّم في إصدارات تتفاوت في تغطية السيناريوهات، ويضبط المسؤولون سلوكه عبر "
-      "مخطط إعدادات. وتشغيله في مرحلة ما قبل الإطلاق وبحجم محدود."),
+    P("SIE runs server-side behind the website chat and the Telegram channel, reached through a shared adapter layer ({{ch7}}). "
+      "It is offered in editions that differ in scenario coverage, and administrators set its behavior through a settings schema. "
+      "Its operation is pre-launch and at limited volume.",
+      "يعمل SIE في جهة الخادم خلف محادثة الموقع وقناة تيليجرام، وتصل إليه القنوات عبر طبقة محوِّلات مشتركة ({{ch7}}). "
+      "ويُقدَّم في إصدارات تتفاوت في تغطية السيناريوهات، ويضبط المسؤولون سلوكه عبر مخطط إعدادات. وتشغيله في مرحلة ما قبل الإطلاق "
+      "وبحجم محدود."),
 ])
