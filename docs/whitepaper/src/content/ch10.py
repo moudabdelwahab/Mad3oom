@@ -1,0 +1,70 @@
+from lib import *
+
+CHAPTER = chapter(10, ("Product Differentiation and Value", "تميّز المنتج وقيمته"),
+    ("Mad3oom's intended differentiation is not a single feature. It comes from combining five design principles in one platform. "
+     "They are presented here as design intent and intended value; none is presented as a proven result.",
+     "لا ينبع تميّز مدعوم المقصود من ميزة واحدة، بل من الجمع بين خمسة مبادئ تصميمية في منصة واحدة. وتُعرض هنا بوصفها نية تصميمية "
+     "وقيمة مقصودة، ولا يُقدَّم أي منها بوصفه نتيجة مُثبتة."),
+    [
+    H2("Five design principles", "خمسة مبادئ تصميمية"),
+    TABLE([("Principle", "المبدأ"), ("Intended value", "القيمة المقصودة"), ("What exists", "ما هو قائم"), ("What would validate it", "ما الذي يثبته")], [
+        [("**Structured support management**", "**إدارة دعم منظَّمة**"),
+         ("One structured set of records for tickets, conversations and customers, so context is rebuilt less often.",
+          "مجموعة سجلات منظَّمة واحدة للتذاكر والمحادثات والعملاء، فتقلّ الحاجة إلى إعادة بناء السياق."),
+         ("The core platform. {{E}}", "المنصة الأساسية. {{E}}"),
+         ("Time to reach full context on a case, measured in real use.", "الزمن اللازم للإحاطة بسياق القضية، مقيسًا في الاستخدام الفعلي.")],
+        [("**Multi-context work through Workspace**", "**عمل متعدد السياقات عبر Workspace**"),
+         ("Several contexts open at once, with unsent work protected.",
+          "عدة سياقات مفتوحة معًا مع حماية العمل غير المرسل."),
+         ("Workspace with local layouts. {{E}}", "Workspace بتخطيطات محلية. {{E}}"),
+         ("Observed task time and the rate of lost drafts compared with page-by-page work.", "زمن إنجاز المهام ومعدل المسودات الضائعة مقارنةً بالعمل صفحةً صفحة.")],
+        [("**Continuity and follow-up through Relay**", "**الاستمرارية والمتابعة عبر Relay**"),
+         ("Commitments that carry evidence, an owner and a deadline, so that fewer requests are dropped.",
+          "التزامات تحمل دليلًا ومسؤولًا وموعدًا، فيقلّ ما يضيع من الطلبات."),
+         ("Core records and ownership rules. {{E}} Handover and reminders. {{P}}", "السجلات الأساسية وقواعد المسؤولية. {{E}} التسليم والتذكيرات. {{P}}"),
+         ("The instrumented measures listed below.", "المقاييس المرصودة المذكورة أدناه.")],
+        [("**Specialized support intelligence through SIE**", "**ذكاء دعم متخصص عبر SIE**"),
+         ("Predictable, explainable and testable behavior that stays inside a closed set of actions.",
+          "سلوك متوقَّع وقابل للتفسير والاختبار، يبقى داخل مجموعة إجراءات مغلقة."),
+         ("The core engine. {{E}} Remediation under way. {{D}}", "المحرك الأساسي. {{E}} المعالجة جارية. {{D}}"),
+         ("Resolution and hand-off quality measured on real conversations, with a defined method.", "جودة الحل والتسليم مقيسةً على محادثات حقيقية بمنهج محدد.")],
+        [("**A modular foundation for integrations**", "**أساس نمطي للتكاملات**"),
+         ("New channels and tools can be added without changing the engine.",
+          "يمكن إضافة قنوات وأدوات جديدة دون تغيير المحرك."),
+         ("The adapter layer, with website and Telegram. {{E}}", "طبقة المحوِّلات مع الموقع وتيليجرام. {{E}}"),
+         ("The effort needed to bring a second messaging channel into production.", "الجهد اللازم لإدخال قناة مراسلة ثانية إلى الإنتاج.")],
+    ], widths=[22, 28, 24, 26], cls="compact",
+        caption=("Differentiation as design principles, with what exists and what would validate each.", "التميّز بوصفه مبادئ تصميمية، مع ما هو قائم وما يثبت كلًّا منها.")),
+
+    H2("How the parts combine: an illustrative journey", "كيف تجتمع الأجزاء: رحلة توضيحية"),
+    P("The value of combining the parts is easiest to see along one illustrative case. Steps marked as planned or future do not yet work this way.",
+      "يسهل إدراك قيمة الجمع بين الأجزاء على امتداد حالة توضيحية واحدة. والخطوات الموسومة بأنها مخطَّطة أو مستقبلية لا تعمل بهذه الصورة بعد."),
+    TABLE([("Step", "الخطوة"), ("What happens", "ما يحدث"), ("Part", "الجزء"), ("Stage", "المرحلة")], [
+        [("1", "1"), ("A customer describes a problem in the website chat or on Telegram.", "يصف عميل مشكلة في محادثة الموقع أو على تيليجرام."), ("Channels", "القنوات"), ("{{E}}", "{{E}}")],
+        [("2", "2"), ("SIE interprets the message, answers from knowledge or asks for detail, and opens a ticket if that is its decision. A human takeover stops it.",
+                      "يفسّر SIE الرسالة ويجيب من المعرفة أو يطلب تفاصيل، ويفتح تذكرة إن كان ذلك قراره. واستلام إنسان للمحادثة يوقفه."), ("SIE", "SIE"), ("{{E}}", "{{E}}")],
+        [("3", "3"), ("An agent opens the conversation, the ticket and the customer's history side by side.", "يفتح وكيل المحادثة والتذكرة وسجل العميل جنبًا إلى جنب."), ("Workspace", "Workspace"), ("{{E}}", "{{E}}")],
+        [("4", "4"), ("The agent selects the key messages and records a follow-up with an owner, a next action and a deadline.", "يحدّد الوكيل الرسائل الجوهرية ويسجّل متابعة لها مسؤول وإجراء تالٍ وموعد."), ("Relay", "Relay"), ("{{E}}", "{{E}}")],
+        [("5", "5"), ("If the deadline passes, the record shows as overdue in the list.", "إذا فات الموعد يظهر السجل متأخرًا في القائمة."), ("Relay", "Relay"), ("{{E}}", "{{E}}")],
+        [("6", "6"), ("A reminder is sent before the deadline, and the work is escalated if nobody acts.", "يُرسَل تذكير قبل الموعد، ويُصعَّد العمل إن لم يتحرك أحد."), ("Relay", "Relay"), ("{{P}}", "{{P}}")],
+        [("7", "7"), ("At the end of a shift the agent hands the record over, and the colleague must accept it with its context.", "في نهاية الوردية يسلّم الوكيل السجل ويجب أن يقبله زميله بسياقه."), ("Relay", "Relay"), ("{{P}}", "{{P}}")],
+        [("8", "8"), ("The engine hands a follow-up it cannot settle directly to Relay.", "يسلّم المحرك إلى Relay متابعةً لا يستطيع حسمها مباشرة."), ("SIE, Relay", "SIE وRelay"), ("{{F}}", "{{F}}")],
+    ], widths=[8, 56, 18, 18], cls="compact",
+        caption=("An illustrative journey. It shows intent, not a recorded customer case.", "رحلة توضيحية. وهي تبيّن النية، وليست حالة عميل مسجَّلة.")),
+
+    H2("Measures that would show the value", "المقاييس التي تُظهر القيمة"),
+    P("Relay's engineering plan defines the measures below to be instrumented from the first day of use. They are defined and not yet reported, so this paper states no figures for them.",
+      "تحدد الخطة الهندسية لـ Relay المقاييس الآتية لتُرصد منذ أول يوم استخدام. وهي معرَّفة ولم تُرصد بعد، ولذلك لا تورد الورقة أي أرقام بشأنها."),
+    UL(("Records created, by type of source.", "السجلات المنشأة بحسب نوع المصدر."),
+       ("The share of active records that have both an owner and a next action.", "نسبة السجلات النشطة التي لها مسؤول وإجراء تالٍ معًا."),
+       ("The number and age of overdue records.", "عدد السجلات المتأخرة وأعمارها."),
+       ("The time a handover waits before it is accepted.", "الزمن الذي ينتظره التسليم قبل قبوله."),
+       ("Reminders delivered compared with reminders that failed.", "التذكيرات المُرسَلة مقارنةً بالفاشلة.")),
+
+    H2("What is not claimed", "ما لا يُدَّعى"),
+    NOTE("Mad3oom is not compared with named competitors here, and no claim of superiority is made. Differentiation is a statement about how the platform is "
+         "designed. Whether that design produces better outcomes for a given support team is a question for measurement in real use.",
+         "لا تُجرى هنا مقارنة بين مدعوم ومنافسين مسمَّين، ولا يُدَّعى تفوّق. فالتميّز بيان عن كيفية تصميم المنصة. أما هل يُنتج هذا التصميم "
+         "نتائج أفضل لفريق دعم بعينه فسؤال يجيب عنه القياس في الاستخدام الفعلي.",
+         kind="limit"),
+])
