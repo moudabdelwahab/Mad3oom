@@ -446,7 +446,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الحرفية 'admin' — فالمالك في سياق admin (is_admin()=true) لا يرى
     //         تذكرة عميل (33 مخفية على الإنتاج). الشرط الحرفي صار is_admin()،
     //         والاحتواء في السياقات الأخرى كما هو. مقيسٌ على نسخة بشكل الإنتاج في
-    //         tests/sql/owner-admin-context-tickets.test.sql.
+    //         tests/sql/owner-admin-context-tickets.test.sql. اتطبّق 2026-10-09
+    //         («طبق 070 على الانتاج»).
+    //   069 و070 اتطبّقوا على الإنتاج 2026-10-09
+    //         (docs/BILLING_TICKETS_AND_OWNER_CONTEXT_PROD_INSTALL_2026-10-09_AR.md).
     assert.equal(migrations[migrations.length - 1], '070_owner_admin_context_tickets.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
