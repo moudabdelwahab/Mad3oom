@@ -1,5 +1,5 @@
 /**
- * Relay — العقد المشترك (المرحلة B، الإصدار 1).
+ * Relay — العقد المشترك (المرحلة B، الإصدار 1؛ التصنيف من المرحلة C / 074).
  *
  * وحدة نقية بلا DOM ولا شبكة: حدود الحقول والقيم المسموحة، بناء طلب الإنشاء
  * القانوني (§10.3)، تحقق مبدئي للواجهة، وترجمة أخطاء الخادم.
@@ -15,6 +15,12 @@ export const CONTRACT_VERSION = 1;
 export const RECORD_KINDS = Object.freeze(['follow_up', 'issue', 'handover']);
 /** المفعّل في المرحلة 1/B: handover يرجع feature_not_enabled حتى المرحلة D. */
 export const ENABLED_KINDS = Object.freeze(['follow_up', 'issue']);
+
+/** تصنيف السجل (074): قائمة مغلقة، والخادم يرفض أي قيمة غيرها. */
+export const RECORD_CATEGORIES = Object.freeze([
+    'order_status', 'order_problem', 'general_inquiry', 'return_exchange', 'payment_billing',
+    'product_service', 'technical_issue', 'complaint', 'other',
+]);
 
 export const STATUSES = Object.freeze([
     'open', 'scheduled', 'in_progress', 'waiting', 'ready_for_handover', 'resolved', 'cancelled',
@@ -123,6 +129,7 @@ const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 export function buildCreateRequest({
     idempotencyKey, kind, title, summary = null, nextAction = null, priority = 3,
     ownerId = null, teamId = null, due = null, issue = null, messageIds = [], sensitiveAck = false,
+    category = null,
 }) {
     const request = {
         contract_version: CONTRACT_VERSION,
@@ -145,6 +152,7 @@ export function buildCreateRequest({
         })),
     };
     if (sensitiveAck) request.sensitive_ack = true;
+    if (category) request.category = category;
     return request;
 }
 
@@ -176,6 +184,7 @@ export function validateCreateRequest(request, { now = new Date() } = {}) {
             if (approx > now.getTime() + (LIMITS.dueMaxDaysAhead + 1) * 86400000) add('due.at', 'too_far');
         }
     }
+    if (request?.category != null && !RECORD_CATEGORIES.includes(request.category)) add('category', 'invalid');
     if (request?.kind === 'follow_up' && (!request?.next_action?.trim?.() || !due)) {
         add('follow_up', 'next_action_and_due_required');
     }
