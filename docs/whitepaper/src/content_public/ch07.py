@@ -13,13 +13,13 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
         "**المحوِّلات تعزل المزوّدين.** كل قناة مراسلة محوِّل له أربع مهام: التحقق من الطلب، وتحويل صيغة المزوّد إلى رسالة قياسية واحدة، "
         "وإرسال الردود، وإظهار مؤشر الكتابة اختياريًا. ولا يعرف المحرك شيئًا عن القنوات، ويفشل اختبار يقرأ الشيفرة المصدرية إذا تسربت "
         "تفاصيل المزوّد من مجلدات المحوِّلات."),
-       ("**Identity before spend.** A messaging account must be linked to a platform account, through a single-use code that expires after "
-        "15 minutes, before the engine replies. A stranger who finds the bot cannot consume a paying customer's allowance.",
-        "**الهوية قبل الإنفاق.** يجب ربط حساب المراسلة بحساب في المنصة عبر رمز لمرة واحدة ينتهي بعد 15 دقيقة قبل أن يرد المحرك. "
-        "فلا يستطيع غريب وجد الروبوت أن يستهلك حصة عميل مدفوعة."),
-       ("**Verify and de-duplicate before cost.** Unauthenticated requests are rejected first, and duplicate deliveries are detected "
+       ("**Identity before spend.** A single-use, expiring code links a messaging account to a platform account before the engine replies. "
+        "This is designed so that a stranger who finds the bot cannot consume a paying customer's allowance.",
+        "**الهوية قبل الإنفاق.** يربط رمز لمرة واحدة ومحدود الصلاحية حساب المراسلة بحساب في المنصة قبل أن يرد المحرك. "
+        "وقد صُمّم ذلك بحيث لا يستطيع غريب وجد الروبوت أن يستهلك حصة عميل مدفوعة."),
+       ("**Verify and de-duplicate before cost.** Each adapter verifies requests from its provider and detects duplicate deliveries "
         "before anything is charged.",
-        "**التحقق وإزالة التكرار قبل التكلفة.** تُرفض الطلبات غير الموثّقة أولًا، وتُكتشف عمليات التسليم المكررة قبل احتساب أي رسوم."),
+        "**التحقق وإزالة التكرار قبل التكلفة.** يتحقق كل محوِّل من الطلبات الواردة من مزوّده، ويكتشف عمليات التسليم المكررة قبل احتساب أي رسوم."),
        ("**Open, standard interfaces.** OAuth 2.1, the Model Context Protocol and token-based APIs, rather than private conventions.",
         "**واجهات مفتوحة وقياسية.** OAuth 2.1 وبروتوكول سياق النموذج MCP وواجهات قائمة على الرموز، بدل اصطلاحات خاصة.")),
 
@@ -34,14 +34,14 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "أداة محادثة تعمل في متصفح العميل بجلسته الخاصة وتستدعي المحرك؛ ولوحات للعملاء وللشركات."),
          ("{{E}}", "{{E}}")],
         [("**Telegram**", "**تيليجرام**"),
-         ("A support channel handled by the engine, with webhook secret verification and account linking; also alerts for staff and one-time codes. "
-          "The platform repository holds no customer-facing screen for requesting a linking code, so customer use of this channel is not confirmed.",
-          "قناة دعم يتولاها المحرك، مع التحقق من سر الويب هوك وربط الحسابات؛ وتنبيهات للطاقم ورموز لمرة واحدة. "
-          "ولا توجد في مستودع المنصة شاشة للعميل لطلب رمز الربط، فلا يثبت استخدام العملاء لهذه القناة."),
+         ("A support channel handled by the engine, with request verification and account linking. "
+          "Customer-facing availability of this channel is not confirmed by the project's code.",
+          "قناة دعم يتولاها المحرك، مع التحقق من الطلبات وربط الحسابات. "
+          "ولا يثبت من شيفرة المشروع توفر هذه القناة للعملاء."),
          ("{{E}}", "{{E}}")],
         [("**Email**", "**البريد الإلكتروني**"),
-         ("Ticket emails sent through an email provider, and an inbound-mail webhook that receives replies.",
-          "رسائل بريد للتذاكر تُرسل عبر مزوّد بريد، وويب هوك للبريد الوارد يستقبل الردود."),
+         ("Ticket emails sent through an email provider, and receipt of replies by email.",
+          "رسائل بريد للتذاكر تُرسل عبر مزوّد بريد، واستقبال الردود عبر البريد الإلكتروني."),
          ("{{E}}", "{{E}}")],
         [("**WhatsApp**", "**واتساب**"),
          ("A separate WhatsApp module. See the next section; it is not part of the initial launch scope.",
@@ -53,15 +53,15 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
          ("{{P}}", "{{P}}")],
         [("**MCP server and client; OAuth 2.1**", "**خادم وعميل MCP؛ OAuth 2.1**"),
          ("Mad3oom can expose tools to MCP-compatible AI clients and connect to external MCP servers. Its authorization server uses mandatory PKCE, "
-          "scoped tokens stored hashed, rotating refresh tokens and a page where users revoke connected apps.",
+          "scoped tokens and a page where users revoke connected apps.",
           "يمكن لمدعوم إتاحة أدوات لعملاء الذكاء الاصطناعي المتوافقين مع MCP، والاتصال بخوادم MCP خارجية. ويستخدم خادم التفويض لديها PKCE "
-          "إلزاميًا، ورموزًا محدودة النطاق تُخزَّن مجزَّأة، ورموز تجديد متغيّرة، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
+          "إلزاميًا، ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
          ("{{E}}", "{{E}}")],
         [("**API tokens and the integration API**", "**رموز API وواجهة التكامل**"),
          ("Users can issue scoped API tokens. A versioned integration API lets an approved external application request a pre-approved template "
-          "message without knowing the provider, tokens or database; its keys are stored hashed, distinguish test from live and can be rotated or revoked.",
+          "message without knowing the provider, tokens or database; its keys distinguish test from live and can be revoked.",
           "يستطيع المستخدمون إصدار رموز API محدودة النطاق. وتتيح واجهة تكامل ذات إصدارات لتطبيق خارجي معتمد طلب رسالة قالب معتمدة دون أن "
-          "يعرف المزوّد أو الرموز أو قاعدة البيانات؛ وتُخزَّن مفاتيحها مجزَّأة، وتميّز بين الاختبار والتشغيل، ويمكن تدويرها أو إبطالها."),
+          "يعرف المزوّد أو الرموز أو قاعدة البيانات؛ وتميّز مفاتيحها بين الاختبار والتشغيل، ويمكن إبطالها."),
          ("{{E}}", "{{E}}")],
         [("**Event-driven work**", "**العمل المدفوع بالأحداث**"),
          ("Database triggers and scheduled jobs produce notifications, email, SLA checks, retention jobs and scheduled replies; an automation "
@@ -70,8 +70,8 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "قواعد عند إنشاء التذاكر؛ وتبلّغ ويب هوك صادرة الأنظمة الأخرى."),
          ("{{E}}", "{{E}}")],
         [("", ""),
-         ("Delivery through an outbox with retries and dead-letter handling, so that a failed side effect is never recorded as a success.",
-          "التسليم عبر صندوق صادر مع إعادة المحاولة ومعالجة الرسائل الفاشلة، حتى لا يُسجَّل أثر جانبي فاشل على أنه نجح."),
+         ("Reliable delivery of notifications and webhooks through queued processing, with retries and visible failures.",
+          "تسليم موثوق للإشعارات وويب هوك عبر معالجة بالطابور، مع إعادة المحاولة وإظهار حالات الفشل."),
          ("{{R}}", "{{R}}")],
         [("**Relay API and browser capture**", "**واجهة Relay والالتقاط من المتصفح**"),
          ("A token-based API for Relay and a browser extension, using the same authorization server.",
@@ -94,10 +94,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
     TABLE([("Question", "السؤال"), ("What the evidence says", "ما تقوله الأدلة"), ("Stage", "المرحلة")], [
         [("**1. Integration engineering work that exists**", "**1. أعمال هندسة التكامل القائمة**"),
          ("A separate WhatsApp module with its own web application and Edge Functions. It connects a business number through Meta's Embedded Signup, "
-          "verifies Meta's request signature on the webhook (added in September 2026), stores each inbound message once, runs auto-reply flows that stop when "
+          "verifies the signature of requests from Meta, stores each inbound message once, runs auto-reply flows that stop when "
           "a human takes over, and charges template messages against a prepaid wallet. Contract tests cover signature checking, provisioning and the integration API.",
           "وحدة واتساب مستقلة بتطبيق ويب ودوال Edge Functions خاصة بها. تربط رقمًا تجاريًا عبر Embedded Signup من Meta، "
-          "وتتحقق من توقيع طلب Meta على الويب هوك (أُضيف في سبتمبر 2026)، وتخزّن كل رسالة واردة مرة واحدة، وتشغّل مسارات رد آلي تتوقف حين "
+          "وتتحقق من توقيع الطلبات الواردة من Meta، وتخزّن كل رسالة واردة مرة واحدة، وتشغّل مسارات رد آلي تتوقف حين "
           "يستلم إنسان المحادثة، وتحاسب رسائل القوالب من محفظة مدفوعة مسبقًا. وتغطي اختبارات العقود التحقق من التوقيع والتهيئة وواجهة التكامل."),
          ("{{D}}", "{{D}}")],
         [("**2. Technical-provider activities**", "**2. أنشطة مزوّد الخدمة التقني**"),
@@ -108,10 +108,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "التجارية المحيطة بها عمليات تجارية وامتثالية لا توثّقها المستودعات. ولذلك لا تذكر هذه الورقة أي صفة مزوّد أو اتفاق شراكة أو اعتماد."),
          ("—", "—")],
         [("**3. Future commercial availability**", "**3. الإتاحة التجارية المستقبلية**"),
-         ("Any general availability would be announced separately and would depend on completing those requirements and on hardening work identified "
-          "by internal review: per-customer sending credentials, reservation-based wallet billing, and moving WhatsApp onto the shared channel and engine layer.",
-          "أي إتاحة عامة ستُعلن على حدة، وستتوقف على استكمال تلك المتطلبات وعلى أعمال تعزيز حدّدتها المراجعة الداخلية: بيانات اعتماد "
-          "إرسال مستقلة لكل عميل، وفوترة بالحجز المسبق من المحفظة، ونقل واتساب إلى طبقة القنوات والمحرك المشتركة."),
+         ("Any general availability would be announced separately and would depend on completing those requirements and on further engineering "
+          "readiness work, including moving WhatsApp onto the shared channel and engine layer.",
+          "أي إتاحة عامة ستُعلن على حدة، وستتوقف على استكمال تلك المتطلبات وعلى أعمال جاهزية هندسية إضافية، "
+          "منها نقل واتساب إلى طبقة القنوات والمحرك المشتركة."),
          ("{{P}}", "{{P}}")],
     ], widths=[24, 58, 18], cls="compact",
         caption=("The three layers of the WhatsApp question. The platform's policies change over time and are set by Meta.",

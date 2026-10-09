@@ -45,103 +45,76 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
       "differs from their numbering: knowledge is attached before the reply is written.",
       "يُنظَّم SIE في تسع طبقات إضافة إلى حد ثقة يخترقها جميعًا. ويسردها الشكل بترتيب التشغيل، وهو يختلف عن ترقيمها: إذ تُرفق "
       "المعرفة قبل صياغة الرد."),
-    FIG("sie_layers", ("SIE layers in runtime order, with stage. The numbering is the layers' own; the trust boundary applies at four "
-                       "points where customer text could affect evidence, facts or actions.",
-                       "طبقات SIE بترتيب التشغيل مع مرحلة كل منها. الترقيم هو ترقيم الطبقات نفسها؛ ويُطبَّق حد الثقة عند أربع نقاط "
-                       "يمكن أن يؤثر فيها نص العميل في الأدلة أو الحقائق أو الإجراءات.")),
-    TABLE([("Responsibility", "المسؤولية"), ("What exists", "ما هو قائم"), ("Still in development", "ما هو قيد التطوير")], [
+    FIG("sie_layers", ("SIE layers in runtime order, with stage. The numbering is the layers' own; the trust boundary treats customer "
+                       "text as untrusted data across the layers.",
+                       "طبقات SIE بترتيب التشغيل مع مرحلة كل منها. الترقيم هو ترقيم الطبقات نفسها؛ ويعامل حد الثقة نص العميل "
+                       "بوصفه بيانات غير موثوقة عبر الطبقات.")),
+    TABLE([("Responsibility", "المسؤولية"), ("What exists", "ما هو قائم")], [
         [("**Language understanding and normalization**", "**فهم اللغة وتطبيعها**"),
          ("Tokenization; a technical glossary that maps many phrasings to canonical terms; Arabic-dialect normalization; Arabic written in "
           "Latin letters; reply language. Matching respects whole-word boundaries, negation and yes/no polarity.",
           "التجزئة؛ ومعجم تقني يحوّل صيغًا كثيرة إلى مصطلحات معيارية؛ وتطبيع اللهجات العربية؛ والعربية المكتوبة بحروف لاتينية؛ ولغة الرد. "
-          "وتراعي المطابقة حدود الكلمات الكاملة والنفي واتجاه نعم/لا."),
-         ("Conversational detectors in the orchestrator still re-read raw text and are to be moved onto the language layer's output.",
-          "ما زالت كواشف الحوار في المنسّق تعيد قراءة النص الخام، وسيُنقل عملها إلى مخرجات طبقة اللغة.")],
+          "وتراعي المطابقة حدود الكلمات الكاملة والنفي واتجاه نعم/لا.")],
         [("**Scenario-based reasoning and interpretation**", "**الاستدلال والتفسير القائمان على السيناريوهات**"),
          ("A closed catalog of authored scenarios, each with a signature of expected evidence, resolutions and questions; grouped "
-          "into editions and extensible by a published overlay. About 900 scenarios in the largest edition at the October 2026 audit.",
+          "into editions and extensible by a published overlay. About 900 scenarios in the largest edition.",
           "كتالوج مغلق من سيناريوهات مؤلَّفة، لكل منها توقيع من الأدلة المتوقعة وحلول وأسئلة؛ مجمَّعة في إصدارات وقابلة للتوسيع "
-          "بطبقة منشورة. نحو 900 سيناريو في أكبر إصدار عند تدقيق أكتوبر 2026."),
-         ("About one fifth of the catalog are conversational scenarios, not problems; they are to be tagged and excluded from problem matching.",
-          "نحو خُمس الكتالوج سيناريوهات حوارية وليست مشكلات؛ وستوسَم وتُستبعد من مطابقة المشكلات.")],
+          "بطبقة منشورة. نحو 900 سيناريو في أكبر إصدار.")],
         [("**Diagnostic analysis**", "**التحليل التشخيصي**"),
          ("Extracts evidence from each message, accumulates it over the conversation and scores each candidate scenario by how much of its "
           "signature is present. Session state can be stored in a compact sparse form.",
           "يستخرج الأدلة من كل رسالة، ويراكمها على امتداد المحادثة، ويقيّم كل سيناريو مرشَّح بقدر ما يتوافر من توقيعه. ويمكن حفظ حالة "
-          "الجلسة بصورة مخفَّفة."),
-         ("Evidence that can contradict or fade, and strict separation between conversations.",
-          "أدلة يمكن أن تتعارض أو تتلاشى، وفصل صارم بين المحادثات.")],
+          "الجلسة بصورة مخفَّفة.")],
         [("**Candidate ranking and decision logic**", "**ترتيب المرشحين ومنطق القرار**"),
          ("Deterministic ordering with explicit tie-breaks, specificity and an ambiguity flag; then ordered decision rules that choose one "
           "action and record every rule evaluated.",
-          "ترتيب حتمي بقواعد تعادل صريحة ومراعاة للتخصيص وعلم للالتباس؛ ثم قواعد قرار مرتَّبة تختار إجراءً واحدًا وتسجّل كل قاعدة فُحصت."),
-         ("The decision engine is to own every route, with expiring pending prompts and a ticket state that records only committed facts.",
-          "سيصبح محرك القرار مالكًا لكل مسار، مع مهلة لانتهاء الأسئلة المعلّقة وحالة تذكرة لا تسجّل إلا الوقائع المنفَّذة.")],
+          "ترتيب حتمي بقواعد تعادل صريحة ومراعاة للتخصيص وعلم للالتباس؛ ثم قواعد قرار مرتَّبة تختار إجراءً واحدًا وتسجّل كل قاعدة فُحصت.")],
         [("**Dialogue management**", "**إدارة الحوار**"),
          ("Decisions are rendered as messages in Arabic or English from templates, with a parity test between the two languages.",
-          "تُصاغ القرارات رسائل بالعربية أو الإنجليزية من قوالب، مع اختبار تكافؤ بين اللغتين."),
-         ("All customer-visible text to come from one template source, with checks that a message never contradicts the decision.",
-          "أن يأتي كل نص يراه العميل من مصدر قوالب واحد، مع فحوص تضمن ألا تناقض الرسالةُ القرار.")],
+          "تُصاغ القرارات رسائل بالعربية أو الإنجليزية من قوالب، مع اختبار تكافؤ بين اللغتين.")],
         [("**Knowledge retrieval and application**", "**استرجاع المعرفة وتطبيقها**"),
          ("Static knowledge entries attach to answers for a small set of scenarios. A separate inverted-index step narrows scoring to "
           "relevant candidates and is tested to give the same results as a full scan.",
           "مواد معرفية ثابتة تُرفق بالإجابات لمجموعة صغيرة من السيناريوهات. وخطوة منفصلة بفهرس معكوس تحصر التقييم في المرشحين المعنيين "
-          "وقد اختُبر أنها تعطي النتائج نفسها التي يعطيها المسح الكامل."),
-         ("Grounding answers in live account data (ticket and subscription status) and in published knowledge, before the decision is made.",
-          "ارتكاز الإجابات على بيانات الحساب الحية (حالة التذكرة والاشتراك) وعلى المعرفة المنشورة، قبل اتخاذ القرار.")],
+          "وقد اختُبر أنها تعطي النتائج نفسها التي يعطيها المسح الكامل.")],
         [("**Action-oriented support workflows**", "**سير عمل الدعم الموجَّه بالإجراءات**"),
          ("The action layer is the only writer. One decision becomes one atomic transaction covering the message, the session state and, "
           "when decided, the ticket. Each paid turn is traced once, with the decision's intent and the executed outcome kept apart.",
           "طبقة التنفيذ هي الكاتب الوحيد. فالقرار الواحد يصبح معاملة ذرية واحدة تشمل الرسالة وحالة الجلسة والتذكرة عند قرار فتحها. "
-          "ويُتتبَّع كل دور مدفوع مرة واحدة، مع فصل نية القرار عن النتيجة المنفَّذة."),
-         ("Charging quota only for a committed reply, attachment metadata, and a database-enforced publish gate.",
-          "احتساب الحصة عند حفظ الرد فقط، وبيانات وصفية للمرفقات، وبوابة نشر تُفرض في قاعدة البيانات.")],
-    ], widths=[22, 44, 34], cls="compact long",
-        caption=("The seven responsibilities of the engine and, for each, what exists and what remains in development.",
-                 "المسؤوليات السبع للمحرك، وما هو قائم منها وما يبقى قيد التطوير.")),
+          "ويُتتبَّع كل دور مدفوع مرة واحدة، مع فصل نية القرار عن النتيجة المنفَّذة.")],
+    ], widths=[26, 74], cls="compact long",
+        caption=("The seven responsibilities of the engine and what exists for each.",
+                 "المسؤوليات السبع للمحرك، وما هو قائم لكل منها.")),
+    H3("In development", "قيد التطوير"),
+    UL(("Grounding answers in live account data (ticket and subscription status) and in published knowledge.",
+        "ارتكاز الإجابات على بيانات الحساب الحية (حالة التذكرة والاشتراك) وعلى المعرفة المنشورة."),
+       ("Awareness of attachments.",
+        "إدراك المرفقات."),
+       ("Continued extension of scenario and language coverage.",
+        "مواصلة توسيع تغطية السيناريوهات واللغات.")),
 
     H2("Why the layers matter", "لماذا تهم الطبقات"),
-    UL(("**Modularity.** Dependencies run one way: an import-graph review established that the engine imports nothing from channel or platform code, "
+    UL(("**Modularity.** Dependencies run one way: the engine imports nothing from channel or platform code, "
         "and a test enforces the same boundary on the channel side. Scenarios and glossary are data behind provider interfaces, not code.",
-        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فقد أثبتت مراجعة لرسم الاستيراد أن المحرك لا يستورد شيئًا من شيفرة القنوات أو المنصة، "
+        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فالمحرك لا يستورد شيئًا من شيفرة القنوات أو المنصة، "
         "ويفرض اختبار الحدّ نفسه من جهة القنوات. والسيناريوهات والمعجم بيانات خلف واجهات مزوّدين، وليست شيفرة."),
        ("**Testability.** Layers are pure functions with an injected clock, so the suite runs without a database or network. At the time of writing "
-        "all 1,264 tests in the engine repository pass. A guarantee registry lists 66 behavioral guarantees; a continuous-integration check "
-        "fails if a guarantee marked enforced has no passing evidence.",
+        "all 1,264 tests in the engine repository pass. Behavioral guarantees are registered and linked to tests.",
         "**قابلية الاختبار.** الطبقات دوال خالصة بساعة محقونة، فتعمل المجموعة دون قاعدة بيانات أو شبكة. وقت كتابة هذه الورقة تنجح "
-        "جميع اختبارات مستودع المحرك وعددها 1,264. ويسرد سجل للضمانات 66 ضمانًا سلوكيًا؛ ويفشل فحص في التكامل المستمر إذا كان ضمان موسوم "
-        "بأنه مُنفَّذ بلا دليل ناجح."),
+        "جميع اختبارات مستودع المحرك وعددها 1,264. وتُسجَّل الضمانات السلوكية وتُربط باختبارات."),
        ("**Maintainability.** Each layer has its own tests and a narrow contract, there is a single writer, and every decision carries the rules "
         "that produced it, so a surprising reply can be traced to a cause.",
         "**قابلية الصيانة.** لكل طبقة اختباراتها وعقدها الضيق، وكاتب واحد، وكل قرار يحمل القواعد التي أنتجته، فيمكن ردّ الرد المفاجئ إلى سببه."),
-       ("**Controlled evolution.** Behavioral changes ship behind settings flags that default to current behavior, deployments pin an exact "
-        "engine commit, and fixes proceed in work packages with stated exit criteria.",
-        "**تطور منضبط.** تُطرح التغييرات السلوكية خلف أعلام إعداد افتراضيها السلوك الحالي، وتثبّت عمليات النشر إصدارًا محددًا من المحرك، "
-        "وتمضي الإصلاحات في حزم عمل لها معايير إنجاز معلنة.")),
-    NOTE("A layered design does not by itself make behavior correct. The October 2026 audit found that a large share of behavior lived in "
-         "an orchestration layer outside the numbered layers, and the remediation program is moving it back inside them.",
-         "التصميم المتعدد الطبقات لا يجعل السلوك صحيحًا بذاته. فقد وجد تدقيق أكتوبر 2026 أن حصة كبيرة من السلوك كانت تقع في طبقة تنسيق "
-         "خارج الطبقات المرقَّمة، وبرنامج المعالجة ينقلها إلى داخلها.",
-         kind="note"),
+       ("**Controlled evolution.** Behavioral changes ship behind settings flags that default to current behavior, and changes proceed "
+        "in staged steps with stated exit criteria.",
+        "**تطور منضبط.** تُطرح التغييرات السلوكية خلف أعلام إعداد افتراضيها السلوك الحالي، وتمضي التغييرات على مراحل متدرجة "
+        "لها معايير إنجاز معلنة.")),
 
     H2("What has been verified, and what has not", "ما جرى التحقق منه وما لم يجرِ"),
     TABLE([("Evidence", "الدليل"), ("What it shows", "ما يبيّنه")], [
         [("Automated tests", "الاختبارات الآلية"),
          ("1,264 tests pass in the engine repository (run on 9 October 2026). They verify specified behavior under controlled conditions. They are not accuracy measurements.",
           "تنجح 1,264 اختبارًا في مستودع المحرك (جرى تشغيلها في 9 أكتوبر 2026). وهي تتحقق من سلوك محدد في ظروف مضبوطة، وليست قياسات للدقة.")],
-        [("Behavioral guarantees", "الضمانات السلوكية"),
-         ("66 registered; 24 are enforced by passing tests and 42 are pending, each tied to a named work package.",
-          "66 ضمانًا مسجَّلًا؛ 24 منها مُنفَّذ باختبارات ناجحة و42 معلّق، ولكل منها حزمة عمل مسماة.")],
-        [("Internal end-to-end audit, 6 October 2026", "تدقيق داخلي شامل، 6 أكتوبر 2026"),
-         ("Realistic synthetic conversations were replayed through the real engine under production settings. The audit found defect classes in "
-          "the orchestration layer, ticket state, evidence handling, knowledge grounding and tracing, and led to the remediation program.",
-          "أُعيد تشغيل محادثات تركيبية واقعية عبر المحرك الفعلي بإعدادات الإنتاج. ووجد التدقيق فئات من العيوب في طبقة التنسيق وحالة "
-          "التذكرة ومعالجة الأدلة وربط المعرفة والتتبع، وقاد إلى برنامج المعالجة.")],
-        [("Remediation program", "برنامج المعالجة"),
-         ("Test foundation, truthful tracing and language primitives are delivered. Decision ownership, belief that can fall, grounding, "
-          "attachments, metering and dialogue consolidation follow. Where risk was found, interim mitigations were applied by configuration.",
-          "أُنجز أساس الاختبار والتتبع الصادق وأوليات اللغة. ويتبعها ملكية القرار، والاعتقاد القابل للانخفاض، والارتكاز على المعرفة، "
-          "والمرفقات، والقياس، وتوحيد الحوار. وحيث وُجد خطر، طُبِّقت إجراءات احترازية مؤقتة بالإعداد.")],
         [("Scale benchmarks, synthetic", "قياسات التوسع، تركيبية"),
          ("On generated catalogs, computation time stayed in milliseconds up to 10,000 scenarios; resident memory and index build time, not computation, "
           "limit larger sizes. These are synthetic measurements, not production load results.",
