@@ -9,7 +9,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SKIP = new Set(['node_modules', 'tests', 'migrations', 'supabase', '.git', 'docs', 'mcp']);
+// assets/js/relay: حالات سجلات Relay مجال منفصل عن التذاكر، قيمها مثبّتة بقيد
+// CHECK في migrations/073 ومطابقتها مقيسة في tests/relay-contract.test.mjs.
+const SKIP = new Set(['node_modules', 'tests', 'migrations', 'supabase', '.git', 'docs', 'mcp', 'relay']);
 
 function* walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

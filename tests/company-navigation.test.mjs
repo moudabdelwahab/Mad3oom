@@ -450,7 +450,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         («طبق 070 على الانتاج»).
     //   069 و070 اتطبّقوا على الإنتاج 2026-10-09
     //         (docs/BILLING_TICKETS_AND_OWNER_CONTEXT_PROD_INSTALL_2026-10-09_AR.md).
-    assert.equal(migrations[migrations.length - 1], '070_owner_admin_context_tickets.sql',
+    //   071 و072 في طلب الدمج #104 (سببهما موثَّق هناك).
+    //   073 — Relay المرحلة B (معتمَد صراحةً من صاحب المنصة 2026-10-09: «authorized
+    //         you to execute Phase B only»). جداول ودوال جديدة فقط، Relay مطفأ
+    //         (enabled=false). قاعدة C3 (المقتطف يحتاج وصولًا حاليًا للمحادثة) والحجب
+    //         بعد 365 يومًا من الإغلاق لا يمكن فرضهما من الواجهة. مقيسٌ على نسخة بشكل
+    //         الإنتاج في tests/sql/relay-core.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '073_relay_core.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
