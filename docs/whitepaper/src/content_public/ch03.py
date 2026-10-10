@@ -12,9 +12,9 @@ CHAPTER = chapter(3, ("The Mad3oom Solution", "حل مدعوم"),
       "تتعامل المنصة مع ستة عناصر بوصفها أجزاء من سير عمل واحد لا أدوات منفصلة. ويوصف كل منها أدناه كما هو قائم اليوم في مستودعات المشروع."),
     TABLE([("Element", "العنصر"), ("What it provides", "ما يقدّمه"), ("Stage", "المرحلة")], [
         [("**Support tickets**", "**تذاكر الدعم**"),
-         ("A ticket lifecycle from opening to resolution, including customer confirmation, rejection or reopening of a resolution; "
+         ("A ticket lifecycle from opening to resolution, in which customers can close a ticket or explicitly reopen a resolved one; "
           "SLA targets; assignment and distribution; in-platform notifications, ticket email templates, and Telegram alerts for staff.",
-          "دورة حياة للتذكرة من الفتح إلى الحل، تشمل تأكيد العميل للحل أو رفضه أو إعادة فتح التذكرة؛ وأهداف مستوى الخدمة SLA؛ "
+          "دورة حياة للتذكرة من الفتح إلى الحل، يستطيع فيها العميل إغلاق التذكرة أو إعادة فتح التذكرة المحلولة صراحةً؛ وأهداف مستوى الخدمة SLA؛ "
           "والإسناد والتوزيع؛ والإشعارات داخل المنصة، وقوالب بريد للتذاكر، وتنبيهات تيليجرام للطاقم."),
          ("{{E}}", "{{E}}")],
         [("**Customer conversations**", "**محادثات العملاء**"),
@@ -37,8 +37,8 @@ CHAPTER = chapter(3, ("The Mad3oom Solution", "حل مدعوم"),
           "أدوار لطاقم المنصة وللشركات، ومنشئ أتمتة للقواعد والإجراءات، وحسابات للشركات بلوحات خاصة بها."),
          ("{{E}}", "{{E}}")],
         [("**Operational follow-up**", "**المتابعة التشغيلية**"),
-         ("Mad3oom Relay: continuity records with an owner, a next action, a deadline and source evidence. See {{ch5}}.",
-          "Mad3oom Relay: سجلات استمرارية لها مسؤول وإجراء تالٍ وموعد ودليل مصدري. انظر {{ch5}}."),
+         ("Mad3oom Relay: continuity records with source evidence, one owner or an explicit “unassigned”, and, for follow-ups, a next action and a deadline. See {{ch5}}.",
+          "Mad3oom Relay: سجلات استمرارية لها دليل مصدري، ومسؤول واحد أو علامة «غير مسند» صراحةً، وللمتابعات إجراء تالٍ وموعد. انظر {{ch5}}."),
          ("{{E}} {{P}}", "{{E}} {{P}}")],
     ], widths=[22, 62, 16], cls="compact",
         caption=("The six elements of the unified approach and the stage each has reached.",
@@ -58,8 +58,8 @@ CHAPTER = chapter(3, ("The Mad3oom Solution", "حل مدعوم"),
                       "وهي خريطة مفاهيمية وليست توصيفًا لتدفق البيانات.")),
     TABLE([("Relationship", "العلاقة"), ("What it means", "معناها"), ("Stage", "المرحلة")], [
         [("Workspace and the hosted pages", "Workspace والصفحات المستضافة"),
-         ("The existing pages are hosted as panels in an embed mode; they keep their own logic and access rules.",
-          "تُستضاف الصفحات القائمة لوحاتٍ بوضع تضمين؛ وتحتفظ بمنطقها وقواعد وصولها."),
+         ("The existing pages are hosted as panels; they keep their own logic and access rules.",
+          "تُستضاف الصفحات القائمة لوحاتٍ؛ وتحتفظ بمنطقها وقواعد وصولها."),
          ("{{E}}", "{{E}}")],
         [("Relay and conversations", "Relay والمحادثات"),
          ("An agent selects messages in a conversation and creates a continuity record that cites them.",

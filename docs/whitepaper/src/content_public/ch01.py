@@ -24,10 +24,10 @@ CHAPTER = chapter(1, ("Executive Summary", "الملخص التنفيذي"),
       "coherent technology product with a defined architecture, rather than as a chat widget or a conventional ticket list.",
       "مدعوم منصة برمجية موجَّهة لفرق الدعم. تتيح للفريق استقبال طلبات العملاء وفهمها وإسناد المسؤولية عنها والاحتفاظ بسياق كل "
       "تفاعل ومتابعة كل طلب حتى يُحَل. وقد صُمِّمت منتجًا تقنيًا متماسكًا ذا معمارية محددة، وليس أداة محادثة منفصلة ولا قائمة تذاكر تقليدية."),
-    P("The design is Arabic-first: interfaces are right-to-left, and the intelligence layer is built to handle Arabic dialects "
-      "and Arabic written in Latin letters, while the engine can also reply in English.",
-      "التصميم عربي الأولوية: الواجهات من اليمين إلى اليسار، وطبقة الذكاء مبنية للتعامل مع اللهجات العربية والعربية المكتوبة "
-      "بالحروف اللاتينية، ويستطيع المحرك كذلك الرد بالإنجليزية."),
+    P("The design is Arabic-first: interfaces are right-to-left, and the intelligence layer is built to handle colloquial Arabic, "
+      "with a focus on Egyptian usage, and Arabic written in Latin letters, while the engine can also reply in English.",
+      "التصميم عربي الأولوية: الواجهات من اليمين إلى اليسار، وطبقة الذكاء مبنية للتعامل مع العربية العامية، مع تركيز على الاستخدام "
+      "المصري، ومع العربية المكتوبة بالحروف اللاتينية، ويستطيع المحرك كذلك الرد بالإنجليزية."),
 
     H2("Whom it serves", "من تخدم"),
     UL(("**Support agents and supervisors**, who need one place to work on tickets and conversations without losing context.",
@@ -61,9 +61,9 @@ CHAPTER = chapter(1, ("Executive Summary", "الملخص التنفيذي"),
           "سطح عمل بتبويبات ولوحات مقسَّمة يستضيف التذاكر والمحادثات وسجلات العملاء جنبًا إلى جنب."),
          ("{{E}} {{D}}", "{{E}} {{D}}")],
         [("**Mad3oom Relay**", "**Mad3oom Relay**"),
-         ("Continuity records that keep evidence, an accountable owner, a next action and a deadline together.",
-          "سجلات استمرارية تحفظ معًا الدليل والمسؤول والإجراء التالي والموعد."),
-         ("{{E}} {{P}}", "{{E}} {{P}}")],
+         ("Continuity records that keep evidence, ownership, a next action and a deadline together.",
+          "سجلات استمرارية تحفظ معًا الدليل والمسؤولية والإجراء التالي والموعد."),
+         ("{{E}} {{D}} {{P}}", "{{E}} {{D}} {{P}}")],
         [("**SIE**", "**SIE**"),
          ("A deterministic engine that interprets customer messages and decides the next support action.",
           "محرك حتمي يفسّر رسائل العملاء ويقرّر إجراء الدعم التالي."),
@@ -81,8 +81,8 @@ CHAPTER = chapter(1, ("Executive Summary", "الملخص التنفيذي"),
       "تنبع القيمة المقصودة من ثلاث خصائص نادرًا ما تجتمع في أدوات منفصلة."),
     UL(("**Context travels with the work.** A ticket, the conversation behind it and the customer's history are reachable from the same place.",
         "**السياق يرافق العمل.** يمكن الوصول إلى التذكرة والمحادثة التي وراءها وسجل العميل من المكان نفسه."),
-       ("**Responsibility is explicit.** Each piece of follow-up work has one accountable owner, a next action and a deadline that is visible to the team.",
-        "**المسؤولية صريحة.** لكل عمل متابعة مسؤول واحد وإجراء تالٍ وموعد ظاهر للفريق."),
+       ("**Responsibility is explicit.** Follow-up work carries a next action and a deadline, and either one accountable owner or an explicit “unassigned” marker, all visible to the team.",
+        "**المسؤولية صريحة.** يحمل عمل المتابعة إجراءً تاليًا وموعدًا، ومسؤولًا واحدًا أو علامة «غير مسند» صراحةً، وكل ذلك ظاهر للفريق."),
        ("**Intelligence is controlled and explainable.** The engine chooses from a closed set of actions through ordered rules, and records why.",
         "**الذكاء منضبط وقابل للتفسير.** يختار المحرك من مجموعة مغلقة من الإجراءات عبر قواعد مرتَّبة، ويسجّل سبب اختياره.")),
     P("These are design intentions. Whether they translate into fewer missed requests or faster resolution can only be shown "

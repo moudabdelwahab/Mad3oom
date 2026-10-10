@@ -135,15 +135,15 @@ def fig_workspace(lang):
   <div class="ws-tab">{t("Conversation", "محادثة")}</div>
  </div>
  <div class="ws-body">
-  <div class="ws-pane big"><div class="ph">{t("Inbox", "صندوق الوارد")} <small>· {t("existing page, embed mode", "صفحة قائمة بوضع التضمين")}</small></div>{bars()}{bars()}</div>
-  <div class="ws-pane"><div class="ph">{t("Ticket", "تذكرة")} <small>· {t("embedded page", "صفحة مضمَّنة")}</small></div>{bars()}</div>
-  <div class="ws-pane"><div class="ph">{t("Customer record", "سجل العميل")} <small>· {t("embedded page", "صفحة مضمَّنة")}</small></div>{bars()}</div>
+  <div class="ws-pane big"><div class="ph">{t("Inbox", "صندوق الوارد")} <small>· {t("existing page", "صفحة قائمة")}</small></div>{bars()}{bars()}</div>
+  <div class="ws-pane"><div class="ph">{t("Ticket", "تذكرة")} <small>· {t("hosted page", "صفحة مستضافة")}</small></div>{bars()}</div>
+  <div class="ws-pane"><div class="ph">{t("Customer record", "سجل العميل")} <small>· {t("hosted page", "صفحة مستضافة")}</small></div>{bars()}</div>
  </div>
 </div>
 <div class="col3" style="margin-top:2.6mm">
  {box(lang, ("Layout engine", "محرك التخطيط"), ("Pure functions: groups, tabs, splits, resize, saved layouts", "دوال خالصة: مجموعات وتبويبات وتقسيم وتغيير حجم وتخطيطات محفوظة"), keys="E")}
- {box(lang, ("Panel registry", "سجل اللوحات"), ("Six panel types: list pages and single-record panels", "ست أنواع من اللوحات: صفحات قوائم ولوحات لسجل منفرد"), keys="E")}
- {box(lang, ("Message bridge", "جسر الرسائل"), ("Messages between shell and panels: title, unsaved-work flag, request to open a record, refresh hint", "رسائل بين الغلاف واللوحات: العنوان وعلم العمل غير المحفوظ وطلب فتح سجل وتلميح التحديث"), keys="E")}
+ {box(lang, ("Panel registry", "سجل اللوحات"), ("Six panel types: list pages and single-record panels", "ستة أنواع من اللوحات: صفحات قوائم ولوحات لسجل منفرد"), keys="E")}
+ {box(lang, ("Message bridge", "جسر الرسائل"), ("A small, fixed protocol between shell and panels for titles and unsaved-work state", "بروتوكول صغير ثابت بين الغلاف واللوحات للعناوين وحالة العمل غير المحفوظ"), keys="E")}
 </div></div>"""
 
 
@@ -156,8 +156,8 @@ def fig_sie_layers(lang):
                 f'<div class="l-ch">{chips(keys, lang)}</div></div></div>')
     grp = lambda a, b: f'<div class="dg-group">{tx((a, b), lang)}</div>'
     return f"""<div class="dg">
-<div class="trust"><div class="dg-t">{tx(("Trust boundary (cross-cutting)", "حد الثقة (طبقة عابرة)"), lang)}
- {chips("E", lang)}</div><div class="dg-s">{tx(("Treats customer text as untrusted data.", "يعامل نص العميل بوصفه بيانات غير موثوقة."), lang)}</div></div>
+<div class="trust"><div class="dg-t">{tx(("Trust boundary (cross-cutting)", "حد الثقة (يمتد عبر الطبقات)"), lang)}
+ {chips("E", lang)}</div><div class="dg-s">{tx(("Designed to treat customer text as untrusted data.", "مصمَّم لمعاملة نص العميل بوصفه بيانات غير موثوقة."), lang)}</div></div>
 {grp("Interpret the customer's message", "تفسير رسالة العميل")}
 {row("L1", ("Language and normalization", "اللغة والتطبيع"), ("Tokenization, glossary, dialect and Arabizi canonicalization, negation, reply polarity", "التجزئة والمعجم وتوحيد اللهجات والعربيزي والنفي واتجاه الرد"), "ED")}
 {row("L2", ("Scenario catalog", "كتالوج السيناريوهات"), ("A closed, authored set of diagnosable situations, grouped into editions", "مجموعة مغلقة مؤلَّفة من الحالات القابلة للتشخيص، مقسَّمة إلى إصدارات"), "ED")}
@@ -168,7 +168,7 @@ def fig_sie_layers(lang):
 {row("L7", ("Knowledge", "المعرفة"), ("Attaches knowledge to an answer; grounding in live account data is in development", "يُرفق المعرفة بالإجابة؛ ربط الإجابة ببيانات الحساب الحية قيد التطوير"), "ED")}
 {row("L6", ("Dialogue", "الحوار"), ("Renders the decision as a message in Arabic or English from templates", "يصوغ القرار رسالةً بالعربية أو الإنجليزية من قوالب"), "ED")}
 {grp("Commit and observe", "الحفظ والرصد")}
-{row("L8", ("Action", "التنفيذ"), ("The only writer: message, state and ticket commit in one atomic transaction", "الكاتب الوحيد: الرسالة والحالة والتذكرة تُحفظ في معاملة ذرية واحدة"), "E")}
+{row("L8", ("Action", "التنفيذ"), ("Designed as the single writer: message, state and ticket commit in one atomic transaction", "مصمَّمة لتكون الكاتب الوحيد: الرسالة والحالة والتذكرة تُحفظ في معاملة ذرية واحدة"), "E")}
 {row("L9", ("Observability and learning", "الرصد والتعلم"), ("One trace per paid turn; review queue; replay and validation tooling", "أثر واحد لكل دور مدفوع؛ قائمة مراجعة؛ أدوات إعادة التشغيل والتحقق"), "ED")}
 </div>"""
 
@@ -184,15 +184,15 @@ def fig_connectivity(lang):
     return f"""<div class="dg">
 <div style="display:flex;gap:1.2mm;align-items:center">
  <div style="flex:1.05">{col(("Channels", "القنوات"), stack(
-    ch(("Website chat", "محادثة الموقع"), "E"),
+    ch(("Website chat", "محادثة الموقع"), "E", ("adapter defined", "المحوِّل معرَّف")),
     ch(("Telegram", "تيليجرام"), "E"),
-    ch(("WhatsApp", "واتساب"), "D", ("own module; shared adapter not wired", "وحدة مستقلة؛ المحوِّل المشترك غير موصول")),
+    ch(("WhatsApp", "واتساب"), "D", ("separate module", "وحدة مستقلة")),
     ch(("Messenger · API channel", "ماسنجر · قناة API"), "P", ("adapter shape defined", "شكل المحوِّل معرَّف"))))}</div>
  {arrow}
  <div style="flex:1">{col(("Channel adapter layer", "طبقة محوِّلات القنوات"), stack(
     box(lang, ("verify · parse · dedupe", "تحقق · تحليل · إزالة تكرار"), None, "E"),
     box(lang, ("identity · engine · send", "هوية · محرك · إرسال"), None, "E"),
-    box(lang, ("Vendor details stay inside each adapter", "تفاصيل كل مزوّد تبقى داخل محوِّله"), None, "R")))}</div>
+    box(lang, ("Vendor details stay inside each adapter", "تفاصيل كل مزوّد تبقى داخل محوِّله"), None, "E")))}</div>
  {arrow}
  <div style="flex:.8">{col(("Engine", "المحرك"), stack(
     box(lang, ("SIE", "SIE"), ("Knows nothing about channels", "لا يعرف شيئًا عن القنوات"), "E", "hl")))}</div>
@@ -201,7 +201,7 @@ def fig_connectivity(lang):
 <div class="col3">
  {col(("APIs and tools", "الواجهات والأدوات"), stack(
     ch(("MCP server and client", "خادم وعميل MCP"), "E", ("OAuth 2.1 with PKCE", "OAuth 2.1 مع PKCE")),
-    ch(("API tokens · integration API", "رموز API · واجهة التكامل"), "E")))}
+    ch(("API tokens", "رموز API"), "E")))}
  {col(("Event-driven work", "العمل المدفوع بالأحداث"), stack(
     ch(("Background and scheduled jobs", "المهام الخلفية والمجدولة"), "E", ("notifications, email, SLA checks", "إشعارات وبريد وفحوص SLA")),
     ch(("Outgoing webhooks", "ويب هوك صادرة"), "E", ("notify other systems", "تبلّغ الأنظمة الأخرى"))))}
@@ -230,7 +230,7 @@ def fig_architecture(lang):
 {band(("Backend services (Supabase)", "الخدمات الخلفية (Supabase)"), row(
     B(("Auth", "المصادقة"), ("sign-in and authorization", "تسجيل الدخول والتفويض"), "E"),
     B(("Postgres", "Postgres"), ("data, access rules and business logic", "البيانات وقواعد الوصول ومنطق الأعمال"), "E", "hl"),
-    B(("Edge Functions", "Edge Functions"), ("webhooks, integrations, SIE runtime", "ويب هوك وتكاملات وبيئة تشغيل SIE"), "E"),
+    B(("Edge Functions", "Edge Functions"), ("integrations, SIE runtime", "التكاملات وبيئة تشغيل SIE"), "E"),
     B(("Realtime and scheduled jobs", "Realtime والمهام المجدولة"), ("live updates, background jobs", "تحديثات حية ومهام في الخلفية"), "E")))}
 {down}
 {band(("Intelligence and integrations", "الذكاء والتكاملات"), row(
@@ -256,14 +256,14 @@ def fig_roadmap(lang):
             ("SIE refinement and extension", "تحسين SIE وتوسيعه"),
             ("Relay trash and restore", "سلة محذوفات Relay واستعادتها"),
             ("Workspace server-side layouts", "تخطيطات Workspace على الخادم"),
-            ("Unified conversation core", "نواة محادثات موحَّدة")]),
+            ("Unified conversation core", "نواة محادثات موحَّدة"),
+            ("Grounded knowledge and live account data", "إجابات مرتكزة على المعرفة وبيانات الحساب الحية")]),
         "c3": (("3 · Planned capabilities", "3 · الإمكانات المخطَّطة"), [
             ("Relay handovers with acceptance", "تسليمات Relay مع القبول"),
             ("Relay reminders, escalation, monitor", "تذكيرات Relay والتصعيد ولوحة المتابعة"),
             ("Relay external API and browser capture", "واجهة Relay الخارجية والالتقاط من المتصفح"),
-            ("Relay as a Workspace panel", "Relay بوصفه لوحة في Workspace"),
-            ("WhatsApp on the shared channel layer", "واتساب على طبقة القنوات المشتركة"),
-            ("Grounded knowledge and live account data", "معرفة موثَّقة وبيانات حساب حية")]),
+            ("Relay as a Workspace panel", "Relay بوصفها لوحة في Workspace"),
+            ("WhatsApp on the shared channel layer", "واتساب على طبقة القنوات المشتركة")]),
         "c4": (("4 · Long-term opportunities", "4 · فرص بعيدة المدى"), [
             ("Assisted extraction for Relay records", "استخراج مساعَد لسجلات Relay"),
             ("Company workspaces in Relay", "مساحات الشركات في Relay"),
@@ -395,7 +395,7 @@ def fig_relations(lang):
     s.label(708, ycv, [t("reads and", "يقرأ ويردّ"), t("replies", "في المحادثة")], 13.4)
     s.line(790, ytk, 625, ytk, "#2074D0", None, 2.6, True, False)
     s.label(708, ytk, [t("opens", "يفتح"), t("tickets", "التذاكر")], 13.4)
-    s.line(885, 484, 885, 422, "#2074D0", "7 6", 2.4, True, False)
+    s.line(885, 484, 885, 422, "#2074D0", None, 2.6, True, False)
     s.label(885, 453, [t("static today", "ثابتة اليوم")], 13.2, "#55657F")
     # future: SIE -> Relay over the top
     s.poly([(790 + 95 - 40, 110), (790 + 95 - 40, 18), (20 + 95, 18), (20 + 95, 110)], "#8FB3E3", "7 6", 2.4, True, False)
@@ -424,7 +424,7 @@ def fig_lifecycle(lang):
     s.state(428, 190, 130, 38, t("Scheduled", "مجدول"))
     s.state(272, 242, 130, 38, t("In progress", "قيد المعالجة"))
     s.state(428, 242, 130, 38, t("Waiting", "بانتظار"))
-    s.text(415, 312, t("free movement between active states;", "تنقّل حر بين الحالات النشطة؛"), 13.4, 400, "#55657F")
+    s.text(415, 312, t("movement among scheduled, in progress and waiting;", "تنقّل بين المجدول وقيد المعالجة والانتظار؛"), 13.4, 400, "#55657F")
     s.text(415, 332, t("“waiting” needs a note", "«بانتظار» تتطلب ملاحظة"), 13.4, 400, "#55657F")
     # closed container
     s.rect(690, 140, 290, 210, "#002560", "#002560", 2.0, 14)

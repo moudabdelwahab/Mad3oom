@@ -31,7 +31,7 @@ CHAPTER = chapter(10, ("Product Differentiation and Value", "تميّز المن
         [("**A modular foundation for integrations**", "**أساس نمطي للتكاملات**"),
          ("New channels and tools are designed to be added without changing the engine.",
           "صُمّمت المنصة بحيث يمكن إضافة قنوات وأدوات جديدة دون تغيير المحرك."),
-         ("The adapter layer, with website and Telegram. {{E}}", "طبقة المحوِّلات مع الموقع وتيليجرام. {{E}}"),
+         ("The adapter layer, used by Telegram; a website adapter is defined. {{E}}", "طبقة المحوِّلات، وتستخدمها تيليجرام؛ ومحوِّل الموقع معرَّف. {{E}}"),
          ("The effort needed to bring a second messaging channel into production.", "الجهد اللازم لإدخال قناة مراسلة ثانية إلى الإنتاج.")],
     ], widths=[22, 28, 24, 26], cls="compact",
         caption=("Differentiation as design principles, with what exists and what would validate each.", "التميّز بوصفه مبادئ تصميمية، مع ما هو قائم وما يثبت كلًّا منها.")),
@@ -54,12 +54,12 @@ CHAPTER = chapter(10, ("Product Differentiation and Value", "تميّز المن
 
     H2("Measures that would show the value", "المقاييس التي تُظهر القيمة"),
     P("Relay's engineering plan defines the measures below to be instrumented from the first day of use. They are defined and not yet reported, so this paper states no figures for them.",
-      "تحدد الخطة الهندسية لـ Relay المقاييس الآتية لتُرصد منذ أول يوم استخدام. وهي معرَّفة ولم تُرصد بعد، ولذلك لا تورد الورقة أي أرقام بشأنها."),
+      "تحدد الخطة الهندسية لـ Relay المقاييس الآتية لتُرصد منذ أول يوم استخدام. وهي معرَّفة ولم يُبلَّغ عنها بعد، ولذلك لا تورد الورقة أي أرقام بشأنها."),
     UL(("Records created, by type of source.", "السجلات المنشأة بحسب نوع المصدر."),
        ("The share of active records that have both an owner and a next action.", "نسبة السجلات النشطة التي لها مسؤول وإجراء تالٍ معًا."),
        ("The number and age of overdue records.", "عدد السجلات المتأخرة وأعمارها."),
        ("The time a handover waits before it is accepted.", "الزمن الذي ينتظره التسليم قبل قبوله."),
-       ("Reminders delivered compared with reminders that failed.", "التذكيرات المُرسَلة مقارنةً بالفاشلة.")),
+       ("Reminders delivered compared with reminders that failed.", "التذكيرات المُسلَّمة مقارنةً بالفاشلة.")),
 
     H2("What is not claimed", "ما لا يُدَّعى"),
     NOTE("Mad3oom is not compared with named competitors here, and no claim of superiority is made. Differentiation is a statement about how the platform is "

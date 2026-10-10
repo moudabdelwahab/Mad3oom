@@ -5,7 +5,7 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
      "to protect that information, the safeguards that can be traced to its code, tests and documented practice, and how security is governed. "
      "It states design intent and practice. It does not describe any control as complete or independently verified.",
      "تحتفظ منصة دعم العملاء بمحادثات وهويات وتاريخ تشغيلي. يصف هذا الفصل المبادئ التي تلتزم بها مدعوم لحماية هذه المعلومات، "
-     "والضمانات التي يمكن تتبّعها إلى شيفرتها واختباراتها وممارساتها الموثَّقة، وكيفية حوكمة الأمان. وهو يعرض النية التصميمية والممارسة، "
+     "وتدابير الحماية التي يمكن تتبّعها إلى شيفرتها واختباراتها وممارساتها الموثَّقة، وكيفية حوكمة الأمان. وهو يعرض النية التصميمية والممارسة، "
      "ولا يصف أي ضابط بأنه مكتمل أو متحقَّق منه باستقلال."),
     [
     NOTE("Mad3oom makes no claim of compliance with, or certification against, GDPR, ISO 27001, SOC 2 or any other standard, because none has "
@@ -14,8 +14,8 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
          "guarantees, and they do not mean that every control has been independently verified. For security reasons, the chapter does not publish "
          "credentials, customer data or implementation detail.",
          "لا تدّعي مدعوم الامتثال لـ GDPR أو ISO 27001 أو SOC 2 أو أي معيار آخر، ولا الحصول على شهادة وفقه، لأن شيئًا من ذلك لم يخضع "
-         "لتقييم مستقل. ولا يوجد اختبار اختراق مستقل ولا تدقيق أمني من طرف ثالث موثَّق. والأوصاف الواردة في هذا الفصل أهداف تصميمية وضمانات "
-         "يمكن تتبّعها إلى شيفرة المنتج واختباراته وممارساته الموثَّقة؛ وهي ليست ضمانات مطلقة، ولا تعني أن كل ضابط قد جرى التحقق منه "
+         "لتقييم مستقل. ولا يوجد اختبار اختراق مستقل ولا تدقيق أمني من طرف ثالث موثَّق. والأوصاف الواردة في هذا الفصل أهداف تصميمية وتدابير حماية "
+         "يمكن تتبّعها إلى شيفرة المنتج واختباراته وممارساته الموثَّقة؛ وهي ليست ضمانات، ولا تعني أن كل ضابط قد جرى التحقق منه "
          "باستقلال. ولدواعٍ أمنية، لا ينشر هذا الفصل بيانات اعتماد ولا بيانات عملاء ولا تفاصيل تنفيذية.",
          kind="limit", title=("Compliance and assurance statement", "بيان الامتثال والتحقق")),
 
@@ -36,13 +36,13 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
        ("**Keep only what is needed, for as long as it is needed.** Copy as little customer content as possible, and decide how long it is kept.",
         "**الاحتفاظ بالقدر اللازم وللمدة اللازمة فقط.** يُنسخ أقل قدر ممكن من محتوى العميل، وتُحدَّد مدة الاحتفاظ به.")),
 
-    H2("Safeguards and how they are substantiated", "الضمانات وكيف يُستدَل عليها"),
+    H2("Safeguards and how they are substantiated", "تدابير الحماية وكيف يُستدَل عليها"),
     P("For each area, the table gives the design objective and the safeguards that can be traced to the project's code, automated tests and "
       "documented practice. “Existing” means present in that code and covered by tests where noted. It does not mean externally audited, and it "
       "does not mean that every case is covered.",
-      "يعرض الجدول لكل مجال الهدف التصميمي والضمانات التي يمكن تتبّعها إلى شيفرة المشروع واختباراته الآلية وممارساته الموثَّقة. و«قائم» "
+      "يعرض الجدول لكل مجال الهدف التصميمي وتدابير الحماية التي يمكن تتبّعها إلى شيفرة المشروع واختباراته الآلية وممارساته الموثَّقة. و«قائم» "
       "تعني موجودًا في تلك الشيفرة ومغطًّى باختبارات حيث يُذكر ذلك، ولا تعني خضوعه لتدقيق خارجي ولا أن كل الحالات مغطاة."),
-    TABLE([("Area", "المجال"), ("Design objective and safeguards", "الهدف التصميمي والضمانات"), ("Stage", "المرحلة")], [
+    TABLE([("Area", "المجال"), ("Design objective and safeguards", "الهدف التصميمي وتدابير الحماية"), ("Stage", "المرحلة")], [
         [("**Authentication and authorization**", "**المصادقة والتفويض**"),
          ("Sign-in and account sessions are handled by a managed authentication service. Authorization is treated as an architectural "
           "responsibility rather than a property of individual pages: access rules are designed to be enforced in the database layer, using "
@@ -59,20 +59,20 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
          ("{{E}}", "{{E}}")],
         [("**Protection of conversations and sensitive information**", "**حماية المحادثات والمعلومات الحساسة**"),
          ("Access to a conversation determines who can see anything derived from it: Relay shows a saved excerpt only to people who still have "
-          "access to the original conversation. Relay asks for explicit confirmation before saving content that appears to contain sensitive "
-          "personal or payment data. SIE treats customer text as untrusted data.",
+          "access to the original conversation. Relay asks for explicit confirmation before saving captured messages that appear to contain "
+          "sensitive personal or payment data. SIE is designed to treat customer text as untrusted data.",
           "يحدّد الوصول إلى المحادثة من يرى أي شيء مشتق منها: فلا تعرض Relay المقتطف المحفوظ إلا لمن ما زال له حق الوصول إلى المحادثة "
-          "الأصلية. وتطلب Relay تأكيدًا صريحًا قبل حفظ محتوى يبدو أنه يتضمن بيانات شخصية أو مالية حساسة. ويعامل SIE نص العميل بوصفه "
-          "بيانات غير موثوقة."),
+          "الأصلية. وتطلب Relay تأكيدًا صريحًا قبل حفظ رسائل ملتقطة يبدو أنها تتضمن بيانات شخصية أو مالية حساسة. وصُمّم SIE ليعامل نص "
+          "العميل بوصفه بيانات غير موثوقة."),
          ("{{E}}", "{{E}}")],
         [("**Secure integrations and credential protection**", "**التكاملات الآمنة وحماية بيانات الاعتماد**"),
          ("Integrations use open standards: OAuth 2.1 with PKCE for application access, scoped tokens, and a page where users revoke connected "
-          "applications. Integration keys are shown once, when they are created, and can be revoked. Secrets are supplied by the deployment "
-          "environment rather than written into the code. Verifying requests from a messaging provider is one of the duties of that "
-          "provider's adapter.",
+          "applications. API tokens are shown once, when they are created, and can be revoked. Secrets are supplied by the deployment "
+          "environment rather than written into the code. Requests that arrive from outside the platform are designed to be verified "
+          "by the component that receives them.",
           "تعتمد التكاملات معايير مفتوحة: OAuth 2.1 مع PKCE لوصول التطبيقات، ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية "
-          "التطبيقات المتصلة. وتُعرض مفاتيح التكامل مرة واحدة عند إنشائها، ويمكن إبطالها. وتُوفَّر الأسرار من بيئة التشغيل بدل كتابتها في "
-          "الشيفرة. والتحقق من الطلبات الواردة من مزوّد المراسلة من مهام المحوِّل الخاص بذلك المزوّد."),
+          "التطبيقات المتصلة. وتُعرض رموز API مرة واحدة عند إنشائها، ويمكن إبطالها. وتُوفَّر الأسرار من بيئة التشغيل بدل كتابتها في "
+          "الشيفرة. والطلبات الواردة من خارج المنصة مصمَّمة ليتحقق منها المكوّن الذي يستقبلها."),
          ("{{E}}", "{{E}}")],
         [("**Data minimization, retention and deletion**", "**تقليل البيانات والاحتفاظ والحذف**"),
          ("Relay stores only the excerpts that a user selects, hides them a defined period after a record closes and then redacts them "
@@ -82,21 +82,20 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
           "سجلها التاريخي بالمعرّفات والتغييرات لا بمحتوى الرسائل. وتتيح عملية منشورة للأشخاص طلب حذف بياناتهم."),
          ("{{E}}", "{{E}}")],
         [("**Change management and security review**", "**إدارة التغيير والمراجعة الأمنية**"),
-         ("Database changes are versioned migrations written to be re-run safely, with rollback scripts for recent changes. Automated checks run "
-          "on changes: unit and browser tests, database tests of access rules on a real Postgres instance, and code scanning. Changes to "
-          "production follow an explicit approval step.",
-          "تغييرات قاعدة البيانات ترحيلات مرقَّمة تُكتب لتُعاد بأمان، مع سكربتات تراجع للتغييرات الأحدث. وتعمل فحوص آلية على التغييرات: "
-          "اختبارات وحدة واختبارات متصفح، واختبارات لقواعد الوصول على Postgres حقيقية، وفحص للشيفرة. وتمر التغييرات على الإنتاج بخطوة "
-          "موافقة صريحة."),
+         ("Database changes are designed to be delivered as versioned migrations that can be re-run safely. Automated checks run on changes "
+          "to the core platform and the engine, including unit and browser tests, database tests of access rules on a real Postgres "
+          "instance, and code scanning. Changes to production are designed to follow a documented approval step.",
+          "صُمّمت تغييرات قاعدة البيانات لتُسلَّم ترحيلاتٍ مرقَّمة يمكن إعادة تشغيلها بأمان. وتعمل فحوص آلية على تغييرات المنصة الأساسية "
+          "والمحرك، منها اختبارات وحدة واختبارات متصفح، واختبارات لقواعد الوصول على Postgres حقيقية، وفحص للشيفرة. وصُمّمت التغييرات "
+          "على الإنتاج لتمر بخطوة موافقة موثَّقة."),
          ("{{E}}", "{{E}}")],
     ], widths=[22, 62, 16], cls="compact long",
         caption=("Security areas, design objectives and the safeguards that can be traced to the project.",
-                 "مجالات الأمان وأهدافها التصميمية والضمانات التي يمكن تتبّعها إلى المشروع.")),
+                 "مجالات الأمان وأهدافها التصميمية وتدابير الحماية التي يمكن تتبّعها إلى المشروع.")),
 
     H2("Governance and continuous improvement", "الحوكمة والتحسين المستمر"),
-    UL(("Engineering and security reviews are part of development and inform priorities. They are an internal practice, not an "
-        "independent assessment.",
-        "المراجعات الهندسية والأمنية جزء من التطوير وتسهم في تحديد الأولويات. وهي ممارسة داخلية، وليست تقييمًا مستقلًا."),
+    UL(("Security is considered during development as an internal practice. It is not an independent assessment.",
+        "يُراعى الأمان أثناء التطوير بوصفه ممارسة داخلية، وليس تقييمًا مستقلًا."),
        ("Security, privacy and operability are treated as part of every capability rather than as a separate phase. Mad3oom has not "
         "launched, and a controlled pilot is the intended first step.",
         "يُعامَل الأمان والخصوصية وقابلية التشغيل بوصفها جزءًا من كل إمكانية لا مرحلةً منفصلة. ولم تُطلَق مدعوم بعد، والبدء بتجربة "

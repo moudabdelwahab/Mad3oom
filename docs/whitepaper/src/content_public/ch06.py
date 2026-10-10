@@ -9,11 +9,11 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
     [
     H2("What SIE is, and what it is not", "ما هو SIE وما ليس هو"),
     P("SIE is a deterministic, rule- and data-driven engine written as dependency-free JavaScript modules. For the same input and the "
-      "same configuration it produces the same decision: time is injected rather than read, there is no randomness, and ties are "
+      "same configuration it produces the same decision: time is supplied as an injectable parameter, there is no randomness, and ties are "
       "settled by an explicit rule. Its decision is one action from a closed vocabulary, chosen by ordered rules, and each rule "
       "records whether it matched and why.",
       "SIE محرك حتمي قائم على القواعد والبيانات، مكتوب بوحدات JavaScript بلا اعتماديات خارجية. فمن المدخل نفسه والإعداد نفسه ينتج "
-      "القرار نفسه: الوقت يُحقن ولا يُقرأ، ولا عشوائية فيه، وتُحسم حالات التعادل بقاعدة صريحة. وقراره إجراء واحد من مفردات مغلقة، "
+      "القرار نفسه: الوقت معامل قابل للحقن، ولا عشوائية فيه، وتُحسم حالات التعادل بقاعدة صريحة. وقراره إجراء واحد من مفردات مغلقة، "
       "تختاره قواعد مرتَّبة، وتسجّل كل قاعدة هل انطبقت ولماذا."),
     P("Determinism and a closed action set make the engine explainable and testable. The trade-off is coverage: SIE handles the "
       "situations its catalog describes and does not improvise outside it.",
@@ -34,20 +34,20 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
       "يجيب SIE عن سؤال واحد: ماذا يخبرنا هذا العميل، وما الذي ينبغي أن يحدث تاليًا في هذه المحادثة؟ ومخرجاته الممكنة حوارية: "
       "الإجابة من المعرفة، أو طلب مزيد من التفاصيل، أو التحقق من فهم مع العميل، أو فتح تذكرة، أو تسليم المحادثة إلى إنسان. ولا يسند "
       "مسؤولين ولا يحدد مواعيد ولا يتتبع التزامات. فذلك التنسيق من شأن نظام التذاكر وRelay ({{ch5}})."),
-    P("Today SIE's only operational effects are its chat reply and, when it so decides, a ticket created in the same atomic step. "
+    P("Today SIE's effects stay within the conversation: its chat reply, a ticket created in the same atomic step when it so decides, and handing the conversation to a person. "
       "A human takeover of a conversation stops it from replying. There is no link from SIE to Relay yet; handing follow-up work "
       "from the engine to Relay is a future possibility.",
-      "اليوم، الأثر التشغيلي الوحيد لـ SIE هو رده في المحادثة، وتذكرة تُنشأ في الخطوة الذرية نفسها حين يقرر ذلك. واستلام موظف بشري "
+      "تقتصر آثار SIE اليوم على المحادثة: رده فيها، وتذكرة تُنشأ في الخطوة الذرية نفسها حين يقرر ذلك، وتسليم المحادثة إلى إنسان. واستلام موظف بشري "
       "للمحادثة يوقف ردوده. ولا توجد صلة بين SIE وRelay بعد؛ وتسليم المحرك أعمال متابعة إلى Relay احتمال مستقبلي."),
 
     H2("A layered design", "تصميم متعدد الطبقات"),
     P("SIE is organized in nine layers plus a trust boundary that cuts across them. The figure lists them in runtime order, which "
       "differs from their numbering: knowledge is attached before the reply is written.",
-      "يُنظَّم SIE في تسع طبقات إضافة إلى حد ثقة يخترقها جميعًا. ويسردها الشكل بترتيب التشغيل، وهو يختلف عن ترقيمها: إذ تُرفق "
+      "يُنظَّم SIE في تسع طبقات إضافة إلى حد ثقة يمتد عبرها جميعًا. ويسردها الشكل بترتيب التشغيل، وهو يختلف عن ترقيمها: إذ تُرفق "
       "المعرفة قبل صياغة الرد."),
-    FIG("sie_layers", ("SIE layers in runtime order, with stage. The numbering is the layers' own; the trust boundary treats customer "
-                       "text as untrusted data across the layers.",
-                       "طبقات SIE بترتيب التشغيل مع مرحلة كل منها. الترقيم هو ترقيم الطبقات نفسها؛ ويعامل حد الثقة نص العميل "
+    FIG("sie_layers", ("SIE layers in runtime order, with stage. The numbering is the layers' own; the trust boundary is designed to treat "
+                       "customer text as untrusted data across the layers.",
+                       "طبقات SIE بترتيب التشغيل مع مرحلة كل منها. الترقيم هو ترقيم الطبقات نفسها؛ وحد الثقة مصمَّم لمعاملة نص العميل "
                        "بوصفه بيانات غير موثوقة عبر الطبقات.")),
     TABLE([("Responsibility", "المسؤولية"), ("What exists", "ما هو قائم")], [
         [("**Language understanding and normalization**", "**فهم اللغة وتطبيعها**"),
@@ -78,9 +78,9 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
           "مواد معرفية ثابتة تُرفق بالإجابات لمجموعة صغيرة من السيناريوهات. وخطوة منفصلة بفهرس معكوس تحصر التقييم في المرشحين المعنيين "
           "وقد اختُبر أنها تعطي النتائج نفسها التي يعطيها المسح الكامل.")],
         [("**Action-oriented support workflows**", "**سير عمل الدعم الموجَّه بالإجراءات**"),
-         ("The action layer is the only writer. One decision becomes one atomic transaction covering the message, the session state and, "
+         ("The action layer is designed to be the single writer. One decision becomes one atomic transaction covering the message, the session state and, "
           "when decided, the ticket. Each paid turn is traced once, with the decision's intent and the executed outcome kept apart.",
-          "طبقة التنفيذ هي الكاتب الوحيد. فالقرار الواحد يصبح معاملة ذرية واحدة تشمل الرسالة وحالة الجلسة والتذكرة عند قرار فتحها. "
+          "صُمّمت طبقة التنفيذ لتكون الكاتب الوحيد. فالقرار الواحد يصبح معاملة ذرية واحدة تشمل الرسالة وحالة الجلسة والتذكرة عند قرار فتحها. "
           "ويُتتبَّع كل دور مدفوع مرة واحدة، مع فصل نية القرار عن النتيجة المنفَّذة.")],
     ], widths=[26, 74], cls="compact long",
         caption=("The seven responsibilities of the engine and what exists for each.",
@@ -88,25 +88,26 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
     H3("In development", "قيد التطوير"),
     UL(("Grounding answers in live account data (ticket and subscription status) and in published knowledge.",
         "ارتكاز الإجابات على بيانات الحساب الحية (حالة التذكرة والاشتراك) وعلى المعرفة المنشورة."),
-       ("Awareness of attachments.",
-        "إدراك المرفقات."),
        ("Continued extension of scenario and language coverage.",
         "مواصلة توسيع تغطية السيناريوهات واللغات.")),
+    H3("Planned", "مخطَّط"),
+    UL(("Awareness of attachments.",
+        "إدراك المرفقات.")),
 
     H2("Why the layers matter", "لماذا تهم الطبقات"),
-    UL(("**Modularity.** Dependencies run one way: the engine imports nothing from channel or platform code, "
-        "and a test enforces the same boundary on the channel side. Scenarios and glossary are data behind provider interfaces, not code.",
-        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فالمحرك لا يستورد شيئًا من شيفرة القنوات أو المنصة، "
-        "ويفرض اختبار الحدّ نفسه من جهة القنوات. والسيناريوهات والمعجم بيانات خلف واجهات مزوّدين، وليست شيفرة."),
-       ("**Testability.** Layers are pure functions with an injected clock, so the suite runs without a database or network. At the time of writing "
+    UL(("**Modularity.** Dependencies run one way: the engine's decision layers import nothing from channel or platform code, "
+        "and tests check that vendor details stay inside each channel adapter. Scenarios and glossary are data behind provider interfaces, not code.",
+        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فطبقات القرار في المحرك لا تستورد شيئًا من شيفرة القنوات أو المنصة، "
+        "وتتحقق اختبارات من بقاء تفاصيل كل مزوّد داخل محوِّل قناته. والسيناريوهات والمعجم بيانات خلف واجهات مزوّدين، وليست شيفرة."),
+       ("**Testability.** Decision layers are pure functions with an injectable clock, and storage sits behind narrow interfaces, so the suite runs without a database or network. At the time of writing "
         "all 1,264 tests in the engine repository pass.",
-        "**قابلية الاختبار.** الطبقات دوال خالصة بساعة محقونة، فتعمل المجموعة دون قاعدة بيانات أو شبكة. وقت كتابة هذه الورقة تنجح "
+        "**قابلية الاختبار.** طبقات القرار دوال خالصة بساعة قابلة للحقن، والتخزين خلف واجهات ضيقة، فتعمل المجموعة دون قاعدة بيانات أو شبكة. وقت كتابة هذه الورقة تنجح "
         "جميع اختبارات مستودع المحرك وعددها 1,264."),
-       ("**Maintainability.** Each layer has its own tests and a narrow contract, there is a single writer, and every decision carries the rules "
-        "that produced it, so a surprising reply can be traced to a cause.",
-        "**قابلية الصيانة.** لكل طبقة اختباراتها وعقدها الضيق، وكاتب واحد، وكل قرار يحمل القواعد التي أنتجته، فيمكن ردّ الرد المفاجئ إلى سببه."),
-       ("**Controlled evolution.** Behavioral changes ship behind settings flags that default to current behavior.",
-        "**تطور منضبط.** تُطرح التغييرات السلوكية خلف أعلام إعداد افتراضيها السلوك الحالي.")),
+       ("**Maintainability.** Each layer has its own tests and a narrow contract, writes are designed to go through a single layer, and "
+        "decisions record the rules they evaluated, which helps trace a surprising reply to its cause.",
+        "**قابلية الصيانة.** لكل طبقة اختباراتها وعقدها الضيق، والكتابة مصمَّمة لتمر عبر طبقة واحدة، وتسجّل القرارات القواعد التي فحصتها، مما يساعد على ردّ الرد المفاجئ إلى سببه."),
+       ("**Controlled evolution.** New behaviors are typically introduced behind settings flags whose defaults preserve current behavior.",
+        "**تطور منضبط.** تُطرح السلوكيات الجديدة عادةً خلف أعلام إعداد تحافظ قيمها الافتراضية على السلوك الحالي.")),
 
     H2("What has been verified, and what has not", "ما جرى التحقق منه وما لم يجرِ"),
     TABLE([("Evidence", "الدليل"), ("What it shows", "ما يبيّنه")], [
@@ -122,15 +123,15 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
          ("Exercised in tests on synthetic hostile and legitimate messages. Its behavior on real traffic has not been measured.",
           "جرى اختباره على رسائل تركيبية عدائية ومشروعة. أما سلوكه على حركة حقيقية فلم يُقَس.")],
         [("Accuracy, resolution rate, satisfaction", "الدقة ونسبة الحل والرضا"),
-         ("Not measured. No such figure is claimed.", "غير مقيسة. ولا يُدَّعى أي رقم من هذا النوع.")],
+         ("Not measured on real conversations. No such figure is claimed.", "غير مقيسة على محادثات حقيقية. ولا يُدَّعى أي رقم من هذا النوع.")],
     ], widths=[26, 74], cls="compact",
         caption=("The evidence behind SIE, stated with its limits.", "الأدلة التي يستند إليها SIE، مع حدودها.")),
 
     H2("Where SIE runs", "أين يعمل SIE"),
-    P("SIE runs server-side behind the website chat and the Telegram channel, reached through a shared adapter layer ({{ch7}}). "
+    P("SIE runs server-side behind the website chat and the Telegram channel. Telegram reaches it through the shared channel adapter layer ({{ch7}}), which is intended to serve every channel. "
       "It is offered in editions that differ in scenario coverage, and administrators set its behavior through a settings schema. "
       "It is pre-launch.",
-      "يعمل SIE في جهة الخادم خلف محادثة الموقع وقناة تيليجرام، وتصل إليه القنوات عبر طبقة محوِّلات مشتركة ({{ch7}}). "
+      "يعمل SIE في جهة الخادم خلف محادثة الموقع وقناة تيليجرام، وتصل إليه تيليجرام عبر طبقة محوِّلات القنوات المشتركة ({{ch7}})، والمقصود أن تخدم هذه الطبقة القنوات كلها. "
       "ويُقدَّم في إصدارات تتفاوت في تغطية السيناريوهات، ويضبط المسؤولون سلوكه عبر مخطط إعدادات. وهو في مرحلة ما قبل "
       "الإطلاق."),
 ])

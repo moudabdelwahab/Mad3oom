@@ -12,10 +12,10 @@ CHAPTER = chapter(12, ("Conclusion", "الخاتمة"),
       "ويتيح Workspace للوكلاء العمل عبر عدة سياقات دون أن يفقدوا ما يعملون عليه. وتُبقي Relay أعمال المتابعة مرتبطة بدليلها ومسؤولها وموعدها. "
       "ويفسّر SIE، وهو محرك متعدد الطبقات وقابل للتفسير، ما يكتبه العملاء، ويقرر الخطوة التالية من مجموعة إجراءات مغلقة."),
     P("What exists today is a foundation, not a finished product. The core support features, Workspace, the first parts of Relay and the SIE engine "
-      "exist in code and are tested. Handovers, reminders, grounded answers, further channels and external APIs are still to come, and the platform has not "
+      "exist in code and are tested. Handovers, reminders, grounded answers, further channels and Relay's external API are still to come, and the platform has not "
       "launched. The paper has kept those two statements side by side, because a credible direction depends on being exact about the starting point.",
       "ما هو قائم اليوم أساس وليس منتجًا مكتملًا. فميزات الدعم الأساسية وWorkspace والأجزاء الأولى من Relay ومحرك SIE قائمة في الشيفرة "
-      "ومختبَرة. أما التسليم والتذكيرات والإجابات المرتكزة على المعرفة والقنوات الإضافية والواجهات الخارجية فما زالت قادمة، والمنصة لم تُطلَق بعد. "
+      "ومختبَرة. أما التسليم والتذكيرات والإجابات المرتكزة على المعرفة والقنوات الإضافية والواجهة الخارجية لـ Relay فما زالت قادمة، والمنصة لم تُطلَق بعد. "
       "وقد أبقت الورقة هذين البيانين جنبًا إلى جنب، لأن الاتجاه الموثوق يتوقف على الدقة في وصف نقطة الانطلاق."),
     P("The direction is consistent. Structure comes first, then context, then accountability, then intelligence, each added in a controlled way. "
       "The intended path is to validate the design in a controlled pilot before open availability, with security and operability "

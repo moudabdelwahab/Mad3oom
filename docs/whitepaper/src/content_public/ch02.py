@@ -90,8 +90,8 @@ CHAPTER = chapter(2, ("Vision and Problem Statement", "الرؤية وبيان �
           "محرك واحد حتمي متعدد الطبقات مشترك بين القنوات، مع تسجيل سبب كل قرار."),
          ("SIE", "SIE"), ("{{E}} {{D}}", "{{E}} {{D}}")],
     ], widths=[20, 44, 22, 14], cls="compact",
-        caption=("Problems, design responses and stage. Where two stages appear, the first covers what exists and the second what is planned.",
-                 "المشكلات والاستجابات التصميمية والمرحلة. وحيث تظهر مرحلتان، فالأولى لما هو قائم والثانية لما هو مخطَّط.")),
+        caption=("Problems, design responses and stage. Where two stages appear, the first covers what exists and the second what is in development or planned.",
+                 "المشكلات والاستجابات التصميمية والمرحلة. وحيث تظهر مرحلتان، فالأولى لما هو قائم والثانية لما هو قيد التطوير أو مخطَّط.")),
 
     P("These responses explain the structure of the platform described in {{ch3}}.",
       "وتفسّر هذه الاستجابات بنية المنصة الموصوفة في {{ch3}}."),

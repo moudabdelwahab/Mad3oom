@@ -12,7 +12,7 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
     UL(("Statements about what exists rest on the code and on the engineering records.",
         "تستند العبارات عما هو قائم إلى الشيفرة والسجلات الهندسية."),
        ("On 9 October 2026, while this paper was prepared, the SIE engine's automated suite was run on the repository's latest commit, and 1,264 tests passed.",
-        "في 9 أكتوبر 2026، أثناء إعداد هذه الورقة، شُغِّلت مجموعة الاختبارات الآلية لمحرك SIE على أحدث إصدار في المستودع، فنجح 1,264 اختبارًا."),
+        "في 9 أكتوبر 2026، أثناء إعداد هذه الورقة، شُغِّلت مجموعة الاختبارات الآلية لمحرك SIE على أحدث إيداع (commit) في المستودع، فنجح 1,264 اختبارًا."),
        ("Figures from engineering records, such as test counts, code sizes and timings, are quoted with their date and with what they measure.",
         "تُذكر الأرقام المأخوذة من السجلات الهندسية، كأعداد الاختبارات وأحجام الشيفرة والأزمنة، مع تاريخها وما تقيسه."),
        ("The English and Arabic editions are produced from one source, so that their structure and facts match. The Arabic edition is equivalent in meaning, not a word-for-word translation.",
@@ -20,7 +20,7 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
 
     H2("What was not verified", "ما لم يجرِ التحقق منه"),
     TABLE([("Not verified", "غير متحقَّق منه"), ("Consequence for this paper", "الأثر على هذه الورقة")], [
-        [("Production usage and volumes", "الاستخدام والأحجام في الإنتاج"), ("No customer counts, usage figures or deployments are reported.", "لا تُذكر أعداد عملاء ولا أرقام استخدام ولا عمليات نشر لدى عملاء.")],
+        [("Production usage and volumes", "الاستخدام والأحجام في الإنتاج"), ("No customer counts, usage figures or deployments are reported.", "لا تُذكر أعداد عملاء ولا أرقام استخدام ولا عمليات نشر.")],
         [("Availability of each capability to end users", "إتاحة كل إمكانية للمستخدمين النهائيين"), ("“Existing” means implemented in the repositories. It is not a statement that the capability is available to end users.", "«قائم» تعني منفَّذًا في المستودعات. ولا تعني أن الإمكانية متاحة للمستخدمين النهائيين.")],
         [("Real-world accuracy of SIE", "الدقة الفعلية لـ SIE في الواقع"), ("No accuracy, resolution or satisfaction figures are reported.", "لا تُذكر أرقام للدقة أو الحل أو الرضا.")],
         [("Security assessment by a third party", "تقييم أمني من طرف ثالث"), ("No certification or compliance is claimed.", "لا يُدَّعى حصول على شهادة أو امتثال.")],

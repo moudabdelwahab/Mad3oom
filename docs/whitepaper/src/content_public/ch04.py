@@ -18,11 +18,11 @@ CHAPTER = chapter(4, ("Mad3oom Workspace", "Mad3oom Workspace"),
     TABLE([("Capability", "الإمكانية"), ("Detail", "التفصيل"), ("Stage", "المرحلة")], [
         [("**Tickets, conversations and customers in one place**", "**التذاكر والمحادثات والعملاء في مكان واحد**"),
          ("Six panel types: the inbox, tickets and customer-history pages, and single-conversation, single-ticket and single-customer panels.",
-          "ست أنواع من اللوحات: صفحات الصندوق والتذاكر وسجل العملاء، ولوحات المحادثة الواحدة والتذكرة الواحدة والعميل الواحد."),
+          "ستة أنواع من اللوحات: صفحات الصندوق والتذاكر وسجل العملاء، ولوحات المحادثة الواحدة والتذكرة الواحدة والعميل الواحد."),
          ("{{E}}", "{{E}}")],
         [("**Switching without losing context**", "**التنقل دون فقدان السياق**"),
-         ("Hosted pages keep running while hidden. Closing a tab that holds unsent text asks for confirmation; moving or docking a tab never reloads it.",
-          "تبقى الصفحات المستضافة تعمل وهي مخفية. وإغلاق تبويب يحمل نصًا غير مرسل يطلب تأكيدًا؛ أما نقل التبويب أو تثبيته فلا يعيد تحميله."),
+         ("Hosted pages keep running while hidden, within the live-panel limit described below. Closing a tab that holds unsent text asks for confirmation; moving or docking a tab never reloads it.",
+          "تبقى الصفحات المستضافة تعمل وهي مخفية، في حدود عدد اللوحات الحية المذكور أدناه. وإغلاق تبويب يحمل نصًا غير مرسل يطلب تأكيدًا؛ أما نقل التبويب أو تثبيته فلا يعيد تحميله."),
          ("{{E}}", "{{E}}")],
         [("**Organizing views**", "**تنظيم العروض**"),
          ("Tabs, groups and nested splits made by dragging a tab to any edge or the center; resizable dividers; quick open with Ctrl+K or Cmd+K; "
@@ -55,63 +55,59 @@ CHAPTER = chapter(4, ("Mad3oom Workspace", "Mad3oom Workspace"),
           "لوحات للمعرفة والتقارير. صُمِّم السجل ليقبل أنواعًا جديدة دون تعديل محرك التخطيط."),
          ("{{P}}", "{{P}}")],
         [("**Adaptive organization**", "**تنظيم تكيّفي**"),
-         ("Named layouts for recurring tasks and context shared across panels beyond refresh hints.",
-          "تخطيطات مسمّاة للمهام المتكررة وسياق مشترك بين اللوحات يتجاوز تلميحات التحديث."),
+         ("Named layouts for recurring tasks and context shared across panels.",
+          "تخطيطات مسمّاة للمهام المتكررة وسياق مشترك بين اللوحات."),
          ("{{F}}", "{{F}}")],
     ], widths=[26, 56, 18], cls="compact",
         caption=("Workspace capabilities by stage. A row with no capability name continues the row above.",
                  "إمكانات Workspace بحسب المرحلة. الصف الخالي من اسم الإمكانية يكمل الصف الذي يسبقه.")),
 
     H2("How it is built", "كيف بُني"),
-    P("The inbox and tickets pages own global state and fixed element identifiers, so they cannot be mounted twice in one page. "
-      "Rewriting roughly 3,600 lines of tested helpdesk code was ruled out. Workspace therefore **hosts the existing pages** in "
-      "frames running in an embed mode, which removes the surrounding chrome and narrows each page to one record. "
-      "A tab behaves like a browser tab of that page, with the page's own logic, access checks and live updates intact.",
-      "تملك صفحتا الصندوق والتذاكر حالة عامة ومعرّفات عناصر ثابتة، فلا يمكن تركيب أي منهما مرتين في صفحة واحدة. واستُبعدت إعادة كتابة "
-      "نحو 3,600 سطر من شيفرة الدعم المختبَرة. لذلك **يستضيف Workspace الصفحات القائمة** في إطارات تعمل بوضع تضمين "
-      "يزيل ما حولها من عناصر ويقصر كل صفحة على سجل واحد. فيعمل التبويب كأنه تبويب متصفح لتلك الصفحة، مع بقاء منطقها وفحوص الوصول "
-      "والتحديثات الحية فيها كما هي."),
-    FIG("workspace", ("The Workspace model. A shell arranges tabs and split groups; each panel is an existing page in embed mode. The three "
+    P("The inbox and tickets pages are built to run once per page, and rewriting the tested helpdesk code was ruled out. "
+      "Workspace therefore **hosts the existing pages** as panels, each keeping its own logic, access rules and live updates. "
+      "A tab behaves like a browser tab of that page.",
+      "صُمِّمت صفحتا الصندوق والتذاكر لتعمل كلٌّ منهما مرة واحدة في الصفحة، واستُبعدت إعادة كتابة شيفرة الدعم المختبَرة. "
+      "لذلك **يستضيف Workspace الصفحات القائمة** بوصفها لوحات، تحتفظ كلٌّ منها بمنطقها وقواعد الوصول فيها وتحديثاتها الحية. "
+      "فيعمل التبويب كأنه تبويب متصفح لتلك الصفحة."),
+    FIG("workspace", ("The Workspace model. A shell arranges tabs and split groups; each panel is an existing page. The three "
                       "supporting parts are shown below the window. The window is illustrative, not a screenshot.",
-                      "نموذج Workspace. يرتّب غلافٌ التبويبات والمجموعات المقسَّمة؛ وكل لوحة صفحة قائمة بوضع التضمين. وتظهر الأجزاء الثلاثة "
+                      "نموذج Workspace. يرتّب غلافٌ التبويبات والمجموعات المقسَّمة؛ وكل لوحة صفحة قائمة. وتظهر الأجزاء الثلاثة "
                       "الداعمة تحت النافذة. والنافذة توضيحية وليست لقطة شاشة.")),
-    UL(("**Positioned frames.** Frames are placed over the area of the group that shows them rather than moved in the page structure, "
-        "because moving a frame would reload it and discard an unsent reply.",
-        "**إطارات موضوعة بالإحداثيات.** توضع الإطارات فوق منطقة المجموعة التي تعرضها بدلًا من نقلها في بنية الصفحة، لأن نقل الإطار "
-        "يعيد تحميله ويُسقط ردًا غير مرسل."),
+    UL(("**Positioned panels.** Hosted pages are placed over the area of the group that shows them rather than moved in the page "
+        "structure, because moving a hosted page would reload it and discard an unsent reply.",
+        "**لوحات موضوعة بالإحداثيات.** توضع الصفحات المستضافة فوق منطقة المجموعة التي تعرضها بدلًا من نقلها في بنية الصفحة، لأن نقل "
+        "الصفحة المستضافة يعيد تحميلها ويُسقط ردًا غير مرسل."),
        ("**A pure layout model.** Tabs, groups and splits are described by plain data and pure functions, tested without a browser. "
-        "Edges are logical (start and end), so right-to-left is correct by construction. Limits: 40 panels, 12 groups, depth 6.",
+        "Edges are logical (start and end), so right-to-left is correct by construction. Limits on the number of panels, groups and nesting depth keep layouts bounded.",
         "**نموذج تخطيط خالص.** تُوصَف التبويبات والمجموعات والتقسيمات ببيانات بسيطة ودوال خالصة تُختبر دون متصفح. والحواف منطقية "
-        "(بداية ونهاية)، فيصح اتجاه اليمين-يسار بحكم البناء. الحدود: 40 لوحة و12 مجموعة وعمق 6."),
+        "(بداية ونهاية)، فيصح اتجاه اليمين-يسار بحكم البناء. وتُبقي حدودٌ لعدد اللوحات والمجموعات وعمق التداخل التخطيطاتِ ضمن نطاق محدود."),
        ("**A panel registry.** A registry of allowed panel types validates their parameters.",
         "**سجل للوحات.** سجل بأنواع اللوحات المسموحة يتحقق من معاملاتها."),
-       ("**A message bridge.** Messages between the shell and hosted pages follow a small, fixed protocol: the page title, a flag for "
-        "unsent work, and a request to open a related record.",
-        "**جسر رسائل.** تتبع الرسائل بين الغلاف والصفحات المستضافة بروتوكولًا صغيرًا ثابتًا: عنوان الصفحة، وعلامة العمل غير المرسل، "
-        "وطلب فتح سجل مرتبط.")),
+       ("**A message bridge.** The shell and hosted pages exchange titles and unsaved-work state through a small, fixed protocol.",
+        "**جسر رسائل.** يتبادل الغلاف والصفحات المستضافة العناوين وحالة العمل غير المحفوظ عبر بروتوكول صغير ثابت.")),
 
     H2("Integrity and access rules", "قواعد السلامة والوصول"),
     P("Workspace is designed to follow these rules.",
       "صُمِّم Workspace ليلتزم بهذه القواعد."),
-    UL(("Moving, docking or splitting a tab never reloads or recreates its frame.",
-        "نقل التبويب أو تثبيته أو تقسيمه لا يعيد تحميل إطاره ولا ينشئه من جديد."),
-       ("Closing a tab, closing others, resetting the layout or leaving the page checks for unsent work first. The cap on live frames never unloads a panel that holds unsent work.",
-        "إغلاق تبويب أو بقية التبويبات أو إعادة ضبط التخطيط أو مغادرة الصفحة يفحص أولًا وجود عمل غير مرسل. والحد الأقصى للإطارات الحية لا يُفرغ لوحةً تحمل عملًا غير مرسل."),
-       ("Workspace does not call a write operation itself. Every write happens inside the hosted page, so the shell does not duplicate a submission.",
-        "لا يستدعي Workspace بنفسه أي عملية كتابة. فكل كتابة تجري داخل الصفحة المستضافة، فلا يكرر الغلاف أي إرسال."),
+    UL(("Moving, docking or splitting a tab never reloads or recreates its hosted page.",
+        "نقل التبويب أو تثبيته أو تقسيمه لا يعيد تحميل صفحته المستضافة ولا ينشئها من جديد."),
+       ("Closing a tab, closing others, resetting the layout or leaving the page checks for unsent work first. The cap on live panels never unloads a panel that holds unsent work.",
+        "إغلاق تبويب أو بقية التبويبات أو إعادة ضبط التخطيط أو مغادرة الصفحة يفحص أولًا وجود عمل غير مرسل. والحد الأقصى للوحات الحية لا يُفرغ لوحةً تحمل عملًا غير مرسل."),
+       ("Workspace does not submit support actions itself. Replies, ticket changes and other support writes happen inside the hosted page, so the shell does not duplicate a submission.",
+        "لا يُجري Workspace بنفسه أي إجراء من إجراءات الدعم؛ فالردود وتعديلات التذاكر وسائر عمليات الكتابة في الدعم تجري داخل الصفحة المستضافة، فلا يكرر الغلاف أي إرسال."),
        ("Saved layouts are validated, and each record panel is checked against the user's own access before it opens; a record that is no longer visible appears as an unavailable tab.",
         "يُتحقَّق من التخطيطات المحفوظة، وتُفحص كل لوحة سجل مقابل صلاحيات المستخدم نفسه قبل فتحها؛ والسجل الذي لم يعد مرئيًا يظهر تبويبًا غير متاح."),
        ("A saved layout contains only panel types and record identifiers, never names, email addresses or message text.",
         "لا يحتوي التخطيط المحفوظ إلا أنواع اللوحات ومعرّفات السجلات، ولا يحتوي أسماء أو عناوين بريد أو نصوص رسائل."),
-       ("If saving fails, Workspace keeps working with the in-memory layout, and every page remains usable at its own address.",
-        "إذا تعذّر الحفظ يواصل Workspace العمل بالتخطيط في الذاكرة، وتبقى كل صفحة صالحة للاستخدام على عنوانها الخاص.")),
+       ("If saving fails, Workspace keeps working with the in-memory layout, and every page remains usable on its own.",
+        "إذا تعذّر الحفظ يواصل Workspace العمل بالتخطيط في الذاكرة، وتبقى كل صفحة صالحة للاستخدام بمفردها.")),
 
     H2("Engineering evidence and limits", "الأدلة الهندسية والحدود"),
     TABLE([("Check (repository, 9 October 2026)", "الفحص (المستودع، 9 أكتوبر 2026)"), ("Result", "النتيجة")], [
         [("Layout engine unit tests", "اختبارات الوحدة لمحرك التخطيط"), ("28 of 28 pass", "نجح 28 من 28")],
-        [("Chromium render tests of the real page code on test doubles", "اختبارات عرض في Chromium لشيفرة الصفحة الفعلية على بدائل اختبارية"), ("21 of 21 pass", "نجح 21 من 21")],
-        [("Size of the whole workspace", "حجم Workspace كاملًا"), ("about 46 KB compressed, 13 files, no new dependency", "نحو 46 كيلوبايت مضغوطًا، 13 ملفًا، دون اعتماديات جديدة")],
-        [("Layout operations at the limit (40 panels)", "عمليات التخطيط عند الحد الأقصى (40 لوحة)"), ("under 1 ms each in Node", "أقل من 1 ميلي ثانية لكل عملية في Node")],
+        [("Chromium render tests of the real page code on test doubles", "اختبارات عرض في Chromium لشيفرة الصفحة الفعلية على بدائل اختبارية"), ("22 of 22 pass", "نجح 22 من 22")],
+        [("Size of the whole workspace", "حجم Workspace كاملًا"), ("about 46 KB compressed, no new dependency", "نحو 46 كيلوبايت مضغوطًا، دون اعتماديات جديدة")],
+        [("Layout operations at the panel limit", "عمليات التخطيط عند الحد الأقصى للوحات"), ("under 1 ms each in Node", "أقل من 1 ميلي ثانية لكل عملية في Node")],
         [("Re-render on tab switch, typical layout (6 tabs)", "إعادة الرسم عند تبديل التبويب، تخطيط نموذجي (6 تبويبات)"), ("median about 9 ms in headless Chromium", "وسيط نحو 9 ميلي ثانية في Chromium بلا واجهة")],
     ], widths=[62, 38], cls="compact",
         caption=("Development-environment checks. They show that the design works as specified; they say nothing about how Workspace performs for agents on production data.",

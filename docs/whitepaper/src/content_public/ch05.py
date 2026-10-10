@@ -57,14 +57,14 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
     TABLE([("Concept", "المفهوم"), ("What exists or is intended", "ما هو قائم أو مقصود"), ("Stage", "المرحلة")], [
         [("**Tracking follow-ups and outstanding actions**", "**تتبّع المتابعات والإجراءات المعلّقة**"),
          ("Follow-up and issue records with a lifecycle (open, scheduled, in progress, waiting, resolved, cancelled), a next action, "
-          "a priority and a category; a filterable list; creation from selected inbox messages through a three-step dialog, or by hand.",
+          "a priority and a category; a filterable list; creation from selected inbox messages through a three-step dialog.",
           "سجلات متابعة ومشكلات ذات دورة حياة (مفتوح، مجدول، قيد المعالجة، بانتظار، تمت المعالجة، مُلغى)، وإجراء تالٍ وأولوية وفئة؛ "
-          "وقائمة قابلة للتصفية؛ والإنشاء من رسائل مختارة في الصندوق عبر حوار من ثلاث خطوات، أو يدويًا."),
+          "وقائمة قابلة للتصفية؛ والإنشاء من رسائل مختارة في الصندوق عبر حوار من ثلاث خطوات."),
          ("{{E}}", "{{E}}")],
         [("**Preserving context through summaries**", "**حفظ السياق عبر الملخصات**"),
-         ("Each record holds a summary written by the person who creates it and cites its source messages. Excerpts are shown only to "
+         ("Each record can hold a summary written by the person who creates it, and cites its source messages. Excerpts are shown only to "
           "people who still have access to the original conversation. Automatic summarization is not implemented.",
-          "يحمل كل سجل ملخصًا يكتبه من ينشئه ويستشهد برسائله المصدرية. ولا تُعرض المقتطفات إلا لمن ما زال لديه حق الوصول إلى "
+          "يمكن أن يحمل كل سجل ملخصًا يكتبه من ينشئه، ويستشهد برسائله المصدرية. ولا تُعرض المقتطفات إلا لمن ما زال لديه حق الوصول إلى "
           "المحادثة الأصلية. أما التلخيص الآلي فغير منفَّذ."),
          ("{{E}}", "{{E}}")],
         [("", ""),
@@ -72,10 +72,8 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
           "استخراج مساعَد للعناوين والتواريخ والإجراءات التالية، مع بقاء كل اقتراح قابلًا للتعديل ودون تأكيد آلي."),
          ("{{F}}", "{{F}}")],
         [("**Clarifying ownership**", "**توضيح المسؤولية**"),
-         ("One owner field; unassigned work is flagged. Assigning work to others is a controlled permission: supervisors and staff who have been "
-          "explicitly granted it may do so, and an owner without it can only take a record or release it.",
-          "حقل مسؤول واحد؛ ويُشار إلى العمل غير المسند. والإسناد إلى الآخرين صلاحية خاضعة للضبط: يجوز للمشرفين ولمن مُنحها صراحةً "
-          "أن يسندوا العمل، أما المسؤول الذي لا يملكها فله أن يتولى السجل أو يتخلى عنه فقط."),
+         ("One owner field; unassigned work is flagged. Assigning work to others is a controlled permission granted explicitly; it is not a default.",
+          "حقل مسؤول واحد؛ ويُشار إلى العمل غير المسند. والإسناد إلى الآخرين صلاحية خاضعة للضبط تُمنح صراحةً، وليست وضعًا افتراضيًا."),
          ("{{E}}", "{{E}}")],
         [("**Supporting handoffs**", "**دعم التسليم**"),
          ("Reassignment under the rules above, with a history of every change.", "إعادة إسناد وفق القواعد أعلاه، مع سجل لكل تغيير."),
@@ -111,16 +109,16 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
       "These rules are designed to be enforced in the database layer and are exercised by automated tests.",
       "تنسخ Relay جزءًا صغيرًا من محادثة العميل إلى موضع آخر، ولذلك يعامل تصميمها هذه النسخة بحذر. وهذه القواعد مصمَّمة لتُفرَض في "
       "طبقة قاعدة البيانات وتُجرى عليها اختبارات آلية."),
-    UL(("**Minimal capture.** Only the messages the user selects are stored, up to 4,000 characters per source.",
-        "**التقاط أدنى.** لا تُخزَّن إلا الرسائل التي يحدّدها المستخدم، بحد أقصى 4,000 حرف للمصدر الواحد."),
+    UL(("**Minimal capture.** Only the messages the user selects are stored, within a bounded size.",
+        "**التقاط أدنى.** لا تُخزَّن إلا الرسائل التي يحدّدها المستخدم، وضمن حجم محدود."),
        ("**Access follows the conversation.** An excerpt is shown only to someone who has access to the record and who still has access to the "
         "original conversation.",
         "**الوصول يتبع المحادثة.** لا يُعرض المقتطف إلا لمن له حق الوصول إلى السجل ولا يزال له حق الوصول إلى المحادثة الأصلية."),
-       ("**Retention and redaction.** Excerpts are hidden 365 days after a record is closed and then redacted by a scheduled process. "
-        "Redaction cannot be undone.",
-        "**الاحتفاظ والمحو.** تُخفى المقتطفات بعد 365 يومًا من إغلاق السجل ثم تُمحى بعملية مجدولة. ولا رجعة في المحو."),
-       ("**Sensitive content.** Content that looks sensitive needs an explicit acknowledgement before it is saved.",
-        "**المحتوى الحساس.** المحتوى الذي يبدو حساسًا يتطلب إقرارًا صريحًا قبل حفظه."),
+       ("**Retention and redaction.** Excerpts are hidden a defined period after a record is closed and are then redacted "
+        "irreversibly.",
+        "**الاحتفاظ والمحو.** تُخفى المقتطفات بعد مدة محددة من إغلاق السجل ثم تُمحى محوًا لا رجعة فيه."),
+       ("**Sensitive content.** Captured messages that look sensitive need an explicit acknowledgement before they are saved.",
+        "**المحتوى الحساس.** الرسائل الملتقطة التي تبدو حساسة تتطلب إقرارًا صريحًا قبل حفظها."),
        ("**History without content.** Audit events are designed to hold identifiers and changes, not excerpt text or free-text values, so "
         "content can be removed without breaking the history.",
         "**تاريخ بلا محتوى.** صُمِّمت أحداث التدقيق لتحمل المعرّفات والتغييرات لا نص المقتطف ولا القيم النصية الحرة، "
@@ -129,7 +127,7 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
         "**السلة والاسترجاع.** يذهب المصدر المُزال إلى سلة ويمكن استرجاعه. وهذه الإمكانية قيد التطوير.")),
 
     H2("Stage and limits", "المرحلة والحدود"),
-    TABLE([("Phase", "المرحلة"), ("Content", "المحتوى"), ("Stage", "الحالة")], [
+    TABLE([("Phase", "الطور"), ("Content", "المحتوى"), ("Stage", "المرحلة")], [
         [("Core persistence and access rules", "الحفظ الأساسي وقواعد الوصول"),
          ("Records, sources, snapshots, events, ownership rules, retention.",
           "السجلات والمصادر واللقطات والأحداث وقواعد المسؤولية والاحتفاظ."),
@@ -161,9 +159,9 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
          "measures intended to show its value (records created per source, share of active records with an owner and a next action, overdue "
          "count and age, handover acceptance time, reminders delivered against failed) are defined but not yet reported, so this paper makes no "
          "claim about how much it reduces missed requests.",
-         "تقتصر Relay حاليًا على صندوق الدعم الخاص بالمنصة ولطاقم المنصة؛ ومساحات الشركات غير مدعومة بعدُ. وهي غير "
+         "تقتصر Relay حاليًا على صندوق الدعم الخاص بالمنصة وعلى طاقم المنصة؛ ومساحات الشركات غير مدعومة بعدُ. وهي غير "
          "مرتبطة بعدُ بالتذاكر ولا بلوحات Workspace ولا بـ SIE. ولا ترسل تذكيرات، ولا تنتج ملخصات آلية. والمقاييس المقصودة لإثبات "
          "قيمتها (السجلات المنشأة لكل مصدر، ونسبة السجلات النشطة التي لها مسؤول وإجراء تالٍ، وعدد المتأخر وعمره، وزمن قبول التسليم، "
-         "والتذكيرات المرسلة مقابل الفاشلة) معرَّفة لكنها لم تُرصد بعد، فلا تقدّم هذه الورقة ادعاءً بمدى تقليلها للطلبات الفائتة.",
+         "والتذكيرات المُسلَّمة مقابل الفاشلة) معرَّفة لكن لم يُبلَّغ عنها بعد، فلا تقدّم هذه الورقة ادعاءً بمدى تقليلها للطلبات الفائتة.",
          kind="limit"),
 ])
