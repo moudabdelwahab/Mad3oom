@@ -129,8 +129,8 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
     H2("Where SIE runs", "أين يعمل SIE"),
     P("SIE runs server-side behind the website chat and the Telegram channel, reached through a shared adapter layer ({{ch7}}). "
       "It is offered in editions that differ in scenario coverage, and administrators set its behavior through a settings schema. "
-      "Its operation is pre-launch and at limited volume.",
+      "It is pre-launch.",
       "يعمل SIE في جهة الخادم خلف محادثة الموقع وقناة تيليجرام، وتصل إليه القنوات عبر طبقة محوِّلات مشتركة ({{ch7}}). "
-      "ويُقدَّم في إصدارات تتفاوت في تغطية السيناريوهات، ويضبط المسؤولون سلوكه عبر مخطط إعدادات. وتشغيله في مرحلة ما قبل الإطلاق "
-      "وبحجم محدود."),
+      "ويُقدَّم في إصدارات تتفاوت في تغطية السيناريوهات، ويضبط المسؤولون سلوكه عبر مخطط إعدادات. وهو في مرحلة ما قبل "
+      "الإطلاق."),
 ])

@@ -17,9 +17,9 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
         "This is designed so that a stranger who finds the bot cannot consume a paying customer's allowance.",
         "**الهوية قبل الإنفاق.** يربط رمز لمرة واحدة ومحدود الصلاحية حساب المراسلة بحساب في المنصة قبل أن يرد المحرك. "
         "وقد صُمّم ذلك بحيث لا يستطيع غريب وجد الروبوت أن يستهلك حصة عميل مدفوعة."),
-       ("**Verify and de-duplicate before cost.** Each adapter is designed to verify requests from its provider and to detect duplicate "
-        "deliveries before anything is charged.",
-        "**التحقق وإزالة التكرار قبل التكلفة.** صُمّم كل محوِّل ليتحقق من الطلبات الواردة من مزوّده وليكتشف عمليات التسليم المكررة قبل احتساب أي رسوم."),
+       ("**Verify and de-duplicate before cost.** Verifying incoming requests and recognizing duplicate deliveries are duties of each adapter, "
+        "performed before anything is charged.",
+        "**التحقق وإزالة التكرار قبل التكلفة.** التحقق من الطلبات الواردة والتعرّف إلى عمليات التسليم المكررة من مهام كل محوِّل، وتجري قبل احتساب أي رسوم."),
        ("**Open, standard interfaces.** OAuth 2.1, the Model Context Protocol and token-based APIs, rather than private conventions.",
         "**واجهات مفتوحة وقياسية.** OAuth 2.1 وبروتوكول سياق النموذج MCP وواجهات قائمة على الرموز، بدل اصطلاحات خاصة.")),
 
@@ -64,9 +64,9 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "يعرف المزوّد أو الرموز أو قاعدة البيانات؛ وتميّز مفاتيحها بين الاختبار والتشغيل، ويمكن إبطالها."),
          ("{{E}}", "{{E}}")],
         [("**Event-driven work**", "**العمل المدفوع بالأحداث**"),
-         ("Database triggers and scheduled jobs produce notifications, email, SLA checks, retention jobs and scheduled replies; an automation "
+         ("Background and scheduled jobs produce notifications, email, SLA checks and scheduled replies; an automation "
           "builder runs rules when tickets are created; outgoing webhooks notify other systems.",
-          "تنتج المحفِّزات والمهام المجدولة في قاعدة البيانات الإشعارات والبريد وفحوص SLA ومهام الاحتفاظ والردود المجدولة؛ ويشغّل منشئ أتمتة "
+          "تنتج المهام الخلفية والمجدولة الإشعارات والبريد وفحوص SLA والردود المجدولة؛ ويشغّل منشئ أتمتة "
           "قواعد عند إنشاء التذاكر؛ وتبلّغ ويب هوك صادرة الأنظمة الأخرى."),
          ("{{E}}", "{{E}}")],
         [("**Relay API and browser capture**", "**واجهة Relay والالتقاط من المتصفح**"),
@@ -89,10 +89,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
       "ثلاثة أسئلة منفصلة يسهل الخلط بينها، ولذلك تُفصل هنا."),
     TABLE([("Question", "السؤال"), ("What the evidence says", "ما تقوله الأدلة"), ("Stage", "المرحلة")], [
         [("**1. Integration engineering work that exists**", "**1. أعمال هندسة التكامل القائمة**"),
-         ("A separate WhatsApp module with its own web application and Edge Functions. It connects a business number through Meta's Embedded Signup, "
+         ("A separate WhatsApp module with its own application. It connects a business number through Meta's Embedded Signup, "
           "verifies requests from Meta, stores each inbound message once, runs auto-reply flows that stop when "
           "a human takes over, and charges template messages against a prepaid wallet. Contract tests cover request verification, provisioning and the integration API.",
-          "وحدة واتساب مستقلة بتطبيق ويب ودوال Edge Functions خاصة بها. تربط رقمًا تجاريًا عبر Embedded Signup من Meta، "
+          "وحدة واتساب مستقلة بتطبيق خاص بها. تربط رقمًا تجاريًا عبر Embedded Signup من Meta، "
           "وتتحقق من الطلبات الواردة من Meta، وتخزّن كل رسالة واردة مرة واحدة، وتشغّل مسارات رد آلي تتوقف حين "
           "يستلم إنسان المحادثة، وتحاسب رسائل القوالب من محفظة مدفوعة مسبقًا. وتغطي اختبارات العقود التحقق من الطلبات والتهيئة وواجهة التكامل."),
          ("{{D}}", "{{D}}")],

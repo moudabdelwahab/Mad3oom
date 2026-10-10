@@ -92,11 +92,9 @@ CHAPTER = chapter(1, ("Executive Summary", "الملخص التنفيذي"),
 
     H2("Where the project stands", "أين يقف المشروع اليوم"),
     NOTE("Mad3oom has not launched. The paper describes foundations that exist in the code, work that is under way and "
-         "directions that are planned. Security, privacy and operability hardening continue alongside feature work and are a "
-         "condition of general availability; a controlled pilot is the intended first step. No customer deployments, "
+         "directions that are planned. A controlled pilot is the intended first step. No customer deployments, "
          "benchmarks of real-world accuracy or security certifications are claimed.",
-         "لم تُطلَق مدعوم بعد. تصف الورقة أسسًا قائمة في الشيفرة، وأعمالًا جارية، واتجاهات مخطَّطة. ويتواصل تعزيز الأمن والخصوصية "
-         "وقابلية التشغيل جنبًا إلى جنب مع تطوير الميزات، وهو شرط للإتاحة العامة؛ والخطوة الأولى المقصودة تجربة تشغيلية "
+         "لم تُطلَق مدعوم بعد. تصف الورقة أسسًا قائمة في الشيفرة، وأعمالًا جارية، واتجاهات مخطَّطة. والخطوة الأولى المقصودة تجربة تشغيلية "
          "محدودة. ولا يُدَّعى هنا وجود عمليات نشر لدى عملاء ولا قياسات لدقة الأداء في الواقع ولا شهادات أمنية.",
          kind="limit", title=("Stage of the project", "مرحلة المشروع")),
 ])

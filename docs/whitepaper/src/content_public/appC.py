@@ -5,11 +5,8 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
      "كيف جرى إثبات العبارات الواردة في هذه الورقة، وما الذي لم يجرِ التحقق منه. فمصداقية الورقة البيضاء بقدر أدلتها."),
     [
     H2("Sources reviewed", "المصادر التي روجعت"),
-    UL(("The source code and engineering documents of three repositories: the Mad3oom platform, the SIE engine and the WhatsApp module, as they stood on 9 October 2026.",
-        "الشيفرة المصدرية والوثائق الهندسية لثلاثة مستودعات: منصة Mad3oom ومحرك SIE ووحدة واتساب، كما كانت في 9 أكتوبر 2026."),
-       ("Design documents, architecture and implementation records and installation notes.",
-        "وثائق التصميم وسجلات المعمارية والتنفيذ وملاحظات التثبيت."),
-       ("Database migrations, rollback scripts and the automated tests in each repository.", "ترحيلات قاعدة البيانات وسكربتات التراجع والاختبارات الآلية في كل مستودع.")),
+    UL(("The project's source code, engineering documentation and automated tests, as they stood on 9 October 2026.",
+        "الشيفرة المصدرية للمشروع ووثائقه الهندسية واختباراته الآلية، كما كانت في 9 أكتوبر 2026.")),
 
     H2("Method", "المنهج"),
     UL(("Statements about what exists rest on the code and on the engineering records.",
@@ -41,8 +38,8 @@ CHAPTER = appendix("C", ("Basis of Preparation and Limitations", "أساس ال�
         "لا يُعرض نجاح الاختبارات الآلية دليلًا على الموثوقية في الإنتاج."),
        ("No competitor is named and no superiority is claimed. No credentials, customer data or exploitable security detail is included.",
         "لا يُسمَّى منافس ولا يُدَّعى تفوّق. ولا تُدرج بيانات اعتماد ولا بيانات عملاء ولا تفاصيل أمنية يمكن استغلالها."),
-       ("This public edition omits operational and implementation detail that could weaken the platform's security.",
-        "تُغفل هذه النسخة العامة التفاصيل التشغيلية والتنفيذية التي قد تُضعف أمن المنصة.")),
+       ("This public edition describes the platform at a conceptual level and does not publish operational or implementation detail.",
+        "تصف هذه النسخة العامة المنصة على المستوى المفاهيمي، ولا تنشر تفاصيل تشغيلية أو تنفيذية.")),
 
     H2("Document history", "سجل الوثيقة"),
     TABLE([("Version", "الإصدار"), ("Date", "التاريخ"), ("Note", "ملاحظة")], [

@@ -51,11 +51,10 @@ INFO = Chapter(
              "market share, security certifications, partnerships or measured real-world accuracy, because none are "
              "documented. See {{appC}} for the evidence basis. This public edition describes product capabilities, "
              "architecture at a conceptual level and security principles, and does not publish operational or "
-             "implementation detail that could weaken the platform's security.",
+             "implementation detail.",
              "العبارات المتعلقة بالمستقبل نوايا تعتمد على التحقق التقني وعلى أولويات العمل، وليست التزامات، ولا تتضمن الورقة "
              "مواعيد تسليم. ولا تورد الورقة أعداد عملاء ولا إيرادات ولا حصصًا سوقية ولا شهادات أمنية ولا شراكات ولا قياسات "
              "لدقة الأداء في الواقع، لأن شيئًا من ذلك غير موثَّق. وللاطلاع على أساس الأدلة انظر {{appC}}. وتعرض هذه النسخة العامة "
-             "إمكانيات المنتج والمعمارية على المستوى المفاهيمي ومبادئ الأمن، ولا تنشر تفاصيل تشغيلية أو تنفيذية يمكن أن تُضعف "
-             "أمن المنصة.",
+             "إمكانيات المنتج والمعمارية على المستوى المفاهيمي ومبادئ الأمن، ولا تنشر تفاصيل تشغيلية أو تنفيذية.",
              kind="limit", title=("Notice", "تنويه")),
     ])

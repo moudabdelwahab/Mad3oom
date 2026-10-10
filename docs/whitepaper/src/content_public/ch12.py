@@ -18,11 +18,11 @@ CHAPTER = chapter(12, ("Conclusion", "الخاتمة"),
       "ومختبَرة. أما التسليم والتذكيرات والإجابات المرتكزة على المعرفة والقنوات الإضافية والواجهات الخارجية فما زالت قادمة، والمنصة لم تُطلَق بعد. "
       "وقد أبقت الورقة هذين البيانين جنبًا إلى جنب، لأن الاتجاه الموثوق يتوقف على الدقة في وصف نقطة الانطلاق."),
     P("The direction is consistent. Structure comes first, then context, then accountability, then intelligence, each added in a controlled way. "
-      "The intended path is to validate the design in a controlled pilot before open availability, with security and operability hardening "
-      "accompanying every new capability. This paper reports no result that has not been measured, and later editions should hold "
+      "The intended path is to validate the design in a controlled pilot before open availability, with security and operability "
+      "treated as part of every new capability. This paper reports no result that has not been measured, and later editions should hold "
       "to the same rule.",
       "الاتجاه متسق: البنية أولًا، ثم السياق، ثم المساءلة، ثم الذكاء، تُضاف كلٌّ منها بصورة منضبطة. والمسار المقصود هو التحقق من "
-      "التصميم في تجربة تشغيلية محدودة قبل الإتاحة المفتوحة، على أن يرافق تعزيزُ الأمان وقابلية التشغيل كل إمكانية جديدة. "
+      "التصميم في تجربة تشغيلية محدودة قبل الإتاحة المفتوحة، على أن يكون الأمان وقابلية التشغيل جزءًا من كل إمكانية جديدة. "
       "ولا تورد هذه الورقة نتيجة لم تُقَس، وينبغي أن تلتزم الإصدارات اللاحقة بالقاعدة نفسها."),
     P("No business outcome is guaranteed. What the platform can credibly offer is a disciplined architecture, honest reporting of its own status, "
       "and steady progress along the roadmap.",

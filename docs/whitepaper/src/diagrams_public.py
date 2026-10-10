@@ -204,7 +204,7 @@ def fig_connectivity(lang):
     ch(("API tokens · integration API", "رموز API · واجهة التكامل"), "E")))}
  {col(("Event-driven work", "العمل المدفوع بالأحداث"), stack(
     ch(("Background and scheduled jobs", "المهام الخلفية والمجدولة"), "E", ("notifications, email, SLA checks", "إشعارات وبريد وفحوص SLA")),
-    ch(("Outbox with retries", "صندوق صادر مع إعادة المحاولة"), "R")))}
+    ch(("Outgoing webhooks", "ويب هوك صادرة"), "E", ("notify other systems", "تبلّغ الأنظمة الأخرى"))))}
  {col(("Future connectors", "موصِّلات مستقبلية"), stack(
     ch(("Browser capture for Relay", "التقاط من المتصفح لـ Relay"), "P"),
     ch(("Voice channels", "القنوات الصوتية"), "F")))}
@@ -256,7 +256,7 @@ def fig_roadmap(lang):
             ("SIE refinement and extension", "تحسين SIE وتوسيعه"),
             ("Relay trash and restore", "سلة محذوفات Relay واستعادتها"),
             ("Workspace server-side layouts", "تخطيطات Workspace على الخادم"),
-            ("Conversation Core: in development", "نواة المحادثات: قيد التطوير")]),
+            ("Unified conversation core", "نواة محادثات موحَّدة")]),
         "c3": (("3 · Planned capabilities", "3 · الإمكانات المخطَّطة"), [
             ("Relay handovers with acceptance", "تسليمات Relay مع القبول"),
             ("Relay reminders, escalation, monitor", "تذكيرات Relay والتصعيد ولوحة المتابعة"),

@@ -13,16 +13,14 @@ There are two kinds of edition, kept in separate source trees and separate outpu
 | `public/Mad3oom_White_Paper_EG.pdf` | Egyptian colloquial Arabic (العامية المصرية), fully right-to-left | A complete, standalone edition built from the public content, not a summary |
 
 The public editions describe product capabilities, architecture at a conceptual level, security principles and verified
-claims. They deliberately do not publish internal engineering findings, the state of production, identifiers, or any
-inventory of unresolved weaknesses. Security descriptions are design objectives and safeguards that can be traced to the
+claims, and do not publish operational or implementation detail. Security descriptions are design objectives and safeguards that can be traced to the
 project; they are not guarantees and are not independently verified. The paper claims no certification, no compliance with
 any standard and no independent penetration test.
 
 ## Internal editions (restricted): the PDFs in this folder
 
-`Mad3oom_White_Paper_EN.pdf` and `Mad3oom_White_Paper_AR.pdf` are the **internal** editions. They are engineering records:
-they list internal gaps, review findings and production state. **They are not for distribution**, and they are kept
-unchanged. The default build never rewrites them (see below).
+`Mad3oom_White_Paper_EN.pdf` and `Mad3oom_White_Paper_AR.pdf` are the **internal** editions: restricted engineering records,
+**not for distribution**, kept unchanged. The default build never rewrites them (see below).
 
 > The internal editions and their sources (`src/content/`, `src/diagrams.py`) sit in the same repository as everything else.
 > If the repository is public, treat them as already disclosed and move them to a restricted location. The public editions
@@ -65,11 +63,9 @@ consistent with the chapters.
 
 ## Keeping the public edition public-safe
 
-Changes to `src/content_public/` and `src/diagrams_public.py` are published. Before merging a change, read the
-confidentiality rules for the public edition: nothing may describe a weakness, an internal review or audit outcome, a
-remediation task, the state of production or deployment, or an identifier or mechanism (table, function, route, flag,
-migration, how a check works), and no control may be described as complete, guaranteed or independently verified without
-evidence. `tests/whitepaper-public.test.mjs` guards the generic markers of internal-state wording.
+Changes to `src/content_public/` and `src/diagrams_public.py` are published. Keep them at the conceptual level: no
+operational or deployment detail, no identifiers or mechanisms, and no control described as complete, guaranteed or
+independently verified without evidence. `tests/whitepaper-public.test.mjs` guards the generic markers of internal-state wording.
 
 ## Arabic typography and text layer
 
