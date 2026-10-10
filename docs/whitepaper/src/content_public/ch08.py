@@ -1,0 +1,68 @@
+from lib import *
+
+CHAPTER = chapter(8, ("Technical Architecture", "المعمارية التقنية"),
+    ("Mad3oom is built from deliberately plain parts: web pages without a framework, a managed Postgres platform, and a decision engine without "
+     "dependencies. This chapter states what is verified and what principles shape it, at a conceptual level.",
+     "بُنيت مدعوم من أجزاء بسيطة عن قصد: صفحات ويب بلا إطار عمل، ومنصة Postgres مُدارة، ومحرك قرار بلا اعتماديات. ويبيّن هذا الفصل ما "
+     "جرى التحقق منه والمبادئ التي تشكّله، على مستوى مفاهيمي."),
+    [
+    H2("Verified technical context", "السياق التقني المُتحقَّق منه"),
+    TABLE([("Layer", "الطبقة"), ("What the repositories show", "ما تُظهره المستودعات")], [
+        [("**Frontend**", "**الواجهة**"),
+         ("Static HTML, CSS and JavaScript ES modules loaded directly by the browser, with no bundler and no framework; an Arabic-first, right-to-left interface with a language switch.",
+          "HTML وCSS ووحدات JavaScript من نوع ES ثابتة تُحمَّل مباشرة في المتصفح، بلا مُجمِّع ولا إطار عمل؛ وواجهة عربية الأولوية من اليمين إلى اليسار مع مفتاح للغة.")],
+        [("**Delivery**", "**النشر**"),
+         ("Static files served by Vercel.",
+          "ملفات ثابتة تقدّمها Vercel.")],
+        [("**Backend services**", "**الخدمات الخلفية**"),
+         ("Supabase, providing Postgres with row-level security, authentication, serverless Edge Functions, Realtime and scheduled jobs.",
+          "Supabase، وتوفّر قاعدة Postgres مع أمان على مستوى الصفوف، والمصادقة، ودوال Edge Functions بلا خوادم، وRealtime، ومهامّ مجدولة.")],
+        [("**Intelligence**", "**الذكاء**"),
+         ("SIE lives in its own repository as ES modules with no npm dependencies and runs on the backend platform. An AI gateway with a multi-provider registry serves other AI features.",
+          "يقيم SIE في مستودعه الخاص وحداتِ ES بلا اعتماديات npm، ويعمل على المنصة الخلفية. وتخدم بوابة ذكاء اصطناعي ذات سجل متعدد المزوّدين ميزات الذكاء الاصطناعي الأخرى.")],
+        [("**Repositories**", "**المستودعات**"),
+         ("Three: the platform, the SIE engine, and the WhatsApp module.", "ثلاثة: المنصة، ومحرك SIE، ووحدة واتساب.")],
+        [("**Quality tooling**", "**أدوات الجودة**"),
+         ("Continuous integration runs the platform's and the engine's test suites, and code scanning runs on the platform. The platform's checks include database tests of access rules on a real Postgres instance and browser render tests; the SIE repository had 1,264 passing tests on 9 October 2026.",
+          "يشغّل التكامل المستمر مجموعتَي اختبارات المنصة والمحرك، ويعمل فحص الشيفرة على المنصة. وتشمل فحوص المنصة اختبارات قاعدة بيانات لقواعد الوصول على Postgres حقيقية واختبارات عرض في المتصفح؛ وكان لمستودع SIE 1,264 اختبارًا ناجحًا في 9 أكتوبر 2026.")],
+    ], widths=[20, 80], cls="compact",
+        caption=("Technical context as documented in the repositories on 9 October 2026.", "السياق التقني كما توثّقه المستودعات في 9 أكتوبر 2026.")),
+
+    H2("Conceptual architecture", "المعمارية المفاهيمية"),
+    FIG("architecture", ("A conceptual overview of the layers. It is not a deployment, network or data-flow diagram, and it omits services that are not documented well enough to draw.",
+                         "نظرة مفاهيمية على الطبقات. وهي ليست مخطط نشر ولا شبكة ولا تدفق بيانات، وتُغفل خدمات لا يتوافر لها توثيق كافٍ لرسمها.")),
+
+    H2("Principles at work", "المبادئ قيد العمل"),
+    TABLE([("Principle", "المبدأ"), ("How it appears today", "كيف يظهر اليوم"), ("Stage", "المرحلة")], [
+        [("**Modularity**", "**النمطية**"),
+         ("Newer frontend features are split into pure model modules, data modules and views. The engine is layered with provider interfaces. Workspace panels are registered, not hard-wired.",
+          "تُقسَّم ميزات الواجهة الأحدث إلى وحدات نموذج خالصة ووحدات بيانات وعروض. والمحرك متعدد الطبقات بواجهات مزوّدين. واللوحات في Workspace تُسجَّل في سجل خاص ولا تُثبَّت مباشرة في الشيفرة."),
+         ("{{E}}", "{{E}}")],
+        [("**Clear interfaces**", "**واجهات واضحة**"),
+         ("Channel adapters have a four-duty contract, and the Workspace bridge has a fixed message protocol.",
+          "لمحوِّلات القنوات عقد من أربع مهام، وللجسر في Workspace بروتوكول رسائل ثابت."),
+         ("{{E}}", "{{E}}")],
+        [("**Separation of responsibilities**", "**فصل المسؤوليات**"),
+         ("In SIE, deciding and writing are separate layers, and writes are designed to go through one layer. Workspace does not write support records: the hosted pages do. Domain rules are intended to live in the data layer rather than in the pages that reach it.",
+          "في SIE تُفصل طبقتا القرار والكتابة، والكتابة مصمَّمة لتمر عبر طبقة واحدة. ولا يكتب Workspace سجلات الدعم: بل تكتبها الصفحات المستضافة. والمقصود أن تقيم قواعد المجال في طبقة البيانات لا في الصفحات التي تصل إليها."),
+         ("{{E}}", "{{E}}")],
+        [("**Maintainability and safe change**", "**قابلية الصيانة والتغيير الآمن**"),
+         ("New database changes are written as additive, re-runnable migrations with precondition checks. Relay uses optimistic concurrency and idempotency keys.",
+          "تُكتب تغييرات قاعدة البيانات الجديدة ترحيلاتٍ إضافية قابلة لإعادة التشغيل مع فحوص شروط مسبقة. وتستخدم Relay التزامنًا تفاؤليًا ومفاتيح تفرّد."),
+         ("{{E}}", "{{E}}")],
+        [("**Reproducible decisions**", "**قرارات قابلة لإعادة الإنتاج**"),
+         ("The engine has no randomness, takes time as an injectable parameter and orders ties explicitly, so decisions are designed to be replayable.",
+          "لا عشوائية في المحرك، والوقت فيه معامل قابل للحقن، ويرتّب حالات التعادل صراحةً، فالقرارات مصمَّمة لتكون قابلة لإعادة التشغيل."),
+         ("{{E}}", "{{E}}")],
+        [("**One conversation core**", "**نواة محادثات واحدة**"),
+         ("A unified conversation layer intended to be shared by every channel.",
+          "طبقة محادثات موحَّدة يُقصد أن تتشاركها القنوات كلها."),
+         ("{{D}}", "{{D}}")],
+    ], widths=[22, 60, 18], cls="compact",
+        caption=("Architectural principles and where they show in the code.", "المبادئ المعمارية وأين تظهر في الشيفرة.")),
+    NOTE("This chapter publishes no complete system diagram, no undocumented services, no deployed infrastructure inventory and no API contracts. "
+         "Where a detailed architecture cannot be verified from the repositories, the paper stays at the conceptual level.",
+         "لا ينشر هذا الفصل مخططًا كاملًا للنظام ولا خدمات غير موثَّقة ولا جردًا للبنية المنشورة ولا عقود واجهات. وحيث يتعذر التحقق من معمارية "
+         "تفصيلية من المستودعات، تبقى الورقة عند المستوى المفاهيمي.",
+         kind="limit"),
+])
