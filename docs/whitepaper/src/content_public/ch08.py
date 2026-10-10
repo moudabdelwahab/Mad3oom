@@ -24,7 +24,7 @@ CHAPTER = chapter(8, ("Technical Architecture", "المعمارية التقني
          ("Three: the platform, the SIE engine, and the WhatsApp module.", "ثلاثة: المنصة، ومحرك SIE، ووحدة واتساب.")],
         [("**Quality tooling**", "**أدوات الجودة**"),
          ("Continuous integration runs the platform's and the engine's test suites, and code scanning runs on the platform. The platform's checks include database tests of access rules on a real Postgres instance and browser render tests; the SIE repository had 1,264 passing tests on 9 October 2026.",
-          "يشغّل التكامل المستمر مجموعتَي اختبارات المنصة والمحرك، ويعمل فحص الشيفرة على المنصة. وتشمل فحوص المنصة اختبارات قاعدة بيانات لقواعد الوصول على Postgres حقيقية واختبارات عرض في المتصفح؛ وكان لمستودع SIE ‎1,264 اختبارًا ناجحًا في 9 أكتوبر 2026.")],
+          "يشغّل التكامل المستمر مجموعتَي اختبارات المنصة والمحرك، ويعمل فحص الشيفرة على المنصة. وتشمل فحوص المنصة اختبارات قاعدة بيانات لقواعد الوصول على Postgres حقيقية واختبارات عرض في المتصفح؛ وكان لمستودع SIE 1,264 اختبارًا ناجحًا في 9 أكتوبر 2026.")],
     ], widths=[20, 80], cls="compact",
         caption=("Technical context as documented in the repositories on 9 October 2026.", "السياق التقني كما توثّقه المستودعات في 9 أكتوبر 2026.")),
 

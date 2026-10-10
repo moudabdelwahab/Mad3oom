@@ -131,8 +131,10 @@ def appendix(letter, title, lead, blocks):
 
 
 # --- inline markup ----------------------------------------------------------------------------------
+# a comma stays inside a run only between digits ("1,264"), so thousands separators keep the number in one LTR isolate
+_RUN_CH = r"(?:[A-Za-z0-9_\-./+:%&#@'’]|,(?=[0-9]))"
 _LATIN_RUN = re.compile(
-    r"[A-Za-z0-9][A-Za-z0-9_\-./+:%&#@'’]*(?:[  ][A-Za-z0-9][A-Za-z0-9_\-./+:%&#@'’]*)*")
+    rf"[A-Za-z0-9]{_RUN_CH}*(?:[  ][A-Za-z0-9]{_RUN_CH}*)*")
 _TRAIL = ".:-/+&#@'’"
 
 

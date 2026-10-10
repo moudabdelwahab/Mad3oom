@@ -113,7 +113,7 @@ a.xref {{ color:var(--blue); font-weight:500; }}
 /* chapters */
 .chap {{ break-before: page; }}
 .opener {{ display:flex; align-items:flex-end; gap:12pt; margin: 6mm 0 3mm; }}
-.op-num {{ font-family:"Inter","Readex Pro"; font-weight:700; font-size:58pt; line-height:.9; color:var(--sky);
+.op-num {{ font-family:"Inter","Readex Pro"; font-weight:700; font-size:58pt; line-height:{'1.3' if rtl else '.9'}; color:var(--sky);
            letter-spacing:-.02em; }}
 .op-label {{ font-weight:600; font-size:8pt; letter-spacing:{ '0' if rtl else '.22em'}; color:var(--blue);
              padding-bottom:5pt; {'font-size:9.5pt;' if rtl else ''} }}

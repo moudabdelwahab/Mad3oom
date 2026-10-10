@@ -424,8 +424,8 @@ def fig_lifecycle(lang):
     s.state(428, 190, 130, 38, t("Scheduled", "مجدول"))
     s.state(272, 242, 130, 38, t("In progress", "قيد المعالجة"))
     s.state(428, 242, 130, 38, t("Waiting", "بانتظار"))
-    s.text(415, 312, t("movement among scheduled, in progress and waiting;", "تنقّل بين المجدول وقيد المعالجة والانتظار؛"), 13.4, 400, "#55657F")
-    s.text(415, 332, t("“waiting” needs a note", "«بانتظار» تتطلب ملاحظة"), 13.4, 400, "#55657F")
+    s.text(415, 312, t("moves among scheduled, in progress", "تنقّل بين المجدول وقيد المعالجة"), 13.4, 400, "#55657F")
+    s.text(415, 332, t("and waiting; “waiting” needs a note", "والانتظار؛ «بانتظار» تتطلب ملاحظة"), 13.4, 400, "#55657F")
     # closed container
     s.rect(690, 140, 290, 210, "#002560", "#002560", 2.0, 14)
     s.text(835, 172, t("Closed", "مغلق"), 19, 700, "#fff")

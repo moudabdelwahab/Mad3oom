@@ -208,21 +208,24 @@ def finalize(lang: str, raw_pdf: str, dom_heads: list, pages_of: list[int], out_
             "/Subject": SUBJECT["en"] if rl == "en" else A(SUBJECT["ar"]),
             "/Keywords": KEYWORDS["en"] if rl == "en" else A(KEYWORDS["ar"]),
             "/Creator": "Mad3oom", "/Producer": "Mad3oom"}
+    pdf.Root.Lang = pikepdf.String({"en": "en", "ar": "ar", "eg": "ar-EG"}[lang])
+    vp = pikepdf.Dictionary(Direction=pikepdf.Name("/R2L" if rl == "ar" else "/L2R"), DisplayDocTitle=True)
+    pdf.Root.ViewerPreferences = vp
+    with pdf.open_metadata(set_pikepdf_as_editor=False, update_docinfo=False) as m:
+        for k in list(m.keys()):
+            del m[k]
+        m["dc:title"] = title
+        m["dc:creator"] = ["Mad3oom"]
+        m["dc:description"] = meta["/Subject"]
+        m["dc:language"] = [{"en": "en", "ar": "ar", "eg": "ar-EG"}[lang]]
+        m["pdf:Keywords"] = meta["/Keywords"]
+        m["pdf:Producer"] = "Mad3oom"
+        m["xmp:CreatorTool"] = "Mad3oom"
     # replace the whole document-information dictionary so no build-tool strings survive
     for k in list(pdf.docinfo.keys()):
         del pdf.docinfo[k]
     for k, v in meta.items():
         pdf.docinfo[k] = v
-    pdf.Root.Lang = pikepdf.String({"en": "en", "ar": "ar", "eg": "ar-EG"}[lang])
-    vp = pikepdf.Dictionary(Direction=pikepdf.Name("/R2L" if rl == "ar" else "/L2R"), DisplayDocTitle=True)
-    pdf.Root.ViewerPreferences = vp
-    with pdf.open_metadata(set_pikepdf_as_editor=False) as m:
-        for k in list(m.keys()):
-            del m[k]
-        m["dc:title"] = title
-        m["dc:creator"] = ["Mad3oom"]
-        m["dc:language"] = [{"en": "en", "ar": "ar", "eg": "ar-EG"}[lang]]
-        m["pdf:Producer"] = "Mad3oom"
     pdf.save(out_pdf, linearize=False)
     pdf.close()
     os.remove(out_pdf + ".tmp")
