@@ -25,12 +25,15 @@ import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
     standaloneRecordUrl, isRecordId,
+    prepareAttachment, attachmentErrorText, attachmentView, ATTACHMENT_ACCEPT, ATTACHMENT_LIMITS_TEXT,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
     removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
+    removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
 } from './continuity-data.js';
+import { uploadAttachment } from './continuity-upload.js';
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
 const $ = (id) => document.getElementById(id);
@@ -47,6 +50,8 @@ const fmt = (iso, tz) => {
 const state = {
     me: null, access: null, agents: [], teams: [], records: [], current: null, events: [], assigners: null, trash: [],
     filters: { status: 'active', owner: '', category: '' }, busy: false,
+    // رفع جارٍ أو فاشل: { recordId, file, kind, mime, key, progress, error, controller }
+    upload: null,
 };
 const agentName = (id) => {
     if (!id) return 'بدون مالك';
@@ -270,12 +275,161 @@ function renderRecord() {
         ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
       </section>` : ''}
 
+      ${attachmentsHtml(r, closed)}
+
       ${closureHtml(state.current.closures)}
 
       <section aria-labelledby="ctEventsH">
         <h3 id="ctEventsH">السجل</h3>
         <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
       </section>`;
+    hydrateAttachments();
+}
+
+// ═════════════════════════════════════════════════════════════
+// المرفقات (080): تظهر فقط والقدرة مفعّلة (continuity_my_access.capabilities.attachments)
+// ═════════════════════════════════════════════════════════════
+const attachmentsOn = () => Boolean(state.access?.capabilities?.attachments);
+
+function attachmentItemHtml(a, { mode, closed }) {
+    const v = attachmentView(a);
+    const media = mode === 'removed' ? ''
+        : v.kind === 'image' ? `<img class="ct-att-media" data-sign="${esc(v.path)}" alt="${esc(v.name)}" loading="lazy" decoding="async">`
+        : v.kind === 'video' ? `<video class="ct-att-media" data-sign="${esc(v.path)}" controls preload="metadata" playsinline aria-label="${esc(v.name)}"></video>`
+        : v.kind === 'audio' ? `<audio class="ct-att-media" data-sign="${esc(v.path)}" controls preload="none" aria-label="${esc(v.name)}"></audio>` : '';
+    const actions = [];
+    if (!closed && mode === 'main') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-remove="${esc(v.id)}">إزالة</button>`);
+    if (!closed && mode === 'removed') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-restore="${esc(v.id)}">استرجاع</button>`);
+    if (state.access.owner) actions.push(`<button type="button" class="btn btn-danger ct-btn-sm" data-att-purge="${esc(v.id)}">مسح نهائي</button>`);
+    return `<li class="ct-att" data-attachment="${esc(v.id)}" data-kind="${esc(v.kind || '')}">
+        ${media}
+        <div class="ct-att-meta"><span class="ct-pill">${esc(v.label)}</span> <span class="ct-att-name" dir="auto">${esc(v.name)}</span>
+          <span class="ct-muted">${esc(v.size)} · ${esc(agentName(v.createdBy))} · ${esc(fmt(v.createdAt))}</span></div>
+        ${actions.length ? `<div class="ct-inline">${actions.join('')}</div>` : ''}
+      </li>`;
+}
+
+function uploadStatusHtml(u) {
+    if (!u) return '';
+    if (u.error) {
+        return `<div class="ct-att-upload" id="ctAttachStatus"><p class="ct-error" role="alert" id="ctAttachError">${esc(u.error)}</p>
+          ${u.file ? `<div class="ct-inline"><button type="button" class="btn btn-primary ct-btn-sm" id="ctAttachRetry">إعادة المحاولة</button>
+            <button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachDismiss">إلغاء</button></div>` : ''}</div>`;
+    }
+    const pct = Math.round((u.progress || 0) * 100);
+    return `<div class="ct-att-upload" id="ctAttachStatus" aria-live="polite">
+        <span dir="auto">${esc(u.file?.name || '')}</span>
+        <progress id="ctAttachProgress" max="100" value="${pct}" aria-label="تقدّم الرفع">${pct}%</progress>
+        <button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachCancel">إلغاء الرفع</button></div>`;
+}
+
+function attachmentsHtml(r, closed) {
+    if (!attachmentsOn()) return '';
+    const list = state.current.attachments || [];
+    const removed = state.current.removed_attachments || [];
+    const u = state.upload && state.upload.recordId === r.id ? state.upload : null;
+    return `<section aria-labelledby="ctAttH" id="ctAttachments">
+        <div class="ct-section-head"><h3 id="ctAttH">المرفقات (${list.length})</h3>
+          ${closed ? '' : `<button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
+          <input type="file" id="ctAttachInput" accept="${esc(ATTACHMENT_ACCEPT)}" hidden>`}</div>
+        ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان ترفع أو تشيل مرفقات.</p>' : `<p class="ct-muted">${esc(ATTACHMENT_LIMITS_TEXT)}.</p>`}
+        ${uploadStatusHtml(u)}
+        ${list.length ? `<ul class="ct-atts">${list.map((a) => attachmentItemHtml(a, { mode: 'main', closed })).join('')}</ul>` : '<p class="ct-muted" id="ctAttEmpty">مفيش مرفقات.</p>'}
+        ${removed.length ? `<h4>مرفقات محذوفة (${removed.length})</h4>
+          <ul class="ct-atts ct-atts--removed">${removed.map((a) => attachmentItemHtml(a, { mode: 'removed', closed })).join('')}</ul>` : ''}
+      </section>`;
+}
+
+/** روابط موقّعة (5 دقائق) لكل وسيط؛ رفض الخادم ⇒ نص بدل الوسيط. لا شيء من المرفق يدخل HTML. */
+let hydrateToken = 0;
+async function hydrateAttachments() {
+    const token = ++hydrateToken;
+    const els = [...document.querySelectorAll('#ctAttachments [data-sign]')];
+    await Promise.all(els.map(async (el) => {
+        const url = await signAttachment(el.dataset.sign);
+        if (token !== hydrateToken || !el.isConnected) return;
+        if (url) {
+            el.src = url;
+        } else {
+            const note = document.createElement('p');
+            note.className = 'ct-muted';
+            note.textContent = 'المرفق مش متاح دلوقتي.';
+            el.replaceWith(note);
+        }
+    }));
+}
+
+async function startUpload() {
+    const u = state.upload;
+    const r = state.current?.record;
+    if (!u || !r || u.recordId !== r.id) return;
+    u.error = null;
+    u.progress = 0;
+    u.controller = new AbortController();
+    renderRecord();
+    try {
+        const full = await uploadAttachment({
+            recordId: u.recordId, file: u.file, kind: u.kind, mime: u.mime, idempotencyKey: u.key, signal: u.controller.signal,
+            onProgress: (p) => {
+                u.progress = p;
+                const bar = $('ctAttachProgress');
+                if (bar) { bar.value = Math.round(p * 100); bar.textContent = `${Math.round(p * 100)}%`; }
+            },
+        });
+        state.upload = null;
+        toast('اترفع المرفق');
+        state.current = full;
+        await openRecord(u.recordId, { push: false });
+    } catch (err) {
+        if (err?.code === 'aborted') {
+            state.upload = null;
+        } else {
+            u.error = attachmentErrorText(err);
+            u.controller = null;
+        }
+        if (state.current?.record?.id === u.recordId) renderRecord();
+    }
+}
+
+async function pickAttachment(file) {
+    const r = state.current?.record;
+    if (!file || !r) return;
+    let head = null;
+    try { head = new Uint8Array(await file.slice(0, 64).arrayBuffer()); } catch { head = null; }
+    const prep = prepareAttachment(file, head);
+    if (prep.error) {
+        state.upload = { recordId: r.id, file: null, error: prep.error };
+        renderRecord();
+        return;
+    }
+    // مفتاح واحد لهذا الملف: إعادة المحاولة لا تنشئ مرفقًا ثانيًا.
+    state.upload = { recordId: r.id, file, kind: prep.kind, mime: prep.mime, key: crypto.randomUUID(), progress: 0, error: null };
+    await startUpload();
+}
+
+async function attachmentAction(el, r) {
+    if (el.id === 'ctAttachPick') { $('ctAttachInput')?.click(); return true; }
+    if (el.id === 'ctAttachRetry') { await startUpload(); return true; }
+    if (el.id === 'ctAttachDismiss') { state.upload = null; renderRecord(); return true; }
+    if (el.id === 'ctAttachCancel') { state.upload?.controller?.abort(); return true; }
+    const wrap = (fn, ok) => act(async () => {
+        try { return await fn(); } catch (err) { throw Object.assign(err, { message: attachmentErrorText(err) }); }
+    }, ok);
+    if (el.dataset.attRemove) {
+        await wrap(() => removeAttachment(el.dataset.attRemove, r.version), 'اتنقل للمرفقات المحذوفة');
+        return true;
+    }
+    if (el.dataset.attRestore) {
+        await wrap(() => restoreAttachment(el.dataset.attRestore, r.version), 'رجع المرفق');
+        return true;
+    }
+    if (el.dataset.attPurge) {
+        if (!await continuityConfirm({ title: 'مسح المرفق نهائيًا', danger: true, confirmText: 'مسح نهائي',
+            message: 'الملف هيتمسح ومش هيرجع.' })) return true;
+        await wrap(() => purgeAttachment(el.dataset.attPurge, r.version), 'اتمسح المرفق');
+        return true;
+    }
+    return false;
 }
 
 const actorName = (id) => (id ? agentName(id) : 'النظام');
@@ -439,6 +593,12 @@ async function renderAssigners() {
 // ═════════════════════════════════════════════════════════════
 function wire() {
     if (!STANDALONE) wireListAndPanels();
+    $('ctDetail').addEventListener('change', (e) => {
+        if (e.target.id !== 'ctAttachInput') return;
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        pickAttachment(file);
+    });
     $('ctDetail').addEventListener('submit', (e) => {
         if (e.target.id !== 'ctEdit') return;
         e.preventDefault();
@@ -453,6 +613,7 @@ function wire() {
         if (el?.id === 'ctBackToList') return closeRecord();
         if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (!el || !r) return undefined;
+        if (await attachmentAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
             const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;

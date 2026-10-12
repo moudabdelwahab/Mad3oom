@@ -12,6 +12,7 @@
  * فقط من تاريخ/وقت مكتوب صراحةً مع ذكر الرسالة؛ المالك لا يُقترح أبدًا.
  */
 import { RECORD_CATEGORIES, LIMITS, buildCreateRequest, validateCreateRequest } from './continuity-contract.js';
+import { ATTACHMENT_KINDS, kindOfMime, baseMime, checkDeclared, signatureMatches, formatBytes } from './continuity-media.js';
 
 export const CATEGORY_META = Object.freeze({
     order_status: { label: 'حالة طلب', icon: 'box', kind: 'follow_up' },
@@ -426,6 +427,8 @@ export const EVENT_LABELS = Object.freeze({
     resolved: 'قفل السجل كمحلول', cancelled: 'ألغى السجل', reopened: 'أعاد فتح السجل',
     source_attached: 'أرفق رسالة', source_redacted: 'حذف محتوى مصدر', sensitive_ack: 'أكّد إرفاق محتوى حساس',
     source_removed: 'شال رسالة للمحذوفات', source_restored: 'رجّع رسالة من المحذوفات', source_purged: 'مسح رسالة نهائيًا',
+    attachment_added: 'أرفق ملفًا', attachment_removed: 'شال مرفقًا للمحذوفات', attachment_restored: 'رجّع مرفقًا',
+    attachment_purged: 'مسح مرفقًا نهائيًا', attachment_redacted: 'انتهى احتفاظ مرفق',
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -473,4 +476,64 @@ export function describePolicy(res) {
         { label: 'تأجيل متكرر', value: `${p.postpone_flag_count ?? '—'} مرات` },
     ];
     return { capabilities, timings, version: res?.version ?? null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// المرفقات (080): فحص مبكر للعرض فقط؛ دالة الرفع والقاعدة تعيدان الفحص كاملًا
+// ─────────────────────────────────────────────────────────────
+export const ATTACHMENT_ACCEPT = Object.values(ATTACHMENT_KINDS).flatMap((k) => k.mimes).join(',');
+export const KIND_LABELS = Object.freeze({ image: 'صورة', video: 'فيديو', audio: 'تسجيل صوتي' });
+export const ATTACHMENT_LIMITS_TEXT = `صور حتى ${formatBytes(ATTACHMENT_KINDS.image.max)}، فيديو حتى ${formatBytes(ATTACHMENT_KINDS.video.max)}، صوت حتى ${formatBytes(ATTACHMENT_KINDS.audio.max)}`;
+const NOT_ALLOWED_TEXT = 'النوع ده مش مسموح. المسموح: صور (PNG، JPEG، WebP، GIF)، فيديو (MP4، WebM، MOV)، وصوت (WebM، Ogg، MP3، M4A، WAV).';
+
+/**
+ * ملف من المتصفح ⇒ { kind, mime, size } أو { error }.
+ * head: أول بايتات الملف (اختياري) لفحص التوقيع مبكرًا.
+ */
+export function prepareAttachment(file, head = null) {
+    const mime = baseMime(file?.type);
+    const kind = kindOfMime(mime);
+    if (!kind) return { error: NOT_ALLOWED_TEXT };
+    const size = Number(file?.size);
+    const bad = checkDeclared({ kind, mime, size });
+    if (bad?.reason === 'too_large') {
+        return { error: `${KIND_LABELS[kind]} أكبر من الحد (${formatBytes(ATTACHMENT_KINDS[kind].max)}). الملف ${formatBytes(size)}.` };
+    }
+    if (bad) return { error: size === 0 ? 'الملف فاضي.' : NOT_ALLOWED_TEXT };
+    if (head && !signatureMatches(mime, head)) {
+        return { error: 'محتوى الملف مش من النوع اللي بيقول عليه. ارفع الملف الأصلي.' };
+    }
+    return { kind, mime, size };
+}
+
+/** رفض الخادم (دالة الرفع أو القاعدة) ⇒ نص مفهوم. لا يعرض نص الخادم. */
+export function attachmentErrorText(err) {
+    const code = err?.code;
+    const reason = err?.reason;
+    if (code === 'network' || code === 'aborted') return err.message;
+    if (reason === 'signature_mismatch') return 'محتوى الملف مش من النوع اللي بيقول عليه. ارفع الملف الأصلي.';
+    if (reason === 'too_large') return 'الملف أكبر من الحد المسموح لنوعه.';
+    if (reason === 'not_allowed') return NOT_ALLOWED_TEXT;
+    if (reason === 'too_many_attachments') return 'وصلت للحد: 20 مرفق نشط في السجل. شيل مرفق الأول.';
+    if (reason === 'size_mismatch' || reason === 'mime_mismatch' || reason === 'missing') return 'الملف وصل ناقص أو مختلف. جرّب تاني.';
+    if (code === 'feature_not_enabled') return 'المرفقات مش مفعّلة حاليًا.';
+    if (code === 'invalid_transition') return 'السجل مقفول. أعد فتحه عشان ترفع أو تعدّل المرفقات.';
+    if (code === 'not_found') return 'السجل أو المرفق غير موجود أو مش مسموح لك.';
+    if (code === 'forbidden') return err?.field === 'owner' ? 'المسح النهائي لحساب مالك المنصة بس.' : 'مش مسموح لك.';
+    if (code === 'version_conflict') return 'السجل اتعدّل — حدّث الصفحة.';
+    if (code === 'unauthorized') return 'الجلسة انتهت. سجّل الدخول من جديد.';
+    return 'حصلت مشكلة في الرفع. جرّب تاني.';
+}
+
+/** صف عرض لمرفق كما أرسله الخادم (_continuity_full.attachments). */
+export function attachmentView(a) {
+    const kind = ATTACHMENT_KINDS[a?.kind] ? a.kind : null;
+    return {
+        id: a?.id, kind, path: a?.path,
+        label: KIND_LABELS[kind] || 'ملف',
+        name: a?.name || KIND_LABELS[kind] || 'ملف',
+        size: formatBytes(Number(a?.size)),
+        createdBy: a?.created_by || null, createdAt: a?.created_at || null,
+        removedBy: a?.removed_by || null, removedAt: a?.removed_at || null,
+    };
 }
