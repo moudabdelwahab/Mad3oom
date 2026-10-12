@@ -13,7 +13,7 @@
 --   continuity_closures      صف لكل إغلاق (seq): الحالة، الوقت، الفاعل، نص الحل أو
 --                            سبب الإلغاء؛ وعند إعادة الفتح: الوقت والفاعل والسبب.
 --                            للإلحاق فقط: لا حذف، والتحديث مسموح مرة واحدة لملء
---                            أعمدة reopened_* فقط.
+--                            أعمدة reopened_* فقط، أو لتفريغ الفاعل عند حذف حسابه.
 --   continuity_records.closure_seq   عدد الإغلاقات (يدخل أساس جدولة التذكيرات لاحقًا).
 --
 -- يعيد تعريف
@@ -101,6 +101,13 @@ begin
   if tg_op = 'DELETE' then
     raise exception 'تاريخ الإغلاق لا يُحذف' using errcode = '42501';
   end if;
+  -- حذف حساب الفاعل (ON DELETE SET NULL على closed_by/reopened_by): التغيير الوحيد
+  -- أن الفاعل يصبح فارغًا. يُسمح به فقط إذا لم يتغير أي عمود آخر.
+  if (new.closed_by is null or new.closed_by = old.closed_by)
+     and (new.reopened_by is null or new.reopened_by = old.reopened_by)
+     and (to_jsonb(new) - 'closed_by' - 'reopened_by') = (to_jsonb(old) - 'closed_by' - 'reopened_by') then
+    return new;
+  end if;
   if old.reopened_at is not null
      or new.id is distinct from old.id or new.record_id is distinct from old.record_id
      or new.workspace_id is distinct from old.workspace_id or new.seq is distinct from old.seq
@@ -177,11 +184,14 @@ begin
                                             resolution_note, cancel_reason, reopened_at, reopened_by, backfilled)
     select r.id, r.workspace_id, x.ord::int, x.v ->> 'status',
            case when cur then coalesce(r.closed_at, (x.v ->> 'closed_at')::timestamptz) else (x.v ->> 'closed_at')::timestamptz end,
-           case when cur and r.status = 'resolved' then coalesce(r.resolved_by, (x.v ->> 'closed_by')::uuid)
-                else (x.v ->> 'closed_by')::uuid end,
+           -- actor_id في الأحداث بلا مفتاح أجنبي: حساب محذوف ⇒ فاعل فارغ (لا كسر للمفتاح).
+           (select p.id from public.profiles p
+             where p.id = case when cur and r.status = 'resolved' then coalesce(r.resolved_by, (x.v ->> 'closed_by')::uuid)
+                               else (x.v ->> 'closed_by')::uuid end),
            case when cur and r.status = 'resolved' then r.resolution_note end,
            case when cur and r.status = 'cancelled' then r.cancel_reason end,
-           (x.v ->> 'reopened_at')::timestamptz, (x.v ->> 'reopened_by')::uuid,
+           (x.v ->> 'reopened_at')::timestamptz,
+           (select p.id from public.profiles p where p.id = (x.v ->> 'reopened_by')::uuid),
            not cur
       from jsonb_array_elements(v_rows) with ordinality x(v, ord)
       cross join lateral (select (x.ord = jsonb_array_length(v_rows) and not (x.v ? 'reopened_at')
