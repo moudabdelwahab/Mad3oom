@@ -146,11 +146,34 @@ const ent = (edition, extra = {}) => ({
     ...extra
 });
 
+
+function resolveChromium() {
+    try {
+        const p = chromium.executablePath();
+        if (p && fs.existsSync(p)) return p;
+    } catch { /* لا تنزيل افتراضي */ }
+    const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if (root && fs.existsSync(root)) {
+        for (const dir of fs.readdirSync(root).filter(d => d.startsWith('chromium')).sort().reverse()) {
+            for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome']) {
+                const candidate = path.join(root, dir, rel);
+                if (fs.existsSync(candidate)) return candidate;
+            }
+        }
+    }
+    return null;
+}
+
+// نفس حل باقي اختبارات العرض: نسخة Chromium المثبّتة أيًّا كان رقمها، لا مسار نسخة playwright المثبّت فقط.
+const chromiumPath = resolveChromium();
+if (!chromiumPath) console.error('SKIP: لا يوجد Chromium؛ اختبارات صفحة الشات لم تُنفَّذ');
+
 let server, browser, base;
 test.before(async () => {
+    if (!chromiumPath) return;
     server = await startServer();
     base = `http://127.0.0.1:${server.address().port}`;
-    browser = await chromium.launch();
+    browser = await chromium.launch({ executablePath: chromiumPath });
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
@@ -192,7 +215,7 @@ async function sendText(page, text) {
 
 // ════════════════════════════ صفحة شات العميل ════════════════════════════
 
-test('customer page: composer is [attach][input][SIE · plan][send]; no Traditional anywhere; starters are SIE starters', async () => {
+test('customer page: composer is [attach][input][SIE · plan][send]; no Traditional anywhere; starters are SIE starters', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openCustomer({ entitlement: ent('pro') });
     const order = await page.$$eval('.chat-footer > :not([hidden])', (els) => els.map((e) => e.id));
     assert.deepEqual(order, ['chatAttachBtn', 'chatInput', 'chatModeInlineBtn', 'sendBtn']);
@@ -212,7 +235,7 @@ test('customer page: composer is [attach][input][SIE · plan][send]; no Traditio
     await context.close();
 });
 
-test('customer page: every text goes to SIE (Free) and the reply is stored — no other engine', async () => {
+test('customer page: every text goes to SIE (Free) and the reply is stored — no other engine', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openCustomer({ entitlement: ent('free', { downgrade_to: [] }) });
     await sendText(page, 'عندي مشكلة في الدفع');
     await page.waitForFunction(() => document.getElementById('chatMessages')?.textContent.includes('رد من SIE'));
@@ -227,7 +250,7 @@ test('customer page: every text goes to SIE (Free) and the reply is stored — n
     await context.close();
 });
 
-test('customer page: SIE blocked (limit reached) → a clear reason in the chat, SIE not called, message kept', async () => {
+test('customer page: SIE blocked (limit reached) → a clear reason in the chat, SIE not called, message kept', { skip: !chromiumPath }, async () => {
     const { page, context } = await openCustomer({ entitlement: ent('free', { has_access: false, reason: 'edition_monthly_limit', downgrade_to: [] }) });
     assert.equal(await page.getAttribute('#chatModeInlineBtn', 'data-tone'), 'blocked');
     await sendText(page, 'محتاج مساعدة');
@@ -241,7 +264,7 @@ test('customer page: SIE blocked (limit reached) → a clear reason in the chat,
     await context.close();
 });
 
-test('customer page: SIE null reply → asks the server why; a temporary problem is said as such', async () => {
+test('customer page: SIE null reply → asks the server why; a temporary problem is said as such', { skip: !chromiumPath }, async () => {
     const { page, context } = await openCustomer({ entitlement: ent('max'), sieReply: null });
     await sendText(page, 'سؤال');
     await page.waitForFunction(() => window.__fake.notices.some((n) => n.kind === 'sie_error'));
@@ -252,7 +275,7 @@ test('customer page: SIE null reply → asks the server why; a temporary problem
     await context.close();
 });
 
-test('customer page: a failed send keeps the typed text and says so', async () => {
+test('customer page: a failed send keeps the typed text and says so', { skip: !chromiumPath }, async () => {
     const { page, context } = await openCustomer({ entitlement: ent('pro'), failInsert: true });
     await sendText(page, 'نص مهم');
     await page.waitForSelector('#chatComposerStatus:not([hidden])');
@@ -262,7 +285,7 @@ test('customer page: a failed send keeps the typed text and says so', async () =
     await context.close();
 });
 
-test('customer page: attaching a PDF uploads to the sender folder and stores attachment (no SIE call without text)', async () => {
+test('customer page: attaching a PDF uploads to the sender folder and stores attachment (no SIE call without text)', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openCustomer({ entitlement: ent('pro') });
     await page.setInputFiles('#chatFileInput', { name: 'invoice.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') });
     await page.waitForFunction(() => window.__fake.inserts.some((i) => i.row.attachment));
@@ -278,7 +301,7 @@ test('customer page: attaching a PDF uploads to the sender folder and stores att
     await context.close();
 });
 
-test('customer page: an unsupported file is refused before any upload', async () => {
+test('customer page: an unsupported file is refused before any upload', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openCustomer({ entitlement: ent('pro') });
     await page.setInputFiles('#chatFileInput', { name: 'run.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') });
     await page.waitForSelector('#chatComposerStatus:not([hidden])');
@@ -288,7 +311,7 @@ test('customer page: an unsupported file is refused before any upload', async ()
     await context.close();
 });
 
-test('customer page: an image, a voice note and a legacy image_url all render signed', async () => {
+test('customer page: an image, a voice note and a legacy image_url all render signed', { skip: !chromiumPath }, async () => {
     const messages = [
         { id: 'a', session_id: 's-1', sender_id: 'u-1', created_at: new Date().toISOString(), message_text: 'صورة مرفقة', image_url: 'u-1/a.png', attachment: { kind: 'image', path: 'u-1/a.png', name: 'a.png', mime: 'image/png', size: 70 } },
         { id: 'b', session_id: 's-1', sender_id: 'u-1', created_at: new Date().toISOString(), message_text: 'رسالة صوتية', audio_url: 'u-1/v.webm', attachment: { kind: 'audio', path: 'u-1/v.webm', name: 'voice.webm', mime: 'audio/webm', size: 900, duration_ms: 4000 } },
@@ -303,7 +326,7 @@ test('customer page: an image, a voice note and a legacy image_url all render si
     await context.close();
 });
 
-test('customer page: a support reply edited then deleted in the inbox updates in place', async () => {
+test('customer page: a support reply edited then deleted in the inbox updates in place', { skip: !chromiumPath }, async () => {
     const reply = { id: 'r1', session_id: 's-1', sender_id: 'staff-1', is_admin_reply: true, created_at: new Date().toISOString(), message_text: 'الرد الأول' };
     const { page, context, errors } = await openCustomer({ entitlement: ent('pro'), messages: [reply] });
     await page.waitForSelector('#chatMessages [data-msg-id="r1"]');
@@ -322,7 +345,7 @@ test('customer page: a support reply edited then deleted in the inbox updates in
     await context.close();
 });
 
-test('customer page: the plan chip opens the plan dialog (keyboard, Escape returns focus), downgrade calls the server', async () => {
+test('customer page: the plan chip opens the plan dialog (keyboard, Escape returns focus), downgrade calls the server', { skip: !chromiumPath }, async () => {
     const { page, context } = await openCustomer({ entitlement: ent('max') });
     await page.focus('#chatModeInlineBtn');
     await page.keyboard.press('Enter');
@@ -345,7 +368,7 @@ test('customer page: the plan chip opens the plan dialog (keyboard, Escape retur
     await context.close();
 });
 
-test('customer page: mobile — no horizontal overflow, the plan name collapses, dialog fits', async () => {
+test('customer page: mobile — no horizontal overflow, the plan name collapses, dialog fits', { skip: !chromiumPath }, async () => {
     const { page, context } = await openCustomer({ entitlement: ent('pro') }, { viewport: { width: 360, height: 740 } });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 0, `page overflows by ${overflow}px`);
@@ -360,7 +383,7 @@ test('customer page: mobile — no horizontal overflow, the plan name collapses,
 
 // ════════════════════════════ لوحة الإعدادات ════════════════════════════
 
-test('settings panel: shows SIE plan and usage from the server; Free offers no downgrade; failure is fail-safe', async () => {
+test('settings panel: shows SIE plan and usage from the server; Free offers no downgrade; failure is fail-safe', { skip: !chromiumPath }, async () => {
     let r = await openPage('/__panel.html', { entitlement: ent('free', { downgrade_to: [] }) });
     await r.page.waitForSelector('#panel .cms-usage');
     const text = await r.page.textContent('#panel');
@@ -379,7 +402,7 @@ test('settings panel: shows SIE plan and usage from the server; Free offers no d
     await r.context.close();
 });
 
-test('settings panel: a server refusal of a downgrade is shown and nothing else changes', async () => {
+test('settings panel: a server refusal of a downgrade is shown and nothing else changes', { skip: !chromiumPath }, async () => {
     const { page, context } = await openPage('/__panel.html', { entitlement: ent('pro'), downgradeResult: { ok: false, error: 'not_a_downgrade' } });
     await page.waitForSelector('#panel .cms-downgrade-btn');
     await page.click('#panel .cms-downgrade-btn');
