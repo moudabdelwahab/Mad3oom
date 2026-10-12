@@ -1,4 +1,5 @@
 import { supabase } from '/api-config.js';
+import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
 
 export function initSidebar() {
     const sidebarContainer = document.getElementById('sidebar-container');
@@ -67,26 +68,35 @@ function setupSidebarLogic() {
                 return;
             }
 
-            list.innerHTML = notifications.map(n => `
-                <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" style="padding: 12px 16px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.2s; ${n.is_read ? '' : 'background: rgba(0, 119, 204, 0.05);'}">
-                    <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text);">${n.title}</div>
-                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;">${n.message}</div>
-                    <div style="font-size: 0.7rem; color: #999; margin-top: 6px;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
-                </div>
-            `).join('');
-
-            list.querySelectorAll('.notification-item').forEach(item => {
+            // محتوى الإشعار غير موثوق (notification-safety.js): نص فقط، بلا innerHTML.
+            const textLine = (value, style) => {
+                const el = document.createElement('div');
+                el.style.cssText = style;
+                el.textContent = value == null ? '' : String(value);
+                return el;
+            };
+            list.replaceChildren(...notifications.map(n => {
+                const item = document.createElement('div');
+                item.className = `notification-item${n.is_read ? '' : ' unread'}`;
+                item.style.cssText = 'padding: 12px 16px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.2s;'
+                    + (n.is_read ? '' : ' background: rgba(0, 119, 204, 0.05);');
+                item.append(
+                    textLine(n.title, 'font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text);'),
+                    textLine(n.message, 'font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;'),
+                    textLine(new Date(n.created_at).toLocaleString('ar-EG'), 'font-size: 0.7rem; color: #999; margin-top: 6px;')
+                );
                 item.addEventListener('click', async () => {
-                    const id = item.dataset.id;
-                    await markAsRead(id);
-                    const notification = notifications.find(n => n.id == id);
-                    if (notification && notification.link) {
-                        window.location.href = notification.link;
+                    await markAsRead(n.id);
+                    // رابط على نفس الأصل فقط؛ أي مخطط أو نطاق آخر يُتجاهل.
+                    const href = safeNotificationHref(n.link, window.location.origin);
+                    if (href) {
+                        window.location.href = href;
                     } else {
                         loadNotifications();
                     }
                 });
-            });
+                return item;
+            }));
         } catch (err) {
             console.error('[Sidebar] Error loading notifications:', err);
             list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--color-danger); font-size: 0.85rem;">فشل تحميل الإشعارات</div>';
