@@ -232,7 +232,7 @@ Every increment ships as one branch and one PR with its migration, rollback, SQL
 
 ## 9. Increment 1 — company staff membership (implemented, not applied)
 
-**Branch:** `claude/mad3oom-continuity-multitenant-h9o0kc`. **Migration:** `081_company_staff`. It was written as `077` and moved to `081` with no content change, because `077`–`079` belong to the continuity stack (#116–#118) and `080` to the privacy fix (§10).
+**Branch:** `claude/mad3oom-continuity-multitenant-h9o0kc`. **Migration:** `086_company_staff`. It was written as `077`, then `081`, and moved to `086` with no content change, because `077`–`084` belong to the continuity stack (#116–#124; `080` attachments, `081` handover, `082`–`084` reserved) and `085` to the privacy fix (§10).
 
 ### 9.1 What was built
 | Piece | Detail |
@@ -255,7 +255,7 @@ Every increment ships as one branch and one PR with its migration, rollback, SQL
 ### 9.3 Validation
 | Command | Result |
 |---|---|
-| `tests/sql/company-staff.test.sql` (prod-shape fixture, PostgreSQL 16; re-run after the move to 081) | Every section (⓪–⑩, including ⑦ب and both ⑨ races) PASS, exit 0 |
+| `tests/sql/company-staff.test.sql` (prod-shape fixture, PostgreSQL 16; re-run after the moves to 081 and then 086) | Every section (⓪–⑩, including ⑦ب and both ⑨ races) PASS, exit 0 |
 | Mutation checks (dropping the follower re-check, dropping the `is_company_admin()` check, dropping the follower check in `set`) | Each makes the suite fail |
 | `npm run test:sql` | 50 files, exit 0, 797 `PASS` lines, 0 `FAIL` / `ERROR` |
 | `npm run test:node` (Chromium 1194 mapped locally for Playwright 1.49) | 951 tests: 948 pass, 2 skipped, **1 fail**: `remediation-static` "would catch a modification to a deferred file", which needs commit `faf193a` that this shallow clone does not have (environmental, unrelated) |
@@ -264,7 +264,7 @@ Every increment ships as one branch and one PR with its migration, rollback, SQL
 **F4. `company_members()` shows every follower's name and email to every follower.** [repo + prod-shape]
 - The function only requires `current_company_id()` to be set.
 - Since followers are the company's customers (033, D2), each customer of a company can list every other customer's name and email.
-- 081 does not change this, because it is existing behavior outside this increment.
+- 086 does not change this, because it is existing behavior outside this increment.
 - **Status: fixed in a separate PR, [#120](https://github.com/moudabdelwahab/Mad3oom/pull/120) (`080_company_members_privacy`, not merged, not applied).** The full list goes to the company admin only; everyone else sees themselves and the admin's name. Active staff read the team through `company_staff_list()` (names and roles, no contact data). Whether supervisors may list customers is left to increment 3.
 
 ### 9.5 Next
@@ -283,12 +283,12 @@ Mahmoud's latest instruction is to use `continuity_*` internally. This reverses 
 ### 10.2 Conflict check (read on the branches, not assumed)
 | Pair | Database objects in common | Repo files in common | Verdict |
 |---|---|---|---|
-| #116 (`077_continuity_namespace`) vs company staff | None. #116 renames `relay_*` objects only and states it does not touch `profiles`; company staff creates `company_staff*` plus one trigger on `profiles` | `tests/company-navigation.test.mjs` (newest-migration assertion); the file number `077` | **Number collision only.** Resolved by moving company staff to `081` |
+| #116 (`077_continuity_namespace`) vs company staff | None. #116 renames `relay_*` objects only and states it does not touch `profiles`; company staff creates `company_staff*` plus one trigger on `profiles` | `tests/company-navigation.test.mjs` (newest-migration assertion); the file number `077` | **Number collision only.** Resolved by moving company staff to `086` |
 | #117 (`078_continuity_policies`), #118 (`079_continuity_reopen_lifecycle`) vs company staff | None (`continuity_*` only) | The same assertion | Text conflict only |
-| #120 (`080_company_members_privacy`) vs everything else | Only `company_members()`, which none of the others define | The same assertion; `company-dashboard.js` and `company-model.js` (additive hunks in different functions from company staff) | Text conflicts only, resolved at merge |
+| #120 (`085_company_members_privacy`) vs everything else | Only `company_members()`, which none of the others define | The same assertion; `company-dashboard.js` and `company-model.js` (additive hunks in different functions from company staff) | Text conflicts only, resolved at merge |
 
 ### 10.3 Production ledger (read-only, 2026-10-12)
-- The head is `20261009193924 076_relay_trash_owner`. **No `077`–`081` is applied.**
+- The head is `20261009193924 076_relay_trash_owner`. **No `077`–`086` is applied.**
 - `075_workspace_layouts` is in the repo but not in the ledger (unrelated).
 - The ledger already shows an out-of-order application (`073` at `…133459` before `072` at `…133855`). File numbers order the repo; they do not have to match apply order when the files are independent.
 
@@ -298,16 +298,18 @@ Mahmoud's latest instruction is to use `continuity_*` internally. This reverses 
 | `077_continuity_namespace` | #116 | 073/074/076 | Forward-only rename; `relay_*` RPC wrappers kept |
 | `078_continuity_policies` | #117 | 077 | Stacked on #116 |
 | `079_continuity_reopen_lifecycle` | #118 | 078 | Stacked on #117; 078's rollback refuses while 079 is installed |
-| `080_company_members_privacy` | #120 | none of 077–079 | Security fix, one function |
-| `081_company_staff` | this branch | none of 077–080 | No access granted yet |
+| `080_continuity_attachments` | #121 | 079 | Stacked on #119 |
+| `081_continuity_handovers` | #124 | 080 | Stacked on #123 |
+| `085_company_members_privacy` | #120 | none of 077–081 | Security fix, one function |
+| `086_company_staff` | this branch | none of 077–085 | No access granted yet |
 
-Company work after 081 (increment 2 onward) takes the next free number at the time, re-checked against `ls migrations`, open PRs and `list_migrations`. The proposal's planned numbers (080 attachments, 081–084 handover → monitor) are plans only and shift accordingly.
+Company work after 086 (increment 2 onward) takes the next free number at the time, re-checked against `ls migrations`, open PRs and `list_migrations`. `082`–`084` stay reserved for the continuity plan (scoped handover → monitor).
 
 ### 10.5 Recommended merge and deploy order
-1. **#120 (080, privacy).** Merge and apply first. It is small, independent, and closes a data exposure. Its frontend is safe before or after the migration.
+1. **#120 (085, privacy).** Merge and apply first. It is small, independent, and closes a data exposure. Its frontend is safe before or after the migration.
 2. **#114 (F1, notification XSS).** Independent and already a prerequisite for any Continuity notification.
-3. **#116 → #117 → #118 (077–079).** In stack order, each applied only after its own approval. Before each merge, update its newest-migration assertion in `tests/company-navigation.test.mjs` to the highest file on `main` (080 or 081 by then).
-4. **Company staff (081).** Independent of 3, so it can go before or after. If it merges before #116, then #116–#118 must keep their numbers and only update the assertion; renumbering them is not needed.
+3. **#116 → #117 → #118 (077–079).** In stack order, each applied only after its own approval. Before each merge, update its newest-migration assertion in `tests/company-navigation.test.mjs` to the highest file on `main` by then.
+4. **Company staff (086).** Independent of 3, so it can go before or after. If it merges before #116, then #116–#118 must keep their numbers and only update the assertion; renumbering them is not needed.
 5. **#115 (docs).** Any time.
 
 Each production apply is its own approval. No step above was performed.

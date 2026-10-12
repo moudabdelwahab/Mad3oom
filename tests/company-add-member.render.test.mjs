@@ -959,7 +959,7 @@ test('لا تمرير أفقي في أي قسم، على الموبايل وسط
     await context.close();
 });
 
-/* ── فريق الشركة (migrations/081_company_staff.sql) ──────────────────────
+/* ── فريق الشركة (migrations/086_company_staff.sql) ──────────────────────
  *
  * الموظف دور صريح فوق علاقة التبعية؛ التابع بلا دور عميل. الواجهة تعرض ما
  * رجّعته company_staff_list() وترسل التغيير لـcompany_staff_set/revoke، والقرار
@@ -1088,9 +1088,9 @@ test('فريق الشركة: المشرف يرى الأدوار شاراتٍ ب�
     await context.close();
 });
 
-test('فريق الشركة: عميل الشركة (أو قاعدة بلا 081) لا يرى أي أثر للفريق ولا يرسل شيئًا', async (t) => {
+test('فريق الشركة: عميل الشركة (أو قاعدة بلا 086) لا يرى أي أثر للفريق ولا يرسل شيئًا', async (t) => {
     if (!chromiumPath) return t.skip('no chromium');
-    // company_staff_list ترجع null للعميل، وقبل 081 لا توجد أصلًا (الواجهة ترجّع null)
+    // company_staff_list ترجع null للعميل، وقبل 086 لا توجد أصلًا (الواجهة ترجّع null)
     const fx = fixtures({ members: { canManage: false, members: staffMembers() }, rpc: { company_staff_list: null } });
     const { page, context } = await openMembers(fx);
 

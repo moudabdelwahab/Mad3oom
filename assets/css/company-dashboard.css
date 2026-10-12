@@ -172,7 +172,7 @@
     flex-wrap: wrap;
 }
 
-/* دور العضو في فريق الشركة (081) — للمدير فقط */
+/* دور العضو في فريق الشركة (086) — للمدير فقط */
 .company-staff-role select {
     min-height: 32px;
     padding: 0 var(--sp-2);
