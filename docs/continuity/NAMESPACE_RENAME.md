@@ -103,6 +103,7 @@ Production was read-only on 2026-10-12. The repository was read at `origin/main`
 | E8 | `mcp/*.md` | The English word "relay" ("notification relay"), unrelated |
 | E9 | `auth.saml_relay_states` | Supabase Auth |
 | E10 | The claim `relay_client` is no longer read | It had no producer in production. A token carrying it would be treated as the native path, but none exists. The future `continuity-api` will set `continuity_client` |
+| E11 | `continuity-data.js` and `sidebar.js` fall back to `relay_my_access`, then to the old name of the 19 wrapped RPCs, **only when `continuity_my_access` does not exist** (`PGRST202` / `42883` / `PGRST404`) | Merging to `main` deploys the frontend (Vercel) while production may still be at 076. Without the fallback the Relay page would disappear from production until 077 is applied. The list equals the 19 wrappers of 077 (tested). Any newer RPC (078+) is never mapped, so its capability stays hidden on an old database |
 
 `tests/continuity-namespace.test.mjs` enforces this list: any new `relay` reference outside it fails the build.
 
@@ -112,7 +113,7 @@ Production was read-only on 2026-10-12. The repository was read at `origin/main`
 3. **Verify** (§6).
 4. **Later, separately approved:** a migration that drops the 19 wrappers, once no client calls them. Check the PostgREST logs for `rpc/relay_` first.
 
-**If the frontend were deployed before 077:** `continuity_my_access` would not exist. The inbox button, sidebar link and page would then hide themselves (the same tolerance pattern as 074/076). Continuity would be unavailable, but nothing would be exposed. So apply 077 first.
+**If the frontend is deployed before 077** (for example because merging to `main` deploys it): `continuity_my_access` does not exist, so the frontend calls the same functions by their pre-077 names (E11). The page, inbox button and sidebar link behave exactly as on 076. If neither name exists (before 074), everything stays hidden, as before. Applying 077 later needs no frontend change: the next page load finds `continuity_my_access`.
 
 ## 6. Production checks (read-only, after step 1)
 ```sql

@@ -28,6 +28,8 @@ const ALLOWED_FILES = new Map([
     ['tests/continuity-phase-c.render.test.mjs', 'يشير لملف SQL التاريخي tests/sql/relay-phase-c.test.sql'],
     ['tests/company-navigation.test.mjs', 'سجل الترحيلات بأسماء ملفاتها'],
     ['assets/js/continuity/continuity-contract.js', 'تعليق يشير لـ migrations/073_relay_core.sql'],
+    ['assets/js/continuity/continuity-data.js', 'E11: الاسم القديم للأغلفة الـ19 فقط وفقط لو القاعدة قبل 077'],
+    ['assets/js/admin/sidebar.js', 'E11: relay_my_access فقط لو continuity_my_access غير موجودة'],
 ]);
 // ملفات SQL الاختبارية للترحيلات التاريخية تطبّق 073/074/076 وتختبرها بأسمائها كما هي.
 const ALLOWED_PREFIXES = ['tests/sql/'];
@@ -82,6 +84,25 @@ test('الواجهة تنادي continuity_* فقط', () => {
     const rpcs = [...data.matchAll(/(?:call|rpc)\('([a-z_]+)'/g)].map((m) => m[1]);
     assert.ok(rpcs.length >= 15, 'عدد النداءات');
     for (const name of rpcs) {
+        if (name === 'relay_my_access') continue; // E11: الفحص الوحيد بالاسم القديم، أدناه
         assert.ok(name.startsWith('continuity_') || name.startsWith('inbox_'), `نداء غير متوقع: ${name}`);
     }
+});
+
+test('E11: الاسم القديم لقاعدة قبل 077 فقط، ولأغلفة 077 الـ19 فقط', () => {
+    const data = fs.readFileSync(path.join(ROOT, 'assets/js/continuity/continuity-data.js'), 'utf8');
+    const legacy = data.match(/export const LEGACY_RPCS = Object\.freeze\(\[([^\]]+)\]\)/)[1].match(/'([a-z_]+)'/g).map((x) => x.slice(1, -1));
+    const sql = fs.readFileSync(path.join(ROOT, 'migrations/077_continuity_namespace.sql'), 'utf8');
+    const wrappers = [...new Set([...sql.matchAll(/create or replace function public\.relay_(\w+)\(/g)].map((m) => m[1]))];
+    assert.equal(wrappers.length, 19);
+    assert.deepEqual([...legacy].sort(), wrappers.sort());
+    // الاسم القديم يُستعمل فقط بعد أن تقول القاعدة إن continuity_my_access غير موجودة
+    const probe = data.slice(data.indexOf('async function callMyAccess'), data.indexOf('const NO_ACCESS'));
+    assert.ok(probe.indexOf("rpc('continuity_my_access')") < probe.indexOf('isMissingRpc(first.error)'));
+    assert.ok(probe.indexOf('isMissingRpc(first.error)') < probe.indexOf("rpc('relay_my_access')"));
+    assert.ok(probe.indexOf("rpc('relay_my_access')") < probe.indexOf('legacyNames = true'));
+    assert.equal((data.match(/legacyNames = true/g) || []).length, 1);
+    const side = fs.readFileSync(path.join(ROOT, 'assets/js/admin/sidebar.js'), 'utf8');
+    assert.equal((side.match(/relay/g) || []).length, 2, 'sidebar: تعليق + فحص واحد');
+    assert.match(side, /\['PGRST202', '42883', 'PGRST404'\]\.includes\(res\.error\?\.code\) \? supabase\.rpc\('relay_my_access'\) : res/);
 });
