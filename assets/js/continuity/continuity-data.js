@@ -13,10 +13,43 @@ export class ContinuityError extends Error {
     }
 }
 
+/**
+ * قاعدة قبل 077 (الإنتاج على 076 حتى يُطبَّق 077): نفس الدوال موجودة باسمها القديم relay_*.
+ * لو continuity_my_access غير موجودة و relay_my_access موجودة، يتحول كل نداء من هذه الأسماء
+ * (أغلفة 077 الـ19) لاسمه القديم، فتشتغل الواجهة على قاعدة 076 بنفس سلوكها قبل إعادة التسمية.
+ * أي دالة أحدث (078+) لا تُحوَّل أبدًا: على قاعدة قديمة تفشل، وقدرتها مخفية أصلًا.
+ */
+export const LEGACY_RPCS = Object.freeze([
+    'assign', 'attach_sources', 'create', 'events_for', 'find_by_source', 'get', 'grant_assigner', 'list',
+    'list_assigners', 'list_removed', 'my_access', 'purge_removed', 'redact_for_subject', 'redact_source',
+    'remove_source', 'restore_source', 'revoke_assigner', 'transition', 'update',
+]);
+const MISSING_RPC = new Set(['PGRST202', '42883', 'PGRST404']);
+export const isMissingRpc = (error) => Boolean(error) && MISSING_RPC.has(error.code);
+let legacyNames = false;
+export function rpcName(name) {
+    const bare = name.startsWith('continuity_') ? name.slice('continuity_'.length) : null;
+    return legacyNames && bare !== null && LEGACY_RPCS.includes(bare) ? `relay_${bare}` : name;
+}
+
 async function call(name, args) {
-    const { data, error } = await supabase.rpc(name, args);
+    const { data, error } = await supabase.rpc(rpcName(name), args);
     if (error) throw new ContinuityError(mapContinuityError(error));
     return data;
+}
+
+/** continuity_my_access، أو relay_my_access على قاعدة قبل 077 (ويتحول باقي النداءات معه). */
+async function callMyAccess() {
+    legacyNames = false;
+    const first = await supabase.rpc('continuity_my_access');
+    if (!isMissingRpc(first.error)) {
+        if (first.error) throw new ContinuityError(mapContinuityError(first.error));
+        return first.data;
+    }
+    const legacy = await supabase.rpc('relay_my_access');
+    if (legacy.error) throw new ContinuityError(mapContinuityError(legacy.error));
+    legacyNames = true;
+    return legacy.data;
 }
 
 const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: false, can_assign: false, owner: false, trash: false,
@@ -29,7 +62,7 @@ const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: fal
  */
 export async function loadContinuityAccess() {
     try {
-        const data = await call('continuity_my_access');
+        const data = await callMyAccess();
         return data && typeof data === 'object'
             ? { ...NO_ACCESS, ...data,
                 trash: Object.prototype.hasOwnProperty.call(data, 'owner'),
