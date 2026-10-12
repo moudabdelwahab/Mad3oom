@@ -180,9 +180,9 @@ test('الحارس الموحّد وحده يملك التحويل لصفحة ا
         'التنقّل في لوحة الرفض ليس مربوطًا بفعل المستخدم');
 });
 
-/* ── 080: القائمة المحصورة ──────────────────────────────────────────────── */
+/* ── 085: القائمة المحصورة ──────────────────────────────────────────────── */
 
-test('scope=self وحده يعني القائمة المحصورة؛ قاعدة قبل 080 (بلا scope) تُعرض كما كانت', async () => {
+test('scope=self وحده يعني القائمة المحصورة؛ قاعدة قبل 085 (بلا scope) تُعرض كما كانت', async () => {
     const { membersScopeIsSelf } = await import('../assets/js/company/company-model.js');
     assert.equal(membersScopeIsSelf({ scope: 'self' }), true);
     assert.equal(membersScopeIsSelf({ scope: 'full' }), false);
@@ -191,7 +191,7 @@ test('scope=self وحده يعني القائمة المحصورة؛ قاعدة 
     assert.equal(membersScopeIsSelf({ scope: 'SELF' }), false);
 });
 
-test('080: الواجهة لا تقرر النطاق ولا ترسل معرّف شركة إلى company_members', () => {
+test('085: الواجهة لا تقرر النطاق ولا ترسل معرّف شركة إلى company_members', () => {
     const data = read('assets/js/company/company-data.js');
     assert.ok(data.includes("supabase.rpc('company_members')"), 'company_members تُنادى بلا مُعاملات');
     const dash = read('assets/js/company/company-dashboard.js');

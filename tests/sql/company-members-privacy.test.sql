@@ -1,13 +1,13 @@
 -- ============================================================================
--- 080_company_members_privacy على نسخة مطابقة لشكل الإنتاج
+-- 085_company_members_privacy على نسخة مطابقة لشكل الإنتاج
 --
 -- F4: company_members() كانت ترجع أسماء وبريد كل تابعي الشركة لأي تابع، أي
--- أن كل عميل يسرد عملاء شركته الآخرين. بعد 080: القائمة الكاملة لمدير الشركة
+-- أن كل عميل يسرد عملاء شركته الآخرين. بعد 085: القائمة الكاملة لمدير الشركة
 -- وحده، وغيره يرى نفسه ومديره (بالاسم فقط).
 --
---   ⓪ الإعداد + نص الدالة مطابق للإنتاج + الثغرة قائمة قبل 080
---   ① 080
---   ② المدير: مخرَج مطابق حرفيًا لما قبل 080 (+ scope)
+--   ⓪ الإعداد + نص الدالة مطابق للإنتاج + الثغرة قائمة قبل 085
+--   ① 085
+--   ② المدير: مخرَج مطابق حرفيًا لما قبل 085 (+ scope)
 --   ③ عميل الشركة: نفسه ومديره فقط، بلا بريد المدير ولا أي عميل آخر
 --   ④ عبر الشركات، مالك المنصة وسياقاته، المعاينة، الطاقم، anon، الحساب الموقوف
 --   ⑤ المسارات الأخرى ما زالت مغلقة (profiles RLS) والإدارة تعمل
@@ -136,7 +136,7 @@ INSERT INTO public.whatsapp_subscriptions (user_id, plan, status, billing_cycle,
 INSERT INTO public.tickets (id, user_id, title, description) VALUES
   ('e0000000-0000-4000-8000-000000000212', t.u('A2'), 'تذكرة العميل أ2', 'وصف');
 
--- ══ ⓪ قبل 080 ════════════════════════════════════════════════════════════
+-- ══ ⓪ قبل 085 ════════════════════════════════════════════════════════════
 DO $$
 DECLARE v jsonb;
 BEGIN
@@ -149,15 +149,15 @@ BEGIN
   v := t.cm('A1');
   PERFORM t.ok(v::text LIKE '%a2@t.io%' AND v::text LIKE '%a3@t.io%' AND v::text LIKE '%oa@t.io%',
                '⓪ الثغرة قائمة: A1 يرى بريد A2 وA3 والمدير');
-  RAISE NOTICE 'PASS ⓪ قبل 080: عميل الشركة يسرد أسماء وبريد كل عملائها (F4 مُعاد إنتاجه)';
+  RAISE NOTICE 'PASS ⓪ قبل 085: عميل الشركة يسرد أسماء وبريد كل عملائها (F4 مُعاد إنتاجه)';
 END $$;
 INSERT INTO t.saved VALUES ('oa', t.cm('OA')::text), ('ob', t.cm('OB')::text), ('others', t.others_digest());
 SELECT t.ctx('company_admin');
 INSERT INTO t.saved VALUES ('ow', t.cm('OW')::text);
 SELECT t.ctx('admin');
 
--- ══ ① 080 ════════════════════════════════════════════════════════════════
-\i migrations/080_company_members_privacy.sql
+-- ══ ① 085 ════════════════════════════════════════════════════════════════
+\i migrations/085_company_members_privacy.sql
 
 -- ══ ② المدير ═════════════════════════════════════════════════════════════
 DO $$
@@ -166,7 +166,7 @@ BEGIN
   PERFORM t.ok(t.cm('OB') = (SELECT s.v::jsonb FROM t.saved s WHERE k = 'ob') || '{"scope":"full"}', '② OB كذلك');
   PERFORM t.ok(t.ids(t.cm('OA')) = t.idset('OA', 'A1', 'A2', 'A3'), '② OA يرى كل عملائه');
   PERFORM t.ok((t.cm('OA') ->> 'can_manage')::boolean, '② can_manage كما هو');
-  RAISE NOTICE 'PASS ② مدير الشركة: المخرَج مطابق لما قبل 080 حرفيًا (إدارة الأعضاء لم تتغير)';
+  RAISE NOTICE 'PASS ② مدير الشركة: المخرَج مطابق لما قبل 085 حرفيًا (إدارة الأعضاء لم تتغير)';
 END $$;
 
 -- ══ ③ عميل الشركة ════════════════════════════════════════════════════════
@@ -245,17 +245,17 @@ BEGIN
 END $$;
 
 -- ══ ⑥ إعادة التشغيل، الحارس، التراجع، إعادة التطبيق ═════════════════════
-INSERT INTO t.saved VALUES ('fn080', t.fn_md5());
-\i migrations/080_company_members_privacy.sql
+INSERT INTO t.saved VALUES ('fn085', t.fn_md5());
+\i migrations/085_company_members_privacy.sql
 DO $$
 BEGIN
-  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn080'), '⑥ إعادة التشغيل لا تغيّر شيئًا');
+  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn085'), '⑥ إعادة التشغيل لا تغيّر شيئًا');
   PERFORM t.ok(t.others_digest() = (SELECT s.v FROM t.saved s WHERE k = 'others'), '⑥ لا دالة أخرى ولا سياسة تغيّرت');
-  RAISE NOTICE 'PASS ⑥ إعادة تشغيل 080 آمنة، ولم يتغير غير company_members()';
+  RAISE NOTICE 'PASS ⑥ إعادة تشغيل 085 آمنة، ولم يتغير غير company_members()';
 END $$;
 
--- نص ثالث (تعديل يدوي على الإنتاج مثلًا): 080 يرفض بدل الكتابة فوقه
-\set mig_sql `cat migrations/080_company_members_privacy.sql`
+-- نص ثالث (تعديل يدوي على الإنتاج مثلًا): 085 يرفض بدل الكتابة فوقه
+\set mig_sql `cat migrations/085_company_members_privacy.sql`
 SELECT set_config('t.mig_sql', :'mig_sql', false) IS NOT NULL;
 DO $$
 DECLARE c text;
@@ -272,11 +272,11 @@ BEGIN
   PERFORM t.dblink_exec('g', 'rollback');
   PERFORM t.dblink_disconnect('g');
   PERFORM t.ok(c LIKE '%ليست نص الإنتاج المتوقع%', '⑥ الحارس: ' || c);
-  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn080'), '⑥ لا أثر');
-  RAISE NOTICE 'PASS ⑥ 080 يرفض الكتابة فوق نص غير متوقع';
+  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn085'), '⑥ لا أثر');
+  RAISE NOTICE 'PASS ⑥ 085 يرفض الكتابة فوق نص غير متوقع';
 END $$;
 
-\i migrations/_rollback/080_company_members_privacy.down.sql
+\i migrations/_rollback/085_company_members_privacy.down.sql
 DO $$
 BEGIN
   PERFORM t.ok(t.fn_md5() = '0e4030f30af1586d7f8f2ced6c3e7307', '⑥ التراجع يعيد نص الإنتاج حرفيًا');
@@ -284,10 +284,10 @@ BEGIN
   RAISE NOTICE 'PASS ⑥ التراجع حرفي (md5 = الإنتاج)';
 END $$;
 
-\i migrations/080_company_members_privacy.sql
+\i migrations/085_company_members_privacy.sql
 DO $$
 BEGIN
-  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn080') AND t.cm('A1') ->> 'scope' = 'self', '⑥ إعادة التطبيق');
+  PERFORM t.ok(t.fn_md5() = (SELECT s.v FROM t.saved s WHERE k = 'fn085') AND t.cm('A1') ->> 'scope' = 'self', '⑥ إعادة التطبيق');
   RAISE NOTICE 'PASS ⑥ إعادة التطبيق بعد التراجع';
 END $$;
 

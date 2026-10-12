@@ -1,5 +1,5 @@
 -- ============================================================================
--- 080_company_members_privacy.sql
+-- 085_company_members_privacy.sql
 --   company_members(): القائمة الكاملة لمدير الشركة وحده. عميل الشركة يرى
 --   نفسه ومدير شركته فقط — لا أسماء العملاء الآخرين ولا بريدهم.
 --
@@ -14,29 +14,32 @@
 -- الإصلاح
 --   scope = 'full'  ⇔ is_company_admin() (الرتبة + العلاقة + سياق المالك في 040)
 --                     والمنادي مالك الشركة فعلًا، وحسابه مفعّل، وخارج المعاينة.
---                     المخرَج مطابق حرفيًا لما قبل 080 (+ مفتاح scope).
+--                     المخرَج مطابق حرفيًا لما قبل 085 (+ مفتاح scope).
 --   scope = 'self'  ⇔ أي تابع آخر (عميل الشركة)، ومعاينة عضو الشركة (041).
 --                     members = مدير الشركة (الاسم فقط، بلا بريد) + المنادي نفسه.
---   null            ⇔ لا شركة — كما قبل 080.
+--   null            ⇔ لا شركة — كما قبل 085.
 --
 --   باقي المفاتيح (company_id, company_role, is_owner, can_manage) كما هي.
 --   الصلاحيات كما هي (CREATE OR REPLACE يحفظها).
 --
 -- ما لا يفعله
 --   • لا يغيّر remove_company_member ولا can_manage_company_members ولا أي سياسة.
---   • لا يعتمد على company_staff (081): «الموظف المخوَّل» يقرأ فريقه عبر
+--   • لا يعتمد على company_staff (086): «الموظف المخوَّل» يقرأ فريقه عبر
 --     company_staff_list() هناك، بلا بيانات اتصال. توسيع رؤية المشرف لقائمة
 --     العملاء قرار مؤجل لصندوق الشركة (الزيادة 3).
 --
--- الترقيم: 077–079 محجوزة لسلسلة continuity (#116–#118، غير مطبّقة)، و081 لفريق
---   الشركة. لا يعتمد 080 على أي منها ولا هي عليه، فترتيب التطبيق بينها حر.
+-- الترقيم (2026-10-12): كُتب باسم 080 ثم نُقل إلى 085 دون تغيير منطق، لأن 077–080
+--   صارت لسلسلة continuity (#116 → #117 → #118 → #119 → #121، و080 = المرفقات)،
+--   و081–084 محجوزة لها في الخطة (التسليم ← المراقب، الاقتراح §16)، و085+ لعمل الشركات
+--   بحسب الخطة نفسها. 086 لفريق الشركة. سجل الإنتاج ينتهي بـ076، ولا شيء من هذه
+--   مطبّق. لا يعتمد 085 على أي منها ولا هي عليه، فترتيب التطبيق بينها حر.
 --
--- قابل لإعادة التشغيل. التراجع: migrations/_rollback/080_company_members_privacy.down.sql
+-- قابل لإعادة التشغيل. التراجع: migrations/_rollback/085_company_members_privacy.down.sql
 -- ============================================================================
 
 
 -- ============================================================================
--- 0) المتطلبات: النص الحالي يجب أن يكون نص الإنتاج قبل 080 أو نص 080 نفسه
+-- 0) المتطلبات: النص الحالي يجب أن يكون نص الإنتاج قبل 085 أو نص 085 نفسه
 --    (إعادة تشغيل). أي نص ثالث يعني أن أحدًا عدّل الدالة، فالتراجع لن يعيد
 --    ما كان قائمًا — نوقف بدل أن نكتب فوقه.
 -- ============================================================================
@@ -50,13 +53,13 @@ begin
     'public.company_role()', 'public.can_manage_company_members()', 'public.account_is_active()',
     'public.preview_mode()'] loop
     if to_regprocedure(f) is null then
-      raise exception '080 يتطلب %', f;
+      raise exception '085 يتطلب %', f;
     end if;
   end loop;
   v_def := pg_get_functiondef('public.company_members()'::regprocedure);
-  if md5(v_def) <> '0e4030f30af1586d7f8f2ced6c3e7307'          -- الإنتاج 2026-10-12 (قبل 080)
-     and position('080_company_members_privacy' in v_def) = 0 then
-    raise exception '080: company_members() ليست نص الإنتاج المتوقع (md5 %) — راجع قبل التطبيق', md5(v_def);
+  if md5(v_def) <> '0e4030f30af1586d7f8f2ced6c3e7307'          -- الإنتاج 2026-10-12 (قبل 085)
+     and position('085_company_members_privacy' in v_def) = 0 then
+    raise exception '085: company_members() ليست نص الإنتاج المتوقع (md5 %) — راجع قبل التطبيق', md5(v_def);
   end if;
 end $$;
 
@@ -71,7 +74,7 @@ stable
 security definer
 set search_path to 'public'
 as $function$
--- 080_company_members_privacy: القائمة الكاملة لمدير الشركة وحده.
+-- 085_company_members_privacy: القائمة الكاملة لمدير الشركة وحده.
 declare
   v_company_id uuid;
   v_owner_id   uuid;
@@ -89,7 +92,7 @@ begin
         and not coalesce(public.preview_mode(), true);
 
   if v_full then
-    -- نفس مخرَج ما قبل 080 حرفيًا
+    -- نفس مخرَج ما قبل 085 حرفيًا
     select coalesce(jsonb_agg(jsonb_build_object(
              'id', m.id,
              'name', coalesce(m.full_name, m.username, m.email),
@@ -131,7 +134,7 @@ end;
 $function$;
 
 comment on function public.company_members() is
-  '080: أعضاء شركة المنادي. scope=full (كل التابعين ببريدهم) لمدير الشركة وحده؛ scope=self '
+  '085: أعضاء شركة المنادي. scope=full (كل التابعين ببريدهم) لمدير الشركة وحده؛ scope=self '
   '(المدير بالاسم + المنادي) لأي تابع آخر وللمعاينة. بلا مُعاملات — الشركة من auth.uid().';
 
 
@@ -141,13 +144,13 @@ comment on function public.company_members() is
 do $$
 begin
   if has_function_privilege('anon', 'public.company_members()', 'EXECUTE') then
-    raise exception '080: company_members() منفذة لـanon';
+    raise exception '085: company_members() منفذة لـanon';
   end if;
   if not has_function_privilege('authenticated', 'public.company_members()', 'EXECUTE') then
-    raise exception '080: company_members() غير منفذة لـauthenticated';
+    raise exception '085: company_members() غير منفذة لـauthenticated';
   end if;
-  if position('080_company_members_privacy' in pg_get_functiondef('public.company_members()'::regprocedure)) = 0 then
-    raise exception '080: الدالة لم تُستبدل';
+  if position('085_company_members_privacy' in pg_get_functiondef('public.company_members()'::regprocedure)) = 0 then
+    raise exception '085: الدالة لم تُستبدل';
   end if;
-  raise notice '080: company_members() تقصر القائمة الكاملة على مدير الشركة';
+  raise notice '085: company_members() تقصر القائمة الكاملة على مدير الشركة';
 end $$;

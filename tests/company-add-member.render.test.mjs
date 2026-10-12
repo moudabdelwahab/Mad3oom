@@ -959,9 +959,9 @@ test('لا تمرير أفقي في أي قسم، على الموبايل وسط
     await context.close();
 });
 
-/* ── 080: خصوصية أعضاء الشركة ─────────────────────────────────────────── */
+/* ── 085: خصوصية أعضاء الشركة ─────────────────────────────────────────── */
 
-test('080: المدير يرى القائمة الكاملة بلا ملاحظة النطاق', async (t) => {
+test('085: المدير يرى القائمة الكاملة بلا ملاحظة النطاق', async (t) => {
     if (!chromiumPath) return t.skip('no chromium');
     const fx = fixtures({ members: { members: [
         { id: USER_ID, name: 'مالك الشركة', email: 'owner@company.test', is_owner: true, is_me: true, created_at: '2026-01-01T00:00:00Z' },
@@ -977,7 +977,7 @@ test('080: المدير يرى القائمة الكاملة بلا ملاحظة
     await context.close();
 });
 
-test('080: عميل الشركة يرى ما رجّعته القاعدة فقط، مع ملاحظة النطاق وبلا بريد المدير', async (t) => {
+test('085: عميل الشركة يرى ما رجّعته القاعدة فقط، مع ملاحظة النطاق وبلا بريد المدير', async (t) => {
     if (!chromiumPath) return t.skip('no chromium');
     const fx = fixtures({ members: { canManage: false, members: [
         { id: USER_ID, name: 'مدير الشركة', email: null, is_owner: true, is_me: false, created_at: '2026-01-01T00:00:00Z' },

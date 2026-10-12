@@ -165,8 +165,8 @@ export function canManageMembers(membersPayload) {
 }
 
 /**
- * هل رجّعت القاعدة القائمة المحصورة (migrations/080_company_members_privacy.sql)؟
- * القائمة الكاملة لمدير الشركة وحده؛ غيره يرى نفسه ومديره. قاعدة قبل 080 لا
+ * هل رجّعت القاعدة القائمة المحصورة (migrations/085_company_members_privacy.sql)؟
+ * القائمة الكاملة لمدير الشركة وحده؛ غيره يرى نفسه ومديره. قاعدة قبل 085 لا
  * ترسل scope فتُعامَل كما كانت (كاملة) — الواجهة تعرض ولا تقرر.
  */
 export function membersScopeIsSelf(membersPayload) {

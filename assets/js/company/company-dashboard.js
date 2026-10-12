@@ -324,7 +324,7 @@ async function renderMembers() {
     addBtn.hidden = !canManageMembersNow;
     renderCompanyRoleBadge();
 
-    // 080: غير المدير يرى نفسه ومديره فقط — نقول ذلك بدل أن تبدو القائمة ناقصة.
+    // 085: غير المدير يرى نفسه ومديره فقط — نقول ذلك بدل أن تبدو القائمة ناقصة.
     const scopeNote = document.getElementById('companyMembersScopeNote');
     if (scopeNote) scopeNote.hidden = !membersScopeIsSelf(result.data);
 
