@@ -122,11 +122,11 @@ async function openPage(fx, { url, viewport, init = null } = {}) {
             "if (failure) return { data: null, error: typeof failure === 'object' ? failure : { message: failure, code: 'P0001' } };");
     assert.ok(double.includes("typeof failure === 'object'"), 'مقدرتش أعدّل البديل');
     const auth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
-    await page.route('**/api-config.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: double }));
-    await page.route('**/auth-client.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: auth }));
-    await page.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
-    await page.addInitScript((data) => { window.__FIXTURES__ = data; }, fx);
-    if (init) await page.addInitScript(init);
+    await context.route('**/api-config.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: double }));
+    await context.route('**/auth-client.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: auth }));
+    await context.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
+    await context.addInitScript((data) => { window.__FIXTURES__ = data; }, fx);
+    if (init) await context.addInitScript(init);
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     // فشل تحميل موارد خارجية (خطوط/CDN) من بيئة الاختبار المعزولة ليس خطأ في الكود
@@ -948,6 +948,99 @@ test('reopen (079): before 079 (no closures) the history is absent and reopening
     await page.locator('#ctConfirmOk').click();
     await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_transition'));
     assert.deepEqual((await rpcCalls(page, 'continuity_transition'))[0].p_details, { reason: 'ظهرت تاني' });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+// ─────────────────────────────────────────────────────────────
+// نافذة السجل المستقلة (admin/continuity-record.html?id=)
+// ─────────────────────────────────────────────────────────────
+const STANDALONE_URL = (id) => `/admin/continuity-record.html?id=${id}`;
+
+test('standalone: «فتح السجل في نافذة مستقلة» opens the same record in a new window, safely', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(pageFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordTitle');
+    const link = page.locator('#ctOpenStandalone');
+    assert.equal(await link.innerText(), 'فتح السجل في نافذة مستقلة');
+    assert.equal(await link.getAttribute('href'), STANDALONE_URL(REC));
+    assert.equal(await link.getAttribute('target'), '_blank');
+    assert.deepEqual((await link.getAttribute('rel')).split(/\s+/).sort(), ['noopener', 'noreferrer']);
+    // البديل يُحقن في كل صفحة جديدة من نفس السياق
+    const [popup] = await Promise.all([context.waitForEvent('page'), link.click()]);
+    popup.on('pageerror', (e) => errors.push(e.message));
+    await popup.waitForSelector('#ctRecordTitle');
+    assert.equal(await popup.evaluate(() => window.opener), null, 'no opener handle');
+    assert.equal(await popup.locator('#ctRecordTitle').innerText(), 'متابعة الشحنة');
+    assert.equal(await popup.title(), 'سجل الاستمرارية - لوحة الإدارة', 'the record title stays out of the tab/history title');
+    assert.equal(await popup.locator('#ctList, #ctTrash, #ctAssigners, #ctPolicies, #sidebar-container').count(), 0);
+    assert.equal(await popup.locator('#ctOpenStandalone').count(), 0, 'no window-in-window link');
+    assert.equal(await popup.locator('#ctOpenInPage').getAttribute('href'), `/admin/continuity.html?record=${REC}`);
+    const gets = await rpcCalls(popup, 'continuity_get');
+    assert.deepEqual(gets, [{ p_record: REC }]);
+    assert.deepEqual(await rpcCalls(popup, 'continuity_list'), [], 'no list in the standalone window');
+    // نفس الأدوات ونفس الـRPC: انتقال يحتاج نص
+    await popup.locator('[data-to="waiting"]').click();
+    await popup.locator('#ctConfirm[open] #ctConfirmInput').fill('رد المورد');
+    await popup.locator('#ctConfirmOk').click();
+    await popup.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_transition'));
+    assert.deepEqual((await rpcCalls(popup, 'continuity_transition'))[0],
+        { p_record: REC, p_to: 'waiting', p_details: { waiting_on: 'رد المورد' }, p_expected_version: 3 });
+    assert.equal(new URL(popup.url()).searchParams.get('id'), REC, 'the window keeps its own URL');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('standalone: an invalid link calls nothing; not found and load errors say why; retry works', { skip: !chromiumPath }, async () => {
+    for (const bad of ['', 'not-a-uuid', `${REC}x`, '../continuity.html']) {
+        const { page, context, errors } = await openPage(pageFixtures(), { url: STANDALONE_URL(encodeURIComponent(bad)) });
+        await page.waitForSelector('#ctInvalidLink');
+        // فقط فحص الجلسة (owner_context_status من حارس الصفحة)؛ ولا أي نداء للاستمرارية
+        const called = await page.evaluate(() => (window.__RPC_ARGS__ || []).map(([n]) => n));
+        assert.deepEqual(called.filter((n) => n.startsWith('continuity_')), [], `Continuity RPC called for ${bad}`);
+        assert.deepEqual(errors, []);
+        await context.close();
+    }
+    const missing = pageFixtures();
+    missing.rpcErrors = { continuity_get: { code: 'P0002', message: 'غير موجود', details: '{"code":"not_found"}' } };
+    let r = await openPage(missing, { url: STANDALONE_URL(REC) });
+    await r.page.waitForSelector('#ctNotFound');
+    assert.match(await r.page.locator('#ctNotFound').innerText(), /غير موجود أو مش مسموح لك تشوفه/);
+    assert.equal(await r.page.locator('#ctRetry').count(), 0, 'no retry for a record you cannot see');
+    assert.deepEqual(r.errors, []);
+    await r.context.close();
+    const broken = pageFixtures();
+    broken.rpcErrors = { continuity_get: { code: 'XX000', message: 'network down' } };
+    r = await openPage(broken, { url: STANDALONE_URL(REC) });
+    await r.page.waitForSelector('#ctLoadError');
+    assert.ok(!(await r.page.locator('#ctLoadError').innerText()).includes('network down'), 'raw server text is not shown');
+    await r.page.evaluate(() => { delete window.__FIXTURES__.rpcErrors; });
+    await r.page.locator('#ctRetry').click();
+    await r.page.waitForSelector('#ctRecordTitle');
+    assert.equal((await rpcCalls(r.page, 'continuity_get')).length, 2);
+    assert.deepEqual(r.errors, []);
+    await r.context.close();
+});
+
+test('standalone: Continuity off or not a member shows the reason and never asks for the record', { skip: !chromiumPath }, async () => {
+    for (const access of [{ member: true, enabled: false }, { member: false, enabled: true }]) {
+        const { page, context, errors } = await openPage(pageFixtures({ access }), { url: STANDALONE_URL(REC) });
+        await page.waitForSelector('#ctBanner:not([hidden])');
+        assert.equal(await page.locator('#ctPage').isHidden(), true);
+        assert.deepEqual(await rpcCalls(page, 'continuity_get'), []);
+        assert.deepEqual(errors, []);
+        await context.close();
+    }
+});
+
+test('standalone at 390px: one column, no horizontal overflow, 44px actions', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(pageFixtures(), { url: STANDALONE_URL(REC), viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#ctRecordTitle');
+    const m = await page.evaluate(() => ({
+        doc: document.documentElement.scrollWidth - window.innerWidth,
+        small: [...document.querySelectorAll('#ctDetail .ct-inline .btn')].filter((b) => b.getBoundingClientRect().height < 44).length,
+    }));
+    assert.ok(m.doc <= 0, `horizontal overflow ${m.doc}px`);
+    assert.equal(m.small, 0, 'an action is smaller than 44px');
     assert.deepEqual(errors, []);
     await context.close();
 });
