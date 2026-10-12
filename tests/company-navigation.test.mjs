@@ -495,7 +495,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         forward-only Supabase migration»). إعادة تسمية فقط بلا فقد بيانات أو صلاحيات،
     //         وأغلفة relay_* الـ19 للتوافق. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/continuity-namespace.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '077_continuity_namespace.sql',
+    //   078 — سياسات الاستمرارية ومفاتيح الإيقاف (قرارات صاحب المنصة 2026-10-12: D1–D4
+    //         «Implement these as configurable policies, not hardcoded business rules»).
+    //         جدولان بلا أي صلاحية مباشرة، كل القدرات مطفأة ولا تُفعَّل قبل تثبيت كودها،
+    //         والتغيير للمالك فقط. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/continuity-policies.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '078_continuity_policies.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

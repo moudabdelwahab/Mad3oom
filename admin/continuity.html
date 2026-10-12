@@ -23,9 +23,15 @@
     <div id="sidebar-container"></div>
 
     <main class="admin-main">
-        <header class="page-header">
-            <h1>الاستمرارية</h1>
-            <p>سجلات الاستمرارية: المتابعات والمشاكل المفتوحة اللي اتعملت من محادثات صندوق الرسائل.</p>
+        <header class="page-header ct-brand">
+            <img class="ct-brand-logo" src="/assets/images/continuity/continuity-logo-128.png"
+                 srcset="/assets/images/continuity/continuity-logo-64.png 1x, /assets/images/continuity/continuity-logo-128.png 2x"
+                 width="48" height="48" alt="Mad3oom Continuity">
+            <div>
+                <h1>الاستمرارية</h1>
+                <p class="ct-brand-name" lang="en" dir="ltr">Mad3oom Continuity</p>
+                <p>سجلات الاستمرارية: المتابعات والمشاكل المفتوحة اللي اتعملت من محادثات صندوق الرسائل.</p>
+            </div>
         </header>
 
         <div class="ct-banner" id="ctBanner" hidden role="status"></div>
@@ -62,6 +68,14 @@
                     <button type="button" class="btn btn-danger ct-btn-sm" id="ctPurgeAll" hidden>تفريغ الكل</button></div>
                 <p class="ct-muted">الرسائل اللي اتشالت من السجلات. «استرجاع» يرجّعها لسجلها، والمسح النهائي لحساب مالك المنصة بس.</p>
                 <div id="ctTrashBody"></div>
+            </div>
+        </section>
+
+        <section class="ct-panel" id="ctPolicies" hidden aria-labelledby="ctPoliciesH" style="margin-top:1rem;">
+            <div class="ct-detail">
+                <h3 id="ctPoliciesH">إعدادات الاستمرارية</h3>
+                <p class="ct-muted">قراءة فقط. التذكيرات والتصعيد والتسليم وغيرها مطفأة، وكل واحدة لا تُفعَّل إلا بعد تثبيت كودها وبقرار منفصل.</p>
+                <div id="ctPoliciesBody"></div>
             </div>
         </section>
 

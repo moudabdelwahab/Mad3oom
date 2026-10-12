@@ -369,3 +369,50 @@ export const EVENT_LABELS = Object.freeze({
     source_attached: 'أرفق رسالة', source_redacted: 'حذف محتوى مصدر', sensitive_ack: 'أكّد إرفاق محتوى حساس',
     source_removed: 'شال رسالة للمحذوفات', source_restored: 'رجّع رسالة من المحذوفات', source_purged: 'مسح رسالة نهائيًا',
 });
+
+// ─────────────────────────────────────────────────────────────
+// سياسات الاستمرارية (078): وصف للعرض فقط؛ الخادم يقرر ويفرض
+// ─────────────────────────────────────────────────────────────
+export const CAPABILITY_LABELS = Object.freeze({
+    handovers: 'التسليم بين الموظفين', reminders: 'التذكيرات', escalation: 'التصعيد',
+    monitor: 'مراقب الاستمرارية', attachments: 'المرفقات', ai: 'الاستخراج بالذكاء الاصطناعي',
+});
+
+const minutesLabel = (m) => {
+    if (m == null) return 'لا';
+    if (m % 1440 === 0) return m === 1440 ? 'يوم' : `${m / 1440} أيام`;
+    if (m % 60 === 0) return m === 60 ? 'ساعة' : `${m / 60} ساعات`;
+    return `${m} دقيقة`;
+};
+
+/**
+ * يحوّل رد continuity_get_policies لصفوف عرض { label, value, off? }.
+ * القيم كما أرسلها الخادم؛ لا افتراضيات هنا (الافتراضي في القاعدة: D1–D4).
+ */
+export function describePolicy(res) {
+    const p = res?.policy || {};
+    const installed = res?.capabilities_installed || {};
+    const capabilities = Object.keys(CAPABILITY_LABELS).map((key) => {
+        const enabled = Boolean(p[`${key}_enabled`]);
+        const isInstalled = Boolean(installed[key]);
+        return {
+            label: CAPABILITY_LABELS[key],
+            value: enabled && isInstalled ? 'مفعّلة' : isInstalled ? 'مطفأة' : 'مطفأة · غير مثبتة بعد',
+            off: !(enabled && isInstalled),
+        };
+    });
+    const offsets = Array.isArray(p.reminder_offsets_minutes) ? p.reminder_offsets_minutes : [];
+    const timings = [
+        { label: 'تذكير قبل الموعد', value: offsets.length ? offsets.map(minutesLabel).join('، ') : 'لا' },
+        { label: 'إشعار عند حلول الموعد', value: p.due_alert ? 'نعم' : 'لا' },
+        { label: 'تكرار أثناء التأخير', value: p.overdue_repeat_minutes == null ? 'لا' : `كل ${minutesLabel(p.overdue_repeat_minutes)} (حتى ${p.overdue_repeat_max} مرات)` },
+        { label: 'تصعيد بعد التأخير', value: p.escalate_after_minutes == null ? 'لا'
+            : `بعد ${minutesLabel(p.escalate_after_minutes)} ${p.escalation_recipients === 'team_then_supervisors' ? 'للفريق ثم المشرفين' : 'للمشرفين'}` },
+        { label: 'ساعات العمل في التصعيد', value: p.respect_working_hours ? 'تُراعى' : 'لا تُراعى' },
+        { label: 'تسليم معلّق: تذكير', value: p.handover_remind_after_minutes == null ? 'لا' : `بعد ${minutesLabel(p.handover_remind_after_minutes)}` },
+        { label: 'تسليم معلّق: تصعيد', value: p.handover_escalate_after_minutes == null ? 'لا' : `بعد ${minutesLabel(p.handover_escalate_after_minutes)}` },
+        { label: 'سجل بلا نشاط', value: `${p.stale_after_days ?? '—'} أيام` },
+        { label: 'تأجيل متكرر', value: `${p.postpone_flag_count ?? '—'} مرات` },
+    ];
+    return { capabilities, timings, version: res?.version ?? null };
+}

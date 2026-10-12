@@ -150,3 +150,32 @@ test('the continuity frontend never persists content in browser storage', async 
         assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), /localStorage|sessionStorage|indexedDB|chrome\.storage/, f);
     }
 });
+
+test('policy limits and capabilities match migration 078', async () => {
+    const { POLICY_LIMITS, CAPABILITIES, validatePolicyPatch } = await import('../assets/js/continuity/continuity-contract.js');
+    const sql = await read('migrations/078_continuity_policies.sql');
+    assert.match(sql, new RegExp(`cardinality\\(reminder_offsets_minutes\\) between 0 and ${POLICY_LIMITS.offsetsMax}`));
+    assert.match(sql, new RegExp(`${POLICY_LIMITS.offsetMin} <= all \\(reminder_offsets_minutes\\) and ${POLICY_LIMITS.offsetMax} >= all`));
+    assert.match(sql, new RegExp(`overdue_repeat_minutes between ${POLICY_LIMITS.repeatMin} and ${POLICY_LIMITS.repeatMax}`));
+    assert.match(sql, new RegExp(`escalate_after_minutes between ${POLICY_LIMITS.thresholdMin} and ${POLICY_LIMITS.thresholdMax}`));
+    assert.match(sql, new RegExp(`stale_after_days between ${POLICY_LIMITS.staleMin} and ${POLICY_LIMITS.staleMax}`));
+    assert.match(sql, new RegExp(`postpone_flag_count between ${POLICY_LIMITS.postponeMin} and ${POLICY_LIMITS.postponeMax}`));
+    const caps = sql.match(/select array\[('handovers'[^\]]*)\]/)[1];
+    assert.deepEqual([...caps.matchAll(/'([^']+)'/g)].map((x) => x[1]), [...CAPABILITIES]);
+    // D1–D4 الافتراضية في الجدول
+    assert.match(sql, /reminder_offsets_minutes\s+int\[\] not null default '\{60\}'/);
+    assert.match(sql, /escalate_after_minutes\s+int default 240/);
+    assert.match(sql, /handover_remind_after_minutes\s+int default 60/);
+    assert.match(sql, /handover_escalate_after_minutes int default 240/);
+    // كل مفاتيح القدرات مطفأة افتراضيًا
+    for (const c of CAPABILITIES) assert.match(sql, new RegExp(`${c}_enabled\\s+boolean not null default false`));
+
+    assert.deepEqual(validatePolicyPatch({ escalate_after_minutes: 180, reminder_offsets_minutes: [1440, 60] }), []);
+    assert.deepEqual(validatePolicyPatch({ escalate_after_minutes: null }), []);
+    assert.deepEqual(validatePolicyPatch({ reminder_offsets_minutes: [] }), []);
+    for (const bad of [{}, null, [], { escalate_after_minutes: '240' }, { escalate_after_minutes: 4 }, { reminder_offsets_minutes: [1] },
+        { reminder_offsets_minutes: [60, 60, 60, 60, 60, 60] }, { due_alert: 'yes' }, { escalation_recipients: 'all' },
+        { stale_after_days: null }, { version: 2 }, { workspace_id: 'x' }]) {
+        assert.ok(validatePolicyPatch(bad).length > 0, JSON.stringify(bad));
+    }
+});

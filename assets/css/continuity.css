@@ -254,3 +254,13 @@
     .ct-page:not(.has-record) .ct-panel--detail { display: none; }
     .ct-list { max-height: none; }
 }
+
+/* ── الهوية (078): شعار مدعوم — الاستمرارية في رأس الصفحة ───────────────── */
+.ct-brand { display: flex; align-items: center; gap: 0.85rem; }
+.ct-brand-logo { width: 48px; height: 48px; flex: none; }
+.ct-brand-name { margin: 0; font-weight: 700; color: var(--color-primary, #0077cc); font-size: 0.85rem; letter-spacing: 0.01em; }
+.ct-policy-list { display: grid; gap: 0.35rem; margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.ct-policy-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; border-bottom: 1px solid var(--color-border); }
+.ct-policy-list li span:last-child { font-weight: 600; text-align: end; }
+.ct-policy-off { color: var(--color-text-secondary); }
+@media (max-width: 480px) { .ct-brand-logo { width: 40px; height: 40px; } }

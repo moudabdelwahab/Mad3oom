@@ -803,3 +803,70 @@ test('before 076 (continuity_my_access without owner): the page keeps the 074 be
     assert.deepEqual(errors, []);
     await context.close();
 });
+
+/* ── المرحلة 0 (078): الهوية ولوحة الإعدادات للمالك ────────────────────────── */
+const POLICY_RES = {
+    policy: { handovers_enabled: false, reminders_enabled: false, escalation_enabled: false, monitor_enabled: false,
+        attachments_enabled: false, ai_enabled: false, reminder_offsets_minutes: [60], due_alert: true,
+        overdue_repeat_minutes: null, overdue_repeat_max: 3, escalate_after_minutes: 240, escalation_recipients: 'supervisors',
+        respect_working_hours: true, handover_remind_after_minutes: 60, handover_escalate_after_minutes: 240,
+        stale_after_days: 7, postpone_flag_count: 3 },
+    version: 1, updated_by: null, updated_at: at(9, 0),
+    capabilities_installed: { handovers: false, reminders: false, escalation: false, monitor: false, attachments: false, ai: false },
+    capabilities: { handovers: false, reminders: false, escalation: false, monitor: false, attachments: false, ai: false },
+};
+const OFF_CAPS = POLICY_RES.capabilities;
+
+test('branding: «الاستمرارية» and Mad3oom Continuity with the logo; the sidebar link keeps the page route', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(pageFixtures(), { url: '/admin/continuity.html' });
+    await page.waitForSelector('#ctList');
+    assert.equal(await page.title(), 'الاستمرارية - لوحة الإدارة');
+    assert.equal((await page.locator('.page-header h1').innerText()).trim(), 'الاستمرارية');
+    assert.equal((await page.locator('.ct-brand-name').innerText()).trim(), 'Mad3oom Continuity');
+    const logo = page.locator('.ct-brand-logo');
+    assert.equal(await logo.getAttribute('alt'), 'Mad3oom Continuity');
+    assert.ok(await logo.evaluate((img) => img.complete && img.naturalWidth > 0), 'logo did not load');
+    // الرابط نفسه (ظهوره يقرره السايدبار حسب الصلاحيات، خارج هذا التغيير)
+    await page.waitForSelector('#continuityLink', { state: 'attached' });
+    assert.equal(await page.getAttribute('#continuityLink', 'href'), '/admin/continuity.html');
+    assert.equal((await page.locator('#continuityLink span').textContent()).trim(), 'الاستمرارية');
+    assert.match(await page.locator('#continuityLink svg path').getAttribute('d'), /^M12 12c-2-2\.67/, 'infinity icon');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('policies panel: the platform owner sees the policy read-only after 078; hidden before 078 and for everyone else', { skip: !chromiumPath }, async () => {
+    const ownerAccess = { member: true, enabled: true, supervisor: true, can_assign: true, owner: true, capabilities: OFF_CAPS };
+    let fx = pageFixtures({ access: ownerAccess });
+    fx.rpc.continuity_get_policies = POLICY_RES;
+    let r = await openPage(fx, { url: '/admin/continuity.html' });
+    await r.page.waitForSelector('#ctPolicyCaps li');
+    const caps = await r.page.locator('#ctPolicyCaps').innerText();
+    assert.equal((caps.match(/مطفأة · غير مثبتة بعد/g) || []).length, 6);
+    const timings = await r.page.locator('#ctPolicyTimings').innerText();
+    assert.match(timings, /تذكير قبل الموعد\s*ساعة/);
+    assert.match(timings, /تصعيد بعد التأخير\s*بعد 4 ساعات للمشرفين/);
+    assert.match(timings, /تسليم معلّق: تذكير\s*بعد ساعة/);
+    assert.match(timings, /تسليم معلّق: تصعيد\s*بعد 4 ساعات/);
+    // قراءة فقط: لا أي أداة تعديل، ولا نداء continuity_set_policies
+    assert.equal(await r.page.locator('#ctPolicies button, #ctPolicies input, #ctPolicies select').count(), 0);
+    assert.deepEqual(await rpcCalls(r.page, 'continuity_set_policies'), []);
+    await r.context.close();
+
+    // قبل 078: لا مفتاح capabilities ⇒ اللوحة مخفية ولا نداء للسياسات
+    fx = pageFixtures({ access: { member: true, enabled: true, supervisor: true, can_assign: true, owner: true } });
+    r = await openPage(fx, { url: '/admin/continuity.html' });
+    await r.page.waitForSelector('#ctList');
+    assert.equal(await r.page.locator('#ctPolicies').isHidden(), true);
+    assert.deepEqual(await rpcCalls(r.page, 'continuity_get_policies'), []);
+    await r.context.close();
+
+    // غير المالك (مشرف): مخفية
+    fx = pageFixtures({ access: { member: true, enabled: true, supervisor: true, can_assign: true, owner: false, capabilities: OFF_CAPS } });
+    fx.rpc.continuity_get_policies = POLICY_RES;
+    r = await openPage(fx, { url: '/admin/continuity.html' });
+    await r.page.waitForSelector('#ctList');
+    assert.equal(await r.page.locator('#ctPolicies').isHidden(), true);
+    assert.deepEqual(await rpcCalls(r.page, 'continuity_get_policies'), []);
+    await r.context.close();
+});
