@@ -1,10 +1,12 @@
-# Company staff 077 (Continuity multi-tenant, increment 1): production install note (NOT EXECUTED)
+# Company staff 081 (Continuity multi-tenant, increment 1): production install note (NOT EXECUTED)
 
-> Status: prepared on 2026-10-12. **Nothing here has been run against production.** Applying 077 needs a separate explicit approval from Mahmoud. Merging the PR is not that approval.
+> Status: prepared on 2026-10-12. **Nothing here has been run against production.** Applying 081 needs a separate explicit approval from Mahmoud. Merging the PR is not that approval.
 >
-> Design: `CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md` §5.2 and §9. Decisions D0–D3 were approved on 2026-10-12.
+> Design: `CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md` §5.2, §9 and §10. Decisions D1–D3 were approved on 2026-10-12; the namespace is `continuity_*` (#116).
+>
+> **Numbering:** this was written as `077` and moved to `081` with no content change. `077`–`079` are the continuity stack (#116–#118) and `080` is the `company_members` privacy fix (#120). 081 depends on none of them and none depends on 081 (report §10.2).
 
-## What 077 changes
+## What 081 changes
 - **New tables:** `company_staff` (an explicit employee role, `supervisor` or `agent`, for a follower of the company) and `company_staff_events` (append-only history).
 - **New RPCs:** `company_staff_role()`, `company_staff_list()`, `company_staff_set(uuid, text)` and `company_staff_revoke(uuid)` for `authenticated`. Internal predicates `_company_staff_role_of` and `_company_is_eligible_agent` are granted to no role.
 - **One new trigger on `profiles`:** `trg_company_staff_unlink` (`AFTER UPDATE OF super_user_id`). When an account leaves a company, it revokes that account's staff role there.
@@ -12,12 +14,12 @@
 - **No new access:** the role grants nothing until increment 2 or 3 reads it.
 
 ## Deploy order
-The frontend is safe to deploy before 077 is applied:
-- Before 077, `company_staff_list` does not exist. `company-data.js` treats the missing RPC (`PGRST202` / `42883` / 404) as `null`, and the members section looks exactly as it does today.
-- After 077, the company admin sees a role selector on each follower on the next load. Supervisors and agents see the role as a label. Customers see nothing new.
+The frontend is safe to deploy before 081 is applied:
+- Before 081, `company_staff_list` does not exist. `company-data.js` treats the missing RPC (`PGRST202` / `42883` / 404) as `null`, and the members section looks exactly as it does today.
+- After 081, the company admin sees a role selector on each follower on the next load. Supervisors and agents see the role as a label. Customers see nothing new.
 
 ## 1. Pre-apply checks (read-only)
-1. Run `list_migrations`. Confirm the head is `076_relay_trash_owner` and that no `077` exists. `075_workspace_layouts` is in the repo but not in the production ledger; it is unrelated, but confirm nobody applied it in the meantime under another name.
+1. Run `list_migrations`. Confirm that no `081_company_staff` exists. Any of `077`–`080` may or may not be applied by then; that is fine, because 081 is independent of them. On 2026-10-12 the head was `076_relay_trash_owner`. `075_workspace_layouts` is in the repo but not in the production ledger; it is unrelated.
 2. Confirm that these prerequisite functions exist: `current_company_id()`, `is_company_admin()`, `is_company_member()`, `can_manage_company_members()`, `account_is_active()`, `preview_mode()`, `_inbox_account_active(uuid)` and `guard_preview_read_only()`. The migration's first block also checks them and aborts if one is missing.
 3. Confirm that no table named `company_staff` or `company_staff_events` exists.
 
@@ -47,10 +49,19 @@ select tgname from pg_trigger where tgrelid = 'public.profiles'::regclass
 Then run `get_advisors` (security) and confirm that no new finding names a `company_staff*` object. "RLS enabled, no policy" on the two tables is intended.
 
 ## 4. Rollback
-- `migrations/_rollback/077_company_staff.down.sql` runs in one transaction.
+- `migrations/_rollback/081_company_staff.down.sql` runs in one transaction.
 - It drops the trigger on `profiles`, the functions and both tables.
 - It refuses to run while either table has rows, unless the session sets `company_staff.rollback_discard_data = 'on'`. Dropping the tables loses every staff role and its history.
-- No other object depends on 077. Profiles, companies, tickets, chat, inbox and Relay are untouched.
+- No other object depends on 081. Profiles, companies, tickets, chat, inbox and Relay are untouched.
+
+## 5. Recovery (without a full rollback)
+| Situation | Action |
+|---|---|
+| The apply fails part-way | Nothing to undo. The file runs inside the `begin; … commit;` you wrapped it in, and the verification block aborts the whole transaction |
+| An admin granted the wrong person a role | The admin uses the role selector (or `company_staff_revoke`). History is kept in `company_staff_events`. No database access is needed |
+| A role must be removed by Mahmoud (for example, an abuse report) | As the database owner: `update public.company_staff set revoked_at = now(), revoke_cause = 'admin', updated_at = now() where id = '<row>';`, then insert the matching `company_staff_events` row (`action = 'revoked'`, `cause = 'admin'`). The guards allow exactly this transition and nothing else |
+| `trg_company_staff_unlink` blocks a legitimate `profiles.super_user_id` change (unexpected) | `alter table public.profiles disable trigger trg_company_staff_unlink;`, make the change, then re-enable it. The role is still not counted for an account that left the company, because every predicate re-checks the relation on each read (test ⑦ب). Any stale active row can be revoked as above |
+| The frontend must hide the feature immediately | Revert the frontend only. Without the UI, the RPCs are inert: nothing else reads `company_staff` |
 
 ## Tests behind this note
 - `tests/sql/company-staff.test.sql` runs on the production-shape fixture. It covers:

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 077_company_staff.sql
+-- 081_company_staff.sql
 --   موظفو الشركة — عضوية صريحة منفصلة عن عملاء الشركة.
 --   Mad3oom Continuity، الزيادة 1 (docs/relay/CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md §5.2)
 --
@@ -45,7 +45,13 @@
 -- الاستحقاق: إدارة الفريق تستعمل can_manage_company_members() نفسها (مدير
 --   الشركة + امتياز sub_users) — لا مفتاح امتياز جديد قبل القرار D5.
 --
--- قابل لإعادة التشغيل. التراجع: migrations/_rollback/077_company_staff.down.sql
+-- الترقيم (2026-10-12): كُتب أولًا باسم 077 ثم نُقل إلى 081 دون تغيير محتوى، لأن 077–079
+--   محجوزة لسلسلة continuity المفتوحة قبله (#116 → #117 → #118؛ قرار التسمية الأخير
+--   continuity_*)، و080 لإصلاح خصوصية company_members (#120). سجل الإنتاج ينتهي بـ
+--   076_relay_trash_owner، ولا شيء من 077–081 مطبّق. 081 لا يعتمد على أي منها ولا هي
+--   عليه: كائناته company_staff* فقط، ولا يلمس relay_*/continuity_* ولا company_members.
+--
+-- قابل لإعادة التشغيل. التراجع: migrations/_rollback/081_company_staff.down.sql
 -- ============================================================================
 
 
@@ -60,11 +66,11 @@ begin
     'public.can_manage_company_members()', 'public.account_is_active()', 'public.preview_mode()',
     'public._inbox_account_active(uuid)', 'public.guard_preview_read_only()'] loop
     if to_regprocedure(f) is null then
-      raise exception '077 يتطلب %', f;
+      raise exception '081 يتطلب %', f;
     end if;
   end loop;
   if to_regclass('public.companies') is null or to_regclass('public.profiles') is null then
-    raise exception '077 يتطلب جدولَي companies و profiles';
+    raise exception '081 يتطلب جدولَي companies و profiles';
   end if;
 end $$;
 
@@ -88,7 +94,7 @@ create table if not exists public.company_staff (
 );
 
 comment on table public.company_staff is
-  '077: موظفو الشركة (مشرف/موظف دعم). المالك مدير بالملكية ولا يُخزَّن. التابع بلا صف نشط = عميل. '
+  '081: موظفو الشركة (مشرف/موظف دعم). المالك مدير بالملكية ولا يُخزَّن. التابع بلا صف نشط = عميل. '
   'الصف يُحتسب فقط والحساب ما زال تابعًا لنفس الشركة. لا وصول مباشر — عبر company_staff_* فقط.';
 
 -- صف نشط واحد لكل (شركة، حساب). الصفوف الملغاة تبقى سجلًا.
@@ -110,7 +116,7 @@ create table if not exists public.company_staff_events (
 );
 
 comment on table public.company_staff_events is
-  '077: سجل إلحاقي لتغييرات فريق الشركة (منح/تغيير دور/إلغاء). بلا مفاتيح خارجية عمدًا: '
+  '081: سجل إلحاقي لتغييرات فريق الشركة (منح/تغيير دور/إلغاء). بلا مفاتيح خارجية عمدًا: '
   'السجل يبقى بعد حذف الحساب. لا تعديل ولا حذف ولا TRUNCATE.';
 
 create index if not exists company_staff_events_company
@@ -307,7 +313,7 @@ begin
 end $$;
 
 comment on function public.company_staff_role() is
-  '077: دور المنادي في فريق شركته (admin/supervisor/agent) أو null لعميل الشركة. لا مُعاملات.';
+  '081: دور المنادي في فريق شركته (admin/supervisor/agent) أو null لعميل الشركة. لا مُعاملات.';
 
 -- بوابة الإدارة: مدير الشركة + امتياز sub_users، حساب مفعّل، خارج المعاينة.
 create or replace function public._company_staff_require_manager()
@@ -415,7 +421,7 @@ begin
 end $$;
 
 comment on function public.company_staff_list() is
-  '077: فريق شركة المنادي (المدير + المشرفون + موظفو الدعم). null لعميل الشركة ولمن لا شركة له.';
+  '081: فريق شركة المنادي (المدير + المشرفون + موظفو الدعم). null لعميل الشركة ولمن لا شركة له.';
 
 -- منح دور موظف لتابع في شركة المنادي، أو تغيير دوره. متكرر النتيجة: نفس الدور
 -- مرتين = changed:false بلا حدث.
@@ -494,7 +500,7 @@ begin
 end $$;
 
 comment on function public.company_staff_set(uuid, text) is
-  '077: منح/تغيير دور موظف (supervisor|agent) لتابع في شركة المنادي. مدير الشركة + sub_users فقط.';
+  '081: منح/تغيير دور موظف (supervisor|agent) لتابع في شركة المنادي. مدير الشركة + sub_users فقط.';
 
 -- إلغاء عضوية موظف: يعود عميلًا للشركة كما كان. الحساب وعلاقته بالشركة باقيان.
 create or replace function public.company_staff_revoke(p_user uuid)
@@ -526,7 +532,7 @@ begin
 end $$;
 
 comment on function public.company_staff_revoke(uuid) is
-  '077: إلغاء دور موظف في شركة المنادي؛ الحساب يبقى تابعًا (عميلًا). مدير الشركة + sub_users فقط.';
+  '081: إلغاء دور موظف في شركة المنادي؛ الحساب يبقى تابعًا (عميلًا). مدير الشركة + sub_users فقط.';
 
 
 -- ============================================================================
@@ -605,7 +611,7 @@ declare
 begin
   foreach t in array array['company_staff', 'company_staff_events'] loop
     if exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and permissive = 'PERMISSIVE') then
-      raise exception '077: سياسة سماح على %', t;
+      raise exception '081: سياسة سماح على %', t;
     end if;
     if has_table_privilege('authenticated', 'public.' || t, 'SELECT')
        or has_table_privilege('authenticated', 'public.' || t, 'INSERT')
@@ -614,12 +620,12 @@ begin
        or has_table_privilege('anon', 'public.' || t, 'SELECT')
        or (exists (select 1 from pg_roles where rolname = 'service_role')
            and has_table_privilege('service_role', 'public.' || t, 'SELECT')) then
-      raise exception '077: صلاحية مباشرة على %', t;
+      raise exception '081: صلاحية مباشرة على %', t;
     end if;
     if not exists (select 1 from pg_trigger where tgrelid = ('public.' || t)::regclass and tgname = 'trg_preview_read_only')
        or not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t
                        and policyname = 'gate_account_active' and permissive = 'RESTRICTIVE') then
-      raise exception '077: % بلا اتفاقيات 041/042', t;
+      raise exception '081: % بلا اتفاقيات 041/042', t;
     end if;
   end loop;
 
@@ -633,7 +639,7 @@ begin
        or (has_function_privilege('authenticated', f, 'EXECUTE')
            and f not in ('company_staff_role()', 'company_staff_list()',
                          'company_staff_set(uuid,text)', 'company_staff_revoke(uuid)')) then
-      raise exception '077: دالة مكشوفة لدور غير مقصود: %', f;
+      raise exception '081: دالة مكشوفة لدور غير مقصود: %', f;
     end if;
   end loop;
 
@@ -642,13 +648,13 @@ begin
                 and (p.proname like 'company\_staff\_%' or p.proname like '\_company\_staff\_%'
                      or p.proname = '_company_is_eligible_agent')
                 and p.prosecdef and not coalesce(p.proconfig::text like '%search_path=public%', false)) then
-    raise exception '077: دالة SECURITY DEFINER بلا search_path ثابت';
+    raise exception '081: دالة SECURITY DEFINER بلا search_path ثابت';
   end if;
 
   if not exists (select 1 from pg_trigger where tgrelid = 'public.profiles'::regclass
                   and tgname = 'trg_company_staff_unlink') then
-    raise exception '077: محفّز ترك الشركة غير مسجّل';
+    raise exception '081: محفّز ترك الشركة غير مسجّل';
   end if;
 
-  raise notice '077: فريق الشركة جاهز (لا يمنح وصولًا بعد — لا دالة أخرى تقرأه)';
+  raise notice '081: فريق الشركة جاهز (لا يمنح وصولًا بعد — لا دالة أخرى تقرأه)';
 end $$;

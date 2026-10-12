@@ -318,7 +318,7 @@ async function renderMembers() {
     const container = document.getElementById('companyMembers');
     const addBtn = document.getElementById('addMemberBtn');
 
-    // الفريق يُقرأ مع الأعضاء: null لعميل الشركة أو قبل 077، فلا يظهر شيء منه.
+    // الفريق يُقرأ مع الأعضاء: null لعميل الشركة أو قبل 081، فلا يظهر شيء منه.
     const [result, staffResult] = await Promise.all([fetchCompanyMembers(), fetchCompanyStaff()]);
     if (!result.ok || !result.data) { panel.hidden = true; return; }
     const staff = staffResult.ok ? staffResult.data : null;
@@ -400,7 +400,7 @@ async function renderMembers() {
     });
 }
 
-/** سطر يشرح الفرق بين الموظف والعميل — للمدير فقط، وبعد تطبيق 077. */
+/** سطر يشرح الفرق بين الموظف والعميل — للمدير فقط، وبعد تطبيق 081. */
 function renderStaffNote(staff) {
     const note = document.getElementById('companyStaffNote');
     if (!note) return;

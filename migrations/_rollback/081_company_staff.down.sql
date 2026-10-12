@@ -1,9 +1,9 @@
 -- ============================================================================
--- تراجع 077_company_staff
+-- تراجع 081_company_staff
 --
 -- يحذف فريق الشركة: الجدولين والدوال ومحفّز ترك الشركة على profiles. لا دالة
--- أخرى تعتمد على company_staff في 077، فلا شيء آخر يتغير: التابعون يبقون
--- تابعين (عملاء وأعضاء كما قبل 077).
+-- أخرى تعتمد على company_staff في 081، فلا شيء آخر يتغير: التابعون يبقون
+-- تابعين (عملاء وأعضاء كما قبل 081).
 --
 -- حماية: يرفض التنفيذ لو فيه أي صف في company_staff أو company_staff_events،
 -- إلا لو الجلسة ضبطت صراحةً
@@ -21,7 +21,7 @@ begin
      and ((to_regclass('public.company_staff') is not null and exists (select 1 from public.company_staff))
           or (to_regclass('public.company_staff_events') is not null
               and exists (select 1 from public.company_staff_events))) then
-    raise exception 'تراجع 077: فيه عضويات فريق أو سجلها — اضبط company_staff.rollback_discard_data=on لو المقصود حذفها';
+    raise exception 'تراجع 081: فيه عضويات فريق أو سجلها — اضبط company_staff.rollback_discard_data=on لو المقصود حذفها';
   end if;
 end $$;
 
@@ -54,7 +54,7 @@ begin
      or to_regclass('public.company_staff_events') is not null
      or exists (select 1 from pg_trigger where tgrelid = 'public.profiles'::regclass
                  and tgname = 'trg_company_staff_unlink') then
-    raise exception 'تراجع 077: بقيت كائنات';
+    raise exception 'تراجع 081: بقيت كائنات';
   end if;
 end $$;
 

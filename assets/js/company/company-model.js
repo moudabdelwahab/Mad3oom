@@ -211,7 +211,7 @@ export function memberActions(member, { canManage = false } = {}) {
     };
 }
 
-/* ── فريق الشركة (migrations/077_company_staff.sql) ──────────────────────
+/* ── فريق الشركة (migrations/081_company_staff.sql) ──────────────────────
  *
  * «مستخدم الشركة» علاقة تبعية فقط، وهي نفسها علاقة عميل الشركة. الموظف دور
  * صريح فوقها يمنحه المدير. الواجهة تعرض ما رجّعته company_staff_list() ولا
@@ -237,7 +237,7 @@ export const STAFF_ROLE_OPTIONS = Object.freeze([
 
 /**
  * دور عضو في الفريق كما رجّعته القاعدة.
- * null = لا نعرف (المنادي عميل، أو 077 غير مطبّق) — فلا نعرض شيئًا بدل تخمين «عميل».
+ * null = لا نعرف (المنادي عميل، أو 081 غير مطبّق) — فلا نعرض شيئًا بدل تخمين «عميل».
  */
 export function staffRoleOf(member, staffPayload) {
     if (!staffPayload || !Array.isArray(staffPayload.staff) || !member) return null;

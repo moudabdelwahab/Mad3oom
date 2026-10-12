@@ -1,5 +1,5 @@
 /**
- * فريق الشركة (migrations/077_company_staff.sql) — الجزء الخالص في الواجهة
+ * فريق الشركة (migrations/081_company_staff.sql) — الجزء الخالص في الواجهة
  * وضوابط ثابتة على نداءات البيانات.
  *
  * القرار كله في القاعدة (tests/sql/company-staff.test.sql). اللي هنا:
@@ -40,7 +40,7 @@ test('الدور يُقرأ من حمولة القاعدة: المالك مدي�
     assert.equal(staffRoleOf(CUSTOMER, payload()), 'customer');
 });
 
-test('بلا حمولة (عميل الشركة، أو قاعدة بلا 077) الدور غير معروف — لا يُخمَّن «عميل»', () => {
+test('بلا حمولة (عميل الشركة، أو قاعدة بلا 081) الدور غير معروف — لا يُخمَّن «عميل»', () => {
     for (const p of [null, undefined, {}, { staff: null }]) {
         assert.equal(staffRoleOf(CUSTOMER, p), null);
         assert.equal(staffActions(CUSTOMER, p).canEdit, false);
@@ -82,20 +82,20 @@ test('الخيارات ثلاثة بالضبط ولا تشمل admin، ولكل 
     assert.ok(Object.isFrozen(STAFF_ROLE_OPTIONS));
 });
 
-test('نداءات الفريق لا تحمل معرّف شركة، وتتحمل غياب 077', () => {
+test('نداءات الفريق لا تحمل معرّف شركة، وتتحمل غياب 081', () => {
     const src = read('assets/js/company/company-data.js');
-    const start = src.indexOf('/* ── فريق الشركة (migrations/077_company_staff.sql)');
+    const start = src.indexOf('/* ── فريق الشركة (migrations/081_company_staff.sql)');
     assert.ok(start > 0, 'قسم الفريق في company-data.js');
     const block = src.slice(start, src.indexOf('export async function hasCompany'));
     assert.ok(block.includes("rpc('company_staff_list')"), 'company_staff_list بلا مُعاملات');
     assert.ok(/rpc\('company_staff_set', \{\s*p_user: userId,\s*p_role: role\s*\}\)/.test(block), 'set: الحساب والدور فقط');
     assert.ok(/rpc\('company_staff_revoke', \{\s*p_user: userId\s*\}\)/.test(block), 'revoke: الحساب فقط');
     assert.equal(/company_id|p_company/.test(block), false, 'معرّف شركة في نداء الفريق');
-    assert.ok(block.includes("'PGRST202'") && block.includes('isMissingRpc(error)) return null'), 'غياب 077 = null لا خطأ');
+    assert.ok(block.includes("'PGRST202'") && block.includes('isMissingRpc(error)) return null'), 'غياب 081 = null لا خطأ');
 });
 
 test('الترحيل لا يمنح طاقم المنصة ولا سياق المالك فرعًا في دوال الفريق', () => {
-    const sql = read('migrations/077_company_staff.sql');
+    const sql = read('migrations/081_company_staff.sql');
     const body = sql.slice(sql.indexOf('-- 4) المُسنَدات'), sql.indexOf('-- 7) الصلاحيات'));
     assert.equal(/is_platform_staff\(|has_elevated_authority\(|is_admin\(|owner_capability\(/.test(body), false,
         'فرع منصة في دوال فريق الشركة');

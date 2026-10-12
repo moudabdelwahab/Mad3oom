@@ -272,19 +272,19 @@ export async function removeCompanyMember(memberId) {
     });
 }
 
-/* ── فريق الشركة (migrations/077_company_staff.sql) ──────────────────────
+/* ── فريق الشركة (migrations/081_company_staff.sql) ──────────────────────
  *
  * الموظفون (مشرف/موظف دعم) عضوية صريحة منفصلة عن عملاء الشركة. كل الدوال
  * بلا معرّف شركة: الشركة تُشتق من auth.uid() في القاعدة، والهدف يجب أن يكون
  * تابعًا لشركة المنادي وإلا رُفض بنفس الخطأ للحساب الغريب وغير الموجود.
  *
- * قبل تطبيق 077 على القاعدة الدوال غير موجودة: نرجّع data = null بلا خطأ،
+ * قبل تطبيق 081 على القاعدة الدوال غير موجودة: نرجّع data = null بلا خطأ،
  * فيختفي الجزء من الواجهة ولا ينكسر شيء — الواجهة والقاعدة تُنشران بأي ترتيب.
  */
 const MISSING_RPC_CODES = new Set(['PGRST202', '42883', 'PGRST404']);
 const isMissingRpc = (error) => !!error && (MISSING_RPC_CODES.has(error.code) || error.status === 404);
 
-/** فريق شركة المنادي — null لعميل الشركة، ولمن لا شركة له، وقبل 077. */
+/** فريق شركة المنادي — null لعميل الشركة، ولمن لا شركة له، وقبل 081. */
 export async function fetchCompanyStaff() {
     return safe('companyStaff', async () => {
         const { data, error } = await supabase.rpc('company_staff_list');

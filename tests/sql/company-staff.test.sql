@@ -1,12 +1,12 @@
 -- ============================================================================
--- فريق الشركة (077_company_staff) على نسخة مطابقة لشكل الإنتاج
+-- فريق الشركة (081_company_staff) على نسخة مطابقة لشكل الإنتاج
 --
 -- قرار المالك D2 (2026-10-12): التابعون الحاليون عملاء افتراضيًا، ومدير الشركة
 -- يضيف الموظفين صراحةً. القاعدة R1: طاقم المنصة وسياق المالك لا يمنحان شيئًا
 -- في نطاق شركة أخرى.
 --
---   ⓪ قبل 077: بصمات ما لا يجوز أن يتغيّر
---   ① 077: الكائنات والصلاحيات
+--   ⓪ قبل 081: بصمات ما لا يجوز أن يتغيّر
+--   ① 081: الكائنات والصلاحيات
 --   ② الأدوار: المالك مدير، التابع عميل، الطاقم والمالك المنصّي لا شيء
 --   ③ المنح والتغيير والتكرار، والرفض (عبر الشركات، المالك، الدور، غير المفعّل)
 --   ④ القائمة: للفريق فقط، بلا بريد، بلا تسرّب بين الشركات
@@ -125,7 +125,7 @@ CREATE FUNCTION t.set_sql(p_user text, p_role text) RETURNS text LANGUAGE sql AS
   select format('public.company_staff_set(%L::uuid, %L)', t.u(p_user), p_role) $$;
 CREATE FUNCTION t.rv_sql(p_user text) RETURNS text LANGUAGE sql AS $$
   select format('public.company_staff_revoke(%L::uuid)', t.u(p_user)) $$;
--- بصمة الجداول التي لا يجوز أن يغيّرها 077
+-- بصمة الجداول التي لا يجوز أن يغيّرها 081
 CREATE FUNCTION t.untouched_digest() RETURNS text LANGUAGE sql AS $$
   select md5(concat_ws('#',
     (select string_agg(md5(x::text), ',' order by x.id) from public.companies x),
@@ -215,7 +215,7 @@ INSERT INTO public.whatsapp_subscriptions (user_id, plan, status, billing_cycle,
   (t.u('OC'), 'whatsapp', 'active', 'monthly', now() - interval '5 days', now() + interval '25 days', 30, t.u('CC')),
   (t.u('OW'), 'support',  'active', 'monthly', now() - interval '5 days', now() + interval '25 days', 30, t.u('CW'));
 
--- ══ ⓪ قبل 077 ════════════════════════════════════════════════════════════
+-- ══ ⓪ قبل 081 ════════════════════════════════════════════════════════════
 DO $$
 BEGIN
   PERFORM t.ok((SELECT role FROM public.profiles WHERE id = t.u('OA')) = 'company_admin', 'SETUP OA company_admin');
@@ -230,7 +230,7 @@ BEGIN
   PERFORM t.act(t.u('A4'));
   PERFORM t.ok(NOT public.account_is_active(), 'SETUP A4 banned');
   PERFORM t.act(null);
-  -- قبل 077: التابع والعميل واحد — هذا ما تصلحه الزيادة 1
+  -- قبل 081: التابع والعميل واحد — هذا ما تصلحه الزيادة 1
   PERFORM t.ok(t.call(t.u('A1'), 'public.company_members()') -> 'members' @> jsonb_build_array(jsonb_build_object('id', t.u('A2'))),
                'SETUP A1 يرى بقية التابعين عبر company_members (سلوك قائم)');
   RAISE NOTICE 'PASS ⓪ الإعداد: ثلاث شركات + شركة لمالك المنصة + تابعون + طاقم منصة';
@@ -238,8 +238,8 @@ END $$;
 INSERT INTO t.saved VALUES ('untouched', t.untouched_digest()), ('fn', t.fn_digest()), ('pol', t.policy_digest()),
   ('members_oa', (t.call(t.u('OA'), 'public.company_members()'))::text);
 
--- ══ ① 077 ════════════════════════════════════════════════════════════════
-\i migrations/077_company_staff.sql
+-- ══ ① 081 ════════════════════════════════════════════════════════════════
+\i migrations/081_company_staff.sql
 
 DO $$
 BEGIN
@@ -255,7 +255,7 @@ BEGIN
   PERFORM t.ok(NOT has_table_privilege('service_role', 'public.company_staff', 'SELECT')
                AND NOT has_table_privilege('service_role', 'public.company_staff_events', 'INSERT'),
                '① service_role بلا جداول');
-  RAISE NOTICE 'PASS ① 077 مطبّق: جدولان بلا سياسة سماح، 4 دوال لـauthenticated، لا شيء لـanon/service_role';
+  RAISE NOTICE 'PASS ① 081 مطبّق: جدولان بلا سياسة سماح، 4 دوال لـauthenticated، لا شيء لـanon/service_role';
 END $$;
 
 SELECT 'PASS ① anon: ' || t.err_anon('select public.company_staff_list()') || ' / ' || t.err_anon('select public.company_staff_role()')
@@ -526,17 +526,17 @@ BEGIN
 END $$;
 INSERT INTO t.saved VALUES ('rows', (SELECT count(*) FROM public.company_staff)::text || '/' || (SELECT count(*) FROM public.company_staff_events)::text);
 
-\i migrations/077_company_staff.sql
+\i migrations/081_company_staff.sql
 DO $$
 BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.company_staff)::text || '/' || (SELECT count(*) FROM public.company_staff_events)::text
                = (SELECT v FROM t.saved WHERE k = 'rows'), '⑩ إعادة التشغيل لا تمس البيانات');
   PERFORM t.ok(t.role('A1') = 'supervisor', '⑩ الدور باقٍ بعد إعادة التشغيل');
-  RAISE NOTICE 'PASS ⑩ إعادة تشغيل 077 آمنة';
+  RAISE NOTICE 'PASS ⑩ إعادة تشغيل 081 آمنة';
 END $$;
 
 -- التراجع يرفض مع وجود بيانات (في جلسة منفصلة، فالخطأ المقصود لا يوقف الملف)
-\set rollback_sql `cat migrations/_rollback/077_company_staff.down.sql`
+\set rollback_sql `cat migrations/_rollback/081_company_staff.down.sql`
 SELECT set_config('t.rollback_sql', :'rollback_sql', false) IS NOT NULL;
 DO $$
 DECLARE c text;
@@ -555,7 +555,7 @@ BEGIN
 END $$;
 
 SET company_staff.rollback_discard_data = 'on';
-\i migrations/_rollback/077_company_staff.down.sql
+\i migrations/_rollback/081_company_staff.down.sql
 RESET company_staff.rollback_discard_data;
 DO $$
 BEGIN
@@ -565,10 +565,10 @@ BEGIN
   -- profiles يعمل بعد التراجع
   UPDATE public.profiles SET super_user_id = NULL WHERE id = t.u('A3');
   UPDATE public.profiles SET super_user_id = t.u('OA') WHERE id = t.u('A3');
-  RAISE NOTICE 'PASS ⑩ التراجع بإذن صريح يحذف 077 كاملًا ويترك الباقي كما كان';
+  RAISE NOTICE 'PASS ⑩ التراجع بإذن صريح يحذف 081 كاملًا ويترك الباقي كما كان';
 END $$;
 
-\i migrations/077_company_staff.sql
+\i migrations/081_company_staff.sql
 DO $$
 BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.company_staff) = 0 AND t.role('A1') IS NULL AND t.role('OA') = 'admin', '⑩ إعادة التطبيق: بداية نظيفة');
