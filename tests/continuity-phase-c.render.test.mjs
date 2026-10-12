@@ -617,6 +617,37 @@ test('sidebar: the Continuity link appears only when Continuity is on and the ca
     }
 });
 
+test('database before 077 (production on 076): the same page works through the old relay_* names; after 077 they are never called', { skip: !chromiumPath }, async () => {
+    // قاعدة 076: الدوال نفسها باسمها القديم فقط
+    const fx = pageFixtures();
+    fx.tables.profiles = [{ id: ME, email: 'admin@test.local', role: 'admin', whatsapp_enabled: false }];
+    for (const name of Object.keys(fx.rpc).filter((n) => n.startsWith('continuity_'))) {
+        fx.rpc[name.replace(/^continuity_/, 'relay_')] = fx.rpc[name];
+        delete fx.rpc[name];
+    }
+    fx.rpcErrors = { continuity_my_access: { code: 'PGRST202', message: 'Could not find the function public.continuity_my_access' } };
+    const { page, context } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctRecordTitle').innerText(), 'متابعة الشحنة');
+    assert.match(await page.locator('[data-source="s1"]').innerText(), /رقم الطلب هو 45879/);
+    await page.waitForSelector('[data-open]');
+    await page.waitForSelector('#continuityLink', { state: 'visible' });
+    const calls = await page.evaluate(() => window.__RPC_CALLS__);
+    assert.deepEqual([...new Set(calls.filter((n) => n.startsWith('continuity_')))], ['continuity_my_access'], 'only the probe uses the new name');
+    for (const n of ['relay_my_access', 'relay_get', 'relay_list']) assert.ok(calls.includes(n), n);
+    await context.close();
+
+    // بعد 077: لا نداء بالاسم القديم أبدًا
+    const fx2 = pageFixtures();
+    fx2.tables.profiles = [{ id: ME, email: 'admin@test.local', role: 'admin', whatsapp_enabled: false }];
+    const second = await openPage(fx2, { url: `/admin/continuity.html?record=${REC}` });
+    await second.page.waitForSelector('#ctRecordTitle');
+    await second.page.waitForSelector('#continuityLink', { state: 'visible' });
+    const calls2 = await second.page.evaluate(() => window.__RPC_CALLS__);
+    assert.deepEqual(calls2.filter((n) => n.startsWith('relay_')), []);
+    await second.context.close();
+});
+
 test('record page at 390px: list first, record replaces it, no horizontal overflow', { skip: !chromiumPath }, async () => {
     const { page, context } = await openPage(pageFixtures(), { url: '/admin/continuity.html', viewport: { width: 390, height: 844 } });
     await page.waitForSelector('[data-open]');
