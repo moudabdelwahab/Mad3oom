@@ -34,6 +34,9 @@ import {
     fetchCompanyMembers,
     createCompanyMember,
     removeCompanyMember,
+    fetchCompanyStaff,
+    setCompanyStaffRole,
+    revokeCompanyStaff,
     saveCompany
 } from '/assets/js/company/company-data.js';
 import {
@@ -46,6 +49,11 @@ import {
     companyRoleOf,
     memberRoleInfo,
     memberActions,
+    staffRoleOf,
+    staffRoleInfo,
+    staffActions,
+    staffChangeFor,
+    STAFF_ROLE_OPTIONS,
     hasEntitlement,
     validateCompanyForm,
     validateMemberForm
@@ -311,8 +319,11 @@ async function renderMembers() {
     const container = document.getElementById('companyMembers');
     const addBtn = document.getElementById('addMemberBtn');
 
-    const result = await fetchCompanyMembers();
+    // الفريق يُقرأ مع الأعضاء: null لعميل الشركة أو قبل 086، فلا يظهر شيء منه.
+    const [result, staffResult] = await Promise.all([fetchCompanyMembers(), fetchCompanyStaff()]);
     if (!result.ok || !result.data) { panel.hidden = true; return; }
+    const staff = staffResult.ok ? staffResult.data : null;
+    renderStaffNote(staff);
 
     // القرار جاي من القاعدة كما هو؛ الواجهة ما بتحسبوش.
     canManageMembersNow = canManageMembers(result.data);
@@ -344,6 +355,9 @@ async function renderMembers() {
             ${members.map(m => {
                 const role = memberRoleInfo(m);
                 const actions = memberActions(m, { canManage: canManageMembersNow });
+                const staffRole = staffRoleOf(m, staff);
+                const staffInfo = staffRoleInfo(staffRole);
+                const canEditStaff = staffActions(m, staff).canEdit;
                 return `
                 <li class="company-sub">
                     <div class="company-sub-main">
@@ -356,6 +370,19 @@ async function renderMembers() {
                     </div>
                     <div class="company-sub-side">
                         <span class="pill ${escapeHtml(role.pill)}">${escapeHtml(role.label)}</span>
+                        ${staffInfo && !m.is_owner && !canEditStaff ? `
+                        <span class="pill ${escapeHtml(staffInfo.pill)}" data-staff-pill="${escapeHtml(m.id)}"
+                              title="${escapeHtml(staffInfo.hint)}">${escapeHtml(staffInfo.label)}</span>` : ''}
+                        ${canEditStaff ? `
+                        <label class="company-staff-role">
+                            <span class="visually-hidden">دور ${escapeHtml(m.name || m.email || 'العضو')} في فريق الشركة</span>
+                            <select data-staff-role="${escapeHtml(m.id)}"
+                                    data-current-role="${escapeHtml(staffRole)}"
+                                    data-member-name="${escapeHtml(m.name || m.email || 'المستخدم')}">
+                                ${STAFF_ROLE_OPTIONS.map(o => `
+                                <option value="${escapeHtml(o.value)}"${o.value === staffRole ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+                            </select>
+                        </label>` : ''}
                         ${m.is_me ? '<span class="company-sub-days">أنت</span>' : ''}
                         ${actions.canRemove ? `
                         <button type="button" class="panel-link is-danger"
@@ -373,6 +400,50 @@ async function renderMembers() {
             btn.getAttribute('data-remove-member'),
             btn.getAttribute('data-member-name')));
     });
+    container.querySelectorAll('[data-staff-role]').forEach(select => {
+        select.addEventListener('change', () => onStaffRoleChange(select));
+    });
+}
+
+/** سطر يشرح الفرق بين الموظف والعميل — للمدير فقط، وبعد تطبيق 086. */
+function renderStaffNote(staff) {
+    const note = document.getElementById('companyStaffNote');
+    if (!note) return;
+    note.hidden = staff?.can_manage !== true;
+}
+
+/**
+ * تغيير دور عضو في الفريق. القرار في القاعدة (company_staff_set/revoke):
+ * المدير + sub_users، والعضو تابع لشركته فعلًا. أي فشل يعيد رسم القائمة من
+ * القاعدة، فلا يبقى في الشاشة دور لم يُحفظ.
+ */
+async function onStaffRoleChange(select) {
+    const memberId = select.getAttribute('data-staff-role');
+    const memberName = select.getAttribute('data-member-name');
+    const change = staffChangeFor(select.getAttribute('data-current-role'), select.value);
+    if (!change) return;
+
+    if (change.kind === 'revoke') {
+        const ok = await ui.showConfirm(
+            'إلغاء دور الموظف؟',
+            `سيعود «${memberName}» عميلًا للشركة ويفقد صلاحيات الموظف فورًا. `
+            + 'الحساب يبقى تابعًا لشركتك.',
+            { confirmLabel: 'إلغاء الدور', cancelLabel: 'تراجع', danger: true }
+        );
+        if (!ok) { await renderMembers(); return; }
+    }
+
+    select.disabled = true;
+    const result = change.kind === 'revoke'
+        ? await revokeCompanyStaff(memberId)
+        : await setCompanyStaffRole(memberId, change.role);
+
+    if (!result.ok) {
+        ui?.showToast?.(result.error || 'تعذّر تغيير الدور', 'error');
+    } else {
+        ui?.showToast?.(change.kind === 'revoke' ? 'عاد الحساب عميلًا للشركة' : 'تم تحديث دور الموظف', 'success');
+    }
+    await renderMembers();
 }
 
 /** شارة دور الحساب الحالي — يعرف المستخدم بأي صفة يتصرّف. */

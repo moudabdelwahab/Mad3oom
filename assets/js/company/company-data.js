@@ -272,6 +272,51 @@ export async function removeCompanyMember(memberId) {
     });
 }
 
+/* ── فريق الشركة (migrations/086_company_staff.sql) ──────────────────────
+ *
+ * الموظفون (مشرف/موظف دعم) عضوية صريحة منفصلة عن عملاء الشركة. كل الدوال
+ * بلا معرّف شركة: الشركة تُشتق من auth.uid() في القاعدة، والهدف يجب أن يكون
+ * تابعًا لشركة المنادي وإلا رُفض بنفس الخطأ للحساب الغريب وغير الموجود.
+ *
+ * قبل تطبيق 086 على القاعدة الدوال غير موجودة: نرجّع data = null بلا خطأ،
+ * فيختفي الجزء من الواجهة ولا ينكسر شيء — الواجهة والقاعدة تُنشران بأي ترتيب.
+ */
+const MISSING_RPC_CODES = new Set(['PGRST202', '42883', 'PGRST404']);
+const isMissingRpc = (error) => !!error && (MISSING_RPC_CODES.has(error.code) || error.status === 404);
+
+/** فريق شركة المنادي — null لعميل الشركة، ولمن لا شركة له، وقبل 086. */
+export async function fetchCompanyStaff() {
+    return safe('companyStaff', async () => {
+        const { data, error } = await supabase.rpc('company_staff_list');
+        if (isMissingRpc(error)) return null;
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+/** منح دور موظف (supervisor | agent) لتابع، أو تغيير دوره. القرار في القاعدة. */
+export async function setCompanyStaffRole(userId, role) {
+    return safe('setCompanyStaffRole', async () => {
+        const { data, error } = await supabase.rpc('company_staff_set', {
+            p_user: userId,
+            p_role: role
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
+/** إلغاء دور الموظف: يعود الحساب عميلًا للشركة كما كان. */
+export async function revokeCompanyStaff(userId) {
+    return safe('revokeCompanyStaff', async () => {
+        const { data, error } = await supabase.rpc('company_staff_revoke', {
+            p_user: userId
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
 /** هل المستخدم الحالي تابع لأي شركة؟ (لإظهار مدخل اللوحة في القائمة) */
 export async function hasCompany() {
     try {

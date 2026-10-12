@@ -518,7 +518,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         محجوزة لها في الخطة، و085+ لعمل الشركات (الاقتراح §16)، و086 لفريق الشركة. كلها غير
     //         مطبَّقة ولا تعتمد على 085. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/company-members-privacy.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '085_company_members_privacy.sql',
+    //   086 — فريق الشركة (صاحب المنصة 2026-10-12: «Approve D0–D3 as recommended, start
+    //         increment 1»؛ docs/relay/CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md §5.2).
+    //         عضوية موظف صريحة (supervisor/agent) منفصلة عن عملاء الشركة؛ المالك مدير
+    //         بالملكية. جدولان بلا أي صلاحية مباشرة وأربع دوال لا تأخذ معرّف شركة. لا يمنح
+    //         وصولًا لأي شيء بعد. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/company-staff.test.sql. غير مطبَّق على الإنتاج. كُتب باسم 077 ثم 081 ونُقل
+    //         إلى 086: 077–081 لسلسلة continuity (#116–#124) و082–084 محجوزة لها، و085 لخصوصية الأعضاء (#120).
+    assert.equal(migrations[migrations.length - 1], '086_company_staff.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
