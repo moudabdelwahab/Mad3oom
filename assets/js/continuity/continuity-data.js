@@ -72,6 +72,30 @@ export const listAssigners = () => call('continuity_list_assigners');
 export const grantAssigner = (userId) => call('continuity_grant_assigner', { p_user: userId });
 export const revokeAssigner = (userId) => call('continuity_revoke_assigner', { p_user: userId });
 
+// ─────────────────────────────────────────────────────────────
+// المرفقات (080). الرفع عبر دالة الرفع فقط (فحص التوقيع على الخادم)؛ لا كتابة مباشرة في
+// المستودع. القراءة برابط موقّع قصير بهوية المستخدم، تحكمه سياسة المستودع.
+// ─────────────────────────────────────────────────────────────
+export const ATTACHMENTS_BUCKET = 'continuity-attachments';
+export const SIGNED_URL_TTL = 300;
+
+export const removeAttachment = (id, version) =>
+    call('continuity_attachment_remove', { p_attachment: id, p_expected_version: version });
+export const restoreAttachment = (id, version) =>
+    call('continuity_attachment_restore', { p_attachment: id, p_expected_version: version });
+export const purgeAttachment = (id, version) =>
+    call('continuity_attachment_purge', { p_attachment: id, p_expected_version: version });
+
+/** رابط موقّع (5 دقائق) أو null لو الخادم رفض (لا وصول، محذوف، منتهي الاحتفاظ، أو القدرة مطفأة). */
+export async function signAttachment(path) {
+    try {
+        const { data, error } = await supabase.storage.from(ATTACHMENTS_BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
+        return error ? null : data?.signedUrl || null;
+    } catch {
+        return null;
+    }
+}
+
 /** نفس قائمة الطاقم المؤهل في الصندوق (inbox_list_agents، 055). */
 export async function loadAgents() {
     const { data, error } = await supabase.rpc('inbox_list_agents');

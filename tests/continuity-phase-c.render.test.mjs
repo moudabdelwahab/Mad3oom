@@ -113,7 +113,7 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 const rpcCalls = (page, name) => page.evaluate((n) => (window.__RPC_ARGS__ || []).filter(([k]) => k === n).map(([, a]) => a), name);
 
-async function openPage(fx, { url, viewport, init = null } = {}) {
+async function openPage(fx, { url, viewport, init = null, patchDouble = (d) => d } = {}) {
     const context = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, locale: 'ar-EG', timezoneId: 'Africa/Cairo' });
     const page = await context.newPage();
     // أخطاء الخادم بشكل PostgREST الكامل (code + details) — البديل المشترك يرجّع رسالة فقط.
@@ -121,8 +121,9 @@ async function openPage(fx, { url, viewport, init = null } = {}) {
         .replace("if (failure) return { data: null, error: { message: failure, code: 'P0001' } };",
             "if (failure) return { data: null, error: typeof failure === 'object' ? failure : { message: failure, code: 'P0001' } };");
     assert.ok(double.includes("typeof failure === 'object'"), 'مقدرتش أعدّل البديل');
+    const patched = patchDouble(double);
     const auth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
-    await context.route('**/api-config.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: double }));
+    await context.route('**/api-config.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: patched }));
     await context.route('**/auth-client.js', (r) => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: auth }));
     await context.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
     await context.addInitScript((data) => { window.__FIXTURES__ = data; }, fx);
@@ -1041,6 +1042,185 @@ test('standalone at 390px: one column, no horizontal overflow, 44px actions', { 
     }));
     assert.ok(m.doc <= 0, `horizontal overflow ${m.doc}px`);
     assert.equal(m.small, 0, 'an action is smaller than 44px');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+// ─────────────────────────────────────────────────────────────
+// المرفقات (080)
+// ─────────────────────────────────────────────────────────────
+const WS = 'aaaaaaaa-0000-4000-8000-000000000001';
+const att = (id, kind, mime, name, extra = {}) => ({ id, kind, mime, size: 2048, name, path: `${WS}/${REC}/${id}`, status: 'active',
+    created_by: STAFF, created_at: at(9, 30), ...extra });
+const A_IMG = 'a1a1a1a1-0000-4000-8000-000000000001';
+const A_VID = 'a1a1a1a1-0000-4000-8000-000000000002';
+const A_AUD = 'a1a1a1a1-0000-4000-8000-000000000003';
+const A_DEL = 'a1a1a1a1-0000-4000-8000-000000000004';
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(120)]);
+function attFixtures({ on = true, owner = false, status = 'open' } = {}) {
+    const fx = pageFixtures();
+    fx.rpc.continuity_my_access = { ...fx.rpc.continuity_my_access, owner, capabilities: { attachments: on } };
+    const record = { ...fx.rpc.continuity_get.record, status, closed_at: status === 'open' ? null : at(10, 0) };
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, record,
+        attachments: [att(A_IMG, 'image', 'image/png', `لقطة ${INJECT}.png`), att(A_VID, 'video', 'video/mp4', 'شرح.mp4'),
+            att(A_AUD, 'audio', 'audio/webm', 'تسجيل.webm')],
+        removed_attachments: [att(A_DEL, 'image', 'image/jpeg', 'قديمة.jpg', { status: 'removed', removed_by: ME, removed_at: at(9, 40) })] };
+    return fx;
+}
+async function routeUpload(context, responses) {
+    const seen = [];
+    await context.route('**/functions/v1/continuity-attachment-upload', async (route) => {
+        const req = route.request();
+        seen.push({ headers: req.headers(), size: req.postDataBuffer()?.length ?? 0 });
+        const next = responses[Math.min(seen.length - 1, responses.length - 1)];
+        await route.fulfill({ status: next.status, contentType: 'application/json', body: JSON.stringify(next.body) });
+    });
+    return seen;
+}
+
+test('attachments (080): media signed, names as text; a PNG goes to the upload function with exactly the declared headers', { skip: !chromiumPath }, async () => {
+    const fx = attFixtures();
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    const seen = await routeUpload(context, [{ status: 200, body: fx.rpc.continuity_get }]);
+    await page.waitForSelector('#ctAttachments');
+    assert.match(await page.locator('#ctAttH').innerText(), /المرفقات \(3\)/);
+    await page.waitForFunction(() => document.querySelector('[data-attachment] img')?.getAttribute('src'));
+    assert.equal(await page.locator(`[data-attachment="${A_IMG}"] img`).getAttribute('src'), `/signed/${WS}/${REC}/${A_IMG}`);
+    assert.equal(await page.locator(`[data-attachment="${A_VID}"] video`).getAttribute('src'), `/signed/${WS}/${REC}/${A_VID}`);
+    assert.equal(await page.locator(`[data-attachment="${A_AUD}"] audio`).getAttribute('preload'), 'none');
+    assert.equal(await page.locator(`[data-attachment="${A_IMG}"] .ct-att-name`).innerText(), `لقطة ${INJECT}.png`);
+    assert.equal(await page.locator('#ctAttachments img:not(.ct-att-media)').count(), 0, 'no markup from a name');
+    assert.equal(await page.locator(`[data-attachment="${A_DEL}"] [data-sign]`).count(), 0, 'removed: no media, no URL');
+    assert.equal(await page.locator('[data-att-purge]').count(), 0, 'no erase for a non-owner');
+    assert.match(await page.locator('#ctAttachInput').getAttribute('accept'), /^image\/png,image\/jpeg,image\/webp,image\/gif,video\/mp4/);
+    await page.setInputFiles('#ctAttachInput', { name: 'صورة العميل.png', mimeType: 'image/png', buffer: PNG });
+    await page.waitForFunction(() => !document.getElementById('toast').hidden);
+    assert.equal(seen.length, 1);
+    const h = seen[0].headers;
+    assert.equal(h.authorization, 'Bearer test');
+    assert.equal(h['content-type'], 'image/png');
+    assert.equal(h['x-continuity-record'], REC);
+    assert.equal(h['x-continuity-kind'], 'image');
+    assert.match(h['x-idempotency-key'], /^[0-9a-f-]{36}$/);
+    assert.equal(decodeURIComponent(h['x-continuity-name']), 'صورة العميل.png');
+    assert.equal(seen[0].size, PNG.length);
+    assert.match(await page.locator('#toast').innerText(), /اترفع المرفق/);
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('attachments (080): refused in the browser before any request — type, size, and a PNG that is not a PNG', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    const seen = await routeUpload(context, [{ status: 200, body: {} }]);
+    await page.waitForSelector('#ctAttachPick');
+    const cases = [
+        [{ name: 'x.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') }, /النوع ده مش مسموح/],
+        [{ name: 'x.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7') }, /النوع ده مش مسموح/],
+        [{ name: 'big.png', mimeType: 'image/png', buffer: Buffer.concat([PNG, Buffer.alloc(3145729 - PNG.length)]) }, /أكبر من الحد \(3 ميجا\)/],
+        [{ name: 'fake.png', mimeType: 'image/png', buffer: Buffer.from('<!doctype html><script>alert(1)</script>') }, /محتوى الملف مش من النوع/],
+    ];
+    for (const [file, msg] of cases) {
+        // كل حالة تمسح ما قبلها: بلا ذلك يجد الانتظار رسالة الحالة السابقة فورًا
+        if (await page.locator('#ctAttachDismiss').count()) await page.locator('#ctAttachDismiss').click();
+        await page.evaluate(() => { const e = document.getElementById('ctAttachError'); if (e) e.textContent = ''; });
+        await page.setInputFiles('#ctAttachInput', file);
+        await page.waitForFunction((src) => new RegExp(src).test(document.getElementById('ctAttachError')?.textContent || ''), msg.source);
+        assert.match(await page.locator('#ctAttachError').innerText(), msg, file.name);
+        assert.equal(await page.locator('#ctAttachRetry').count(), 0, 'nothing to retry');
+    }
+    assert.equal(seen.length, 0, 'no request');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('attachments (080): a failed upload is explained and retried with the same idempotency key; cancel sends nothing more', { skip: !chromiumPath }, async () => {
+    const fx = attFixtures();
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    const seen = await routeUpload(context, [
+        { status: 502, body: { error: { code: 'upload_failed' } } },
+        { status: 200, body: fx.rpc.continuity_get },
+    ]);
+    await page.waitForSelector('#ctAttachPick');
+    await page.setInputFiles('#ctAttachInput', { name: 'a.png', mimeType: 'image/png', buffer: PNG });
+    await page.waitForSelector('#ctAttachError');
+    assert.match(await page.locator('#ctAttachError').innerText(), /مشكلة في الرفع/);
+    await page.locator('#ctAttachRetry').click();
+    await page.waitForFunction(() => !document.getElementById('toast').hidden);
+    assert.equal(seen.length, 2);
+    assert.equal(seen[0].headers['x-idempotency-key'], seen[1].headers['x-idempotency-key'], 'same key on retry');
+    // رفض توقيع من الخادم ⇒ رسالة واضحة
+    const r2 = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    await routeUpload(r2.context, [{ status: 415, body: { error: { code: 'validation_failed', field: 'file', reason: 'signature_mismatch' } } }]);
+    await r2.page.waitForSelector('#ctAttachPick');
+    await r2.page.setInputFiles('#ctAttachInput', { name: 'a.png', mimeType: 'image/png', buffer: PNG });
+    await r2.page.waitForSelector('#ctAttachError');
+    assert.match(await r2.page.locator('#ctAttachError').innerText(), /محتوى الملف مش من النوع/);
+    await r2.page.locator('#ctAttachDismiss').click();
+    assert.equal(await r2.page.locator('#ctAttachStatus').count(), 0);
+    assert.deepEqual([...errors, ...r2.errors], []);
+    await r2.context.close();
+    await context.close();
+});
+
+test('attachments (080): remove / restore send the version; erase is owner-only behind a danger dialog', { skip: !chromiumPath }, async () => {
+    let { page, context, errors } = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector(`[data-att-remove="${A_VID}"]`);
+    await page.locator(`[data-att-remove="${A_VID}"]`).click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_attachment_remove'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_attachment_remove'))[0], { p_attachment: A_VID, p_expected_version: 3 });
+    await page.waitForSelector(`[data-att-restore="${A_DEL}"]`);
+    await page.locator(`[data-att-restore="${A_DEL}"]`).click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_attachment_restore'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_attachment_restore'))[0], { p_attachment: A_DEL, p_expected_version: 3 });
+    assert.deepEqual(errors, []);
+    await context.close();
+    ({ page, context, errors } = await openPage(attFixtures({ owner: true }), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector(`[data-att-purge="${A_IMG}"]`);
+    await page.locator(`[data-att-purge="${A_IMG}"]`).click();
+    await page.waitForSelector('#ctConfirm[open]');
+    assert.match(await page.locator('#ctConfirmOk').getAttribute('class'), /btn-danger/);
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await rpcCalls(page, 'continuity_attachment_purge'), []);
+    await page.locator(`[data-att-purge="${A_IMG}"]`).click();
+    await page.locator('#ctConfirm[open] #ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_attachment_purge'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_attachment_purge'))[0], { p_attachment: A_IMG, p_expected_version: 3 });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('attachments (080): off ⇒ no section; closed ⇒ view only; a refused signature shows a note instead of the media', { skip: !chromiumPath }, async () => {
+    let { page, context, errors } = await openPage(attFixtures({ on: false }), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctAttachments').count(), 0);
+    await context.close();
+    ({ page, context, errors } = await openPage(attFixtures({ status: 'resolved' }), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctAttachments');
+    assert.equal(await page.locator('#ctAttachPick, #ctAttachInput, [data-att-remove], [data-att-restore]').count(), 0);
+    assert.match(await page.locator('#ctAttachments').innerText(), /السجل مقفول/);
+    assert.equal(await page.locator('#ctAttachments [data-sign]').count(), 3, 'still viewable');
+    await context.close();
+    ({ page, context, errors } = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}`,
+        patchDouble: (d) => d.replace("createSignedUrl: async (p) => ({ data: { signedUrl: `/signed/${p}` }, error: null }),",
+            "createSignedUrl: async (p) => (p.endsWith('0002') ? { data: null, error: { message: 'denied' } } : { data: { signedUrl: `/signed/${p}` }, error: null }),") }));
+    await page.waitForSelector(`[data-attachment="${A_VID}"] p.ct-muted`);
+    assert.match(await page.locator(`[data-attachment="${A_VID}"]`).innerText(), /المرفق مش متاح دلوقتي/);
+    assert.equal(await page.locator(`[data-attachment="${A_VID}"] video`).count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('attachments (080) at 390px: the grid fits, actions are 44px', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(attFixtures({ owner: true }), { url: `/admin/continuity.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#ctAttachments [data-attachment]');
+    const m = await page.evaluate(() => ({
+        doc: document.documentElement.scrollWidth - window.innerWidth,
+        small: [...document.querySelectorAll('#ctAttachments .btn')].filter((b) => b.getBoundingClientRect().height < 44).length,
+        wide: [...document.querySelectorAll('#ctAttachments .ct-att')].filter((x) => x.getBoundingClientRect().right > window.innerWidth + 0.5).length,
+    }));
+    assert.ok(m.doc <= 0 && m.wide === 0, JSON.stringify(m));
+    assert.equal(m.small, 0);
     assert.deepEqual(errors, []);
     await context.close();
 });
