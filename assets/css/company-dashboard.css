@@ -172,6 +172,12 @@
     flex-wrap: wrap;
 }
 
+.company-members-scope-note {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+}
+
 .company-sub-days {
     font-size: var(--fs-xs);
     color: var(--color-text-secondary);
