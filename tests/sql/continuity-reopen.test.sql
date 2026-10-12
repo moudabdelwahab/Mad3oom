@@ -474,6 +474,36 @@ BEGIN
   RAISE NOTICE 'PASS L7: تاريخ الإغلاق لا يُعدَّل نصه ولا يُعاد فتحه مرتين ولا يُلغى ولا يُحذف ولا يُفرَّغ حتى للمالك الخارق';
 END $$;
 
+-- L7b: حذف حساب موظف له تاريخ إغلاق (ON DELETE SET NULL) ينجح ويُبقي التاريخ بفاعل فارغ
+INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-8000-0000000000d7', 'x7@t.io');
+INSERT INTO public.profiles (id, email, full_name, role, phone, created_at)
+VALUES ('00000000-0000-4000-8000-0000000000d7', 'x7@t.io', 'دعم سيُحذف', 'support', '01000000077', '2026-09-01');
+DO $$
+DECLARE x uuid := '00000000-0000-4000-8000-0000000000d7'; d uuid; h jsonb;
+BEGIN
+  PERFORM t.ctx('admin');
+  d := (t.call(x, format('public.continuity_create(%L::jsonb)', t.req('X7', array[]::uuid[], jsonb_build_object('owner_id', x)))) -> 'record' ->> 'id')::uuid;
+  PERFORM t.tr(x, d, 'resolved', '{"resolution_note":"X7 حل"}');
+  PERFORM t.tr(x, d, 'open', jsonb_build_object('reason', 'X7 رجع', 'due', t.tomorrow(9)));
+  PERFORM t.tr(x, d, 'cancelled', '{"cancel_reason":"X7 ملغي"}');
+  PERFORM t.act(NULL);
+  DELETE FROM public.profiles WHERE id = x;
+  h := t.closures(d);
+  PERFORM t.ok(jsonb_array_length(h) = 2
+               AND h -> 0 ->> 'resolution_note' = 'X7 حل' AND h -> 0 ->> 'reopen_reason' = 'X7 رجع' AND h -> 0 ->> 'reopened_at' IS NOT NULL
+               AND h -> 0 -> 'closed_by' = 'null'::jsonb AND h -> 0 -> 'reopened_by' = 'null'::jsonb
+               AND h -> 1 ->> 'cancel_reason' = 'X7 ملغي' AND h -> 1 -> 'closed_by' = 'null'::jsonb AND h -> 1 ->> 'reopened_at' IS NULL,
+               'L7b history kept with null actors: ' || h::text);
+  -- الاستثناء ضيق: تفريغ الفاعل مع أي تغيير آخر ما زال مرفوضًا
+  BEGIN UPDATE public.continuity_closures SET closed_by = NULL, resolution_note = 'تزوير' WHERE record_id = d AND seq = 1;
+        RAISE EXCEPTION 'FAIL L7b null+edit';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN UPDATE public.continuity_closures SET reopened_by = '00000000-0000-4000-8000-0000000000a5' WHERE record_id = d AND seq = 1;
+        RAISE EXCEPTION 'FAIL L7b set actor';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  RAISE NOTICE 'PASS L7b: حذف حساب موظف له تاريخ إغلاق ينجح (الفاعل يصبح فارغًا) والنص والأوقات باقية؛ الاستثناء لا يسمح بأي تعديل آخر';
+END $$;
+
 -- L8: الاحتفاظ عند إعادة الفتح: المحجوب يبقى محجوبًا، والمنتهي يُحجب فورًا
 DO $$
 DECLARE d uuid; g jsonb;
@@ -575,7 +605,15 @@ BEGIN
   PERFORM t.ok((SELECT closure_seq FROM public.continuity_records WHERE id = a) >= 1
                AND (SELECT count(*) FROM public.continuity_closures WHERE record_id = a) = (SELECT closure_seq FROM public.continuity_records WHERE id = a),
                'RB-c backfill again consistent');
-  RAISE NOTICE 'PASS RB-c: إعادة تطبيق 079 بعد التراجع تعيد بناء التاريخ من الأحداث بشكل متسق';
+  -- سجل X7: فاعله حُذف حسابه (L7b) والأحداث ما زالت تحمل معرّفه ⇒ الترحيل يضع فاعلًا فارغًا ولا يكسر المفتاح
+  PERFORM t.ok((SELECT count(*) FROM public.continuity_closures c JOIN public.continuity_records r ON r.id = c.record_id
+                 WHERE r.title = 'TITLEMARK X7') = 2
+               AND NOT EXISTS (SELECT 1 FROM public.continuity_closures c JOIN public.continuity_records r ON r.id = c.record_id
+                                WHERE r.title = 'TITLEMARK X7' AND (c.closed_by IS NOT NULL OR c.reopened_by IS NOT NULL))
+               AND EXISTS (SELECT 1 FROM public.continuity_events e JOIN public.continuity_records r ON r.id = e.record_id
+                            WHERE r.title = 'TITLEMARK X7' AND e.actor_id = '00000000-0000-4000-8000-0000000000d7'),
+               'RB-c backfill maps a deleted actor to null');
+  RAISE NOTICE 'PASS RB-c: إعادة تطبيق 079 بعد التراجع تعيد بناء التاريخ من الأحداث بشكل متسق، وفاعل حُذف حسابه يصبح فارغًا';
 END $$;
 
 \echo 'ALL continuity-reopen tests passed'
