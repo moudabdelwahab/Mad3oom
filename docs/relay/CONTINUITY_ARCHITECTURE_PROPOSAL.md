@@ -1,7 +1,9 @@
 # Mad3oom Continuity — Current-State Audit and Architecture Proposal
 
-> **Status:** proposal only. Nothing in §5–§12 is implemented.
+> **Status:** proposal, with decisions recorded. Nothing in §5–§12 is implemented.
 > - Prepared on 2026-10-12 against `origin/main` at `b2a45ce` (PR #111).
+> - **Mahmoud approved F1, B1, H1 (with guardrails), D1–D4 and A1 on 2026-10-12.** They are recorded in §14, together with the design changes they cause, the requirements still unresolved, and the Phase 0 implementation plan. Where §14 and an earlier section differ, §14 wins.
+> - The approval covers development, tests, documentation and reviewable PRs only. Merging, applying migrations to production, changing production settings, enabling any capability, sending real notifications and sending production conversation content to an AI provider each need a separate approval.
 > - Production was read-only: `list_migrations` and `SELECT` only.
 > - No migration, configuration, data or notification was changed anywhere.
 >
@@ -302,7 +304,7 @@ Partial index on `(run_at) WHERE state = 'pending'`.
 ### 5.6 Event kinds added to `relay_events`
 - Handover: `handover_requested`, `handover_accepted`, `handover_declined`, `handover_cancelled`, `handover_expired`.
 - Scheduler: `job_fired`, `job_superseded`, `job_failed`, `delivery_failed`, `delivery_dead`, `escalated`.
-- Configuration and AI: `policy_changed` (workspace-level, recorded against no record → needs a nullable `record_id` or a separate `relay_admin_events`, decided in 077 design), `ai_suggestion_used` (flag only).
+- Configuration and AI: policy changes are recorded in their own append-only table `relay_policy_history` (§14.6), not in `relay_events` (whose `record_id` is `NOT NULL`); `ai_suggestion_used` (flag only).
 
 Payload rules are unchanged: identifiers, enums, timestamps, and hashes for free text.
 
@@ -327,20 +329,21 @@ stateDiagram-v2
 
 **Semantics:**
 - **Ownership only changes on `accepted`.** It happens in the same transaction: `owner_id := to_owner`, `version + 1`, the event, and jobs re-targeted. While pending, the record keeps its owner and status. The UI shows "awaiting acceptance", and the record status does not change. That makes `ready_for_handover` redundant: it stays rejected, and its schema value is left untouched for compatibility.
-- **The target gains read access to the record while pending.** `relay_can_access` is redefined to include "target of a pending handover on this record". Excerpts still require current conversation access (C3/M11 are unchanged), so a target outside the conversation sees placeholders. Option O5 (offer `inbox_assign` of the conversation through its own checks) is a UI convenience for a later step.
+- **What the target sees while pending** (superseded by §14.3): the target does **not** get record access. `relay_can_access` stays unchanged. The target reads a read-only handover package through the handover RPCs, and every source in it is a placeholder. Excerpts appear only after acceptance, and then only with current conversation access (C3/M11). Option O5 (offer `inbox_assign` of the conversation through its own checks) is a UI convenience for a later step.
 - **On decline, cancel or expiry** the record is untouched except `version + 1` and the event. The initiator is notified.
 - **Assignment rules are not bypassed:**
   - A **direct reassignment** keeps using `relay_assign` with P3/P4 exactly as today.
   - A **handover request** is a *proposal that needs the target's consent*. Who may propose it is decision **H1**:
     - *H1-a (strict):* only holders of the assign privilege (`_relay_can_assign()`) may propose a handover to someone else. Owners may only release.
     - *H1-b (recommended):* the current owner may also propose a handover to an eligible owner. It takes effect only when the target accepts, and it cannot change the team. This relaxes P4 for consensual transfers, so it needs explicit approval. Until H1 is decided, the implementation ships H1-a.
+    - **Decided 2026-10-12: H1-b, with guardrails (§14.3).**
 - **Reassign or close during pending:** the pending handover is cancelled in the same transaction (`cancel_cause`).
 - **Concurrency:**
   - Request and decision lock the record row `FOR UPDATE` and check `version`.
   - Acceptance re-checks `_relay_is_eligible_owner(to_owner)` and record activity at decision time.
   - The partial unique index guarantees one pending handover per record.
   - Double-clicking "accept" is idempotent per state: an already-accepted handover returns the current record.
-- **Acceptance policy (open decision C2):**
+- **Acceptance policy (C2, settled by H1 on 2026-10-12):**
   - Handovers always require acceptance.
   - The no-acceptance path is the existing direct assignment by supervisors and assigners.
   - This removes the need for a per-workspace "auto-accept" setting in v1.
@@ -546,7 +549,7 @@ The schema already carries `workspace_id` everywhere, so no table redesign is ex
 | Rule | Detail |
 |---|---|
 | Additive only | New tables and columns; no renames; no change to `chat_*`, `inbox_*`, `tickets`, `profiles` |
-| Redefinitions are explicit | Each migration lists every function it `create or replace`s. The rollback restores the exact prior text, verified by `pg_get_functiondef` comparison as 076's tests do. Expected redefinitions: `relay_can_access` (pending-handover target), `relay_update` / `relay_assign` / `relay_transition` / `relay_create` (call `_relay_replan`, cancel pending handovers), `relay_my_access` (new capability flags) |
+| Redefinitions are explicit | Each migration lists every function it `create or replace`s. The rollback restores the exact prior text, verified by `pg_get_functiondef` comparison as 076's tests do. Expected redefinitions: `relay_update` / `relay_assign` / `relay_transition` / `relay_create` (call `_relay_replan`, cancel pending handovers), `relay_my_access` (new capability flags) |
 | Never re-run older files | As today: re-running 073/074/076 after a later file would restore weaker definitions. Each new header repeats this |
 | Kill switches default off | Applying a migration changes no user-visible behavior until a policy flag is flipped (separate approval). `relay_tick` is scheduled by the migration but exits immediately while every flag is off |
 | Verification block | Every migration ends with the 073-style checks: no permissive policies, no direct table grants, 041/042 conventions, the exact list of `authenticated` RPCs, `search_path` pinned, `service_role` revoked |
@@ -556,10 +559,23 @@ The schema already carries `workspace_id` everywhere, so no table redesign is ex
 
 ---
 
-## 11. Decisions needed from you
+## 11. Decisions
 
-| # | Decision | Recommendation | Needed before |
+| # | Decision | Status (2026-10-12) | Needed before |
 |---|---|---|---|
+| **F1** | Separate PR fixing the notification XSS sink | **Approved.** Continuity notifications stay disabled until it is merged and verified | Phase N enablement |
+| **B1** | Product labels | **Approved:** «الاستمرارية» (Arabic), "Mad3oom Continuity" (English). `relay_*` objects, RPCs, files and URLs unchanged | Phase 0 |
+| **H1** | An ordinary owner may request a handover | **Approved with guardrails** (§14.3) | Phase H |
+| **C2** | Handover acceptance | **Settled by H1:** always explicit acceptance; direct reassignment stays with supervisors and assigners only | Phase H |
+| **D1** | Reminder before due | **Approved:** 60 minutes before, plus a due-time notification. Configurable policy | Phase S |
+| **D2** | Repeat while overdue | Not decided. Default off (`overdue_repeat_minutes = null`) | Phase S |
+| **D3** | Escalate overdue after | **Approved:** 240 minutes, to supervisors, working hours respected where applicable. Configurable | Phase N |
+| **D4** | Pending handover: remind / escalate after | **Approved:** 60 / 240 minutes. Configurable | Phase H/N |
+| **A1** | AI title suggestions | **Approved:** suggestion only; never applied automatically; explicit confirmation by an authorized employee | Phase AI |
+| **A2** | Enable AI in production | Open: separate approval after the legal check (U4) | Phase AI rollout |
+| C6, C7 | Owner via external API; shift-driven automation | Open: later | Phase API / later |
+
+---|---|---|---|
 | **B1** | Arabic product label | «الاستمرارية» in Arabic UI; «Mad3oom Continuity» in English and brand contexts | Increment 1 |
 | **F1** | Approve a separate small PR fixing the notification XSS sink | Yes, before any Continuity notification is enabled | Phase N |
 | **H1** | May an ordinary owner propose a handover (consensual transfer)? | H1-b: yes, effective only on the target's acceptance, team unchanged | Phase H |
@@ -581,7 +597,7 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
 | Phase | Scope | Depends on | Migration |
 |---|---|---|---|
 | **0 — Foundation (recommended first)** | (a) Product rename on the surface (sidebar label, page title/header, composer wording, notification category label) and the Continuity logo asset. (b) Doc-drift fixes X1–X4 (plan header, install-note titles, test comment, remove `source_purged` label or map it). (c) `077_relay_policies`: `relay_policies` with all kill switches off, `relay_get_policies` (members) / `relay_set_policies` (owner, audited), `relay_my_access` gains capability flags. (d) Contract module: policy shapes and new error codes | — | 077 |
-| **H — Handover** | `relay_handovers`, `relay_handover_request` / `_decide` / `_cancel` / `_list`, `relay_can_access` (pending target), cancellation on reassign/close, UI (request dialog, incoming/outgoing list, accept/decline), events; behind `handovers_enabled` | 0, H1, C2 | 078 |
+| **H — Handover** | `relay_handovers`, `relay_handover_request` / `_decide` / `_cancel` / `_list` / `_get` (read-only package; `relay_can_access` unchanged, §14.3), cancellation on reassign/close, UI (request dialog, incoming/outgoing list, accept/decline), events; behind `handovers_enabled` | 0, H1, C2 | 078 |
 | **S — Scheduler** | `relay_jobs`, `_relay_replan` wired into the record RPCs, `relay_tick` (jobs only, no delivery yet: fired jobs are recorded and visible), cron `relay-tick`; behind `reminders_enabled` | 0 | 079 |
 | **N — Delivery + escalation** | `relay_deliveries`, the in-app channel → `notifications`, retry/backoff/dead letters, E1–E3, working-hours deferral, privacy-safe templates; behind `escalation_enabled` | S, F1 fixed, D1–D4 | 080 |
 | **M — Monitor** | `relay_monitor` (rules in §7.5), monitor view and "My commitments" focus view, `scheduler_stalled`, `delivery_failed`; behind `monitor_enabled` | S (N for delivery signals) | 081 |
@@ -599,7 +615,7 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
 | Phase | Must be proven by tests |
 |---|---|
 | 0 | Policies default off; only the owner can change them (supervisor/support/customer/API → 42501); change logged; the 19 existing RPCs are unchanged by `pg_get_functiondef`; rename touches no `relay_*` identifier; all existing Relay node and SQL tests stay green |
-| H | Every allowed and forbidden transition; one pending per record under two concurrent sessions; accept re-checks eligibility; decline/cancel leaves owner and status; reassign/close cancels pending; target sees the record but not the excerpt without conversation access; P3/P4 not bypassable via handover (H1-a and H1-b variants); idempotent request; rollback/re-apply |
+| H | Every allowed and forbidden transition; one pending per record under two concurrent sessions; accept re-checks eligibility; decline/cancel leaves owner and status; reassign/close cancels pending; pending target reads only the handover package with placeholder sources and cannot edit, attach, transition or read excerpts through any RPC; P3/P4 direct reassignment unchanged and not reachable through the handover path (§14.3); idempotent request; rollback/re-apply |
 | S | Replan on every basis change; reschedule supersedes; close cancels; reopen re-plans; DST gap/overlap; late reminder superseded after simulated downtime; two overlapping ticks fire once (dblink); one failing job does not roll back the batch; kill switch makes tick a no-op |
 | N | Exactly one notification per (job, recipient, channel) under concurrency; recipient re-authorized at send time; retry/backoff/dead; payload contains no title/excerpt/customer data (marker-string search, as 073 does); working-hours deferral; no escalation storm on repeated ticks |
 | M | Each rule positive and negative; explanations present; supervisor-only signals hidden from others; no excerpt or free-text leakage; `EXPLAIN` plan uses indexes |
@@ -626,3 +642,153 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
 - No notification sent.
 - F1 was not exploited or tested; it is a code-reading finding.
 - Assumption A-1 (definer read of `cron.job_run_details`) is unverified.
+
+---
+
+## 14. Decision record and Phase 0 plan (2026-10-12)
+
+### 14.1 Decisions as approved
+| # | Approved text (summary) | Consequence in this design |
+|---|---|---|
+| F1 | Separate, narrow PR for the admin notification XSS. Render title and message safely. Add regression tests with malicious HTML and script payloads. Do not exploit production. Do not mix with Continuity. Keep Continuity notifications disabled until it is merged and verified | Done as its own branch and PR (§14.7). Phase N may be developed, but `escalation_enabled` / `reminders_enabled` must stay off until F1 is merged **and** verified on the deployed admin |
+| B1 | «الاستمرارية» / "Mad3oom Continuity". `relay_*` objects, RPCs, files and URLs unchanged | §3 as written. Phase 0 changes labels only (§14.6) |
+| H1 | An ordinary owner may request a handover without the assign privilege; ownership changes only on the recipient's explicit acceptance; guardrails | §14.3 |
+| D1–D4 | 60 min before due; a notification at due time; escalate to supervisors after 240 min overdue; pending handover reminder after 60 min and escalation after 240 min. Configurable, not hardcoded; working hours respected where applicable; timezone behavior documented; no obsolete reminders for closed or cancelled records; no automatic reassignment; no duplicates or storms; reason and history recorded | Defaults live in `relay_policies` (077), not in code. Timezones in §14.4 |
+| A1 | AI may suggest a title, never applied automatically, confirmed explicitly by an authorized employee. AI optional and off by default. No content leaves the platform unless the provider is configured and selected, access checks pass and privacy controls are met | §8, unchanged. The title suggestion is a separate control the user must apply |
+
+### 14.2 Production boundary (unchanged by the approval)
+**Allowed:** development, tests, documentation, reviewable PRs.
+
+**Each of these needs its own approval:**
+- merging any PR;
+- applying 077 or any later migration to production;
+- changing production settings, including any `relay_policies` flag;
+- sending real notifications;
+- sending production conversation content to an AI provider.
+
+### 14.3 Handover guardrails → design
+| Guardrail (approved text) | How it is enforced |
+|---|---|
+| The requester must currently be authorized to access and manage the record under the existing model | `relay_handover_request` requires `relay_can_access(record)` **and** that the caller is one of: the current owner, a supervisor (`_relay_is_supervisor()`), or an assigner (`_relay_can_assign()`). These are exactly the people who may already transition or reassign the record today. An unassigned record can be handed over only by a supervisor or assigner (others can already claim it for themselves). The record must be active |
+| The recipient must be active and eligible to own the record | `_relay_is_eligible_owner(to_owner)` at request time (same predicate as P3/P4). The target must differ from the current owner |
+| A pending handover must not grant unauthorized access to protected conversations or excerpts | `relay_can_access` is **not** changed, so the target gets no record access, cannot edit (P1), attach (P2), transition or read events. The target reads a **read-only package** via `relay_handover_get`: kind, status, priority, category, due, next action, reason, context note, source count, and every source as a placeholder `{excerpt: null, excerpt_hidden: 'handover_pending'}`. The requester and record viewers keep their normal view. *Note:* title, summary and next action are free text visible to the target (as to any record viewer, U2). This is inherent in handing work over |
+| The current owner stays responsible until acceptance succeeds | `owner_id` changes only inside `relay_handover_decide(…,'accept')`. Reminders and escalations keep targeting the current owner while pending |
+| Acceptance re-validates eligibility and authorization server-side | In one transaction, acceptance does all of the following: <br>- locks the record and the handover row (`FOR UPDATE`) <br>- checks that the caller is `to_owner` and still eligible, and that the record is active <br>- checks that the handover is still `pending` and the record `version` equals the one stored at request time <br>- checks that the requester is still the current owner or still holds supervisor or assigner rights (otherwise the handover becomes `cancelled` with `cancel_cause = 'requester_lost_authority'`) <br>- only then sets `owner_id`, writes the event and re-plans jobs |
+| Rejection, cancellation, expiry or failed acceptance never change ownership | Those paths update only the handover row and add an event. A failed acceptance raises and rolls back; nothing is written |
+| Every transition is auditable and safe under concurrency | One `pending` per record (partial unique index). Events `handover_requested / accepted / declined / cancelled / expired`, with free text hashed (M5). Request idempotent by `(created_by, idempotency_key)`. Decisions idempotent per state. Tests run two real concurrent sessions (dblink) for accept-vs-cancel and accept-vs-reassign |
+| Direct reassignment outside the workflow stays with supervisors and assigners | `relay_assign` (P3/P4) is not changed. The handover RPCs never call it; acceptance writes `owner_id` in its own code path with the checks above. A test asserts that an ordinary owner still gets `42501` from `relay_assign` when targeting someone else |
+
+**Team handling:** a handover never changes `team_id`. Changing the team stays an assigner action.
+
+**Interaction with other operations:**
+- Closing the record, or a supervisor or assigner reassigning it, cancels the pending handover in the same transaction (`cancel_cause = record_closed | reassigned`).
+- **Expiry:** `expired` is used only when the target becomes ineligible. **Time-based expiry is not part of D4** (D4 is a reminder plus an escalation), so a pending handover never times out silently (§14.5 R2).
+
+### 14.4 Timezone behavior (documented, per D1–D4)
+- **`due_at`:** an absolute instant (`timestamptz`), entered as a local wall time plus an IANA zone (`due_tz`). It is DST-safe: a time in a spring-forward gap is rejected; an ambiguous time resolves to the earlier instant (073).
+- **Reminder offsets** (D1) are absolute minutes before `due_at`. A 60-minute reminder fires exactly one hour before the instant, whatever DST does.
+- **The due-time notification** fires at `due_at`.
+- **Escalation thresholds** (D3, D4) are absolute minutes after `due_at` or after the handover request.
+- **Working hours:**
+  - The `working_hours` table stores `day_of_week` + `time without time zone`, with no zone column. Today the customer dashboard evaluates it in the browser's local time [repo]. **Continuity will interpret it in `relay_workspaces.default_timezone` (`Africa/Cairo`)**: an assumption to confirm (§14.5 R3).
+  - When `respect_working_hours` is on, an **escalation** that falls outside the window moves to the next window opening. The deferral is logged with both instants.
+  - Owner reminders and due-time notifications are **not** deferred: the owner chose the due time.
+- **Display:** notifications and UI show times in `due_tz`. When the viewer's zone differs, the zone name is shown too.
+- **Closed records:** closing a record, or cancelling it, supersedes all its pending jobs in the same transaction. The worker also re-checks status at fire time, so a closed or cancelled record never produces a reminder or escalation, even if a job was claimed just before the close committed.
+
+### 14.5 Remaining unresolved requirements
+| # | Item | Proposed default / next step | Blocks |
+|---|---|---|---|
+| R1 | Who may change `relay_policies` (timings and kill switches) | **Platform owner only**, matching 076 (T2/T3: the strongest controls are owner-only). Members can read the policy | Phase 0 (implemented this way unless you say otherwise) |
+| R2 | Should an unanswered handover ever expire by time? | No. It stays pending, reminded at 60 min and escalated at 240 min, until accepted, declined or cancelled | Phase H |
+| R3 | Timezone of `working_hours` | Treat as `Africa/Cairo` wall time (§14.4); confirm with the person who maintains the support hours | Phase N |
+| R4 | Recipient set for "supervisors" | `_inbox_is_supervisor()` answers only for the *caller*. Escalation needs a recipient-side predicate: active staff with elevated platform authority, plus the platform owner. Owner context is per session, so it is ignored for recipients. To be specified and tested in Phase N; no new authority is created | Phase N |
+| R5 | Due-time and escalation recipients when a record has no owner | Due-time notification: none (no owner). Rule E3 escalates unassigned overdue records to supervisors | Phase N |
+| R6 | D2 (repeat while overdue) | Off by default; the column exists so it can be enabled later | — |
+| R7 | Retention for `relay_jobs`, `relay_deliveries`, `relay_policy_history`, `relay_ai_runs` (identifiers only, no content) | Keep terminal job and delivery rows 180 days, then delete them in the existing daily sweep. Keep policy history indefinitely. Needs your confirmation before Phase S | Phase S |
+| R8 | Delivery channels | In-app only. Telegram or email need a separate decision (privacy-safe templates, delivery confirmation) | Later |
+| R9 | AI: which configured integration is an acceptable processor of customer conversations, plus the legal review (U4) | Owner's choice in the settings panel; production enablement needs A2 | Phase AI rollout |
+| R10 | F1 verification on the deployed admin | After merge and deploy, open the admin sidebar with a test notification containing markup on a non-production account, and confirm it renders as text | Phase N enablement |
+
+### 14.6 Phase 0 implementation plan
+**Branch:** `claude/continuity-phase0`, from `main`. One PR. It does not depend on the F1 PR.
+
+**A. Product-facing branding (B1) — labels only**
+| File | Change |
+|---|---|
+| `assets/components/sidebar.html` | Link text «Relay» → «الاستمرارية». The icon becomes an infinity-loop SVG drawn from the logo motif, `stroke=currentColor` like the other items. `id="relayLink"` and `href` unchanged |
+| `admin/relay.html` | `<title>` «الاستمرارية - لوحة الإدارة»; the header shows the Continuity logo, «الاستمرارية» and the subtitle "Mad3oom Continuity"; the description text is updated |
+| `assets/images/continuity/` | `continuity-logo.webp` (the supplied 1254×1254 RGBA mark with transparent background, so it works in dark mode), plus PNG fallbacks at 512, 128 and 64 px generated from it |
+| `assets/js/relay/*`, `assets/js/admin/inbox.js` | Only user-visible strings that say "Relay", if any. Identifiers, imports, CSS classes and RPC names unchanged |
+| Tests | Update any render assertion on the old label; add one asserting the new label, the logo `alt`, and that the link still points to `/admin/relay.html` |
+
+**B. Documentation and label drift (X1–X4)**
+- Plan header: replace the stale "not applied, not enabled" status with the verified state (073, 074 and 076 applied; enabled; ledger versions).
+- `RELAY_PHASE_C_PROD_INSTALL.md`, `RELAY_076_PROD_INSTALL.md`: add an "Executed" status line with the ledger version, keeping the original content as the historical record.
+- `tests/company-navigation.test.mjs`: correct the 076 comment ("applied 2026-10-09, ledger 20261009193924"). The newest-migration assertion moves to 077 with an entry describing the approval.
+- `relay-model.js` `EVENT_LABELS`: drop `source_purged`, which is never emitted. The page renders `source_redacted` with `payload.purged = true` as «مسح رسالة نهائيًا». A unit test covers it.
+
+**C. Migration `077_relay_policies.sql` (+ `_rollback/077_relay_policies.down.sql`)**
+- **Preconditions block:** 073, 074 and 076 objects exist (`_relay_require_owner`, `_relay_is_member`, `relay_my_access` with an `owner` key).
+- **Table `relay_policies`** (one row per workspace; platform row seeded):
+  - kill switches `handovers_enabled`, `reminders_enabled`, `escalation_enabled`, `monitor_enabled`, `ai_enabled`, all `false`;
+  - timings with the D1–D4 defaults: `reminder_offsets_minutes = {60}`, `due_alert = true`, `overdue_repeat_minutes = null`, `escalate_after_minutes = 240`, `handover_remind_after_minutes = 60`, `handover_escalate_after_minutes = 240`;
+  - `escalation_recipients = 'supervisors'`, `respect_working_hours = true`, `stale_after_days = 7`, `postpone_flag_count = 3`;
+  - `version`, `updated_by`, `updated_at`;
+  - every column has a `CHECK` with bounds (offsets: 1–5 values, each 5–10080; thresholds 5–43200 minutes; days 1–365).
+- **Table `relay_policy_history`**, append-only:
+  - columns `id`, `workspace_id`, `actor_id`, `changed` (column names), `before`, `after` (typed values only; there is no free text in this table), `created_at`;
+  - triggers block `UPDATE`, `DELETE` and `TRUNCATE`.
+- **Conventions on both tables (as 073):** RLS on with no permissive policy; restrictive `gate_account_active`; `trg_preview_read_only`; no table grants for any role, including `service_role`; `relay_policies` rows cannot be deleted.
+- **New RPCs (authenticated):**
+  - `relay_get_policies()`: members. Returns typed values plus `capabilities_installed`.
+  - `relay_set_policies(p_patch jsonb, p_expected_version int)`: owner only (`_relay_require_owner`, so never through the API path), version-checked, validates every key and type. It writes one history row and returns the new policy.
+  - **Enabling a capability that is not installed is refused** (`0A000 feature_not_enabled`), checked with `to_regprocedure` on that capability's entry RPC. So in 077, every `*_enabled = true` is refused, and no switch can be turned on before its code exists.
+- **Redefined:** `relay_my_access()` gains `capabilities: {handovers, reminders, escalation, monitor, ai}`, each equal to "installed and enabled", so all `false` after 077. Existing keys and their values are unchanged.
+- **Verification block:**
+  - no permissive policy on the 8 Relay tables;
+  - no direct grants;
+  - 041/042 conventions present;
+  - exactly 21 RPCs executable by `authenticated` (the 19 + 2);
+  - `search_path` pinned;
+  - `service_role` revoked;
+  - the platform policy row exists with all switches off.
+- **Rollback:** restores the exact 076 text of `relay_my_access` and drops the two tables and two RPCs. It refuses to run while `relay_policy_history` has rows, unless `relay.rollback_discard_data=on`.
+- **Header warnings:** never re-run 073/074/076 after 077.
+
+**D. Frontend (read-only)**
+- `relay-data.js`: `loadPolicies()`.
+- `relay-contract.js`: policy limits, plus an advisory `validatePolicyPatch` with unit tests.
+- `admin/relay.html`, owner only: a read-only «إعدادات الاستمرارية» panel that shows the timings and that every capability is off and not yet installed.
+- Before 077 is applied, the panel stays hidden (the same tolerance pattern as 074/076).
+- There is no editing UI in Phase 0: values only matter once phases S, N and H exist. The RPC is tested directly.
+
+**E. Tests to add or run**
+- **New SQL file `tests/sql/relay-policies.test.sql`** on the prod-shape fixture (073 → 074 → 076 → 077). It covers:
+  - the defaults equal D1–D4, with every switch off;
+  - members can read; non-members get nothing;
+  - only the owner can write; supervisor, support, customer, an inactive account, preview mode and the API path all get `42501`;
+  - every bound and type error is rejected (`22023`);
+  - a stale version is rejected (`40001`);
+  - each change writes exactly one history row, and the history cannot be updated, deleted or truncated, even by the superuser;
+  - enabling any capability is refused (`0A000`);
+  - `relay_my_access` has the old keys with unchanged values, plus `capabilities` all `false`;
+  - the 19 existing RPC definitions are byte-identical before and after 077 (`pg_get_functiondef`);
+  - re-running 077 is idempotent; rollback restores the 076 `relay_my_access` text exactly; re-applying works.
+- **Node tests:**
+  - `relay-contract` policy validation;
+  - `relay-model` event label;
+  - render tests for the new label, the logo, and the owner-only policy panel hidden before 077.
+- **Full suites:** `npm run test:node` (the 37 environment-dependent failures stay listed by name in the PR, not claimed as passing) and `npm run test:sql`.
+
+**F. Deliverables**
+- The PR with the migration, rollback, tests and `docs/relay/CONTINUITY_PHASE0_PROD_INSTALL.md` (marked NOT EXECUTED).
+- Commands and totals in the PR description.
+
+### 14.7 PR map
+| PR | Branch | Content | Status |
+|---|---|---|---|
+| F1 | `claude/admin-notification-xss` | Notification XSS fix + regression tests | [PR #114](https://github.com/moudabdelwahab/Mad3oom/pull/114), open, not merged |
+| Docs | `claude/wizardly-keller-tuauoa` | As-built architecture (AR) + this proposal | Opened with this update |
+| Phase 0 | `claude/continuity-phase0` | §14.6 | Next, after you have seen this plan |
+| H, S, N, M, AI | one branch each | §12 order | Later |
