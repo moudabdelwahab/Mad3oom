@@ -4,13 +4,21 @@
 -- يعيد continuity_my_access لنصها في 077 حرفيًا، ويحذف continuity_get_policies و
 -- continuity_set_policies والمساعدات والجدولين continuity_policies و continuity_policy_history.
 --
--- حماية: يرفض التنفيذ لو سجل السياسات فيه أي تغيير، إلا لو الجلسة ضبطت
+-- حماية: يرفض لو 079 أو ما بعده مطبق. ويرفض لو سجل السياسات فيه أي تغيير، إلا لو الجلسة ضبطت
 --   set continuity.rollback_discard_data = 'on';
 -- لا يلمس السجلات أو المصادر أو اللقطات أو الأحداث، ولا chat_* أو inbox_* أو
 -- tickets أو profiles.
 -- ============================================================================
 
 begin;
+
+-- ترتيب التراجع: 079 (تاريخ الإغلاق) وما بعده أولًا. 080+ يقرأ مفاتيح الإيقاف من 078.
+do $$
+begin
+  if to_regclass('public.continuity_closures') is not null then
+    raise exception 'تراجع 078: هجرة continuity لاحقة مطبقة (079+) — تراجع عنها أولًا';
+  end if;
+end $$;
 
 do $$
 begin
