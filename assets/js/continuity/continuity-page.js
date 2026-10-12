@@ -12,6 +12,10 @@
  * 079: «تاريخ الإغلاق» يعرض كل إغلاق وإعادة فتح كما أرسلها الخادم (closures). إعادة
  * الفتح بسبب إلزامي، وموعد جديد إلزامي لمتابعة موعدها فات (reopenRequirements). لو
  * الخادم أقدم من 079 (لا closures) القسم يختفي ويفضل كل شيء يعمل.
+ *
+ * نافذة مستقلة (admin/continuity-record.html?id=<uuid>، body[data-ct-mode=standalone]):
+ * نفس الكود ونفس الـRPC ونفس الصلاحيات، لسجل واحد بلا قائمة ولا لوحات جانبية. الرابط
+ * لا يمنح أي وصول: الخادم يقرر في continuity_get كالعادة، والرابط غير الصالح لا ينادي شيئًا.
  */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
@@ -20,6 +24,7 @@ import { continuityConfirm, continuityPrompt, continuityReopen } from './continu
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
+    standaloneRecordUrl, isRecordId,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
@@ -29,6 +34,7 @@ import {
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
 const $ = (id) => document.getElementById(id);
+const STANDALONE = document.body?.dataset.ctMode === 'standalone';
 const TIMEZONES = ['Africa/Cairo', 'Asia/Riyadh', 'Asia/Dubai', 'Europe/London', 'UTC'];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -72,6 +78,7 @@ function filtersToRpc() {
 }
 
 async function reloadList() {
+    if (STANDALONE) return;
     $('ctList').innerHTML = '<li class="ct-empty">بيحمّل…</li>';
     try {
         state.records = await listRecords(filtersToRpc()) || [];
@@ -84,6 +91,7 @@ async function reloadList() {
 }
 
 function renderList() {
+    if (STANDALONE) return;
     if (!state.records.length) {
         $('ctList').innerHTML = '<li class="ct-empty" id="ctListEmpty">مفيش سجلات بالفلاتر دي. السجلات بتتعمل من صندوق الرسائل: افتح محادثة واضغط «سجل استمرارية».</li>';
         return;
@@ -113,10 +121,13 @@ async function openRecord(id, { push = true } = {}) {
         state.events = events || [];
     } catch (err) {
         state.current = null;
-        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctNotFound">${esc(err.code === 'not_found' ? 'السجل غير موجود أو مش مسموح لك تشوفه.' : err.message)}</p>`;
+        const notFound = err.code === 'not_found';
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="${notFound ? 'ctNotFound' : 'ctLoadError'}">${esc(notFound ? 'السجل غير موجود أو مش مسموح لك تشوفه.' : friendlyError(err))}</p>
+          ${STANDALONE ? `<div class="ct-inline">${notFound ? '' : `<button type="button" class="btn btn-primary" id="ctRetry" data-id="${esc(id)}">حاول تاني</button>`}
+            <a class="btn btn-secondary" href="/admin/continuity.html">صفحة الاستمرارية</a></div>` : ''}`;
         return;
     }
-    if (push) {
+    if (push && !STANDALONE) {
         const url = new URL(location.href);
         url.searchParams.set('record', id);
         history.replaceState(null, '', url);
@@ -193,7 +204,10 @@ function renderRecord() {
     const problemField = r.kind === 'issue' ? 'problem' : 'summary';
 
     $('ctDetail').innerHTML = `
-      <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>
+      <div class="ct-inline">${STANDALONE
+          ? `<a class="btn btn-secondary" id="ctOpenInPage" href="/admin/continuity.html?record=${encodeURIComponent(r.id)}">فتح في صفحة الاستمرارية</a>`
+          : `<button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button>
+             ${isRecordId(r.id) ? `<a class="btn btn-secondary" id="ctOpenStandalone" href="${esc(standaloneRecordUrl(r.id))}" target="_blank" rel="noopener noreferrer">فتح السجل في نافذة مستقلة</a>` : ''}`}</div>
       <div>
         <div class="ct-item-meta">
           <span class="ct-pill">${esc(KIND_META[r.kind]?.label || r.kind)}</span>
@@ -352,6 +366,7 @@ async function act(fn, okText) {
 // المحذوفات (كل السجلات اللي تشوفها)
 // ═════════════════════════════════════════════════════════════
 async function renderTrash() {
+    if (STANDALONE) return;
     const box = $('ctTrash');
     if (!state.access.trash) { box.hidden = true; return; }
     try {
@@ -376,6 +391,7 @@ async function renderTrash() {
 // ═════════════════════════════════════════════════════════════
 // 078: إعدادات الاستمرارية — لمالك المنصة، قراءة فقط. قبل 078 (لا capabilities) مخفية.
 async function renderPolicies() {
+    if (STANDALONE) return;
     const box = $('ctPolicies');
     if (!(state.access.owner && state.access.policies)) { box.hidden = true; return; }
     box.hidden = false;
@@ -395,6 +411,7 @@ async function renderPolicies() {
 }
 
 async function renderAssigners() {
+    if (STANDALONE) return;
     const box = $('ctAssigners');
     // 076: المنح والسحب للمالك. قبل 076 كانوا للمشرف (074).
     if (!(state.access.trash ? state.access.owner : state.access.supervisor)) { box.hidden = true; return; }
@@ -421,13 +438,7 @@ async function renderAssigners() {
 // الربط
 // ═════════════════════════════════════════════════════════════
 function wire() {
-    for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
-        $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
-    }
-    $('ctList').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-open]');
-        if (b) openRecord(b.dataset.open);
-    });
+    if (!STANDALONE) wireListAndPanels();
     $('ctDetail').addEventListener('submit', (e) => {
         if (e.target.id !== 'ctEdit') return;
         e.preventDefault();
@@ -440,6 +451,7 @@ function wire() {
         const r = state.current?.record;
         const el = e.target.closest('button');
         if (el?.id === 'ctBackToList') return closeRecord();
+        if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (!el || !r) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
@@ -494,6 +506,17 @@ function wire() {
         }
         return sourceAction(el);
     });
+}
+
+/** القائمة والفلاتر ولوحات المحذوفات والإسناد: الصفحة الرئيسية فقط. */
+function wireListAndPanels() {
+    for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
+        $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
+    }
+    $('ctList').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-open]');
+        if (b) openRecord(b.dataset.open);
+    });
     $('ctTrash').addEventListener('click', async (e) => {
         const el = e.target.closest('button');
         if (!el) return undefined;
@@ -542,11 +565,17 @@ function closeRecord() {
 }
 
 async function boot() {
-    initSidebar();
+    if (!STANDALONE) initSidebar();
     const user = await checkAdminAuth();
     if (!user) return;
     updateAdminUI(user);
     state.me = user;
+    const standaloneId = STANDALONE ? new URLSearchParams(location.search).get('id') : null;
+    if (STANDALONE && !isRecordId(standaloneId)) {
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctInvalidLink">رابط السجل غير صالح.</p>
+          <div class="ct-inline"><a class="btn btn-secondary" href="/admin/continuity.html">صفحة الاستمرارية</a></div>`;
+        return;
+    }
     state.access = await loadContinuityAccess();
     if (!state.access.member || !state.access.enabled) {
         $('ctBanner').hidden = false;
@@ -556,10 +585,14 @@ async function boot() {
         $('ctPage').hidden = true;
         return;
     }
-    $('ctFilterCategory').innerHTML = '<option value="">كل الأنواع</option>'
-        + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
     [state.agents, state.teams] = await Promise.all([loadAgents(), loadTeams()]);
     wire();
+    if (STANDALONE) {
+        await openRecord(standaloneId, { push: false });
+        return;
+    }
+    $('ctFilterCategory').innerHTML = '<option value="">كل الأنواع</option>'
+        + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
     await reloadList();
     const deep = new URLSearchParams(location.search).get('record');
     if (deep) await openRecord(deep, { push: false });

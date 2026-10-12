@@ -381,6 +381,17 @@ export function closureHistory(closures) {
 }
 
 /**
+ * نافذة السجل المستقلة: الرابط يحمل معرّف السجل فقط (UUID)، ولا يمنح أي وصول؛
+ * الخادم يقرر في continuity_get. معرّف غير صالح ⇒ لا نداء أصلًا.
+ */
+const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isRecordId = (id) => typeof id === 'string' && RECORD_ID.test(id);
+export function standaloneRecordUrl(id) {
+    if (!isRecordId(id)) throw new TypeError('record id');
+    return `/admin/continuity-record.html?id=${id.toLowerCase()}`;
+}
+
+/**
  * أدوات الإسناد على سجل قائم (074 P4):
  *   صلاحية إسناد ⇒ أي موظف مؤهل + الفريق؛ المالك ⇒ نفسه أو بلا مالك؛
  *   سجل بلا مالك ⇒ أخذه لنفسك؛ غير ذلك ⇒ لا أدوات.
