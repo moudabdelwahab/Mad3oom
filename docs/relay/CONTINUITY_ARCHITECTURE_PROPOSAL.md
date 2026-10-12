@@ -126,7 +126,7 @@ Full detail is in the as-built doc. Summary:
 | X1 | Plan header says Phase B is "not applied, not enabled" | 073/074/076 are applied and Relay is enabled [prod] |
 | X2 | `tests/company-navigation.test.mjs:491` comment says 076 is "not applied to production" | Applied `20261009193924` [prod] |
 | X3 | `RELAY_PHASE_C_PROD_INSTALL.md` and `RELAY_076_PROD_INSTALL.md` are titled "NOT EXECUTED" | Both were executed. Only §27.5 of the plan records the 074 apply; nothing records the 076 apply |
-| X4 | `relay-model.js` `EVENT_LABELS.source_purged` | The server never emits it; erase appears as `source_redacted` with `purged: true` |
+| X4 | ~~`relay-model.js` `EVENT_LABELS.source_purged` is unused~~ | **Withdrawn (2026-10-12):** the page derives `source_purged` from `source_redacted` with `payload.purged = true` (`relay-page.js:160`), so the label is used. No change needed |
 | X5 | Status `scheduled` is accepted by the server | Not offered by the UI and has no scheduler semantics. §6.2 gives it a meaning or retires it from the UI |
 | X6 | Plan §14 designed `relay_jobs`/`relay_tick` | Not built. Only the retention sweep was pulled forward into 073 |
 
@@ -728,7 +728,7 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
 - Plan header: replace the stale "not applied, not enabled" status with the verified state (073, 074 and 076 applied; enabled; ledger versions).
 - `RELAY_PHASE_C_PROD_INSTALL.md`, `RELAY_076_PROD_INSTALL.md`: add an "Executed" status line with the ledger version, keeping the original content as the historical record.
 - `tests/company-navigation.test.mjs`: correct the 076 comment ("applied 2026-10-09, ledger 20261009193924"). The newest-migration assertion moves to 077 with an entry describing the approval.
-- `relay-model.js` `EVENT_LABELS`: drop `source_purged`, which is never emitted. The page renders `source_redacted` with `payload.purged = true` as «مسح رسالة نهائيًا». A unit test covers it.
+- ~~`relay-model.js` `EVENT_LABELS`: drop `source_purged`~~ Withdrawn: the label is used (see X4). No change.
 
 **C. Migration `077_relay_policies.sql` (+ `_rollback/077_relay_policies.down.sql`)**
 - **Preconditions block:** 073, 074 and 076 objects exist (`_relay_require_owner`, `_relay_is_member`, `relay_my_access` with an `owner` key).
