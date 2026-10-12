@@ -500,7 +500,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         جدولان بلا أي صلاحية مباشرة، كل القدرات مطفأة ولا تُفعَّل قبل تثبيت كودها،
     //         والتغيير للمالك فقط. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/continuity-policies.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '078_continuity_policies.sql',
+    //   079 — تاريخ الإغلاق وإعادة الفتح المنضبطة (طلب صاحب المنصة 2026-10-12: «Closed-record
+    //         reopening and lifecycle tests»). جدول continuity_closures للإلحاق فقط، وإعادة
+    //         الفتح لا تمحو نص الإغلاق ولا تعيد استخدام موعد منتهٍ. مقيسٌ على نسخة بشكل
+    //         الإنتاج في tests/sql/continuity-reopen.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '079_continuity_reopen_lifecycle.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

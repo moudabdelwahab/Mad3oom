@@ -8,14 +8,18 @@
  *
  * 076: «إزالة» رسالة من سجل تنقلها للمحذوفات (ترجع بـ«استرجاع»). المسح النهائي
  * وتفريغ المحذوفات وصلاحية الإسناد لحساب مالك المنصة بس (access.owner).
+ *
+ * 079: «تاريخ الإغلاق» يعرض كل إغلاق وإعادة فتح كما أرسلها الخادم (closures). إعادة
+ * الفتح بسبب إلزامي، وموعد جديد إلزامي لمتابعة موعدها فات (reopenRequirements). لو
+ * الخادم أقدم من 079 (لا closures) القسم يختفي ويفضل كل شيء يعمل.
  */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { describeSource, retentionDeadline, LIMITS } from './continuity-contract.js';
-import { continuityConfirm, continuityPrompt } from './continuity-dialog.js';
+import { continuityConfirm, continuityPrompt, continuityReopen } from './continuity-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
-    allowedTransitions, assignmentOptions, toZonedInput, describePolicy,
+    allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
@@ -252,9 +256,31 @@ function renderRecord() {
         ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
       </section>` : ''}
 
+      ${closureHtml(state.current.closures)}
+
       <section aria-labelledby="ctEventsH">
         <h3 id="ctEventsH">السجل</h3>
         <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
+      </section>`;
+}
+
+const actorName = (id) => (id ? agentName(id) : 'النظام');
+
+/** تاريخ الإغلاق (079). كل نص عبر esc؛ القسم غائب لو الخادم لم يرسل closures. */
+function closureHtml(closures) {
+    if (!Array.isArray(closures) || !closures.length) return '';
+    const rows = closureHistory(closures);
+    return `<section aria-labelledby="ctClosuresH" id="ctClosures">
+        <h3 id="ctClosuresH">تاريخ الإغلاق (${rows.length})</h3>
+        <ol class="ct-closures">${rows.map((c) => `<li class="ct-closure" data-seq="${esc(c.seq)}">
+          <div class="ct-item-meta"><span class="ct-pill">${esc(c.statusLabel)}</span>
+            <span class="ct-muted">${esc(fmt(c.closedAt))} · ${esc(actorName(c.closedBy))}</span></div>
+          ${c.note ? `<p><strong>${esc(c.noteLabel)}:</strong> <span class="ct-closure-note">${esc(c.note)}</span></p>`
+              : c.noteMissing ? `<p class="ct-muted">${esc(c.noteLabel)} مش محفوظ (الإغلاق ده قبل تفعيل التاريخ).</p>` : ''}
+          ${c.reopened ? `<p class="ct-closure-reopen"><span class="ct-muted">اتفتح تاني ${esc(fmt(c.reopenedAt))} · ${esc(actorName(c.reopenedBy))}</span>
+              ${c.reopenReason ? `<br><strong>السبب:</strong> <span class="ct-closure-reason">${esc(c.reopenReason)}</span>`
+                  : c.reopenReasonMissing ? '<br><span class="ct-muted">السبب مش محفوظ (قبل تفعيل التاريخ).</span>' : ''}</p>` : ''}
+        </li>`).join('')}</ol>
       </section>`;
 }
 
@@ -287,6 +313,12 @@ function friendlyError(err) {
     }
     if (err?.code === 'forbidden' && err.field === 'owner') {
         return 'المسح النهائي وصلاحية الإسناد لحساب مالك المنصة بس.';
+    }
+    if (err?.code === 'validation_failed' && err.reason === 'due_required_on_reopen') {
+        return 'موعد المتابعة عدّى أو قرّب جدًا. حدد موعد جديد عشان تعيد فتحها.';
+    }
+    if (err?.code === 'validation_failed' && err.reason === 'in_past' && String(err.field || '').startsWith('details.due')) {
+        return 'الموعد الجديد لازم يكون بعد دلوقتي.';
     }
     if (err?.code === 'forbidden' && (err.field === 'owner_id' || err.field === 'team_id')) {
         return 'مش مسموح لك تنقل السجل لموظف تاني أو لفريق. تقدر تاخده لنفسك أو تسيبه من غير مالك.';
@@ -422,6 +454,20 @@ function wire() {
             const t = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor }).find((x) => x.to === el.dataset.to);
             let details = {};
             if (!t) return undefined;
+            if (t.to === 'open') {
+                const req = reopenRequirements(r);
+                const got = await continuityReopen({
+                    needsDue: Boolean(req?.needsDue), tz: req?.tz, timezones: TIMEZONES,
+                    message: 'السجل هيرجع «مفتوح». تاريخ الإغلاق بيفضل محفوظ.',
+                    dueNote: req?.needsDue
+                        ? (req.expiredDue ? `الموعد السابق (${fmt(r.due_at, r.due_tz)}) عدّى، فلازم موعد جديد.` : 'المتابعة محتاجة موعد.')
+                        : req?.keepsDue ? `لو سبته فاضي، الموعد الحالي يفضل: ${fmt(r.due_at, r.due_tz)}.`
+                            : req?.expiredDue ? `الموعد السابق (${fmt(r.due_at, r.due_tz)}) عدّى؛ تقدر تحدد جديد.` : '',
+                });
+                if (!got) return undefined;
+                details = got.due ? { reason: got.reason, due: got.due } : { reason: got.reason };
+                return act(() => transitionRecord(r.id, 'open', details, r.version), 'اتفتح السجل تاني');
+            }
             if (t.needs) {
                 const text = await continuityPrompt({
                     title: t.label, label: t.prompt, confirmText: t.label, danger: t.to === 'cancelled',
