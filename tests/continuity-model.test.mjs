@@ -1,5 +1,5 @@
 /**
- * Relay المرحلة C: منطق الواجهة النقي (assets/js/relay/relay-model.js) ومطابقة
+ * Continuity المرحلة C: منطق الواجهة النقي (assets/js/continuity/continuity-model.js) ومطابقة
  * التصنيف للترحيل 074. الصلاحيات نفسها مقيسة على الخادم في
  * tests/sql/relay-phase-c.test.sql؛ هنا: الاقتراح لا يخترع، المالك لا يُقترح،
  * العنوان والملخص لا يُملآن من نص الرسالة، والأدوات المعروضة تطابق 074.
@@ -11,8 +11,8 @@ import {
     CATEGORY_META, RECORD_CATEGORIES, normalizeArabic, messageSender, selectability, filterMessages, toggleSelection,
     orderedSelection, suggestCategory, suggestKind, detectDueCandidates, missingFields, ownerOptions,
     buildRequestFromDraft, validateCreateRequest, titlePlaceholder, allowedTransitions, assignmentOptions, toZonedInput,
-} from '../assets/js/relay/relay-model.js';
-import { LIMITS } from '../assets/js/relay/relay-contract.js';
+} from '../assets/js/continuity/continuity-model.js';
+import { LIMITS } from '../assets/js/continuity/continuity-contract.js';
 
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), 'utf8');
 const KEY = '4b0c2f8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f';
@@ -32,6 +32,7 @@ const MOCK = [
 ];
 
 test('categories match the CHECK constraint and the parser in 074', async () => {
+    // 074 كما كُتب (relay_*): الأسماء الحالية continuity_* من 077، ومقيسة في tests/sql/continuity-namespace.test.sql.
     const sql = await read('migrations/074_relay_phase_c.sql');
     const check = sql.match(/constraint relay_records_category check \(category is null or category in \(([^)]*)\)\)/s)[1];
     assert.deepEqual([...check.matchAll(/'([^']+)'/g)].map((x) => x[1]), [...RECORD_CATEGORIES]);
@@ -190,12 +191,12 @@ test('record tools mirror 074 P4 and 073 transitions', () => {
 });
 
 test('the composer never persists or forwards message text outside the RPC', async () => {
-    for (const f of ['assets/js/relay/relay-composer.js', 'assets/js/relay/relay-model.js', 'assets/js/relay/relay-page.js', 'assets/js/relay/relay-data.js']) {
+    for (const f of ['assets/js/continuity/continuity-composer.js', 'assets/js/continuity/continuity-model.js', 'assets/js/continuity/continuity-page.js', 'assets/js/continuity/continuity-data.js']) {
         const src = await read(f);
         assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(src), `${f} touches browser storage`);
         assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(src), `${f} sends data outside supabase.rpc`);
     }
-    const data = await read('assets/js/relay/relay-data.js');
-    // لا قراءة مباشرة لجداول Relay (لا صلاحيات أصلًا، ولا محاولة)
-    assert.ok(!/from\('relay_/.test(data), 'direct table access to relay_*');
+    const data = await read('assets/js/continuity/continuity-data.js');
+    // لا قراءة مباشرة لجداول Continuity (لا صلاحيات أصلًا، ولا محاولة)
+    assert.ok(!/from\('continuity_/.test(data), 'direct table access to continuity_*');
 });

@@ -1,5 +1,5 @@
 /**
- * Relay المرحلة B: العقد المشترك (assets/js/relay/relay-contract.js) ومطابقته
+ * Continuity المرحلة B: العقد المشترك (assets/js/continuity/continuity-contract.js) ومطابقته
  * للترحيل 073. الضمانات الأمنية نفسها مقيسة في tests/sql/relay-core.test.sql؛
  * هنا: الوحدة النقية + حراسة الانحراف بين العقد والترحيل.
  */
@@ -8,9 +8,9 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import {
     CONTRACT_VERSION, RECORD_KINDS, STATUSES, SOURCE_TYPES, REDACTION_REASONS, SENDER_LABELS, LIMITS,
-    ERROR_CODES, RETENTION_MS, mapRelayError, sensitiveKinds, buildCreateRequest, validateCreateRequest,
+    ERROR_CODES, RETENTION_MS, mapContinuityError, sensitiveKinds, buildCreateRequest, validateCreateRequest,
     describeSource, retentionDeadline,
-} from '../assets/js/relay/relay-contract.js';
+} from '../assets/js/continuity/continuity-contract.js';
 
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), 'utf8');
 const KEY = '4b0c2f8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f';
@@ -45,6 +45,7 @@ test('every SQLSTATE the migration raises has a contract code', async () => {
 test('every internal helper is revoked and only public RPCs are granted', async () => {
     const sql = await read('migrations/073_relay_core.sql');
     const defined = [...sql.matchAll(/create or replace function public\.(\w+)\(/g)].map((m) => m[1]);
+    // 073 كما كُتب (relay_*): الأسماء الحالية continuity_* من 077، ومقيسة في tests/sql/continuity-namespace.test.sql.
     const granted = new Set([...sql.matchAll(/'public\.(relay_\w+)\(/g)].map((m) => m[1]));
     const publicRpcs = ['relay_create', 'relay_get', 'relay_list', 'relay_update', 'relay_assign', 'relay_transition',
         'relay_attach_sources', 'relay_redact_source', 'relay_redact_for_subject', 'relay_find_by_source', 'relay_events_for'];
@@ -64,17 +65,17 @@ test('every internal helper is revoked and only public RPCs are granted', async 
     }
 });
 
-test('mapRelayError maps SQLSTATEs and never echoes server text', () => {
-    const e = mapRelayError({ code: '22023', message: 'MARKER secret', details: '{"code":"validation_failed","field":"sources","reason":"sensitive_content","kinds":["card_number"]}' });
+test('mapContinuityError maps SQLSTATEs and never echoes server text', () => {
+    const e = mapContinuityError({ code: '22023', message: 'MARKER secret', details: '{"code":"validation_failed","field":"sources","reason":"sensitive_content","kinds":["card_number"]}' });
     assert.deepEqual({ ...e, message: undefined }, {
         code: 'validation_failed', field: 'sources', reason: 'sensitive_content', kinds: ['card_number'],
         currentVersion: null, message: undefined,
     });
     assert.ok(!e.message.includes('MARKER'));
-    assert.equal(mapRelayError({ code: '40001', details: '{"current_version":7}' }).currentVersion, 7);
-    assert.equal(mapRelayError({ code: 'P0002', details: 'not json' }).code, 'not_found');
-    assert.equal(mapRelayError({ code: 'XX000' }).code, 'unknown_error');
-    assert.equal(mapRelayError(null).code, 'unknown_error');
+    assert.equal(mapContinuityError({ code: '40001', details: '{"current_version":7}' }).currentVersion, 7);
+    assert.equal(mapContinuityError({ code: 'P0002', details: 'not json' }).code, 'not_found');
+    assert.equal(mapContinuityError({ code: 'XX000' }).code, 'unknown_error');
+    assert.equal(mapContinuityError(null).code, 'unknown_error');
 });
 
 test('sensitiveKinds mirrors the server samples (M1)', () => {
@@ -142,8 +143,8 @@ test('retentionDeadline is closure + 8760 hours; active records have none', () =
     assert.equal(retentionDeadline('2026-03-01T00:00:00Z').toISOString(), '2027-03-01T00:00:00.000Z');
 });
 
-test('the relay frontend never persists content in browser storage', async () => {
-    const dir = new URL('../assets/js/relay/', import.meta.url);
+test('the continuity frontend never persists content in browser storage', async () => {
+    const dir = new URL('../assets/js/continuity/', import.meta.url);
     for (const f of await readdir(dir)) {
         const src = await readFile(new URL(f, dir), 'utf8');
         assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), /localStorage|sessionStorage|indexedDB|chrome\.storage/, f);

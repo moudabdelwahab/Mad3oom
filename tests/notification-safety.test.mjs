@@ -11,7 +11,7 @@ const ORIGIN = 'https://mad3oom.com';
 test('مسارات نفس الأصل تمر كما هي (مسار + استعلام + مرساة)', () => {
     assert.equal(safeNotificationHref('/admin/inbox.html?session=abc', ORIGIN), '/admin/inbox.html?session=abc');
     assert.equal(safeNotificationHref('  /admin/tickets.html#t1  ', ORIGIN), '/admin/tickets.html#t1');
-    assert.equal(safeNotificationHref('https://mad3oom.com/admin/relay.html?record=1', ORIGIN), '/admin/relay.html?record=1');
+    assert.equal(safeNotificationHref('https://mad3oom.com/admin/continuity.html?record=1', ORIGIN), '/admin/continuity.html?record=1');
     assert.equal(safeNotificationHref('customer-dashboard.html?ticket=1', ORIGIN), '/customer-dashboard.html?ticket=1');
 });
 

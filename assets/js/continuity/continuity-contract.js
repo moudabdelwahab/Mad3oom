@@ -1,5 +1,5 @@
 /**
- * Relay — العقد المشترك (المرحلة B، الإصدار 1؛ التصنيف من المرحلة C / 074).
+ * Continuity — العقد المشترك (المرحلة B، الإصدار 1؛ التصنيف من المرحلة C / 074).
  *
  * وحدة نقية بلا DOM ولا شبكة: حدود الحقول والقيم المسموحة، بناء طلب الإنشاء
  * القانوني (§10.3)، تحقق مبدئي للواجهة، وترجمة أخطاء الخادم.
@@ -89,7 +89,7 @@ const HIDDEN_MESSAGES = Object.freeze({
  * لا يعيد نص الخادم كما هو للمستخدم (رسائل عربية ثابتة)، والتفاصيل بتتقرا كـ JSON
  * للحقل والسبب فقط.
  */
-export function mapRelayError(error) {
+export function mapContinuityError(error) {
     const code = ERROR_CODES[error?.code] ?? 'unknown_error';
     let detail = null;
     try {
@@ -107,7 +107,7 @@ export function mapRelayError(error) {
     };
 }
 
-/** نسخة استشارية من فحص M1 على الخادم (_relay_sensitive_kinds) لتنبيه المستخدم مبكرًا. */
+/** نسخة استشارية من فحص M1 على الخادم (_continuity_sensitive_kinds) لتنبيه المستخدم مبكرًا. */
 export function sensitiveKinds(text) {
     const v = String(text ?? '').replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
         .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
@@ -203,7 +203,7 @@ export function validateCreateRequest(request, { now = new Date() } = {}) {
 }
 
 /**
- * يصنّف مصدرًا كما رجع من relay_get للعرض. لا يملك أي منطق صلاحية: يقرأ فقط
+ * يصنّف مصدرًا كما رجع من continuity_get للعرض. لا يملك أي منطق صلاحية: يقرأ فقط
  * ما قرره الخادم في هذه القراءة.
  */
 export function describeSource(source) {

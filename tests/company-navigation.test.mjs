@@ -488,8 +488,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         للمالك»). إزالة مصدر من سجل تنقله للمحذوفات مع استرجاع لمن يرى السجل،
     //         والمسح النهائي ومنح/سحب صلاحية الإسناد لمالك المنصة فقط
     //         (is_platform_owner). أعمدة على relay_sources وأربع دوال جديدة. مقيسٌ على
-    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '076_relay_trash_owner.sql',
+    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. اتطبّق 2026-10-09
+    //         (السجل 20261009193924).
+    //   077 — نقل المساحة الداخلية relay → continuity (طلب صاحب المنصة 2026-10-12: «Rename
+    //         the internal database namespace from relay to continuity … through a new
+    //         forward-only Supabase migration»). إعادة تسمية فقط بلا فقد بيانات أو صلاحيات،
+    //         وأغلفة relay_* الـ19 للتوافق. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/continuity-namespace.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '077_continuity_namespace.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
