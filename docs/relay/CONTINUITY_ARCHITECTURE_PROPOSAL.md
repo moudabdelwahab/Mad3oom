@@ -144,6 +144,8 @@ U2 (free text visible to every record viewer), U3 (backups), U4 (no legal review
 
 ## 3. Naming and branding strategy
 
+> **Superseded on 2026-10-12 (§16):** Mahmoud asked for the internal namespace to be renamed `relay` → `continuity` as well. The table below shows the earlier recommendation and is kept for the record.
+
 | Layer | Decision | Reason |
 |---|---|---|
 | Product labels (Arabic UI, sidebar, page title, composer button, notifications, docs for users) | **Mad3oom Continuity**. Arabic: «الاستمرارية» or «مدعوم Continuity», per the brand style used elsewhere (the sidebar mixes English product names such as «Relay» today). Final Arabic label is decision **B1** | Product-facing rename only |
@@ -971,3 +973,31 @@ So the previous closure's content is lost. That violates requirement 3 ("reopeni
 | 9 | AI extraction | `claude/continuity-ai` | next free | Needs A2 for production |
 
 Stacked branches: each PR targets the previous increment's branch while that one is open, so every diff shows only its own change. Migration numbers are re-checked before each PR.
+
+---
+
+## 16. Internal namespace rename (2026-10-12, superseding §3)
+
+Mahmoud asked for the internal database namespace to be renamed from `relay` to `continuity`, through a forward-only migration that keeps all data, permissions and audit history.
+
+**What was implemented:**
+- **Migration `077_continuity_namespace`** on branch `claude/continuity-namespace`. The full audit, name mapping, exceptions, deploy order and rollback are in `docs/continuity/NAMESPACE_RENAME.md`.
+- **Database:** all Relay tables, functions, triggers, constraints, indexes and the cron job are renamed to `continuity_*`. The 19 public RPCs remain as thin `relay_*` wrappers for the deployed frontend until a later, separately approved migration removes them.
+- **Frontend:** `admin/relay.html` → `admin/continuity.html`, with a redirect from the old URL.
+
+**Consequences for this plan:**
+- Every object name in §5–§15 written as `relay_*` is now `continuity_*`. For example, `relay_policies` → `continuity_policies`, `relay_jobs` → `continuity_jobs`, and `relay_attachment_begin` → `continuity_attachment_begin`.
+- Migration numbers move by one:
+
+| Increment | Migration |
+|---|---|
+| Namespace rename | **077** |
+| Phase 0 policies | **078** (`078_continuity_policies`) |
+| Reopen lifecycle | **079** |
+| Attachments | **080** |
+| Handover → monitor | **081–084** |
+| Company | **085+** |
+
+- The private bucket in §15.3 is named `continuity-attachments`, and its storage paths are `<workspace_id>/<record_id>/<attachment_id>`.
+- The future API claim is `continuity_client`. The old `relay_client` is no longer read (it had no producer).
+- The standalone record URL in §15.2 is `/admin/continuity-record.html?id=<uuid>`.
