@@ -516,6 +516,26 @@ BEGIN
   RAISE NOTICE 'PASS RERUN: إعادة تشغيل 079 لا تكرر الترحيل';
 END $$;
 
+-- ترتيب التراجع: تراجع 078 يرفض و079 مطبق (حتى مع إذن حذف البيانات)، ولا يمس شيئًا
+\set rollback078_sql `cat migrations/_rollback/078_continuity_policies.down.sql`
+SELECT set_config('t.rollback078_sql', 'set continuity.rollback_discard_data = ''on''; ' || :'rollback078_sql', false) IS NOT NULL;
+DO $$
+DECLARE c text;
+BEGIN
+  PERFORM t.dblink_connect('rb78', format('dbname=%s port=%s host=%s user=postgres', current_database(),
+            current_setting('port'), split_part(current_setting('unix_socket_directories'), ',', 1)));
+  BEGIN
+    PERFORM t.dblink_exec('rb78', current_setting('t.rollback078_sql'));
+    c := 'ok';
+  EXCEPTION WHEN others THEN c := sqlerrm;
+  END;
+  PERFORM t.dblink_disconnect('rb78');
+  PERFORM t.ok(c LIKE '%079+%', 'RB-078 refusal: ' || c);
+  PERFORM t.ok(to_regclass('public.continuity_policies') IS NOT NULL
+               AND to_regprocedure('public.continuity_get_policies()') IS NOT NULL, 'RB-078 nothing removed');
+  RAISE NOTICE 'PASS RB-078: تراجع 078 يرفض و079 مطبق (الترتيب: الأحدث أولًا)';
+END $$;
+
 \set rollback_sql `cat migrations/_rollback/079_continuity_reopen_lifecycle.down.sql`
 SELECT set_config('t.rollback_sql', :'rollback_sql', false) IS NOT NULL;
 DO $$

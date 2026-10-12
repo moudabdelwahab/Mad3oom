@@ -88,6 +88,7 @@ Then run `get_advisors` (security).
   - drops `continuity_closures` and `closure_seq`.
 - It refuses to run while a reopened closure holds text that would be lost, unless `continuity.rollback_discard_data = 'on'` is set.
 - If the new frontend is deployed, it keeps working after rollback: the closures section disappears.
+- Order: roll back newer continuity migrations first. `078`'s rollback now refuses while 079 is installed (tested as RB-078).
 
 ## Tests (local, production-shaped fixture)
 `tests/sql/continuity-reopen.test.sql`:
