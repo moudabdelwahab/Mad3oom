@@ -32,6 +32,13 @@ test('الصفحة المستقلة: وضعها معلن، بلا شريط جا�
     assert.match(html, /<body data-ct-mode="standalone">/);
     assert.match(html, /<title>سجل الاستمرارية - لوحة الإدارة<\/title>/);
     assert.match(html, /<meta name="referrer" content="no-referrer">/);
+    // السياسة قبل أي مورد يُطلب (سكربت، رابط، صورة): وإلا يخرج ?id= في Referer لأول طلب
+    const head = html.slice(0, html.indexOf('</head>'));
+    const policyAt = head.indexOf('<meta name="referrer"');
+    for (const tag of ['<script', '<link', '<img']) {
+        const at = head.indexOf(tag);
+        assert.ok(at === -1 || policyAt < at, `referrer policy must precede the first ${tag}`);
+    }
     for (const id of ['sidebar-container', 'ctList', 'ctTrash', 'ctAssigners', 'ctPolicies']) {
         assert.ok(!html.includes(`id="${id}"`), `${id} في الصفحة المستقلة`);
     }
