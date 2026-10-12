@@ -488,8 +488,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         للمالك»). إزالة مصدر من سجل تنقله للمحذوفات مع استرجاع لمن يرى السجل،
     //         والمسح النهائي ومنح/سحب صلاحية الإسناد لمالك المنصة فقط
     //         (is_platform_owner). أعمدة على relay_sources وأربع دوال جديدة. مقيسٌ على
-    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '076_relay_trash_owner.sql',
+    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. مطبَّق على الإنتاج
+    //         2026-10-09 (السجل 20261009193924).
+    //   080 — خصوصية أعضاء الشركة (صاحب المنصة 2026-10-12: «fix the existing
+    //         company_members() privacy exposure»). القائمة الكاملة لمدير الشركة وحده؛
+    //         عميل الشركة يرى نفسه ومديره بالاسم فقط. إعادة تعريف دالة واحدة، بلا جداول.
+    //         077–079 محجوزة لسلسلة continuity (#116–#118) و081 لفريق الشركة، وكلها غير
+    //         مطبَّقة ولا تعتمد على 080. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/company-members-privacy.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '080_company_members_privacy.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

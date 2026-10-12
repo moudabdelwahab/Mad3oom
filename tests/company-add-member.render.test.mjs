@@ -958,3 +958,43 @@ test('لا تمرير أفقي في أي قسم، على الموبايل وسط
     }
     await context.close();
 });
+
+/* ── 080: خصوصية أعضاء الشركة ─────────────────────────────────────────── */
+
+test('080: المدير يرى القائمة الكاملة بلا ملاحظة النطاق', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ members: { members: [
+        { id: USER_ID, name: 'مالك الشركة', email: 'owner@company.test', is_owner: true, is_me: true, created_at: '2026-01-01T00:00:00Z' },
+        { id: CUSTOMER_ID, name: 'عميل الشركة', email: 'cust1@company.test', is_owner: false, is_me: false, created_at: '2026-02-01T00:00:00Z' }
+    ] } });
+    fx.rpc.company_members.scope = 'full';
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openSection(page, 'members');
+    await page.waitForSelector('#companyMembers .company-sub', { timeout: 10000 });
+
+    assert.equal(await page.locator('#companyMembers .company-sub').count(), 2);
+    assert.equal(await page.locator('#companyMembersScopeNote').isVisible(), false);
+    await context.close();
+});
+
+test('080: عميل الشركة يرى ما رجّعته القاعدة فقط، مع ملاحظة النطاق وبلا بريد المدير', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ members: { canManage: false, members: [
+        { id: USER_ID, name: 'مدير الشركة', email: null, is_owner: true, is_me: false, created_at: '2026-01-01T00:00:00Z' },
+        { id: CUSTOMER_ID, name: 'عميل الشركة', email: 'cust1@company.test', is_owner: false, is_me: true, created_at: '2026-02-01T00:00:00Z' }
+    ] } });
+    fx.rpc.company_members.scope = 'self';
+    fx.rpc.company_members.is_owner = false;
+    fx.rpc.company_members.company_role = 'company_user';
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openSection(page, 'members');
+    await page.waitForSelector('#companyMembers .company-sub', { timeout: 10000 });
+
+    assert.equal(await page.locator('#companyMembersScopeNote').isVisible(), true, 'ملاحظة النطاق مخفية');
+    assert.equal(await page.locator('#companyMembers .company-sub').count(), 2);
+    const text = await page.locator('#companyMembers').innerText();
+    assert.doesNotMatch(text, /owner@company\.test|null|undefined/, 'بريد المدير أو قيمة فارغة ظهرت');
+    assert.equal(await page.locator('#addMemberBtn').isHidden(), true);
+    assert.equal(await page.locator('[data-remove-member]').count(), 0);
+    await context.close();
+});
