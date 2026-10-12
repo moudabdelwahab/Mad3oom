@@ -839,3 +839,115 @@ test('policies panel: the platform owner sees the policy read-only after 078; hi
     assert.deepEqual(await rpcCalls(r.page, 'continuity_get_policies'), []);
     await r.context.close();
 });
+
+// ─────────────────────────────────────────────────────────────
+// 079: تاريخ الإغلاق وإعادة الفتح
+// ─────────────────────────────────────────────────────────────
+const INJECT = '<img src=x onerror="window.__XSS__=1">';
+function closedFixtures({ due = '2026-01-15T09:00:00Z', kind = 'follow_up', closures = true } = {}) {
+    const fx = pageFixtures();
+    const record = { ...fx.rpc.continuity_get.record, kind, status: 'resolved', due_at: due, closed_at: at(10, 0),
+        resolution_note: `اتشحنت ${INJECT}`, version: 7 };
+    fx.rpc.continuity_list = [{ ...record, source_count: 2 }];
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, record };
+    if (closures) {
+        fx.rpc.continuity_get.closures = [
+            { seq: 2, closed_status: 'resolved', closed_at: at(10, 0), closed_by: STAFF, resolution_note: `اتشحنت ${INJECT}`,
+              cancel_reason: null, reopened_at: null, reopened_by: null, reopen_reason: null, backfilled: false },
+            { seq: 1, closed_status: 'cancelled', closed_at: at(8, 0), closed_by: null, resolution_note: null, cancel_reason: null,
+              reopened_at: at(9, 0), reopened_by: ME, reopen_reason: null, backfilled: true },
+        ];
+    }
+    return fx;
+}
+
+test('reopen (079): closure history renders as text; an expired follow-up needs a reason and a new due before reopening', { skip: !chromiumPath }, async () => {
+    const native = [];
+    const { page, context, errors } = await openPage(closedFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    page.on('dialog', (d) => { native.push(d.type()); d.dismiss(); });
+    await page.waitForSelector('#ctClosures');
+    const items = page.locator('#ctClosures .ct-closure');
+    assert.equal(await items.count(), 2);
+    assert.deepEqual(await items.evaluateAll((li) => li.map((x) => x.dataset.seq)), ['2', '1'], 'newest first');
+    assert.equal(await items.nth(0).locator('.ct-closure-note').innerText(), `اتشحنت ${INJECT}`, 'note shown as text');
+    assert.equal(await page.locator('#ctClosures img').count(), 0, 'no markup from a note');
+    assert.match(await items.nth(1).innerText(), /اتلغى/);
+    assert.match(await items.nth(1).innerText(), /سبب الإلغاء مش محفوظ/);
+    assert.match(await items.nth(1).innerText(), /اتفتح تاني/);
+    assert.match(await items.nth(1).innerText(), /السبب مش محفوظ/);
+    assert.match(await items.nth(1).innerText(), /النظام/, 'a closure without an actor is not «بدون مالك»');
+    // الحالات المعروضة: إعادة فتح فقط
+    assert.deepEqual(await page.locator('[data-to]').evaluateAll((b) => b.map((x) => x.dataset.to)), ['open']);
+    await page.locator('[data-to="open"]').click();
+    await page.waitForSelector('#ctConfirm[open] #ctConfirmDue');
+    assert.equal(await page.locator('#ctConfirmDue').getAttribute('aria-required'), 'true');
+    assert.match(await page.locator('#ctConfirmDueNote').innerText(), /عدّى، فلازم موعد جديد/);
+    const ok = page.locator('#ctConfirmOk');
+    await page.locator('#ctConfirmInput').fill('العميل رجع اشتكى');
+    assert.equal(await ok.isDisabled(), true, 'a reason alone is not enough for an expired follow-up');
+    await page.locator('#ctConfirmDue').fill('2030-02-01T11:30');
+    await page.locator('#ctConfirmTz').selectOption('Asia/Riyadh');
+    assert.equal(await ok.isDisabled(), false);
+    await page.locator('#ctConfirmDue').fill('');
+    assert.equal(await ok.isDisabled(), true);
+    // Escape لا يرسل شيئًا
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#ctConfirm').count(), 0);
+    assert.deepEqual(await rpcCalls(page, 'continuity_transition'), []);
+    await page.locator('[data-to="open"]').click();
+    await page.locator('#ctConfirm[open] #ctConfirmInput').fill('  العميل رجع اشتكى ');
+    await page.locator('#ctConfirmDue').fill('2030-02-01T11:30');
+    await page.locator('#ctConfirmTz').selectOption('Asia/Riyadh');
+    await ok.click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_transition'));
+    const calls = await rpcCalls(page, 'continuity_transition');
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0], { p_record: REC, p_to: 'open', p_expected_version: 7,
+        p_details: { reason: 'العميل رجع اشتكى', due: { at: '2030-02-01T11:30:00', tz: 'Asia/Riyadh' } } });
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(native, []);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('reopen (079): a future due stays unless changed; a server refusal (due_required_on_reopen) is explained', { skip: !chromiumPath }, async () => {
+    const fx = closedFixtures({ due: '2030-01-15T09:00:00Z' });
+    fx.rpcErrors = { continuity_transition: { code: '22023', message: 'بيانات غير صالحة: details.due',
+        details: '{"code":"validation_failed","field":"details.due","reason":"due_required_on_reopen"}' } };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('[data-to="open"]');
+    await page.locator('[data-to="open"]').click();
+    await page.waitForSelector('#ctConfirm[open] #ctConfirmDue');
+    assert.equal(await page.locator('#ctConfirmDue').getAttribute('aria-required'), null);
+    assert.match(await page.locator('#ctConfirmDueNote').innerText(), /الموعد الحالي يفضل/);
+    await page.locator('#ctConfirmInput').fill('رجعت');
+    assert.equal(await page.locator('#ctConfirmOk').isDisabled(), false);
+    await page.locator('#ctConfirmOk').click();
+    await page.waitForFunction(() => !document.getElementById('toast').hidden);
+    const [call] = await rpcCalls(page, 'continuity_transition');
+    assert.deepEqual(call.p_details, { reason: 'رجعت' }, 'no due sent when left empty');
+    assert.match(await page.locator('#toast').innerText(), /حدد موعد جديد/);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('reopen (079): before 079 (no closures) the history is absent and reopening still works; 390px fits', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(closedFixtures({ kind: 'issue', closures: false }),
+        { url: `/admin/continuity.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('[data-to="open"]');
+    assert.equal(await page.locator('#ctClosures').count(), 0);
+    await page.locator('[data-to="open"]').click();
+    await page.waitForSelector('#ctConfirm[open] #ctConfirmDue');
+    const fit = await page.evaluate(() => {
+        const r = document.querySelector('#ctConfirm .ct-sheet').getBoundingClientRect();
+        return { inside: r.left >= 0 && r.right <= window.innerWidth + 0.5, doc: document.documentElement.scrollWidth - window.innerWidth };
+    });
+    assert.ok(fit.inside && fit.doc <= 0, `dialog overflows: ${JSON.stringify(fit)}`);
+    await page.locator('#ctConfirmInput').fill('ظهرت تاني');
+    assert.equal(await page.locator('#ctConfirmOk').isDisabled(), false, 'an issue reopens without a due');
+    await page.locator('#ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_transition'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_transition'))[0].p_details, { reason: 'ظهرت تاني' });
+    assert.deepEqual(errors, []);
+    await context.close();
+});

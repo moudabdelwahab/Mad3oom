@@ -334,6 +334,53 @@ export function allowedTransitions(record, { meId, supervisor = false } = {}) {
 }
 
 /**
+ * متطلبات إعادة الفتح (079): نفس قاعدة الخادم، للعرض فقط.
+ *   متابعة موعدها فات أو خلال 5 دقائق أو بلا موعد ⇒ needsDue (موعد جديد إلزامي).
+ *   موعد مستقبلي ⇒ keepsDue (يفضل كما هو ما لم يُحدَّد جديد).
+ * سجل غير مقفول ⇒ null.
+ */
+export const REOPEN_DUE_MARGIN_MS = 5 * 60 * 1000;
+export function reopenRequirements(record, now = new Date()) {
+    if (!record || (record.status !== 'resolved' && record.status !== 'cancelled')) return null;
+    const dueMs = record.due_at ? Date.parse(record.due_at) : NaN;
+    const keepsDue = Number.isFinite(dueMs) && dueMs > now.getTime() + REOPEN_DUE_MARGIN_MS;
+    return {
+        needsDue: record.kind === 'follow_up' && !keepsDue,
+        keepsDue,
+        expiredDue: Number.isFinite(dueMs) && !keepsDue,
+        tz: record.due_tz || 'Africa/Cairo',
+    };
+}
+
+const CLOSED_LABELS = Object.freeze({ resolved: 'اتحل', cancelled: 'اتلغى' });
+
+/**
+ * تاريخ الإغلاق كما أرسله الخادم (_continuity_full.closures، الأحدث أولًا) ⇒ صفوف عرض.
+ * إغلاق قديم أعيد فتحه قبل 079 لا نص له ولا سبب لإعادة فتحه (backfilled): يُقال ذلك صراحة بدل خانة فارغة.
+ */
+export function closureHistory(closures) {
+    if (!Array.isArray(closures)) return [];
+    return closures.map((c) => {
+        const resolved = c.closed_status === 'resolved';
+        const note = (resolved ? c.resolution_note : c.cancel_reason) || null;
+        return {
+            seq: c.seq,
+            statusLabel: CLOSED_LABELS[c.closed_status] || c.closed_status,
+            closedAt: c.closed_at,
+            closedBy: c.closed_by || null,
+            noteLabel: resolved ? 'الحل' : 'سبب الإلغاء',
+            note,
+            noteMissing: !note && Boolean(c.backfilled),
+            reopened: Boolean(c.reopened_at),
+            reopenedAt: c.reopened_at || null,
+            reopenedBy: c.reopened_by || null,
+            reopenReason: c.reopen_reason || null,
+            reopenReasonMissing: Boolean(c.reopened_at) && !c.reopen_reason && Boolean(c.backfilled),
+        };
+    });
+}
+
+/**
  * أدوات الإسناد على سجل قائم (074 P4):
  *   صلاحية إسناد ⇒ أي موظف مؤهل + الفريق؛ المالك ⇒ نفسه أو بلا مالك؛
  *   سجل بلا مالك ⇒ أخذه لنفسك؛ غير ذلك ⇒ لا أدوات.
