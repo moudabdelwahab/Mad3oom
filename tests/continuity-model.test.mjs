@@ -200,3 +200,38 @@ test('the composer never persists or forwards message text outside the RPC', asy
     // لا قراءة مباشرة لجداول Continuity (لا صلاحيات أصلًا، ولا محاولة)
     assert.ok(!/from\('continuity_/.test(data), 'direct table access to continuity_*');
 });
+
+test('describePolicy shows the server values as given (078 defaults D1–D4) and every capability as off', async () => {
+    const { describePolicy, CAPABILITY_LABELS } = await import('../assets/js/continuity/continuity-model.js');
+    const res = {
+        policy: { handovers_enabled: false, reminders_enabled: false, escalation_enabled: false, monitor_enabled: false,
+            attachments_enabled: false, ai_enabled: false, reminder_offsets_minutes: [60], due_alert: true,
+            overdue_repeat_minutes: null, overdue_repeat_max: 3, escalate_after_minutes: 240, escalation_recipients: 'supervisors',
+            respect_working_hours: true, handover_remind_after_minutes: 60, handover_escalate_after_minutes: 240,
+            stale_after_days: 7, postpone_flag_count: 3 },
+        version: 1,
+        capabilities_installed: { handovers: false, reminders: false, escalation: false, monitor: false, attachments: false, ai: false },
+    };
+    const d = describePolicy(res);
+    assert.equal(d.capabilities.length, Object.keys(CAPABILITY_LABELS).length);
+    assert.ok(d.capabilities.every((c) => c.off && c.value === 'مطفأة · غير مثبتة بعد'));
+    const t = Object.fromEntries(d.timings.map((r) => [r.label, r.value]));
+    assert.equal(t['تذكير قبل الموعد'], 'ساعة');
+    assert.equal(t['إشعار عند حلول الموعد'], 'نعم');
+    assert.equal(t['تكرار أثناء التأخير'], 'لا');
+    assert.equal(t['تصعيد بعد التأخير'], 'بعد 4 ساعات للمشرفين');
+    assert.equal(t['تسليم معلّق: تذكير'], 'بعد ساعة');
+    assert.equal(t['تسليم معلّق: تصعيد'], 'بعد 4 ساعات');
+    assert.equal(t['ساعات العمل في التصعيد'], 'تُراعى');
+    // مثبتة ومفعّلة / مثبتة ومطفأة / قيم أخرى
+    const d2 = describePolicy({ ...res, policy: { ...res.policy, monitor_enabled: true, reminder_offsets_minutes: [1440, 90],
+        escalate_after_minutes: null }, capabilities_installed: { ...res.capabilities_installed, monitor: true, reminders: true } });
+    const caps = Object.fromEntries(d2.capabilities.map((c) => [c.label, c.value]));
+    assert.equal(caps['مراقب الاستمرارية'], 'مفعّلة');
+    assert.equal(caps['التذكيرات'], 'مطفأة');
+    const t2 = Object.fromEntries(d2.timings.map((r) => [r.label, r.value]));
+    assert.equal(t2['تذكير قبل الموعد'], 'يوم، 90 دقيقة');
+    assert.equal(t2['تصعيد بعد التأخير'], 'لا');
+    // رد ناقص لا يكسر العرض
+    assert.equal(describePolicy(null).capabilities.length, 6);
+});

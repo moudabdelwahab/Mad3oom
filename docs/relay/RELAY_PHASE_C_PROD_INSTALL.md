@@ -1,4 +1,6 @@
-# Relay Phase C: production install note (NOT EXECUTED)
+# Relay Phase C: production install note (executed 2026-10-09)
+
+> **Executed (verified read-only 2026-10-12):** 074 was applied on 2026-10-09 at 15:20 UTC (ledger `20261009152023`). The text below is the original plan, kept as the record.
 
 > Status: prepared 2026-10-09. **Nothing here has been run against production.** Applying 074 and deploying the Phase C pages each need a separate explicit approval from Mahmoud. Approving or merging the PR is not approval to apply.
 

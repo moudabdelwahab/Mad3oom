@@ -19,17 +19,21 @@ async function call(name, args) {
     return data;
 }
 
-const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: false, can_assign: false, owner: false, trash: false });
+const NO_ACCESS = Object.freeze({ member: false, enabled: false, supervisor: false, can_assign: false, owner: false, trash: false,
+    policies: false, capabilities: Object.freeze({}) });
 
 /**
  * استشاري للواجهة: أي فشل (أو قاعدة قبل 074) = لا شيء ظاهر.
  * trash: القاعدة فيها 076 (continuity_my_access بيرجّع owner). قبلها الصفحة تشتغل بقواعد 074.
+ * policies: القاعدة فيها 078 (بيرجّع capabilities). قبلها لوحة الإعدادات مخفية.
  */
 export async function loadContinuityAccess() {
     try {
         const data = await call('continuity_my_access');
         return data && typeof data === 'object'
-            ? { ...NO_ACCESS, ...data, trash: Object.prototype.hasOwnProperty.call(data, 'owner') } : NO_ACCESS;
+            ? { ...NO_ACCESS, ...data,
+                trash: Object.prototype.hasOwnProperty.call(data, 'owner'),
+                policies: Object.prototype.hasOwnProperty.call(data, 'capabilities') } : NO_ACCESS;
     } catch {
         return NO_ACCESS;
     }
@@ -62,6 +66,8 @@ export const listRemoved = () => call('continuity_list_removed', { p_limit: 100 
 export const purgeSource = (sourceId) => call('continuity_redact_source', { p_source: sourceId, p_reason: 'manual' });
 export const purgeRemoved = (recordId = null) => call('continuity_purge_removed', { p_record: recordId });
 export const loadEvents = (id) => call('continuity_events_for', { p_record: id, p_before: null, p_limit: 50 });
+/** 078: السياسة (قراءة لكل عضو؛ التغيير للمالك عبر continuity_set_policies ولا تستخدمه الواجهة بعد). */
+export const getPolicies = () => call('continuity_get_policies');
 export const listAssigners = () => call('continuity_list_assigners');
 export const grantAssigner = (userId) => call('continuity_grant_assigner', { p_user: userId });
 export const revokeAssigner = (userId) => call('continuity_revoke_assigner', { p_user: userId });

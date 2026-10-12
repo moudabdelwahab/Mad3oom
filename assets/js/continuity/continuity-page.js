@@ -15,12 +15,12 @@ import { describeSource, retentionDeadline, LIMITS } from './continuity-contract
 import { continuityConfirm, continuityPrompt } from './continuity-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
-    allowedTransitions, assignmentOptions, toZonedInput,
+    allowedTransitions, assignmentOptions, toZonedInput, describePolicy,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
     removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
-    listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams,
+    listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
 } from './continuity-data.js';
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
@@ -342,6 +342,26 @@ async function renderTrash() {
 // ═════════════════════════════════════════════════════════════
 // صلاحية الإسناد (لمالك المنصة، 076)
 // ═════════════════════════════════════════════════════════════
+// 078: إعدادات الاستمرارية — لمالك المنصة، قراءة فقط. قبل 078 (لا capabilities) مخفية.
+async function renderPolicies() {
+    const box = $('ctPolicies');
+    if (!(state.access.owner && state.access.policies)) { box.hidden = true; return; }
+    box.hidden = false;
+    const body = $('ctPoliciesBody');
+    body.textContent = 'جاري التحميل…';
+    let d;
+    try {
+        d = describePolicy(await getPolicies());
+    } catch (err) {
+        body.innerHTML = `<p class="ct-error">${esc(err.message)}</p>`;
+        return;
+    }
+    const rows = (list) => list.map((r) =>
+        `<li><span>${esc(r.label)}</span><span class="${r.off ? 'ct-policy-off' : ''}">${esc(r.value)}</span></li>`).join('');
+    body.innerHTML = `<h4>القدرات</h4><ul class="ct-policy-list" id="ctPolicyCaps">${rows(d.capabilities)}</ul>
+        <h4>المواعيد والتصعيد</h4><ul class="ct-policy-list" id="ctPolicyTimings">${rows(d.timings)}</ul>`;
+}
+
 async function renderAssigners() {
     const box = $('ctAssigners');
     // 076: المنح والسحب للمالك. قبل 076 كانوا للمشرف (074).
@@ -499,6 +519,7 @@ async function boot() {
     if (deep) await openRecord(deep, { push: false });
     renderTrash();
     renderAssigners();
+    renderPolicies();
 }
 
 boot();

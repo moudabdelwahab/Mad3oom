@@ -230,3 +230,36 @@ export function retentionDeadline(closedAt) {
     const t = Date.parse(closedAt);
     return Number.isNaN(t) ? null : new Date(t + RETENTION_MS);
 }
+
+/** 078: حدود السياسة كما في قيود continuity_policies. استشاري؛ الخادم يرفض أي شيء خارجها. */
+export const POLICY_LIMITS = Object.freeze({
+    offsetsMax: 5, offsetMin: 5, offsetMax: 10080,
+    repeatMin: 15, repeatMax: 1440, repeatCountMin: 1, repeatCountMax: 10,
+    thresholdMin: 5, thresholdMax: 43200, staleMin: 1, staleMax: 365, postponeMin: 1, postponeMax: 50,
+});
+export const CAPABILITIES = Object.freeze(['handovers', 'reminders', 'escalation', 'monitor', 'attachments', 'ai']);
+const POLICY_BOOL = new Set([...CAPABILITIES.map((c) => `${c}_enabled`), 'due_alert', 'respect_working_hours']);
+const POLICY_INT_NULL = { overdue_repeat_minutes: ['repeatMin', 'repeatMax'], escalate_after_minutes: ['thresholdMin', 'thresholdMax'],
+    handover_remind_after_minutes: ['thresholdMin', 'thresholdMax'], handover_escalate_after_minutes: ['thresholdMin', 'thresholdMax'] };
+const POLICY_INT = { overdue_repeat_max: ['repeatCountMin', 'repeatCountMax'], stale_after_days: ['staleMin', 'staleMax'],
+    postpone_flag_count: ['postponeMin', 'postponeMax'] };
+
+/** تحقق مبدئي لرقعة سياسة. يرجع [{ field, reason }]؛ فاضية = يبان سليم. */
+export function validatePolicyPatch(patch) {
+    const errors = [];
+    const add = (field, reason) => errors.push({ field, reason });
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) || !Object.keys(patch).length) return [{ field: 'patch', reason: 'invalid' }];
+    const inRange = (v, [lo, hi]) => Number.isInteger(v) && v >= POLICY_LIMITS[lo] && v <= POLICY_LIMITS[hi];
+    for (const [k, v] of Object.entries(patch)) {
+        if (POLICY_BOOL.has(k)) { if (typeof v !== 'boolean') add(k, 'boolean_expected'); }
+        else if (k in POLICY_INT_NULL) { if (v !== null && !inRange(v, POLICY_INT_NULL[k])) add(k, 'range'); }
+        else if (k in POLICY_INT) { if (!inRange(v, POLICY_INT[k])) add(k, 'range'); }
+        else if (k === 'reminder_offsets_minutes') {
+            if (!Array.isArray(v) || v.length > POLICY_LIMITS.offsetsMax
+                || !v.every((x) => inRange(x, ['offsetMin', 'offsetMax']))) add(k, 'range');
+        } else if (k === 'escalation_recipients') {
+            if (!['supervisors', 'team_then_supervisors'].includes(v)) add(k, 'invalid');
+        } else add(k, 'not_updatable');
+    }
+    return errors;
+}

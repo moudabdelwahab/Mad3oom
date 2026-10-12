@@ -1,4 +1,6 @@
-# Relay 076 (trash and owner control): production install note (NOT EXECUTED)
+# Relay 076 (trash and owner control): production install note (executed 2026-10-09)
+
+> **Executed (verified read-only 2026-10-12):** 076 was applied on 2026-10-09 (ledger `20261009193924`). The text below is the original plan, kept as the record.
 
 > Status: prepared on 2026-10-09. **Nothing here has been run against production.** Applying 076 needs a separate explicit approval from Mahmoud. Merging the PR is not that approval. The rules are in plan §28.
 
