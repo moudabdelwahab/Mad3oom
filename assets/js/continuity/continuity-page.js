@@ -12,6 +12,10 @@
  * 079: «تاريخ الإغلاق» يعرض كل إغلاق وإعادة فتح كما أرسلها الخادم (closures). إعادة
  * الفتح بسبب إلزامي، وموعد جديد إلزامي لمتابعة موعدها فات (reopenRequirements). لو
  * الخادم أقدم من 079 (لا closures) القسم يختفي ويفضل كل شيء يعمل.
+ *
+ * نافذة مستقلة (admin/continuity-record.html?id=<uuid>، body[data-ct-mode=standalone]):
+ * نفس الكود ونفس الـRPC ونفس الصلاحيات، لسجل واحد بلا قائمة ولا لوحات جانبية. الرابط
+ * لا يمنح أي وصول: الخادم يقرر في continuity_get كالعادة، والرابط غير الصالح لا ينادي شيئًا.
  */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
@@ -20,15 +24,22 @@ import { continuityConfirm, continuityPrompt, continuityReopen } from './continu
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
+    standaloneRecordUrl, isRecordId,
+    prepareAttachment, attachmentErrorText, attachmentView, ATTACHMENT_ACCEPT, ATTACHMENT_LIMITS_TEXT,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
     removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
+    removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
 } from './continuity-data.js';
+import { uploadAttachment } from './continuity-upload.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { ATTACHMENT_KINDS, formatBytes } from './continuity-media.js';
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
 const $ = (id) => document.getElementById(id);
+const STANDALONE = document.body?.dataset.ctMode === 'standalone';
 const TIMEZONES = ['Africa/Cairo', 'Asia/Riyadh', 'Asia/Dubai', 'Europe/London', 'UTC'];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,6 +52,10 @@ const fmt = (iso, tz) => {
 const state = {
     me: null, access: null, agents: [], teams: [], records: [], current: null, events: [], assigners: null, trash: [],
     filters: { status: 'active', owner: '', category: '' }, busy: false,
+    // رفع جارٍ أو فاشل: { recordId, file, kind, mime, key, progress, error, controller }
+    upload: null,
+    // تسجيل صوتي: { recordId, phase: requesting|recording|review|error, elapsed, bytes, blob, mime, url, message }
+    rec: null,
 };
 const agentName = (id) => {
     if (!id) return 'بدون مالك';
@@ -72,6 +87,7 @@ function filtersToRpc() {
 }
 
 async function reloadList() {
+    if (STANDALONE) return;
     $('ctList').innerHTML = '<li class="ct-empty">بيحمّل…</li>';
     try {
         state.records = await listRecords(filtersToRpc()) || [];
@@ -84,6 +100,7 @@ async function reloadList() {
 }
 
 function renderList() {
+    if (STANDALONE) return;
     if (!state.records.length) {
         $('ctList').innerHTML = '<li class="ct-empty" id="ctListEmpty">مفيش سجلات بالفلاتر دي. السجلات بتتعمل من صندوق الرسائل: افتح محادثة واضغط «سجل استمرارية».</li>';
         return;
@@ -105,6 +122,7 @@ function renderList() {
 // ═════════════════════════════════════════════════════════════
 async function openRecord(id, { push = true } = {}) {
     if (!id) return;
+    if (state.rec && state.rec.recordId !== id) resetRecorder();
     $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
     $('ctPage').classList.add('has-record');
     try {
@@ -113,10 +131,13 @@ async function openRecord(id, { push = true } = {}) {
         state.events = events || [];
     } catch (err) {
         state.current = null;
-        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctNotFound">${esc(err.code === 'not_found' ? 'السجل غير موجود أو مش مسموح لك تشوفه.' : err.message)}</p>`;
+        const notFound = err.code === 'not_found';
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="${notFound ? 'ctNotFound' : 'ctLoadError'}">${esc(notFound ? 'السجل غير موجود أو مش مسموح لك تشوفه.' : friendlyError(err))}</p>
+          ${STANDALONE ? `<div class="ct-inline">${notFound ? '' : `<button type="button" class="btn btn-primary" id="ctRetry" data-id="${esc(id)}">حاول تاني</button>`}
+            <a class="btn btn-secondary" href="/admin/continuity.html">صفحة الاستمرارية</a></div>` : ''}`;
         return;
     }
-    if (push) {
+    if (push && !STANDALONE) {
         const url = new URL(location.href);
         url.searchParams.set('record', id);
         history.replaceState(null, '', url);
@@ -193,7 +214,10 @@ function renderRecord() {
     const problemField = r.kind === 'issue' ? 'problem' : 'summary';
 
     $('ctDetail').innerHTML = `
-      <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>
+      <div class="ct-inline">${STANDALONE
+          ? `<a class="btn btn-secondary" id="ctOpenInPage" href="/admin/continuity.html?record=${encodeURIComponent(r.id)}">فتح في صفحة الاستمرارية</a>`
+          : `<button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button>
+             ${isRecordId(r.id) ? `<a class="btn btn-secondary" id="ctOpenStandalone" href="${esc(standaloneRecordUrl(r.id))}" target="_blank" rel="noopener noreferrer">فتح السجل في نافذة مستقلة</a>` : ''}`}</div>
       <div>
         <div class="ct-item-meta">
           <span class="ct-pill">${esc(KIND_META[r.kind]?.label || r.kind)}</span>
@@ -256,12 +280,287 @@ function renderRecord() {
         ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
       </section>` : ''}
 
+      ${attachmentsHtml(r, closed)}
+
       ${closureHtml(state.current.closures)}
 
       <section aria-labelledby="ctEventsH">
         <h3 id="ctEventsH">السجل</h3>
         <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
       </section>`;
+    hydrateAttachments();
+}
+
+// ═════════════════════════════════════════════════════════════
+// المرفقات (080): تظهر فقط والقدرة مفعّلة (continuity_my_access.capabilities.attachments)
+// ═════════════════════════════════════════════════════════════
+const attachmentsOn = () => Boolean(state.access?.capabilities?.attachments);
+
+function attachmentItemHtml(a, { mode, closed }) {
+    const v = attachmentView(a);
+    const media = mode === 'removed' ? ''
+        : v.kind === 'image' ? `<img class="ct-att-media" data-sign="${esc(v.path)}" alt="${esc(v.name)}" loading="lazy" decoding="async">`
+        : v.kind === 'video' ? `<video class="ct-att-media" data-sign="${esc(v.path)}" controls preload="metadata" playsinline aria-label="${esc(v.name)}"></video>`
+        : v.kind === 'audio' ? `<audio class="ct-att-media" data-sign="${esc(v.path)}" controls preload="none" aria-label="${esc(v.name)}"></audio>` : '';
+    const actions = [];
+    if (!closed && mode === 'main') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-remove="${esc(v.id)}">إزالة</button>`);
+    if (!closed && mode === 'removed') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-restore="${esc(v.id)}">استرجاع</button>`);
+    if (state.access.owner) actions.push(`<button type="button" class="btn btn-danger ct-btn-sm" data-att-purge="${esc(v.id)}">مسح نهائي</button>`);
+    return `<li class="ct-att" data-attachment="${esc(v.id)}" data-kind="${esc(v.kind || '')}">
+        ${media}
+        <div class="ct-att-meta"><span class="ct-pill">${esc(v.label)}</span> <span class="ct-att-name" dir="auto">${esc(v.name)}</span>
+          <span class="ct-muted">${esc(v.size)} · ${esc(agentName(v.createdBy))} · ${esc(fmt(v.createdAt))}</span></div>
+        ${actions.length ? `<div class="ct-inline">${actions.join('')}</div>` : ''}
+      </li>`;
+}
+
+function uploadStatusHtml(u) {
+    if (!u) return '';
+    if (u.error) {
+        return `<div class="ct-att-upload" id="ctAttachStatus"><p class="ct-error" role="alert" id="ctAttachError">${esc(u.error)}</p>
+          ${u.file ? `<div class="ct-inline"><button type="button" class="btn btn-primary ct-btn-sm" id="ctAttachRetry">إعادة المحاولة</button>
+            <button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachDismiss">إلغاء</button></div>` : ''}</div>`;
+    }
+    const pct = Math.round((u.progress || 0) * 100);
+    return `<div class="ct-att-upload" id="ctAttachStatus" aria-live="polite">
+        <span dir="auto">${esc(u.file?.name || '')}</span>
+        <progress id="ctAttachProgress" max="100" value="${pct}" aria-label="تقدّم الرفع">${pct}%</progress>
+        <button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachCancel">إلغاء الرفع</button></div>`;
+}
+
+function attachmentsHtml(r, closed) {
+    if (!attachmentsOn()) return '';
+    const list = state.current.attachments || [];
+    const removed = state.current.removed_attachments || [];
+    const u = state.upload && state.upload.recordId === r.id ? state.upload : null;
+    return `<section aria-labelledby="ctAttH" id="ctAttachments">
+        <div class="ct-section-head"><h3 id="ctAttH">المرفقات (${list.length})</h3>
+          ${closed ? '' : `<div class="ct-inline"><button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecStart" ${(u && !u.error) || state.rec ? 'disabled' : ''}>تسجيل صوتي</button></div>
+          <input type="file" id="ctAttachInput" accept="${esc(ATTACHMENT_ACCEPT)}" hidden>`}</div>
+        ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان ترفع أو تشيل مرفقات.</p>' : `<p class="ct-muted">${esc(ATTACHMENT_LIMITS_TEXT)}.</p>`}
+        ${closed ? '' : recPanelHtml()}
+        ${uploadStatusHtml(u)}
+        ${list.length ? `<ul class="ct-atts">${list.map((a) => attachmentItemHtml(a, { mode: 'main', closed })).join('')}</ul>` : '<p class="ct-muted" id="ctAttEmpty">مفيش مرفقات.</p>'}
+        ${removed.length ? `<h4>مرفقات محذوفة (${removed.length})</h4>
+          <ul class="ct-atts ct-atts--removed">${removed.map((a) => attachmentItemHtml(a, { mode: 'removed', closed })).join('')}</ul>` : ''}
+      </section>`;
+}
+
+/** روابط موقّعة (5 دقائق) لكل وسيط؛ رفض الخادم ⇒ نص بدل الوسيط. لا شيء من المرفق يدخل HTML. */
+let hydrateToken = 0;
+async function hydrateAttachments() {
+    const token = ++hydrateToken;
+    const els = [...document.querySelectorAll('#ctAttachments [data-sign]')];
+    await Promise.all(els.map(async (el) => {
+        const url = await signAttachment(el.dataset.sign);
+        if (token !== hydrateToken || !el.isConnected) return;
+        if (url) {
+            el.src = url;
+        } else {
+            const note = document.createElement('p');
+            note.className = 'ct-muted';
+            note.textContent = 'المرفق مش متاح دلوقتي.';
+            el.replaceWith(note);
+        }
+    }));
+}
+
+async function startUpload() {
+    const u = state.upload;
+    const r = state.current?.record;
+    if (!u || !r || u.recordId !== r.id) return;
+    u.error = null;
+    u.progress = 0;
+    u.controller = new AbortController();
+    renderRecord();
+    try {
+        const full = await uploadAttachment({
+            recordId: u.recordId, file: u.file, kind: u.kind, mime: u.mime, idempotencyKey: u.key, signal: u.controller.signal,
+            onProgress: (p) => {
+                u.progress = p;
+                const bar = $('ctAttachProgress');
+                if (bar) { bar.value = Math.round(p * 100); bar.textContent = `${Math.round(p * 100)}%`; }
+            },
+        });
+        state.upload = null;
+        toast('اترفع المرفق');
+        state.current = full;
+        await openRecord(u.recordId, { push: false });
+    } catch (err) {
+        if (err?.code === 'aborted') {
+            state.upload = null;
+        } else {
+            u.error = attachmentErrorText(err);
+            u.controller = null;
+        }
+        if (state.current?.record?.id === u.recordId) renderRecord();
+    }
+}
+
+async function pickAttachment(file) {
+    const r = state.current?.record;
+    if (!file || !r) return;
+    let head = null;
+    try { head = new Uint8Array(await file.slice(0, 64).arrayBuffer()); } catch { head = null; }
+    const prep = prepareAttachment(file, head);
+    if (prep.error) {
+        state.upload = { recordId: r.id, file: null, error: prep.error };
+        renderRecord();
+        return;
+    }
+    // مفتاح واحد لهذا الملف: إعادة المحاولة لا تنشئ مرفقًا ثانيًا.
+    state.upload = { recordId: r.id, file, kind: prep.kind, mime: prep.mime, key: crypto.randomUUID(), progress: 0, error: null };
+    await startUpload();
+}
+
+// ─────────────────────────────────────────────────────────────
+// تسجيل صوتي (§15.4): الميكروفون يُطلب عند الضغط فقط، ويُطفأ عند الإيقاف أو الإلغاء أو
+// الخطأ أو مغادرة الصفحة أو فتح سجل آخر. حد 8 ميجا: يتوقف ويُرفض كله، لا قص.
+// ─────────────────────────────────────────────────────────────
+const REC_MAX_MS = 10 * 60 * 1000;
+const REC_TOO_LARGE = `التسجيل وصل لحد ${formatBytes(ATTACHMENT_KINDS.audio.max)} فاتلغى كله (مش هيتقص). سجّل أقصر، أو ارفع ملف صوتي مضغوط.`;
+let recorder = null;
+const mmss = (ms) => { const t = Math.floor((ms || 0) / 1000); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+
+function recPanelHtml() {
+    const x = state.rec;
+    if (!x || x.recordId !== state.current?.record?.id) return '';
+    if (x.phase === 'requesting') {
+        return '<div class="ct-rec" id="ctRecPanel" aria-live="polite"><span>بيطلب إذن الميكروفون…</span><button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecCancel">إلغاء</button></div>';
+    }
+    if (x.phase === 'recording') {
+        return `<div class="ct-rec is-recording" id="ctRecPanel" aria-live="polite"><span class="ct-rec-dot" aria-hidden="true"></span>
+          <span>بيسجّل <time id="ctRecTime">${mmss(x.elapsed)}</time></span>
+          <span class="ct-muted" id="ctRecSize">${esc(formatBytes(x.bytes || 0))} من ${esc(formatBytes(ATTACHMENT_KINDS.audio.max))}</span>
+          <button type="button" class="btn btn-primary ct-btn-sm" id="ctRecStop">إيقاف</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecCancel">إلغاء</button></div>`;
+    }
+    if (x.phase === 'review') {
+        return `<div class="ct-rec" id="ctRecPanel"><audio id="ctRecPreview" controls preload="metadata" src="${esc(x.url)}" aria-label="معاينة التسجيل"></audio>
+          <span class="ct-muted">${esc(mmss(x.elapsed))} · ${esc(formatBytes(x.blob?.size || 0))}</span>
+          <button type="button" class="btn btn-primary ct-btn-sm" id="ctRecUpload">رفع التسجيل</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecAgain">إعادة التسجيل</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecDiscard">حذف</button></div>`;
+    }
+    return `<div class="ct-rec" id="ctRecPanel"><p class="ct-error" role="alert" id="ctRecError">${esc(x.message)}</p>
+      <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecFallback">رفع ملف صوتي بدل كده</button>
+      <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecClose">إغلاق</button></div>`;
+}
+
+function renderRecPanel() {
+    const panel = $('ctRecPanel');
+    const html = recPanelHtml();
+    if (panel) panel.outerHTML = html || '';
+    else if (html) renderRecord();
+    const start = $('ctRecStart');
+    if (start) start.disabled = Boolean(state.rec) || Boolean(state.upload && !state.upload.error);
+}
+
+function clearRec() {
+    if (state.rec?.url) URL.revokeObjectURL(state.rec.url);
+    state.rec = null;
+}
+
+/** يطفئ أي تسجيل جارٍ ويحذفه (فتح سجل آخر، مغادرة الصفحة). */
+function resetRecorder() {
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'requesting')) recorder.cancel();
+    recorder = null;
+    clearRec();
+}
+
+async function startRecording() {
+    const r = state.current?.record;
+    if (!r) return;
+    resetRecorder();
+    if (!isVoiceRecordingSupported()) {
+        state.rec = { recordId: r.id, phase: 'error', message: 'المتصفح ده مش بيدعم تسجيل الصوت. تقدر ترفع ملف صوتي بدل كده.' };
+        renderRecPanel();
+        return;
+    }
+    const recordId = r.id;
+    state.rec = { recordId, phase: 'requesting', elapsed: 0, bytes: 0 };
+    renderRecPanel();
+    const rec = new VoiceRecorder({
+        maxMs: REC_MAX_MS, maxBytes: ATTACHMENT_KINDS.audio.max, tooLargeMessage: REC_TOO_LARGE,
+        onTick: (ms) => {
+            if (state.rec?.phase !== 'recording') return;
+            state.rec.elapsed = ms;
+            const t = $('ctRecTime');
+            if (t) t.textContent = mmss(ms);
+        },
+        onSize: (bytes) => {
+            if (!state.rec) return;
+            state.rec.bytes = bytes;
+            const z = $('ctRecSize');
+            if (z) z.textContent = `${formatBytes(bytes)} من ${formatBytes(ATTACHMENT_KINDS.audio.max)}`;
+        },
+        onState: (phase, detail) => {
+            if (recorder !== rec || !state.rec || state.rec.recordId !== recordId) return;
+            if (phase === 'recording') state.rec.phase = 'recording';
+            else if (phase === 'stopped') {
+                state.rec = { recordId, phase: 'review', elapsed: detail.durationMs, blob: detail.blob, mime: detail.mime,
+                    url: URL.createObjectURL(detail.blob) };
+            } else if (phase === 'error') state.rec = { recordId, phase: 'error', message: detail?.message || 'تعذّر التسجيل.' };
+            else if (phase === 'idle') state.rec = null;
+            else return;
+            renderRecPanel();
+        },
+    });
+    recorder = rec;
+    await rec.start();
+}
+
+function uploadRecording() {
+    const x = state.rec;
+    if (!x?.blob) return;
+    const mime = String(x.mime || 'audio/webm').split(';')[0].trim().toLowerCase();
+    const ext = mime === 'audio/ogg' ? 'ogg' : mime === 'audio/mp4' ? 'm4a' : 'webm';
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '-');
+    const file = new File([x.blob], `تسجيل صوتي ${stamp}.${ext}`, { type: mime });
+    recorder = null;
+    clearRec();
+    renderRecPanel();
+    return pickAttachment(file);
+}
+
+async function recAction(el) {
+    switch (el.id) {
+        case 'ctRecStart': await startRecording(); return true;
+        case 'ctRecStop': await recorder?.stop(); return true;
+        case 'ctRecCancel': resetRecorder(); renderRecPanel(); return true;
+        case 'ctRecDiscard': case 'ctRecClose': resetRecorder(); renderRecPanel(); return true;
+        case 'ctRecAgain': await startRecording(); return true;
+        case 'ctRecUpload': await uploadRecording(); return true;
+        case 'ctRecFallback': resetRecorder(); renderRecPanel(); $('ctAttachInput')?.click(); return true;
+        default: return false;
+    }
+}
+
+async function attachmentAction(el, r) {
+    if (await recAction(el)) return true;
+    if (el.id === 'ctAttachPick') { $('ctAttachInput')?.click(); return true; }
+    if (el.id === 'ctAttachRetry') { await startUpload(); return true; }
+    if (el.id === 'ctAttachDismiss') { state.upload = null; renderRecord(); return true; }
+    if (el.id === 'ctAttachCancel') { state.upload?.controller?.abort(); return true; }
+    const wrap = (fn, ok) => act(async () => {
+        try { return await fn(); } catch (err) { throw Object.assign(err, { message: attachmentErrorText(err) }); }
+    }, ok);
+    if (el.dataset.attRemove) {
+        await wrap(() => removeAttachment(el.dataset.attRemove, r.version), 'اتنقل للمرفقات المحذوفة');
+        return true;
+    }
+    if (el.dataset.attRestore) {
+        await wrap(() => restoreAttachment(el.dataset.attRestore, r.version), 'رجع المرفق');
+        return true;
+    }
+    if (el.dataset.attPurge) {
+        if (!await continuityConfirm({ title: 'مسح المرفق نهائيًا', danger: true, confirmText: 'مسح نهائي',
+            message: 'الملف هيتمسح ومش هيرجع.' })) return true;
+        await wrap(() => purgeAttachment(el.dataset.attPurge, r.version), 'اتمسح المرفق');
+        return true;
+    }
+    return false;
 }
 
 const actorName = (id) => (id ? agentName(id) : 'النظام');
@@ -352,6 +651,7 @@ async function act(fn, okText) {
 // المحذوفات (كل السجلات اللي تشوفها)
 // ═════════════════════════════════════════════════════════════
 async function renderTrash() {
+    if (STANDALONE) return;
     const box = $('ctTrash');
     if (!state.access.trash) { box.hidden = true; return; }
     try {
@@ -376,6 +676,7 @@ async function renderTrash() {
 // ═════════════════════════════════════════════════════════════
 // 078: إعدادات الاستمرارية — لمالك المنصة، قراءة فقط. قبل 078 (لا capabilities) مخفية.
 async function renderPolicies() {
+    if (STANDALONE) return;
     const box = $('ctPolicies');
     if (!(state.access.owner && state.access.policies)) { box.hidden = true; return; }
     box.hidden = false;
@@ -395,6 +696,7 @@ async function renderPolicies() {
 }
 
 async function renderAssigners() {
+    if (STANDALONE) return;
     const box = $('ctAssigners');
     // 076: المنح والسحب للمالك. قبل 076 كانوا للمشرف (074).
     if (!(state.access.trash ? state.access.owner : state.access.supervisor)) { box.hidden = true; return; }
@@ -421,12 +723,12 @@ async function renderAssigners() {
 // الربط
 // ═════════════════════════════════════════════════════════════
 function wire() {
-    for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
-        $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
-    }
-    $('ctList').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-open]');
-        if (b) openRecord(b.dataset.open);
+    if (!STANDALONE) wireListAndPanels();
+    $('ctDetail').addEventListener('change', (e) => {
+        if (e.target.id !== 'ctAttachInput') return;
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        pickAttachment(file);
     });
     $('ctDetail').addEventListener('submit', (e) => {
         if (e.target.id !== 'ctEdit') return;
@@ -440,7 +742,9 @@ function wire() {
         const r = state.current?.record;
         const el = e.target.closest('button');
         if (el?.id === 'ctBackToList') return closeRecord();
+        if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (!el || !r) return undefined;
+        if (await attachmentAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
             const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;
@@ -494,6 +798,17 @@ function wire() {
         }
         return sourceAction(el);
     });
+}
+
+/** القائمة والفلاتر ولوحات المحذوفات والإسناد: الصفحة الرئيسية فقط. */
+function wireListAndPanels() {
+    for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
+        $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
+    }
+    $('ctList').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-open]');
+        if (b) openRecord(b.dataset.open);
+    });
     $('ctTrash').addEventListener('click', async (e) => {
         const el = e.target.closest('button');
         if (!el) return undefined;
@@ -542,11 +857,17 @@ function closeRecord() {
 }
 
 async function boot() {
-    initSidebar();
+    if (!STANDALONE) initSidebar();
     const user = await checkAdminAuth();
     if (!user) return;
     updateAdminUI(user);
     state.me = user;
+    const standaloneId = STANDALONE ? new URLSearchParams(location.search).get('id') : null;
+    if (STANDALONE && !isRecordId(standaloneId)) {
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctInvalidLink">رابط السجل غير صالح.</p>
+          <div class="ct-inline"><a class="btn btn-secondary" href="/admin/continuity.html">صفحة الاستمرارية</a></div>`;
+        return;
+    }
     state.access = await loadContinuityAccess();
     if (!state.access.member || !state.access.enabled) {
         $('ctBanner').hidden = false;
@@ -556,10 +877,14 @@ async function boot() {
         $('ctPage').hidden = true;
         return;
     }
-    $('ctFilterCategory').innerHTML = '<option value="">كل الأنواع</option>'
-        + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
     [state.agents, state.teams] = await Promise.all([loadAgents(), loadTeams()]);
     wire();
+    if (STANDALONE) {
+        await openRecord(standaloneId, { push: false });
+        return;
+    }
+    $('ctFilterCategory').innerHTML = '<option value="">كل الأنواع</option>'
+        + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
     await reloadList();
     const deep = new URLSearchParams(location.search).get('record');
     if (deep) await openRecord(deep, { push: false });
@@ -567,5 +892,8 @@ async function boot() {
     renderAssigners();
     renderPolicies();
 }
+
+// مغادرة الصفحة: لا ميكروفون يظل مفتوحًا في الخلفية.
+window.addEventListener('pagehide', () => resetRecorder());
 
 boot();

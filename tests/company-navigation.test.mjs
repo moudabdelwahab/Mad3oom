@@ -504,6 +504,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         reopening and lifecycle tests»). جدول continuity_closures للإلحاق فقط، وإعادة
     //         الفتح لا تمحو نص الإغلاق ولا تعيد استخدام موعد منتهٍ. مقيسٌ على نسخة بشكل
     //         الإنتاج في tests/sql/continuity-reopen.test.sql. غير مطبَّق على الإنتاج.
+    //   080 — مرفقات الاستمرارية (طلب صاحب المنصة 2026-10-12: «Images: 3 MiB, Videos: 16 MiB,
+    //         Audio: 8 MiB … server-side size/MIME/signature validation; private storage; signed
+    //         URLs»). مستودع خاص بلا سياسة كتابة، والقدرة مطفأة حتى قرار منفصل. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/continuity-attachments.test.sql. غير مطبَّق على الإنتاج.
     //   085 — خصوصية أعضاء الشركة (صاحب المنصة 2026-10-12: «fix the existing
     //         company_members() privacy exposure»). القائمة الكاملة لمدير الشركة وحده؛
     //         عميل الشركة يرى نفسه ومديره بالاسم فقط. إعادة تعريف دالة واحدة، بلا جداول.
