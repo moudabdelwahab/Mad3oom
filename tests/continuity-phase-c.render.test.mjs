@@ -1382,3 +1382,124 @@ test('audio (§15.4): real Chromium MediaRecorder with the fake microphone produ
         await mic.close();
     }
 });
+
+// ─────────────────────────────────────────────────────────────
+// التسليم (081)
+// ─────────────────────────────────────────────────────────────
+const HO = 'b0b0b0b0-0000-4000-8000-000000000001';
+const REC2 = 'cccccccc-0000-4000-8000-000000000009';
+function hoFixtures({ on = true, owner = ME, pending = false, incoming = false, canAssign = false } = {}) {
+    const fx = pageFixtures({ owner, access: { member: true, enabled: true, supervisor: false, can_assign: canAssign } });
+    fx.rpc.continuity_my_access = { ...fx.rpc.continuity_my_access, owner: false, capabilities: { handovers: on } };
+    fx.rpc.continuity_handovers_for_record = pending ? [
+        { id: HO, record_id: REC, from_owner: ME, to_owner: STAFF, reason: `مسافر ${INJECT}`, context_note: null, state: 'pending',
+          created_by: ME, created_at: at(9, 40), decided_at: null, decided_by: null, decision_note: null, cancel_cause: null },
+        { id: 'b0b0b0b0-0000-4000-8000-000000000002', record_id: REC, from_owner: ME, to_owner: STAFF, reason: 'قديم', state: 'cancelled',
+          cancel_cause: 'reassigned', created_by: ME, created_at: at(8, 0), decided_at: at(8, 30) },
+    ] : [];
+    fx.rpc.continuity_handovers_mine = { outgoing: [], incoming: incoming ? [{
+        id: HO, record_id: REC2, from_owner: STAFF, to_owner: ME, reason: `تغطية ${INJECT}`, context_note: 'العميل مستعجل', state: 'pending',
+        created_by: STAFF, created_at: at(9, 45),
+        package: { id: REC2, kind: 'follow_up', title: `متابعة ${INJECT}`, next_action: 'اتصال', priority: 2, status: 'open',
+                   due_at: '2030-01-15T09:00:00Z', due_tz: 'Africa/Cairo', overdue: false, version: 7, source_count: 3, attachment_count: 1 } }] : [] };
+    return fx;
+}
+
+test('handover (081): the owner requests through a dialog — target and reason required; exactly what was chosen is sent', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(hoFixtures(), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctHandoverRequest');
+    await page.locator('#ctHandoverRequest').click();
+    await page.waitForSelector('#ctConfirm[open] #ctConfirmSelect');
+    assert.deepEqual(await page.locator('#ctConfirmSelect option').evaluateAll((o) => o.map((x) => x.value)), ['', STAFF], 'the current owner is not a target');
+    const ok = page.locator('#ctConfirmOk');
+    await page.locator('#ctConfirmInput').fill('إجازة');
+    assert.equal(await ok.isDisabled(), true, 'target required');
+    await page.locator('#ctConfirmSelect').selectOption(STAFF);
+    assert.equal(await ok.isDisabled(), false);
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await rpcCalls(page, 'continuity_handover_request'), []);
+    await page.locator('#ctHandoverRequest').click();
+    await page.locator('#ctConfirm[open] #ctConfirmSelect').selectOption(STAFF);
+    await page.locator('#ctConfirmInput').fill('  إجازة  ');
+    await page.locator('#ctConfirmNote').fill('العميل مستني مكالمة');
+    await ok.click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_request'));
+    const [call] = await rpcCalls(page, 'continuity_handover_request');
+    assert.match(call.p_idempotency_key, /^[0-9a-f-]{36}$/);
+    delete call.p_idempotency_key;
+    assert.deepEqual(call, { p_record: REC, p_to_owner: STAFF, p_reason: 'إجازة', p_context_note: 'العميل مستني مكالمة', p_expected_version: 3 });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('handover (081): a pending request is shown as text, the owner stays responsible, and only the requester can cancel', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(hoFixtures({ pending: true }), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctHandoverPending');
+    const banner = page.locator('#ctHandoverPending');
+    assert.match(await banner.innerText(), /طلب تسليم لـ هبة سمير/);
+    assert.match(await banner.innerText(), new RegExp(`مسافر ${INJECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(await banner.innerText(), /لسه مسؤول عن السجل/);
+    assert.equal(await page.locator('#ctHandover img').count(), 0);
+    assert.equal(await page.locator('#ctHandoverRequest').count(), 0, 'no second request while pending');
+    assert.match(await page.locator('.ct-handover-history').textContent(), /اتلغى لأن السجل اتسند مباشرة/);
+    await page.locator('#ctHandoverCancel').click();
+    await page.locator('#ctConfirm[open] #ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_cancel'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_cancel'))[0], { p_handover: HO, p_note: null });
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('handover (081): incoming requests — a package without messages; accept sends the version seen; decline needs a reason', { skip: !chromiumPath }, async () => {
+    const fx = hoFixtures({ incoming: true });
+    fx.rpc.continuity_handover_decide = { handover: { id: HO, state: 'accepted' }, accepted: true, replayed: false };
+    const { page, context, errors } = await openPage(fx, { url: '/admin/continuity.html' });
+    await page.waitForSelector('#ctHandovers:not([hidden]) [data-incoming]');
+    const item = page.locator(`[data-incoming="${HO}"]`);
+    assert.match(await item.innerText(), /3 رسالة مرفقة · 1 مرفق — تظهر بعد القبول/);
+    assert.equal(await item.locator('h4').innerText(), `متابعة ${INJECT}`);
+    assert.equal(await page.locator('#ctHandovers img').count(), 0);
+    await item.locator('[data-decline]').click();
+    await page.waitForSelector('#ctConfirm[open] #ctConfirmInput');
+    assert.equal(await page.locator('#ctConfirmOk').isDisabled(), true, 'reason required');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await rpcCalls(page, 'continuity_handover_decide'), []);
+    await item.locator('[data-accept]').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_decide'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_decide'))[0], { p_handover: HO, p_decision: 'accept', p_note: null, p_expected_version: 7 });
+    await page.waitForFunction(() => /اتقبل التسليم/.test(document.getElementById('toast').textContent));
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('handover (081): off ⇒ no UI and no handover call; a non-manager viewer cannot request', { skip: !chromiumPath }, async () => {
+    let { page, context, errors } = await openPage(hoFixtures({ on: false, incoming: true }), { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctHandover, #ctHandoverRequest').count(), 0);
+    assert.equal(await page.locator('#ctHandovers').isHidden(), true);
+    const called = await page.evaluate(() => (window.__RPC_ARGS__ || []).map(([n]) => n));
+    assert.deepEqual(called.filter((n) => n.includes('handover')), []);
+    await context.close();
+    ({ page, context, errors } = await openPage(hoFixtures({ owner: STAFF }), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctHandoverRequest').count(), 0, 'someone else’s record without the assign privilege');
+    await context.close();
+    ({ page, context, errors } = await openPage(hoFixtures({ owner: STAFF, canAssign: true }), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctHandoverRequest');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('handover (081) at 390px: banner and incoming list fit', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(hoFixtures({ pending: true, incoming: true }),
+        { url: `/admin/continuity.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#ctHandoverPending');
+    const m = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth - window.innerWidth,
+        small: [...document.querySelectorAll('#ctHandover .btn, #ctHandovers .btn')].filter((b) => b.getBoundingClientRect().height < 44).length }));
+    assert.ok(m.doc <= 0, JSON.stringify(m));
+    assert.equal(m.small, 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});

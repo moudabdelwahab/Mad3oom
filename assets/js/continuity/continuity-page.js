@@ -20,18 +20,20 @@
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { describeSource, retentionDeadline, LIMITS } from './continuity-contract.js';
-import { continuityConfirm, continuityPrompt, continuityReopen } from './continuity-dialog.js';
+import { continuityConfirm, continuityPrompt, continuityReopen, continuityHandover } from './continuity-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
     standaloneRecordUrl, isRecordId,
     prepareAttachment, attachmentErrorText, attachmentView, ATTACHMENT_ACCEPT, ATTACHMENT_LIMITS_TEXT,
+    HANDOVER_STATE_LABELS, HANDOVER_CANCEL_LABELS, handoverActions, handoverTargets, handoverErrorText,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
     removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
     removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
+    requestHandover, decideHandover, cancelHandover, myHandovers, handoversForRecord,
 } from './continuity-data.js';
 import { uploadAttachment } from './continuity-upload.js';
 import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
@@ -56,6 +58,8 @@ const state = {
     upload: null,
     // تسجيل صوتي: { recordId, phase: requesting|recording|review|error, elapsed, bytes, blob, mime, url, message }
     rec: null,
+    // التسليم (081): تاريخ السجل المفتوح، والطلبات الواردة لي
+    handovers: [], incoming: [],
 };
 const agentName = (id) => {
     if (!id) return 'بدون مالك';
@@ -126,9 +130,11 @@ async function openRecord(id, { push = true } = {}) {
     $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
     $('ctPage').classList.add('has-record');
     try {
-        const [full, events] = await Promise.all([getRecord(id), loadEvents(id).catch(() => [])]);
+        const [full, events, handovers] = await Promise.all([getRecord(id), loadEvents(id).catch(() => []),
+            handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([])]);
         state.current = full;
         state.events = events || [];
+        state.handovers = Array.isArray(handovers) ? handovers : [];
     } catch (err) {
         state.current = null;
         const notFound = err.code === 'not_found';
@@ -261,6 +267,7 @@ function renderRecord() {
                 `<option value="${esc(t.id)}" ${t.id === r.team_id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
             <button type="button" class="btn btn-secondary" id="ctAssignBtn">تغيير المالك</button></div>
             ${state.access.can_assign ? '' : '<p class="ct-muted">تقدر تاخد السجل لنفسك أو تسيبه من غير مالك. النقل لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}` : ''}
+        ${handoverHtml(r)}
       </section>
 
       ${transitions.length ? `<section aria-labelledby="ctStatusH"><h3 id="ctStatusH">الحالة</h3>
@@ -289,6 +296,120 @@ function renderRecord() {
         <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
       </section>`;
     hydrateAttachments();
+}
+
+// ═════════════════════════════════════════════════════════════
+// التسليم (081): الملكية تتغير فقط بقبول المستلم؛ الطلب المعلّق لا يمنحه وصولًا
+// ═════════════════════════════════════════════════════════════
+const handoversOn = () => Boolean(state.access?.capabilities?.handovers);
+const pendingHandover = () => (state.handovers || []).find((h) => h.state === 'pending') || null;
+
+function handoverHtml(r) {
+    if (!handoversOn()) return '';
+    const pending = pendingHandover();
+    const acts = handoverActions(r, { meId: state.me?.id, canAssign: state.access.can_assign, enabled: true, pending });
+    const past = (state.handovers || []).filter((h) => h.state !== 'pending').slice(0, 5);
+    return `<div class="ct-handover" id="ctHandover">
+        ${pending ? `<div class="ct-banner ct-handover-pending" id="ctHandoverPending" role="status">
+            <strong>طلب تسليم لـ ${esc(agentName(pending.to_owner))}</strong> · ${esc(HANDOVER_STATE_LABELS.pending)}
+            <p><span class="ct-muted">السبب:</span> <span dir="auto">${esc(pending.reason)}</span></p>
+            <p class="ct-muted">${esc(agentName(r.owner_id))} لسه مسؤول عن السجل لحد ما الطلب يتقبل.</p>
+            ${acts.canCancel ? `<button type="button" class="btn btn-secondary ct-btn-sm" id="ctHandoverCancel" data-handover="${esc(pending.id)}">إلغاء الطلب</button>` : ''}
+          </div>` : ''}
+        ${acts.canRequest ? '<button type="button" class="btn btn-secondary" id="ctHandoverRequest">تسليم السجل لموظف</button>' : ''}
+        ${past.length ? `<details class="ct-handover-history"><summary>تاريخ التسليم (${past.length})</summary><ul class="ct-events">${past.map((h) =>
+            `<li>${esc(fmt(h.decided_at || h.created_at))} · ${esc(agentName(h.from_owner))} ← ${esc(agentName(h.to_owner))}: ${esc(HANDOVER_STATE_LABELS[h.state] || h.state)}${
+                h.cancel_cause ? ` (${esc(HANDOVER_CANCEL_LABELS[h.cancel_cause] || h.cancel_cause)})` : ''}</li>`).join('')}</ul></details>` : ''}
+      </div>`;
+}
+
+async function handoverAction(el, r) {
+    if (el.id === 'ctHandoverRequest') {
+        const got = await continuityHandover({ targets: handoverTargets(state.agents, r),
+            message: 'المستلم لازم يقبل. لحد ما يقبل، السجل يفضل مع مالكه الحالي، والمستلم مش هيشوف الرسائل.' });
+        if (!got) return true;
+        try {
+            await requestHandover({ recordId: r.id, toOwner: got.to, reason: got.reason, note: got.note, version: r.version,
+                idempotencyKey: crypto.randomUUID() });
+            toast('اتبعت طلب التسليم');
+        } catch (err) {
+            toast(handoverErrorText(err), 'err');
+        }
+        await openRecord(r.id, { push: false });
+        return true;
+    }
+    if (el.id === 'ctHandoverCancel') {
+        if (!await continuityConfirm({ title: 'إلغاء طلب التسليم', confirmText: 'إلغاء الطلب', cancelText: 'رجوع',
+            message: 'السجل هيفضل مع مالكه الحالي.' })) return true;
+        try {
+            await cancelHandover(el.dataset.handover);
+            toast('اتلغى طلب التسليم');
+        } catch (err) {
+            toast(handoverErrorText(err), 'err');
+        }
+        await openRecord(r.id, { push: false });
+        return true;
+    }
+    return false;
+}
+
+/** الطلبات الواردة لي (الصفحة الرئيسية فقط): حزمة للقراءة بلا رسائل، وقبول أو رفض. */
+async function renderIncoming() {
+    const box = $('ctHandovers');
+    if (STANDALONE || !box) return;
+    if (!handoversOn()) { box.hidden = true; return; }
+    try {
+        state.incoming = (await myHandovers())?.incoming || [];
+    } catch {
+        state.incoming = [];
+    }
+    box.hidden = !state.incoming.length;
+    $('ctHandoversCount').textContent = state.incoming.length ? `(${state.incoming.length})` : '';
+    $('ctHandoversBody').innerHTML = `<ul class="ct-sources">${state.incoming.map((h) => {
+        const p = h.package || {};
+        return `<li class="ct-incoming" data-incoming="${esc(h.id)}">
+          <div class="ct-item-meta"><span class="ct-pill">${esc(KIND_META[p.kind]?.label || p.kind || '')}</span>
+            <span class="ct-pill">${esc(PRIORITY_LABELS[p.priority] || '')}</span>
+            ${p.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}</div>
+          <h4 dir="auto">${esc(p.title)}</h4>
+          ${p.next_action ? `<p><span class="ct-muted">الخطوة التالية:</span> <span dir="auto">${esc(p.next_action)}</span></p>` : ''}
+          ${p.due_at ? `<p class="ct-muted">الموعد: ${esc(fmt(p.due_at, p.due_tz))}</p>` : ''}
+          <p><span class="ct-muted">من ${esc(agentName(h.created_by))} — السبب:</span> <span dir="auto">${esc(h.reason)}</span></p>
+          ${h.context_note ? `<p><span class="ct-muted">سياق:</span> <span dir="auto">${esc(h.context_note)}</span></p>` : ''}
+          <p class="ct-muted">${esc(p.source_count ?? 0)} رسالة مرفقة · ${esc(p.attachment_count ?? 0)} مرفق — تظهر بعد القبول لو عندك وصول للمحادثة.</p>
+          <div class="ct-inline">
+            <button type="button" class="btn btn-primary ct-btn-sm" data-accept="${esc(h.id)}" data-version="${esc(p.version)}">قبول</button>
+            <button type="button" class="btn btn-secondary ct-btn-sm" data-decline="${esc(h.id)}" data-version="${esc(p.version)}">رفض</button>
+          </div></li>`;
+    }).join('')}</ul>`;
+}
+
+async function incomingAction(el) {
+    const id = el.dataset.accept || el.dataset.decline;
+    if (!id) return;
+    const version = Number(el.dataset.version);
+    const h = state.incoming.find((x) => x.id === id);
+    try {
+        if (el.dataset.accept) {
+            const res = await decideHandover(id, 'accept', null, version);
+            if (res?.accepted) {
+                toast('اتقبل التسليم — السجل بقى عندك');
+                await reloadList();
+                if (h?.record_id) await openRecord(h.record_id);
+            } else {
+                toast(HANDOVER_CANCEL_LABELS[res?.handover?.cancel_cause] || 'الطلب ده مبقاش متاح', 'err');
+            }
+        } else {
+            const note = await continuityPrompt({ title: 'رفض التسليم', label: 'سبب الرفض', confirmText: 'رفض',
+                message: 'السجل هيفضل مع مالكه الحالي.' });
+            if (!note) return;
+            await decideHandover(id, 'decline', note, version);
+            toast('اترفض الطلب');
+        }
+    } catch (err) {
+        toast(handoverErrorText(err), 'err');
+    }
+    await renderIncoming();
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -745,6 +866,7 @@ function wire() {
         if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (!el || !r) return undefined;
         if (await attachmentAction(el, r)) return undefined;
+        if (await handoverAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
             const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;
@@ -802,6 +924,10 @@ function wire() {
 
 /** القائمة والفلاتر ولوحات المحذوفات والإسناد: الصفحة الرئيسية فقط. */
 function wireListAndPanels() {
+    $('ctHandovers')?.addEventListener('click', (e) => {
+        const el = e.target.closest('button');
+        if (el) incomingAction(el);
+    });
     for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
         $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
     }
@@ -891,6 +1017,7 @@ async function boot() {
     renderTrash();
     renderAssigners();
     renderPolicies();
+    renderIncoming();
 }
 
 // مغادرة الصفحة: لا ميكروفون يظل مفتوحًا في الخلفية.
