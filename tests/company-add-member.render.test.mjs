@@ -958,3 +958,147 @@ test('لا تمرير أفقي في أي قسم، على الموبايل وسط
     }
     await context.close();
 });
+
+/* ── فريق الشركة (migrations/077_company_staff.sql) ──────────────────────
+ *
+ * الموظف دور صريح فوق علاقة التبعية؛ التابع بلا دور عميل. الواجهة تعرض ما
+ * رجّعته company_staff_list() وترسل التغيير لـcompany_staff_set/revoke، والقرار
+ * في القاعدة (مقيس في tests/sql/company-staff.test.sql). هنا: ما يظهر لمن، وأي
+ * نداء يخرج، وأن الشاشة لا تحتفظ بدور لم يُحفظ.
+ */
+const STAFF_ID = '33333333-3333-4333-8333-333333333333';
+
+function staffMembers() {
+    return [
+        { id: USER_ID, name: 'مالك الشركة', email: 'owner@company.test', role: 'company_admin', is_owner: true, is_me: true, created_at: '2026-01-01T00:00:00Z' },
+        { id: CUSTOMER_ID, name: 'عميل الشركة', email: 'cust1@company.test', role: 'company_user', is_owner: false, is_me: false, created_at: '2026-02-01T00:00:00Z' },
+        { id: STAFF_ID, name: 'موظفة الدعم', email: 'agent@company.test', role: 'company_user', is_owner: false, is_me: false, created_at: '2026-03-01T00:00:00Z' }
+    ];
+}
+
+function staffPayload({ myRole = 'admin', canManage = true } = {}) {
+    return {
+        company_id: COMPANY_ID,
+        my_role: myRole,
+        can_manage: canManage,
+        staff: [
+            { user_id: USER_ID, name: 'مالك الشركة', role: 'admin', is_owner: true, is_me: myRole === 'admin', is_active: true, granted_at: null },
+            { user_id: STAFF_ID, name: 'موظفة الدعم', role: 'agent', is_owner: false, is_me: myRole !== 'admin', is_active: true, granted_at: '2026-10-01T00:00:00Z' }
+        ]
+    };
+}
+
+async function openMembers(fx) {
+    const opened = await openCompanyDashboard(browser, baseUrl, fx);
+    await openSection(opened.page, 'members');
+    await opened.page.waitForSelector('#companyMembers .company-sub', { timeout: 10000 });
+    return opened;
+}
+
+const rpcArgs = (page, name) => page.evaluate(n => (window.__RPC_ARGS__ || []).filter(([x]) => x === n).map(([, a]) => a), name);
+
+test('فريق الشركة: المدير يرى محدِّد الدور لكل تابع، لا للمالك، ومعه سطر يشرح الفرق', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ members: { members: staffMembers() }, rpc: { company_staff_list: staffPayload() } });
+    const { page, context } = await openMembers(fx);
+
+    assert.equal(await page.locator(`[data-staff-role="${USER_ID}"]`).count(), 0, 'محدِّد دور للمالك');
+    assert.equal(await page.locator(`[data-staff-role="${CUSTOMER_ID}"]`).inputValue(), 'customer');
+    assert.equal(await page.locator(`[data-staff-role="${STAFF_ID}"]`).inputValue(), 'agent');
+    assert.equal(await page.locator('#companyStaffNote').isVisible(), true, 'سطر الشرح مخفي عن المدير');
+    // لكل محدِّد اسم يُقرأ لقارئ الشاشة
+    assert.match(await page.locator(`label:has([data-staff-role="${CUSTOMER_ID}"]) .visually-hidden`).textContent(), /عميل الشركة/);
+    await context.close();
+});
+
+test('فريق الشركة: ترقية عميل إلى موظف دعم ترسل company_staff_set بالحساب والدور فقط ثم تعيد القراءة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        members: { members: staffMembers() },
+        rpc: { company_staff_list: staffPayload(), company_staff_set: { changed: true, staff: { user_id: CUSTOMER_ID, role: 'agent' } } }
+    });
+    const { page, context } = await openMembers(fx);
+    const listCallsBefore = (await rpcArgs(page, 'company_staff_list')).length;
+
+    await page.locator(`[data-staff-role="${CUSTOMER_ID}"]`).selectOption('agent');
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_staff_set'), null, { timeout: 10000 });
+
+    assert.deepEqual(await rpcArgs(page, 'company_staff_set'), [{ p_user: CUSTOMER_ID, p_role: 'agent' }],
+        'الطلب يحمل شيئًا غير الحساب والدور (معرّف شركة؟)');
+    await page.waitForFunction(n => (window.__RPC_ARGS__ || []).filter(([x]) => x === 'company_staff_list').length > n,
+        listCallsBefore, { timeout: 10000 });
+    assert.deepEqual(await rpcArgs(page, 'company_staff_revoke'), []);
+    await context.close();
+});
+
+test('فريق الشركة: إرجاع موظف إلى عميل يطلب تأكيدًا، والتراجع لا يرسل شيئًا', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        members: { members: staffMembers() },
+        rpc: { company_staff_list: staffPayload(), company_staff_revoke: { revoked: true } }
+    });
+    const { page, context } = await openMembers(fx);
+
+    await page.locator(`[data-staff-role="${STAFF_ID}"]`).selectOption('customer');
+    await page.waitForSelector('.ui-dialog', { timeout: 10000 });
+    assert.match(await page.locator('.ui-dialog').innerText(), /موظفة الدعم/);
+    await page.locator('.ui-dialog button:has-text("تراجع")').click();
+    await page.waitForSelector('.ui-dialog', { state: 'detached', timeout: 10000 });
+    await page.waitForSelector(`[data-staff-role="${STAFF_ID}"]`, { timeout: 10000 });
+    assert.deepEqual(await rpcArgs(page, 'company_staff_revoke'), [], 'أُلغي الدور رغم التراجع');
+    assert.equal(await page.locator(`[data-staff-role="${STAFF_ID}"]`).inputValue(), 'agent', 'الشاشة تعرض دورًا لم يُحفظ');
+
+    await page.locator(`[data-staff-role="${STAFF_ID}"]`).selectOption('customer');
+    await page.waitForSelector('.ui-dialog', { timeout: 10000 });
+    await page.locator('.ui-dialog button:has-text("إلغاء الدور")').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_staff_revoke'), null, { timeout: 10000 });
+    assert.deepEqual(await rpcArgs(page, 'company_staff_revoke'), [{ p_user: STAFF_ID }]);
+    await context.close();
+});
+
+test('فريق الشركة: رفض القاعدة يظهر كرسالة، والقائمة تُعاد من القاعدة لا من اختيار المستخدم', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        members: { members: staffMembers() },
+        rpc: { company_staff_list: staffPayload() }
+    });
+    fx.rpcErrors = { company_staff_set: 'هذا الحساب ليس عضوًا في شركتك' };
+    const { page, context } = await openMembers(fx);
+
+    await page.locator(`[data-staff-role="${CUSTOMER_ID}"]`).selectOption('supervisor');
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_staff_set'), null, { timeout: 10000 });
+    await page.waitForFunction(id => document.querySelector(`[data-staff-role="${id}"]`)?.value === 'customer'
+        && !document.querySelector(`[data-staff-role="${id}"]`)?.disabled, CUSTOMER_ID, { timeout: 10000 });
+    assert.match(await page.locator('body').innerText(), /ليس عضوًا في شركتك/);
+    await context.close();
+});
+
+test('فريق الشركة: المشرف يرى الأدوار شاراتٍ بلا محدِّد ولا سطر إدارة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({
+        members: { canManage: false, members: staffMembers() },
+        rpc: { company_staff_list: staffPayload({ myRole: 'supervisor', canManage: false }) }
+    });
+    const { page, context } = await openMembers(fx);
+
+    assert.equal(await page.locator('[data-staff-role]').count(), 0, 'محدِّد دور لغير المدير');
+    assert.match(await page.locator(`[data-staff-pill="${STAFF_ID}"]`).textContent(), /موظف دعم/);
+    assert.match(await page.locator(`[data-staff-pill="${CUSTOMER_ID}"]`).textContent(), /عميل/);
+    assert.equal(await page.locator('#companyStaffNote').isVisible(), false);
+    await context.close();
+});
+
+test('فريق الشركة: عميل الشركة (أو قاعدة بلا 077) لا يرى أي أثر للفريق ولا يرسل شيئًا', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    // company_staff_list ترجع null للعميل، وقبل 077 لا توجد أصلًا (الواجهة ترجّع null)
+    const fx = fixtures({ members: { canManage: false, members: staffMembers() }, rpc: { company_staff_list: null } });
+    const { page, context } = await openMembers(fx);
+
+    assert.equal(await page.locator('[data-staff-role]').count(), 0);
+    assert.equal(await page.locator('[data-staff-pill]').count(), 0, 'شارة دور ظهرت للعميل');
+    assert.equal(await page.locator('#companyStaffNote').isVisible(), false);
+    assert.equal(await page.locator('#companyMembers .company-sub').count(), 3, 'قائمة الأعضاء نفسها تأثرت');
+    const calls = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(calls.includes('company_staff_set') || calls.includes('company_staff_revoke'), false);
+    await context.close();
+});

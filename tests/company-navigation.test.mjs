@@ -488,8 +488,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         للمالك»). إزالة مصدر من سجل تنقله للمحذوفات مع استرجاع لمن يرى السجل،
     //         والمسح النهائي ومنح/سحب صلاحية الإسناد لمالك المنصة فقط
     //         (is_platform_owner). أعمدة على relay_sources وأربع دوال جديدة. مقيسٌ على
-    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '076_relay_trash_owner.sql',
+    //         نسخة بشكل الإنتاج في tests/sql/relay-trash-owner.test.sql. مطبَّق على الإنتاج
+    //         2026-10-09 (السجل 20261009193924).
+    //   077 — فريق الشركة (صاحب المنصة 2026-10-12: «Approve D0–D3 as recommended, start
+    //         increment 1»؛ docs/relay/CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md §5.2).
+    //         عضوية موظف صريحة (supervisor/agent) منفصلة عن عملاء الشركة؛ المالك مدير
+    //         بالملكية. جدولان بلا أي صلاحية مباشرة وأربع دوال لا تأخذ معرّف شركة. لا يمنح
+    //         وصولًا لأي شيء بعد. مقيسٌ على نسخة بشكل الإنتاج في
+    //         tests/sql/company-staff.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '077_company_staff.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

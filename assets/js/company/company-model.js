@@ -211,6 +211,68 @@ export function memberActions(member, { canManage = false } = {}) {
     };
 }
 
+/* ── فريق الشركة (migrations/077_company_staff.sql) ──────────────────────
+ *
+ * «مستخدم الشركة» علاقة تبعية فقط، وهي نفسها علاقة عميل الشركة. الموظف دور
+ * صريح فوقها يمنحه المدير. الواجهة تعرض ما رجّعته company_staff_list() ولا
+ * تحسب شيئًا: الرفض والقبول في القاعدة.
+ */
+export const STAFF_ROLE_LABELS = {
+    admin:      { label: 'مدير الفريق', pill: 'status-tone-accent',
+                  hint: 'مالك الشركة — يدير الفريق ويرى كل محادثات الشركة' },
+    supervisor: { label: 'مشرف', pill: 'status-tone-success',
+                  hint: 'موظف يرى كل محادثات الشركة ويوزّعها' },
+    agent:      { label: 'موظف دعم', pill: 'status-tone-success',
+                  hint: 'موظف يرد على المحادثات المسندة إليه' },
+    customer:   { label: 'عميل', pill: 'status-neutral',
+                  hint: 'تابع للشركة بلا صلاحيات موظف' }
+};
+
+/** خيارات المدير لعضو تابع. «عميل» = إلغاء دور الموظف. */
+export const STAFF_ROLE_OPTIONS = Object.freeze([
+    { value: 'customer',   label: 'عميل (بلا صلاحيات موظف)' },
+    { value: 'agent',      label: 'موظف دعم' },
+    { value: 'supervisor', label: 'مشرف' }
+]);
+
+/**
+ * دور عضو في الفريق كما رجّعته القاعدة.
+ * null = لا نعرف (المنادي عميل، أو 077 غير مطبّق) — فلا نعرض شيئًا بدل تخمين «عميل».
+ */
+export function staffRoleOf(member, staffPayload) {
+    if (!staffPayload || !Array.isArray(staffPayload.staff) || !member) return null;
+    if (member.is_owner === true) return 'admin';
+    const entry = staffPayload.staff.find(s => s && s.user_id === member.id);
+    return entry && STAFF_ROLE_LABELS[entry.role] ? entry.role : 'customer';
+}
+
+export function staffRoleInfo(role) {
+    return STAFF_ROLE_LABELS[role] || null;
+}
+
+/**
+ * هل يظهر للمدير محدِّد دور لهذا العضو؟ دالة خالصة توفّر رحلة فاشلة فقط:
+ * company_staff_set/revoke تعيد فحص كل شيء في القاعدة.
+ */
+export function staffActions(member, staffPayload) {
+    const role = staffRoleOf(member, staffPayload);
+    return {
+        canEdit: staffPayload?.can_manage === true
+                 && role !== null
+                 && role !== 'admin'
+                 && member?.is_owner !== true
+    };
+}
+
+/**
+ * ترجمة اختيار المدير إلى نداء: 'set' مع الدور، أو 'revoke'، أو null لا تغيير.
+ */
+export function staffChangeFor(currentRole, nextRole) {
+    if (!STAFF_ROLE_OPTIONS.some(o => o.value === nextRole) || nextRole === currentRole) return null;
+    if (nextRole === 'customer') return currentRole === 'customer' ? null : { kind: 'revoke' };
+    return { kind: 'set', role: nextRole };
+}
+
 /**
  * تحقّق من نموذج «إضافة مستخدم للشركة».
  *

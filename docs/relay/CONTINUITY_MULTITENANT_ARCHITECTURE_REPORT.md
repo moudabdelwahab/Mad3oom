@@ -1,6 +1,6 @@
 # Mad3oom Continuity — Multi-Tenant Company Workspace & Customer Chat: Architecture and Dependency Report
 
-> **Status:** audit and proposal only. No code, migration, configuration or data was changed.
+> **Status:** audit and proposal, plus **increment 1 implemented (§9)**. D0–D3 approved by Mahmoud on 2026-10-12 ("Approve D0–D3 as recommended, start increment 1"). Nothing was applied to production.
 > - Prepared 2026-10-12 against `origin/main` at `b2a45ce` (PR #111).
 > - Production (`srnelrdpqkcntbgudyto`) was read-only: `list_migrations` and `SELECT` only.
 > - Evidence labels: **[repo]** read in this checkout · **[branch]** read on an unmerged branch · **[prod]** read-only query · **[assumption]** not verified.
@@ -146,6 +146,7 @@ relay_workspaces(kind='platform')      relay_workspaces(kind='company', company_
 - Predicates:
   - `company_staff_role(company_id)`: caller's active role, or null;
   - `_company_is_eligible_agent(company_id, user)`: recipient-side check for active staff, not banned, account active.
+- *As implemented in 077 (§9):* the admin is **derived** from ownership instead of seeded, and only `supervisor`/`agent` are stored. Delegated non-owner admins are deferred.
 - Customers stay as they are today: `profiles` with `super_user_id`, and in a later step a `company_customers` link if D1 picks the many-companies model.
 - `is_company_member()` keeps its meaning for tickets and members, so nothing existing changes. Inbox and Continuity use **only** `company_staff`.
 - Management: company admin through RPCs, gated by `company_has_feature('sub_users')` (or a new `company_inbox` feature, D5), audited.
@@ -204,10 +205,10 @@ Every increment ships as one branch and one PR with its migration, rollback, SQL
 
 | # | Question | Recommendation | Blocks |
 |---|---|---|---|
-| **D0** | Namespace: PR #116 renames `relay_*` → `continuity_*`; this request says keep `relay_*` | **Keep `relay_*`** (this request, the proposal's original §3 reasoning, no user-visible benefit). Close #116 and rebase #117/#118 onto `main` as `077`/`078` with `relay_*` names. Product labels stay «مدعوم — الاستمرارية» / "Mad3oom Continuity" | Every migration number |
-| **D1** | Who can start a company conversation | **D1-a first:** logged-in Mad3oom customers linked to the company; D1-b (anonymous, embeddable on external sites) as its own later increment | Increment 2 |
-| **D2** | Existing followers (`super_user_id`): employees or customers? | Treat them as **customers**, and require the company admin to explicitly add employees to `company_staff`. No automatic promotion | Increment 1 |
-| **D3** | Conversation storage: new company tables vs. `company_id` on `chat_*` | **New company tables** (deny-by-default), sharing JS modules and patterns. Adding a column to `chat_*` would need a tenant guard in every staff branch of RLS, storage, Realtime and ~40 functions | Increment 2 |
+| **D0** ✅ approved | Namespace: PR #116 renames `relay_*` → `continuity_*`; this request says keep `relay_*` | **Keep `relay_*`** (this request, the proposal's original §3 reasoning, no user-visible benefit). Close #116 and port #117/#118 onto `main` with `relay_*` names, as `078`/`079` (`077` is now increment 1, §9). Product labels stay «مدعوم — الاستمرارية» / "Mad3oom Continuity" | Every migration number |
+| **D1** ✅ approved | Who can start a company conversation | **D1-a first:** logged-in Mad3oom customers linked to the company; D1-b (anonymous, embeddable on external sites) as its own later increment | Increment 2 |
+| **D2** ✅ approved | Existing followers (`super_user_id`): employees or customers? | Treat them as **customers**, and require the company admin to explicitly add employees to `company_staff`. No automatic promotion | Increment 1 |
+| **D3** ✅ approved | Conversation storage: new company tables vs. `company_id` on `chat_*` | **New company tables** (deny-by-default), sharing JS modules and patterns. Adding a column to `chat_*` would need a tenant guard in every staff branch of RLS, storage, Realtime and ~40 functions | Increment 2 |
 | **D4** | May a customer belong to several companies? | Not in v1 (keeps the current one-company `super_user_id`). Add a `company_customers` link only if needed | Increment 2 |
 | **D5** | Entitlement for the company inbox and company Continuity | New plan feature keys `company_inbox` and `company_continuity` in `plan_features` | Increments 1, 4 |
 | **D6** | Should Mad3oom staff ever access a company's conversations? | Only through an explicit, company-granted, time-boxed, audited grant; not built in v1 | Later |
@@ -226,3 +227,50 @@ Every increment ships as one branch and one PR with its migration, rollback, SQL
 | Counts | Companies, followers, follower sessions/tickets, Core-routed sessions, owner contexts (no personal data read) |
 
 **Not done:** no code, migration or configuration change; no test run (nothing changed); no production write.
+
+---
+
+## 9. Increment 1 — company staff membership (implemented, not applied)
+
+**Branch:** `claude/mad3oom-continuity-multitenant-h9o0kc`. **Migration:** `077_company_staff` (the next free number on `main`). When PRs #117 and #118 are ported back to `relay_*` names under D0, they become `078` and `079`.
+
+### 9.1 What was built
+| Piece | Detail |
+|---|---|
+| `company_staff` | One active row per `(company, user)`, role `supervisor` \| `agent`. Revoked rows stay as history (`revoked_at`, `revoked_by`, `revoke_cause` = `admin` \| `left_company`). RLS on, no permissive policy, no grants to any role (including `service_role`), 041/042 conventions |
+| `company_staff_events` | Append-only (`granted`, `role_changed`, `revoked`); UPDATE, DELETE and TRUNCATE blocked by trigger, even for the table owner |
+| Owner = admin | Derived from `companies.user_id`, never stored, so it cannot drift. For the caller it also requires `is_company_admin()`, so the platform owner is admin of **their own** company only, and only in the `owner` or `company_admin` context |
+| `company_staff_role()` | The caller's role, or `null` for a customer, for someone without a company, in preview mode, or for an inactive account |
+| `company_staff_list()` | Staff and admin only (customers get `null`, so they cannot enumerate employees). Returns names and roles; **no email or phone** |
+| `company_staff_set(user, role)` / `company_staff_revoke(user)` | Company admin + `sub_users` entitlement (the same gate as member management; no new feature key before D5). The target must be a follower of the caller's company. A foreign account and a missing one get the **same** `P0002` |
+| Same-tenant invariant (R4) | The INSERT trigger re-checks that the user follows the company, so even the table owner cannot attach a foreign account |
+| Leaving the company | `trg_company_staff_unlink` on `profiles` revokes the role (`left_company`), so coming back makes the account a customer again. The predicates also re-check the follower relation on every read, as a second layer |
+| Recipient predicate | `_company_is_eligible_agent(company, user)`, internal, ready for increments 2–4 |
+| UI | The existing members section gains a role selector for the admin (customer / support agent / supervisor), a confirmation before demoting to customer, role labels for staff, and nothing for customers. It tolerates 077 being absent |
+
+### 9.2 What it does not do
+- **Grants no access:** nothing else reads `company_staff` yet.
+- **Changes no existing object:** `company_members()`, `remove_company_member()`, every existing policy and every existing table are byte-identical (proved by digests in the SQL test).
+
+### 9.3 Validation
+| Command | Result |
+|---|---|
+| `tests/sql/company-staff.test.sql` (prod-shape fixture, PostgreSQL 16) | Every section (⓪–⑩, including ⑦ب and both ⑨ races) PASS, exit 0 |
+| Mutation checks (dropping the follower re-check, dropping the `is_company_admin()` check, dropping the follower check in `set`) | Each makes the suite fail |
+| `npm run test:sql` | 50 files, exit 0, 797 `PASS` lines, 0 `FAIL` / `ERROR` |
+| `npm run test:node` (Chromium 1194 mapped locally for Playwright 1.49) | 951 tests: 948 pass, 2 skipped, **1 fail**: `remediation-static` "would catch a modification to a deferred file", which needs commit `faf193a` that this shallow clone does not have (environmental, unrelated) |
+
+### 9.4 Finding while building increment 1 (pre-existing, not changed)
+**F4. `company_members()` shows every follower's name and email to every follower.** [repo + prod-shape]
+- The function only requires `current_company_id()` to be set.
+- Since followers are the company's customers (033, D2), each customer of a company can list every other customer's name and email.
+- 077 does not change this, because it is existing behavior outside this increment.
+- **Recommendation:** a small separate PR. Return the full list only to the company admin and active staff; a customer sees only themselves. It needs your go-ahead because it changes what existing accounts see.
+
+### 9.5 Next
+- **D0 follow-up:**
+  - close #116;
+  - port #117 (Phase 0 policies) and #118 (reopen) back to `relay_*` names as `078` and `079`.
+- **Increment 2:**
+  - company conversation tables, customer-side RPCs, the private storage bucket and the widget adapter (D1-a);
+  - it builds on `_company_is_eligible_agent` and `company_staff_role()`.
