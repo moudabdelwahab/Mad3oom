@@ -278,7 +278,7 @@ Typed columns, not JSON, each with a `CHECK`:
 | `basis jsonb` | The facts the job was planned on (`due_at`, `owner_id`, `handover_id`, policy version). Re-validated at fire time |
 | `state` | `pending` \| `done` \| `superseded` \| `cancelled` \| `failed` |
 | `attempts`, `last_error` (sqlstate + short code, never content), `fired_at` | |
-| `dedupe_key text UNIQUE` | e.g. `due_reminder:<record>:<due_at epoch>:<offset>` |
+| `dedupe_key text` | `kind:record:basis_hash` where `basis_hash` covers every input that makes the job a *different* reminder: `due_at`, offset, `owner_id` (or `handover_id`), and the record's `closure_seq` (incremented on every reopen, §15.1). **Partial unique index on `dedupe_key` where `state in ('pending','done','failed')`**: a superseded or cancelled job no longer holds its key, so re-planning after a reassign, a reopen, or an A→B→A owner change creates a fresh job, while a basis that already fired (`done`) is never re-sent. (Codex review on #115, P1.) |
 
 Partial index on `(run_at) WHERE state = 'pending'`.
 
@@ -372,7 +372,7 @@ stateDiagram-v2
 
 It does two things:
 1. It marks the record's pending jobs whose basis no longer matches as `superseded`. Rows are never deleted.
-2. It inserts the jobs for the current basis with `ON CONFLICT (dedupe_key) DO NOTHING`.
+2. It inserts the jobs for the current basis with `ON CONFLICT (dedupe_key) WHERE state in ('pending','done','failed') DO NOTHING`, against the partial unique index of §5.3.
 
 **Result:**
 - Rescheduling cancels old reminders automatically.
@@ -773,7 +773,7 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
   - each change writes exactly one history row, and the history cannot be updated, deleted or truncated, even by the superuser;
   - enabling any capability is refused (`0A000`);
   - `relay_my_access` has the old keys with unchanged values, plus `capabilities` all `false`;
-  - the 19 existing RPC definitions are byte-identical before and after 077 (`pg_get_functiondef`);
+  - the 18 existing RPC definitions other than `relay_my_access` are byte-identical before and after 077 (`pg_get_functiondef`). `relay_my_access` is redefined on purpose: it is checked separately, so that every pre-077 key keeps the same value for each test persona and only `capabilities` is added (Codex review on #115, P2);
   - re-running 077 is idempotent; rollback restores the 076 `relay_my_access` text exactly; re-applying works.
 - **Node tests:**
   - `relay-contract` policy validation;
@@ -792,3 +792,182 @@ Each phase is one branch and one PR, with migration, rollback, tests and an inst
 | Docs | `claude/wizardly-keller-tuauoa` | As-built architecture (AR) + this proposal | Opened with this update |
 | Phase 0 | `claude/continuity-phase0` | §14.6 | Next, after you have seen this plan |
 | H, S, N, M, AI | one branch each | §12 order | Later |
+
+---
+
+## 15. Expanded scope (authorization of 2026-10-12, second message)
+
+Mahmoud authorized implementation of the approved features plus four new requirements:
+- closed records that can be reopened and edited;
+- a standalone URL for every record;
+- record attachments with size limits;
+- audio recording.
+
+He also asked for company-level Continuity, with a company inbox and Chat Widget, to be put on the roadmap. The production boundary of §14.2 is unchanged.
+
+**Product label:** «مدعوم — الاستمرارية» (Arabic, with the brand) / "Mad3oom Continuity" (English). Inside the admin UI, the short form «الاستمرارية» is used where the brand is already visible.
+
+### 15.1 Lifecycle with controlled reopening (migration 078)
+**Today (073):**
+- `resolved | cancelled → open` with a reason.
+- Reopening **clears** `resolution_note`, `resolved_at`, `resolved_by` and `cancel_reason` on the record row.
+- Events keep only hashes of those texts.
+
+So the previous closure's content is lost. That violates requirement 3 ("reopening must not erase the previous closure history").
+
+**Design:**
+- **New table `relay_closures`**, append-only, one row per closure:
+  - `record_id`, `workspace_id`, `seq`;
+  - `closed_status` (`resolved` | `cancelled`), `closed_at`, `closed_by`;
+  - `resolution_note` or `cancel_reason` (the text, readable by record viewers exactly like the record row);
+  - `reopened_at`, `reopened_by`, `reopen_reason` (filled once, when that closure is reopened).
+- **Only state-machine RPCs write it.** Triggers forbid `DELETE`/`TRUNCATE`. `UPDATE` is allowed only to fill the three `reopened_*` columns, and only once.
+- **`relay_records.closure_seq int`** counts closures. It goes into the job `basis` (§5.3), so reminders planned after a reopen never collide with the earlier ones.
+- **Target state of a reopen:** always `open`, the defined entry state. It does not return to the previous active status, because that status may no longer be true after time has passed. This is explicit and tested.
+- **Deadline on reopen:**
+  - A `follow_up` whose `due_at` is in the past (or within 5 minutes) **must** receive a new `details.due` in the same call. Otherwise: `22023 validation_failed`, `reason = 'due_required_on_reopen'`.
+  - A future `due_at` is kept unless a new one is given.
+  - For an `issue`, `due` is optional and may be supplied.
+  - An expired deadline is never silently reused.
+- **Unchanged rules:**
+  - Reopening still redacts excerpts whose retention expired before the sweep ran (073 behavior); redacted, erased and retention-expired content stays gone.
+  - Attachments follow §15.3.
+  - Reopening goes through `_relay_lock_for_write` (record access, active account, preview, version check), so a retried reopen with the old version gets `40001` and writes nothing. One event and one closure update per real transition.
+- **Who may close or reopen:** unchanged from 073. The record owner or a supervisor.
+- **Viewing closed records:** unchanged. Every record viewer can open a closed record, its closure history (`relay_closures`, newest first) and its events.
+
+### 15.2 Standalone record URL
+- **Route:** `/admin/relay-record.html?id=<uuid>`. It is a separate page that loads one record and shares the detail renderer with `admin/relay.html`. The id is not a secret, and the page re-authorizes everything through `relay_get` / RPCs on every load.
+- **States:**
+  - loading;
+  - `not_found`, which also covers "not allowed" (the server returns the same `P0002` for both, so the page cannot reveal that a record exists);
+  - Relay disabled or no membership (the `relay_my_access` reason);
+  - a recoverable network error with a retry button.
+- **Action «فتح السجل في نافذة مستقلة» / "Open record in a separate window":**
+  - a real `<a href target="_blank" rel="noopener">` on every record view, which opens directly from the click, so popup blockers do not apply;
+  - next to it, a "copy link" fallback.
+- **The URL carries only the record id:** never excerpts, attachment paths or signed URLs.
+- **Company records (later, §15.5):** they use the company dashboard's own route and its own server checks. A platform URL can never resolve a company record, and the reverse is also impossible.
+
+### 15.3 Record attachments
+**Storage:** a new **private** bucket `relay-attachments`:
+- `public = false`, `file_size_limit = 16 MiB`, and `allowed_mime_types` set to the allow-list below;
+- object path `<workspace_id>/<record_id>/<attachment_id>`. The name and extension are generated by the server and never taken from the user.
+
+**Allow-list and limits** (1 MiB = 1,048,576 bytes), enforced in three places: the browser, an Edge Function, and the database.
+
+| Kind | MIME types | Signature check (magic bytes) | Max |
+|---|---|---|---|
+| image | `image/png`, `image/jpeg`, `image/webp`, `image/gif` | PNG `89 50 4E 47`; JPEG `FF D8 FF`; WebP `RIFF….WEBP`; GIF `GIF87a/GIF89a` | 3 MiB |
+| video | `video/mp4`, `video/webm`, `video/quicktime` | ISO-BMFF `….ftyp`; WebM/Matroska `1A 45 DF A3` | 16 MiB |
+| audio | `audio/webm`, `audio/ogg`, `audio/mpeg`, `audio/mp4`, `audio/wav` (`audio/x-wav`) | WebM `1A 45 DF A3`; Ogg `OggS`; MP3 `ID3` or a frame sync `FF Ex/Fx`; MP4/M4A `….ftyp`; WAV `RIFF….WAVE` | 8 MiB |
+
+**Not allowed:** SVG, HTML, PDF and everything else, whatever the extension.
+
+**Upload path:**
+1. **Edge Function `relay-attachment-upload`:**
+   - verifies the user's JWT;
+   - calls `relay_attachment_begin(record, kind, declared_mime, size, file_name, idempotency_key)` **as the user**. That call does the authorization (record access; active record; capability `attachments_enabled`), the per-kind limit, the per-record cap of 20 files, and creates a `pending` row with the server-generated path;
+   - reads the body with a hard byte cap;
+   - sniffs the signature and checks it against the declared kind and MIME;
+   - uploads with the service role to the generated path (no upsert);
+   - calls `relay_attachment_commit(attachment_id)` as the user.
+2. **The bucket has no `INSERT`/`UPDATE`/`DELETE` policy for `authenticated`,** so the only way a file enters the bucket is through the function after the signature check.
+3. **`relay_attachment_commit` checks** that the object exists at the generated path, that `storage.objects.metadata.size` is within the per-kind limit, and that the stored mimetype is in the allow-list. Only then does it mark the row `active` and log the event.
+4. **Idempotency:**
+   - `(created_by, idempotency_key)` is unique.
+   - A retried begin returns the same row. A retried commit is a no-op.
+   - A retry after a partial failure re-uses the path.
+
+**Download path:**
+- The client signs a URL with its own JWT (`storage-urls.js`, 300 s TTL), which is the existing platform pattern.
+- The bucket's `SELECT` policy calls `_relay_attachment_readable(object_name)`, which returns true only when:
+  - the attachment row is `active`, not removed, not redacted;
+  - the caller passes `relay_can_access` on its record in the same workspace;
+  - retention has not expired.
+- **Revocation** (removal, erase, retention, losing record access) takes effect for **new** URLs immediately. An already-issued URL lives at most 300 s. This is the same accepted window as ticket and chat attachments (residual risk).
+- Video and audio play through `<video>` / `<audio>` with the signed URL. Images preview in `<img>`. Nothing from an attachment is ever put into HTML or a URL parameter.
+
+**Lifecycle:**
+
+| Event | Attachments |
+|---|---|
+| Record closed | Stay viewable to record viewers; uploads blocked (like sources) |
+| Reopened | Uploads allowed again; removed, erased and expired attachments are **not** restored |
+| Remove (T1 rule) | Moves to the record's trash; restorable by record viewers on an active record |
+| Erase (T2 rule) | Owner only; the row is marked `purged` and the object is scheduled for physical deletion; irreversible |
+| Retention (C5, 365 days after closure) | Unreadable immediately (read rule above), and the row is marked `redacted`; the object is scheduled for physical deletion |
+| Orphans | `pending` rows older than 1 hour, and objects without an active row, are deleted by the cleanup job |
+
+**Physical deletion (decision S3 below).** A SQL `DELETE` on `storage.objects` does not remove the stored file. Real deletion needs the Storage API, from an Edge Function (`relay-attachment-cleanup`, cron or `pg_net`-triggered) with the service role. Until it is deployed, access is still revoked by the database, and the rows show "deletion pending".
+
+**Audit:** events `attachment_added`, `attachment_removed`, `attachment_restored` and `attachment_purged` carry the id, kind, size and sha256 of the bytes. They never carry the file name (free text) or the content.
+
+### 15.4 Audio recording
+- **Reuse** the existing `voice-recorder.js` (MediaRecorder, used by the chat composer) behind a «تسجيل صوتي» / "Record audio" button that only starts from a click.
+- **States:**
+  - idle;
+  - recording (elapsed time, live size against the limit);
+  - review (playback, discard, re-record, upload);
+  - uploading (progress);
+  - done or error.
+- **Limit:** the recorder tracks the accumulated chunk size.
+  - At 8 MiB it stops automatically and **rejects** the take, with an explanation (shorter recording, or upload a compressed file). It never silently truncates.
+  - MIME is negotiated with `MediaRecorder.isTypeSupported` (webm/opus first, then ogg, then mp4).
+- **Microphone tracks** are stopped on stop, discard, error, `pagehide` and dialog close. Nothing records in the background.
+- **Unsupported browser or denied permission:** a clear message plus the "upload an audio file" fallback.
+- **Upload:** the confirmed recording goes through the same attachment path (§15.3) as `audio`.
+- **Tests:** Chromium with fake media flags (`--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`) for record, review, discard and upload. Real-device checks on Safari and Firefox stay manual.
+
+### 15.5 Company Continuity, company inbox and Chat Widget (roadmap)
+**Gap, verified [repo/prod-shape]:**
+- `chat_sessions` has no company column.
+- The Chat Widget serves platform support only.
+- The company dashboard has no conversation inbox.
+- Relay accepts only the `platform` workspace (C1).
+
+**Constraint:** platform conversations must not be repurposed as company conversations.
+
+**Smallest compatible extension**, designed now and implemented after the platform increments:
+1. **Company conversation domain:**
+   - `company_chat_channels` (one per company: a public widget key, allowed origins, enabled flag);
+   - company-scoped `company_chat_sessions` / `company_chat_messages`, or a `workspace_id` on new rows of a parallel table set, decided with the schema review. The existing `chat_*` tables and their 30+ dependent functions stay untouched.
+2. **Widget binding:**
+   - The public key only selects the company channel and **grants nothing**. Visitors stay customers or guests, exactly as today.
+   - The session's company is set server-side from the key and the origin check. A customer of company A can only ever write to their own session.
+3. **Company inbox:**
+   - RPCs authorized by `is_company_member()` / `is_company_admin()` and `current_company_id()` from the caller's relations, never from a browser-supplied id;
+   - replies, assignment and notes mirror the platform inbox rules within one company.
+4. **Company Continuity:**
+   - a `relay_workspaces(kind='company', company_id)` row per company;
+   - `_relay_workspace`, `_relay_is_member`, `_relay_is_supervisor`, `_relay_is_eligible_owner` and `_relay_can_read_conversation` become workspace-aware;
+   - every list, monitor, job, delivery, attachment and storage path is filtered by `workspace_id`;
+   - storage paths start with `<workspace_id>/`, and the storage read rule checks it.
+5. **Tests:** cross-tenant tests by id for every RPC and for storage (company A cannot read, sign or mutate company B's records, attachments, conversations or notifications), plus widget key-spoofing tests.
+
+### 15.6 New decisions needed (they block only the named increment)
+| # | Decision | Recommendation | Blocks |
+|---|---|---|---|
+| L1 | Reopen target state | Always `open` (§15.1) | 078. Implemented this way unless you object |
+| S1 | Allowed formats | The allow-list in §15.3 (no SVG, no PDF) | Attachments |
+| S2 | Who may upload, remove and erase attachments | Upload: anyone who can view an active record. Remove/restore: same (T1). Erase: platform owner (T2) | Attachments |
+| S3 | Physical deletion of erased, expired and orphan files | An Edge Function `relay-attachment-cleanup` using the Storage API, run daily by `pg_cron` through `pg_net`. Deploying any Edge Function needs your approval | Attachment deletion |
+| S4 | Upload through an Edge Function (needed for the server-side signature check) | Yes. It is written and tested in the PR; deploying it needs your approval, and until then uploads stay disabled | Attachments go-live |
+| S5 | Attachment retention | Same as excerpts: 365 days after closure (C5) | Attachments |
+| CO1 | Company conversation storage: a parallel table set vs. a workspace column on the existing chat tables | Parallel company tables (zero risk to platform chat) | Company inbox |
+| CO2 | Widget key model | One key per company, origin allow-list, no privileges | Company widget |
+
+### 15.7 Implementation order (adjusted)
+| # | Increment | Branch | Migration | Why this order |
+|---|---|---|---|---|
+| 1 | F1 notification XSS | `claude/admin-notification-xss` | — | PR #114, CI green, awaiting review and merge |
+| 2 | Phase 0: branding, doc drift, policies and kill switches | `claude/continuity-phase0` | 077 | Every later capability reads its switch |
+| 3 | Lifecycle: closure history and controlled reopen | `claude/continuity-reopen` | 078 | The scheduler's job basis needs `closure_seq` |
+| 4 | Standalone record page | `claude/continuity-record-page` | — | Frontend only; reuses 078's closure history |
+| 5 | Attachments (+ upload Edge Function) | `claude/continuity-attachments` | 079 | Needs S1–S5 |
+| 6 | Audio recording | `claude/continuity-audio` | — | Builds on 5 |
+| 7 | Handover → scheduler → delivery and escalation → monitor | one branch each | 080–083 | §12 order; delivery is enabled only after F1 is merged and verified |
+| 8 | Company domain, inbox, widget, company Continuity | separate branches | 084+ | Needs CO1, CO2 and a schema review |
+| 9 | AI extraction | `claude/continuity-ai` | next free | Needs A2 for production |
+
+Stacked branches: each PR targets the previous increment's branch while that one is open, so every diff shows only its own change. Migration numbers are re-checked before each PR.
