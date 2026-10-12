@@ -1,6 +1,6 @@
 # Mad3oom Continuity: scoped handover and delegated access (design, not implemented)
 
-> **Status:** design for review, 2026-10-12. **Nothing is implemented.** No migration, no RPC and no UI change is in this PR.
+> **Status:** design **approved** 2026-10-12 (S-1 … S-8 with clarifications, §12). **Nothing is implemented yet.** No migration, no RPC and no UI change is in this PR. The implementation plan for 082a is §16. 082b does not start until 082a has been reviewed.
 > - **Builds on:** #124 (081 handover), stacked on #123 → #121 → #119 → #118 → #117 → #116.
 > - **Target:** migration **082** in a separate implementation PR, after you approve this design and decide the open questions in §12.
 > - **Production boundary:** no merge, deploy, production migration or enablement without your explicit approval.
@@ -122,8 +122,8 @@ An hourly sweep only *materialises* `expired` and `revoked` states and their eve
 | `status` | `proposed` \| `approved` \| `superseded` \| `rejected` |
 | `source_ids uuid[]` | **Resolved** list. "Entire record" is stored as the list of active sources at request time |
 | `attachment_ids uuid[]` | Resolved the same way. Exclusions are absent from the list |
-| `range_from`, `range_to` | timestamptz, half-open `[from, to)`. Applied **in addition** to `source_ids` |
-| `range_tz` | IANA zone. Display only; the instants are absolute |
+| `range_from`, `range_to` | timestamptz. **`range_from` is inclusive and `range_to` is exclusive**: a message is in range iff `range_from <= original_created_at < range_to`. Both must be given, with `from < to`. Applied **in addition** to `source_ids` |
+| `range_tz` | IANA zone. Required with a range. The owner enters local wall times in this zone, converted with the same rules as due times (`_continuity_local_to_utc`): a time in a spring-forward gap is rejected, and an ambiguous fall-back time takes the earlier instant. The UI always shows the boundaries with the zone and the inclusive/exclusive wording, for example «من 10:00 (شامل) حتى 12:00 (غير شامل) — Africa/Cairo» |
 | `actions text[]` | ⊆ `{view, note, propose, edit_fields, add_source}`. Must include `view` |
 | `editable_fields text[]` | ⊆ `{next_action, summary, due, priority, waiting_on}`. Only with `edit_fields` |
 | `expiry_kind` | `session` \| `duration` \| `until` \| `ongoing` |
@@ -180,13 +180,16 @@ It also re-checks **grantor authority**: the grantor must still be the owner, or
 
 **Unchanged,** so shared records never leak into them: `continuity_list`, `continuity_get`, `continuity_events_for` and search. Unknown or out-of-scope IDs give the same `P0002` as nonexistent ones.
 
-### 5.3 Attachments shared through a grant
-- **The bucket's `SELECT` policy is not widened.** Grant holders cannot sign URLs themselves.
-- **Edge Function `continuity-shared-attachment-url`:**
-  - verifies the user's JWT;
-  - calls `continuity_shared_attachment_check(p_attachment)` **as the user** (the §5.1 gate, plus scope membership), which returns the path;
-  - signs with the service role, with **TTL = min(60 s, `expires_at` − now)**.
-- **Revocation or expiry** therefore cuts new URLs immediately, and an existing URL lives at most 60 s (decision **S-7**).
+### 5.3 Attachments shared through a grant (S-7 as approved)
+- **The bucket's `SELECT` policy is not widened.** Grant holders can never sign a storage URL themselves.
+- **Files are served by an Edge Function, `continuity-shared-attachment`, and no URL ever reaches the browser.**
+  - The page calls it with `fetch()` and the user's bearer token, then shows the bytes as a local object URL. Attachments are at most 16 MiB.
+  - On **every** request the function verifies the JWT and calls `continuity_shared_attachment_check(p_attachment)` **as the user**. That is the §5.1 gate plus scope membership, and it returns the storage path only when everything passes.
+  - The function then creates an **internal** signed URL with TTL = min(60 s, grant time left, session time left), fetches the object, and streams it back with `Cache-Control: no-store`.
+- **Revocation, expiry, session end or a lifecycle change** therefore refuses the very next download.
+  - No reusable link exists on the client.
+  - The 60 s internal URL never leaves the server, so it cannot outlive the grant on the client side.
+- **What the browser already received before revocation** stays on that screen until it is closed (§6 "stale page"). Nothing new can be fetched.
 
 ### 5.4 Writes (`collab` only, per permitted action)
 | RPC | Gate action | Checks on top of the gate |
@@ -271,7 +274,7 @@ Each write records the grant ID in its event payload.
 ## 9. Expiry options
 | Kind | Enforcement |
 |---|---|
-| **`session`** | Bound to the recipient's JWT `session_id` at acceptance. Every call compares it with `_jwt_session_id()`. A new sign-in, a different device or a refreshed session with a new ID ends access. It is also hard-capped by `delegation_session_max_minutes` |
+| **`session`** | Bound at acceptance to the recipient's JWT `session_id`. Every call requires **all** of: the caller's `_jwt_session_id()` equals the bound ID, **and** the row still exists in `auth.sessions` for that user with `not_after` null or in the future. Signing out or revoking the session deletes that row, so access stops **at once**, even while an issued access token is still valid. Verified read-only in production: `auth.sessions(id, user_id, not_after, …)` exists and `postgres` can read it; `authenticated` cannot. Hard cap: 12 h (`delegation_session_max_minutes`) |
 | **`duration`** | `expires_at = accepted_at + duration`. The clock starts at **acceptance**, not at request time (decision **S-1**) |
 | **`until`** | An absolute instant. Must be in the future at request and at acceptance, and ≤ now + `delegation_max_minutes` |
 | **`ongoing`** | Allowed only while `delegation_allow_ongoing` is true. If the policy is later switched off, ongoing grants stop at the next call, then are materialised as `revoked` with cause `policy` |
@@ -320,19 +323,25 @@ The admin is Arabic-only today. 082 ships the labels for this feature in both la
 
 ---
 
-## 12. Decisions needed before implementation
-| # | Decision | Recommendation |
-|---|---|---|
-| S-1 | When the clock starts for `duration` | At acceptance. Pending requests keep no access |
-| S-2 | Limits | Default 4 h, maximum 7 days, session cap 12 h. Ongoing off |
-| S-3 | `note` and `propose` (new tables) in 082 or a follow-up | **082a:** modes, scope, view, expiry, revocation, material-change acceptance. **082b:** notes, proposals, `edit_fields`, `add_source`. Two reviewable PRs |
-| S-4 | Who may grant review/collab; do supervisor-issued grants survive reassignment | Owner, supervisor, assigner may grant. **Every** reassignment revokes grants (simplest and safest) |
-| S-5 | Sub-message excerpt ranges | Not supported: a message is the smallest unit. Snapshots are whole-message copies |
-| S-6 | English | Labels for this feature only |
-| S-7 | Signed URL TTL for grant holders | 60 s, capped at the remaining grant life |
-| S-8 | Should a grant holder see other grantees' notes | No: only their own notes, plus notes by record viewers |
+## 12. Decisions (approved 2026-10-12)
+| # | Decision as approved |
+|---|---|
+| S-1 | The access-duration clock starts at **recipient acceptance** |
+| S-2 | Default **4 h**, maximum **7 days**, session-bound maximum **12 h**. Ongoing access disabled by default. Session-bound access is **revoked when that authenticated session ends** (§9: checked against `auth.sessions` on every call) |
+| S-3 | Two PRs. **082a:** scoped view access, the three modes, expiry, revocation and safe acceptance. **082b:** notes, change proposals, field editing and adding sources. 082b starts only after 082a is reviewed |
+| S-4 | The **record owner, supervisors and authorized assigners** may grant. **Reassignment revokes** the grants associated with the prior handover context; in 082a that is every active grant on the record |
+| S-5 | A **complete message** is the smallest shareable unit in the first release |
+| S-6 | The interface stays **primarily Arabic**, with English labels only where useful |
+| S-7 | No URL a client receives lasts more than 60 s, outlives the grant or bypasses checks. As designed (§5.3) the browser receives **no** URL at all: every download re-runs the gate. The internal signed URL lives ≤ min(60 s, grant time left, session time left) |
+| S-8 | A recipient sees **their own notes, and notes written by users they are authorized to see**, subject to the same record and scope restrictions. **082b only** |
 
----
+**Additional requirements recorded with the approval:**
+1. **Date ranges** are explicit about timezone and boundaries: inclusive start, exclusive end (§4.2).
+2. **New messages or attachments** are never included in an existing grant automatically. Any expansion needs explicit approval (§8).
+3. **Revalidation on every protected read and write and inside acceptance:** recipient eligibility, grantor authority, record state, scope and expiry (§5.1, §7).
+4. **Revocation, expiry, session end and lifecycle changes stop content and attachment access on the server,** not just in the UI (§5.3, §6, §9).
+5. **Acceptance behaviour is kept:** ordinary edits never block permanently, material changes require re-review, and scope never expands automatically (§7).
+6. **Reviewable PRs only.** No merge, deploy, production migration or production enablement without separate explicit approval.
 
 ## 13. Migration 082: contents and recovery
 **Forward (one transaction, re-runnable):**
@@ -387,8 +396,101 @@ The admin is Arabic-only today. 082 ships the labels for this feature in both la
 
 ---
 
-## 15. Increments
+## 15. Increments (superseded by §16 for 082a)
 1. **082a:** modes, scope model, view-only shared access (`review`, and `collab` with `view`), expiry (all four kinds), revocation, lifecycle triggers, material-change acceptance for **all** modes (including `transfer`), the attachment-URL function, UI and tests.
 2. **082b:** `collab` actions: notes, proposals, `edit_fields`, `add_source`; plus their UI and tests.
 
 Each is a separate PR stacked on #124, with a migration, a rollback, an install note and test evidence. Neither is applied, deployed or enabled without your approval.
+
+---
+
+## 16. Implementation plan: 082a (to be reviewed before 082b starts)
+### 16.1 Scope
+**In 082a:**
+- the three modes: `transfer`, `review`, and `collab` with `view` only;
+- the scope model (§4.2) and policy columns (§4.4);
+- the gate (§5.1), the scoped reads (§5.2) and the attachment proxy (§5.3);
+- the lifecycle (§6), material-change acceptance (§7), scope narrowing and expansion (§8), and expiry (§9);
+- the UI (§11) and the tests (§14 minus the 082b actions).
+
+**Not in 082a:** notes, proposals, `edit_fields`, `add_source` (082b). A `collab` grant in 082a carries `actions = {view}`; the other actions are refused by a check constraint until 082b widens it.
+
+### 16.2 Files
+| File | Contents |
+|---|---|
+| `migrations/082_continuity_scoped_handover.sql` | §16.3 |
+| `migrations/_rollback/082_continuity_scoped_handover.down.sql` | Refuses with review/collab data unless discard is set. Restores the 081 function texts byte for byte |
+| `migrations/_rollback/081_continuity_handovers.down.sql` | Adds a guard: refuse while 082 is installed |
+| `supabase/functions/continuity-shared-attachment/{index.ts,handler.js}` | The streaming proxy (§5.3). `handler.js` is tested in Node with fakes |
+| `assets/js/continuity/continuity-{data,model,page,dialog}.js`, `admin/continuity.html`, `assets/css/continuity.css` | Mode, scope and expiry dialog; recipient preview; shared view; changed-since-review banner; states; expiry countdown that clears the view |
+| `tests/sql/continuity-scoped-handover.test.sql` | §16.5 |
+| `tests/continuity-scoped-handover.test.mjs`, render tests | UI rules, dictionary, proxy handler |
+| `docs/continuity/SCOPED_HANDOVER_PROD_INSTALL.md` | Install, verification and rollback/recovery steps |
+
+### 16.3 Migration 082: ordered steps
+1. **Requirements check:** 081 present.
+2. **Policy columns:** `delegation_default_minutes` 240, `delegation_max_minutes` 10080, `delegation_session_max_minutes` 720, `delegation_allow_ongoing` false. Extend `continuity_set_policies` validation, with ranges `1..max` and `max ≤ 10080`.
+3. **`continuity_handovers` columns** (§4.1). Backfill `mode = 'transfer'` for existing rows. Extend the `state` and `cancel_cause` checks; add `revoke_cause`. Extend the guard trigger: `accepted → revoked/expired` only for review/collab; review fields writable only while pending.
+4. **`continuity_handover_scopes`** with guard, 041/042 conventions, no grants, and a same-record trigger on the array elements.
+5. **Internal functions:**
+   - `_continuity_material_digest(record, handover)`;
+   - `_continuity_grant_active(handover)`: time, session via `auth.sessions`, policy, eligibility, grantor authority, record state;
+   - `_continuity_active_grant(record, action)`;
+   - `_continuity_source_view_as(source, authorised)`, with `_continuity_source_view` becoming a wrapper whose output is unchanged (byte-equivalence test);
+   - `_continuity_in_scope(source | attachment, scope)`.
+6. **RPC changes** (signatures change where needed; old 081 signatures are dropped):
+   - `continuity_handover_request`: adds mode, scope, expiry kind, duration/until and range with timezone. Validates all of them, applies the least-privilege defaults, and resolves "entire record" to an ID list;
+   - `continuity_handover_review`: new;
+   - `continuity_handover_decide`: takes `p_reviewed_digest` instead of `p_expected_version`;
+   - `continuity_handover_cancel` and `continuity_handover_revoke`: revoke covers accepted grants;
+   - `continuity_handover_amend_scope` and `continuity_handover_respond_scope`: narrowing applies immediately; expansion goes to `proposed`;
+   - `continuity_handover_get` and `continuity_handovers_mine`: return the scope preview only, with no content;
+   - `continuity_shared_get`, `continuity_shared_with_me`, `continuity_shared_attachment_check`;
+   - `continuity_handover_preview_recipient(record, recipient, source_ids)`: owner/grantor only; booleans only.
+7. **Record trigger:** closing or reassigning now also revokes active grants (`record_closed` / `reassigned`). Reopening touches nothing.
+8. **Sweep** `continuity_grant_sweep()`, hourly through pg_cron: materialises time, session and policy expiry, with events.
+9. **Permissions** and the **verification block:** function count; no permissive policy; no direct grants; no `continuity_*` table in `supabase_realtime`; the bucket still has exactly one policy; the 081 tests' objects present.
+
+### 16.4 Order of work (each step ends green locally)
+1. SQL model and gate, plus SQL tests for gate, expiry and session.
+2. Scoped reads and the source-view refactor, plus the equivalence and no-leak tests.
+3. Lifecycle triggers, revocation and the sweep, plus the reopen-after-expiry and reassignment tests.
+4. Material-change acceptance, plus the two-session concurrency tests.
+5. Scope amend and respond, plus the expansion and narrowing tests.
+6. The attachment proxy (handler and tests) and the check RPC.
+7. UI dialog, recipient preview, shared view and banners, plus render tests (AR first, EN labels where useful).
+8. Mutation checks, the full suites, the install note, and the PR.
+
+### 16.5 Tests (SQL unless marked)
+- **G:** every gate condition: state, time, `until`, `session` (mismatched ID, **deleted `auth.sessions` row**, `not_after` passed), policy-off ongoing, recipient banned or ineligible, grantor lost authority, record closed, capability off, wrong action.
+- **R:** scoped read:
+  - exact sources, renumbered;
+  - range boundaries `[from, to)` at 09:59:59 / 10:00:00 / 11:59:59 / 12:00:00 local, plus a DST day (spring gap rejected, fall-back earlier instant);
+  - C3: excerpt hidden without conversation access;
+  - no excluded ID, hash or path anywhere in any response;
+  - identical errors for excluded and nonexistent IDs.
+- **A:** attachments: proxy check passes only in scope while active; out of scope, removed, purged, past retention, after revoke or after expiry → refused; grantee's direct bucket read → 0 rows.
+- **L:** lifecycle:
+  - decline, cancel, revoke, close, reassign and recipient-ineligible each stop access on the next call;
+  - **reopen after expiry does not restore access;**
+  - the sweep materialises states with events.
+- **M:** material change:
+  - an ordinary edit allows acceptance and reports field names;
+  - a material edit returns `40001 material_change`; a re-review then succeeds;
+  - adding a source to the record does not change the scope.
+- **C:** two-session concurrency: accept vs cancel, accept vs reassign, accept vs close, accept vs material edit, revoke vs shared read, narrowing vs expansion acceptance.
+- **S:** scope amendments: narrowing is immediate; expansion is `proposed` until the recipient accepts, and the old scope governs meanwhile; rejection keeps the old scope.
+- **X:** cross-company: `company_admin` or `company_user` as target or caller; forged IDs from another record.
+- **E:** equivalence: `_continuity_source_view`, `continuity_get`, `continuity_list`, `continuity_assign` and `continuity_transition` unchanged for non-grant callers. The 081 tests H0–H12 are adapted only where the decide signature changed (digest instead of version), with the same assertions otherwise.
+- **RERUN / RB:** re-run, rollback order, refusal, and the 081 texts restored.
+- **Node and render:**
+  - the proxy handler (gate per request, no URL returned to the client, `no-store`);
+  - dialog defaults (selected content, view-only, 4 h);
+  - the recipient preview has no content;
+  - the changed-since-review banner;
+  - expiry clears the view;
+  - 390 px; RTL.
+- **Mutation checks:** remove each gate condition and the renumbering; each must make a test fail.
+
+### 16.6 Deployment boundary
+082a will be a PR stacked on #124 (or on `main` once the stack is merged). Applying 082, deploying the proxy function and the frontend, and switching on `handovers_enabled` each need your separate approval. **Operational recovery:** `handovers_enabled = false` stops every shared read and download at once, and nothing is lost.
