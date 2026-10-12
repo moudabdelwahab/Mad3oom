@@ -9,6 +9,11 @@
       "source": "/admin/chat-admin.html",
       "destination": "/admin/inbox.html",
       "permanent": false
+    },
+    {
+      "source": "/admin/relay.html",
+      "destination": "/admin/continuity.html",
+      "permanent": false
     }
   ],
   "rewrites": [
