@@ -165,6 +165,15 @@ export function canManageMembers(membersPayload) {
 }
 
 /**
+ * هل رجّعت القاعدة القائمة المحصورة (migrations/085_company_members_privacy.sql)؟
+ * القائمة الكاملة لمدير الشركة وحده؛ غيره يرى نفسه ومديره. قاعدة قبل 085 لا
+ * ترسل scope فتُعامَل كما كانت (كاملة) — الواجهة تعرض ولا تقرر.
+ */
+export function membersScopeIsSelf(membersPayload) {
+    return membersPayload?.scope === 'self';
+}
+
+/**
  * أدوار الشركة كما تعرّفها القاعدة (migrations/035_company_roles.sql).
  *
  * الواجهة **تعرض** الدور ولا تحسبه: القاعدة تشترط الرتبة والعلاقة معًا في

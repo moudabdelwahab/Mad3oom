@@ -429,6 +429,8 @@ export const EVENT_LABELS = Object.freeze({
     source_removed: 'شال رسالة للمحذوفات', source_restored: 'رجّع رسالة من المحذوفات', source_purged: 'مسح رسالة نهائيًا',
     attachment_added: 'أرفق ملفًا', attachment_removed: 'شال مرفقًا للمحذوفات', attachment_restored: 'رجّع مرفقًا',
     attachment_purged: 'مسح مرفقًا نهائيًا', attachment_redacted: 'انتهى احتفاظ مرفق',
+    handover_requested: 'طلب تسليم السجل', handover_accepted: 'قبل تسليم السجل', handover_declined: 'رفض تسليم السجل',
+    handover_cancelled: 'ألغى طلب التسليم', handover_expired: 'انتهى طلب التسليم',
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -536,4 +538,52 @@ export function attachmentView(a) {
         createdBy: a?.created_by || null, createdAt: a?.created_at || null,
         removedBy: a?.removed_by || null, removedAt: a?.removed_at || null,
     };
+}
+
+// ─────────────────────────────────────────────────────────────
+// التسليم (081) — عرض فقط؛ الخادم يعيد كل الفحوص
+// ─────────────────────────────────────────────────────────────
+export const HANDOVER_STATE_LABELS = Object.freeze({
+    pending: 'بانتظار القبول', accepted: 'اتقبل', declined: 'اترفض', cancelled: 'اتلغى', expired: 'انتهى',
+});
+export const HANDOVER_CANCEL_LABELS = Object.freeze({
+    initiator: 'ألغاه صاحب الطلب', supervisor: 'ألغاه مشرف', reassigned: 'اتلغى لأن السجل اتسند مباشرة',
+    record_closed: 'اتلغى لأن السجل اتقفل', target_ineligible: 'المستلم لم يعد مؤهلًا',
+    requester_lost_authority: 'صاحب الطلب لم يعد مسؤولًا عن السجل',
+});
+
+/**
+ * ما يظهر على سجل مفتوح (نفس قواعد 081):
+ *   canRequest: المالك الحالي أو مشرف/صاحب إسناد، سجل نشط، بلا طلب معلّق.
+ *   canCancel: صاحب الطلب أو مشرف/صاحب إسناد.
+ */
+export function handoverActions(record, { meId = null, canAssign = false, enabled = false, pending = null } = {}) {
+    const active = record && !['resolved', 'cancelled'].includes(record.status);
+    const manager = Boolean(record && ((meId && record.owner_id === meId) || canAssign));
+    return {
+        canRequest: Boolean(enabled && active && manager && !pending),
+        canCancel: Boolean(enabled && pending && (pending.created_by === meId || canAssign)),
+    };
+}
+
+/** المرشحون للاستلام: موظفون مؤهلون غير المالك الحالي. */
+export function handoverTargets(agents, record) {
+    return (agents || []).filter((a) => a?.id && a.id !== record?.owner_id)
+        .map((a) => ({ value: a.id, label: a.full_name || a.email || 'موظف' }));
+}
+
+/** رفض الخادم للتسليم ⇒ نص مفهوم. */
+export function handoverErrorText(err) {
+    const r = err?.reason;
+    if (r === 'handover_pending') return 'فيه طلب تسليم معلّق للسجل ده بالفعل.';
+    if (r === 'not_eligible') return 'الموظف ده مش مؤهل يستلم سجلات دلوقتي.';
+    if (r === 'already_owner') return 'الموظف ده هو المالك الحالي.';
+    if (r === 'required') return 'اكتب سبب الرفض.';
+    if (typeof r === 'string' && r.startsWith('handover_')) return 'الطلب ده اتحسم بالفعل.';
+    if (err?.code === 'version_conflict') return 'السجل اتعدّل بعد ما شفت الطلب. راجع البيانات وجرّب تاني.';
+    if (err?.code === 'feature_not_enabled') return 'التسليم مش مفعّل حاليًا.';
+    if (err?.code === 'invalid_transition') return 'السجل مقفول.';
+    if (err?.code === 'forbidden') return 'مش مسموح لك. التسليم للمالك الحالي أو المشرف أو صاحب صلاحية الإسناد.';
+    if (err?.code === 'not_found') return 'الطلب أو السجل غير موجود أو مش مسموح لك.';
+    return err?.message || 'حصل خطأ';
 }

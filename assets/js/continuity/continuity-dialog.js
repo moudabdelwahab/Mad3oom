@@ -6,6 +6,7 @@
  *   await continuityPrompt({ title, message, label, confirmText })     → النص | null
  *   await continuityReopen({ needsDue, keepsDue, tz, timezones, dueNote }) → { reason, due } | null
  *     due = { at: 'YYYY-MM-DDTHH:MM:00', tz } أو null (يفضل الموعد الحالي)
+ *   await continuityHandover({ targets, message })                        → { to, reason, note } | null
  */
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
@@ -13,7 +14,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 
 let open = null;
 
-function show({ title, message = '', confirmText = 'تأكيد', cancelText = 'رجوع', danger = false, input = null, due = null }) {
+function show({ title, message = '', confirmText = 'تأكيد', cancelText = 'رجوع', danger = false, input = null, due = null, select = null, note = null }) {
     if (open) open.finish(null);
     const before = document.activeElement;
     const dlg = document.createElement('dialog');
@@ -27,14 +28,19 @@ function show({ title, message = '', confirmText = 'تأكيد', cancelText = '�
         <div class="ct-head-text"><h2 id="ctConfirmTitle">${esc(title)}</h2>${message ? `<p id="ctConfirmMsg">${esc(message)}</p>` : ''}</div>
         <button type="button" class="ct-icon-btn" data-dlg="cancel" aria-label="إغلاق">${CONTINUITY_ICONS.close}</button>
       </header>
-      ${input ? `<div class="ct-body"><label class="ct-field"><span>${esc(input.label)}</span>
+      ${input ? `<div class="ct-body">${select ? `<label class="ct-field"><span>${esc(select.label)}</span>
+        <select id="ctConfirmSelect" required><option value="">اختار…</option>${select.options.map((o) =>
+            `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select></label>` : ''}
+        <label class="ct-field"><span>${esc(input.label)}</span>
         <textarea id="ctConfirmInput" maxlength="${input.maxLength || 500}" rows="3"></textarea></label>
         ${due ? `<div class="ct-detail-grid">
           <label class="ct-field"><span>${due.required ? 'الموعد الجديد (مطلوب)' : 'موعد جديد (اختياري)'}</span>
             <input type="datetime-local" id="ctConfirmDue" ${due.required ? 'required aria-required="true"' : ''}></label>
           <label class="ct-field"><span>المنطقة الزمنية</span>
             <select id="ctConfirmTz" dir="ltr">${due.timezones.map((z) => `<option value="${esc(z)}" ${z === due.tz ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
-        </div>${due.note ? `<p class="ct-muted" id="ctConfirmDueNote">${esc(due.note)}</p>` : ''}` : ''}</div>` : ''}
+        </div>${due.note ? `<p class="ct-muted" id="ctConfirmDueNote">${esc(due.note)}</p>` : ''}` : ''}
+        ${note ? `<label class="ct-field"><span>${esc(note.label)}</span>
+          <textarea id="ctConfirmNote" maxlength="${note.maxLength || 4000}" rows="3"></textarea></label>` : ''}</div>` : ''}
       <footer class="ct-actions">
         <button type="submit" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="ctConfirmOk" ${input ? 'disabled' : ''}>${esc(confirmText)}</button>
         <button type="button" class="btn btn-secondary" data-dlg="cancel">${esc(cancelText)}</button>
@@ -46,7 +52,9 @@ function show({ title, message = '', confirmText = 'تأكيد', cancelText = '�
         const dueAt = dlg.querySelector('#ctConfirmDue');
         const dueTz = dlg.querySelector('#ctConfirmTz');
         const ok = dlg.querySelector('#ctConfirmOk');
-        const ready = () => Boolean(field.value.trim()) && !(due?.required && !dueAt.value);
+        const pick = dlg.querySelector('#ctConfirmSelect');
+        const extra = dlg.querySelector('#ctConfirmNote');
+        const ready = () => Boolean(field.value.trim()) && !(due?.required && !dueAt.value) && !(pick && !pick.value);
         const finish = (value) => {
             if (!open || open.dlg !== dlg) return;
             open = null;
@@ -58,6 +66,7 @@ function show({ title, message = '', confirmText = 'تأكيد', cancelText = '�
         open = { dlg, finish };
         field?.addEventListener('input', () => { ok.disabled = !ready(); });
         dueAt?.addEventListener('input', () => { ok.disabled = !ready(); });
+        pick?.addEventListener('change', () => { ok.disabled = !ready(); });
         dlg.addEventListener('click', (e) => {
             if (e.target.closest('[data-dlg="cancel"]')) finish(null);
         });
@@ -66,6 +75,7 @@ function show({ title, message = '', confirmText = 'تأكيد', cancelText = '�
             e.preventDefault();
             if (field && !ready()) return;
             if (!field) return finish(true);
+            if (select) return finish({ to: pick.value, reason: field.value.trim(), note: extra?.value.trim() || null });
             if (!due) return finish(field.value.trim());
             const at = dueAt.value;
             return finish({
@@ -92,5 +102,15 @@ export function continuityReopen({ needsDue = false, tz = 'Africa/Cairo', timezo
         title: 'إعادة فتح السجل', confirmText: 'إعادة فتح', ...opts,
         input: { label: 'سبب إعادة الفتح', maxLength: 1000 },
         due: { required: needsDue, tz, timezones: [...new Set([tz, ...timezones])], note: dueNote },
+    });
+}
+
+/** طلب تسليم (081): المستلم والسبب إلزاميان، والسياق اختياري. الخادم يعيد كل الفحوص. */
+export function continuityHandover({ targets = [], ...opts }) {
+    return show({
+        title: 'تسليم السجل', confirmText: 'إرسال الطلب', ...opts,
+        select: { label: 'المستلم', options: targets },
+        input: { label: 'سبب التسليم', maxLength: 1000 },
+        note: { label: 'سياق للمستلم (اختياري)', maxLength: 4000 },
     });
 }

@@ -187,7 +187,8 @@
     outline: 2px solid var(--color-primary, currentColor);
     outline-offset: 2px;
 }
-.company-staff-note {
+.company-staff-note,
+.company-members-scope-note {
     margin: 0 0 var(--sp-3);
     font-size: var(--fs-xs);
     color: var(--color-text-secondary);

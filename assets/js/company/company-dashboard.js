@@ -45,6 +45,7 @@ import {
     companyAccess,
     entitlementsByPlan,
     canManageMembers,
+    membersScopeIsSelf,
     companyRoleOf,
     memberRoleInfo,
     memberActions,
@@ -333,6 +334,10 @@ async function renderMembers() {
     panel.hidden = false;
     addBtn.hidden = !canManageMembersNow;
     renderCompanyRoleBadge();
+
+    // 085: غير المدير يرى نفسه ومديره فقط — نقول ذلك بدل أن تبدو القائمة ناقصة.
+    const scopeNote = document.getElementById('companyMembersScopeNote');
+    if (scopeNote) scopeNote.hidden = !membersScopeIsSelf(result.data);
 
     if (!members.length) {
         renderState(container, {
