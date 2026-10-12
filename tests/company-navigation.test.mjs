@@ -508,7 +508,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         Audio: 8 MiB … server-side size/MIME/signature validation; private storage; signed
     //         URLs»). مستودع خاص بلا سياسة كتابة، والقدرة مطفأة حتى قرار منفصل. مقيسٌ على نسخة
     //         بشكل الإنتاج في tests/sql/continuity-attachments.test.sql. غير مطبَّق على الإنتاج.
-    assert.equal(migrations[migrations.length - 1], '080_continuity_attachments.sql',
+    //   081 — تسليم السجل بقبول المستلم (قرار H1 بضوابطه، 2026-10-12). الملكية تتغير فقط
+    //         بالقبول، والطلب المعلّق لا يمنح وصولًا؛ القدرة مطفأة حتى قرار منفصل. مقيسٌ على
+    //         نسخة بشكل الإنتاج في tests/sql/continuity-handovers.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '081_continuity_handovers.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

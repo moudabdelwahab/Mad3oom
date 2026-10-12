@@ -4,7 +4,7 @@
 -- يعيد _continuity_full لنصها في 079 حرفيًا، ويحذف سياسة القراءة على storage.objects،
 -- ودوال المرفقات، والجدول continuity_attachments، ومهمة الكنس.
 --
--- حماية: يرفض لو فيه أي مرفق غير نهائي (pending/active/removed) أو ملف لم يُحذف فعليًا
+-- حماية: يرفض لو 081 أو ما بعده مطبق. ويرفض لو فيه أي مرفق غير نهائي (pending/active/removed) أو ملف لم يُحذف فعليًا
 -- من المستودع، إلا لو الجلسة ضبطت
 --   set continuity.rollback_discard_data = 'on';
 -- المستودع continuity-attachments نفسه **لا يُحذف هنا**: Storage يمنع حذف صفوفه بـ SQL،
@@ -13,6 +13,14 @@
 -- ============================================================================
 
 begin;
+
+-- ترتيب التراجع: 081 (التسليم) وما بعده أولًا.
+do $$
+begin
+  if to_regclass('public.continuity_handovers') is not null then
+    raise exception 'تراجع 080: هجرة continuity لاحقة مطبقة (081+) — تراجع عنها أولًا';
+  end if;
+end $$;
 
 do $$
 begin

@@ -129,6 +129,18 @@ export async function signAttachment(path) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+// التسليم (081): الملكية تتغير فقط بقبول المستلم؛ المعلّق لا يمنح وصولًا
+// ─────────────────────────────────────────────────────────────
+export const requestHandover = ({ recordId, toOwner, reason, note, version, idempotencyKey }) =>
+    call('continuity_handover_request', { p_record: recordId, p_to_owner: toOwner, p_reason: reason,
+        p_context_note: note || null, p_expected_version: version, p_idempotency_key: idempotencyKey });
+export const decideHandover = (id, decision, note, version) =>
+    call('continuity_handover_decide', { p_handover: id, p_decision: decision, p_note: note || null, p_expected_version: version });
+export const cancelHandover = (id, note = null) => call('continuity_handover_cancel', { p_handover: id, p_note: note });
+export const myHandovers = () => call('continuity_handovers_mine');
+export const handoversForRecord = (recordId) => call('continuity_handovers_for_record', { p_record: recordId });
+
 /** نفس قائمة الطاقم المؤهل في الصندوق (inbox_list_agents، 055). */
 export async function loadAgents() {
     const { data, error } = await supabase.rpc('inbox_list_agents');
