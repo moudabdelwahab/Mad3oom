@@ -113,8 +113,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 const rpcCalls = (page, name) => page.evaluate((n) => (window.__RPC_ARGS__ || []).filter(([k]) => k === n).map(([, a]) => a), name);
 
-async function openPage(fx, { url, viewport, init = null, patchDouble = (d) => d } = {}) {
-    const context = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, locale: 'ar-EG', timezoneId: 'Africa/Cairo' });
+async function openPage(fx, { url, viewport, init = null, patchDouble = (d) => d, on = null } = {}) {
+    const context = await (on || browser).newContext({ viewport: viewport || { width: 1400, height: 900 }, locale: 'ar-EG', timezoneId: 'Africa/Cairo' });
     const page = await context.newPage();
     // أخطاء الخادم بشكل PostgREST الكامل (code + details) — البديل المشترك يرجّع رسالة فقط.
     const double = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8')
@@ -1254,4 +1254,162 @@ test('attachments (080) at 390px: the grid fits, actions are 44px', { skip: !chr
     assert.equal(m.small, 0);
     assert.deepEqual(errors, []);
     await context.close();
+});
+
+// ─────────────────────────────────────────────────────────────
+// تسجيل صوتي (§15.4) — ميكروفون ومسجّل مزيفان وحتميان
+// ─────────────────────────────────────────────────────────────
+function fakeMic({ chunk = 1000, deny = null, supported = true } = {}) {
+    return `(() => {
+      window.__TRACKS__ = { opened: 0, stopped: 0 };
+      if (!${supported}) { try { delete window.MediaRecorder; } catch {} window.MediaRecorder = undefined; return; }
+      const EBML = [0x1a, 0x45, 0xdf, 0xa3];
+      class FakeRecorder {
+        static isTypeSupported(t) { return t === 'audio/webm;codecs=opus'; }
+        constructor(stream, opts) { this.mimeType = opts?.mimeType || 'audio/webm'; this.state = 'inactive'; this.n = 0; }
+        start() {
+          this.state = 'recording';
+          this.iv = setInterval(() => {
+            const b = new Uint8Array(${chunk}); if (this.n++ === 0) b.set(EBML);
+            this.ondataavailable?.({ data: new Blob([b], { type: this.mimeType }) });
+          }, 100);
+        }
+        stop() { clearInterval(this.iv); if (this.state === 'inactive') return; this.state = 'inactive'; setTimeout(() => this.onstop?.(), 0); }
+      }
+      window.MediaRecorder = FakeRecorder;
+      const md = navigator.mediaDevices || {};
+      md.getUserMedia = async () => {
+        if (${JSON.stringify(deny)}) { const e = new Error('no'); e.name = ${JSON.stringify(deny)}; throw e; }
+        window.__TRACKS__.opened++;
+        const t = { stop() { window.__TRACKS__.stopped++; } };
+        return { getTracks: () => [t] };
+      };
+      try { Object.defineProperty(navigator, 'mediaDevices', { value: md, configurable: true }); } catch {}
+    })();`;
+}
+const tracks = (page) => page.evaluate(() => window.__TRACKS__);
+
+test('audio (§15.4): record → stop → review → upload as audio/webm; the microphone is released', { skip: !chromiumPath }, async () => {
+    const fx = attFixtures();
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}`, init: fakeMic() });
+    const seen = [];
+    await context.route('**/functions/v1/continuity-attachment-upload', async (route) => {
+        const req = route.request();
+        seen.push({ headers: req.headers(), body: req.postDataBuffer() });
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.rpc.continuity_get) });
+    });
+    await page.waitForSelector('#ctRecStart');
+    assert.deepEqual(await tracks(page), { opened: 0, stopped: 0 }, 'no microphone before the click');
+    await page.locator('#ctRecStart').click();
+    await page.waitForSelector('#ctRecPanel.is-recording');
+    await page.waitForFunction(() => /^[1-9]/.test(document.getElementById('ctRecSize')?.textContent || ''));
+    assert.match(await page.locator('#ctRecSize').innerText(), /من 8 ميجا/);
+    await page.locator('#ctRecStop').click();
+    await page.waitForSelector('#ctRecPreview');
+    assert.match(await page.locator('#ctRecPreview').getAttribute('src'), /^blob:/);
+    assert.deepEqual(await tracks(page), { opened: 1, stopped: 1 }, 'released on stop');
+    await page.locator('#ctRecUpload').click();
+    await page.waitForFunction(() => !document.getElementById('toast').hidden);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].headers['content-type'], 'audio/webm');
+    assert.equal(seen[0].headers['x-continuity-kind'], 'audio');
+    assert.match(decodeURIComponent(seen[0].headers['x-continuity-name']), /^تسجيل صوتي .+\.webm$/);
+    assert.deepEqual([...seen[0].body.subarray(0, 4)], [0x1a, 0x45, 0xdf, 0xa3], 'a real WebM header reaches the server');
+    assert.equal(await page.locator('#ctRecPanel').count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('audio (§15.4): past 8 MiB the take is stopped and rejected whole — nothing uploaded, mic released, file fallback offered', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}`, init: fakeMic({ chunk: 3 * 1048576 }) });
+    let uploads = 0;
+    await context.route('**/functions/v1/continuity-attachment-upload', (route) => { uploads++; return route.abort(); });
+    await page.waitForSelector('#ctRecStart');
+    await page.locator('#ctRecStart').click();
+    await page.waitForSelector('#ctRecError', { timeout: 10000 });
+    assert.match(await page.locator('#ctRecError').innerText(), /وصل لحد 8 ميجا فاتلغى كله \(مش هيتقص\)/);
+    assert.deepEqual(await tracks(page), { opened: 1, stopped: 1 });
+    assert.equal(await page.locator('#ctRecPreview, #ctRecUpload').count(), 0, 'no partial take to upload');
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#ctRecFallback').click()]);
+    assert.ok(chooser, 'upload an audio file instead');
+    assert.equal(uploads, 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('audio (§15.4): denied, unsupported, cancel and leaving the page — explained, and the microphone never stays on', { skip: !chromiumPath }, async () => {
+    let r = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}`, init: fakeMic({ deny: 'NotAllowedError' }) });
+    await r.page.waitForSelector('#ctRecStart');
+    await r.page.locator('#ctRecStart').click();
+    await r.page.waitForSelector('#ctRecError');
+    assert.match(await r.page.locator('#ctRecError').innerText(), /الوصول للميكروفون مرفوض/);
+    assert.equal(await r.page.locator('#ctRecFallback').count(), 1);
+    await r.page.locator('#ctRecClose').click();
+    assert.equal(await r.page.locator('#ctRecPanel').count(), 0);
+    assert.deepEqual(r.errors, []);
+    await r.context.close();
+
+    r = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}`, init: fakeMic({ supported: false }) });
+    await r.page.waitForSelector('#ctRecStart');
+    await r.page.locator('#ctRecStart').click();
+    await r.page.waitForSelector('#ctRecError');
+    assert.match(await r.page.locator('#ctRecError').innerText(), /مش بيدعم تسجيل الصوت/);
+    assert.deepEqual(r.errors, []);
+    await r.context.close();
+
+    r = await openPage(attFixtures(), { url: `/admin/continuity.html?record=${REC}`, init: fakeMic() });
+    await r.page.waitForSelector('#ctRecStart');
+    await r.page.locator('#ctRecStart').click();
+    await r.page.waitForSelector('#ctRecPanel.is-recording');
+    await r.page.locator('#ctRecCancel').click();
+    assert.equal(await r.page.locator('#ctRecPanel').count(), 0);
+    assert.deepEqual(await tracks(r.page), { opened: 1, stopped: 1 }, 'cancel releases');
+    await r.page.locator('#ctRecStart').click();
+    await r.page.waitForSelector('#ctRecPanel.is-recording');
+    await r.page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+    assert.deepEqual(await tracks(r.page), { opened: 2, stopped: 2 }, 'pagehide releases');
+    assert.deepEqual(r.errors, []);
+    await r.context.close();
+});
+
+test('audio (§15.4): closed record or attachments off ⇒ no record button', { skip: !chromiumPath }, async () => {
+    for (const opts of [{ status: 'resolved' }, { on: false }]) {
+        const { page, context, errors } = await openPage(attFixtures(opts), { url: `/admin/continuity.html?record=${REC}`, init: fakeMic() });
+        await page.waitForSelector('#ctRecordTitle');
+        assert.equal(await page.locator('#ctRecStart').count(), 0, JSON.stringify(opts));
+        assert.deepEqual(errors, []);
+        await context.close();
+    }
+});
+
+test('audio (§15.4): real Chromium MediaRecorder with the fake microphone produces a WebM the server accepts', { skip: !chromiumPath }, async () => {
+    const mic = await chromium.launch({ executablePath: chromiumPath,
+        args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+    try {
+        const fx = attFixtures();
+        const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}`, on: mic });
+        await context.grantPermissions(['microphone']);
+        const seen = [];
+        await context.route('**/functions/v1/continuity-attachment-upload', async (route) => {
+            seen.push({ headers: route.request().headers(), body: route.request().postDataBuffer() });
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.rpc.continuity_get) });
+        });
+        await page.waitForSelector('#ctRecStart');
+        await page.locator('#ctRecStart').click();
+        await page.waitForSelector('#ctRecPanel.is-recording');
+        await page.waitForTimeout(1200);
+        await page.locator('#ctRecStop').click();
+        await page.waitForSelector('#ctRecUpload');
+        await page.locator('#ctRecUpload').click();
+        await page.waitForFunction(() => !document.getElementById('toast').hidden);
+        assert.equal(seen.length, 1);
+        assert.match(seen[0].headers['content-type'], /^audio\/(webm|ogg|mp4)$/);
+        assert.ok(seen[0].body.length > 100 && seen[0].body.length <= 8388608);
+        const { signatureMatches } = await import('../assets/js/continuity/continuity-media.js');
+        assert.ok(signatureMatches(seen[0].headers['content-type'], new Uint8Array(seen[0].body.subarray(0, 64))), 'server-side signature check passes');
+        assert.deepEqual(errors, []);
+        await context.close();
+    } finally {
+        await mic.close();
+    }
 });

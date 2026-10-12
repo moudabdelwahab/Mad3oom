@@ -10,6 +10,8 @@
  *   • الإيقاف/الإلغاء يطفئ الميكروفون دائمًا (tracks.stop) — لا مؤشر
  *     تسجيل عالق في المتصفح.
  *   • المتصفح بلا دعم: isVoiceRecordingSupported() = false والواجهة تخفي الزر.
+ *   • maxBytes (اختياري، الافتراضي بلا حد): لو تجاوز ما سُجّل الحد يتوقف التسجيل ويُرفض
+ *     كله بحالة error (reason: 'too_large') — لا يُقص أبدًا. onSize يبلّغ الحجم الحالي.
  * ------------------------------------------------------------
  */
 
@@ -49,11 +51,19 @@ export class VoiceRecorder {
      * @param {(elapsedMs:number) => void} [opts.onTick]
      * @param {number} [opts.maxMs]
      * @param {Object} [opts.env] - للاختبار: {navigator, MediaRecorder}
+     * @param {number} [opts.maxBytes] - حد الحجم بالبايت (الافتراضي بلا حد)
+     * @param {(bytes:number) => void} [opts.onSize]
+     * @param {string} [opts.tooLargeMessage]
      */
-    constructor({ onState = () => {}, onTick = () => {}, maxMs = MAX_RECORDING_MS, env = globalThis } = {}) {
+    constructor({ onState = () => {}, onTick = () => {}, maxMs = MAX_RECORDING_MS, env = globalThis,
+        maxBytes = Infinity, onSize = () => {}, tooLargeMessage = 'التسجيل أطول من المسموح.' } = {}) {
         this.onState = onState;
         this.onTick = onTick;
         this.maxMs = maxMs;
+        this.maxBytes = maxBytes;
+        this.onSize = onSize;
+        this.tooLargeMessage = tooLargeMessage;
+        this.bytes = 0;
         this.env = env;
         this.state = 'idle';
         this.stream = null;
@@ -95,8 +105,18 @@ export class VoiceRecorder {
             return false;
         }
         this.chunks = [];
-        this.recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) this.chunks.push(e.data); };
+        this.bytes = 0;
+        this.rejected = false;
+        this.recorder.ondataavailable = (e) => {
+            if (!e.data || !(e.data.size > 0) || this.rejected) return;
+            this.chunks.push(e.data);
+            this.bytes += e.data.size;
+            this.onSize(this.bytes);
+            if (this.bytes > this.maxBytes) this.rejectTooLarge();
+        };
         this.recorder.start(250);
+        // تجاوز الحد أثناء start (بيانات متزامنة): الرفض نهائي، فلا مؤقت ولا حالة تسجيل.
+        if (this.rejected) return false;
         this.startedAt = Date.now();
         this.timer = setInterval(() => {
             const elapsed = Date.now() - this.startedAt;
@@ -117,6 +137,7 @@ export class VoiceRecorder {
                 const mime = (this.recorder?.mimeType || this.chunks[0]?.type || 'audio/webm');
                 const blob = new Blob(this.chunks, { type: mime });
                 this.releaseStream();
+                if (blob.size > this.maxBytes) { this.rejectTooLarge(); resolve(null); return; }
                 this.result = { blob, mime, durationMs };
                 if (!blob.size) { this.setState('error', { message: 'التسجيل فاضي — جرّب تاني.' }); resolve(null); return; }
                 this.setState('stopped', this.result);
@@ -125,6 +146,21 @@ export class VoiceRecorder {
             this.recorder.onstop = finish;
             try { this.recorder.stop(); } catch { finish(); }
         });
+    }
+
+    /** تجاوز الحد: يوقف ويحذف كل ما سُجّل (لا قص)، ويحرر الميكروفون. */
+    rejectTooLarge() {
+        if (this.rejected) return;
+        this.rejected = true;
+        clearInterval(this.timer);
+        if (this.recorder && this.recorder.state !== 'inactive') {
+            this.recorder.onstop = null;
+            try { this.recorder.stop(); } catch { /* already stopped */ }
+        }
+        this.releaseStream();
+        this.chunks = [];
+        this.result = null;
+        this.setState('error', { message: this.tooLargeMessage, reason: 'too_large' });
     }
 
     /** يلغي في أي مرحلة ويحذف ما سُجّل. */

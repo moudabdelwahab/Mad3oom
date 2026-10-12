@@ -34,6 +34,8 @@ import {
     removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
 } from './continuity-data.js';
 import { uploadAttachment } from './continuity-upload.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { ATTACHMENT_KINDS, formatBytes } from './continuity-media.js';
 import { CONTINUITY_ICONS } from './continuity-icons.js';
 
 const $ = (id) => document.getElementById(id);
@@ -52,6 +54,8 @@ const state = {
     filters: { status: 'active', owner: '', category: '' }, busy: false,
     // رفع جارٍ أو فاشل: { recordId, file, kind, mime, key, progress, error, controller }
     upload: null,
+    // تسجيل صوتي: { recordId, phase: requesting|recording|review|error, elapsed, bytes, blob, mime, url, message }
+    rec: null,
 };
 const agentName = (id) => {
     if (!id) return 'بدون مالك';
@@ -118,6 +122,7 @@ function renderList() {
 // ═════════════════════════════════════════════════════════════
 async function openRecord(id, { push = true } = {}) {
     if (!id) return;
+    if (state.rec && state.rec.recordId !== id) resetRecorder();
     $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
     $('ctPage').classList.add('has-record');
     try {
@@ -330,9 +335,11 @@ function attachmentsHtml(r, closed) {
     const u = state.upload && state.upload.recordId === r.id ? state.upload : null;
     return `<section aria-labelledby="ctAttH" id="ctAttachments">
         <div class="ct-section-head"><h3 id="ctAttH">المرفقات (${list.length})</h3>
-          ${closed ? '' : `<button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
+          ${closed ? '' : `<div class="ct-inline"><button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecStart" ${(u && !u.error) || state.rec ? 'disabled' : ''}>تسجيل صوتي</button></div>
           <input type="file" id="ctAttachInput" accept="${esc(ATTACHMENT_ACCEPT)}" hidden>`}</div>
         ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان ترفع أو تشيل مرفقات.</p>' : `<p class="ct-muted">${esc(ATTACHMENT_LIMITS_TEXT)}.</p>`}
+        ${closed ? '' : recPanelHtml()}
         ${uploadStatusHtml(u)}
         ${list.length ? `<ul class="ct-atts">${list.map((a) => attachmentItemHtml(a, { mode: 'main', closed })).join('')}</ul>` : '<p class="ct-muted" id="ctAttEmpty">مفيش مرفقات.</p>'}
         ${removed.length ? `<h4>مرفقات محذوفة (${removed.length})</h4>
@@ -407,7 +414,131 @@ async function pickAttachment(file) {
     await startUpload();
 }
 
+// ─────────────────────────────────────────────────────────────
+// تسجيل صوتي (§15.4): الميكروفون يُطلب عند الضغط فقط، ويُطفأ عند الإيقاف أو الإلغاء أو
+// الخطأ أو مغادرة الصفحة أو فتح سجل آخر. حد 8 ميجا: يتوقف ويُرفض كله، لا قص.
+// ─────────────────────────────────────────────────────────────
+const REC_MAX_MS = 10 * 60 * 1000;
+const REC_TOO_LARGE = `التسجيل وصل لحد ${formatBytes(ATTACHMENT_KINDS.audio.max)} فاتلغى كله (مش هيتقص). سجّل أقصر، أو ارفع ملف صوتي مضغوط.`;
+let recorder = null;
+const mmss = (ms) => { const t = Math.floor((ms || 0) / 1000); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+
+function recPanelHtml() {
+    const x = state.rec;
+    if (!x || x.recordId !== state.current?.record?.id) return '';
+    if (x.phase === 'requesting') {
+        return '<div class="ct-rec" id="ctRecPanel" aria-live="polite"><span>بيطلب إذن الميكروفون…</span><button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecCancel">إلغاء</button></div>';
+    }
+    if (x.phase === 'recording') {
+        return `<div class="ct-rec is-recording" id="ctRecPanel" aria-live="polite"><span class="ct-rec-dot" aria-hidden="true"></span>
+          <span>بيسجّل <time id="ctRecTime">${mmss(x.elapsed)}</time></span>
+          <span class="ct-muted" id="ctRecSize">${esc(formatBytes(x.bytes || 0))} من ${esc(formatBytes(ATTACHMENT_KINDS.audio.max))}</span>
+          <button type="button" class="btn btn-primary ct-btn-sm" id="ctRecStop">إيقاف</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecCancel">إلغاء</button></div>`;
+    }
+    if (x.phase === 'review') {
+        return `<div class="ct-rec" id="ctRecPanel"><audio id="ctRecPreview" controls preload="metadata" src="${esc(x.url)}" aria-label="معاينة التسجيل"></audio>
+          <span class="ct-muted">${esc(mmss(x.elapsed))} · ${esc(formatBytes(x.blob?.size || 0))}</span>
+          <button type="button" class="btn btn-primary ct-btn-sm" id="ctRecUpload">رفع التسجيل</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecAgain">إعادة التسجيل</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecDiscard">حذف</button></div>`;
+    }
+    return `<div class="ct-rec" id="ctRecPanel"><p class="ct-error" role="alert" id="ctRecError">${esc(x.message)}</p>
+      <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecFallback">رفع ملف صوتي بدل كده</button>
+      <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecClose">إغلاق</button></div>`;
+}
+
+function renderRecPanel() {
+    const panel = $('ctRecPanel');
+    const html = recPanelHtml();
+    if (panel) panel.outerHTML = html || '';
+    else if (html) renderRecord();
+    const start = $('ctRecStart');
+    if (start) start.disabled = Boolean(state.rec) || Boolean(state.upload && !state.upload.error);
+}
+
+function clearRec() {
+    if (state.rec?.url) URL.revokeObjectURL(state.rec.url);
+    state.rec = null;
+}
+
+/** يطفئ أي تسجيل جارٍ ويحذفه (فتح سجل آخر، مغادرة الصفحة). */
+function resetRecorder() {
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'requesting')) recorder.cancel();
+    recorder = null;
+    clearRec();
+}
+
+async function startRecording() {
+    const r = state.current?.record;
+    if (!r) return;
+    resetRecorder();
+    if (!isVoiceRecordingSupported()) {
+        state.rec = { recordId: r.id, phase: 'error', message: 'المتصفح ده مش بيدعم تسجيل الصوت. تقدر ترفع ملف صوتي بدل كده.' };
+        renderRecPanel();
+        return;
+    }
+    const recordId = r.id;
+    state.rec = { recordId, phase: 'requesting', elapsed: 0, bytes: 0 };
+    renderRecPanel();
+    const rec = new VoiceRecorder({
+        maxMs: REC_MAX_MS, maxBytes: ATTACHMENT_KINDS.audio.max, tooLargeMessage: REC_TOO_LARGE,
+        onTick: (ms) => {
+            if (state.rec?.phase !== 'recording') return;
+            state.rec.elapsed = ms;
+            const t = $('ctRecTime');
+            if (t) t.textContent = mmss(ms);
+        },
+        onSize: (bytes) => {
+            if (!state.rec) return;
+            state.rec.bytes = bytes;
+            const z = $('ctRecSize');
+            if (z) z.textContent = `${formatBytes(bytes)} من ${formatBytes(ATTACHMENT_KINDS.audio.max)}`;
+        },
+        onState: (phase, detail) => {
+            if (recorder !== rec || !state.rec || state.rec.recordId !== recordId) return;
+            if (phase === 'recording') state.rec.phase = 'recording';
+            else if (phase === 'stopped') {
+                state.rec = { recordId, phase: 'review', elapsed: detail.durationMs, blob: detail.blob, mime: detail.mime,
+                    url: URL.createObjectURL(detail.blob) };
+            } else if (phase === 'error') state.rec = { recordId, phase: 'error', message: detail?.message || 'تعذّر التسجيل.' };
+            else if (phase === 'idle') state.rec = null;
+            else return;
+            renderRecPanel();
+        },
+    });
+    recorder = rec;
+    await rec.start();
+}
+
+function uploadRecording() {
+    const x = state.rec;
+    if (!x?.blob) return;
+    const mime = String(x.mime || 'audio/webm').split(';')[0].trim().toLowerCase();
+    const ext = mime === 'audio/ogg' ? 'ogg' : mime === 'audio/mp4' ? 'm4a' : 'webm';
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '-');
+    const file = new File([x.blob], `تسجيل صوتي ${stamp}.${ext}`, { type: mime });
+    recorder = null;
+    clearRec();
+    renderRecPanel();
+    return pickAttachment(file);
+}
+
+async function recAction(el) {
+    switch (el.id) {
+        case 'ctRecStart': await startRecording(); return true;
+        case 'ctRecStop': await recorder?.stop(); return true;
+        case 'ctRecCancel': resetRecorder(); renderRecPanel(); return true;
+        case 'ctRecDiscard': case 'ctRecClose': resetRecorder(); renderRecPanel(); return true;
+        case 'ctRecAgain': await startRecording(); return true;
+        case 'ctRecUpload': await uploadRecording(); return true;
+        case 'ctRecFallback': resetRecorder(); renderRecPanel(); $('ctAttachInput')?.click(); return true;
+        default: return false;
+    }
+}
+
 async function attachmentAction(el, r) {
+    if (await recAction(el)) return true;
     if (el.id === 'ctAttachPick') { $('ctAttachInput')?.click(); return true; }
     if (el.id === 'ctAttachRetry') { await startUpload(); return true; }
     if (el.id === 'ctAttachDismiss') { state.upload = null; renderRecord(); return true; }
@@ -761,5 +892,8 @@ async function boot() {
     renderAssigners();
     renderPolicies();
 }
+
+// مغادرة الصفحة: لا ميكروفون يظل مفتوحًا في الخلفية.
+window.addEventListener('pagehide', () => resetRecorder());
 
 boot();
