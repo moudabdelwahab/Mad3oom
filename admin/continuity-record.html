@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <!-- قبل أي طلب: لا يخرج رابط السجل (?id=) في Referer ولو لطلب من نفس الموقع. -->
+    <meta name="referrer" content="no-referrer">
+    <script src="/error-tracker.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- عنوان ثابت عمدًا: عنوان السجل لا يدخل سجل المتصفح أو مزامنته. -->
+    <title>سجل الاستمرارية - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/continuity.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .toast {
+            position: fixed; inset-block-end: 1.5rem; inset-inline: 0; margin-inline: auto; width: fit-content; z-index: 300;
+            padding: 0.75rem 1.2rem; border-radius: 0.6rem; background: var(--color-success); color: #fff;
+            font-weight: 600; font-size: 0.85rem; max-width: 90vw; box-shadow: var(--shadow);
+        }
+        .toast--err { background: var(--color-danger); }
+    </style>
+</head>
+<body data-ct-mode="standalone">
+    <main class="admin-main ct-standalone">
+        <header class="page-header ct-brand ct-brand--compact">
+            <img class="ct-brand-logo" src="/assets/images/continuity/continuity-logo-64.png"
+                 srcset="/assets/images/continuity/continuity-logo-64.png 1x, /assets/images/continuity/continuity-logo-128.png 2x"
+                 width="32" height="32" alt="Mad3oom Continuity">
+            <div>
+                <h1>سجل الاستمرارية</h1>
+                <p class="ct-brand-name" lang="en" dir="ltr">Mad3oom Continuity</p>
+            </div>
+        </header>
+
+        <div class="ct-banner" id="ctBanner" hidden role="status"></div>
+
+        <div class="ct-page ct-page--standalone has-record" id="ctPage">
+            <section class="ct-panel ct-panel--detail" aria-label="تفاصيل السجل">
+                <div class="ct-detail" id="ctDetail" aria-live="polite"><p class="ct-empty">بيحمّل…</p></div>
+            </section>
+        </div>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="/assets/js/continuity/continuity-page.js"></script>
+</body>
+</html>

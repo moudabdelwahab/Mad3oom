@@ -504,6 +504,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         reopening and lifecycle tests»). جدول continuity_closures للإلحاق فقط، وإعادة
     //         الفتح لا تمحو نص الإغلاق ولا تعيد استخدام موعد منتهٍ. مقيسٌ على نسخة بشكل
     //         الإنتاج في tests/sql/continuity-reopen.test.sql. غير مطبَّق على الإنتاج.
+    //   080 — مرفقات الاستمرارية (طلب صاحب المنصة 2026-10-12: «Images: 3 MiB, Videos: 16 MiB,
+    //         Audio: 8 MiB … server-side size/MIME/signature validation; private storage; signed
+    //         URLs»). مستودع خاص بلا سياسة كتابة، والقدرة مطفأة حتى قرار منفصل. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/continuity-attachments.test.sql. غير مطبَّق على الإنتاج.
     //   086 — فريق الشركة (صاحب المنصة 2026-10-12: «Approve D0–D3 as recommended, start
     //         increment 1»؛ docs/relay/CONTINUITY_MULTITENANT_ARCHITECTURE_REPORT.md §5.2).
     //         عضوية موظف صريحة (supervisor/agent) منفصلة عن عملاء الشركة؛ المالك مدير
