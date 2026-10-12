@@ -180,6 +180,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 async function openInbox(fx, { query = '', viewport, init = null } = {}) {
     const context = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 } });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
 
     // التوقيع في البديل المشترك غير موجود؛ نضيفه بنفس شكل chat-page.render.test.mjs

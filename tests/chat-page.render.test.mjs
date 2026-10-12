@@ -156,6 +156,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 async function openPage(url, config = {}, { viewport = { width: 1280, height: 820 } } = {}) {
     const context = await browser.newContext({ viewport, locale: 'ar-EG' });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
