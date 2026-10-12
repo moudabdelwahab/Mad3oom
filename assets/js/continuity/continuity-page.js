@@ -1,0 +1,571 @@
+/**
+ * Continuity — صفحة السجلات (admin/continuity.html، المرحلة C).
+ *
+ * القائمة (continuity_list: بلا مقتطفات) وتفاصيل سجل (continuity_get: المقتطف يظهر فقط لو
+ * الخادم قرر في القراءة دي إن عندك وصول حالي للمحادثة — C3). التعديل والإسناد
+ * والانتقالات والحجب كلها عبر الـRPC، والأدوات المعروضة تعكس continuity_my_access
+ * وقواعد 074/076 للعرض فقط: الخادم هو اللي يرفض.
+ *
+ * 076: «إزالة» رسالة من سجل تنقلها للمحذوفات (ترجع بـ«استرجاع»). المسح النهائي
+ * وتفريغ المحذوفات وصلاحية الإسناد لحساب مالك المنصة بس (access.owner).
+ *
+ * 079: «تاريخ الإغلاق» يعرض كل إغلاق وإعادة فتح كما أرسلها الخادم (closures). إعادة
+ * الفتح بسبب إلزامي، وموعد جديد إلزامي لمتابعة موعدها فات (reopenRequirements). لو
+ * الخادم أقدم من 079 (لا closures) القسم يختفي ويفضل كل شيء يعمل.
+ */
+import { initSidebar } from '/assets/js/admin/sidebar.js';
+import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
+import { describeSource, retentionDeadline, LIMITS } from './continuity-contract.js';
+import { continuityConfirm, continuityPrompt, continuityReopen } from './continuity-dialog.js';
+import {
+    CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
+    allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
+} from './continuity-model.js';
+import {
+    loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
+    removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
+    listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
+} from './continuity-data.js';
+import { CONTINUITY_ICONS } from './continuity-icons.js';
+
+const $ = (id) => document.getElementById(id);
+const TIMEZONES = ['Africa/Cairo', 'Asia/Riyadh', 'Asia/Dubai', 'Europe/London', 'UTC'];
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
+const fmt = (iso, tz) => {
+    if (!iso) return '';
+    try { return tz ? new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: tz }).format(new Date(iso)) : DT.format(new Date(iso)); } catch { return ''; }
+};
+
+const state = {
+    me: null, access: null, agents: [], teams: [], records: [], current: null, events: [], assigners: null, trash: [],
+    filters: { status: 'active', owner: '', category: '' }, busy: false,
+};
+const agentName = (id) => {
+    if (!id) return 'بدون مالك';
+    if (id === state.me?.id) return 'أنت';
+    const a = state.agents.find((x) => x.id === id);
+    return a?.full_name || a?.email || 'موظف';
+};
+const teamName = (id) => state.teams.find((t) => t.id === id)?.name || '';
+
+function toast(message, kind = 'ok') {
+    const el = $('toast');
+    el.textContent = message;
+    el.className = kind === 'err' ? 'toast toast--err' : 'toast';
+    el.hidden = false;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { el.hidden = true; }, 3600);
+}
+
+// ═════════════════════════════════════════════════════════════
+// القائمة
+// ═════════════════════════════════════════════════════════════
+function filtersToRpc() {
+    const f = { limit: 100 };
+    if (state.filters.status === 'active') f.status = ['open', 'scheduled', 'in_progress', 'waiting'];
+    else if (state.filters.status === 'closed') f.status = ['resolved', 'cancelled'];
+    if (state.filters.owner) f.owner = state.filters.owner;
+    if (state.filters.category) f.category = state.filters.category;
+    return f;
+}
+
+async function reloadList() {
+    $('ctList').innerHTML = '<li class="ct-empty">بيحمّل…</li>';
+    try {
+        state.records = await listRecords(filtersToRpc()) || [];
+    } catch (err) {
+        state.records = [];
+        $('ctList').innerHTML = `<li class="ct-empty">${esc(err.message)}</li>`;
+        return;
+    }
+    renderList();
+}
+
+function renderList() {
+    if (!state.records.length) {
+        $('ctList').innerHTML = '<li class="ct-empty" id="ctListEmpty">مفيش سجلات بالفلاتر دي. السجلات بتتعمل من صندوق الرسائل: افتح محادثة واضغط «سجل استمرارية».</li>';
+        return;
+    }
+    $('ctList').innerHTML = state.records.map((r) => `<li><button type="button" class="ct-item ${state.current?.record?.id === r.id ? 'is-on' : ''}" data-open="${esc(r.id)}">
+        <span class="ct-item-title">${esc(r.title)}</span>
+        <span class="ct-item-meta">
+          <span class="ct-pill">${esc(STATUS_LABELS[r.status] || r.status)}</span>
+          ${r.category ? `<span class="ct-pill ct-pill--accent">${esc(CATEGORY_META[r.category]?.label || r.category)}</span>` : ''}
+          ${r.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}
+          <span>${esc(agentName(r.owner_id))}</span>
+          ${r.due_at ? `<span>${esc(fmt(r.due_at, r.due_tz))}</span>` : ''}
+          <span>${r.source_count} مصدر</span>
+        </span></button></li>`).join('');
+}
+
+// ═════════════════════════════════════════════════════════════
+// السجل
+// ═════════════════════════════════════════════════════════════
+async function openRecord(id, { push = true } = {}) {
+    if (!id) return;
+    $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
+    $('ctPage').classList.add('has-record');
+    try {
+        const [full, events] = await Promise.all([getRecord(id), loadEvents(id).catch(() => [])]);
+        state.current = full;
+        state.events = events || [];
+    } catch (err) {
+        state.current = null;
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctNotFound">${esc(err.code === 'not_found' ? 'السجل غير موجود أو مش مسموح لك تشوفه.' : err.message)}</p>`;
+        return;
+    }
+    if (push) {
+        const url = new URL(location.href);
+        url.searchParams.set('record', id);
+        history.replaceState(null, '', url);
+    }
+    renderRecord();
+    renderList();
+}
+
+const isClosed = (status) => status === 'resolved' || status === 'cancelled';
+
+/** mode: 'main' (مصادر السجل) أو 'removed' (المحذوفات). closed = السجل مقفول. */
+function sourceHtml(s, { mode = 'main', closed = false, version = null, recordId = null } = {}) {
+    const d = describeSource(s);
+    const data = `data-source="${esc(s.id)}"${version != null ? ` data-version="${esc(version)}"` : ''}${recordId ? ` data-record="${esc(recordId)}"` : ''}`;
+    let actions = '';
+    if (mode === 'main' && !state.access.trash) {
+        // قبل 076: الحجب النهائي كما في 074 (المالك أو المنشئ أو المشرف).
+        if (d.state === 'visible' && canRedactLegacy()) actions = `<button type="button" class="btn btn-secondary ct-btn-sm" data-redact="${esc(s.id)}">حذف المحتوى</button>`;
+    } else if (mode === 'main' && !closed) {
+        actions = `<button type="button" class="btn btn-secondary ct-btn-sm" data-remove ${data}>إزالة</button>`;
+    } else if (mode === 'removed') {
+        actions = `${closed ? '' : `<button type="button" class="btn btn-secondary ct-btn-sm" data-restore ${data}>استرجاع</button>`}
+            ${state.access.owner ? `<button type="button" class="btn btn-danger ct-btn-sm" data-purge ${data}>مسح نهائي</button>` : ''}`;
+    }
+    const head = `<div class="ct-source-head"><span>#${s.position}</span>
+        ${d.state === 'visible' && d.senderLabel ? `<b>${esc(d.senderLabel)}</b>` : ''}
+        ${d.state === 'visible' && s.original_created_at ? `<span>${esc(fmt(s.original_created_at))}</span>` : ''}
+        ${d.deletedAtSource ? '<span class="ct-pill">اتحذفت من المحادثة</span>' : ''}
+        ${d.editedAfterCapture ? '<span class="ct-pill">اتعدّلت بعد الإرفاق</span>' : ''}
+        <span class="ct-spacer"></span>
+        ${d.state === 'visible' && s.chat_session_id ? `<a href="/admin/inbox.html?session=${encodeURIComponent(s.chat_session_id)}">فتح المحادثة</a>` : ''}
+      </div>`;
+    const foot = `${mode === 'removed' && s.removed_at
+        ? `<small class="ct-removed-by">شالها ${esc(agentName(s.removed_by))} · ${esc(fmt(s.removed_at))}</small>` : ''}
+        ${actions ? `<div class="ct-source-actions">${actions}</div>` : ''}`;
+    if (d.state === 'visible') return `<li class="ct-source" ${data}>${head}<p>${esc(d.excerpt)}</p>${foot}</li>`;
+    return `<li class="ct-source is-hidden" ${data} data-state="${d.state}">${head}<p>${CONTINUITY_ICONS.lock}${esc(d.label)}</p>${foot}</li>`;
+}
+
+const canRedactLegacy = () => {
+    const r = state.current?.record;
+    return Boolean(r && (state.access.supervisor || r.owner_id === state.me?.id || r.created_by === state.me?.id));
+};
+
+const eventLabel = (e) => EVENT_LABELS[e.kind === 'source_redacted' && e.payload?.purged ? 'source_purged' : e.kind] || e.kind;
+
+/** أزرار المصدر نفسها في تفاصيل السجل وفي لوحة المحذوفات. */
+async function sourceAction(el) {
+    const id = el.dataset.source;
+    const version = Number(el.dataset.version);
+    if (!id) return undefined;
+    if ('remove' in el.dataset) {
+        return act(() => removeSource(id, version), 'اتنقلت للمحذوفات. تقدر ترجّعها من «المحذوفات».');
+    }
+    if ('restore' in el.dataset) {
+        return act(() => restoreSource(id, version), 'رجعت للسجل');
+    }
+    if ('purge' in el.dataset) {
+        if (!await continuityConfirm({ title: 'مسح الرسالة نهائيًا', danger: true, confirmText: 'مسح نهائي',
+            message: 'المحتوى هيتمسح ومش هيرجع، ومش هتقدر ترفق نفس الرسالة للسجل ده تاني.' })) return undefined;
+        return act(() => purgeSource(id), 'اتمسحت نهائيًا');
+    }
+    return undefined;
+}
+
+function renderRecord() {
+    const r = state.current?.record;
+    if (!r) return;
+    const closed = isClosed(r.status);
+    const removed = state.current.removed || [];
+    const deadline = retentionDeadline(r.closed_at);
+    const transitions = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor });
+    const assign = assignmentOptions(r, { agents: state.agents, meId: state.me?.id, canAssign: state.access.can_assign });
+    const problemField = r.kind === 'issue' ? 'problem' : 'summary';
+
+    $('ctDetail').innerHTML = `
+      <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>
+      <div>
+        <div class="ct-item-meta">
+          <span class="ct-pill">${esc(KIND_META[r.kind]?.label || r.kind)}</span>
+          <span class="ct-pill">${esc(STATUS_LABELS[r.status] || r.status)}</span>
+          ${r.category ? `<span class="ct-pill ct-pill--accent">${esc(CATEGORY_META[r.category]?.label)}</span>` : ''}
+          ${r.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}
+        </div>
+        <h2 id="ctRecordTitle">${esc(r.title)}</h2>
+        ${deadline ? `<p class="ct-muted">محتوى المصادر بيتحذف تلقائيًا ${esc(fmt(deadline.toISOString()))} (365 يوم من الإغلاق).</p>` : ''}
+      </div>
+
+      <form id="ctEdit" class="ct-detail-grid" ${closed ? 'inert' : ''}>
+        <label class="ct-field" style="grid-column:1/-1"><span>العنوان</span>
+          <input type="text" name="title" maxlength="${LIMITS.title}" value="${esc(r.title)}" required></label>
+        <label class="ct-field" style="grid-column:1/-1"><span>${r.kind === 'issue' ? 'وصف المشكلة' : 'الملخص'}</span>
+          <textarea name="${problemField}" maxlength="${LIMITS.summary}">${esc(r[problemField] || '')}</textarea></label>
+        <label class="ct-field" style="grid-column:1/-1"><span>الخطوة التالية</span>
+          <input type="text" name="next_action" maxlength="${LIMITS.nextAction}" value="${esc(r.next_action || '')}"></label>
+        <label class="ct-field"><span>الموعد</span>
+          <input type="datetime-local" name="due_at" value="${esc(toZonedInput(r.due_at, r.due_tz))}"></label>
+        <label class="ct-field"><span>المنطقة الزمنية</span>
+          <select name="due_tz" dir="ltr">${[...new Set([r.due_tz || 'Africa/Cairo', ...TIMEZONES])].map((z) =>
+              `<option value="${esc(z)}" ${z === (r.due_tz || 'Africa/Cairo') ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
+        <label class="ct-field"><span>الأولوية</span>
+          <select name="priority">${Object.entries(PRIORITY_LABELS).map(([k, v]) => `<option value="${k}" ${Number(k) === r.priority ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        <label class="ct-field"><span>النوع</span>
+          <select name="category"><option value="">بدون</option>${RECORD_CATEGORIES.map((c) => `<option value="${c}" ${c === r.category ? 'selected' : ''}>${esc(CATEGORY_META[c].label)}</option>`).join('')}</select></label>
+        <div class="ct-inline" style="grid-column:1/-1">
+          ${closed ? '<span class="ct-muted">السجل مقفول. أعد فتحه للتعديل.</span>' : '<button type="submit" class="btn btn-primary" id="ctSave">حفظ التعديلات</button>'}
+          <span class="ct-error" id="ctEditError"></span>
+        </div>
+      </form>
+
+      <section aria-labelledby="ctOwnerH">
+        <h3 id="ctOwnerH">المالك</h3>
+        <p>${esc(agentName(r.owner_id))}${r.team_id ? ` · فريق ${esc(teamName(r.team_id))}` : ''}</p>
+        ${assign.editable ? `<div class="ct-inline" id="ctAssign">
+            <label class="ct-field"><span>المالك الجديد</span><select id="ctAssignOwner">${assign.owners.map((o) =>
+                `<option value="${esc(o.value)}" ${o.value === (r.owner_id || '') ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>
+            ${assign.teamEditable ? `<label class="ct-field"><span>الفريق</span><select id="ctAssignTeam"><option value="">بدون فريق</option>${state.teams.map((t) =>
+                `<option value="${esc(t.id)}" ${t.id === r.team_id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
+            <button type="button" class="btn btn-secondary" id="ctAssignBtn">تغيير المالك</button></div>
+            ${state.access.can_assign ? '' : '<p class="ct-muted">تقدر تاخد السجل لنفسك أو تسيبه من غير مالك. النقل لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}` : ''}
+      </section>
+
+      ${transitions.length ? `<section aria-labelledby="ctStatusH"><h3 id="ctStatusH">الحالة</h3>
+        <div class="ct-inline">${transitions.map((t) => `<button type="button" class="btn btn-secondary" data-to="${t.to}">${esc(t.label)}</button>`).join('')}</div></section>` : ''}
+
+      <section aria-labelledby="ctSourcesH">
+        <h3 id="ctSourcesH">المصادر (${state.current.sources.length})</h3>
+        ${state.current.sources.length ? `<ul class="ct-sources">${state.current.sources.map((s) => sourceHtml(s, { closed, version: r.version })).join('')}</ul>`
+            : '<p class="ct-muted">مفيش رسائل مرفقة. أرفق رسائل من صندوق الرسائل: «سجل استمرارية» ← «إرفاق بسجل موجود».</p>'}
+        ${state.access.trash && !closed && state.current.sources.length ? '<p class="ct-muted">«إزالة» بتنقل الرسالة للمحذوفات وتقدر ترجّعها.</p>' : ''}
+      </section>
+
+      ${removed.length ? `<section aria-labelledby="ctRemovedH" class="ct-removed" id="ctRemoved">
+        <div class="ct-section-head"><h3 id="ctRemovedH">المحذوفات (${removed.length})</h3>
+          ${state.access.owner ? '<button type="button" class="btn btn-danger ct-btn-sm" id="ctPurgeRecord">تفريغ المحذوفات</button>' : ''}</div>
+        <ul class="ct-sources">${removed.map((s) => sourceHtml(s, { mode: 'removed', closed, version: r.version })).join('')}</ul>
+        ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
+      </section>` : ''}
+
+      ${closureHtml(state.current.closures)}
+
+      <section aria-labelledby="ctEventsH">
+        <h3 id="ctEventsH">السجل</h3>
+        <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
+      </section>`;
+}
+
+const actorName = (id) => (id ? agentName(id) : 'النظام');
+
+/** تاريخ الإغلاق (079). كل نص عبر esc؛ القسم غائب لو الخادم لم يرسل closures. */
+function closureHtml(closures) {
+    if (!Array.isArray(closures) || !closures.length) return '';
+    const rows = closureHistory(closures);
+    return `<section aria-labelledby="ctClosuresH" id="ctClosures">
+        <h3 id="ctClosuresH">تاريخ الإغلاق (${rows.length})</h3>
+        <ol class="ct-closures">${rows.map((c) => `<li class="ct-closure" data-seq="${esc(c.seq)}">
+          <div class="ct-item-meta"><span class="ct-pill">${esc(c.statusLabel)}</span>
+            <span class="ct-muted">${esc(fmt(c.closedAt))} · ${esc(actorName(c.closedBy))}</span></div>
+          ${c.note ? `<p><strong>${esc(c.noteLabel)}:</strong> <span class="ct-closure-note">${esc(c.note)}</span></p>`
+              : c.noteMissing ? `<p class="ct-muted">${esc(c.noteLabel)} مش محفوظ (الإغلاق ده قبل تفعيل التاريخ).</p>` : ''}
+          ${c.reopened ? `<p class="ct-closure-reopen"><span class="ct-muted">اتفتح تاني ${esc(fmt(c.reopenedAt))} · ${esc(actorName(c.reopenedBy))}</span>
+              ${c.reopenReason ? `<br><strong>السبب:</strong> <span class="ct-closure-reason">${esc(c.reopenReason)}</span>`
+                  : c.reopenReasonMissing ? '<br><span class="ct-muted">السبب مش محفوظ (قبل تفعيل التاريخ).</span>' : ''}</p>` : ''}
+        </li>`).join('')}</ol>
+      </section>`;
+}
+
+function patchFromForm(form, record) {
+    const fd = new FormData(form);
+    const patch = {};
+    for (const k of ['title', 'summary', 'problem', 'next_action']) {
+        if (!fd.has(k)) continue;
+        const v = String(fd.get(k));
+        if (v !== (record[k] || '')) patch[k] = v;
+    }
+    const pr = Number(fd.get('priority'));
+    if (pr !== record.priority) patch.priority = pr;
+    const cat = String(fd.get('category') || '') || null;
+    if (cat !== (record.category || null)) patch.category = cat;
+    const at = String(fd.get('due_at') || '');
+    const tz = String(fd.get('due_tz') || '').trim();
+    if (at !== toZonedInput(record.due_at, record.due_tz) || (at && tz !== record.due_tz)) {
+        patch.due = at ? { at: at.length === 16 ? `${at}:00` : at, tz } : null;
+    }
+    return patch;
+}
+
+// رسائل أوضح لرفض الخادم المتوقع؛ الخادم هو اللي بيقرر، ده عرض بس.
+const INACTIVE_STAFF = 'حسابه مش نشط (مش مكمّل التحقق من الحساب أو محظور)';
+function friendlyError(err) {
+    if (err?.code === 'validation_failed' && err.reason === 'not_eligible') {
+        if (err.field === 'user_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش ياخد صلاحية الإسناد. فعّل حسابه الأول.`;
+        if (err.field === 'owner_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش يبقى مالك للسجل.`;
+    }
+    if (err?.code === 'forbidden' && err.field === 'owner') {
+        return 'المسح النهائي وصلاحية الإسناد لحساب مالك المنصة بس.';
+    }
+    if (err?.code === 'validation_failed' && err.reason === 'due_required_on_reopen') {
+        return 'موعد المتابعة عدّى أو قرّب جدًا. حدد موعد جديد عشان تعيد فتحها.';
+    }
+    if (err?.code === 'validation_failed' && err.reason === 'in_past' && String(err.field || '').startsWith('details.due')) {
+        return 'الموعد الجديد لازم يكون بعد دلوقتي.';
+    }
+    if (err?.code === 'forbidden' && (err.field === 'owner_id' || err.field === 'team_id')) {
+        return 'مش مسموح لك تنقل السجل لموظف تاني أو لفريق. تقدر تاخده لنفسك أو تسيبه من غير مالك.';
+    }
+    return err?.message || 'حصل خطأ';
+}
+
+async function act(fn, okText) {
+    if (state.busy) return;
+    state.busy = true;
+    try {
+        const result = await fn();
+        toast(okText);
+        if (result?.access === 'lost') {
+            state.current = null;
+            $('ctDetail').innerHTML = '<p class="ct-empty">السجل اتنقل ومبقاش ظاهر ليك.</p>';
+        } else if (result?.record?.id) {
+            await openRecord(result.record.id, { push: false });
+        }
+        await reloadList();
+        renderTrash();
+    } catch (err) {
+        toast(friendlyError(err), 'err');
+        if (err.code === 'version_conflict' && state.current?.record?.id) await openRecord(state.current.record.id, { push: false });
+    } finally {
+        state.busy = false;
+    }
+}
+
+// ═════════════════════════════════════════════════════════════
+// المحذوفات (كل السجلات اللي تشوفها)
+// ═════════════════════════════════════════════════════════════
+async function renderTrash() {
+    const box = $('ctTrash');
+    if (!state.access.trash) { box.hidden = true; return; }
+    try {
+        state.trash = await listRemoved() || [];
+    } catch (err) {
+        box.hidden = false;
+        $('ctTrashBody').innerHTML = `<p class="ct-error">${esc(friendlyError(err))}</p>`;
+        return;
+    }
+    box.hidden = !state.trash.length;
+    $('ctTrashCount').textContent = state.trash.length ? `(${state.trash.length})` : '';
+    $('ctPurgeAll').hidden = !state.access.owner || !state.trash.length;
+    $('ctTrashBody').innerHTML = `<ul class="ct-sources">${state.trash.map((x) => `<li class="ct-trash-item">
+        <button type="button" class="ct-trash-record" data-open-record="${esc(x.record.id)}">${esc(x.record.title)}
+          ${isClosed(x.record.status) ? `<span class="ct-pill">${esc(STATUS_LABELS[x.record.status])}</span>` : ''}</button>
+        <ul class="ct-sources">${sourceHtml(x.source, { mode: 'removed', closed: isClosed(x.record.status), version: x.record.version, recordId: x.record.id })}</ul>
+      </li>`).join('')}</ul>`;
+}
+
+// ═════════════════════════════════════════════════════════════
+// صلاحية الإسناد (لمالك المنصة، 076)
+// ═════════════════════════════════════════════════════════════
+// 078: إعدادات الاستمرارية — لمالك المنصة، قراءة فقط. قبل 078 (لا capabilities) مخفية.
+async function renderPolicies() {
+    const box = $('ctPolicies');
+    if (!(state.access.owner && state.access.policies)) { box.hidden = true; return; }
+    box.hidden = false;
+    const body = $('ctPoliciesBody');
+    body.textContent = 'جاري التحميل…';
+    let d;
+    try {
+        d = describePolicy(await getPolicies());
+    } catch (err) {
+        body.innerHTML = `<p class="ct-error">${esc(err.message)}</p>`;
+        return;
+    }
+    const rows = (list) => list.map((r) =>
+        `<li><span>${esc(r.label)}</span><span class="${r.off ? 'ct-policy-off' : ''}">${esc(r.value)}</span></li>`).join('');
+    body.innerHTML = `<h4>القدرات</h4><ul class="ct-policy-list" id="ctPolicyCaps">${rows(d.capabilities)}</ul>
+        <h4>المواعيد والتصعيد</h4><ul class="ct-policy-list" id="ctPolicyTimings">${rows(d.timings)}</ul>`;
+}
+
+async function renderAssigners() {
+    const box = $('ctAssigners');
+    // 076: المنح والسحب للمالك. قبل 076 كانوا للمشرف (074).
+    if (!(state.access.trash ? state.access.owner : state.access.supervisor)) { box.hidden = true; return; }
+    box.hidden = false;
+    try {
+        state.assigners = await listAssigners();
+    } catch (err) {
+        $('ctAssignersBody').innerHTML = `<p class="ct-error">${esc(err.message)}</p>`;
+        return;
+    }
+    const granted = new Set(state.assigners.map((a) => a.user_id));
+    const candidates = state.agents.filter((a) => !granted.has(a.id) && !a.is_elevated);
+    $('ctAssignersBody').innerHTML = `
+      ${state.assigners.length ? `<ul class="ct-assigners">${state.assigners.map((a) => `<li>
+          <span>${esc(a.full_name || a.email || 'موظف')}${a.eligible ? '' : ' <small class="ct-pill ct-pill--danger">غير نشط</small>'}</span>
+          <button type="button" class="btn btn-secondary" data-revoke="${esc(a.user_id)}">سحب الصلاحية</button></li>`).join('')}</ul>`
+        : '<p class="ct-muted">مفيش حد عنده صلاحية إسناد غير المشرفين.</p>'}
+      ${candidates.length ? `<div class="ct-inline"><label class="ct-field"><span>منح صلاحية الإسناد لـ</span>
+          <select id="ctGrantUser">${candidates.map((a) => `<option value="${esc(a.id)}">${esc(a.full_name || a.email)}</option>`).join('')}</select></label>
+          <button type="button" class="btn btn-primary" id="ctGrantBtn">منح</button></div>` : ''}`;
+}
+
+// ═════════════════════════════════════════════════════════════
+// الربط
+// ═════════════════════════════════════════════════════════════
+function wire() {
+    for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
+        $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
+    }
+    $('ctList').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-open]');
+        if (b) openRecord(b.dataset.open);
+    });
+    $('ctDetail').addEventListener('submit', (e) => {
+        if (e.target.id !== 'ctEdit') return;
+        e.preventDefault();
+        const r = state.current.record;
+        const patch = patchFromForm(e.target, r);
+        if (!Object.keys(patch).length) { toast('مفيش تغيير'); return; }
+        act(() => updateRecord(r.id, patch, r.version), 'اتحفظ');
+    });
+    $('ctDetail').addEventListener('click', async (e) => {
+        const r = state.current?.record;
+        const el = e.target.closest('button');
+        if (el?.id === 'ctBackToList') return closeRecord();
+        if (!el || !r) return undefined;
+        if (el.id === 'ctAssignBtn') {
+            const owner = $('ctAssignOwner').value || null;
+            const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;
+            const ok = await continuityConfirm(owner && owner !== state.me?.id
+                ? { title: 'نقل السجل', message: `السجل هيتنقل لـ ${agentName(owner)}، وهيظهر عنده في سجلاته.`, confirmText: 'نقل السجل' }
+                : { title: 'تغيير المالك', message: owner ? 'السجل هيبقى باسمك.' : 'السجل هيفضل من غير مالك لحد ما حد ياخده.', confirmText: 'تأكيد' });
+            if (!ok) return undefined;
+            return act(() => assignRecord(r.id, owner, team, r.version), 'اتغيّر المالك');
+        }
+        if (el.dataset.to) {
+            const t = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor }).find((x) => x.to === el.dataset.to);
+            let details = {};
+            if (!t) return undefined;
+            if (t.to === 'open') {
+                const req = reopenRequirements(r);
+                const got = await continuityReopen({
+                    needsDue: Boolean(req?.needsDue), tz: req?.tz, timezones: TIMEZONES,
+                    message: 'السجل هيرجع «مفتوح». تاريخ الإغلاق بيفضل محفوظ.',
+                    dueNote: req?.needsDue
+                        ? (req.expiredDue ? `الموعد السابق (${fmt(r.due_at, r.due_tz)}) عدّى، فلازم موعد جديد.` : 'المتابعة محتاجة موعد.')
+                        : req?.keepsDue ? `لو سبته فاضي، الموعد الحالي يفضل: ${fmt(r.due_at, r.due_tz)}.`
+                            : req?.expiredDue ? `الموعد السابق (${fmt(r.due_at, r.due_tz)}) عدّى؛ تقدر تحدد جديد.` : '',
+                });
+                if (!got) return undefined;
+                details = got.due ? { reason: got.reason, due: got.due } : { reason: got.reason };
+                return act(() => transitionRecord(r.id, 'open', details, r.version), 'اتفتح السجل تاني');
+            }
+            if (t.needs) {
+                const text = await continuityPrompt({
+                    title: t.label, label: t.prompt, confirmText: t.label, danger: t.to === 'cancelled',
+                    message: t.to === 'cancelled' ? 'السجل هيتقفل ومش هيتعدّل تاني إلا لو اتفتح من جديد.' : '',
+                });
+                if (!text) return undefined;
+                details = { [t.needs]: text };
+            }
+            return act(() => transitionRecord(r.id, t.to, details, r.version), 'اتغيّرت الحالة');
+        }
+        if (el.id === 'ctPurgeRecord') {
+            const n = (state.current.removed || []).length;
+            if (!await continuityConfirm({ title: 'تفريغ المحذوفات', danger: true, confirmText: 'مسح نهائي',
+                message: `${n} رسالة هتتمسح من السجل ده نهائيًا. مفيش رجوع، ومش هتقدر ترفقها تاني.` })) return undefined;
+            return act(async () => { await purgeRemoved(r.id); return getRecord(r.id); }, 'اتمسحت المحذوفات');
+        }
+        if (el.dataset.redact) {
+            const ok = await continuityConfirm({
+                title: 'حذف محتوى المصدر نهائيًا', danger: true, confirmText: 'حذف نهائي',
+                message: 'مفيش رجوع: المحتوى مش هيرجع حتى لو أرفقت نفس الرسالة تاني.',
+            });
+            if (!ok) return undefined;
+            return act(() => purgeSource(el.dataset.redact), 'اتحذف المحتوى');
+        }
+        return sourceAction(el);
+    });
+    $('ctTrash').addEventListener('click', async (e) => {
+        const el = e.target.closest('button');
+        if (!el) return undefined;
+        if (el.dataset.openRecord) return openRecord(el.dataset.openRecord);
+        if (el.id === 'ctPurgeAll') {
+            if (!await continuityConfirm({ title: 'تفريغ كل المحذوفات', danger: true, confirmText: 'مسح الكل نهائيًا',
+                message: `${state.trash.length} رسالة في المحذوفات هتتمسح من كل السجلات نهائيًا. مفيش رجوع.` })) return undefined;
+            return act(async () => {
+                await purgeRemoved(null);
+                return state.current?.record?.id ? getRecord(state.current.record.id) : null;
+            }, 'اتفرّغت المحذوفات');
+        }
+        return sourceAction(el);
+    });
+    $('ctAssigners').addEventListener('click', async (e) => {
+        const el = e.target.closest('button');
+        if (!el) return;
+        try {
+            if (el.id === 'ctGrantBtn') {
+                const id = $('ctGrantUser').value;
+                if (!await continuityConfirm({ title: 'منح صلاحية الإسناد', confirmText: 'منح الصلاحية',
+                    message: `${agentName(id)} هيقدر يسند السجلات لأي موظف أو فريق.` })) return;
+                await grantAssigner(id);
+                toast('اتمنحت الصلاحية');
+            } else if (el.dataset.revoke) {
+                if (!await continuityConfirm({ title: 'سحب صلاحية الإسناد', danger: true, confirmText: 'سحب الصلاحية',
+                    message: 'السجلات اللي أسندها قبل كده هتفضل زي ما هي.' })) return;
+                await revokeAssigner(el.dataset.revoke);
+                toast('اتسحبت الصلاحية');
+            } else return;
+        } catch (err) {
+            toast(friendlyError(err), 'err');
+        }
+        renderAssigners();
+    });
+}
+
+function closeRecord() {
+    state.current = null;
+    $('ctPage').classList.remove('has-record');
+    $('ctDetail').innerHTML = '<p class="ct-empty">اختار سجل من القائمة.</p>';
+    const url = new URL(location.href);
+    url.searchParams.delete('record');
+    history.replaceState(null, '', url);
+    renderList();
+}
+
+async function boot() {
+    initSidebar();
+    const user = await checkAdminAuth();
+    if (!user) return;
+    updateAdminUI(user);
+    state.me = user;
+    state.access = await loadContinuityAccess();
+    if (!state.access.member || !state.access.enabled) {
+        $('ctBanner').hidden = false;
+        $('ctBanner').textContent = !state.access.member
+            ? 'الاستمرارية لفريق الدعم. حسابك دلوقتي مش في سياق إداري نشط — بدّل للإدارة من مبدّل الواجهة وحدّث الصفحة.'
+            : 'الاستمرارية مش مفعّلة حاليًا.';
+        $('ctPage').hidden = true;
+        return;
+    }
+    $('ctFilterCategory').innerHTML = '<option value="">كل الأنواع</option>'
+        + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
+    [state.agents, state.teams] = await Promise.all([loadAgents(), loadTeams()]);
+    wire();
+    await reloadList();
+    const deep = new URLSearchParams(location.search).get('record');
+    if (deep) await openRecord(deep, { push: false });
+    renderTrash();
+    renderAssigners();
+    renderPolicies();
+}
+
+boot();

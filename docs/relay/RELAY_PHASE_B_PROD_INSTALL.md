@@ -1,4 +1,6 @@
-# Relay Phase B: production install note (NOT EXECUTED)
+# Relay Phase B: production install note (executed 2026-10-09)
+
+> **Executed (verified read-only 2026-10-12):** 073 was applied on 2026-10-09 (ledger `20261009133459`), and Relay was enabled afterwards (`relay_workspaces.enabled = true`). The text below is the original plan, kept as the record.
 
 > Status: prepared 2026-10-09. **Nothing here has been run against production.** Applying 073, scheduling the cron job, and enabling Relay each need a separate explicit approval from Mahmoud. Approving the plan or the PR is not approval to apply.
 

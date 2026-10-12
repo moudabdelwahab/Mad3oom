@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>الاستمرارية - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/continuity.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .toast {
+            position: fixed; inset-block-end: 1.5rem; inset-inline: 0; margin-inline: auto; width: fit-content; z-index: 300;
+            padding: 0.75rem 1.2rem; border-radius: 0.6rem; background: var(--color-success); color: #fff;
+            font-weight: 600; font-size: 0.85rem; max-width: 90vw; box-shadow: var(--shadow);
+        }
+        .toast--err { background: var(--color-danger); }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header ct-brand">
+            <img class="ct-brand-logo" src="/assets/images/continuity/continuity-logo-128.png"
+                 srcset="/assets/images/continuity/continuity-logo-64.png 1x, /assets/images/continuity/continuity-logo-128.png 2x"
+                 width="48" height="48" alt="Mad3oom Continuity">
+            <div>
+                <h1>الاستمرارية</h1>
+                <p class="ct-brand-name" lang="en" dir="ltr">Mad3oom Continuity</p>
+                <p>سجلات الاستمرارية: المتابعات والمشاكل المفتوحة اللي اتعملت من محادثات صندوق الرسائل.</p>
+            </div>
+        </header>
+
+        <div class="ct-banner" id="ctBanner" hidden role="status"></div>
+
+        <div class="ct-page" id="ctPage">
+            <section class="ct-panel ct-panel--list" aria-label="السجلات">
+                <div class="ct-panel-head">
+                    <label class="ct-select"><span class="ct-sr">الحالة</span>
+                        <select id="ctFilterStatus" aria-label="الحالة">
+                            <option value="active">النشطة</option>
+                            <option value="closed">المقفولة</option>
+                            <option value="all">الكل</option>
+                        </select></label>
+                    <label class="ct-select"><span class="ct-sr">المالك</span>
+                        <select id="ctFilterOwner" aria-label="المالك">
+                            <option value="">كل اللي أشوفه</option>
+                            <option value="me">سجلاتي</option>
+                            <option value="unassigned">بدون مالك</option>
+                        </select></label>
+                    <label class="ct-select"><span class="ct-sr">النوع</span>
+                        <select id="ctFilterCategory" aria-label="النوع"></select></label>
+                </div>
+                <ul class="ct-list" id="ctList"></ul>
+            </section>
+
+            <section class="ct-panel ct-panel--detail" aria-label="تفاصيل السجل">
+                <div class="ct-detail" id="ctDetail"><p class="ct-empty">اختار سجل من القائمة.</p></div>
+            </section>
+        </div>
+
+        <section class="ct-panel" id="ctTrash" hidden aria-labelledby="ctTrashH" style="margin-top:1rem;">
+            <div class="ct-detail">
+                <div class="ct-section-head"><h3 id="ctTrashH">المحذوفات <span id="ctTrashCount"></span></h3>
+                    <button type="button" class="btn btn-danger ct-btn-sm" id="ctPurgeAll" hidden>تفريغ الكل</button></div>
+                <p class="ct-muted">الرسائل اللي اتشالت من السجلات. «استرجاع» يرجّعها لسجلها، والمسح النهائي لحساب مالك المنصة بس.</p>
+                <div id="ctTrashBody"></div>
+            </div>
+        </section>
+
+        <section class="ct-panel" id="ctPolicies" hidden aria-labelledby="ctPoliciesH" style="margin-top:1rem;">
+            <div class="ct-detail">
+                <h3 id="ctPoliciesH">إعدادات الاستمرارية</h3>
+                <p class="ct-muted">قراءة فقط. التذكيرات والتصعيد والتسليم وغيرها مطفأة، وكل واحدة لا تُفعَّل إلا بعد تثبيت كودها وبقرار منفصل.</p>
+                <div id="ctPoliciesBody"></div>
+            </div>
+        </section>
+
+        <section class="ct-panel" id="ctAssigners" hidden aria-labelledby="ctAssignersH" style="margin-top:1rem;">
+            <div class="ct-detail">
+                <h3 id="ctAssignersH">صلاحية الإسناد</h3>
+                <p class="ct-muted">المشرفين يقدروا يسندوا السجلات لأي موظف. هنا تمنح نفس الصلاحية لموظفين بعينهم أو تسحبها، والمنح والسحب لحساب مالك المنصة بس. الصلاحية دي ما بتديش رؤية سجلات أو محادثات زيادة.</p>
+                <div id="ctAssignersBody"></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="/assets/js/continuity/continuity-page.js"></script>
+</body>
+</html>

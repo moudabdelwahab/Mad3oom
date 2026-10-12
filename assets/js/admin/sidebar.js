@@ -1,4 +1,5 @@
 import { supabase } from '/api-config.js';
+import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
 
 export function initSidebar() {
     const sidebarContainer = document.getElementById('sidebar-container');
@@ -67,26 +68,35 @@ function setupSidebarLogic() {
                 return;
             }
 
-            list.innerHTML = notifications.map(n => `
-                <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" style="padding: 12px 16px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.2s; ${n.is_read ? '' : 'background: rgba(0, 119, 204, 0.05);'}">
-                    <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text);">${n.title}</div>
-                    <div style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;">${n.message}</div>
-                    <div style="font-size: 0.7rem; color: #999; margin-top: 6px;">${new Date(n.created_at).toLocaleString('ar-EG')}</div>
-                </div>
-            `).join('');
-
-            list.querySelectorAll('.notification-item').forEach(item => {
+            // محتوى الإشعار غير موثوق (notification-safety.js): نص فقط، بلا innerHTML.
+            const textLine = (value, style) => {
+                const el = document.createElement('div');
+                el.style.cssText = style;
+                el.textContent = value == null ? '' : String(value);
+                return el;
+            };
+            list.replaceChildren(...notifications.map(n => {
+                const item = document.createElement('div');
+                item.className = `notification-item${n.is_read ? '' : ' unread'}`;
+                item.style.cssText = 'padding: 12px 16px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background 0.2s;'
+                    + (n.is_read ? '' : ' background: rgba(0, 119, 204, 0.05);');
+                item.append(
+                    textLine(n.title, 'font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text);'),
+                    textLine(n.message, 'font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;'),
+                    textLine(new Date(n.created_at).toLocaleString('ar-EG'), 'font-size: 0.7rem; color: #999; margin-top: 6px;')
+                );
                 item.addEventListener('click', async () => {
-                    const id = item.dataset.id;
-                    await markAsRead(id);
-                    const notification = notifications.find(n => n.id == id);
-                    if (notification && notification.link) {
-                        window.location.href = notification.link;
+                    await markAsRead(n.id);
+                    // رابط على نفس الأصل فقط؛ أي مخطط أو نطاق آخر يُتجاهل.
+                    const href = safeNotificationHref(n.link, window.location.origin);
+                    if (href) {
+                        window.location.href = href;
                     } else {
                         loadNotifications();
                     }
                 });
-            });
+                return item;
+            }));
         } catch (err) {
             console.error('[Sidebar] Error loading notifications:', err);
             list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--color-danger); font-size: 0.85rem;">فشل تحميل الإشعارات</div>';
@@ -376,11 +386,14 @@ async function applySidebarPermissions() {
         showLink('inboxLink');
         // مساحة العمل تستضيف الصندوق والتذاكر وسجل العميل — نفس الجمهور.
         showLink('workspaceLink');
-        // Relay (073/074): نفس جمهور الصندوق، ويظهر فقط لو Relay مفعّل والحساب عضو.
+        // Continuity (073/074): نفس جمهور الصندوق، ويظهر فقط لو Continuity مفعّل والحساب عضو.
         // قبل تطبيق 074 الدالة غير موجودة ⇒ يفضل مخفي. إخفاء للواجهة فقط؛ الخادم يقرر.
-        supabase.rpc('relay_my_access').then(({ data, error }) => {
-            if (!error && data?.member === true && data?.enabled === true) showLink('relayLink');
-        }, () => { /* يفضل مخفي */ });
+        // قبل 077 نفس الدالة باسمها القديم relay_my_access (انظر continuity-data.js).
+        supabase.rpc('continuity_my_access')
+            .then((res) => (['PGRST202', '42883', 'PGRST404'].includes(res.error?.code) ? supabase.rpc('relay_my_access') : res))
+            .then(({ data, error }) => {
+                if (!error && data?.member === true && data?.enabled === true) showLink('continuityLink');
+            }, () => { /* يفضل مخفي */ });
     }
 
     if (isMainAdmin || isAdmin || profile.whatsapp_enabled) {
