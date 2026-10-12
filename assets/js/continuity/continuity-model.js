@@ -1,5 +1,5 @@
 /**
- * Relay — منطق الواجهة النقي للمرحلة C (بلا DOM ولا شبكة).
+ * Continuity — منطق الواجهة النقي للمرحلة C (بلا DOM ولا شبكة).
  *
  * يخدم شاشتي المرجع: «اختيار الرسائل» (الفلترة والتحديد) و«معاينة النوع»
  * (اقتراح التصنيف)، ثم خطوة التفاصيل (الموعد الصريح، الحقول الناقصة، بناء الطلب).
@@ -11,7 +11,7 @@
  * قواعد §16: العنوان والملخص لا يُملآن أبدًا من نص الرسالة (M5)؛ الموعد يُقترح
  * فقط من تاريخ/وقت مكتوب صراحةً مع ذكر الرسالة؛ المالك لا يُقترح أبدًا.
  */
-import { RECORD_CATEGORIES, LIMITS, buildCreateRequest, validateCreateRequest } from './relay-contract.js';
+import { RECORD_CATEGORIES, LIMITS, buildCreateRequest, validateCreateRequest } from './continuity-contract.js';
 
 export const CATEGORY_META = Object.freeze({
     order_status: { label: 'حالة طلب', icon: 'box', kind: 'follow_up' },

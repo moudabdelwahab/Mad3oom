@@ -1,8 +1,8 @@
-/** أيقونات Relay (SVG داخلي بنفس أسلوب أيقونات الصندوق: stroke = currentColor). */
+/** أيقونات Continuity (SVG داخلي بنفس أسلوب أيقونات الصندوق: stroke = currentColor). */
 const svg = (body, extra = '') =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${body}</svg>`;
 
-export const RELAY_ICONS = Object.freeze({
+export const CONTINUITY_ICONS = Object.freeze({
     box: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>'),
     alert: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
     chat: svg('<path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>'),
@@ -23,8 +23,8 @@ export const RELAY_ICONS = Object.freeze({
     person: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
     headset: svg('<path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 14v3a2 2 0 0 1-2 2h-1v-6h3zM3 14v3a2 2 0 0 0 2 2h1v-6H3z"/>'),
     bot: svg('<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01"/>'),
-    relay: svg('<path d="M4 7h11a4 4 0 0 1 0 8H9"/><path d="M8 11l-4 4 4 4"/><path d="M20 4v6"/>'),
+    continuity: svg('<path d="M4 7h11a4 4 0 0 1 0 8H9"/><path d="M8 11l-4 4 4 4"/><path d="M20 4v6"/>'),
     lock: svg('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
 });
 
-export const SENDER_ICON = Object.freeze({ customer: RELAY_ICONS.person, agent: RELAY_ICONS.headset, bot: RELAY_ICONS.bot });
+export const SENDER_ICON = Object.freeze({ customer: CONTINUITY_ICONS.person, agent: CONTINUITY_ICONS.headset, bot: CONTINUITY_ICONS.bot });

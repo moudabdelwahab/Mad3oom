@@ -1,5 +1,5 @@
 /**
- * Relay — نافذة إنشاء سجل استمرارية من محادثة في الصندوق (المرحلة C).
+ * Continuity — نافذة إنشاء سجل استمرارية من محادثة في الصندوق (المرحلة C).
  *
  * ثلاث خطوات في نافذة واحدة:
  *   1) اختيار الرسائل   (شاشة المرجع الأولى: بحث وفلاتر وتحديد وشريط المختار)
@@ -9,18 +9,18 @@
  *                        أو إرفاق الرسائل بسجل موجود تراه.
  *
  * الصلاحيات هنا للعرض فقط: قائمة المالكين المقيدة وإخفاء الفريق يعكسان
- * relay_my_access، والخادم (074) هو اللي يرفض. لا شيء يُخزَّن في المتصفح، ونص
+ * continuity_my_access، والخادم (074) هو اللي يرفض. لا شيء يُخزَّن في المتصفح، ونص
  * الرسائل يُستخدم للاقتراح محليًا فقط (الخادم يلتقط المقتطف بنفسه من معرّف الرسالة).
  */
-import { LIMITS, sensitiveKinds } from './relay-contract.js';
+import { LIMITS, sensitiveKinds } from './continuity-contract.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, SENDER_LABEL, TIME_FILTERS, PARTICIPANT_FILTERS, TYPE_FILTERS,
     RECORD_CATEGORIES, filterMessages, toggleSelection, orderedSelection, selectability, messageSender,
     suggestCategory, suggestKind, detectDueCandidates, missingFields, ownerOptions, buildRequestFromDraft,
     titlePlaceholder,
-} from './relay-model.js';
-import { createRecord, listRecords, attachSources } from './relay-data.js';
-import { RELAY_ICONS, SENDER_ICON } from './relay-icons.js';
+} from './continuity-model.js';
+import { createRecord, listRecords, attachSources } from './continuity-data.js';
+import { CONTINUITY_ICONS, SENDER_ICON } from './continuity-icons.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -52,10 +52,10 @@ let st = null;
 function ensureDialog() {
     if (dialog) return dialog;
     dialog = document.createElement('dialog');
-    dialog.className = 'rl-dialog';
-    dialog.id = 'relayComposer';
+    dialog.className = 'ct-dialog';
+    dialog.id = 'continuityComposer';
     dialog.setAttribute('dir', 'rtl');
-    dialog.setAttribute('aria-labelledby', 'rlTitle');
+    dialog.setAttribute('aria-labelledby', 'ctTitle');
     document.body.appendChild(dialog);
     dialog.addEventListener('click', onClick);
     dialog.addEventListener('input', onInput);
@@ -66,9 +66,9 @@ function ensureDialog() {
 
 /**
  * يفتح النافذة على محادثة. messages = رسائل المحادثة كما يعرضها الصندوق.
- * access = relay_my_access؛ agents/teams من الصندوق؛ onDone(result) بعد النجاح.
+ * access = continuity_my_access؛ agents/teams من الصندوق؛ onDone(result) بعد النجاح.
  */
-export function openRelayComposer({ session, messages, customerName, customerContact, agents = [], teams = [], me, access, onDone }) {
+export function openContinuityComposer({ session, messages, customerName, customerContact, agents = [], teams = [], me, access, onDone }) {
     ensureDialog();
     const ordered = [...(messages || [])].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
     st = {
@@ -84,10 +84,10 @@ export function openRelayComposer({ session, messages, customerName, customerCon
     };
     render();
     dialog.showModal();
-    dialog.querySelector('#rlSearch')?.focus();
+    dialog.querySelector('#ctSearch')?.focus();
 }
 
-export function closeRelayComposer() { if (dialog?.open) dialog.close(); }
+export function closeContinuityComposer() { if (dialog?.open) dialog.close(); }
 
 // ═════════════════════════════════════════════════════════════
 // الرسم
@@ -99,18 +99,18 @@ function render() {
     // إزالة الحقل المركّز تطلق blur/change أثناء الاستبدال؛ القيم اتسجلت بالفعل من input،
     // فنتجاهل الأحداث دي بدل رسم متداخل يكسر الاستبدال.
     rendering = true;
-    try { dialog.innerHTML = `<div class="rl-sheet" data-step="${st.step}">${body}</div>`; } finally { rendering = false; }
+    try { dialog.innerHTML = `<div class="ct-sheet" data-step="${st.step}">${body}</div>`; } finally { rendering = false; }
 }
 
 function header(title, sub) {
-    return `<header class="rl-head">
-        <div class="rl-head-text"><h2 id="rlTitle">${esc(title)}</h2><p>${esc(sub)}</p></div>
-        <button type="button" class="rl-icon-btn" data-act="close" aria-label="إغلاق">${RELAY_ICONS.close}</button>
+    return `<header class="ct-head">
+        <div class="ct-head-text"><h2 id="ctTitle">${esc(title)}</h2><p>${esc(sub)}</p></div>
+        <button type="button" class="ct-icon-btn" data-act="close" aria-label="إغلاق">${CONTINUITY_ICONS.close}</button>
     </header>`;
 }
 
 function select(id, options, value, label) {
-    return `<label class="rl-select"><span class="rl-sr">${esc(label)}</span>
+    return `<label class="ct-select"><span class="ct-sr">${esc(label)}</span>
         <select id="${id}" aria-label="${esc(label)}">${Object.entries(options).map(([k, v]) =>
             `<option value="${esc(k)}" ${k === value ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
 }
@@ -124,58 +124,58 @@ function renderSelect() {
         const on = st.selected.includes(m.id);
         const { selectable, reason } = selectability(m);
         const text = String(m.message_text || '').trim() || reason;
-        return `<li><label class="rl-msg ${on ? 'is-on' : ''} ${selectable ? '' : 'is-off'}" data-msg="${esc(m.id)}">
-            <span class="rl-msg-icon rl-msg-icon--${kind}">${SENDER_ICON[kind]}</span>
-            <span class="rl-msg-text">${esc(text)}</span>
-            <span class="rl-badge rl-badge--${kind}">${esc(SENDER_LABEL[kind])}</span>
-            <span class="rl-msg-time"><b>${esc(shortTime(m.created_at))}</b><small>${esc(shortDate(m.created_at))}</small></span>
-            <input type="checkbox" class="rl-check" data-pick="${esc(m.id)}" ${on ? 'checked' : ''} ${selectable ? '' : 'disabled'}
+        return `<li><label class="ct-msg ${on ? 'is-on' : ''} ${selectable ? '' : 'is-off'}" data-msg="${esc(m.id)}">
+            <span class="ct-msg-icon ct-msg-icon--${kind}">${SENDER_ICON[kind]}</span>
+            <span class="ct-msg-text">${esc(text)}</span>
+            <span class="ct-badge ct-badge--${kind}">${esc(SENDER_LABEL[kind])}</span>
+            <span class="ct-msg-time"><b>${esc(shortTime(m.created_at))}</b><small>${esc(shortDate(m.created_at))}</small></span>
+            <input type="checkbox" class="ct-check" data-pick="${esc(m.id)}" ${on ? 'checked' : ''} ${selectable ? '' : 'disabled'}
                    aria-label="${esc(`${SENDER_LABEL[kind]} ${shortTime(m.created_at)}: ${text.slice(0, 80)}`)}">
         </label></li>`;
     }).join('');
     const chips = chosen.map((m) => {
         const kind = messageSender(m);
-        return `<li class="rl-chip">
-            <span class="rl-chip-icon">${SENDER_ICON[kind]}</span>
-            <span class="rl-chip-text"><span>${esc(String(m.message_text || '').slice(0, 60))}</span><small>${esc(shortTime(m.created_at))}</small></span>
-            <button type="button" class="rl-chip-x" data-unpick="${esc(m.id)}" aria-label="إزالة الرسالة من الاختيار">${RELAY_ICONS.close}</button>
+        return `<li class="ct-chip">
+            <span class="ct-chip-icon">${SENDER_ICON[kind]}</span>
+            <span class="ct-chip-text"><span>${esc(String(m.message_text || '').slice(0, 60))}</span><small>${esc(shortTime(m.created_at))}</small></span>
+            <button type="button" class="ct-chip-x" data-unpick="${esc(m.id)}" aria-label="إزالة الرسالة من الاختيار">${CONTINUITY_ICONS.close}</button>
         </li>`;
     }).join('');
-    return `${header('اختيار الرسائل', 'اختر الرسائل التي تريد إرفاقها بسجل Relay')}
-    <div class="rl-body">
-      <div class="rl-filters">
-        <label class="rl-search">${RELAY_ICONS.search}<span class="rl-sr">بحث في الرسائل</span>
-            <input type="search" id="rlSearch" placeholder="البحث في الرسائل..." value="${esc(st.filters.query)}" autocomplete="off"></label>
-        ${select('rlTime', TIME_FILTERS, st.filters.time, 'الوقت')}
-        ${select('rlParticipant', PARTICIPANT_FILTERS, st.filters.participant, 'المشاركون')}
-        ${select('rlType', TYPE_FILTERS, st.filters.type, 'نوع الرسالة')}
+    return `${header('اختيار الرسائل', 'اختر الرسائل التي تريد إرفاقها بسجل استمرارية')}
+    <div class="ct-body">
+      <div class="ct-filters">
+        <label class="ct-search">${CONTINUITY_ICONS.search}<span class="ct-sr">بحث في الرسائل</span>
+            <input type="search" id="ctSearch" placeholder="البحث في الرسائل..." value="${esc(st.filters.query)}" autocomplete="off"></label>
+        ${select('ctTime', TIME_FILTERS, st.filters.time, 'الوقت')}
+        ${select('ctParticipant', PARTICIPANT_FILTERS, st.filters.participant, 'المشاركون')}
+        ${select('ctType', TYPE_FILTERS, st.filters.type, 'نوع الرسالة')}
       </div>
-      <section class="rl-conv" aria-label="المحادثة">
-        <div class="rl-conv-head">
-          <span class="rl-avatar">${RELAY_ICONS.chat}</span>
-          <div class="rl-conv-who"><b>${esc(st.customerName || 'عميل')}</b>${st.customerContact ? `<small dir="ltr">${esc(st.customerContact)}</small>` : ''}</div>
-          <div class="rl-conv-meta"><span>${esc(countLabel(st.messages.length))}</span>${first ? `<span>${RELAY_ICONS.clock}${esc(ageLabel(first))}</span>` : ''}</div>
+      <section class="ct-conv" aria-label="المحادثة">
+        <div class="ct-conv-head">
+          <span class="ct-avatar">${CONTINUITY_ICONS.chat}</span>
+          <div class="ct-conv-who"><b>${esc(st.customerName || 'عميل')}</b>${st.customerContact ? `<small dir="ltr">${esc(st.customerContact)}</small>` : ''}</div>
+          <div class="ct-conv-meta"><span>${esc(countLabel(st.messages.length))}</span>${first ? `<span>${CONTINUITY_ICONS.clock}${esc(ageLabel(first))}</span>` : ''}</div>
         </div>
-        ${visible.length ? `<ul class="rl-msgs" id="rlMessages">${rows}</ul>`
-            : `<p class="rl-empty" id="rlNoMatch">مفيش رسائل مطابقة للبحث أو الفلاتر.</p>`}
+        ${visible.length ? `<ul class="ct-msgs" id="ctMessages">${rows}</ul>`
+            : `<p class="ct-empty" id="ctNoMatch">مفيش رسائل مطابقة للبحث أو الفلاتر.</p>`}
       </section>
-      <section class="rl-tray" aria-live="polite">
-        <h3 id="rlCount" tabindex="-1">${st.selected.length ? `تم اختيار <b>${st.selected.length}</b> ${st.selected.length === 1 ? 'رسالة' : 'رسائل'}` : 'لم يتم اختيار رسائل بعد'}</h3>
-        ${chips ? `<ul class="rl-chips">${chips}</ul>` : ''}
-        ${st.limitHit ? `<p class="rl-warn">الحد الأقصى ${LIMITS.sourcesPerRequest} رسالة في المرة.</p>` : ''}
+      <section class="ct-tray" aria-live="polite">
+        <h3 id="ctCount" tabindex="-1">${st.selected.length ? `تم اختيار <b>${st.selected.length}</b> ${st.selected.length === 1 ? 'رسالة' : 'رسائل'}` : 'لم يتم اختيار رسائل بعد'}</h3>
+        ${chips ? `<ul class="ct-chips">${chips}</ul>` : ''}
+        ${st.limitHit ? `<p class="ct-warn">الحد الأقصى ${LIMITS.sourcesPerRequest} رسالة في المرة.</p>` : ''}
       </section>
     </div>
-    <footer class="rl-actions">
-      <button type="button" class="btn btn-primary" data-act="to-type" id="rlAttach" ${st.selected.length ? '' : 'disabled'}>إرفاق الرسائل المحددة</button>
+    <footer class="ct-actions">
+      <button type="button" class="btn btn-primary" data-act="to-type" id="ctAttach" ${st.selected.length ? '' : 'disabled'}>إرفاق الرسائل المحددة</button>
       <button type="button" class="btn btn-secondary" data-act="close">إلغاء</button>
     </footer>`;
 }
 
 function bubble(m) {
     const kind = messageSender(m);
-    return `<li class="rl-bubble-row rl-bubble-row--${kind}">
-        <span class="rl-msg-icon rl-msg-icon--${kind}">${SENDER_ICON[kind]}</span>
-        <div class="rl-bubble"><div class="rl-bubble-meta"><b>${esc(kind === 'customer' ? (st.customerName || SENDER_LABEL.customer) : SENDER_LABEL[kind])}</b>
+    return `<li class="ct-bubble-row ct-bubble-row--${kind}">
+        <span class="ct-msg-icon ct-msg-icon--${kind}">${SENDER_ICON[kind]}</span>
+        <div class="ct-bubble"><div class="ct-bubble-meta"><b>${esc(kind === 'customer' ? (st.customerName || SENDER_LABEL.customer) : SENDER_LABEL[kind])}</b>
             <span>${esc(shortTime(m.created_at))}</span></div>
             <p>${esc(m.message_text)}</p></div>
     </li>`;
@@ -188,36 +188,36 @@ function renderType() {
     const grid = RECORD_CATEGORIES.map((c) => {
         const meta = CATEGORY_META[c];
         const on = st.category === c;
-        return `<button type="button" role="radio" aria-checked="${on}" class="rl-type ${on ? 'is-on' : ''}" data-category="${c}">
-            <span class="rl-type-icon">${RELAY_ICONS[meta.icon]}</span><span>${esc(meta.label)}</span></button>`;
+        return `<button type="button" role="radio" aria-checked="${on}" class="ct-type ${on ? 'is-on' : ''}" data-category="${c}">
+            <span class="ct-type-icon">${CONTINUITY_ICONS[meta.icon]}</span><span>${esc(meta.label)}</span></button>`;
     }).join('');
     return `${header('معاينة النوع', 'سيتم تحديد النوع المقترح تلقائيًا بناءً على الرسائل المختارة. يمكنك تعديل النوع إذا لزم الأمر.')}
-    <div class="rl-body">
-      <section class="rl-card">
+    <div class="ct-body">
+      <section class="ct-card">
         <h3>الرسائل المختارة (${chosen.length})</h3>
-        <ul class="rl-bubbles">${chosen.map(bubble).join('')}</ul>
+        <ul class="ct-bubbles">${chosen.map(bubble).join('')}</ul>
       </section>
-      <section class="rl-suggest ${sug ? '' : 'is-none'}" id="rlSuggest">
+      <section class="ct-suggest ${sug ? '' : 'is-none'}" id="ctSuggest">
         <h3>النوع المقترح</h3>
-        ${sug ? `<div class="rl-suggest-row">
-            <span class="rl-type-icon">${RELAY_ICONS[sugMeta.icon]}</span><b id="rlSuggested">${esc(sugMeta.label)}</b>
-            <span class="rl-reco">${RELAY_ICONS.sparkle}موصى به</span>
-            <button type="button" class="rl-icon-btn rl-expand" data-act="why" aria-expanded="${st.detailsOpen}" aria-controls="rlWhy" aria-label="سبب الاقتراح">${RELAY_ICONS.chevron}</button>
+        ${sug ? `<div class="ct-suggest-row">
+            <span class="ct-type-icon">${CONTINUITY_ICONS[sugMeta.icon]}</span><b id="ctSuggested">${esc(sugMeta.label)}</b>
+            <span class="ct-reco">${CONTINUITY_ICONS.sparkle}موصى به</span>
+            <button type="button" class="ct-icon-btn ct-expand" data-act="why" aria-expanded="${st.detailsOpen}" aria-controls="ctWhy" aria-label="سبب الاقتراح">${CONTINUITY_ICONS.chevron}</button>
           </div>
-          <p class="rl-muted">تم اقتراح هذا النوع بناءً على محتوى الرسائل المختارة.</p>
-          <p class="rl-muted rl-why" id="rlWhy" ${st.detailsOpen ? '' : 'hidden'}>اعتمد الاقتراح على: ${sug.matched.map((w) => `«${esc(w)}»`).join('، ')}. الاقتراح لا يُحفظ إلا لما تأكده.</p>`
-            : `<p class="rl-muted">مفيش نوع واضح من الرسائل دي. اختار النوع المناسب من القائمة.</p>`}
+          <p class="ct-muted">تم اقتراح هذا النوع بناءً على محتوى الرسائل المختارة.</p>
+          <p class="ct-muted ct-why" id="ctWhy" ${st.detailsOpen ? '' : 'hidden'}>اعتمد الاقتراح على: ${sug.matched.map((w) => `«${esc(w)}»`).join('، ')}. الاقتراح لا يُحفظ إلا لما تأكده.</p>`
+            : `<p class="ct-muted">مفيش نوع واضح من الرسائل دي. اختار النوع المناسب من القائمة.</p>`}
       </section>
       <section>
-        <h3 class="rl-h">اختيار نوع آخر</h3>
-        <div class="rl-types" role="radiogroup" aria-label="نوع السجل">${grid}</div>
+        <h3 class="ct-h">اختيار نوع آخر</h3>
+        <div class="ct-types" role="radiogroup" aria-label="نوع السجل">${grid}</div>
       </section>
-      <label class="rl-field"><span>ملاحظات إضافية (اختياري)</span>
-        <textarea id="rlNote" maxlength="${LIMITS.summary}" placeholder="أضف أي تفاصيل إضافية تساعد في تصنيف هذا السجل...">${esc(st.note)}</textarea>
-        <small class="rl-muted">اكتب بكلامك. الرسائل نفسها بتتحفظ كمصادر، فمتنسخش نصها هنا ولا تكتب بيانات حساسة.</small></label>
+      <label class="ct-field"><span>ملاحظات إضافية (اختياري)</span>
+        <textarea id="ctNote" maxlength="${LIMITS.summary}" placeholder="أضف أي تفاصيل إضافية تساعد في تصنيف هذا السجل...">${esc(st.note)}</textarea>
+        <small class="ct-muted">اكتب بكلامك. الرسائل نفسها بتتحفظ كمصادر، فمتنسخش نصها هنا ولا تكتب بيانات حساسة.</small></label>
     </div>
-    <footer class="rl-actions">
-      <button type="button" class="btn btn-primary" data-act="to-details" id="rlConfirmType" ${st.category ? '' : 'disabled'}>تأكيد النوع والمتابعة</button>
+    <footer class="ct-actions">
+      <button type="button" class="btn btn-primary" data-act="to-details" id="ctConfirmType" ${st.category ? '' : 'disabled'}>تأكيد النوع والمتابعة</button>
       <button type="button" class="btn btn-secondary" data-act="back">رجوع</button>
     </footer>`;
 }
@@ -228,67 +228,67 @@ function renderDetails() {
     const missing = st.mode === 'new' ? missingFields(d) : [];
     const owners = ownerOptions({ agents: st.agents, meId: st.me?.id, canAssign });
     const catLabel = CATEGORY_META[st.category]?.label;
-    const sensitive = st.sensitive.length ? `<div class="rl-alert" role="alert" id="rlSensitive">
+    const sensitive = st.sensitive.length ? `<div class="ct-alert" role="alert" id="ctSensitive">
         <p>الرسائل المختارة يبدو إن فيها بيانات حساسة (${esc(st.sensitive.join('، '))}). المقتطف هيتحفظ ويظهر لكل من يصل للمحادثة.</p>
-        <label class="rl-check-row"><input type="checkbox" id="rlAck" ${d.sensitiveAck ? 'checked' : ''}> أفهم ذلك وأريد المتابعة</label></div>` : '';
-    const modes = `<div class="rl-seg" role="radiogroup" aria-label="وجهة الرسائل">
+        <label class="ct-check-row"><input type="checkbox" id="ctAck" ${d.sensitiveAck ? 'checked' : ''}> أفهم ذلك وأريد المتابعة</label></div>` : '';
+    const modes = `<div class="ct-seg" role="radiogroup" aria-label="وجهة الرسائل">
         <button type="button" role="radio" aria-checked="${st.mode === 'new'}" class="${st.mode === 'new' ? 'is-on' : ''}" data-mode="new">سجل جديد</button>
         <button type="button" role="radio" aria-checked="${st.mode === 'existing'}" class="${st.mode === 'existing' ? 'is-on' : ''}" data-mode="existing">إرفاق بسجل موجود</button></div>`;
 
     let main;
     if (st.mode === 'existing') {
         const list = st.existing;
-        main = list === null ? '<p class="rl-muted">بيحمّل السجلات…</p>'
-            : list.length === 0 ? '<p class="rl-empty">مفيش سجلات نشطة تقدر توصلها.</p>'
-                : `<div class="rl-pick" role="radiogroup" aria-label="السجل">${list.map((r) => `
-                    <button type="button" role="radio" aria-checked="${st.existingId === r.id}" class="rl-pick-row ${st.existingId === r.id ? 'is-on' : ''}" data-record="${esc(r.id)}">
+        main = list === null ? '<p class="ct-muted">بيحمّل السجلات…</p>'
+            : list.length === 0 ? '<p class="ct-empty">مفيش سجلات نشطة تقدر توصلها.</p>'
+                : `<div class="ct-pick" role="radiogroup" aria-label="السجل">${list.map((r) => `
+                    <button type="button" role="radio" aria-checked="${st.existingId === r.id}" class="ct-pick-row ${st.existingId === r.id ? 'is-on' : ''}" data-record="${esc(r.id)}">
                       <b>${esc(r.title)}</b><small>${esc(KIND_META[r.kind]?.label || r.kind)}${r.category ? ` · ${esc(CATEGORY_META[r.category]?.label || '')}` : ''} · ${r.source_count} مصدر</small></button>`).join('')}</div>`;
     } else {
         const dueChips = st.dueCandidates.map((c, i) => {
             const m = st.messages.find((x) => x.id === c.messageId);
-            return `<li><button type="button" class="rl-due-chip" data-due="${i}" ${c.past ? 'disabled' : ''}>
-                ${RELAY_ICONS.calendar}<span>${esc(c.at.replace('T', ' '))}</span>
+            return `<li><button type="button" class="ct-due-chip" data-due="${i}" ${c.past ? 'disabled' : ''}>
+                ${CONTINUITY_ICONS.calendar}<span>${esc(c.at.replace('T', ' '))}</span>
                 <small>من رسالة ${esc(shortTime(m?.created_at))}: «${esc(c.literal)}»${c.timeStated ? '' : ' — الساعة مش مكتوبة'}${c.past ? ' — الموعد فات' : ''}</small></button></li>`;
         }).join('');
         main = `
-        <div class="rl-kinds" role="radiogroup" aria-label="نوع السجل">${Object.entries(KIND_META).map(([k, v]) => `
-            <button type="button" role="radio" aria-checked="${d.kind === k}" class="rl-kind ${d.kind === k ? 'is-on' : ''}" data-kind="${k}">
+        <div class="ct-kinds" role="radiogroup" aria-label="نوع السجل">${Object.entries(KIND_META).map(([k, v]) => `
+            <button type="button" role="radio" aria-checked="${d.kind === k}" class="ct-kind ${d.kind === k ? 'is-on' : ''}" data-kind="${k}">
               <b>${esc(v.label)}</b><small>${esc(v.hint)}</small></button>`).join('')}</div>
-        <label class="rl-field"><span>العنوان <i>مطلوب</i></span>
-          <input type="text" id="rlTitleInput" maxlength="${LIMITS.title}" value="${esc(d.title)}" placeholder="${esc(titlePlaceholder(d.kind, st.category))}"></label>
-        <label class="rl-field"><span>${d.kind === 'issue' ? 'وصف المشكلة <i>مطلوب</i>' : 'الملخص (اختياري)'}</span>
-          <textarea id="rlSummary" maxlength="${LIMITS.summary}" placeholder="بكلامك: إيه المطلوب ومين مستني إيه">${esc(d.summary)}</textarea></label>
-        <label class="rl-field"><span>الخطوة التالية ${d.kind === 'follow_up' ? '<i>مطلوب</i>' : '(اختياري)'}</span>
-          <input type="text" id="rlNext" maxlength="${LIMITS.nextAction}" value="${esc(d.nextAction)}" placeholder="مثال: الاتصال بالعميل لتأكيد موعد التسليم"></label>
-        <div class="rl-row">
-          <label class="rl-field"><span>الموعد ${d.kind === 'follow_up' ? '<i>مطلوب</i>' : '(اختياري)'}</span>
-            <input type="datetime-local" id="rlDue" value="${esc(d.dueAt)}"></label>
-          <label class="rl-field"><span>المنطقة الزمنية</span>
-            <select id="rlTz">${[...new Set([d.dueTz, ...TIMEZONES])].map((z) => `<option value="${esc(z)}" ${z === d.dueTz ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
+        <label class="ct-field"><span>العنوان <i>مطلوب</i></span>
+          <input type="text" id="ctTitleInput" maxlength="${LIMITS.title}" value="${esc(d.title)}" placeholder="${esc(titlePlaceholder(d.kind, st.category))}"></label>
+        <label class="ct-field"><span>${d.kind === 'issue' ? 'وصف المشكلة <i>مطلوب</i>' : 'الملخص (اختياري)'}</span>
+          <textarea id="ctSummary" maxlength="${LIMITS.summary}" placeholder="بكلامك: إيه المطلوب ومين مستني إيه">${esc(d.summary)}</textarea></label>
+        <label class="ct-field"><span>الخطوة التالية ${d.kind === 'follow_up' ? '<i>مطلوب</i>' : '(اختياري)'}</span>
+          <input type="text" id="ctNext" maxlength="${LIMITS.nextAction}" value="${esc(d.nextAction)}" placeholder="مثال: الاتصال بالعميل لتأكيد موعد التسليم"></label>
+        <div class="ct-row">
+          <label class="ct-field"><span>الموعد ${d.kind === 'follow_up' ? '<i>مطلوب</i>' : '(اختياري)'}</span>
+            <input type="datetime-local" id="ctDue" value="${esc(d.dueAt)}"></label>
+          <label class="ct-field"><span>المنطقة الزمنية</span>
+            <select id="ctTz">${[...new Set([d.dueTz, ...TIMEZONES])].map((z) => `<option value="${esc(z)}" ${z === d.dueTz ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
         </div>
-        ${dueChips ? `<div class="rl-dues"><span class="rl-muted">مواعيد مكتوبة في الرسائل:</span><ul>${dueChips}</ul></div>` : ''}
-        <div class="rl-row">
-          <label class="rl-field"><span>المالك</span>
-            <select id="rlOwner">${owners.map((o) => `<option value="${esc(o.value)}" ${o.value === (d.ownerId || '') ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>
-          ${canAssign && st.teams.length ? `<label class="rl-field"><span>الفريق (اختياري)</span>
-            <select id="rlTeam"><option value="">بدون فريق</option>${st.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === d.teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
-          <label class="rl-field"><span>الأولوية</span>
-            <select id="rlPriority">${Object.entries(PRIORITY_LABELS).map(([k, v]) => `<option value="${k}" ${Number(k) === Number(d.priority) ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        ${dueChips ? `<div class="ct-dues"><span class="ct-muted">مواعيد مكتوبة في الرسائل:</span><ul>${dueChips}</ul></div>` : ''}
+        <div class="ct-row">
+          <label class="ct-field"><span>المالك</span>
+            <select id="ctOwner">${owners.map((o) => `<option value="${esc(o.value)}" ${o.value === (d.ownerId || '') ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>
+          ${canAssign && st.teams.length ? `<label class="ct-field"><span>الفريق (اختياري)</span>
+            <select id="ctTeam"><option value="">بدون فريق</option>${st.teams.map((t) => `<option value="${esc(t.id)}" ${t.id === d.teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
+          <label class="ct-field"><span>الأولوية</span>
+            <select id="ctPriority">${Object.entries(PRIORITY_LABELS).map(([k, v]) => `<option value="${k}" ${Number(k) === Number(d.priority) ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
         </div>
-        ${canAssign ? '' : '<p class="rl-muted" id="rlOwnerHint">تقدر تخلي السجل باسمك أو من غير مالك. الإسناد لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}
-        ${missing.length ? `<div class="rl-missing" id="rlMissing"><b>ناقص قبل الإنشاء:</b> ${missing.map((m) => esc(m.label)).join('، ')}</div>` : ''}`;
+        ${canAssign ? '' : '<p class="ct-muted" id="ctOwnerHint">تقدر تخلي السجل باسمك أو من غير مالك. الإسناد لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}
+        ${missing.length ? `<div class="ct-missing" id="ctMissing"><b>ناقص قبل الإنشاء:</b> ${missing.map((m) => esc(m.label)).join('، ')}</div>` : ''}`;
     }
 
     const disabled = st.busy || (st.mode === 'new' ? missing.length > 0 : !st.existingId) || (st.sensitive.length && !d.sensitiveAck);
     return `${header('تفاصيل السجل', `${countLabel(st.selected.length)} · ${catLabel ? `النوع: ${catLabel}` : ''}`)}
-    <div class="rl-body">
+    <div class="ct-body">
       ${modes}
       ${main}
       ${sensitive}
-      <div class="rl-error" id="rlError" role="alert">${esc(st.error)}</div>
+      <div class="ct-error" id="ctError" role="alert">${esc(st.error)}</div>
     </div>
-    <footer class="rl-actions">
-      <button type="button" class="btn btn-primary" data-act="submit" id="rlSubmit" ${disabled ? 'disabled' : ''} aria-busy="${st.busy}">
+    <footer class="ct-actions">
+      <button type="button" class="btn btn-primary" data-act="submit" id="ctSubmit" ${disabled ? 'disabled' : ''} aria-busy="${st.busy}">
         ${st.busy ? 'جاري الحفظ…' : st.mode === 'new' ? 'إنشاء سجل استمرارية' : 'إرفاق بالسجل'}</button>
       <button type="button" class="btn btn-secondary" data-act="back" ${st.busy ? 'disabled' : ''}>رجوع</button>
     </footer>`;
@@ -315,20 +315,20 @@ function onInput(event) {
     const t = event.target;
     const d = st.draft;
     switch (t.id) {
-    case 'rlSearch': st.filters.query = t.value; return rerenderKeepingFocus();
-    case 'rlTime': st.filters.time = t.value; return rerenderKeepingFocus();
-    case 'rlParticipant': st.filters.participant = t.value; return rerenderKeepingFocus();
-    case 'rlType': st.filters.type = t.value; return rerenderKeepingFocus();
-    case 'rlNote': st.note = t.value; return undefined;
-    case 'rlTitleInput': d.title = t.value; break;
-    case 'rlSummary': d.summary = t.value; break;
-    case 'rlNext': d.nextAction = t.value; break;
-    case 'rlDue': d.dueAt = t.value; break;
-    case 'rlTz': d.dueTz = t.value; break;
-    case 'rlOwner': d.ownerId = t.value; break;
-    case 'rlTeam': d.teamId = t.value; break;
-    case 'rlPriority': d.priority = Number(t.value); break;
-    case 'rlAck': d.sensitiveAck = t.checked; break;
+    case 'ctSearch': st.filters.query = t.value; return rerenderKeepingFocus();
+    case 'ctTime': st.filters.time = t.value; return rerenderKeepingFocus();
+    case 'ctParticipant': st.filters.participant = t.value; return rerenderKeepingFocus();
+    case 'ctType': st.filters.type = t.value; return rerenderKeepingFocus();
+    case 'ctNote': st.note = t.value; return undefined;
+    case 'ctTitleInput': d.title = t.value; break;
+    case 'ctSummary': d.summary = t.value; break;
+    case 'ctNext': d.nextAction = t.value; break;
+    case 'ctDue': d.dueAt = t.value; break;
+    case 'ctTz': d.dueTz = t.value; break;
+    case 'ctOwner': d.ownerId = t.value; break;
+    case 'ctTeam': d.teamId = t.value; break;
+    case 'ctPriority': d.priority = Number(t.value); break;
+    case 'ctAck': d.sensitiveAck = t.checked; break;
     default:
         if (t.dataset.pick && event.type === 'change') {
             const m = st.messages.find((x) => x.id === t.dataset.pick);
@@ -339,7 +339,7 @@ function onInput(event) {
         }
         return undefined;
     }
-    if (['rlTitleInput', 'rlSummary', 'rlNext', 'rlDue', 'rlAck'].includes(t.id)) {
+    if (['ctTitleInput', 'ctSummary', 'ctNext', 'ctDue', 'ctAck'].includes(t.id)) {
         // تحديث الحقول الناقصة وحالة الزر بلا إعادة رسم: إعادة الرسم على change (عند مغادرة الحقل)
         // كانت بتسرق التركيز من الحقل التالي فيتكتب النص في الحقل الغلط.
         return refreshDetailsState();
@@ -349,13 +349,13 @@ function onInput(event) {
 
 function refreshDetailsState() {
     const missing = st.mode === 'new' ? missingFields(st.draft) : [];
-    const box = dialog.querySelector('#rlMissing');
+    const box = dialog.querySelector('#ctMissing');
     if (missing.length) {
         const html = `<b>ناقص قبل الإنشاء:</b> ${missing.map((m) => esc(m.label)).join('، ')}`;
         if (box) box.innerHTML = html;
         else rerenderKeepingFocus();
     } else if (box) box.remove();
-    const btn = dialog.querySelector('#rlSubmit');
+    const btn = dialog.querySelector('#ctSubmit');
     if (btn) btn.disabled = st.busy || (st.mode === 'new' ? missing.length > 0 : !st.existingId)
         || (st.sensitive.length > 0 && !st.draft.sensitiveAck);
 }
@@ -366,7 +366,7 @@ function goType() {
     if (!st.category) st.category = st.suggestion?.category ?? null;
     st.step = 'type';
     render();
-    dialog.querySelector('[role="radio"][aria-checked="true"], #rlNote')?.focus();
+    dialog.querySelector('[role="radio"][aria-checked="true"], #ctNote')?.focus();
 }
 
 function goDetails() {
@@ -382,7 +382,7 @@ function goDetails() {
     st.step = 'details';
     st.error = '';
     render();
-    dialog.querySelector('#rlTitleInput')?.focus();
+    dialog.querySelector('#ctTitleInput')?.focus();
 }
 
 async function loadExisting() {
@@ -463,7 +463,7 @@ function onClick(event) {
         st.selected = st.selected.filter((id) => id !== el.dataset.unpick);
         st.limitHit = false;
         render();
-        return dialog.querySelector('#rlCount')?.focus?.();
+        return dialog.querySelector('#ctCount')?.focus?.();
     }
     if (el.dataset.category) {
         st.category = el.dataset.category;
