@@ -106,9 +106,9 @@ CHAPTER = chapter(5, ("Mad3oom Relay", "Mad3oom Relay"),
 
     H2("Governance of evidence", "حوكمة الأدلة"),
     P("Relay copies a small piece of customer conversation into another place, so its design treats that copy carefully. "
-      "These rules are designed to be enforced in the database layer and are exercised by automated tests.",
-      "تنسخ Relay جزءًا صغيرًا من محادثة العميل إلى موضع آخر، ولذلك يعامل تصميمها هذه النسخة بحذر. وهذه القواعد مصمَّمة لتُفرَض في "
-      "طبقة قاعدة البيانات وتُجرى عليها اختبارات آلية."),
+      "These rules are designed to be enforced by the platform itself and are exercised by automated tests.",
+      "تنسخ Relay جزءًا صغيرًا من محادثة العميل إلى موضع آخر، ولذلك يعامل تصميمها هذه النسخة بحذر. وهذه القواعد مصمَّمة لتفرضها "
+      "المنصة نفسها وتُجرى عليها اختبارات آلية."),
     UL(("**Minimal capture.** Only the messages the user selects are stored, within a bounded size.",
         "**التقاط أدنى.** لا تُخزَّن إلا الرسائل التي يحدّدها المستخدم، وضمن حجم محدود."),
        ("**Access follows the conversation.** An excerpt is shown only to someone who has access to the record and who still has access to the "

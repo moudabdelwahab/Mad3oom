@@ -8,11 +8,11 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
      "إجراءً تاليًا واحدًا من مجموعة مغلقة، مع تسجيل سبب اختياره. وهو ليس روبوت دردشة عامَّ الغرض عن قصد."),
     [
     H2("What SIE is, and what it is not", "ما هو SIE وما ليس هو"),
-    P("SIE is a deterministic, rule- and data-driven engine written as dependency-free JavaScript modules. For the same input and the "
+    P("SIE is a deterministic, rule- and data-driven engine. For the same input and the "
       "same configuration it produces the same decision: time is supplied as an injectable parameter, there is no randomness, and ties are "
       "settled by an explicit rule. Its decision is one action from a closed vocabulary, chosen by ordered rules, and each rule "
       "records whether it matched and why.",
-      "SIE محرك حتمي قائم على القواعد والبيانات، مكتوب بوحدات JavaScript بلا اعتماديات خارجية. فمن المدخل نفسه والإعداد نفسه ينتج "
+      "SIE محرك حتمي قائم على القواعد والبيانات. فمن المدخل نفسه والإعداد نفسه ينتج "
       "القرار نفسه: الوقت معامل قابل للحقن، ولا عشوائية فيه، وتُحسم حالات التعادل بقاعدة صريحة. وقراره إجراء واحد من مفردات مغلقة، "
       "تختاره قواعد مرتَّبة، وتسجّل كل قاعدة هل انطبقت ولماذا."),
     P("Determinism and a closed action set make the engine explainable and testable. The trade-off is coverage: SIE handles the "
@@ -73,9 +73,9 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
          ("Decisions are rendered as messages in Arabic or English from templates, with a parity test between the two languages.",
           "تُصاغ القرارات رسائل بالعربية أو الإنجليزية من قوالب، مع اختبار تكافؤ بين اللغتين.")],
         [("**Knowledge retrieval and application**", "**استرجاع المعرفة وتطبيقها**"),
-         ("Static knowledge entries attach to answers for a small set of scenarios. A separate inverted-index step narrows scoring to "
+         ("Static knowledge entries attach to answers for a small set of scenarios. A separate candidate-retrieval step narrows scoring to "
           "relevant candidates and is tested to give the same results as a full scan.",
-          "مواد معرفية ثابتة تُرفق بالإجابات لمجموعة صغيرة من السيناريوهات. وخطوة منفصلة بفهرس معكوس تحصر التقييم في المرشحين المعنيين "
+          "مواد معرفية ثابتة تُرفق بالإجابات لمجموعة صغيرة من السيناريوهات. وخطوة منفصلة لاسترجاع المرشحين تحصر التقييم في المرشحين المعنيين "
           "وقد اختُبر أنها تعطي النتائج نفسها التي يعطيها المسح الكامل.")],
         [("**Action-oriented support workflows**", "**سير عمل الدعم الموجَّه بالإجراءات**"),
          ("The action layer is designed to be the single writer. One decision becomes one atomic transaction covering the message, the session state and, "
@@ -95,14 +95,14 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
         "إدراك المرفقات.")),
 
     H2("Why the layers matter", "لماذا تهم الطبقات"),
-    UL(("**Modularity.** Dependencies run one way: the engine's decision layers import nothing from channel or platform code, "
+    UL(("**Modularity.** Dependencies run one way: the engine's decision layers know nothing about channel or platform code, "
         "and tests check that vendor details stay inside each channel adapter. Scenarios and glossary are data behind provider interfaces, not code.",
-        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فطبقات القرار في المحرك لا تستورد شيئًا من شيفرة القنوات أو المنصة، "
+        "**النمطية.** تسير الاعتماديات في اتجاه واحد: فطبقات القرار في المحرك لا تعرف شيئًا عن شيفرة القنوات أو المنصة، "
         "وتتحقق اختبارات من بقاء تفاصيل كل مزوّد داخل محوِّل قناته. والسيناريوهات والمعجم بيانات خلف واجهات مزوّدين، وليست شيفرة."),
-       ("**Testability.** Decision layers are pure functions with an injectable clock, and storage sits behind narrow interfaces, so the suite runs without a database or network. At the time of writing "
-        "all 1,264 tests in the engine repository pass.",
-        "**قابلية الاختبار.** طبقات القرار دوال خالصة بساعة قابلة للحقن، والتخزين خلف واجهات ضيقة، فتعمل المجموعة دون قاعدة بيانات أو شبكة. وقت كتابة هذه الورقة تنجح "
-        "جميع اختبارات مستودع المحرك وعددها 1,264."),
+       ("**Testability.** Decision layers are pure functions with an injectable clock, and storage sits behind narrow interfaces, so the suite runs in isolation. At the time of writing "
+        "all 1,264 tests of the engine pass.",
+        "**قابلية الاختبار.** طبقات القرار دوال خالصة بساعة قابلة للحقن، والتخزين خلف واجهات ضيقة، فتعمل المجموعة بمعزل عن غيرها. وقت كتابة هذه الورقة تنجح "
+        "جميع اختبارات المحرك وعددها 1,264."),
        ("**Maintainability.** Each layer has its own tests and a narrow contract, writes are designed to go through a single layer, and "
         "decisions record the rules they evaluated, which helps trace a surprising reply to its cause.",
         "**قابلية الصيانة.** لكل طبقة اختباراتها وعقدها الضيق، والكتابة مصمَّمة لتمر عبر طبقة واحدة، وتسجّل القرارات القواعد التي فحصتها، مما يساعد على ردّ الرد المفاجئ إلى سببه."),
@@ -112,8 +112,8 @@ CHAPTER = chapter(6, ("SIE: Support Intelligence Engine", "SIE: محرك ذكا�
     H2("What has been verified, and what has not", "ما جرى التحقق منه وما لم يجرِ"),
     TABLE([("Evidence", "الدليل"), ("What it shows", "ما يبيّنه")], [
         [("Automated tests", "الاختبارات الآلية"),
-         ("1,264 tests pass in the engine repository (run on 9 October 2026). They verify specified behavior under controlled conditions. They are not accuracy measurements.",
-          "تنجح 1,264 اختبارًا في مستودع المحرك (جرى تشغيلها في 9 أكتوبر 2026). وهي تتحقق من سلوك محدد في ظروف مضبوطة، وليست قياسات للدقة.")],
+         ("1,264 tests of the engine pass (run on 9 October 2026). They verify specified behavior under controlled conditions. They are not accuracy measurements.",
+          "تنجح 1,264 اختبارًا للمحرك (جرى تشغيلها في 9 أكتوبر 2026). وهي تتحقق من سلوك محدد في ظروف مضبوطة، وليست قياسات للدقة.")],
         [("Scale benchmarks, synthetic", "قياسات التوسع، تركيبية"),
          ("On generated catalogs, computation time stayed in milliseconds up to 10,000 scenarios; resident memory and index build time, not computation, "
           "limit larger sizes. These are synthetic measurements, not production load results.",

@@ -103,12 +103,11 @@ CHAPTER = chapter(4, ("Mad3oom Workspace", "Mad3oom Workspace"),
         "إذا تعذّر الحفظ يواصل Workspace العمل بالتخطيط في الذاكرة، وتبقى كل صفحة صالحة للاستخدام بمفردها.")),
 
     H2("Engineering evidence and limits", "الأدلة الهندسية والحدود"),
-    TABLE([("Check (repository, 9 October 2026)", "الفحص (المستودع، 9 أكتوبر 2026)"), ("Result", "النتيجة")], [
+    TABLE([("Check (9 October 2026)", "الفحص (9 أكتوبر 2026)"), ("Result", "النتيجة")], [
         [("Layout engine unit tests", "اختبارات الوحدة لمحرك التخطيط"), ("28 of 28 pass", "نجح 28 من 28")],
-        [("Chromium render tests of the real page code on test doubles", "اختبارات عرض في Chromium لشيفرة الصفحة الفعلية على بدائل اختبارية"), ("22 of 22 pass", "نجح 22 من 22")],
-        [("Size of the whole workspace", "حجم Workspace كاملًا"), ("about 46 KB compressed, no new dependency", "نحو 46 كيلوبايت مضغوطًا، دون اعتماديات جديدة")],
-        [("Layout operations at the panel limit", "عمليات التخطيط عند الحد الأقصى للوحات"), ("under 1 ms each in Node", "أقل من 1 ميلي ثانية لكل عملية في Node")],
-        [("Re-render on tab switch, typical layout (6 tabs)", "إعادة الرسم عند تبديل التبويب، تخطيط نموذجي (6 تبويبات)"), ("median about 9 ms in headless Chromium", "وسيط نحو 9 ميلي ثانية في Chromium بلا واجهة")],
+        [("Browser render tests of the real page code on test doubles", "اختبارات عرض في المتصفح لشيفرة الصفحة الفعلية على بدائل اختبارية"), ("22 of 22 pass", "نجح 22 من 22")],
+        [("Layout operations at the panel limit", "عمليات التخطيط عند الحد الأقصى للوحات"), ("under 1 ms each", "أقل من 1 ميلي ثانية لكل عملية")],
+        [("Re-render on tab switch, typical layout (6 tabs)", "إعادة الرسم عند تبديل التبويب، تخطيط نموذجي (6 تبويبات)"), ("median about 9 ms", "وسيط نحو 9 ميلي ثانية")],
     ], widths=[62, 38], cls="compact",
         caption=("Development-environment checks. They show that the design works as specified; they say nothing about how Workspace performs for agents on production data.",
                  "فحوص في بيئة التطوير. تبيّن أن التصميم يعمل وفق المواصفة، ولا تقول شيئًا عن أداء Workspace للوكلاء على بيانات الإنتاج.")),

@@ -90,7 +90,7 @@ def fig_glance(lang):
     ch = ("Customer channels", "قنوات العملاء")
     core = ("Core support platform", "منصة الدعم الأساسية")
     lay = ("Three layers that make it one platform", "ثلاث طبقات تجعلها منصة واحدة")
-    fnd = ("Foundation", "الأساس التقني")
+    fnd = ("Platform services", "خدمات المنصة")
     return f"""<div class="dg">
 <div class="dg-band soft"><div class="dg-lab">{tx(ch, lang)}</div><div class="dg-row">
  {B(("Website chat", "محادثة الموقع"), keys="E")}
@@ -114,8 +114,8 @@ def fig_glance(lang):
 </div></div>
 <div class="dg-down">{ARROW_D}</div>
 <div class="dg-band soft"><div class="dg-lab">{tx(fnd, lang)}</div><div class="dg-row">
- {B(("Supabase", "Supabase"), ("Postgres, Auth, Edge Functions, Realtime", "قاعدة Postgres، والمصادقة، وEdge Functions، وRealtime"), keys="E")}
- {B(("Vercel", "Vercel"), ("Static web delivery", "نشر الواجهات الثابتة"), keys="E")}
+ {B(("Identity and access", "الهوية والصلاحيات"), ("sign-in, roles, permissions", "تسجيل الدخول والأدوار والأذونات"), keys="E")}
+ {B(("Data and business rules", "البيانات وقواعد العمل"), ("support records and their rules", "سجلات الدعم وقواعدها"), keys="E")}
  {B(("Integrations", "التكاملات"), ("MCP, OAuth 2.1, API tokens", "MCP وOAuth 2.1 ورموز API"), keys="E")}
 </div></div></div>"""
 
@@ -200,7 +200,7 @@ def fig_connectivity(lang):
 <div class="dg-down" style="margin-top:2mm">{ARROW_D}</div>
 <div class="col3">
  {col(("APIs and tools", "الواجهات والأدوات"), stack(
-    ch(("MCP server and client", "خادم وعميل MCP"), "E", ("OAuth 2.1 with PKCE", "OAuth 2.1 مع PKCE")),
+    ch(("MCP server and client", "خادم وعميل MCP"), "E", ("with OAuth 2.1", "عبر OAuth 2.1")),
     ch(("API tokens", "رموز API"), "E")))}
  {col(("Event-driven work", "العمل المدفوع بالأحداث"), stack(
     ch(("Background and scheduled jobs", "المهام الخلفية والمجدولة"), "E", ("notifications, email, SLA checks", "إشعارات وبريد وفحوص SLA")),
@@ -220,22 +220,19 @@ def fig_architecture(lang):
     B = lambda *a, **k: box(lang, *a, **k)
     down = f'<div class="dg-down">{ARROW_D}</div>'
     return f"""<div class="dg">
-{band(("Clients", "العملاء والأطراف"), row(
-    B(("Customer portal and chat widget", "بوابة العميل وأداة المحادثة"), ("HTML, CSS, ES modules", "HTML وCSS ووحدات ES"), "E"),
-    B(("Admin console and Workspace", "لوحة الإدارة وWorkspace"), ("no bundler, no framework", "بلا مُجمِّع ولا إطار عمل"), "E"),
+{band(("Clients and channels", "الواجهات والقنوات"), row(
+    B(("Customer portal and chat widget", "بوابة العميل وأداة المحادثة"), ("for customers", "للعملاء"), "E"),
+    B(("Agent console and Workspace", "لوحة الوكلاء وWorkspace"), ("for support teams", "لفرق الدعم"), "E"),
     B(("Messaging apps and external systems", "تطبيقات المراسلة والأنظمة الخارجية"), ("via adapters and APIs", "عبر المحوِّلات والواجهات"), "E")), "soft")}
 {down}
-{band(("Delivery", "النشر"), row(B(("Vercel", "Vercel"), ("Static pages and redirects", "صفحات ثابتة وإعادة توجيه"), "E")))}
+{band(("Platform services", "خدمات المنصة"), row(
+    B(("Identity and access", "الهوية والصلاحيات"), ("sign-in, roles, permissions", "تسجيل الدخول والأدوار والأذونات"), "E"),
+    B(("Support records", "سجلات الدعم"), ("tickets, conversations, customers, Relay", "التذاكر والمحادثات والعملاء وRelay"), "E", "hl"),
+    B(("Integrations", "التكاملات"), ("channel adapters, MCP, API tokens", "محوِّلات القنوات وMCP ورموز API"), "E"),
+    B(("Background work", "العمل في الخلفية"), ("notifications, scheduled jobs, live updates", "الإشعارات والمهام المجدولة والتحديثات الحية"), "E")))}
 {down}
-{band(("Backend services (Supabase)", "الخدمات الخلفية (Supabase)"), row(
-    B(("Auth", "المصادقة"), ("sign-in and authorization", "تسجيل الدخول والتفويض"), "E"),
-    B(("Postgres", "Postgres"), ("data, access rules and business logic", "البيانات وقواعد الوصول ومنطق الأعمال"), "E", "hl"),
-    B(("Edge Functions", "Edge Functions"), ("integrations, SIE runtime", "التكاملات وبيئة تشغيل SIE"), "E"),
-    B(("Realtime and scheduled jobs", "Realtime والمهام المجدولة"), ("live updates, background jobs", "تحديثات حية ومهام في الخلفية"), "E")))}
-{down}
-{band(("Intelligence and integrations", "الذكاء والتكاملات"), row(
-    B(("SIE engine", "محرك SIE"), ("deterministic ES modules, no npm dependencies", "وحدات ES حتمية، بلا اعتماديات npm"), "ED"),
-    B(("AI gateway", "بوابة الذكاء الاصطناعي"), ("multi-provider registry for AI features", "سجل متعدد المزوّدين لميزات الذكاء الاصطناعي"), "E"),
+{band(("Intelligence", "الذكاء"), row(
+    B(("SIE engine", "محرك SIE"), ("deterministic and explainable", "حتمي وقابل للتفسير"), "ED"),
     B(("External services", "خدمات خارجية"), ("messaging and email providers", "مزوّدو المراسلة والبريد الإلكتروني"), "E", "dash")), "soft")}
 </div>"""
 
@@ -251,7 +248,7 @@ def fig_roadmap(lang):
             ("Workspace (local layouts)", "Workspace (تخطيطات محلية)"),
             ("Relay core: records, sources, ownership", "نواة Relay: السجلات والمصادر والمسؤولية"),
             ("SIE engine; website and Telegram", "محرك SIE؛ الموقع وتيليجرام"),
-            ("CI, SQL and render tests", "التكامل المستمر واختبارات SQL والعرض")]),
+            ("Continuous integration and automated tests", "التكامل المستمر والاختبارات الآلية")]),
         "c2": (("2 · Current development", "2 · التطوير الحالي"), [
             ("SIE refinement and extension", "تحسين SIE وتوسيعه"),
             ("Relay trash and restore", "سلة محذوفات Relay واستعادتها"),

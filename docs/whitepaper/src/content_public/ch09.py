@@ -24,10 +24,10 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
       "across the platform, Workspace, Relay and SIE.",
       "تتعامل مدعوم مع الأمان بوصفه جزءًا من المعمارية لا طبقةً تُضاف في النهاية. وتهتدي قرارات التصميم في المنصة وWorkspace وRelay وSIE "
       "بأربعة مبادئ."),
-    UL(("**Decide access close to the data.** Access rules belong in the database, next to the records they protect, so that the interface "
-        "is not the only place where access is decided.",
-        "**تُقرَّر الصلاحية قرب البيانات.** موضع قواعد الوصول قاعدة البيانات، إلى جوار السجلات التي تحميها، فلا تكون الواجهة المكان الوحيد "
-        "الذي يُقرَّر فيه الوصول."),
+    UL(("**Decide access in the platform, not only in the interface.** Access is decided by the platform itself, so that what a screen "
+        "shows or hides is never the only control.",
+        "**تُقرَّر الصلاحية في المنصة لا في الواجهة وحدها.** تقرر المنصة نفسها من يصل إلى ماذا، فلا يكون ما تُظهره الشاشة أو تُخفيه "
+        "هو الضابط الوحيد."),
        ("**Grant the least privilege needed.** Use roles, teams and explicit permissions to limit what each person and each component can do.",
         "**أقل صلاحية لازمة.** تُستخدم الأدوار والفرق والأذونات الصريحة للحدّ مما يستطيع كل شخص وكل مكوّن فعله."),
        ("**Treat input as untrusted.** Handle customer text and requests that arrive from outside the platform as data to be checked, "
@@ -44,11 +44,10 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
       "تعني موجودًا في تلك الشيفرة ومغطًّى باختبارات حيث يُذكر ذلك، ولا تعني خضوعه لتدقيق خارجي ولا أن كل الحالات مغطاة."),
     TABLE([("Area", "المجال"), ("Design objective and safeguards", "الهدف التصميمي وتدابير الحماية"), ("Stage", "المرحلة")], [
         [("**Authentication and authorization**", "**المصادقة والتفويض**"),
-         ("Sign-in and account sessions are handled by a managed authentication service. Authorization is treated as an architectural "
-          "responsibility rather than a property of individual pages: access rules are designed to be enforced in the database layer, using "
-          "the caller's identity.",
-          "تتولى خدمة مصادقة مُدارة تسجيل الدخول وجلسات الحسابات. ويُعامَل التفويض بوصفه مسؤولية معمارية لا خاصية في الصفحات: فقواعد "
-          "الوصول مصمَّمة لتُفرض في طبقة قاعدة البيانات اعتمادًا على هوية المستدعي."),
+         ("Access to account data requires sign-in. Authorization is treated as an architectural responsibility rather than a property of "
+          "individual pages: access rules are designed to be enforced by the platform, based on the identity of the person making the request.",
+          "يتطلب الوصول إلى بيانات الحساب تسجيل الدخول. ويُعامَل التفويض بوصفه مسؤولية معمارية لا خاصية في الصفحات: فقواعد الوصول "
+          "مصمَّمة لتفرضها المنصة اعتمادًا على هوية صاحب الطلب."),
          ("{{E}}", "{{E}}")],
         [("**Least privilege and controlled permissions**", "**أقل الصلاحيات والأذونات المنضبطة**"),
          ("Platform staff, company roles and platform ownership are separate authority domains. Support agents work with the conversations "
@@ -66,13 +65,12 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
           "العميل بوصفه بيانات غير موثوقة."),
          ("{{E}}", "{{E}}")],
         [("**Secure integrations and credential protection**", "**التكاملات الآمنة وحماية بيانات الاعتماد**"),
-         ("Integrations use open standards: OAuth 2.1 with PKCE for application access, scoped tokens, and a page where users revoke connected "
-          "applications. API tokens are shown once, when they are created, and can be revoked. Secrets are supplied by the deployment "
-          "environment rather than written into the code. Requests that arrive from outside the platform are designed to be verified "
-          "by the component that receives them.",
-          "تعتمد التكاملات معايير مفتوحة: OAuth 2.1 مع PKCE لوصول التطبيقات، ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية "
-          "التطبيقات المتصلة. وتُعرض رموز API مرة واحدة عند إنشائها، ويمكن إبطالها. وتُوفَّر الأسرار من بيئة التشغيل بدل كتابتها في "
-          "الشيفرة. والطلبات الواردة من خارج المنصة مصمَّمة ليتحقق منها المكوّن الذي يستقبلها."),
+         ("Integrations use open standards: OAuth 2.1 for application access, scoped tokens, and a page where users revoke connected "
+          "applications. API tokens can be revoked. Credentials are kept out of the code. Requests that arrive from outside the platform "
+          "are designed to be verified before they are acted on.",
+          "تعتمد التكاملات معايير مفتوحة: OAuth 2.1 لوصول التطبيقات، ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية "
+          "التطبيقات المتصلة. ويمكن إبطال رموز API. وتُحفظ بيانات الاعتماد خارج الشيفرة. والطلبات الواردة من خارج المنصة مصمَّمة "
+          "ليُتحقق منها قبل التصرف بناءً عليها."),
          ("{{E}}", "{{E}}")],
         [("**Data minimization, retention and deletion**", "**تقليل البيانات والاحتفاظ والحذف**"),
          ("Relay stores only the excerpts that a user selects, hides them a defined period after a record closes and then redacts them "
@@ -82,12 +80,12 @@ CHAPTER = chapter(9, ("Security, Privacy and Governance", "الأمان والخ
           "سجلها التاريخي بالمعرّفات والتغييرات لا بمحتوى الرسائل. وتتيح عملية منشورة للأشخاص طلب حذف بياناتهم."),
          ("{{E}}", "{{E}}")],
         [("**Change management and security review**", "**إدارة التغيير والمراجعة الأمنية**"),
-         ("Database changes are designed to be delivered as versioned migrations that can be re-run safely. Automated checks run on changes "
-          "to the core platform and the engine, including unit and browser tests, database tests of access rules on a real Postgres "
-          "instance, and code scanning. Changes to production are designed to follow a documented approval step.",
-          "صُمّمت تغييرات قاعدة البيانات لتُسلَّم ترحيلاتٍ مرقَّمة يمكن إعادة تشغيلها بأمان. وتعمل فحوص آلية على تغييرات المنصة الأساسية "
-          "والمحرك، منها اختبارات وحدة واختبارات متصفح، واختبارات لقواعد الوصول على Postgres حقيقية، وفحص للشيفرة. وصُمّمت التغييرات "
-          "على الإنتاج لتمر بخطوة موافقة موثَّقة."),
+         ("Changes to data structures are designed to be versioned and safely re-runnable. Automated checks run on changes to the core "
+          "platform and the engine, including unit and browser tests, tests of access rules, and code scanning. Changes to production are "
+          "designed to follow a documented approval step.",
+          "صُمّمت التغييرات على هياكل البيانات لتكون مرقَّمة ويمكن إعادة تشغيلها بأمان. وتعمل فحوص آلية على تغييرات المنصة الأساسية "
+          "والمحرك، منها اختبارات وحدة واختبارات متصفح، واختبارات لقواعد الوصول، وفحص للشيفرة. وصُمّمت التغييرات على الإنتاج لتمر "
+          "بخطوة موافقة موثَّقة."),
          ("{{E}}", "{{E}}")],
     ], widths=[22, 62, 16], cls="compact long",
         caption=("Security areas, design objectives and the safeguards that can be traced to the project.",

@@ -25,7 +25,7 @@ CHAPTER = chapter(11, ("Product Roadmap", "خارطة طريق المنتج"),
         [("SIE", "SIE"), ("The nine-layer engine, the trust boundary, candidate retrieval, one trace per paid turn, and the website and Telegram channels.",
                            "المحرك ذو الطبقات التسع، وحد الثقة، واسترجاع المرشحين، وأثر واحد لكل دور مدفوع، وقناتا الموقع وتيليجرام.")],
         [("Integration", "التكامل"), ("The channel adapter layer, MCP with OAuth 2.1, and API tokens.", "طبقة محوِّلات القنوات، وMCP مع OAuth 2.1، ورموز API.")],
-        [("Engineering", "الهندسة"), ("Continuous integration, SQL access-rule tests on a real Postgres and browser tests.", "التكامل المستمر، واختبارات SQL لقواعد الوصول على Postgres حقيقية، واختبارات المتصفح.")],
+        [("Engineering", "الهندسة"), ("Continuous integration, automated tests of access rules and browser tests.", "التكامل المستمر، واختبارات آلية لقواعد الوصول، واختبارات المتصفح.")],
     ], widths=[22, 78], cls="compact"),
 
     H2("Current development and refinement", "التطوير الحالي والتحسين"),

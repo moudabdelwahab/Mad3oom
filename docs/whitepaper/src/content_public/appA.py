@@ -39,7 +39,7 @@ CHAPTER = appendix("A", ("Capability Status Register", "سجل حالة الإم
         R(("Integrations", "التكاملات"), ("WhatsApp module and its integration API (separate; outside the initial launch scope)", "وحدة واتساب وواجهة تكاملها (مستقلة؛ خارج نطاق الإطلاق الأولي)"), "D", "7"),
         R(("Integrations", "التكاملات"), ("WhatsApp, Messenger and API channel on the shared layer", "واتساب وماسنجر وقناة API على الطبقة المشتركة"), "P", "7"),
         R(("Integrations", "التكاملات"), ("Voice channels", "القنوات الصوتية"), "F", "7"),
-        R(("Architecture", "المعمارية"), ("Database-level access rules, continuous integration", "قواعد وصول على مستوى قاعدة البيانات والتكامل المستمر"), "E", "8, 9"),
+        R(("Architecture", "المعمارية"), ("Platform-enforced access rules, continuous integration", "قواعد وصول تفرضها المنصة والتكامل المستمر"), "E", "8, 9"),
         R(("Architecture", "المعمارية"), ("Conversation Core: a unified conversation layer for all channels", "نواة المحادثات: طبقة محادثات موحَّدة لكل القنوات"), "D", "8"),
         R(("Security", "الأمان"), ("Security design objectives and traceable safeguards, as described in Chapter 9; not independently assessed", "الأهداف التصميمية للأمان وتدابير الحماية التي يمكن تتبّعها، كما وردت في الفصل 9؛ دون تقييم مستقل"), "E", "9"),
     ], widths=[16, 56, 16, 12], cls="compact long",

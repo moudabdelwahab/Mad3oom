@@ -27,6 +27,7 @@ const FORBIDDEN = [
     [/SECURITY\s+DEFINER|\bpg_cron\b|\bpg_net\b/i, 'database mechanics'],
     [/\b0(6[4-9]|7[0-9])\b/, 'migration number'],
     [/\bwritten and tested locally\b/i, 'local-only state'],
+    [/\b(Supabase|Vercel|Postgres(QL)?|Deno|Edge Functions?|Realtime|PKCE|npm)\b|row-level security/i, 'technology stack or hosting detail'],
 ];
 
 test('public white paper sources carry no internal-state wording', () => {

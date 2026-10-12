@@ -51,10 +51,10 @@ CHAPTER = chapter(7, ("Integrations and Connectivity", "التكاملات وا�
           "أشكال المحوِّلات معرَّفة في طبقة القنوات للمحرك؛ ولا يوجد نقل متصل."),
          ("{{P}}", "{{P}}")],
         [("**MCP server and client; OAuth 2.1**", "**خادم وعميل MCP؛ OAuth 2.1**"),
-         ("Mad3oom can expose tools to MCP-compatible AI clients and connect to external MCP servers. Its authorization server uses PKCE, "
+         ("Mad3oom can expose tools to MCP-compatible AI clients and connect to external MCP servers. Its authorization uses "
           "scoped tokens and a page where users revoke connected apps.",
-          "يمكن لمدعوم إتاحة أدوات لعملاء الذكاء الاصطناعي المتوافقين مع MCP، والاتصال بخوادم MCP خارجية. ويستخدم خادم التفويض لديها PKCE، "
-          "ورموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
+          "يمكن لمدعوم إتاحة أدوات لعملاء الذكاء الاصطناعي المتوافقين مع MCP، والاتصال بخوادم MCP خارجية. ويستخدم التفويض لديها "
+          "رموزًا محدودة النطاق، وصفحة يسحب منها المستخدمون صلاحية التطبيقات المتصلة."),
          ("{{E}}", "{{E}}")],
         [("**API tokens**", "**رموز API**"),
          ("Authorized account administrators can issue scoped API tokens.",
