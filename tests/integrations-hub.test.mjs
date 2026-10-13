@@ -333,6 +333,9 @@ test('contract: shortText leaves no tag or angle bracket, even from nested or un
     }
     assert.equal(shortText('<b>Ali</b>\u0000 Hassan'), 'Ali Hassan');
     assert.equal(shortText('<p></p>'), null);
+    assert.equal(shortText('<scr<script>ipt>alert(1)</script>'), 'iptalert(1)');
+    assert.equal(shortText('a > b < c'), 'a b');
+    assert.equal(shortText('متجر <i>الورد</i>'), 'متجر الورد');
 });
 
 test('contract: connector capabilities match the provider catalog seeded by 088 (no misleading UI controls)', () => {

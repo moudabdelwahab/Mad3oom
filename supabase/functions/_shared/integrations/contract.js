@@ -76,13 +76,24 @@ export function recordShape({ recordType, externalId, displayRef, summary, exter
 }
 
 /**
- * نص قصير آمن للعرض (بلا وسوم ولا محارف تحكم). بعد نزع الوسوم يُحذف كل < و >
- * متبقٍّ، فمدخل مثل «<scr<script>ipt>» لا يترك وسمًا جزئيًا.
+ * يحذف كل ما بين < و > ولا يُخرج أيًّا منهما — مرور واحد على المحارف، فمدخل مثل
+ * «<scr<script>ipt>» أو وسم غير مغلق لا يترك وسمًا جزئيًا (بخلاف استبدال regex واحد).
  */
+function stripTags(str) {
+    let out = '';
+    let inTag = false;
+    for (const ch of str) {
+        if (ch === '<') inTag = true;
+        else if (ch === '>') inTag = false;
+        else if (!inTag) out += ch;
+    }
+    return out;
+}
+
+/** نص قصير آمن للعرض (بلا وسوم ولا محارف تحكم). */
 export function shortText(v, max = 80) {
     if (v === null || v === undefined) return null;
-    const s = String(v).replace(/<[^>]*>/g, '').replace(/[<>]/g, '')
-        .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const s = stripTags(String(v)).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
     return s ? s.slice(0, max) : null;
 }
 
