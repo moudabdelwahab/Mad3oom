@@ -1,20 +1,21 @@
 # Integrations Hub — production install note and deployment checklist (NOT EXECUTED)
 
-> **Nothing here has been run against production.** Applying 087, deploying the three Edge Functions, setting secrets, scheduling the worker, granting the entitlement and enabling any provider each need **separate explicit approval** from the product owner. Merging the PR is not that approval.
+> **Nothing here has been run against production.** Applying 088, deploying the three Edge Functions, setting secrets, scheduling the worker, granting the entitlement and enabling any provider each need **separate explicit approval** from the product owner. Merging the PR is not that approval.
 > Production on 2026-10-12: ledger head `086_company_staff`; no staging project or branch exists.
 
 ## 0. Order of operations
-1. Merge the PR (front end is safe before 087: `ihub_overview` missing → the section shows "for the company admin" state with no controls; the ticket panel stays hidden).
-2. Apply **087** (§2).
+1. Merge the PR (front end is safe before 088: `ihub_overview` missing → the section shows "for the company admin" state with no controls; the ticket panel stays hidden).
+2. Apply **088** (§2).
 3. Set Edge secrets and deploy the three functions (§3, §4).
 4. Schedule the worker (§5).
 5. **Verify each provider on a staging account** (§6). Only then:
 6. Grant `integrations_hub` to chosen plans and enable verified providers one at a time (§7).
 
 ## 1. Pre-apply checks (read-only)
-- `list_migrations`: no `087_integrations_hub`; `086_company_staff` present (087 depends on `company_staff_role()`).
+- `list_migrations`: no `088_integrations_hub`; `086_company_staff` present (088 depends on `company_staff_role()`).
+- 088 does **not** depend on `087_continuity_edit_permissions` (merged to `main` separately); either order works. This migration was written as 087 and renumbered after that merge.
 - No relation or function named `ihub_*`: `select count(*) from pg_class where relname like 'ihub\_%'` → 0; same for `pg_proc`.
-- Production's `integration_*` functions exist and their grants are recorded (087 must not touch them):
+- Production's `integration_*` functions exist and their grants are recorded (088 must not touch them):
   ```sql
   select p.oid::regprocedure, has_function_privilege('authenticated', p.oid, 'EXECUTE') auth,
          has_function_privilege('service_role', p.oid, 'EXECUTE') svc
@@ -22,8 +23,8 @@
    where n.nspname = 'public' and p.proname like 'integration\_%' order by 1;
   ```
 
-## 2. Apply 087
-- The file is idempotent and has no `begin/commit`; wrap it in `begin; … commit;` in the SQL editor (or `apply_migration` with name `087_integrations_hub`).
+## 2. Apply 088
+- The file is idempotent and has no `begin/commit`; wrap it in `begin; … commit;` in the SQL editor (or `apply_migration` with name `088_integrations_hub`).
 - The final block aborts the transaction unless: 11 tables with RLS, restrictive `gate_account_active`, preview trigger, no permissive policy, no table privilege for `authenticated/anon/service_role`; exactly 16 `ihub_*` functions executable by `authenticated`; `ihub_svc_*` only for `service_role`; internal helpers for nobody; fixed `search_path`.
 - It registers `feature_flags('integrations_hub')` (no plan grant), seeds 4 providers **disabled**, and schedules `ihub-retention-sweep` (`41 3 * * *`).
 
@@ -94,6 +95,6 @@ Kill switch: `update public.ihub_providers set enabled = false where key = '<pro
 ## 8. Rollback and recovery
 - **Front end only:** revert the dashboard files; RPCs become inert.
 - **Functions:** delete or redeploy previous versions; with them gone, webhooks return 404 and the dashboard shows errors on connect/test.
-- **Schema:** `migrations/_rollback/087_integrations_hub.down.sql` (one transaction). It refuses while connections, intake, audit rows or plan grants exist unless the session sets `integrations_hub.rollback_discard_data = 'on'`; it drops only `ihub_*` objects, the cron job and the `integrations_hub` feature flag (plan grants cascade). It never touches tickets, companies, `company_staff` or production's `integration_*` objects (tested). Roll back 087 **before** 086 if both are ever rolled back.
+- **Schema:** `migrations/_rollback/088_integrations_hub.down.sql` (one transaction). It refuses while connections, intake, audit rows or plan grants exist unless the session sets `integrations_hub.rollback_discard_data = 'on'`; it drops only `ihub_*` objects, the cron job and the `integrations_hub` feature flag (plan grants cascade). It never touches tickets, companies, `company_staff` or production's `integration_*` objects (tested). Roll back 088 **before** 086 if both are ever rolled back.
 - Partial apply: nothing to undo (single transaction; the verification block aborts it).
 - Key loss (`IHUB_ENC_KEY`): stored credentials cannot be decrypted (`not_configured`); companies disconnect and reconnect.

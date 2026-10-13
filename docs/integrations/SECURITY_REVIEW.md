@@ -1,6 +1,6 @@
 # Integrations Hub — security review
 
-> Scope: migration 087, `supabase/functions/_shared/integrations/*`, the three Edge Functions, the dashboard modules and the WordPress plugin. Reviewer: the implementing agent (self-review, not an independent audit). **Not deployed.**
+> Scope: migration 088, `supabase/functions/_shared/integrations/*`, the three Edge Functions, the dashboard modules and the WordPress plugin. Reviewer: the implementing agent (self-review, not an independent audit). **Not deployed.**
 
 ## 1. Pre-existing platform issues relevant to third-party access
 

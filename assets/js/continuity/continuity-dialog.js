@@ -114,3 +114,116 @@ export function continuityHandover({ targets = [], ...opts }) {
         note: { label: 'سياق للمستلم (اختياري)', maxLength: 4000 },
     });
 }
+
+/**
+ * سجل جديد من صفحة الاستمرارية (087): متابعة أو مشكلة بلا رسائل.
+ *   submit(draft) → null (نجح، تُغلق النافذة) | نص خطأ (يظهر داخلها وتظل مفتوحة)
+ * يرجع true لو اتعمل السجل، وnull لو اتلغت. الخادم يعيد كل الفحوص (P3: المالك لغيرك
+ * أو الفريق لصاحب صلاحية الإسناد فقط).
+ */
+export function continuityNewRecord({ owners = [], teams = [], canAssign = false, categories = [], priorities = {},
+    timezones = ['Africa/Cairo'], missing = () => [], submit }) {
+    if (open) open.finish(null);
+    const before = document.activeElement;
+    const dlg = document.createElement('dialog');
+    dlg.className = 'ct-dialog';
+    dlg.id = 'ctNewDialog';
+    dlg.setAttribute('dir', 'rtl');
+    dlg.setAttribute('aria-labelledby', 'ctNewTitle');
+    const opt = (v, l, sel = false) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(l)}</option>`;
+    dlg.innerHTML = `<form method="dialog" class="ct-sheet ct-new" novalidate>
+      <header class="ct-head">
+        <span class="ct-confirm-icon" aria-hidden="true">${CONTINUITY_ICONS.continuity}</span>
+        <div class="ct-head-text"><h2 id="ctNewTitle">سجل جديد</h2>
+          <p>من غير رسائل. تقدر ترفق رسائل بعدين من صندوق الرسائل («سجل استمرارية» ← «إرفاق بسجل موجود»).</p></div>
+        <button type="button" class="ct-icon-btn" data-dlg="cancel" aria-label="إغلاق">${CONTINUITY_ICONS.close}</button>
+      </header>
+      <div class="ct-body ct-detail-grid">
+        <fieldset class="ct-field" style="grid-column:1/-1"><legend>النوع</legend>
+          <label><input type="radio" name="kind" value="follow_up" checked> متابعة</label>
+          <label><input type="radio" name="kind" value="issue"> مشكلة</label></fieldset>
+        <label class="ct-field" style="grid-column:1/-1"><span>العنوان</span>
+          <input type="text" name="title" maxlength="160" required></label>
+        <label class="ct-field" style="grid-column:1/-1" data-kind="follow_up"><span>الملخص (اختياري)</span>
+          <textarea name="summary" maxlength="4000" rows="2"></textarea></label>
+        <label class="ct-field" style="grid-column:1/-1" data-kind="issue" hidden><span>وصف المشكلة</span>
+          <textarea name="problem" maxlength="4000" rows="2"></textarea></label>
+        <label class="ct-field" style="grid-column:1/-1" data-kind="issue" hidden><span>المعروف لحد دلوقتي (اختياري)</span>
+          <textarea name="knownFacts" maxlength="4000" rows="2"></textarea></label>
+        <label class="ct-field" style="grid-column:1/-1" data-kind="issue" hidden><span>اللي لسه مش معروف (اختياري)</span>
+          <textarea name="unknowns" maxlength="4000" rows="2"></textarea></label>
+        <label class="ct-field" style="grid-column:1/-1" data-kind="issue" hidden><span>تتحل إمتى (اختياري)</span>
+          <textarea name="resolutionCriteria" maxlength="4000" rows="2"></textarea></label>
+        <label class="ct-field" style="grid-column:1/-1"><span>الخطوة التالية <small data-kind="follow_up">(مطلوبة للمتابعة)</small></span>
+          <input type="text" name="nextAction" maxlength="1000"></label>
+        <label class="ct-field"><span>الموعد <small data-kind="follow_up">(مطلوب للمتابعة)</small></span>
+          <input type="datetime-local" name="dueAt"></label>
+        <label class="ct-field"><span>المنطقة الزمنية</span>
+          <select name="dueTz" dir="ltr">${timezones.map((z, i) => opt(z, z, i === 0)).join('')}</select></label>
+        <label class="ct-field"><span>الأولوية</span>
+          <select name="priority">${Object.entries(priorities).map(([k, v]) => opt(k, v, Number(k) === 3)).join('')}</select></label>
+        <label class="ct-field"><span>التصنيف</span>
+          <select name="category"><option value="">بدون</option>${categories.map((c) => opt(c.value, c.label)).join('')}</select></label>
+        <label class="ct-field"><span>المالك</span>
+          <select name="ownerId">${owners.map((o, i) => opt(o.value, o.label, i === 1 || (owners.length === 1))).join('')}</select></label>
+        ${canAssign && teams.length ? `<label class="ct-field"><span>الفريق</span>
+          <select name="teamId"><option value="">بدون فريق</option>${teams.map((t) => opt(t.id, t.name)).join('')}</select></label>` : ''}
+        <p class="ct-muted" id="ctNewMissing" style="grid-column:1/-1" aria-live="polite"></p>
+        <p class="ct-error" id="ctNewError" role="alert" style="grid-column:1/-1"></p>
+      </div>
+      <footer class="ct-actions">
+        <button type="submit" class="btn btn-primary" id="ctNewSave" disabled>إنشاء السجل</button>
+        <button type="button" class="btn btn-secondary" data-dlg="cancel">إلغاء</button>
+      </footer></form>`;
+    document.body.append(dlg);
+
+    return new Promise((resolve) => {
+        const form = dlg.querySelector('form');
+        const save = dlg.querySelector('#ctNewSave');
+        const errEl = dlg.querySelector('#ctNewError');
+        const missEl = dlg.querySelector('#ctNewMissing');
+        let busy = false;
+        const draft = () => {
+            const fd = new FormData(form);
+            const o = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, String(v)]));
+            return { ...o, priority: Number(o.priority) || 3 };
+        };
+        const refresh = () => {
+            const d = draft();
+            dlg.querySelectorAll('[data-kind]').forEach((el) => { el.hidden = el.dataset.kind !== d.kind; });
+            const m = missing(d);
+            missEl.textContent = m.length ? `ناقص: ${m.join('، ')}` : '';
+            save.disabled = busy || m.length > 0;
+        };
+        const finish = (value) => {
+            if (!open || open.dlg !== dlg) return;
+            open = null;
+            if (dlg.open) dlg.close();
+            dlg.remove();
+            if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+            resolve(value);
+        };
+        open = { dlg, finish };
+        form.addEventListener('input', () => { errEl.textContent = ''; refresh(); });
+        form.addEventListener('change', refresh);
+        dlg.addEventListener('click', (e) => { if (e.target.closest('[data-dlg="cancel"]') && !busy) finish(null); });
+        dlg.addEventListener('cancel', (e) => { e.preventDefault(); if (!busy) finish(null); });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (busy || missing(draft()).length) return;
+            busy = true;
+            save.disabled = true;
+            save.textContent = 'بيتعمل…';
+            errEl.textContent = '';
+            let failure;
+            try { failure = await submit(draft()); } catch (err) { failure = err?.message || 'حصل خطأ'; }
+            busy = false;
+            save.textContent = 'إنشاء السجل';
+            if (failure) { errEl.textContent = failure; refresh(); return; }
+            finish(true);
+        });
+        refresh();
+        dlg.showModal();
+        form.querySelector('[name="title"]').focus();
+    });
+}

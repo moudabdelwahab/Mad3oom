@@ -115,6 +115,8 @@ const rpcCalls = (page, name) => page.evaluate((n) => (window.__RPC_ARGS__ || []
 
 async function openPage(fx, { url, viewport, init = null, patchDouble = (d) => d, on = null } = {}) {
     const context = await (on || browser).newContext({ viewport: viewport || { width: 1400, height: 900 }, locale: 'ar-EG', timezoneId: 'Africa/Cairo' });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
     // أخطاء الخادم بشكل PostgREST الكامل (code + details) — البديل المشترك يرجّع رسالة فقط.
     const double = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8')
@@ -345,7 +347,9 @@ test('sensitive content needs an explicit acknowledgement before sending', { ski
 
 test('attach to an existing record calls continuity_attach_sources with its version', { skip: !chromiumPath }, async () => {
     const fx = fixtures();
-    fx.rpc.continuity_list = [{ id: REC, kind: 'follow_up', title: 'متابعة الشحنة', status: 'open', category: 'order_status', version: 4, source_count: 1 }];
+    // 087: الإرفاق لمالك السجل أو للمشرف — سجل زميل يراه المستخدم لا يُعرض هنا
+    fx.rpc.continuity_list = [{ id: REC, kind: 'follow_up', title: 'متابعة الشحنة', status: 'open', category: 'order_status', version: 4, source_count: 1, owner_id: ME },
+        { id: REC_OTHER, kind: 'follow_up', title: 'سجل زميل', status: 'open', category: null, version: 2, source_count: 1, owner_id: STAFF }];
     fx.rpc.continuity_attach_sources = { record: { id: REC, version: 5 }, sources: [], added: 2 };
     const { page, context } = await openComposer(fx);
     await page.locator('[data-msg="m5"]').click();
@@ -354,6 +358,7 @@ test('attach to an existing record calls continuity_attach_sources with its vers
     await page.locator('#ctConfirmType').click();
     await page.locator('[data-mode="existing"]').click();
     await page.waitForSelector(`[data-record="${REC}"]`);
+    assert.equal(await page.locator(`[data-record="${REC_OTHER}"]`).count(), 0, 'a colleague\'s record is not offered');
     assert.equal(await page.locator('#ctSubmit').isDisabled(), true);
     await page.locator(`[data-record="${REC}"]`).click();
     await page.locator('#ctSubmit').click();
@@ -836,22 +841,53 @@ test('branding: «الاستمرارية» and Mad3oom Continuity with the logo;
     await context.close();
 });
 
-test('policies panel: the platform owner sees the policy read-only after 078; hidden before 078 and for everyone else', { skip: !chromiumPath }, async () => {
+test('policies panel (087): the platform owner edits the policy; uninstalled capabilities stay disabled; hidden before 078 and for everyone else', { skip: !chromiumPath }, async () => {
     const ownerAccess = { member: true, enabled: true, supervisor: true, can_assign: true, owner: true, capabilities: OFF_CAPS };
     let fx = pageFixtures({ access: ownerAccess });
-    fx.rpc.continuity_get_policies = POLICY_RES;
+    fx.rpc.continuity_get_policies = { ...POLICY_RES, capabilities_installed: { ...POLICY_RES.capabilities_installed, attachments: true, handovers: true } };
+    fx.rpc.continuity_set_policies = (args) => ({ ...POLICY_RES, version: 2, policy: { ...POLICY_RES.policy, ...args.p_patch } });
     let r = await openPage(fx, { url: '/admin/continuity.html' });
     await r.page.waitForSelector('#ctPolicyCaps li');
     const caps = await r.page.locator('#ctPolicyCaps').innerText();
-    assert.equal((caps.match(/مطفأة · غير مثبتة بعد/g) || []).length, 6);
-    const timings = await r.page.locator('#ctPolicyTimings').innerText();
-    assert.match(timings, /تذكير قبل الموعد\s*ساعة/);
-    assert.match(timings, /تصعيد بعد التأخير\s*بعد 4 ساعات للمشرفين/);
-    assert.match(timings, /تسليم معلّق: تذكير\s*بعد ساعة/);
-    assert.match(timings, /تسليم معلّق: تصعيد\s*بعد 4 ساعات/);
-    // قراءة فقط: لا أي أداة تعديل، ولا نداء continuity_set_policies
-    assert.equal(await r.page.locator('#ctPolicies button, #ctPolicies input, #ctPolicies select').count(), 0);
+    assert.equal((caps.match(/غير مثبتة بعد/g) || []).length, 4, 'four capabilities have no code yet');
+    // غير المثبتة معطّلة؛ المثبتة قابلة للتفعيل
+    assert.equal(await r.page.locator('#ctPolicyCaps [name="reminders_enabled"]').isDisabled(), true);
+    assert.equal(await r.page.locator('#ctPolicyCaps [name="ai_enabled"]').isDisabled(), true);
+    assert.equal(await r.page.locator('#ctPolicyCaps [name="attachments_enabled"]').isDisabled(), false);
+    assert.equal(await r.page.locator('#ctPolicyTimings [name="reminder_offsets_minutes"]').inputValue(), '60');
+    assert.equal(await r.page.locator('#ctPolicyTimings [name="escalate_after_minutes"]').inputValue(), '240');
+    // بلا تغيير: لا نداء
+    await r.page.locator('#ctPolicySave').click();
+    await r.page.waitForSelector('#toast:not([hidden])');
     assert.deepEqual(await rpcCalls(r.page, 'continuity_set_policies'), []);
+    // قيمة غير رقمية: تُرفض قبل الإرسال
+    await r.page.locator('[name="stale_after_days"]').fill('سبعة');
+    await r.page.locator('#ctPolicySave').click();
+    assert.match(await r.page.locator('#ctPolicyError').innerText(), /مش رقم/);
+    assert.deepEqual(await rpcCalls(r.page, 'continuity_set_policies'), []);
+    // تفعيل المرفقات + تغيير التذكير: تأكيد ثم الفرق فقط بالنسخة
+    await r.page.locator('[name="stale_after_days"]').fill('7');
+    await r.page.locator('[name="attachments_enabled"]').check();
+    await r.page.locator('[name="reminder_offsets_minutes"]').fill('15, 60');
+    await r.page.locator('#ctPolicySave').click();
+    await r.page.waitForSelector('#ctConfirm');
+    assert.match(await r.page.locator('#ctConfirmMsg').innerText(), /المرفقات/);
+    await r.page.locator('#ctConfirmOk').click();
+    await r.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_set_policies'));
+    const [set] = await rpcCalls(r.page, 'continuity_set_policies');
+    assert.deepEqual(set, { p_patch: { attachments_enabled: true, reminder_offsets_minutes: [60, 15] }, p_expected_version: 1 });
+    await r.context.close();
+
+    // رفض الخادم (نسخة قديمة): رسالة واضحة، ولا «نجاح»
+    fx = pageFixtures({ access: ownerAccess });
+    fx.rpc.continuity_get_policies = POLICY_RES;
+    fx.rpcErrors = { continuity_set_policies: { code: '40001', message: 'x', details: '{"code":"version_conflict","current_version":2}' } };
+    r = await openPage(fx, { url: '/admin/continuity.html' });
+    await r.page.waitForSelector('#ctPolicyCaps li');
+    await r.page.locator('[name="stale_after_days"]').fill('10');
+    await r.page.locator('#ctPolicySave').click();
+    await r.page.waitForFunction(() => /حد غيّر الإعدادات/.test(document.getElementById('ctPolicyError')?.textContent || ''));
+    assert.equal(await r.page.locator('#toast').isHidden(), true, 'no fake success');
     await r.context.close();
 
     // قبل 078: لا مفتاح capabilities ⇒ اللوحة مخفية ولا نداء للسياسات
@@ -1531,6 +1567,175 @@ test('handover (081) at 390px: banner and incoming list fit', { skip: !chromiumP
         small: [...document.querySelectorAll('#ctHandover .btn, #ctHandovers .btn')].filter((b) => b.getBoundingClientRect().height < 44).length }));
     assert.ok(m.doc <= 0, JSON.stringify(m));
     assert.equal(m.small, 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+// ─────────────────────────────────────────────────────────────
+// 087: التعديل منفصل عن القراءة — الواجهة تعكس permissions من الخادم وتشرح السبب
+// ─────────────────────────────────────────────────────────────
+const PERMS_OWNER = { edit: true, sources: true, attachments: false, transition: true, assign: false, claim: false, release: true,
+    handover: false, purge: false, reason: null };
+const PERMS_VIEW = { edit: false, sources: false, attachments: false, transition: false, assign: false, claim: false, release: false,
+    handover: false, purge: false, reason: 'not_owner' };
+
+test('087 record page: a viewer who is not the owner reads only — inert form, no save, no source actions, the reason is shown', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures({ owner: STAFF });
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, permissions: PERMS_VIEW };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordTitle');
+    assert.match(await page.locator('#ctReadOnly').innerText(), /تقدر تشوف السجل بس.*هبة سمير/);
+    assert.equal(await page.locator('#ctEdit').getAttribute('inert'), '');
+    assert.equal(await page.locator('#ctSave').count(), 0);
+    assert.equal(await page.locator('[data-remove], [data-restore]').count(), 0);
+    assert.equal(await page.locator('#ctClaim').count(), 0, 'claim only for unassigned records');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('087 record page: an unassigned record offers «خد السجل لنفسك», which assigns to me with the team unchanged', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures({ owner: null });
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, permissions: { ...PERMS_VIEW, claim: true, reason: 'unassigned' } };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctClaim');
+    assert.match(await page.locator('#ctReadOnly').innerText(), /من غير مالك/);
+    await page.locator('#ctClaim').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_assign'));
+    assert.deepEqual(await rpcCalls(page, 'continuity_assign'), [{ p_record: REC, p_owner: ME, p_team: null, p_expected_version: 3 }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('087 record page: an issue shows and saves all four issue fields; a server refusal is explained and nothing claims success', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures();
+    const rec = { ...fx.rpc.continuity_get.record, kind: 'issue', problem: 'الطلب متأخر', known_facts: null, unknowns: null, resolution_criteria: null };
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, record: rec, permissions: PERMS_OWNER };
+    let r = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await r.page.waitForSelector('#ctRecordTitle');
+    for (const k of ['problem', 'known_facts', 'unknowns', 'resolution_criteria']) {
+        assert.equal(await r.page.locator(`#ctEdit [name="${k}"]`).count(), 1, k);
+    }
+    assert.equal(await r.page.locator('#ctEdit [name="summary"]').count(), 0);
+    await r.page.locator('#ctEdit [name="known_facts"]').fill('رقم الطلب 45879');
+    await r.page.locator('#ctEdit [name="resolution_criteria"]').fill('العميل يستلم');
+    await r.page.locator('#ctSave').click();
+    await r.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_update'));
+    assert.deepEqual((await rpcCalls(r.page, 'continuity_update'))[0].p_patch, { known_facts: 'رقم الطلب 45879', resolution_criteria: 'العميل يستلم' });
+    await r.context.close();
+
+    // الخادم يرفض (ملكية اتغيّرت في الخلفية): السبب ظاهر، ولا «اتحفظ»
+    const fx2 = pageFixtures();
+    fx2.rpc.continuity_get = { ...fx2.rpc.continuity_get, permissions: PERMS_OWNER };
+    fx2.rpcErrors = { continuity_update: { code: '42501', message: 'x', details: '{"code":"forbidden","field":"record","reason":"not_owner"}' } };
+    r = await openPage(fx2, { url: `/admin/continuity.html?record=${REC}` });
+    await r.page.waitForSelector('#ctRecordTitle');
+    await r.page.locator('#ctEdit [name="title"]').fill('محاولة');
+    await r.page.locator('#ctSave').click();
+    await r.page.waitForSelector('#toast.toast--err:not([hidden])');
+    assert.match(await r.page.locator('#toast').innerText(), /التعديل لمالك السجل أو للمشرف/);
+    await r.context.close();
+});
+
+test('087 new record: a follow-up without messages — required fields gate the button, a failure stays in the dialog, the retry reuses the key', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures();
+    fx.rpcErrors = { continuity_create: { code: '22023', message: 'x', details: '{"code":"validation_failed","field":"follow_up","reason":"next_action_and_due_required"}' } };
+    const { page, context, errors } = await openPage(fx, { url: '/admin/continuity.html' });
+    await page.waitForSelector('#ctList');
+    await page.locator('#ctNewRecord').click();
+    await page.waitForSelector('dialog#ctNewDialog');
+    const save = page.locator('#ctNewSave');
+    assert.equal(await save.isDisabled(), true);
+    assert.match(await page.locator('#ctNewMissing').innerText(), /العنوان.*الخطوة التالية.*الموعد/);
+    await page.locator('dialog#ctNewDialog [name="title"]').fill('اتصال بالعميل بخصوص الاسترجاع');
+    await page.locator('dialog#ctNewDialog [name="nextAction"]').fill('اتصال');
+    await page.locator('dialog#ctNewDialog [name="dueAt"]').fill('2030-01-15T10:00');
+    assert.equal(await save.isDisabled(), false);
+    // المالك الافتراضي: أنا؛ بلا صلاحية إسناد لا فريق ولا موظف تاني
+    assert.deepEqual(await page.locator('dialog#ctNewDialog [name="ownerId"] option').evaluateAll((o) => o.map((x) => x.value)), ['', ME]);
+    assert.equal(await page.locator('dialog#ctNewDialog [name="ownerId"]').inputValue(), ME);
+    assert.equal(await page.locator('dialog#ctNewDialog [name="teamId"]').count(), 0);
+    await save.click();
+    await page.waitForFunction(() => /خطوة تالية وموعد/.test(document.getElementById('ctNewError')?.textContent || ''));
+    assert.equal(await page.locator('dialog#ctNewDialog').count(), 1, 'dialog stays open on failure');
+    // إعادة المحاولة بنفس المسودة ⇒ نفس المفتاح
+    await page.evaluate(() => { window.__FIXTURES__.rpcErrors = {}; window.__FIXTURES__.rpc.continuity_create = (a) => ({ record: { id: 'cccccccc-0000-4000-8000-000000000009', version: 1 } }); });
+    await save.click();
+    await page.waitForFunction(() => !document.getElementById('ctNewDialog'));
+    const calls = await rpcCalls(page, 'continuity_create');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].p_request.idempotency_key, calls[1].p_request.idempotency_key);
+    const req = calls[1].p_request;
+    assert.deepEqual({ kind: req.kind, title: req.title, next: req.next_action, due: req.due, owner: req.owner_id, team: req.team_id, sources: req.sources, issue: req.issue },
+        { kind: 'follow_up', title: 'اتصال بالعميل بخصوص الاسترجاع', next: 'اتصال', due: { at: '2030-01-15T10:00:00', tz: 'Africa/Cairo' },
+          owner: ME, team: null, sources: [], issue: null });
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n, a]) => n === 'continuity_get' && a.p_record === 'cccccccc-0000-4000-8000-000000000009'));
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('087 new record: an issue sends the four issue fields and no summary', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures();
+    fx.rpc.continuity_create = () => ({ record: { id: REC, version: 1 } });
+    const { page, context } = await openPage(fx, { url: '/admin/continuity.html' });
+    await page.waitForSelector('#ctList');
+    await page.locator('#ctNewRecord').click();
+    await page.locator('dialog#ctNewDialog [value="issue"]').check();
+    assert.equal(await page.locator('dialog#ctNewDialog [name="summary"]').isHidden(), true);
+    await page.locator('dialog#ctNewDialog [name="title"]').fill('فاتورة مكررة');
+    assert.match(await page.locator('#ctNewMissing').innerText(), /وصف المشكلة/);
+    await page.locator('dialog#ctNewDialog [name="problem"]').fill('العميل اتخصم مرتين');
+    await page.locator('dialog#ctNewDialog [name="unknowns"]').fill('رقم العملية الثانية');
+    await page.locator('#ctNewSave').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_create'));
+    const [{ p_request: req }] = await rpcCalls(page, 'continuity_create');
+    assert.deepEqual([req.kind, req.summary, req.issue], ['issue', null,
+        { problem: 'العميل اتخصم مرتين', known_facts: null, unknowns: 'رقم العملية الثانية', resolution_criteria: null }]);
+    await context.close();
+});
+
+test('087 history: field names and from→to values, never free text; «عرض الأقدم» pages with p_before', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures();
+    // دالة الرد لا تمر عبر JSON: تُركَّب في الصفحة نفسها
+    const init = ([staff, me, created]) => {
+        const ev = (id, kind, payload) => ({ id, kind, actor_id: staff, client: 'native', payload, created_at: created });
+        window.__FIXTURES__.rpc.continuity_events_for = (args) => (args.p_before
+            ? [ev(1, 'created', {})]
+            : [ev(60, 'updated', { changed: ['title', 'due_at', 'due_tz'], fields: { title: 'HASHONLY' }, priority: { from: 3, to: 1 } }),
+                ev(59, 'assigned', { from_owner: staff, to_owner: me }),
+                ...Array.from({ length: 48 }, (_, i) => ev(58 - i, 'transitioned', { from: 'open', to: 'in_progress' }))]);
+    };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}`,
+        init: { content: `(${init})(${JSON.stringify([STAFF, ME, at(9, 0)])})` } });
+    await page.waitForSelector('#ctEvents li');
+    const first = await page.locator('[data-event="60"]').innerText();
+    assert.match(first, /العنوان، الموعد/);
+    assert.match(first, /الأولوية: عادية ← عاجلة/);
+    assert.ok(!first.includes('HASHONLY'));
+    assert.match(await page.locator('[data-event="59"]').innerText(), /هبة سمير ← أنت/);
+    assert.match(await page.locator('[data-event="58"]').innerText(), /مفتوح.*←/);
+    await page.locator('#ctEventsMore').click();
+    await page.waitForSelector('[data-event="1"]');
+    const calls = await rpcCalls(page, 'continuity_events_for');
+    assert.equal(calls.at(-1).p_before, 11);
+    assert.equal(await page.locator('#ctEventsMore').count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('087 mobile (390px): the new-record dialog and a read-only record fit without horizontal scroll, RTL', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures({ owner: STAFF });
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, permissions: PERMS_VIEW };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}`, viewport: { width: 390, height: 844 } });
+    await page.waitForSelector('#ctReadOnly');
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    assert.ok(await overflow() <= 0, 'record overflows');
+    await page.locator('#ctBackToList').click();
+    await page.locator('#ctNewRecord').click();
+    await page.waitForSelector('dialog#ctNewDialog');
+    assert.equal(await page.locator('dialog#ctNewDialog').getAttribute('dir'), 'rtl');
+    const box = await page.locator('dialog#ctNewDialog').boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= 390, JSON.stringify(box));
+    assert.ok(await overflow() <= 0, 'dialog overflows');
     assert.deepEqual(errors, []);
     await context.close();
 });

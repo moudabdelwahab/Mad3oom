@@ -678,7 +678,7 @@ body.customer-shell .modal-content.modal-lg {
     .report-table td { padding: .4rem .5rem; }
 }
 
-/* ==================== مركز التكاملات (087) ==================== */
+/* ==================== مركز التكاملات (088) ==================== */
 .ihub-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));

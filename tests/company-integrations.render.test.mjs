@@ -322,7 +322,7 @@ run('customer ticket: the external-context panel shows the allowlisted order sum
     await context.close();
 });
 
-run('customer ticket: no context (not authorised, or before 087) means no panel at all', async () => {
+run('customer ticket: no context (not authorised, or before 088) means no panel at all', async () => {
     const fx = fixtures({
         rpc: { ihub_ticket_context: null },
         tables: { tickets: [{ id: TICKET_ID, user_id: CUSTOMER_ID, title: 'سؤال', description: 'x', status: 'open', ticket_number: 78,

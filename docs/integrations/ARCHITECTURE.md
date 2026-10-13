@@ -30,7 +30,7 @@ pg_cron + pg_net ──(x-ihub-worker-secret)──▶ integrations-worker     �
 
 | Piece | Path |
 |---|---|
-| Schema + RPCs | `migrations/087_integrations_hub.sql` (rollback `_rollback/087_integrations_hub.down.sql`) |
+| Schema + RPCs | `migrations/088_integrations_hub.sql` (rollback `_rollback/088_integrations_hub.down.sql`) |
 | Connector core (runtime-neutral JS, tested in Node) | `supabase/functions/_shared/integrations/*.js` |
 | Edge entrypoints (thin Deno wrappers) | `supabase/functions/integrations-{api,inbound,worker}/index.ts` |
 | Dashboard | `assets/js/company/{company-integrations,integrations-model,integrations-data,ticket-integrations}.js` |

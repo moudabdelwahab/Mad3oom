@@ -5,7 +5,7 @@ import { readEnv, serviceRpc } from "../_shared/integrations/deno-deps.ts";
 // ============================================================================
 // integrations-worker — إعادة الأحداث الفاشلة وتجديد رموز سلة.
 // verify_jwt = false + ترويسة x-ihub-worker-secret (worker.js). يُجدول بخطوة
-// نشر موثقة (docs/integrations/PROD_INSTALL.md)، لا من 087.
+// نشر موثقة (docs/integrations/PROD_INSTALL.md)، لا من 088.
 // ============================================================================
 
 Deno.serve(async (req: Request) => {

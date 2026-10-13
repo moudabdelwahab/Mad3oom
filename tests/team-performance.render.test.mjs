@@ -108,6 +108,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 async function openPage(fx, { query = '' } = {}) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
     // القنوات اللحظية: نسجّل المعالجات ونبلّغ بالاشتراك، عشان الاختبار يقدر يطلق تغيير.
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8')

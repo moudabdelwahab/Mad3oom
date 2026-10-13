@@ -1,5 +1,5 @@
 -- ============================================================================
--- 087_integrations_hub.sql
+-- 088_integrations_hub.sql
 --   مركز التكاملات (WordPress · WooCommerce · Salla · Daftra) — الأساس المشترك.
 --   التصميم: docs/integrations/ARCHITECTURE.md · المصفوفة: docs/integrations/AUDIT_AND_CAPABILITY_MATRIX.md
 --
@@ -35,8 +35,9 @@
 --   • لا يمنح امتياز integrations_hub لأي باقة (قرار المالك).
 --   • لا يجدول عامل الدوال الطرفية (يحتاج سرًا؛ خطوة نشر موثقة).
 --
--- يعتمد على 086 (company_staff_role). قابل لإعادة التشغيل.
--- التراجع: migrations/_rollback/087_integrations_hub.down.sql
+-- يعتمد على 086 (company_staff_role). مستقل عن 087_continuity_edit_permissions (كُتب
+-- أولًا باسم 087 ونُقل إلى 088 بعد دمجه في main). قابل لإعادة التشغيل.
+-- التراجع: migrations/_rollback/088_integrations_hub.down.sql
 -- ============================================================================
 
 
@@ -51,12 +52,12 @@ begin
     'public.account_is_active()', 'public.preview_mode()', 'public.guard_preview_read_only()',
     'public.ticket_in_my_scope(uuid)', 'public._inbox_account_active(uuid)'] loop
     if to_regprocedure(f) is null then
-      raise exception '087 يتطلب % (طبّق 086 أولًا)', f;
+      raise exception '088 يتطلب % (طبّق 086 أولًا)', f;
     end if;
   end loop;
   if to_regclass('public.companies') is null or to_regclass('public.tickets') is null
      or to_regclass('public.profiles') is null then
-    raise exception '087 يتطلب companies و tickets و profiles';
+    raise exception '088 يتطلب companies و tickets و profiles';
   end if;
 end $$;
 
@@ -75,7 +76,7 @@ create table if not exists public.ihub_providers (
   updated_at     timestamptz not null default now()
 );
 comment on table public.ihub_providers is
-  '087: كتالوج مزوّدي التكامل. enabled=false افتراضيًا: لا ربط جديد قبل التحقق على بيئة تجريبية. '
+  '088: كتالوج مزوّدي التكامل. enabled=false افتراضيًا: لا ربط جديد قبل التحقق على بيئة تجريبية. '
   'capabilities: قدرة ← implemented_verified|implemented_unverified|partial|missing|blocked|not_applicable.';
 
 create table if not exists public.ihub_connections (
@@ -101,7 +102,7 @@ create table if not exists public.ihub_connections (
     check ((status = 'disconnected') = (disconnected_at is not null))
 );
 comment on table public.ihub_connections is
-  '087: ربط شركة بحساب خارجي. ربط حي واحد لكل (شركة، مزوّد)، وحساب خارجي واحد لا يُربط بشركتين. '
+  '088: ربط شركة بحساب خارجي. ربط حي واحد لكل (شركة، مزوّد)، وحساب خارجي واحد لا يُربط بشركتين. '
   'last_error_code رمز ثابت فقط — لا نص من المزوّد.';
 
 create unique index if not exists ihub_connections_one_live
@@ -121,7 +122,7 @@ create table if not exists public.ihub_credentials (
   rotated_at        timestamptz not null default now()
 );
 comment on table public.ihub_credentials is
-  '087: بيانات اعتماد مشفّرة (AES-256-GCM، AAD = معرّف الربط) في الدالة الطرفية. لا يقرؤها أي دور مباشرة.';
+  '088: بيانات اعتماد مشفّرة (AES-256-GCM، AAD = معرّف الربط) في الدالة الطرفية. لا يقرؤها أي دور مباشرة.';
 
 create table if not exists public.ihub_oauth_states (
   state_hash      text primary key check (state_hash ~ '^[0-9a-f]{64}$'),
@@ -138,7 +139,7 @@ create table if not exists public.ihub_oauth_states (
   completed_at    timestamptz
 );
 comment on table public.ihub_oauth_states is
-  '087: تدفق OAuth لسلة. state لمرة واحدة (sha256 فقط). الرجوع من سلة لا يفعّل شيئًا: نتيجته تُحجز '
+  '088: تدفق OAuth لسلة. state لمرة واحدة (sha256 فقط). الرجوع من سلة لا يفعّل شيئًا: نتيجته تُحجز '
   'مشفّرة (pending_cipher) حتى يكملها نفس المدير، من نفس التبويب (binding_hash)، وبرمز الإكمال الذي لا '
   'يصل إلا للمتصفح الذي وافق في سلة (completion_hash). فلا يستطيع مدير شركة أخرى ربط متجر ضحية بشركته '
   'بإرسال رابط تفويض له: الضحية لا تملك جلسته ولا بصمته، وهو لا يرى رمز الإكمال.';
@@ -162,7 +163,7 @@ create table if not exists public.ihub_webhook_events (
   processed_at       timestamptz
 );
 comment on table public.ihub_webhook_events is
-  '087: صندوق أحداث المزوّدين. لا حمولة ولا بيانات عميل: مفتاح تكرار (sha256) ومعرّف السجل وزمن المصدر فقط.';
+  '088: صندوق أحداث المزوّدين. لا حمولة ولا بيانات عميل: مفتاح تكرار (sha256) ومعرّف السجل وزمن المصدر فقط.';
 create unique index if not exists ihub_webhook_events_dedupe
   on public.ihub_webhook_events (connection_id, dedupe_key);
 create index if not exists ihub_webhook_events_due
@@ -185,7 +186,7 @@ create table if not exists public.ihub_external_records (
   created_at         timestamptz not null default now()
 );
 comment on table public.ihub_external_records is
-  '087: نسخة مختصرة لسجل خارجي مربوط بتذكرة. الحقول من قائمة سماح في الموصل، لا حمولة كاملة. '
+  '088: نسخة مختصرة لسجل خارجي مربوط بتذكرة. الحقول من قائمة سماح في الموصل، لا حمولة كاملة. '
   'المصدر الحقيقي يبقى المزوّد.';
 create unique index if not exists ihub_external_records_identity
   on public.ihub_external_records (connection_id, record_type, external_id);
@@ -220,7 +221,7 @@ create table if not exists public.ihub_customer_links (
   unlinked_by           uuid
 );
 comment on table public.ihub_customer_links is
-  '087: ربط صريح يقوم به مدير الشركة. لا دمج تلقائي بالاسم أو البريد.';
+  '088: ربط صريح يقوم به مدير الشركة. لا دمج تلقائي بالاسم أو البريد.';
 create unique index if not exists ihub_customer_links_external_active
   on public.ihub_customer_links (connection_id, external_customer_id) where unlinked_at is null;
 create unique index if not exists ihub_customer_links_customer_active
@@ -244,7 +245,7 @@ create table if not exists public.ihub_intake_requests (
   created_at          timestamptz not null default now()
 );
 comment on table public.ihub_intake_requests is
-  '087: طلبات دعم وصلت من إضافة ووردبريس موثّقة. ليست تذاكر: مدير الشركة يحوّلها لتذكرة باسم '
+  '088: طلبات دعم وصلت من إضافة ووردبريس موثّقة. ليست تذاكر: مدير الشركة يحوّلها لتذكرة باسم '
   'عميل موجود في شركته، أو يرفضها. external_order_ref تحقّقت منه الإضافة (طلب يخص مستخدم الموقع).';
 create index if not exists ihub_intake_company
   on public.ihub_intake_requests (company_id, status, created_at desc);
@@ -268,7 +269,7 @@ create table if not exists public.ihub_audit_events (
   created_at     timestamptz not null default now()
 );
 comment on table public.ihub_audit_events is
-  '087: سجل إلحاقي لعمليات التكامل الحساسة. بلا أسرار ولا حمولات. بلا مفاتيح خارجية عمدًا.';
+  '088: سجل إلحاقي لعمليات التكامل الحساسة. بلا أسرار ولا حمولات. بلا مفاتيح خارجية عمدًا.';
 create index if not exists ihub_audit_company
   on public.ihub_audit_events (company_id, created_at desc);
 
@@ -1765,7 +1766,7 @@ begin
     'ihub_ticket_links', 'ihub_customer_links', 'ihub_intake_requests',
     'ihub_request_nonces', 'ihub_audit_events'] loop
     if exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and permissive = 'PERMISSIVE') then
-      raise exception '087: سياسة سماح على %', t;
+      raise exception '088: سياسة سماح على %', t;
     end if;
     if has_table_privilege('authenticated', 'public.' || t, 'SELECT')
        or has_table_privilege('authenticated', 'public.' || t, 'INSERT')
@@ -1775,12 +1776,12 @@ begin
        or (exists (select 1 from pg_roles where rolname = 'service_role')
            and (has_table_privilege('service_role', 'public.' || t, 'SELECT')
                 or has_table_privilege('service_role', 'public.' || t, 'INSERT'))) then
-      raise exception '087: صلاحية مباشرة على %', t;
+      raise exception '088: صلاحية مباشرة على %', t;
     end if;
     if not exists (select 1 from pg_trigger where tgrelid = ('public.' || t)::regclass and tgname = 'trg_preview_read_only')
        or not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t
                        and policyname = 'gate_account_active' and permissive = 'RESTRICTIVE') then
-      raise exception '087: % بلا اتفاقيات 041/042', t;
+      raise exception '088: % بلا اتفاقيات 041/042', t;
     end if;
   end loop;
 
@@ -1789,20 +1790,20 @@ begin
             where n.nspname = 'public'
               and (p.proname like 'ihub\_%' or p.proname like '\_ihub\_%') loop
     if has_function_privilege('anon', fn.oid, 'EXECUTE') then
-      raise exception '087: دالة مكشوفة لـanon: %', fn.sig;
+      raise exception '088: دالة مكشوفة لـanon: %', fn.sig;
     end if;
     if fn.proname like 'ihub\_svc\_%' and has_function_privilege('authenticated', fn.oid, 'EXECUTE') then
-      raise exception '087: دالة خادم مكشوفة لـauthenticated: %', fn.sig;
+      raise exception '088: دالة خادم مكشوفة لـauthenticated: %', fn.sig;
     end if;
     if (fn.proname like '\_ihub\_%' or fn.proname = 'ihub_retention_sweep')
        and (has_function_privilege('authenticated', fn.oid, 'EXECUTE')
             or (exists (select 1 from pg_roles where rolname = 'service_role')
                 and has_function_privilege('service_role', fn.oid, 'EXECUTE'))) then
-      raise exception '087: دالة داخلية مكشوفة: %', fn.sig;
+      raise exception '088: دالة داخلية مكشوفة: %', fn.sig;
     end if;
     if fn.proname not like 'ihub\_svc\_%' and exists (select 1 from pg_roles where rolname = 'service_role')
        and has_function_privilege('service_role', fn.oid, 'EXECUTE') then
-      raise exception '087: دالة مستخدم ممنوحة لـservice_role: %', fn.sig;
+      raise exception '088: دالة مستخدم ممنوحة لـservice_role: %', fn.sig;
     end if;
   end loop;
 
@@ -1810,18 +1811,18 @@ begin
    where n.nspname = 'public' and p.proname like 'ihub\_%'
      and has_function_privilege('authenticated', p.oid, 'EXECUTE');
   if v_user_count <> 16 then
-    raise exception '087: عدد دوال authenticated = % (المتوقع 16)', v_user_count;
+    raise exception '088: عدد دوال authenticated = % (المتوقع 16)', v_user_count;
   end if;
 
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
               where n.nspname = 'public'
                 and (p.proname like 'ihub\_%' or p.proname like '\_ihub\_%')
                 and p.prosecdef and not coalesce(p.proconfig::text like '%search_path=public%', false)) then
-    raise exception '087: دالة SECURITY DEFINER بلا search_path ثابت';
+    raise exception '088: دالة SECURITY DEFINER بلا search_path ثابت';
   end if;
 
   if exists (select 1 from public.ihub_providers where enabled) then
-    raise notice '087: تنبيه — يوجد مزوّد مفعّل (لم يغيّره هذا الترحيل)';
+    raise notice '088: تنبيه — يوجد مزوّد مفعّل (لم يغيّره هذا الترحيل)';
   end if;
-  raise notice '087: مركز التكاملات جاهز — كل المزوّدين مقفلون حتى التحقق، ولا باقة تشمل integrations_hub';
+  raise notice '088: مركز التكاملات جاهز — كل المزوّدين مقفلون حتى التحقق، ولا باقة تشمل integrations_hub';
 end $$;

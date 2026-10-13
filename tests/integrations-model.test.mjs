@@ -142,7 +142,7 @@ test('static: browser calls carry no company id, no service-role function, and s
     assert.doesNotMatch(src, /console\.(log|info)\(/);
     for (const m of read('assets/js/company/integrations-data.js').matchAll(/rpc\('([a-z_]+)'/g)) {
         assert.match(m[1], /^ihub_[a-z_]+$/);
-        assert.match(read('migrations/087_integrations_hub.sql'), new RegExp(`'public\\.${m[1]}\\(`), `${m[1]} is granted to authenticated in 087`);
+        assert.match(read('migrations/088_integrations_hub.sql'), new RegExp(`'public\\.${m[1]}\\(`), `${m[1]} is granted to authenticated in 088`);
     }
     // حقول المفاتيح من نوع password وبلا إكمال تلقائي
     assert.match(read('assets/js/company/company-integrations.js'), /'consumer_secret', 'Consumer secret', \{ type: 'password'/);

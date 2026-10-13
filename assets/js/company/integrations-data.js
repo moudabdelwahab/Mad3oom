@@ -49,7 +49,7 @@ export const linkCustomer = (connectionId, customerId, externalId) =>
     rpc('ihub_customer_link', { p_connection: connectionId, p_customer: customerId, p_external_customer_id: externalId });
 export const unlinkCustomer = (id) => rpc('ihub_customer_unlink', { p_link: id });
 
-/** سياق التذكرة: null لمن لا يحق له (P0002) أو قبل 087 — اللوحة لا تظهر. */
+/** سياق التذكرة: null لمن لا يحق له (P0002) أو قبل 088 — اللوحة لا تظهر. */
 export async function fetchTicketIntegrationContext(ticketId) {
     const r = await rpc('ihub_ticket_context', { p_ticket: ticketId });
     if (!r.ok) return { ok: true, data: null, error: null };

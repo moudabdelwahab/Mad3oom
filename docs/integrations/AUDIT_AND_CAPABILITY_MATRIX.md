@@ -27,7 +27,7 @@
 
 1. **No API creates a ticket for a company's customer from outside.** MCP `create_ticket` creates tickets owned by the token holder (path ① company↔Mad3oom). Using it from a website would route visitors' requests to **Mad3oom's** own support queue. → The WordPress form creates **intake requests** that a company admin converts into a ticket for an existing customer they choose (§4 of `ARCHITECTURE.md`). Direct ticket creation for non-account visitors is equivalent to decision D1-b (anonymous widget) and is **left to the product owner**.
 2. **Company staff cannot read customer tickets yet.** The ticket context panel therefore requires the same visibility as the ticket (`ticket_in_my_scope`) *and* a staff role ≥ the connection's `min_view_role`. Today that means the company owner only; it opens automatically when staff ticket access is added.
-3. **Name collision with production-only `integration_*` objects.** A first draft of 087 used `integration_` and its grant loop would have revoked access to the 13 live WhatsApp functions, and its rollback would have dropped them. Caught by a read-only query; the hub uses the `ihub_` prefix and the SQL test pins the old functions' definitions and grants.
+3. **Name collision with production-only `integration_*` objects.** A first draft of 088 used `integration_` and its grant loop would have revoked access to the 13 live WhatsApp functions, and its rollback would have dropped them. Caught by a read-only query; the hub uses the `ihub_` prefix and the SQL test pins the old functions' definitions and grants.
 4. **No staging.** Nothing can be verified against real providers in this session. Every provider capability is at best *implemented but unverified*.
 
 ## 2. Provider documentation actually verified

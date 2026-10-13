@@ -326,8 +326,8 @@ test('contract: every connector declares every operation; unsupported never runs
     }
 });
 
-test('contract: connector capabilities match the provider catalog seeded by 087 (no misleading UI controls)', () => {
-    const sql = read('migrations/087_integrations_hub.sql');
+test('contract: connector capabilities match the provider catalog seeded by 088 (no misleading UI controls)', () => {
+    const sql = read('migrations/088_integrations_hub.sql');
     const catalog = {};
     for (const m of sql.matchAll(/\('(wordpress|woocommerce|salla|daftra)', '[^']+', '[^']+', '[a-z_0-9]+', jsonb_build_object\(([\s\S]*?)\)\)/g)) {
         catalog[m[1]] = Object.fromEntries([...m[2].matchAll(/'([a-z_]+)', '([a-z_]+)'/g)].map((x) => [x[1], x[2]]));

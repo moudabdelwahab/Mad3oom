@@ -293,3 +293,11 @@ audio.ct-att-media { max-height: none; background: none; }
 .ct-brand--compact .ct-brand-logo { width: 32px; height: 32px; }
 .ct-brand--compact h1 { font-size: 1.25rem; margin: 0; }
 @media (max-width: 480px) { .ct-brand-logo { width: 40px; height: 40px; } }
+
+/* 087: سجل يراه المستخدم ولا يعدّله — النموذج للعرض والسبب ظاهر */
+.ct-readonly { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; justify-content: space-between; }
+#ctEdit[inert] { opacity: .75; }
+#ctEdit[inert] input, #ctEdit[inert] textarea, #ctEdit[inert] select { background: var(--color-bg-secondary, transparent); }
+.ct-new fieldset.ct-field { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.ct-new fieldset.ct-field legend { font-weight: 600; margin-bottom: .25rem; }
+#ctPolicyForm .ct-policy-list li { align-items: center; }

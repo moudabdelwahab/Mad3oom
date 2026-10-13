@@ -1,8 +1,8 @@
 -- ============================================================================
--- تراجع 087_integrations_hub
+-- تراجع 088_integrations_hub
 --
 -- يحذف مركز التكاملات كاملًا: الجداول الأحد عشر، والدوال، ومهمة الاحتفاظ في
--- pg_cron. لا كائن قائم قبل 087 يعتمد عليه: tickets و profiles و companies و
+-- pg_cron. لا كائن قائم قبل 088 يعتمد عليه: tickets و profiles و companies و
 -- company_staff (086) تبقى كما هي.
 --
 -- حماية: يرفض التنفيذ لو فيه أي ربط أو طلب دعم أو سجل تدقيق، إلا لو الجلسة
@@ -26,7 +26,7 @@ begin
           or (to_regclass('public.ihub_audit_events') is not null
               and exists (select 1 from public.ihub_audit_events))
           or exists (select 1 from public.plan_features where feature_key = 'integrations_hub')) then
-    raise exception 'تراجع 087: فيه روابط أو طلبات دعم أو سجل تدقيق أو باقة تشمل integrations_hub — اضبط integrations_hub.rollback_discard_data=on لو المقصود حذفها';
+    raise exception 'تراجع 088: فيه روابط أو طلبات دعم أو سجل تدقيق أو باقة تشمل integrations_hub — اضبط integrations_hub.rollback_discard_data=on لو المقصود حذفها';
   end if;
 end $$;
 
@@ -88,11 +88,11 @@ begin
                                      'ihub_external_records', 'ihub_ticket_links',
                                      'ihub_customer_links', 'ihub_intake_requests',
                                      'ihub_request_nonces', 'ihub_audit_events')) then
-    raise exception 'تراجع 087: بقيت كائنات';
+    raise exception 'تراجع 088: بقيت كائنات';
   end if;
   if exists (select 1 from pg_namespace where nspname = 'cron') then
     if exists (select 1 from cron.job where jobname = 'ihub-retention-sweep') then
-      raise exception 'تراجع 087: مهمة الاحتفاظ ما زالت مجدولة';
+      raise exception 'تراجع 088: مهمة الاحتفاظ ما زالت مجدولة';
     end if;
   end if;
 end $$;

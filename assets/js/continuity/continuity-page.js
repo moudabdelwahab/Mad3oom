@@ -19,17 +19,19 @@
  */
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
-import { describeSource, retentionDeadline, LIMITS } from './continuity-contract.js';
-import { continuityConfirm, continuityPrompt, continuityReopen, continuityHandover } from './continuity-dialog.js';
+import { describeSource, retentionDeadline, LIMITS, validatePolicyPatch } from './continuity-contract.js';
+import { continuityConfirm, continuityPrompt, continuityReopen, continuityHandover, continuityNewRecord } from './continuity-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
     standaloneRecordUrl, isRecordId,
     prepareAttachment, attachmentErrorText, attachmentView, ATTACHMENT_ACCEPT, ATTACHMENT_LIMITS_TEXT,
     HANDOVER_STATE_LABELS, HANDOVER_CANCEL_LABELS, handoverActions, handoverTargets, handoverErrorText,
+    recordPermissions, editNotice, editRefusalText, ISSUE_FIELDS, describeEvent, buildManualRequest, manualMissing, ownerOptions,
+    CAPABILITY_LABELS, POLICY_NUMBER_FIELDS, POLICY_BOOL_FIELDS, policyPatchFromForm,
 } from './continuity-model.js';
 import {
-    loadContinuityAccess, listRecords, getRecord, updateRecord, assignRecord, transitionRecord, loadEvents,
+    loadContinuityAccess, listRecords, getRecord, createRecord, updateRecord, assignRecord, transitionRecord, loadEvents, setPolicies,
     removeSource, restoreSource, listRemoved, purgeSource, purgeRemoved,
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
     removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
@@ -60,7 +62,10 @@ const state = {
     rec: null,
     // التسليم (081): تاريخ السجل المفتوح، والطلبات الواردة لي
     handovers: [], incoming: [],
+    // السجل (الأحداث): هل فيه أقدم من المعروض
+    eventsMore: false,
 };
+const EVENTS_PAGE = 50;
 const agentName = (id) => {
     if (!id) return 'بدون مالك';
     if (id === state.me?.id) return 'أنت';
@@ -134,6 +139,7 @@ async function openRecord(id, { push = true } = {}) {
             handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([])]);
         state.current = full;
         state.events = events || [];
+        state.eventsMore = state.events.length >= EVENTS_PAGE;
         state.handovers = Array.isArray(handovers) ? handovers : [];
     } catch (err) {
         state.current = null;
@@ -153,19 +159,21 @@ async function openRecord(id, { push = true } = {}) {
 }
 
 const isClosed = (status) => status === 'resolved' || status === 'cancelled';
+/** 087: ما يقدر المنادي يعمله كما قرره الخادم في هذه القراءة (قبل 087: من يرى يعدّل). */
+const perms = () => recordPermissions(state.current, { attachmentsOn: attachmentsOn() });
 
 /** mode: 'main' (مصادر السجل) أو 'removed' (المحذوفات). closed = السجل مقفول. */
-function sourceHtml(s, { mode = 'main', closed = false, version = null, recordId = null } = {}) {
+function sourceHtml(s, { mode = 'main', closed = false, version = null, recordId = null, canManageSources = true } = {}) {
     const d = describeSource(s);
     const data = `data-source="${esc(s.id)}"${version != null ? ` data-version="${esc(version)}"` : ''}${recordId ? ` data-record="${esc(recordId)}"` : ''}`;
     let actions = '';
     if (mode === 'main' && !state.access.trash) {
         // قبل 076: الحجب النهائي كما في 074 (المالك أو المنشئ أو المشرف).
         if (d.state === 'visible' && canRedactLegacy()) actions = `<button type="button" class="btn btn-secondary ct-btn-sm" data-redact="${esc(s.id)}">حذف المحتوى</button>`;
-    } else if (mode === 'main' && !closed) {
+    } else if (mode === 'main' && !closed && canManageSources) {
         actions = `<button type="button" class="btn btn-secondary ct-btn-sm" data-remove ${data}>إزالة</button>`;
     } else if (mode === 'removed') {
-        actions = `${closed ? '' : `<button type="button" class="btn btn-secondary ct-btn-sm" data-restore ${data}>استرجاع</button>`}
+        actions = `${closed || !canManageSources ? '' : `<button type="button" class="btn btn-secondary ct-btn-sm" data-restore ${data}>استرجاع</button>`}
             ${state.access.owner ? `<button type="button" class="btn btn-danger ct-btn-sm" data-purge ${data}>مسح نهائي</button>` : ''}`;
     }
     const head = `<div class="ct-source-head"><span>#${s.position}</span>
@@ -189,6 +197,28 @@ const canRedactLegacy = () => {
 };
 
 const eventLabel = (e) => EVENT_LABELS[e.kind === 'source_redacted' && e.payload?.purged ? 'source_purged' : e.kind] || e.kind;
+function eventHtml(e) {
+    const detail = describeEvent(e, { name: agentName });
+    return `<li data-event="${esc(e.id)}">${esc(fmt(e.created_at))} · ${esc(e.actor_id ? agentName(e.actor_id) : 'النظام')} ${esc(eventLabel(e))}${
+        detail ? ` <span class="ct-muted">(${esc(detail)})</span>` : ''}</li>`;
+}
+
+async function loadOlderEvents(r) {
+    const last = state.events[state.events.length - 1];
+    if (!last) return;
+    try {
+        const older = await loadEvents(r.id, last.id) || [];
+        state.events = [...state.events, ...older];
+        state.eventsMore = older.length >= EVENTS_PAGE;
+    } catch (err) {
+        toast(friendlyError(err), 'err');
+        return;
+    }
+    const list = $('ctEvents');
+    if (!list) return;
+    list.innerHTML = state.events.map(eventHtml).join('');
+    if (!state.eventsMore) $('ctEventsMore')?.remove();
+}
 
 /** أزرار المصدر نفسها في تفاصيل السجل وفي لوحة المحذوفات. */
 async function sourceAction(el) {
@@ -217,7 +247,9 @@ function renderRecord() {
     const deadline = retentionDeadline(r.closed_at);
     const transitions = allowedTransitions(r, { meId: state.me?.id, supervisor: state.access.supervisor });
     const assign = assignmentOptions(r, { agents: state.agents, meId: state.me?.id, canAssign: state.access.can_assign });
-    const problemField = r.kind === 'issue' ? 'problem' : 'summary';
+    const p = perms();
+    const notice = editNotice(p, agentName(r.owner_id));
+    const readOnly = !p.edit;
 
     $('ctDetail').innerHTML = `
       <div class="ct-inline">${STANDALONE
@@ -235,11 +267,15 @@ function renderRecord() {
         ${deadline ? `<p class="ct-muted">محتوى المصادر بيتحذف تلقائيًا ${esc(fmt(deadline.toISOString()))} (365 يوم من الإغلاق).</p>` : ''}
       </div>
 
-      <form id="ctEdit" class="ct-detail-grid" ${closed ? 'inert' : ''}>
+      ${notice && !closed ? `<div class="ct-banner ct-readonly" id="ctReadOnly" role="status"><span>${esc(notice)}</span>
+          ${p.claim ? '<button type="button" class="btn btn-primary ct-btn-sm" id="ctClaim">خد السجل لنفسك</button>' : ''}</div>` : ''}
+      <form id="ctEdit" class="ct-detail-grid" ${readOnly ? 'inert aria-disabled="true"' : ''}>
         <label class="ct-field" style="grid-column:1/-1"><span>العنوان</span>
           <input type="text" name="title" maxlength="${LIMITS.title}" value="${esc(r.title)}" required></label>
-        <label class="ct-field" style="grid-column:1/-1"><span>${r.kind === 'issue' ? 'وصف المشكلة' : 'الملخص'}</span>
-          <textarea name="${problemField}" maxlength="${LIMITS.summary}">${esc(r[problemField] || '')}</textarea></label>
+        ${r.kind === 'issue' ? ISSUE_FIELDS.map((f) => `<label class="ct-field" style="grid-column:1/-1"><span>${esc(f.label)}</span>
+          <textarea name="${f.key}" maxlength="${LIMITS.summary}" ${f.required ? 'required' : ''}>${esc(r[f.key] || '')}</textarea></label>`).join('')
+          : `<label class="ct-field" style="grid-column:1/-1"><span>الملخص</span>
+          <textarea name="summary" maxlength="${LIMITS.summary}">${esc(r.summary || '')}</textarea></label>`}
         <label class="ct-field" style="grid-column:1/-1"><span>الخطوة التالية</span>
           <input type="text" name="next_action" maxlength="${LIMITS.nextAction}" value="${esc(r.next_action || '')}"></label>
         <label class="ct-field"><span>الموعد</span>
@@ -252,7 +288,7 @@ function renderRecord() {
         <label class="ct-field"><span>النوع</span>
           <select name="category"><option value="">بدون</option>${RECORD_CATEGORIES.map((c) => `<option value="${c}" ${c === r.category ? 'selected' : ''}>${esc(CATEGORY_META[c].label)}</option>`).join('')}</select></label>
         <div class="ct-inline" style="grid-column:1/-1">
-          ${closed ? '<span class="ct-muted">السجل مقفول. أعد فتحه للتعديل.</span>' : '<button type="submit" class="btn btn-primary" id="ctSave">حفظ التعديلات</button>'}
+          ${closed ? '<span class="ct-muted">السجل مقفول. أعد فتحه للتعديل.</span>' : readOnly ? '' : '<button type="submit" class="btn btn-primary" id="ctSave">حفظ التعديلات</button>'}
           <span class="ct-error" id="ctEditError"></span>
         </div>
       </form>
@@ -275,15 +311,15 @@ function renderRecord() {
 
       <section aria-labelledby="ctSourcesH">
         <h3 id="ctSourcesH">المصادر (${state.current.sources.length})</h3>
-        ${state.current.sources.length ? `<ul class="ct-sources">${state.current.sources.map((s) => sourceHtml(s, { closed, version: r.version })).join('')}</ul>`
+        ${state.current.sources.length ? `<ul class="ct-sources">${state.current.sources.map((s) => sourceHtml(s, { closed, version: r.version, canManageSources: p.sources })).join('')}</ul>`
             : '<p class="ct-muted">مفيش رسائل مرفقة. أرفق رسائل من صندوق الرسائل: «سجل استمرارية» ← «إرفاق بسجل موجود».</p>'}
-        ${state.access.trash && !closed && state.current.sources.length ? '<p class="ct-muted">«إزالة» بتنقل الرسالة للمحذوفات وتقدر ترجّعها.</p>' : ''}
+        ${state.access.trash && !closed && p.sources && state.current.sources.length ? '<p class="ct-muted">«إزالة» بتنقل الرسالة للمحذوفات وتقدر ترجّعها.</p>' : ''}
       </section>
 
       ${removed.length ? `<section aria-labelledby="ctRemovedH" class="ct-removed" id="ctRemoved">
         <div class="ct-section-head"><h3 id="ctRemovedH">المحذوفات (${removed.length})</h3>
           ${state.access.owner ? '<button type="button" class="btn btn-danger ct-btn-sm" id="ctPurgeRecord">تفريغ المحذوفات</button>' : ''}</div>
-        <ul class="ct-sources">${removed.map((s) => sourceHtml(s, { mode: 'removed', closed, version: r.version })).join('')}</ul>
+        <ul class="ct-sources">${removed.map((s) => sourceHtml(s, { mode: 'removed', closed, version: r.version, canManageSources: p.sources })).join('')}</ul>
         ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان تسترجع رسالة.</p>' : ''}
       </section>` : ''}
 
@@ -293,7 +329,8 @@ function renderRecord() {
 
       <section aria-labelledby="ctEventsH">
         <h3 id="ctEventsH">السجل</h3>
-        <ul class="ct-events">${state.events.map((e) => `<li>${esc(fmt(e.created_at))} · ${esc(agentName(e.actor_id))} ${esc(eventLabel(e))}</li>`).join('')}</ul>
+        <ul class="ct-events" id="ctEvents">${state.events.map(eventHtml).join('')}</ul>
+        ${state.eventsMore ? '<button type="button" class="btn btn-secondary ct-btn-sm" id="ctEventsMore">عرض الأقدم</button>' : ''}
       </section>`;
     hydrateAttachments();
 }
@@ -417,15 +454,15 @@ async function incomingAction(el) {
 // ═════════════════════════════════════════════════════════════
 const attachmentsOn = () => Boolean(state.access?.capabilities?.attachments);
 
-function attachmentItemHtml(a, { mode, closed }) {
+function attachmentItemHtml(a, { mode, closed, manage = true }) {
     const v = attachmentView(a);
     const media = mode === 'removed' ? ''
         : v.kind === 'image' ? `<img class="ct-att-media" data-sign="${esc(v.path)}" alt="${esc(v.name)}" loading="lazy" decoding="async">`
         : v.kind === 'video' ? `<video class="ct-att-media" data-sign="${esc(v.path)}" controls preload="metadata" playsinline aria-label="${esc(v.name)}"></video>`
         : v.kind === 'audio' ? `<audio class="ct-att-media" data-sign="${esc(v.path)}" controls preload="none" aria-label="${esc(v.name)}"></audio>` : '';
     const actions = [];
-    if (!closed && mode === 'main') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-remove="${esc(v.id)}">إزالة</button>`);
-    if (!closed && mode === 'removed') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-restore="${esc(v.id)}">استرجاع</button>`);
+    if (!closed && manage && mode === 'main') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-remove="${esc(v.id)}">إزالة</button>`);
+    if (!closed && manage && mode === 'removed') actions.push(`<button type="button" class="btn btn-secondary ct-btn-sm" data-att-restore="${esc(v.id)}">استرجاع</button>`);
     if (state.access.owner) actions.push(`<button type="button" class="btn btn-danger ct-btn-sm" data-att-purge="${esc(v.id)}">مسح نهائي</button>`);
     return `<li class="ct-att" data-attachment="${esc(v.id)}" data-kind="${esc(v.kind || '')}">
         ${media}
@@ -454,17 +491,19 @@ function attachmentsHtml(r, closed) {
     const list = state.current.attachments || [];
     const removed = state.current.removed_attachments || [];
     const u = state.upload && state.upload.recordId === r.id ? state.upload : null;
+    const manage = Boolean(perms().attachments);
     return `<section aria-labelledby="ctAttH" id="ctAttachments">
         <div class="ct-section-head"><h3 id="ctAttH">المرفقات (${list.length})</h3>
-          ${closed ? '' : `<div class="ct-inline"><button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
+          ${closed || !manage ? '' : `<div class="ct-inline"><button type="button" class="btn btn-secondary ct-btn-sm" id="ctAttachPick" ${u && !u.error ? 'disabled' : ''}>إرفاق ملف</button>
           <button type="button" class="btn btn-secondary ct-btn-sm" id="ctRecStart" ${(u && !u.error) || state.rec ? 'disabled' : ''}>تسجيل صوتي</button></div>
           <input type="file" id="ctAttachInput" accept="${esc(ATTACHMENT_ACCEPT)}" hidden>`}</div>
-        ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان ترفع أو تشيل مرفقات.</p>' : `<p class="ct-muted">${esc(ATTACHMENT_LIMITS_TEXT)}.</p>`}
-        ${closed ? '' : recPanelHtml()}
+        ${closed ? '<p class="ct-muted">السجل مقفول. أعد فتحه عشان ترفع أو تشيل مرفقات.</p>'
+            : manage ? `<p class="ct-muted">${esc(ATTACHMENT_LIMITS_TEXT)}.</p>` : '<p class="ct-muted">رفع المرفقات وإزالتها لمالك السجل أو للمشرف.</p>'}
+        ${closed || !manage ? '' : recPanelHtml()}
         ${uploadStatusHtml(u)}
-        ${list.length ? `<ul class="ct-atts">${list.map((a) => attachmentItemHtml(a, { mode: 'main', closed })).join('')}</ul>` : '<p class="ct-muted" id="ctAttEmpty">مفيش مرفقات.</p>'}
+        ${list.length ? `<ul class="ct-atts">${list.map((a) => attachmentItemHtml(a, { mode: 'main', closed, manage })).join('')}</ul>` : '<p class="ct-muted" id="ctAttEmpty">مفيش مرفقات.</p>'}
         ${removed.length ? `<h4>مرفقات محذوفة (${removed.length})</h4>
-          <ul class="ct-atts ct-atts--removed">${removed.map((a) => attachmentItemHtml(a, { mode: 'removed', closed })).join('')}</ul>` : ''}
+          <ul class="ct-atts ct-atts--removed">${removed.map((a) => attachmentItemHtml(a, { mode: 'removed', closed, manage })).join('')}</ul>` : ''}
       </section>`;
 }
 
@@ -707,7 +746,7 @@ function closureHtml(closures) {
 function patchFromForm(form, record) {
     const fd = new FormData(form);
     const patch = {};
-    for (const k of ['title', 'summary', 'problem', 'next_action']) {
+    for (const k of ['title', 'summary', 'problem', 'known_facts', 'unknowns', 'resolution_criteria', 'next_action']) {
         if (!fd.has(k)) continue;
         const v = String(fd.get(k));
         if (v !== (record[k] || '')) patch[k] = v;
@@ -727,6 +766,12 @@ function patchFromForm(form, record) {
 // رسائل أوضح لرفض الخادم المتوقع؛ الخادم هو اللي بيقرر، ده عرض بس.
 const INACTIVE_STAFF = 'حسابه مش نشط (مش مكمّل التحقق من الحساب أو محظور)';
 function friendlyError(err) {
+    const refused = editRefusalText(err);
+    if (refused) return refused;
+    if (err?.code === 'validation_failed' && err.reason === 'next_action_and_due_required') {
+        return 'المتابعة لازم يكون ليها خطوة تالية وموعد.';
+    }
+    if (err?.code === 'validation_failed' && err.field === 'issue.problem') return 'اكتب وصف المشكلة.';
     if (err?.code === 'validation_failed' && err.reason === 'not_eligible') {
         if (err.field === 'user_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش ياخد صلاحية الإسناد. فعّل حسابه الأول.`;
         if (err.field === 'owner_id') return `الموظف ده ${INACTIVE_STAFF}، فمينفعش يبقى مالك للسجل.`;
@@ -795,7 +840,8 @@ async function renderTrash() {
 // ═════════════════════════════════════════════════════════════
 // صلاحية الإسناد (لمالك المنصة، 076)
 // ═════════════════════════════════════════════════════════════
-// 078: إعدادات الاستمرارية — لمالك المنصة، قراءة فقط. قبل 078 (لا capabilities) مخفية.
+// 078: إعدادات الاستمرارية — لمالك المنصة: قراءة وتعديل (continuity_set_policies بالنسخة).
+// قبل 078 (لا capabilities) مخفية. القدرة غير المثبتة لا تُفعَّل (الخادم يرفض، والمربع معطّل بسببه).
 async function renderPolicies() {
     if (STANDALONE) return;
     const box = $('ctPolicies');
@@ -803,17 +849,75 @@ async function renderPolicies() {
     box.hidden = false;
     const body = $('ctPoliciesBody');
     body.textContent = 'جاري التحميل…';
-    let d;
     try {
-        d = describePolicy(await getPolicies());
+        state.policy = await getPolicies();
     } catch (err) {
-        body.innerHTML = `<p class="ct-error">${esc(err.message)}</p>`;
+        body.innerHTML = `<p class="ct-error">${esc(friendlyError(err))}</p>`;
         return;
     }
-    const rows = (list) => list.map((r) =>
-        `<li><span>${esc(r.label)}</span><span class="${r.off ? 'ct-policy-off' : ''}">${esc(r.value)}</span></li>`).join('');
-    body.innerHTML = `<h4>القدرات</h4><ul class="ct-policy-list" id="ctPolicyCaps">${rows(d.capabilities)}</ul>
-        <h4>المواعيد والتصعيد</h4><ul class="ct-policy-list" id="ctPolicyTimings">${rows(d.timings)}</ul>`;
+    const p = state.policy?.policy || {};
+    const installed = state.policy?.capabilities_installed || {};
+    const d = describePolicy(state.policy);
+    const caps = Object.keys(CAPABILITY_LABELS).map((c, i) => `<li><label class="ct-check-row">
+        <input type="checkbox" name="${c}_enabled" ${p[`${c}_enabled`] ? 'checked' : ''} ${installed[c] ? '' : 'disabled'}>
+        <span>${esc(CAPABILITY_LABELS[c])}</span></label>
+        <span class="${d.capabilities[i].off ? 'ct-policy-off' : ''}">${esc(installed[c] ? d.capabilities[i].value : 'غير مثبتة بعد — تتفعّل بعد تثبيت كودها')}</span></li>`).join('');
+    const nums = POLICY_NUMBER_FIELDS.map((f) => `<label class="ct-field"><span>${esc(f.label)}</span>
+        <input type="text" inputmode="numeric" name="${f.key}" value="${esc(p[f.key] ?? '')}" dir="ltr"></label>`).join('');
+    const bools = POLICY_BOOL_FIELDS.map((f) => `<label class="ct-check-row"><input type="checkbox" name="${f.key}" ${p[f.key] ? 'checked' : ''}>
+        <span>${esc(f.label)}</span></label>`).join('');
+    body.innerHTML = `<form id="ctPolicyForm">
+        <h4>القدرات</h4><ul class="ct-policy-list" id="ctPolicyCaps">${caps}</ul>
+        <h4>المواعيد والتصعيد</h4>
+        <div class="ct-detail-grid" id="ctPolicyTimings">
+          <label class="ct-field" style="grid-column:1/-1"><span>تذكير قبل الموعد (دقائق، حتى 5 قيم مفصولة بفاصلة)</span>
+            <input type="text" name="reminder_offsets_minutes" value="${esc((p.reminder_offsets_minutes || []).join(', '))}" dir="ltr"></label>
+          ${nums}
+          <label class="ct-field"><span>التصعيد إلى</span><select name="escalation_recipients">
+            <option value="supervisors" ${p.escalation_recipients === 'supervisors' ? 'selected' : ''}>المشرفين</option>
+            <option value="team_then_supervisors" ${p.escalation_recipients === 'team_then_supervisors' ? 'selected' : ''}>الفريق ثم المشرفين</option></select></label>
+          <div class="ct-inline" style="grid-column:1/-1">${bools}</div>
+        </div>
+        <p class="ct-muted">المواعيد تتطبق لما التذكيرات والتصعيد يتثبتوا ويتفعّلوا. كل تغيير بيتسجّل في تاريخ الإعدادات.</p>
+        <div class="ct-inline"><button type="submit" class="btn btn-primary" id="ctPolicySave">حفظ الإعدادات</button>
+          <span class="ct-error" id="ctPolicyError" role="alert"></span></div>
+      </form>`;
+}
+
+async function savePolicies(form) {
+    const values = {};
+    for (const el of form.elements) {
+        if (!el.name || el.disabled) continue;
+        values[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+    }
+    const { patch, errors } = policyPatchFromForm(values, state.policy?.policy);
+    const errEl = $('ctPolicyError');
+    errEl.textContent = '';
+    if (errors.length) { errEl.textContent = 'في قيمة مش رقم صحيح أو ناقصة. راجع الحقول.'; return; }
+    const invalid = validatePolicyPatch(patch);
+    if (Object.keys(patch).length && invalid.length) { errEl.textContent = 'في قيمة خارج الحدود المسموحة.'; return; }
+    if (!Object.keys(patch).length) { toast('مفيش تغيير'); return; }
+    const turnedOn = Object.keys(CAPABILITY_LABELS).filter((c) => patch[`${c}_enabled`] === true);
+    if (turnedOn.length && !await continuityConfirm({ title: 'تفعيل قدرات', confirmText: 'تفعيل',
+        message: `هتتفعّل لكل فريق الاستمرارية فورًا: ${turnedOn.map((c) => CAPABILITY_LABELS[c]).join('، ')}. تقدر تطفيها في أي وقت من هنا.` })) return;
+    try {
+        state.policy = await setPolicies(patch, state.policy.version);
+        toast('اتحفظت الإعدادات');
+    } catch (err) {
+        if (err.code === 'version_conflict') {
+            await renderPolicies();
+            $('ctPolicyError').textContent = 'حد غيّر الإعدادات قبلك. اتحمّلت النسخة الحالية، راجعها وجرّب تاني.';
+            return;
+        }
+        errEl.textContent = err.code === 'feature_not_enabled' ? 'القدرة دي مش مثبتة لسه، فمينفعش تتفعّل.'
+            : err.code === 'forbidden' ? 'تعديل الإعدادات لحساب مالك المنصة بس.'
+                : err.code === 'validation_failed' ? 'في قيمة خارج الحدود المسموحة.' : friendlyError(err);
+        return;
+    }
+    state.access = await loadContinuityAccess();
+    await renderPolicies();
+    if (state.current?.record?.id) await openRecord(state.current.record.id, { push: false });
+    renderIncoming();
 }
 
 async function renderAssigners() {
@@ -865,6 +969,10 @@ function wire() {
         if (el?.id === 'ctBackToList') return closeRecord();
         if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (!el || !r) return undefined;
+        if (el.id === 'ctEventsMore') return loadOlderEvents(r);
+        if (el.id === 'ctClaim') {
+            return act(() => assignRecord(r.id, state.me?.id, r.team_id, r.version), 'السجل بقى باسمك');
+        }
         if (await attachmentAction(el, r)) return undefined;
         if (await handoverAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
@@ -924,6 +1032,12 @@ function wire() {
 
 /** القائمة والفلاتر ولوحات المحذوفات والإسناد: الصفحة الرئيسية فقط. */
 function wireListAndPanels() {
+    $('ctNewRecord')?.addEventListener('click', newRecord);
+    $('ctPolicies').addEventListener('submit', (e) => {
+        if (e.target.id !== 'ctPolicyForm') return;
+        e.preventDefault();
+        savePolicies(e.target);
+    });
     $('ctHandovers')?.addEventListener('click', (e) => {
         const el = e.target.closest('button');
         if (el) incomingAction(el);
@@ -970,6 +1084,32 @@ function wireListAndPanels() {
         }
         renderAssigners();
     });
+}
+
+/** سجل جديد من الصفحة (بلا رسائل). المفتاح ثابت لنفس المسودة: إعادة المحاولة لا تنشئ سجلين. */
+async function newRecord() {
+    let attempt = null;
+    const created = await continuityNewRecord({
+        owners: ownerOptions({ agents: state.agents, meId: state.me?.id, canAssign: state.access.can_assign }),
+        teams: state.teams, canAssign: state.access.can_assign, timezones: TIMEZONES, priorities: PRIORITY_LABELS,
+        categories: RECORD_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label })),
+        missing: manualMissing,
+        submit: async (draft) => {
+            const sig = JSON.stringify(draft);
+            if (!attempt || attempt.sig !== sig) attempt = { sig, key: crypto.randomUUID() };
+            try {
+                const res = await createRecord(buildManualRequest(draft, { idempotencyKey: attempt.key }));
+                attempt.recordId = res?.record?.id || null;
+                return null;
+            } catch (err) {
+                return friendlyError(err);
+            }
+        },
+    });
+    if (!created || !attempt?.recordId) return;
+    toast('اتعمل السجل');
+    await reloadList();
+    await openRecord(attempt.recordId);
 }
 
 function closeRecord() {

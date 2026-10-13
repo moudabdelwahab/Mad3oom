@@ -152,11 +152,34 @@ const ent = (edition, extra = {}) => ({
     ...extra
 });
 
+
+function resolveChromium() {
+    try {
+        const p = chromium.executablePath();
+        if (p && fs.existsSync(p)) return p;
+    } catch { /* لا تنزيل افتراضي */ }
+    const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if (root && fs.existsSync(root)) {
+        for (const dir of fs.readdirSync(root).filter(d => d.startsWith('chromium')).sort().reverse()) {
+            for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome']) {
+                const candidate = path.join(root, dir, rel);
+                if (fs.existsSync(candidate)) return candidate;
+            }
+        }
+    }
+    return null;
+}
+
+// نفس حل باقي اختبارات العرض: نسخة Chromium المثبّتة أيًّا كان رقمها، لا مسار نسخة playwright المثبّت فقط.
+const chromiumPath = resolveChromium();
+if (!chromiumPath) console.error('SKIP: لا يوجد Chromium؛ اختبارات ودجت الشات لم تُنفَّذ');
+
 let server, browser, base;
 test.before(async () => {
+    if (!chromiumPath) return;
     server = await startServer();
     base = `http://127.0.0.1:${server.address().port}`;
-    browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+    browser = await chromium.launch({ executablePath: chromiumPath, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
@@ -209,7 +232,7 @@ async function attach(page, files) {
 
 // ════════════════════════════ composer + mode ════════════════════════════
 
-test('composer: attach · input · mode · mic/send in one row; no mode panel above the messages; no Traditional anywhere', async () => {
+test('composer: attach · input · mode · mic/send in one row; no mode panel above the messages; no Traditional anywhere', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openWidget({ entitlement: ent('pro') });
     const order = await page.$$eval('#chatWidgetFooter .chat-widget-input-row > :not([hidden])', (els) => els.map((e) => e.id || e.className));
     assert.deepEqual(order, ['cwAttachBtn', 'chatWidgetTextInput', 'cwModeChip', 'cwActionBtn']);
@@ -225,7 +248,7 @@ test('composer: attach · input · mode · mic/send in one row; no mode panel ab
     await context.close();
 });
 
-test('mode menu: SIE is the only (selected) mode; plan and real usage numbers come from the entitlement', async () => {
+test('mode menu: SIE is the only (selected) mode; plan and real usage numbers come from the entitlement', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('pro') });
     await page.click('#cwModeChip');
     assert.equal(await page.getAttribute('#cwModeChip', 'aria-expanded'), 'true');
@@ -241,7 +264,7 @@ test('mode menu: SIE is the only (selected) mode; plan and real usage numbers co
     await context.close();
 });
 
-test('mode menu: keyboard — focus moves in, Tab stays inside, Escape closes and returns focus to the chip', async () => {
+test('mode menu: keyboard — focus moves in, Tab stays inside, Escape closes and returns focus to the chip', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('max') });
     await page.focus('#cwModeChip');
     await page.keyboard.press('Enter');
@@ -255,7 +278,7 @@ test('mode menu: keyboard — focus moves in, Tab stays inside, Escape closes an
     await context.close();
 });
 
-test('plan-aware: Max offers Pro and Free, Pro offers Free, Free offers nothing — exactly what the server sent', async () => {
+test('plan-aware: Max offers Pro and Free, Pro offers Free, Free offers nothing — exactly what the server sent', { skip: !chromiumPath }, async () => {
     for (const [edition, expected] of [['max', ['النزول إلى برو', 'النزول إلى المجاني']], ['pro', ['النزول إلى المجاني']], ['free', []]]) {
         const { page, context } = await openWidget({ entitlement: ent(edition) });
         await page.click('#cwModeChip');
@@ -266,7 +289,7 @@ test('plan-aware: Max offers Pro and Free, Pro offers Free, Free offers nothing 
     }
 });
 
-test('downgrade: needs a confirming second press, calls the server RPC with the target, then shows the new plan', async () => {
+test('downgrade: needs a confirming second press, calls the server RPC with the target, then shows the new plan', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({
         entitlement: (s) => ({ signed_in: true, has_access: true, edition: s.rpc.some((c) => c.fn === 'sie_customer_downgrade') ? 'pro' : 'max',
             downgrade_to: s.rpc.some((c) => c.fn === 'sie_customer_downgrade') ? ['free'] : ['pro', 'free'],
@@ -287,7 +310,7 @@ test('downgrade: needs a confirming second press, calls the server RPC with the 
     await context.close();
 });
 
-test('downgrade: a server refusal is shown, the plan does not change in the UI', async () => {
+test('downgrade: a server refusal is shown, the plan does not change in the UI', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('max'), downgrade: () => ({ ok: false, error: 'edition_unavailable' }) });
     await page.click('#cwModeChip');
     const btn = page.locator('#cwModeMenu .cw-downgrade-btn[data-plan="pro"]');
@@ -299,7 +322,7 @@ test('downgrade: a server refusal is shown, the plan does not change in the UI',
     await context.close();
 });
 
-test('entitlement unavailable (RPC not deployed / network): the chat still works and SIE is still asked', async () => {
+test('entitlement unavailable (RPC not deployed / network): the chat still works and SIE is still asked', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openWidget({ entitlementError: true });
     await page.fill('#chatWidgetTextInput', 'الموقع مش بيفتح');
     await page.click('#cwActionBtn');
@@ -312,7 +335,7 @@ test('entitlement unavailable (RPC not deployed / network): the chat still works
 
 // ════════════════════════════ SIE on every plan ════════════════════════════
 
-test('SIE answers on Free, Pro and Max: the text goes to SIE and the reply is stored', async () => {
+test('SIE answers on Free, Pro and Max: the text goes to SIE and the reply is stored', { skip: !chromiumPath }, async () => {
     for (const edition of ['free', 'pro', 'max']) {
         const { page, context } = await openWidget({ entitlement: ent(edition) });
         await page.fill('#chatWidgetTextInput', 'مش عارف ادخل على حسابي');
@@ -330,7 +353,7 @@ test('SIE answers on Free, Pro and Max: the text goes to SIE and the reply is st
     }
 });
 
-test('SIE unavailable (limit reached): no SIE call, a clear reason in the chat, the message stays for support', async () => {
+test('SIE unavailable (limit reached): no SIE call, a clear reason in the chat, the message stays for support', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('pro', { has_access: false, reason: 'edition_monthly_limit',
         primary: { kind: 'monthly', used: 12, limit: 10, remaining: 0, resets_at: RESET } }) });
     assert.equal(await page.getAttribute('#cwModeChip', 'data-tone'), 'full');
@@ -346,7 +369,7 @@ test('SIE unavailable (limit reached): no SIE call, a clear reason in the chat, 
     await context.close();
 });
 
-test('SIE refused on the server (null reply): the widget asks the server why and explains it', async () => {
+test('SIE refused on the server (null reply): the widget asks the server why and explains it', { skip: !chromiumPath }, async () => {
     let calls = 0;
     const { page, context } = await openWidget({ sieReply: null,
         entitlement: (s) => (s.rpc.filter((c) => c.fn === 'sie_my_entitlement').length > 1
@@ -363,7 +386,7 @@ test('SIE refused on the server (null reply): the widget asks the server why and
 
 // ════════════════════════════ attachments ════════════════════════════
 
-test('image: preview in the composer, removable before sending', async () => {
+test('image: preview in the composer, removable before sending', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('free') });
     await attach(page, [{ name: 'shot.png', mimeType: 'image/png', buffer: PNG_1PX }, { name: 'second.png', mimeType: 'image/png', buffer: PNG_1PX }]);
     assert.equal(await page.$$eval('#cwAttachTray .cw-chip', (c) => c.length), 2);
@@ -374,7 +397,7 @@ test('image: preview in the composer, removable before sending', async () => {
     await context.close();
 });
 
-test('image: uploads to the sender\'s folder, sends image_url + attachment, renders signed and opens larger', async () => {
+test('image: uploads to the sender\'s folder, sends image_url + attachment, renders signed and opens larger', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openWidget({ entitlement: ent('free') });
     await attach(page, [{ name: 'shot.png', mimeType: 'image/png', buffer: PNG_1PX }]);
     await page.fill('#chatWidgetTextInput', 'دي الشاشة');
@@ -398,7 +421,7 @@ test('image: uploads to the sender\'s folder, sends image_url + attachment, rend
     await context.close();
 });
 
-test('file: a PDF is sent as an attachment (no image_url) and rendered as a download chip', async () => {
+test('file: a PDF is sent as an attachment (no image_url) and rendered as a download chip', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openWidget({ entitlement: ent('free') });
     await attach(page, [{ name: 'report.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') }]);
     await page.click('#cwActionBtn');
@@ -416,7 +439,7 @@ test('file: a PDF is sent as an attachment (no image_url) and rendered as a down
     await context.close();
 });
 
-test('file: an invalid type and an oversized image are refused before any upload', async () => {
+test('file: an invalid type and an oversized image are refused before any upload', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openWidget({ entitlement: ent('free') });
     await attach(page, [{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
     await page.waitForSelector('.chat-widget-inline-error');
@@ -428,7 +451,7 @@ test('file: an invalid type and an oversized image are refused before any upload
     await context.close();
 });
 
-test('file: an upload failure keeps text and attachment, sends nothing, and offers a retry', async () => {
+test('file: an upload failure keeps text and attachment, sends nothing, and offers a retry', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('free'), fallbackUploadFails: true }, { uploadStatus: 500 });
     await attach(page, [{ name: 'report.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
     await page.fill('#chatWidgetTextInput', 'مرفق التقرير');
@@ -442,7 +465,7 @@ test('file: an upload failure keeps text and attachment, sends nothing, and offe
     await context.close();
 });
 
-test('file: when the message insert fails after upload, the orphan upload is cleaned up', async () => {
+test('file: when the message insert fails after upload, the orphan upload is cleaned up', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openWidget({ entitlement: ent('free'), failInsertWhen: (row) => !!row.attachment });
     await attach(page, [{ name: 'report.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
     await page.click('#cwActionBtn');
@@ -455,7 +478,7 @@ test('file: when the message insert fails after upload, the orphan upload is cle
 
 // ════════════════════════════ voice ════════════════════════════
 
-test('voice: mic → recording with a timer → stop → preview → send uploads audio and stores audio_url', async () => {
+test('voice: mic → recording with a timer → stop → preview → send uploads audio and stores audio_url', { skip: !chromiumPath }, async () => {
     const { page, context, uploads, errors } = await openWidget({ entitlement: ent('free') });
     assert.equal(await page.getAttribute('#cwActionBtn', 'data-action'), 'mic', 'empty composer shows the mic');
     await page.click('#cwActionBtn');
@@ -477,7 +500,7 @@ test('voice: mic → recording with a timer → stop → preview → send upload
     await context.close();
 });
 
-test('voice: cancelling a recording uploads nothing', async () => {
+test('voice: cancelling a recording uploads nothing', { skip: !chromiumPath }, async () => {
     const { page, context, uploads } = await openWidget({ entitlement: ent('free') });
     await page.click('#cwActionBtn');
     await page.waitForSelector('#cwRecCancel');
@@ -494,7 +517,7 @@ test('voice: cancelling a recording uploads nothing', async () => {
     await context.close();
 });
 
-test('voice: a denied microphone is explained and the text composer keeps working', async () => {
+test('voice: a denied microphone is explained and the text composer keeps working', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('free') }, {
         initScript: () => { navigator.mediaDevices.getUserMedia = async () => { const e = new Error('denied'); e.name = 'NotAllowedError'; throw e; }; }
     });
@@ -508,7 +531,7 @@ test('voice: a denied microphone is explained and the text composer keeps workin
     await context.close();
 });
 
-test('voice: a browser without recording support shows send, never a dead mic', async () => {
+test('voice: a browser without recording support shows send, never a dead mic', { skip: !chromiumPath }, async () => {
     const { page, context } = await openWidget({ entitlement: ent('free') }, { initScript: () => { delete window.MediaRecorder; } });
     assert.equal(await page.getAttribute('#cwActionBtn', 'data-action'), 'send');
     assert.equal(await page.$eval('#cwActionBtn', (b) => b.disabled), true);
@@ -519,7 +542,7 @@ test('voice: a browser without recording support shows send, never a dead mic', 
 
 // ════════════════════════════ layout ════════════════════════════
 
-test('mobile: full-screen sheet, no horizontal overflow, the menu stays on screen', async () => {
+test('mobile: full-screen sheet, no horizontal overflow, the menu stays on screen', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openWidget({ entitlement: ent('max') }, { viewport: { width: 390, height: 844 } });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.equal(overflow, 0);
@@ -535,7 +558,7 @@ test('mobile: full-screen sheet, no horizontal overflow, the menu stays on scree
 
 // 056: فريق الدعم بيعدّل رده أو يحذفه من صندوق الرسائل — نفس الصف بيتحدّث
 // (UPDATE)، والويدجت بيحدّث الفقاعة في مكانها بدل ما يضيف رسالة جديدة.
-test('support reply edited then deleted in the inbox → the same bubble updates in place (UPDATE, not a new message)', async () => {
+test('support reply edited then deleted in the inbox → the same bubble updates in place (UPDATE, not a new message)', { skip: !chromiumPath }, async () => {
     const at = new Date(Date.now() - 60000).toISOString();
     const reply = { id: 'r1', session_id: 's-1', created_at: at, sender_id: 'staff-1', is_admin_reply: true, message_text: 'الفاتورة اتبعتت', image_url: 'staff-1/s-1-a.png', attachment: { kind: 'image', path: 'staff-1/s-1-a.png', name: 'a.png' } };
     const { page, context, errors } = await openWidget({ entitlement: ent('pro'), messages: [reply] });
@@ -560,7 +583,7 @@ test('support reply edited then deleted in the inbox → the same bubble updates
     await context.close();
 });
 
-test('history: an already deleted / edited support reply renders as such on open', async () => {
+test('history: an already deleted / edited support reply renders as such on open', { skip: !chromiumPath }, async () => {
     const at = (s) => new Date(Date.now() - s * 1000).toISOString();
     const messages = [
         { id: 'r1', session_id: 's-1', created_at: at(60), sender_id: 'staff-1', is_admin_reply: true, message_text: '', deleted_at: at(30) },

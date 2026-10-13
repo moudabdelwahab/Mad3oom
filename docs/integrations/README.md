@@ -13,7 +13,7 @@
 | [TEST_RESULTS.md](TEST_RESULTS.md) | Actual test counts and failures, before/after |
 
 ## What was built
-- **Migration `087_integrations_hub.sql`** (+ rollback): 11 deny-by-default `ihub_*` tables, 16 RPCs for signed-in users, 18 service-role RPCs (49 functions in total, all others internal), retention job; providers disabled; `integrations_hub` entitlement defined but granted to no plan.
+- **Migration `088_integrations_hub.sql`** (+ rollback): 11 deny-by-default `ihub_*` tables, 16 RPCs for signed-in users, 18 service-role RPCs (49 functions in total, all others internal), retention job; providers disabled; `integrations_hub` entitlement defined but granted to no plan.
 - **Edge Functions** `integrations-api` (JWT), `integrations-inbound` (webhooks, Salla callback, plugin), `integrations-worker` (retries, Salla token refresh), on shared connector modules with an explicit capability contract.
 - **Company dashboard**: *Integrations* section (cards, connect/test/rotate/disconnect, view-role, website requests, audit) and an *External context* panel on customer tickets.
 - **WordPress plugin** `integrations/wordpress/mad3oom-support-0.1.0.zip` (source alongside).

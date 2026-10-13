@@ -5,7 +5,7 @@
  * ولا تقرر صلاحية. ما لا يدعمه المزوّد يظهر «غير متاح» صراحةً، ولا يظهر له زر.
  * الفحوص هنا تسهيل للمستخدم فقط؛ الخادم يعيدها كلها.
  *
- * migrations/087_integrations_hub.sql · supabase/functions/_shared/integrations/*
+ * migrations/088_integrations_hub.sql · supabase/functions/_shared/integrations/*
  */
 
 export const PROVIDER_ORDER = Object.freeze(['wordpress', 'woocommerce', 'salla', 'daftra']);
@@ -95,7 +95,7 @@ export function errorMessage(code) {
 }
 
 /**
- * بطاقات المزوّدين من حمولة ihub_overview(). null (ليس مديرًا أو قبل 087)
+ * بطاقات المزوّدين من حمولة ihub_overview(). null (ليس مديرًا أو قبل 088)
  * يرجع null — والقسم يعرض حالة «للمدير فقط».
  */
 export function buildProviderCards(overview) {
@@ -211,7 +211,7 @@ export function itemsLine(summary = {}) {
     return items.slice(0, 10).map((i) => (i.quantity ? `${i.name} × ${i.quantity}` : i.name)).join('، ');
 }
 
-/** حالة سياق التذكرة كما تُرسم. null = لا لوحة إطلاقًا (غير مخوّل أو قبل 087). */
+/** حالة سياق التذكرة كما تُرسم. null = لا لوحة إطلاقًا (غير مخوّل أو قبل 088). */
 export function ticketContextView(ctx) {
     if (!ctx || typeof ctx !== 'object') return null;
     const connections = Array.isArray(ctx.connections) ? ctx.connections : [];

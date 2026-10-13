@@ -1,8 +1,8 @@
 -- ============================================================================
--- مركز التكاملات (087_integrations_hub) على نسخة مطابقة لشكل الإنتاج
+-- مركز التكاملات (088_integrations_hub) على نسخة مطابقة لشكل الإنتاج
 --
---   ⓪ قبل 087: بصمات ما لا يجوز أن يتغيّر (ومنها دوال integration_* القائمة في الإنتاج)
---   ① 087: الكائنات والصلاحيات، والمزوّدون مقفلون
+--   ⓪ قبل 088: بصمات ما لا يجوز أن يتغيّر (ومنها دوال integration_* القائمة في الإنتاج)
+--   ① 088: الكائنات والصلاحيات، والمزوّدون مقفلون
 --   ② النظرة العامة: للمدير فقط، لا للعميل ولا للموظف ولا لطاقم المنصة ولا للمعاينة
 --   ③ تجهيز الربط: المزوّد المقفل، الاستحقاق، الأدوار، العزل بين الشركات
 --   ④ دوال الخادم: ممنوعة على authenticated، الحساب الخارجي لا يُربط بشركتين، صحة الربط
@@ -128,7 +128,7 @@ begin
                                       expires_at = excluded.expires_at;
   perform set_config('app.owner_context_write', 'off', true);
 end $$;
--- بصمات ما لا يجوز أن يغيّره 087
+-- بصمات ما لا يجوز أن يغيّره 088
 SET check_function_bodies = off;
 CREATE FUNCTION t.untouched_digest() RETURNS text LANGUAGE sql AS $$
   select md5(concat_ws('#',
@@ -199,7 +199,7 @@ INSERT INTO public.tickets (id, user_id, title, description) VALUES
 
 \i migrations/086_company_staff.sql
 
--- ══ ⓪ قبل 087 ════════════════════════════════════════════════════════════
+-- ══ ⓪ قبل 088 ════════════════════════════════════════════════════════════
 DO $$
 BEGIN
   PERFORM t.ok((SELECT role FROM public.profiles WHERE id = t.u('OA')) = 'company_admin', 'SETUP OA company_admin');
@@ -217,8 +217,8 @@ END $$;
 INSERT INTO t.saved VALUES ('untouched', t.untouched_digest()), ('fn', t.fn_digest()), ('pol', t.policy_digest()),
   ('tickets', (SELECT md5(string_agg(md5(x::text), ',' order by x.id)) FROM public.tickets x));
 
--- ══ ① 087 ════════════════════════════════════════════════════════════════
-\i migrations/087_integrations_hub.sql
+-- ══ ① 088 ════════════════════════════════════════════════════════════════
+\i migrations/088_integrations_hub.sql
 
 DO $$
 BEGIN
@@ -245,7 +245,7 @@ BEGIN
   PERFORM t.ok(t.err_anon('select public.ihub_overview()') = '42501', '① anon مرفوض');
   PERFORM t.ok(t.fn_digest() = (SELECT v FROM t.saved WHERE k = 'fn'),
                '① دوال integration_* الإنتاجية ودوال الشركة: التعريف والصلاحيات كما هي حرفيًا');
-  RAISE NOTICE 'PASS ① 087 مطبّق: 11 جدولًا بلا صلاحيات، المزوّدون مقفلون، دوال integration_* القائمة لم تُمس';
+  RAISE NOTICE 'PASS ① 088 مطبّق: 11 جدولًا بلا صلاحيات، المزوّدون مقفلون، دوال integration_* القائمة لم تُمس';
 END $$;
 
 -- الاستحقاق والمزوّدون (قرارات المالك — هنا للاختبار فقط)
@@ -660,17 +660,17 @@ BEGIN
 END $$;
 INSERT INTO t.saved VALUES ('rows', (SELECT count(*) FROM public.ihub_connections)::text || '/' || (SELECT count(*) FROM public.ihub_audit_events)::text);
 
-\i migrations/087_integrations_hub.sql
+\i migrations/088_integrations_hub.sql
 DO $$
 BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.ihub_connections)::text || '/' || (SELECT count(*) FROM public.ihub_audit_events)::text
                = (SELECT v FROM t.saved WHERE k = 'rows'), '⑫ إعادة التشغيل لا تمس البيانات');
   PERFORM t.ok((SELECT bool_and(enabled) FROM public.ihub_providers), '⑫ إعادة التشغيل لا تعيد قفل مزوّد فعّله المالك');
   PERFORM t.ok(t.fn_digest() = (SELECT v FROM t.saved WHERE k = 'fn'), '⑫ ولا تمس دوال integration_*');
-  RAISE NOTICE 'PASS ⑫ إعادة تشغيل 087 آمنة';
+  RAISE NOTICE 'PASS ⑫ إعادة تشغيل 088 آمنة';
 END $$;
 
-\set rollback_sql `cat migrations/_rollback/087_integrations_hub.down.sql`
+\set rollback_sql `cat migrations/_rollback/088_integrations_hub.down.sql`
 SELECT set_config('t.rollback_sql', :'rollback_sql', false) IS NOT NULL;
 DO $$
 DECLARE c text;
@@ -689,7 +689,7 @@ BEGIN
 END $$;
 
 SET integrations_hub.rollback_discard_data = 'on';
-\i migrations/_rollback/087_integrations_hub.down.sql
+\i migrations/_rollback/088_integrations_hub.down.sql
 RESET integrations_hub.rollback_discard_data;
 DO $$
 BEGIN
@@ -700,10 +700,10 @@ BEGIN
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.tickets WHERE id = t.u('TA1')), '⑫ التذاكر باقية');
   PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.feature_flags WHERE key = 'integrations_hub')
                AND NOT EXISTS (SELECT 1 FROM public.plan_features WHERE feature_key = 'integrations_hub'), '⑫ المفتاح ومنحه حُذفا');
-  RAISE NOTICE 'PASS ⑫ التراجع بإذن صريح يحذف 087 كاملًا ويترك الباقي كما كان';
+  RAISE NOTICE 'PASS ⑫ التراجع بإذن صريح يحذف 088 كاملًا ويترك الباقي كما كان';
 END $$;
 
-\i migrations/087_integrations_hub.sql
+\i migrations/088_integrations_hub.sql
 DO $$
 BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.ihub_connections) = 0 AND NOT EXISTS (SELECT 1 FROM public.ihub_providers WHERE enabled),
