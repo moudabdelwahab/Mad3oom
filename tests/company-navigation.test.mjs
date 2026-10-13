@@ -122,6 +122,7 @@ const FUNCTION_INVENTORY = [
 
     // مستوحاة من لوحة الإدارة بعد جرد أقسامها، بمقاييس تخصّ الشركة
     { name: 'API ومفاتيحه',     section: 'api' },
+    { name: 'التكاملات',        section: 'integrations' },
     { name: 'التقارير',         section: 'reports' },
     { name: 'النشاط',           section: 'activity' },
 
@@ -171,7 +172,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
     for (const section of ['tickets', 'customerTickets', 'support', 'notifications',
-                           'api', 'reports', 'activity', 'profile', 'security']) {
+                           'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
     }
@@ -530,7 +531,15 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         واحد في تسع دوال على نص الإنتاج بالضبط؛ القراءة والإسناد والانتقال كما هي. مقيسٌ
     //         على نسخة بشكل الإنتاج في tests/sql/continuity-edit-permissions.test.sql. الترقيم:
     //         الإنتاج طبّق 077–081 ثم 085 و086، فالجديد يأتي بعد 086 لا في 082–084 (تبقى غير مستعملة).
-    assert.equal(migrations[migrations.length - 1], '087_continuity_edit_permissions.sql',
+    //   088 — مركز التكاملات (طلب صاحب المنصة 2026-10-12: «Mad3oom Integrations Hub —
+    //         WordPress + WooCommerce + Salla + Daftra … Database migrations where necessary»).
+    //         لا جدول قائم يعرف «ربط شركة بحساب خارجي»: external_integrations لكل حساب ولمزوّدي
+    //         الذكاء الاصطناعي، و integration_* في الإنتاج لواجهة واتساب. 11 جدولًا ihub_* بلا أي
+    //         صلاحية مباشرة، وكل المزوّدين مقفلون، ولا باقة تشمل integrations_hub. البادئة ihub_
+    //         لا integration_ حتى لا تلمس أنماط المنح دوال integration_* المنشورة. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/integrations-hub.test.sql. غير مطبَّق على الإنتاج. كُتب باسم 087
+    //         ونُقل إلى 088 بعد دمج 087_continuity_edit_permissions في main (لا اعتماد بينهما).
+    assert.equal(migrations[migrations.length - 1], '088_integrations_hub.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

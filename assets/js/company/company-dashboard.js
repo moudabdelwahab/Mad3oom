@@ -25,6 +25,7 @@ import {
     analyzeSubscriptions, ANOMALY_NOTES, SUBSCRIPTION_STATES
 } from '/assets/js/company/subscription-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
+import { initCompanyIntegrations, loadCompanyIntegrations } from '/assets/js/company/company-integrations.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
@@ -115,6 +116,8 @@ async function init() {
     initCompanyApi({ onCreateToken: openApiTokenModal });
     initApiTokenModal({ onCreated: () => loadCompanyApi({ selfId: currentUserId }) });
     initCompanyActivity();
+    // قائمة الأعضاء لاختيار العميل عند تحويل طلب دعم وارد من الموقع إلى تذكرة
+    initCompanyIntegrations({ members: () => companyMembers });
     initCompanySupport({ onCreated: onTicketCreated });
     initCompanyNotifications({
         onNavigate: showSection,
@@ -151,7 +154,7 @@ const SECTIONS = [
     'tickets',          // ① الشركة ↔ مدعوم
     'customerTickets',  // ② العميل  ↔ الشركة
     'support', 'notifications',
-    'api', 'reports', 'activity',
+    'api', 'integrations', 'reports', 'activity',
     'profile', 'security'
 ];
 
@@ -164,6 +167,7 @@ const LOADERS = {
     profile: () => loadCompanyProfile(),
     security: () => loadCompanySecurity(),
     api: () => loadCompanyApi({ selfId: currentUserId }),
+    integrations: () => loadCompanyIntegrations(),
     activity: () => loadCompanyActivity(),
     // التقارير تُبنى من المسارين، فنضمن تحميلهما أولًا بدل عرض أصفار كاذبة
     reports: () => loadReports()

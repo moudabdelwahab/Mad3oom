@@ -33,6 +33,7 @@ import {
 import { escapeHtml, formatDate, timeAgo, renderState, renderSkeletonLines }
     from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
+import { renderTicketIntegrations } from '/assets/js/company/ticket-integrations.js';
 
 /**
  * تعريف كل مسار. الفارق الحقيقي بين المسارين هو `load` — مصدر الصفوف —
@@ -241,6 +242,8 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
 
             <p class="company-notice">${escapeHtml(ticket.description || '')}</p>
 
+            ${spec.showsCustomer ? `<div id="${uid('Integrations')}" hidden></div>` : ''}
+
             <div id="${uid('Replies')}"></div>
 
             <form id="${uid('ReplyForm')}" class="company-form">
@@ -266,6 +269,8 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
             </form>`;
 
         await renderReplies(ticketId);
+        // سياق ووكومرس/سلة/دفترة لتذاكر العملاء فقط؛ القاعدة تقرر من يراه
+        if (spec.showsCustomer) renderTicketIntegrations(el(uid('Integrations')), ticketId);
         el(uid('ReplyForm'))?.addEventListener('submit', (e) => onReply(e, ticketId));
         el(uid('ReopenBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'reopen'));
         el(uid('CloseBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'close'));
