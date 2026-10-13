@@ -530,7 +530,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         واحد في تسع دوال على نص الإنتاج بالضبط؛ القراءة والإسناد والانتقال كما هي. مقيسٌ
     //         على نسخة بشكل الإنتاج في tests/sql/continuity-edit-permissions.test.sql. الترقيم:
     //         الإنتاج طبّق 077–081 ثم 085 و086، فالجديد يأتي بعد 086 لا في 082–084 (تبقى غير مستعملة).
-    assert.equal(migrations[migrations.length - 1], '087_continuity_edit_permissions.sql',
+    //   088 — جدولة الحذف الفعلي لملفات المرفقات الممسوحة (شرط قبل تشغيل المرفقات): سر داخلي
+    //         يُولَّد في القاعدة (internal_service_secrets) ونداء pg_cron كل ساعة لدالة
+    //         continuity-attachment-cleanup. مقيسٌ في tests/sql/continuity-attachment-cleanup-schedule.test.sql.
+    assert.equal(migrations[migrations.length - 1], '088_continuity_attachment_cleanup_schedule.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
