@@ -15,7 +15,7 @@ import path from 'node:path';
 import * as C from '../supabase/functions/_shared/integrations/crypto.js';
 import { validateExternalUrl, safeFetch } from '../supabase/functions/_shared/integrations/http.js';
 import { redactString, sanitizeLogFields, maskEmail } from '../supabase/functions/_shared/integrations/redact.js';
-import { OPERATIONS, describe, invoke, supports } from '../supabase/functions/_shared/integrations/contract.js';
+import { OPERATIONS, describe, invoke, supports, shortText } from '../supabase/functions/_shared/integrations/contract.js';
 import { ConnectorError } from '../supabase/functions/_shared/integrations/errors.js';
 import { CONNECTORS } from '../supabase/functions/_shared/integrations/registry.js';
 import * as Woo from '../supabase/functions/_shared/integrations/woocommerce.js';
@@ -324,6 +324,15 @@ test('contract: every connector declares every operation; unsupported never runs
             }
         }
     }
+});
+
+test('contract: shortText leaves no tag or angle bracket, even from nested or unterminated tags', () => {
+    for (const v of ['<scr<script>ipt>alert(1)</script>', '<<script>script>x', '<img src=x onerror=1', 'a > b < c', '<b>Ali</b>\u0000 Hassan']) {
+        const out = shortText(v);
+        assert.ok(out === null || !/[<>]/.test(out), `${v} → ${out}`);
+    }
+    assert.equal(shortText('<b>Ali</b>\u0000 Hassan'), 'Ali Hassan');
+    assert.equal(shortText('<p></p>'), null);
 });
 
 test('contract: connector capabilities match the provider catalog seeded by 088 (no misleading UI controls)', () => {

@@ -75,10 +75,14 @@ export function recordShape({ recordType, externalId, displayRef, summary, exter
     };
 }
 
-/** نص قصير آمن للعرض (بلا وسوم ولا محارف تحكم). */
+/**
+ * نص قصير آمن للعرض (بلا وسوم ولا محارف تحكم). بعد نزع الوسوم يُحذف كل < و >
+ * متبقٍّ، فمدخل مثل «<scr<script>ipt>» لا يترك وسمًا جزئيًا.
+ */
 export function shortText(v, max = 80) {
     if (v === null || v === undefined) return null;
-    const s = String(v).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const s = String(v).replace(/<[^>]*>/g, '').replace(/[<>]/g, '')
+        .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
     return s ? s.slice(0, max) : null;
 }
 
