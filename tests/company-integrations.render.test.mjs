@@ -161,7 +161,7 @@ run('admin sees four provider cards in order; a disabled provider and unsupporte
 run('connect WooCommerce: invalid input makes no call; valid input shows the webhook secret once and clears the key fields', async () => {
     const fx = fixtures({
         rpc: { ihub_prepare_connection: { id: 'conn-woo', provider: 'woocommerce', status: 'pending' } },
-        functions: { 'integrations-api': { data: { connection: { id: 'conn-woo', status: 'active' },
+        functions: { 'ihub-api': { data: { connection: { id: 'conn-woo', status: 'active' },
                                                    webhook: { delivery_url: 'https://p.supabase.co/functions/v1/integrations-inbound/woocommerce/conn-woo',
                                                               secret: WEBHOOK_SECRET, topics: ['order.created', 'order.updated'], shown_once: true } } } }
     });
@@ -181,7 +181,7 @@ run('connect WooCommerce: invalid input makes no call; valid input shows the web
     await page.waitForSelector('.ihub-reveal');
     const inv = await page.evaluate(() => window.__INVOCATIONS__);
     assert.equal(inv.length, 1);
-    assert.equal(inv[0].name, 'integrations-api');
+    assert.equal(inv[0].name, 'ihub-api');
     assert.deepEqual(Object.keys(inv[0].body).sort(), ['action', 'connection_id', 'consumer_key', 'consumer_secret', 'store_url']);
     assert.equal(inv[0].body.connection_id, 'conn-woo');
     assert.equal(await page.inputValue('#ihubRevealValue'), WEBHOOK_SECRET);
@@ -236,7 +236,7 @@ run('Salla: "connect" keeps the tab binding in sessionStorage and leaves only fo
     enabled.providers.find((p) => p.key === 'salla').enabled = true;
     const fx = fixtures({
         rpc: { ihub_overview: enabled, ihub_prepare_connection: { id: '33333333-3333-4333-8333-333333333333', provider: 'salla', status: 'pending' } },
-        functions: { 'integrations-api': { data: { authorize_url: 'https://accounts.salla.sa/oauth2/auth?client_id=x&state=y', binding: 'B'.repeat(43) } } }
+        functions: { 'ihub-api': { data: { authorize_url: 'https://accounts.salla.sa/oauth2/auth?client_id=x&state=y', binding: 'B'.repeat(43) } } }
     });
     const { page, context } = await open(browser, baseUrl, fx);
     let navigated = null;
@@ -251,7 +251,7 @@ run('Salla: "connect" keeps the tab binding in sessionStorage and leaves only fo
 
 run('Salla return "confirm": completes with binding + completion code from this tab, then scrubs the address bar', async () => {
     const conn = '33333333-3333-4333-8333-333333333333';
-    const fx = fixtures({ functions: { 'integrations-api': { data: { connection: { id: conn, status: 'active' } } } } });
+    const fx = fixtures({ functions: { 'ihub-api': { data: { connection: { id: conn, status: 'active' } } } } });
     // نفس التبويب الذي بدأ التدفق: البصمة في sessionStorage لهذا الأصل
     const { page, context: ctx2 } = await open(browser, baseUrl, fx, { hash: 'overview' });
     await page.evaluate((c) => sessionStorage.setItem(`ihub_oauth_binding:${c}`, 'B'.repeat(43)), conn);
@@ -296,7 +296,7 @@ run('customer ticket: the external-context panel shows the allowlisted order sum
     };
     const fx = fixtures({
         rpc: { ihub_ticket_context: ctx },
-        functions: { 'integrations-api': { data: { link_id: 'link-2', created: true } } },
+        functions: { 'ihub-api': { data: { link_id: 'link-2', created: true } } },
         tables: { tickets: [{ id: TICKET_ID, user_id: CUSTOMER_ID, title: 'طلبي متأخر', description: 'لم يصل', status: 'open', ticket_number: 77,
                               created_at: '2026-10-11T09:00:00Z', profiles: { full_name: 'سارة', email: 'sara@example.com' } }] }
     });

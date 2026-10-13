@@ -17,9 +17,9 @@
 ```
 Browser (company dashboard)                     Providers
  ├─ #integrations section ─ ihub_* RPCs          WooCommerce store ── webhook ─┐
- │                         └ integrations-api ─▶ (REST, read-only keys)        │
+ │                         └ ihub-api ─▶ (REST, read-only keys)        │
  └─ customer ticket panel ─ ihub_ticket_context  Salla (OAuth, API) ── webhook ┤
-                           └ integrations-api ─▶ Daftra (API key, read)        │
+                           └ ihub-api ─▶ Daftra (API key, read)        │
                                                                                 ▼
 WordPress site ── signed requests ──────────────────────────────▶ integrations-inbound
                                                                      │  (verify_jwt=false; each route
@@ -69,9 +69,9 @@ Edge Functions never trust the browser for authorization: each action starts wit
 
 ### 5.1 WooCommerce (first vertical slice)
 1. Admin clicks *Connect* → `ihub_prepare_connection('woocommerce')` → pending row.
-2. Form (store URL, Read key/secret) → `integrations-api connect`: `ihub_authorize` → SSRF-checked URL → `GET /wp-json/wc/v3/orders?per_page=1` → `ihub_svc_activate` (enforces one company per store) → encrypt and store keys **plus a generated webhook secret** → the secret and delivery URL are shown **once**.
+2. Form (store URL, Read key/secret) → `ihub-api connect`: `ihub_authorize` → SSRF-checked URL → `GET /wp-json/wc/v3/orders?per_page=1` → `ihub_svc_activate` (enforces one company per store) → encrypt and store keys **plus a generated webhook secret** → the secret and delivery URL are shown **once**.
 3. Merchant adds webhooks (`order.created`, `order.updated`, API v3) with that URL and secret.
-4. On a customer ticket, the agent links order `#1007` → `integrations-api link_record` → fetch → `ihub_svc_apply_record(create)` → `ihub_svc_link_ticket` → panel shows the summary.
+4. On a customer ticket, the agent links order `#1007` → `ihub-api link_record` → fetch → `ihub_svc_apply_record(create)` → `ihub_svc_link_ticket` → panel shows the summary.
 5. Webhook → verify `X-WC-Webhook-Signature` on the raw body → ingest (dedupe) → if the order is linked, apply the payload summary when `date_modified_gmt` is not older; otherwise acknowledge and store nothing. Failures are acknowledged (200) and retried by the worker, which **re-fetches** the order (no payload is stored).
 
 ### 5.2 Daftra
