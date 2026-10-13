@@ -48,9 +48,11 @@ Then `get_advisors` (security): "RLS enabled, no policy" on `ihub_*` is intended
 | `SALLA_CLIENT_ID`, `SALLA_CLIENT_SECRET`, `SALLA_REDIRECT_URI`, `SALLA_WEBHOOK_SECRET` | From Salla Partners (only when enabling Salla); redirect = `IHUB_PUBLIC_BASE/integrations-inbound/salla/callback` |
 
 ## 4. Deploy the Edge Functions
+> The API function is `ihub-api`, **not** `integrations-api`: production already has an `integrations-api` function — the WhatsApp/Aqar Integration Platform API (see `api-docs.html`), deployed outside this repo. Never deploy over that slug.
+
 | Function | `verify_jwt` | Files |
 |---|---|---|
-| `integrations-api` | **true** | `integrations-api/index.ts` + `_shared/integrations/*` |
+| `ihub-api` | **true** | `ihub-api/index.ts` + `_shared/integrations/*` |
 | `integrations-inbound` | **false** (webhooks, OAuth callback, plugin — each route authenticates itself) | `integrations-inbound/index.ts` + `_shared/integrations/*` |
 | `integrations-worker` | **false** (secret header) | `integrations-worker/index.ts` + `_shared/integrations/*` |
 

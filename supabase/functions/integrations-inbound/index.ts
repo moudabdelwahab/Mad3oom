@@ -17,7 +17,8 @@ Deno.serve(async (req: Request) => {
   if (declared > MAX_INBOUND_BYTES) return new Response(JSON.stringify({ error: "too_large" }), { status: 413 });
   const rawBody = req.method === "GET" ? new Uint8Array() : new Uint8Array(await req.arrayBuffer());
 
-  const result = await handleInbound({
+  // handleInbound (JS) يرجع { status, body } أو، لرجوع OAuth، { status: 302, redirect }.
+  const result: { status: number; body?: unknown; redirect?: string } = await handleInbound({
     env: readEnv(),
     fetch: globalThis.fetch.bind(globalThis),
     now: () => Date.now(),

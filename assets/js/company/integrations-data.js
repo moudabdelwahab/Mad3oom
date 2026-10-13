@@ -1,7 +1,7 @@
 /**
  * integrations-data.js — نداءات مركز التكاملات من لوحة الشركة.
  *
- * كل شيء عبر دوال ihub_* (authenticated) أو الدالة الطرفية integrations-api.
+ * كل شيء عبر دوال ihub_* (authenticated) أو الدالة الطرفية ihub-api.
  * لا معرّف شركة في أي نداء: الشركة تُشتق من الجلسة في القاعدة. والأسرار لا
  * تمر من هنا إلا مرة واحدة باتجاه واحد (المدير يكتبها ⇒ الخادم يشفّرها)، أو
  * تُعرض مرة واحدة عند الإنشاء/التدوير ثم تُنسى.
@@ -63,7 +63,7 @@ export const unlinkTicketRecord = (linkId) => rpc('ihub_ticket_unlink', { p_link
  */
 export async function invokeIntegrationsApi(action, payload = {}) {
     try {
-        const { data, error } = await supabase.functions.invoke('integrations-api', { body: { action, ...payload } });
+        const { data, error } = await supabase.functions.invoke('ihub-api', { body: { action, ...payload } });
         if (error) {
             let code = 'unknown_error';
             try {

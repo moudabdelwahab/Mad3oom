@@ -582,7 +582,7 @@ test('wordpress: intake fields are validated like the table constraints', () => 
     }
 });
 
-/* ══ integrations-api ══════════════════════════════════════════════════════ */
+/* ══ ihub-api ══════════════════════════════════════════════════════ */
 
 function authorizeAs(connectionId, provider, status = 'pending', extra = {}) {
     return async (name, a) => {
@@ -987,7 +987,12 @@ test('static: shared modules use no Deno or service-role key; entrypoints log no
         assert.doesNotMatch(src, /Deno\.|SERVICE_ROLE/, `${f} must stay runtime-neutral`);
         assert.doesNotMatch(src, /console\.(log|error|warn)\(/, `${f} logs only through safeLog`);
     }
-    for (const fn of ['integrations-api', 'integrations-inbound', 'integrations-worker']) {
+    // production's `integrations-api` is the WhatsApp/Aqar Integration Platform API (deployed outside this
+    // repo, documented in api-docs.html). Deploying under that slug would replace it.
+    assert.ok(!fs.existsSync(path.join(ROOT, 'supabase/functions/integrations-api')),
+              'the hub must not ship a function named integrations-api (production slug owned by the WhatsApp API)');
+    assert.match(read('assets/js/company/integrations-data.js'), /functions\.invoke\('ihub-api'/);
+    for (const fn of ['ihub-api', 'integrations-inbound', 'integrations-worker']) {
         const src = read(`supabase/functions/${fn}/index.ts`);
         assert.doesNotMatch(src, /console\.(log|error)\([^)]*(body|raw|req)/, `${fn} logs a request`);
     }

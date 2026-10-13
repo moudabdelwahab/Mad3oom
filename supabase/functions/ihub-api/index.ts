@@ -3,7 +3,7 @@ import { handleApi } from "../_shared/integrations/api.js";
 import { readEnv, rpcVia, serviceRpc, userClient } from "../_shared/integrations/deno-deps.ts";
 
 // ============================================================================
-// integrations-api — عمليات مركز التكاملات من لوحة الشركة.
+// ihub-api — عمليات مركز التكاملات من لوحة الشركة.
 // verify_jwt = true. التفويض في القاعدة (ihub_authorize*)؛ هنا ربط فقط.
 // docs/integrations/ARCHITECTURE.md
 // ============================================================================
