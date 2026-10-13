@@ -547,7 +547,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         وجدولته وفق المعمارية الموجودة»): نفس نمط 089 — سر يُولَّد في القاعدة
     //         (internal_service_secrets 'ihub_worker') ونداء pg_cron كل 5 دقائق لـ integrations-worker.
     //         مقيسٌ في tests/sql/ihub-worker-schedule.test.sql (ومنه: لا تكرار في حجز الأحداث).
-    assert.equal(migrations[migrations.length - 1], '090_ihub_worker_schedule.sql',
+    //   091 — استثناء امتياز لشركة بعينها (طلب صاحب المنصة 2026-10-13: «موافق على جدول الاستثناءات
+    //         لشركتي» لتجربة مركز التكاملات «دون تعديل الخطط العامة»). company_has_feature() = شرط
+    //         الباقة حرفيًا أو استثناء ساري؛ الجدول مغلق على كل الأدوار ومقيَّد بـ integrations_hub.
+    //         مقيسٌ في tests/sql/company-feature-overrides.test.sql (والتراجع يعيد التعريف حرفيًا).
+    assert.equal(migrations[migrations.length - 1], '091_company_feature_overrides.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
