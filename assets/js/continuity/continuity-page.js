@@ -31,6 +31,7 @@ import {
     CAPABILITY_LABELS, POLICY_NUMBER_FIELDS, POLICY_BOOL_FIELDS, policyPatchFromForm,
     isScopedHandover, grantRemainingText, shareExpiryText, grantStatusText, canManageGrant, buildShareScope, changedSinceReviewText,
     COLLAB_FIELDS, PROPOSAL_STATE_LABELS, grantAbilities, grantActionsText, collabPatchFromForm, proposalSummary,
+    REMINDER_KIND_LABELS, reminderRowText,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, createRecord, updateRecord, assignRecord, transitionRecord, loadEvents, setPolicies,
@@ -41,6 +42,7 @@ import {
     requestShare, reviewHandover, decideReviewed, revokeShare, amendShare, respondShare, sharedRecord, shareScope, previewRecipient,
     sharedWithMe, signSharedAttachment,
     addNote, notesFor, proposeShared, proposalsFor, decideProposal, withdrawProposal, updateShared, delegationSettings,
+    remindersFor,
 } from './continuity-data.js';
 import { uploadAttachment } from './continuity-upload.js';
 import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
@@ -71,6 +73,8 @@ const state = {
     shared: { installed: false, active: [], proposals: [] },
     // 093: إعدادات المشاركة (التعاون مسموح؟)، والعرض المشترك المفتوح، وملاحظات واقتراحات السجل المفتوح
     delegation: null, sharedView: null, notes: null, proposals: null,
+    // 094: تذكيرات السجل المفتوح (null قبل 094)
+    reminders: null,
     // السجل (الأحداث): هل فيه أقدم من المعروض
     eventsMore: false,
 };
@@ -145,10 +149,13 @@ async function openRecord(id, { push = true } = {}) {
     $('ctPage').classList.add('has-record');
     try {
         const collabReady = Boolean(state.delegation);
-        const [full, events, handovers, notes, proposals] = await Promise.all([getRecord(id), loadEvents(id).catch(() => []),
+        const [full, events, handovers, notes, proposals, reminders] = await Promise.all([getRecord(id), loadEvents(id).catch(() => []),
             handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([]),
             collabReady ? notesFor(id).catch(() => null) : Promise.resolve(null),
-            collabReady ? proposalsFor(id).catch(() => null) : Promise.resolve(null)]);
+            collabReady ? proposalsFor(id).catch(() => null) : Promise.resolve(null),
+            // 094: فقط على قاعدة فيها السياسات (078+)؛ قبل 077 لا نداء بالاسم الجديد غير الفحص
+            state.access?.policies ? remindersFor(id).catch(() => null) : Promise.resolve(null)]);
+        state.reminders = reminders;
         state.sharedView = null;
         state.notes = Array.isArray(notes) ? notes : null;
         state.proposals = Array.isArray(proposals) ? proposals : null;
@@ -320,6 +327,7 @@ function renderRecord() {
             ${state.access.can_assign ? '' : '<p class="ct-muted">تقدر تاخد السجل لنفسك أو تسيبه من غير مالك. النقل لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}` : ''}
         ${handoverHtml(r)}
         ${collabRecordHtml(r)}
+        ${remindersHtml(r)}
       </section>
 
       ${transitions.length ? `<section aria-labelledby="ctStatusH"><h3 id="ctStatusH">الحالة</h3>
@@ -777,6 +785,26 @@ function sharedCollabHtml(v) {
         ${can.note ? `<div class="ct-inline" id="ctSharedNoteForm"><label class="ct-field" style="flex:1"><span class="ct-sr">ملاحظة</span>
             <textarea id="ctSharedNoteBody" maxlength="2000" rows="2" placeholder="اكتب ملاحظة لصاحب السجل"></textarea></label>
             <button type="button" class="btn btn-primary ct-btn-sm" id="ctSharedNoteAdd">إضافة</button></div>` : ''}
+      </section>`;
+}
+
+/** 094: التذكيرات القادمة وما حصل لها — أنواع وأوقات فقط. */
+function remindersHtml(r) {
+    const x = state.reminders;
+    if (!x || isClosed(r.status) && !(x.recent || []).length) return '';
+    const on = x.reminders || x.escalation;
+    const upcoming = (x.upcoming || []).filter((j) => (j.kind.startsWith('escalation') ? x.escalation : x.reminders));
+    return `<section aria-labelledby="ctRemindersH" id="ctReminders">
+        <h3 id="ctRemindersH">التذكيرات</h3>
+        ${!on ? '<p class="ct-muted" id="ctRemindersOff">التذكيرات والتصعيد مطفأين حاليًا من الإعدادات.</p>' : ''}
+        ${on && !x.reminders ? '<p class="ct-muted">تذكيرات المالك مطفأة؛ التصعيد للمشرفين بس.</p>' : ''}
+        ${on && !x.escalation ? '<p class="ct-muted">التصعيد للمشرفين مطفأ؛ تذكيرات المالك بس.</p>' : ''}
+        ${upcoming.length ? `<ul class="ct-events" id="ctRemindersUpcoming">${upcoming.map((j) =>
+            `<li>${esc(REMINDER_KIND_LABELS[j.kind] || j.kind)} · ${esc(fmt(j.run_at, r.due_tz))}</li>`).join('')}</ul>`
+            : on ? '<p class="ct-muted">مفيش تذكيرات قادمة.</p>' : ''}
+        ${(x.recent || []).length ? `<details><summary>اللي حصل (${x.recent.length})</summary><ul class="ct-events">${x.recent.map((j) =>
+            `<li>${esc(fmt(j.at))} · ${esc(reminderRowText(j))}</li>`).join('')}</ul></details>` : ''}
+        <p class="ct-muted">الإشعار فيه نوع السجل والموعد والأولوية بس، من غير عنوان أو محتوى.</p>
       </section>`;
 }
 

@@ -559,7 +559,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   093 — إجراءات المشاركة التعاونية (082b، #125): ملاحظات بخيط لكل منحة، اقتراحات يطبّقها المالك
     //         عبر continuity_update، تعديل الحقول المسموحة، وإضافة رسائل ومرفقات تظهر للمنحة فقط.
     //         مفتاح delegation_allow_collab مطفأ افتراضيًا. مقيسٌ في tests/sql/continuity-collab-actions.test.sql.
-    assert.equal(migrations[migrations.length - 1], '093_continuity_collab_actions.sql',
+    //   094 — المجدول والتذكيرات والتصعيد (D1–D4، R3/R4/R7): مهام وصندوق تسليم بلا نص، إشعارات داخل
+    //         المنصة بقوالب ثابتة، تصعيد للمشرفين ينتظر ساعات العمل بتوقيت القاهرة، احتفاظ 180 يومًا.
+    //         المفتاحان مطفآن افتراضيًا. مقيسٌ في tests/sql/continuity-reminders.test.sql.
+    assert.equal(migrations[migrations.length - 1], '094_continuity_reminders.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

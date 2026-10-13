@@ -215,6 +215,14 @@ export async function delegationSettings() {
     return error || !data ? null : data;
 }
 
+// ─────────────────────────────────────────────────────────────
+// 094: التذكيرات والتصعيد — أنواع وأوقات فقط لمن يرى السجل. null على قاعدة قبل 094.
+// ─────────────────────────────────────────────────────────────
+export async function remindersFor(recordId) {
+    const { data, error } = await supabase.rpc('continuity_reminders_for', { p_record: recordId });
+    return error || !data ? null : data;
+}
+
 /** نفس قائمة الطاقم المؤهل في الصندوق (inbox_list_agents، 055). */
 export async function loadAgents() {
     const { data, error } = await supabase.rpc('inbox_list_agents');
