@@ -16,10 +16,10 @@
 //   • لا حمولة ولا بيانات عميل في أي سجل أو رد.
 // ============================================================================
 
-import { CONNECTORS, loadConnection, storeCredentials, connectorContext } from './registry.js';
+import { CONNECTORS, loadConnection, connectorContext } from './registry.js';
 import { invoke } from './contract.js';
 import { ConnectorError, errorCode } from './errors.js';
-import { sha256Hex } from './crypto.js';
+import { sha256Hex, encryptJson, oauthPendingAad, randomToken } from './crypto.js';
 import { verifySallaWebhook, exchangeCode, fetchMerchant } from './salla.js';
 import { readSignedHeaders, verifySignedRequest, validateIntake } from './wordpress.js';
 import { safeLog } from './redact.js';
@@ -103,16 +103,21 @@ async function sallaCallback(deps, req) {
     try {
         const tokens = await exchangeCode({ fetch: deps.fetch, env: deps.env, now: deps.now }, code);
         const merchant = await fetchMerchant({ fetch: deps.fetch }, tokens.access_token);
-        await deps.svcRpc('ihub_svc_activate', {
-            p_connection: st.connection_id, p_external_account_id: merchant.externalAccountId,
-            p_label: merchant.label, p_base_url: null, p_actor: st.user_id
+        // لا تفعيل هنا. النتيجة تُحجز مشفّرة، ورمز إكمال لمرة واحدة يذهب لهذا
+        // المتصفح وحده (المتصفح الذي وافق في سلة). الإكمال (oauth_complete) يحتاج
+        // معه جلسة المدير الذي بدأ وبصمة تبويبه — فمتجر ضحية وصلها رابط تفويض
+        // من مدير شركة أخرى لا يُربط: هي بلا جلسته، وهو بلا رمز الإكمال.
+        const cipher = await encryptJson(deps.env.IHUB_ENC_KEY, { tokens, merchant }, oauthPendingAad(st.connection_id));
+        const completion = randomToken(32);
+        const held = await deps.svcRpc('ihub_svc_hold_oauth_result', {
+            p_state_hash: await sha256Hex(state), p_pending_cipher: cipher, p_completion_hash: await sha256Hex(completion)
         });
-        await storeCredentials(deps, st.connection_id, 'salla', tokens, tokens.expires_at);
-        safeLog(deps.logger, 'connected', { provider: 'salla', connection_id: st.connection_id });
-        return dashboardRedirect(deps.env, { ihub_result: 'connected', ihub_provider: 'salla' });
+        if (!held) return dashboardRedirect(deps.env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+        return dashboardRedirect(deps.env, {
+            ihub_result: 'confirm', ihub_provider: 'salla', ihub_connection: st.connection_id, ihub_completion: completion
+        });
     } catch (err) {
-        let c = errorCode(err);
-        if (err?.code === '23505') c = 'account_in_use';
+        const c = errorCode(err);
         try {
             await deps.svcRpc('ihub_svc_record_health', { p_connection: st.connection_id, p_ok: false, p_error_code: c });
         } catch { /* ignore */ }

@@ -11,14 +11,14 @@
 import { connectorFor, loadConnection, storeCredentials, connectorContext, FETCH_OPERATION, rpcFailure } from './registry.js';
 import { invoke, supports } from './contract.js';
 import { ConnectorError, errorCode } from './errors.js';
-import { randomToken, sha256Hex } from './crypto.js';
+import { randomToken, sha256Hex, decryptJson, oauthPendingAad } from './crypto.js';
 import { authorizeUrl } from './salla.js';
 import { pairingCode } from './wordpress.js';
 import { WEBHOOK_TOPICS } from './woocommerce.js';
 import { safeLog } from './redact.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ACTIONS = new Set(['connect', 'test', 'rotate_secret', 'oauth_start', 'link_record']);
+const ACTIONS = new Set(['connect', 'test', 'rotate_secret', 'oauth_start', 'oauth_complete', 'link_record']);
 
 class RpcError extends Error {
     constructor(err) { super('rpc'); this.rpc = err; }
@@ -134,11 +134,39 @@ async function actionOauthStart(deps, body) {
     if (auth.provider !== 'salla') return fail('unsupported', 400);
     const env = deps.env;
     if (!env.SALLA_CLIENT_ID || !env.SALLA_CLIENT_SECRET || !env.SALLA_REDIRECT_URI) return fail('not_configured', 503);
+    // state يذهب لسلة ويعود؛ binding يبقى في تبويب المدير (sessionStorage) ولا يغادره.
+    // الرجوع من سلة لا يفعّل شيئًا: الإكمال يحتاج نفس المدير + نفس binding (RFC 6749 §10.12).
     const state = randomToken(32);
+    const binding = randomToken(32);
     await call(deps.userRpc, 'ihub_oauth_begin', {
-        p_connection: auth.connection_id, p_state_hash: await sha256Hex(state), p_verifier_cipher: null
+        p_connection: auth.connection_id, p_state_hash: await sha256Hex(state), p_binding_hash: await sha256Hex(binding)
     });
-    return ok({ authorize_url: authorizeUrl({ clientId: env.SALLA_CLIENT_ID, redirectUri: env.SALLA_REDIRECT_URI, state }) });
+    return ok({ authorize_url: authorizeUrl({ clientId: env.SALLA_CLIENT_ID, redirectUri: env.SALLA_REDIRECT_URI, state }), binding });
+}
+
+async function actionOauthComplete(deps, body) {
+    const auth = await call(deps.userRpc, 'ihub_authorize', { p_connection: body.connection_id, p_action: 'oauth_start' });
+    if (auth.provider !== 'salla') return fail('unsupported', 400);
+    const token = /^[A-Za-z0-9_-]{20,128}$/;
+    if (!token.test(String(body.binding || '')) || !token.test(String(body.completion || ''))) return fail('state_invalid', 409);
+    const cipher = await call(deps.svcRpc, 'ihub_svc_take_oauth_result', {
+        p_connection: auth.connection_id, p_binding_hash: await sha256Hex(body.binding),
+        p_completion_hash: await sha256Hex(body.completion), p_user: auth.actor_id
+    });
+    if (!cipher) return fail('state_invalid', 409);
+    let pending;
+    try {
+        pending = await decryptJson(deps.env.IHUB_ENC_KEY, cipher, oauthPendingAad(auth.connection_id));
+    } catch {
+        return fail('not_configured', 503);
+    }
+    const connection = await call(deps.svcRpc, 'ihub_svc_activate', {
+        p_connection: auth.connection_id, p_external_account_id: pending.merchant.externalAccountId,
+        p_label: pending.merchant.label, p_base_url: null, p_actor: auth.actor_id
+    });
+    await storeCredentials(deps, auth.connection_id, 'salla', pending.tokens, pending.tokens.expires_at);
+    safeLog(deps.logger, 'connected', { provider: 'salla', connection_id: auth.connection_id });
+    return ok({ connection });
 }
 
 async function actionLinkRecord(deps, body) {
@@ -179,6 +207,7 @@ export async function handleApi(deps, body) {
             case 'test': return await actionTest(deps, body);
             case 'rotate_secret': return await actionRotate(deps, body);
             case 'oauth_start': return await actionOauthStart(deps, body);
+            case 'oauth_complete': return await actionOauthComplete(deps, body);
             case 'link_record': return await actionLinkRecord(deps, body);
         }
         return fail('invalid_input', 400);

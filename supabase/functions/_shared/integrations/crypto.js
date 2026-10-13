@@ -85,6 +85,11 @@ export function credentialAad(connectionId, provider) {
     return `ihub:v1:${connectionId}:${provider}`;
 }
 
+/** AAD لنتيجة OAuth المحجوزة (تختلف عن بيانات الاعتماد: لا تبديل بينهما). */
+export function oauthPendingAad(connectionId) {
+    return `ihub:oauth-pending:v1:${connectionId}`;
+}
+
 /** يشفّر كائن JSON. الناتج: ihub1.<iv b64url>.<ciphertext b64url>. */
 export async function encryptJson(secret, payload, aad) {
     if (!aad) throw new Error('AAD is required');

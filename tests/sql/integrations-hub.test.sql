@@ -352,25 +352,52 @@ BEGIN
   RAISE NOTICE 'PASS ④ دوال الخادم: service_role وحده، الحساب الخارجي فريد، الأخطاء رموز ثابتة';
 END $$;
 
--- ══ ⑤ OAuth state ════════════════════════════════════════════════════════
+-- ══ ⑤ OAuth: state + بصمة التبويب + رمز الإكمال ═══════════════════════
+-- الهجوم المقصود: مدير شركة أ يبدأ «ربط سلة» ويرسل رابط التفويض لتاجر ضحية.
+-- الضحية توافق في متصفحها ⇒ الرجوع يحجز النتيجة ويعطي رمز الإكمال لمتصفح الضحية.
+-- المهاجم يملك البصمة (بدأ هو) ولا يملك رمز الإكمال؛ الضحية تملك الرمز ولا تملك جلسته ولا بصمته.
 DO $$
-DECLARE cs uuid := t.conn('CA', 'salla'); cw uuid := t.conn('CA', 'woocommerce'); v jsonb; h text := repeat('a', 64);
+DECLARE cs uuid := t.conn('CA', 'salla'); cw uuid := t.conn('CA', 'woocommerce'); v jsonb;
+        h text := repeat('a', 64); b text := repeat('f', 64); k text := repeat('9', 64); ct text := 'ihub1.' || repeat('Q', 40);
+        take text := 'public.ihub_svc_take_oauth_result(%L::uuid, %L, %L, %L::uuid)';
 BEGIN
-  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cw, h)) = '22023', '⑤ ووكومرس لا يستعمل OAuth');
-  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, 'not-a-hash')) = '22023', '⑤ hash غير صالح');
-  PERFORM t.ok(t.err(t.u('OB'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, h)) = 'P0002', '⑤ OB لا يبدأ OAuth لربط أ');
-  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, h));
+  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cw, h, b)) = '22023', '⑤ ووكومرس لا يستعمل OAuth');
+  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, 'not-a-hash', b)) = '22023', '⑤ hash غير صالح');
+  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, h, h)) = '22023', '⑤ البصمة لا تساوي state');
+  PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, h)) = '22023', '⑤ البصمة إلزامية');
+  PERFORM t.ok(t.err(t.u('OB'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, h, b)) = 'P0002', '⑤ OB لا يبدأ OAuth لربط أ');
+  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, h, b));
+
+  PERFORM t.ok(NOT t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', h, ct, k))::boolean, '⑤ لا حجز قبل الاستهلاك');
   v := t.svc(format('public.ihub_svc_consume_oauth_state(%L)', h));
   PERFORM t.ok(v->>'connection_id' = cs::text AND v->>'user_id' = t.u('OA')::text, '⑤ استهلاك أول');
-  PERFORM t.ok(t.svc(format('public.ihub_svc_consume_oauth_state(%L)', h)) IS NULL, '⑤ مرة واحدة فقط');
-  PERFORM t.ok(t.svc(format('public.ihub_svc_consume_oauth_state(%L)', repeat('b', 64))) IS NULL, '⑤ state مجهول');
-  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, repeat('c', 64)));
+  PERFORM t.ok(t.svc(format('public.ihub_svc_consume_oauth_state(%L)', h)) IS NULL, '⑤ state مرة واحدة فقط');
+  PERFORM t.ok(NOT t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', h, ct, 'x'))::boolean, '⑤ رمز إكمال غير صالح');
+  PERFORM t.ok(NOT t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', h, ct, b))::boolean, '⑤ رمز الإكمال لا يساوي البصمة');
+  PERFORM t.ok(t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', h, ct, k))::boolean, '⑤ حجز النتيجة');
+  PERFORM t.ok(NOT t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', h, ct, k))::boolean, '⑤ لا حجز مرتين');
+  PERFORM t.ok((SELECT status FROM public.ihub_connections WHERE id = cs) = 'pending', '⑤ الرجوع من المزوّد لا يفعّل شيئًا');
+
+  PERFORM t.ok(t.svc(format(take, cs, b, repeat('8', 64), t.u('OA'))) IS NULL, '⑤ الهجوم: المهاجم يملك البصمة لا رمز الإكمال');
+  PERFORM t.ok(t.svc(format(take, cs, repeat('e', 64), k, t.u('OA'))) IS NULL, '⑤ رمز صحيح من تبويب آخر');
+  PERFORM t.ok(t.svc(format(take, cs, b, k, t.u('OB'))) IS NULL, '⑤ مستخدم آخر');
+  PERFORM t.ok(t.svc(format(take, t.conn('CA', 'daftra'), b, k, t.u('OA'))) IS NULL, '⑤ ربط آخر');
+  PERFORM t.ok(t.svc(format(take, cs, b, k, t.u('OA'))) #>> '{}' = ct, '⑤ الإكمال يسلّم النتيجة');
+  PERFORM t.ok(t.svc(format(take, cs, b, k, t.u('OA'))) IS NULL, '⑤ الإكمال مرة واحدة');
+  PERFORM t.ok((SELECT pending_cipher IS NULL AND completion_hash IS NULL FROM public.ihub_oauth_states WHERE state_hash = h), '⑤ لا شيء يبقى بعد الإكمال');
+  PERFORM t.ok(t.err(t.u('OA'), format(take, cs, b, k, t.u('OA'))) = '42501', '⑤ authenticated لا يأخذ النتيجة');
+
+  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, repeat('c', 64), b));
   UPDATE public.ihub_oauth_states SET expires_at = now() - interval '1 second' WHERE state_hash = repeat('c', 64);
   PERFORM t.ok(t.svc(format('public.ihub_svc_consume_oauth_state(%L)', repeat('c', 64))) IS NULL, '⑤ منتهي الصلاحية');
-  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, repeat('d', 64)));
-  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, null)', cs, repeat('e', 64)));
-  PERFORM t.ok(t.svc(format('public.ihub_svc_consume_oauth_state(%L)', repeat('d', 64))) IS NULL, '⑤ state جديد يُبطل القديم');
-  RAISE NOTICE 'PASS ⑤ OAuth state: مرة واحدة، صلاحية 10 دقائق، سلة فقط، لا عبور';
+  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, repeat('d', 64), b));
+  PERFORM t.svc(format('public.ihub_svc_consume_oauth_state(%L)', repeat('d', 64)));
+  PERFORM t.svc(format('public.ihub_svc_hold_oauth_result(%L, %L, %L)', repeat('d', 64), ct, k));
+  UPDATE public.ihub_oauth_states SET expires_at = now() - interval '1 second' WHERE state_hash = repeat('d', 64);
+  PERFORM t.ok(t.svc(format(take, cs, b, k, t.u('OA'))) IS NULL, '⑤ نتيجة منتهية لا تُسلَّم');
+  PERFORM t.call(t.u('OA'), format('public.ihub_oauth_begin(%L::uuid, %L, %L)', cs, repeat('1', 64), b));
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.ihub_oauth_states WHERE state_hash = repeat('d', 64)), '⑤ بدء جديد يمحو القديم ونتيجته');
+  RAISE NOTICE 'PASS ⑤ OAuth: state لمرة واحدة؛ الرجوع يحجز ولا يفعّل؛ الإكمال لنفس المدير + نفس التبويب + رمز متصفح الموافقة';
 END $$;
 
 -- ══ ⑥ الأحداث ═══════════════════════════════════════════════════════════

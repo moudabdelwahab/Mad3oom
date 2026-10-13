@@ -131,6 +131,23 @@ class FakeHub {
                 s.used = true;
                 return s.row;
             }
+            case 'ihub_svc_hold_oauth_result': {
+                const s = this.states.get(a.p_state_hash);
+                if (!s || !s.used || s.pending || s.completed || !/^[0-9a-f]{64}$/.test(a.p_completion_hash)) return false;
+                Object.assign(s, { pending: a.p_pending_cipher, completion: a.p_completion_hash });
+                return true;
+            }
+            case 'ihub_svc_take_oauth_result': {
+                for (const s of this.states.values()) {
+                    if (s.row.connection_id === a.p_connection && s.binding === a.p_binding_hash && s.completion === a.p_completion_hash
+                        && s.row.user_id === a.p_user && s.pending && !s.completed) {
+                        const c = s.pending;
+                        Object.assign(s, { pending: null, completion: null, completed: true });
+                        return c;
+                    }
+                }
+                return null;
+            }
             case 'ihub_svc_ingest_event': {
                 if (this.events.some((e) => e.connection === a.p_connection && e.dedupe === a.p_dedupe_key)) {
                     return { duplicate: true, linked: true };
@@ -626,7 +643,10 @@ test('api: Salla cannot be connected with submitted credentials; oauth_start sto
     assert.equal(s.status, 200);
     const state = new URL(s.body.authorize_url).searchParams.get('state');
     assert.equal(begun.p_state_hash, await C.sha256Hex(state));
-    assert.ok(!JSON.stringify(begun).includes(state), 'the raw state is never stored');
+    assert.equal(begun.p_binding_hash, await C.sha256Hex(s.body.binding));
+    assert.notEqual(s.body.binding, state);
+    assert.ok(!s.body.authorize_url.includes(s.body.binding), 'the tab binding never goes to Salla');
+    assert.ok(!JSON.stringify(begun).includes(state) && !JSON.stringify(begun).includes(s.body.binding), 'raw values are never stored');
     const nc = await handleApi(deps(hub, { userRpc: authorizeAs(CONN_S, 'salla') }), { action: 'oauth_start', connection_id: CONN_S });
     assert.equal(nc.status, 503);
 });
@@ -767,31 +787,74 @@ test('inbound Salla: unknown merchants are ignored without storage; app.uninstal
     assert.equal(hub.events.at(-1).connection, CONN_B, 'the event is routed to the merchant\'s own connection');
 });
 
-test('inbound Salla OAuth callback: state is single-use; tokens are stored encrypted; the redirect carries no token', async () => {
+async function sallaOauthHub() {
     const hub = new FakeHub();
     hub.addConnection(CONN_S, 'salla', { status: 'pending' });
     const state = 's'.repeat(43);
-    hub.states.set(await C.sha256Hex(state), { row: { connection_id: CONN_S, company_id: 'company-a', user_id: USER, provider: 'salla' } });
+    const binding = 'b'.repeat(43);
+    hub.states.set(await C.sha256Hex(state), { row: { connection_id: CONN_S, company_id: 'company-a', user_id: USER, provider: 'salla' },
+                                               binding: await C.sha256Hex(binding) });
     const f = fakeFetch([
         [(u) => u === Salla.SALLA_TOKEN_URL, () => respond(200, { access_token: 'access-token-xyz', refresh_token: 'refresh-token-xyz', expires_in: 1209600 })],
         [(u) => u === Salla.SALLA_USER_URL, () => respond(200, { data: { merchant: { id: 1803665367, name: 'متجري' } } })]
     ]);
     const env = { SALLA_CLIENT_ID: 'cid', SALLA_CLIENT_SECRET: 'cs', SALLA_REDIRECT_URI: 'https://cb.example/cb' };
-    const q = new URLSearchParams({ code: 'auth-code-123', state });
-    const r = await handleInbound(deps(hub, { fetch: f, env }), { method: 'GET', path: '/salla/callback', headers: hdrs({}), rawBody: new Uint8Array(), query: q });
+    return { hub, state, binding, f, env };
+}
+const callback = (q) => ({ method: 'GET', path: '/salla/callback', headers: hdrs({}), rawBody: new Uint8Array(), query: new URLSearchParams(q) });
+
+test('inbound Salla OAuth callback: state is single-use and the return only HOLDS the result (nothing is activated)', async () => {
+    const { hub, state, f, env } = await sallaOauthHub();
+    const r = await handleInbound(deps(hub, { fetch: f, env }), callback({ code: 'auth-code-123', state }));
     assert.equal(r.status, 302);
-    assert.match(r.redirect, /ihub_result=connected/);
+    const u = new URL(r.redirect);
+    assert.equal(u.searchParams.get('ihub_result'), 'confirm');
+    assert.equal(u.searchParams.get('ihub_connection'), CONN_S);
+    assert.match(u.searchParams.get('ihub_completion'), /^[A-Za-z0-9_-]{43}$/);
     assert.ok(!r.redirect.includes('access-token') && !r.redirect.includes('auth-code'));
+    assert.equal(hub.connections.get(CONN_S).status, 'pending', 'not activated by the provider redirect');
+    assert.equal(hub.creds.size, 0, 'no credentials stored by the provider redirect');
+    const held = [...hub.states.values()][0];
+    assert.ok(held.pending && !held.pending.includes('access-token-xyz'), 'the held result is encrypted');
+    assert.equal(held.completion, await C.sha256Hex(u.searchParams.get('ihub_completion')), 'only the completion hash is stored');
+
+    const replay = await handleInbound(deps(hub, { fetch: f, env }), callback({ code: 'auth-code-123', state }));
+    assert.match(replay.redirect, /ihub_code=state_invalid/);
+    const forged = await handleInbound(deps(hub, { fetch: f, env }), callback({ code: 'x'.repeat(10), state: 'f'.repeat(43) }));
+    assert.match(forged.redirect, /ihub_code=state_invalid/);
+    assert.equal(f.calls.length, 2, 'no token exchange for a replayed or forged state');
+});
+
+test('OAuth completion: the initiating admin, in the initiating tab, with the code the consenting browser received — and nobody else', async () => {
+    const { hub, state, binding, f, env } = await sallaOauthHub();
+    const r = await handleInbound(deps(hub, { fetch: f, env }), callback({ code: 'auth-code-123', state }));
+    const completion = new URL(r.redirect).searchParams.get('ihub_completion');
+    const admin = authorizeAs(CONN_S, 'salla', 'pending');
+
+    // الهجوم ①: المهاجم بدأ التدفق (يملك جلسته وبصمته) وأرسل الرابط للضحية — لكنه لا يرى رمز الإكمال
+    let x = await handleApi(deps(hub, { env, userRpc: admin }), { action: 'oauth_complete', connection_id: CONN_S, binding, completion: 'z'.repeat(43) });
+    assert.deepEqual([x.status, x.body.error], [409, 'state_invalid']);
+    // الهجوم ②: متصفح الضحية يملك رمز الإكمال لكن لا جلسة مدير الشركة ولا بصمة التبويب
+    const victim = async () => { throw { code: '42501', message: 'إدارة التكاملات متاحة لمدير الشركة فقط' }; };
+    x = await handleApi(deps(hub, { env, userRpc: victim }), { action: 'oauth_complete', connection_id: CONN_S, binding: 'v'.repeat(43), completion });
+    assert.equal(x.status, 403);
+    // نفس المدير من تبويب آخر (بلا البصمة الصحيحة)
+    x = await handleApi(deps(hub, { env, userRpc: admin }), { action: 'oauth_complete', connection_id: CONN_S, binding: 'w'.repeat(43), completion });
+    assert.equal(x.status, 409);
+    assert.equal(hub.connections.get(CONN_S).status, 'pending');
+    assert.equal(hub.creds.size, 0);
+
+    // المسار المشروع
+    x = await handleApi(deps(hub, { env, userRpc: admin }), { action: 'oauth_complete', connection_id: CONN_S, binding, completion });
+    assert.equal(x.status, 200, JSON.stringify(x.body));
     assert.equal(hub.connections.get(CONN_S).external_account_id, '1803665367');
     assert.ok(!hub.creds.get(CONN_S).ciphertext.includes('access-token-xyz'));
     assert.equal(hub.creds.get(CONN_S).token_expires_at, '2026-10-26T10:00:00.000Z');
-
-    const replay = await handleInbound(deps(hub, { fetch: f, env }), { method: 'GET', path: '/salla/callback', headers: hdrs({}), rawBody: new Uint8Array(), query: q });
-    assert.match(replay.redirect, /ihub_code=state_invalid/);
-    const forged = await handleInbound(deps(hub, { fetch: f, env }), { method: 'GET', path: '/salla/callback', headers: hdrs({}), rawBody: new Uint8Array(),
-                                                                        query: new URLSearchParams({ code: 'x'.repeat(10), state: 'f'.repeat(43) }) });
-    assert.match(forged.redirect, /ihub_code=state_invalid/);
-    assert.equal(f.calls.length, 2, 'no token exchange for a replayed or forged state');
+    const creds = await C.decryptJson(ENC_KEY, hub.creds.get(CONN_S).ciphertext, C.credentialAad(CONN_S, 'salla'));
+    assert.equal(creds.refresh_token, 'refresh-token-xyz');
+    // مرة واحدة
+    x = await handleApi(deps(hub, { env, userRpc: admin }), { action: 'oauth_complete', connection_id: CONN_S, binding, completion });
+    assert.equal(x.status, 409);
 });
 
 async function wpRequest(secret, action, body, { connection = CONN_W, nonce = 'n'.repeat(24), now = Date.parse('2026-10-12T10:00:00Z') } = {}) {

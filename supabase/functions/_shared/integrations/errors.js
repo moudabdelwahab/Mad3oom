@@ -25,6 +25,7 @@ export const ERROR_CODES = Object.freeze({
     not_configured: { status: 503, retryable: false },
     app_uninstalled: { status: 422, retryable: false },
     account_in_use: { status: 409, retryable: false },
+    state_invalid: { status: 409, retryable: false },
     unknown_error: { status: 500, retryable: true }
 });
 

@@ -231,6 +231,50 @@ run('disconnect asks first: cancelling calls nothing; confirming calls ihub_disc
     await context.close();
 });
 
+run('Salla: "connect" keeps the tab binding in sessionStorage and leaves only for accounts.salla.sa', async () => {
+    const enabled = overview();
+    enabled.providers.find((p) => p.key === 'salla').enabled = true;
+    const fx = fixtures({
+        rpc: { ihub_overview: enabled, ihub_prepare_connection: { id: '33333333-3333-4333-8333-333333333333', provider: 'salla', status: 'pending' } },
+        functions: { 'integrations-api': { data: { authorize_url: 'https://accounts.salla.sa/oauth2/auth?client_id=x&state=y', binding: 'B'.repeat(43) } } }
+    });
+    const { page, context } = await open(browser, baseUrl, fx);
+    let navigated = null;
+    await context.route('https://accounts.salla.sa/**', (r) => { navigated = r.request().url(); r.fulfill({ contentType: 'text/html', body: '<p>salla</p>' }); });
+    await page.click('.ihub-card[data-provider="salla"] [data-ihub-action="oauth"]');
+    await page.waitForURL(/accounts\.salla\.sa/);
+    assert.match(navigated, /^https:\/\/accounts\.salla\.sa\/oauth2\/auth/);
+    await page.goto(`${baseUrl}/company-dashboard/index.html#overview`);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('ihub_oauth_binding:33333333-3333-4333-8333-333333333333')), 'B'.repeat(43));
+    await context.close();
+});
+
+run('Salla return "confirm": completes with binding + completion code from this tab, then scrubs the address bar', async () => {
+    const conn = '33333333-3333-4333-8333-333333333333';
+    const fx = fixtures({ functions: { 'integrations-api': { data: { connection: { id: conn, status: 'active' } } } } });
+    // نفس التبويب الذي بدأ التدفق: البصمة في sessionStorage لهذا الأصل
+    const { page, context: ctx2 } = await open(browser, baseUrl, fx, { hash: 'overview' });
+    await page.evaluate((c) => sessionStorage.setItem(`ihub_oauth_binding:${c}`, 'B'.repeat(43)), conn);
+    await page.goto(`${baseUrl}/company-dashboard/index.html?ihub_result=confirm&ihub_provider=salla&ihub_connection=${conn}&ihub_completion=${'K'.repeat(43)}#integrations`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).length === 1);
+    const inv = await page.evaluate(() => window.__INVOCATIONS__[0]);
+    assert.deepEqual(inv.body, { action: 'oauth_complete', connection_id: conn, binding: 'B'.repeat(43), completion: 'K'.repeat(43) });
+    assert.ok(!page.url().includes('ihub_completion') && !page.url().includes('ihub_result'));
+    assert.equal(await page.evaluate((c) => sessionStorage.getItem(`ihub_oauth_binding:${c}`), conn), null, 'the binding is single-use');
+    await ctx2.close();
+});
+
+run('Salla return "confirm" in a browser that did not start the flow: nothing is sent', async () => {
+    const conn = '33333333-3333-4333-8333-333333333333';
+    const { page, context } = await open(browser, baseUrl, fixtures(),
+        { query: `?ihub_result=confirm&ihub_provider=salla&ihub_connection=${conn}&ihub_completion=${'K'.repeat(43)}` });
+    await page.waitForSelector('#ui-toast-container');
+    assert.match(await page.innerText('#ui-toast-container'), /متصفح أو تبويب آخر/);
+    assert.equal(await page.evaluate(() => (window.__INVOCATIONS__ || []).length), 0);
+    await context.close();
+});
+
 run('the Salla OAuth return shows a message and removes the parameters from the address bar', async () => {
     const { page, context } = await open(browser, baseUrl, fixtures(), { query: '?ihub_result=error&ihub_code=account_in_use' });
     await page.waitForSelector('#ui-toast-container');

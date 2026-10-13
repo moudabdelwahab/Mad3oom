@@ -13,7 +13,7 @@
 
 import {
     buildProviderCards, validateConnectForm, errorMessage, isSallaAuthorizeUrl,
-    oauthResultFrom, VIEW_ROLE_OPTIONS
+    oauthResultFrom, oauthBindingKey, VIEW_ROLE_OPTIONS
 } from '/assets/js/company/integrations-model.js';
 import {
     fetchIntegrationsOverview, prepareConnection, disconnectConnection, setConnectionViewRole,
@@ -31,6 +31,29 @@ let revealed = null;      // { provider, kind, value, url } — يُعرض مر�
 let intake = [];
 let lastConversion = null; // { ticketNumber, ticketId, orderRef }
 let getMembers = () => [];
+let pendingCompletion = Promise.resolve();
+
+/**
+ * بصمة تدفق OAuth: تبقى في هذا التبويب (sessionStorage) ولا تُرسل إلا لإكمال
+ * نفس الربط. بلا تبويب البداية لا إكمال — وهذا هو الحاجز ضد ربط متجر ضحية.
+ */
+function bindingStore() {
+    try { return window.sessionStorage; } catch { return null; }
+}
+
+async function completeOauth(result) {
+    const store = bindingStore();
+    const key = oauthBindingKey(result.connectionId);
+    const binding = store?.getItem(key);
+    store?.removeItem(key);
+    if (!binding) {
+        ui?.showToast?.('اكتمل التفويض في متصفح أو تبويب آخر. ابدأ الربط من جديد من هذه الصفحة.', 'error');
+        return;
+    }
+    const r = await invokeIntegrationsApi('oauth_complete', { connection_id: result.connectionId, binding, completion: result.completion });
+    if (r.ok) ui?.showToast?.('تم ربط سلة بنجاح.', 'success');
+    else ui?.showToast?.(errorMessage(r.code), 'error');
+}
 
 const el = (id) => document.getElementById(id);
 const box = () => el(CONTAINER_ID);
@@ -39,10 +62,12 @@ export function initCompanyIntegrations({ members } = {}) {
     if (typeof members === 'function') getMembers = members;
     const result = oauthResultFrom(window.location.search);
     if (result) {
-        ui?.showToast?.(result.message, result.ok ? 'success' : 'error');
         const clean = new URL(window.location.href);
-        ['ihub_result', 'ihub_code', 'ihub_provider'].forEach((k) => clean.searchParams.delete(k));
+        // رمز الإكمال يُمسح من شريط العنوان فورًا (لا يبقى في السجل ولا يُشارَك بنسخ الرابط)
+        ['ihub_result', 'ihub_code', 'ihub_provider', 'ihub_connection', 'ihub_completion'].forEach((k) => clean.searchParams.delete(k));
         history.replaceState(null, '', clean.pathname + clean.search + clean.hash);
+        if (result.confirm) pendingCompletion = completeOauth(result);
+        else ui?.showToast?.(result.message, result.ok ? 'success' : 'error');
     }
 }
 
@@ -50,6 +75,7 @@ export async function loadCompanyIntegrations() {
     const c = box();
     if (!c) return;
     renderSkeletonLines(c, 4);
+    await pendingCompletion;
     const r = await fetchIntegrationsOverview();
     if (!r.ok) {
         renderState(c, { variant: 'error', title: 'تعذّر تحميل التكاملات', text: r.error || '' });
@@ -339,7 +365,13 @@ async function onAction(button) {
             if (conn.error) { showError(provider, conn.error); return; }
             const r = await invokeIntegrationsApi('oauth_start', { connection_id: conn.id });
             if (!r.ok) { showError(provider, r.code); return; }
-            if (!isSallaAuthorizeUrl(r.data?.authorize_url)) { showError(provider, 'invalid_response'); return; }
+            if (!isSallaAuthorizeUrl(r.data?.authorize_url) || !/^[A-Za-z0-9_-]{20,128}$/.test(r.data?.binding || '')) {
+                showError(provider, 'invalid_response');
+                return;
+            }
+            const store = bindingStore();
+            if (!store) { showError(provider, 'unknown_error'); return; }
+            store.setItem(oauthBindingKey(conn.id), r.data.binding);
             window.location.assign(r.data.authorize_url);
         });
         return;

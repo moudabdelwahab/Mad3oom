@@ -118,7 +118,11 @@ test('ticket context: null means no panel; summary rows are an allowlist', () =>
     assert.deepEqual(v.linkOptions, [{ value: 'c1|order', connectionId: 'c1', recordType: 'order', label: 'ووكومرس — طلب' }]);
 });
 
-test('the OAuth return parameters become a fixed message', () => {
+test('the OAuth return parameters become a fixed message; "confirm" needs a well-formed connection and completion code', () => {
+    const c = M.oauthResultFrom(`?ihub_result=confirm&ihub_provider=salla&ihub_connection=33333333-3333-4333-8333-333333333333&ihub_completion=${'k'.repeat(43)}`);
+    assert.deepEqual(c, { confirm: true, connectionId: '33333333-3333-4333-8333-333333333333', completion: 'k'.repeat(43), provider: 'salla' });
+    assert.equal(M.oauthResultFrom('?ihub_result=confirm&ihub_connection=x&ihub_completion=y').ok, false);
+    assert.equal(M.oauthBindingKey('abc'), 'ihub_oauth_binding:abc');
     assert.equal(M.oauthResultFrom('?ihub_result=connected&ihub_provider=salla').ok, true);
     assert.match(M.oauthResultFrom('?ihub_result=error&ihub_code=account_in_use').message, /شركة أخرى/);
     assert.equal(M.oauthResultFrom('?ihub_result=error&ihub_code=<img>').message, M.ERROR_MESSAGES.unknown_error);
@@ -130,7 +134,11 @@ test('static: browser calls carry no company id, no service-role function, and s
     const src = files.map(read).join('\n');
     assert.doesNotMatch(src, /p_company|company_id\s*:/, 'no company id is ever sent');
     assert.doesNotMatch(src, /ihub_svc_|service_role/i);
-    assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|document\.cookie/);
+    assert.doesNotMatch(src, /localStorage|indexedDB|document\.cookie/);
+    // sessionStorage فقط لبصمة تدفق OAuth (لهذا التبويب، ليست بيانات اعتماد)
+    const uses = [...src.matchAll(/sessionStorage|store\??\.(setItem|getItem|removeItem)\(([^,)]*)/g)].map((m) => m[0]);
+    assert.ok(uses.length > 0);
+    for (const u of uses) assert.match(u, /sessionStorage|oauthBindingKey|\(key/, u);
     assert.doesNotMatch(src, /console\.(log|info)\(/);
     for (const m of read('assets/js/company/integrations-data.js').matchAll(/rpc\('([a-z_]+)'/g)) {
         assert.match(m[1], /^ihub_[a-z_]+$/);

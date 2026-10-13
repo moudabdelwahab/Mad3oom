@@ -12,7 +12,7 @@
 --   ihub_providers          كتالوج المنصة (مقفل افتراضيًا: enabled=false)
 --   ihub_connections        ربط واحد حي لكل (شركة، مزوّد)
 --   ihub_credentials        نص مشفّر (AES-256-GCM في الدالة الطرفية)؛ لا يُقرأ إلا بدالة service_role
---   ihub_oauth_states       state لمرة واحدة بانتهاء صلاحية
+--   ihub_oauth_states       state لمرة واحدة + ربط بالمتصفح الذي بدأ (RFC 6749 §10.12)
 --   ihub_webhook_events     صندوق أحداث بلا حمولة: مفتاح تكرار + معرّف السجل + زمن المصدر
 --   ihub_external_records   ملخص مختصر لسجل خارجي مربوط بتذكرة (لا مزامنة متجر كامل)
 --   ihub_ticket_links       تذكرة ↔ سجل خارجي (نفس الشركة بمحفّز)
@@ -129,11 +129,19 @@ create table if not exists public.ihub_oauth_states (
   company_id      uuid not null,
   user_id         uuid not null,
   provider        text not null,
-  verifier_cipher text,
+  binding_hash    text not null check (binding_hash ~ '^[0-9a-f]{64}$'),
+  pending_cipher  text check (pending_cipher is null or char_length(pending_cipher) between 24 and 16000),
+  completion_hash text check (completion_hash is null or completion_hash ~ '^[0-9a-f]{64}$'),
   created_at      timestamptz not null default now(),
   expires_at      timestamptz not null,
-  used_at         timestamptz
+  used_at         timestamptz,
+  completed_at    timestamptz
 );
+comment on table public.ihub_oauth_states is
+  '087: تدفق OAuth لسلة. state لمرة واحدة (sha256 فقط). الرجوع من سلة لا يفعّل شيئًا: نتيجته تُحجز '
+  'مشفّرة (pending_cipher) حتى يكملها نفس المدير، من نفس التبويب (binding_hash)، وبرمز الإكمال الذي لا '
+  'يصل إلا للمتصفح الذي وافق في سلة (completion_hash). فلا يستطيع مدير شركة أخرى ربط متجر ضحية بشركته '
+  'بإرسال رابط تفويض له: الضحية لا تملك جلسته ولا بصمته، وهو لا يرى رمز الإكمال.';
 
 create table if not exists public.ihub_webhook_events (
   id                 bigint generated always as identity primary key,
@@ -744,7 +752,7 @@ begin
 end $$;
 
 -- state لمرة واحدة (sha256 فقط يُخزَّن؛ القيمة الخام في رابط التفويض).
-create or replace function public.ihub_oauth_begin(p_connection uuid, p_state_hash text, p_verifier_cipher text default null)
+create or replace function public.ihub_oauth_begin(p_connection uuid, p_state_hash text, p_binding_hash text)
 returns jsonb
 language plpgsql
 security definer
@@ -759,14 +767,15 @@ begin
   if r.provider <> 'salla' then
     raise exception 'هذا المزوّد لا يستعمل OAuth' using errcode = '22023', detail = '{"code":"validation_failed"}';
   end if;
-  if p_state_hash is null or p_state_hash !~ '^[0-9a-f]{64}$' then
+  if p_state_hash is null or p_state_hash !~ '^[0-9a-f]{64}$'
+     or p_binding_hash is null or p_binding_hash !~ '^[0-9a-f]{64}$' or p_binding_hash = p_state_hash then
     raise exception 'state غير صالح' using errcode = '22023', detail = '{"code":"validation_failed"}';
   end if;
   -- state واحد صالح لكل ربط في أي لحظة
   delete from public.ihub_oauth_states s where s.connection_id = r.id;
   insert into public.ihub_oauth_states (state_hash, connection_id, company_id, user_id, provider,
-                                               verifier_cipher, expires_at)
-  values (p_state_hash, r.id, v_company, auth.uid(), r.provider, p_verifier_cipher, now() + interval '10 minutes');
+                                       binding_hash, expires_at)
+  values (p_state_hash, r.id, v_company, auth.uid(), r.provider, p_binding_hash, now() + interval '10 minutes');
   perform public._ihub_audit(v_company, r.id, 'user', 'oauth.started', '{}'::jsonb);
   return jsonb_build_object('connection_id', r.id, 'expires_in', 600);
 end $$;
@@ -1298,7 +1307,49 @@ begin
     return null;
   end if;
   return jsonb_build_object('connection_id', s.connection_id, 'company_id', s.company_id,
-                            'user_id', s.user_id, 'provider', s.provider, 'verifier_cipher', s.verifier_cipher);
+                            'user_id', s.user_id, 'provider', s.provider);
+end $$;
+
+-- يحجز نتيجة الرجوع (رموز + هوية المتجر، مشفّرة) على state مستهلَك لم يُحجز بعد.
+-- لا تفعيل هنا: الإكمال لنفس المدير ومن نفس المتصفح (ihub_svc_take_oauth_result).
+create or replace function public.ihub_svc_hold_oauth_result(p_state_hash text, p_pending_cipher text, p_completion_hash text)
+returns boolean
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if p_completion_hash is null or p_completion_hash !~ '^[0-9a-f]{64}$' then
+    return false;
+  end if;
+  update public.ihub_oauth_states
+     set pending_cipher = p_pending_cipher, completion_hash = p_completion_hash,
+         expires_at = now() + interval '10 minutes'
+   where state_hash = p_state_hash and used_at is not null and pending_cipher is null
+     and completed_at is null and expires_at > now() and binding_hash <> p_completion_hash;
+  return found;
+end $$;
+
+-- يسلّم النتيجة المحجوزة مرة واحدة: نفس الربط، نفس المستخدم الذي بدأ، نفس
+-- بصمة التبويب، ونفس رمز الإكمال. أي اختلاف = null (والنتيجة تنتهي وتُكنس).
+create or replace function public.ihub_svc_take_oauth_result(p_connection uuid, p_binding_hash text, p_completion_hash text, p_user uuid)
+returns text
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare r public.ihub_oauth_states;
+begin
+  select * into r from public.ihub_oauth_states
+   where connection_id = p_connection and binding_hash = p_binding_hash and completion_hash = p_completion_hash
+     and user_id = p_user and pending_cipher is not null and completed_at is null and expires_at > now()
+   for update;
+  if not found then
+    return null;
+  end if;
+  update public.ihub_oauth_states set completed_at = now(), pending_cipher = null, completion_hash = null
+   where state_hash = r.state_hash;
+  return r.pending_cipher;
 end $$;
 
 -- استقبال حدث: يُكتب مرة واحدة لكل (ربط، مفتاح تكرار). الحدث عن سجل غير
@@ -1619,7 +1670,7 @@ begin
   with d as (delete from public.ihub_request_nonces where expires_at < now() returning 1)
   select count(*) into v_nonces from d;
   with d as (delete from public.ihub_oauth_states
-              where expires_at < now() - interval '1 day' or used_at < now() - interval '1 day' returning 1)
+              where expires_at < now() or completed_at is not null returning 1)
   select count(*) into v_states from d;
   with d as (delete from public.ihub_intake_requests
               where status in ('converted', 'dismissed') and decided_at < now() - interval '180 days' returning 1)
@@ -1666,6 +1717,8 @@ declare
     'public.ihub_svc_record_health(uuid,boolean,text)',
     'public.ihub_svc_find_connection(text,text)',
     'public.ihub_svc_consume_oauth_state(text)',
+    'public.ihub_svc_hold_oauth_result(text,text,text)',
+    'public.ihub_svc_take_oauth_result(uuid,text,text,uuid)',
     'public.ihub_svc_ingest_event(uuid,text,text,text,text,timestamp with time zone)',
     'public.ihub_svc_apply_record(uuid,text,text,text,jsonb,text,timestamp with time zone,bigint,boolean)',
     'public.ihub_svc_event_failed(bigint,text,boolean)',

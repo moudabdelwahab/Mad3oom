@@ -241,13 +241,27 @@ export function ticketContextView(ctx) {
     };
 }
 
-/** قراءة نتيجة الرجوع من سلة (?ihub_result=...). */
+/**
+ * قراءة نتيجة الرجوع من سلة (?ihub_result=...). «confirm» تعني أن سلة أعادت
+ * التفويض والخادم حجزه، والإكمال يحتاج نفس التبويب الذي بدأ (oauthBindingKey).
+ */
 export function oauthResultFrom(search) {
     const p = new URLSearchParams(search || '');
     const result = p.get('ihub_result');
+    const connectionId = p.get('ihub_connection');
+    const completion = p.get('ihub_completion');
+    if (result === 'confirm' && /^[0-9a-f-]{36}$/i.test(connectionId || '') && /^[A-Za-z0-9_-]{20,128}$/.test(completion || '')) {
+        return { confirm: true, connectionId, completion, provider: p.get('ihub_provider') };
+    }
+    if (result === 'confirm') return { ok: false, message: errorMessage('state_invalid') };
     if (result === 'connected') return { ok: true, message: `تم ربط ${PROVIDER_INFO[p.get('ihub_provider')]?.name || 'الحساب'} بنجاح.` };
     if (result === 'error') return { ok: false, message: errorMessage(p.get('ihub_code') || 'unknown_error') };
     return null;
+}
+
+/** مفتاح بصمة تدفق OAuth في sessionStorage (لهذا التبويب وحده؛ ليست بيانات اعتماد). */
+export function oauthBindingKey(connectionId) {
+    return `ihub_oauth_binding:${connectionId}`;
 }
 
 export const VIEW_ROLE_OPTIONS = Object.freeze([
