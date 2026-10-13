@@ -142,6 +142,51 @@ export const cancelHandover = (id, note = null) => call('continuity_handover_can
 export const myHandovers = () => call('continuity_handovers_mine');
 export const handoversForRecord = (recordId) => call('continuity_handovers_for_record', { p_record: recordId });
 
+// ─────────────────────────────────────────────────────────────
+// 091: المشاركة المحدودة (مراجعة، عرض فقط). البوابة على الخادم في كل قراءة.
+// ─────────────────────────────────────────────────────────────
+export const requestShare = ({ recordId, toOwner, reason, note, version, idempotencyKey, mode = 'review', scope }) =>
+    call('continuity_handover_request', { p_record: recordId, p_to_owner: toOwner, p_reason: reason,
+        p_context_note: note || null, p_expected_version: version, p_idempotency_key: idempotencyKey,
+        p_mode: mode, p_scope: scope });
+export const reviewHandover = (id) => call('continuity_handover_review', { p_handover: id });
+/** القرار ببصمة المراجعة (091). الرفض لا يحتاج بصمة. */
+export const decideReviewed = (id, decision, note, digest) =>
+    call('continuity_handover_decide', { p_handover: id, p_decision: decision, p_note: note || null, p_reviewed_digest: digest || null });
+export const revokeShare = (id, note = null) => call('continuity_handover_revoke', { p_handover: id, p_note: note });
+export const amendShare = (id, scope) => call('continuity_handover_amend_scope', { p_handover: id, p_scope: scope });
+export const respondShare = (id, version, accept) =>
+    call('continuity_handover_respond_scope', { p_handover: id, p_version: version, p_accept: Boolean(accept) });
+export const sharedRecord = (recordId) => call('continuity_shared_get', { p_record: recordId });
+export const shareScope = (id) => call('continuity_handover_scope', { p_handover: id });
+export const previewRecipient = (recordId, recipient, sourceIds) =>
+    call('continuity_handover_preview_recipient', { p_record: recordId, p_recipient: recipient, p_source_ids: sourceIds });
+
+/**
+ * المشاركات معي. installed = false على قاعدة قبل 091 (الدالة غير موجودة): الواجهة تخفي المشاركة كلها.
+ * أي فشل آخر (المفتاح مطفأ مثلًا) = مثبتة وبلا عناصر.
+ */
+export async function sharedWithMe() {
+    const { data, error } = await supabase.rpc('continuity_shared_with_me');
+    if (isMissingRpc(error) || (!error && !data)) return { installed: false, active: [], proposals: [] };
+    if (error) return { installed: true, active: [], proposals: [] };
+    return { installed: true, active: data?.active || [], proposals: data?.proposals || [] };
+}
+
+/**
+ * مرفق داخل مشاركة: المستلم لا يوقّع بنفسه (سياسة المستودع كما هي). دالة continuity-shared-attachment
+ * تعيد البوابة بهويته وتوقّع رابطًا ≤ 60 ثانية. ⇒ { url, expires_in, mime, name } أو null.
+ */
+export const SHARED_ATTACHMENT_FUNCTION = 'continuity-shared-attachment';
+export async function signSharedAttachment(id) {
+    try {
+        const { data, error } = await supabase.functions.invoke(SHARED_ATTACHMENT_FUNCTION, { body: { attachment_id: id } });
+        return error || typeof data?.url !== 'string' ? null : data;
+    } catch {
+        return null;
+    }
+}
+
 /** نفس قائمة الطاقم المؤهل في الصندوق (inbox_list_agents، 055). */
 export async function loadAgents() {
     const { data, error } = await supabase.rpc('inbox_list_agents');

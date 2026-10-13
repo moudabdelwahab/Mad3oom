@@ -1739,3 +1739,195 @@ test('087 mobile (390px): the new-record dialog and a read-only record fit witho
     assert.deepEqual(errors, []);
     await context.close();
 });
+
+// ── 091: المشاركة المحدودة (مراجعة، عرض فقط) ─────────────────────────────────────
+const GR1 = 'b0b0b0b0-0000-4000-8000-0000000000a1';
+const ATT1 = 'aaaaaaaa-0000-4000-8000-0000000000a1';
+const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+function shFixtures({ shared = { active: [], proposals: [] }, grants = [], incoming = [] } = {}) {
+    const fx = hoFixtures();
+    fx.rpc.continuity_shared_with_me = shared;
+    fx.rpc.continuity_handovers_for_record = grants;
+    fx.rpc.continuity_handovers_mine = { outgoing: [], incoming };
+    return fx;
+}
+const future = (mins) => new Date(Date.now() + mins * 60000).toISOString();
+
+test('share (091): the owner picks recipient, reason and explicit messages; the preview says what the recipient cannot read; the scope is sent as chosen', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures();
+    fx.rpc.continuity_handover_preview_recipient = [{ source_id: 's1', visible: false }];
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctShareRequest');
+    await page.locator('#ctShareRequest').click();
+    await page.waitForSelector('#ctShareDialog[open]');
+    const save = page.locator('#ctShareSave');
+    assert.equal(await save.isDisabled(), true);
+    assert.deepEqual(await page.locator('#ctShareDialog select[name="to"] option').evaluateAll((o) => o.map((x) => x.value)), ['', STAFF]);
+    assert.equal(await page.locator('#ctShareDialog input[name="src"]:checked').count(), 0, 'nothing is pre-selected');
+    await page.locator('#ctShareDialog select[name="to"]').selectOption(STAFF);
+    await page.locator('#ctShareDialog textarea[name="reason"]').fill('  راجع رقم الطلب  ');
+    assert.equal(await save.isDisabled(), true, 'at least one item required');
+    await page.locator('#ctShareDialog input[name="src"][value="s1"]').check();
+    await page.waitForFunction(() => /مش هيظهر نصها/.test(document.getElementById('ctSharePreview').textContent));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_preview_recipient')).at(-1), { p_record: REC, p_recipient: STAFF, p_source_ids: ['s1'] });
+    assert.equal(await save.isDisabled(), false);
+    await save.click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_request'));
+    const [call] = await rpcCalls(page, 'continuity_handover_request');
+    assert.match(call.p_idempotency_key, /^[0-9a-f-]{36}$/);
+    delete call.p_idempotency_key;
+    assert.deepEqual(call, { p_record: REC, p_to_owner: STAFF, p_reason: 'راجع رقم الطلب', p_context_note: null, p_expected_version: 3,
+        p_mode: 'review', p_scope: { sources: ['s1'], attachments: [], actions: ['view'], expiry: { kind: 'duration', minutes: 240 } } });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('share (091): a server refusal stays inside the dialog and retrying reuses the idempotency key', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures();
+    fx.rpcErrors = { continuity_handover_request: { code: '22023', message: 'x', details: JSON.stringify({ code: 'validation_failed', field: 'scope.expiry.minutes', reason: 'range' }) } };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.locator('#ctShareRequest').click();
+    await page.locator('#ctShareDialog select[name="to"]').selectOption(STAFF);
+    await page.locator('#ctShareDialog textarea[name="reason"]').fill('مراجعة');
+    await page.locator('#ctShareDialog input[name="src"][value="s2"]').check();
+    await page.locator('#ctShareDialog input[name="expiryKind"][value="duration"]').check();
+    await page.locator('#ctShareDialog select[name="minutes"]').selectOption('10080');
+    await page.locator('#ctShareSave').click();
+    await page.waitForFunction(() => /أطول من المسموح/.test(document.getElementById('ctShareError').textContent));
+    assert.equal(await page.locator('#ctShareDialog[open]').count(), 1, 'no false success');
+    await page.locator('#ctShareSave').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'continuity_handover_request').length === 2);
+    const [a, b] = await rpcCalls(page, 'continuity_handover_request');
+    assert.equal(a.p_idempotency_key, b.p_idempotency_key);
+    assert.equal(a.p_scope.expiry.minutes, 10080);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('share (091): incoming review shows counts only; accept reviews first and sends the digest; changes since review are named; a material change is explained', { skip: !chromiumPath }, async () => {
+    const item = {
+        id: GR1, record_id: REC2, from_owner: STAFF, to_owner: ME, reason: `راجع ${INJECT}`, state: 'pending', mode: 'review',
+        created_by: STAFF, created_at: at(9, 45),
+        package: { id: REC2, kind: 'follow_up', title: `مراجعة ${INJECT}`, version: 7, overdue: false,
+                   scope: { version: 1, counts: { sources: 2, attachments: 1, not_readable: 1 }, expiry: { kind: 'duration', minutes: 240 } } } };
+    const fx = shFixtures({ incoming: [item] });
+    fx.rpc.continuity_handover_review = { digest: 'd1', version: 7, package: item.package, handover: item };
+    fx.rpc.continuity_handover_decide = { accepted: true, replayed: false, changed_since_review: ['next_action'], handover: { id: GR1, record_id: REC2, state: 'accepted' } };
+    fx.rpc.continuity_shared_get = { record: { id: REC2, kind: 'follow_up', title: 'مراجعة', status: 'open', priority: 2, version: 7 },
+        sources: [], attachments: [], grant: { handover_id: GR1, mode: 'review', actions: ['view'], expires_at: future(240), granted_by: STAFF, reason: 'r' } };
+    let { page, context, errors } = await openPage(fx, { url: '/admin/continuity.html' });
+    await page.waitForSelector(`[data-incoming="${GR1}"] [data-review]`);
+    const card = page.locator(`[data-incoming="${GR1}"]`);
+    assert.match(await card.innerText(), /2 رسالة · 1 مرفق · لمدة 4 ساعات من القبول/);
+    assert.match(await card.innerText(), /1 رسالة مش هتشوف نصها/);
+    assert.equal(await page.locator('#ctHandovers img').count(), 0);
+    await card.locator('[data-review]').click();
+    await page.waitForSelector('#ctConfirm[open]');
+    assert.deepEqual(await rpcCalls(page, 'continuity_handover_review'), [{ p_handover: GR1 }]);
+    assert.deepEqual(await rpcCalls(page, 'continuity_handover_decide'), [], 'nothing decided before confirming');
+    await page.locator('#ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_decide'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_decide'))[0], { p_handover: GR1, p_decision: 'accept', p_note: null, p_reviewed_digest: 'd1' });
+    await page.waitForFunction(() => /الخطوة التالية/.test(document.getElementById('toast').textContent));
+    await page.waitForSelector('#ctSharedBanner');
+    assert.deepEqual(await rpcCalls(page, 'continuity_shared_get'), [{ p_record: REC2 }]);
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+
+    const fx2 = shFixtures({ incoming: [item] });
+    fx2.rpc.continuity_handover_review = { digest: 'd1', version: 7, package: item.package, handover: item };
+    fx2.rpcErrors = { continuity_handover_decide: { code: '40001', message: 'x', details: JSON.stringify({ code: 'version_conflict', reason: 'material_change', kinds: ['due', 'scope_items'] }) } };
+    ({ page, context, errors } = await openPage(fx2, { url: '/admin/continuity.html' }));
+    await page.locator(`[data-incoming="${GR1}"] [data-review]`).click();
+    await page.locator('#ctConfirm[open] #ctConfirmOk').click();
+    await page.waitForFunction(() => /اتغيّر بعد مراجعتك \(الموعد، عناصر المشاركة\)/.test(document.getElementById('toast').textContent));
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('share (091): shared with me — read-only view of the scoped items, attachments through the edge function, proposals need consent', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures({ shared: {
+        active: [{ handover_id: GR1, record_id: REC2, title: `مشترك ${INJECT}`, kind: 'follow_up', mode: 'review', actions: ['view'],
+                   expires_at: future(125), session_bound: false, granted_by: STAFF, reason: `سبب ${INJECT}`, scope_version: 2 }],
+        proposals: [{ handover_id: GR1, record_id: REC2, title: 'مشترك', current: { version: 2, counts: { sources: 1, attachments: 0 } },
+                      proposed: { version: 3, counts: { sources: 3, attachments: 1 }, expiry: { kind: 'duration', minutes: 60 } } }] } });
+    fx.rpc.continuity_shared_get = {
+        record: { id: REC2, kind: 'follow_up', title: `مشترك ${INJECT}`, summary: `ملخص ${INJECT}`, next_action: 'اتصال', status: 'open', priority: 2, version: 7 },
+        sources: [
+            { id: 'x1', position: 1, source_type: 'mad3oom_message', provider: 'mad3oom', excerpt: `نص ${INJECT}`, sender_label: 'العميل', original_created_at: at(7, 25) },
+            { id: 'x2', position: 2, source_type: 'mad3oom_message', provider: 'mad3oom', excerpt: null, excerpt_hidden: 'no_conversation_access' },
+        ],
+        attachments: [{ id: ATT1, kind: 'image', mime: 'image/png', size: 1000, name: `صورة ${INJECT}.png`, created_at: at(9, 0) }],
+        grant: { handover_id: GR1, mode: 'review', actions: ['view'], expires_at: future(125), session_bound: false, granted_by: STAFF, reason: 'r', scope_version: 2 },
+    };
+    fx.functions = { 'continuity-shared-attachment': { data: { url: PNG_1PX, expires_in: 60, mime: 'image/png' } } };
+    const { page, context, errors } = await openPage(fx, { url: '/admin/continuity.html' });
+    await page.waitForSelector('#ctShared:not([hidden]) [data-shared-open]');
+    assert.match(await page.locator('#ctShared').innerText(), /باقي 2 س 5 د|باقي 2 س 4 د/);
+    assert.match(await page.locator('[data-proposal]').innerText(), /الحالي: 1 رسالة · 0 مرفق —\s*المقترح: 3 رسالة · 1 مرفق · لمدة ساعة من القبول/);
+    await page.locator(`[data-proposal-accept="${GR1}"]`).click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_respond_scope'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_respond_scope'))[0], { p_handover: GR1, p_version: 3, p_accept: true });
+    await page.locator(`[data-shared-open="${REC2}"]`).click();
+    await page.waitForSelector('#ctSharedBanner');
+    assert.match(await page.locator('#ctSharedBanner').innerText(), /عرض فقط — شاركه معك هبة سمير/);
+    assert.equal(await page.locator('#ctEdit, #ctAssign, #ctHandover, [data-remove], #ctAttachPick').count(), 0, 'no edit tools in the shared view');
+    assert.equal(await page.locator('#ctSharedSources .ct-source').count(), 2);
+    assert.match(await page.locator('#ctSharedSources .ct-source.is-hidden').innerText(), /.+/);
+    assert.equal(await page.locator('#ctSharedAtts img').count(), 0, 'no media until opened');
+    await page.locator(`[data-shared-att="${ATT1}"]`).click();
+    await page.waitForSelector('#ctSharedAtts img.ct-att-media');
+    assert.deepEqual(await page.evaluate(() => window.__INVOCATIONS__), [{ name: 'continuity-shared-attachment', body: { attachment_id: ATT1 } }]);
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('share (091): grants on the record — remaining time, revoke behind a danger dialog; history names why a grant ended', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures({ grants: [
+        { id: GR1, record_id: REC, from_owner: ME, to_owner: STAFF, reason: `مراجعة ${INJECT}`, state: 'accepted', mode: 'review', scope_version: 1,
+          expires_at: future(90), session_bound: true, created_by: ME, created_at: at(9, 0), decided_at: at(9, 5) },
+        { id: 'b0b0b0b0-0000-4000-8000-0000000000a2', record_id: REC, from_owner: ME, to_owner: STAFF, reason: 'قديم', state: 'revoked', mode: 'review',
+          revoke_cause: 'reassigned', revoked_at: at(8, 30), created_by: ME, created_at: at(8, 0), decided_at: at(8, 5) },
+        { id: 'b0b0b0b0-0000-4000-8000-0000000000a3', record_id: REC, from_owner: ME, to_owner: STAFF, reason: 'قديم', state: 'expired', mode: 'review',
+          cancel_cause: 'session', created_by: ME, created_at: at(7, 0), decided_at: at(7, 5) },
+    ] });
+    fx.rpc.continuity_handover_revoke = { handover: { id: GR1, state: 'revoked' } };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctGrants');
+    assert.match(await page.locator('#ctGrants').innerText(), /هبة سمير[\s\S]*باقي 1 س 2\d د|هبة سمير[\s\S]*باقي 1 س 3\d د/);
+    assert.match(await page.locator('#ctGrants').innerText(), /جلسة واحدة/);
+    const hist = await page.locator('.ct-handover-history').textContent();
+    assert.match(hist, /انتهت لأن السجل اتسند لغيره/);
+    assert.match(hist, /انتهت جلسة الدخول/);
+    await page.locator(`[data-grant-revoke="${GR1}"]`).click();
+    await page.waitForSelector('#ctConfirm[open].ct-dialog');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await rpcCalls(page, 'continuity_handover_revoke'), []);
+    await page.locator(`[data-grant-revoke="${GR1}"]`).click();
+    await page.locator('#ctConfirm[open] #ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_revoke'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_handover_revoke'))[0], { p_handover: GR1, p_note: null });
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('share (091): before 091 (no continuity_shared_with_me) there is no share button and no panel; 390px dialog fits', { skip: !chromiumPath }, async () => {
+    const fx = hoFixtures();
+    let { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctHandoverRequest');
+    assert.equal(await page.locator('#ctShareRequest').count(), 0);
+    assert.equal(await page.locator('#ctShared').isHidden(), true);
+    await context.close();
+    ({ page, context, errors } = await openPage(shFixtures(), { url: `/admin/continuity.html?record=${REC}`, viewport: { width: 390, height: 844 } }));
+    await page.locator('#ctShareRequest').click();
+    await page.waitForSelector('#ctShareDialog[open]');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(overflow <= 0, `horizontal overflow ${overflow}`);
+    const box = await page.locator('#ctShareDialog .ct-sheet').boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= 390.5, JSON.stringify(box));
+    assert.deepEqual(errors, []);
+    await context.close();
+});

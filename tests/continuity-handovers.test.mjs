@@ -62,4 +62,9 @@ test('الواجهة: الحزمة تُعرض بلا مقتطفات، وكل ن�
     for (const f of ['p.title', 'h.reason', 'h.context_note', 'p.next_action']) assert.ok(incoming.includes(`esc(${f})`), f);
     const banner = page.slice(page.indexOf('function handoverHtml'), page.indexOf('async function handoverAction'));
     assert.ok(banner.includes('esc(pending.reason)'));
+    // 091: طلب المراجعة الوارد أعداد فقط — لا مقتطفات ولا قراءة مشتركة ولا مرفقات قبل القبول
+    const review = page.slice(page.indexOf('function incomingScopedHtml'), page.indexOf('async function incomingReviewAction'));
+    assert.ok(review.length > 100);
+    assert.doesNotMatch(review, /excerpt|sharedRecord|signSharedAttachment|signAttachment|\.map\(/);
+    for (const f of ['p.title', 'h.reason']) assert.ok(review.includes(`esc(${f})`), f);
 });
