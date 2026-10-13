@@ -99,6 +99,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
 
 async function openSidebarNotifications() {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
     const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');

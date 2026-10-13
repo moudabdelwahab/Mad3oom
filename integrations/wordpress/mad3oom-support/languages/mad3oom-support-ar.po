@@ -1,0 +1,252 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Mad3oom Support 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: mad3oom-support\n"
+"Language: ar\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+#: templates/form.php:51
+#, php-format
+msgid "About order #%s"
+msgstr "بخصوص الطلب رقم %s"
+
+#: includes/class-mad3oom-admin.php:129
+msgid "Connection"
+msgstr "الاتصال"
+
+#: includes/class-mad3oom-admin.php:178
+msgid "Customer portal URL"
+msgstr "رابط بوابة العملاء"
+
+#: includes/class-mad3oom-admin.php:186
+msgid "Diagnostics"
+msgstr "التشخيص"
+
+#: includes/class-mad3oom-admin.php:142
+msgid "Disconnect this site"
+msgstr "فصل هذا الموقع"
+
+#: templates/form.php:36
+msgid "Email"
+msgstr "البريد الإلكتروني"
+
+#: includes/class-mad3oom-admin.php:168
+msgid "Enable the [mad3oom_support_form] shortcode"
+msgstr "تفعيل الرمز المختصر [mad3oom_support_form]"
+
+#: templates/form.php:44
+msgid "How can we help?"
+msgstr "كيف نساعدك؟"
+
+#: includes/class-mad3oom-admin.php:153
+msgid "In Mad3oom: Company dashboard > Integrations > WordPress > Connect. The code is shown once."
+msgstr "في مدعوم: لوحة الشركة ← التكاملات ← ووردبريس ← ربط. الرمز يظهر مرة واحدة فقط."
+
+#: includes/class-mad3oom-admin.php:98
+msgid "Last check"
+msgstr "آخر فحص"
+
+#: templates/form.php:57
+msgid "Leave this field empty"
+msgstr "اترك هذا الحقل فارغًا"
+
+#: includes/class-mad3oom-admin.php:63 includes/class-mad3oom-admin.php:64 includes/class-mad3oom-admin.php:124
+msgid "Mad3oom Support"
+msgstr "دعم مدعوم"
+
+#: mad3oom-support.php:46
+#, php-format
+msgid "Mad3oom Support requires WordPress %1$s and PHP %2$s or newer."
+msgstr "إضافة دعم مدعوم تتطلب ووردبريس %1$s و PHP %2$s أو أحدث."
+
+#: includes/class-mad3oom-admin.php:119
+msgid "Mad3oom answered: the connection works."
+msgstr "ردّ مدعوم: الاتصال يعمل."
+
+#: includes/class-mad3oom-client.php:191
+msgid "Mad3oom could not be reached from this server."
+msgstr "تعذّر الوصول إلى مدعوم من هذا الخادم."
+
+#: includes/class-mad3oom-admin.php:97
+msgid "Mad3oom endpoint host"
+msgstr "عنوان خادم مدعوم"
+
+#: includes/class-mad3oom-client.php:183
+msgid "Mad3oom rejected the signature. Paste a new pairing code from your Mad3oom dashboard."
+msgstr "رفض مدعوم التوقيع. الصق رمز اقتران جديدًا من لوحة مدعوم."
+
+#: includes/class-mad3oom-admin.php:99
+msgid "OK"
+msgstr "يعمل"
+
+#: includes/class-mad3oom-form.php:68
+msgid "Open the support portal"
+msgstr "افتح بوابة الدعم"
+
+#: includes/class-mad3oom-admin.php:180
+msgid "Optional HTTPS link shown by the [mad3oom_portal_link] shortcode."
+msgstr "رابط HTTPS اختياري يعرضه الرمز المختصر [mad3oom_portal_link]."
+
+#: includes/class-mad3oom-admin.php:93
+msgid "PHP version"
+msgstr "إصدار PHP"
+
+#: includes/class-mad3oom-admin.php:154
+msgid "Pair with Mad3oom"
+msgstr "الاقتران بمدعوم"
+
+#: includes/class-mad3oom-admin.php:96
+msgid "Paired"
+msgstr "مقترن"
+
+#: includes/class-mad3oom-admin.php:115
+msgid "Paired with Mad3oom. Use \"Test connection\" to confirm."
+msgstr "تم الاقتران بمدعوم. استخدم «اختبار الاتصال» للتأكد."
+
+#: includes/class-mad3oom-admin.php:150
+msgid "Pairing code"
+msgstr "رمز الاقتران"
+
+#: templates/form.php:14
+msgid "Please fill in every field with valid values."
+msgstr "يرجى تعبئة كل الحقول بقيم صحيحة."
+
+#: includes/class-mad3oom-woocommerce.php:65
+msgid "Request support"
+msgstr "طلب دعم"
+
+#: includes/class-mad3oom-admin.php:169
+msgid "Requests arrive in Mad3oom as support requests for your company admin to review. They are not tickets until the admin converts them for an existing customer."
+msgstr "تصل الطلبات إلى مدعوم كطلبات دعم يراجعها مدير شركتك. لا تصبح تذاكر إلا حين يحوّلها المدير لعميل موجود."
+
+#: templates/form.php:61
+msgid "Send request"
+msgstr "إرسال الطلب"
+
+#: includes/class-mad3oom-admin.php:78
+msgid "Settings"
+msgstr "الإعدادات"
+
+#: includes/class-mad3oom-admin.php:118
+msgid "Settings saved."
+msgstr "حُفظت الإعدادات."
+
+#: includes/class-mad3oom-admin.php:95
+msgid "Site uses HTTPS"
+msgstr "الموقع يستخدم HTTPS"
+
+#: includes/class-mad3oom-client.php:193
+msgid "Some fields are not valid."
+msgstr "بعض الحقول غير صالحة."
+
+#: includes/class-mad3oom-client.php:197
+msgid "Something went wrong. Please try again later."
+msgstr "حدث خطأ. حاول مرة أخرى لاحقًا."
+
+#: templates/form.php:40
+msgid "Subject"
+msgstr "الموضوع"
+
+#: includes/class-mad3oom-admin.php:165
+msgid "Support form"
+msgstr "نموذج الدعم"
+
+#: includes/class-mad3oom-admin.php:158
+msgid "Support form and portal"
+msgstr "نموذج الدعم والبوابة"
+
+#: includes/class-mad3oom-admin.php:173
+msgid "Support page URL"
+msgstr "رابط صفحة الدعم"
+
+#: includes/class-mad3oom-admin.php:136
+msgid "Test connection"
+msgstr "اختبار الاتصال"
+
+#: templates/form.php:13
+msgid "Thank you. Your request was sent to our support team."
+msgstr "شكرًا لك. أُرسل طلبك إلى فريق الدعم."
+
+#: includes/class-mad3oom-admin.php:116
+msgid "That pairing code is not valid. Copy it again from Mad3oom > Company dashboard > Integrations > WordPress."
+msgstr "رمز الاقتران غير صالح. انسخه مجددًا من مدعوم ← لوحة الشركة ← التكاملات ← ووردبريس."
+
+#: includes/class-mad3oom-client.php:187
+msgid "The connection is disabled or disconnected in Mad3oom."
+msgstr "الاتصال معطّل أو مفصول في مدعوم."
+
+#: templates/form.php:15
+msgid "The form expired. Please try again."
+msgstr "انتهت صلاحية النموذج. حاول مرة أخرى."
+
+#: includes/class-mad3oom-admin.php:175
+msgid "The page that contains the form. Used for the \"Request support\" action on WooCommerce orders."
+msgstr "الصفحة التي تحتوي النموذج. تُستخدم لزر «طلب دعم» في طلبات ووكومرس."
+
+#: templates/form.php:17
+msgid "The support form is not available right now."
+msgstr "نموذج الدعم غير متاح حاليًا."
+
+#: includes/class-mad3oom-client.php:195
+msgid "This integration is not available on Mad3oom yet."
+msgstr "هذا التكامل غير متاح على مدعوم بعد."
+
+#: includes/class-mad3oom-client.php:181
+msgid "This site is not connected to Mad3oom yet."
+msgstr "هذا الموقع غير متصل بمدعوم بعد."
+
+#: includes/class-mad3oom-admin.php:131
+msgid "This site is paired with your Mad3oom company. The pairing secret is stored on this server only and is never shown again."
+msgstr "هذا الموقع مقترن بشركتك في مدعوم. سر الاقتران محفوظ على هذا الخادم فقط ولا يُعرض مرة أخرى."
+
+#: includes/class-mad3oom-admin.php:117
+msgid "This site was disconnected locally. Also disconnect it in your Mad3oom dashboard."
+msgstr "فُصل الموقع محليًا. افصله أيضًا من لوحة مدعوم."
+
+#: includes/class-mad3oom-client.php:185
+msgid "This site's address does not match the site registered in Mad3oom. Reconnect it with this site's exact URL."
+msgstr "عنوان هذا الموقع لا يطابق الموقع المسجَّل في مدعوم. أعد الربط بعنوان هذا الموقع بالضبط."
+
+#: templates/form.php:16 includes/class-mad3oom-client.php:189
+msgid "Too many requests. Please try again later."
+msgstr "طلبات كثيرة جدًا. حاول لاحقًا."
+
+#: templates/form.php:18
+msgid "We could not send your request. Please try again later."
+msgstr "تعذّر إرسال طلبك. حاول لاحقًا."
+
+#: includes/class-mad3oom-admin.php:94
+msgid "WooCommerce"
+msgstr "ووكومرس"
+
+#: includes/class-mad3oom-admin.php:92
+msgid "WordPress version"
+msgstr "إصدار ووردبريس"
+
+#: includes/class-mad3oom-admin.php:108
+msgid "You do not have permission to access this page."
+msgstr "ليست لديك صلاحية الوصول إلى هذه الصفحة."
+
+#: includes/class-mad3oom-admin.php:203
+msgid "You do not have permission to do this."
+msgstr "ليست لديك صلاحية لهذا الإجراء."
+
+#: templates/form.php:32
+msgid "Your name"
+msgstr "اسمك"
+
+#: includes/class-mad3oom-admin.php:95 includes/class-mad3oom-admin.php:96
+msgid "no"
+msgstr "لا"
+
+#: includes/class-mad3oom-admin.php:94
+msgid "not active"
+msgstr "غير مفعّل"
+
+#: includes/class-mad3oom-admin.php:95 includes/class-mad3oom-admin.php:96
+msgid "yes"
+msgstr "نعم"
+

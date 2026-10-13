@@ -127,6 +127,8 @@ test.after(async () => { await browser?.close(); server?.close(); });
  */
 async function openWorkspace(fx, { viewport = { width: 1500, height: 900 }, local = null, lang = null, init = null } = {}) {
     const context = await browser.newContext({ viewport });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
     const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
     await context.route('**/api-config.js', r => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleSupabase }));
@@ -688,6 +690,8 @@ test('شاشة صغيرة: شريط تبويبات واحد ولوحة واحد�
 
 test('مساحة العمل لطاقم المنصة: حساب ليس منه يرفضه الحارس المشترك ولا تُحمَّل أي لوحة', { skip: !chromiumPath }, async () => {
     const context = await browser.newContext();
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const fx = fixtures({ role: 'super_user' });
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
     const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');

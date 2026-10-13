@@ -1,6 +1,6 @@
 -- ============================================================================
--- مدعوم — الاستمرارية: جدولة الحذف الفعلي لملفات المرفقات (088) على نسخة مطابقة لشكل
--- الإنتاج (073 → 080 → 088):
+-- مدعوم — الاستمرارية: جدولة الحذف الفعلي لملفات المرفقات (089) على نسخة مطابقة لشكل
+-- الإنتاج (073 → 080 → 089):
 --   C1  السر يُولَّد داخل القاعدة (64 hex)، ولا يُقرأ إلا بدور الخدمة؛ إعادة التشغيل لا تغيّره
 --   C2  دالة النداء: ترسل للدالة الطرفية الصحيحة بالسر في الترويسة، بلا جسم؛ مغلقة على الجميع
 --   C3  بلا سر ⇒ لا نداء
@@ -52,7 +52,7 @@ SET search_path = public, extensions;
 SET search_path = public, extensions;
 INSERT INTO t.saved SELECT 'secrets_before', string_agg(key || '=' || value, ',' ORDER BY key) FROM public.internal_service_secrets;
 
-\i migrations/088_continuity_attachment_cleanup_schedule.sql
+\i migrations/089_continuity_attachment_cleanup_schedule.sql
 SET search_path = public, extensions;
 
 -- C1
@@ -65,7 +65,7 @@ BEGIN
   INSERT INTO t.saved VALUES ('secret', v);
   RAISE NOTICE 'PASS C1: السر مولَّد داخل القاعدة وغير مقروء لغير الخدمة';
 END $$;
-\i migrations/088_continuity_attachment_cleanup_schedule.sql
+\i migrations/089_continuity_attachment_cleanup_schedule.sql
 SET search_path = public, extensions;
 DO $$
 BEGIN
@@ -101,14 +101,14 @@ BEGIN
 END $$;
 
 -- RB
-\i migrations/_rollback/088_continuity_attachment_cleanup_schedule.down.sql
+\i migrations/_rollback/089_continuity_attachment_cleanup_schedule.down.sql
 DO $$
 BEGIN
   PERFORM t.ok(to_regprocedure('public._continuity_attachment_cleanup_call()') IS NULL, 'RB function gone');
   PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.internal_service_secrets WHERE key = 'continuity_attachment_cleanup'), 'RB secret gone');
   RAISE NOTICE 'PASS RB-a: التراجع يحذف الدالة والسر';
 END $$;
-\i migrations/088_continuity_attachment_cleanup_schedule.sql
+\i migrations/089_continuity_attachment_cleanup_schedule.sql
 SET search_path = public, extensions;
 DO $$
 BEGIN

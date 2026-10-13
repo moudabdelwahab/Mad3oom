@@ -1,5 +1,5 @@
 -- ============================================================================
--- 088_continuity_attachment_cleanup_schedule.sql
+-- 089_continuity_attachment_cleanup_schedule.sql
 --   Mad3oom Continuity — جدولة الحذف الفعلي لملفات المرفقات (S3، 080).
 --
 -- لماذا
@@ -21,19 +21,19 @@
 --   • لا يمس بيانات المرفقات. الحذف الفعلي تقرره 080 (الطابور) وحدها.
 --   • الدالة الطرفية تقبل السر من البيئة (CONTINUITY_CLEANUP_SECRET) أو من هذا الصف.
 --
--- قابل لإعادة التشغيل (لا يغيّر سرًا موجودًا). التراجع: _rollback/088_continuity_attachment_cleanup_schedule.down.sql
+-- قابل لإعادة التشغيل (لا يغيّر سرًا موجودًا). التراجع: _rollback/089_continuity_attachment_cleanup_schedule.down.sql
 -- ============================================================================
 
 do $$
 begin
   if to_regprocedure('public.continuity_attachment_deletion_queue(integer)') is null then
-    raise exception '088: يتطلب 080';
+    raise exception '089: يتطلب 080';
   end if;
   if to_regclass('public.internal_service_secrets') is null then
-    raise exception '088: جدول internal_service_secrets غير موجود';
+    raise exception '089: جدول internal_service_secrets غير موجود';
   end if;
   if to_regprocedure('net.http_post(text, jsonb, jsonb, jsonb, integer)') is null then
-    raise exception '088: يتطلب pg_net (net.http_post)';
+    raise exception '089: يتطلب pg_net (net.http_post)';
   end if;
 end $$;
 
@@ -64,7 +64,7 @@ begin
 end $$;
 
 comment on function public._continuity_attachment_cleanup_call() is
-  '088: تنادي continuity-attachment-cleanup بالسر الداخلي (pg_cron فقط).';
+  '089: تنادي continuity-attachment-cleanup بالسر الداخلي (pg_cron فقط).';
 
 -- pg_cron (كما في 080: يُجدول حيث يوجد pg_cron، أي في الإنتاج)
 do $$
@@ -79,20 +79,20 @@ end $$;
 do $$
 begin
   if (select count(*) from public.internal_service_secrets where key = 'continuity_attachment_cleanup' and length(value) = 64) <> 1 then
-    raise exception '088: السر غير موجود';
+    raise exception '089: السر غير موجود';
   end if;
   if has_table_privilege('anon', 'public.internal_service_secrets', 'SELECT')
      or has_table_privilege('authenticated', 'public.internal_service_secrets', 'SELECT') then
-    raise exception '088: جدول الأسرار مقروء لغير الخدمة';
+    raise exception '089: جدول الأسرار مقروء لغير الخدمة';
   end if;
   if has_function_privilege('authenticated', 'public._continuity_attachment_cleanup_call()', 'EXECUTE')
      or has_function_privilege('anon', 'public._continuity_attachment_cleanup_call()', 'EXECUTE') then
-    raise exception '088: دالة النداء مكشوفة';
+    raise exception '089: دالة النداء مكشوفة';
   end if;
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     if not exists (select 1 from cron.job where jobname = 'continuity-attachment-cleanup' and schedule = '41 * * * *' and active) then
-      raise exception '088: الجدولة غير مسجّلة';
+      raise exception '089: الجدولة غير مسجّلة';
     end if;
   end if;
-  raise notice '088: الحذف الفعلي لملفات المرفقات مجدول كل ساعة (41)';
+  raise notice '089: الحذف الفعلي لملفات المرفقات مجدول كل ساعة (41)';
 end $$;

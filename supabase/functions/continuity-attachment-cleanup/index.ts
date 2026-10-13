@@ -2,9 +2,9 @@
 // المنطق في handler.js (مختبر في tests/continuity-attachments.test.mjs).
 //
 // المصادقة: سر مشترك فقط (X-Cleanup-Secret)، بمقارنة بزمن ثابت. يُنشر بلا verify_jwt مثل باقي
-// الدوال الداخلية (wf-executor، send-ticket-email): من يناديها هو pg_cron (088) بلا JWT.
+// الدوال الداخلية (wf-executor، send-ticket-email): من يناديها هو pg_cron (089) بلا JWT.
 // السر: CONTINUITY_CLEANUP_SECRET من البيئة لو مضبوط، وإلا صف internal_service_secrets
-// ('continuity_attachment_cleanup') الذي يولّده 088 داخل القاعدة (لا يمر بأي ملف أو أداة).
+// ('continuity_attachment_cleanup') الذي يولّده 089 داخل القاعدة (لا يمر بأي ملف أو أداة).
 // الطلب بلا ترويسة السر يُرفض قبل أي قراءة من القاعدة.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";

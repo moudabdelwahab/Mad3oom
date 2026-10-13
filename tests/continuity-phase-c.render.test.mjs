@@ -115,6 +115,8 @@ const rpcCalls = (page, name) => page.evaluate((n) => (window.__RPC_ARGS__ || []
 
 async function openPage(fx, { url, viewport, init = null, patchDouble = (d) => d, on = null } = {}) {
     const context = await (on || browser).newContext({ viewport: viewport || { width: 1400, height: 900 }, locale: 'ar-EG', timezoneId: 'Africa/Cairo' });
+    // error-tracker.js يرسل كل خطأ مورد إلى site_errors في الإنتاج: لا اختبار يكتب هناك.
+    await context.route('**/error-tracker.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
     const page = await context.newPage();
     // أخطاء الخادم بشكل PostgREST الكامل (code + details) — البديل المشترك يرجّع رسالة فقط.
     const double = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8')
