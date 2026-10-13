@@ -1200,8 +1200,10 @@ as $$
   select jsonb_build_object(
     'connection_id', c.id, 'company_id', c.company_id, 'provider', c.provider, 'status', c.status,
     'base_url', c.base_url, 'external_account_id', c.external_account_id,
-    'ciphertext', k.ciphertext, 'key_version', k.key_version, 'token_expires_at', k.token_expires_at)
+    'ciphertext', k.ciphertext, 'key_version', k.key_version, 'token_expires_at', k.token_expires_at,
+    'provider_enabled', p.enabled)
     from public.ihub_connections c
+    join public.ihub_providers p on p.key = c.provider
     left join public.ihub_credentials k on k.connection_id = c.id
    where c.id = p_connection and c.status <> 'disconnected';
 $$;

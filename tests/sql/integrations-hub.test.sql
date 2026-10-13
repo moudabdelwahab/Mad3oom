@@ -321,7 +321,8 @@ BEGIN
 
   PERFORM t.svc(format('public.ihub_svc_store_credentials(%L::uuid, %L, 1, null)', ca, repeat('A', 60)));
   v := t.svc(format('public.ihub_svc_get_credentials(%L::uuid)', ca));
-  PERFORM t.ok(v->>'ciphertext' = repeat('A', 60) AND v->>'company_id' = t.u('CA')::text, '④ قراءة الخادم');
+  PERFORM t.ok(v->>'ciphertext' = repeat('A', 60) AND v->>'company_id' = t.u('CA')::text
+               AND (v->>'provider_enabled')::boolean, '④ قراءة الخادم (ومعها مفتاح الإيقاف)');
   PERFORM t.ok(NOT ((t.call(t.u('OA'), 'public.ihub_overview()'))::text LIKE '%' || repeat('A', 60) || '%'), '④ النظرة العامة بلا أسرار');
 
   v := t.svc(format('public.ihub_svc_activate(%L::uuid, %L, %L, %L, %L::uuid)', ca, 'https://shop-a.example/', 'متجر أ', 'https://shop-a.example', t.u('OA')));
