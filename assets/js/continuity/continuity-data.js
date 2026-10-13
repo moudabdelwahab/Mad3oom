@@ -98,9 +98,10 @@ export const restoreSource = (sourceId, version) =>
 export const listRemoved = () => call('continuity_list_removed', { p_limit: 100 });
 export const purgeSource = (sourceId) => call('continuity_redact_source', { p_source: sourceId, p_reason: 'manual' });
 export const purgeRemoved = (recordId = null) => call('continuity_purge_removed', { p_record: recordId });
-export const loadEvents = (id) => call('continuity_events_for', { p_record: id, p_before: null, p_limit: 50 });
-/** 078: السياسة (قراءة لكل عضو؛ التغيير للمالك عبر continuity_set_policies ولا تستخدمه الواجهة بعد). */
+export const loadEvents = (id, before = null) => call('continuity_events_for', { p_record: id, p_before: before, p_limit: 50 });
+/** 078: السياسة (قراءة لكل عضو؛ التغيير لمالك المنصة فقط، بالنسخة). */
 export const getPolicies = () => call('continuity_get_policies');
+export const setPolicies = (patch, version) => call('continuity_set_policies', { p_patch: patch, p_expected_version: version });
 export const listAssigners = () => call('continuity_list_assigners');
 export const grantAssigner = (userId) => call('continuity_grant_assigner', { p_user: userId });
 export const revokeAssigner = (userId) => call('continuity_revoke_assigner', { p_user: userId });

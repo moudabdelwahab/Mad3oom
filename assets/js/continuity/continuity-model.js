@@ -587,3 +587,177 @@ export function handoverErrorText(err) {
     if (err?.code === 'not_found') return 'الطلب أو السجل غير موجود أو مش مسموح لك.';
     return err?.message || 'حصل خطأ';
 }
+
+// ─────────────────────────────────────────────────────────────
+// 087: صلاحيات السجل كما قررها الخادم (للعرض فقط؛ كل RPC يقرر بنفسه)
+// ─────────────────────────────────────────────────────────────
+/**
+ * permissions من القراءة الكاملة. قاعدة قبل 087 (لا permissions): من يرى يعدّل (P1/T1)
+ * كما كان، وlegacy = true.
+ */
+export function recordPermissions(full, { attachmentsOn = false } = {}) {
+    if (full?.permissions && typeof full.permissions === 'object') return { ...full.permissions, legacy: false };
+    const closed = ['resolved', 'cancelled'].includes(full?.record?.status);
+    return { edit: !closed, sources: !closed, attachments: !closed && attachmentsOn, reason: closed ? 'closed' : null, legacy: true };
+}
+
+/** لماذا لا يقدر المنادي يعدّل — جملة واحدة، أو null لو يقدر. */
+export function editNotice(perms, ownerName = 'المالك') {
+    switch (perms?.reason) {
+        case 'closed': return 'السجل مقفول. أعد فتحه للتعديل.';
+        case 'unassigned': return 'السجل من غير مالك. خده لنفسك عشان تعدّله وتدير مصادره ومرفقاته.';
+        case 'not_owner': return `تقدر تشوف السجل بس. التعديل والمصادر والمرفقات لمالكه (${ownerName}) أو للمشرف.`;
+        default: return null;
+    }
+}
+
+/** رفض بوابة التعديل (087) ⇒ نص مفهوم، أو null لو مش هو. */
+export function editRefusalText(err) {
+    if (err?.code !== 'forbidden' || err.field !== 'record') return null;
+    return err.reason === 'unassigned'
+        ? 'السجل من غير مالك. خده لنفسك الأول عشان تعدّله.'
+        : 'التعديل لمالك السجل أو للمشرف. تقدر تشوفه بس.';
+}
+
+/** حقول المشكلة (issue) القابلة للتعديل، بنفس حدود الخادم. */
+export const ISSUE_FIELDS = Object.freeze([
+    { key: 'problem', label: 'وصف المشكلة', required: true },
+    { key: 'known_facts', label: 'المعروف لحد دلوقتي' },
+    { key: 'unknowns', label: 'اللي لسه مش معروف' },
+    { key: 'resolution_criteria', label: 'تتحل إمتى (شرط الحل)' },
+]);
+
+const CHANGED_FIELD_LABELS = Object.freeze({
+    title: 'العنوان', summary: 'الملخص', next_action: 'الخطوة التالية', problem: 'وصف المشكلة',
+    known_facts: 'المعروف', unknowns: 'غير المعروف', resolution_criteria: 'شرط الحل',
+    priority: 'الأولوية', category: 'النوع', due_at: 'الموعد', due_tz: 'الموعد',
+});
+
+/**
+ * تفاصيل حدث من السجل بأسماء الحقول والقيم الثابتة فقط. النصوص الحرة لا تصل أصلًا (بصمات في
+ * الخادم)، فلا شيء هنا يعرض محتوى.
+ */
+export function describeEvent(e, { name = () => 'موظف' } = {}) {
+    const p = e?.payload || {};
+    switch (e?.kind) {
+        case 'updated': {
+            const fields = [...new Set((Array.isArray(p.changed) ? p.changed : []).map((f) => CHANGED_FIELD_LABELS[f] || null).filter(Boolean))];
+            const parts = [];
+            if (fields.length) parts.push(fields.join('، '));
+            if (p.priority?.to != null) parts.push(`الأولوية: ${PRIORITY_LABELS[p.priority.from] || '—'} ← ${PRIORITY_LABELS[p.priority.to] || '—'}`);
+            if (p.category && 'to' in p.category) parts.push(`النوع: ${CATEGORY_META[p.category.to]?.label || 'بدون'}`);
+            return parts.join(' · ');
+        }
+        case 'assigned':
+            return p.from_owner === p.to_owner ? 'تغيير الفريق' : `${name(p.from_owner)} ← ${name(p.to_owner)}`;
+        case 'transitioned':
+            return p.from && p.to ? `${STATUS_LABELS[p.from] || p.from} ← ${STATUS_LABELS[p.to] || p.to}` : '';
+        case 'reopened':
+            return p.from ? `من «${STATUS_LABELS[p.from] || p.from}»${p.due ? ' بموعد جديد' : ''}` : '';
+        case 'source_attached': case 'source_removed': case 'source_restored': case 'source_redacted':
+            return Number.isInteger(p.position) ? `رسالة #${p.position}` : '';
+        case 'attachment_added': case 'attachment_removed': case 'attachment_restored': case 'attachment_purged':
+            return KIND_LABELS[p.kind] || '';
+        default:
+            return '';
+    }
+}
+
+/**
+ * طلب إنشاء من صفحة الاستمرارية (بلا رسائل): نفس العقد، وحقول المشكلة كاملة. الرسائل تُرفق
+ * لاحقًا من صندوق الرسائل («إرفاق بسجل موجود»).
+ */
+export function buildManualRequest(draft, { idempotencyKey }) {
+    const text = (v) => String(v ?? '').trim() || null;
+    const issue = draft.kind === 'issue' ? {
+        problem: text(draft.problem), known_facts: text(draft.knownFacts),
+        unknowns: text(draft.unknowns), resolution_criteria: text(draft.resolutionCriteria),
+    } : null;
+    return buildCreateRequest({
+        idempotencyKey,
+        kind: draft.kind,
+        title: draft.title,
+        summary: draft.kind === 'issue' ? null : text(draft.summary),
+        nextAction: text(draft.nextAction),
+        priority: Number(draft.priority) || 3,
+        ownerId: draft.ownerId || null,
+        teamId: draft.teamId || null,
+        due: draft.dueAt && draft.dueTz ? { at: draft.dueAt.length === 16 ? `${draft.dueAt}:00` : draft.dueAt, tz: draft.dueTz } : null,
+        issue,
+        messageIds: [],
+        category: draft.category || null,
+    });
+}
+
+/** الناقص في مسودة إنشاء يدوي (للعرض؛ الخادم يقرر). */
+export function manualMissing(draft) {
+    const missing = [];
+    if (!String(draft?.title ?? '').trim()) missing.push('العنوان');
+    if (draft?.kind === 'follow_up') {
+        if (!String(draft?.nextAction ?? '').trim()) missing.push('الخطوة التالية');
+        if (!draft?.dueAt) missing.push('الموعد');
+    }
+    if (draft?.kind === 'issue' && !String(draft?.problem ?? '').trim()) missing.push('وصف المشكلة');
+    return missing;
+}
+
+// ─────────────────────────────────────────────────────────────
+// إعدادات الاستمرارية (078) — نموذج مالك المنصة. يحسب الفرق فقط؛ الخادم يتحقق ويرفض.
+// ─────────────────────────────────────────────────────────────
+export const POLICY_NUMBER_FIELDS = Object.freeze([
+    { key: 'escalate_after_minutes', label: 'تصعيد بعد تأخير (دقائق)', nullable: true },
+    { key: 'overdue_repeat_minutes', label: 'تكرار التنبيه أثناء التأخير كل (دقائق، فاضي = لا)', nullable: true },
+    { key: 'overdue_repeat_max', label: 'أقصى عدد للتكرار' },
+    { key: 'handover_remind_after_minutes', label: 'تسليم معلّق: تذكير بعد (دقائق)', nullable: true },
+    { key: 'handover_escalate_after_minutes', label: 'تسليم معلّق: تصعيد بعد (دقائق)', nullable: true },
+    { key: 'stale_after_days', label: 'سجل بلا نشاط بعد (أيام)' },
+    { key: 'postpone_flag_count', label: 'تأجيل متكرر بعد (مرات)' },
+]);
+export const POLICY_BOOL_FIELDS = Object.freeze([
+    { key: 'due_alert', label: 'إشعار عند حلول الموعد' },
+    { key: 'respect_working_hours', label: 'التصعيد يراعي ساعات العمل' },
+]);
+
+/**
+ * values: قيم النموذج كنصوص/منطقيات ({ handovers_enabled: true, reminder_offsets_minutes: '60, 15', ... }).
+ * يرجع { patch, errors }: patch = المتغير فقط عن policy. errors = [{ field, reason }] قبل الإرسال.
+ */
+export function policyPatchFromForm(values, policy) {
+    const patch = {};
+    const errors = [];
+    const p = policy || {};
+    for (const c of Object.keys(CAPABILITY_LABELS)) {
+        const k = `${c}_enabled`;
+        if (k in values && Boolean(values[k]) !== Boolean(p[k])) patch[k] = Boolean(values[k]);
+    }
+    for (const { key } of POLICY_BOOL_FIELDS) {
+        if (key in values && Boolean(values[key]) !== Boolean(p[key])) patch[key] = Boolean(values[key]);
+    }
+    for (const { key, nullable } of POLICY_NUMBER_FIELDS) {
+        if (!(key in values)) continue;
+        const raw = String(values[key] ?? '').trim();
+        let v;
+        if (raw === '') {
+            if (!nullable) { errors.push({ field: key, reason: 'required' }); continue; }
+            v = null;
+        } else if (!/^\d+$/.test(raw)) {
+            errors.push({ field: key, reason: 'integer_expected' });
+            continue;
+        } else v = Number(raw);
+        if (v !== (p[key] ?? null)) patch[key] = v;
+    }
+    if ('reminder_offsets_minutes' in values) {
+        const raw = String(values.reminder_offsets_minutes ?? '').trim();
+        const parts = raw ? raw.split(/[\s,،]+/).filter(Boolean) : [];
+        if (parts.some((x) => !/^\d+$/.test(x))) errors.push({ field: 'reminder_offsets_minutes', reason: 'integer_expected' });
+        else {
+            const list = [...new Set(parts.map(Number))].sort((a, b) => b - a);
+            const cur = Array.isArray(p.reminder_offsets_minutes) ? p.reminder_offsets_minutes : [];
+            if (JSON.stringify(list) !== JSON.stringify([...cur].sort((a, b) => b - a))) patch.reminder_offsets_minutes = list;
+        }
+    }
+    if ('escalation_recipients' in values && values.escalation_recipients !== p.escalation_recipients) {
+        patch.escalation_recipients = values.escalation_recipients;
+    }
+    return { patch, errors };
+}

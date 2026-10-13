@@ -235,3 +235,70 @@ test('describePolicy shows the server values as given (078 defaults D1–D4) and
     // رد ناقص لا يكسر العرض
     assert.equal(describePolicy(null).capabilities.length, 6);
 });
+
+// ── 087: صلاحيات السجل، أحداث مقروءة، إنشاء يدوي، نموذج الإعدادات ──────────
+import {
+    recordPermissions, editNotice, editRefusalText, describeEvent, buildManualRequest, manualMissing, policyPatchFromForm,
+} from '../assets/js/continuity/continuity-model.js';
+
+test('087 recordPermissions: server permissions win; before 087 the old P1/T1 rule is kept and marked legacy', () => {
+    const p = { edit: false, sources: false, reason: 'not_owner' };
+    assert.deepEqual(recordPermissions({ record: { status: 'open' }, permissions: p }), { ...p, legacy: false });
+    assert.deepEqual(recordPermissions({ record: { status: 'open' } }, { attachmentsOn: true }),
+        { edit: true, sources: true, attachments: true, reason: null, legacy: true });
+    assert.deepEqual(recordPermissions({ record: { status: 'resolved' } }),
+        { edit: false, sources: false, attachments: false, reason: 'closed', legacy: true });
+});
+
+test('087 editNotice / editRefusalText: one sentence per reason; other errors are not mistaken for the gate', () => {
+    assert.match(editNotice({ reason: 'not_owner' }, 'هبة'), /لمالكه \(هبة\) أو للمشرف/);
+    assert.match(editNotice({ reason: 'unassigned' }), /خده لنفسك/);
+    assert.equal(editNotice({ reason: null }), null);
+    assert.match(editRefusalText({ code: 'forbidden', field: 'record', reason: 'unassigned' }), /خده لنفسك/);
+    assert.match(editRefusalText({ code: 'forbidden', field: 'record', reason: 'not_owner' }), /لمالك السجل أو للمشرف/);
+    assert.equal(editRefusalText({ code: 'forbidden', field: 'owner_id' }), null);
+    assert.equal(editRefusalText({ code: 'not_found' }), null);
+});
+
+test('087 describeEvent: names fields and fixed values only — hashes and free text never appear', () => {
+    const name = (id) => ({ a: 'أحمد', b: 'هبة' }[id] || 'بدون مالك');
+    const upd = describeEvent({ kind: 'updated', payload: { changed: ['next_action', 'due_at', 'due_tz'], fields: { next_action: 'abc123hash' },
+        priority: { from: 4, to: 2 } } }, { name });
+    assert.equal(upd, 'الخطوة التالية، الموعد · الأولوية: منخفضة ← عالية');
+    assert.ok(!upd.includes('abc123hash'));
+    assert.equal(describeEvent({ kind: 'assigned', payload: { from_owner: 'a', to_owner: 'b' } }, { name }), 'أحمد ← هبة');
+    assert.equal(describeEvent({ kind: 'transitioned', payload: { from: 'open', to: 'waiting', fields: { waiting_on: 'h' } } }), 'مفتوح ← بانتظار طرف آخر');
+    assert.equal(describeEvent({ kind: 'source_removed', payload: { position: 3 } }), 'رسالة #3');
+    assert.equal(describeEvent({ kind: 'attachment_added', payload: { kind: 'audio', sha256: 'x' } }), 'تسجيل صوتي');
+    assert.equal(describeEvent({ kind: 'created', payload: { fields: { title: 'h' } } }), '');
+});
+
+test('087 buildManualRequest: no sources; an issue carries its four fields and no summary; a follow-up its summary', () => {
+    const issue = buildManualRequest({ kind: 'issue', title: ' فاتورة ', problem: 'مكررة', knownFacts: '', unknowns: 'الرقم',
+        resolutionCriteria: ' ', summary: 'لا يُرسل', priority: '2', dueAt: '', dueTz: 'Africa/Cairo', ownerId: '', category: '' },
+    { idempotencyKey: '00000000-0000-4000-8000-000000000001' });
+    assert.deepEqual([issue.title, issue.summary, issue.priority, issue.owner_id, issue.due, issue.sources, issue.category],
+        ['فاتورة', null, 2, null, null, [], undefined]);
+    assert.deepEqual(issue.issue, { problem: 'مكررة', known_facts: null, unknowns: 'الرقم', resolution_criteria: null });
+    const fu = buildManualRequest({ kind: 'follow_up', title: 'اتصال', summary: 'ملخص', nextAction: 'اتصل', dueAt: '2030-01-01T10:00',
+        dueTz: 'Africa/Cairo', priority: 3, ownerId: 'me', category: 'complaint' }, { idempotencyKey: '00000000-0000-4000-8000-000000000002' });
+    assert.deepEqual([fu.summary, fu.issue, fu.due, fu.owner_id, fu.category], ['ملخص', null, { at: '2030-01-01T10:00:00', tz: 'Africa/Cairo' }, 'me', 'complaint']);
+    assert.deepEqual(manualMissing({ kind: 'follow_up', title: '' }), ['العنوان', 'الخطوة التالية', 'الموعد']);
+    assert.deepEqual(manualMissing({ kind: 'issue', title: 'x', problem: ' ' }), ['وصف المشكلة']);
+    assert.deepEqual(manualMissing({ kind: 'issue', title: 'x', problem: 'y' }), []);
+});
+
+test('087 policyPatchFromForm: only what changed; empty nullable = off; non-numbers refused before sending', () => {
+    const policy = { attachments_enabled: false, handovers_enabled: false, reminder_offsets_minutes: [60], due_alert: true,
+        escalate_after_minutes: 240, overdue_repeat_minutes: null, overdue_repeat_max: 3, stale_after_days: 7, postpone_flag_count: 3,
+        handover_remind_after_minutes: 60, handover_escalate_after_minutes: 240, escalation_recipients: 'supervisors', respect_working_hours: true };
+    const same = { attachments_enabled: false, reminder_offsets_minutes: '60', due_alert: true, escalate_after_minutes: '240',
+        overdue_repeat_minutes: '', overdue_repeat_max: '3', stale_after_days: '7', escalation_recipients: 'supervisors' };
+    assert.deepEqual(policyPatchFromForm(same, policy), { patch: {}, errors: [] });
+    assert.deepEqual(policyPatchFromForm({ ...same, attachments_enabled: true, reminder_offsets_minutes: '15، 60 15',
+        escalate_after_minutes: '', stale_after_days: '10' }, policy).patch,
+    { attachments_enabled: true, reminder_offsets_minutes: [60, 15], escalate_after_minutes: null, stale_after_days: 10 });
+    assert.deepEqual(policyPatchFromForm({ stale_after_days: '' }, policy).errors, [{ field: 'stale_after_days', reason: 'required' }]);
+    assert.deepEqual(policyPatchFromForm({ escalate_after_minutes: '4h' }, policy).errors, [{ field: 'escalate_after_minutes', reason: 'integer_expected' }]);
+    assert.deepEqual(policyPatchFromForm({ reminder_offsets_minutes: '60, x' }, policy).errors, [{ field: 'reminder_offsets_minutes', reason: 'integer_expected' }]);
+});

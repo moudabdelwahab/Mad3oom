@@ -17,7 +17,7 @@ import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, SENDER_LABEL, TIME_FILTERS, PARTICIPANT_FILTERS, TYPE_FILTERS,
     RECORD_CATEGORIES, filterMessages, toggleSelection, orderedSelection, selectability, messageSender,
     suggestCategory, suggestKind, detectDueCandidates, missingFields, ownerOptions, buildRequestFromDraft,
-    titlePlaceholder,
+    titlePlaceholder, editRefusalText,
 } from './continuity-model.js';
 import { createRecord, listRecords, attachSources } from './continuity-data.js';
 import { CONTINUITY_ICONS, SENDER_ICON } from './continuity-icons.js';
@@ -239,7 +239,7 @@ function renderDetails() {
     if (st.mode === 'existing') {
         const list = st.existing;
         main = list === null ? '<p class="ct-muted">بيحمّل السجلات…</p>'
-            : list.length === 0 ? '<p class="ct-empty">مفيش سجلات نشطة تقدر توصلها.</p>'
+            : list.length === 0 ? '<p class="ct-empty">مفيش سجلات نشطة باسمك تقدر ترفق لها. الإرفاق لمالك السجل أو للمشرف.</p>'
                 : `<div class="ct-pick" role="radiogroup" aria-label="السجل">${list.map((r) => `
                     <button type="button" role="radio" aria-checked="${st.existingId === r.id}" class="ct-pick-row ${st.existingId === r.id ? 'is-on' : ''}" data-record="${esc(r.id)}">
                       <b>${esc(r.title)}</b><small>${esc(KIND_META[r.kind]?.label || r.kind)}${r.category ? ` · ${esc(CATEGORY_META[r.category]?.label || '')}` : ''} · ${r.source_count} مصدر</small></button>`).join('')}</div>`;
@@ -391,7 +391,8 @@ async function loadExisting() {
     try {
         const rows = await listRecords({ status: ['open', 'scheduled', 'in_progress', 'waiting'], limit: 50 });
         if (!st) return;
-        st.existing = rows || [];
+        // 087: الإرفاق لمالك السجل أو للمشرف فقط — السجلات اللي تشوفها ومش بتاعتك مش اختيار هنا.
+        st.existing = (rows || []).filter((r) => st.access?.supervisor || (st.me?.id && r.owner_id === st.me.id));
     } catch (err) {
         if (!st) return;
         st.existing = [];
@@ -401,6 +402,8 @@ async function loadExisting() {
 }
 
 function describeError(err) {
+    const refused = editRefusalText(err);
+    if (refused) return refused;
     if (err?.code === 'forbidden' && (err.field === 'owner_id' || err.field === 'team_id')) {
         return 'مش مسموح لك تسند السجل لموظف تاني أو لفريق. خليه باسمك أو من غير مالك.';
     }
