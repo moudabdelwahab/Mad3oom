@@ -9,10 +9,10 @@ import { ContinuityError } from './continuity-data.js';
 export const UPLOAD_FUNCTION = 'continuity-attachment-upload';
 
 /**
- * يرفع ملفًا لدالة الرفع ويرجع السجل الكامل بعد التأكيد (نفس شكل continuity_get).
+ * يرفع ملفًا لدالة الرفع ويرجع السجل الكامل بعد التأكيد (نفس شكل continuity_get)، أو العرض المشترك لو shared.
  * onProgress(0..1). الأخطاء ContinuityError بنفس أكواد الـRPC (+ signature_mismatch إلخ).
  */
-export async function uploadAttachment({ recordId, file, kind, mime, idempotencyKey, onProgress = () => {}, signal }) {
+export async function uploadAttachment({ recordId, file, kind, mime, idempotencyKey, onProgress = () => {}, signal, shared = false }) {
     const { data: { session } = {} } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new ContinuityError({ code: 'forbidden', field: null, reason: null, kinds: [], currentVersion: null, message: 'سجّل الدخول من جديد.' });
@@ -28,6 +28,8 @@ export async function uploadAttachment({ recordId, file, kind, mime, idempotency
         xhr.setRequestHeader('X-Continuity-Kind', kind);
         xhr.setRequestHeader('X-Idempotency-Key', idempotencyKey);
         if (file.name) xhr.setRequestHeader('X-Continuity-Name', encodeURIComponent(file.name));
+        // 093: مستلم مشاركة تعاونية — نفس الدالة بمسار المشاركة، والرد هو العرض المشترك (فيه record أيضًا).
+        if (shared) xhr.setRequestHeader('X-Continuity-Shared', '1');
         xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(0.99, e.loaded / e.total)); };
         xhr.onload = () => {
             let body = null;

@@ -1785,7 +1785,7 @@ function openContinuity() {
             const id = result?.record?.id;
             toast(mode === 'existing' ? 'اترفقت الرسائل بالسجل' : 'اتعمل سجل الاستمرارية');
             if (id && result?.access !== 'lost') {
-                $('toast').innerHTML += ` <a href="/admin/continuity.html?record=${encodeURIComponent(id)}" style="color:inherit;text-decoration:underline;">افتح السجل</a>`;
+                $('toast').innerHTML += ` <a href="/admin/continuity.html?${result?.shared ? 'shared' : 'record'}=${encodeURIComponent(id)}" style="color:inherit;text-decoration:underline;">افتح السجل</a>`;
             }
         }
     });

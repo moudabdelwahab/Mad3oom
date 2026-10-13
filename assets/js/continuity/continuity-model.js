@@ -431,6 +431,13 @@ export const EVENT_LABELS = Object.freeze({
     attachment_purged: 'مسح مرفقًا نهائيًا', attachment_redacted: 'انتهى احتفاظ مرفق',
     handover_requested: 'طلب تسليم السجل', handover_accepted: 'قبل تسليم السجل', handover_declined: 'رفض تسليم السجل',
     handover_cancelled: 'ألغى طلب التسليم', handover_expired: 'انتهى طلب التسليم',
+    // 091/093: المشاركة المحدودة والتعاون
+    handover_reviewed: 'راجع طلب مشاركة', handover_revoked: 'سحب مشاركة', handover_scope_narrowed: 'ضيّق مشاركة',
+    handover_scope_proposed: 'اقترح توسيع مشاركة', handover_scope_accepted: 'وافق على توسيع مشاركة',
+    handover_scope_rejected: 'رفض توسيع مشاركة',
+    note_added: 'أضاف ملاحظة', change_proposed: 'اقترح تعديلًا', change_proposal_applied: 'طبّق اقتراح تعديل',
+    change_proposal_rejected: 'رفض اقتراح تعديل', change_proposal_withdrawn: 'سحب اقتراح تعديل',
+    shared_sources_added: 'أرفق رسائل من مشاركة',
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -727,10 +734,16 @@ export const POLICY_NUMBER_FIELDS = Object.freeze([
     { key: 'handover_escalate_after_minutes', label: 'تسليم معلّق: تصعيد بعد (دقائق)', nullable: true },
     { key: 'stale_after_days', label: 'سجل بلا نشاط بعد (أيام)' },
     { key: 'postpone_flag_count', label: 'تأجيل متكرر بعد (مرات)' },
+    { key: 'delegation_default_minutes', label: 'المشاركة: المدة الافتراضية (دقائق)', optional: true },
+    { key: 'delegation_max_minutes', label: 'المشاركة: أقصى مدة (دقائق، حتى 10080 = 7 أيام)', optional: true },
+    { key: 'delegation_session_max_minutes', label: 'المشاركة بالجلسة: أقصى مدة (دقائق، حتى 720)', optional: true },
 ]);
 export const POLICY_BOOL_FIELDS = Object.freeze([
     { key: 'due_alert', label: 'إشعار عند حلول الموعد' },
     { key: 'respect_working_hours', label: 'التصعيد يراعي ساعات العمل' },
+    // 091/093: تظهر فقط لو الخادم أرسلها (القاعدة فيها 091/093)
+    { key: 'delegation_allow_ongoing', label: 'المشاركة: السماح بوصول مستمر بلا موعد انتهاء', optional: true },
+    { key: 'delegation_allow_collab', label: 'المشاركة: السماح بالتعاون (ملاحظات، اقتراحات، تعديل حقول، إضافة رسائل ومرفقات)', optional: true },
 ]);
 
 /**
@@ -872,6 +885,9 @@ export function shareMissing(d, { needsRecipient = true } = {}) {
     else if (from && (!LOCAL_DT.test(from) || !LOCAL_DT.test(to))) out.push('فترة صالحة');
     else if (from && sec(from) >= sec(to)) out.push('بداية الفترة قبل نهايتها');
     if (d?.expiryKind === 'until' && !LOCAL_DT.test(d?.untilAt || '')) out.push('وقت الانتهاء');
+    if (d?.mode === 'collab' && (d.actions || []).some((a) => a === 'propose' || a === 'edit_fields') && !(d.fields || []).length) {
+        out.push('حقل واحد على الأقل للاقتراح أو التعديل');
+    }
     return out;
 }
 
@@ -882,9 +898,82 @@ export function buildShareScope(d) {
         attachments: [...new Set(d?.attachments || [])],
         actions: ['view'],
     };
+    // 093: التعاون — الإجراءات المختارة صراحة فقط، والحقول مع propose أو edit_fields فقط
+    if (d?.mode === 'collab') {
+        const acts = (d.actions || []).filter((a) => COLLAB_ACTIONS.some((x) => x.key === a));
+        scope.actions = ['view', ...new Set(acts)];
+        if (acts.includes('propose') || acts.includes('edit_fields')) {
+            scope.editable_fields = [...new Set((d.fields || []).filter((f) => COLLAB_FIELDS.some((x) => x.key === f)))];
+        }
+    }
     const kind = ['duration', 'session', 'until'].includes(d?.expiryKind) ? d.expiryKind : 'duration';
     if (kind === 'until') scope.expiry = { kind, at: sec(d.untilAt), tz: d.untilTz || 'Africa/Cairo' };
     else scope.expiry = { kind, minutes: Number(d?.minutes) || (kind === 'session' ? 720 : SHARE_DEFAULT_MINUTES) };
     if (d?.rangeFrom && d?.rangeTo) scope.range = { from: sec(d.rangeFrom), to: sec(d.rangeTo), tz: d.rangeTz || 'Africa/Cairo' };
     return scope;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 093: التعاون — عرض فقط؛ الخادم يقرر في كل نداء
+// ─────────────────────────────────────────────────────────────
+export const COLLAB_ACTIONS = Object.freeze([
+    Object.freeze({ key: 'note', label: 'ملاحظات' }),
+    Object.freeze({ key: 'propose', label: 'اقتراح تعديل (المالك يوافق)' }),
+    Object.freeze({ key: 'edit_fields', label: 'تعديل حقول مباشرة' }),
+    Object.freeze({ key: 'add_source', label: 'إضافة رسائل ومرفقات' }),
+]);
+export const COLLAB_FIELDS = Object.freeze([
+    Object.freeze({ key: 'next_action', label: 'الخطوة التالية' }),
+    Object.freeze({ key: 'summary', label: 'الملخص' }),
+    Object.freeze({ key: 'due', label: 'الموعد' }),
+    Object.freeze({ key: 'priority', label: 'الأولوية' }),
+]);
+export const PROPOSAL_STATE_LABELS = Object.freeze({
+    pending: 'بانتظار المالك', applied: 'اتطبّق', rejected: 'اترفض', withdrawn: 'اتسحب',
+});
+
+/** الإجراءات المتاحة في منحة كما أرسلها الخادم، والمفتاح العام. */
+export function grantAbilities(grant, collab) {
+    const acts = new Set(grant?.actions || []);
+    const on = Boolean(collab?.enabled);
+    return {
+        note: on && acts.has('note'), propose: on && acts.has('propose'), edit: on && acts.has('edit_fields'),
+        addSource: on && acts.has('add_source'), fields: on ? (collab?.editable_fields || []) : [],
+    };
+}
+
+/** نص قصير لإجراءات منحة (للعرض في القوائم). */
+export function grantActionsText(actions = []) {
+    const extra = COLLAB_ACTIONS.filter((a) => actions.includes(a.key)).map((a) => a.label);
+    return extra.length ? `عرض + ${extra.join('، ')}` : 'عرض فقط';
+}
+
+/** رقعة من نموذج الحقول المسموحة: المتغير فقط. due: { at, tz } أو بلا تغيير لو فاضي. */
+export function collabPatchFromForm(values, record, fields) {
+    const patch = {};
+    if (fields.includes('next_action') && 'next_action' in values && String(values.next_action ?? '').trim() !== String(record?.next_action ?? '')) {
+        patch.next_action = String(values.next_action ?? '').trim();
+    }
+    if (fields.includes('summary') && 'summary' in values && String(values.summary ?? '') !== String(record?.summary ?? '')) {
+        patch.summary = String(values.summary ?? '');
+    }
+    if (fields.includes('priority') && 'priority' in values && Number(values.priority) !== Number(record?.priority)) {
+        patch.priority = Number(values.priority);
+    }
+    if (fields.includes('due') && values.due_at) {
+        const at = values.due_at.length === 16 ? `${values.due_at}:00` : values.due_at;
+        patch.due = { at, tz: values.due_tz || record?.due_tz || 'Africa/Cairo' };
+    }
+    return patch;
+}
+
+/** نص رقعة اقتراح للعرض (أسماء الحقول والقيم الثابتة؛ النصوص كما كتبها المستلم تُعرض عبر esc). */
+export function proposalSummary(patch = {}) {
+    return Object.keys(patch).map((k) => {
+        const label = COLLAB_FIELDS.find((f) => f.key === k)?.label || k;
+        const v = patch[k];
+        if (k === 'priority') return `${label}: ${PRIORITY_LABELS[v] || v}`;
+        if (k === 'due') return `${label}: ${String(v?.at || '').replace('T', ' ').slice(0, 16)} ${v?.tz || ''}`.trim();
+        return `${label}: ${String(v ?? '')}`;
+    });
 }

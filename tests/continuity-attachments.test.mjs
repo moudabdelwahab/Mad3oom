@@ -122,7 +122,7 @@ function makeDeps({ user = { id: 'u1' }, begin, commit, upload, sha = 'f'.repeat
         getUser: async (t) => { calls.push(['getUser', t]); return user; },
         rpc: async (t, fn, args) => {
             calls.push(['rpc', fn, args, t]);
-            if (fn === 'continuity_attachment_begin') return begin || { data: {
+            if (fn === 'continuity_attachment_begin' || fn === 'continuity_shared_attachment_begin') return begin || { data: {
                 attachment: { id: ATT, status: 'pending' }, upload: { bucket: BUCKET, path: PATH, max_bytes: args.p_size } } };
             return commit || { data: { record: { id: REC }, attachments: [{ id: ATT }] } };
         },
@@ -152,6 +152,25 @@ test('الرفع: المسار الكامل — begin بهوية المستخد�
     const commit = deps.calls.find((c) => c[1] === 'continuity_attachment_commit');
     assert.deepEqual(commit[2], { p_attachment: ATT, p_sha256: 'f'.repeat(64) });
     assert.equal(commit[3], 'tok', 'commit runs as the user');
+});
+
+test('الرفع (093): X-Continuity-Shared: 1 ⇒ دوال المشاركة بهوية المستخدم، وبلا الترويسة لا تُنادى أبدًا', async () => {
+    const deps = makeDeps();
+    const r = await out(await handleUpload(req(SAMPLES.png, { 'x-continuity-shared': '1' }), deps));
+    assert.equal(r.status, 200);
+    const fns = deps.calls.filter((c) => c[0] === 'rpc').map((c) => [c[1], c[3]]);
+    assert.deepEqual(fns, [['continuity_shared_attachment_begin', 'tok'], ['continuity_shared_attachment_commit', 'tok']]);
+    assert.deepEqual(deps.calls.find((c) => c[0] === 'upload'), ['upload', PATH, 64, 'image/png'], 'same generated path, same checks');
+    for (const v of [undefined, '0', 'true', 'yes']) {
+        const d = makeDeps();
+        await handleUpload(req(SAMPLES.png, { 'x-continuity-shared': v }), d);
+        assert.ok(d.calls.filter((c) => c[0] === 'rpc').every((c) => !c[1].includes('shared')), `header ${v}`);
+    }
+    // التوقيع يُفحص في المسار المشترك أيضًا
+    const bad = makeDeps();
+    const res = await out(await handleUpload(req(pad(bytes('<svg onload=x>')), { 'x-continuity-shared': '1' }), bad));
+    assert.equal(res.status, 415);
+    assert.equal(bad.calls.some((c) => c[0] === 'upload'), false);
 });
 
 test('الرفع: يرفض قبل أي نداء للقاعدة — بلا JWT، نوع/حجم/رؤوس غير صالحة', async () => {

@@ -10,7 +10,7 @@
  *   await continuityShare({ targets?, sources, attachments, submit, ... })   → true | null (091)
  */
 import { CONTINUITY_ICONS } from './continuity-icons.js';
-import { SHARE_DURATIONS, SHARE_SESSION_DURATIONS, SHARE_DEFAULT_MINUTES, shareMissing } from './continuity-model.js';
+import { SHARE_DURATIONS, SHARE_SESSION_DURATIONS, SHARE_DEFAULT_MINUTES, shareMissing, COLLAB_ACTIONS, COLLAB_FIELDS } from './continuity-model.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -236,11 +236,12 @@ export function continuityNewRecord({ owners = [], teams = [], canAssign = false
  *   sources      [{ id, label }] رسائل السجل النشطة · attachments [{ id, label }]
  *   initial      { sources, attachments, expiryKind, minutes } للتعديل
  *   preview(to, sourceIds) → Promise<عدد الرسائل التي لن يرى المستلم نصها | null>
+ *   collab       093: التعاون مسموح في الإعدادات ⇒ يظهر اختيار «تعاون» وإجراءاته. mode يثبّت الوضع (تعديل منحة قائمة)
  *   submit(draft) → null (نجح) | نص خطأ (يظهر داخل النافذة وتظل مفتوحة)
  * لا خيار «الكل» يتوسع وحده: القائمة تُرسل معرّفات صريحة، والخادم يحسمها ويثبتها.
  */
 export function continuityShare({ title = 'مشاركة للمراجعة', targets = [], sources = [], attachments = [], timezones = ['Africa/Cairo'],
-    initial = null, message = '', confirmText = 'إرسال الطلب', preview = null, submit }) {
+    initial = null, message = '', confirmText = 'إرسال الطلب', preview = null, submit, collab = false, mode = null }) {
     if (open) open.finish(null);
     const amend = !targets.length;
     const before = document.activeElement;
@@ -255,6 +256,11 @@ export function continuityShare({ title = 'مشاركة للمراجعة', targe
     const kind0 = initial?.expiryKind || 'duration';
     const min0 = Number(initial?.minutes) || SHARE_DEFAULT_MINUTES;
     const tzs = (z) => timezones.map((t, i) => opt(t, t, z ? t === z : i === 0)).join('');
+    const mode0 = mode || initial?.mode || 'review';
+    const acts0 = new Set(initial?.actions || []);
+    const fields0 = new Set(initial?.fields || []);
+    const showModes = !mode && collab;
+    const showCollab = (mode0 === 'collab' && (collab || mode)) || showModes;
     dlg.innerHTML = `<form method="dialog" class="ct-sheet ct-share" novalidate>
       <header class="ct-head">
         <span class="ct-confirm-icon" aria-hidden="true">${CONTINUITY_ICONS.continuity}</span>
@@ -266,6 +272,16 @@ export function continuityShare({ title = 'مشاركة للمراجعة', targe
         ${amend ? '' : `<label class="ct-field"><span>المستلم</span>
           <select name="to" required><option value="">اختار…</option>${targets.map((t) => opt(t.value, t.label)).join('')}</select></label>
         <label class="ct-field"><span>سبب المشاركة</span><textarea name="reason" maxlength="1000" rows="2"></textarea></label>`}
+        ${showModes ? `<fieldset class="ct-field"><legend>نوع المشاركة</legend>
+          <label><input type="radio" name="mode" value="review" ${mode0 === 'review' ? 'checked' : ''}> <span>مراجعة — عرض فقط</span></label>
+          <label><input type="radio" name="mode" value="collab" ${mode0 === 'collab' ? 'checked' : ''}> <span>تعاون — عرض وإجراءات تختارها</span></label></fieldset>` : ''}
+        ${showCollab ? `<fieldset class="ct-field" id="ctShareCollab" ${mode0 === 'collab' ? '' : 'hidden'}><legend>المسموح للمستلم غير العرض</legend>
+          ${COLLAB_ACTIONS.map((a) => `<label><input type="checkbox" name="act" value="${a.key}" ${acts0.has(a.key) ? 'checked' : ''}> <span>${esc(a.label)}</span></label>`).join('')}
+          <div id="ctShareFields" ${[...acts0].some((a) => a === 'propose' || a === 'edit_fields') ? '' : 'hidden'}>
+            <p class="ct-muted">الحقول اللي يقدر يقترح عليها أو يعدّلها:</p>
+            ${COLLAB_FIELDS.map((f) => `<label><input type="checkbox" name="fld" value="${f.key}" ${fields0.has(f.key) ? 'checked' : ''}> <span>${esc(f.label)}</span></label>`).join('')}
+          </div>
+          <p class="ct-muted">مش هيقدر يغيّر المالك أو الفريق أو الحالة، ولا يشوف غير اللي اخترته. أي إضافة منه تظهر له هو بس.</p></fieldset>` : ''}
         <fieldset class="ct-field ct-share-list"><legend>الرسائل <button type="button" class="btn btn-secondary ct-btn-sm" data-all="src">اختيار الكل</button></legend>
           ${sources.length ? sources.map((x) => `<label><input type="checkbox" name="src" value="${esc(x.id)}" ${pick.has(x.id) ? 'checked' : ''}> <span dir="auto">${esc(x.label)}</span></label>`).join('')
             : '<p class="ct-muted">مفيش رسائل في السجل.</p>'}</fieldset>
@@ -307,7 +323,9 @@ export function continuityShare({ title = 'مشاركة للمراجعة', targe
         const draft = () => {
             const fd = new FormData(form);
             const kind = String(fd.get('expiryKind') || 'duration');
+            const m = mode || String(fd.get('mode') || mode0);
             return {
+                mode: m, actions: m === 'collab' ? fd.getAll('act').map(String) : [], fields: m === 'collab' ? fd.getAll('fld').map(String) : [],
                 to: amend ? null : String(fd.get('to') || ''), reason: amend ? null : String(fd.get('reason') || ''),
                 sources: fd.getAll('src').map(String), attachments: fd.getAll('att').map(String),
                 expiryKind: kind,
@@ -317,7 +335,12 @@ export function continuityShare({ title = 'مشاركة للمراجعة', targe
             };
         };
         const refresh = () => {
-            const m = shareMissing(draft(), { needsRecipient: !amend });
+            const dd = draft();
+            const box = dlg.querySelector('#ctShareCollab');
+            if (box) box.hidden = dd.mode !== 'collab';
+            const fl = dlg.querySelector('#ctShareFields');
+            if (fl) fl.hidden = !dd.actions.some((a) => a === 'propose' || a === 'edit_fields');
+            const m = shareMissing(dd, { needsRecipient: !amend });
             missEl.textContent = m.length ? `ناقص: ${m.join('، ')}` : '';
             save.disabled = busy || m.length > 0;
         };

@@ -556,7 +556,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الباقة حرفيًا أو استثناء ساري؛ الجدول مغلق على كل الأدوار ومقيَّد بـ integrations_hub.
     //         مقيسٌ في tests/sql/company-feature-overrides.test.sql (والتراجع يعيد التعريف حرفيًا).
     //         كُتب باسم 091 ونُقل إلى 092 بعد دمج 091_continuity_scoped_handover (لا اعتماد بينهما).
-    assert.equal(migrations[migrations.length - 1], '092_company_feature_overrides.sql',
+    //   093 — إجراءات المشاركة التعاونية (082b، #125): ملاحظات بخيط لكل منحة، اقتراحات يطبّقها المالك
+    //         عبر continuity_update، تعديل الحقول المسموحة، وإضافة رسائل ومرفقات تظهر للمنحة فقط.
+    //         مفتاح delegation_allow_collab مطفأ افتراضيًا. مقيسٌ في tests/sql/continuity-collab-actions.test.sql.
+    assert.equal(migrations[migrations.length - 1], '093_continuity_collab_actions.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

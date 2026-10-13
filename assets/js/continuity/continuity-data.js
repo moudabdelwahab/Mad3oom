@@ -187,6 +187,34 @@ export async function signSharedAttachment(id) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+// 093: إجراءات المشاركة التعاونية. البوابة والمفتاح (delegation_allow_collab) على الخادم في كل نداء.
+// ─────────────────────────────────────────────────────────────
+const messageSources = (messageIds) => [...new Set(messageIds)].map((mid) => ({
+    type: 'mad3oom_message', provider: 'mad3oom', adapter: 'mad3oom-inbox', adapter_version: '1', internal: { chat_message_id: mid },
+}));
+/** handoverId = null ⇒ ملاحظة على السجل (لمن يعدّل السجل)؛ غير null ⇒ في خيط تلك المشاركة. */
+export const addNote = (recordId, body, handoverId = null) =>
+    call('continuity_note_add', { p_record: recordId, p_body: body, p_handover: handoverId });
+export const notesFor = (recordId) => call('continuity_notes_for', { p_record: recordId });
+export const proposeShared = (recordId, patch, note = null) =>
+    call('continuity_shared_propose', { p_record: recordId, p_patch: patch, p_note: note || null });
+export const proposalsFor = (recordId) => call('continuity_proposals_for', { p_record: recordId });
+export const decideProposal = (id, decision, note, version) =>
+    call('continuity_proposal_decide', { p_proposal: id, p_decision: decision, p_note: note || null, p_expected_version: version });
+export const withdrawProposal = (id) => call('continuity_proposal_withdraw', { p_proposal: id });
+export const updateShared = (recordId, patch, version) =>
+    call('continuity_shared_update', { p_record: recordId, p_patch: patch, p_expected_version: version });
+export const attachSharedSources = (recordId, messageIds, version, sensitiveAck = false) =>
+    call('continuity_shared_attach_sources', { p_record: recordId, p_sources: messageSources(messageIds),
+        p_expected_version: version, p_sensitive_ack: Boolean(sensitiveAck) });
+
+/** إعدادات المشاركة للأعضاء؛ null على قاعدة قبل 093 (الخيارات التعاونية مخفية). */
+export async function delegationSettings() {
+    const { data, error } = await supabase.rpc('continuity_delegation_settings');
+    return error || !data ? null : data;
+}
+
 /** نفس قائمة الطاقم المؤهل في الصندوق (inbox_list_agents، 055). */
 export async function loadAgents() {
     const { data, error } = await supabase.rpc('inbox_list_agents');
