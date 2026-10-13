@@ -543,7 +543,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         يُولَّد في القاعدة (internal_service_secrets) ونداء pg_cron كل ساعة لدالة
     //         continuity-attachment-cleanup. مقيسٌ في tests/sql/continuity-attachment-cleanup-schedule.test.sql.
     //         كُتب باسم 088 ونُقل إلى 089 بعد دمج 088_integrations_hub في main (لا اعتماد بينهما).
-    assert.equal(migrations[migrations.length - 1], '089_continuity_attachment_cleanup_schedule.sql',
+    //   090 — محجوز: 090_ihub_worker_schedule مطبَّق على الإنتاج من فرع التكاملات (لم يُدمج هنا بعد).
+    //   091 — التسليم المحدود (082a، #125): مراجعة عرض فقط لرسائل ومرفقات مختارة صراحة، تبدأ مدتها
+    //         عند القبول (افتراضي 4 ساعات، أقصى 7 أيام، المستمر مطفأ)، والمرفقات عبر
+    //         continuity-shared-attachment (≤ 60 ثانية). يرقّع 6 دوال على نص الإنتاج بالضبط.
+    //         مقيسٌ في tests/sql/continuity-scoped-handover.test.sql.
+    assert.equal(migrations[migrations.length - 1], '091_continuity_scoped_handover.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

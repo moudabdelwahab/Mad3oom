@@ -33,8 +33,8 @@
 | Closure history | yes | `closures` in `_continuity_full` (079) | read | yes | SQL + render | — |
 | Standalone record window | yes | same RPCs | — | yes (link grants nothing) | render | — |
 | Attachments: upload, voice, view, remove, restore, erase | yes | 080 RPCs + `continuity-attachment-upload` (deployed) + private bucket + one SELECT policy | all | **no**: any viewer can upload or remove | SQL + Node + render | Edit ≠ read → **increment 1**. Capability **off in production**. `continuity-attachment-cleanup` deployed, but `CONTINUITY_CLEANUP_SECRET` and its schedule are not set (purged objects are not deleted from storage yet) |
-| Handover, full ownership transfer (081) | yes (request, accept/decline, cancel, incoming list) | 081 RPCs, record trigger | all | yes | SQL + render | Capability **off in production** |
-| **Scoped handover** (review/collab, scope, expiry, revoke, 60 s attachment proxy) | no | no | — | — | — | Design approved (#125, S-1…S-8). **Nothing built** |
+| Handover, full ownership transfer (081) | yes (request, accept/decline, cancel, incoming list) | 081 RPCs, record trigger | all | yes | SQL + render | Capability **on in production** (2026-10-13) |
+| **Scoped handover, 082a** (review = view only; explicit scope; expiry from acceptance; revoke; amend; 60 s attachment proxy) | yes (share dialog, incoming review + digest accept, shared-with-me panel, read-only shared view, grants on record) | 091 + `continuity-shared-attachment` | all | yes | SQL G0–G13 + mutation checks, Node, render | Built; see `SCOPED_HANDOVER_091_PROD_INSTALL.md`. Collab actions (082b) not built: the server refuses them (`feature_not_enabled`) |
 | Policies and kill switches | **read-only** panel | `continuity_get_policies` / `continuity_set_policies` (owner, versioned, with history) | read | yes (owner) | SQL + render | The owner cannot change anything from the UI → **increment 1** |
 | Assign privilege (grant/revoke) | yes | 076 RPCs | write | yes (owner) | SQL + render | — |
 | **Reminders / due alerts (D1)** | no | no scheduler, jobs or deliveries | — | — | — | Not installed (`_continuity_capability_reminders` absent) |
@@ -70,4 +70,4 @@
   - **Assign:** P3/P4, unchanged.
   - **Status:** owner or supervisor, unchanged.
   - **Erase:** platform owner, unchanged.
-- **Migration numbering:** production applied 077–081, then 085 and 086. New work continues at **087+**. The reserved numbers 082–084 stay unused, so the ledger never applies a lower number after a higher one.
+- **Migration numbering:** production applied 077–081, then 085 and 086. New work continues at **087+**. 090 is `090_ihub_worker_schedule` (applied from the integrations branch on 2026-10-13), so scoped handover is **091**. The reserved numbers 082–084 stay unused, so the ledger never applies a lower number after a higher one.

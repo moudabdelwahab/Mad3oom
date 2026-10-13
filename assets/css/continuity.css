@@ -243,6 +243,17 @@ audio.ct-att-media { max-height: none; background: none; }
 .ct-handover-pending p { margin: .35rem 0 0; overflow-wrap: anywhere; }
 .ct-incoming h4 { margin: .35rem 0; overflow-wrap: anywhere; }
 .ct-incoming p { margin: .25rem 0; font-size: .85rem; overflow-wrap: anywhere; }
+/* 091: المشاركة المحدودة */
+.ct-grant p { margin: .25rem 0; font-size: .85rem; overflow-wrap: anywhere; }
+.ct-share .ct-body > .ct-field { flex: none; }
+.ct-share fieldset { border: 1px solid var(--color-border); border-radius: .6rem; padding: .5rem .75rem; margin: 0; }
+.ct-share fieldset legend { display: flex; gap: .5rem; align-items: center; font-weight: 700; font-size: .86rem; padding-inline: .25rem; }
+.ct-share fieldset label { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; min-height: 2.75rem; font-size: .85rem; overflow-wrap: anywhere; }
+.ct-share fieldset label > span { flex: 1 1 0; min-width: 0; }
+.ct-share input[type="checkbox"], .ct-share input[type="radio"] { width: 1.15rem; height: 1.15rem; min-height: 0; padding: 0; flex: none; }
+.ct-share fieldset label select, .ct-share fieldset label input[type="datetime-local"] { width: auto; flex: 1 1 9rem; max-width: 100%; }
+.ct-share-list { max-height: 14rem; overflow: auto; }
+#ctSharedBanner { display: flex; flex-direction: column; gap: .25rem; }
 /* تسجيل صوتي (§15.4) */
 .ct-rec { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; padding: .6rem .75rem; border: 1px solid var(--color-border); border-radius: .75rem; font-size: .85rem; }
 .ct-rec audio { flex: 1 1 14rem; min-width: 0; max-width: 100%; }

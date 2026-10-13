@@ -20,7 +20,7 @@
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { describeSource, retentionDeadline, LIMITS, validatePolicyPatch } from './continuity-contract.js';
-import { continuityConfirm, continuityPrompt, continuityReopen, continuityHandover, continuityNewRecord } from './continuity-dialog.js';
+import { continuityConfirm, continuityPrompt, continuityReopen, continuityHandover, continuityNewRecord, continuityShare } from './continuity-dialog.js';
 import {
     CATEGORY_META, KIND_META, PRIORITY_LABELS, STATUS_LABELS, EVENT_LABELS, RECORD_CATEGORIES,
     allowedTransitions, assignmentOptions, toZonedInput, describePolicy, reopenRequirements, closureHistory,
@@ -29,6 +29,7 @@ import {
     HANDOVER_STATE_LABELS, HANDOVER_CANCEL_LABELS, handoverActions, handoverTargets, handoverErrorText,
     recordPermissions, editNotice, editRefusalText, ISSUE_FIELDS, describeEvent, buildManualRequest, manualMissing, ownerOptions,
     CAPABILITY_LABELS, POLICY_NUMBER_FIELDS, POLICY_BOOL_FIELDS, policyPatchFromForm,
+    isScopedHandover, grantRemainingText, shareExpiryText, grantStatusText, canManageGrant, buildShareScope, changedSinceReviewText,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, createRecord, updateRecord, assignRecord, transitionRecord, loadEvents, setPolicies,
@@ -36,6 +37,8 @@ import {
     listAssigners, grantAssigner, revokeAssigner, loadAgents, loadTeams, getPolicies,
     removeAttachment, restoreAttachment, purgeAttachment, signAttachment,
     requestHandover, decideHandover, cancelHandover, myHandovers, handoversForRecord,
+    requestShare, reviewHandover, decideReviewed, revokeShare, amendShare, respondShare, sharedRecord, shareScope, previewRecipient,
+    sharedWithMe, signSharedAttachment,
 } from './continuity-data.js';
 import { uploadAttachment } from './continuity-upload.js';
 import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
@@ -62,6 +65,8 @@ const state = {
     rec: null,
     // التسليم (081): تاريخ السجل المفتوح، والطلبات الواردة لي
     handovers: [], incoming: [],
+    // المشاركة المحدودة (091): installed = القاعدة فيها 091؛ active/proposals = المشاركات معي
+    shared: { installed: false, active: [], proposals: [] },
     // السجل (الأحداث): هل فيه أقدم من المعروض
     eventsMore: false,
 };
@@ -345,19 +350,115 @@ function handoverHtml(r) {
     if (!handoversOn()) return '';
     const pending = pendingHandover();
     const acts = handoverActions(r, { meId: state.me?.id, canAssign: state.access.can_assign, enabled: true, pending });
-    const past = (state.handovers || []).filter((h) => h.state !== 'pending').slice(0, 5);
+    const grants = (state.handovers || []).filter((h) => isScopedHandover(h) && h.state === 'accepted');
+    const past = (state.handovers || []).filter((h) => h.state !== 'pending' && !(isScopedHandover(h) && h.state === 'accepted')).slice(0, 8);
+    const scoped = pending && isScopedHandover(pending);
+    const who = { meId: state.me?.id, canAssign: state.access.can_assign };
     return `<div class="ct-handover" id="ctHandover">
         ${pending ? `<div class="ct-banner ct-handover-pending" id="ctHandoverPending" role="status">
-            <strong>طلب تسليم لـ ${esc(agentName(pending.to_owner))}</strong> · ${esc(HANDOVER_STATE_LABELS.pending)}
+            <strong>${scoped ? 'طلب مراجعة' : 'طلب تسليم'} لـ ${esc(agentName(pending.to_owner))}</strong> · ${esc(HANDOVER_STATE_LABELS.pending)}
             <p><span class="ct-muted">السبب:</span> <span dir="auto">${esc(pending.reason)}</span></p>
-            <p class="ct-muted">${esc(agentName(r.owner_id))} لسه مسؤول عن السجل لحد ما الطلب يتقبل.</p>
+            <p class="ct-muted">${scoped ? 'عرض فقط للي اخترته، والملكية ما بتتغيرش.'
+                : `${esc(agentName(r.owner_id))} لسه مسؤول عن السجل لحد ما الطلب يتقبل.`}</p>
             ${acts.canCancel ? `<button type="button" class="btn btn-secondary ct-btn-sm" id="ctHandoverCancel" data-handover="${esc(pending.id)}">إلغاء الطلب</button>` : ''}
           </div>` : ''}
-        ${acts.canRequest ? '<button type="button" class="btn btn-secondary" id="ctHandoverRequest">تسليم السجل لموظف</button>' : ''}
-        ${past.length ? `<details class="ct-handover-history"><summary>تاريخ التسليم (${past.length})</summary><ul class="ct-events">${past.map((h) =>
-            `<li>${esc(fmt(h.decided_at || h.created_at))} · ${esc(agentName(h.from_owner))} ← ${esc(agentName(h.to_owner))}: ${esc(HANDOVER_STATE_LABELS[h.state] || h.state)}${
-                h.cancel_cause ? ` (${esc(HANDOVER_CANCEL_LABELS[h.cancel_cause] || h.cancel_cause)})` : ''}</li>`).join('')}</ul></details>` : ''}
+        ${acts.canRequest ? `<div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctHandoverRequest">تسليم السجل لموظف</button>
+            ${state.shared.installed ? '<button type="button" class="btn btn-secondary" id="ctShareRequest">مشاركة للمراجعة (عرض فقط)</button>' : ''}</div>` : ''}
+        ${grants.length ? `<div id="ctGrants"><h4>مشاركات قائمة (${grants.length})</h4><ul class="ct-sources">${grants.map((h) => `<li class="ct-grant" data-grant="${esc(h.id)}">
+            <div class="ct-item-meta"><b>${esc(agentName(h.to_owner))}</b> <span class="ct-pill">مراجعة · عرض فقط</span>
+              <span>${esc(grantRemainingText(h.expires_at))}</span>${h.session_bound ? '<span class="ct-pill">جلسة واحدة</span>' : ''}</div>
+            <p><span class="ct-muted">السبب:</span> <span dir="auto">${esc(h.reason)}</span></p>
+            ${canManageGrant(h, r, who) ? `<div class="ct-inline">
+              <button type="button" class="btn btn-secondary ct-btn-sm" data-grant-amend="${esc(h.id)}">تعديل المشاركة</button>
+              <button type="button" class="btn btn-danger ct-btn-sm" data-grant-revoke="${esc(h.id)}">سحب المشاركة</button></div>` : ''}
+          </li>`).join('')}</ul></div>` : ''}
+        ${past.length ? `<details class="ct-handover-history"><summary>تاريخ التسليم والمشاركة (${past.length})</summary><ul class="ct-events">${past.map((h) =>
+            `<li>${esc(fmt(h.revoked_at || h.decided_at || h.created_at))} · ${isScopedHandover(h)
+                ? `مراجعة لـ ${esc(agentName(h.to_owner))}: ${esc(grantStatusText(h))}`
+                : `${esc(agentName(h.from_owner))} ← ${esc(agentName(h.to_owner))}: ${esc(HANDOVER_STATE_LABELS[h.state] || h.state)}${
+                h.cancel_cause ? ` (${esc(HANDOVER_CANCEL_LABELS[h.cancel_cause] || h.cancel_cause)})` : ''}`}</li>`).join('')}</ul></details>` : ''}
       </div>`;
+}
+
+/** عناصر السجل المتاحة للاختيار في المشاركة: رسائل نشطة ومرفقات نشطة (أسماء للعرض فقط). */
+function shareChoices() {
+    const sources = (state.current?.sources || []).map((x) => {
+        const d = describeSource(x);
+        const text = d.state === 'visible' ? `${d.senderLabel ? `${d.senderLabel}: ` : ''}${String(d.excerpt || '').slice(0, 70)}` : d.label;
+        return { id: x.id, label: `#${x.position} ${text}` };
+    });
+    const attachments = attachmentsOn() ? (state.current?.attachments || []).map((a) => ({ id: a.id, label: attachmentView(a).name })) : [];
+    return { sources, attachments };
+}
+
+async function shareAction(el, r) {
+    if (el.id === 'ctShareRequest') {
+        let attempt = null;
+        const done = await continuityShare({
+            targets: handoverTargets(state.agents, r).filter((t) => t.value !== state.me?.id),
+            ...shareChoices(), timezones: TIMEZONES,
+            preview: async (to, ids) => {
+                const rows = await previewRecipient(r.id, to, ids);
+                return Array.isArray(rows) ? rows.filter((x) => !x.visible).length : null;
+            },
+            submit: async (d) => {
+                const scope = buildShareScope(d);
+                const sig = JSON.stringify([d.to, d.reason, scope]);
+                if (!attempt || attempt.sig !== sig) attempt = { sig, key: crypto.randomUUID() };
+                try {
+                    await requestShare({ recordId: r.id, toOwner: d.to, reason: d.reason.trim(), note: null, version: r.version,
+                        idempotencyKey: attempt.key, mode: 'review', scope });
+                    return null;
+                } catch (err) {
+                    return handoverErrorText(err);
+                }
+            },
+        });
+        if (done) toast('اتبعت طلب المراجعة. المستلم لازم يراجع ويقبل.');
+        await openRecord(r.id, { push: false });
+        return true;
+    }
+    if (el.dataset.grantRevoke) {
+        if (!await continuityConfirm({ title: 'سحب المشاركة', danger: true, confirmText: 'سحب',
+            message: 'المستلم هيفقد العرض فورًا. التاريخ بيفضل في السجل.' })) return true;
+        try {
+            await revokeShare(el.dataset.grantRevoke);
+            toast('اتسحبت المشاركة');
+        } catch (err) {
+            toast(handoverErrorText(err), 'err');
+        }
+        await openRecord(r.id, { push: false });
+        return true;
+    }
+    if (el.dataset.grantAmend) {
+        const id = el.dataset.grantAmend;
+        let current = null;
+        try {
+            current = ((await shareScope(id))?.scopes || []).find((x) => x.status === 'approved') || null;
+        } catch (err) {
+            toast(handoverErrorText(err), 'err');
+            return true;
+        }
+        let result = null;
+        const done = await continuityShare({
+            title: 'تعديل المشاركة', confirmText: 'حفظ', ...shareChoices(), timezones: TIMEZONES,
+            message: 'التضييق يسري فورًا. أي توسيع (رسائل أو مرفقات أو مدة أكتر) بيتبعت للمستلم يوافق عليه، ولحد ما يوافق يفضل القديم.',
+            initial: current && { sources: current.source_ids, attachments: current.attachment_ids,
+                expiryKind: current.expiry?.kind === 'until' ? 'duration' : current.expiry?.kind, minutes: current.expiry?.minutes },
+            submit: async (d) => {
+                try {
+                    result = await amendShare(id, buildShareScope(d));
+                    return null;
+                } catch (err) {
+                    return handoverErrorText(err);
+                }
+            },
+        });
+        if (done) toast(result?.scope_change === 'narrowed' ? 'اتضيّقت المشاركة فورًا' : 'اتبعت التوسيع للمستلم يوافق عليه');
+        await openRecord(r.id, { push: false });
+        return true;
+    }
+    return false;
 }
 
 async function handoverAction(el, r) {
@@ -404,6 +505,7 @@ async function renderIncoming() {
     $('ctHandoversCount').textContent = state.incoming.length ? `(${state.incoming.length})` : '';
     $('ctHandoversBody').innerHTML = `<ul class="ct-sources">${state.incoming.map((h) => {
         const p = h.package || {};
+        if (isScopedHandover(h)) return incomingScopedHtml(h, p);
         return `<li class="ct-incoming" data-incoming="${esc(h.id)}">
           <div class="ct-item-meta"><span class="ct-pill">${esc(KIND_META[p.kind]?.label || p.kind || '')}</span>
             <span class="ct-pill">${esc(PRIORITY_LABELS[p.priority] || '')}</span>
@@ -422,6 +524,7 @@ async function renderIncoming() {
 }
 
 async function incomingAction(el) {
+    if (el.dataset.review || el.dataset.declineReview) return incomingReviewAction(el);
     const id = el.dataset.accept || el.dataset.decline;
     if (!id) return;
     const version = Number(el.dataset.version);
@@ -447,6 +550,167 @@ async function incomingAction(el) {
         toast(handoverErrorText(err), 'err');
     }
     await renderIncoming();
+}
+
+/** طلب مراجعة (091): وصف السجل + أعداد ونوع النطاق فقط؛ المحتوى يظهر بعد القبول وفي حدوده. */
+function incomingScopedHtml(h, p) {
+    const sc = p.scope || {};
+    const c = sc.counts || {};
+    return `<li class="ct-incoming ct-incoming--review" data-incoming="${esc(h.id)}">
+      <div class="ct-item-meta"><span class="ct-pill">طلب مراجعة · عرض فقط</span>
+        <span class="ct-pill">${esc(KIND_META[p.kind]?.label || p.kind || '')}</span>
+        ${p.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}</div>
+      <h4 dir="auto">${esc(p.title)}</h4>
+      <p><span class="ct-muted">من ${esc(agentName(h.created_by))} — السبب:</span> <span dir="auto">${esc(h.reason)}</span></p>
+      <p class="ct-muted">${esc(c.sources ?? 0)} رسالة · ${esc(c.attachments ?? 0)} مرفق · ${esc(shareExpiryText(sc.expiry))}${sc.range ? ' · فترة زمنية محددة' : ''}</p>
+      ${c.not_readable ? `<p class="ct-muted">${esc(c.not_readable)} رسالة مش هتشوف نصها لأنك مش مسموح لك تفتح المحادثة.</p>` : ''}
+      <p class="ct-muted">السجل يفضل مع مالكه. المشاركة عرض فقط وبتتسحب في أي وقت.</p>
+      <div class="ct-inline">
+        <button type="button" class="btn btn-primary ct-btn-sm" data-review="${esc(h.id)}">مراجعة وقبول</button>
+        <button type="button" class="btn btn-secondary ct-btn-sm" data-decline-review="${esc(h.id)}">رفض</button>
+      </div></li>`;
+}
+
+async function incomingReviewAction(el) {
+    const id = el.dataset.review || el.dataset.declineReview;
+    try {
+        if (el.dataset.declineReview) {
+            const note = await continuityPrompt({ title: 'رفض المراجعة', label: 'سبب الرفض', confirmText: 'رفض' });
+            if (!note) return;
+            await decideReviewed(id, 'decline', note, null);
+            toast('اترفض الطلب');
+        } else {
+            const rv = await reviewHandover(id);
+            const sc = rv?.package?.scope || {};
+            const c = sc.counts || {};
+            if (!await continuityConfirm({ title: 'قبول المراجعة', confirmText: 'قبول',
+                message: `هتقدر تشوف ${c.sources ?? 0} رسالة و${c.attachments ?? 0} مرفق من «${rv?.package?.title || ''}»، ${shareExpiryText(sc.expiry)}. عرض فقط، والملكية ما بتتغيرش.` })) {
+                return;
+            }
+            const res = await decideReviewed(id, 'accept', null, rv.digest);
+            if (res?.accepted) {
+                const since = changedSinceReviewText(res.changed_since_review);
+                toast(since ? `اتقبلت المراجعة. ${since}` : 'اتقبلت المراجعة');
+                await renderShared();
+                if (res?.handover?.record_id) await openShared(res.handover.record_id);
+            } else {
+                toast(HANDOVER_CANCEL_LABELS[res?.handover?.cancel_cause] || 'الطلب ده مبقاش متاح', 'err');
+            }
+        }
+    } catch (err) {
+        toast(handoverErrorText(err), 'err');
+    }
+    await renderIncoming();
+}
+
+// ═════════════════════════════════════════════════════════════
+// المشاركات معي (091): عرض فقط في حدود النطاق المعتمد؛ الخادم يعيد البوابة في كل قراءة
+// ═════════════════════════════════════════════════════════════
+async function renderShared() {
+    state.shared = handoversOn() ? await sharedWithMe() : { installed: false, active: [], proposals: [] };
+    const box = $('ctShared');
+    if (STANDALONE || !box) return;
+    const { active, proposals } = state.shared;
+    box.hidden = !state.shared.installed || (!active.length && !proposals.length);
+    if (box.hidden) return;
+    $('ctSharedCount').textContent = `(${active.length})`;
+    $('ctSharedBody').innerHTML = `${proposals.map((x) => `<div class="ct-banner" data-proposal="${esc(x.handover_id)}" role="status">
+          <strong dir="auto">طلب توسيع مشاركة «${esc(x.title)}»</strong>
+          <p class="ct-muted">الحالي: ${esc(x.current?.counts?.sources ?? 0)} رسالة · ${esc(x.current?.counts?.attachments ?? 0)} مرفق —
+            المقترح: ${esc(x.proposed?.counts?.sources ?? 0)} رسالة · ${esc(x.proposed?.counts?.attachments ?? 0)} مرفق · ${esc(shareExpiryText(x.proposed?.expiry))}</p>
+          <div class="ct-inline">
+            <button type="button" class="btn btn-primary ct-btn-sm" data-proposal-accept="${esc(x.handover_id)}" data-version="${esc(x.proposed?.version)}">موافقة</button>
+            <button type="button" class="btn btn-secondary ct-btn-sm" data-proposal-reject="${esc(x.handover_id)}" data-version="${esc(x.proposed?.version)}">رفض</button>
+          </div></div>`).join('')}
+      ${active.length ? `<ul class="ct-sources">${active.map((x) => `<li class="ct-incoming" data-shared="${esc(x.record_id)}">
+          <div class="ct-item-meta"><span class="ct-pill">مراجعة · عرض فقط</span><span>${esc(grantRemainingText(x.expires_at))}</span>
+            ${x.session_bound ? '<span class="ct-pill">الجلسة دي بس</span>' : ''}</div>
+          <h4 dir="auto">${esc(x.title)}</h4>
+          <p><span class="ct-muted">من ${esc(agentName(x.granted_by))} — السبب:</span> <span dir="auto">${esc(x.reason)}</span></p>
+          <button type="button" class="btn btn-secondary ct-btn-sm" data-shared-open="${esc(x.record_id)}">فتح</button></li>`).join('')}</ul>`
+        : '<p class="ct-muted">مفيش مشاركات قائمة.</p>'}`;
+}
+
+async function sharedPanelAction(el) {
+    if (el.dataset.sharedOpen) return openShared(el.dataset.sharedOpen);
+    const id = el.dataset.proposalAccept || el.dataset.proposalReject;
+    if (!id) return undefined;
+    try {
+        await respondShare(id, Number(el.dataset.version), Boolean(el.dataset.proposalAccept));
+        toast(el.dataset.proposalAccept ? 'اتوسعت المشاركة' : 'اترفض التوسيع، والمشاركة زي ما هي');
+    } catch (err) {
+        toast(handoverErrorText(err), 'err');
+    }
+    return renderShared();
+}
+
+/** عرض سجل مشترك: حقول للقراءة، والرسائل والمرفقات المعتمدة فقط بترقيمها الجديد. لا تعديل. */
+async function openShared(recordId) {
+    state.current = null;
+    $('ctPage').classList.add('has-record');
+    $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
+    let v;
+    try {
+        v = await sharedRecord(recordId);
+    } catch (err) {
+        $('ctDetail').innerHTML = `<p class="ct-empty" id="ctSharedGone">${esc(err.code === 'not_found'
+            ? 'المشاركة دي انتهت أو اتسحبت، أو مش متاحة في الجلسة دي.' : friendlyError(err))}</p>
+          <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>`;
+        renderShared();
+        return;
+    }
+    const r = v.record || {};
+    const g = v.grant || {};
+    $('ctDetail').innerHTML = `
+      <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>
+      <div class="ct-banner ct-readonly" id="ctSharedBanner" role="status">
+        <span>عرض فقط — شاركه معك ${esc(agentName(g.granted_by))} · ${esc(grantRemainingText(g.expires_at))}${g.session_bound ? ' · الجلسة دي بس' : ''}</span>
+        <span class="ct-muted">السبب: <span dir="auto">${esc(g.reason)}</span></span></div>
+      <div>
+        <div class="ct-item-meta">
+          <span class="ct-pill">${esc(KIND_META[r.kind]?.label || r.kind)}</span>
+          <span class="ct-pill">${esc(STATUS_LABELS[r.status] || r.status)}</span>
+          ${r.category ? `<span class="ct-pill ct-pill--accent">${esc(CATEGORY_META[r.category]?.label)}</span>` : ''}
+          ${r.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}
+        </div>
+        <h2 id="ctRecordTitle" dir="auto">${esc(r.title)}</h2>
+        ${r.summary ? `<p dir="auto">${esc(r.summary)}</p>` : ''}
+        ${r.problem ? `<p><span class="ct-muted">المشكلة:</span> <span dir="auto">${esc(r.problem)}</span></p>` : ''}
+        ${r.next_action ? `<p><span class="ct-muted">الخطوة التالية:</span> <span dir="auto">${esc(r.next_action)}</span></p>` : ''}
+        ${r.due_at ? `<p class="ct-muted">الموعد: ${esc(fmt(r.due_at, r.due_tz))}</p>` : ''}
+        ${g.range ? `<p class="ct-muted">الرسائل من ${esc(fmt(g.range.from, g.range.tz))} لحد ${esc(fmt(g.range.to, g.range.tz))}</p>` : ''}
+      </div>
+      <section aria-labelledby="ctSharedSourcesH">
+        <h3 id="ctSharedSourcesH">الرسائل (${(v.sources || []).length})</h3>
+        ${(v.sources || []).length ? `<ul class="ct-sources" id="ctSharedSources">${v.sources.map((s) => sourceHtml(s, { mode: 'shared' })).join('')}</ul>`
+            : '<p class="ct-muted">مفيش رسائل في المشاركة دي.</p>'}
+      </section>
+      ${(v.attachments || []).length ? `<section aria-labelledby="ctSharedAttH" id="ctSharedAtts">
+        <h3 id="ctSharedAttH">المرفقات (${v.attachments.length})</h3>
+        <p class="ct-muted">الرابط بيتعمل لما تفتح المرفق وصالح دقيقة واحدة بحد أقصى.</p>
+        <ul class="ct-atts">${v.attachments.map((a) => {
+            const av = attachmentView(a);
+            return `<li class="ct-att" data-att="${esc(a.id)}"><div class="ct-att-head"><b dir="auto">${esc(av.name)}</b> <span class="ct-muted">${esc(av.size)}</span></div>
+              <button type="button" class="btn btn-secondary ct-btn-sm" data-shared-att="${esc(a.id)}" data-kind="${esc(av.kind || '')}">عرض</button></li>`;
+        }).join('')}</ul></section>` : ''}`;
+}
+
+async function openSharedAttachment(el) {
+    el.disabled = true;
+    const got = await signSharedAttachment(el.dataset.sharedAtt);
+    if (!el.isConnected) return;
+    if (!got) {
+        el.disabled = false;
+        toast('المرفق مش متاح دلوقتي (المشاركة انتهت أو اتغيرت).', 'err');
+        return;
+    }
+    const kind = el.dataset.kind;
+    const media = document.createElement(kind === 'image' ? 'img' : kind === 'video' ? 'video' : 'audio');
+    media.className = 'ct-att-media';
+    if (kind !== 'image') media.controls = true;
+    else media.alt = '';
+    media.src = got.url;
+    el.replaceWith(media);
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -968,6 +1232,7 @@ function wire() {
         const el = e.target.closest('button');
         if (el?.id === 'ctBackToList') return closeRecord();
         if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
+        if (el?.dataset.sharedAtt) return openSharedAttachment(el);
         if (!el || !r) return undefined;
         if (el.id === 'ctEventsMore') return loadOlderEvents(r);
         if (el.id === 'ctClaim') {
@@ -975,6 +1240,7 @@ function wire() {
         }
         if (await attachmentAction(el, r)) return undefined;
         if (await handoverAction(el, r)) return undefined;
+        if (await shareAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
             const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;
@@ -1041,6 +1307,10 @@ function wireListAndPanels() {
     $('ctHandovers')?.addEventListener('click', (e) => {
         const el = e.target.closest('button');
         if (el) incomingAction(el);
+    });
+    $('ctShared')?.addEventListener('click', (e) => {
+        const el = e.target.closest('button');
+        if (el) sharedPanelAction(el);
     });
     for (const [id, key] of [['ctFilterStatus', 'status'], ['ctFilterOwner', 'owner'], ['ctFilterCategory', 'category']]) {
         $(id).addEventListener('change', (e) => { state.filters[key] = e.target.value; reloadList(); });
@@ -1145,6 +1415,7 @@ async function boot() {
     }
     [state.agents, state.teams] = await Promise.all([loadAgents(), loadTeams()]);
     wire();
+    await renderShared();
     if (STANDALONE) {
         await openRecord(standaloneId, { push: false });
         return;
