@@ -19,7 +19,7 @@ import {
     suggestCategory, suggestKind, detectDueCandidates, missingFields, ownerOptions, buildRequestFromDraft,
     titlePlaceholder, editRefusalText,
 } from './continuity-model.js';
-import { createRecord, listRecords, attachSources } from './continuity-data.js';
+import { createRecord, listRecords, attachSources, sharedWithMe, sharedRecord, attachSharedSources } from './continuity-data.js';
 import { CONTINUITY_ICONS, SENDER_ICON } from './continuity-icons.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
@@ -242,7 +242,7 @@ function renderDetails() {
             : list.length === 0 ? '<p class="ct-empty">مفيش سجلات نشطة باسمك تقدر ترفق لها. الإرفاق لمالك السجل أو للمشرف.</p>'
                 : `<div class="ct-pick" role="radiogroup" aria-label="السجل">${list.map((r) => `
                     <button type="button" role="radio" aria-checked="${st.existingId === r.id}" class="ct-pick-row ${st.existingId === r.id ? 'is-on' : ''}" data-record="${esc(r.id)}">
-                      <b>${esc(r.title)}</b><small>${esc(KIND_META[r.kind]?.label || r.kind)}${r.category ? ` · ${esc(CATEGORY_META[r.category]?.label || '')}` : ''} · ${r.source_count} مصدر</small></button>`).join('')}</div>`;
+                      <b>${esc(r.title)}</b><small>${esc(KIND_META[r.kind]?.label || r.kind)}${r.category ? ` · ${esc(CATEGORY_META[r.category]?.label || '')}` : ''} · ${r.shared ? 'مشاركة معك' : `${r.source_count} مصدر`}</small></button>`).join('')}</div>`;
     } else {
         const dueChips = st.dueCandidates.map((c, i) => {
             const m = st.messages.find((x) => x.id === c.messageId);
@@ -389,10 +389,16 @@ async function loadExisting() {
     st.existing = null;
     render();
     try {
-        const rows = await listRecords({ status: ['open', 'scheduled', 'in_progress', 'waiting'], limit: 50 });
+        const [rows, shared] = await Promise.all([listRecords({ status: ['open', 'scheduled', 'in_progress', 'waiting'], limit: 50 }),
+            sharedWithMe().catch(() => ({ active: [] }))]);
         if (!st) return;
         // 087: الإرفاق لمالك السجل أو للمشرف فقط — السجلات اللي تشوفها ومش بتاعتك مش اختيار هنا.
-        st.existing = (rows || []).filter((r) => st.access?.supervisor || (st.me?.id && r.owner_id === st.me.id));
+        const own = (rows || []).filter((r) => st.access?.supervisor || (st.me?.id && r.owner_id === st.me.id));
+        // 093: ومشاركات تعاون معك فيها «إضافة رسائل» — اللي تضيفه يظهر لك أنت بس فيها.
+        const ownIds = new Set(own.map((r) => r.id));
+        const viaShare = (shared?.active || []).filter((x) => x.mode === 'collab' && (x.actions || []).includes('add_source') && !ownIds.has(x.record_id))
+            .map((x) => ({ id: x.record_id, title: x.title, kind: x.kind, shared: true }));
+        st.existing = [...own, ...viaShare];
     } catch (err) {
         if (!st) return;
         st.existing = [];
@@ -408,6 +414,8 @@ function describeError(err) {
         return 'مش مسموح لك تسند السجل لموظف تاني أو لفريق. خليه باسمك أو من غير مالك.';
     }
     if (err?.code === 'not_found' && err.field === 'sources') return 'رسالة أو أكتر من المختارة مبقتش متاحة لك. ارجع وراجع الاختيار.';
+    if (err?.code === 'feature_not_enabled' && err.field === 'collab') return 'إجراءات التعاون متوقفة حاليًا من الإعدادات.';
+    if (err?.code === 'not_found' && st?.existing?.find((r) => r.id === st.existingId)?.shared) return 'المشاركة دي انتهت أو اتسحبت.';
     if (err?.code === 'validation_failed' && err.reason === 'sensitive_content') return 'الرسائل فيها بيانات حساسة. أكّد إنك فاهم قبل المتابعة.';
     if (err?.code === 'validation_failed' && err.reason === 'not_eligible') return 'الموظف ده حسابه مش نشط (مش مكمّل التحقق من الحساب أو محظور)، فمينفعش يبقى مالك للسجل.';
     if (err?.code === 'validation_failed' && err.field === 'due.at') return 'راجع الموعد: لازم يكون في المستقبل وخلال سنة.';
@@ -424,7 +432,13 @@ async function submit() {
         let result;
         if (st.mode === 'existing') {
             const rec = st.existing.find((r) => r.id === st.existingId);
-            result = await attachSources(rec.id, orderedSelection(st.messages, st.selected).map((m) => m.id), rec.version, d.sensitiveAck);
+            const ids = orderedSelection(st.messages, st.selected).map((m) => m.id);
+            if (rec.shared) {
+                const view = await sharedRecord(rec.id);
+                result = { ...await attachSharedSources(rec.id, ids, view?.record?.version, d.sensitiveAck), shared: true };
+            } else {
+                result = await attachSources(rec.id, ids, rec.version, d.sensitiveAck);
+            }
         } else {
             const base = { ...d, category: st.category, messageIds: orderedSelection(st.messages, st.selected).map((m) => m.id) };
             const fingerprint = JSON.stringify(base);

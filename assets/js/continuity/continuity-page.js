@@ -30,6 +30,7 @@ import {
     recordPermissions, editNotice, editRefusalText, ISSUE_FIELDS, describeEvent, buildManualRequest, manualMissing, ownerOptions,
     CAPABILITY_LABELS, POLICY_NUMBER_FIELDS, POLICY_BOOL_FIELDS, policyPatchFromForm,
     isScopedHandover, grantRemainingText, shareExpiryText, grantStatusText, canManageGrant, buildShareScope, changedSinceReviewText,
+    COLLAB_FIELDS, PROPOSAL_STATE_LABELS, grantAbilities, grantActionsText, collabPatchFromForm, proposalSummary,
 } from './continuity-model.js';
 import {
     loadContinuityAccess, listRecords, getRecord, createRecord, updateRecord, assignRecord, transitionRecord, loadEvents, setPolicies,
@@ -39,6 +40,7 @@ import {
     requestHandover, decideHandover, cancelHandover, myHandovers, handoversForRecord,
     requestShare, reviewHandover, decideReviewed, revokeShare, amendShare, respondShare, sharedRecord, shareScope, previewRecipient,
     sharedWithMe, signSharedAttachment,
+    addNote, notesFor, proposeShared, proposalsFor, decideProposal, withdrawProposal, updateShared, delegationSettings,
 } from './continuity-data.js';
 import { uploadAttachment } from './continuity-upload.js';
 import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
@@ -67,6 +69,8 @@ const state = {
     handovers: [], incoming: [],
     // المشاركة المحدودة (091): installed = القاعدة فيها 091؛ active/proposals = المشاركات معي
     shared: { installed: false, active: [], proposals: [] },
+    // 093: إعدادات المشاركة (التعاون مسموح؟)، والعرض المشترك المفتوح، وملاحظات واقتراحات السجل المفتوح
+    delegation: null, sharedView: null, notes: null, proposals: null,
     // السجل (الأحداث): هل فيه أقدم من المعروض
     eventsMore: false,
 };
@@ -140,8 +144,14 @@ async function openRecord(id, { push = true } = {}) {
     $('ctDetail').innerHTML = '<p class="ct-empty">بيحمّل…</p>';
     $('ctPage').classList.add('has-record');
     try {
-        const [full, events, handovers] = await Promise.all([getRecord(id), loadEvents(id).catch(() => []),
-            handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([])]);
+        const collabReady = Boolean(state.delegation);
+        const [full, events, handovers, notes, proposals] = await Promise.all([getRecord(id), loadEvents(id).catch(() => []),
+            handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([]),
+            collabReady ? notesFor(id).catch(() => null) : Promise.resolve(null),
+            collabReady ? proposalsFor(id).catch(() => null) : Promise.resolve(null)]);
+        state.sharedView = null;
+        state.notes = Array.isArray(notes) ? notes : null;
+        state.proposals = Array.isArray(proposals) ? proposals : null;
         state.current = full;
         state.events = events || [];
         state.eventsMore = state.events.length >= EVENTS_PAGE;
@@ -309,6 +319,7 @@ function renderRecord() {
             <button type="button" class="btn btn-secondary" id="ctAssignBtn">تغيير المالك</button></div>
             ${state.access.can_assign ? '' : '<p class="ct-muted">تقدر تاخد السجل لنفسك أو تسيبه من غير مالك. النقل لموظف تاني للمشرفين ومن عنده صلاحية إسناد.</p>'}` : ''}
         ${handoverHtml(r)}
+        ${collabRecordHtml(r)}
       </section>
 
       ${transitions.length ? `<section aria-labelledby="ctStatusH"><h3 id="ctStatusH">الحالة</h3>
@@ -365,7 +376,7 @@ function handoverHtml(r) {
         ${acts.canRequest ? `<div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctHandoverRequest">تسليم السجل لموظف</button>
             ${state.shared.installed ? '<button type="button" class="btn btn-secondary" id="ctShareRequest">مشاركة للمراجعة (عرض فقط)</button>' : ''}</div>` : ''}
         ${grants.length ? `<div id="ctGrants"><h4>مشاركات قائمة (${grants.length})</h4><ul class="ct-sources">${grants.map((h) => `<li class="ct-grant" data-grant="${esc(h.id)}">
-            <div class="ct-item-meta"><b>${esc(agentName(h.to_owner))}</b> <span class="ct-pill">مراجعة · عرض فقط</span>
+            <div class="ct-item-meta"><b>${esc(agentName(h.to_owner))}</b> <span class="ct-pill">${h.mode === 'collab' ? 'تعاون' : 'مراجعة · عرض فقط'}</span>
               <span>${esc(grantRemainingText(h.expires_at))}</span>${h.session_bound ? '<span class="ct-pill">جلسة واحدة</span>' : ''}</div>
             <p><span class="ct-muted">السبب:</span> <span dir="auto">${esc(h.reason)}</span></p>
             ${canManageGrant(h, r, who) ? `<div class="ct-inline">
@@ -396,25 +407,25 @@ async function shareAction(el, r) {
         let attempt = null;
         const done = await continuityShare({
             targets: handoverTargets(state.agents, r).filter((t) => t.value !== state.me?.id),
-            ...shareChoices(), timezones: TIMEZONES,
+            ...shareChoices(), timezones: TIMEZONES, collab: Boolean(state.delegation?.collab),
             preview: async (to, ids) => {
                 const rows = await previewRecipient(r.id, to, ids);
                 return Array.isArray(rows) ? rows.filter((x) => !x.visible).length : null;
             },
             submit: async (d) => {
                 const scope = buildShareScope(d);
-                const sig = JSON.stringify([d.to, d.reason, scope]);
+                const sig = JSON.stringify([d.to, d.reason, d.mode, scope]);
                 if (!attempt || attempt.sig !== sig) attempt = { sig, key: crypto.randomUUID() };
                 try {
                     await requestShare({ recordId: r.id, toOwner: d.to, reason: d.reason.trim(), note: null, version: r.version,
-                        idempotencyKey: attempt.key, mode: 'review', scope });
+                        idempotencyKey: attempt.key, mode: d.mode === 'collab' ? 'collab' : 'review', scope });
                     return null;
                 } catch (err) {
                     return handoverErrorText(err);
                 }
             },
         });
-        if (done) toast('اتبعت طلب المراجعة. المستلم لازم يراجع ويقبل.');
+        if (done) toast('اتبعت طلب المشاركة. المستلم لازم يراجع ويقبل.');
         await openRecord(r.id, { push: false });
         return true;
     }
@@ -440,10 +451,13 @@ async function shareAction(el, r) {
             return true;
         }
         let result = null;
+        const grant = (state.handovers || []).find((x) => x.id === id);
         const done = await continuityShare({
             title: 'تعديل المشاركة', confirmText: 'حفظ', ...shareChoices(), timezones: TIMEZONES,
+            mode: grant?.mode === 'collab' ? 'collab' : 'review', collab: Boolean(state.delegation?.collab),
             message: 'التضييق يسري فورًا. أي توسيع (رسائل أو مرفقات أو مدة أكتر) بيتبعت للمستلم يوافق عليه، ولحد ما يوافق يفضل القديم.',
             initial: current && { sources: current.source_ids, attachments: current.attachment_ids,
+                actions: (current.actions || []).filter((a) => a !== 'view'), fields: current.editable_fields || [],
                 expiryKind: current.expiry?.kind === 'until' ? 'duration' : current.expiry?.kind, minutes: current.expiry?.minutes },
             submit: async (d) => {
                 try {
@@ -557,14 +571,14 @@ function incomingScopedHtml(h, p) {
     const sc = p.scope || {};
     const c = sc.counts || {};
     return `<li class="ct-incoming ct-incoming--review" data-incoming="${esc(h.id)}">
-      <div class="ct-item-meta"><span class="ct-pill">طلب مراجعة · عرض فقط</span>
+      <div class="ct-item-meta"><span class="ct-pill">${h.mode === 'collab' ? `طلب تعاون · ${esc(grantActionsText(sc.actions || []))}` : 'طلب مراجعة · عرض فقط'}</span>
         <span class="ct-pill">${esc(KIND_META[p.kind]?.label || p.kind || '')}</span>
         ${p.overdue ? '<span class="ct-pill ct-pill--danger">متأخر</span>' : ''}</div>
       <h4 dir="auto">${esc(p.title)}</h4>
       <p><span class="ct-muted">من ${esc(agentName(h.created_by))} — السبب:</span> <span dir="auto">${esc(h.reason)}</span></p>
       <p class="ct-muted">${esc(c.sources ?? 0)} رسالة · ${esc(c.attachments ?? 0)} مرفق · ${esc(shareExpiryText(sc.expiry))}${sc.range ? ' · فترة زمنية محددة' : ''}</p>
       ${c.not_readable ? `<p class="ct-muted">${esc(c.not_readable)} رسالة مش هتشوف نصها لأنك مش مسموح لك تفتح المحادثة.</p>` : ''}
-      <p class="ct-muted">السجل يفضل مع مالكه. المشاركة عرض فقط وبتتسحب في أي وقت.</p>
+      <p class="ct-muted">السجل يفضل مع مالكه. المشاركة في حدود اللي اتختار بس، وبتتسحب في أي وقت.</p>
       <div class="ct-inline">
         <button type="button" class="btn btn-primary ct-btn-sm" data-review="${esc(h.id)}">مراجعة وقبول</button>
         <button type="button" class="btn btn-secondary ct-btn-sm" data-decline-review="${esc(h.id)}">رفض</button>
@@ -584,7 +598,7 @@ async function incomingReviewAction(el) {
             const sc = rv?.package?.scope || {};
             const c = sc.counts || {};
             if (!await continuityConfirm({ title: 'قبول المراجعة', confirmText: 'قبول',
-                message: `هتقدر تشوف ${c.sources ?? 0} رسالة و${c.attachments ?? 0} مرفق من «${rv?.package?.title || ''}»، ${shareExpiryText(sc.expiry)}. عرض فقط، والملكية ما بتتغيرش.` })) {
+                message: `هتقدر تشوف ${c.sources ?? 0} رسالة و${c.attachments ?? 0} مرفق من «${rv?.package?.title || ''}»، ${shareExpiryText(sc.expiry)}. المسموح: ${grantActionsText(sc.actions || [])}. الملكية ما بتتغيرش.` })) {
                 return;
             }
             const res = await decideReviewed(id, 'accept', null, rv.digest);
@@ -623,7 +637,7 @@ async function renderShared() {
             <button type="button" class="btn btn-secondary ct-btn-sm" data-proposal-reject="${esc(x.handover_id)}" data-version="${esc(x.proposed?.version)}">رفض</button>
           </div></div>`).join('')}
       ${active.length ? `<ul class="ct-sources">${active.map((x) => `<li class="ct-incoming" data-shared="${esc(x.record_id)}">
-          <div class="ct-item-meta"><span class="ct-pill">مراجعة · عرض فقط</span><span>${esc(grantRemainingText(x.expires_at))}</span>
+          <div class="ct-item-meta"><span class="ct-pill">${esc(x.mode === 'collab' ? `تعاون · ${grantActionsText(x.actions || [])}` : 'مراجعة · عرض فقط')}</span><span>${esc(grantRemainingText(x.expires_at))}</span>
             ${x.session_bound ? '<span class="ct-pill">الجلسة دي بس</span>' : ''}</div>
           <h4 dir="auto">${esc(x.title)}</h4>
           <p><span class="ct-muted">من ${esc(agentName(x.granted_by))} — السبب:</span> <span dir="auto">${esc(x.reason)}</span></p>
@@ -661,6 +675,7 @@ async function openShared(recordId) {
     }
     const r = v.record || {};
     const g = v.grant || {};
+    state.sharedView = { recordId, v };
     $('ctDetail').innerHTML = `
       <div class="ct-inline"><button type="button" class="btn btn-secondary" id="ctBackToList">رجوع للقائمة</button></div>
       <div class="ct-banner ct-readonly" id="ctSharedBanner" role="status">
@@ -692,7 +707,209 @@ async function openShared(recordId) {
             const av = attachmentView(a);
             return `<li class="ct-att" data-att="${esc(a.id)}"><div class="ct-att-head"><b dir="auto">${esc(av.name)}</b> <span class="ct-muted">${esc(av.size)}</span></div>
               <button type="button" class="btn btn-secondary ct-btn-sm" data-shared-att="${esc(a.id)}" data-kind="${esc(av.kind || '')}">عرض</button></li>`;
-        }).join('')}</ul></section>` : ''}`;
+        }).join('')}</ul></section>` : ''}
+      ${sharedCollabHtml(v)}`;
+}
+
+// ═════════════════════════════════════════════════════════════
+// التعاون (093): في العرض المشترك (المستلم) وفي السجل (المالك/المشرف). الخادم يقرر في كل نداء.
+// ═════════════════════════════════════════════════════════════
+function noteItemHtml(n, { withThread = false } = {}) {
+    const h = withThread && n.handover_id ? (state.handovers || []).find((x) => x.id === n.handover_id) : null;
+    return `<li class="ct-note" data-note="${esc(n.id)}"><div class="ct-item-meta"><b>${esc(agentName(n.author_id))}</b>
+        <span>${esc(fmt(n.created_at))}</span>${h ? `<span class="ct-pill">مشاركة مع ${esc(agentName(h.to_owner))}</span>` : ''}</div>
+      <p dir="auto">${esc(n.body)}</p></li>`;
+}
+
+function proposalItemHtml(p, { decide = false, withdraw = false } = {}) {
+    return `<li class="ct-proposal" data-proposal-id="${esc(p.id)}"><div class="ct-item-meta"><b>${esc(agentName(p.proposed_by))}</b>
+        <span>${esc(fmt(p.created_at))}</span><span class="ct-pill">${esc(PROPOSAL_STATE_LABELS[p.state] || p.state)}</span></div>
+      <ul class="ct-proposal-fields">${proposalSummary(p.patch).map((t) => `<li dir="auto">${esc(t)}</li>`).join('')}</ul>
+      ${p.note ? `<p class="ct-muted" dir="auto">${esc(p.note)}</p>` : ''}
+      ${p.decision_note ? `<p class="ct-muted">رد: <span dir="auto">${esc(p.decision_note)}</span></p>` : ''}
+      ${p.state === 'pending' && decide ? `<div class="ct-inline">
+          <button type="button" class="btn btn-primary ct-btn-sm" data-proposal-apply="${esc(p.id)}">تطبيق</button>
+          <button type="button" class="btn btn-secondary ct-btn-sm" data-proposal-reject="${esc(p.id)}">رفض</button></div>` : ''}
+      ${p.state === 'pending' && withdraw ? `<button type="button" class="btn btn-secondary ct-btn-sm" data-proposal-withdraw="${esc(p.id)}">سحب الاقتراح</button>` : ''}
+    </li>`;
+}
+
+function collabFieldsHtml(r, fields) {
+    const has = (k) => fields.includes(k);
+    return `${has('next_action') ? `<label class="ct-field" style="grid-column:1/-1"><span>الخطوة التالية</span>
+        <input type="text" name="next_action" maxlength="${LIMITS.nextAction}" value="${esc(r.next_action || '')}"></label>` : ''}
+      ${has('summary') ? `<label class="ct-field" style="grid-column:1/-1"><span>الملخص</span>
+        <textarea name="summary" maxlength="${LIMITS.summary}">${esc(r.summary || '')}</textarea></label>` : ''}
+      ${has('due') ? `<label class="ct-field"><span>الموعد (فاضي = بدون تغيير)</span><input type="datetime-local" name="due_at"></label>
+        <label class="ct-field"><span>المنطقة الزمنية</span><select name="due_tz" dir="ltr">${[...new Set([r.due_tz || 'Africa/Cairo', ...TIMEZONES])].map((z) =>
+            `<option value="${esc(z)}">${esc(z)}</option>`).join('')}</select></label>` : ''}
+      ${has('priority') ? `<label class="ct-field"><span>الأولوية</span><select name="priority">${Object.entries(PRIORITY_LABELS).map(([k, v]) =>
+            `<option value="${k}" ${Number(k) === r.priority ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>` : ''}`;
+}
+
+function sharedCollabHtml(v) {
+    const can = grantAbilities(v.grant, v.collab);
+    const r = v.record || {};
+    const notes = v.notes || [];
+    const proposals = v.proposals || [];
+    if (!can.note && !can.propose && !can.edit && !can.addSource && !notes.length && !proposals.length) return '';
+    const fieldsForm = (can.edit || can.propose) && can.fields.length;
+    return `<section aria-labelledby="ctCollabH" id="ctCollab">
+        <h3 id="ctCollabH">التعاون</h3>
+        ${v.collab && !v.collab.enabled ? '<p class="ct-muted" id="ctCollabOff">إجراءات التعاون متوقفة حاليًا من الإعدادات. العرض بس.</p>' : ''}
+        ${fieldsForm ? `<form id="ctSharedEdit" class="ct-detail-grid">
+            ${collabFieldsHtml(r, can.fields)}
+            ${can.propose ? `<label class="ct-field" style="grid-column:1/-1"><span>ملاحظة مع الاقتراح (اختياري)</span>
+              <input type="text" name="proposal_note" maxlength="1000"></label>` : ''}
+            <div class="ct-inline" style="grid-column:1/-1">
+              ${can.edit ? '<button type="submit" class="btn btn-primary" id="ctSharedSave" data-collab-submit="edit">حفظ التعديل</button>' : ''}
+              ${can.propose ? `<button type="submit" class="btn ${can.edit ? 'btn-secondary' : 'btn-primary'}" id="ctSharedPropose" data-collab-submit="propose">إرسال كاقتراح للمالك</button>` : ''}
+              <span class="ct-error" id="ctSharedEditError" role="alert"></span>
+            </div></form>` : ''}
+        ${proposals.length ? `<h4>اقتراحاتك</h4><ul class="ct-sources" id="ctSharedProposals">${proposals.map((p) => proposalItemHtml(p, { withdraw: true })).join('')}</ul>` : ''}
+        ${can.addSource ? `<div class="ct-inline" id="ctSharedAdd">
+            ${attachmentsOn() ? `<button type="button" class="btn btn-secondary ct-btn-sm" id="ctSharedAttachPick">إرفاق ملف</button>
+              <input type="file" id="ctSharedAttachInput" accept="${esc(ATTACHMENT_ACCEPT)}" hidden>` : ''}
+            <span class="ct-muted">لإضافة رسائل: افتح المحادثة في صندوق الرسائل ← «سجل استمرارية» ← «إرفاق بسجل موجود». اللي تضيفه يظهر لك أنت بس في المشاركة دي.</span>
+            <span class="ct-muted" id="ctSharedUpload" aria-live="polite"></span></div>` : ''}
+        <h4>الملاحظات (${notes.length})</h4>
+        ${notes.length ? `<ul class="ct-sources" id="ctSharedNotes">${notes.map((n) => noteItemHtml(n)).join('')}</ul>` : '<p class="ct-muted">مفيش ملاحظات لسه.</p>'}
+        ${can.note ? `<div class="ct-inline" id="ctSharedNoteForm"><label class="ct-field" style="flex:1"><span class="ct-sr">ملاحظة</span>
+            <textarea id="ctSharedNoteBody" maxlength="2000" rows="2" placeholder="اكتب ملاحظة لصاحب السجل"></textarea></label>
+            <button type="button" class="btn btn-primary ct-btn-sm" id="ctSharedNoteAdd">إضافة</button></div>` : ''}
+      </section>`;
+}
+
+function collabRecordHtml(r) {
+    if (!state.notes && !state.proposals) return '';
+    const p = perms();
+    const notes = state.notes || [];
+    const pending = (state.proposals || []).filter((x) => x.state === 'pending');
+    const past = (state.proposals || []).filter((x) => x.state !== 'pending');
+    const grants = (state.handovers || []).filter((h) => isScopedHandover(h) && h.state === 'accepted');
+    return `<section aria-labelledby="ctNotesH" id="ctRecordCollab">
+        ${pending.length || past.length ? `<h3 id="ctProposalsH">اقتراحات التعديل ${pending.length ? `(${pending.length} بانتظارك)` : ''}</h3>
+          ${pending.length ? `<ul class="ct-sources" id="ctProposals">${pending.map((x) => proposalItemHtml(x, { decide: p.edit && !isClosed(r.status) })).join('')}</ul>` : ''}
+          ${past.length ? `<details><summary>اقتراحات سابقة (${past.length})</summary><ul class="ct-sources">${past.map((x) => proposalItemHtml(x)).join('')}</ul></details>` : ''}` : ''}
+        <h3 id="ctNotesH">الملاحظات (${notes.length})</h3>
+        ${notes.length ? `<ul class="ct-sources" id="ctNotes">${notes.map((n) => noteItemHtml(n, { withThread: true })).join('')}</ul>` : '<p class="ct-muted">مفيش ملاحظات.</p>'}
+        ${p.edit ? `<div class="ct-detail-grid" id="ctNoteForm">
+            <label class="ct-field" style="grid-column:1/-1"><span>ملاحظة جديدة</span><textarea id="ctNoteBody" maxlength="2000" rows="2"></textarea></label>
+            ${grants.length ? `<label class="ct-field"><span>لمين</span><select id="ctNoteThread"><option value="">ملاحظة على السجل (لمن يرى السجل)</option>
+              ${grants.map((h) => `<option value="${esc(h.id)}">رد في مشاركة ${esc(agentName(h.to_owner))}</option>`).join('')}</select></label>` : ''}
+            <div class="ct-inline"><button type="button" class="btn btn-secondary ct-btn-sm" id="ctNoteAdd">إضافة ملاحظة</button></div></div>` : ''}
+      </section>`;
+}
+
+/** أزرار العرض المشترك (المستلم). */
+async function sharedViewAction(el) {
+    const sv = state.sharedView;
+    if (!sv) return false;
+    const rid = sv.recordId;
+    try {
+        if (el.id === 'ctSharedNoteAdd') {
+            const body = $('ctSharedNoteBody')?.value.trim();
+            if (!body) return true;
+            el.disabled = true;
+            await addNote(rid, body, sv.v.grant?.handover_id);
+            toast('اتضافت الملاحظة');
+        } else if (el.dataset.proposalWithdraw) {
+            await withdrawProposal(el.dataset.proposalWithdraw);
+            toast('اتسحب الاقتراح');
+        } else if (el.id === 'ctSharedAttachPick') {
+            $('ctSharedAttachInput')?.click();
+            return true;
+        } else return false;
+    } catch (err) {
+        el.disabled = false;
+        toast(collabErrorText(err), 'err');
+        return true;
+    }
+    await openShared(rid);
+    return true;
+}
+
+async function submitSharedEdit(form, which) {
+    const sv = state.sharedView;
+    if (!sv) return;
+    const r = sv.v.record || {};
+    const can = grantAbilities(sv.v.grant, sv.v.collab);
+    const values = Object.fromEntries([...new FormData(form).entries()].map(([k, v]) => [k, String(v)]));
+    const patch = collabPatchFromForm(values, r, can.fields);
+    const errEl = $('ctSharedEditError');
+    if (!Object.keys(patch).length) { errEl.textContent = 'مفيش تغيير.'; return; }
+    form.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+    try {
+        if (which === 'edit') await updateShared(sv.recordId, patch, r.version);
+        else await proposeShared(sv.recordId, patch, values.proposal_note || null);
+        toast(which === 'edit' ? 'اتحفظ التعديل' : 'اتبعت الاقتراح للمالك');
+    } catch (err) {
+        form.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+        errEl.textContent = collabErrorText(err);
+        return;
+    }
+    await openShared(sv.recordId);
+}
+
+async function pickSharedAttachment(file) {
+    const sv = state.sharedView;
+    if (!file || !sv) return;
+    const note = $('ctSharedUpload');
+    let head = null;
+    try { head = new Uint8Array(await file.slice(0, 64).arrayBuffer()); } catch { head = null; }
+    const prep = prepareAttachment(file, head);
+    if (prep.error) { if (note) note.textContent = prep.error; return; }
+    try {
+        await uploadAttachment({ recordId: sv.recordId, file, kind: prep.kind, mime: prep.mime, idempotencyKey: crypto.randomUUID(), shared: true,
+            onProgress: (x) => { if (note) note.textContent = `بيترفع… ${Math.round(x * 100)}%`; } });
+        toast('اترفع الملف');
+    } catch (err) {
+        if (note) note.textContent = err.code === 'not_found' ? 'المشاركة انتهت أو اتغيرت.' : attachmentErrorText(err);
+        return;
+    }
+    await openShared(sv.recordId);
+}
+
+/** أزرار التعاون في السجل (المالك/المشرف). */
+async function recordCollabAction(el, r) {
+    try {
+        if (el.id === 'ctNoteAdd') {
+            const body = $('ctNoteBody')?.value.trim();
+            if (!body) return true;
+            el.disabled = true;
+            await addNote(r.id, body, $('ctNoteThread')?.value || null);
+            toast('اتضافت الملاحظة');
+        } else if (el.dataset.proposalApply) {
+            const x = (state.proposals || []).find((p) => p.id === el.dataset.proposalApply);
+            if (!await continuityConfirm({ title: 'تطبيق الاقتراح', confirmText: 'تطبيق',
+                message: `هيتعدّل السجل: ${proposalSummary(x?.patch).join(' · ')}` })) return true;
+            await decideProposal(el.dataset.proposalApply, 'apply', null, r.version);
+            toast('اتطبّق الاقتراح');
+        } else if (el.dataset.proposalReject) {
+            const note = await continuityPrompt({ title: 'رفض الاقتراح', label: 'سبب الرفض (يظهر للمستلم)', confirmText: 'رفض' });
+            if (!note) return true;
+            await decideProposal(el.dataset.proposalReject, 'reject', note, r.version);
+            toast('اترفض الاقتراح');
+        } else return false;
+    } catch (err) {
+        el.disabled = false;
+        toast(collabErrorText(err), 'err');
+        return true;
+    }
+    await openRecord(r.id, { push: false });
+    return true;
+}
+
+function collabErrorText(err) {
+    if (err?.code === 'feature_not_enabled' && err.field === 'collab') return 'إجراءات التعاون متوقفة حاليًا من الإعدادات.';
+    if (err?.code === 'forbidden' && err.reason === 'not_in_scope') return 'الحقل ده مش ضمن المسموح لك في المشاركة.';
+    if (err?.code === 'not_found') return 'المشاركة انتهت أو اتسحبت، أو الإجراء مش ضمن المسموح.';
+    if (err?.code === 'version_conflict') return 'السجل اتعدّل بعد ما فتحته. حدّث وجرّب تاني.';
+    if (err?.reason === 'proposal_applied' || err?.reason === 'proposal_rejected' || err?.reason === 'proposal_withdrawn') return 'الاقتراح ده اتحسم بالفعل.';
+    if (err?.reason === 'too_many_pending') return 'عندك اقتراحات كتير معلّقة. استنى رد المالك.';
+    if (err?.reason === 'next_action_and_due_required') return 'المتابعة لازم يبقى لها خطوة تالية وموعد.';
+    if (err?.code === 'validation_failed' && err.field === 'body') return 'الملاحظة لازم تكون بين حرف و2000 حرف.';
+    return editRefusalText(err) || friendlyError(err);
 }
 
 async function openSharedAttachment(el) {
@@ -1126,9 +1343,9 @@ async function renderPolicies() {
         <input type="checkbox" name="${c}_enabled" ${p[`${c}_enabled`] ? 'checked' : ''} ${installed[c] ? '' : 'disabled'}>
         <span>${esc(CAPABILITY_LABELS[c])}</span></label>
         <span class="${d.capabilities[i].off ? 'ct-policy-off' : ''}">${esc(installed[c] ? d.capabilities[i].value : 'غير مثبتة بعد — تتفعّل بعد تثبيت كودها')}</span></li>`).join('');
-    const nums = POLICY_NUMBER_FIELDS.map((f) => `<label class="ct-field"><span>${esc(f.label)}</span>
+    const nums = POLICY_NUMBER_FIELDS.filter((f) => !f.optional || f.key in p).map((f) => `<label class="ct-field"><span>${esc(f.label)}</span>
         <input type="text" inputmode="numeric" name="${f.key}" value="${esc(p[f.key] ?? '')}" dir="ltr"></label>`).join('');
-    const bools = POLICY_BOOL_FIELDS.map((f) => `<label class="ct-check-row"><input type="checkbox" name="${f.key}" ${p[f.key] ? 'checked' : ''}>
+    const bools = POLICY_BOOL_FIELDS.filter((f) => !f.optional || f.key in p).map((f) => `<label class="ct-check-row"><input type="checkbox" name="${f.key}" ${p[f.key] ? 'checked' : ''}>
         <span>${esc(f.label)}</span></label>`).join('');
     body.innerHTML = `<form id="ctPolicyForm">
         <h4>القدرات</h4><ul class="ct-policy-list" id="ctPolicyCaps">${caps}</ul>
@@ -1214,12 +1431,23 @@ async function renderAssigners() {
 function wire() {
     if (!STANDALONE) wireListAndPanels();
     $('ctDetail').addEventListener('change', (e) => {
+        if (e.target.id === 'ctSharedAttachInput') {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            pickSharedAttachment(f);
+            return;
+        }
         if (e.target.id !== 'ctAttachInput') return;
         const file = e.target.files?.[0];
         e.target.value = '';
         pickAttachment(file);
     });
     $('ctDetail').addEventListener('submit', (e) => {
+        if (e.target.id === 'ctSharedEdit') {
+            e.preventDefault();
+            submitSharedEdit(e.target, e.submitter?.dataset.collabSubmit || 'propose');
+            return;
+        }
         if (e.target.id !== 'ctEdit') return;
         e.preventDefault();
         const r = state.current.record;
@@ -1233,6 +1461,7 @@ function wire() {
         if (el?.id === 'ctBackToList') return closeRecord();
         if (el?.id === 'ctRetry') return openRecord(el.dataset.id, { push: false });
         if (el?.dataset.sharedAtt) return openSharedAttachment(el);
+        if (el && !r && await sharedViewAction(el)) return undefined;
         if (!el || !r) return undefined;
         if (el.id === 'ctEventsMore') return loadOlderEvents(r);
         if (el.id === 'ctClaim') {
@@ -1241,6 +1470,7 @@ function wire() {
         if (await attachmentAction(el, r)) return undefined;
         if (await handoverAction(el, r)) return undefined;
         if (await shareAction(el, r)) return undefined;
+        if (await recordCollabAction(el, r)) return undefined;
         if (el.id === 'ctAssignBtn') {
             const owner = $('ctAssignOwner').value || null;
             const team = $('ctAssignTeam') ? ($('ctAssignTeam').value || null) : r.team_id;
@@ -1416,6 +1646,7 @@ async function boot() {
     [state.agents, state.teams] = await Promise.all([loadAgents(), loadTeams()]);
     wire();
     await renderShared();
+    state.delegation = state.shared.installed ? await delegationSettings() : null;
     if (STANDALONE) {
         await openRecord(standaloneId, { push: false });
         return;
@@ -1424,7 +1655,9 @@ async function boot() {
         + RECORD_CATEGORIES.map((c) => `<option value="${c}">${esc(CATEGORY_META[c].label)}</option>`).join('');
     await reloadList();
     const deep = new URLSearchParams(location.search).get('record');
+    const sharedDeep = new URLSearchParams(location.search).get('shared');
     if (deep) await openRecord(deep, { push: false });
+    else if (sharedDeep && isRecordId(sharedDeep) && state.shared.installed) await openShared(sharedDeep);
     renderTrash();
     renderAssigners();
     renderPolicies();

@@ -312,3 +312,8 @@ audio.ct-att-media { max-height: none; background: none; }
 .ct-new fieldset.ct-field { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .ct-new fieldset.ct-field legend { font-weight: 600; margin-bottom: .25rem; }
 #ctPolicyForm .ct-policy-list li { align-items: center; }
+/* 093: التعاون */
+.ct-note p, .ct-proposal p { margin: .25rem 0; font-size: .88rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ct-proposal-fields { margin: .25rem 0; padding-inline-start: 1.1rem; font-size: .86rem; overflow-wrap: anywhere; }
+#ctCollab, #ctRecordCollab { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; }
+#ctSharedNoteForm textarea, #ctNoteBody { min-height: 3.5rem; }

@@ -7,6 +7,7 @@
  *   Content-Type: نوع الملف · Content-Length: حجمه بالبايت
  *   X-Continuity-Record: معرّف السجل · X-Continuity-Kind: image | video | audio
  *   X-Idempotency-Key: UUID · X-Continuity-Name: اسم العرض (encodeURIComponent، اختياري)
+ *   X-Continuity-Shared: 1 (اختياري، 093) ⇒ مسار مستلم المشاركة التعاونية: continuity_shared_attachment_begin/commit.
  *
  * الخطوات:
  *   1. JWT صالح، والرؤوس سليمة، والنوع والحجم ضمن القائمة (قبل قراءة أي بايت).
@@ -28,7 +29,7 @@ export const CORS_HEADERS = Object.freeze({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-continuity-record, '
-        + 'x-continuity-kind, x-continuity-name, x-idempotency-key',
+        + 'x-continuity-kind, x-continuity-name, x-idempotency-key, x-continuity-shared',
 });
 
 const json = (status, body) => new Response(JSON.stringify(body), {
@@ -96,6 +97,10 @@ export async function handleUpload(req, deps) {
     if (!user?.id) return fail(401, 'unauthorized');
 
     const record = req.headers.get('x-continuity-record') || '';
+    // 093: مستلم مشاركة تعاونية (add_source) — نفس الخطوات عبر دوال المشاركة، والرد هو العرض المشترك.
+    const shared = req.headers.get('x-continuity-shared') === '1';
+    const BEGIN = shared ? 'continuity_shared_attachment_begin' : 'continuity_attachment_begin';
+    const COMMIT = shared ? 'continuity_shared_attachment_commit' : 'continuity_attachment_commit';
     const kind = req.headers.get('x-continuity-kind') || '';
     const mime = baseMime(req.headers.get('content-type'));
     const key = req.headers.get('x-idempotency-key') || '';
@@ -107,7 +112,7 @@ export async function handleUpload(req, deps) {
     const declared = checkDeclared({ kind, mime, size });
     if (declared) return fail(declared.reason === 'too_large' ? 413 : 400, 'validation_failed', declared);
 
-    const begun = await deps.rpc(token, 'continuity_attachment_begin', {
+    const begun = await deps.rpc(token, BEGIN, {
         p_record: record, p_kind: kind, p_mime: mime, p_size: size,
         p_name: decodeName(req.headers.get('x-continuity-name')), p_idempotency_key: key,
     });
@@ -117,7 +122,7 @@ export async function handleUpload(req, deps) {
 
     // إعادة إرسال لمرفق اكتمل: لا رفع، والتأكيد بلا أثر يرجع السجل.
     if (attachment?.status === 'active') {
-        const done = await deps.rpc(token, 'continuity_attachment_commit', { p_attachment: attachment.id, p_sha256: null });
+        const done = await deps.rpc(token, COMMIT, { p_attachment: attachment.id, p_sha256: null });
         return done.error ? dbFail(done.error) : json(200, done.data);
     }
     if (!attachment?.id || !upload?.path || upload.bucket !== BUCKET) return fail(502, 'server_error');
@@ -133,7 +138,7 @@ export async function handleUpload(req, deps) {
     const exists = put.error && (put.error.statusCode === '409' || put.error.statusCode === 409 || /exists/i.test(put.error.message || ''));
     if (put.error && !exists) return fail(502, 'upload_failed');
 
-    const done = await deps.rpc(token, 'continuity_attachment_commit', { p_attachment: attachment.id, p_sha256: sha });
+    const done = await deps.rpc(token, COMMIT, { p_attachment: attachment.id, p_sha256: sha });
     if (done.error) {
         // الملف لا يطابق ما أعلنه (أو اختفى السجل): يُحذف الآن، والصف المعلّق يكنسه الكنس.
         if (!exists) await deps.remove(upload.path).catch(() => null);

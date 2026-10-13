@@ -1931,3 +1931,195 @@ test('share (091): before 091 (no continuity_shared_with_me) there is no share b
     assert.deepEqual(errors, []);
     await context.close();
 });
+
+// ── 093: التعاون ──────────────────────────────────────────────────────────────
+const DELEG = { collab: true, max_minutes: 10080, allow_ongoing: false, default_minutes: 240, session_max_minutes: 720 };
+function sharedCollabView({ enabled = true, actions = ['view', 'note', 'propose', 'edit_fields', 'add_source'], fields = ['next_action', 'priority'] } = {}) {
+    return {
+        record: { id: REC2, kind: 'follow_up', title: 'تعاون', next_action: 'اتصال', summary: 'ملخص', status: 'open', priority: 3,
+                  due_at: '2030-01-15T09:00:00Z', due_tz: 'Africa/Cairo', version: 7 },
+        sources: [], attachments: [],
+        grant: { handover_id: GR1, mode: 'collab', actions, expires_at: future(120), session_bound: false, granted_by: STAFF, reason: 'r', scope_version: 1 },
+        notes: [{ id: 'n1', record_id: REC2, handover_id: GR1, author_id: STAFF, body: `رد ${INJECT}`, created_at: at(9, 0) }],
+        proposals: [{ id: 'p1', record_id: REC2, handover_id: GR1, proposed_by: ME, patch: { priority: 1, next_action: `بكرة ${INJECT}` },
+                      note: null, state: 'pending', created_at: at(9, 5) }],
+        collab: { enabled, editable_fields: fields },
+    };
+}
+
+test('collab (093): the owner can choose collaboration with explicit actions and fields; only when the policy allows it', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures();
+    fx.rpc.continuity_delegation_settings = DELEG;
+    let { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.locator('#ctShareRequest').click();
+    await page.waitForSelector('#ctShareDialog[open]');
+    const dlg = page.locator('#ctShareDialog');
+    assert.equal(await dlg.locator('#ctShareCollab').isHidden(), true, 'review is the default');
+    await dlg.locator('input[name="mode"][value="collab"]').check();
+    assert.equal(await dlg.locator('input[name="act"]:checked').count(), 0, 'no action pre-selected');
+    await dlg.locator('select[name="to"]').selectOption(STAFF);
+    await dlg.locator('textarea[name="reason"]').fill('تعاون على المتابعة');
+    await dlg.locator('input[name="src"][value="s1"]').check();
+    await dlg.locator('input[name="act"][value="note"]').check();
+    await dlg.locator('input[name="act"][value="edit_fields"]').check();
+    assert.equal(await page.locator('#ctShareSave').isDisabled(), true, 'editing needs at least one field');
+    assert.match(await page.locator('#ctShareMissing').innerText(), /حقل واحد على الأقل/);
+    await dlg.locator('input[name="fld"][value="priority"]').check();
+    await page.locator('#ctShareSave').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_handover_request'));
+    const [call] = await rpcCalls(page, 'continuity_handover_request');
+    assert.equal(call.p_mode, 'collab');
+    assert.deepEqual(call.p_scope, { sources: ['s1'], attachments: [], actions: ['view', 'note', 'edit_fields'], editable_fields: ['priority'],
+        expiry: { kind: 'duration', minutes: 240 } });
+    assert.deepEqual(errors, []);
+    await context.close();
+
+    const off = shFixtures();
+    off.rpc.continuity_delegation_settings = { ...DELEG, collab: false };
+    ({ page, context, errors } = await openPage(off, { url: `/admin/continuity.html?record=${REC}` }));
+    await page.locator('#ctShareRequest').click();
+    await page.waitForSelector('#ctShareDialog[open]');
+    assert.equal(await page.locator('#ctShareDialog input[name="mode"]').count(), 0, 'no collaboration option while the policy is off');
+    await context.close();
+});
+
+test('collab (093): the recipient edits only the allowed fields, proposes, writes in the thread, and withdraws; every value is text', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures({ shared: { active: [{ handover_id: GR1, record_id: REC2, title: 'تعاون', kind: 'follow_up', mode: 'collab',
+        actions: ['view', 'note', 'propose', 'edit_fields'], expires_at: future(120), granted_by: STAFF, reason: 'r', scope_version: 1 }], proposals: [] } });
+    fx.rpc.continuity_delegation_settings = DELEG;
+    fx.rpc.continuity_shared_get = sharedCollabView();
+    fx.rpc.continuity_shared_update = sharedCollabView();
+    fx.rpc.continuity_shared_propose = sharedCollabView();
+    fx.rpc.continuity_note_add = { id: 'n2' };
+    fx.rpc.continuity_proposal_withdraw = { id: 'p1', state: 'withdrawn' };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?shared=${REC2}` });
+    await page.waitForSelector('#ctSharedEdit');
+    assert.deepEqual(await page.locator('#ctSharedEdit [name]').evaluateAll((e) => e.map((x) => x.name)), ['next_action', 'priority', 'proposal_note']);
+    assert.match(await page.locator('#ctSharedProposals').innerText(), /الأولوية: عاجلة/);
+    assert.match(await page.locator('#ctSharedNotes').innerText(), /رد/);
+    assert.equal(await page.locator('#ctCollab img').count(), 0, 'injected markup stays text');
+    // تعديل مباشر
+    await page.locator('#ctSharedEdit select[name="priority"]').selectOption('1');
+    await page.locator('#ctSharedSave').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_shared_update'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_shared_update'))[0], { p_record: REC2, p_patch: { priority: 1 }, p_expected_version: 7 });
+    // اقتراح
+    await page.waitForSelector('#ctSharedPropose');
+    await page.locator('#ctSharedEdit input[name="next_action"]').fill('اتصل الساعة 3');
+    await page.locator('#ctSharedPropose').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_shared_propose'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_shared_propose'))[0], { p_record: REC2, p_patch: { next_action: 'اتصل الساعة 3' }, p_note: null });
+    // ملاحظة في الخيط
+    await page.waitForSelector('#ctSharedNoteBody');
+    await page.locator('#ctSharedNoteBody').fill('  راجعت الطلب  ');
+    await page.locator('#ctSharedNoteAdd').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_note_add'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_note_add'))[0], { p_record: REC2, p_body: 'راجعت الطلب', p_handover: GR1 });
+    // سحب اقتراح
+    await page.waitForSelector('[data-proposal-withdraw="p1"]');
+    await page.locator('[data-proposal-withdraw="p1"]').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_proposal_withdraw'));
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('collab (093): switched off ⇒ the recipient only views; a refused write is explained, never a false success', { skip: !chromiumPath }, async () => {
+    let fx = shFixtures();
+    fx.rpc.continuity_delegation_settings = { ...DELEG, collab: false };
+    fx.rpc.continuity_shared_get = sharedCollabView({ enabled: false });
+    let { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?shared=${REC2}` });
+    await page.waitForSelector('#ctCollabOff');
+    assert.equal(await page.locator('#ctSharedEdit, #ctSharedNoteForm, #ctSharedAttachPick').count(), 0);
+    await context.close();
+
+    fx = shFixtures();
+    fx.rpc.continuity_delegation_settings = DELEG;
+    fx.rpc.continuity_shared_get = sharedCollabView();
+    fx.rpcErrors = { continuity_shared_update: { code: '42501', message: 'x', details: JSON.stringify({ code: 'forbidden', field: 'patch.priority', reason: 'not_in_scope' }) } };
+    ({ page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?shared=${REC2}` }));
+    await page.waitForSelector('#ctSharedEdit');
+    await page.locator('#ctSharedEdit select[name="priority"]').selectOption('2');
+    await page.locator('#ctSharedSave').click();
+    await page.waitForFunction(() => /مش ضمن المسموح/.test(document.getElementById('ctSharedEditError')?.textContent || ''));
+    assert.equal(await page.locator('#ctSharedSave').isDisabled(), false, 'can retry');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('collab (093): on the record the owner sees notes by thread, applies or rejects proposals with the version seen, and replies in a thread', { skip: !chromiumPath }, async () => {
+    const grant = { id: GR1, record_id: REC, from_owner: ME, to_owner: STAFF, reason: 'r', state: 'accepted', mode: 'collab', scope_version: 1,
+        expires_at: future(90), session_bound: false, created_by: ME, created_at: at(9, 0), decided_at: at(9, 5) };
+    const fx = shFixtures({ grants: [grant] });
+    fx.rpc.continuity_delegation_settings = DELEG;
+    fx.rpc.continuity_notes_for = [
+        { id: 'n1', record_id: REC, handover_id: GR1, author_id: STAFF, body: `من المستلم ${INJECT}`, created_at: at(9, 10) },
+        { id: 'n2', record_id: REC, handover_id: null, author_id: ME, body: 'ملاحظة داخلية', created_at: at(9, 20) }];
+    fx.rpc.continuity_proposals_for = [
+        { id: 'p1', record_id: REC, handover_id: GR1, proposed_by: STAFF, patch: { priority: 1 }, state: 'pending', created_at: at(9, 30) },
+        { id: 'p0', record_id: REC, handover_id: GR1, proposed_by: STAFF, patch: { next_action: 'قديم' }, state: 'rejected', decision_note: 'لا', created_at: at(9, 0) }];
+    fx.rpc.continuity_proposal_decide = { proposal: { id: 'p1', state: 'applied' } };
+    fx.rpc.continuity_note_add = { id: 'n3' };
+    const { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordCollab');
+    assert.match(await page.locator('#ctNotes').innerText(), /مشاركة مع هبة سمير/);
+    assert.match(await page.locator('#ctProposalsH').innerText(), /1 بانتظارك/);
+    await page.locator('[data-proposal-apply="p1"]').click();
+    await page.locator('#ctConfirm[open] #ctConfirmOk').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_proposal_decide'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_proposal_decide'))[0], { p_proposal: 'p1', p_decision: 'apply', p_note: null, p_expected_version: 3 });
+    await page.waitForSelector('#ctNoteBody');
+    await page.locator('#ctNoteBody').fill('شكرًا');
+    await page.locator('#ctNoteThread').selectOption(GR1);
+    await page.locator('#ctNoteAdd').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'continuity_note_add'));
+    assert.deepEqual((await rpcCalls(page, 'continuity_note_add'))[0], { p_record: REC, p_body: 'شكرًا', p_handover: GR1 });
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('collab (093): a reader who cannot edit sees notes and proposals but has no decide buttons or note form; before 093 nothing shows', { skip: !chromiumPath }, async () => {
+    const fx = shFixtures();
+    fx.rpc.continuity_delegation_settings = DELEG;
+    fx.rpc.continuity_get = { ...fx.rpc.continuity_get, permissions: { edit: false, sources: false, attachments: false, transition: false, reason: 'not_owner' } };
+    fx.rpc.continuity_notes_for = [{ id: 'n2', record_id: REC, handover_id: null, author_id: STAFF, body: 'ملاحظة', created_at: at(9, 20) }];
+    fx.rpc.continuity_proposals_for = [{ id: 'p1', record_id: REC, handover_id: GR1, proposed_by: STAFF, patch: { priority: 1 }, state: 'pending', created_at: at(9, 30) }];
+    let { page, context } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctRecordCollab');
+    assert.equal(await page.locator('[data-proposal-apply], [data-proposal-reject], #ctNoteForm').count(), 0);
+    await context.close();
+    ({ page, context } = await openPage(hoFixtures(), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctRecordCollab').count(), 0);
+    assert.deepEqual((await page.evaluate(() => (window.__RPC_ARGS__ || []).map(([n]) => n))).filter((n) => /notes_for|proposals_for/.test(n)), []);
+    await context.close();
+});
+
+test('collab (093): the inbox composer offers a shared record with «add messages» and attaches through the shared path with its version', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.continuity_list = [];
+    fx.rpc.continuity_shared_with_me = { active: [
+        { handover_id: GR1, record_id: REC2, title: 'مشاركة تعاون', kind: 'follow_up', mode: 'collab', actions: ['view', 'add_source'] },
+        { handover_id: 'x', record_id: 'cccccccc-0000-4000-8000-00000000000a', title: 'مراجعة فقط', kind: 'follow_up', mode: 'review', actions: ['view'] }], proposals: [] };
+    fx.rpc.continuity_shared_get = { record: { id: REC2, version: 9 } };
+    fx.rpc.continuity_shared_attach_sources = { record: { id: REC2, version: 10 }, sources: [] };
+    const { page, context } = await openComposer(fx);
+    await page.locator('[data-msg="m5"]').click();
+    await page.locator('[data-msg="m6"]').click();
+    await page.locator('#ctAttach').click();
+    await page.locator('#ctConfirmType').click();
+    await page.locator('[data-mode="existing"]').click();
+    await page.waitForSelector(`[data-record="${REC2}"]`);
+    assert.match(await page.locator(`[data-record="${REC2}"]`).innerText(), /مشاركة معك/);
+    assert.equal(await page.locator('[data-record="cccccccc-0000-4000-8000-00000000000a"]').count(), 0, 'a view-only share is not offered');
+    await page.locator(`[data-record="${REC2}"]`).click();
+    await page.locator('#ctSubmit').click();
+    await page.waitForFunction(() => !document.querySelector('#continuityComposer')?.open);
+    const [args] = await rpcCalls(page, 'continuity_shared_attach_sources');
+    assert.equal(args.p_record, REC2);
+    assert.equal(args.p_expected_version, 9);
+    assert.deepEqual(args.p_sources.map((s) => s.internal.chat_message_id), ['m5', 'm6']);
+    assert.deepEqual(await rpcCalls(page, 'continuity_attach_sources'), []);
+    await context.close();
+});

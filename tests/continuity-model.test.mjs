@@ -363,3 +363,39 @@ test('091 share: remaining time, statuses, material change and changed-since-rev
     assert.match(m.handoverErrorText({ code: 'feature_not_enabled', field: 'scope.expiry' }), /المستمر/);
     assert.equal(m.handoverErrorText({ code: 'validation_failed', field: 'note', reason: 'required' }), 'اكتب سبب الرفض.', '081 text unchanged');
 });
+
+// ── 093: التعاون ─────────────────────────────────────────────────────────────
+test('093 collab: scope carries only explicit actions and fields; review stays view only', async () => {
+    const m = await import('../assets/js/continuity/continuity-model.js');
+    const base = { to: 'u2', reason: 'r', sources: ['s1'], attachments: [], expiryKind: 'duration', minutes: 240 };
+    assert.deepEqual(m.buildShareScope({ ...base, mode: 'review', actions: ['note'], fields: ['priority'] }).actions, ['view']);
+    assert.equal('editable_fields' in m.buildShareScope({ ...base, mode: 'review' }), false);
+    const c = m.buildShareScope({ ...base, mode: 'collab', actions: ['note', 'propose', 'bogus', 'note'], fields: ['priority', 'title', 'priority'] });
+    assert.deepEqual(c.actions, ['view', 'note', 'propose']);
+    assert.deepEqual(c.editable_fields, ['priority']);
+    assert.equal('editable_fields' in m.buildShareScope({ ...base, mode: 'collab', actions: ['note', 'add_source'], fields: ['priority'] }), false,
+        'fields only with propose or edit_fields');
+    assert.deepEqual(m.shareMissing({ ...base, mode: 'collab', actions: ['edit_fields'], fields: [] }), ['حقل واحد على الأقل للاقتراح أو التعديل']);
+    assert.deepEqual(m.shareMissing({ ...base, mode: 'collab', actions: ['note'], fields: [] }), []);
+    assert.deepEqual(m.COLLAB_FIELDS.map((f) => f.key), ['next_action', 'summary', 'due', 'priority']);
+});
+
+test('093 collab: abilities follow the server (actions and the switch); patch holds only changed allowed fields', async () => {
+    const m = await import('../assets/js/continuity/continuity-model.js');
+    const g = { actions: ['view', 'note', 'edit_fields'] };
+    assert.deepEqual(m.grantAbilities(g, { enabled: true, editable_fields: ['priority'] }),
+        { note: true, propose: false, edit: true, addSource: false, fields: ['priority'] });
+    assert.deepEqual(m.grantAbilities(g, { enabled: false, editable_fields: ['priority'] }),
+        { note: false, propose: false, edit: false, addSource: false, fields: [] });
+    assert.equal(m.grantActionsText(['view']), 'عرض فقط');
+    assert.equal(m.grantActionsText(['view', 'note', 'add_source']), 'عرض + ملاحظات، إضافة رسائل ومرفقات');
+    const r = { next_action: 'اتصال', summary: 's', priority: 3, due_tz: 'Africa/Cairo' };
+    assert.deepEqual(m.collabPatchFromForm({ next_action: ' اتصال ', priority: '3', summary: 'changed' }, r, ['next_action', 'priority']), {},
+        'unchanged and not-allowed fields are not sent');
+    assert.deepEqual(m.collabPatchFromForm({ next_action: 'جديد', priority: '1', due_at: '2030-01-15T10:00', due_tz: 'UTC' }, r, ['next_action', 'priority', 'due']),
+        { next_action: 'جديد', priority: 1, due: { at: '2030-01-15T10:00:00', tz: 'UTC' } });
+    assert.deepEqual(m.proposalSummary({ priority: 2, summary: 'x' }), ['الأولوية: عالية', 'الملخص: x']);
+    assert.equal(m.PROPOSAL_STATE_LABELS.pending, 'بانتظار المالك');
+    assert.equal(m.EVENT_LABELS.change_proposal_applied, 'طبّق اقتراح تعديل');
+    assert.ok(m.POLICY_BOOL_FIELDS.find((f) => f.key === 'delegation_allow_collab')?.optional);
+});
