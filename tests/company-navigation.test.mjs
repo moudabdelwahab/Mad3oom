@@ -539,7 +539,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         لا integration_ حتى لا تلمس أنماط المنح دوال integration_* المنشورة. مقيسٌ على نسخة
     //         بشكل الإنتاج في tests/sql/integrations-hub.test.sql. غير مطبَّق على الإنتاج. كُتب باسم 087
     //         ونُقل إلى 088 بعد دمج 087_continuity_edit_permissions في main (لا اعتماد بينهما).
-    assert.equal(migrations[migrations.length - 1], '088_integrations_hub.sql',
+    //   089 — جدولة الحذف الفعلي لملفات المرفقات الممسوحة (شرط قبل تشغيل المرفقات): سر داخلي
+    //         يُولَّد في القاعدة (internal_service_secrets) ونداء pg_cron كل ساعة لدالة
+    //         continuity-attachment-cleanup. مقيسٌ في tests/sql/continuity-attachment-cleanup-schedule.test.sql.
+    //         كُتب باسم 088 ونُقل إلى 089 بعد دمج 088_integrations_hub في main (لا اعتماد بينهما).
+    assert.equal(migrations[migrations.length - 1], '089_continuity_attachment_cleanup_schedule.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

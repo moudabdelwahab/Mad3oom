@@ -288,3 +288,14 @@ test('الواجهة: طلب واحد فقط خارج supabase.rpc — المل�
         assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon|WebSocket/.test(src), f);
     }
 });
+
+// ── 089: الدالة تقرأ السر الداخلي فقط لطلب يحمل ترويسة السر، وتقبل سر البيئة لو مضبوط ──
+test('089 cleanup entry: the internal secret is read only for a request carrying X-Cleanup-Secret; env wins when set', async () => {
+    const src = await readFile(new URL('../supabase/functions/continuity-attachment-cleanup/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /secret: req\.headers\.get\("x-cleanup-secret"\) \? await expectedSecret\(\) : ""/);
+    assert.match(src, /Deno\.env\.get\("CONTINUITY_CLEANUP_SECRET"\)[\s\S]*if \(fromEnv\) return fromEnv;/);
+    assert.match(src, /\.from\("internal_service_secrets"\)\.select\("value"\)\s*\.eq\("key", "continuity_attachment_cleanup"\)/);
+    const sql = await readFile(new URL('../migrations/089_continuity_attachment_cleanup_schedule.sql', import.meta.url), 'utf8');
+    assert.match(sql, /'continuity_attachment_cleanup', encode\(extensions\.gen_random_bytes\(32\), 'hex'\)/);
+    assert.match(sql, /'X-Cleanup-Secret', v_secret/);
+});
