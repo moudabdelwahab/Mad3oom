@@ -1,0 +1,246 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Mad3oom Support 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: mad3oom-support\n"
+
+#: templates/form.php:51
+#, php-format
+msgid "About order #%s"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:129
+msgid "Connection"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:178
+msgid "Customer portal URL"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:186
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:142
+msgid "Disconnect this site"
+msgstr ""
+
+#: templates/form.php:36
+msgid "Email"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:168
+msgid "Enable the [mad3oom_support_form] shortcode"
+msgstr ""
+
+#: templates/form.php:44
+msgid "How can we help?"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:153
+msgid "In Mad3oom: Company dashboard > Integrations > WordPress > Connect. The code is shown once."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:98
+msgid "Last check"
+msgstr ""
+
+#: templates/form.php:57
+msgid "Leave this field empty"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:63 includes/class-mad3oom-admin.php:64 includes/class-mad3oom-admin.php:124
+msgid "Mad3oom Support"
+msgstr ""
+
+#: mad3oom-support.php:46
+#, php-format
+msgid "Mad3oom Support requires WordPress %1$s and PHP %2$s or newer."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:119
+msgid "Mad3oom answered: the connection works."
+msgstr ""
+
+#: includes/class-mad3oom-client.php:183
+msgid "Mad3oom could not be reached from this server."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:97
+msgid "Mad3oom endpoint host"
+msgstr ""
+
+#: includes/class-mad3oom-client.php:177
+msgid "Mad3oom rejected the signature. Paste a new pairing code from your Mad3oom dashboard."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:99
+msgid "OK"
+msgstr ""
+
+#: includes/class-mad3oom-form.php:68
+msgid "Open the support portal"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:180
+msgid "Optional HTTPS link shown by the [mad3oom_portal_link] shortcode."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:93
+msgid "PHP version"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:154
+msgid "Pair with Mad3oom"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:96
+msgid "Paired"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:115
+msgid "Paired with Mad3oom. Use \"Test connection\" to confirm."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:150
+msgid "Pairing code"
+msgstr ""
+
+#: templates/form.php:14
+msgid "Please fill in every field with valid values."
+msgstr ""
+
+#: includes/class-mad3oom-woocommerce.php:65
+msgid "Request support"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:169
+msgid "Requests arrive in Mad3oom as support requests for your company admin to review. They are not tickets until the admin converts them for an existing customer."
+msgstr ""
+
+#: templates/form.php:61
+msgid "Send request"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:78
+msgid "Settings"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:118
+msgid "Settings saved."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:95
+msgid "Site uses HTTPS"
+msgstr ""
+
+#: includes/class-mad3oom-client.php:185
+msgid "Some fields are not valid."
+msgstr ""
+
+#: includes/class-mad3oom-client.php:189
+msgid "Something went wrong. Please try again later."
+msgstr ""
+
+#: templates/form.php:40
+msgid "Subject"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:165
+msgid "Support form"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:158
+msgid "Support form and portal"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:173
+msgid "Support page URL"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:136
+msgid "Test connection"
+msgstr ""
+
+#: templates/form.php:13
+msgid "Thank you. Your request was sent to our support team."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:116
+msgid "That pairing code is not valid. Copy it again from Mad3oom > Company dashboard > Integrations > WordPress."
+msgstr ""
+
+#: includes/class-mad3oom-client.php:179
+msgid "The connection is disabled or disconnected in Mad3oom."
+msgstr ""
+
+#: templates/form.php:15
+msgid "The form expired. Please try again."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:175
+msgid "The page that contains the form. Used for the \"Request support\" action on WooCommerce orders."
+msgstr ""
+
+#: templates/form.php:17
+msgid "The support form is not available right now."
+msgstr ""
+
+#: includes/class-mad3oom-client.php:187
+msgid "This integration is not available on Mad3oom yet."
+msgstr ""
+
+#: includes/class-mad3oom-client.php:175
+msgid "This site is not connected to Mad3oom yet."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:131
+msgid "This site is paired with your Mad3oom company. The pairing secret is stored on this server only and is never shown again."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:117
+msgid "This site was disconnected locally. Also disconnect it in your Mad3oom dashboard."
+msgstr ""
+
+#: templates/form.php:16 includes/class-mad3oom-client.php:181
+msgid "Too many requests. Please try again later."
+msgstr ""
+
+#: templates/form.php:18
+msgid "We could not send your request. Please try again later."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:94
+msgid "WooCommerce"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:92
+msgid "WordPress version"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:108
+msgid "You do not have permission to access this page."
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:203
+msgid "You do not have permission to do this."
+msgstr ""
+
+#: templates/form.php:32
+msgid "Your name"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:95 includes/class-mad3oom-admin.php:96
+msgid "no"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:94
+msgid "not active"
+msgstr ""
+
+#: includes/class-mad3oom-admin.php:95 includes/class-mad3oom-admin.php:96
+msgid "yes"
+msgstr ""
+
