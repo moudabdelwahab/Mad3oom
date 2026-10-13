@@ -2125,8 +2125,14 @@ test('collab (093): the inbox composer offers a shared record with «add message
 });
 
 // ── 094: التذكيرات ────────────────────────────────────────────────────────────
-test('reminders (094): upcoming reminders and what happened, as labels and times only; off and before-094 states', { skip: !chromiumPath }, async () => {
+// قاعدة 078+ (continuity_my_access فيها capabilities) — شرط نداء التذكيرات
+function remFixtures() {
     const fx = pageFixtures();
+    fx.rpc.continuity_my_access = { ...fx.rpc.continuity_my_access, owner: false, capabilities: {} };
+    return fx;
+}
+test('reminders (094): upcoming reminders and what happened, as labels and times only; off and before-094 states', { skip: !chromiumPath }, async () => {
+    const fx = remFixtures();
     fx.rpc.continuity_reminders_for = {
         reminders: true, escalation: true,
         upcoming: [{ kind: 'due_reminder', run_at: '2030-01-15T08:00:00Z' }, { kind: 'escalation_overdue', run_at: '2030-01-15T13:00:00Z' }],
@@ -2145,14 +2151,14 @@ test('reminders (094): upcoming reminders and what happened, as labels and times
     assert.deepEqual(errors, []);
     await context.close();
 
-    const off = pageFixtures();
+    const off = remFixtures();
     off.rpc.continuity_reminders_for = { reminders: false, escalation: false, upcoming: [{ kind: 'due_reminder', run_at: '2030-01-15T08:00:00Z' }], recent: [] };
     ({ page, context, errors } = await openPage(off, { url: `/admin/continuity.html?record=${REC}` }));
     await page.waitForSelector('#ctRemindersOff');
     assert.equal(await page.locator('#ctRemindersUpcoming').count(), 0, 'nothing listed as upcoming while both switches are off');
     await context.close();
 
-    ({ page, context, errors } = await openPage(pageFixtures(), { url: `/admin/continuity.html?record=${REC}` }));
+    ({ page, context, errors } = await openPage(remFixtures(), { url: `/admin/continuity.html?record=${REC}` }));
     await page.waitForSelector('#ctRecordTitle');
     assert.equal(await page.locator('#ctReminders').count(), 0, 'before 094: no section');
     assert.deepEqual(errors, []);

@@ -153,7 +153,8 @@ async function openRecord(id, { push = true } = {}) {
             handoversOn() ? handoversForRecord(id).catch(() => []) : Promise.resolve([]),
             collabReady ? notesFor(id).catch(() => null) : Promise.resolve(null),
             collabReady ? proposalsFor(id).catch(() => null) : Promise.resolve(null),
-            remindersFor(id).catch(() => null)]);
+            // 094: فقط على قاعدة فيها السياسات (078+)؛ قبل 077 لا نداء بالاسم الجديد غير الفحص
+            state.access?.policies ? remindersFor(id).catch(() => null) : Promise.resolve(null)]);
         state.reminders = reminders;
         state.sharedView = null;
         state.notes = Array.isArray(notes) ? notes : null;
