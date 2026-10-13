@@ -122,6 +122,7 @@ const FUNCTION_INVENTORY = [
 
     // مستوحاة من لوحة الإدارة بعد جرد أقسامها، بمقاييس تخصّ الشركة
     { name: 'API ومفاتيحه',     section: 'api' },
+    { name: 'التكاملات',        section: 'integrations' },
     { name: 'التقارير',         section: 'reports' },
     { name: 'النشاط',           section: 'activity' },
 
@@ -171,7 +172,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
     for (const section of ['tickets', 'customerTickets', 'support', 'notifications',
-                           'api', 'reports', 'activity', 'profile', 'security']) {
+                           'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
     }
@@ -525,7 +526,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         وصولًا لأي شيء بعد. مقيسٌ على نسخة بشكل الإنتاج في
     //         tests/sql/company-staff.test.sql. غير مطبَّق على الإنتاج. كُتب باسم 077 ثم 081 ونُقل
     //         إلى 086: 077–081 لسلسلة continuity (#116–#124) و082–084 محجوزة لها، و085 لخصوصية الأعضاء (#120).
-    assert.equal(migrations[migrations.length - 1], '086_company_staff.sql',
+    //   087 — مركز التكاملات (طلب صاحب المنصة 2026-10-12: «Mad3oom Integrations Hub —
+    //         WordPress + WooCommerce + Salla + Daftra … Database migrations where necessary»).
+    //         لا جدول قائم يعرف «ربط شركة بحساب خارجي»: external_integrations لكل حساب ولمزوّدي
+    //         الذكاء الاصطناعي، و integration_* في الإنتاج لواجهة واتساب. 11 جدولًا ihub_* بلا أي
+    //         صلاحية مباشرة، وكل المزوّدين مقفلون، ولا باقة تشمل integrations_hub. البادئة ihub_
+    //         لا integration_ حتى لا تلمس أنماط المنح دوال integration_* المنشورة. مقيسٌ على نسخة
+    //         بشكل الإنتاج في tests/sql/integrations-hub.test.sql. غير مطبَّق على الإنتاج.
+    assert.equal(migrations[migrations.length - 1], '087_integrations_hub.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

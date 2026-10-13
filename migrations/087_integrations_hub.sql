@@ -684,7 +684,7 @@ begin
   v_company := public._ihub_require_admin();
   if not exists (select 1 from public.ihub_providers p where p.key = p_provider and p.enabled) then
     raise exception 'هذا المزوّد غير متاح حاليًا' using errcode = '22023',
-      detail = '{"code":"provider_unavailable"}';
+      detail = '{"code":"provider_disabled"}';
   end if;
   if v_label is not null and char_length(v_label) > 120 then
     raise exception 'الاسم طويل جدًا' using errcode = '22023', detail = '{"code":"validation_failed"}';
@@ -736,7 +736,7 @@ begin
   if p_action in ('connect', 'oauth_start')
      and not exists (select 1 from public.ihub_providers p where p.key = r.provider and p.enabled) then
     raise exception 'هذا المزوّد غير متاح حاليًا' using errcode = '22023',
-      detail = '{"code":"provider_unavailable"}';
+      detail = '{"code":"provider_disabled"}';
   end if;
   return jsonb_build_object(
     'connection_id', r.id, 'company_id', r.company_id, 'provider', r.provider, 'status', r.status,

@@ -282,7 +282,7 @@ END $$;
 DO $$
 DECLARE v jsonb; c uuid;
 BEGIN
-  PERFORM t.ok(t.errd(t.u('OA'), $s$public.ihub_prepare_connection('woocommerce', 'متجري')$s$) LIKE '22023|%provider_unavailable%',
+  PERFORM t.ok(t.errd(t.u('OA'), $s$public.ihub_prepare_connection('woocommerce', 'متجري')$s$) LIKE '22023|%provider_disabled%',
                '③ مزوّد مقفل يُرفض');
   UPDATE public.ihub_providers SET enabled = true;
   v := t.call(t.u('OA'), $s$public.ihub_prepare_connection('woocommerce', 'متجري')$s$);

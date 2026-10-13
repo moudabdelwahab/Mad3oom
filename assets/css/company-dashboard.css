@@ -677,3 +677,54 @@ body.customer-shell .modal-content.modal-lg {
     .report-table th,
     .report-table td { padding: .4rem .5rem; }
 }
+
+/* ==================== مركز التكاملات (087) ==================== */
+.ihub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+    gap: var(--sp-3);
+}
+
+.ihub-card { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ihub-card .panel-title { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+.ihub-caps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--sp-1);
+    font-size: var(--fs-sm);
+}
+.ihub-caps li { display: flex; align-items: center; gap: var(--sp-2); }
+.ihub-caps li.is-off { color: var(--color-text-secondary); }
+.ihub-caps li.is-on > span:first-child { color: var(--color-primary); font-weight: 700; }
+.ihub-cap-state { margin-inline-start: auto; font-size: var(--fs-xs); color: var(--color-text-secondary); }
+
+.ihub-facts { margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
+.ihub-facts > div { display: flex; gap: var(--sp-2); justify-content: space-between; flex-wrap: wrap; }
+.ihub-facts dt { color: var(--color-text-secondary); }
+.ihub-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.ihub-reveal textarea,
+.ihub-reveal input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs); }
+
+.ihub-intake { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+.ihub-intake-item { border: 1px solid var(--color-border); border-radius: var(--r-sm); padding: var(--sp-3); }
+.ihub-intake-message { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-secondary); }
+
+.ihub-ticket {
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-sm);
+    padding: var(--sp-3);
+    margin-block: var(--sp-3);
+    display: grid;
+    gap: var(--sp-2);
+}
+.ihub-record { border-top: 1px solid var(--color-border); padding-top: var(--sp-2); display: grid; gap: var(--sp-2); }
+.ihub-record header { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.ihub-audit { margin: 0; padding-inline-start: var(--sp-4); font-size: var(--fs-sm); }
+
+@media (max-width: 640px) {
+    .ihub-card .company-form-actions .btn { flex: 1 1 auto; min-height: 44px; }
+}
