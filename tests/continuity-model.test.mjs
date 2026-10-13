@@ -399,3 +399,24 @@ test('093 collab: abilities follow the server (actions and the switch); patch ho
     assert.equal(m.EVENT_LABELS.change_proposal_applied, 'طبّق اقتراح تعديل');
     assert.ok(m.POLICY_BOOL_FIELDS.find((f) => f.key === 'delegation_allow_collab')?.optional);
 });
+
+// ── 094: التذكيرات ───────────────────────────────────────────────────────────
+test('094 reminders: every planned kind has a label; history rows explain what happened without content', async () => {
+    const m = await import('../assets/js/continuity/continuity-model.js');
+    const sql = await read('migrations/094_continuity_reminders.sql');
+    const kinds = sql.match(/kind in \(([^)]+)\)/)[1].match(/'([a-z_]+)'/g).map((x) => x.replace(/'/g, ''));
+    for (const k of kinds) assert.ok(m.REMINDER_KIND_LABELS[k], k);
+    assert.equal(m.reminderRowText({ kind: 'due_reminder', state: 'done', recipients: 1, delivered: 1 }), 'تذكير قبل الموعد: اتبعت (1 من 1)');
+    assert.equal(m.reminderRowText({ kind: 'overdue_alert', state: 'done', reason: 'no_recipient', recipients: 0, delivered: 0 }), 'تنبيه عند الموعد: مفيش مستلم مؤهل');
+    assert.equal(m.reminderRowText({ kind: 'escalation_overdue', state: 'cancelled', reason: 'switch_off' }), 'تصعيد للمشرفين (متأخر): اتلغى لأن التذكيرات/التصعيد مطفأ');
+    for (const k of ['job_fired', 'escalated', 'job_deferred', 'delivery_dead', 'job_failed']) assert.ok(m.EVENT_LABELS[k], k);
+});
+
+test('094 notification templates: fixed text only (no record title, summary, next action or excerpt), link inside the admin', async () => {
+    const sql = await read('migrations/094_continuity_reminders.sql');
+    const fn = sql.slice(sql.indexOf('function public._continuity_notification_text'), sql.indexOf('-- 5) التنفيذ والتسليم'));
+    assert.ok(fn.length > 500);
+    assert.doesNotMatch(fn, /r\.(title|summary|next_action|problem|known_facts|unknowns|waiting_on)\b/);
+    assert.doesNotMatch(fn, /excerpt|message_text|full_name|email|phone/);
+    for (const m of fn.matchAll(/link := '([^']*)'/g)) assert.ok(m[1].startsWith('/admin/continuity.html'), m[1]);
+});

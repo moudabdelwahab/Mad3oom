@@ -2123,3 +2123,38 @@ test('collab (093): the inbox composer offers a shared record with «add message
     assert.deepEqual(await rpcCalls(page, 'continuity_attach_sources'), []);
     await context.close();
 });
+
+// ── 094: التذكيرات ────────────────────────────────────────────────────────────
+test('reminders (094): upcoming reminders and what happened, as labels and times only; off and before-094 states', { skip: !chromiumPath }, async () => {
+    const fx = pageFixtures();
+    fx.rpc.continuity_reminders_for = {
+        reminders: true, escalation: true,
+        upcoming: [{ kind: 'due_reminder', run_at: '2030-01-15T08:00:00Z' }, { kind: 'escalation_overdue', run_at: '2030-01-15T13:00:00Z' }],
+        recent: [{ kind: 'overdue_alert', state: 'done', recipients: 1, delivered: 1, at: at(9, 0) },
+                 { kind: 'due_reminder', state: 'superseded', reason: 'replanned', recipients: 0, delivered: 0, at: at(8, 0) }],
+    };
+    let { page, context, errors } = await openPage(fx, { url: `/admin/continuity.html?record=${REC}` });
+    await page.waitForSelector('#ctReminders');
+    const up = await page.locator('#ctRemindersUpcoming').innerText();
+    assert.match(up, /تذكير قبل الموعد/);
+    assert.match(up, /تصعيد للمشرفين \(متأخر\)/);
+    await page.locator('#ctReminders summary').click();
+    assert.match(await page.locator('#ctReminders details').innerText(), /تنبيه عند الموعد: اتبعت \(1 من 1\)/);
+    assert.match(await page.locator('#ctReminders details').innerText(), /اتبدّل بعد تغيير الموعد أو المالك/);
+    assert.deepEqual((await rpcCalls(page, 'continuity_reminders_for'))[0], { p_record: REC });
+    assert.deepEqual(errors, []);
+    await context.close();
+
+    const off = pageFixtures();
+    off.rpc.continuity_reminders_for = { reminders: false, escalation: false, upcoming: [{ kind: 'due_reminder', run_at: '2030-01-15T08:00:00Z' }], recent: [] };
+    ({ page, context, errors } = await openPage(off, { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctRemindersOff');
+    assert.equal(await page.locator('#ctRemindersUpcoming').count(), 0, 'nothing listed as upcoming while both switches are off');
+    await context.close();
+
+    ({ page, context, errors } = await openPage(pageFixtures(), { url: `/admin/continuity.html?record=${REC}` }));
+    await page.waitForSelector('#ctRecordTitle');
+    assert.equal(await page.locator('#ctReminders').count(), 0, 'before 094: no section');
+    assert.deepEqual(errors, []);
+    await context.close();
+});

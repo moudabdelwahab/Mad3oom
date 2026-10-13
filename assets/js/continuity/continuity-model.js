@@ -438,6 +438,9 @@ export const EVENT_LABELS = Object.freeze({
     note_added: 'أضاف ملاحظة', change_proposed: 'اقترح تعديلًا', change_proposal_applied: 'طبّق اقتراح تعديل',
     change_proposal_rejected: 'رفض اقتراح تعديل', change_proposal_withdrawn: 'سحب اقتراح تعديل',
     shared_sources_added: 'أرفق رسائل من مشاركة',
+    // 094: المجدول
+    job_fired: 'أُرسل تذكير', escalated: 'صُعّد للمشرفين', job_deferred: 'تأجّل التصعيد لساعات العمل',
+    job_failed: 'تعذر تنفيذ تذكير', delivery_dead: 'تعذر توصيل إشعار',
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -976,4 +979,27 @@ export function proposalSummary(patch = {}) {
         if (k === 'due') return `${label}: ${String(v?.at || '').replace('T', ' ').slice(0, 16)} ${v?.tz || ''}`.trim();
         return `${label}: ${String(v ?? '')}`;
     });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 094: التذكيرات والتصعيد — عرض فقط
+// ─────────────────────────────────────────────────────────────
+export const REMINDER_KIND_LABELS = Object.freeze({
+    due_reminder: 'تذكير قبل الموعد', overdue_alert: 'تنبيه عند الموعد', overdue_repeat: 'تذكير متكرر أثناء التأخير',
+    escalation_overdue: 'تصعيد للمشرفين (متأخر)', escalation_unassigned: 'تصعيد للمشرفين (بلا مالك)',
+    handover_reminder: 'تذكير مستلم طلب التسليم', escalation_handover: 'تصعيد طلب تسليم بلا رد',
+});
+const REMINDER_REASONS = Object.freeze({
+    switch_off: 'اتلغى لأن التذكيرات/التصعيد مطفأ', late: 'اتلغى لأنه فات وقته', record_closed: 'اتلغى لأن السجل اتقفل',
+    replanned: 'اتبدّل بعد تغيير الموعد أو المالك', basis_changed: 'اتبدّل بعد تغيير الموعد أو المالك',
+    handover_decided: 'الطلب اتحسم', no_recipient: 'مفيش مستلم مؤهل', deferred_to_working_hours: 'مؤجل لساعات العمل',
+});
+
+/** نص صف من تاريخ التذكيرات. */
+export function reminderRowText(row) {
+    const label = REMINDER_KIND_LABELS[row?.kind] || row?.kind || '';
+    if (row?.state === 'done' && row?.reason !== 'no_recipient') {
+        return `${label}: اتبعت (${Number(row.delivered) || 0} من ${Number(row.recipients) || 0})`;
+    }
+    return `${label}: ${REMINDER_REASONS[row?.reason] || (row?.state === 'failed' ? 'تعذر التنفيذ' : row?.state || '')}`;
 }
