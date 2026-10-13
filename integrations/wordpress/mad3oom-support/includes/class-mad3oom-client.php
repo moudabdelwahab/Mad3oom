@@ -98,8 +98,11 @@ class Mad3oom_Support_Client {
 			return array( 'ok' => false, 'status' => 0, 'code' => 'not_paired', 'data' => array() );
 		}
 
-		$path      = '/wordpress/v1/' . $action;
-		$body      = wp_json_encode( (object) $payload );
+		// Mad3oom rejects requests whose site does not match the one registered
+		// for this pairing, so a code copied to another site does not work.
+		$payload['site'] = home_url( '/' );
+		$path            = '/wordpress/v1/' . $action;
+		$body            = wp_json_encode( (object) $payload );
 		$timestamp = (string) time();
 		$nonce     = self::nonce();
 
@@ -129,6 +132,9 @@ class Mad3oom_Support_Client {
 			$data   = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 			$data   = is_array( $data ) ? $data : array();
 			$code   = self::code_for_status( $status );
+			if ( 403 === $status && 'site_mismatch' === ( $data['error'] ?? '' ) ) {
+				$code = 'site_mismatch';
+			}
 			$result = array( 'ok' => $status >= 200 && $status < 300, 'status' => $status, 'code' => $code, 'data' => $data );
 		}
 
@@ -175,6 +181,8 @@ class Mad3oom_Support_Client {
 				return __( 'This site is not connected to Mad3oom yet.', 'mad3oom-support' );
 			case 'unauthorized':
 				return __( 'Mad3oom rejected the signature. Paste a new pairing code from your Mad3oom dashboard.', 'mad3oom-support' );
+			case 'site_mismatch':
+				return __( 'This site\'s address does not match the site registered in Mad3oom. Reconnect it with this site\'s exact URL.', 'mad3oom-support' );
 			case 'connection_inactive':
 				return __( 'The connection is disabled or disconnected in Mad3oom.', 'mad3oom-support' );
 			case 'rate_limited':

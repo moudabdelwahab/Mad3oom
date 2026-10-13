@@ -64,7 +64,7 @@ msgstr ""
 msgid "Mad3oom answered: the connection works."
 msgstr ""
 
-#: includes/class-mad3oom-client.php:183
+#: includes/class-mad3oom-client.php:191
 msgid "Mad3oom could not be reached from this server."
 msgstr ""
 
@@ -72,7 +72,7 @@ msgstr ""
 msgid "Mad3oom endpoint host"
 msgstr ""
 
-#: includes/class-mad3oom-client.php:177
+#: includes/class-mad3oom-client.php:183
 msgid "Mad3oom rejected the signature. Paste a new pairing code from your Mad3oom dashboard."
 msgstr ""
 
@@ -136,11 +136,11 @@ msgstr ""
 msgid "Site uses HTTPS"
 msgstr ""
 
-#: includes/class-mad3oom-client.php:185
+#: includes/class-mad3oom-client.php:193
 msgid "Some fields are not valid."
 msgstr ""
 
-#: includes/class-mad3oom-client.php:189
+#: includes/class-mad3oom-client.php:197
 msgid "Something went wrong. Please try again later."
 msgstr ""
 
@@ -172,7 +172,7 @@ msgstr ""
 msgid "That pairing code is not valid. Copy it again from Mad3oom > Company dashboard > Integrations > WordPress."
 msgstr ""
 
-#: includes/class-mad3oom-client.php:179
+#: includes/class-mad3oom-client.php:187
 msgid "The connection is disabled or disconnected in Mad3oom."
 msgstr ""
 
@@ -188,11 +188,11 @@ msgstr ""
 msgid "The support form is not available right now."
 msgstr ""
 
-#: includes/class-mad3oom-client.php:187
+#: includes/class-mad3oom-client.php:195
 msgid "This integration is not available on Mad3oom yet."
 msgstr ""
 
-#: includes/class-mad3oom-client.php:175
+#: includes/class-mad3oom-client.php:181
 msgid "This site is not connected to Mad3oom yet."
 msgstr ""
 
@@ -204,7 +204,11 @@ msgstr ""
 msgid "This site was disconnected locally. Also disconnect it in your Mad3oom dashboard."
 msgstr ""
 
-#: templates/form.php:16 includes/class-mad3oom-client.php:181
+#: includes/class-mad3oom-client.php:185
+msgid "This site's address does not match the site registered in Mad3oom. Reconnect it with this site's exact URL."
+msgstr ""
+
+#: templates/form.php:16 includes/class-mad3oom-client.php:189
 msgid "Too many requests. Please try again later."
 msgstr ""
 

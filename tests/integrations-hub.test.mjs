@@ -550,6 +550,16 @@ test('wordpress: pairing code round-trips; signed requests reject tampering, oth
     await reject([{ secret: 'site-secret', nowMs: now }, { headers: h({ 'x-mad3oom-nonce': 'short' }), method: 'POST', path: '/wordpress/v1/ping', rawBody: body }], 'bad nonce');
 });
 
+test('wordpress: the typed site URL is not a platform-unique claim; the signed site must match the registered host', () => {
+    const n = WP.normalizeConnectInput({ site_url: 'https://Example.com/blog/' });
+    assert.equal(n.externalAccountId, null, 'no global uniqueness: nobody can squat another company\'s domain');
+    assert.equal(n.baseUrl, 'https://example.com/blog');
+    assert.ok(WP.siteMatches('https://example.com/blog', 'https://www.example.com/'));
+    assert.ok(!WP.siteMatches('https://example.com', 'https://example.com.evil.net/'));
+    assert.ok(!WP.siteMatches('https://example.com', undefined));
+    assert.ok(!WP.siteMatches(null, 'https://example.com/'));
+});
+
 test('wordpress: intake fields are validated like the table constraints', () => {
     const ok = WP.validateIntake({ name: ' <b>سارة</b> ', email: 'Sara@Example.com', subject: 'طلبي', message: 'نص', order_ref: '501' });
     assert.deepEqual(ok, { name: 'سارة', email: 'sara@example.com', subject: 'طلبي', message: 'نص', orderRef: '501', siteUserRef: null });
@@ -867,37 +877,41 @@ async function wpRequest(secret, action, body, { connection = CONN_W, nonce = 'n
 
 test('inbound WordPress: signed ping and intake work; replays, foreign secrets and inactive connections are refused', async () => {
     const hub = new FakeHub();
-    hub.addConnection(CONN_W, 'wordpress', { external_account_id: 'https://site.example/' });
-    hub.addConnection(CONN_B, 'wordpress', { external_account_id: 'https://site-b.example/', company_id: 'company-b' });
+    hub.addConnection(CONN_W, 'wordpress', { base_url: 'https://site.example' });
+    hub.addConnection(CONN_B, 'wordpress', { base_url: 'https://site-b.example', company_id: 'company-b' });
     await hub.putCreds(CONN_W, 'wordpress', { site_secret: 'site-secret-a-0123456789' });
     await hub.putCreds(CONN_B, 'wordpress', { site_secret: 'site-secret-b-0123456789' });
 
-    const ping = await wpRequest('site-secret-a-0123456789', 'ping', {});
+    const ping = await wpRequest('site-secret-a-0123456789', 'ping', { site: 'https://www.site.example/' });
     let r = await handleInbound(deps(hub), ping);
     assert.equal(r.status, 200);
     r = await handleInbound(deps(hub), ping);
     assert.equal(r.status, 401, 'the same nonce is refused');
 
-    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', {}, { connection: CONN_B, nonce: 'm'.repeat(24) }));
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', { site: 'https://site-b.example/' }, { connection: CONN_B, nonce: 'm'.repeat(24) }));
     assert.equal(r.status, 401, 'site A cannot speak for site B');
 
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', { site: 'https://elsewhere.example/' }, { nonce: 'o'.repeat(24) }));
+    assert.deepEqual([r.status, r.body.error], [403, 'site_mismatch'], 'a pairing code copied to another site does not work');
+    assert.deepEqual(hub.health.at(-1), [CONN_W, false, 'site_mismatch']);
+
     r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'intake',
-        { name: 'زائر', email: 'v@x.io', subject: 'تأخر الطلب', message: 'لم يصل', order_ref: '501' }, { nonce: 'p'.repeat(24) }));
+        { name: 'زائر', email: 'v@x.io', subject: 'تأخر الطلب', message: 'لم يصل', order_ref: '501', site: 'https://site.example/' }, { nonce: 'p'.repeat(24) }));
     assert.equal(r.status, 201);
     assert.equal(hub.intake[0].p_connection, CONN_W);
     assert.equal(hub.intake[0].p_order_ref, '501');
 
-    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'intake', { name: 'x', email: 'bad', subject: 's', message: 'm' }, { nonce: 'q'.repeat(24) }));
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'intake', { name: 'x', email: 'bad', subject: 's', message: 'm', site: 'https://site.example/' }, { nonce: 'q'.repeat(24) }));
     assert.equal(r.status, 400);
     hub.rateLimited = true;
-    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'intake', { name: 'x', email: 'v@x.io', subject: 's', message: 'm' }, { nonce: 'r'.repeat(24) }));
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'intake', { name: 'x', email: 'v@x.io', subject: 's', message: 'm', site: 'https://site.example/' }, { nonce: 'r'.repeat(24) }));
     assert.equal(r.status, 429);
 
     hub.connections.get(CONN_W).status = 'reauth_required';
-    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', {}, { nonce: 's'.repeat(24) }));
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', { site: 'https://site.example/' }, { nonce: 's'.repeat(24) }));
     assert.equal(r.status, 403);
     hub.connections.get(CONN_W).status = 'disconnected';
-    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', {}, { nonce: 't'.repeat(24) }));
+    r = await handleInbound(deps(hub), await wpRequest('site-secret-a-0123456789', 'ping', { site: 'https://site.example/' }, { nonce: 't'.repeat(24) }));
     assert.equal(r.status, 401, 'a disconnected site is unknown');
 });
 

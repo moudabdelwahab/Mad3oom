@@ -303,6 +303,10 @@ BEGIN
   PERFORM t.ok(t.err(t.u('OB'), format('public.ihub_disconnect(%L::uuid)', c)) = 'P0002', '③ OB لا يفصل ربط أ');
   PERFORM t.ok(t.err(t.u('OB'), format('public.ihub_set_view_role(%L::uuid, %L)', c, 'agent')) = 'P0002', '③ OB لا يغيّر ربط أ');
   PERFORM t.ok(t.err(t.u('OA'), format('public.ihub_authorize(%L::uuid, %L)', c, 'drop_table')) = '22023', '③ عملية مجهولة');
+  UPDATE public.ihub_providers SET enabled = false WHERE key = 'woocommerce';
+  PERFORM t.ok(t.errd(t.u('OA'), format('public.ihub_authorize(%L::uuid, %L)', c, 'test')) LIKE '22023|%provider_disabled%', '③ مفتاح الإيقاف يوقف الاختبار أيضًا');
+  PERFORM t.ok(t.errd(t.u('OA'), format('public.ihub_authorize(%L::uuid, %L)', c, 'rotate_secret')) LIKE '22023|%provider_disabled%', '③ والتدوير');
+  UPDATE public.ihub_providers SET enabled = true WHERE key = 'woocommerce';
 
   PERFORM t.call(t.u('OB'), $s$public.ihub_prepare_connection('woocommerce', 'متجر ب')$s$);
   PERFORM t.call(t.u('OA'), $s$public.ihub_prepare_connection('salla', null)$s$);
@@ -633,8 +637,10 @@ BEGIN
   UPDATE public.ihub_external_records SET fetched_at = now() - interval '31 days' WHERE id = (r->>'record_id')::uuid;
   INSERT INTO public.ihub_request_nonces VALUES (c, 'expiredexpiredexp', now() - interval '1 minute');
   UPDATE public.ihub_intake_requests SET decided_at = now() - interval '181 days' WHERE status = 'dismissed';
+  UPDATE public.ihub_intake_requests SET created_at = now() - interval '181 days'
+   WHERE id = (SELECT id FROM public.ihub_intake_requests WHERE status = 'new' ORDER BY created_at LIMIT 1);
   v := public.ihub_retention_sweep();
-  PERFORM t.ok((v->>'events')::int >= 1 AND (v->>'records')::int = 1 AND (v->>'nonces')::int >= 1 AND (v->>'intake')::int = 1, '⑪ ' || v::text);
+  PERFORM t.ok((v->>'events')::int >= 1 AND (v->>'records')::int = 1 AND (v->>'nonces')::int >= 1 AND (v->>'intake')::int = 2, '⑪ ' || v::text);
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.ihub_intake_requests WHERE status = 'converted'), '⑪ الطلب المحوَّل حديثًا باقٍ');
   -- النسخة بلا pg_cron؛ الترحيل يجدول فقط حين يوجد المخطط (كما في الإنتاج)
   PERFORM t.ok(to_regnamespace('cron') IS NULL, '⑪ (النسخة بلا pg_cron — الجدولة تُفحص بعد التطبيق في الإنتاج)');

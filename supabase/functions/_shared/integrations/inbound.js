@@ -21,7 +21,7 @@ import { invoke } from './contract.js';
 import { ConnectorError, errorCode } from './errors.js';
 import { sha256Hex, encryptJson, oauthPendingAad, randomToken } from './crypto.js';
 import { verifySallaWebhook, exchangeCode, fetchMerchant } from './salla.js';
-import { readSignedHeaders, verifySignedRequest, validateIntake } from './wordpress.js';
+import { readSignedHeaders, verifySignedRequest, validateIntake, siteMatches } from './wordpress.js';
 import { safeLog } from './redact.js';
 
 export const MAX_INBOUND_BYTES = 256 * 1024;
@@ -136,12 +136,17 @@ async function wordpressRequest(deps, action, req) {
     if (!fresh) throw new ConnectorError('signature_invalid', 'replay');
     if (!conn.provider_enabled || !['active', 'error'].includes(conn.status)) return json(403, { error: 'connection_inactive' });
 
-    if (action === 'ping') {
-        await deps.svcRpc('ihub_svc_record_health', { p_connection: h.connectionId, p_ok: true, p_error_code: null });
-        return json(200, { ok: true, registered_site: conn.external_account_id, server_time: Math.floor(deps.now() / 1000) });
-    }
     let body;
     try { body = JSON.parse(new TextDecoder().decode(req.rawBody)); } catch { throw new ConnectorError('invalid_payload', 'json'); }
+    // رمز اقتران منسوخ إلى موقع آخر لا يعمل: الموقع جزء من الطلب الموقَّع
+    if (!siteMatches(conn.base_url, body?.site)) {
+        await deps.svcRpc('ihub_svc_record_health', { p_connection: h.connectionId, p_ok: false, p_error_code: 'site_mismatch' });
+        return json(403, { error: 'site_mismatch' });
+    }
+    if (action === 'ping') {
+        await deps.svcRpc('ihub_svc_record_health', { p_connection: h.connectionId, p_ok: true, p_error_code: null });
+        return json(200, { ok: true, server_time: Math.floor(deps.now() / 1000) });
+    }
     const v = validateIntake(body);
     try {
         const res = await deps.svcRpc('ihub_svc_wp_intake', {

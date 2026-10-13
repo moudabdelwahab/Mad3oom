@@ -66,7 +66,7 @@ msgstr "إضافة دعم مدعوم تتطلب ووردبريس %1$s و PHP %2$
 msgid "Mad3oom answered: the connection works."
 msgstr "ردّ مدعوم: الاتصال يعمل."
 
-#: includes/class-mad3oom-client.php:183
+#: includes/class-mad3oom-client.php:191
 msgid "Mad3oom could not be reached from this server."
 msgstr "تعذّر الوصول إلى مدعوم من هذا الخادم."
 
@@ -74,7 +74,7 @@ msgstr "تعذّر الوصول إلى مدعوم من هذا الخادم."
 msgid "Mad3oom endpoint host"
 msgstr "عنوان خادم مدعوم"
 
-#: includes/class-mad3oom-client.php:177
+#: includes/class-mad3oom-client.php:183
 msgid "Mad3oom rejected the signature. Paste a new pairing code from your Mad3oom dashboard."
 msgstr "رفض مدعوم التوقيع. الصق رمز اقتران جديدًا من لوحة مدعوم."
 
@@ -138,11 +138,11 @@ msgstr "حُفظت الإعدادات."
 msgid "Site uses HTTPS"
 msgstr "الموقع يستخدم HTTPS"
 
-#: includes/class-mad3oom-client.php:185
+#: includes/class-mad3oom-client.php:193
 msgid "Some fields are not valid."
 msgstr "بعض الحقول غير صالحة."
 
-#: includes/class-mad3oom-client.php:189
+#: includes/class-mad3oom-client.php:197
 msgid "Something went wrong. Please try again later."
 msgstr "حدث خطأ. حاول مرة أخرى لاحقًا."
 
@@ -174,7 +174,7 @@ msgstr "شكرًا لك. أُرسل طلبك إلى فريق الدعم."
 msgid "That pairing code is not valid. Copy it again from Mad3oom > Company dashboard > Integrations > WordPress."
 msgstr "رمز الاقتران غير صالح. انسخه مجددًا من مدعوم ← لوحة الشركة ← التكاملات ← ووردبريس."
 
-#: includes/class-mad3oom-client.php:179
+#: includes/class-mad3oom-client.php:187
 msgid "The connection is disabled or disconnected in Mad3oom."
 msgstr "الاتصال معطّل أو مفصول في مدعوم."
 
@@ -190,11 +190,11 @@ msgstr "الصفحة التي تحتوي النموذج. تُستخدم لزر �
 msgid "The support form is not available right now."
 msgstr "نموذج الدعم غير متاح حاليًا."
 
-#: includes/class-mad3oom-client.php:187
+#: includes/class-mad3oom-client.php:195
 msgid "This integration is not available on Mad3oom yet."
 msgstr "هذا التكامل غير متاح على مدعوم بعد."
 
-#: includes/class-mad3oom-client.php:175
+#: includes/class-mad3oom-client.php:181
 msgid "This site is not connected to Mad3oom yet."
 msgstr "هذا الموقع غير متصل بمدعوم بعد."
 
@@ -206,7 +206,11 @@ msgstr "هذا الموقع مقترن بشركتك في مدعوم. سر الا
 msgid "This site was disconnected locally. Also disconnect it in your Mad3oom dashboard."
 msgstr "فُصل الموقع محليًا. افصله أيضًا من لوحة مدعوم."
 
-#: templates/form.php:16 includes/class-mad3oom-client.php:181
+#: includes/class-mad3oom-client.php:185
+msgid "This site's address does not match the site registered in Mad3oom. Reconnect it with this site's exact URL."
+msgstr "عنوان هذا الموقع لا يطابق الموقع المسجَّل في مدعوم. أعد الربط بعنوان هذا الموقع بالضبط."
+
+#: templates/form.php:16 includes/class-mad3oom-client.php:189
 msgid "Too many requests. Please try again later."
 msgstr "طلبات كثيرة جدًا. حاول لاحقًا."
 

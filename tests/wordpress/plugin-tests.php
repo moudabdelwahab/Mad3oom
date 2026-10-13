@@ -81,6 +81,8 @@ ok(strpos(json_encode($call), $s->secret()) === false, 'the secret itself is nev
 $GLOBALS['T']['http_reply'] = array('response' => array('code' => 401), 'body' => '{"error":"unauthorized","detail":"<script>x</script>"}');
 $r = $c->request('ping');
 ok(!$r['ok'] && $r['code'] === 'unauthorized' && $s->health()['code'] === 'unauthorized', '401 mapped');
+$GLOBALS['T']['http_reply'] = array('response' => array('code' => 403), 'body' => '{"error":"site_mismatch"}');
+ok($c->request('ping')['code'] === 'site_mismatch', 'site mismatch surfaced');
 $GLOBALS['T']['http_reply'] = new WP_Error('http_request_failed');
 ok($c->request('ping')['code'] === 'network_error', 'network error mapped');
 $GLOBALS['T']['http_reply'] = array('response' => array('code' => 302), 'body' => '');
@@ -133,7 +135,8 @@ ok(preg_match('/^[0-9a-f]{64}$/', $body['site_user_ref']) === 1 && strpos($GLOBA
 submit($good + array('mad3oom_order' => '501'));
 $body = json_decode($GLOBALS['T']['http'][0]['args']['body'], true);
 ok(($body['order_ref'] ?? null) === '501', 'own order attached');
-ok(array_keys($body) === array('name', 'email', 'subject', 'message', 'order_ref', 'site_user_ref'), 'only the expected fields are sent');
+ok(array_keys($body) === array('name', 'email', 'subject', 'message', 'order_ref', 'site_user_ref', 'site'), 'only the expected fields are sent');
+ok($body['site'] === 'https://site.example/', 'the site address is part of the signed body');
 $GLOBALS['T']['user_id'] = 0;
 submit($good + array('mad3oom_order' => '501'));
 ok(!isset(json_decode($GLOBALS['T']['http'][0]['args']['body'], true)['order_ref']), 'guests cannot attach orders');

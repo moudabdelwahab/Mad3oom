@@ -24,11 +24,17 @@ export const CLOCK_SKEW_SECONDS = 300;
 export const PAIRING_PREFIX = 'm3c1.';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * الرابط الذي يكتبه المدير لا يثبت ملكية الموقع، فلا نجعله فريدًا على مستوى
+ * المنصة (externalAccountId = null): التوجيه بمعرّف الربط لا بالرابط، ولا
+ * يستطيع أحد حجز نطاق شركة أخرى. بدلًا من ذلك تُرسل الإضافة home_url في كل
+ * طلب موقَّع، ويُرفض الطلب إن لم يطابق الموقع المسجَّل (siteMatches).
+ */
 export function normalizeConnectInput(input = {}) {
     const baseUrl = validateExternalUrl(input.site_url);
     return {
         baseUrl,
-        externalAccountId: baseUrl.toLowerCase() + '/',
+        externalAccountId: null,
         label: shortText(input.label, 120) || new URL(baseUrl).hostname,
         credentials: { site_secret: randomToken(32) }
     };
@@ -79,6 +85,22 @@ export async function verifySignedRequest({ secret, nowMs }, { headers, method, 
     const expected = await signRequest(secret, { timestamp: h.timestamp, nonce: h.nonce, method, path, rawBody });
     if (!timingSafeEqual(h.signature, expected)) throw new ConnectorError('signature_invalid');
     return h;
+}
+
+function hostOf(url) {
+    try {
+        const u = new URL(String(url || ''));
+        return u.hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+        return null;
+    }
+}
+
+/** الموقع الذي أبلغت عنه الإضافة (home_url) يطابق الموقع المسجَّل في مدعوم. */
+export function siteMatches(registeredBaseUrl, reportedSite) {
+    const a = hostOf(registeredBaseUrl);
+    const b = hostOf(reportedSite);
+    return !!a && a === b;
 }
 
 /** حقول طلب الدعم من الإضافة — نفس قيود ihub_intake_requests. */

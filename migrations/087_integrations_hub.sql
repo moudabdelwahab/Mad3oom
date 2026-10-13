@@ -741,8 +741,8 @@ begin
   end if;
   v_company := public._ihub_require_admin();
   r := public._ihub_my_connection(p_connection, v_company);
-  if p_action in ('connect', 'oauth_start')
-     and not exists (select 1 from public.ihub_providers p where p.key = r.provider and p.enabled) then
+  -- مفتاح الإيقاف يوقف كل عملية تنادي المزوّد (لا الفصل: ihub_disconnect منفصلة)
+  if not exists (select 1 from public.ihub_providers p where p.key = r.provider and p.enabled) then
     raise exception 'هذا المزوّد غير متاح حاليًا' using errcode = '22023',
       detail = '{"code":"provider_disabled"}';
   end if;
@@ -1652,7 +1652,7 @@ end $$;
 -- 11) الاحتفاظ (pg_cron، SQL خالص)
 -- ============================================================================
 -- أحداث معالجة/متجاهلة > 14 يومًا، ميتة > 30 يومًا. nonce/state منتهية.
--- طلبات دعم محسومة > 180 يومًا. سجلات مخزّنة بلا أي ربط تذكرة نشط ومضى
+-- طلبات دعم محسومة > 180 يومًا من الحسم، وغير المراجَعة > 180 يومًا من وصولها. سجلات مخزّنة بلا أي ربط تذكرة نشط ومضى
 -- على جلبها 30 يومًا (النسخة المخزّنة لا تعيش بلا سبب).
 create or replace function public.ihub_retention_sweep()
 returns jsonb
@@ -1673,7 +1673,8 @@ begin
               where expires_at < now() or completed_at is not null returning 1)
   select count(*) into v_states from d;
   with d as (delete from public.ihub_intake_requests
-              where status in ('converted', 'dismissed') and decided_at < now() - interval '180 days' returning 1)
+              where (status in ('converted', 'dismissed') and decided_at < now() - interval '180 days')
+                 or (status = 'new' and created_at < now() - interval '180 days') returning 1)
   select count(*) into v_intake from d;
   with d as (delete from public.ihub_external_records r
               where r.fetched_at < now() - interval '30 days'
