@@ -7,7 +7,7 @@
 1. Merge the PR (front end is safe before 088: `ihub_overview` missing → the section shows "for the company admin" state with no controls; the ticket panel stays hidden).
 2. Apply **088** (§2).
 3. Set Edge secrets and deploy the three functions (§3, §4).
-4. Schedule the worker (§5).
+4. Apply 090 and copy the worker secret (§5).
 5. **Verify each provider on a staging account** (§6). Only then:
 6. Grant `integrations_hub` to chosen plans and enable verified providers one at a time (§7).
 
@@ -44,7 +44,7 @@ Then `get_advisors` (security): "RLS enabled, no policy" on `ihub_*` is intended
 | `IHUB_KEY_VERSION` | `1` |
 | `IHUB_PUBLIC_BASE` | `https://srnelrdpqkcntbgudyto.supabase.co/functions/v1` |
 | `IHUB_DASHBOARD_URL` | `https://mad3oom.com/company-dashboard/` |
-| `IHUB_WORKER_SECRET` | ≥ 32 random characters (also stored in Vault, §5) |
+| `IHUB_WORKER_SECRET` | The value 090 generates in `internal_service_secrets` (`ihub_worker`), copied once (§5) |
 | `SALLA_CLIENT_ID`, `SALLA_CLIENT_SECRET`, `SALLA_REDIRECT_URI`, `SALLA_WEBHOOK_SECRET` | From Salla Partners (only when enabling Salla); redirect = `IHUB_PUBLIC_BASE/integrations-inbound/salla/callback` |
 
 ## 4. Deploy the Edge Functions
@@ -62,16 +62,9 @@ The shared modules are plain ES modules (no Deno APIs) except `deno-deps.ts`. **
 - `POST integrations-inbound/woocommerce/<random uuid>` → **404**.
 
 ## 5. Schedule the worker
-```sql
-select vault.create_secret('<IHUB_WORKER_SECRET>', 'ihub_worker_secret');
-select cron.schedule('ihub-worker', '*/5 * * * *', $$
-  select net.http_post(
-    url := 'https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-worker',
-    headers := jsonb_build_object('Content-Type', 'application/json',
-      'x-ihub-worker-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'ihub_worker_secret')),
-    body := '{}'::jsonb, timeout_milliseconds := 30000);
-$$);
-```
+Migration **090_ihub_worker_schedule** (same pattern as 089): it generates the worker secret **inside the database** (`internal_service_secrets`, key `ihub_worker`, 72 hex chars), adds `_ihub_worker_call()` (locked to every role; pg_cron only) and schedules `ihub-worker` every 5 minutes through `net.http_post` with the `x-ihub-worker-secret` header.
+Then copy that value **once** into the `IHUB_WORKER_SECRET` Edge Function secret (Dashboard → Table Editor → `internal_service_secrets` → `ihub_worker`; never paste it into chat, tickets or logs). Until both match, every run gets **401** (or **503** while `IHUB_WORKER_SECRET` is unset) and does nothing.
+No duplicate work: `ihub_svc_claim_due_events` leases events with `FOR UPDATE SKIP LOCKED` and pushes `next_attempt_at` 5 minutes ahead before processing (tested in `tests/sql/ihub-worker-schedule.test.sql`, W4).
 
 ## 6. Staging verification plan (required before enabling a provider)
 Use a non-production company with fixture data and provider sandbox accounts; enable the provider **only** inside a transaction or on a staging project.

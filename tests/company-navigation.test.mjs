@@ -543,7 +543,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         يُولَّد في القاعدة (internal_service_secrets) ونداء pg_cron كل ساعة لدالة
     //         continuity-attachment-cleanup. مقيسٌ في tests/sql/continuity-attachment-cleanup-schedule.test.sql.
     //         كُتب باسم 088 ونُقل إلى 089 بعد دمج 088_integrations_hub في main (لا اعتماد بينهما).
-    assert.equal(migrations[migrations.length - 1], '089_continuity_attachment_cleanup_schedule.sql',
+    //   090 — جدولة عامل مركز التكاملات (طلب صاحب المنصة 2026-10-13: «جهّز Background Worker
+    //         وجدولته وفق المعمارية الموجودة»): نفس نمط 089 — سر يُولَّد في القاعدة
+    //         (internal_service_secrets 'ihub_worker') ونداء pg_cron كل 5 دقائق لـ integrations-worker.
+    //         مقيسٌ في tests/sql/ihub-worker-schedule.test.sql (ومنه: لا تكرار في حجز الأحداث).
+    assert.equal(migrations[migrations.length - 1], '090_ihub_worker_schedule.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
