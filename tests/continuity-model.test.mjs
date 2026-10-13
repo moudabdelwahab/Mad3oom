@@ -302,3 +302,64 @@ test('087 policyPatchFromForm: only what changed; empty nullable = off; non-numb
     assert.deepEqual(policyPatchFromForm({ escalate_after_minutes: '4h' }, policy).errors, [{ field: 'escalate_after_minutes', reason: 'integer_expected' }]);
     assert.deepEqual(policyPatchFromForm({ reminder_offsets_minutes: '60, x' }, policy).errors, [{ field: 'reminder_offsets_minutes', reason: 'integer_expected' }]);
 });
+
+// ── 091: المشاركة المحدودة ─────────────────────────────────────────────────
+test('091 share: missing fields, explicit scope (no "all"), expiry and range shapes', async () => {
+    const m = await import('../assets/js/continuity/continuity-model.js');
+    const base = { to: 'u2', reason: 'r', sources: ['s1'], attachments: [], expiryKind: 'duration', minutes: 240 };
+    assert.deepEqual(m.shareMissing(base), []);
+    assert.deepEqual(m.shareMissing({ ...base, to: '', reason: ' ' }), ['المستلم', 'السبب']);
+    assert.deepEqual(m.shareMissing({ ...base, sources: [] }), ['رسالة أو مرفق واحد على الأقل']);
+    assert.deepEqual(m.shareMissing({ ...base, sources: [], attachments: ['a1'] }), []);
+    assert.deepEqual(m.shareMissing({ ...base, to: '', reason: '' }, { needsRecipient: false }), [], 'amend has no recipient');
+    assert.deepEqual(m.shareMissing({ ...base, rangeFrom: '2026-10-07T10:00' }), ['بداية ونهاية الفترة']);
+    assert.deepEqual(m.shareMissing({ ...base, rangeFrom: '2026-10-07T10:00', rangeTo: '2026-10-07T10:00' }), ['بداية الفترة قبل نهايتها']);
+    assert.deepEqual(m.shareMissing({ ...base, expiryKind: 'until', untilAt: '' }), ['وقت الانتهاء']);
+
+    assert.deepEqual(m.buildShareScope({ ...base, sources: ['s1', 's1', 's2'] }),
+        { sources: ['s1', 's2'], attachments: [], actions: ['view'], expiry: { kind: 'duration', minutes: 240 } });
+    assert.deepEqual(m.buildShareScope({ ...base, expiryKind: 'session', minutes: 60 }).expiry, { kind: 'session', minutes: 60 });
+    assert.deepEqual(m.buildShareScope({ ...base, expiryKind: 'until', untilAt: '2026-10-14T10:00', untilTz: 'UTC' }).expiry,
+        { kind: 'until', at: '2026-10-14T10:00:00', tz: 'UTC' });
+    assert.deepEqual(m.buildShareScope({ ...base, expiryKind: 'ongoing' }).expiry, { kind: 'duration', minutes: 240 }, 'the UI never asks for ongoing');
+    assert.deepEqual(m.buildShareScope({ ...base, rangeFrom: '2026-10-07T10:24', rangeTo: '2026-10-07T10:25', rangeTz: 'Africa/Cairo' }).range,
+        { from: '2026-10-07T10:24:00', to: '2026-10-07T10:25:00', tz: 'Africa/Cairo' });
+    for (const d of [base, { ...base, sources: [] }]) {
+        const scope = m.buildShareScope(d);
+        assert.ok(Array.isArray(scope.sources) && Array.isArray(scope.attachments), 'explicit lists, never "all"');
+        assert.deepEqual(scope.actions, ['view']);
+    }
+    assert.ok(m.SHARE_DURATIONS.every((x) => x.minutes <= 10080));
+    assert.ok(m.SHARE_SESSION_DURATIONS.every((x) => x.minutes <= 720));
+    assert.equal(m.SHARE_DEFAULT_MINUTES, 240);
+});
+
+test('091 share: remaining time, statuses, material change and changed-since-review texts', async () => {
+    const m = await import('../assets/js/continuity/continuity-model.js');
+    const now = Date.parse('2026-10-13T10:00:00Z');
+    assert.equal(m.grantRemainingText(null, now), 'بدون موعد انتهاء');
+    assert.equal(m.grantRemainingText('2026-10-13T09:59:00Z', now), 'انتهت');
+    assert.equal(m.grantRemainingText('2026-10-13T10:00:30Z', now), 'باقي أقل من دقيقة');
+    assert.equal(m.grantRemainingText('2026-10-13T13:20:00Z', now), 'باقي 3 س 20 د');
+    assert.equal(m.grantRemainingText('2026-10-15T12:00:00Z', now), 'باقي 2 ي 2 س');
+    assert.equal(m.grantStatusText({ state: 'revoked', revoke_cause: 'reassigned' }), 'انتهت لأن السجل اتسند لغيره');
+    assert.equal(m.grantStatusText({ state: 'expired', cancel_cause: 'session' }), 'انتهت جلسة الدخول');
+    assert.equal(m.grantStatusText({ state: 'declined' }), 'اترفض');
+    assert.equal(m.materialChangeText(['due', 'scope_items']), 'السجل اتغيّر بعد مراجعتك (الموعد، عناصر المشاركة). راجع الطلب من جديد قبل القبول.');
+    assert.equal(m.changedSinceReviewText(['next_action', 'unknown', 'next_action']), 'اتعدّل بعد مراجعتك: الخطوة التالية.');
+    assert.equal(m.changedSinceReviewText([]), '');
+    assert.equal(m.shareExpiryText({ kind: 'duration', minutes: 240 }), 'لمدة 4 ساعات من القبول');
+    assert.equal(m.shareExpiryText({ kind: 'session', minutes: 720 }), 'جلسة الدخول الحالية فقط، بحد أقصى 12 ساعة');
+    assert.equal(m.isScopedHandover({ mode: 'review' }), true);
+    assert.equal(m.isScopedHandover({ mode: 'transfer' }), false);
+    assert.equal(m.isScopedHandover({}), false, '081 rows (no mode) are transfers');
+    const r = { owner_id: 'o' };
+    assert.equal(m.canManageGrant({ created_by: 'g' }, r, { meId: 'g' }), true);
+    assert.equal(m.canManageGrant({ created_by: 'g' }, r, { meId: 'o' }), true);
+    assert.equal(m.canManageGrant({ created_by: 'g' }, r, { meId: 'x', canAssign: true }), true);
+    assert.equal(m.canManageGrant({ created_by: 'g' }, r, { meId: 'x' }), false);
+    assert.match(m.handoverErrorText({ code: 'version_conflict', reason: 'material_change', kinds: ['due'] }), /الموعد/);
+    assert.match(m.handoverErrorText({ code: 'validation_failed', field: 'session', reason: 'required' }), /جلسة نشطة/);
+    assert.match(m.handoverErrorText({ code: 'feature_not_enabled', field: 'scope.expiry' }), /المستمر/);
+    assert.equal(m.handoverErrorText({ code: 'validation_failed', field: 'note', reason: 'required' }), 'اكتب سبب الرفض.', '081 text unchanged');
+});

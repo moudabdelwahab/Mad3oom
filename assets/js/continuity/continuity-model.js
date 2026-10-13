@@ -544,7 +544,7 @@ export function attachmentView(a) {
 // التسليم (081) — عرض فقط؛ الخادم يعيد كل الفحوص
 // ─────────────────────────────────────────────────────────────
 export const HANDOVER_STATE_LABELS = Object.freeze({
-    pending: 'بانتظار القبول', accepted: 'اتقبل', declined: 'اترفض', cancelled: 'اتلغى', expired: 'انتهى',
+    pending: 'بانتظار القبول', accepted: 'اتقبل', declined: 'اترفض', cancelled: 'اتلغى', expired: 'انتهى', revoked: 'اتسحب',
 });
 export const HANDOVER_CANCEL_LABELS = Object.freeze({
     initiator: 'ألغاه صاحب الطلب', supervisor: 'ألغاه مشرف', reassigned: 'اتلغى لأن السجل اتسند مباشرة',
@@ -575,6 +575,21 @@ export function handoverTargets(agents, record) {
 /** رفض الخادم للتسليم ⇒ نص مفهوم. */
 export function handoverErrorText(err) {
     const r = err?.reason;
+    const f = err?.field;
+    // 091: المراجعة والنطاق والجلسة
+    if (r === 'material_change') return materialChangeText(err.kinds);
+    if (r === 'review_required') return 'راجع الطلب الأول، وبعدها اقبل.';
+    if (r === 'grant_inactive') return 'المشاركة دي انتهت أو اتسحبت.';
+    if (f === 'session' && r === 'required') return 'لازم تكون داخل بجلسة نشطة عشان تقبل مشاركة مربوطة بالجلسة. سجّل دخول من جديد وجرّب تاني.';
+    if (r === 'self') return 'مينفعش تشارك السجل مع نفسك.';
+    if (r === 'empty') return 'اختار رسالة أو مرفق واحد على الأقل.';
+    if (r === 'review_is_view_only') return 'المراجعة عرض فقط.';
+    if (typeof f === 'string' && f.startsWith('scope.expiry') && err?.code === 'feature_not_enabled') return 'الوصول المستمر مش مسموح في الإعدادات.';
+    if (f === 'scope.expiry.minutes') return 'المدة أطول من المسموح في الإعدادات.';
+    if (f === 'scope.expiry.until') return r === 'in_past' ? 'وقت الانتهاء عدّى بالفعل.' : 'وقت الانتهاء أبعد من المسموح في الإعدادات.';
+    if (f === 'scope.range') return r === 'order' ? 'بداية الفترة لازم تكون قبل نهايتها.' : 'الفترة الزمنية غير صالحة.';
+    if (typeof f === 'string' && f.startsWith('scope.') && err?.code === 'not_found') return 'رسالة أو مرفق في الاختيار مبقاش في السجل. حدّث الصفحة.';
+    if (typeof f === 'string' && f.startsWith('scope.actions')) return 'إجراءات المشاركة غير العرض لسه مش مفعّلة.';
     if (r === 'handover_pending') return 'فيه طلب تسليم معلّق للسجل ده بالفعل.';
     if (r === 'not_eligible') return 'الموظف ده مش مؤهل يستلم سجلات دلوقتي.';
     if (r === 'already_owner') return 'الموظف ده هو المالك الحالي.';
@@ -760,4 +775,116 @@ export function policyPatchFromForm(values, policy) {
         patch.escalation_recipients = values.escalation_recipients;
     }
     return { patch, errors };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 091: المشاركة المحدودة (مراجعة، عرض فقط) — عرض فقط؛ البوابة على الخادم في كل قراءة
+// ─────────────────────────────────────────────────────────────
+export const SHARE_DURATIONS = Object.freeze([
+    Object.freeze({ minutes: 60, label: 'ساعة' }), Object.freeze({ minutes: 240, label: '4 ساعات' }),
+    Object.freeze({ minutes: 1440, label: 'يوم' }), Object.freeze({ minutes: 4320, label: '3 أيام' }),
+    Object.freeze({ minutes: 10080, label: '7 أيام' }),
+]);
+export const SHARE_SESSION_DURATIONS = Object.freeze([
+    Object.freeze({ minutes: 60, label: 'ساعة' }), Object.freeze({ minutes: 240, label: '4 ساعات' }),
+    Object.freeze({ minutes: 720, label: '12 ساعة' }),
+]);
+export const SHARE_DEFAULT_MINUTES = 240;
+export const GRANT_REVOKE_LABELS = Object.freeze({
+    owner: 'سحبها مالك السجل', grantor: 'سحبها صاحب المشاركة', supervisor: 'سحبها مشرف',
+    record_closed: 'انتهت لأن السجل اتقفل', reassigned: 'انتهت لأن السجل اتسند لغيره',
+    grantor_lost_authority: 'صاحب المشاركة لم يعد مسؤولًا عن السجل', recipient_ineligible: 'المستلم لم يعد مؤهلًا',
+    policy: 'انتهت بسبب الإعدادات',
+});
+export const GRANT_EXPIRE_LABELS = Object.freeze({ time: 'انتهت المدة', session: 'انتهت جلسة الدخول' });
+export const MATERIAL_KIND_LABELS = Object.freeze({
+    status: 'الحالة', owner: 'المالك', team: 'الفريق', kind: 'النوع', category: 'التصنيف', due: 'الموعد', scope_items: 'عناصر المشاركة',
+});
+
+export const isScopedHandover = (h) => Boolean(h?.mode) && h.mode !== 'transfer';
+
+/** 40001 material_change ⇒ ما الذي تغيّر (أسماء فقط). */
+export function materialChangeText(kinds = []) {
+    const names = (kinds || []).map((k) => MATERIAL_KIND_LABELS[k] || k);
+    return `السجل اتغيّر بعد مراجعتك${names.length ? ` (${names.join('، ')})` : ''}. راجع الطلب من جديد قبل القبول.`;
+}
+
+/** الحقول العادية التي تغيّرت بين المراجعة والقبول (لا تمنع القبول) ⇒ نص أو ''. */
+export function changedSinceReviewText(fields = []) {
+    const names = [...new Set((fields || []).map((f) => CHANGED_FIELD_LABELS[f] || null).filter(Boolean))];
+    return names.length ? `اتعدّل بعد مراجعتك: ${names.join('، ')}.` : '';
+}
+
+/** الوقت المتبقي في منحة: 'باقي 3 س 20 د' | 'باقي أقل من دقيقة' | 'انتهت' | 'بدون موعد انتهاء'. */
+export function grantRemainingText(expiresAt, now = Date.now()) {
+    if (!expiresAt) return 'بدون موعد انتهاء';
+    const ms = new Date(expiresAt).getTime() - now;
+    if (!Number.isFinite(ms) || ms <= 0) return 'انتهت';
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return 'باقي أقل من دقيقة';
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    const m = mins % 60;
+    return `باقي ${[d ? `${d} ي` : '', h ? `${h} س` : '', !d && m ? `${m} د` : ''].filter(Boolean).join(' ')}`;
+}
+
+/** وصف انتهاء النطاق (قبل القبول): يبدأ العد عند القبول (S-1). */
+export function shareExpiryText(expiry) {
+    if (!expiry) return '';
+    const dur = (n) => [...SHARE_DURATIONS, ...SHARE_SESSION_DURATIONS].find((x) => x.minutes === n)?.label || `${n} دقيقة`;
+    if (expiry.kind === 'duration') return `لمدة ${dur(expiry.minutes)} من القبول`;
+    if (expiry.kind === 'session') return `جلسة الدخول الحالية فقط، بحد أقصى ${dur(expiry.minutes)}`;
+    if (expiry.kind === 'until') return 'لحد وقت محدد';
+    if (expiry.kind === 'ongoing') return 'مستمر لحد ما يتسحب';
+    return '';
+}
+
+/** حالة منحة لسجل التاريخ. */
+export function grantStatusText(h) {
+    if (h?.state === 'revoked') return GRANT_REVOKE_LABELS[h.revoke_cause] || HANDOVER_STATE_LABELS.revoked;
+    if (h?.state === 'expired') return GRANT_EXPIRE_LABELS[h.cancel_cause] || HANDOVER_STATE_LABELS.expired;
+    if (h?.state === 'cancelled') return HANDOVER_CANCEL_LABELS[h.cancel_cause] || HANDOVER_STATE_LABELS.cancelled;
+    return HANDOVER_STATE_LABELS[h?.state] || h?.state || '';
+}
+
+/** إدارة منحة قائمة: مانحها، أو مالك السجل، أو مشرف/صاحب إسناد. الخادم يعيد الفحص. */
+export function canManageGrant(h, record, { meId = null, canAssign = false } = {}) {
+    return Boolean(meId && h && (h.created_by === meId || record?.owner_id === meId || canAssign));
+}
+
+const LOCAL_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+const sec = (v) => (v.length === 16 ? `${v}:00` : v);
+
+/**
+ * ما ينقص مسودة المشاركة. draft:
+ *   { to?, reason?, sources: [id], attachments: [id], expiryKind: duration|session|until, minutes, untilAt, untilTz,
+ *     rangeFrom, rangeTo, rangeTz }
+ * needsRecipient: false في تعديل النطاق (المستلم والسبب ثابتان).
+ */
+export function shareMissing(d, { needsRecipient = true } = {}) {
+    const out = [];
+    if (needsRecipient && !d?.to) out.push('المستلم');
+    if (needsRecipient && !String(d?.reason || '').trim()) out.push('السبب');
+    if (!(d?.sources?.length || d?.attachments?.length)) out.push('رسالة أو مرفق واحد على الأقل');
+    const from = d?.rangeFrom || '';
+    const to = d?.rangeTo || '';
+    if (Boolean(from) !== Boolean(to)) out.push('بداية ونهاية الفترة');
+    else if (from && (!LOCAL_DT.test(from) || !LOCAL_DT.test(to))) out.push('فترة صالحة');
+    else if (from && sec(from) >= sec(to)) out.push('بداية الفترة قبل نهايتها');
+    if (d?.expiryKind === 'until' && !LOCAL_DT.test(d?.untilAt || '')) out.push('وقت الانتهاء');
+    return out;
+}
+
+/** مسودة ⇒ p_scope بالعقد (قوائم صريحة دائمًا؛ لا «الكل» من الواجهة). */
+export function buildShareScope(d) {
+    const scope = {
+        sources: [...new Set(d?.sources || [])],
+        attachments: [...new Set(d?.attachments || [])],
+        actions: ['view'],
+    };
+    const kind = ['duration', 'session', 'until'].includes(d?.expiryKind) ? d.expiryKind : 'duration';
+    if (kind === 'until') scope.expiry = { kind, at: sec(d.untilAt), tz: d.untilTz || 'Africa/Cairo' };
+    else scope.expiry = { kind, minutes: Number(d?.minutes) || (kind === 'session' ? 720 : SHARE_DEFAULT_MINUTES) };
+    if (d?.rangeFrom && d?.rangeTo) scope.range = { from: sec(d.rangeFrom), to: sec(d.rangeTo), tz: d.rangeTz || 'Africa/Cairo' };
+    return scope;
 }

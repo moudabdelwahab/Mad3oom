@@ -77,7 +77,7 @@ Use a non-production company with fixture data and provider sandbox accounts; en
 Record results in each `PROVIDER_*.md` and flip capabilities to `implemented_verified` only for what was observed.
 
 ## 7. Enable (after verification)
-**Pilot for one company (migration 091):** `company_feature_overrides` grants a feature to a single company without touching any plan; `company_has_feature()` is the plan rule *or* an unexpired override. The table accepts `integrations_hub` only, has no grants for any role and is written from the SQL editor:
+**Pilot for one company (migration 092):** `company_feature_overrides` grants a feature to a single company without touching any plan; `company_has_feature()` is the plan rule *or* an unexpired override. The table accepts `integrations_hub` only, has no grants for any role and is written from the SQL editor:
 ```sql
 insert into public.company_feature_overrides (company_id, feature_key, reason, expires_at)
 values ('<company uuid>', 'integrations_hub', 'pilot', now() + interval '60 days');

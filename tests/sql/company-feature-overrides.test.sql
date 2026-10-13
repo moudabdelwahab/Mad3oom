@@ -1,6 +1,6 @@
 -- ============================================================================
--- استثناء امتياز لشركة بعينها (091) على نسخة مطابقة لشكل الإنتاج:
---   F0  تعريف company_has_feature في النسخة = بصمة الإنتاج قبل 091
+-- استثناء امتياز لشركة بعينها (092) على نسخة مطابقة لشكل الإنتاج:
+--   F0  تعريف company_has_feature في النسخة = بصمة الإنتاج قبل 092
 --   F1  شرط الباقة لا يتغير: شركة مشتركة تحتفظ بامتيازها، وغير المشتركة بلا امتياز
 --   F2  الاستثناء يمنح شركته وحدها، ولهذا الامتياز وحده
 --   F3  الاستثناء المنتهي لا يمنح شيئًا
@@ -84,7 +84,7 @@ BEGIN
   PERFORM t.ok(NOT t.has(t.u('OA'), 'integrations_hub') AND NOT t.has(t.u('OB'), 'integrations_hub'), 'pre nobody has hub');
 END $$;
 
-\i migrations/091_company_feature_overrides.sql
+\i migrations/092_company_feature_overrides.sql
 SET search_path = public, extensions;
 
 -- F1
@@ -139,7 +139,7 @@ BEGIN
 END $$;
 
 -- إعادة التشغيل لا تمس الصفوف
-\i migrations/091_company_feature_overrides.sql
+\i migrations/092_company_feature_overrides.sql
 SET search_path = public, extensions;
 DO $$
 BEGIN
@@ -148,7 +148,7 @@ BEGIN
 END $$;
 
 -- RB
-\i migrations/_rollback/091_company_feature_overrides.down.sql
+\i migrations/_rollback/092_company_feature_overrides.down.sql
 DO $$
 BEGIN
   PERFORM t.ok(md5(pg_get_functiondef('public.company_has_feature(text)'::regprocedure)) = '82ff4a3898fe0a0bdac756767119f0cf',
@@ -158,7 +158,7 @@ BEGIN
   PERFORM t.ok(NOT t.has(t.u('OB'), 'integrations_hub') AND t.has(t.u('OA'), 'api_tokens'), 'RB behaviour back to plan-only');
   RAISE NOTICE 'PASS RB-a: التراجع يعيد التعريف حرفيًا ويحذف الجدول';
 END $$;
-\i migrations/091_company_feature_overrides.sql
+\i migrations/092_company_feature_overrides.sql
 SET search_path = public, extensions;
 DO $$
 BEGIN

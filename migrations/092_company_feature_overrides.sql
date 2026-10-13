@@ -1,5 +1,5 @@
 -- ============================================================================
--- 091_company_feature_overrides.sql
+-- 092_company_feature_overrides.sql
 --   استثناء امتياز لشركة بعينها، دون تعديل أي باقة أو اشتراك.
 --
 -- لماذا
@@ -19,18 +19,19 @@
 --   لا أحد عبر الواجهة: الجدول بلا سياسة سماح وبلا صلاحية لأي دور (ومنها service_role).
 --   يُضاف صف من محرر SQL للمالك فقط، ويُسجَّل في ihub_audit_events.
 --
--- يعتمد على 088 (مفتاح integrations_hub في feature_flags). قابل لإعادة التشغيل.
--- التراجع: migrations/_rollback/091_company_feature_overrides.down.sql (يعيد الدالة حرفيًا)
+-- يعتمد على 088 (مفتاح integrations_hub في feature_flags). قابل لإعادة التشغيل. كُتب باسم 091 ونُقل
+-- إلى 092 بعد دمج 091_continuity_scoped_handover في main (لا اعتماد بينهما).
+-- التراجع: migrations/_rollback/092_company_feature_overrides.down.sql (يعيد الدالة حرفيًا)
 -- ============================================================================
 
 do $$
 begin
   if to_regprocedure('public.company_has_feature(text)') is null
      or to_regprocedure('public.current_company_id()') is null then
-    raise exception '091: يتطلب company_has_feature و current_company_id';
+    raise exception '092: يتطلب company_has_feature و current_company_id';
   end if;
   if not exists (select 1 from public.feature_flags where key = 'integrations_hub') then
-    raise exception '091: يتطلب 088 (feature_flags integrations_hub)';
+    raise exception '092: يتطلب 088 (feature_flags integrations_hub)';
   end if;
 end $$;
 
@@ -45,7 +46,7 @@ create table if not exists public.company_feature_overrides (
   constraint company_feature_overrides_pilot_only check (feature_key in ('integrations_hub'))
 );
 comment on table public.company_feature_overrides is
-  '091: منح امتياز لشركة واحدة بلا تعديل باقة. مقيَّد بـ integrations_hub. يكتبه المالك من محرر SQL فقط.';
+  '092: منح امتياز لشركة واحدة بلا تعديل باقة. مقيَّد بـ integrations_hub. يكتبه المالك من محرر SQL فقط.';
 
 alter table public.company_feature_overrides enable row level security;
 revoke all on table public.company_feature_overrides from public, anon, authenticated;
@@ -92,25 +93,25 @@ as $function$
 $function$;
 
 comment on function public.company_has_feature(text) is
-  'هل تملك شركة المستخدم الحالي هذا الامتياز عبر اشتراك فعّال، أو عبر استثناء ساري في company_feature_overrides (091)؟ لا تأخذ معرّف شركة كمُعامل عمدًا — لا يوجد ما يُلاعَب به.';
+  'هل تملك شركة المستخدم الحالي هذا الامتياز عبر اشتراك فعّال، أو عبر استثناء ساري في company_feature_overrides (092)؟ لا تأخذ معرّف شركة كمُعامل عمدًا — لا يوجد ما يُلاعَب به.';
 
 -- التحقق
 do $$
 begin
   if not (select relrowsecurity from pg_class where oid = 'public.company_feature_overrides'::regclass) then
-    raise exception '091: RLS غير مفعّل';
+    raise exception '092: RLS غير مفعّل';
   end if;
   if exists (select 1 from pg_policy where polrelid = 'public.company_feature_overrides'::regclass and polpermissive) then
-    raise exception '091: سياسة سماح على جدول الاستثناءات';
+    raise exception '092: سياسة سماح على جدول الاستثناءات';
   end if;
   if has_table_privilege('authenticated', 'public.company_feature_overrides', 'SELECT')
      or has_table_privilege('authenticated', 'public.company_feature_overrides', 'INSERT')
      or has_table_privilege('anon', 'public.company_feature_overrides', 'SELECT') then
-    raise exception '091: جدول الاستثناءات مكشوف';
+    raise exception '092: جدول الاستثناءات مكشوف';
   end if;
   if not has_function_privilege('authenticated', 'public.company_has_feature(text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.company_has_feature(text)', 'EXECUTE') then
-    raise exception '091: صلاحيات company_has_feature تغيّرت';
+    raise exception '092: صلاحيات company_has_feature تغيّرت';
   end if;
-  raise notice '091: استثناءات الامتياز لكل شركة جاهزة (integrations_hub فقط)';
+  raise notice '092: استثناءات الامتياز لكل شركة جاهزة (integrations_hub فقط)';
 end $$;

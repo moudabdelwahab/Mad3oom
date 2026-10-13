@@ -7,8 +7,10 @@
  *   await continuityReopen({ needsDue, keepsDue, tz, timezones, dueNote }) → { reason, due } | null
  *     due = { at: 'YYYY-MM-DDTHH:MM:00', tz } أو null (يفضل الموعد الحالي)
  *   await continuityHandover({ targets, message })                        → { to, reason, note } | null
+ *   await continuityShare({ targets?, sources, attachments, submit, ... })   → true | null (091)
  */
 import { CONTINUITY_ICONS } from './continuity-icons.js';
+import { SHARE_DURATIONS, SHARE_SESSION_DURATIONS, SHARE_DEFAULT_MINUTES, shareMissing } from './continuity-model.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -225,5 +227,151 @@ export function continuityNewRecord({ owners = [], teams = [], canAssign = false
         refresh();
         dlg.showModal();
         form.querySelector('[name="title"]').focus();
+    });
+}
+
+/**
+ * مشاركة للمراجعة (091): عرض فقط لرسائل ومرفقات **مختارة صراحة**، لمدة تبدأ عند القبول.
+ *   targets      المرشحون (فارغ ⇒ تعديل نطاق مشاركة قائمة: بلا مستلم ولا سبب)
+ *   sources      [{ id, label }] رسائل السجل النشطة · attachments [{ id, label }]
+ *   initial      { sources, attachments, expiryKind, minutes } للتعديل
+ *   preview(to, sourceIds) → Promise<عدد الرسائل التي لن يرى المستلم نصها | null>
+ *   submit(draft) → null (نجح) | نص خطأ (يظهر داخل النافذة وتظل مفتوحة)
+ * لا خيار «الكل» يتوسع وحده: القائمة تُرسل معرّفات صريحة، والخادم يحسمها ويثبتها.
+ */
+export function continuityShare({ title = 'مشاركة للمراجعة', targets = [], sources = [], attachments = [], timezones = ['Africa/Cairo'],
+    initial = null, message = '', confirmText = 'إرسال الطلب', preview = null, submit }) {
+    if (open) open.finish(null);
+    const amend = !targets.length;
+    const before = document.activeElement;
+    const dlg = document.createElement('dialog');
+    dlg.className = 'ct-dialog';
+    dlg.id = 'ctShareDialog';
+    dlg.setAttribute('dir', 'rtl');
+    dlg.setAttribute('aria-labelledby', 'ctShareTitle');
+    const opt = (v, l, sel = false) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(l)}</option>`;
+    const pick = new Set(initial?.sources || []);
+    const pickA = new Set(initial?.attachments || []);
+    const kind0 = initial?.expiryKind || 'duration';
+    const min0 = Number(initial?.minutes) || SHARE_DEFAULT_MINUTES;
+    const tzs = (z) => timezones.map((t, i) => opt(t, t, z ? t === z : i === 0)).join('');
+    dlg.innerHTML = `<form method="dialog" class="ct-sheet ct-share" novalidate>
+      <header class="ct-head">
+        <span class="ct-confirm-icon" aria-hidden="true">${CONTINUITY_ICONS.continuity}</span>
+        <div class="ct-head-text"><h2 id="ctShareTitle">${esc(title)}</h2>
+          <p>${esc(message || 'عرض فقط للي تختاره. المستلم لازم يراجع ويقبل، والمدة تبدأ من القبول. الملكية ما بتتغيرش، وتقدر تسحب المشاركة في أي وقت.')}</p></div>
+        <button type="button" class="ct-icon-btn" data-dlg="cancel" aria-label="إغلاق">${CONTINUITY_ICONS.close}</button>
+      </header>
+      <div class="ct-body">
+        ${amend ? '' : `<label class="ct-field"><span>المستلم</span>
+          <select name="to" required><option value="">اختار…</option>${targets.map((t) => opt(t.value, t.label)).join('')}</select></label>
+        <label class="ct-field"><span>سبب المشاركة</span><textarea name="reason" maxlength="1000" rows="2"></textarea></label>`}
+        <fieldset class="ct-field ct-share-list"><legend>الرسائل <button type="button" class="btn btn-secondary ct-btn-sm" data-all="src">اختيار الكل</button></legend>
+          ${sources.length ? sources.map((x) => `<label><input type="checkbox" name="src" value="${esc(x.id)}" ${pick.has(x.id) ? 'checked' : ''}> <span dir="auto">${esc(x.label)}</span></label>`).join('')
+            : '<p class="ct-muted">مفيش رسائل في السجل.</p>'}</fieldset>
+        ${attachments.length ? `<fieldset class="ct-field ct-share-list"><legend>المرفقات</legend>
+          ${attachments.map((x) => `<label><input type="checkbox" name="att" value="${esc(x.id)}" ${pickA.has(x.id) ? 'checked' : ''}> <span dir="auto">${esc(x.label)}</span></label>`).join('')}</fieldset>` : ''}
+        <details class="ct-field"><summary>فترة زمنية (اختياري)</summary>
+          <p class="ct-muted">من الرسائل المختارة، يظهر بس اللي اتبعت من البداية لحد قبل النهاية.</p>
+          <div class="ct-detail-grid">
+            <label class="ct-field"><span>من</span><input type="datetime-local" name="rangeFrom"></label>
+            <label class="ct-field"><span>لحد</span><input type="datetime-local" name="rangeTo"></label>
+            <label class="ct-field"><span>المنطقة الزمنية</span><select name="rangeTz" dir="ltr">${tzs()}</select></label>
+          </div></details>
+        <fieldset class="ct-field"><legend>المدة (تبدأ من القبول)</legend>
+          <label><input type="radio" name="expiryKind" value="duration" ${kind0 === 'duration' ? 'checked' : ''}> مدة
+            <select name="minutes">${SHARE_DURATIONS.map((x) => opt(x.minutes, x.label, x.minutes === min0)).join('')}</select></label>
+          <label><input type="radio" name="expiryKind" value="session" ${kind0 === 'session' ? 'checked' : ''}> جلسة دخول المستلم فقط، بحد أقصى
+            <select name="sessionMinutes">${SHARE_SESSION_DURATIONS.map((x) => opt(x.minutes, x.label, x.minutes === 720)).join('')}</select></label>
+          <label><input type="radio" name="expiryKind" value="until" ${kind0 === 'until' ? 'checked' : ''}> لحد
+            <input type="datetime-local" name="untilAt"> <select name="untilTz" dir="ltr">${tzs()}</select></label>
+        </fieldset>
+        <p class="ct-muted" id="ctSharePreview" aria-live="polite"></p>
+        <p class="ct-muted" id="ctShareMissing" aria-live="polite"></p>
+        <p class="ct-error" id="ctShareError" role="alert"></p>
+      </div>
+      <footer class="ct-actions">
+        <button type="submit" class="btn btn-primary" id="ctShareSave" disabled>${esc(confirmText)}</button>
+        <button type="button" class="btn btn-secondary" data-dlg="cancel">إلغاء</button>
+      </footer></form>`;
+    document.body.append(dlg);
+
+    return new Promise((resolve) => {
+        const form = dlg.querySelector('form');
+        const save = dlg.querySelector('#ctShareSave');
+        const errEl = dlg.querySelector('#ctShareError');
+        const missEl = dlg.querySelector('#ctShareMissing');
+        const prevEl = dlg.querySelector('#ctSharePreview');
+        let busy = false;
+        let previewSeq = 0;
+        const draft = () => {
+            const fd = new FormData(form);
+            const kind = String(fd.get('expiryKind') || 'duration');
+            return {
+                to: amend ? null : String(fd.get('to') || ''), reason: amend ? null : String(fd.get('reason') || ''),
+                sources: fd.getAll('src').map(String), attachments: fd.getAll('att').map(String),
+                expiryKind: kind,
+                minutes: Number(kind === 'session' ? fd.get('sessionMinutes') : fd.get('minutes')),
+                untilAt: String(fd.get('untilAt') || ''), untilTz: String(fd.get('untilTz') || ''),
+                rangeFrom: String(fd.get('rangeFrom') || ''), rangeTo: String(fd.get('rangeTo') || ''), rangeTz: String(fd.get('rangeTz') || ''),
+            };
+        };
+        const refresh = () => {
+            const m = shareMissing(draft(), { needsRecipient: !amend });
+            missEl.textContent = m.length ? `ناقص: ${m.join('، ')}` : '';
+            save.disabled = busy || m.length > 0;
+        };
+        const runPreview = async () => {
+            const d = draft();
+            if (!preview || amend || !d.to || !d.sources.length) { prevEl.textContent = ''; return; }
+            const seq = ++previewSeq;
+            const hidden = await preview(d.to, d.sources).catch(() => null);
+            if (seq !== previewSeq) return;
+            prevEl.textContent = hidden == null ? ''
+                : hidden ? `${hidden} من الرسائل المختارة مش هيظهر نصها للمستلم لأنه مش مسموح له يفتح المحادثة.`
+                    : 'المستلم يقدر يشوف نص كل الرسائل المختارة.';
+        };
+        const finish = (value) => {
+            if (!open || open.dlg !== dlg) return;
+            open = null;
+            if (dlg.open) dlg.close();
+            dlg.remove();
+            if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+            resolve(value);
+        };
+        open = { dlg, finish };
+        form.addEventListener('input', () => { errEl.textContent = ''; refresh(); });
+        form.addEventListener('change', (e) => { refresh(); if (e.target.name === 'to' || e.target.name === 'src') runPreview(); });
+        dlg.addEventListener('click', (e) => {
+            if (e.target.closest('[data-dlg="cancel"]') && !busy) { finish(null); return; }
+            if (e.target.closest('[data-all="src"]')) {
+                e.preventDefault();
+                const boxes = [...form.querySelectorAll('input[name="src"]')];
+                const on = boxes.some((b) => !b.checked);
+                boxes.forEach((b) => { b.checked = on; });
+                refresh();
+                runPreview();
+            }
+        });
+        dlg.addEventListener('cancel', (e) => { e.preventDefault(); if (!busy) finish(null); });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const d = draft();
+            if (busy || shareMissing(d, { needsRecipient: !amend }).length) return;
+            busy = true;
+            save.disabled = true;
+            const label = save.textContent;
+            save.textContent = 'بيتبعت…';
+            errEl.textContent = '';
+            let failure;
+            try { failure = await submit(d); } catch (err) { failure = err?.message || 'حصل خطأ'; }
+            busy = false;
+            save.textContent = label;
+            if (failure) { errEl.textContent = failure; refresh(); return; }
+            finish(true);
+        });
+        refresh();
+        dlg.showModal();
+        (form.querySelector('[name="to"]') || form.querySelector('input')).focus();
     });
 }
