@@ -39,19 +39,27 @@
   <link rel="stylesheet" href="/assets/responsive-global.css">
   <script src="/assets/responsive-global.js" defer></script>
 </head>
-<body class="customer-shell company-shell">
+<!-- company-app: يحصر أنماط هذه اللوحة فيها؛ بوابة عملاء الشركة (/portal/) تحمل company-shell أيضًا -->
+<body class="customer-shell company-shell company-app">
     <div id="sidebar-container"></div>
 
     <main class="admin-main" id="companyMain">
 
-        <!-- شريط المستوى: أوضح فرق بصري بين لوحة العميل ولوحة الشركة.
-             نفس نظام التصميم (نفس التوكنز والمكوّنات)، لكن هوية لونية
-             ومستوى معلن، عشان المستخدم يعرف إنه في سياق الشركة مش سياقه هو. -->
+        <!-- شريط الشركة: سياق ثابت مختصر فوق كل قسم — أي شركة، بأي دور، وفي أي قسم.
+             المستوى معلن («لوحة الشركة») عشان المستخدم يعرف إنه في سياق الشركة مش سياقه هو. -->
         <header class="company-banner" id="companyBanner" hidden>
-            <div class="company-banner-main">
-                <span class="company-level-tag">لوحة الشركة</span>
-                <h1 class="company-name" id="companyName">—</h1>
-                <p class="company-meta" id="companyMeta"></p>
+            <div class="company-banner-identity">
+                <span class="company-mark" id="companyMark" aria-hidden="true">—</span>
+                <div class="company-banner-main">
+                    <nav class="company-crumbs" aria-label="مسار التنقّل">
+                        <ol>
+                            <li><span class="company-level-tag">لوحة الشركة</span></li>
+                            <li id="companySectionCrumb" aria-current="page">نظرة عامة</li>
+                        </ol>
+                    </nav>
+                    <h1 class="company-name" id="companyName">—</h1>
+                    <p class="company-meta" id="companyMeta"></p>
+                </div>
             </div>
             <!-- لا زر خروج إلى بوابة العميل: لوحة الشركة هي اللوحة الرسمية
                  لهذا الحساب، والملف الشخصي والأمان قسمان هنا. -->
@@ -70,6 +78,35 @@
             <!-- ═══ نظرة عامة ══════════════════════════════════════════════ -->
             <section class="tab-content" id="overviewTabContent">
                 <div class="kpi-grid" id="companyKpis" aria-live="polite"></div>
+
+                <!-- ملخّص التذاكر من صفوف المسارين نفسها، واختصارات لأقسام قائمة فعلًا -->
+                <div class="company-overview-grid">
+                    <section class="panel" aria-labelledby="companyOverviewTicketsHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyOverviewTicketsHeading">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                    التذاكر
+                                </h2>
+                                <p class="panel-subtitle">ما ينتظر المتابعة في مسارَي الدعم</p>
+                            </div>
+                        </div>
+                        <div id="companyOverviewTickets" aria-live="polite"></div>
+                    </section>
+                    <section class="panel" aria-labelledby="companyQuickActionsHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyQuickActionsHeading">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                    إجراءات سريعة
+                                </h2>
+                                <p class="panel-subtitle">اختصارات لأكثر الأعمال اليومية</p>
+                            </div>
+                        </div>
+                        <div id="companyQuickActions"></div>
+                    </section>
+                </div>
+
                 <section class="panel" aria-labelledby="companyProfileHeading">
                     <div class="panel-header">
                         <div>

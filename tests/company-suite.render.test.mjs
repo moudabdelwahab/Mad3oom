@@ -112,8 +112,8 @@ function fixtures() {
     };
 }
 
-async function openDashboard(browser, baseUrl) {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+async function openDashboard(browser, baseUrl, { mutate = null, viewport = { width: 1440, height: 1100 } } = {}) {
+    const context = await browser.newContext({ viewport });
     const page = await context.newPage();
 
     const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
@@ -124,7 +124,9 @@ async function openDashboard(browser, baseUrl) {
     await page.route('**/error-tracker.js', r => r.fulfill({ contentType: 'text/javascript', body: '' }));
     await page.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
 
-    await page.addInitScript(data => { window.__FIXTURES__ = data; }, fixtures());
+    const data = fixtures();
+    if (mutate) mutate(data);
+    await page.addInitScript(fx => { window.__FIXTURES__ = fx; }, data);
 
     const visited = [];
     page.on('framenavigated', f => { if (f === page.mainFrame()) visited.push(f.url()); });
@@ -342,4 +344,107 @@ test('لا رابط يغادر لوحة الشركة إلى بوابة العم�
         assert.ok(!/^\/admin\//.test(href || ''), `رابط إلى لوحة الإدارة: ${href}`);
     }
     await context.close();
+});
+
+/* ── النظرة العامة والتنقّل (صقل الواجهة) ─────────────────────────────── */
+
+test('النظرة العامة تلخّص التذاكر بنفس عدّادات قسمَيها، والبطاقة تفتح القسم في مكانه', { skip: !chromiumPath }, async () => {
+    const { page, context, visited, errors } = await openDashboard(browser, baseUrl);
+    await page.waitForFunction(() => document.querySelectorAll('#companyOverviewTickets .company-stat').length === 3,
+        null, { timeout: 10000 });
+
+    const values = await page.locator('#companyOverviewTickets .company-stat-value').allInnerTexts();
+    // tk-1 مفتوحة و tk-2 محلولة مع مدعوم؛ tk-3 مفتوحة من عميل
+    assert.deepEqual(values.map(v => v.trim()), ['1', '0', '1']);
+    assert.match(await page.locator('#companyOverviewTickets').innerText(), /من 2 تذكرة مع فريق مدعوم/);
+
+    await page.locator('#companyOverviewTickets .company-stat[data-tab="tickets"]').first().click();
+    await page.waitForSelector('#ticketsTabContent.active', { timeout: 10000 });
+    // عدّاد «مفتوحة» في القسم هو نفسه رقم النظرة العامة
+    const openTab = await page.locator('#ticketsTabContent .view-tab[data-stream-view="open"] .view-tab-count').innerText();
+    assert.equal(openTab.trim(), values[0].trim());
+    assert.deepEqual(visited.map(u => new URL(u).pathname)
+        .filter(p => !p.startsWith('/company-dashboard/')), [], 'غادرت البطاقة اللوحة بدل تبديل القسم');
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('قراءة تذاكر فاشلة لا تُعرض صفرًا في النظرة العامة', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, {
+        mutate: fx => { fx.tableErrors = { tickets: 'permission denied' }; }
+    });
+    await page.waitForFunction(() => document.querySelectorAll('#companyOverviewTickets .company-stat').length === 3,
+        null, { timeout: 10000 });
+
+    const values = await page.locator('#companyOverviewTickets .company-stat-value').allInnerTexts();
+    assert.deepEqual(values.map(v => v.trim()), ['—', '—', '—'], 'ظهر رقم لقراءة فشلت');
+    assert.match(await page.locator('#companyOverviewTickets').innerText(), /تعذّر التحميل/);
+
+    // والتقارير لا تُبنى على قوائم لم تُقرأ
+    await openSection(page, 'reports');
+    await page.waitForSelector('#companyReports .state-block', { timeout: 10000 });
+    assert.match(await page.locator('#companyReports').innerText(), /تعذّر بناء التقارير/);
+    assert.equal(await page.locator('#companyReports .report-table').count(), 0);
+    await context.close();
+});
+
+test('الإجراءات السريعة تشير لأقسام قائمة ومسموحة لهذا الدور فقط', { skip: !chromiumPath }, async () => {
+    // المدير: كل اختصار يطابق عنصرًا ظاهرًا في القائمة الجانبية
+    {
+        const { page, context } = await openDashboard(browser, baseUrl);
+        await page.waitForSelector('#companyQuickActions .company-action', { timeout: 10000 });
+        const tabs = await page.locator('#companyQuickActions .company-action').evaluateAll(
+            links => links.map(a => a.getAttribute('data-tab')));
+        assert.ok(tabs.includes('api'), 'اختصار API غائب عن المدير');
+        assert.ok(!tabs.includes('inbox'), 'اختصار صندوق رسائل بلا صندوق من القاعدة');
+        for (const tab of tabs) {
+            assert.equal(await page.locator(`.sidebar-item[data-tab="${tab}"]:visible`).count(), 1,
+                `اختصار لقسم غير ظاهر في القائمة: ${tab}`);
+        }
+        await context.close();
+    }
+    // موظف الدعم: لا اختصار لأقسام المدير (API والاشتراكات)
+    {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            mutate: fx => { fx.rpc.get_my_company_dashboard.viewer_role = 'agent'; }
+        });
+        await page.waitForSelector('#companyQuickActions .company-action', { timeout: 10000 });
+        const tabs = await page.locator('#companyQuickActions .company-action').evaluateAll(
+            links => links.map(a => a.getAttribute('data-tab')));
+        assert.ok(!tabs.includes('api'), 'موظف الدعم يرى اختصار API');
+        assert.ok(!tabs.includes('subscriptions'));
+        await context.close();
+    }
+});
+
+test('مسار التنقّل وعنوان التبويب يتبعان القسم، والعنصر النشط معلَن للقارئ الصوتي', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl);
+    assert.equal((await page.locator('#companySectionCrumb').innerText()).trim(), 'نظرة عامة');
+    assert.equal(await page.locator('.sidebar-item[data-tab="overview"]').getAttribute('aria-current'), 'page');
+
+    await openSection(page, 'members');
+    assert.equal((await page.locator('#companySectionCrumb').innerText()).trim(), 'مستخدمو الشركة');
+    assert.match(await page.title(), /^مستخدمو الشركة · لوحة الشركة/);
+    assert.equal(await page.locator('.sidebar-item[aria-current="page"]').count(), 1);
+    assert.equal(await page.locator('.sidebar-item[data-tab="members"]').getAttribute('aria-current'), 'page');
+    // علامة المستوى باقية: اللوحة تعلن أنها سياق شركة
+    assert.match(await page.locator('.company-level-tag').innerText(), /لوحة الشركة/);
+    await context.close();
+});
+
+test('لا تمرير أفقي في أقسام اللوحة على الجوال واللوحي والحاسوب', { skip: !chromiumPath }, async () => {
+    const sections = ['overview', 'members', 'subscriptions', 'tickets', 'customerTickets', 'support',
+        'notifications', 'api', 'integrations', 'reports', 'activity', 'profile', 'security'];
+    for (const width of [390, 768, 1440]) {
+        const { page, context } = await openDashboard(browser, baseUrl, { viewport: { width, height: 900 } });
+        for (const section of sections) {
+            await page.evaluate(s => { window.location.hash = s; }, section);
+            await page.waitForSelector(`#${section}TabContent.active`, { timeout: 10000 });
+            await page.waitForTimeout(250);
+            const overflow = await page.evaluate(() =>
+                document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            assert.ok(overflow <= 0, `تمرير أفقي ${overflow}px في «${section}» على عرض ${width}`);
+        }
+        await context.close();
+    }
 });

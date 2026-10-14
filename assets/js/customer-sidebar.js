@@ -170,7 +170,11 @@ export function setSidebarBadge(tabName, count) {
 /** يحدّد العنصر النشط في القائمة (يُستدعى عند تبديل القسم من أي مكان). */
 export function setActiveSidebarTab(tabName) {
     document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.classList.toggle('active', item.getAttribute('data-tab') === tabName);
+        const isActive = item.getAttribute('data-tab') === tabName;
+        item.classList.toggle('active', isActive);
+        // القارئ الصوتي يعلن القسم الحالي كما تراه العين
+        if (isActive) item.setAttribute('aria-current', 'page');
+        else item.removeAttribute('aria-current');
     });
 }
 
