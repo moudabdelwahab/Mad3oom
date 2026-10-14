@@ -22,6 +22,7 @@
 ## Code that ships with 101 (not deployed)
 
 - `migrations/101_customer_transfers_carry.sql`: tables `customer_transfers`, `ticket_carries`, `ticket_carry_items`, `ticket_carry_attachments`, `historical_access_requests`, `historical_access_audit`, all with RLS, no direct grants, the `gate_account_active` restrictive policy, no deletes and an append-only audit.
+- `customer_id` in the three history tables has **no foreign key** to `profiles`, following the 086/096 convention. Deleting a customer account (from the Supabase dashboard) is not blocked, and the history stays with ids only. Company lists show such a customer as "حساب محذوف" (deleted account). Tested in ⑥.
 - Patches four functions by exact one-occurrence replacement: `ticket_quota_status`, `enforce_ticket_quota`, `_usage_record_ticket`, `usage_reconciliation`.
 - Widens the `company_membership_events.action` check with `transfer_requested`, `transferred_out` and `transferred_in`.
 - `supabase/functions/ticket-carry-copy/`: thin `index.ts` plus a `handler.js` with the logic.
@@ -92,7 +93,7 @@ After a carry, rolling back would count carried tickets twice, so the history mu
   - the owner cannot decide before consent; consent only on the customer's tickets elsewhere;
   - view: chosen tickets only, customer content only, admin of the requesting company only, audited, ids hidden after expiry;
   - decline.
-- ⑥ Invariants: append-only, no deletes, no direct reads.
+- ⑥ Invariants: append-only, no deletes, no direct reads; deleting a customer account succeeds and keeps the history.
 - ⑦ Rollback refused with data.
 
 Plus:

@@ -78,7 +78,8 @@ end $$;
 -- ============================================================================
 create table if not exists public.customer_transfers (
   id                     uuid primary key default gen_random_uuid(),
-  customer_id            uuid not null references public.profiles(id) on delete cascade,
+  -- بلا مفتاح خارجي إلى الحساب عمدًا (كسجلات 086 و096): حذف الحساب لا يتعطل، والسجل يبقى بمعرّفات فقط
+  customer_id            uuid not null,
   from_company           uuid not null references public.companies(id),
   to_company             uuid not null references public.companies(id),
   initiated_by           uuid not null,
@@ -380,12 +381,12 @@ begin
   end if;
   v_company := public.current_company_id();
   return coalesce((select jsonb_agg(jsonb_build_object(
-      'id', x.id, 'customer_name', coalesce(p.full_name, p.email),
+      'id', x.id, 'customer_name', coalesce(p.full_name, p.email, 'حساب محذوف'),
       'direction', case when x.from_company = v_company then 'outgoing' else 'incoming' end,
       'status', x.status, 'my_decision', case when x.from_company = v_company then x.source_decision else x.dest_decision end,
       'customer_wants_secondary', case when x.from_company = v_company then x.keep_source_secondary end,
       'created_at', x.created_at, 'expires_at', x.expires_at) order by x.created_at desc)
-      from public.customer_transfers x join public.profiles p on p.id = x.customer_id
+      from public.customer_transfers x left join public.profiles p on p.id = x.customer_id
      where (x.from_company = v_company or x.to_company = v_company) and x.initiated_as = 'customer'), '[]'::jsonb);
 end $$;
 
@@ -415,7 +416,7 @@ create trigger trg_guard_raw_company_move before update of super_user_id on publ
 -- ============================================================================
 create table if not exists public.ticket_carries (
   id               uuid primary key default gen_random_uuid(),
-  customer_id      uuid not null references public.profiles(id) on delete cascade,
+  customer_id      uuid not null,  -- بلا مفتاح خارجي عمدًا (انظر customer_transfers)
   source_company   uuid not null,
   dest_company     uuid not null,
   idempotency_key  uuid not null,
@@ -644,7 +645,7 @@ end $$;
 create table if not exists public.historical_access_requests (
   id                  uuid primary key default gen_random_uuid(),
   requesting_company  uuid not null references public.companies(id),
-  customer_id         uuid not null references public.profiles(id) on delete cascade,
+  customer_id         uuid not null,  -- بلا مفتاح خارجي عمدًا (انظر customer_transfers)
   requested_by        uuid not null,
   purpose             text not null check (char_length(btrim(purpose)) between 20 and 1000),
   status              text not null default 'awaiting_customer'
@@ -846,10 +847,10 @@ begin
   end if;
   v_company := public.current_company_id();
   return coalesce((select jsonb_agg(jsonb_build_object(
-      'id', r.id, 'customer_name', coalesce(p.full_name, p.email), 'purpose', r.purpose, 'status', r.status,
+      'id', r.id, 'customer_name', coalesce(p.full_name, p.email, 'حساب محذوف'), 'purpose', r.purpose, 'status', r.status,
       'ticket_ids', case when r.status = 'approved' and r.expires_at > now() then to_jsonb(r.ticket_ids) end,
       'created_at', r.created_at, 'expires_at', r.expires_at) order by r.created_at desc)
-      from public.historical_access_requests r join public.profiles p on p.id = r.customer_id
+      from public.historical_access_requests r left join public.profiles p on p.id = r.customer_id
      where r.requesting_company = v_company), '[]'::jsonb);
 end $$;
 

@@ -247,7 +247,12 @@ DO $$ BEGIN
            AND t.err_super_ok('delete from public.customer_transfers') = '23514'
            AND t.err_super_ok('delete from public.ticket_carry_items') = '23514', 'INV append-only, no delete');
   PERFORM t.ok(t.exec(t.u('OA'), 'select * from public.ticket_carries') = '42501', 'INV no direct read');
-  RAISE NOTICE 'PASS ⑥ الثوابت: السجلات إلحاقية ولا حذف ولا قراءة مباشرة';
+  -- حذف حساب عميل له سجل نقل لا يتعطل، والسجل يبقى بمعرّفات فقط (اصطلاح 086 و096)
+  PERFORM t.ok(t.err_super_ok(format('delete from auth.users where id = %L', t.u('A2'))) = 'ok', 'INV account deletion not blocked');
+  PERFORM t.ok((SELECT count(*) FROM public.customer_transfers WHERE customer_id = t.u('A2')) = 2, 'INV history kept after deletion');
+  PERFORM t.ok(EXISTS (SELECT 1 FROM jsonb_array_elements(t.call(t.u('OA'), 'public.company_transfer_requests()')) e
+                        WHERE e ->> 'customer_name' = 'حساب محذوف'), 'INV deleted customer shown as deleted');
+  RAISE NOTICE 'PASS ⑥ الثوابت: السجلات إلحاقية ولا حذف ولا قراءة مباشرة، وحذف الحساب لا يتعطل والسجل يبقى';
 END $$;
 
 -- ══ ⑦ رفض التراجع ═══════════════════════════════════════════════════════
