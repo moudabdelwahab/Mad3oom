@@ -2,7 +2,9 @@
 
 > **Status: NOT EXECUTED.** Nothing here has been applied to production or deployed.
 > Prepared 2026-10-14 on branch `claude/dazzling-hypatia-lh1o9i`. Production ledger at the time:
-> `093_continuity_collab_actions`. `094` is reserved by open PR #133 (Continuity reminders).
+> `093_continuity_collab_actions`. `094_continuity_reminders` (PR #133) was merged into `main` on 2026-10-13 and merged into
+> this branch. Apply it first, through its own install note (`docs/continuity/REMINDERS_094_PROD_INSTALL.md`). Every
+> tenancy test (095–102) now runs on 093 → 094 → 095 …, the production order.
 
 ## What 095 does
 

@@ -20,6 +20,9 @@
 
 \i tests/fixtures/prod-shape/load.sql
 \i tests/fixtures/prod-shape/chain-to-093.sql
+-- 094 (PR #133، مدموج في main) يسبق 095 في الإنتاج
+\i migrations/094_continuity_reminders.sql
+SET search_path = public, extensions;
 \i tests/fixtures/tenancy/harness.sql
 
 INSERT INTO public.ai_provider_catalog (id, label) VALUES ('openai', 'OpenAI') ON CONFLICT DO NOTHING;

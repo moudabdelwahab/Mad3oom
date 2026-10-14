@@ -17,6 +17,9 @@
 
 \i tests/fixtures/prod-shape/load.sql
 \i tests/fixtures/prod-shape/chain-to-093.sql
+-- 094 (PR #133، مدموج في main) يسبق 095 في الإنتاج
+\i migrations/094_continuity_reminders.sql
+SET search_path = public, extensions;
 \i tests/fixtures/tenancy/harness.sql
 \i migrations/095_account_boundaries.sql
 \i migrations/096_company_memberships.sql
