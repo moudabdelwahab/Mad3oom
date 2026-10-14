@@ -1,7 +1,8 @@
 // company-document-upload — رفع إصدار مستند شركة (migrations/100_company_documents.sql).
 // المنطق في handler.js (مختبر في tests/company-documents-functions.test.mjs). هنا الربط فقط:
 //   • begin/commit بهوية المستخدم (مفتاح anon + رأسه): كل قرار صلاحية في القاعدة.
-//   • مفتاح الخدمة للرفع إلى المسار الذي ولّدته القاعدة فقط، ولحذف ملف فشل تأكيده.
+//   • مفتاح الخدمة للرفع إلى المسار الذي ولّدته القاعدة فقط، ولحذف ملف فشل تأكيده، وللتأكيد
+//     (document_upload_commit_server، 104): البصمة تُحسب هنا ولا يرسلها المستخدم.
 // النشر يحتاج موافقة صريحة، والمفتاح company_documents_enabled يبقى مطفأً حتى قرار منفصل.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -24,6 +25,8 @@ Deno.serve((req: Request) => handleUpload(req, {
     return error ? null : data.user;
   },
   rpc: (token: string, fn: string, args: Record<string, unknown>) => asUser(token).rpc(fn, args),
+  commit: (version: string, actor: string, sha256: string | null) =>
+    admin.rpc("document_upload_commit_server", { p_version: version, p_actor: actor, p_sha256: sha256 }),
   upload: (path: string, bytes: Uint8Array, contentType: string) =>
     admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false, cacheControl: "private, max-age=0" }),
   remove: (path: string) => admin.storage.from(BUCKET).remove([path]),

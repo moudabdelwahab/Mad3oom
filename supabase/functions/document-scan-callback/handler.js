@@ -5,6 +5,7 @@
  * الملفات pending_scan (معزولة). لا نتيجة تُقبل بلا توقيع صحيح وطابع زمني حديث (≤ 5 دقائق).
  *
  * POST والجسم JSON: { version_id, result: clean|infected|error, engine, detail? }
+ * كل طلب موقَّع يُقبل مرة واحدة: التوقيع nonce تسجّله القاعدة (104)، والتكرار ⇒ 409 replayed.
  *   X-Scan-Timestamp: ثوانٍ يونكس · X-Scan-Signature: sha256=<hex HMAC-SHA256(secret, `${ts}.${body}`)>
  */
 import { verifyScanSignature, parseScanBody } from '../_shared/company-documents.js';
@@ -25,8 +26,10 @@ export async function handleScanCallback(req, deps) {
     if (!check.ok) return json(check.status, { error: { code: check.code } });
     const parsed = parseScanBody(body);
     if (!parsed) return json(400, { error: { code: 'validation_failed' } });
-    const res = await deps.scanResult({ p_version: parsed.version_id, p_result: parsed.result, p_engine: parsed.engine, p_detail: parsed.detail });
+    const res = await deps.scanResult({ p_version: parsed.version_id, p_result: parsed.result, p_engine: parsed.engine,
+                                        p_detail: parsed.detail, p_nonce: check.nonce });
     if (res.error) {
+        if (res.error.code === '23505') return json(409, { error: { code: 'replayed' } });
         const status = res.error.code === 'P0002' ? 404 : res.error.code === '55000' ? 409 : res.error.code === '22023' ? 400 : 502;
         return json(status, { error: { code: status === 404 ? 'not_found' : status === 409 ? 'invalid_state' : status === 400 ? 'validation_failed' : 'server_error' } });
     }

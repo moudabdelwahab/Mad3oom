@@ -2,6 +2,8 @@
  * دوال مستندات الشركات الطرفية (100) وعامل الفحص المرجعي — منطق خالص ببدائل.
  * القرار نفسه في القاعدة (tests/sql/company-documents.test.sql). هنا ما لا تراه القاعدة:
  * البايتات والتوقيع والحجم الفعلي، توقيع نتيجة الفحص، والرابط القصير.
+ * 104: التأكيد بمفتاح الخدمة والبصمة من الخادم (L3)، حد الرفع 429 (L6)، nonce نتيجة الفحص (L5)،
+ *      وتحقق الخطوتين لتنزيل المالك (L1).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,7 +30,7 @@ function uploadReq(bytes, { mime = 'application/pdf', type = 'tax_card', key = K
     });
 }
 function uploadDeps(over = {}) {
-    const log = { rpc: [], upload: [], remove: [] };
+    const log = { rpc: [], upload: [], remove: [], commit: [] };
     return {
         log,
         getUser: async () => ({ id: 'u1' }),
@@ -38,6 +40,10 @@ function uploadDeps(over = {}) {
             if (fn === 'document_upload_begin') return { data: { version: { id: VER, status: 'uploading' },
                 upload: { bucket: 'company-documents', path: `c/d/${VER}.pdf`, max_bytes: MAX_BYTES } } };
             return { data: { version_id: VER, status: 'pending_scan' } };
+        },
+        commit: async (version, actor, sha) => {
+            log.commit.push([version, actor, sha]);
+            return over.commit ? over.commit() : { data: { version_id: VER, status: 'pending_scan' } };
         },
         upload: async (path, bytes, type) => { log.upload.push([path, bytes.length, type]); return over.uploadError ? { error: over.uploadError } : {}; },
         remove: async (path) => { log.remove.push(path); return {}; },
@@ -61,14 +67,31 @@ test('التوقيع يطابق النوع، والاسم بلا مسارات', 
     assert.equal(cleanName('%E0%A4%A'), null);
 });
 
-test('الرفع: بايتات صحيحة ⇒ begin ثم رفع للمسار المولَّد ثم commit بالبصمة', async () => {
+test('الرفع: بايتات صحيحة ⇒ begin ثم رفع للمسار المولَّد ثم تأكيد بمفتاح الخدمة والبصمة المحسوبة هنا (104 L3)', async () => {
     const deps = uploadDeps();
     const res = await handleUpload(uploadReq(PDF), deps);
     assert.equal(res.status, 200);
-    assert.deepEqual(deps.log.rpc.map(([fn]) => fn), ['document_upload_begin', 'document_upload_commit']);
+    assert.deepEqual(deps.log.rpc.map(([fn]) => fn), ['document_upload_begin'], 'لا تأكيد بهوية المستخدم');
     assert.equal(deps.log.rpc[0][1].p_name, 'بطاقةضريبية.pdf');
     assert.deepEqual(deps.log.upload, [[`c/d/${VER}.pdf`, PDF.length, 'application/pdf']]);
-    assert.equal(deps.log.rpc[1][1].p_sha256, crypto.createHash('sha256').update(PDF).digest('hex'));
+    assert.deepEqual(deps.log.commit, [[VER, 'u1', crypto.createHash('sha256').update(PDF).digest('hex')]]);
+});
+
+test('الرفع: إعادة إرسال لإصدار مؤكَّد ⇒ حالته بلا رفع ولا بصمة من المنادي', async () => {
+    const deps = uploadDeps({ document_upload_begin: () => ({ data: { version: { id: VER, status: 'pending_scan' },
+        upload: { bucket: 'company-documents', path: `c/d/${VER}.pdf`, max_bytes: MAX_BYTES } } }) });
+    const res = await handleUpload(uploadReq(PDF), deps);
+    assert.equal(res.status, 200);
+    assert.deepEqual(deps.log.commit, [[VER, 'u1', null]]);
+    assert.equal(deps.log.upload.length, 0);
+});
+
+test('الرفع: حد الرفع من القاعدة (54000) ⇒ 429 rate_limited بلا رفع (104 L6)', async () => {
+    const deps = uploadDeps({ document_upload_begin: () => ({ error: { code: '54000', details: '{"code":"rate_limited","reason":"hourly_limit"}' } }) });
+    const res = await handleUpload(uploadReq(PDF), deps);
+    assert.equal(res.status, 429);
+    assert.deepEqual((await res.json()).error, { code: 'rate_limited', reason: 'hourly_limit' });
+    assert.equal(deps.log.upload.length, 0);
 });
 
 test('الرفع: توقيع مخالف أو حجم مخالف ⇒ رفض بلا رفع', async () => {
@@ -92,7 +115,7 @@ test('الرفع: رفض القاعدة يُترجم، وفشل التأكيد �
     let res = await handleUpload(uploadReq(PDF), deps);
     assert.equal(res.status, 403);
     assert.equal((await res.json()).error.code, 'feature_not_enabled');
-    deps = uploadDeps({ document_upload_commit: () => ({ error: { code: '22023', details: '{"field":"size","reason":"size_mismatch"}' } }) });
+    deps = uploadDeps({ commit: () => ({ error: { code: '22023', details: '{"field":"size","reason":"size_mismatch"}' } }) });
     res = await handleUpload(uploadReq(PDF), deps);
     assert.equal(res.status, 400);
     assert.deepEqual(deps.log.remove, [`c/d/${VER}.pdf`]);
@@ -123,6 +146,20 @@ test('التنزيل: رابط 60 ثانية بعد قرار القاعدة؛ ا
     assert.equal(res.status, 401);
 });
 
+test('التنزيل: مالك المنصة بلا تحقق خطوتين حديث ⇒ 403 step_up_required بلا رابط (104 L1)', async () => {
+    const signed = [];
+    const deps = {
+        getUser: async () => ({ id: 'owner' }),
+        rpc: async () => ({ error: { code: '42501', details: '{"code":"step_up_required"}' } }),
+        sign: async (path, seconds) => { signed.push([path, seconds]); return { signedUrl: 'https://signed/x' }; },
+    };
+    const res = await handleDownload(new Request('https://x', { method: 'POST', body: JSON.stringify({ version_id: VER }),
+                                                                headers: { Authorization: 'Bearer jwt' } }), deps);
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).error.code, 'step_up_required');
+    assert.equal(signed.length, 0);
+});
+
 test('نتيجة الفحص: بلا سر 503 (الملفات تبقى معزولة)، توقيع خاطئ أو قديم 401، الصحيح يُسجَّل', async () => {
     const calls = [];
     const now = 1_800_000_000_000;
@@ -138,9 +175,28 @@ test('نتيجة الفحص: بلا سر 503 (الملفات تبقى معزول
     assert.equal(calls.length, 0);
     const res = await handleScanCallback(req(good), deps(SECRET));
     assert.equal(res.status, 200);
-    assert.deepEqual(calls, [{ p_version: VER, p_result: 'clean', p_engine: 'clamav', p_detail: {} }]);
+    const nonce = good['X-Scan-Signature'].replace('sha256=', '');
+    assert.deepEqual(calls, [{ p_version: VER, p_result: 'clean', p_engine: 'clamav', p_detail: {}, p_nonce: nonce }],
+                     'التوقيع المتحقَّق منه هو nonce (104 L5)');
     assert.equal(await verifyScanSignature({ secret: SECRET, signature: good['X-Scan-Signature'], timestamp: String(ts), body: body + ' ', now, hmac })
         .then(r => r.ok), false, 'جسم معدَّل');
+});
+
+test('نتيجة الفحص: إعادة إرسال الطلب الموقَّع نفسه ⇒ 409 replayed (القاعدة رفضت الـ nonce)', async () => {
+    const now = 1_800_000_000_000;
+    const body = JSON.stringify({ version_id: VER, result: 'error', engine: 'clamav' });
+    const headers = signBody(SECRET, body, Math.floor(now / 1000));
+    const seen = new Set();
+    const deps = { secret: SECRET, now: () => now, hmac, scanResult: async (a) => {
+        if (seen.has(a.p_nonce)) return { error: { code: '23505', details: '{"code":"replayed"}' } };
+        seen.add(a.p_nonce);
+        return { data: { status: 'scan_error' } };
+    } };
+    const req = () => new Request('https://x', { method: 'POST', body, headers });
+    assert.equal((await handleScanCallback(req(), deps)).status, 200);
+    const again = await handleScanCallback(req(), deps);
+    assert.equal(again.status, 409);
+    assert.equal((await again.json()).error.code, 'replayed');
 });
 
 test('عامل الفحص المرجعي: إطار INSTREAM وقراءة ردّ clamd', () => {

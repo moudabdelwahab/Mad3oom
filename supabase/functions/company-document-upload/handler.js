@@ -9,9 +9,10 @@
  *
  * 1. المعلَن (النوع، الحجم ≤ 10MB) قبل قراءة أي بايت.
  * 2. document_upload_begin بهوية المستخدم: مدير الشركة + المفتاح + مسار يولّده الخادم.
- * 3. قراءة الجسم بحد صارم، الحجم الفعلي = المعلن، التوقيع يطابق النوع، ثم sha256.
+ * 3. قراءة الجسم بحد صارم، الحجم الفعلي = المعلن، التوقيع يطابق النوع، ثم sha256 من البايتات نفسها.
  * 4. الرفع بمفتاح الخدمة إلى المسار المولَّد فقط (بلا upsert).
- * 5. document_upload_commit بهوية المستخدم ⇒ pending_scan (معزول حتى نتيجة فحص موقَّعة).
+ * 5. document_upload_commit_server بمفتاح الخدمة (104 L3): الرافع الذي تحققنا منه والبصمة التي حسبناها —
+ *    لا يرسل المستخدم البصمة أبدًا ⇒ pending_scan (معزول حتى نتيجة فحص موقَّعة).
  */
 import { BUCKET, baseMime, checkDeclared, signatureMatches, cleanName } from '../_shared/company-documents.js';
 
@@ -27,7 +28,8 @@ const json = (status, body) => new Response(JSON.stringify(body), {
 const fail = (status, code, extra = {}) => json(status, { error: { code, ...extra } });
 
 const SQLSTATE = { P0002: [404, 'not_found'], '42501': [403, 'forbidden'], '0A000': [403, 'feature_not_enabled'],
-    '22023': [400, 'validation_failed'], '55000': [409, 'invalid_state'], '23505': [409, 'idempotency_conflict'] };
+    '22023': [400, 'validation_failed'], '55000': [409, 'invalid_state'], '23505': [409, 'idempotency_conflict'],
+    '54000': [429, 'rate_limited'] };
 export function dbFail(error) {
     const [status, code] = SQLSTATE[error?.code] || [502, 'server_error'];
     let detail = {};
@@ -56,7 +58,8 @@ export async function readCapped(body, limit) {
     return out;
 }
 
-/** deps: getUser(token) · rpc(token, fn, args) · upload(path, bytes, contentType) · remove(path) · sha256(bytes) */
+/** deps: getUser(token) · rpc(token, fn, args) · commit(versionId, actorId, sha256) (مفتاح الخدمة)
+ *        · upload(path, bytes, contentType) · remove(path) · sha256(bytes) */
 export async function handleUpload(req, deps) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
     if (req.method !== 'POST') return fail(405, 'method_not_allowed');
@@ -86,7 +89,7 @@ export async function handleUpload(req, deps) {
     if (!version?.id || !upload?.path || upload.bucket !== BUCKET) return fail(502, 'server_error');
     // إعادة إرسال لإصدار اكتمل رفعه: التأكيد بلا أثر يرجع حالته
     if (version.status !== 'uploading') {
-        const done = await deps.rpc(token, 'document_upload_commit', { p_version: version.id, p_sha256: null });
+        const done = await deps.commit(version.id, user.id, null);
         return done.error ? dbFail(done.error) : json(200, done.data);
     }
 
@@ -100,7 +103,7 @@ export async function handleUpload(req, deps) {
     const exists = put.error && (put.error.statusCode === '409' || put.error.statusCode === 409 || /exists/i.test(put.error.message || ''));
     if (put.error && !exists) return fail(502, 'upload_failed');
 
-    const done = await deps.rpc(token, 'document_upload_commit', { p_version: version.id, p_sha256: sha });
+    const done = await deps.commit(version.id, user.id, sha);
     if (done.error) {
         if (!exists) await deps.remove(upload.path).catch(() => null);
         return dbFail(done.error);
