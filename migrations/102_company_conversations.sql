@@ -208,7 +208,8 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  with r as (select public._company_staff_role_of(p_company, auth.uid()) as role)
+  -- الدور من company_staff_role(): يحترم سياق المالك (040) والمعاينة، ولشركة المنادي الحالية وحدها
+  with r as (select case when public.current_company_id() = p_company then public.company_staff_role() end as role)
   -- coalesce: «المسند إليه = المنادي» تكون NULL لمحادثة بلا إسناد؛ القرار منطقي صرف لا NULL
   select coalesce(auth.uid() is not null
      and public._feature_on('company_inbox_enabled')
@@ -222,6 +223,25 @@ as $$
                 and (public._company_perm(p_company, auth.uid(), 'conversations.view')
                      or (p_assigned_to = auth.uid() and public._company_perm(p_company, auth.uid(), 'conversations.view_assigned')))
                 and (p_action = 'view' or public._company_perm(p_company, auth.uid(), 'conversations.' || p_action))
+         end, false);
+$$;
+
+-- هل ما زال عضو الفريق p_user يرى محادثة مسندة إليه؟ (لتوجيه الإشعار وحده؛ لا يمنح شيئًا)
+create or replace function public._inbox_user_can_view(p_company uuid, p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  with r as (select public._company_staff_role_of(p_company, p_user) as role)
+  select coalesce(p_user is not null
+     and case
+           when (select role from r) is null then false
+           when (select role from r) = 'admin' then true
+           else public._feature_on('company_permissions_enabled')
+                and (public._company_perm(p_company, p_user, 'conversations.view')
+                     or public._company_perm(p_company, p_user, 'conversations.view_assigned'))
          end, false);
 $$;
 
@@ -348,7 +368,7 @@ as $$
 declare
   v_company uuid;
 begin
-  if auth.uid() is null or not public._feature_on('company_inbox_enabled') then
+  if auth.uid() is null or not public._feature_on('company_inbox_enabled') or not coalesce(public.account_is_active(), false) then
     return null;
   end if;
   v_company := public.current_company_id();
@@ -376,7 +396,7 @@ declare
 begin
   perform public._inbox_require_enabled();
   select * into c from public.company_conversations where id = p_conversation;
-  v_customer := c.id is not null and c.customer_id = auth.uid();
+  v_customer := coalesce(c.customer_id = auth.uid(), false) and coalesce(public.account_is_active(), false);
   if c.id is null or not (v_customer or public._inbox_staff_access(c.company_id, c.assigned_to, 'view')) then
     -- نفس الرد لمحادثة غير موجودة أو لشركة أخرى: لا كشف للوجود
     raise exception 'المحادثة غير موجودة' using errcode = 'P0002';
@@ -419,7 +439,7 @@ declare
 begin
   perform public._inbox_require_enabled();
   select * into c from public.company_conversations where id = p_conversation for update;
-  v_customer := c.id is not null and c.customer_id = v_uid;
+  v_customer := coalesce(c.customer_id = v_uid, false) and coalesce(public.account_is_active(), false);
   if c.id is null or not (v_customer or public._inbox_staff_access(c.company_id, c.assigned_to, 'view')) then
     raise exception 'المحادثة غير موجودة' using errcode = 'P0002';
   end if;
@@ -463,12 +483,15 @@ begin
     if v_customer then
       -- الفريق: المسند إليه، وإلا مدير الشركة. نص عام بلا محتوى الرسالة.
       insert into public.notifications (user_id, title, message, type, link, category)
-      select coalesce(c.assigned_to, co.user_id), 'رسالة جديدة من عميل', 'وصلت رسالة جديدة في محادثة: ' || left(c.subject, 80),
+      -- المسند إليه ما دام يرى المحادثة، وإلا مدير الشركة. نص عام: جدول الإشعارات تقرؤه السلطة المرتفعة (040)
+      select case when c.assigned_to is not null and public._inbox_user_can_view(c.company_id, c.assigned_to)
+                  then c.assigned_to else co.user_id end,
+             'رسالة جديدة من عميل', 'وصلت رسالة جديدة في صندوق رسائل الشركة.',
              'info', '/company-dashboard/#inbox', 'account'
         from public.companies co where co.id = c.company_id;
     else
       insert into public.notifications (user_id, title, message, type, link, category)
-      values (c.customer_id, 'ردّت الشركة على رسالتك', 'لديك رد جديد في محادثة: ' || left(c.subject, 80),
+      values (c.customer_id, 'ردّت الشركة على رسالتك', 'لديك رد جديد في رسائلك مع الشركة.',
               'info', '/portal/#messages', 'account');
     end if;
   else
@@ -591,7 +614,7 @@ begin
                               jsonb_build_object('from', c.assigned_to, 'to', p_assignee));
   if p_assignee is not null and p_assignee <> auth.uid() then
     insert into public.notifications (user_id, title, message, type, link, category)
-    values (p_assignee, 'أُسندت إليك محادثة', 'محادثة: ' || left(c.subject, 80), 'info', '/company-dashboard/#inbox', 'account');
+    values (p_assignee, 'أُسندت إليك محادثة', 'أُسندت إليك محادثة في صندوق رسائل الشركة.', 'info', '/company-dashboard/#inbox', 'account');
   end if;
   return jsonb_build_object('conversation_id', c.id, 'assigned_to', p_assignee, 'changed', true);
 end $$;
@@ -637,14 +660,14 @@ begin
   foreach f in array array['public._inbox_require_enabled()', 'public._inbox_event(uuid,uuid,text,jsonb)',
                            'public._inbox_row(public.company_conversations,uuid)', 'public._inbox_customer_can_write(uuid)',
                            'public._inbox_company_ok(uuid)', 'public._inbox_staff_access(uuid,uuid,text)',
-                           'public._inbox_viewer_scope(uuid)'] loop
-    execute format('revoke all on function %s from public, anon, authenticated', f);
+                           'public._inbox_viewer_scope(uuid)', 'public._inbox_user_can_view(uuid,uuid)'] loop
+    execute format('revoke all on function %s from public, anon, authenticated, service_role', f);
   end loop;
   foreach f in array array['public.company_conversation_start(text,text,uuid)', 'public.my_company_conversations()',
                            'public.company_conversation_thread(uuid)', 'public.company_conversation_post(uuid,text,boolean)',
                            'public.company_inbox_summary()', 'public.company_inbox_list(text)',
                            'public.company_conversation_assign(uuid,uuid)', 'public.company_conversation_set_status(uuid,text)'] loop
-    execute format('revoke all on function %s from public, anon', f);
+    execute format('revoke all on function %s from public, anon, service_role', f);
     execute format('grant execute on function %s to authenticated', f);
   end loop;
 end $$;

@@ -24,8 +24,8 @@ Deno.serve((req: Request) => handleCarryCopy(req, {
   },
   upload: async (path: string, bytes: Uint8Array, mime: string) => {
     const { error } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
-    return { error };
+    const status = String((error as { statusCode?: string | number } | null)?.statusCode ?? "");
+    return { error, exists: !!error && (status === "409" || /exists|duplicate/i.test(error.message)) };
   },
-  remove: async (path: string) => { await admin.storage.from(BUCKET).remove([path]); },
   complete: (args: Record<string, unknown>) => admin.rpc("carry_copy_complete", args),
 }));

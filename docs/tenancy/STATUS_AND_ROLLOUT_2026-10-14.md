@@ -63,6 +63,17 @@ Each rollback was proven in a disposable database by apply → rollback → sche
 - **Scheduler** for `ticket-carry-copy` (101) and for `document_expiry_scan` (100). Neither is scheduled.
 - No files were sent to any third-party scanner. No credentials were created or changed.
 
+## Independent security review (2026-10-14, four reviewers, one per migration)
+
+| Migration | Release-blocking | Status |
+|---|---|---|
+| 099 | no | Open before enabling `delegation_enabled` / `company_suspension_enforced`:<br>• M1: deletion blocked by hierarchy rows<br>• M2: a dormant delegation revives after demotion and re-promotion<br>• M3: delegate suspension needs no step-up |
+| 100 | no (switch OFF, no scan secret) | Open before enabling:<br>• M1: deletion blocked<br>• M3b: rollback's raw delete of `storage.buckets` needs a branch test<br>• M3c: deploy `document-scan-callback` with `--no-verify-jwt`<br>• Fixed by evidence: M2 (all 14 production `storage.objects` policies are bucket-scoped, verified read-only) |
+| 101 | **yes → fixed** | See the H2 note: no FKs to companies, carry attachment provenance, transfers gated on isolation and 098, persisted expiry, queue and worker |
+| 102 | **yes → fixed** | See the C+D note: generic notifications, assignee routing, context-aware staff role, NULL-safe and active-only customer reads, `service_role` revoked |
+
+Every migration's self-check refuses to apply if **any** feature switch is already on. Apply 094–102 in order, each in one transaction (`apply_migration` is transactional), **before** enabling any switch.
+
 ## Known decisions left to you
 
 - Deleting an account or company is refused while it holds governance history created by 097 (data-access grants), 099 (unit membership, delegations) or 100 (documents, legal holds), because those rows are append-only and cascade from it. The error is loud, and the deletion simply does not happen. The 101 and 102 tables follow the 086/096 convention instead: history keeps ids, and the deletion is not blocked. Decide whether 097, 099 and 100 should switch to that convention.

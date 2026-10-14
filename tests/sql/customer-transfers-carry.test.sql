@@ -91,6 +91,11 @@ BEGIN
   PERFORM t.sw('multi_company_memberships_enabled', true);
   PERFORM t.sw('customer_transfers_enabled', true);
   PERFORM t.join_b('A1');
+  -- النقل يتطلب العزل وصلاحيات 098 (وإلا رأى مالك الوجهة التذاكر القديمة عبر super_user_id)
+  PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = '0A000', 'REQ needs isolation + 098');
+  PERFORM t.sw('company_isolation_enforced', true);
+  PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = '0A000', 'REQ needs 098 too');
+  PERFORM t.sw('company_permissions_enabled', true);
   PERFORM t.ok(t.mem('A1', 'CB') = 'secondary:active', 'SETUP A1 secondary in B');
   -- الطلب = تأكيد العميل؛ الوجهة عضوية قائمة
   PERFORM t.ok(t.err(t.u('A2'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = 'P0002', 'REQ no membership in destination');
@@ -139,6 +144,16 @@ BEGIN
            AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(t.call(t.u('OB'), 'public.company_transfer_requests()')) e
                             WHERE e ->> 'direction' = 'incoming' AND e ? 'customer_wants_secondary' AND e -> 'customer_wants_secondary' <> 'null'::jsonb)
            AND t.call(t.u('BS'), 'public.company_transfer_requests()') IS NULL, 'LIST source sees the customer''s wish, destination does not');
+  -- انتهاء المهلة يُحفظ (لا RAISE يلغيه) ويحرّر مكان الطلب المعلّق
+  x := (t.call(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CA'))) ->> 'transfer_id')::uuid;
+  UPDATE public.customer_transfers SET expires_at = now() - interval '1 second' WHERE id = x;
+  PERFORM t.ok(t.call(t.u('OA'), format('public.transfer_decide(%L::uuid, true)', x)) ->> 'status' = 'expired', 'EXP decide reports expired');
+  PERFORM t.ok((SELECT status FROM public.customer_transfers WHERE id = x) = 'expired', 'EXP persisted');
+  x := (t.call(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CA'))) ->> 'transfer_id')::uuid;
+  PERFORM t.ok(x IS NOT NULL, 'EXP slot freed');
+  PERFORM t.ok(t.call(t.u('A1'), format('public.transfer_cancel(%L::uuid)', x)) ->> 'status' = 'cancelled', 'EXP cancel');
+  PERFORM t.sw('company_permissions_enabled', false);
+  PERFORM t.sw('company_isolation_enforced', false);
   RAISE NOTICE 'PASS ③ النقل: العميل يطلب (تأكيده)، المديران يقرران، التنفيذ ذري عند اكتمالهما، المصدر يبقى إضافية باختيار العميل وإذن المصدر، منع التكرار وطلب معلّق واحد، الرفض لا يغيّر شيئًا، الاستثنائي للمالك بسبب مسجَّل، والمسار الخام مقيَّد';
 END $$;
 
@@ -152,11 +167,15 @@ BEGIN
   INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path)
   VALUES (t.k('TA1'), '7c000000-0000-4000-8000-0000000000a1', 'x', 'invoice.png', 10, 'image/png', t.u('A1'), t.path('A1', 'TA1', 'invoice.png'));
   INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('tickets', t.path('A1', 'TA1', 'invoice.png'), t.u('A1'));
+  -- صفوف مرفقات مزوّرة يكتبها العميل: ملف داخلي في مجلده (مالكه الدعم)، ومسار في مجلد غيره — لا تُنسخ أبدًا
+  INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path) VALUES
+    (t.k('TA1'), null, 'x', 'stolen-internal.png', 10, 'image/png', t.u('A1'), t.path('A1', 'TA1', 'internal.png')),
+    (t.k('TA1'), null, 'x', 'stolen-other.png', 10, 'image/png', t.u('A1'), t.path('B1', 'TB1', 'whatever.png'));
   c := t.call(t.u('A1'), format('public.carry_candidates(%L::uuid)', t.u('CA')));
   PERFORM t.ok(jsonb_array_length(c) = 1 AND c -> 0 ->> 'id' = t.k('TA1')::text, 'CAND own company tickets only');
   PERFORM t.ok((c #>> '{0,manifest,replies_included}')::int = 1 AND (c #>> '{0,manifest,replies_excluded_staff}')::int = 1
            AND (c #>> '{0,manifest,replies_excluded_internal}')::int = 1 AND (c #>> '{0,manifest,attachments_included}')::int = 1
-           AND (c #>> '{0,manifest,attachments_excluded}')::int = 2, 'CAND manifest ' || (c -> 0 -> 'manifest')::text);
+           AND (c #>> '{0,manifest,attachments_excluded}')::int = 4, 'CAND manifest ' || (c -> 0 -> 'manifest')::text);
   q0 := public.ticket_quota_status(t.u('A1'));
   r := t.call(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], %L::uuid)', t.u('CA'), t.u('CB'), t.k('TA1'), k));
   nt := (r -> 'tickets' ->> 0)::uuid;
@@ -198,6 +217,8 @@ BEGIN
   PERFORM t.ok(public.carry_copy_complete(item, true, repeat('a', 64)) ->> 'status' = 'copied', 'COPY complete');
   PERFORM t.ok((SELECT uploaded_by = t.u('A1') AND file_path <> t.path('A1', 'TA1', 'invoice.png') FROM public.ticket_attachments WHERE ticket_id = nt), 'COPY new object, customer-owned');
   PERFORM t.ok(public.carry_copy_queue() = '[]'::jsonb, 'COPY queue drained');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.ticket_carry_attachments WHERE source_path LIKE '%internal.png' OR source_path LIKE '%whatever.png'),
+               'CARRY forged attachment rows never queued');
   RAISE NOTICE 'PASS ④ النسخ: محتوى العميل وحده إلى تذكرة جديدة غير مسندة والأصل باقٍ، مرة واحدة لكل وجهة، المصدر يُبلَّغ بلا كشف الوجهة، لا حصة ولا فوترة مزدوجة، العزل بين المصدر والوجهة، ومرفقات العميل تُنسخ ملفًا جديدًا بعامل الخدمة';
 END $$;
 
@@ -255,6 +276,10 @@ DO $$ BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.customer_transfers WHERE customer_id = t.u('A2')) = 2, 'INV history kept after deletion');
   PERFORM t.ok(EXISTS (SELECT 1 FROM jsonb_array_elements(t.call(t.u('OA'), 'public.company_transfer_requests()')) e
                         WHERE e ->> 'customer_name' = 'حساب محذوف'), 'INV deleted customer shown as deleted');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM pg_constraint WHERE contype = 'f'
+                             AND conrelid IN ('public.customer_transfers'::regclass, 'public.ticket_carries'::regclass,
+                                              'public.historical_access_requests'::regclass)
+                             AND confrelid IN ('public.companies'::regclass, 'public.profiles'::regclass)), 'INV no FK to companies/profiles');
   RAISE NOTICE 'PASS ⑥ الثوابت: السجلات إلحاقية ولا حذف ولا قراءة مباشرة، وحذف الحساب لا يتعطل والسجل يبقى';
 END $$;
 

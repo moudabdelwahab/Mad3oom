@@ -233,6 +233,7 @@ drop function if exists public.carry_tickets(uuid, uuid, uuid[], uuid);
 drop function if exists public.carry_copy_queue(integer);
 drop function if exists public.carry_copy_complete(uuid, boolean, text, text);
 drop function if exists public._carry_manifest(uuid, uuid);
+drop function if exists public._carry_attachment_ok(uuid, uuid);
 drop function if exists public._carry_require_enabled();
 drop function if exists public.historical_access_request(uuid, text);
 drop function if exists public.my_historical_requests();

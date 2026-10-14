@@ -19,6 +19,17 @@
 | No double billing | Carried tickets are excluded from `ticket_quota_status` and from the reconciliation's live count. The quota trigger is skipped for the carry insert, and the shadow ledger records them as `counter = none, units = 0`. Quota per account is proven identical before and after 101. |
 | Q7 / safe default 5: historical access | A company admin asks for one customer with a purpose of at least 20 characters. The customer sees the request in the portal and either declines or chooses 1–50 of their own tickets in **other** companies. Only then can the owner approve (context + step-up, not their own request) for 1–168 hours. Reads go through `historical_ticket_view`, which returns the ticket title, description and the customer's own non-internal messages only, logs every call, and stops at expiry. |
 
+## Fixes after the independent security review (2026-10-14)
+
+| Finding | Fix | Test |
+|---|---|---|
+| HIGH: company columns referenced `companies`, so deleting a company owner's account was blocked by history rows | `from_company`, `to_company` and `requesting_company` have no FK. Readers use left joins and show "شركة محذوفة" (deleted company). | ⑥ catalog check: no FK to `companies` or `profiles` |
+| HIGH: a customer could add a `ticket_attachments` row pointing at any path in the `tickets` bucket, and the carry worker would copy it | `_carry_attachment_ok` accepts only the customer's own upload, in their own `<customer>/<ticket>/` folder, with the storage object owned by them. The manifest uses the same rule. The worker also refuses a `source_path` outside the destination customer's folder. | ④ forged rows are never queued; worker test |
+| HIGH: without isolation, moving `super_user_id` lets the destination owner read the old tickets through the legacy path | `customer_transfers_enabled` works only while `company_isolation_enforced` **and** `company_permissions_enabled` are on (`0A000 prerequisite_not_enabled`) | ③ |
+| MEDIUM: `RAISE` after `UPDATE ... status` rolled the status back, so expired or cancelled requests stayed `pending` | Outcome is returned instead of raised. Stale pending requests expire on the customer's next request. | ③ expiry persists and frees the slot |
+| MEDIUM: copy queue could starve, and the worker deleted objects after a lost confirmation | Ordered queue with `attempts`, failed after 5. The worker never deletes; an existing object at the server-generated path proceeds to confirmation. | worker tests |
+| LOW: `service_role` kept execute on internal and authenticated functions | Revoked | — |
+
 ## Code that ships with 101 (not deployed)
 
 - `migrations/101_customer_transfers_carry.sql`: tables `customer_transfers`, `ticket_carries`, `ticket_carry_items`, `ticket_carry_attachments`, `historical_access_requests`, `historical_access_audit`, all with RLS, no direct grants, the `gate_account_active` restrictive policy, no deletes and an append-only audit.
@@ -40,7 +51,7 @@
 
 ## Rollout order (when approved)
 
-1. 095–100 applied. **Enable `company_permissions_enabled` (098) before `customer_transfers_enabled`.** Without 098, the source company sees its old tickets only through the legacy `super_user_id` link, and a transfer moves that link. Under isolation this fails **closed**: the source loses sight of the customer's old tickets and nothing leaks. The test asserts both states.
+1. 095–100 applied. `customer_transfers_enabled` now **refuses to work** until `company_isolation_enforced` and `company_permissions_enabled` are both on, so isolation's separate approval comes first. Without 098, the source company sees its old tickets only through the legacy `super_user_id` link, and a transfer moves that link. Under isolation this fails **closed**: the source loses sight of the customer's old tickets and nothing leaks. The test asserts both states.
 2. Apply `migrations/101_customer_transfers_carry.sql`. It is re-runnable. It self-checks that every switch is off, the quota patches applied, and the reconciliation shows no mismatches.
 3. Deploy the frontend files.
 4. `ticket-carry-copy`: deploy with `--no-verify-jwt` (it authenticates with its own secret) only when `ticket_carry_enabled` is about to be turned on. Set `CARRY_COPY_SECRET` and schedule a POST every few minutes. Until then, carried tickets have no attachments.

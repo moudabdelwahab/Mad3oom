@@ -17,15 +17,23 @@ const MIN_SECRET = 32;
 const BATCH = 20;
 const PATH_RE = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[^/]{1,200}$/;
 
-/** مسار وجهة يولّده الخادم: <العميل>/<التذكرة الجديدة>/<اسم> — بلا رجوع ولا مطابقة للأصل. */
+/**
+ * مسار وجهة يولّده الخادم: <العميل>/<التذكرة الجديدة>/<اسم> — بلا رجوع ولا مطابقة للأصل. والأصل بنفس الشكل
+ * وفي مجلد العميل نفسه (القاعدة تتحقق من ملكية الكائن؛ هذا دفاع ثانٍ إن وصل مسار غريب إلى الطابور).
+ */
 export function destPathOk(item) {
     return typeof item?.dest_path === 'string' && PATH_RE.test(item.dest_path)
         && !item.dest_path.includes('..') && item.dest_path !== item.source_path;
 }
 
+export function sourcePathOk(item) {
+    return typeof item?.source_path === 'string' && PATH_RE.test(item.source_path) && !item.source_path.includes('..')
+        && typeof item?.dest_path === 'string' && item.source_path.split('/')[0] === item.dest_path.split('/')[0];
+}
+
 /**
  * deps: secret · sha256(Uint8Array) ⇒ hex · queue(limit) ⇒ { data, error }
- *       download(path) ⇒ { bytes, notFound?, error? } · upload(path, bytes, mime) ⇒ { error? } · remove(path)
+ *       download(path) ⇒ { bytes, notFound?, error? } · upload(path, bytes, mime) ⇒ { error?, exists? }
  *       complete({ p_item, p_ok, p_sha256, p_error }) ⇒ { data, error }   (كلها بمفتاح الخدمة، دلو tickets)
  */
 export async function handleCarryCopy(req, deps) {
@@ -44,6 +52,7 @@ export async function handleCarryCopy(req, deps) {
         out.processed++;
         const fail = async (code) => { await deps.complete({ p_item: item.id, p_ok: false, p_sha256: null, p_error: code }); out.failed++; };
         if (!destPathOk(item)) { await fail('invalid_dest_path'); continue; }
+        if (!sourcePathOk(item)) { await fail('invalid_source_path'); continue; }
 
         const src = await deps.download(item.source_path);
         if (src.notFound) { await fail('source_missing'); continue; }
@@ -52,11 +61,12 @@ export async function handleCarryCopy(req, deps) {
             await fail('size_mismatch'); continue;
         }
 
+        // المسار المولَّد لا يكتبه غير هذا العامل: كائن موجود فيه = رفع سابق لم يُؤكَّد، فنكمل إلى التأكيد
         const up = await deps.upload(item.dest_path, src.bytes, item.mime_type || 'application/octet-stream');
-        if (up.error) { out.retry++; continue; }
+        if (up.error && !up.exists) { out.retry++; continue; }
         const done = await deps.complete({ p_item: item.id, p_ok: true, p_sha256: await deps.sha256(src.bytes), p_error: null });
         if (done.error) {
-            await deps.remove(item.dest_path);                               // لا ملف يتيم بلا سجل
+            // لا حذف: ربما سُجّل التأكيد وضاع الرد. العنصر يعود في الطابور (حتى 5 محاولات) أو صار مكتملًا
             out.retry++;
             continue;
         }

@@ -5,14 +5,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { handleCarryCopy, destPathOk } from '../supabase/functions/ticket-carry-copy/handler.js';
+import { handleCarryCopy, destPathOk, sourcePathOk } from '../supabase/functions/ticket-carry-copy/handler.js';
 
 const SECRET = 'c'.repeat(40);
 const U = '11111111-1111-4111-8111-111111111111';
 const T = '22222222-2222-4222-8222-222222222222';
+const T0 = '33333333-3333-4333-8333-333333333333';
+const OTHER = '44444444-4444-4444-8444-444444444444';
 const BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
 const sha256 = async (b) => crypto.createHash('sha256').update(b).digest('hex');
-const item = (over = {}) => ({ id: 'i1', bucket: 'tickets', source_path: `${U}/old/invoice.png`,
+const item = (over = {}) => ({ id: 'i1', bucket: 'tickets', source_path: `${U}/${T0}/invoice.png`,
     dest_path: `${U}/${T}/3f2b7c1e-1111-4222-8333-444455556666-invoice.png`, mime_type: 'image/png', size_bytes: BYTES.length, ...over });
 const req = (token = SECRET, method = 'POST') => new Request('https://x/functions/v1/ticket-carry-copy',
     { method, headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -36,6 +38,13 @@ test('مسار الوجهة: مولَّد بثلاثة أجزاء، بلا رج�
     assert.equal(destPathOk(item({ dest_path: 'a/b' })), false);
     assert.equal(destPathOk(item({ dest_path: `${U}/${T}/a/b` })), false);
     assert.equal(destPathOk(item({ source_path: item().dest_path })), false);
+});
+
+test('مسار الأصل: بنفس الشكل وفي مجلد العميل نفسه', () => {
+    assert.equal(sourcePathOk(item()), true);
+    assert.equal(sourcePathOk(item({ source_path: `${OTHER}/${T0}/x.png` })), false, 'ملف عميل آخر');
+    assert.equal(sourcePathOk(item({ source_path: `${U}/../x` })), false);
+    assert.equal(sourcePathOk(item({ source_path: 'invoices/secret.pdf' })), false);
 });
 
 test('بلا سر (أو قصير) 503 والطابور لا يُقرأ؛ سر خاطئ 401؛ غير POST 405', async () => {
@@ -63,6 +72,7 @@ test('الأصل مفقود أو الحجم مخالف أو مسار غير صا
         [item(), { download: async () => ({ notFound: true, error: { message: 'Object not found' } }) }, 'source_missing'],
         [item({ size_bytes: 999 }), {}, 'size_mismatch'],
         [item({ dest_path: '../../etc' }), {}, 'invalid_dest_path'],
+        [item({ source_path: `${OTHER}/${T0}/x.png` }), {}, 'invalid_source_path'],
     ]) {
         const d = deps([it], over);
         const out = await (await handleCarryCopy(req(), d)).json();
@@ -73,7 +83,7 @@ test('الأصل مفقود أو الحجم مخالف أو مسار غير صا
     }
 });
 
-test('عطل عابر يبقى في الطابور؛ رفض التأكيد يحذف الملف الجديد فلا يتيم', async () => {
+test('عطل عابر يبقى في الطابور؛ لا حذف بعد رفع قد سُجّل؛ كائن موجود في المسار المولَّد يكمل إلى التأكيد', async () => {
     let d = deps([item()], { download: async () => ({ error: { message: 'timeout' } }) });
     assert.deepEqual(await (await handleCarryCopy(req(), d)).json(), { processed: 1, copied: 0, failed: 0, retry: 1 });
     assert.deepEqual(d.log.complete, []);
@@ -82,7 +92,10 @@ test('عطل عابر يبقى في الطابور؛ رفض التأكيد يح�
     assert.deepEqual(d.log.complete, []);
     d = deps([item()], { complete: async () => ({ error: { code: '55000' } }) });
     assert.equal((await (await handleCarryCopy(req(), d)).json()).retry, 1);
-    assert.deepEqual(d.log.remove, [item().dest_path]);
+    assert.deepEqual(d.log.remove, [], 'لا حذف: ربما سُجّل التأكيد وضاع الرد');
+    d = deps([item()], { upload: async () => ({ error: { message: 'The resource already exists' }, exists: true }) });
+    assert.equal((await (await handleCarryCopy(req(), d)).json()).copied, 1);
+    assert.equal(d.log.complete[0].p_ok, true);
     d = deps([], { queue: async () => ({ error: { code: '42501' } }) });
     assert.equal((await handleCarryCopy(req(), d)).status, 502);
 });
