@@ -564,7 +564,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         عميل الشركة لبوابة /portal/، وأسرار الحساب (رموز API وسجلاتها، التكاملات الشخصية،
     //         IP والجهاز، النقاط) لأصحابها. مقيسٌ في tests/sql/account-boundaries.test.sql
     //         (والتراجع يعيد النصوص حرفيًا بنهايات CRLF كما في الإنتاج).
-    assert.equal(migrations[migrations.length - 1], '095_account_boundaries.sql',
+    //   096 — العضويات المتعددة (السؤال 4): company_memberships مصدرًا مرجعيًا و super_user_id مرآة
+    //         الأساسية، ودعوات بقبول صاحب الحساب، وسياق عميل يتحقق منه الخادم. مفتاح
+    //         multi_company_memberships_enabled مطفأ افتراضيًا (السلوك حرفيًا كما قبل 096).
+    //         مقيسٌ في tests/sql/company-memberships.test.sql.
+    assert.equal(migrations[migrations.length - 1], '096_company_memberships.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -342,3 +342,43 @@ export async function hasCompany() {
         return false;
     }
 }
+
+/* ── عملاء الشركة ودعواتهم (migrations/096_company_memberships.sql) ─────────
+ *
+ * company_customers_list(): للمدير والمشرف، العملاء النشطون بلا الموظفين وبلا أي أثر
+ * لعضوياتهم في شركات أخرى. الدعوة بالبريد للمدير (+ sub_users) والمفتاح مفعّل؛ الرد
+ * واحد دائمًا ({status: 'pending'}) فلا يكشف وجود حساب. قبل 096: data = null بلا خطأ.
+ */
+export async function fetchCompanyCustomers() {
+    return safe('companyCustomers', async () => {
+        const { data, error } = await supabase.rpc('company_customers_list');
+        if (isMissingRpc(error)) return null;
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+export async function fetchCompanyInvitations() {
+    return safe('companyInvitations', async () => {
+        const { data, error } = await supabase.rpc('company_invitations_list');
+        if (isMissingRpc(error)) return null;
+        if (error) throw error;
+        return Array.isArray(data) ? data : null;
+    });
+}
+
+export async function inviteCompanyCustomer(email) {
+    return safe('inviteCompanyCustomer', async () => {
+        const { data, error } = await supabase.rpc('company_invite_customer', { p_email: email });
+        if (error) throw error;
+        return data;
+    });
+}
+
+export async function cancelCompanyInvitation(invitationId) {
+    return safe('cancelCompanyInvitation', async () => {
+        const { data, error } = await supabase.rpc('company_invitation_cancel', { p_invitation: invitationId });
+        if (error) throw error;
+        return data;
+    });
+}

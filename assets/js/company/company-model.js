@@ -347,6 +347,41 @@ export function validateMemberForm(values) {
     return { isValid: Object.keys(errors).length === 0, errors };
 }
 
+/* ── دعوات العملاء (096) ──────────────────────────────────────────────── */
+
+export const INVITATION_STATUS_LABELS = Object.freeze({
+    pending:   { label: 'بانتظار الرد', pill: 'status-tone-warning' },
+    accepted:  { label: 'مقبولة',       pill: 'status-tone-success' },
+    declined:  { label: 'مرفوضة',       pill: 'status-neutral' },
+    cancelled: { label: 'ملغاة',        pill: 'status-neutral' },
+    expired:   { label: 'منتهية',       pill: 'status-neutral' }
+});
+
+/**
+ * ماذا يظهر في لوحة العملاء من رد company_customers_list() — خالص.
+ * الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل؛ قائمة العملاء للمشرف
+ * (المدير يرى العملاء في «مستخدمو الشركة» أصلًا).
+ */
+export function customersPanelView(payload, viewerRole) {
+    if (!payload || typeof payload !== 'object') return { show: false, canInvite: false, showList: false, customers: [] };
+    const canInvite = payload.can_manage === true && payload.invitations_enabled === true;
+    const showList = viewerRole === 'supervisor';
+    const customers = Array.isArray(payload.customers) ? payload.customers : [];
+    return { show: canInvite || showList, canInvite, showList, customers };
+}
+
+export function invitationStatusInfo(status) {
+    return INVITATION_STATUS_LABELS[status] || { label: 'غير معروفة', pill: 'status-neutral' };
+}
+
+/** تحقّق عرض لبريد الدعوة؛ القاعدة تتحقق مرة أخرى (22023). */
+export function validateInviteEmail(value) {
+    const email = String(value || '').trim();
+    if (!email) return { ok: false, error: 'اكتب البريد الإلكتروني للعميل' };
+    if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'بريد إلكتروني غير صالح' };
+    return { ok: true, email };
+}
+
 /**
  * هل الباقة دي بتستلزم شركة؟ القرار بيانات (subscription_plans.requires_company)
  * مش قائمة أسماء مكتوبة في الواجهة — باقة جديدة بتشتغل من غير تعديل كود.

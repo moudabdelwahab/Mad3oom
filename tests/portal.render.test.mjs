@@ -156,3 +156,68 @@ test('منظور العضو لمالك المنصة: شريط القراءة ف�
     assert.equal(await page.locator('#portalTicketSubmit').isDisabled(), true);
     await context.close();
 });
+
+/* ── 096: الدعوات ومحوّل الشركات ───────────────────────────────────────── */
+
+/**
+ * كل إجراء ناجح يعيد تحميل الصفحة من القاعدة، فيضيع سجل النداءات في window.
+ * نحفظه في sessionStorage قبل المغادرة ونقرؤه بعد التحميل.
+ */
+async function rpcArgsAcrossReload(page, name, action) {
+    await page.evaluate(() => addEventListener('beforeunload', () =>
+        sessionStorage.setItem('__rpc', JSON.stringify(window.__RPC_ARGS__ || []))));
+    await Promise.all([page.waitForEvent('load', { timeout: 10000 }), action()]);
+    return page.evaluate(n => JSON.parse(sessionStorage.getItem('__rpc') || '[]')
+        .filter(([x]) => x === n).map(([, a]) => a), name);
+}
+
+test('096: دعوة معلّقة تظهر حتى لمن ليس عميلًا بعد، والقبول يمر بالقاعدة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: null });
+    fx.rpc.my_company_invitations = [{ id: 'inv-1', company_name: 'شركة ب', expires_at: '2026-10-20T00:00:00Z' }];
+    fx.rpc.company_invitation_respond = { accepted: true };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    assert.equal(await page.locator('#invitations').isHidden(), false);
+    assert.match(await page.locator('#portalInvitationList').textContent(), /شركة ب/);
+    const args = await rpcArgsAcrossReload(page, 'company_invitation_respond',
+        () => page.locator('[data-invitation="inv-1"][data-accept="true"]').click());
+    assert.deepEqual(args, [{ p_invitation: 'inv-1', p_accept: true }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('096: بلا دعوات ولا ميزة: لا لوحة دعوات ولا محوّل (كما قبل 096)', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: { company: { id: 'c1', name: 'شركة النور' }, preview: false } });
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    assert.equal(await page.locator('#invitations').isHidden(), true);
+    assert.equal(await page.locator('#portalCompanies').isHidden(), true);
+    await context.close();
+});
+
+test('096: عميل في شركتين: المحوّل يبدّل عبر القاعدة، والأساسية معلَّمة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: {
+        company: { id: 'c1', name: 'شركة النور' }, preview: false, multi_company: true, pending_invitations: 0,
+        memberships: [{ company_id: 'c1', name: 'شركة النور', is_primary: true, is_current: true },
+                      { company_id: 'c2', name: 'شركة الأفق', is_primary: false, is_current: false }] } });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.enter_customer_company = { company_id: 'c2' };
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    assert.equal(await page.locator('#portalCompanies').isHidden(), false);
+    assert.equal(await page.locator('#portalPrimaryTag').isHidden(), false);
+    assert.equal(await page.locator('#portalSetPrimary').isHidden(), true, 'تعيين أساسية مع وجود أساسية');
+    assert.equal(await page.locator('#portalCompanySwitch option').count(), 2);
+    const args = await rpcArgsAcrossReload(page, 'enter_customer_company',
+        () => page.locator('#portalCompanySwitch').selectOption('c2'));
+    assert.deepEqual(args, [{ p_company: 'c2' }]);
+    await context.close();
+});
+
+test('096: بلا أساسية بعد المغادرة: زر تعيين الحالية أساسية', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: {
+        company: { id: 'c2', name: 'شركة الأفق' }, preview: false, multi_company: true, pending_invitations: 0,
+        memberships: [{ company_id: 'c2', name: 'شركة الأفق', is_primary: false, is_current: true }] } });
+    fx.rpc.my_company_invitations = [];
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    assert.equal(await page.locator('#portalSetPrimary').isHidden(), false);
+    assert.equal(await page.locator('#portalCompanySwitch').isDisabled(), true, 'شركة واحدة: لا تبديل');
+    await context.close();
+});

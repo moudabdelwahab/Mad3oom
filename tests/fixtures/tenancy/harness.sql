@@ -41,7 +41,7 @@ CREATE FUNCTION t.act(p uuid) RETURNS void LANGUAGE sql AS $$
   select set_config('request.jwt.claim.sub', coalesce(p::text, ''), false),
          set_config('request.jwt.claim.role', case when p is null then '' else 'authenticated' end, false),
          set_config('request.jwt.claims', case when p is null then ''
-                      else jsonb_build_object('sub', p, 'role', 'authenticated')::text end, false); $$;
+                      else jsonb_build_object('sub', p, 'role', 'authenticated', 'session_id', 'sess-' || p)::text end, false); $$;
 
 -- تعبير بهوية مستخدم ودور authenticated (RLS فعّالة)
 CREATE FUNCTION t.call(p uuid, p_sql text) RETURNS jsonb LANGUAGE plpgsql AS $$
@@ -138,7 +138,7 @@ CREATE FUNCTION t.stepup(p_user uuid) RETURNS void LANGUAGE plpgsql SECURITY DEF
 begin
   delete from public.privileged_step_ups where user_id = p_user;
   insert into public.privileged_step_ups (user_id, session_id, verified_at, expires_at)
-  values (p_user, 'test-session', now(), now() + interval '10 minutes');
+  values (p_user, 'sess-' || p_user, now(), now() + interval '10 minutes');  -- نفس جلسة t.act
 end $$;
 CREATE TABLE t.saved (k text PRIMARY KEY, v text);
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA t TO authenticated, service_role, anon;

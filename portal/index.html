@@ -36,6 +36,11 @@
         }
         .portal-topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .portal-level-tag { font-size: 0.85rem; opacity: 0.8; }
+        .portal-companies { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+        .portal-companies label { font-weight: 600; }
+        .portal-companies select { min-width: 200px; width: auto; }
+        .portal-invitation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+        .portal-invitation-actions { display: flex; gap: 8px; }
     </style>
 </head>
 <body class="customer-shell company-shell portal-shell">
@@ -58,6 +63,28 @@
         <p class="preview-strip company-notice" id="portalPreviewStrip" hidden>
             أنت في منظور عضو الشركة — العرض للقراءة فقط.
         </p>
+
+        <!-- 096: دعوات الانضمام المعلّقة. تظهر حتى لمن ليس عميل شركة بعد (الإشعار يقود إلى هنا). -->
+        <section class="panel" id="invitations" hidden aria-labelledby="portalInvitationsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalInvitationsHeading">دعوات الانضمام</h2>
+                    <p class="panel-subtitle">شركة تدعوك لتكون من عملائها. لا تنضم إلا بموافقتك.</p>
+                </div>
+            </div>
+            <ul class="company-sub-list" id="portalInvitationList"></ul>
+            <p class="field-error" id="portalInvitationError" role="alert" hidden></p>
+        </section>
+
+        <!-- 096: محوّل الشركات — لعميل في أكثر من شركة. القاعدة تتحقق من العضوية في كل تبديل. -->
+        <section class="panel portal-companies" id="portalCompanies" hidden>
+            <label for="portalCompanySwitch">الشركة الحالية</label>
+            <select id="portalCompanySwitch" class="form-control"></select>
+            <span class="pill" id="portalPrimaryTag" hidden>الأساسية</span>
+            <button type="button" class="btn btn-secondary" id="portalSetPrimary" hidden>تعيينها شركتي الأساسية</button>
+            <button type="button" class="panel-link is-danger" id="portalLeave" hidden>مغادرة هذه الشركة</button>
+            <p class="field-error" id="portalCompaniesError" role="alert" hidden></p>
+        </section>
 
         <section id="portalGate" class="panel">
             <div id="portalGateBody"></div>

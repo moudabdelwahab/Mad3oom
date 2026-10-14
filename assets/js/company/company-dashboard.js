@@ -39,7 +39,11 @@ import {
     fetchCompanyStaff,
     setCompanyStaffRole,
     revokeCompanyStaff,
-    saveCompany
+    saveCompany,
+    fetchCompanyCustomers,
+    fetchCompanyInvitations,
+    inviteCompanyCustomer,
+    cancelCompanyInvitation
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
@@ -60,6 +64,9 @@ import {
     viewerRoleOf,
     sectionAllowed,
     VIEWER_ROLE_LABELS,
+    customersPanelView,
+    invitationStatusInfo,
+    validateInviteEmail,
     validateCompanyForm,
     validateMemberForm
 } from '/assets/js/company/company-model.js';
@@ -136,6 +143,7 @@ async function init() {
 
     wireForm();
     wireAddMember();
+    wireInviteCustomer();
     wireSectionRouting();
 
     await load();
@@ -332,6 +340,7 @@ async function load() {
     if (viewerRole === 'admin') renderSubscriptions();
     renderEntitlements();
     await renderMembers();
+    await renderCustomers();
 }
 
 /* ── مستخدمو الشركة ─────────────────────────────────────────────────────── */
@@ -508,6 +517,102 @@ async function onRemoveMember(memberId, memberName) {
     }
     ui?.showToast?.('تمت إزالة المستخدم من الشركة', 'success');
     await renderMembers();
+}
+
+/* ── عملاء الشركة ودعواتهم (096) ─────────────────────────────────────────── */
+
+/**
+ * القرار في القاعدة: company_customers_list() للمدير والمشرف (null لغيرهما، وقبل 096)،
+ * والدعوة لمن رجّعت له can_manage والمفتاح مفعّل. الدعوة ترد بنفس الرسالة لأي بريد،
+ * فالواجهة لا تقول «الحساب موجود» أو «غير موجود» أبدًا.
+ */
+async function renderCustomers() {
+    const panel = document.getElementById('companyCustomersPanel');
+    if (!panel) return;
+    const result = await fetchCompanyCustomers();
+    const view = customersPanelView(result.ok ? result.data : null, viewerRole);
+    panel.hidden = !view.show;
+    if (!view.show) return;
+
+    document.getElementById('companyInviteForm').hidden = !view.canInvite;
+    const invitationsBox = document.getElementById('companyInvitations');
+    invitationsBox.innerHTML = '';
+    if (view.canInvite) {
+        const inv = await fetchCompanyInvitations();
+        const rows = inv.ok && Array.isArray(inv.data) ? inv.data : [];
+        invitationsBox.innerHTML = rows.length ? `
+            <ul class="company-sub-list">
+                ${rows.map(i => {
+                    const info = invitationStatusInfo(i.status);
+                    return `
+                    <li class="company-sub">
+                        <div class="company-sub-main">
+                            <p class="company-sub-plan">${escapeHtml(i.email || '—')}</p>
+                            <p class="company-sub-dates">أُرسلت ${escapeHtml(formatDate(i.created_at))}</p>
+                        </div>
+                        <div class="company-sub-side">
+                            <span class="pill ${escapeHtml(info.pill)}">${escapeHtml(info.label)}</span>
+                            ${i.status === 'pending' ? `
+                            <button type="button" class="panel-link is-danger" data-cancel-invitation="${escapeHtml(i.id)}">إلغاء الدعوة</button>` : ''}
+                        </div>
+                    </li>`;
+                }).join('')}
+            </ul>` : '';
+        invitationsBox.querySelectorAll('[data-cancel-invitation]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                const r = await cancelCompanyInvitation(btn.getAttribute('data-cancel-invitation'));
+                if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
+                await renderCustomers();
+            });
+        });
+    }
+
+    const list = document.getElementById('companyCustomers');
+    if (!view.showList) { list.innerHTML = ''; return; }
+    if (!view.customers.length) {
+        renderState(list, { variant: 'empty', title: 'لا يوجد عملاء بعد', text: 'يظهر هنا عملاء الشركة بعد انضمامهم.' });
+        return;
+    }
+    list.innerHTML = `
+        <ul class="company-sub-list">
+            ${view.customers.map(c => `
+            <li class="company-sub" data-customer="${escapeHtml(c.id)}">
+                <div class="company-sub-main">
+                    <p class="company-sub-plan">${escapeHtml(c.name || '—')}</p>
+                    <p class="company-sub-dates">${escapeHtml(c.email || '')}${c.phone ? ` · ${escapeHtml(c.phone)}` : ''}</p>
+                </div>
+            </li>`).join('')}
+        </ul>`;
+}
+
+function wireInviteCustomer() {
+    const form = document.getElementById('companyInviteForm');
+    if (!form) return;
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const errorBox = document.getElementById('companyInviteError');
+        errorBox.hidden = true;
+        const check = validateInviteEmail(document.getElementById('companyInviteEmail').value);
+        if (!check.ok) {
+            errorBox.textContent = check.error;
+            errorBox.hidden = false;
+            return;
+        }
+        const btn = document.getElementById('companyInviteSubmit');
+        btn.disabled = true;
+        const result = await inviteCompanyCustomer(check.email);
+        btn.disabled = false;
+        if (!result.ok) {
+            errorBox.textContent = result.error || 'تعذّر إرسال الدعوة';
+            errorBox.hidden = false;
+            return;
+        }
+        form.reset();
+        // نفس الرسالة لأي بريد: لا تأكيد لوجود حساب
+        ui?.showToast?.('سُجّلت الدعوة. إن كان للبريد حساب مؤهل فستصله في بوابة العملاء.', 'success');
+        await renderCustomers();
+    });
 }
 
 /* ── نافذة إضافة مستخدم ─────────────────────────────────────────────────── */

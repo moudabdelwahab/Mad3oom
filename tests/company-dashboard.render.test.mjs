@@ -408,3 +408,74 @@ test('095: المدير يرى اللوحة كاملة كما كانت (viewer_r
     assert.match(await page.locator('#companyKpis').textContent(), /اشتراكات فعّالة/);
     await context.close();
 });
+
+/* ── 096: عملاء الشركة ودعواتهم ─────────────────────────────────────────── */
+
+/** اللوحة في قسم «المستخدمون»: نفتحه كما يفعل المستخدم. */
+async function openMembersSection(page) {
+    await page.evaluate(() => { window.location.hash = '#members'; });
+    await page.waitForSelector('#membersTabContent.active', { timeout: 5000 });
+}
+
+test('096: المدير والمفتاح مفعّل يرى نموذج الدعوة ويرسلها بلا كشف لوجود الحساب', async () => {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    const fx = fixtures(payload, { rpc: {
+        my_account_kind: 'company_admin',
+        company_customers_list: { company_id: COMPANY_ID, can_manage: true, invitations_enabled: true, customers: [] },
+        company_invitations_list: [{ id: 'i1', email: 'old@x.test', status: 'expired', created_at: '2026-10-01T10:00:00Z' },
+                                   { id: 'i2', email: 'wait@x.test', status: 'pending', created_at: '2026-10-10T10:00:00Z' }],
+        company_invite_customer: { status: 'pending' }
+    } });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openMembersSection(page);
+    await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
+    assert.equal(await page.locator('#companyInviteForm').isHidden(), false);
+    const invText = await page.locator('#companyInvitations').textContent();
+    assert.match(invText, /منتهية/);
+    assert.match(invText, /بانتظار الرد/);
+    assert.equal(await page.locator('[data-cancel-invitation]').count(), 1, 'الإلغاء للمعلّقة فقط');
+    await page.locator('#companyInviteEmail').fill('غير صالح');
+    await page.locator('#companyInviteSubmit').click();
+    assert.equal(await page.locator('#companyInviteError').isHidden(), false);
+    await page.locator('#companyInviteEmail').fill('new@x.test');
+    await page.locator('#companyInviteSubmit').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'company_invite_customer'));
+    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_invite_customer').map(([, a]) => a));
+    assert.deepEqual(args, [{ p_email: 'new@x.test' }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('096: المفتاح مطفأ: لا نموذج دعوة ولا لوحة عملاء للمدير', async () => {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    const fx = fixtures(payload, { rpc: {
+        my_account_kind: 'company_admin',
+        company_customers_list: { company_id: COMPANY_ID, can_manage: true, invitations_enabled: false, customers: [] }
+    } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#companyCustomersPanel').isHidden(), true);
+    const calls = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(calls.includes('company_invitations_list'), false);
+    await context.close();
+});
+
+test('096: المشرف يرى قائمة العملاء للقراءة، بلا دعوة', async () => {
+    const payload = companyPayload({ company: { is_owner: false, cr_number: null, tax_id: null } });
+    payload.viewer_role = 'supervisor';
+    payload.registration = null;
+    payload.subscriptions = [];
+    const fx = fixtures(payload, { rpc: {
+        my_account_kind: 'company_employee',
+        company_customers_list: { company_id: COMPANY_ID, can_manage: false, invitations_enabled: true,
+                                  customers: [{ id: 'u1', name: 'عميل أول', email: 'c1@x.test', phone: null }] }
+    } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openMembersSection(page);
+    await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
+    assert.equal(await page.locator('#companyInviteForm').isHidden(), true);
+    assert.match(await page.locator('#companyCustomers').textContent(), /عميل أول/);
+    await context.close();
+});

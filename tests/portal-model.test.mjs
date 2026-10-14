@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 // الوحدة بعد استبدال الاستيراد ببديل فارغ.
 const src = readFileSync(new URL('../assets/js/portal/portal-data.js', import.meta.url), 'utf8')
     .replace("import { supabase } from '/api-config.js';", 'const supabase = null;');
-const { portalState, validateTicketForm } = await import('data:text/javascript,' + encodeURIComponent(src));
+const { portalState, validateTicketForm, membershipView } = await import('data:text/javascript,' + encodeURIComponent(src));
 
 test('حالة العرض: الاسم فقط لعميل الشركة', () => {
     assert.deepEqual(portalState({ ok: true, data: { company: { id: 'c', name: 'شركة أ' }, preview: false } }),
@@ -50,5 +50,25 @@ test('البوابة لا تحمل شراء باقات ولا أقسام الش�
     for (const forbidden of ['subscriptions.html', 'payment.html', 'chat-widget', '/company-dashboard/',
                              'get_my_company_dashboard', 'company_members', 'api-token', 'integrations']) {
         assert.ok(!html.includes(forbidden) && !js.includes(forbidden), `البوابة تشير إلى ${forbidden}`);
+    }
+});
+
+test('096: محوّل الشركات من رد الخادم', () => {
+    const base = { company: { id: 'c1', name: 'أ' }, preview: false, multi_company: true };
+    const two = membershipView({ ...base, memberships: [
+        { company_id: 'c1', name: 'أ', is_primary: true, is_current: true },
+        { company_id: 'c2', name: 'ب', is_primary: false, is_current: false }] });
+    assert.equal(two.showSwitcher, true);
+    assert.equal(two.current.id, 'c1');
+    assert.equal(two.canSetPrimary, false, 'له أساسية: تغييرها نقل بموافقات');
+    assert.equal(two.canLeave, true);
+    const noPrimary = membershipView({ ...base, memberships: [{ company_id: 'c2', name: 'ب', is_primary: false, is_current: true }] });
+    assert.equal(noPrimary.showSwitcher, false);
+    assert.equal(noPrimary.canSetPrimary, true);
+    // المفتاح مطفأ أو منظور المالك: لا شيء
+    for (const data of [{ ...base, multi_company: false, memberships: two.options }, { ...base, preview: true },
+                        null, { ...base, memberships: 'x' }]) {
+        const v = membershipView(data);
+        assert.equal(v.showSwitcher || v.canLeave || v.canSetPrimary, false);
     }
 });

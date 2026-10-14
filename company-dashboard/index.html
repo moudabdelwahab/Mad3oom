@@ -160,6 +160,29 @@
                     </p>
                     <div id="companyMembers"></div>
                 </section>
+
+                <!-- 096: عملاء الشركة. الدعوة بالبريد للمدير والمفتاح مفعّل (الرد واحد لكل بريد:
+                     لا يكشف وجود حساب)؛ وقائمة العملاء للمشرف. لا أثر لعضويات العميل في شركات أخرى. -->
+                <section class="panel" aria-labelledby="companyCustomersHeading" id="companyCustomersPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyCustomersHeading">عملاء الشركة</h2>
+                            <p class="panel-subtitle">العميل ينضم بقبوله دعوتك من بوابة العملاء.</p>
+                        </div>
+                    </div>
+                    <form id="companyInviteForm" class="company-form" novalidate hidden>
+                        <div class="form-field is-full">
+                            <label for="companyInviteEmail">بريد العميل</label>
+                            <input id="companyInviteEmail" name="email" type="email" class="form-control" maxlength="320" autocomplete="off">
+                        </div>
+                        <p class="field-error" id="companyInviteError" role="alert" hidden></p>
+                        <div class="company-form-actions">
+                            <button type="submit" class="btn btn-primary" id="companyInviteSubmit">إرسال دعوة</button>
+                        </div>
+                    </form>
+                    <div id="companyInvitations"></div>
+                    <div id="companyCustomers"></div>
+                </section>
             </section>
 
             <!-- ═══ الاشتراكات والخدمات ════════════════════════════════════
