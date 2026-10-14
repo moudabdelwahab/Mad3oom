@@ -5,7 +5,8 @@
  * (owner_critical_ok). تعطيل الأزرار قبل التحقق مجاملة؛ الرفض الحقيقي في القاعدة، ومُختبَر في
  * tests/sql/{company-memberships,ticket-isolation,company-permissions-ledger,admin-hierarchy}.test.sql.
  *
- * الأقسام: مفاتيح التفعيل، طلبات الوصول، مراجعة الإداريين، الهيكل الإداري، مطابقة الاستهلاك.
+ * الأقسام: مفاتيح التفعيل، طلبات الوصول، مراجعة الإداريين، الهيكل الإداري، مطابقة الاستهلاك،
+ * ومستندات الشركات (طابور المراجعة والتجربة الجافة للاحتفاظ).
  * كل قسم يعرض «غير مطبّق بعد» إن لم يُطبَّق ترحيله، فالصفحة تعمل بأي ترتيب نشر.
  */
 import { applyCriticalState } from '/assets/js/owner/authority-center.js';
@@ -289,8 +290,51 @@ export function initTenancyGovernance(ctx) {
             </tr>`) : ''}`;
     }
 
+    /* ── مستندات الشركات (100) ────────────────────────────────────────── */
+    async function renderDocuments() {
+        const box = $('govDocuments');
+        if (!box) return;
+        const res = await rpc('owner_documents_queue');
+        if (res.missing) { box.innerHTML = notApplied('مستندات الشركات'); return; }
+        if (res.error) { box.innerHTML = failed(res.error); return; }
+        const docs = res.data || [];
+        box.innerHTML = `
+            ${table(['الشركة', 'المستند', 'الحالة', 'الإصدار الحالي', ''], docs, d => {
+                const cur = (d.versions || []).find(v => v.is_current) || {};
+                const reviewable = d.status === 'pending_review' && cur.status === 'clean' && cur.review_status === 'pending';
+                return `<tr>
+                    ${td(esc(d.company_name))}${td(esc(d.label))}
+                    ${td(`<span class="pill status-neutral">${esc(d.status)}</span>`)}
+                    ${td(`v${esc(cur.version_no)} · ${esc(cur.status)}${cur.sha256 ? `<br><small dir="ltr">${esc(String(cur.sha256).slice(0, 12))}…</small>` : ''}`)}
+                    ${td(reviewable ? `
+                        <input type="date" class="form-control" data-doc-expiry="${esc(cur.id)}" aria-label="تاريخ الانتهاء">
+                        <button type="button" class="btn btn-sm btn-primary" data-critical data-doc-review="${esc(cur.id)}" data-approve="true">اعتماد</button>
+                        <button type="button" class="btn btn-sm btn-secondary" data-critical data-doc-review="${esc(cur.id)}" data-approve="false">رفض</button>`
+                        : cur.status === 'pending_scan' ? '<small>معزول حتى الفحص</small>' : '')}
+                </tr>`;
+            })}
+            <div class="owner-gov-form">
+                <button type="button" class="btn btn-sm btn-secondary" id="govRetentionDryRun">تجربة جافة للاحتفاظ</button>
+                <span id="govRetentionResult" class="panel-subtitle"></span>
+            </div>`;
+        box.querySelectorAll('[data-doc-review]').forEach(btn => btn.addEventListener('click', async () => {
+            const approve = btn.dataset.approve === 'true';
+            if (!approve && !needReason()) return;
+            const expiry = box.querySelector(`[data-doc-expiry="${CSS.escape(btn.dataset.docReview)}"]`)?.value || null;
+            await act('document_review', { p_version: btn.dataset.docReview, p_approve: approve,
+                                           p_note: approve ? null : reason(), p_expires_on: expiry },
+                      approve ? 'اعتُمد المستند' : 'رُفض المستند وأُبلغت الشركة');
+        }));
+        $('govRetentionDryRun').addEventListener('click', async () => {
+            const r = await rpc('owner_retention_dry_run');
+            $('govRetentionResult').textContent = r.data
+                ? `كان سيُحذف ${r.data.would_delete.length} إصدارًا (محجوز قانونيًا: ${r.data.held}). لا حذف — المدد غير معتمدة قانونيًا.`
+                : (r.error || 'غير مطبّق بعد');
+        });
+    }
+
     async function renderAll() {
-        await Promise.all([renderSwitches(), renderAccess(), renderReviews(), renderHierarchy(), renderUsage()]);
+        await Promise.all([renderSwitches(), renderAccess(), renderReviews(), renderHierarchy(), renderUsage(), renderDocuments()]);
         applyCriticalState();
     }
 

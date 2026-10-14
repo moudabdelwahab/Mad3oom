@@ -112,6 +112,8 @@ BEGIN
   PERFORM t.ok(t.own_err(format('public.document_review(%L::uuid, true, null, ''2030-01-01'')', v)) = '55000', 'Q review owner');
   PERFORM t.ctx(null);
   PERFORM t.ok(t.err(t.u('OA'), format('public.document_scan_result(%L::uuid, ''clean'', ''clamav'')', v)) = '42501', 'Q scan result not for users');
+  PERFORM t.ok(t.err(t.u('OA'), 'public.document_scan_queue()') = '42501', 'Q queue not for users');
+  PERFORM t.ok(public.document_scan_queue() -> 0 ->> 'version_id' = v::text, 'Q queue lists pending');
   PERFORM t.ok(public.document_scan_result(v, 'clean', 'clamav-test') ->> 'status' = 'clean', 'Q scan clean (service)');
   PERFORM t.ok(public.document_scan_result(v, 'clean', 'clamav-test') ->> 'changed' = 'false', 'Q scan idempotent');
   PERFORM t.ok(t.err_super_ok(format('select public.document_scan_result(%L, ''infected'', ''clamav-test'')', v)) = '55000', 'Q scan final');

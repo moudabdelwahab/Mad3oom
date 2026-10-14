@@ -133,6 +133,19 @@
                         </div>
                     </form>
                 </section>
+
+                <!-- 100: مستندات الشركة (مدير الشركة، والميزة مفعّلة). الملف يُرفع إلى دالة طرفية تتحقق منه
+                     ويبقى «بانتظار الفحص الأمني» حتى نتيجة فحص موقَّعة؛ لا تنزيل قبلها لأي أحد. -->
+                <section class="panel" aria-labelledby="companyDocumentsHeading" id="companyDocumentsPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyDocumentsHeading">مستندات الشركة</h2>
+                            <p class="panel-subtitle">PDF أو PNG أو JPEG حتى 10 ميجابايت. كل ملف يُفحص أمنيًا قبل مراجعته أو تنزيله.</p>
+                        </div>
+                    </div>
+                    <div id="companyDocuments"></div>
+                    <p class="field-error" id="companyDocumentsError" role="alert" hidden></p>
+                </section>
             </section>
 
             <!-- ═══ مستخدمو الشركة ═════════════════════════════════════════ -->

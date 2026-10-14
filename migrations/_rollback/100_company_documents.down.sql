@@ -23,6 +23,7 @@ end $$;
 drop function if exists public.document_upload_begin(text, text, integer, text, uuid);
 drop function if exists public.document_upload_commit(uuid, text);
 drop function if exists public.document_scan_result(uuid, text, text, jsonb);
+drop function if exists public.document_scan_queue(integer);
 drop function if exists public.document_download_authorize(uuid);
 drop function if exists public.company_documents_mine();
 drop function if exists public.owner_documents_queue(text);

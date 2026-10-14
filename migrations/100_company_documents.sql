@@ -499,6 +499,24 @@ revoke all on function public.document_scan_result(uuid, text, text, jsonb) from
 grant execute on function public.document_scan_result(uuid, text, text, jsonb) to service_role;
 
 
+-- طابور الفحص لعامل الفحص (مفتاح الخدمة وحده): المسارات بانتظار الفحص، الأقدم أولًا.
+create or replace function public.document_scan_queue(p_limit integer default 20)
+returns jsonb
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object('version_id', v.id, 'bucket', 'company-documents', 'path', v.storage_path,
+                                               'sha256', v.sha256, 'size_bytes', v.size_bytes, 'mime_type', v.mime_type)
+                            order by v.committed_at), '[]'::jsonb)
+    from (select * from public.company_document_versions
+           where status = 'pending_scan' order by committed_at limit least(greatest(coalesce(p_limit, 20), 1), 100)) v;
+$$;
+revoke all on function public.document_scan_queue(integer) from public, anon, authenticated;
+grant execute on function public.document_scan_queue(integer) to service_role;
+
+
 -- ============================================================================
 -- 6) التنزيل — قرار + سجل، ثم رابط موقَّع قصير من الدالة الطرفية
 -- ============================================================================

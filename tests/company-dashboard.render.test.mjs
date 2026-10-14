@@ -479,3 +479,68 @@ test('096: المشرف يرى قائمة العملاء للقراءة، بلا
     assert.match(await page.locator('#companyCustomers').textContent(), /عميل أول/);
     await context.close();
 });
+
+/* ── 100: مستندات الشركة ────────────────────────────────────────────────── */
+
+function documentsFixture(enabled = true) {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    return fixtures(payload, { rpc: {
+        my_account_kind: 'company_admin',
+        company_documents_mine: {
+            enabled, kind: 'company',
+            requirements: [
+                { doc_type: 'commercial_registration', label: 'السجل التجاري', required: true, status: 'approved', allowed_mime: ['application/pdf'] },
+                { doc_type: 'tax_card', label: 'البطاقة الضريبية', required: true, status: 'pending_scan', allowed_mime: ['application/pdf'] },
+                { doc_type: 'contract_proof', label: 'إثبات التعاقد', required: false, status: 'missing', allowed_mime: ['application/pdf'] }
+            ],
+            documents: [
+                { doc_type: 'commercial_registration', expires_on: '2030-01-01',
+                  versions: [{ id: 'v-cr', version_no: 1, status: 'clean', is_current: true, created_at: '2026-10-01T00:00:00Z', review_status: 'approved' }] },
+                { doc_type: 'tax_card',
+                  versions: [{ id: 'v-tax', version_no: 1, status: 'pending_scan', is_current: true, created_at: '2026-10-02T00:00:00Z', review_status: 'pending' }] }
+            ]
+        }
+    } });
+}
+
+test('100: المستندات مخفية والميزة مطفأة', async () => {
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, documentsFixture(false));
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#companyDocumentsPanel').isHidden(), true);
+    await context.close();
+});
+
+test('100: الحالة لكل مستند، والتنزيل للنظيف وحده، والرفع إلى الدالة الطرفية بالرؤوس الصحيحة', async () => {
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, documentsFixture(true));
+    await page.waitForSelector('#companyDocumentsPanel:not([hidden])', { timeout: 5000 });
+    const text = await page.locator('#companyDocuments').innerText();
+    assert.match(text, /معتمد/);
+    assert.match(text, /بانتظار الفحص الأمني/);
+    assert.match(text, /غير مرفوع/);
+    assert.equal(await page.locator('[data-document-download="v-cr"]').count(), 1);
+    assert.equal(await page.locator('[data-document-download="v-tax"]').count(), 0, 'تنزيل ملف معزول');
+
+    const seen = [];
+    await page.route('**/functions/v1/company-document-upload', async (route) => {
+        const h = route.request().headers();
+        seen.push({ type: h['x-document-type'], mime: h['content-type'], key: h['x-idempotency-key'] });
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":"pending_scan"}' });
+    });
+    await page.setInputFiles('[data-document-upload="contract_proof"]',
+        { name: 'contract.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 test') });
+    await page.waitForFunction(() => true);
+    await page.waitForTimeout(300);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].type, 'contract_proof');
+    assert.equal(seen[0].mime, 'application/pdf');
+    assert.match(seen[0].key, /^[0-9a-f-]{36}$/);
+
+    // ملف مرفوض قبل الإرسال
+    await page.setInputFiles('[data-document-upload="contract_proof"]',
+        { name: 'x.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') });
+    await page.waitForSelector('#companyDocumentsError:not([hidden])');
+    assert.equal(seen.length, 1, 'أُرسل ملف بنوع مرفوض');
+    assert.equal(errors.filter(e => !/favicon|404/.test(e)).length, 0, errors.join(' | '));
+    await context.close();
+});

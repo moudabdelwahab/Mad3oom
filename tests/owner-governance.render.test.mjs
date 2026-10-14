@@ -65,7 +65,14 @@ function fixtures({ fresh = false, missing = false } = {}) {
                            units: [{ id: UNIT, parent_id: null, name: 'الإدارة العامة', members: [], companies: [], delegations: [] }],
                            unassigned_companies: [{ company_id: 'c1', name: 'شركة أ', status: 'active' }] },
         owner_assign_company_unit: { changed: true },
-        usage_reconciliation: { period: '2026-10-01', accounts: 3, matching: 3, mismatches: [] }
+        usage_reconciliation: { period: '2026-10-01', accounts: 3, matching: 3, mismatches: [] },
+        owner_documents_queue: [
+            { id: 'd1', company_name: 'شركة أ', label: 'السجل التجاري', status: 'pending_review',
+              versions: [{ id: 'v1', version_no: 1, status: 'clean', review_status: 'pending', is_current: true, sha256: 'ab'.repeat(32) }] },
+            { id: 'd2', company_name: 'شركة ب', label: 'البطاقة الضريبية', status: 'pending_scan',
+              versions: [{ id: 'v2', version_no: 1, status: 'pending_scan', review_status: 'pending', is_current: true }] }
+        ],
+        document_review: { status: 'approved' }
     };
     return {
         user: { id: OWNER, email: 'owner@example.com' },
@@ -196,5 +203,17 @@ test('قبل الترحيلات: كل قسم يقول «غير مطبّق بعد
     fx.rpcErrors = undefined;
     const { page, context, errors } = await openOwner(browser, baseUrl, fx);
     assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('مستندات الشركات: الاعتماد للإصدار النظيف وحده، والمعزول بلا أزرار', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await page.waitForSelector('[data-doc-review="v1"][data-approve="true"]:not([disabled])');
+    assert.equal(await page.locator('[data-doc-review="v2"]').count(), 0, 'زر مراجعة لملف معزول');
+    assert.match(await page.textContent('#govDocuments'), /معزول حتى الفحص/);
+    await page.fill('[data-doc-expiry="v1"]', '2030-01-01');
+    await page.click('[data-doc-review="v1"][data-approve="true"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'document_review'));
+    assert.deepEqual((await calls(page, 'document_review'))[0], { p_version: 'v1', p_approve: true, p_note: null, p_expires_on: '2030-01-01' });
     await context.close();
 });

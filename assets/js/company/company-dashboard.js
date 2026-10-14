@@ -30,6 +30,7 @@ import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
+import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
 import {
     fetchCompanyDashboard,
     fetchAccountKind,
@@ -349,6 +350,8 @@ async function load() {
     await renderMembers();
     await renderCustomers();
     await configureTeamTickets();
+    // 100: مستندات الشركة — للمدير وحده، والميزة مفعّلة (القاعدة تقرر)
+    if (viewerRole === 'admin') await renderCompanyDocuments();
 }
 
 /**
