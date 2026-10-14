@@ -41,7 +41,7 @@ document_scan_result(…, p_nonce)  clean → pending_review · infected → rej
 |---|---|
 | No secret | The callback answers 503; files stay `pending_scan`. |
 | Wrong or old signature | 401; nothing recorded. |
-| The same signed request sent again (replay) | 409 `replayed`; the nonce was already used (104 L5). |
+| The same signed request sent again (replay) | 409 `replayed`; the nonce was already used (104 L5). A worker retrying after a lost response should treat `replayed` as delivered, or re-sign with a fresh timestamp. |
 | Download error or SHA-256 mismatch | The result is `error` (`scan_error`). The version stays unreviewable and is re-queued; after 3 attempts it stays quarantined (`scan_gave_up`), and the company uploads a new version. |
 | clamd down or timeout | `error`, same as above. |
 | Infected | The version is rejected automatically, stays quarantined, and the company must upload a new version. |

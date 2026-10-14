@@ -29,6 +29,10 @@ Deno.serve((req: Request) => handleUpload(req, {
     admin.rpc("document_upload_commit_server", { p_version: version, p_actor: actor, p_sha256: sha256 }),
   upload: (path: string, bytes: Uint8Array, contentType: string) =>
     admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false, cacheControl: "private, max-age=0" }),
+  download: async (path: string) => {
+    const { data, error } = await admin.storage.from(BUCKET).download(path);
+    return error || !data ? null : new Uint8Array(await data.arrayBuffer());
+  },
   remove: (path: string) => admin.storage.from(BUCKET).remove([path]),
   sha256: async (bytes: Uint8Array) => hex(await crypto.subtle.digest("SHA-256", bytes)),
 }));

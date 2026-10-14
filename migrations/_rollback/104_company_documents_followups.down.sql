@@ -6,7 +6,10 @@
 -- الترتيب: 104 أولًا (قبل 103 و100). يُشغَّل في معاملة واحدة:
 --   psql --single-transaction -v ON_ERROR_STOP=1 -f migrations/_rollback/104_company_documents_followups.down.sql
 -- يرفض (قبل أي تغيير) إن كان مفتاح المستندات مفعّلًا، أو بقيت مستندات أو حجوز لشركة محذوفة (المفتاح الخارجي
--- لا يعود عليها، والمستندات لا تُحذف بتراجع).
+-- لا يعود عليها، والمستندات لا تُحذف بتراجع)، أو وُجد تاريخ فحص من 104 (محاولات أو nonce): دوال 100 تقبل
+-- scan_error ← clean بلا حد ولا nonce، فإسقاط هذا التاريخ قد يُطلق إصدارًا توقّف فحصه.
+-- علامة «104 مطبَّق» (document_upload_commit_server) تُحذف آخرًا: لو فشل التراجع في منتصفه بلا معاملة
+-- واحدة، يبقى تراجع 103 و100 مرفوضًا.
 -- ============================================================================
 do $$
 begin
@@ -17,11 +20,14 @@ begin
      or exists (select 1 from public.legal_holds h where not exists (select 1 from public.companies c where c.id = h.company_id)) then
     raise exception 'التراجع عن 104 مرفوض: مستندات أو حجوز لشركة محذوفة — لا يعود المفتاح الخارجي عليها';
   end if;
+  if exists (select 1 from public.company_document_versions where scan_attempts > 0)
+     or exists (select 1 from public.document_scan_nonces) then
+    raise exception 'التراجع عن 104 مرفوض: يوجد تاريخ فحص (محاولات أو nonce) — إسقاطه يرفع حد المحاولات وحماية التكرار';
+  end if;
 end $$;
 
 drop trigger if exists trg_documents_reviewer_deleted on public.profiles;
 drop trigger if exists trg_documents_company_deleted on public.companies;
-drop function if exists public.document_upload_commit_server(uuid, uuid, text);
 drop function if exists public.document_scan_result(uuid, text, text, jsonb, text);
 
 -- دوال 100 حرفيًا
@@ -329,3 +335,6 @@ alter table public.company_documents
   add constraint company_documents_company_id_fkey foreign key (company_id) references public.companies(id) on delete cascade;
 alter table public.legal_holds
   add constraint legal_holds_company_id_fkey foreign key (company_id) references public.companies(id) on delete cascade;
+
+-- علامة «104 مطبَّق» آخرًا (حراس تراجع 103 و100 يعتمدون عليها)
+drop function if exists public.document_upload_commit_server(uuid, uuid, text);

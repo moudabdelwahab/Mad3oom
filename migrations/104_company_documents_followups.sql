@@ -6,7 +6,9 @@
 --   M1  القرار A (موثَّق في المذكرة): المستندات والحجوز القانونية تبقى بعد حذف الشركة تحت قواعد الاحتفاظ
 --       والحجز، بلا مفتاح خارجي إلى companies؛ حذف حساب المالك ينجح. المراجع المحذوف: assigned_reviewer
 --       يصير null (ON DELETE SET NULL) بسطر في سجل المستند.
---   M2  تحقق ذاتي أشد: أي سياسة سماح على storage.objects لا تذكر bucket_id توقف الترحيل.
+--   M2  تحقق ذاتي أشد: كل سياسة سماح على storage.objects يجب أن يكون شرطها الأعلى bucket_id = <قيمة ثابتة>
+--       (أو ANY لقائمة ثابتة) مقرونًا بـ AND — وإلا توقف الترحيل. «bucket_id = 'x' OR …» و«bucket_id IS NOT NULL»
+--       يُرفضان. فحص بنية النص كما يطبعه pg_get_expr، لا فحص وصول فعلي (موثَّق في مذكرة التثبيت).
 --   L1  تنزيل مالك المنصة يحتاج تحقق خطوتين حديثًا (owner_critical_ok) — أحسّ قراءة.
 --   L2  المراجع ينزّل الإصدار الحالي وحده. والمراجع (مفوَّض documents.review) يحتاج جلسة aal2 مثل 103.
 --   L3  بصمة sha256 لا يرسلها المستخدم: التأكيد لمفتاح الخدمة وحده (الدالة الطرفية تحسب البصمة من البايتات
@@ -112,7 +114,9 @@ as $$
   select coalesce(array_agg(policyname order by policyname), '{}'::text[])
     from pg_policies
    where schemaname = 'storage' and tablename = 'objects' and permissive = 'PERMISSIVE'
-     and coalesce(qual, '') || coalesce(with_check, '') not like '%bucket_id%';
+     and ((qual is null and with_check is null)
+          or (qual is not null and qual !~ '^(\(\(bucket_id = (''[^'']+''::text|ANY \(ARRAY\[[^]]+\]\))\) AND .*\)|\(bucket_id = (''[^'']+''::text|ANY \(ARRAY\[[^]]+\]\))\))$')
+          or (with_check is not null and with_check !~ '^(\(\(bucket_id = (''[^'']+''::text|ANY \(ARRAY\[[^]]+\]\))\) AND .*\)|\(bucket_id = (''[^'']+''::text|ANY \(ARRAY\[[^]]+\]\))\))$'));
 $$;
 
 
@@ -158,7 +162,9 @@ begin
 
   select * into v from public.company_document_versions where document_id = d.id and idempotency_key = p_idempotency_key;
   if v.id is null then
-    -- L6: إعادة الإرسال بنفس المفتاح لا تُحسب؛ الإصدار الجديد يُحسب
+    -- L6: إعادة الإرسال بنفس المفتاح لا تُحسب؛ الإصدار الجديد يُحسب. قفل لكل رافع حتى لا يتجاوز
+    -- السباقُ بين أنواع مستندات مختلفة الحدَّ.
+    perform pg_advisory_xact_lock(hashtext('document_upload:' || auth.uid()::text));
     if (select count(*) from public.company_document_versions
          where uploaded_by = auth.uid() and created_at > now() - interval '1 hour') >= 20 then
       raise exception 'تجاوزت حد الرفع (20 ملفًا في الساعة)' using errcode = '54000',

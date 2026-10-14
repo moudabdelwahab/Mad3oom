@@ -45,6 +45,7 @@ function uploadDeps(over = {}) {
             log.commit.push([version, actor, sha]);
             return over.commit ? over.commit() : { data: { version_id: VER, status: 'pending_scan' } };
         },
+        download: async () => over.stored === undefined ? null : over.stored,
         upload: async (path, bytes, type) => { log.upload.push([path, bytes.length, type]); return over.uploadError ? { error: over.uploadError } : {}; },
         remove: async (path) => { log.remove.push(path); return {}; },
         sha256: async (b) => crypto.createHash('sha256').update(b).digest('hex'),
@@ -84,6 +85,19 @@ test('الرفع: إعادة إرسال لإصدار مؤكَّد ⇒ حالته
     assert.equal(res.status, 200);
     assert.deepEqual(deps.log.commit, [[VER, 'u1', null]]);
     assert.equal(deps.log.upload.length, 0);
+});
+
+test('الرفع: الكائن موجود من محاولة سابقة ⇒ البصمة من البايتات المخزَّنة لا من هذا الطلب', async () => {
+    const STORED = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x39, 9, 9, 9, 9, 9, 9]);
+    let deps = uploadDeps({ uploadError: { statusCode: '409', message: 'The resource already exists' }, stored: STORED });
+    let res = await handleUpload(uploadReq(PDF), deps);
+    assert.equal(res.status, 200);
+    assert.deepEqual(deps.log.commit, [[VER, 'u1', crypto.createHash('sha256').update(STORED).digest('hex')]]);
+    assert.equal(deps.log.remove.length, 0, 'لا يُحذف ملف لم يرفعه هذا الطلب');
+    deps = uploadDeps({ uploadError: { statusCode: '409', message: 'exists' } });
+    res = await handleUpload(uploadReq(PDF), deps);
+    assert.equal(res.status, 502);
+    assert.equal(deps.log.commit.length, 0, 'لا تأكيد بلا بصمة الملف المخزَّن');
 });
 
 test('الرفع: حد الرفع من القاعدة (54000) ⇒ 429 rate_limited بلا رفع (104 L6)', async () => {

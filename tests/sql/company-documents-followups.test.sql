@@ -134,7 +134,18 @@ DO $$ BEGIN
     IF SQLERRM NOT LIKE '%غير مقيّدة%' THEN RAISE; END IF;
   END;
   DROP POLICY t_open_all ON storage.objects;
-  RAISE NOTICE 'PASS ② M2: أي سياسة سماح على storage.objects لا تذكر bucket_id توقف الترحيل';
+  -- يذكر bucket_id لكنه لا يقيّد به: OR و IS NOT NULL
+  CREATE POLICY t_or_open ON storage.objects FOR SELECT USING (bucket_id = 'avatars' OR auth.uid() IS NOT NULL);
+  CREATE POLICY t_notnull ON storage.objects FOR INSERT WITH CHECK (bucket_id IS NOT NULL);
+  PERFORM t.ok(public._storage_unscoped_policies() = array['t_notnull', 't_or_open'], 'M2 detects OR / IS NOT NULL '
+               || public._storage_unscoped_policies()::text);
+  DROP POLICY t_or_open ON storage.objects;
+  DROP POLICY t_notnull ON storage.objects;
+  -- مقيّد فعلًا: يمر
+  CREATE POLICY t_scoped ON storage.objects FOR SELECT USING (bucket_id = 'avatars' AND (auth.uid() IS NOT NULL OR true));
+  PERFORM t.ok(cardinality(public._storage_unscoped_policies()) = 0, 'M2 scoped AND passes');
+  DROP POLICY t_scoped ON storage.objects;
+  RAISE NOTICE 'PASS ② M2: سياسة سماح على storage.objects بلا شرط أعلى bucket_id = قيمة ثابتة (ومنها OR و IS NOT NULL) توقف الترحيل';
 END $$;
 
 -- ══ ③ L3 التأكيد ═════════════════════════════════════════════════════════

@@ -278,7 +278,9 @@ begin
   if p_status not in ('active', 'suspended') then
     raise exception 'حالة غير معروفة' using errcode = '22023';
   end if;
-  if v_unit is null or not (v_owner or public._delegate_can('companies.suspend', v_unit)) then
+  -- المالك لا يحتاج إسناد الشركة لوحدة (وإلا بقيت شركة أُلغي إسنادها موقوفة بلا مسار لإعادتها)
+  if (v_owner and not exists (select 1 from public.companies where id = p_company))
+     or (not v_owner and (v_unit is null or not public._delegate_can('companies.suspend', v_unit))) then
     -- نفس الرد لشركة خارج النطاق وغير موجودة
     raise exception 'الشركة غير موجودة أو خارج نطاقك' using errcode = 'P0002';
   end if;

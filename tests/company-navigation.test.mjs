@@ -595,7 +595,13 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   102 — محادثات الشركة وصندوقها (المرحلتان C وD): جداول خاصة بالشركة من البداية بلا منح مباشرة
     //         ولا سياسة لطاقم المنصة ولا Realtime، العميل يراسل شركته الحالية، والفريق بصلاحيات 098
     //         (conversations.*). company_inbox_enabled مطفأ. مقيسٌ في tests/sql/company-conversations.test.sql.
-    assert.equal(migrations[migrations.length - 1], '102_company_conversations.sql',
+    //   103 — إصلاحات أمامية لـ 099 (مطبَّق في الإنتاج، ملفه لا يُعدَّل): حذف الحساب أو الشركة لا يتعطل
+    //         بسجل الهيكل، فقد الأهلية يسحب التفويض نهائيًا، المفوَّض يحتاج aal2 ويوقف ولا يعيد التفعيل،
+    //         القرار المطبَّق نهائي، والتفويض المنتهي غير نشط. مقيسٌ في tests/sql/admin-hierarchy-followups.test.sql.
+    //   104 — إصلاحات أمامية لـ 100: المستندات تبقى بعد حذف الشركة (القرار A)، فحص سياسات التخزين، تنزيل
+    //         المالك بتحقق خطوتين، المراجع للإصدار الحالي، البصمة من الخادم، إعادة الفحص حتى 3، nonce للنتيجة،
+    //         حدود الرفع. company_documents_enabled مطفأ. مقيسٌ في tests/sql/company-documents-followups.test.sql.
+    assert.equal(migrations[migrations.length - 1], '104_company_documents_followups.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -59,7 +59,7 @@ export async function readCapped(body, limit) {
 }
 
 /** deps: getUser(token) · rpc(token, fn, args) · commit(versionId, actorId, sha256) (مفتاح الخدمة)
- *        · upload(path, bytes, contentType) · remove(path) · sha256(bytes) */
+ *        · upload(path, bytes, contentType) · download(path) ⇒ Uint8Array|null · remove(path) · sha256(bytes) */
 export async function handleUpload(req, deps) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
     if (req.method !== 'POST') return fail(405, 'method_not_allowed');
@@ -97,11 +97,18 @@ export async function handleUpload(req, deps) {
     if (!bytes) return fail(413, 'validation_failed', { field: 'size', reason: 'too_large' });
     if (bytes.byteLength !== size) return fail(400, 'validation_failed', { field: 'size', reason: 'size_mismatch' });
     if (!signatureMatches(mime, bytes.subarray(0, 16))) return fail(415, 'validation_failed', { field: 'file', reason: 'signature_mismatch' });
-    const sha = await deps.sha256(bytes);
+    let sha = await deps.sha256(bytes);
 
     const put = await deps.upload(upload.path, bytes, mime);
     const exists = put.error && (put.error.statusCode === '409' || put.error.statusCode === 409 || /exists/i.test(put.error.message || ''));
     if (put.error && !exists) return fail(502, 'upload_failed');
+    // الكائن موجود من محاولة سابقة بنفس المفتاح (تكرار أو انقطاع قبل التأكيد): البصمة من البايتات المخزَّنة
+    // فعلًا لا من هذا الطلب، فلا تُسجَّل بصمة لا تطابق الملف.
+    if (exists) {
+        const stored = await deps.download(upload.path).catch(() => null);
+        if (!stored) return fail(502, 'upload_failed');
+        sha = await deps.sha256(stored);
+    }
 
     const done = await deps.commit(version.id, user.id, sha);
     if (done.error) {

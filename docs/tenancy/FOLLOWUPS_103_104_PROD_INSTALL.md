@@ -83,3 +83,21 @@ With no such data, each restores the previous schema exactly; the tests check th
 | `delegation_enabled` | Delegates must enrol in Supabase Auth MFA, because write actions need an aal2 session. Only an owner-reviewed delegation should be active. |
 | `company_suspension_enforced` | The same as above, for delegates with `companies.suspend`. Reactivation is owner-only. |
 | `company_documents_enabled` | A real ClamAV worker deployed and verified (`DOCUMENT_SCANNER_RUNBOOK.md`), and `DOCUMENT_SCAN_SECRET` set at the same time. Deploy the three document Edge Functions from the commit that contains 104. Reviewers need MFA (aal2). Legal sign-off on retention periods, which are still `legally_approved = false`. |
+
+## Independent security review (2026-10-14) — round 1
+
+The reviewer found **no HIGH or CRITICAL issues**. It checked privileges against Supabase's default grants, trigger safety, the aal2 and reactivation paths, the 104 commit/nonce/limit/download rules, rollback order and the Edge Function handlers.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| 1 | LOW | A retried upload whose object already existed was committed with the SHA-256 of the *new* request's bytes | Fixed: on 409 the upload function downloads the stored object and hashes it. If the download fails, nothing is committed. Node test added |
+| 2 | LOW | Concurrent `begin` calls for different document types could exceed the hourly limit | Fixed: `pg_advisory_xact_lock` per uploader before counting |
+| 3 | LOW | The storage self-check was a plain text match (`bucket_id = 'x' OR …` passed) | Fixed: each permissive policy must have `bucket_id = <literal>` (or `ANY` of literals) as its top-level conjunct. `OR`, `IS NOT NULL` and nested `OR` forms are rejected, as tested. Verified read-only against production: 0 of 16 policies flagged |
+| 4 | LOW | The 104 rollback dropped the "104 applied" marker first, so a partial run without a transaction weakened the 103 and 100 guards | Fixed: the marker is dropped last |
+| 5 | LOW | The 104 rollback discarded scan attempts and nonces | Fixed: the rollback refuses while any scan history exists |
+| 6 | LOW | The owner could not reactivate a suspended company after unassigning it from its unit | Fixed: the owner path does not require a unit assignment. SQL test added |
+| 7 | INFO | Tests read `aal` from a stub setting; real Supabase reads it from `request.jwt.claims` | **Pending (manual):** before enabling `delegation_enabled`, sign in a delegate with MFA and confirm `select auth.jwt() ->> 'aal'` returns `aal2` |
+| 8 | INFO | A scanner re-sending an identical signed result now gets 409 `replayed` | Documented: the worker should treat `replayed` as "already delivered", or re-sign with a fresh timestamp |
+| 9 | INFO | An admin converted under L2 keeps any company-scope tickets assigned to them | Accepted: there is no access leak (company tickets need company permissions). Reassign such tickets inside the company before converting |
+
+Residual: the storage check inspects policy text as `pg_get_expr` prints it. It is not an effective-access probe, which would be meaningless while the bucket holds no objects. Re-run `select public._storage_unscoped_policies();` before enabling documents.

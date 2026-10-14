@@ -184,6 +184,15 @@ BEGIN
   PERFORM t.ok(t.aal_errfull(t.u('AD'), format('public.delegate_set_company_status(%L::uuid, ''active'', ''إعادة التفعيل من المفوَّض'')', t.u('CA'))) LIKE '42501|%owner_only_reactivation%', 'M3 delegate cannot reactivate');
   PERFORM t.ok((SELECT status FROM public.companies WHERE id = t.u('CA')) = 'suspended', 'M3 still suspended');
   PERFORM t.ok(t.own(format('public.delegate_set_company_status(%L::uuid, ''active'', ''إعادة التفعيل بعد المراجعة'')', t.u('CA'))) ->> 'changed' = 'true', 'M3 owner reactivates');
+  -- المالك يعيد تفعيل شركة أُلغي إسنادها بعد إيقافها (لا تبقى موقوفة بلا مسار)
+  PERFORM t.aal_call(t.u('AD'), format('public.delegate_set_company_status(%L::uuid, ''suspended'', ''إيقاف ثانٍ قبل إلغاء الإسناد'')', t.u('CA')));
+  PERFORM t.own(format('public.owner_assign_company_unit(%L::uuid, null, ''إلغاء إسناد الشركة مؤقتًا'')', t.u('CA')));
+  PERFORM t.ctx(null);
+  PERFORM t.ok(t.aal_err(t.u('AD'), format('public.delegate_set_company_status(%L::uuid, ''suspended'', ''خارج النطاق الآن تمامًا'')', t.u('CA'))) = 'P0002', 'M3 unassigned out of delegate scope');
+  PERFORM t.ok(t.own(format('public.delegate_set_company_status(%L::uuid, ''active'', ''إعادة تفعيل شركة بلا وحدة'')', t.u('CA'))) ->> 'changed' = 'true', 'M3 owner reactivates unassigned');
+  PERFORM t.ok(t.own_err(format('public.delegate_set_company_status(%L::uuid, ''active'', ''شركة غير موجودة للاختبار'')', t.u('NOPE'))) = 'P0002', 'M3 owner unknown company');
+  PERFORM t.own(format('public.owner_assign_company_unit(%L::uuid, %L::uuid, ''إعادة إسناد الشركة'')', t.u('CA'), u));
+  PERFORM t.ctx(null);
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.hierarchy_events WHERE action = 'company.suspended' AND detail ->> 'as' = 'delegate')
            AND EXISTS (SELECT 1 FROM public.hierarchy_events WHERE action = 'company.reactivated' AND detail ->> 'as' = 'owner'), 'M3 events');
   -- إدارة الأعضاء
