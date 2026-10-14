@@ -577,7 +577,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         وصول الفريق لتذاكر الشركة خلف company_permissions_enabled (مطفأ)، الحالة والإسناد
     //         عبر دالتين، وسجل استهلاك إلحاقي بقواعد مُرقَّمة في وضع الظل يطابق الحساب الحالي.
     //         مقيسٌ في tests/sql/company-permissions-ledger.test.sql.
-    assert.equal(migrations[migrations.length - 1], '098_company_permissions_usage_ledger.sql',
+    //   099 — الهيكل الإداري (السؤال 1–3): وحدات متداخلة، أعضاء من طاقم المنصة مفصولون عن الشركات،
+    //         إسناد الشركات بتاريخ، تفويض بقدرات من كتالوج ثابت لا يفتح بيانات الشركات، إيقاف بنطاق
+    //         (delegation_enabled وcompany_suspension_enforced مطفآن)، ومراجعة الإداريين بعد تسليم العمل.
+    //         مقيسٌ في tests/sql/admin-hierarchy.test.sql.
+    assert.equal(migrations[migrations.length - 1], '099_admin_hierarchy.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
