@@ -216,3 +216,44 @@ export function respondHistoricalRequest(requestId, approve, ticketIds) {
     return call('historical_access_consent', { p_request: requestId, p_approve: approve === true,
                                                p_ticket_ids: approve === true ? ticketIds : null }, 'تعذّر حفظ قرارك.');
 }
+
+/* ── رسائل العميل مع شركته (102) ─────────────────────────────────────────── */
+
+/** محادثات العميل مع الشركة الحالية. null = الميزة مطفأة أو قبل 102 (لا قسم). */
+export async function fetchMyConversations() {
+    try {
+        const { data, error } = await supabase.rpc('my_company_conversations');
+        if (error && (MISSING_RPC.has(error.code) || error.status === 404)) return { ok: true, data: null };
+        if (error) throw error;
+        return { ok: true, data: data || null };
+    } catch (err) {
+        console.error('[Portal] conversations:', err?.message || err);
+        return { ok: false, data: null, error: 'تعذّر تحميل الرسائل.' };
+    }
+}
+
+/** تحقق رسالة جديدة قبل الإرسال (القاعدة تتحقق مرة أخرى). خالصة. */
+export function validateConversation({ subject, body }) {
+    const errors = {};
+    const s = String(subject || '').trim();
+    const b = String(body || '').trim();
+    if (s.length < 3) errors.subject = 'اكتب موضوعًا من 3 أحرف على الأقل';
+    if (s.length > 200) errors.subject = 'الموضوع أطول من 200 حرف';
+    if (!b) errors.body = 'اكتب رسالتك';
+    if (b.length > 5000) errors.body = 'الرسالة أطول من 5000 حرف';
+    return { ok: Object.keys(errors).length === 0, errors, values: { subject: s, body: b } };
+}
+
+export function startConversation(subject, body, idempotencyKey) {
+    return call('company_conversation_start', { p_subject: subject, p_body: body, p_idempotency_key: idempotencyKey },
+                'تعذّر إرسال الرسالة.');
+}
+
+export function fetchConversationThread(conversationId) {
+    return call('company_conversation_thread', { p_conversation: conversationId }, 'تعذّر فتح المحادثة.');
+}
+
+export function replyToConversation(conversationId, body) {
+    return call('company_conversation_post', { p_conversation: conversationId, p_body: body, p_internal: false },
+                'تعذّر إرسال الرد.');
+}

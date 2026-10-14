@@ -633,3 +633,100 @@ test('101: طلب اطلاع بغرض واضح لعميل الشركة، وال�
     assert.equal(errors.length, 0, errors.join(' | '));
     await context.close();
 });
+
+/* ── 102: صندوق الرسائل ─────────────────────────────────────────────────── */
+
+function inboxFixture(extra = {}) {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    return fixtures(payload, { rpc: { my_account_kind: 'company_admin', ...extra } });
+}
+
+const INBOX_LIST = {
+    permissions: { assign: true, close: true },
+    assignees: [{ id: 'ag1', name: 'موظف أ' }],
+    conversations: [
+        { id: 'cv1', subject: 'طلبي لم يصل', status: 'open', customer_name: 'عميل أول', assigned_to: null, assignee_name: null,
+          last_sender_kind: 'customer', unread: true, last_message_at: '2026-10-14T10:00:00Z' }]
+};
+const INBOX_THREAD = {
+    id: 'cv1', subject: 'طلبي لم يصل', status: 'open', customer_name: 'عميل أول', assigned_to: null, viewer: 'staff',
+    can_reply: true, can_internal: true, can_assign: true, can_close: true,
+    messages: [
+        { id: 'm1', body: 'رقم الطلب 1234', sender_kind: 'customer', is_internal: false, created_at: '2026-10-14T09:00:00Z' },
+        { id: 'm2', body: 'تحقق من الشحن', sender_kind: 'staff', sender_name: 'مشرف أ', is_internal: true, created_at: '2026-10-14T09:30:00Z' }]
+};
+
+test('102: بلا صندوق (المفتاح مطفأ أو بلا صلاحية): لا رابط في القائمة', async () => {
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, inboxFixture());
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_inbox_summary'));
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('.sidebar-item[data-tab="inbox"]').isVisible(), false);
+    await context.close();
+});
+
+test('102: الصندوق: الشارة، القائمة، الملاحظة الداخلية مميزة، الرد والإسناد والإغلاق عبر الدوال', async () => {
+    const fx = inboxFixture({
+        company_inbox_summary: { scope: 'all', open: 1, unread: 1 },
+        company_inbox_list: INBOX_LIST,
+        company_conversation_thread: INBOX_THREAD,
+        company_conversation_post: { message_id: 'm3' },
+        company_conversation_assign: { changed: true },
+        company_conversation_set_status: { status: 'closed', changed: true }
+    });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await page.locator('.sidebar-item[data-tab="inbox"]').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.sidebar-item[data-tab="inbox"] .sidebar-badge').textContent(), '1');
+    await page.evaluate(() => { window.location.hash = '#inbox'; });
+    await page.waitForSelector('#inboxTabContent.active [data-inbox="cv1"]', { timeout: 5000 });
+    assert.match(await page.locator('#companyInboxList').innerText(), /بانتظار الرد/);
+    await page.locator('[data-inbox="cv1"]').click();
+    await page.locator('#companyInboxThread').waitFor({ state: 'visible' });
+    const thread = await page.locator('#companyInboxMessages').innerText();
+    assert.match(thread, /ملاحظة داخلية لا يراها العميل/);
+    // رد علني ثم ملاحظة داخلية
+    await page.locator('#companyInboxReplyBody').fill('وصلنا طلبك');
+    await page.locator('#companyInboxReplySubmit').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'company_conversation_post').length === 1);
+    await page.locator('#companyInboxReplyBody').fill('اتصلت بشركة الشحن');
+    await page.locator('#companyInboxInternal').check();
+    await page.locator('#companyInboxReplySubmit').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'company_conversation_post').length === 2);
+    const posts = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_conversation_post').map(([, a]) => a));
+    assert.deepEqual(posts, [{ p_conversation: 'cv1', p_body: 'وصلنا طلبك', p_internal: false },
+                             { p_conversation: 'cv1', p_body: 'اتصلت بشركة الشحن', p_internal: true }]);
+    await page.locator('#companyInboxAssign').selectOption('ag1');
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_conversation_assign'));
+    const assign = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_conversation_assign').map(([, a]) => a));
+    assert.deepEqual(assign, [{ p_conversation: 'cv1', p_assignee: 'ag1' }]);
+    await page.locator('#companyInboxStatus').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_conversation_set_status'));
+    const status = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_conversation_set_status').map(([, a]) => a));
+    assert.deepEqual(status, [{ p_conversation: 'cv1', p_status: 'closed' }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('102: محادثة مغلقة بلا صلاحية ملاحظات: لا نموذج رد؛ ومعها: ملاحظة داخلية فقط', async () => {
+    const closed = { ...INBOX_THREAD, status: 'closed', can_internal: false, can_assign: false, can_close: false };
+    const fx = inboxFixture({
+        company_inbox_summary: { scope: 'assigned', open: 0, unread: 0 },
+        company_inbox_list: { ...INBOX_LIST, permissions: { assign: false, close: false }, assignees: [] },
+        company_conversation_thread: closed
+    });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await page.evaluate(() => { window.location.hash = '#inbox'; });
+    await page.waitForSelector('#inboxTabContent.active [data-inbox="cv1"]', { timeout: 5000 });
+    await page.locator('[data-inbox="cv1"]').click();
+    await page.locator('#companyInboxThread').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#companyInboxReply').isHidden(), true);
+    assert.equal(await page.locator('#companyInboxAssign').count(), 0);
+    assert.equal(await page.locator('#companyInboxStatus').count(), 0);
+    await page.evaluate(() => { window.__FIXTURES__.rpc.company_conversation_thread = { ...window.__FIXTURES__.rpc.company_conversation_thread, can_internal: true }; });
+    await page.locator('[data-inbox="cv1"]').click();
+    await page.waitForFunction(() => !document.getElementById('companyInboxReply').hidden);
+    assert.equal(await page.locator('#companyInboxInternal').isChecked(), true);
+    assert.equal(await page.locator('#companyInboxInternal').isDisabled(), true);
+    assert.equal((await page.locator('#companyInboxReplySubmit').textContent()).trim(), 'إضافة ملاحظة');
+    await context.close();
+});

@@ -280,6 +280,46 @@
                 <div id="companyCustomerTickets"></div>
             </section>
 
+            <!-- ═══ صندوق الرسائل (102) ══════════════════════════════════
+                 محادثات عملاء الشركة معها من بوابتهم. خاص بالشركة: لا يراه طاقم
+                 مدعوم. المدير يرى الكل؛ الموظف بصلاحيته (كل المحادثات أو المسندة). -->
+            <section class="tab-content" id="inboxTabContent">
+                <section class="panel" aria-labelledby="companyInboxHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyInboxHeading">صندوق الرسائل</h2>
+                            <p class="panel-subtitle">رسائل عملاء الشركة. الملاحظات الداخلية لا تصل العميل، ولا يرى العميل اسم من ردّ.</p>
+                        </div>
+                        <div class="company-inbox-controls">
+                            <label for="companyInboxFilter" class="visually-hidden">عرض</label>
+                            <select id="companyInboxFilter" class="form-control"></select>
+                            <button type="button" class="btn btn-secondary" id="companyInboxRefresh">تحديث</button>
+                        </div>
+                    </div>
+                    <div class="company-inbox">
+                        <div id="companyInboxList"></div>
+                        <div id="companyInboxThread" class="company-inbox-thread" hidden>
+                            <h3 class="panel-title" id="companyInboxSubject"></h3>
+                            <p class="company-sub-dates" id="companyInboxMeta"></p>
+                            <div class="company-inbox-tools" id="companyInboxTools"></div>
+                            <ul class="company-inbox-messages" id="companyInboxMessages"></ul>
+                            <form id="companyInboxReply" class="company-form" novalidate hidden>
+                                <div class="form-field is-full">
+                                    <label for="companyInboxReplyBody">الرسالة</label>
+                                    <textarea id="companyInboxReplyBody" class="form-control" rows="3" maxlength="5000"></textarea>
+                                </div>
+                                <label class="company-check" id="companyInboxInternalWrap" hidden>
+                                    <input type="checkbox" id="companyInboxInternal"> ملاحظة داخلية (لا يراها العميل)</label>
+                                <p class="field-error" id="companyInboxReplyError" role="alert" hidden></p>
+                                <div class="company-form-actions">
+                                    <button type="submit" class="btn btn-primary" id="companyInboxReplySubmit">إرسال</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
             <!-- ═══ مركز الدعم ═════════════════════════════════════════════
                  فتح تذكرة + حالة النظام + مقالات المساعدة، كلها في السياق. -->
             <section class="tab-content" id="supportTabContent">

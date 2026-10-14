@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 // الوحدة بعد استبدال الاستيراد ببديل فارغ.
 const src = readFileSync(new URL('../assets/js/portal/portal-data.js', import.meta.url), 'utf8')
     .replace("import { supabase } from '/api-config.js';", 'const supabase = null;');
-const { portalState, validateTicketForm, membershipView, portalTicketFilter, movesView, carrySummary, transferStatusLabel, historyStatusLabel } = await import('data:text/javascript,' + encodeURIComponent(src));
+const { portalState, validateTicketForm, membershipView, portalTicketFilter, movesView, carrySummary, transferStatusLabel, historyStatusLabel, validateConversation } = await import('data:text/javascript,' + encodeURIComponent(src));
 
 test('حالة العرض: الاسم فقط لعميل الشركة', () => {
     assert.deepEqual(portalState({ ok: true, data: { company: { id: 'c', name: 'شركة أ' }, preview: false } }),
@@ -47,7 +47,8 @@ test('تحقق نموذج التذكرة', () => {
 test('البوابة لا تحمل شراء باقات ولا أقسام الشركة الداخلية', () => {
     const html = readFileSync(new URL('../portal/index.html', import.meta.url), 'utf8');
     const js = readFileSync(new URL('../assets/js/portal/portal.js', import.meta.url), 'utf8')
-        + readFileSync(new URL('../assets/js/portal/portal-moves.js', import.meta.url), 'utf8');
+        + readFileSync(new URL('../assets/js/portal/portal-moves.js', import.meta.url), 'utf8')
+        + readFileSync(new URL('../assets/js/portal/portal-messages.js', import.meta.url), 'utf8');
     for (const forbidden of ['subscriptions.html', 'payment.html', 'chat-widget', '/company-dashboard/',
                              'get_my_company_dashboard', 'company_members', 'api-token', 'integrations']) {
         assert.ok(!html.includes(forbidden) && !js.includes(forbidden), `البوابة تشير إلى ${forbidden}`);
@@ -118,4 +119,12 @@ test('101: ملخص النسخ يقول ما يُنسخ وما لا يُنسخ',
     assert.equal(transferStatusLabel('pending'), 'بانتظار موافقة الشركتين');
     assert.equal(transferStatusLabel('x'), '—');
     assert.equal(historyStatusLabel('awaiting_customer'), 'بانتظار قرارك');
+});
+
+test('102: تحقق الرسالة الجديدة قبل الإرسال', () => {
+    assert.equal(validateConversation({ subject: 'سؤال', body: 'مرحبًا' }).ok, true);
+    assert.deepEqual(validateConversation({ subject: '  سؤال  ', body: '  مرحبًا ' }).values, { subject: 'سؤال', body: 'مرحبًا' });
+    assert.ok(validateConversation({ subject: 'س', body: 'مرحبًا' }).errors.subject);
+    assert.ok(validateConversation({ subject: 'سؤال', body: '   ' }).errors.body);
+    assert.ok(validateConversation({ subject: 'سؤال', body: 'ا'.repeat(5001) }).errors.body);
 });

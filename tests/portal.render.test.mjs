@@ -331,3 +331,74 @@ test('101: طلب اطلاع: العميل يختار تذاكره ويوافق�
     assert.equal(errors.length, 0, errors.join(' | '));
     await context.close();
 });
+
+/* ── 102: رسائل العميل مع شركته ──────────────────────────────────────────── */
+
+const ONE_COMPANY = { company: { id: 'c1', name: 'شركة النور' }, preview: false };
+
+test('102: الميزة مطفأة: لا قسم رسائل', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('my_company_conversations'));
+    assert.equal(await page.locator('#messages').isHidden(), true);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('102: رسالة جديدة بمفتاح منع تكرار، ثم المحادثة بصوت الشركة والرد', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.my_company_conversations = { can_write: true, conversations: [
+        { id: 'cv1', subject: 'طلبي لم يصل', status: 'open', unread: true, last_message_at: '2026-10-14T10:00:00Z' }] };
+    fx.rpc.company_conversation_start = { conversation_id: 'cv2', status: 'open' };
+    fx.rpc.company_conversation_thread = { id: 'cv1', subject: 'طلبي لم يصل', can_reply: true, messages: [
+        { id: 'm1', body: 'رقم الطلب 1234', sender_kind: 'customer', created_at: '2026-10-14T09:00:00Z' },
+        { id: 'm2', body: 'وصلنا طلبك', sender_kind: 'staff', sender_name: null, created_at: '2026-10-14T10:00:00Z' }] };
+    fx.rpc.company_conversation_post = { message_id: 'm3' };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#messages').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#portalConversationList').textContent(), /رد جديد/);
+    // التحقق قبل الإرسال
+    await page.locator('#portalNewConversationBtn').click();
+    await page.locator('#portalConversationSubject').fill('س');
+    await page.locator('#portalConversationSubmit').click();
+    assert.equal(await page.locator('#portalConversationError').isHidden(), false);
+    await page.locator('#portalConversationSubject').fill('سؤال عن الفاتورة');
+    await page.locator('#portalConversationBody').fill('هل صدرت فاتورة الشهر؟');
+    await page.locator('#portalConversationSubmit').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_conversation_start'));
+    const [start] = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_conversation_start').map(([, a]) => a));
+    assert.equal(start.p_subject, 'سؤال عن الفاتورة');
+    assert.equal(start.p_body, 'هل صدرت فاتورة الشهر؟');
+    assert.match(start.p_idempotency_key, /^[0-9a-f-]{36}$/);
+    // المحادثة: «الشركة» لا اسم موظف
+    await page.locator('#portalThread').waitFor({ state: 'visible' });
+    const thread = await page.locator('#portalThreadMessages').innerText();
+    assert.match(thread, /الشركة/);
+    assert.match(thread, /وصلنا طلبك/);
+    await page.locator('#portalReplyBody').fill('شكرًا');
+    await page.locator('#portalReplySubmit').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_conversation_post'));
+    const posts = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_conversation_post').map(([, a]) => a));
+    assert.deepEqual(posts, [{ p_conversation: 'cv2', p_body: 'شكرًا', p_internal: false }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('102: بعد مغادرة الشركة: المحادثة للقراءة فقط وبلا رسالة جديدة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.my_company_conversations = { can_write: false, conversations: [
+        { id: 'cv1', subject: 'استفسار قديم', status: 'open', unread: false, last_message_at: '2026-10-14T10:00:00Z' }] };
+    fx.rpc.company_conversation_thread = { id: 'cv1', subject: 'استفسار قديم', can_reply: false,
+        messages: [{ id: 'm1', body: 'مرحبًا', sender_kind: 'customer', created_at: '2026-10-14T09:00:00Z' }] };
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#messages').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#portalNewConversationBtn').isHidden(), true);
+    await page.locator('[data-conversation="cv1"]').click();
+    await page.locator('#portalThread').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#portalReplyForm').isHidden(), true);
+    assert.equal(await page.locator('#portalThreadReadOnly').isHidden(), false);
+    await context.close();
+});

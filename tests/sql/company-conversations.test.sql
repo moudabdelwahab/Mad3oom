@@ -168,6 +168,9 @@ BEGIN
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.notifications WHERE user_id = t.u('AG') AND title = 'أُسندت إليك محادثة'), 'ASSIGN notified');
   PERFORM t.ok(t.ids(t.call(t.u('AG'), 'public.company_inbox_list(''mine'')')) = 'C1' AND t.thread('AG', 'C1') ->> 'viewer' = 'staff', 'TEAM agent sees assigned');
   PERFORM t.ok(t.err(t.u('AG'), format('public.company_conversation_assign(%L::uuid, null)', t.cv('C1'))) = '42501', 'ASSIGN agent cannot');
+  PERFORM t.ok(t.call(t.u('AS'), 'public.company_inbox_list()') -> 'assignees' @> jsonb_build_array(jsonb_build_object('id', t.u('AG')))
+           AND NOT (t.call(t.u('AS'), 'public.company_inbox_list()') -> 'assignees')::text LIKE '%' || t.u('A1') || '%'
+           AND t.call(t.u('AG'), 'public.company_inbox_list()') -> 'assignees' = '[]'::jsonb, 'ASSIGN list team only, for assigners only');
   -- رد الفريق: يصل العميل بلا هوية الموظف؛ الملاحظة الداخلية لا تصل أبدًا
   PERFORM t.ok(t.post('AG', 'C1', 'وصلنا طلبك وسنتابعه اليوم') = 'ok', 'REPLY agent');
   PERFORM t.ok(t.post('AG', 'C1', 'العميل اشتكى سابقًا — تحقق من الشحن', true) = 'ok', 'NOTE agent');

@@ -523,6 +523,7 @@ as $$
 declare
   v_company uuid;
   v_filter text := coalesce(p_filter, 'open');
+  v_assign boolean;
 begin
   if auth.uid() is null or not public._feature_on('company_inbox_enabled') or public.company_staff_role() is null then
     return null;
@@ -534,10 +535,21 @@ begin
   if v_filter not in ('open', 'closed', 'mine', 'unassigned', 'all') then
     raise exception 'مرشّح غير معروف' using errcode = '22023';
   end if;
+  v_assign := public._inbox_staff_access(v_company, null, 'assign') or public._inbox_staff_access(v_company, auth.uid(), 'assign');
   return jsonb_build_object(
     'permissions', jsonb_build_object(
-      'assign', public._inbox_staff_access(v_company, null, 'assign') or public._inbox_staff_access(v_company, auth.uid(), 'assign'),
+      'assign', v_assign,
       'close', public._inbox_staff_access(v_company, null, 'close') or public._inbox_staff_access(v_company, auth.uid(), 'close')),
+    -- لمن يملك الإسناد: أعضاء الفريق المؤهلون (الاسم فقط)
+    'assignees', case when v_assign then (
+        select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.email))
+                                  order by coalesce(p.full_name, p.email)), '[]'::jsonb)
+          from public.profiles p
+         where (p.id = (select c.user_id from public.companies c where c.id = v_company)
+                or exists (select 1 from public.company_staff s where s.company_id = v_company and s.user_id = p.id
+                             and s.revoked_at is null))
+           and coalesce(public._company_is_eligible_agent(v_company, p.id), false))
+      else '[]'::jsonb end,
     'conversations', coalesce((select jsonb_agg(public._inbox_row(c, auth.uid()) order by c.last_message_at desc)
         from (select * from public.company_conversations c
                where c.company_id = v_company

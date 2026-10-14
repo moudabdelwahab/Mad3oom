@@ -482,9 +482,11 @@ test('حساب الشركة يتنقّل بين كل الأقسام دون مغ�
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
-    // كل عنصر في القائمة، بالترتيب، كما يضغطه المستخدم
+    // كل عنصر ظاهر في القائمة، بالترتيب، كما يضغطه المستخدم (المخفي بقرار القاعدة — صندوق الرسائل
+    // والميزة مطفأة — لا يضغطه أحد؛ تغطيته مفعّلًا في الاختبار التالي)
     const tabs = await page.evaluate(() =>
-        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')]
+            .filter(a => !a.hidden && a.style.display !== 'none').map(a => a.getAttribute('data-tab')));
 
     assert.ok(tabs.length >= 8, `عدد أقسام القائمة أقل من المتوقع: ${tabs.length}`);
 
@@ -504,6 +506,19 @@ test('حساب الشركة يتنقّل بين كل الأقسام دون مغ�
     assert.deepEqual(departures(visited), [],
         `غادر المستخدم لوحة الشركة أثناء التنقّل: ${visited.join(' → ')}`);
     assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+test('102: مع صندوق رسائل للحساب يظهر رابطه ويُفتح قسمه داخل اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ rpc: { company_inbox_summary: { scope: 'all', open: 0, unread: 0 },
+                                 company_inbox_list: { permissions: { assign: true, close: true }, assignees: [], conversations: [] } } });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+    await page.locator('.sidebar-item[data-tab="inbox"]').waitFor({ state: 'visible' });
+    await openSection(page, 'inbox');
+    await page.waitForSelector('#companyInboxList .state-block');
+    assert.match(await page.locator('#inboxTabContent').innerText(), /لا محادثات هنا/);
+    assert.deepEqual(departures(visited), []);
     await context.close();
 });
 

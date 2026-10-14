@@ -32,6 +32,7 @@ import {
 import { ui } from '/ui-service.js';
 import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
 import { initCompanyMoves } from '/assets/js/company/company-moves.js';
+import { fetchInboxSummary, applyInboxBadge, loadCompanyInbox } from '/assets/js/company/company-inbox.js';
 import {
     fetchCompanyDashboard,
     fetchAccountKind,
@@ -97,6 +98,8 @@ let customerTickets = null;   // العميل ↔ الشركة
 let companyMembers = [];
 // 096: عملاء الشركة كما رجّعتهم القاعدة — لاختيار العميل في طلب الاطلاع التاريخي (101)
 let companyCustomerList = [];
+// 102: ملخص صندوق الرسائل كما رجّعته القاعدة — null يعني لا رابط في القائمة
+let inboxSummary = null;
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
@@ -158,6 +161,7 @@ async function init() {
     wireSectionRouting();
 
     await load();
+    inboxSummary = await fetchInboxSummary();
 
     // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
     // نفسها)، فبنفتح التذاكر عليه بدل ما يضيع.
@@ -182,6 +186,7 @@ const SECTIONS = [
     'overview', 'members', 'subscriptions',
     'tickets',          // ① الشركة ↔ مدعوم
     'customerTickets',  // ② العميل  ↔ الشركة
+    'inbox',            // ③ رسائل العملاء مع الشركة (102)
     'support', 'notifications',
     'api', 'integrations', 'reports', 'activity',
     'profile', 'security'
@@ -191,6 +196,7 @@ const SECTIONS = [
 const LOADERS = {
     tickets: () => platformTickets.load(),
     customerTickets: () => customerTickets.load(),
+    inbox: () => loadCompanyInbox(),
     support: () => loadCompanySupport(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
@@ -778,10 +784,12 @@ function applyViewerRole() {
     // display صريح لا الخاصية hidden: أنماط القائمة تفرض display على العنصر
     Promise.resolve(shellReady).catch(() => {}).then(() => {
         document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
-            const allowed = sectionAllowed(item.getAttribute('data-tab'), viewerRole);
+            const tab = item.getAttribute('data-tab');
+            const allowed = sectionAllowed(tab, viewerRole) && (tab !== 'inbox' || inboxSummary !== null);
             item.hidden = !allowed;
             item.style.display = allowed ? '' : 'none';
         });
+        applyInboxBadge(inboxSummary);
     });
 }
 

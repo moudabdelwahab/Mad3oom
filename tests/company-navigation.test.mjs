@@ -112,6 +112,7 @@ const FUNCTION_INVENTORY = [
     { name: 'الاشتراكات',       section: 'subscriptions' },
     { name: 'تذاكري مع مدعوم',  section: 'tickets' },
     { name: 'تذاكر العملاء',    section: 'customerTickets' },
+    { name: 'صندوق الرسائل',    section: 'inbox' },
     { name: 'مركز الدعم',       section: 'support' },
     { name: 'مقالات المساعدة',  section: 'support' },
     { name: 'حالة النظام',      section: 'support' },
@@ -171,7 +172,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['tickets', 'customerTickets', 'support', 'notifications',
+    for (const section of ['tickets', 'customerTickets', 'inbox', 'support', 'notifications',
                            'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);

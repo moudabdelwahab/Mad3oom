@@ -49,6 +49,14 @@
         .portal-history-pick { border: 0; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; width: 100%; }
         .portal-history-pick legend { font-weight: 600; margin-bottom: 4px; }
         .portal-history { flex-wrap: wrap; }
+        .portal-conversation-open { all: unset; cursor: pointer; display: grid; gap: 4px; width: 100%; }
+        .portal-conversation.is-unread .company-sub-plan { font-weight: 800; }
+        .portal-messages { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+        .portal-message { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--color-border); max-width: 85%; }
+        .portal-message.is-mine { justify-self: start; }
+        .portal-message.is-company { justify-self: end; background: var(--color-surface); }
+        .portal-message-who { font-weight: 700; font-size: .85rem; }
+        .portal-message-body { white-space: pre-wrap; margin: 4px 0; overflow-wrap: anywhere; }
     </style>
 </head>
 <body class="customer-shell company-shell portal-shell">
@@ -137,6 +145,50 @@
         </section>
 
         <div id="portalContent" hidden>
+            <!-- 102: رسائلك مع الشركة (company_inbox_enabled مطفأ). خاصة بك وبفريق الشركة وحدهما. -->
+            <section class="panel" id="messages" hidden aria-labelledby="portalMessagesHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="portalMessagesHeading">رسائلي مع الشركة</h2>
+                        <p class="panel-subtitle">محادثة مباشرة مع فريق الشركة. للطلبات التي تحتاج متابعة موثّقة افتح تذكرة.</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="portalNewConversationBtn" hidden>رسالة جديدة</button>
+                </div>
+                <form id="portalNewConversation" class="company-form" novalidate hidden>
+                    <div class="form-field is-full">
+                        <label for="portalConversationSubject">الموضوع</label>
+                        <input id="portalConversationSubject" class="form-control" maxlength="200" autocomplete="off">
+                    </div>
+                    <div class="form-field is-full">
+                        <label for="portalConversationBody">رسالتك</label>
+                        <textarea id="portalConversationBody" class="form-control" rows="4" maxlength="5000"></textarea>
+                    </div>
+                    <p class="field-error" id="portalConversationError" role="alert" hidden></p>
+                    <div class="company-form-actions">
+                        <button type="submit" class="btn btn-primary" id="portalConversationSubmit">إرسال</button>
+                        <button type="button" class="btn btn-secondary" id="portalConversationCancel">إلغاء</button>
+                    </div>
+                </form>
+                <ul class="company-sub-list" id="portalConversationList"></ul>
+                <div id="portalThread" class="portal-thread" hidden>
+                    <button type="button" class="panel-link" id="portalThreadBack">→ كل الرسائل</button>
+                    <h3 class="panel-title" id="portalThreadSubject"></h3>
+                    <ul class="portal-messages" id="portalThreadMessages"></ul>
+                    <form id="portalReplyForm" class="company-form" novalidate hidden>
+                        <div class="form-field is-full">
+                            <label for="portalReplyBody">ردّك</label>
+                            <textarea id="portalReplyBody" class="form-control" rows="3" maxlength="5000"></textarea>
+                        </div>
+                        <p class="field-error" id="portalReplyError" role="alert" hidden></p>
+                        <div class="company-form-actions">
+                            <button type="submit" class="btn btn-primary" id="portalReplySubmit">إرسال</button>
+                        </div>
+                    </form>
+                    <p class="company-sub-dates" id="portalThreadReadOnly" hidden>لم تعد عميلًا لهذه الشركة — المحادثة للقراءة فقط.</p>
+                </div>
+                <p class="field-error" id="portalMessagesError" role="alert" hidden></p>
+            </section>
+
             <section class="panel" id="portalNewTicket" hidden aria-labelledby="portalNewTicketHeading">
                 <div class="panel-header">
                     <div>

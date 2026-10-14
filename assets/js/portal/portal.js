@@ -14,6 +14,7 @@
  * (enter_customer_company) وتُعاد قراءة الصفحة منها، فلا تبقى في الشاشة شركة لم يقبلها الخادم.
  *
  * 101: طلب النقل، ونسخ التذاكر، وطلبات الاطلاع التاريخي — في portal-moves.js خلف مفاتيحها.
+ * 102: «رسائلي» مع الشركة — في portal-messages.js خلف company_inbox_enabled.
  */
 import { guardPage } from '/assets/js/page-guard.js';
 import { logout } from '/auth-client.js';
@@ -26,6 +27,7 @@ import {
     fetchMyInvitations, respondToInvitation, switchCompany, leaveCompany, setPrimaryCompany
 } from '/assets/js/portal/portal-data.js';
 import { initPortalMoves } from '/assets/js/portal/portal-moves.js';
+import { initPortalMessages } from '/assets/js/portal/portal-messages.js';
 
 let stream = null;
 
@@ -65,6 +67,8 @@ async function init() {
     });
     wireNewTicket(state.preview);
     await stream.load();
+    // 102: رسائل العميل مع شركته — لا قسم والميزة مطفأة، ولا شيء في منظور العضو
+    await initPortalMessages({ preview: state.preview });
     // 101: النقل والنسخ والاطلاع التاريخي — لا يظهر شيء والمفاتيح مطفأة، ولا شيء في منظور العضو
     if (!state.preview) await initPortalMoves(companies);
 }
