@@ -76,11 +76,15 @@ export function exceptionalTransferError({ customer, company, reason }) {
     return null;
 }
 
-/** حالة مراجعة إداري للعرض: العمل المفتوح، جاهزية التحقق بخطوتين، وهل يُطبَّق القرار. خالصة. */
+/**
+ * حالة مراجعة إداري للعرض: العمل المفتوح، جاهزية التحقق بخطوتين، وهل يُطبَّق القرار. خالصة.
+ * 103: open_assigned_tickets = تذاكر مدعوم وحدها (ما يمنع التحويل وتنقله دالة التسليم)؛ تذاكر الشركات للعلم.
+ * القرار المطبَّق نهائي: لا تغيير له من هنا.
+ */
 export function reviewRow(r) {
     const now = r?.now || {};
-    const openWork = Number(now.open_assigned_tickets || 0) + Number(now.open_continuity_owned || 0)
-        + Number(now.active_delegations || 0);
+    const supportTickets = Number(now.open_assigned_tickets || 0);
+    const openWork = supportTickets + Number(now.open_continuity_owned || 0) + Number(now.active_delegations || 0);
     return {
         id: r?.user_id,
         name: r?.name || r?.email || '—',
@@ -88,10 +92,31 @@ export function reviewRow(r) {
         authority: now.authority || null,
         mfaReady: r?.mfa_ready === true,
         openWork,
+        supportTickets,
+        companyTickets: Number(now.open_company_tickets || 0),
         decision: r?.decision || 'pending',
         applied: !!r?.applied_at,
         canApply: r?.ready_to_apply === true
     };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const DELEGATION_DEFAULT_DAYS = 7;
+export const DELEGATION_MAX_DAYS = 90;
+
+/** تاريخ انتهاء التفويض الافتراضي بصيغة YYYY-MM-DD (اليوم + 7). خالصة. */
+export function defaultDelegationExpiry(now = new Date()) {
+    return new Date(now.getTime() + DELEGATION_DEFAULT_DAYS * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** تاريخ انتهاء التفويض: مطلوب، بعد الآن وخلال 90 يومًا (القاعدة تتحقق مرة أخرى، 103 L3). ⇒ { iso } أو { error }. خالصة. */
+export function delegationExpiry(value, now = new Date()) {
+    const v = String(value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: 'حدد تاريخ انتهاء التفويض.' };
+    const end = new Date(`${v}T23:59:59.000Z`);
+    if (Number.isNaN(end.getTime()) || end.getTime() <= now.getTime()) return { error: 'تاريخ انتهاء التفويض يجب أن يكون بعد اليوم.' };
+    if (end.getTime() > now.getTime() + DELEGATION_MAX_DAYS * DAY_MS) return { error: 'أقصى مدة للتفويض 90 يومًا.' };
+    return { iso: end.toISOString() };
 }
 
 export function initTenancyGovernance(ctx) {
@@ -194,16 +219,25 @@ export function initTenancyGovernance(ctx) {
         if (res.missing) { box.innerHTML = notApplied('مراجعة الإداريين'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const rows = (res.data || []).map(reviewRow);
+        const decisionLabel = (v) => REVIEW_DECISIONS.find(d => d.value === v)?.label || v;
         box.innerHTML = table(['الحساب', 'الرتبة', 'تحقق بخطوتين', 'عمل مفتوح', 'القرار', ''], rows, r => `<tr data-review-row="${esc(r.id)}">
             ${td(esc(r.name))}
             ${td(`${esc(r.role)}${r.authority ? `<br><small>${esc(r.authority)}</small>` : ''}`)}
             ${td(`<span class="pill ${r.mfaReady ? 'status-resolved' : 'status-rejected'}">${r.mfaReady ? 'مفعّل' : 'غير مفعّل'}</span>`)}
-            ${td(r.openWork ? `<span class="pill status-open">${esc(r.openWork)}</span>` : '0')}
-            ${td(`<select class="form-control" data-review-decision="${esc(r.id)}" aria-label="قرار المراجعة">
+            ${td(`${r.openWork ? `<span class="pill status-open">${esc(r.openWork)}</span>` : '0'}
+                  ${r.companyTickets ? `<br><small>تذاكر شركات مسندة (للعلم): ${esc(r.companyTickets)}</small>` : ''}
+                  ${r.supportTickets && !r.applied ? `<br><select class="form-control" data-handover-to="${esc(r.id)}" aria-label="مستلم التذاكر">
+                        <option value="">— يستلم تذاكر مدعوم —</option>
+                        ${staff.filter(p => p.id !== r.id).map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.email)}</option>`).join('')}
+                     </select>
+                     <button type="button" class="btn btn-sm btn-secondary" data-critical data-handover="${esc(r.id)}">تسليم ${esc(r.supportTickets)} تذكرة</button>` : ''}`)}
+            ${td(r.applied
+                ? `<span class="pill status-resolved">${esc(decisionLabel(r.decision))}</span><br><small>طُبِّق — القرار نهائي</small>`
+                : `<select class="form-control" data-review-decision="${esc(r.id)}" aria-label="قرار المراجعة">
                     <option value="">${r.decision === 'pending' ? '— بانتظار القرار —' : 'تغيير القرار'}</option>
                     ${REVIEW_DECISIONS.map(d => `<option value="${esc(d.value)}"${d.value === r.decision ? ' selected' : ''}>${esc(d.label)}</option>`).join('')}
-                 </select>${r.applied ? '<br><small>طُبِّق</small>' : ''}`)}
-            ${td(`<button type="button" class="btn btn-sm btn-secondary" data-critical data-review-save="${esc(r.id)}">حفظ القرار</button>
+                 </select>`)}
+            ${td(r.applied ? '' : `<button type="button" class="btn btn-sm btn-secondary" data-critical data-review-save="${esc(r.id)}">حفظ القرار</button>
                   ${r.canApply ? `<button type="button" class="btn btn-sm btn-primary" data-critical data-review-apply="${esc(r.id)}">تطبيق</button>` : ''}`)}
         </tr>`);
         box.querySelectorAll('[data-review-save]').forEach(btn => btn.addEventListener('click', async () => {
@@ -212,6 +246,14 @@ export function initTenancyGovernance(ctx) {
             if (!decision) { status('اختر قرارًا أولًا.', 'error'); return; }
             if (!needReason()) return;
             await act('owner_decide_admin_review', { p_user: id, p_decision: decision, p_note: reason() }, 'سُجّل القرار');
+        }));
+        // تسليم تذاكر مدعوم المفتوحة قبل التحويل (owner_reassign_admin_tickets)
+        box.querySelectorAll('[data-handover]').forEach(btn => btn.addEventListener('click', async () => {
+            const from = btn.dataset.handover;
+            const to = box.querySelector(`[data-handover-to="${CSS.escape(from)}"]`)?.value;
+            if (!to) { status('اختر من يستلم التذاكر.', 'error'); return; }
+            if (!needReason()) return;
+            await act('owner_reassign_admin_tickets', { p_from: from, p_to: to, p_reason: reason() }, 'سُلِّمت تذاكر مدعوم المفتوحة');
         }));
         box.querySelectorAll('[data-review-apply]').forEach(btn => btn.addEventListener('click', async () => {
             if (!window.confirm('تطبيق القرار يغيّر رتبة الحساب أو سلطته. متابعة؟')) return;
@@ -258,6 +300,9 @@ export function initTenancyGovernance(ctx) {
                 <select class="form-control" id="govDelegateUnit" aria-label="نطاق التفويض">${unitOptions}</select>
                 <span class="owner-gov-caps">${caps.map(c => `
                     <label><input type="checkbox" value="${esc(c.key)}" data-cap> ${esc(c.label)}</label>`).join('')}</span>
+                <label>ينتهي في <input type="date" class="form-control" id="govDelegateExpiry" required
+                    value="${esc(defaultDelegationExpiry())}" min="${esc(defaultDelegationExpiry(new Date(Date.now() - 6 * DAY_MS)))}"
+                    max="${esc(new Date(Date.now() + (DELEGATION_MAX_DAYS - 1) * DAY_MS).toISOString().slice(0, 10))}" aria-label="تاريخ انتهاء التفويض"></label>
                 <button type="submit" class="btn btn-sm btn-primary" data-critical>منح التفويض</button>
             </form>`;
         $('govUnitForm').addEventListener('submit', async (e) => {
@@ -276,9 +321,11 @@ export function initTenancyGovernance(ctx) {
             e.preventDefault();
             const capsChosen = [...box.querySelectorAll('[data-cap]:checked')].map(c => c.value);
             if (!capsChosen.length) { status('اختر قدرة واحدة على الأقل.', 'error'); return; }
+            const expiry = delegationExpiry($('govDelegateExpiry').value);
+            if (expiry.error) { status(expiry.error, 'error'); $('govDelegateExpiry').focus(); return; }
             if (!needReason()) return;
             await act('owner_grant_delegation', { p_delegate: $('govDelegateUser').value, p_unit: $('govDelegateUnit').value,
-                                                 p_capabilities: capsChosen, p_reason: reason(), p_expires_at: null }, 'مُنح التفويض وسُجّل');
+                                                 p_capabilities: capsChosen, p_reason: reason(), p_expires_at: expiry.iso }, 'مُنح التفويض وسُجّل');
         });
         box.querySelectorAll('[data-revoke-delegation]').forEach(btn => btn.addEventListener('click', async () => {
             if (!needReason()) return;

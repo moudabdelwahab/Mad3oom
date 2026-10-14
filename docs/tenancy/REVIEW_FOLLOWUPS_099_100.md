@@ -1,8 +1,28 @@
 # 099 / 100 — open review findings: safe fixes, tests, prerequisites
 
-> **Status: documented, NOT implemented.** Prepared 2026-10-14 from the independent reviews of 099 (admin hierarchy) and 100 (company documents).
-> Neither review found a release-blocking issue **while their switches stay OFF** (`delegation_enabled`, `company_suspension_enforced` and `company_documents_enabled`) and no `DOCUMENT_SCAN_SECRET` is set.
-> Every item below must be resolved **before** the switch it names is enabled. 099 and 100 are unapplied everywhere (production ledger ends at 093), so each fix can be made in the migration itself, with its rollback and test updated, before the first production apply.
+> **Status (updated 2026-10-14): implemented as forward migrations `103_admin_hierarchy_followups` and `104_company_documents_followups`, with rollbacks and regression tests. Not applied to production.**
+> 099 and 100 were applied to production on 2026-10-14, so their files are unchanged. Every fix is a new migration (see `FOLLOWUPS_103_104_PROD_INSTALL.md`).
+> The analysis below is kept as written; the checklist shows where each item landed.
+
+## Implemented vs. pending
+
+| Item | Where | State |
+|---|---|---|
+| 099 M1 deletion vs. history | 103 (no FKs; deletion ends memberships, revokes delegations, ends company assignment) | implemented, tested |
+| 099 M2 dormant delegation | 103 (eligibility triggers on profiles, company staff, memberships, ownership) | implemented, tested |
+| 099 M3 (a) suspend-only delegates | 103 | implemented, tested |
+| 099 M3 (b) second factor | 103: aal2 JWT claim required for delegate writes | implemented, tested. Delegates must enrol in MFA before `delegation_enabled` |
+| 099 L1 final decisions | 103 | implemented, tested |
+| 099 L2 conversion blocker and handover button | 103 and owner console | implemented, tested (SQL and render) |
+| 099 L3 expired delegations, required expiry | 103 and owner console | implemented, tested (SQL and render) |
+| 099 L5 rollback order | rollback guards in 099/100/103/104; single-transaction command documented | implemented, tested |
+| 100 M1 deletion vs. documents | 104, **decision A** (documented in the install note) | implemented, tested |
+| 100 M2 storage self-check | 104 `_storage_unscoped_policies()` | implemented, tested |
+| 100 M3 (a) apply order | done for 094–102; 103/104 follow the same rule | done |
+| 100 M3 (b) rollback bucket delete | unchanged: test on a Supabase branch before relying on it | **pending** (needs a branch, which is not available on the Free plan) |
+| 100 M3 (c) `--no-verify-jwt` | runbook | documented |
+| 100 L1–L7 | 104 and the Edge Functions (not deployed) | implemented, tested (SQL and Node) |
+| Real ClamAV scanner and `DOCUMENT_SCAN_SECRET` | — | **pending**: not provisioned, and none invented |
 
 ## 099 — admin hierarchy
 
@@ -101,8 +121,8 @@ Resolved by evidence for today's production. A read-only check on 2026-10-14 sho
 
 ## Summary of prerequisites per switch
 
-| Switch | Must be resolved first |
-|---|---|
-| `delegation_enabled` | 099 M1, M2, L3 |
-| `company_suspension_enforced` | 099 M1, M2, M3 (a)+(b) |
-| `company_documents_enabled` | 100 M1 decision; a real scanner (ClamAV) deployed with `DOCUMENT_SCAN_SECRET`; 100 L1, L3 |
+| Switch | Must be resolved first | After 103/104 |
+|---|---|---|
+| `delegation_enabled` | 099 M1, M2, L3 | 103 applied; delegates enrolled in MFA (aal2) |
+| `company_suspension_enforced` | 099 M1, M2, M3 (a)+(b) | 103 applied; delegates enrolled in MFA (aal2) |
+| `company_documents_enabled` | 100 M1 decision; a real scanner (ClamAV) deployed with `DOCUMENT_SCAN_SECRET`; 100 L1, L3 | 104 applied; the three document Edge Functions deployed from the 104 commit; a real scanner and secret; legal sign-off on retention periods |
