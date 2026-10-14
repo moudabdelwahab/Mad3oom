@@ -38,6 +38,16 @@
 | MEDIUM: real app uploads (`<ticket>/<ts>_<name>`, `tickets-service.js`) were never carried | `_carry_attachment_ok` parses paths with `storage_ticket_id()`, as the storage policies do (028), still requiring the customer-owned object and the same ticket. The worker accepts that shape too. | ④ app-path file carried, forged rows still refused |
 | MEDIUM: `expired`/`cancelled` outcomes were shown as success; the owner's exceptional transfer committed side effects and an audit row even when nothing moved | Company UI shows the real outcome (`transferDecisionMessage`). The exceptional transfer is all-or-nothing and raises unless `completed`. | `company-moves.test.mjs` |
 
+**Third review (of the second-round delta): no HIGH or CRITICAL.** Follow-ups applied:
+- **Carry** now needs `company_isolation_enforced` and `company_permissions_enabled`, like transfers. Without isolation, the source owner could see the destination team's replies on a carried ticket through the legacy path.
+- The guard also covers **carried tickets** (any `ticket_carry_items` row), and refuses **DELETE or rename** of either switch row, not just `enabled = false`. TRUNCATE, `DISABLE TRIGGER` and `session_replication_role` need the database owner; no API role has table grants.
+- `_carry_attachment_ok` accepts exactly the path shapes the worker accepts (lowercase UUIDs; 2 or 3 segments), so no queued item is doomed to fail.
+
+**Operational consequences of the guard (read before enabling transfers or carry):**
+1. After the first completed transfer or carried ticket, `company_isolation_enforced` and `company_permissions_enabled` **cannot be turned off** through any API path. The 097 and 098 rollbacks then refuse permanently; the 101 rollback already refuses once such data exists.
+2. **Future migrations (103+)**: the pattern "self-check refuses if any switch is on" must allow these two switches to stay on.
+3. **Break-glass** (only if isolation itself has a production bug): a database-owner session can `alter table public.platform_feature_switches disable trigger trg_guard_isolation_after_transfers`, flip the switch, and re-enable the trigger. Doing so **reopens** the legacy exposure of transferred and carried customers' older tickets to the destination or source owners. It needs the owner's explicit decision and a written record.
+
 Residual, documented:
 - **MEDIUM (pre-existing, 096).** With only `multi_company_memberships_enabled`, `set_primary_company` also moves `super_user_id`. With isolation off, the new company's owner then sees old tickets. Enable isolation before memberships, or extend the same guard to 096 primary changes.
 - **LOW.** The copy queue's `SKIP LOCKED` lasts only for the RPC call, so overlapping worker runs may take the same item. That is harmless through the 409 → confirm path but uses up attempts. Run the worker as a single scheduled instance.

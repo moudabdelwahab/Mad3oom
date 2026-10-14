@@ -373,16 +373,17 @@ security definer
 set search_path to 'public'
 as $$
 begin
-  if old.enabled and not new.enabled
-     and new.key in ('company_isolation_enforced', 'company_permissions_enabled')
-     and exists (select 1 from public.customer_transfers where status = 'completed') then
-    raise exception 'لا يُطفأ % بعد نقل عملاء مكتمل: المسار القديم يكشف تذاكرهم السابقة لمالك الوجهة', new.key
+  if old.key in ('company_isolation_enforced', 'company_permissions_enabled') and old.enabled
+     and (tg_op = 'DELETE' or not new.enabled or new.key is distinct from old.key)
+     and (exists (select 1 from public.customer_transfers where status = 'completed')
+          or exists (select 1 from public.ticket_carry_items)) then
+    raise exception 'لا يُطفأ % بعد نقل عملاء أو نسخ تذاكر: المسار القديم يكشف بيانات شركة لأخرى', old.key
       using errcode = '55000', detail = '{"code":"transfers_exist"}';
   end if;
-  return new;
+  return case when tg_op = 'DELETE' then old else new end;
 end $$;
 drop trigger if exists trg_guard_isolation_after_transfers on public.platform_feature_switches;
-create trigger trg_guard_isolation_after_transfers before update on public.platform_feature_switches
+create trigger trg_guard_isolation_after_transfers before update or delete on public.platform_feature_switches
   for each row execute function public._guard_isolation_after_transfers();
 
 -- قوائم: العميل يرى طلباته؛ المدير يرى ما يخص شركته بلا كشف الطرف الآخر.
@@ -502,6 +503,8 @@ as $$
        -- نفس تحليل سياسات التخزين (028): <التذكرة>/<ملف> أو <مستخدم>/<التذكرة>/<ملف>
        and public.storage_ticket_id(a.file_path) = a.ticket_id
        and position('..' in a.file_path) = 0
+       -- نفس أشكال المسار التي يقبلها عامل النسخ (ticket-carry-copy/handler.js) — لا عنصر يُستنزف بلا جدوى
+       and (a.file_path ~ '^[0-9a-f-]{36}/[^/]{1,200}$' or a.file_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]{1,200}$')
        and (a.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = a.reply_id
                                             and r.user_id = p_customer and not coalesce(r.is_internal, false)))
        and exists (select 1 from storage.objects o where o.bucket_id = 'tickets' and o.name = a.file_path and o.owner = p_customer));
@@ -517,6 +520,11 @@ as $$
 begin
   if not public._feature_on('ticket_carry_enabled') then
     raise exception 'نسخ التذاكر بين الشركات غير مفعّل' using errcode = '0A000', detail = '{"code":"feature_not_enabled"}';
+  end if;
+  -- بلا العزل يرى مالك المصدر (عبر المسار القديم) ردود فريق الوجهة على التذكرة المنسوخة: لا نسخ قبلهما
+  if not (public._feature_on('company_isolation_enforced') and public._feature_on('company_permissions_enabled')) then
+    raise exception 'النسخ يتطلب تفعيل عزل الشركات وصلاحيات الفريق أولًا' using errcode = '0A000',
+      detail = '{"code":"prerequisite_not_enabled"}';
   end if;
 end $$;
 

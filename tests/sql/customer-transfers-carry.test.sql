@@ -79,6 +79,10 @@ SET search_path = public, extensions;
 DO $$ BEGIN
   PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CB'))) = '0A000', 'OFF transfer');
   PERFORM t.ok(t.err(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], gen_random_uuid())', t.u('CA'), t.u('CB'), t.k('TA1'))) = '0A000', 'OFF carry');
+  PERFORM t.sw('ticket_carry_enabled', true);
+  PERFORM t.ok(t.errfull(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], gen_random_uuid())', t.u('CA'), t.u('CB'), t.k('TA1'))) LIKE '0A000|%',
+               'OFF carry needs isolation + 098 even with its own switch on');
+  PERFORM t.sw('ticket_carry_enabled', false);
   PERFORM t.ok(t.err(t.u('OB'), format('public.historical_access_request(%L::uuid, ''غرض واضح بما يكفي للطلب'')', t.u('B1'))) = '0A000', 'OFF history');
   PERFORM t.ok(t.call(t.u('A1'), 'public.h2_features()') = '{"transfers": false, "carry": false, "historical": false}'::jsonb, 'OFF features for the UI');
   RAISE NOTICE 'PASS ② المفاتيح مطفأة: لا نقل ولا نسخ ولا وصول تاريخي';
@@ -156,6 +160,9 @@ BEGIN
   PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_isolation_enforced''') = '55000'
            AND t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_permissions_enabled''') = '55000',
            'GUARD isolation and 098 stay on after a completed transfer');
+  PERFORM t.ok(t.err_super_ok('delete from public.platform_feature_switches where key = ''company_isolation_enforced''') = '55000'
+           AND t.err_super_ok('update public.platform_feature_switches set key = ''company_isolation_old'' where key = ''company_isolation_enforced''') = '55000',
+           'GUARD no delete or rename either');
   PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''multi_company_memberships_enabled''') = 'ok', 'GUARD other switches unaffected');
   PERFORM t.sw('multi_company_memberships_enabled', true);
   RAISE NOTICE 'PASS ③ النقل: العميل يطلب (تأكيده)، المديران يقرران، التنفيذ ذري عند اكتمالهما، المصدر يبقى إضافية باختيار العميل وإذن المصدر، منع التكرار وطلب معلّق واحد، الرفض لا يغيّر شيئًا، الاستثنائي للمالك بسبب مسجَّل، والمسار الخام مقيَّد';
@@ -166,6 +173,7 @@ DO $$
 DECLARE k uuid := gen_random_uuid(); r jsonb; nt uuid; q0 jsonb; q1 jsonb; c jsonb; item uuid;
 BEGIN
   PERFORM t.sw('ticket_carry_enabled', true);
+  PERFORM t.ok(public._feature_on('company_isolation_enforced') AND public._feature_on('company_permissions_enabled'), 'CARRY prerequisites on (held by the guard)');
   -- رد للعميل ومرفقه على تذكرته في أ (إلى جانب رد الشركة والملاحظة الداخلية في العُدّة)
   INSERT INTO public.ticket_replies (id, ticket_id, user_id, message) VALUES ('7c000000-0000-4000-8000-0000000000a1', t.k('TA1'), t.u('A1'), 'رسالتي الثانية للشركة');
   INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path)
