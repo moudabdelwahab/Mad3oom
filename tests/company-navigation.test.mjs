@@ -589,7 +589,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         العميل (ونقل استثنائي للمالك بسبب)، نسخ تذاكر يختارها العميل بمحتواه وحده دون حصة أو فوترة
     //         مزدوجة، ووصول تاريخي بموافقة العميل ثم المالك. customer_transfers_enabled وticket_carry_enabled
     //         وhistorical_access_enabled مطفأة. مقيسٌ في tests/sql/customer-transfers-carry.test.sql.
-    assert.equal(migrations[migrations.length - 1], '101_customer_transfers_carry.sql',
+    //   102 — محادثات الشركة وصندوقها (المرحلتان C وD): جداول خاصة بالشركة من البداية بلا منح مباشرة
+    //         ولا سياسة لطاقم المنصة ولا Realtime، العميل يراسل شركته الحالية، والفريق بصلاحيات 098
+    //         (conversations.*). company_inbox_enabled مطفأ. مقيسٌ في tests/sql/company-conversations.test.sql.
+    assert.equal(migrations[migrations.length - 1], '102_company_conversations.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
