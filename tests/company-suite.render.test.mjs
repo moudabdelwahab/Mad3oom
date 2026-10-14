@@ -112,7 +112,7 @@ function fixtures() {
     };
 }
 
-async function openDashboard(browser, baseUrl, { mutate = null, viewport = { width: 1440, height: 1100 } } = {}) {
+async function openDashboard(browser, baseUrl, { mutate = null, viewport = { width: 1440, height: 1100 }, hash = '' } = {}) {
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
 
@@ -134,7 +134,7 @@ async function openDashboard(browser, baseUrl, { mutate = null, viewport = { wid
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
-    await page.goto(`${baseUrl}/company-dashboard/index.html`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl}/company-dashboard/index.html${hash}`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !document.getElementById('companyContent')?.hidden
         || !!document.querySelector('#companyGateBody .state-block'), null, { timeout: 10000 });
     return { page, context, visited, errors };
@@ -388,43 +388,48 @@ test('قراءة تذاكر فاشلة لا تُعرض صفرًا في النظ�
     await context.close();
 });
 
-test('الإجراءات السريعة تشير لأقسام قائمة ومسموحة لهذا الدور فقط', { skip: !chromiumPath }, async () => {
-    // المدير: كل اختصار يطابق عنصرًا ظاهرًا في القائمة الجانبية
+test('الإجراءات السريعة تشير لصفحات ظاهرة في القائمة ومتاحة لهذا الدور فقط', { skip: !chromiumPath }, async () => {
+    const actionTabs = page => page.locator('#companyQuickActions .company-action').evaluateAll(
+        links => links.map(a => a.getAttribute('data-tab')));
+    // المدير: كل اختصار يطابق عنصرًا ظاهرًا في القائمة الجانبية، ولا صندوق رسائل بلا صندوق من القاعدة
     {
         const { page, context } = await openDashboard(browser, baseUrl);
         await page.waitForSelector('#companyQuickActions .company-action', { timeout: 10000 });
-        const tabs = await page.locator('#companyQuickActions .company-action').evaluateAll(
-            links => links.map(a => a.getAttribute('data-tab')));
-        assert.ok(tabs.includes('api'), 'اختصار API غائب عن المدير');
+        const tabs = await actionTabs(page);
+        assert.ok(tabs.length >= 3 && tabs.length <= 4, `عدد الاختصارات ${tabs.length}`);
+        assert.ok(tabs.includes('support'));
         assert.ok(!tabs.includes('inbox'), 'اختصار صندوق رسائل بلا صندوق من القاعدة');
         for (const tab of tabs) {
             assert.equal(await page.locator(`.sidebar-item[data-tab="${tab}"]:visible`).count(), 1,
-                `اختصار لقسم غير ظاهر في القائمة: ${tab}`);
+                `اختصار لصفحة غير ظاهرة في القائمة: ${tab}`);
         }
         await context.close();
     }
-    // موظف الدعم: لا اختصار لأقسام المدير (API والاشتراكات)
+    // موظف الدعم: لا اختصار ولا رابط لصفحات المدير
     {
         const { page, context } = await openDashboard(browser, baseUrl, {
             mutate: fx => { fx.rpc.get_my_company_dashboard.viewer_role = 'agent'; }
         });
         await page.waitForSelector('#companyQuickActions .company-action', { timeout: 10000 });
-        const tabs = await page.locator('#companyQuickActions .company-action').evaluateAll(
-            links => links.map(a => a.getAttribute('data-tab')));
-        assert.ok(!tabs.includes('api'), 'موظف الدعم يرى اختصار API');
-        assert.ok(!tabs.includes('subscriptions'));
+        const tabs = await actionTabs(page);
+        for (const adminPage of ['api', 'subscriptions', 'permissions', 'accessLog', 'customers']) {
+            assert.ok(!tabs.includes(adminPage), `موظف الدعم يرى اختصار ${adminPage}`);
+            assert.equal(await page.locator(`.sidebar-item[data-tab="${adminPage}"]:visible`).count(), 0,
+                `موظف الدعم يرى رابط ${adminPage} في القائمة`);
+        }
         await context.close();
     }
 });
 
-test('مسار التنقّل وعنوان التبويب يتبعان القسم، والعنصر النشط معلَن للقارئ الصوتي', { skip: !chromiumPath }, async () => {
+test('مسار التنقّل وعنوان التبويب يتبعان الصفحة، والعنصر النشط معلَن للقارئ الصوتي', { skip: !chromiumPath }, async () => {
     const { page, context } = await openDashboard(browser, baseUrl);
-    assert.equal((await page.locator('#companySectionCrumb').innerText()).trim(), 'نظرة عامة');
+    const crumbs = () => page.locator('#companyCrumbs li').allInnerTexts();
+    assert.deepEqual((await crumbs()).map(t => t.trim()), ['لوحة الشركة', 'نظرة عامة']);
     assert.equal(await page.locator('.sidebar-item[data-tab="overview"]').getAttribute('aria-current'), 'page');
 
     await openSection(page, 'members');
-    assert.equal((await page.locator('#companySectionCrumb').innerText()).trim(), 'مستخدمو الشركة');
-    assert.match(await page.title(), /^مستخدمو الشركة · لوحة الشركة/);
+    assert.deepEqual((await crumbs()).map(t => t.trim()), ['لوحة الشركة', 'الفريق والصلاحيات', 'أعضاء الفريق']);
+    assert.match(await page.title(), /^أعضاء الفريق · لوحة الشركة/);
     assert.equal(await page.locator('.sidebar-item[aria-current="page"]').count(), 1);
     assert.equal(await page.locator('.sidebar-item[data-tab="members"]').getAttribute('aria-current'), 'page');
     // علامة المستوى باقية: اللوحة تعلن أنها سياق شركة
@@ -433,8 +438,9 @@ test('مسار التنقّل وعنوان التبويب يتبعان القس�
 });
 
 test('لا تمرير أفقي في أقسام اللوحة على الجوال واللوحي والحاسوب', { skip: !chromiumPath }, async () => {
-    const sections = ['overview', 'members', 'subscriptions', 'tickets', 'customerTickets', 'support',
-        'notifications', 'api', 'integrations', 'reports', 'activity', 'profile', 'security'];
+    const sections = ['overview', 'tickets', 'customerTickets', 'support', 'members', 'customers',
+        'permissions', 'accessLog', 'subscriptions', 'entitlements', 'usage', 'integrations', 'api',
+        'reports', 'activity', 'notifications', 'company', 'profile', 'security'];
     for (const width of [390, 768, 1440]) {
         const { page, context } = await openDashboard(browser, baseUrl, { viewport: { width, height: 900 } });
         for (const section of sections) {
@@ -447,4 +453,211 @@ test('لا تمرير أفقي في أقسام اللوحة على الجوال 
         }
         await context.close();
     }
+});
+
+/* ── صفحات مستقلة: التنقّل والتحميل عند الحاجة والقدرات المكشوفة ───────── */
+
+const rpcCalls = page => page.evaluate(() => window.__RPC_CALLS__ || []);
+
+test('كل صفحة حاوية مستقلة: صفحة واحدة نشطة، ورأس المجال يبدّل بين الشقيقات، والرجوع يعمل', { skip: !chromiumPath }, async () => {
+    const { page, context, visited } = await openDashboard(browser, baseUrl);
+    await openSection(page, 'members');
+    assert.equal(await page.locator('#companyContent .tab-content.active').count(), 1);
+    assert.equal(await page.locator('#companyPageHead').isHidden(), false);
+    assert.match(await page.locator('.company-page-title').innerText(), /الفريق والصلاحيات/);
+
+    // الشريط الشقيق ينقل إلى «عملاء الشركة» في مكانها
+    await page.locator('.company-subnav a[data-tab="customers"]').click();
+    await page.waitForSelector('#customersTabContent.active', { timeout: 10000 });
+    assert.equal(await page.locator('.company-subnav a[aria-current="page"]').getAttribute('data-tab'), 'customers');
+    assert.equal(await page.locator('#membersTabContent').isVisible(), false, 'صفحتان معروضتان معًا');
+
+    // زر الرجوع في المتصفح يعيد الصفحة السابقة ثم النظرة العامة
+    await page.goBack();
+    await page.waitForSelector('#membersTabContent.active', { timeout: 10000 });
+    await page.goBack();
+    await page.waitForSelector('#overviewTabContent.active', { timeout: 10000 });
+    await page.goForward();
+    await page.waitForSelector('#membersTabContent.active', { timeout: 10000 });
+    assert.deepEqual(visited.map(u => new URL(u).pathname).filter(p => !p.startsWith('/company-dashboard/')), []);
+    await context.close();
+});
+
+test('النظرة العامة مختصرة ولا تجلب بيانات الصفحات الأخرى عند البدء', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl);
+    await page.waitForFunction(() => document.querySelectorAll('#companyOverviewTickets .company-stat').length === 3,
+        null, { timeout: 10000 });
+    // لا بيانات شركة كاملة ولا أعضاء ولا اشتراكات مفصّلة في النظرة العامة
+    assert.equal(await page.locator('#overviewTabContent #companyProfileBody').count(), 0);
+    assert.equal(await page.locator('#overviewTabContent .company-sub-list').count(), 0);
+    const startup = await rpcCalls(page);
+    // (my_ticket_wallet تقرؤه شارة الرصيد في الشريط العلوي المشترك منذ 065 — ليس من النظرة العامة)
+    for (const rpc of ['company_members', 'company_staff_list', 'company_customers_list',
+                       'company_permissions_matrix', 'company_access_log']) {
+        assert.ok(!startup.includes(rpc), `النظرة العامة جلبت ${rpc} قبل فتح صفحته`);
+    }
+    // تُجلب عند فتح صفحتها
+    await openSection(page, 'members');
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_members'), null, { timeout: 10000 });
+    await context.close();
+});
+
+test('رابط مباشر إلى «الاستخدام والحدود» يحمّل الرصيد من my_ticket_wallet كما هو', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openDashboard(browser, baseUrl, {
+        hash: '#usage',
+        mutate: fx => {
+            fx.rpc.my_ticket_wallet = { plan_key: 'support', plan_name_ar: 'باقة الدعم', is_free: false,
+                shared_account: true, unlimited: false, monthly_limit: 30, used: 7, remaining: 23,
+                billing_used: 1, billing_limit: 5, resets_at: iso(12) };
+        }
+    });
+    await page.waitForSelector('#usageTabContent.active .company-usage', { timeout: 10000 });
+    const text = await page.locator('#companyUsage').innerText();
+    assert.match(text, /23/);
+    assert.match(text, /تذكرة متبقية من 30/);
+    assert.match(text, /1 من 5 هذا الشهر/);
+    assert.match(text, /مشترك لحساب الشركة كله/);
+    assert.equal(await page.locator('#companyUsage [role="progressbar"]').getAttribute('aria-valuenow'), '7');
+    assert.deepEqual((await page.locator('#companyCrumbs li').allInnerTexts()).map(t => t.trim()),
+        ['لوحة الشركة', 'الاشتراك والفوترة', 'الاستخدام والحدود']);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('فشل قراءة الرصيد يُعرض خطأً لا رقمًا، وإعادة المحاولة تقرأ من جديد', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl, {
+        hash: '#usage',
+        mutate: fx => { fx.rpcErrors = { my_ticket_wallet: 'boom' }; }
+    });
+    await page.waitForSelector('#companyUsage .state-block--error', { timeout: 10000 });
+    assert.doesNotMatch(await page.locator('#companyUsage').innerText(), /متبقية|\b0\b/);
+    await page.evaluate(() => { window.__FIXTURES__.rpcErrors = {};
+        window.__FIXTURES__.rpc.my_ticket_wallet = { plan_key: 'support', unlimited: true, used: 4, resets_at: null }; });
+    await page.locator('#companyUsageRetry').click();
+    await page.waitForSelector('#companyUsage .company-usage', { timeout: 10000 });
+    assert.match(await page.locator('#companyUsage').innerText(), /غير محدود/);
+    await context.close();
+});
+
+test('الأدوار والصلاحيات: للقراءة فقط والميزة مطفأة، والتعديل عبر RPC حين تُفعَّل، والرفض يعيد القيمة', { skip: !chromiumPath }, async () => {
+    const matrix = (enabled) => ({ enabled, catalog: [
+        { key: 'tickets.assign', label: 'إسناد التذاكر', description: 'توزيع التذاكر', supervisor: true, agent: false }
+    ], overrides: [] });
+
+    // مطفأة: شارات نصية بلا أي مفتاح تعديل
+    {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            hash: '#permissions', mutate: fx => { fx.rpc.company_permissions_matrix = matrix(false); }
+        });
+        await page.waitForSelector('#companyPermissions .company-matrix', { timeout: 10000 });
+        assert.equal(await page.locator('#companyPermissions input[type="checkbox"]').count(), 0);
+        assert.match(await page.locator('#companyPermissions').innerText(), /للقراءة فقط/);
+        await context.close();
+    }
+    // مفعّلة: المفتاح يرسل الدور والصلاحية والقيمة فقط
+    {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            hash: '#permissions', mutate: fx => {
+                fx.rpc.company_permissions_matrix = matrix(true);
+                fx.rpc.company_set_role_permission = { role: 'agent', permission: 'tickets.assign', allowed: true };
+            }
+        });
+        const agentSwitch = page.locator('input[data-perm-role="agent"][data-perm-key="tickets.assign"]');
+        await agentSwitch.waitFor({ timeout: 10000 });
+        assert.equal(await agentSwitch.isChecked(), false);
+        await agentSwitch.check();
+        await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_set_role_permission'));
+        const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_set_role_permission').map(([, a]) => a));
+        assert.deepEqual(args, [{ p_role: 'agent', p_key: 'tickets.assign', p_allowed: true }]);
+
+        // القاعدة ترفض: القيمة تعود كما كانت
+        await page.evaluate(() => { window.__FIXTURES__.rpcErrors = { company_set_role_permission: 'disabled' }; });
+        const supervisorSwitch = page.locator('input[data-perm-role="supervisor"][data-perm-key="tickets.assign"]');
+        // click لا uncheck: الواجهة تعيد القيمة فور رفض القاعدة، وهذا المطلوب إثباته
+        await supervisorSwitch.click();
+        await page.waitForFunction(() => window.__RPC_CALLS__.filter(n => n === 'company_set_role_permission').length === 2);
+        await page.waitForFunction(() => !document.querySelector('input[data-perm-role="supervisor"]').disabled);
+        assert.equal(await supervisorSwitch.isChecked(), true, 'بقيت قيمة رفضتها القاعدة');
+        await context.close();
+    }
+});
+
+test('سجل وصول مدعوم: صفوف المنح كما رجّعتها القاعدة، وفراغ صريح بلا منح', { skip: !chromiumPath }, async () => {
+    {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            hash: '#accessLog', mutate: fx => {
+                fx.rpc.company_access_log = [{ grant_id: 'g1', requester_kind: 'support', ticket_id: 'tk-3',
+                    starts_at: iso(-6), expires_at: iso(-5), revoked_at: null, reads: 3 }];
+            }
+        });
+        await page.waitForSelector('#companyAccessLog table', { timeout: 10000 });
+        const row = await page.locator('#companyAccessLog tbody tr').first().innerText();
+        assert.match(row, /فريق دعم مدعوم/);
+        assert.match(row, /تذكرة محددة/);
+        assert.match(row, /انتهى/);
+        assert.match(row, /3/);
+        await context.close();
+    }
+    {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            hash: '#accessLog', mutate: fx => { fx.rpc.company_access_log = []; }
+        });
+        await page.waitForSelector('#companyAccessLog .state-block', { timeout: 10000 });
+        assert.match(await page.locator('#companyAccessLog').innerText(), /لا يوجد أي وصول مسجّل/);
+        await context.close();
+    }
+});
+
+test('رابط مباشر لصفحة مدير يعيد موظف الدعم إلى النظرة العامة بلا نداء لبياناتها', { skip: !chromiumPath }, async () => {
+    for (const hash of ['#permissions', '#accessLog', '#subscriptions', '#api']) {
+        const { page, context } = await openDashboard(browser, baseUrl, {
+            hash, mutate: fx => { fx.rpc.get_my_company_dashboard.viewer_role = 'agent'; }
+        });
+        await page.waitForSelector('#overviewTabContent.active', { timeout: 10000 });
+        assert.equal(new URL(page.url()).hash, '#overview', `${hash} لم يُصحَّح`);
+        const calls = await rpcCalls(page);
+        assert.ok(!calls.includes('company_permissions_matrix') && !calls.includes('company_access_log'),
+            `${hash}: نداء لبيانات صفحة مدير`);
+        await context.close();
+    }
+});
+
+test('إلغاء طلب اشتراك قيد المراجعة: بعد التأكيد فقط، والفشل لا يُعرض نجاحًا', { skip: !chromiumPath }, async () => {
+    const withPending = fx => {
+        fx.rpc.get_my_company_dashboard.subscriptions.push({ id: 's-pend', plan: 'whatsapp', plan_name_ar: 'واتساب بيزنس',
+            status: 'pending', billing_cycle: 'monthly', start_date: null, end_date: null, is_active: false, days_remaining: null });
+    };
+    // رفض القاعدة (false): لا نجاح، والزر يعود متاحًا
+    const { page, context } = await openDashboard(browser, baseUrl, {
+        hash: '#subscriptions', mutate: fx => { withPending(fx); fx.rpc.cancel_my_subscription_request = false; }
+    });
+    const btn = page.locator('[data-cancel-subscription="s-pend"]');
+    await btn.waitFor({ timeout: 10000 });
+    // لا زر إلغاء لاشتراك ليس قيد المراجعة
+    assert.equal(await page.locator('[data-cancel-subscription]').count(), 1);
+
+    // التراجع في الحوار لا يرسل شيئًا
+    await btn.click();
+    await page.locator('.ui-dialog button', { hasText: 'رجوع' }).click();
+    assert.ok(!(await rpcCalls(page)).includes('cancel_my_subscription_request'));
+
+    await btn.click();
+    await page.locator('.ui-dialog button', { hasText: 'إلغاء الطلب' }).click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('cancel_my_subscription_request'));
+    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'cancel_my_subscription_request').map(([, a]) => a));
+    assert.deepEqual(args, [{ p_subscription_id: 's-pend' }]);
+    await page.waitForFunction(() => !document.querySelector('[data-cancel-subscription="s-pend"]')?.disabled);
+    assert.doesNotMatch(await page.locator('#ui-toast-container').innerText(), /أُلغي طلب الاشتراك/);
+    assert.match(await page.locator('#ui-toast-container').innerText(), /تعذّر إلغاء الطلب/);
+    await context.close();
+});
+
+test('تنبيه اشتراك قارب على الانتهاء في النظرة العامة يشير إلى صفحة الاشتراكات', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openDashboard(browser, baseUrl);
+    await page.waitForSelector('#companyAlerts .company-alert', { timeout: 10000 });
+    const alert = page.locator('#companyAlerts .company-alert', { hasText: 'باقة الدعم ينتهي قريبًا' });
+    assert.equal(await alert.count(), 1);
+    await alert.locator('a[data-tab="subscriptions"]').click();
+    await page.waitForSelector('#subscriptionsTabContent.active', { timeout: 10000 });
+    await context.close();
 });

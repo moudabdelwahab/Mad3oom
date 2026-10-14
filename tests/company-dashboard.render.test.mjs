@@ -325,6 +325,7 @@ test('العضو الفرعي يرى البيانات ولا يرى زر الت�
 
 test('المالك يفتح نموذج التعديل ببيانات الشركة الحالية', async () => {
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures(companyPayload()));
+    await openCompanySection(page);
 
     await page.locator('#editCompanyBtn').click();
     assert.equal(await page.locator('#companyForm').isHidden(), false);
@@ -336,6 +337,7 @@ test('المالك يفتح نموذج التعديل ببيانات الشرك�
 
 test('النموذج يرفض الحفظ بدون البيانات القانونية الأساسية', async () => {
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fixtures(companyPayload()));
+    await openCompanySection(page);
 
     await page.locator('#editCompanyBtn').click();
     await page.locator('#fCompanyName').fill('');
@@ -417,6 +419,18 @@ async function openMembersSection(page) {
     await page.waitForSelector('#membersTabContent.active', { timeout: 5000 });
 }
 
+/** عملاء الشركة ونقلهم صفحة مستقلة في مجال «الفريق والصلاحيات». */
+async function openCustomersSection(page) {
+    await page.evaluate(() => { window.location.hash = '#customers'; });
+    await page.waitForSelector('#customersTabContent.active', { timeout: 5000 });
+}
+
+/** بيانات الشركة ومستنداتها صفحة مستقلة («حساب الشركة»)، لا جزءًا من النظرة العامة. */
+async function openCompanySection(page) {
+    await page.evaluate(() => { window.location.hash = '#company'; });
+    await page.waitForSelector('#companyTabContent.active', { timeout: 5000 });
+}
+
 test('096: المدير والمفتاح مفعّل يرى نموذج الدعوة ويرسلها بلا كشف لوجود الحساب', async () => {
     const payload = companyPayload();
     payload.viewer_role = 'admin';
@@ -428,7 +442,7 @@ test('096: المدير والمفتاح مفعّل يرى نموذج الدعو
         company_invite_customer: { status: 'pending' }
     } });
     const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
-    await openMembersSection(page);
+    await openCustomersSection(page);
     await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
     assert.equal(await page.locator('#companyInviteForm').isHidden(), false);
     const invText = await page.locator('#companyInvitations').textContent();
@@ -473,7 +487,7 @@ test('096: المشرف يرى قائمة العملاء للقراءة، بلا
                                   customers: [{ id: 'u1', name: 'عميل أول', email: 'c1@x.test', phone: null }] }
     } });
     const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
-    await openMembersSection(page);
+    await openCustomersSection(page);
     await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
     assert.equal(await page.locator('#companyInviteForm').isHidden(), true);
     assert.match(await page.locator('#companyCustomers').textContent(), /عميل أول/);
@@ -506,6 +520,8 @@ function documentsFixture(enabled = true) {
 
 test('100: المستندات مخفية والميزة مطفأة', async () => {
     const { page, context } = await openCompanyDashboard(browser, baseUrl, documentsFixture(false));
+    await openCompanySection(page);
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('company_documents_mine'));
     await page.waitForTimeout(200);
     assert.equal(await page.locator('#companyDocumentsPanel').isHidden(), true);
     await context.close();
@@ -513,6 +529,7 @@ test('100: المستندات مخفية والميزة مطفأة', async () =>
 
 test('100: الحالة لكل مستند، والتنزيل للنظيف وحده، والرفع إلى الدالة الطرفية بالرؤوس الصحيحة', async () => {
     const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, documentsFixture(true));
+    await openCompanySection(page);
     await page.waitForSelector('#companyDocumentsPanel:not([hidden])', { timeout: 5000 });
     const text = await page.locator('#companyDocuments').innerText();
     assert.match(text, /معتمد/);
@@ -561,6 +578,7 @@ function movesFixture(features, extra = {}) {
 
 test('101: المفتاحان مطفآن: لا لوحة نقل ولا اطلاع، ولا نداء لقوائمهما', async () => {
     const { page, context } = await openCompanyDashboard(browser, baseUrl, movesFixture({}));
+    await openCustomersSection(page);
     await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('h2_features'));
     await page.waitForTimeout(150);
     assert.equal(await page.locator('#companyMovesPanel').isHidden(), true);
@@ -579,7 +597,7 @@ test('101: قرار نقل صادر يعرض رغبة العميل في البق
         transfer_decide: { transfer_id: 'x1', status: 'pending', waiting_for: 'destination' }
     });
     const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
-    await openMembersSection(page);
+    await openCustomersSection(page);
     await page.waitForSelector('#companyMovesPanel:not([hidden])', { timeout: 5000 });
     assert.equal(await page.locator('#companyHistoryBox').isHidden(), true, 'الاطلاع بمفتاحه');
     const text = await page.locator('#companyTransfers').innerText();
@@ -608,7 +626,7 @@ test('101: طلب اطلاع بغرض واضح لعميل الشركة، وال�
                                   expires_at: '2026-10-15T10:00:00Z' }
     });
     const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
-    await openMembersSection(page);
+    await openCustomersSection(page);
     await page.waitForSelector('#companyHistoryBox:not([hidden])', { timeout: 5000 });
     assert.equal(await page.locator('#companyTransfersBox').isHidden(), true);
     assert.equal(await page.locator('[data-history="h2"] [data-history-ticket]').count(), 0, 'لا عرض قبل الموافقتين');

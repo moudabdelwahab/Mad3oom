@@ -33,7 +33,16 @@ import { ui } from '/ui-service.js';
 import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
 import { initCompanyMoves } from '/assets/js/company/company-moves.js';
 import { fetchInboxSummary, applyInboxBadge, loadCompanyInbox } from '/assets/js/company/company-inbox.js';
-import { countByView } from '/assets/js/customer/ticket-view-model.js';
+import {
+    COMPANY_ROUTES, routeFromHash, pageAvailable, breadcrumbFor, pageHeadFor, COMPANY_PAGES
+} from '/assets/js/company/company-routes.js';
+import { icon, renderPageHead, renderBreadcrumb } from '/assets/js/company/company-ui.js';
+import {
+    renderOverviewAlerts, renderQuickActions, renderOverviewTickets, renderOverviewTicketsLoading,
+    renderRecentNotifications, renderRecentActivity
+} from '/assets/js/company/company-overview.js';
+import { loadCompanyPermissions, loadCompanyAccessLog } from '/assets/js/company/company-access.js';
+import { loadCompanyUsage } from '/assets/js/company/company-billing.js';
 import {
     fetchCompanyDashboard,
     fetchAccountKind,
@@ -44,6 +53,7 @@ import {
     setCompanyStaffRole,
     revokeCompanyStaff,
     saveCompany,
+    cancelSubscriptionRequest,
     fetchCompanyCustomers,
     fetchCompanyInvitations,
     inviteCompanyCustomer,
@@ -70,7 +80,6 @@ import {
     STAFF_ROLE_OPTIONS,
     hasEntitlement,
     viewerRoleOf,
-    sectionAllowed,
     VIEWER_ROLE_LABELS,
     customersPanelView,
     isCompanyScopedTicket,
@@ -118,11 +127,11 @@ async function init() {
 
     currentUserId = user.id;
 
-    // قشرة الشركة: قائمتها الخاصة، وكل عناصرها أقسام في هذه الصفحة.
-    // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
+    // قشرة الشركة: قائمتها الخاصة، وكل عناصرها صفحات في هذه اللوحة.
+    // onTabChange بيخلي عناصر القائمة تبدّل الصفحة بدل ما تنقل لأي مكان آخر.
     shellReady = initCompanyShell({
         onTabChange: showSection,
-        // الجرس يفتح نافذة منبثقة ولا يبدّل القسم؛ «عرض الكل» وحده ينقل إليه.
+        // الجرس يفتح نافذة منبثقة ولا يبدّل الصفحة؛ «عرض الكل» وحده ينقل إليها.
         notificationsPopover: true,
         onSeeAllNotifications: () => showSection('notifications'),
         onOpenNotification: (notification) => {
@@ -161,90 +170,95 @@ async function init() {
     wireInviteCustomer();
     wireSectionRouting();
 
+    await boot();
+}
+
+/**
+ * البدء خفيف: حمولة اللوحة وحدها (الهوية، الدور، الاشتراكات من نفس الرد)، ثم
+ * بيانات الصفحة المفتوحة فقط. كل صفحة تجلب بياناتها عند أول فتح لها.
+ * يُعاد استدعاؤه من «إعادة المحاولة» إن فشلت الحمولة نفسها.
+ */
+async function boot() {
     await load();
+    if (!dashboard) return;
+    // صندوق الرسائل (102) يظهر في التنقّل فقط حين ترد القاعدة بصندوق لهذا الحساب
     inboxSummary = await fetchInboxSummary();
-    // اختصار صندوق الرسائل يظهر فقط حين ترد القاعدة بصندوق لهذا الحساب
-    if (dashboard) renderQuickActions();
+    applyViewerRole();
 
     // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
     // نفسها)، فبنفتح التذاكر عليه بدل ما يضيع.
     const query = new URLSearchParams(window.location.search).get('q');
     if (query) {
         loadedOnce.add('tickets');
-        showSection('tickets');
+        showSection('tickets', { history: 'replace' });
         await platformTickets.load({ search: query });
     } else {
-        showSection(sectionFromHash(), { updateHash: false });
+        showSection(routeFromHash(window.location.hash), { history: 'none' });
     }
 }
 
-/* ── التنقّل بين أقسام لوحة الشركة ───────────────────────────────────────── */
+/* ── التنقّل بين صفحات لوحة الشركة ───────────────────────────────────────── */
 
 /**
- * التنقّل كله داخل هذه الصفحة. مفيش قسم بيوديك لصفحة تانية، ومفيش رابط
+ * التنقّل كله داخل هذه الصفحة. مفيش صفحة بتوديك لمكان تاني، ومفيش رابط
  * لبوابة العميل — وده قرار المنتج اللي بيمنع دورة
  * «لوحة الشركة → بوابة العميل → صفحة الدخول → لوحة الشركة» من الوجود أصلًا.
+ *
+ * الصفحات ومجالاتها في company-routes.js (مصدر واحد للقائمة ومسار التنقّل
+ * ورأس المجال). كل صفحة حاوية مستقلة ‎#<page>TabContent‎ ومُحمِّل عند أول فتح.
  */
-const SECTIONS = [
-    'overview', 'members', 'subscriptions',
-    'tickets',          // ① الشركة ↔ مدعوم
-    'customerTickets',  // ② العميل  ↔ الشركة
-    'inbox',            // ③ رسائل العملاء مع الشركة (102)
-    'support', 'notifications',
-    'api', 'integrations', 'reports', 'activity',
-    'profile', 'security'
-];
+const SECTIONS = COMPANY_ROUTES;
 
-/** الأقسام اللي بتتحمّل عند أول فتح لها فقط. */
+/** الصفحات اللي بتتحمّل عند أول فتح لها فقط. */
 const LOADERS = {
+    overview: () => loadOverview(),
     tickets: () => ensureStreamLoaded('tickets', platformTickets),
     customerTickets: () => ensureStreamLoaded('customerTickets', customerTickets),
     inbox: () => loadCompanyInbox(),
     support: () => loadCompanySupport(),
+    members: () => ensureMembers(),
+    customers: () => loadCustomersPage(),
+    permissions: () => loadCompanyPermissions(),
+    accessLog: () => loadCompanyAccessLog(),
+    usage: () => loadCompanyUsage(),
+    company: () => loadCompanyPage(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
     security: () => loadCompanySecurity(),
-    api: () => loadCompanyApi({ selfId: currentUserId }),
+    // قسم API يعرض صاحب كل مفتاح من قائمة الأعضاء
+    api: () => ensureMembers().then(() => loadCompanyApi({ selfId: currentUserId })),
     integrations: () => loadCompanyIntegrations(),
     activity: () => loadCompanyActivity(),
-    // التقارير تُبنى من المسارين، فنضمن تحميلهما أولًا بدل عرض أصفار كاذبة
+    // التقارير تُبنى من المسارين والأعضاء، فنضمن تحميلها أولًا بدل عرض أصفار كاذبة
     reports: () => loadReports()
 };
 
 const loadedOnce = new Set();
 
-/** أسماء الأقسام كما في القائمة الجانبية — لمسار التنقّل وعنوان التبويب. */
-const SECTION_LABELS = Object.freeze({
-    overview: 'نظرة عامة',
-    members: 'مستخدمو الشركة',
-    subscriptions: 'الاشتراكات والخدمات',
-    tickets: 'تذاكري مع مدعوم',
-    customerTickets: 'تذاكر العملاء',
-    inbox: 'صندوق الرسائل',
-    support: 'مركز الدعم',
-    notifications: 'الإشعارات',
-    api: 'API',
-    integrations: 'التكاملات',
-    reports: 'التقارير',
-    activity: 'النشاط',
-    profile: 'الملف الشخصي',
-    security: 'الأمان'
-});
-
 const BASE_TITLE = 'لوحة الشركة - منصة مدعوم';
 
-/** القسم المعروض الآن — يُعاد تطبيقه على القائمة حين تصل بعد التحميل. */
+/** الصفحة المعروضة الآن — يُعاد تطبيقها على القائمة حين تصل بعد التحميل. */
 let currentSection = 'overview';
 
-function sectionFromHash() {
-    const hash = (window.location.hash || '').replace(/^#/, '');
-    return SECTIONS.includes(hash) ? hash : 'overview';
+function navContext() {
+    return { viewerRole, inbox: inboxSummary !== null };
 }
 
-export function showSection(name, { updateHash = true } = {}) {
-    // 095: أقسام المدير لا تُفتح لغيره حتى بالرابط المباشر (#subscriptions) — والقاعدة
-    // لا ترسل بياناتها أصلًا لغير المدير.
-    const section = SECTIONS.includes(name) && sectionAllowed(name, viewerRole) ? name : 'overview';
+function sectionFromHash() {
+    return routeFromHash(window.location.hash);
+}
+
+/**
+ * history: 'push' (نقرة المستخدم) | 'replace' (تصحيح المسار) | 'none' (جاء من hashchange أو التحميل).
+ * updateHash القديم ما زال مقبولًا للتوافق: false = 'none'.
+ */
+export function showSection(name, { history: mode = 'push', updateHash } = {}) {
+    if (updateHash === false) mode = 'none';
+    // صفحة غير متاحة لهذا الدور (#subscriptions لموظف الدعم مثلًا) تعود إلى النظرة
+    // العامة حتى بالرابط المباشر — والقاعدة لا ترسل بياناتها أصلًا لغير المخوَّل.
+    const requested = SECTIONS.includes(name) ? name : 'overview';
+    const section = pageAvailable(requested, navContext()) ? requested : 'overview';
+    if (section !== requested && mode === 'none') mode = 'replace';
 
     SECTIONS.forEach(key => {
         const el = document.getElementById(`${key}TabContent`);
@@ -256,8 +270,11 @@ export function showSection(name, { updateHash = true } = {}) {
     // القائمة تُجلب بعد أول رسم: لو وصلت بعد هذا النداء نعلّم عنصرها النشط عند وصولها
     Promise.resolve(shellReady).catch(() => {}).then(() => setActiveSidebarTab(currentSection));
     renderSectionContext(section);
-    if (updateHash && window.location.hash.slice(1) !== section) {
-        history.replaceState(null, '', `#${section}`);
+
+    const target = `#${section}`;
+    if (window.location.hash !== target) {
+        if (mode === 'push') history.pushState({ page: section }, '', target);
+        else if (mode === 'replace') history.replaceState({ page: section }, '', target);
     }
     window.scrollTo({ top: 0, behavior: 'auto' });
 
@@ -267,44 +284,158 @@ export function showSection(name, { updateHash = true } = {}) {
     }
 }
 
-/** مسار التنقّل في شريط الشركة وعنوان التبويب يتبعان القسم المعروض. */
+/** مسار التنقّل ورأس المجال وعنوان التبويب تتبع الصفحة المعروضة. */
 function renderSectionContext(section) {
-    const label = SECTION_LABELS[section] || SECTION_LABELS.overview;
-    const crumb = document.getElementById('companySectionCrumb');
-    if (crumb) crumb.textContent = label;
+    renderBreadcrumb(document.getElementById('companyCrumbs'), breadcrumbFor(section));
+    renderPageHead(document.getElementById('companyPageHead'), pageHeadFor(section, navContext()));
+    const label = (COMPANY_PAGES[section] || COMPANY_PAGES.overview).label;
     document.title = section === 'overview' ? BASE_TITLE : `${label} · ${BASE_TITLE}`;
 }
 
 function wireSectionRouting() {
-    // زر الرجوع في المتصفح والروابط الداخلية (#members مثلًا) يبدّلان القسم
-    window.addEventListener('hashchange', () => showSection(sectionFromHash(), { updateHash: false }));
+    // زر الرجوع والتقدّم في المتصفح والروابط المباشرة (#members مثلًا) تبدّل الصفحة
+    window.addEventListener('hashchange', () => showSection(sectionFromHash(), { history: 'none' }));
+    window.addEventListener('popstate', () => showSection(sectionFromHash(), { history: 'none' }));
 
-    // أي رابط داخل المحتوى يحمل data-tab يبدّل قسمًا بدل ما ينقل الصفحة
+    // أي رابط داخل المحتوى يحمل data-tab يبدّل الصفحة بدل ما ينقل المتصفح
     document.addEventListener('click', (event) => {
         const link = event.target.closest('[data-tab]');
         if (!link || !link.closest('#companyMain')) return;
+        // فتح في تبويب جديد (Ctrl/⌘/الزر الأوسط) يبقى سلوك المتصفح الطبيعي
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) return;
         event.preventDefault();
         showSection(link.getAttribute('data-tab'));
     });
 }
 
 /**
- * التقارير تقرأ المسارين معًا. لو لم يُفتحا بعد نحمّلهما أولًا — تقرير مبني
- * على قوائم فارغة لم تُقرأ بعدُ أسوأ من انتظار قصير.
+ * إعادة تحميل صفحة بعينها بعد فشل قراءتها (زر «إعادة المحاولة» في حالتها).
+ * مفاتيح المسارين في company-tickets.js هي platform/customers.
  */
-async function loadReports() {
+function reloadPage(page) {
+    if (page === 'tickets' || page === 'customerTickets') {
+        streamLoads.delete(page);
+        loadedOnce.delete(page);
+    }
+    loadedOnce.delete(page);
+    if (currentSection === page) showSection(page, { history: 'none' });
+    else if (LOADERS[page]) { loadedOnce.add(page); LOADERS[page](); }
+}
+
+const RETRY_PAGES = { platform: 'tickets', customers: 'customerTickets' };
+
+/* ── تحميل مشترك لكل مسار تذاكر ────────────────────────────────────────── */
+
+const streamLoads = new Map();
+
+/**
+ * تحميل واحد مشترك لكل مسار: النظرة العامة والتقارير وفتح تذكرة من إشعار
+ * ينتظرون نفس الوعد، فلا يقرأ أحدهم صفوفًا لم تصل بعد فيعرض أصفارًا كاذبة.
+ * الفشل يمسح الوعد فيُعاد التحميل عند فتح الصفحة.
+ * مسار العملاء ينتظر ضبط مصدر تذاكر الفريق (098) قبل أول قراءة.
+ */
+function ensureStreamLoaded(section, stream) {
+    if (!streamLoads.has(section)) {
+        loadedOnce.add(section);
+        const before = section === 'customerTickets' ? ensureTeamConfigured() : Promise.resolve();
+        streamLoads.set(section, before.then(() => stream.load()).then(ok => {
+            if (ok === false) {
+                streamLoads.delete(section);
+                loadedOnce.delete(section);
+            }
+            return ok !== false;
+        }));
+    }
+    return streamLoads.get(section);
+}
+
+let teamConfigured = null;
+function ensureTeamConfigured() {
+    if (!teamConfigured) teamConfigured = configureTeamTickets().catch(() => {});
+    return teamConfigured;
+}
+
+/** أعضاء الشركة: قراءة واحدة مشتركة بين صفحة الفريق وAPI والتقارير والتكاملات. */
+let membersLoad = null;
+function ensureMembers() {
+    if (!membersLoad) membersLoad = renderMembers().catch(() => { membersLoad = null; });
+    return membersLoad;
+}
+
+/* ── النظرة العامة ──────────────────────────────────────────────────────── */
+
+/**
+ * توجيه لا تفاصيل: التنبيهات والاختصارات من حمولة اللوحة، ثم ثلاث قراءات خفيفة
+ * متوازية (مسارا التذاكر، آخر الإشعارات، آخر النشاط) — كلٌّ يعرض حالته بمعزل.
+ */
+async function loadOverview() {
+    renderOverviewAlerts(dashboard, viewerRole);
+    renderQuickActions(navContext());
+    renderOverviewTicketsLoading();
+    renderRecentNotifications();
+    renderRecentActivity();
+    await refreshOverviewTickets();
+}
+
+async function refreshOverviewTickets() {
     const [platformOk, customersOk] = await Promise.all([
         ensureStreamLoaded('tickets', platformTickets),
         ensureStreamLoaded('customerTickets', customerTickets)
     ]);
+    renderOverviewTickets({
+        platform: { ok: platformOk, rows: platformTickets.rows() },
+        customers: { ok: customersOk, rows: customerTickets.rows() },
+        userId: currentUserId
+    });
+}
+
+/* ── صفحات تُحمَّل عند الفتح ────────────────────────────────────────────── */
+
+/** عملاء الشركة (096) + نقل العملاء والاطلاع التاريخي (101، يظهر فقط والمفتاحان مفعّلان). */
+async function loadCustomersPage() {
+    const note = document.getElementById('companyCustomersNote');
+    await renderCustomers();
+    const panel = document.getElementById('companyCustomersPanel');
+    // 101: قرارات نقل العملاء وطلبات الاطلاع التاريخي — للمدير وحده، والقاعدة تقرر
+    if (viewerRole === 'admin') await initCompanyMoves({ customers: () => companyCustomerList });
+    const moves = document.getElementById('companyMovesPanel');
+    if (note) {
+        const empty = (!panel || panel.hidden) && (!moves || moves.hidden);
+        if (empty) {
+            renderState(note, {
+                variant: 'empty',
+                title: 'لا توجد أدوات عملاء متاحة لحسابك بعد',
+                text: 'دعوة العملاء بالبريد تظهر هنا حين تتيحها مدعوم لشركتك. عملاء الشركة الحاليون يظهرون في «أعضاء الفريق».'
+            });
+        } else {
+            note.innerHTML = '';
+        }
+    }
+}
+
+/** بيانات الشركة + مستنداتها (100، للمدير والميزة مفعّلة — القاعدة تقرر). */
+async function loadCompanyPage() {
+    if (viewerRole === 'admin') await renderCompanyDocuments();
+}
+
+/**
+ * التقارير تقرأ المسارين معًا والأعضاء. لو لم تُفتح بعد نحمّلها أولًا — تقرير
+ * مبني على قوائم فارغة لم تُقرأ بعدُ أسوأ من انتظار قصير.
+ */
+async function loadReports() {
+    const [platformOk, customersOk] = await Promise.all([
+        ensureStreamLoaded('tickets', platformTickets),
+        ensureStreamLoaded('customerTickets', customerTickets),
+        ensureMembers()
+    ]);
 
     if (!platformOk || !customersOk) {
-        // تقرير على قائمة لم تُقرأ = أرقام كاذبة. نقول ذلك، ونعيد المحاولة عند العودة للقسم.
+        // تقرير على قائمة لم تُقرأ = أرقام كاذبة. نقول ذلك، ونعيد المحاولة عند العودة للصفحة.
         loadedOnce.delete('reports');
         renderState(document.getElementById('companyReports'), {
             variant: 'error',
             title: 'تعذّر بناء التقارير',
-            text: 'لم نتمكن من قراءة التذاكر اللازمة. افتح القسم مرة أخرى لإعادة المحاولة.'
+            text: 'لم نتمكن من قراءة التذاكر اللازمة. افتح الصفحة مرة أخرى لإعادة المحاولة.'
         });
         return;
     }
@@ -324,7 +455,7 @@ async function onTicketCreated() {
     showSection('tickets');
     await platformTickets.load();
     // عدّادات النظرة العامة تُقرأ من نفس الصفوف بعد التحديث
-    renderOverviewTickets();
+    if (loadedOnce.has('overview')) refreshOverviewTickets();
 }
 
 /**
@@ -351,6 +482,10 @@ async function openTicketInItsStream(ticketId) {
     showSection('tickets');
 }
 
+/**
+ * حمولة اللوحة وحدها: هوية الشركة، دور الناظر، الاشتراكات والامتيازات. ما يُعرض
+ * منها بلا قراءة إضافية يُرسم هنا؛ كل ما يحتاج قراءة أخرى يُجلب عند فتح صفحته.
+ */
 async function load() {
     const content = document.getElementById('companyContent');
     const gate = document.getElementById('companyGate');
@@ -363,6 +498,7 @@ async function load() {
     // 095 (D8): عميل الشركة له بوابة منفصلة. رسالة في مكانها وزر يدوي — بلا تحويل
     // تلقائي (قاعدة page-guard). القاعدة ترد null لحمولته على أي حال.
     if (kindResult.ok && kindResult.data === 'company_customer') {
+        dashboard = null;
         renderState(document.getElementById('companyGateBody'), {
             variant: 'empty',
             title: 'هذه اللوحة لفريق الشركة',
@@ -409,16 +545,19 @@ async function load() {
     renderProfile();
     if (viewerRole === 'admin') renderSubscriptions();
     renderEntitlements();
-    await renderMembers();
-    await renderCustomers();
-    await configureTeamTickets();
-    // بعد الأعضاء (صلاحية الإدارة) وبعد ضبط مصدر تذاكر الفريق (098)
-    renderQuickActions();
-    renderOverviewTickets();
-    // 100: مستندات الشركة — للمدير وحده، والميزة مفعّلة (القاعدة تقرر)
-    if (viewerRole === 'admin') await renderCompanyDocuments();
-    // 101: قرارات نقل العملاء وطلبات الاطلاع التاريخي — للمدير وحده، والمفتاحان مفعّلان (القاعدة تقرر)
-    if (viewerRole === 'admin') await initCompanyMoves({ customers: () => companyCustomerList });
+}
+
+/** بعد تغيير في الاشتراكات (إلغاء طلب): نعيد قراءة الحمولة ونرسم ما يعتمد عليها. */
+async function refreshDashboardPayload() {
+    const result = await fetchCompanyDashboard();
+    if (!result.ok || !result.data) return false;
+    dashboard = result.data;
+    renderBanner();
+    renderKpis();
+    if (viewerRole === 'admin') renderSubscriptions();
+    renderEntitlements();
+    if (loadedOnce.has('overview')) renderOverviewAlerts(dashboard, viewerRole);
+    return true;
 }
 
 /**
@@ -441,7 +580,6 @@ async function configureTeamTickets() {
             assign: assignCompanyTicket
         }
     });
-    if (loadedOnce.has('customerTickets')) await customerTickets.load();
 }
 
 /* ── مستخدمو الشركة ─────────────────────────────────────────────────────── */
@@ -462,7 +600,19 @@ async function renderMembers() {
 
     // الفريق يُقرأ مع الأعضاء: null لعميل الشركة أو قبل 086، فلا يظهر شيء منه.
     const [result, staffResult] = await Promise.all([fetchCompanyMembers(), fetchCompanyStaff()]);
-    if (!result.ok || !result.data) { panel.hidden = true; return; }
+    if (!result.ok) {
+        // فشل القراءة ليس «لا أعضاء»: نقول ذلك ونتيح إعادة المحاولة
+        panel.hidden = false;
+        addBtn.hidden = true;
+        renderState(container, {
+            variant: 'error',
+            title: 'تعذّر تحميل أعضاء الفريق',
+            text: 'تحقق من اتصالك ثم أعد المحاولة.',
+            action: { label: 'إعادة المحاولة', retry: 'members', variant: 'btn-primary' }
+        });
+        throw new Error('members');
+    }
+    if (!result.data) { panel.hidden = true; return; }
     const staff = staffResult.ok ? staffResult.data : null;
     renderStaffNote(staff);
 
@@ -835,18 +985,32 @@ async function onCreateMember(event) {
 
 /** يُخفي من القائمة أقسام المدير عن المشرف وموظف الدعم. تنظيم عرض: الحماية في القاعدة. */
 function applyViewerRole() {
-    const current = (window.location.hash || '').replace(/^#/, '');
-    if (current && !sectionAllowed(current, viewerRole)) showSection('overview');
-    // display صريح لا الخاصية hidden: أنماط القائمة تفرض display على العنصر
+    // display صريح لا الخاصية hidden: أنماط القائمة تفرض display على العنصر.
+    // الإخفاء تنقّل فقط — القاعدة ترفض ما لا يخص الدور مهما ظهر من روابط.
     Promise.resolve(shellReady).catch(() => {}).then(() => {
+        const ctx = navContext();
         document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
             const tab = item.getAttribute('data-tab');
-            const allowed = sectionAllowed(tab, viewerRole) && (tab !== 'inbox' || inboxSummary !== null);
+            if (!SECTIONS.includes(tab)) return;
+            const allowed = pageAvailable(tab, ctx);
             item.hidden = !allowed;
             item.style.display = allowed ? '' : 'none';
         });
+        // عنوان مجموعة بلا عناصر ظاهرة يختفي معها
+        document.querySelectorAll('.sidebar-menu .sidebar-group-label').forEach(label => {
+            let next = label.nextElementSibling;
+            let visible = false;
+            while (next && !next.classList.contains('sidebar-group-label')) {
+                if (next.classList.contains('sidebar-item') && !next.hidden) visible = true;
+                next = next.nextElementSibling;
+            }
+            label.hidden = !visible;
+            label.style.display = visible ? '' : 'none';
+        });
         applyInboxBadge(inboxSummary);
     });
+    // رأس المجال يعكس الصفحات المتاحة لهذا الدور
+    if (dashboard) renderSectionContext(currentSection);
 }
 
 /* ── شريط المستوى ───────────────────────────────────────────────────────── */
@@ -945,143 +1109,6 @@ function renderKpis() {
         </div>`).join('');
 }
 
-/* ── أيقونات اللوحة ─────────────────────────────────────────────────────────
-   نفس أسلوب أيقونات القائمة الجانبية (خط 2، حواف مستديرة) فلا يختلط نظامان. */
-const ICON_PATHS = {
-    briefcase: '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
-    clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
-    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
-    check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>',
-    mail: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline>',
-    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
-    alert: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
-    plus: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line>',
-    users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
-    code: '<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>',
-    chart: '<path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path>',
-    inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
-    // «التالي» في واجهة عربية يتجه يسارًا؛ ويُعكس في LTR من الأنماط
-    forward: '<polyline points="15 18 9 12 15 6"></polyline>'
-};
-
-function icon(name, size = 18, className = '') {
-    return `<svg ${className ? `class="${className}" ` : ''}viewBox="0 0 24 24" width="${size}" height="${size}" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`;
-}
-
-/* ── إجراءات سريعة ─────────────────────────────────────────────────────────
-   اختصارات لأقسام قائمة فعلًا ومسموحة لهذا الدور — لا زر لميزة غير جاهزة،
-   ولا اختصار يتجاوز ما تعرضه القائمة الجانبية نفسها. */
-function quickActionsFor() {
-    const actions = [
-        { tab: 'support', icon: 'plus', title: 'فتح تذكرة دعم', text: 'تواصل مع فريق مدعوم بخصوص حساب شركتك' },
-        { tab: 'customerTickets', icon: 'chat', title: 'تذاكر العملاء', text: 'تابع طلبات المستخدمين التابعين لشركتك وردّ عليها' }
-    ];
-    if (inboxSummary !== null) {
-        actions.push({ tab: 'inbox', icon: 'inbox', title: 'صندوق الرسائل', text: 'رسائل عملاء الشركة من بوابتهم' });
-    }
-    if (canManageMembersNow) {
-        actions.push({ tab: 'members', icon: 'users', title: 'إدارة المستخدمين', text: 'أضف مستخدمين وحدّد أدوارهم في الفريق' });
-    }
-    actions.push(
-        { tab: 'api', icon: 'code', title: 'مفاتيح API', text: 'أنشئ المفاتيح وراجع آخر النداءات' },
-        { tab: 'reports', icon: 'chart', title: 'التقارير', text: 'أداء الدعم وتصدير البيانات' }
-    );
-    return actions.filter(action => sectionAllowed(action.tab, viewerRole));
-}
-
-function renderQuickActions() {
-    const box = document.getElementById('companyQuickActions');
-    if (!box) return;
-    box.innerHTML = `
-        <ul class="company-actions">
-            ${quickActionsFor().map(action => `
-                <li>
-                    <a class="company-action" href="/company-dashboard/#${escapeHtml(action.tab)}" data-tab="${escapeHtml(action.tab)}">
-                        <span class="company-action-icon">${icon(action.icon, 18)}</span>
-                        <span class="company-action-body">
-                            <span class="company-action-title">${escapeHtml(action.title)}</span>
-                            <span class="company-action-text">${escapeHtml(action.text)}</span>
-                        </span>
-                        ${icon('forward', 16, 'company-action-go')}
-                    </a>
-                </li>`).join('')}
-        </ul>`;
-}
-
-/* ── ملخّص التذاكر في النظرة العامة ─────────────────────────────────────────
-   نفس صفوف المسارين ونفس عدّادات تبويباتهما (countByView) — رقم واحد للشيء
-   الواحد في الشاشتين. يُحمَّل المساران مرة واحدة (loadedOnce) كما في التقارير،
-   ولا يُعرض رقم لمسار فشلت قراءته: «تعذّر التحميل» بدل صفر كاذب. */
-const streamLoads = new Map();
-
-/**
- * تحميل واحد مشترك لكل مسار: النظرة العامة والتقارير وفتح تذكرة من إشعار
- * ينتظرون نفس الوعد، فلا يقرأ أحدهم صفوفًا لم تصل بعد فيعرض أصفارًا كاذبة.
- * الفشل يمسح الوعد فيُعاد التحميل عند فتح القسم.
- */
-function ensureStreamLoaded(section, stream) {
-    if (!streamLoads.has(section)) {
-        loadedOnce.add(section);
-        streamLoads.set(section, Promise.resolve(stream.load()).then(ok => {
-            if (ok === false) {
-                streamLoads.delete(section);
-                loadedOnce.delete(section);
-            }
-            return ok !== false;
-        }));
-    }
-    return streamLoads.get(section);
-}
-
-async function renderOverviewTickets() {
-    const box = document.getElementById('companyOverviewTickets');
-    if (!box) return;
-    renderSkeletonLines(box, 3);
-
-    const [platformOk, customersOk] = await Promise.all([
-        ensureStreamLoaded('tickets', platformTickets),
-        ensureStreamLoaded('customerTickets', customerTickets)
-    ]);
-
-    const platform = platformOk ? countByView(platformTickets.rows(), currentUserId) : null;
-    const customers = customersOk ? countByView(customerTickets.rows(), currentUserId) : null;
-
-    const stat = ({ tab, iconName, label, value, hint, tone = '' }) => `
-        <li>
-            <a class="company-stat ${tone}" href="/company-dashboard/#${tab}" data-tab="${tab}">
-                <span class="company-stat-icon">${icon(iconName, 18)}</span>
-                <span class="company-stat-body">
-                    <span class="company-stat-label">${escapeHtml(label)}</span>
-                    <span class="company-stat-hint">${escapeHtml(hint)}</span>
-                </span>
-                <span class="company-stat-value">${escapeHtml(value)}</span>
-            </a>
-        </li>`;
-
-    const unavailable = 'تعذّر التحميل — افتح القسم لإعادة المحاولة';
-    box.innerHTML = `
-        <ul class="company-stats">
-            ${stat({
-                tab: 'tickets', iconName: 'mail', label: 'مفتوحة مع مدعوم',
-                value: platform ? String(platform.open) : '—',
-                hint: platform ? `من ${platform.all} تذكرة مع فريق مدعوم` : unavailable
-            })}
-            ${stat({
-                tab: 'tickets', iconName: 'alert', label: 'بانتظار ردّك',
-                value: platform ? String(platform.awaiting) : '—',
-                hint: platform
-                    ? (platform.awaiting ? 'ردّ فريق مدعوم ولم تردّ بعد' : 'لا تذكرة تنتظر ردّك')
-                    : unavailable,
-                tone: platform && platform.awaiting ? 'is-attention' : ''
-            })}
-            ${stat({
-                tab: 'customerTickets', iconName: 'chat', label: 'تذاكر عملاء مفتوحة',
-                value: customers ? String(customers.open) : '—',
-                hint: customers ? `من ${customers.all} تذكرة من عملاء الشركة` : unavailable
-            })}
-        </ul>`;
-}
-
 /* ── بيانات الشركة ──────────────────────────────────────────────────────── */
 
 function renderProfile() {
@@ -1154,6 +1181,37 @@ function renderSubscriptions() {
         <ul class="company-sub-list">
             ${report.rows.map(subscriptionRow).join('')}
         </ul>`;
+
+    container.querySelectorAll('[data-cancel-subscription]').forEach(btn => {
+        btn.addEventListener('click', () => onCancelSubscriptionRequest(btn));
+    });
+}
+
+/**
+ * إلغاء طلب اشتراك قيد المراجعة (cancel_my_subscription_request، 023): يحذف الطلب
+ * وتذكرته المفتوحة إن كانا لصاحب الحساب وما زال pending. القاعدة ترجّع false
+ * لغير ذلك فيُعرض فشلًا — لا نجاح مفترض.
+ */
+async function onCancelSubscriptionRequest(btn) {
+    const name = btn.getAttribute('data-plan-name') || 'الطلب';
+    const confirmed = await ui.showConfirm(
+        'إلغاء طلب الاشتراك',
+        `سيُحذف طلب «${name}» وتذكرته المفتوحة. لا يمكن التراجع عن ذلك.`,
+        { confirmLabel: 'إلغاء الطلب', cancelLabel: 'رجوع', danger: true });
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const result = await cancelSubscriptionRequest(btn.getAttribute('data-cancel-subscription'));
+    if (!result.ok) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(result.error || 'تعذّر إلغاء الطلب', 'error');
+        return;
+    }
+    ui.showToast('أُلغي طلب الاشتراك', 'success');
+    const refreshed = await refreshDashboardPayload();
+    if (!refreshed) ui.showToast('أُلغي الطلب، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
 }
 
 function subscriptionSummary(report) {
@@ -1241,6 +1299,10 @@ function subscriptionRow(row) {
             <div class="company-sub-side">
                 <span class="pill ${escapeHtml(state.pill)}">${escapeHtml(state.label)}</span>
                 ${timing ? `<span class="company-sub-days">${timing}</span>` : ''}
+                ${state.key === 'pending' && companyAccess(dashboard).isOwner ? `
+                <button type="button" class="btn btn-secondary btn-sm"
+                        data-cancel-subscription="${escapeHtml(sub.id)}"
+                        data-plan-name="${escapeHtml(sub.plan_name_ar || sub.plan)}">إلغاء الطلب</button>` : ''}
             </div>
         </li>`;
 }
@@ -1310,7 +1372,14 @@ function wireForm() {
     // إعادة المحاولة وحالات الانتقال المشتركة مع باقي صفحات البوابة
     document.addEventListener('click', (event) => {
         const retry = event.target.closest('[data-retry]');
-        if (retry) { load(); return; }
+        if (retry) {
+            // «إعادة المحاولة» تعيد قراءة الصفحة التي فشلت وحدها؛ فشل الحمولة نفسها يعيد البدء
+            const key = retry.getAttribute('data-retry');
+            const page = RETRY_PAGES[key] || key;
+            if (dashboard && LOADERS[page]) reloadPage(page);
+            else boot();
+            return;
+        }
         const goto = event.target.closest('[data-goto]');
         if (goto) window.location.href = goto.getAttribute('data-goto');
     });
