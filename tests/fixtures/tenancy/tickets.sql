@@ -50,6 +50,8 @@ CREATE FUNCTION t.schema_digest() RETURNS text LANGUAGE sql AS $$
     union all select 'p:' || schemaname || tablename || policyname || permissive || cmd || coalesce(qual, '') || coalesce(with_check, '')
       from pg_policies
     union all select 'tg:' || tgrelid::regclass || pg_get_triggerdef(oid) from pg_trigger where not tgisinternal
+    union all select 'ck:' || conrelid::regclass || conname || pg_get_constraintdef(oid)
+      from pg_constraint where connamespace = 'public'::regnamespace
     union all select 'c:' || table_schema || table_name || column_name || data_type || is_nullable
       from information_schema.columns where table_schema in ('public', 'storage')
     union all select 'g:' || grantee || table_name || privilege_type

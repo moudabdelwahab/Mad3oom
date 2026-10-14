@@ -585,7 +585,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         عزل pending_scan حتى نتيجة فحص موقَّعة (لا عامل فحص منشور)، تنزيل 60 ثانية مسجَّل، مراجعة
     //         بالمالك أو المراجع المسند، احتفاظ وحجز قانوني بتجربة جافة فقط. company_documents_enabled مطفأ.
     //         مقيسٌ في tests/sql/company-documents.test.sql.
-    assert.equal(migrations[migrations.length - 1], '100_company_documents.sql',
+    //   101 — النقل والنسخ والوصول التاريخي (السؤال 5–7): نقل الشركة الأساسية بموافقة المديرين وتأكيد
+    //         العميل (ونقل استثنائي للمالك بسبب)، نسخ تذاكر يختارها العميل بمحتواه وحده دون حصة أو فوترة
+    //         مزدوجة، ووصول تاريخي بموافقة العميل ثم المالك. customer_transfers_enabled وticket_carry_enabled
+    //         وhistorical_access_enabled مطفأة. مقيسٌ في tests/sql/customer-transfers-carry.test.sql.
+    assert.equal(migrations[migrations.length - 1], '101_customer_transfers_carry.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
