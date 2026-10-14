@@ -14,7 +14,7 @@ worker.mjs ── document_scan_queue ───┘  (service role, oldest first,
     ▼
 document-scan-callback  (HMAC-SHA256 over "<unix-ts>.<body>", ±5 min)
     ▼
-document_scan_result()  clean → pending_review · infected → rejected (stays quarantined) · error → retry
+document_scan_result()  clean → pending_review · infected → rejected (stays quarantined) · error → scan_error (stays quarantined; NOT re-queued today — see REVIEW_FOLLOWUPS_099_100.md L4)
 ```
 
 ## Requirements
@@ -29,8 +29,9 @@ document_scan_result()  clean → pending_review · infected → rejected (stays
 ## Enable (separate approval)
 
 1. Provision clamd and the worker host. Verify with the EICAR test file that the worker reports `infected`.
-2. Set the Edge Function secret: `supabase secrets set DOCUMENT_SCAN_SECRET=...`. This is a production secret change and needs your approval.
-3. Run the worker once. `document_scan_queue()` should drain. Check `company_document_events` for `scan_result` rows.
+2. Deploy the callback **without gateway JWT verification**: `supabase functions deploy document-scan-callback --no-verify-jwt`. It authenticates every request with its own HMAC signature, and the worker sends no JWT, so with JWT verification on the gateway rejects every result with 401 (fail-closed, but scanning never completes). Deployment needs your approval.
+3. Set the Edge Function secret: `supabase secrets set DOCUMENT_SCAN_SECRET=...`. This is a production secret change and needs your approval.
+4. Run the worker once. `document_scan_queue()` should drain. Check `company_document_events` for `scan_result` rows.
 
 ## Failure behaviour (fail closed)
 

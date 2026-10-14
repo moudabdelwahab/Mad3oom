@@ -203,6 +203,24 @@ BEGIN
   PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', false)', t.u('AG')));
   PERFORM t.ok(t.call(t.u('AG'), 'public.company_inbox_summary()') IS NULL
            AND t.err(t.u('AG'), format('public.company_conversation_thread(%L::uuid)', t.cv('C1'))) = 'P0002', 'PERM view revoked');
+  -- توجيه الإشعار: المسند إليه فقد الوصول ⇒ يصل مدير الشركة لا هو
+  INSERT INTO t.saved VALUES ('ntf_ag', (SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text),
+                             ('ntf_oa', (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::text);
+  PERFORM t.ok(t.post('A1', 'C1', 'هل من جديد؟') = 'ok', 'ROUTE customer posts');
+  PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text = (SELECT v FROM t.saved WHERE k = 'ntf_ag')
+           AND (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::int = (SELECT v FROM t.saved WHERE k = 'ntf_oa')::int + 1,
+           'ROUTE alert goes to whoever can still see it');
+  -- المسند إليه محظور (وإن بقيت صلاحيته): يصل مدير الشركة
+  PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', null)', t.u('AG')));
+  UPDATE public.profiles SET ban_status = 'banned' WHERE id = t.u('AG');
+  UPDATE t.saved SET v = (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::text WHERE k = 'ntf_oa';
+  UPDATE t.saved SET v = (SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text WHERE k = 'ntf_ag';
+  PERFORM t.ok(t.post('A1', 'C1', 'ما زلت أنتظر الرد') = 'ok', 'ROUTE customer posts again');
+  PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text = (SELECT v FROM t.saved WHERE k = 'ntf_ag')
+           AND (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::int = (SELECT v FROM t.saved WHERE k = 'ntf_oa')::int + 1,
+           'ROUTE banned assignee: owner is alerted');
+  UPDATE public.profiles SET ban_status = 'none' WHERE id = t.u('AG');
+  PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', false)', t.u('AG')));
   PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', null)', t.u('AG')));
   PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.internal_notes'', null)', t.u('AG')));
   RAISE NOTICE 'PASS ④ الفريق بصلاحيات 098: المشرف الكل والموظف المسند، الإسناد لأعضاء الفريق، الملاحظات الداخلية وهوية الموظف لا تصل العميل، الصلاحيات تُسحب فورًا، والإغلاق وإعادة الفتح';
@@ -268,6 +286,22 @@ BEGIN
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.company_conversation_messages WHERE conversation_id = t.cv('C1') AND sender_kind = 'staff'
                         AND sender_id IS NULL AND body = 'وصلنا طلبك وسنتابعه اليوم'), 'INV staff message kept, sender cleared');
   PERFORM t.ok(t.err_super_ok(format('update public.company_conversation_messages set sender_id = null where conversation_id = %L', t.cv('C1'))) = '23514', 'INV direct sender change blocked');
+  -- لا موضوع ولا نص محادثة في أي إشعار (جدول الإشعارات تقرؤه السلطة المرتفعة، 040)
+  PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE link IN ('/company-dashboard/#inbox', '/portal/#messages')) >= 5, 'INV inbox notifications exist');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.notifications n, public.company_conversations c
+                            WHERE n.link IN ('/company-dashboard/#inbox', '/portal/#messages')
+                              AND position(c.subject in coalesce(n.title, '') || ' ' || coalesce(n.message, '')) > 0), 'INV no subject in notifications');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.notifications n, public.company_conversation_messages m
+                            WHERE n.link IN ('/company-dashboard/#inbox', '/portal/#messages')
+                              AND position(m.body in coalesce(n.message, '')) > 0), 'INV no message text in notifications');
+  -- دوال 102 مغلقة على service_role
+  PERFORM t.ok(NOT has_function_privilege('service_role', 'public._inbox_event(uuid,uuid,text,jsonb)', 'execute')
+           AND NOT has_function_privilege('service_role', 'public.company_conversation_post(uuid,text,boolean)', 'execute'), 'INV service_role closed');
+  -- عميل محظور لا يقرأ
+  UPDATE public.profiles SET ban_status = 'banned' WHERE id = t.u('A1');
+  PERFORM t.ok(t.err(t.u('A1'), format('public.company_conversation_thread(%L::uuid)', t.cv('C1'))) = 'P0002'
+           AND t.call(t.u('A1'), 'public.my_company_conversations()') IS NULL, 'INV banned customer cannot read');
+  UPDATE public.profiles SET ban_status = 'none' WHERE id = t.u('A1');
   RAISE NOTICE 'PASS ⑥ الثوابت: لا تعديل ولا حذف مباشر للرسائل، السجل إلحاقي، الشركة ثابتة، حد المحادثات، وحذف حساب العميل يحذف محادثاته ويبقي السجل، وحذف حساب الموظف يبقي رسائله بلا مرسل';
 END $$;
 

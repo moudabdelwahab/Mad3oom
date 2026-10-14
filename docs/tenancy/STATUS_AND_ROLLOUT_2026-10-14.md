@@ -1,6 +1,8 @@
 # Multi-tenant architecture & security — status and rollout (2026-10-14)
 
-> Branch `claude/dazzling-hypatia-lh1o9i`. **Production was not changed.** Every migration and function here is unapplied and undeployed, and every switch below ships **OFF**. Each production step needs your separate, explicit approval.
+> **Update 2026-10-14 18:12 UTC:** migrations 094 → 102 are **applied to production**, every switch OFF. See `PRODUCTION_RELEASE_PLAN_2026-10-14.md` → "Applied". No functions or secrets were deployed.
+>
+> Branch `claude/dazzling-hypatia-lh1o9i`. **(Below: state before the apply.) Production was not changed.** Every migration and function here is unapplied and undeployed, and every switch below ships **OFF**. Each production step needs your separate, explicit approval.
 > Production was checked read-only on 2026-10-14:
 > - ledger head `093_continuity_collab_actions`;
 > - none of the 095–102 objects exist;
@@ -62,6 +64,17 @@ Each rollback was proven in a disposable database by apply → rollback → sche
 - **ClamAV scanner** for 100. A reference worker is in `tools/document-scanner/worker.mjs`, and the runbook covers deployment. Until it runs, every document stays quarantined (`pending_scan`).
 - **Scheduler** for `ticket-carry-copy` (101) and for `document_expiry_scan` (100). Neither is scheduled.
 - No files were sent to any third-party scanner. No credentials were created or changed.
+
+## Independent security review (2026-10-14, four reviewers, one per migration)
+
+| Migration | Release-blocking | Status |
+|---|---|---|
+| 099 | no | Open before enabling `delegation_enabled` / `company_suspension_enforced`:<br>• M1: deletion blocked by hierarchy rows<br>• M2: a dormant delegation revives after demotion and re-promotion<br>• M3: delegate suspension needs no step-up |
+| 100 | no (switch OFF, no scan secret) | Open before enabling:<br>• M1: deletion blocked<br>• M3b: rollback's raw delete of `storage.buckets` needs a branch test<br>• M3c: deploy `document-scan-callback` with `--no-verify-jwt`<br>• Fixed by evidence: M2 (all 14 production `storage.objects` policies are bucket-scoped, verified read-only) |
+| 101 | **yes → fixed** | See the H2 note: no FKs to companies, carry attachment provenance, transfers gated on isolation and 098, persisted expiry, queue and worker. **Second review found one more HIGH (isolation could be turned off after transfers) → fixed with a guard trigger. Isolation and 098 become one-way after the first completed transfer or carried ticket; carry is gated on them too. Third review: no HIGH or CRITICAL.** |
+| 102 | **yes → fixed** | See the C+D note: generic notifications, assignee routing, context-aware staff role, NULL-safe and active-only customer reads, `service_role` revoked |
+
+Every migration's self-check refuses to apply if **any** feature switch is already on (future 103+ self-checks must allow `company_isolation_enforced` and `company_permissions_enabled` to stay on; see the H2 note). Apply 094–102 in order, each in one transaction (`apply_migration` is transactional), **before** enabling any switch.
 
 ## Known decisions left to you
 

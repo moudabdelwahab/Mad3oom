@@ -24,8 +24,26 @@ Adding a `company_id` to it would inherit all of those platform-wide paths. Phas
 | Company team | Access goes through the 098 catalog with new keys `conversations.view`, `view_assigned`, `reply`, `internal_notes`, `assign` and `close`. Defaults: supervisor all; agent view_assigned, reply, internal_notes and close. The company admin always has access. Employees additionally need `company_permissions_enabled`; without it they have no inbox (fail-closed, like tickets). `company_inbox_summary()` and `company_inbox_list(filter)` return null when there is no access. Assignment is to eligible team members only. |
 | Privacy toward the customer | Internal notes are never returned to the customer. Staff names are hidden from the customer: replies show as "the company", and `assigned_to` / `assignee_name` are null in the customer's view. Notifications carry no message text. |
 | Abuse limits | 5 new conversations per hour per customer; 20 messages per 5 minutes per customer. |
+| Notifications | Fixed generic text only. `notifications` rows are readable by elevated authority (040), so they never carry a subject or content. |
 | Suspension | With `company_suspension_enforced` (099), a suspended company's inbox closes for its team and its customers. |
 | Integrity | Messages cannot be edited or deleted directly, the event log is append-only, and a conversation's company, customer and key are immutable. Deleting a customer account deletes that customer's conversations and keeps the events. Deleting a staff account keeps their messages with the sender cleared. Neither deletion is blocked (tested). |
+
+## Fixes after the independent security review (2026-10-14)
+
+| Finding | Fix | Test |
+|---|---|---|
+| HIGH: notification text carried the first 80 characters of the conversation subject. `notifications` is readable by `has_elevated_authority()` (040, verified in production), so platform staff could read subjects customers wrote | All three notifications use fixed generic text with no subject and no content | ⑥: no subject and no message text in any inbox notification (the old code fails this check) |
+| MEDIUM: a customer reply alerted a former or blocked assignee | The alert goes to the assignee only while they can still view the conversation (`_inbox_user_can_view`), otherwise to the company owner | ④ routing |
+| MEDIUM: access by conversation id used `_company_staff_role_of`, which ignores owner context (040) | Staff access uses `company_staff_role()` for the caller's **current** company only | full suite |
+| LOW: `customer_id = auth.uid()` was NULL-unsafe, banned customers could still read, and `service_role` kept execute | NULL-safe check; customer reads require an active account; `service_role` revoked | ⑥ |
+
+Second review of the fix diff: no unresolved HIGH. Its LOW was fixed: `_inbox_user_can_view` also requires `_company_is_eligible_agent` (not banned, active account), so a banned assignee's alert goes to the owner (④ test).
+
+Accepted residuals (documented):
+- Notification **metadata** (who has a notification, and when) remains readable by elevated authority (040). Content is never included.
+- In the repository, `account_is_active()` (042) does not check bans; production's definition does, and the test fixture mirrors production.
+
+Still open (LOW, documented): after leaving a company, its conversations no longer appear in the portal list and are reachable only by id. Rate limits are count-then-insert and can be exceeded slightly under concurrency.
 
 ## Code that ships with 102 (not deployed)
 

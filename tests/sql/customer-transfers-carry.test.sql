@@ -79,6 +79,10 @@ SET search_path = public, extensions;
 DO $$ BEGIN
   PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CB'))) = '0A000', 'OFF transfer');
   PERFORM t.ok(t.err(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], gen_random_uuid())', t.u('CA'), t.u('CB'), t.k('TA1'))) = '0A000', 'OFF carry');
+  PERFORM t.sw('ticket_carry_enabled', true);
+  PERFORM t.ok(t.errfull(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], gen_random_uuid())', t.u('CA'), t.u('CB'), t.k('TA1'))) LIKE '0A000|%',
+               'OFF carry needs isolation + 098 even with its own switch on');
+  PERFORM t.sw('ticket_carry_enabled', false);
   PERFORM t.ok(t.err(t.u('OB'), format('public.historical_access_request(%L::uuid, ''غرض واضح بما يكفي للطلب'')', t.u('B1'))) = '0A000', 'OFF history');
   PERFORM t.ok(t.call(t.u('A1'), 'public.h2_features()') = '{"transfers": false, "carry": false, "historical": false}'::jsonb, 'OFF features for the UI');
   RAISE NOTICE 'PASS ② المفاتيح مطفأة: لا نقل ولا نسخ ولا وصول تاريخي';
@@ -91,6 +95,11 @@ BEGIN
   PERFORM t.sw('multi_company_memberships_enabled', true);
   PERFORM t.sw('customer_transfers_enabled', true);
   PERFORM t.join_b('A1');
+  -- النقل يتطلب العزل وصلاحيات 098 (وإلا رأى مالك الوجهة التذاكر القديمة عبر super_user_id)
+  PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = '0A000', 'REQ needs isolation + 098');
+  PERFORM t.sw('company_isolation_enforced', true);
+  PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = '0A000', 'REQ needs 098 too');
+  PERFORM t.sw('company_permissions_enabled', true);
   PERFORM t.ok(t.mem('A1', 'CB') = 'secondary:active', 'SETUP A1 secondary in B');
   -- الطلب = تأكيد العميل؛ الوجهة عضوية قائمة
   PERFORM t.ok(t.err(t.u('A2'), format('public.transfer_request(%L::uuid, true, gen_random_uuid())', t.u('CB'))) = 'P0002', 'REQ no membership in destination');
@@ -139,6 +148,23 @@ BEGIN
            AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(t.call(t.u('OB'), 'public.company_transfer_requests()')) e
                             WHERE e ->> 'direction' = 'incoming' AND e ? 'customer_wants_secondary' AND e -> 'customer_wants_secondary' <> 'null'::jsonb)
            AND t.call(t.u('BS'), 'public.company_transfer_requests()') IS NULL, 'LIST source sees the customer''s wish, destination does not');
+  -- انتهاء المهلة يُحفظ (لا RAISE يلغيه) ويحرّر مكان الطلب المعلّق
+  x := (t.call(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CA'))) ->> 'transfer_id')::uuid;
+  UPDATE public.customer_transfers SET expires_at = now() - interval '1 second' WHERE id = x;
+  PERFORM t.ok(t.call(t.u('OA'), format('public.transfer_decide(%L::uuid, true)', x)) ->> 'status' = 'expired', 'EXP decide reports expired');
+  PERFORM t.ok((SELECT status FROM public.customer_transfers WHERE id = x) = 'expired', 'EXP persisted');
+  x := (t.call(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CA'))) ->> 'transfer_id')::uuid;
+  PERFORM t.ok(x IS NOT NULL, 'EXP slot freed');
+  PERFORM t.ok(t.call(t.u('A1'), format('public.transfer_cancel(%L::uuid)', x)) ->> 'status' = 'cancelled', 'EXP cancel');
+  -- بعد نقل مكتمل: لا إطفاء للعزل ولا لـ098 (وإلا عاد المسار القديم وكشف التذاكر السابقة لمالك الوجهة)
+  PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_isolation_enforced''') = '55000'
+           AND t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_permissions_enabled''') = '55000',
+           'GUARD isolation and 098 stay on after a completed transfer');
+  PERFORM t.ok(t.err_super_ok('delete from public.platform_feature_switches where key = ''company_isolation_enforced''') = '55000'
+           AND t.err_super_ok('update public.platform_feature_switches set key = ''company_isolation_old'' where key = ''company_isolation_enforced''') = '55000',
+           'GUARD no delete or rename either');
+  PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''multi_company_memberships_enabled''') = 'ok', 'GUARD other switches unaffected');
+  PERFORM t.sw('multi_company_memberships_enabled', true);
   RAISE NOTICE 'PASS ③ النقل: العميل يطلب (تأكيده)، المديران يقرران، التنفيذ ذري عند اكتمالهما، المصدر يبقى إضافية باختيار العميل وإذن المصدر، منع التكرار وطلب معلّق واحد، الرفض لا يغيّر شيئًا، الاستثنائي للمالك بسبب مسجَّل، والمسار الخام مقيَّد';
 END $$;
 
@@ -147,20 +173,29 @@ DO $$
 DECLARE k uuid := gen_random_uuid(); r jsonb; nt uuid; q0 jsonb; q1 jsonb; c jsonb; item uuid;
 BEGIN
   PERFORM t.sw('ticket_carry_enabled', true);
+  PERFORM t.ok(public._feature_on('company_isolation_enforced') AND public._feature_on('company_permissions_enabled'), 'CARRY prerequisites on (held by the guard)');
   -- رد للعميل ومرفقه على تذكرته في أ (إلى جانب رد الشركة والملاحظة الداخلية في العُدّة)
   INSERT INTO public.ticket_replies (id, ticket_id, user_id, message) VALUES ('7c000000-0000-4000-8000-0000000000a1', t.k('TA1'), t.u('A1'), 'رسالتي الثانية للشركة');
   INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path)
   VALUES (t.k('TA1'), '7c000000-0000-4000-8000-0000000000a1', 'x', 'invoice.png', 10, 'image/png', t.u('A1'), t.path('A1', 'TA1', 'invoice.png'));
   INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('tickets', t.path('A1', 'TA1', 'invoice.png'), t.u('A1'));
+  -- صفوف مرفقات مزوّرة يكتبها العميل: ملف داخلي في مجلده (مالكه الدعم)، ومسار في مجلد غيره — لا تُنسخ أبدًا
+  INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path) VALUES
+    (t.k('TA1'), null, 'x', 'stolen-internal.png', 10, 'image/png', t.u('A1'), t.path('A1', 'TA1', 'internal.png')),
+    (t.k('TA1'), null, 'x', 'stolen-other.png', 10, 'image/png', t.u('A1'), t.path('B1', 'TB1', 'whatever.png'));
+  -- المسار الذي يرفعه التطبيق فعلًا (tickets-service.js): <التذكرة>/<وقت>_<اسم>
+  INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path)
+  VALUES (t.k('TA1'), null, 'x', 'receipt.png', 10, 'image/png', t.u('A1'), t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png');
+  INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('tickets', t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png', t.u('A1'));
   c := t.call(t.u('A1'), format('public.carry_candidates(%L::uuid)', t.u('CA')));
   PERFORM t.ok(jsonb_array_length(c) = 1 AND c -> 0 ->> 'id' = t.k('TA1')::text, 'CAND own company tickets only');
   PERFORM t.ok((c #>> '{0,manifest,replies_included}')::int = 1 AND (c #>> '{0,manifest,replies_excluded_staff}')::int = 1
-           AND (c #>> '{0,manifest,replies_excluded_internal}')::int = 1 AND (c #>> '{0,manifest,attachments_included}')::int = 1
-           AND (c #>> '{0,manifest,attachments_excluded}')::int = 2, 'CAND manifest ' || (c -> 0 -> 'manifest')::text);
+           AND (c #>> '{0,manifest,replies_excluded_internal}')::int = 1 AND (c #>> '{0,manifest,attachments_included}')::int = 2
+           AND (c #>> '{0,manifest,attachments_excluded}')::int = 4, 'CAND manifest ' || (c -> 0 -> 'manifest')::text);
   q0 := public.ticket_quota_status(t.u('A1'));
   r := t.call(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], %L::uuid)', t.u('CA'), t.u('CB'), t.k('TA1'), k));
   nt := (r -> 'tickets' ->> 0)::uuid;
-  PERFORM t.ok(nt IS NOT NULL AND (r ->> 'attachments_pending')::int = 1, 'CARRY created');
+  PERFORM t.ok(nt IS NOT NULL AND (r ->> 'attachments_pending')::int = 2, 'CARRY created (customer reply file + real app-path file)');
   PERFORM t.ok((SELECT scope || ':' || company_id || ':' || user_id || ':' || coalesce(assigned_to::text, '-') FROM public.tickets WHERE id = nt)
              = 'company:' || t.u('CB') || ':' || t.u('A1') || ':-', 'CARRY new ticket in destination, unassigned');
   PERFORM t.ok((SELECT description LIKE '%تفاصيل أ1%' AND description LIKE '%رسالتي الثانية للشركة%'
@@ -181,23 +216,24 @@ BEGIN
   PERFORM t.ok((SELECT counter || ':' || units FROM public.usage_ledger WHERE ticket_id = nt) = 'none:0', 'BILL ledger not billed');
   PERFORM t.ok(NOT EXISTS (SELECT 1 FROM jsonb_array_elements(public.usage_reconciliation() -> 'mismatches') e WHERE e ->> 'reason' = 'unexplained'), 'BILL reconciliation explained');
   -- العزل: الوجهة ترى المنسوخة لا الأصل؛ المصدر يرى الأصل لا المنسوخة
-  PERFORM t.sw('company_isolation_enforced', true);
+  PERFORM t.ok(public._feature_on('company_isolation_enforced') AND public._feature_on('company_permissions_enabled'), 'ISO switches held on by the guard');
   PERFORM t.ok(t.sees('OB', 'TA1') = false AND t.rows(t.u('OB'), format('public.tickets where id = %L', nt)) = 1, 'ISO destination');
   -- بلا 098 يرى المصدر تذاكره عبر الرابط القديم وحده، والنقل يحرّكه: يُغلق ولا يتسرب (ترتيب الإطلاق: 098 قبل 101)
-  PERFORM t.ok(NOT t.sees('OA', 'TA1') AND t.rows(t.u('OA'), format('public.tickets where id = %L', nt)) = 0, 'ISO source fail-closed without 098');
-  PERFORM t.sw('company_permissions_enabled', true);
   PERFORM t.ok(t.sees('OA', 'TA1') AND t.rows(t.u('OA'), format('public.tickets where id = %L', nt)) = 0, 'ISO source');
   PERFORM t.ok(t.sees('OB', 'TA1') = false AND t.rows(t.u('OB'), format('public.tickets where id = %L', nt)) = 1, 'ISO destination with 098');
-  PERFORM t.sw('company_permissions_enabled', false);
-  PERFORM t.sw('company_isolation_enforced', false);
   -- نسخ المرفق: عامل الخدمة؛ لا تأكيد بلا ملف جديد
   item := (public.carry_copy_queue() -> 0 ->> 'id')::uuid;
   PERFORM t.ok(item IS NOT NULL AND t.err(t.u('A1'), 'public.carry_copy_queue()') = '42501', 'COPY queue service only');
   PERFORM t.ok(t.err_super_ok(format('select public.carry_copy_complete(%L, true, %L)', item, repeat('a', 64))) = '55000', 'COPY needs new object');
-  INSERT INTO storage.objects (bucket_id, name, owner) SELECT 'tickets', dest_path, t.u('A1') FROM public.ticket_carry_attachments WHERE id = item;
+  INSERT INTO storage.objects (bucket_id, name, owner) SELECT 'tickets', dest_path, t.u('A1') FROM public.ticket_carry_attachments WHERE status = 'pending_copy';
   PERFORM t.ok(public.carry_copy_complete(item, true, repeat('a', 64)) ->> 'status' = 'copied', 'COPY complete');
-  PERFORM t.ok((SELECT uploaded_by = t.u('A1') AND file_path <> t.path('A1', 'TA1', 'invoice.png') FROM public.ticket_attachments WHERE ticket_id = nt), 'COPY new object, customer-owned');
+  PERFORM public.carry_copy_complete(a.id, true, repeat('b', 64)) FROM public.ticket_carry_attachments a WHERE a.status = 'pending_copy';
+  PERFORM t.ok((SELECT count(*) = 2 AND bool_and(uploaded_by = t.u('A1')) AND bool_and(file_path NOT IN (t.path('A1', 'TA1', 'invoice.png'),
+                                                     t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png'))
+                  FROM public.ticket_attachments WHERE ticket_id = nt), 'COPY new objects, customer-owned');
   PERFORM t.ok(public.carry_copy_queue() = '[]'::jsonb, 'COPY queue drained');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.ticket_carry_attachments WHERE source_path LIKE '%internal.png' OR source_path LIKE '%whatever.png'),
+               'CARRY forged attachment rows never queued');
   RAISE NOTICE 'PASS ④ النسخ: محتوى العميل وحده إلى تذكرة جديدة غير مسندة والأصل باقٍ، مرة واحدة لكل وجهة، المصدر يُبلَّغ بلا كشف الوجهة، لا حصة ولا فوترة مزدوجة، العزل بين المصدر والوجهة، ومرفقات العميل تُنسخ ملفًا جديدًا بعامل الخدمة';
 END $$;
 
@@ -255,6 +291,10 @@ DO $$ BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.customer_transfers WHERE customer_id = t.u('A2')) = 2, 'INV history kept after deletion');
   PERFORM t.ok(EXISTS (SELECT 1 FROM jsonb_array_elements(t.call(t.u('OA'), 'public.company_transfer_requests()')) e
                         WHERE e ->> 'customer_name' = 'حساب محذوف'), 'INV deleted customer shown as deleted');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM pg_constraint WHERE contype = 'f'
+                             AND conrelid IN ('public.customer_transfers'::regclass, 'public.ticket_carries'::regclass,
+                                              'public.historical_access_requests'::regclass)
+                             AND confrelid IN ('public.companies'::regclass, 'public.profiles'::regclass)), 'INV no FK to companies/profiles');
   RAISE NOTICE 'PASS ⑥ الثوابت: السجلات إلحاقية ولا حذف ولا قراءة مباشرة، وحذف الحساب لا يتعطل والسجل يبقى';
 END $$;
 
@@ -263,7 +303,8 @@ END $$;
 SELECT set_config('t.rbsql', :'rbsql', false) IS NOT NULL;
 DO $$
 BEGIN
-  UPDATE public.platform_feature_switches SET enabled = false;
+  UPDATE public.platform_feature_switches SET enabled = false
+   WHERE key IN ('customer_transfers_enabled', 'ticket_carry_enabled', 'historical_access_enabled');
   BEGIN
     EXECUTE current_setting('t.rbsql');
     RAISE EXCEPTION 'FAIL RB allowed with data';

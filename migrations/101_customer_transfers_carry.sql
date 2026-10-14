@@ -80,8 +80,9 @@ create table if not exists public.customer_transfers (
   id                     uuid primary key default gen_random_uuid(),
   -- بلا مفتاح خارجي إلى الحساب عمدًا (كسجلات 086 و096): حذف الحساب لا يتعطل، والسجل يبقى بمعرّفات فقط
   customer_id            uuid not null,
-  from_company           uuid not null references public.companies(id),
-  to_company             uuid not null references public.companies(id),
+  -- بلا مفاتيح خارجية إلى الشركات أيضًا: حذف حساب مالك الشركة (ومعه شركته) لا يتعطل بسجل نقل
+  from_company           uuid not null,
+  to_company             uuid not null,
   initiated_by           uuid not null,
   initiated_as           text not null check (initiated_as in ('customer', 'owner')),
   idempotency_key        uuid not null,
@@ -117,6 +118,11 @@ begin
   if not public._feature_on('customer_transfers_enabled') then
     raise exception 'نقل العملاء بين الشركات غير مفعّل' using errcode = '0A000', detail = '{"code":"feature_not_enabled"}';
   end if;
+  -- بلا العزل وصلاحيات 098 يرى مالك الوجهة تذاكر العميل القديمة عبر super_user_id بعد النقل: لا نقل قبلهما
+  if not (public._feature_on('company_isolation_enforced') and public._feature_on('company_permissions_enabled')) then
+    raise exception 'النقل يتطلب تفعيل عزل الشركات وصلاحيات الفريق أولًا' using errcode = '0A000',
+      detail = '{"code":"prerequisite_not_enabled"}';
+  end if;
 end $$;
 
 -- التنفيذ الذري: يُنادى بعد اكتمال الموافقات (أو استثنائيًا من المالك). القفل على حساب العميل
@@ -139,14 +145,14 @@ begin
    where user_id = x.customer_id and company_id = x.from_company and status = 'active' and is_primary for update;
   if v_src is null or not public._company_customer_active(x.from_company, x.customer_id) then
     update public.customer_transfers set status = 'cancelled', outcome = jsonb_build_object('reason', 'source_changed') where id = x.id;
-    raise exception 'لم تعد شركة المصدر أساسية للعميل — أُلغي النقل' using errcode = '55000';
+    return jsonb_build_object('transfer_id', x.id, 'status', 'cancelled', 'reason', 'source_changed');
   end if;
   select id into v_dst from public.company_memberships
    where user_id = x.customer_id and company_id = x.to_company and status = 'active' for update;
   if v_dst is null then
     if x.initiated_as <> 'owner' then
       update public.customer_transfers set status = 'cancelled', outcome = jsonb_build_object('reason', 'destination_changed') where id = x.id;
-      raise exception 'لم يعد العميل عضوًا في شركة الوجهة — أُلغي النقل' using errcode = '55000';
+      return jsonb_build_object('transfer_id', x.id, 'status', 'cancelled', 'reason', 'destination_changed');
     end if;
     insert into public.company_memberships (company_id, user_id, is_primary, joined_via)
     values (x.to_company, x.customer_id, false, 'transfer') returning id into v_dst;
@@ -213,6 +219,8 @@ begin
     return jsonb_build_object('transfer_id', x.id, 'status', x.status, 'replayed', true);
   end if;
   perform 1 from public.profiles where id = v_uid for update;
+  -- طلب منتهي المهلة لا يحجز مكان الطلب المعلّق الوحيد
+  update public.customer_transfers set status = 'expired' where customer_id = v_uid and status = 'pending' and expires_at <= now();
   select company_id into v_from from public.company_memberships where user_id = v_uid and status = 'active' and is_primary;
   if v_from is null or not public._company_customer_active(v_from, v_uid) then
     raise exception 'لا شركة أساسية لك كعميل — استخدم تعيين الأساسية' using errcode = '55000';
@@ -259,7 +267,7 @@ begin
   end if;
   if x.expires_at <= now() then
     update public.customer_transfers set status = 'expired' where id = x.id;
-    raise exception 'انتهت مهلة الطلب' using errcode = 'P0002';
+    return jsonb_build_object('transfer_id', x.id, 'status', 'expired');
   end if;
   if p_approve is null then
     raise exception 'القرار مطلوب' using errcode = '22023';
@@ -348,8 +356,35 @@ begin
   perform public.log_privileged('customer.transfer.exceptional', p_customer, jsonb_build_object('company_id', v_from),
                                 jsonb_build_object('company_id', p_to_company, 'reason', btrim(p_reason), 'transfer_id', x.id));
   r := public._transfer_execute(x.id);
+  if r ->> 'status' is distinct from 'completed' then
+    -- كل شيء أو لا شيء: لا إلغاء لطلبات أخرى ولا سجل امتياز لنقل لم يحدث
+    raise exception 'تعذّر النقل الاستثنائي: تغيّرت عضويات العميل (%)', coalesce(r ->> 'reason', r ->> 'status')
+      using errcode = '55000';
+  end if;
   return r || jsonb_build_object('exceptional', true);
 end $$;
+
+-- بعد نقل مكتمل صار super_user_id يشير إلى شركة الوجهة؛ إطفاء العزل أو 098 يعيد المسار القديم
+-- (supervises / can_access_ticket) فيرى مالك الوجهة تذاكر العميل القديمة. لذلك لا يُطفآن بعد أي نقل مكتمل.
+create or replace function public._guard_isolation_after_transfers()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if old.key in ('company_isolation_enforced', 'company_permissions_enabled') and old.enabled
+     and (tg_op = 'DELETE' or not new.enabled or new.key is distinct from old.key)
+     and (exists (select 1 from public.customer_transfers where status = 'completed')
+          or exists (select 1 from public.ticket_carry_items)) then
+    raise exception 'لا يُطفأ % بعد نقل عملاء أو نسخ تذاكر: المسار القديم يكشف بيانات شركة لأخرى', old.key
+      using errcode = '55000', detail = '{"code":"transfers_exist"}';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+drop trigger if exists trg_guard_isolation_after_transfers on public.platform_feature_switches;
+create trigger trg_guard_isolation_after_transfers before update or delete on public.platform_feature_switches
+  for each row execute function public._guard_isolation_after_transfers();
 
 -- قوائم: العميل يرى طلباته؛ المدير يرى ما يخص شركته بلا كشف الطرف الآخر.
 create or replace function public.my_transfers()
@@ -359,10 +394,10 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'from', f.company_name, 'to', t.company_name, 'status', x.status,
+  select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'from', coalesce(f.company_name, 'شركة محذوفة'), 'to', coalesce(t.company_name, 'شركة محذوفة'), 'status', x.status,
                                                'source_decision', x.source_decision, 'dest_decision', x.dest_decision,
                                                'created_at', x.created_at, 'expires_at', x.expires_at) order by x.created_at desc), '[]'::jsonb)
-    from public.customer_transfers x join public.companies f on f.id = x.from_company join public.companies t on t.id = x.to_company
+    from public.customer_transfers x left join public.companies f on f.id = x.from_company left join public.companies t on t.id = x.to_company
    where x.customer_id = auth.uid();
 $$;
 
@@ -448,8 +483,32 @@ create table if not exists public.ticket_carry_attachments (
   sha256             text check (sha256 is null or sha256 ~ '^[0-9a-f]{64}$'),
   new_attachment_id  uuid,
   copied_at          timestamptz,
-  error              text
+  error              text,
+  attempts           integer not null default 0,
+  created_at         timestamptz not null default now()
 );
+
+-- مرفق قابل للنسخ: رفعه العميل، على رد له غير داخلي (أو على التذكرة نفسها)، ومساره يعود لهذه التذكرة،
+-- وكائن التخزين موجود ومالكه العميل (الضابط الحاسم: لا ينسخ العميل ملفًا لم يرفعه هو). صف ticket_attachments وحده لا يكفي: مساره نص يكتبه العميل.
+create or replace function public._carry_attachment_ok(p_attachment uuid, p_customer uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select exists (
+    select 1 from public.ticket_attachments a
+     where a.id = p_attachment and a.uploaded_by = p_customer and a.file_path is not null
+       -- نفس تحليل سياسات التخزين (028): <التذكرة>/<ملف> أو <مستخدم>/<التذكرة>/<ملف>
+       and public.storage_ticket_id(a.file_path) = a.ticket_id
+       and position('..' in a.file_path) = 0
+       -- نفس أشكال المسار التي يقبلها عامل النسخ (ticket-carry-copy/handler.js) — لا عنصر يُستنزف بلا جدوى
+       and (a.file_path ~ '^[0-9a-f-]{36}/[^/]{1,200}$' or a.file_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]{1,200}$')
+       and (a.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = a.reply_id
+                                            and r.user_id = p_customer and not coalesce(r.is_internal, false)))
+       and exists (select 1 from storage.objects o where o.bucket_id = 'tickets' and o.name = a.file_path and o.owner = p_customer));
+$$;
 
 create or replace function public._carry_require_enabled()
 returns void
@@ -461,6 +520,11 @@ as $$
 begin
   if not public._feature_on('ticket_carry_enabled') then
     raise exception 'نسخ التذاكر بين الشركات غير مفعّل' using errcode = '0A000', detail = '{"code":"feature_not_enabled"}';
+  end if;
+  -- بلا العزل يرى مالك المصدر (عبر المسار القديم) ردود فريق الوجهة على التذكرة المنسوخة: لا نسخ قبلهما
+  if not (public._feature_on('company_isolation_enforced') and public._feature_on('company_permissions_enabled')) then
+    raise exception 'النسخ يتطلب تفعيل عزل الشركات وصلاحيات الفريق أولًا' using errcode = '0A000',
+      detail = '{"code":"prerequisite_not_enabled"}';
   end if;
 end $$;
 
@@ -480,13 +544,9 @@ as $$
                                 where r.ticket_id = p_ticket and r.user_id <> p_customer and not coalesce(r.is_internal, false)),
     'replies_excluded_internal', (select count(*) from public.ticket_replies r where r.ticket_id = p_ticket and coalesce(r.is_internal, false)),
     'attachments_included', (select count(*) from public.ticket_attachments a
-                              where a.ticket_id = p_ticket and a.uploaded_by = p_customer and a.file_path is not null
-                                and (a.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = a.reply_id
-                                                                     and r.user_id = p_customer and not coalesce(r.is_internal, false)))),
+                              where a.ticket_id = p_ticket and public._carry_attachment_ok(a.id, p_customer)),
     'attachments_excluded', (select count(*) from public.ticket_attachments a
-                              where a.ticket_id = p_ticket and not (a.uploaded_by = p_customer and a.file_path is not null
-                                and (a.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = a.reply_id
-                                                                     and r.user_id = p_customer and not coalesce(r.is_internal, false))))),
+                              where a.ticket_id = p_ticket and not public._carry_attachment_ok(a.id, p_customer)),
     'excluded_always', jsonb_build_array('internal_notes', 'staff_replies', 'staff_identities', 'activity', 'assignment', 'ratings'));
 $$;
 
@@ -568,9 +628,7 @@ begin
     returning id into v_item;
     -- المرفقات المسموحة: نسخ ملف جديد (دالة طرفية بمفتاح الخدمة) — لا مشاركة للملف الأصلي
     for a in select x.* from public.ticket_attachments x
-              where x.ticket_id = t.id and x.uploaded_by = v_uid and x.file_path is not null
-                and (x.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = x.reply_id
-                                                     and r.user_id = v_uid and not coalesce(r.is_internal, false))) loop
+              where x.ticket_id = t.id and public._carry_attachment_ok(x.id, v_uid) loop
       insert into public.ticket_carry_attachments (item_id, source_attachment, source_path, dest_path, file_name, mime_type, size_bytes)
       values (v_item, a.id, a.file_path, v_uid || '/' || v_new || '/' || gen_random_uuid() || '-' || left(regexp_replace(coalesce(a.file_name, 'file'), '[^[:alnum:]._-]', '', 'g'), 80),
               a.file_name, a.mime_type, a.file_size);
@@ -592,16 +650,31 @@ end $$;
 -- عامل نسخ المرفقات (مفتاح الخدمة): الطابور ثم التأكيد بعد التحقق من البصمة
 create or replace function public.carry_copy_queue(p_limit integer default 20)
 returns jsonb
-language sql
-stable
+language plpgsql
 security definer
 set search_path to 'public'
 as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'bucket', 'tickets', 'source_path', a.source_path, 'dest_path', a.dest_path,
-                                               'mime_type', a.mime_type, 'size_bytes', a.size_bytes)), '[]'::jsonb)
-    from (select * from public.ticket_carry_attachments where status = 'pending_copy'
-           limit least(greatest(coalesce(p_limit, 20), 1), 100)) a;
-$$;
+declare
+  v jsonb;
+begin
+  -- بعد 5 محاولات يصير العنصر failed ظاهرًا للمالك، فلا يحجب الطابور غيره
+  update public.ticket_carry_attachments set status = 'failed', error = 'too_many_attempts'
+   where status = 'pending_copy' and attempts >= 5;
+  with picked as (
+    select id from public.ticket_carry_attachments
+     where status = 'pending_copy'
+     order by attempts, created_at, id
+     limit least(greatest(coalesce(p_limit, 20), 1), 100)
+     for update skip locked),
+  bumped as (
+    update public.ticket_carry_attachments a set attempts = a.attempts + 1
+      from picked where a.id = picked.id
+    returning a.*)
+  select coalesce(jsonb_agg(jsonb_build_object('id', b.id, 'bucket', 'tickets', 'source_path', b.source_path, 'dest_path', b.dest_path,
+                                               'mime_type', b.mime_type, 'size_bytes', b.size_bytes) order by b.attempts, b.created_at), '[]'::jsonb)
+    into v from bumped b;
+  return v;
+end $$;
 
 create or replace function public.carry_copy_complete(p_item uuid, p_ok boolean, p_sha256 text, p_error text default null)
 returns jsonb
@@ -644,7 +717,7 @@ end $$;
 -- ============================================================================
 create table if not exists public.historical_access_requests (
   id                  uuid primary key default gen_random_uuid(),
-  requesting_company  uuid not null references public.companies(id),
+  requesting_company  uuid not null,  -- بلا مفتاح خارجي عمدًا (انظر customer_transfers)
   customer_id         uuid not null,  -- بلا مفتاح خارجي عمدًا (انظر customer_transfers)
   requested_by        uuid not null,
   purpose             text not null check (char_length(btrim(purpose)) between 20 and 1000),
@@ -719,7 +792,7 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'company_id', r.requesting_company, 'company_name', c.company_name,
+  select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'company_id', r.requesting_company, 'company_name', coalesce(c.company_name, 'شركة محذوفة'),
                                                'purpose', r.purpose, 'status', r.status,
                                                'ticket_ids', r.ticket_ids, 'created_at', r.created_at,
                                                -- ما يمكن للعميل اختياره: تذاكره في شركات غير الطالبة (بياناته هو)
@@ -731,7 +804,7 @@ as $$
                                                     where t.user_id = auth.uid() and t.scope = 'company'
                                                       and t.company_id <> r.requesting_company), '[]'::jsonb) end)
                             order by r.created_at desc), '[]'::jsonb)
-    from public.historical_access_requests r join public.companies c on c.id = r.requesting_company
+    from public.historical_access_requests r left join public.companies c on c.id = r.requesting_company
    where r.customer_id = auth.uid();
 $$;
 
@@ -865,10 +938,10 @@ begin
   if not coalesce(public.owner_capability('owner_only'), false) then
     raise exception 'لمالك المنصة وحده' using errcode = '42501';
   end if;
-  return coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'company_name', c.company_name, 'purpose', r.purpose, 'status', r.status,
+  return coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'company_name', coalesce(c.company_name, 'شركة محذوفة'), 'purpose', r.purpose, 'status', r.status,
                                                        'tickets', coalesce(cardinality(r.ticket_ids), 0), 'created_at', r.created_at,
                                                        'expires_at', r.expires_at) order by r.created_at desc)
-                     from public.historical_access_requests r join public.companies c on c.id = r.requesting_company), '[]'::jsonb);
+                     from public.historical_access_requests r left join public.companies c on c.id = r.requesting_company), '[]'::jsonb);
 end $$;
 
 
@@ -931,9 +1004,10 @@ do $$
 declare f text;
 begin
   foreach f in array array['public._transfers_require_enabled()', 'public._transfer_execute(uuid)', 'public._guard_raw_company_move()',
-                           'public._carry_require_enabled()', 'public._carry_manifest(uuid,uuid)',
-                           'public._historical_require_enabled()', 'public._h2_append_only()'] loop
-    execute format('revoke all on function %s from public, anon, authenticated', f);
+                           'public._carry_require_enabled()', 'public._carry_manifest(uuid,uuid)', 'public._carry_attachment_ok(uuid,uuid)',
+                           'public._historical_require_enabled()', 'public._h2_append_only()',
+                           'public._guard_isolation_after_transfers()'] loop
+    execute format('revoke all on function %s from public, anon, authenticated, service_role', f);
   end loop;
   foreach f in array array['public.transfer_request(uuid,boolean,uuid)', 'public.transfer_decide(uuid,boolean,boolean)',
                            'public.transfer_cancel(uuid)', 'public.owner_transfer_exceptional(uuid,uuid,text,boolean,uuid)',
@@ -942,7 +1016,7 @@ begin
                            'public.my_historical_requests()', 'public.historical_access_consent(uuid,boolean,uuid[])',
                            'public.owner_decide_historical_access(uuid,boolean,integer)', 'public.historical_ticket_view(uuid,uuid)',
                            'public.company_historical_requests()', 'public.owner_historical_requests()', 'public.h2_features()'] loop
-    execute format('revoke all on function %s from public, anon', f);
+    execute format('revoke all on function %s from public, anon, service_role', f);
     execute format('grant execute on function %s to authenticated', f);
   end loop;
   foreach f in array array['public.carry_copy_queue(integer)', 'public.carry_copy_complete(uuid,boolean,text,text)'] loop

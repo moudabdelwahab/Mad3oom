@@ -31,6 +31,7 @@ drop function if exists public.company_conversation_set_status(uuid, text);
 drop function if exists public._inbox_row(public.company_conversations, uuid);
 drop function if exists public._inbox_event(uuid, uuid, text, jsonb);
 drop function if exists public._inbox_viewer_scope(uuid);
+drop function if exists public._inbox_user_can_view(uuid, uuid);
 drop function if exists public._inbox_staff_access(uuid, uuid, text);
 drop function if exists public._inbox_customer_can_write(uuid);
 drop function if exists public._inbox_company_ok(uuid);

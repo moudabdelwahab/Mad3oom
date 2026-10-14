@@ -12,7 +12,7 @@ const src = readFileSync(new URL('../assets/js/company/company-moves.js', import
     .replace("import { supabase } from '/api-config.js';", 'const supabase = null;')
     .replace("import { escapeHtml, formatDate } from '/assets/js/customer/portal-ui.js';", 'const escapeHtml = String, formatDate = String;')
     .replace("import { ui } from '/ui-service.js';", 'const ui = null;');
-const { companyMovesView, transferRowInfo, validatePurpose } = await import('data:text/javascript,' + encodeURIComponent(src));
+const { companyMovesView, transferRowInfo, validatePurpose, transferDecisionMessage } = await import('data:text/javascript,' + encodeURIComponent(src));
 
 test('اللوحة بمفتاحيها، والقائمة null (غير المدير) لا تُظهر شيئًا', () => {
     assert.deepEqual(companyMovesView(null, [], []), { show: false, showTransfers: false, showHistory: false });
@@ -39,4 +39,13 @@ test('الغرض: 20–1000 حرف بعد القص', () => {
     assert.equal(validatePurpose('   ' + 'ا'.repeat(19) + '   ').ok, false);
     assert.deepEqual(validatePurpose('  متابعة شكوى سابقة للعميل  '), { ok: true, purpose: 'متابعة شكوى سابقة للعميل' });
     assert.equal(validatePurpose('ا'.repeat(1001)).ok, false);
+});
+
+test('نتيجة القرار كما رجّعتها القاعدة: لا «نجاح» لطلب انتهت مهلته أو أُلغي', () => {
+    assert.deepEqual(transferDecisionMessage('completed', true), { ok: true, text: 'اكتمل النقل' });
+    assert.equal(transferDecisionMessage('pending', true).ok, true);
+    assert.equal(transferDecisionMessage('expired', true).ok, false);
+    assert.match(transferDecisionMessage('expired', true).text, /لم يتغير شيء/);
+    assert.equal(transferDecisionMessage('cancelled', true).ok, false);
+    assert.equal(transferDecisionMessage('rejected', false).text, 'رُفض الطلب');
 });
