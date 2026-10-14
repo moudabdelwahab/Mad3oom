@@ -347,6 +347,14 @@ export function validateMemberForm(values) {
     return { isValid: Object.keys(errors).length === 0, errors };
 }
 
+/**
+ * 097: «تذاكر العملاء» = تذاكر نطاق الشركة. تذكرة العميل مع مدعوم (فوترته الشخصية) ليست
+ * للشركة؛ القاعدة تحجبها والعزل مفعّل، والواجهة لا تعرضها في كل الأحوال. قبل 097: بلا scope.
+ */
+export function isCompanyScopedTicket(ticket) {
+    return !!ticket && (!('scope' in ticket) || ticket.scope === 'company');
+}
+
 /* ── دعوات العملاء (096) ──────────────────────────────────────────────── */
 
 export const INVITATION_STATUS_LABELS = Object.freeze({

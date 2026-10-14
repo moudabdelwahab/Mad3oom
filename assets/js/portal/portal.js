@@ -20,7 +20,7 @@ import { createTicketStream } from '/assets/js/company/company-tickets.js';
 import { renderState, renderSkeletonLines, escapeHtml } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
 import {
-    fetchPortalContext, portalState, validateTicketForm, membershipView,
+    fetchPortalContext, portalState, validateTicketForm, membershipView, portalTicketFilter,
     fetchMyInvitations, respondToInvitation, switchCompany, leaveCompany, setPrimaryCompany
 } from '/assets/js/portal/portal-data.js';
 
@@ -56,7 +56,8 @@ async function init() {
 
     stream = createTicketStream('portal', {
         userId: user.id,
-        onNewTicket: () => openNewTicket()
+        onNewTicket: () => openNewTicket(),
+        keep: portalTicketFilter(context.data?.company?.id)
     });
     wireNewTicket(state.preview);
     await stream.load();

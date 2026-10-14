@@ -65,6 +65,7 @@ import {
     sectionAllowed,
     VIEWER_ROLE_LABELS,
     customersPanelView,
+    isCompanyScopedTicket,
     invitationStatusInfo,
     validateInviteEmail,
     validateCompanyForm,
@@ -124,7 +125,7 @@ async function init() {
         userId: currentUserId,
         onNewTicket: () => showSection('support')
     });
-    customerTickets = createTicketStream('customers', { userId: currentUserId });
+    customerTickets = createTicketStream('customers', { userId: currentUserId, keep: isCompanyScopedTicket });
 
     // إنشاء المفتاح صار في مكانه: نافذة داخل اللوحة تنادي الدالة المنشورة
     // create-api-token. التوجيه السابق لمركز الدعم كان مبنيًا على قراءة

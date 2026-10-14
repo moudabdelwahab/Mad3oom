@@ -49,6 +49,15 @@ export function validateTicketForm({ title, description }) {
     return { ok: Object.keys(errors).length === 0, errors, values: { title: t, description: d } };
 }
 
+/**
+ * 097: تذاكر البوابة = تذاكر العميل مع الشركة الحالية فقط. تذاكره مع مدعوم (الفوترة الشخصية)
+ * ومع شركاته الأخرى لا تظهر هنا. قبل 097 الصفوف بلا scope: تظهر كلها كما كانت.
+ */
+export function portalTicketFilter(companyId) {
+    return (ticket) => !!ticket && (!('scope' in ticket)
+        || (ticket.scope === 'company' && String(ticket.company_id) === String(companyId)));
+}
+
 /* ── العضويات المتعددة (096) ───────────────────────────────────────────── */
 
 /**

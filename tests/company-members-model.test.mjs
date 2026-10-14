@@ -15,7 +15,7 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo } =
+const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket } =
     await import('../assets/js/company/company-model.js');
 
 /* ── التحقق من النموذج ──────────────────────────────────────────────────── */
@@ -218,4 +218,11 @@ test('096: تحقق بريد الدعوة وحالاتها', () => {
     assert.equal(validateInviteEmail('a@b.co'.padStart(330, 'x')).ok, false);
     assert.equal(invitationStatusInfo('pending').label, 'بانتظار الرد');
     assert.equal(invitationStatusInfo('weird').label, 'غير معروفة');
+});
+
+test('097: تذاكر العملاء في لوحة الشركة = نطاق الشركة فقط', () => {
+    assert.equal(isCompanyScopedTicket({ scope: 'company', company_id: 'c' }), true);
+    assert.equal(isCompanyScopedTicket({ scope: 'mad3oom_support', company_id: null }), false);
+    assert.equal(isCompanyScopedTicket({ id: 'قبل 097' }), true);
+    assert.equal(isCompanyScopedTicket(null), false);
 });

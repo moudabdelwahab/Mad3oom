@@ -568,7 +568,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الأساسية، ودعوات بقبول صاحب الحساب، وسياق عميل يتحقق منه الخادم. مفتاح
     //         multi_company_memberships_enabled مطفأ افتراضيًا (السلوك حرفيًا كما قبل 096).
     //         مقيسٌ في tests/sql/company-memberships.test.sql.
-    assert.equal(migrations[migrations.length - 1], '096_company_memberships.sql',
+    //   097 — نطاق التذاكر والعزل (D9، السؤال 8 و16 و17): tickets.scope/company_id مختومان عند الإنشاء،
+    //         سياسات تقييدية خلف company_isolation_enforced (مطفأ)، بوابات القنوات الجانبية، وطلبات
+    //         وصول مؤقت بموافقة المالك وحده مع تسجيل كل قراءة (data_access_grants_enabled مطفأ).
+    //         إصلاح دائم: مرفقات الملاحظات الداخلية لم تعد ظاهرة لصاحب التذكرة.
+    //         مقيسٌ في tests/sql/ticket-isolation.test.sql.
+    assert.equal(migrations[migrations.length - 1], '097_ticket_scope_isolation.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

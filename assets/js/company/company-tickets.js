@@ -90,11 +90,13 @@ export const TICKET_STREAMS = Object.freeze({
  * ينشئ قسم تذاكر لمسار واحد. الحالة محصورة داخل المصنع، فالمساران لا
  * يتشاركان أي متغيّر — وده اللي بيمنع اختلاطهما في الواجهة.
  */
-export function createTicketStream(stream, { userId, onNewTicket } = {}) {
+export function createTicketStream(stream, { userId, onNewTicket, keep = null } = {}) {
     const spec = TICKET_STREAMS[stream];
     if (!spec) throw new Error(`مسار تذاكر غير معروف: ${stream}`);
 
     let tickets = [];
+    // 097: الصفوف تحمل نطاقها؛ المسار يعرض ما يخصه فقط (القاعدة تحرس الرؤية نفسها)
+    const loadRows = async () => ((await spec.load()) || []).filter(t => (keep ? keep(t) : true));
     let activeView = 'all';
     let searchTerm = '';
     let openTicketId = null;
@@ -110,7 +112,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         renderSkeletonLines(box, 4);
 
         try {
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
         } catch (err) {
             console.error(`[CompanyTickets:${spec.key}]`, err?.message || err);
             renderState(box, {
@@ -361,7 +363,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
             await addTicketReply(ticketId, message, false, { autoTransition: spec.autoTransition });
             input.value = '';
             // الحالة قد تتغيّر بالردّ (إعادة فتح)، فنعيد القراءة من المصدر
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
             render();
         } catch (err) {
             // الفشل يظل رسالة في مكانه — بلا أي تحويل
@@ -406,7 +408,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
 
         try {
             await meta.run(ticketId);
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
             render();
             ui?.showToast?.(meta.done, 'success');
         } catch (err) {

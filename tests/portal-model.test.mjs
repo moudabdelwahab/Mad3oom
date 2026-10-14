@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 // الوحدة بعد استبدال الاستيراد ببديل فارغ.
 const src = readFileSync(new URL('../assets/js/portal/portal-data.js', import.meta.url), 'utf8')
     .replace("import { supabase } from '/api-config.js';", 'const supabase = null;');
-const { portalState, validateTicketForm, membershipView } = await import('data:text/javascript,' + encodeURIComponent(src));
+const { portalState, validateTicketForm, membershipView, portalTicketFilter } = await import('data:text/javascript,' + encodeURIComponent(src));
 
 test('حالة العرض: الاسم فقط لعميل الشركة', () => {
     assert.deepEqual(portalState({ ok: true, data: { company: { id: 'c', name: 'شركة أ' }, preview: false } }),
@@ -71,4 +71,13 @@ test('096: محوّل الشركات من رد الخادم', () => {
         const v = membershipView(data);
         assert.equal(v.showSwitcher || v.canLeave || v.canSetPrimary, false);
     }
+});
+
+test('097: البوابة تعرض تذاكر الشركة الحالية فقط، وقبل 097 كل التذاكر', () => {
+    const keep = portalTicketFilter('c1');
+    assert.equal(keep({ id: 1, scope: 'company', company_id: 'c1' }), true);
+    assert.equal(keep({ id: 2, scope: 'company', company_id: 'c2' }), false, 'شركة أخرى للعميل نفسه');
+    assert.equal(keep({ id: 3, scope: 'mad3oom_support', company_id: null }), false, 'فوترته الشخصية مع مدعوم');
+    assert.equal(keep({ id: 4 }), true, 'صف قبل 097 بلا نطاق');
+    assert.equal(portalTicketFilter(undefined)({ scope: 'company', company_id: 'c1' }), false);
 });

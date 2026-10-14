@@ -221,3 +221,21 @@ test('096: بلا أساسية بعد المغادرة: زر تعيين الحا
     assert.equal(await page.locator('#portalCompanySwitch').isDisabled(), true, 'شركة واحدة: لا تبديل');
     await context.close();
 });
+
+test('097: البوابة لا تعرض تذاكر العميل مع مدعوم ولا مع شركاته الأخرى', { skip: !chromiumPath }, async () => {
+    const base = { user_id: USER_ID, archived_by_customer: false, status: 'open', description: 'تفاصيل',
+                   created_at: '2026-10-01T10:00:00Z', last_updated_at: '2026-10-02T10:00:00Z' };
+    const fx = fixtures({
+        portal: { company: { id: 'c1', name: 'شركة النور' }, preview: false },
+        tickets: [
+            { ...base, id: 't1', ticket_number: 1, title: 'تذكرة النور', scope: 'company', company_id: 'c1' },
+            { ...base, id: 't2', ticket_number: 2, title: 'تجديد اشتراكي الشخصي', scope: 'mad3oom_support', company_id: null },
+            { ...base, id: 't3', ticket_number: 3, title: 'تذكرة الأفق', scope: 'company', company_id: 'c2' }
+        ]
+    });
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    const text = await page.locator('#portalTickets').textContent();
+    assert.match(text, /تذكرة النور/);
+    assert.doesNotMatch(text, /تجديد اشتراكي الشخصي|تذكرة الأفق/);
+    await context.close();
+});
