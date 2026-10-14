@@ -92,6 +92,32 @@ export function companyAccess(dashboard) {
     };
 }
 
+/**
+ * 095: من يرى لوحة الشركة وبأي قدر — كما قرّرته القاعدة في viewer_role.
+ *   admin       مالك الشركة: كل الأقسام.
+ *   supervisor  مشرف، agent موظف دعم: بلا الاشتراكات ولا مفاتيح API (القاعدة لا ترسل
+ *               بياناتهما أصلًا؛ إخفاء القسمين تنظيم للعرض لا حماية).
+ * حمولة بلا viewer_role = خادم قبل 095، وكانت تُرسل للمالك والأعضاء معًا؛ نعاملها
+ * كما كانت تُعرض (admin) حتى لا يتغير شيء قبل تطبيق الترحيل.
+ */
+export const ADMIN_ONLY_SECTIONS = Object.freeze(['subscriptions', 'api']);
+
+export function viewerRoleOf(dashboard) {
+    const role = dashboard?.viewer_role;
+    if (role === undefined || role === null) return 'admin';
+    return ['admin', 'supervisor', 'agent'].includes(role) ? role : 'agent';
+}
+
+export function sectionAllowed(section, viewerRole) {
+    return viewerRole === 'admin' || !ADMIN_ONLY_SECTIONS.includes(section);
+}
+
+export const VIEWER_ROLE_LABELS = Object.freeze({
+    admin: 'مدير الشركة',
+    supervisor: 'مشرف في فريق الشركة',
+    agent: 'موظف دعم في فريق الشركة'
+});
+
 /** هل تملك الشركة هذا الامتياز فعلًا (حسب ما رجّعته القاعدة)؟ */
 export function hasEntitlement(dashboard, featureKey) {
     return (dashboard?.entitlements || []).some(e => e.feature_key === featureKey);

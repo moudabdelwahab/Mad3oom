@@ -361,3 +361,50 @@ test('لا تمرير أفقي على الموبايل ولا على سطح ال
         await context.close();
     }
 });
+
+/* ── 095 (D8): لوحة الشركة لفريقها فقط ─────────────────────────────────── */
+
+test('095: عميل الشركة يرى رسالة وزرًا لبوابة العملاء، لا بيانات الشركة', async () => {
+    // الخادم بعد 095 يعيد null لحمولة العميل، ونوع حسابه company_customer
+    const fx = fixtures(null, { rpc: { my_account_kind: 'company_customer', current_company_id: COMPANY_ID } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    assert.equal(await page.locator('#companyContent').isHidden(), true, 'محتوى الشركة ظهر لعميلها');
+    const gate = await page.locator('#companyGateBody').textContent();
+    assert.match(gate, /هذه اللوحة لفريق الشركة/);
+    assert.equal(await page.locator('#companyGateBody [data-goto="/portal/"]').count(), 1, 'لا زر لبوابة العملاء');
+    await context.close();
+});
+
+test('095: موظف الدعم يرى لوحة مختصرة بلا الاشتراكات ولا مفاتيح API', async () => {
+    const payload = companyPayload({ company: { is_owner: false, cr_number: null, tax_id: null } });
+    payload.viewer_role = 'agent';
+    payload.registration = null;
+    payload.subscriptions = [];
+    payload.access = { active_plans: [], has_active_subscription: true };
+    const fx = fixtures(payload, { rpc: { my_account_kind: 'company_employee' } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    assert.equal(await page.locator('#companyContent').isHidden(), false);
+    assert.equal(await page.locator('.sidebar-item[data-tab="subscriptions"]').isHidden(), true, 'قسم الاشتراكات ظاهر للموظف');
+    assert.equal(await page.locator('.sidebar-item[data-tab="api"]').isHidden(), true, 'قسم API ظاهر للموظف');
+    assert.match(await page.locator('#companyMeta').textContent(), /موظف دعم في فريق الشركة/);
+    assert.doesNotMatch(await page.locator('#companyKpis').textContent(), /اشتراكات فعّالة|السجل التجاري/);
+    // الرابط المباشر لقسم المدير يعود للنظرة العامة
+    await page.evaluate(() => { window.location.hash = '#subscriptions'; });
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#subscriptionsTabContent').evaluate(el => el.classList.contains('active')), false);
+    await context.close();
+});
+
+test('095: المدير يرى اللوحة كاملة كما كانت (viewer_role = admin)', async () => {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    const fx = fixtures(payload, { rpc: { my_account_kind: 'company_admin' } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    assert.equal(await page.locator('.sidebar-item[data-tab="subscriptions"]').isHidden(), false);
+    assert.equal(await page.locator('.sidebar-item[data-tab="api"]').isHidden(), false);
+    assert.match(await page.locator('#companyKpis').textContent(), /اشتراكات فعّالة/);
+    await context.close();
+});

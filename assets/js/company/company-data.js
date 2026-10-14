@@ -35,6 +35,20 @@ export async function fetchCompanyDashboard() {
     });
 }
 
+/**
+ * نوع الحساب كما يحسبه الخادم (my_account_kind، الترحيل 095): company_admin |
+ * company_employee | company_customer | … . data = null قبل 095 (الدالة غير موجودة)،
+ * فتبقى اللوحة كما كانت.
+ */
+export async function fetchAccountKind() {
+    return safe('accountKind', async () => {
+        const { data, error } = await supabase.rpc('my_account_kind');
+        if (error && (['PGRST202', '42883', 'PGRST404'].includes(error.code) || error.status === 404)) return null;
+        if (error) throw error;
+        return data || null;
+    });
+}
+
 /** فحص امتياز مفرد على مستوى الشركة (نفس مصدر اللوحة). */
 export async function checkCompanyFeature(featureKey) {
     return safe('companyFeature', async () => {

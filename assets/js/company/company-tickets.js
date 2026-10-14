@@ -67,6 +67,22 @@ export const TICKET_STREAMS = Object.freeze({
         // اسم العميل يظهر في القائمة: بدونه المسار غير مفهوم
         showsCustomer: true,
         load: fetchMemberTickets
+    },
+    // 095 (D8): بوابة عملاء الشركة — العميل يرى تذاكره هو مع شركته، ويفتح جديدة ويردّ
+    // ويغلق ويعيد الفتح. القراءة هي نفسها fetchUserTickets (tickets.user_id = أنا)،
+    // والقاعدة تحصر الصفوف فيه (tickets_select_policy).
+    portal: {
+        key: 'portal',
+        containerId: 'portalTickets',
+        title: 'تذاكري',
+        subtitle: 'طلبات الدعم التي فتحتها لدى الشركة',
+        emptyTitle: 'لا توجد تذاكر بعد',
+        emptyText: 'افتح تذكرة عندما تحتاج مساعدة من فريق الشركة.',
+        canCreate: true,
+        autoTransition: true,
+        showsCustomer: false,
+        otherLabel: 'فريق الشركة',
+        load: fetchUserTickets
     }
 });
 
@@ -320,7 +336,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
     function authorLabel(reply, ticket) {
         if (reply.user_id === userId) return 'أنت';
         if (spec.showsCustomer && ticket && reply.user_id === ticket.user_id) return 'العميل';
-        return 'فريق مدعوم';
+        return spec.otherLabel || 'فريق مدعوم';
     }
 
     async function onReply(event, ticketId) {

@@ -32,6 +32,7 @@ import {
 import { ui } from '/ui-service.js';
 import {
     fetchCompanyDashboard,
+    fetchAccountKind,
     fetchCompanyMembers,
     createCompanyMember,
     removeCompanyMember,
@@ -56,12 +57,21 @@ import {
     staffChangeFor,
     STAFF_ROLE_OPTIONS,
     hasEntitlement,
+    viewerRoleOf,
+    sectionAllowed,
+    VIEWER_ROLE_LABELS,
     validateCompanyForm,
     validateMemberForm
 } from '/assets/js/company/company-model.js';
 
 let dashboard = null;
 let currentUserId = null;
+
+/** 095: دور الناظر كما قرّرته القاعدة (admin | supervisor | agent). */
+let viewerRole = 'admin';
+
+/** القائمة الجانبية تُجلب بعد التحميل؛ إخفاء أقسام المدير ينتظرها. */
+let shellReady = Promise.resolve();
 
 /** المساران المستقلان — لكل واحد حالته وحاويته ومصدر قراءته. */
 let platformTickets = null;   // الشركة ↔ مدعوم
@@ -88,7 +98,7 @@ async function init() {
 
     // قشرة الشركة: قائمتها الخاصة، وكل عناصرها أقسام في هذه الصفحة.
     // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
-    initCompanyShell({
+    shellReady = initCompanyShell({
         onTabChange: showSection,
         // الجرس يفتح نافذة منبثقة ولا يبدّل القسم؛ «عرض الكل» وحده ينقل إليه.
         notificationsPopover: true,
@@ -181,7 +191,9 @@ function sectionFromHash() {
 }
 
 export function showSection(name, { updateHash = true } = {}) {
-    const section = SECTIONS.includes(name) ? name : 'overview';
+    // 095: أقسام المدير لا تُفتح لغيره حتى بالرابط المباشر (#subscriptions) — والقاعدة
+    // لا ترسل بياناتها أصلًا لغير المدير.
+    const section = SECTIONS.includes(name) && sectionAllowed(name, viewerRole) ? name : 'overview';
 
     SECTIONS.forEach(key => {
         const el = document.getElementById(`${key}TabContent`);
@@ -268,7 +280,19 @@ async function load() {
     gate.hidden = false;
     content.hidden = true;
 
-    const result = await fetchCompanyDashboard();
+    const [result, kindResult] = await Promise.all([fetchCompanyDashboard(), fetchAccountKind()]);
+
+    // 095 (D8): عميل الشركة له بوابة منفصلة. رسالة في مكانها وزر يدوي — بلا تحويل
+    // تلقائي (قاعدة page-guard). القاعدة ترد null لحمولته على أي حال.
+    if (kindResult.ok && kindResult.data === 'company_customer') {
+        renderState(document.getElementById('companyGateBody'), {
+            variant: 'empty',
+            title: 'هذه اللوحة لفريق الشركة',
+            text: 'حسابك مسجّل كعميل لدى هذه الشركة. تذاكرك ومراسلاتك معها في بوابة العملاء.',
+            action: { label: 'فتح بوابة العملاء', goto: '/portal/', variant: 'btn-primary' }
+        });
+        return;
+    }
 
     if (!result.ok) {
         renderState(document.getElementById('companyGateBody'), {
@@ -296,13 +320,16 @@ async function load() {
     gate.hidden = true;
     content.hidden = false;
 
+    viewerRole = viewerRoleOf(dashboard);
+    applyViewerRole();
+
     // الاستحقاقات كما رجّعتها القاعدة — الواجهة تقرأ ولا تحسب.
     setCompanyApiEntitlement(hasEntitlement(dashboard, 'api_tokens'));
 
     renderBanner();
     renderKpis();
     renderProfile();
-    renderSubscriptions();
+    if (viewerRole === 'admin') renderSubscriptions();
     renderEntitlements();
     await renderMembers();
 }
@@ -597,6 +624,22 @@ async function onCreateMember(event) {
     await renderMembers();
 }
 
+/* ── دور الناظر (095) ──────────────────────────────────────────────────── */
+
+/** يُخفي من القائمة أقسام المدير عن المشرف وموظف الدعم. تنظيم عرض: الحماية في القاعدة. */
+function applyViewerRole() {
+    const current = (window.location.hash || '').replace(/^#/, '');
+    if (current && !sectionAllowed(current, viewerRole)) showSection('overview');
+    // display صريح لا الخاصية hidden: أنماط القائمة تفرض display على العنصر
+    Promise.resolve(shellReady).catch(() => {}).then(() => {
+        document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
+            const allowed = sectionAllowed(item.getAttribute('data-tab'), viewerRole);
+            item.hidden = !allowed;
+            item.style.display = allowed ? '' : 'none';
+        });
+    });
+}
+
 /* ── شريط المستوى ───────────────────────────────────────────────────────── */
 
 function renderBanner() {
@@ -608,12 +651,18 @@ function renderBanner() {
 
     const parts = [];
     if (dashboard.company.cr_number) parts.push(`سجل تجاري: ${dashboard.company.cr_number}`);
-    parts.push(access.isOwner ? 'أنت مالك الحساب' : 'أنت عضو في هذه الشركة');
+    // viewer_role يأتي من 095؛ بدونه (خادم أقدم) تبقى العبارة كما كانت
+    const roleLabel = dashboard.viewer_role ? VIEWER_ROLE_LABELS[viewerRole] : null;
+    parts.push(access.isOwner ? 'أنت مالك الحساب' : (roleLabel || 'أنت عضو في هذه الشركة'));
     document.getElementById('companyMeta').textContent = parts.join(' • ');
 
     const pill = document.getElementById('companyAccessPill');
     pill.hidden = false;
-    if (access.hasActiveSubscription) {
+    if (viewerRole !== 'admin') {
+        // تفاصيل الاشتراكات لمدير الشركة وحده؛ الفريق يرى أن الخدمة مفعّلة أم لا فقط
+        pill.className = access.hasActiveSubscription ? 'pill status-tone-success' : 'pill status-tone-danger';
+        pill.textContent = access.hasActiveSubscription ? 'خدمات الشركة مفعّلة' : 'خدمات الشركة غير مفعّلة';
+    } else if (access.hasActiveSubscription) {
         pill.className = 'pill status-tone-success';
         pill.textContent = `${access.activePlans.length} اشتراك فعّال`;
     } else {
@@ -668,7 +717,10 @@ function renderKpis() {
         }
     ];
 
-    document.getElementById('companyKpis').innerHTML = cards.map(card => `
+    // 095: الاشتراكات والسجل التجاري لمدير الشركة وحده (القاعدة لا ترسلهما لغيره)
+    const visibleCards = viewerRole === 'admin' ? cards : cards.slice(3);
+
+    document.getElementById('companyKpis').innerHTML = visibleCards.map(card => `
         <div class="kpi ${toneClass[card.tone] || ''}">
             <p class="kpi-label">${escapeHtml(card.label)}</p>
             <p class="kpi-value">${escapeHtml(card.value)}</p>
@@ -686,7 +738,7 @@ function renderProfile() {
     // المالك فقط هو اللي بيعدّل — والقاعدة بترفض غيره حتى لو ظهر الزر
     document.getElementById('editCompanyBtn').hidden = !access.isOwner;
 
-    const rows = [
+    const rows = viewerRole !== 'admin' ? [['اسم الشركة', company.name]] : [
         ['اسم الشركة', company.name],
         ['رقم السجل التجاري', company.cr_number],
         ['انتهاء السجل التجاري', company.cr_expiry ? formatDate(company.cr_expiry) : null],
