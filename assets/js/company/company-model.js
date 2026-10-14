@@ -355,6 +355,34 @@ export function isCompanyScopedTicket(ticket) {
     return !!ticket && (!('scope' in ticket) || ticket.scope === 'company');
 }
 
+/* ── صلاحيات الفريق (098) ─────────────────────────────────────────────── */
+
+export const TEAM_STATUS_OPTIONS = Object.freeze([
+    { value: 'open', label: 'مفتوحة' },
+    { value: 'in-progress', label: 'قيد المعالجة' },
+    { value: 'resolved', label: 'تم الحل' },
+    { value: 'rejected', label: 'مرفوضة' }
+]);
+
+/**
+ * ماذا يملك الفريق في قسم «تذاكر العملاء» من رد my_company_permissions() — خالص.
+ * المفتاح مطفأ أو قبل 098: لا شيء (يبقى القسم كما كان: تذاكر التابعين للمالك).
+ */
+export function teamTicketControls(payload) {
+    const off = { enabled: false, companyId: null, canStatus: false, canAssign: false, assignees: [] };
+    if (!payload || payload.enabled !== true || !payload.company_id) return off;
+    const perms = payload.permissions || {};
+    return {
+        enabled: perms['tickets.view'] === true || perms['tickets.view_assigned'] === true,
+        companyId: String(payload.company_id),
+        canStatus: perms['tickets.status'] === true,
+        canAssign: perms['tickets.assign'] === true,
+        assignees: Array.isArray(payload.assignees)
+            ? payload.assignees.filter(a => a && a.id).map(a => ({ id: String(a.id), name: String(a.name || '—') }))
+            : []
+    };
+}
+
 /* ── دعوات العملاء (096) ──────────────────────────────────────────────── */
 
 export const INVITATION_STATUS_LABELS = Object.freeze({

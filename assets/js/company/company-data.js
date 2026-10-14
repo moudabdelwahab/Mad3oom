@@ -382,3 +382,37 @@ export async function cancelCompanyInvitation(invitationId) {
         return data;
     });
 }
+
+/* ── صلاحيات الفريق وتذاكر الشركة (migrations/098_company_permissions_usage_ledger.sql) ──
+ *
+ * my_company_permissions(): للفريق وحده (null للعميل وقبل 098). المفتاح company_permissions_enabled
+ * يقرر هل يرى الفريق تذاكر الشركة؛ company_tickets_list() تحصر الصفوف بالصلاحية صفًا صفًا
+ * (كلها للمشرف، المسندة لموظف الدعم افتراضيًا)، بلا معرّف شركة من المتصفح.
+ */
+export async function fetchMyCompanyPermissions() {
+    return safe('companyPermissions', async () => {
+        const { data, error } = await supabase.rpc('my_company_permissions');
+        if (isMissingRpc(error)) return null;
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+export async function fetchCompanyScopeTickets() {
+    const { data, error } = await supabase.rpc('company_tickets_list');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
+/** الحالة والإسناد عبر الدالتين فقط؛ ترميان الخطأ ليعرضه قسم التذاكر في مكانه. */
+export async function setCompanyTicketStatus(ticketId, status) {
+    const { data, error } = await supabase.rpc('company_ticket_set_status', { p_ticket: ticketId, p_status: status });
+    if (error) throw error;
+    return data;
+}
+
+export async function assignCompanyTicket(ticketId, assigneeId) {
+    const { data, error } = await supabase.rpc('company_ticket_assign', { p_ticket: ticketId, p_assignee: assigneeId || null });
+    if (error) throw error;
+    return data;
+}

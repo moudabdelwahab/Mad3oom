@@ -15,7 +15,7 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket } =
+const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket, teamTicketControls } =
     await import('../assets/js/company/company-model.js');
 
 /* ── التحقق من النموذج ──────────────────────────────────────────────────── */
@@ -225,4 +225,15 @@ test('097: تذاكر العملاء في لوحة الشركة = نطاق ال�
     assert.equal(isCompanyScopedTicket({ scope: 'mad3oom_support', company_id: null }), false);
     assert.equal(isCompanyScopedTicket({ id: 'قبل 097' }), true);
     assert.equal(isCompanyScopedTicket(null), false);
+});
+
+test('098: أدوات الفريق من رد my_company_permissions فقط', () => {
+    assert.equal(teamTicketControls(null).enabled, false);
+    assert.equal(teamTicketControls({ enabled: false, company_id: 'c', permissions: { 'tickets.view': true } }).enabled, false);
+    const sup = teamTicketControls({ enabled: true, company_id: 'c', permissions: { 'tickets.view': true, 'tickets.status': true, 'tickets.assign': true },
+                                     assignees: [{ id: 'u1', name: 'أ' }, { name: 'بلا معرّف' }] });
+    assert.deepEqual(sup, { enabled: true, companyId: 'c', canStatus: true, canAssign: true, assignees: [{ id: 'u1', name: 'أ' }] });
+    const agent = teamTicketControls({ enabled: true, company_id: 'c', permissions: { 'tickets.view_assigned': true, 'tickets.assign': 'true' } });
+    assert.equal(agent.enabled && !agent.canStatus && !agent.canAssign, true);
+    assert.equal(teamTicketControls({ enabled: true, company_id: 'c', permissions: {} }).enabled, false, 'بلا صلاحية عرض');
 });

@@ -43,7 +43,11 @@ import {
     fetchCompanyCustomers,
     fetchCompanyInvitations,
     inviteCompanyCustomer,
-    cancelCompanyInvitation
+    cancelCompanyInvitation,
+    fetchMyCompanyPermissions,
+    fetchCompanyScopeTickets,
+    setCompanyTicketStatus,
+    assignCompanyTicket
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
@@ -66,6 +70,8 @@ import {
     VIEWER_ROLE_LABELS,
     customersPanelView,
     isCompanyScopedTicket,
+    teamTicketControls,
+    TEAM_STATUS_OPTIONS,
     invitationStatusInfo,
     validateInviteEmail,
     validateCompanyForm,
@@ -342,6 +348,30 @@ async function load() {
     renderEntitlements();
     await renderMembers();
     await renderCustomers();
+    await configureTeamTickets();
+}
+
+/**
+ * 098: مع تفعيل صلاحيات الفريق، «تذاكر العملاء» = تذاكر نطاق الشركة كما تسمح بها القاعدة
+ * لكل عضو (كلها للمشرف، المسندة لموظف الدعم افتراضيًا)، مع أدوات الحالة والإسناد بحسب
+ * الصلاحية. مطفأ أو قبل 098: القسم كما كان.
+ */
+async function configureTeamTickets() {
+    const result = await fetchMyCompanyPermissions();
+    const controls = teamTicketControls(result.ok ? result.data : null);
+    if (!controls.enabled) return;
+    customerTickets.configure({
+        load: fetchCompanyScopeTickets,
+        team: {
+            canStatus: controls.canStatus,
+            canAssign: controls.canAssign,
+            assignees: controls.assignees,
+            statusOptions: TEAM_STATUS_OPTIONS,
+            setStatus: setCompanyTicketStatus,
+            assign: assignCompanyTicket
+        }
+    });
+    if (loadedOnce.has('customerTickets')) await customerTickets.load();
 }
 
 /* ── مستخدمو الشركة ─────────────────────────────────────────────────────── */

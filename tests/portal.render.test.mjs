@@ -115,6 +115,8 @@ test('عميل الشركة يرى اسم شركته وتذاكره فقط', { s
     assert.equal(await page.locator('#portalCompanyName').textContent(), 'شركة النور');
     assert.match(await page.locator('#portalTickets').textContent(), /طلبي لم يصل/);
     assert.equal(await page.locator('#portalPreviewStrip').isHidden(), true);
+    // الحساب الشخصي (واشتراكه) في بوابة مدعوم الرسمية، منفصل عن الشركة
+    assert.equal(await page.locator('#portalPersonalAccount').getAttribute('href'), '/customer-dashboard.html');
     // لا روابط شراء ولا أقسام داخلية للشركة
     for (const href of ['/subscriptions.html', '/payment.html', '/company-dashboard/']) {
         assert.equal(await page.locator(`a[href="${href}"]`).count(), 0, `رابط ${href} في البوابة`);

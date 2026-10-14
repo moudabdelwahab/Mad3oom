@@ -573,7 +573,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         وصول مؤقت بموافقة المالك وحده مع تسجيل كل قراءة (data_access_grants_enabled مطفأ).
     //         إصلاح دائم: مرفقات الملاحظات الداخلية لم تعد ظاهرة لصاحب التذكرة.
     //         مقيسٌ في tests/sql/ticket-isolation.test.sql.
-    assert.equal(migrations[migrations.length - 1], '097_ticket_scope_isolation.sql',
+    //   098 — صلاحيات الفريق وسجل الاستهلاك (السؤال 9 و10 و11): كتالوج ثابت بإعداد للدور وللحساب،
+    //         وصول الفريق لتذاكر الشركة خلف company_permissions_enabled (مطفأ)، الحالة والإسناد
+    //         عبر دالتين، وسجل استهلاك إلحاقي بقواعد مُرقَّمة في وضع الظل يطابق الحساب الحالي.
+    //         مقيسٌ في tests/sql/company-permissions-ledger.test.sql.
+    assert.equal(migrations[migrations.length - 1], '098_company_permissions_usage_ledger.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
