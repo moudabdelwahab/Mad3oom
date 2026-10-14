@@ -206,6 +206,45 @@
                 </div>
             </section>
 
+            <!-- ═══ حوكمة تعدد الشركات (096–099) ═══════════════════════════
+                 كل زر هنا نداء يرفضه الخادم لغير المالك في سياقه وبعد التحقق بخطوتين. -->
+            <section class="panel" id="governanceTabContent" aria-labelledby="governanceHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="governanceHeading">حوكمة الشركات والوصول</h2>
+                        <p class="panel-subtitle">مفاتيح التفعيل، طلبات الوصول المؤقت، مراجعة الإداريين، الهيكل الإداري، ومطابقة الاستهلاك.
+                            كل عملية مسجّلة، ومفاتيح العزل والوصول تحتاج موافقة صريحة منفصلة قبل تفعيلها على الإنتاج.</p>
+                    </div>
+                </div>
+                <div class="owner-gov-reason">
+                    <label for="govReason">سبب العملية (يُسجَّل مع كل تغيير)</label>
+                    <input class="form-control" id="govReason" maxlength="500" autocomplete="off" placeholder="مثال: بدء تجربة العضويات المتعددة لشركة واحدة">
+                    <p class="owner-sie-status" id="govStatus" role="status" aria-live="polite" hidden></p>
+                </div>
+                <div class="owner-subsection owner-subsection--first">
+                    <h3 class="owner-subsection-title">مفاتيح التفعيل</h3>
+                    <div id="govSwitches"><div class="skeleton skeleton-card"></div></div>
+                </div>
+                <div class="owner-subsection">
+                    <h3 class="owner-subsection-title">طلبات الوصول إلى بيانات الشركات</h3>
+                    <div id="govAccess"><div class="skeleton skeleton-card"></div></div>
+                </div>
+                <div class="owner-subsection">
+                    <h3 class="owner-subsection-title">مراجعة الحسابات الإدارية</h3>
+                    <p class="panel-subtitle">القرار ثم التطبيق؛ التحويل لا يُطبَّق قبل تسليم التذاكر والاستمرارية والتفويضات. التحقق بخطوتين معروض ولا يُفرض.</p>
+                    <div id="govReviews"><div class="skeleton skeleton-card"></div></div>
+                </div>
+                <div class="owner-subsection">
+                    <h3 class="owner-subsection-title">الهيكل الإداري والتفويض</h3>
+                    <p class="panel-subtitle">العضوية والتفويض لا يفتحان تذاكر الشركات ولا محادثاتها ولا مستنداتها.</p>
+                    <div id="govHierarchy"><div class="skeleton skeleton-card"></div></div>
+                </div>
+                <div class="owner-subsection">
+                    <h3 class="owner-subsection-title">مطابقة سجل الاستهلاك</h3>
+                    <div id="govUsage"><div class="skeleton skeleton-card"></div></div>
+                </div>
+            </section>
+
             <!-- ═══ سجل السياق ═════════════════════════════════════════════ -->
             <section class="panel" id="auditTabContent" aria-labelledby="auditHeading">
                 <div class="panel-header">
@@ -230,6 +269,7 @@ import { supabase } from '/api-config.js';
 import { initOwnerShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
 import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
 import { initAuthorityCenter, applyCriticalState } from '/assets/js/owner/authority-center.js';
+import { initTenancyGovernance } from '/assets/js/owner/tenancy-governance.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -380,6 +420,9 @@ function gate(title, text) {
 
     const center = initAuthorityCenter({ supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock });
     initSieAuthority({ byId, rows, accountCell, errorBlock, center });
+    // 096–099: حوكمة الشركات والوصول — المرشحون للتفويض من طاقم المنصة وحده
+    initTenancyGovernance({ supabase, $, esc, when, table, td,
+                            staff: rows.filter(p => p.role === 'admin' || p.role === 'support') }).render();
 })();
 
 /* ─────────────────────────── سلطة SIE ───────────────────────────
