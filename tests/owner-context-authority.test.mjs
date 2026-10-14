@@ -110,9 +110,12 @@ test('فحوص الصلاحية في الدوال الطرفية تمرّ بدو
     const code = codeOnly(read('supabase/functions/manage-external-integration/index.ts'));
     assert.match(code, /userClient\s*\.\s*rpc\(\s*["']is_admin["']\s*\)/,
         'التفويض لا يُسأل عنه بهوية المنادي');
-    // owner_id يأتي من الطلب — وهذا مقبول ما دام يُتحقَّق منه في القاعدة.
-    assert.match(code, /userClient\s*\.\s*rpc\(\s*["']is_owner_or_super_of["']/,
-        'owner_id المرسَل من العميل لا يُتحقَّق منه في القاعدة');
+    // 095: owner_id القادم من الطلب لا يُعتمد عليه أصلًا. الكتابة بمفتاح الخدمة، فكل
+    // قرار صريح في authz.js (decideCreate / canModify) لا في «الصف مرئي لي».
+    assert.doesNotMatch(code, /body\.owner_id/, 'owner_id المرسَل من العميل يُستعمل مالكًا');
+    assert.match(code, /decideCreate\(\s*\{\s*isAdmin,\s*callerId/, 'الإنشاء بلا قرار صريح');
+    assert.equal((code.match(/canModify\(\s*\{\s*isAdmin,\s*callerId/g) || []).length, 2,
+        'التعديل والحذف بلا قرار صريح لكلٍّ منهما');
 });
 
 /* ── خريطة القدرات: الواجهة والقاعدة لا يفترقان ─────────────────────────── */

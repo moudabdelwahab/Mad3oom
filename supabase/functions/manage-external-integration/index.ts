@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { canModify, decideCreate } from "./authz.js";
 
 // ============================================================
 // manage-external-integration
@@ -26,6 +27,10 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // تعمل داخل قاعدة البيانات ومش قادرة تفك تشفير AES-GCM. عشان كده، أي ربط
 // telegram_bot بنطاق platform هنا بيتعمله "mirror" تلقائي في
 // api_keys.telegram_token.
+//
+// [أمان 095] كل قرار كتابة صريح في authz.js: تكامل المنصة للإداري وحده، والتكامل
+//   الشخصي لصاحبه وحده. الإصدار السابق كان يكتفي بأن الصف «مرئي» للمستخدم ثم يكتب
+//   بمفتاح الخدمة — وتكاملات المنصة مرئية للجميع، فأي حساب كان يحذفها أو يستبدل مفتاحها.
 // ============================================================
 
 const CORS_HEADERS: Record<string, string> = {
@@ -174,8 +179,11 @@ Deno.serve(async (req: Request) => {
     if (action === "delete") {
       const id = (body.id || "").trim();
       if (!id) return jsonResponse({ error: "id مطلوب" }, 400);
-      const { data: row } = await userClient.from("external_integrations").select("id, provider, owner_scope").eq("id", id).maybeSingle();
-      if (!row) return jsonResponse({ error: "الربط الخارجي مش موجود أو ممنوع الوصول" }, 404);
+      const { data: row } = await adminClient.from("external_integrations").select("id, provider, owner_id, owner_scope").eq("id", id).maybeSingle();
+      // نفس الرد للغائب وللممنوع: لا يُستنتج وجود صف لا يخصّك
+      if (!row || !canModify({ isAdmin, callerId, row })) {
+        return jsonResponse({ error: "الربط الخارجي مش موجود أو ممنوع الوصول" }, 404);
+      }
       const { error: delError } = await adminClient.from("external_integrations").delete().eq("id", id);
       if (delError) return jsonResponse({ error: "فشل الحذف: " + delError.message }, 500);
 
@@ -231,16 +239,13 @@ Deno.serve(async (req: Request) => {
         }
     }
 
-    let ownerId = body.owner_id ?? callerId;
-    let ownerScope = body.owner_scope || "user";
-
-    if (!isAdmin) {
-      ownerScope = ownerScope === "platform" ? "user" : ownerScope;
-      const { data: allowed } = await userClient.rpc("is_owner_or_super_of", { target_id: ownerId });
-      if (!allowed) return jsonResponse({ error: "ليس لديك صلاحية لهذا المستخدم" }, 403);
-    } else if (ownerScope === "platform") {
-      ownerId = null;
+    // owner_id القادم من الطلب لا يُعتمد عليه: الإنشاء لصاحب الطلب أو للمنصة (للإداري).
+    const createDecision = decideCreate({ isAdmin, callerId, requestedScope: body.owner_scope || "user" });
+    if (action === "create" && !createDecision.ok) {
+      return jsonResponse({ error: createDecision.error }, createDecision.status);
     }
+    const ownerId = createDecision.ok ? createDecision.ownerId : callerId;
+    const ownerScope = createDecision.ok ? createDecision.ownerScope : "user";
 
     const hasCredentials = !!(body.credentials && Object.keys(body.credentials).length);
     const encryptedPayload = hasCredentials ? await encryptJson(body.credentials) : undefined;
@@ -286,8 +291,10 @@ Deno.serve(async (req: Request) => {
     const id = (body.id || "").trim();
     if (!id) return jsonResponse({ error: "id مطلوب للتعديل" }, 400);
 
-    const { data: existing } = await userClient.from("external_integrations").select("id, provider, owner_scope").eq("id", id).maybeSingle();
-    if (!existing) return jsonResponse({ error: "الربط الخارجي مش موجود أو ممنوع الوصول" }, 404);
+    const { data: existing } = await adminClient.from("external_integrations").select("id, provider, owner_id, owner_scope").eq("id", id).maybeSingle();
+    if (!existing || !canModify({ isAdmin, callerId, row: existing })) {
+      return jsonResponse({ error: "الربط الخارجي مش موجود أو ممنوع الوصول" }, 404);
+    }
 
     const updateRow: Record<string, unknown> = {};
     if (displayName) updateRow.display_name = displayName;
