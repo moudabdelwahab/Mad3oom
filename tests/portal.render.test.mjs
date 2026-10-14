@@ -241,3 +241,93 @@ test('097: البوابة لا تعرض تذاكر العميل مع مدعوم 
     assert.doesNotMatch(text, /تجديد اشتراكي الشخصي|تذكرة الأفق/);
     await context.close();
 });
+
+/* ── 101: النقل والنسخ والاطلاع التاريخي ──────────────────────────────────── */
+
+const TWO_COMPANIES = {
+    company: { id: 'c2', name: 'شركة الأفق' }, preview: false, multi_company: true, pending_invitations: 0,
+    memberships: [{ company_id: 'c1', name: 'شركة النور', is_primary: true, is_current: false },
+                  { company_id: 'c2', name: 'شركة الأفق', is_primary: false, is_current: true }] };
+
+test('101: المفاتيح مطفأة (الافتراضي): لا نقل ولا نسخ ولا طلبات اطلاع، ولا نداء لها', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: TWO_COMPANIES });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.h2_features = { transfers: false, carry: false, historical: false };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('h2_features'));
+    assert.equal(await page.locator('#portalMoves').isHidden(), true);
+    assert.equal(await page.locator('#history-requests').isHidden(), true);
+    const calls = await page.evaluate(() => window.__RPC_CALLS__);
+    for (const name of ['my_transfers', 'carry_candidates', 'my_historical_requests']) assert.ok(!calls.includes(name), name);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('101: طلب النقل إلى الحالية بتأكيد العميل ومفتاح منع تكرار', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: TWO_COMPANIES });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.h2_features = { transfers: true, carry: false, historical: false };
+    fx.rpc.my_transfers = [];
+    fx.rpc.transfer_request = { transfer_id: 'x1', status: 'pending' };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#portalTransferBox').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#portalTransferBtn').textContent(), /شركة الأفق/);
+    assert.equal(await page.locator('#portalCarryBox').isHidden(), true, 'النسخ بمفتاحه');
+    await page.locator('#portalKeepSource').check();
+    await page.locator('#portalTransferBtn').click();
+    await page.locator('.ui-dialog button', { hasText: 'إرسال الطلب' }).click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).filter(n => n === 'my_transfers').length >= 2);
+    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'transfer_request').map(([, a]) => a));
+    assert.equal(args.length, 1);
+    assert.equal(args[0].p_to_company, 'c2');
+    assert.equal(args[0].p_keep_source_secondary, true);
+    assert.match(args[0].p_idempotency_key, /^[0-9a-f-]{36}$/);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('101: النسخ يعرض ما يُنسخ ويرسل المختار فقط إلى الحالية', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: TWO_COMPANIES });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.h2_features = { transfers: false, carry: true, historical: false };
+    fx.rpc.carry_candidates = [
+        { id: 'tA', ticket_number: 7, title: 'طلبي لم يصل', manifest: { replies_included: 1, attachments_included: 1, replies_excluded_staff: 2, replies_excluded_internal: 1, attachments_excluded: 1 } },
+        { id: 'tB', ticket_number: 8, title: 'استفسار', manifest: {} }];
+    fx.rpc.carry_tickets = { carry_id: 'k1', tickets: ['n1'], attachments_pending: 1 };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#portalCarryBox').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#portalTransferBox').isHidden(), true);
+    await page.locator('#portalCarrySource').selectOption('c1');
+    await page.locator('#portalCarryList input[value="tA"]').waitFor();
+    assert.match(await page.locator('#portalCarryList').textContent(), /لا تُنسخ ردود فريق الشركة وملاحظاته ومرفقاته \(4\)/);
+    assert.equal(await page.locator('#portalCarryBtn').isDisabled(), true, 'لا نسخ بلا اختيار');
+    await page.locator('#portalCarryList input[value="tA"]').check();
+    const args = await rpcArgsAcrossReload(page, 'carry_tickets', () => page.locator('#portalCarryBtn').click());
+    assert.equal(args.length, 1);
+    assert.deepEqual({ ...args[0], p_idempotency_key: undefined },
+        { p_source_company: 'c1', p_dest_company: 'c2', p_ticket_ids: ['tA'], p_idempotency_key: undefined });
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('101: طلب اطلاع: العميل يختار تذاكره ويوافق، أو يرفض', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: TWO_COMPANIES });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.h2_features = { transfers: false, carry: false, historical: true };
+    fx.rpc.my_historical_requests = [{ id: 'h1', company_id: 'c2', company_name: 'شركة الأفق', purpose: 'متابعة شكوى سابقة للعميل',
+        status: 'awaiting_customer', eligible: [{ id: 'tA', ticket_number: 7, title: 'طلبي لم يصل', company_name: 'شركة النور' },
+                                                { id: 'tB', ticket_number: 8, title: 'استفسار', company_name: 'شركة النور' }] }];
+    fx.rpc.historical_access_consent = { request_id: 'h1', status: 'awaiting_owner' };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#history-requests').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#portalHistoryList').textContent(), /متابعة شكوى سابقة للعميل/);
+    const approve = page.locator('[data-history="h1"] [data-history-approve]');
+    assert.equal(await approve.isDisabled(), true, 'لا موافقة بلا اختيار');
+    await page.locator('[data-history="h1"] input[value="tB"]').check();
+    await approve.click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('historical_access_consent'));
+    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'historical_access_consent').map(([, a]) => a));
+    assert.deepEqual(args, [{ p_request: 'h1', p_approve: true, p_ticket_ids: ['tB'] }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});

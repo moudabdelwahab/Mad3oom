@@ -728,3 +728,9 @@ body.customer-shell .modal-content.modal-lg {
 @media (max-width: 640px) {
     .ihub-card .company-form-actions .btn { flex: 1 1 auto; min-height: 44px; }
 }
+
+/* 101: نقل العملاء والاطلاع التاريخي */
+#companyMovesPanel h3.panel-title { font-size: 1rem; margin: 12px 0 8px; }
+.company-check { display: inline-flex; gap: 6px; align-items: center; font-size: .9rem; }
+.company-history-view { margin-top: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; }
+.company-history-text { white-space: pre-wrap; margin: 8px 0; }

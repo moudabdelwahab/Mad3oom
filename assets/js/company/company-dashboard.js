@@ -31,6 +31,7 @@ import {
 } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
 import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
+import { initCompanyMoves } from '/assets/js/company/company-moves.js';
 import {
     fetchCompanyDashboard,
     fetchAccountKind,
@@ -94,6 +95,8 @@ let customerTickets = null;   // العميل ↔ الشركة
 
 /** أعضاء الشركة كما رجّعتهم القاعدة — تُقرأ منها التقارير وقسم API. */
 let companyMembers = [];
+// 096: عملاء الشركة كما رجّعتهم القاعدة — لاختيار العميل في طلب الاطلاع التاريخي (101)
+let companyCustomerList = [];
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
@@ -352,6 +355,8 @@ async function load() {
     await configureTeamTickets();
     // 100: مستندات الشركة — للمدير وحده، والميزة مفعّلة (القاعدة تقرر)
     if (viewerRole === 'admin') await renderCompanyDocuments();
+    // 101: قرارات نقل العملاء وطلبات الاطلاع التاريخي — للمدير وحده، والمفتاحان مفعّلان (القاعدة تقرر)
+    if (viewerRole === 'admin') await initCompanyMoves({ customers: () => companyCustomerList });
 }
 
 /**
@@ -565,6 +570,7 @@ async function renderCustomers() {
     if (!panel) return;
     const result = await fetchCompanyCustomers();
     const view = customersPanelView(result.ok ? result.data : null, viewerRole);
+    companyCustomerList = Array.isArray(view.customers) ? view.customers : [];
     panel.hidden = !view.show;
     if (!view.show) return;
 

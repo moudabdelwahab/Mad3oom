@@ -77,6 +77,7 @@ DO $$ BEGIN
   PERFORM t.ok(t.err(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CB'))) = '0A000', 'OFF transfer');
   PERFORM t.ok(t.err(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], gen_random_uuid())', t.u('CA'), t.u('CB'), t.k('TA1'))) = '0A000', 'OFF carry');
   PERFORM t.ok(t.err(t.u('OB'), format('public.historical_access_request(%L::uuid, ''غرض واضح بما يكفي للطلب'')', t.u('B1'))) = '0A000', 'OFF history');
+  PERFORM t.ok(t.call(t.u('A1'), 'public.h2_features()') = '{"transfers": false, "carry": false, "historical": false}'::jsonb, 'OFF features for the UI');
   RAISE NOTICE 'PASS ② المفاتيح مطفأة: لا نقل ولا نسخ ولا وصول تاريخي';
 END $$;
 
@@ -211,6 +212,8 @@ BEGIN
            AND t.call(t.u('OA'), 'public.company_historical_requests()') = '[]'::jsonb
            AND t.call(t.u('BS'), 'public.company_historical_requests()') IS NULL, 'HLIST company admin only, own requests');
   PERFORM t.ok(t.call(t.u('A1'), 'public.my_historical_requests()') -> 0 ->> 'company_id' = t.u('CB')::text, 'HLIST customer sees requesting company');
+  PERFORM t.ok((SELECT bool_and(e ->> 'company_name' <> 'شركة ب') AND bool_or(e ->> 'id' = t.k('TA1')::text) AND NOT bool_or(e ->> 'id' = t.k('TA1S')::text)
+                  FROM jsonb_array_elements(t.call(t.u('A1'), 'public.my_historical_requests()') -> 0 -> 'eligible') e), 'HLIST eligible = own company tickets elsewhere');
   -- المالك لا يقرر قبل العميل (القيمة 5)
   PERFORM t.ok(t.own_err(format('public.owner_decide_historical_access(%L::uuid, true)', req)) = 'P0002', 'HDEC before consent');
   PERFORM t.ctx(null);

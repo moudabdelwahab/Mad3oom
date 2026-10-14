@@ -41,6 +41,14 @@
         .portal-companies select { min-width: 200px; width: auto; }
         .portal-invitation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
         .portal-invitation-actions { display: flex; gap: 8px; }
+        .portal-check { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .portal-carry { display: grid; gap: 8px; margin-top: 12px; }
+        .portal-carry select { max-width: 320px; }
+        .portal-carry-item, .portal-history-pick label { display: flex; gap: 8px; align-items: flex-start; }
+        .portal-carry-item small { display: block; color: var(--color-text-secondary); }
+        .portal-history-pick { border: 0; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; width: 100%; }
+        .portal-history-pick legend { font-weight: 600; margin-bottom: 4px; }
+        .portal-history { flex-wrap: wrap; }
     </style>
 </head>
 <body class="customer-shell company-shell portal-shell">
@@ -86,6 +94,42 @@
             <button type="button" class="btn btn-secondary" id="portalSetPrimary" hidden>تعيينها شركتي الأساسية</button>
             <button type="button" class="panel-link is-danger" id="portalLeave" hidden>مغادرة هذه الشركة</button>
             <p class="field-error" id="portalCompaniesError" role="alert" hidden></p>
+        </section>
+
+        <!-- 101: نقل الشركة الأساسية ونسخ التذاكر — مفتاحان مطفآن افتراضيًا (customer_transfers_enabled،
+             ticket_carry_enabled). كل إجراء يمر بالقاعدة. -->
+        <section class="panel" id="portalMoves" hidden aria-labelledby="portalMovesHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalMovesHeading">شركتك الأساسية وتذاكرك</h2>
+                    <p class="panel-subtitle">لا شيء ينتقل تلقائيًا: النقل بموافقة الشركتين، والنسخ لما تختاره فقط.</p>
+                </div>
+            </div>
+            <div id="portalTransferBox" hidden>
+                <label class="portal-check"><input type="checkbox" id="portalKeepSource">
+                    أبقِ شركتي الأساسية الحالية شركةً إضافية (إن سمحت بذلك)</label>
+                <button type="button" class="btn btn-primary" id="portalTransferBtn">طلب جعل «<span id="portalTransferTarget"></span>» شركتي الأساسية</button>
+            </div>
+            <ul class="company-sub-list" id="portalTransferList"></ul>
+            <div id="portalCarryBox" class="portal-carry" hidden>
+                <label for="portalCarrySource">انسخ تذاكري من</label>
+                <select id="portalCarrySource" class="form-control"></select>
+                <ul class="company-sub-list" id="portalCarryList"></ul>
+                <button type="button" class="btn btn-secondary" id="portalCarryBtn" disabled>نسخ المختار إلى «<span id="portalCarryTarget"></span>»</button>
+            </div>
+            <p class="field-error" id="portalMovesError" role="alert" hidden></p>
+        </section>
+
+        <!-- 101: طلبات اطلاع شركة على تذاكرك السابقة (historical_access_enabled مطفأ). إشعار الطلب يقود إلى هنا. -->
+        <section class="panel" id="history-requests" hidden aria-labelledby="portalHistoryHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalHistoryHeading">طلبات الاطلاع على تذاكرك السابقة</h2>
+                    <p class="panel-subtitle">لا يُعرض شيء دون موافقتك واختيارك، ثم مراجعة مدعوم، ولمدة محدودة.</p>
+                </div>
+            </div>
+            <ul class="company-sub-list" id="portalHistoryList"></ul>
+            <p class="field-error" id="portalHistoryError" role="alert" hidden></p>
         </section>
 
         <section id="portalGate" class="panel">

@@ -12,6 +12,8 @@
  * 096 (مفتاح العضويات المتعددة في القاعدة): دعوات الانضمام، ومحوّل الشركات لعميل
  * في أكثر من شركة، والمغادرة، وتعيين الأساسية حين لا أساسية. كل تبديل يمر بالقاعدة
  * (enter_customer_company) وتُعاد قراءة الصفحة منها، فلا تبقى في الشاشة شركة لم يقبلها الخادم.
+ *
+ * 101: طلب النقل، ونسخ التذاكر، وطلبات الاطلاع التاريخي — في portal-moves.js خلف مفاتيحها.
  */
 import { guardPage } from '/assets/js/page-guard.js';
 import { logout } from '/auth-client.js';
@@ -23,6 +25,7 @@ import {
     fetchPortalContext, portalState, validateTicketForm, membershipView, portalTicketFilter,
     fetchMyInvitations, respondToInvitation, switchCompany, leaveCompany, setPrimaryCompany
 } from '/assets/js/portal/portal-data.js';
+import { initPortalMoves } from '/assets/js/portal/portal-moves.js';
 
 let stream = null;
 
@@ -46,7 +49,8 @@ async function init() {
         renderGate(state);
         return;
     }
-    renderCompanies(membershipView(context.data));
+    const companies = membershipView(context.data);
+    renderCompanies(companies);
 
     document.getElementById('portalCompanyName').textContent = state.companyName;
     document.title = `${state.companyName} — بوابة العملاء`;
@@ -61,6 +65,8 @@ async function init() {
     });
     wireNewTicket(state.preview);
     await stream.load();
+    // 101: النقل والنسخ والاطلاع التاريخي — لا يظهر شيء والمفاتيح مطفأة، ولا شيء في منظور العضو
+    if (!state.preview) await initPortalMoves(companies);
 }
 
 function renderGate(state) {

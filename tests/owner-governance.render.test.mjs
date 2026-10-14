@@ -14,7 +14,7 @@ import { chromium } from 'playwright';
 // الوحدة تستورد authority-center بمسار مطلق للمتصفح؛ الأجزاء الخالصة لا تحتاجه
 const govSrc = fs.readFileSync(new URL('../assets/js/owner/tenancy-governance.js', import.meta.url), 'utf8')
     .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};');
-const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
+const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -72,7 +72,12 @@ function fixtures({ fresh = false, missing = false } = {}) {
             { id: 'd2', company_name: 'شركة ب', label: 'البطاقة الضريبية', status: 'pending_scan',
               versions: [{ id: 'v2', version_no: 1, status: 'pending_scan', review_status: 'pending', is_current: true }] }
         ],
-        document_review: { status: 'approved' }
+        document_review: { status: 'approved' },
+        owner_historical_requests: [
+            { id: 'h1', company_name: 'شركة ب', purpose: 'متابعة شكوى سابقة للعميل', status: 'awaiting_owner', tickets: 2, expires_at: null },
+            { id: 'h2', company_name: 'شركة ب', purpose: 'طلب ينتظر العميل', status: 'awaiting_customer', tickets: 0, expires_at: null }],
+        owner_decide_historical_access: { status: 'approved' },
+        owner_transfer_exceptional: { status: 'completed', exceptional: true }
     };
     return {
         user: { id: OWNER, email: 'owner@example.com' },
@@ -134,7 +139,14 @@ test('الأجزاء الخالصة: السبب، الشجرة، صف المرا
                           now: { role: 'admin', open_assigned_tickets: 2, open_continuity_owned: 1, active_delegations: 0 } });
     assert.equal(r.openWork, 3);
     assert.equal(r.canApply, false);
-    assert.deepEqual(GUARDED_SWITCHES, ['company_isolation_enforced', 'data_access_grants_enabled']);
+    assert.deepEqual(GUARDED_SWITCHES, ['company_isolation_enforced', 'data_access_grants_enabled', 'historical_access_enabled']);
+    // 101
+    assert.deepEqual([historicalHours('0'), historicalHours(500), historicalHours('x'), historicalHours('48')], [1, 168, 24, 48]);
+    const ok = { customer: OWNER, company: ADMIN, reason: 'تصحيح ربط خاطئ بطلب موثَّق من العميل' };
+    assert.equal(exceptionalTransferError(ok), null);
+    assert.match(exceptionalTransferError({ ...ok, customer: 'x' }), /العميل/);
+    assert.match(exceptionalTransferError({ ...ok, company: '' }), /الشركة/);
+    assert.match(exceptionalTransferError({ ...ok, reason: 'قصير جدًا' }), /20 حرفًا/);
 });
 
 test('قبل التحقق بخطوتين: كل أزرار الحوكمة معطّلة، والأقسام معروضة بلا أخطاء', { skip: !chromiumPath }, async () => {
@@ -215,5 +227,35 @@ test('مستندات الشركات: الاعتماد للإصدار النظي�
     await page.click('[data-doc-review="v1"][data-approve="true"]');
     await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'document_review'));
     assert.deepEqual((await calls(page, 'document_review'))[0], { p_version: 'v1', p_approve: true, p_note: null, p_expires_on: '2030-01-01' });
+    await context.close();
+});
+
+test('101: الاطلاع التاريخي بعد موافقة العميل وحدها وبمدة، والنقل الاستثنائي بسبب وتأكيد ومفتاح منع تكرار', { skip: !chromiumPath }, async () => {
+    const { page, context, dialogs, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await page.waitForSelector('[data-hist="h1"][data-approve="true"]:not([disabled])');
+    assert.equal(await page.locator('[data-hist="h2"]').count(), 0, 'قرار قبل موافقة العميل');
+    await page.fill('[data-hist-hours="h1"]', '500');
+    await page.click('[data-hist="h1"][data-approve="true"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_decide_historical_access'));
+    assert.deepEqual((await calls(page, 'owner_decide_historical_access'))[0], { p_request: 'h1', p_approve: true, p_hours: 168 });
+
+    await page.waitForSelector('#govXferSubmit:not([disabled])');
+    await page.fill('#govXferCustomer', ADMIN);
+    await page.fill('#govXferCompany', OWNER);
+    await page.fill('#govReason', 'سبب قصير');
+    await page.click('#govXferSubmit');
+    assert.match(await page.textContent('#govStatus'), /20 حرفًا/);
+    assert.deepEqual(await calls(page, 'owner_transfer_exceptional'), []);
+    await page.fill('#govReason', 'تصحيح ربط خاطئ بطلب موثَّق من العميل');
+    await page.click('#govXferSubmit');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_transfer_exceptional'));
+    assert.ok(dialogs.some(m => /نقل استثنائي/.test(m)));
+    const [args] = await calls(page, 'owner_transfer_exceptional');
+    assert.equal(args.p_customer, ADMIN);
+    assert.equal(args.p_to_company, OWNER);
+    assert.equal(args.p_reason, 'تصحيح ربط خاطئ بطلب موثَّق من العميل');
+    assert.equal(args.p_keep_source_secondary, false);
+    assert.match(args.p_idempotency_key, /^[0-9a-f-]{36}$/);
+    assert.deepEqual(errors, []);
     await context.close();
 });

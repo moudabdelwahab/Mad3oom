@@ -544,3 +544,92 @@ test('100: الحالة لكل مستند، والتنزيل للنظيف وحد
     assert.equal(errors.filter(e => !/favicon|404/.test(e)).length, 0, errors.join(' | '));
     await context.close();
 });
+
+/* ── 101: نقل العملاء والاطلاع التاريخي ──────────────────────────────────── */
+
+function movesFixture(features, extra = {}) {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    return fixtures(payload, { rpc: {
+        my_account_kind: 'company_admin',
+        company_customers_list: { company_id: COMPANY_ID, can_manage: true, invitations_enabled: false,
+                                  customers: [{ id: 'u1', name: 'عميل أول', email: 'c1@x.test', phone: null }] },
+        h2_features: { transfers: false, carry: false, historical: false, ...features },
+        ...extra
+    } });
+}
+
+test('101: المفتاحان مطفآن: لا لوحة نقل ولا اطلاع، ولا نداء لقوائمهما', async () => {
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, movesFixture({}));
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('h2_features'));
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#companyMovesPanel').isHidden(), true);
+    const calls = await page.evaluate(() => window.__RPC_CALLS__);
+    assert.ok(!calls.includes('company_transfer_requests') && !calls.includes('company_historical_requests'));
+    await context.close();
+});
+
+test('101: قرار نقل صادر يعرض رغبة العميل في البقاء إضافيًا ويرسلها مع الموافقة، بلا اسم الشركة الأخرى', async () => {
+    const fx = movesFixture({ transfers: true }, {
+        company_transfer_requests: [
+            { id: 'x1', customer_name: 'عميل أول', direction: 'outgoing', status: 'pending', my_decision: null,
+              customer_wants_secondary: true, created_at: '2026-10-10T10:00:00Z' },
+            { id: 'x2', customer_name: 'عميل ثان', direction: 'incoming', status: 'pending', my_decision: 'approved',
+              customer_wants_secondary: null, created_at: '2026-10-09T10:00:00Z' }],
+        transfer_decide: { transfer_id: 'x1', status: 'pending', waiting_for: 'destination' }
+    });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openMembersSection(page);
+    await page.waitForSelector('#companyMovesPanel:not([hidden])', { timeout: 5000 });
+    assert.equal(await page.locator('#companyHistoryBox').isHidden(), true, 'الاطلاع بمفتاحه');
+    const text = await page.locator('#companyTransfers').innerText();
+    assert.match(text, /يطلب نقل شركته الأساسية إلى شركة أخرى/);
+    assert.match(text, /بانتظار الشركة الأخرى/);
+    assert.equal(await page.locator('[data-transfer="x2"] [data-decide]').count(), 0, 'لا قرار مرتين');
+    await page.locator('[data-transfer="x1"] [data-allow-secondary]').check();
+    await page.locator('[data-transfer="x1"] [data-decide="true"]').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('transfer_decide'));
+    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'transfer_decide').map(([, a]) => a));
+    assert.deepEqual(args, [{ p_transfer: 'x1', p_approve: true, p_allow_secondary: true }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('101: طلب اطلاع بغرض واضح لعميل الشركة، والعرض للتذاكر المسموحة وحدها', async () => {
+    const fx = movesFixture({ historical: true }, {
+        company_historical_requests: [
+            { id: 'h1', customer_name: 'عميل أول', purpose: 'متابعة شكوى سابقة للعميل بخصوص طلبه', status: 'approved',
+              ticket_ids: ['tA'], expires_at: '2026-10-15T10:00:00Z', created_at: '2026-10-14T10:00:00Z' },
+            { id: 'h2', customer_name: 'عميل أول', purpose: 'طلب آخر بانتظار العميل للمراجعة', status: 'awaiting_customer',
+              ticket_ids: null, expires_at: null, created_at: '2026-10-14T11:00:00Z' }],
+        historical_access_request: { request_id: 'h3', status: 'awaiting_customer' },
+        historical_ticket_view: { ticket: { title: 'طلبي لم يصل', description: 'تفاصيل العميل' },
+                                  customer_messages: [{ message: 'رسالتي الثانية', created_at: '2026-09-01T00:00:00Z' }],
+                                  expires_at: '2026-10-15T10:00:00Z' }
+    });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openMembersSection(page);
+    await page.waitForSelector('#companyHistoryBox:not([hidden])', { timeout: 5000 });
+    assert.equal(await page.locator('#companyTransfersBox').isHidden(), true);
+    assert.equal(await page.locator('[data-history="h2"] [data-history-ticket]').count(), 0, 'لا عرض قبل الموافقتين');
+    // الغرض القصير مرفوض قبل الإرسال
+    await page.locator('#companyHistoryCustomer').selectOption('u1');
+    await page.locator('#companyHistoryPurpose').fill('قصير');
+    await page.locator('#companyHistorySubmit').click();
+    assert.equal(await page.locator('#companyHistoryError').isHidden(), false);
+    await page.locator('#companyHistoryPurpose').fill('متابعة شكوى سابقة للعميل بخصوص طلبه');
+    await page.locator('#companyHistorySubmit').click();
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('historical_access_request'));
+    const req = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'historical_access_request').map(([, a]) => a));
+    assert.deepEqual(req, [{ p_customer: 'u1', p_purpose: 'متابعة شكوى سابقة للعميل بخصوص طلبه' }]);
+    await page.locator('[data-history="h1"] [data-history-ticket="tA"]').click();
+    await page.waitForSelector('#companyHistoryView:not([hidden])');
+    const view = await page.locator('#companyHistoryView').innerText();
+    assert.match(view, /طلبي لم يصل/);
+    assert.match(view, /رسالتي الثانية/);
+    assert.match(view, /عرضك مسجَّل/);
+    const viewArgs = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'historical_ticket_view').map(([, a]) => a));
+    assert.deepEqual(viewArgs, [{ p_request: 'h1', p_ticket: 'tA' }]);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});

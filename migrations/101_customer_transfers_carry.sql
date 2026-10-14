@@ -175,6 +175,20 @@ begin
 end $$;
 
 -- العميل يطلب (= تأكيده): الوجهة شركة له فيها عضوية إضافية نشطة (الانضمام نفسه عملية 096 منفصلة).
+-- حالة مفاتيح 101 للواجهة وحدها (لا تمنح شيئًا: كل دالة تتحقق من مفتاحها بنفسها).
+create or replace function public.h2_features()
+returns jsonb
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select case when auth.uid() is null then null else jsonb_build_object(
+    'transfers', public._feature_on('customer_transfers_enabled'),
+    'carry', public._feature_on('ticket_carry_enabled'),
+    'historical', public._feature_on('historical_access_enabled')) end;
+$$;
+
 create or replace function public.transfer_request(p_to_company uuid, p_keep_source_secondary boolean, p_idempotency_key uuid)
 returns jsonb
 language plpgsql
@@ -706,7 +720,16 @@ set search_path to 'public'
 as $$
   select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'company_id', r.requesting_company, 'company_name', c.company_name,
                                                'purpose', r.purpose, 'status', r.status,
-                                               'ticket_ids', r.ticket_ids, 'created_at', r.created_at) order by r.created_at desc), '[]'::jsonb)
+                                               'ticket_ids', r.ticket_ids, 'created_at', r.created_at,
+                                               -- ما يمكن للعميل اختياره: تذاكره في شركات غير الطالبة (بياناته هو)
+                                               'eligible', case when r.status = 'awaiting_customer' then coalesce((
+                                                   select jsonb_agg(jsonb_build_object('id', t.id, 'ticket_number', t.ticket_number,
+                                                                                       'title', t.title, 'company_name', tc.company_name,
+                                                                                       'created_at', t.created_at) order by t.created_at desc)
+                                                     from public.tickets t join public.companies tc on tc.id = t.company_id
+                                                    where t.user_id = auth.uid() and t.scope = 'company'
+                                                      and t.company_id <> r.requesting_company), '[]'::jsonb) end)
+                            order by r.created_at desc), '[]'::jsonb)
     from public.historical_access_requests r join public.companies c on c.id = r.requesting_company
    where r.customer_id = auth.uid();
 $$;
@@ -917,7 +940,7 @@ begin
                            'public.carry_tickets(uuid,uuid,uuid[],uuid)', 'public.historical_access_request(uuid,text)',
                            'public.my_historical_requests()', 'public.historical_access_consent(uuid,boolean,uuid[])',
                            'public.owner_decide_historical_access(uuid,boolean,integer)', 'public.historical_ticket_view(uuid,uuid)',
-                           'public.company_historical_requests()', 'public.owner_historical_requests()'] loop
+                           'public.company_historical_requests()', 'public.owner_historical_requests()', 'public.h2_features()'] loop
     execute format('revoke all on function %s from public, anon', f);
     execute format('grant execute on function %s to authenticated', f);
   end loop;

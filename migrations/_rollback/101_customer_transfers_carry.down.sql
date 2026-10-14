@@ -241,6 +241,7 @@ drop function if exists public.owner_decide_historical_access(uuid, boolean, int
 drop function if exists public.historical_ticket_view(uuid, uuid);
 drop function if exists public.owner_historical_requests();
 drop function if exists public.company_historical_requests();
+drop function if exists public.h2_features();
 drop function if exists public._historical_require_enabled();
 drop table if exists public.historical_access_audit;
 drop table if exists public.historical_access_requests;

@@ -6,7 +6,7 @@
  * tests/sql/{company-memberships,ticket-isolation,company-permissions-ledger,admin-hierarchy}.test.sql.
  *
  * الأقسام: مفاتيح التفعيل، طلبات الوصول، مراجعة الإداريين، الهيكل الإداري، مطابقة الاستهلاك،
- * ومستندات الشركات (طابور المراجعة والتجربة الجافة للاحتفاظ).
+ * ومستندات الشركات (طابور المراجعة والتجربة الجافة للاحتفاظ)، والنقل والاطلاع التاريخي (101).
  * كل قسم يعرض «غير مطبّق بعد» إن لم يُطبَّق ترحيله، فالصفحة تعمل بأي ترتيب نشر.
  */
 import { applyCriticalState } from '/assets/js/owner/authority-center.js';
@@ -14,7 +14,7 @@ import { applyCriticalState } from '/assets/js/owner/authority-center.js';
 const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
 
 /** مفاتيح تفتح وصولًا أو عزلًا: تفعيلها يحتاج موافقة صريحة منفصلة (السؤال 17) — تأكيد إضافي. */
-export const GUARDED_SWITCHES = Object.freeze(['company_isolation_enforced', 'data_access_grants_enabled']);
+export const GUARDED_SWITCHES = Object.freeze(['company_isolation_enforced', 'data_access_grants_enabled', 'historical_access_enabled']);
 
 export const REVIEW_DECISIONS = Object.freeze([
     { value: 'keep', label: 'إبقاء كما هو' },
@@ -59,6 +59,21 @@ export function flattenUnits(units) {
         out.push({ ...u, depth: 0 });
     }
     return out;
+}
+
+/** ساعات الوصول التاريخي: 1–168 (القاعدة تقصّ مرة أخرى). خالصة. */
+export function historicalHours(value) {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), 168) : 24;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** نموذج النقل الاستثنائي: معرّفان صالحان وسبب ≥ 20 حرفًا (القاعدة تتحقق مرة أخرى). خالصة. */
+export function exceptionalTransferError({ customer, company, reason }) {
+    if (!UUID_RE.test(String(customer || '').trim())) return 'معرّف العميل غير صالح';
+    if (!UUID_RE.test(String(company || '').trim())) return 'معرّف الشركة غير صالح';
+    if (String(reason || '').trim().length < 20) return 'النقل الاستثنائي يحتاج سببًا من 20 حرفًا على الأقل في خانة السبب';
+    return null;
 }
 
 /** حالة مراجعة إداري للعرض: العمل المفتوح، جاهزية التحقق بخطوتين، وهل يُطبَّق القرار. خالصة. */
@@ -333,8 +348,56 @@ export function initTenancyGovernance(ctx) {
         });
     }
 
+    /* ── النقل والاطلاع التاريخي (101) ─────────────────────────────────── */
+    let transferKey = null;
+    async function renderMoves() {
+        const box = $('govMoves');
+        if (!box) return;
+        const res = await rpc('owner_historical_requests');
+        if (res.missing) { box.innerHTML = notApplied('النقل والاطلاع التاريخي'); return; }
+        if (res.error) { box.innerHTML = failed(res.error); return; }
+        const rows = res.data || [];
+        box.innerHTML = `
+            <h4 class="owner-subsection-title">طلبات الاطلاع التاريخي</h4>
+            <p class="panel-subtitle">لا قرار قبل موافقة العميل واختياره التذاكر. القراءة لرسائل العميل وحدها ومسجَّلة.</p>
+            ${table(['الشركة الطالبة', 'الغرض', 'التذاكر', 'الحالة', ''], rows, r => `<tr>
+                ${td(esc(r.company_name))}${td(esc(r.purpose))}${td(esc(r.tickets))}
+                ${td(`<span class="pill status-neutral">${esc(r.status)}</span>${r.expires_at ? `<br><small>حتى ${esc(when(r.expires_at))}</small>` : ''}`)}
+                ${td(r.status === 'awaiting_owner' ? `
+                    <input type="number" class="form-control" min="1" max="168" value="24" data-hist-hours="${esc(r.id)}" aria-label="المدة بالساعات">
+                    <button type="button" class="btn btn-sm btn-primary" data-critical data-hist="${esc(r.id)}" data-approve="true">موافقة</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-critical data-hist="${esc(r.id)}" data-approve="false">رفض</button>` : '')}
+            </tr>`)}
+            <h4 class="owner-subsection-title">نقل استثنائي لعميل</h4>
+            <p class="panel-subtitle">بلا موافقات الشركتين: لتصحيح ربط خاطئ فقط. يُسجَّل بالسبب المكتوب أعلاه، ويُنفَّذ مرة واحدة.</p>
+            <div class="owner-gov-form">
+                <input class="form-control" id="govXferCustomer" dir="ltr" placeholder="معرّف العميل" autocomplete="off">
+                <input class="form-control" id="govXferCompany" dir="ltr" placeholder="معرّف الشركة الجديدة" autocomplete="off">
+                <label><input type="checkbox" id="govXferKeep"> إبقاء الشركة السابقة إضافية</label>
+                <button type="button" class="btn btn-sm btn-primary" data-critical id="govXferSubmit">نقل</button>
+            </div>`;
+        box.querySelectorAll('[data-hist]').forEach(btn => btn.addEventListener('click', async () => {
+            const approve = btn.dataset.approve === 'true';
+            const hours = historicalHours(box.querySelector(`[data-hist-hours="${CSS.escape(btn.dataset.hist)}"]`)?.value);
+            await act('owner_decide_historical_access', { p_request: btn.dataset.hist, p_approve: approve, p_hours: hours },
+                      approve ? `تمت الموافقة لمدة ${hours} ساعة` : 'تم الرفض');
+        }));
+        $('govXferSubmit').addEventListener('click', async () => {
+            const form = { customer: $('govXferCustomer').value.trim(), company: $('govXferCompany').value.trim(), reason: reason() };
+            const err = exceptionalTransferError(form);
+            if (err) { status(err, 'error'); return; }
+            if (!window.confirm('نقل استثنائي بلا موافقة الشركتين. يُسجَّل باسمك وسببك. متابعة؟')) return;
+            transferKey = transferKey || crypto.randomUUID();
+            const done = await act('owner_transfer_exceptional', { p_customer: form.customer, p_to_company: form.company,
+                p_reason: form.reason, p_keep_source_secondary: $('govXferKeep')?.checked === true, p_idempotency_key: transferKey },
+                'اكتمل النقل الاستثنائي وسُجّل');
+            if (done) transferKey = null;
+        });
+    }
+
     async function renderAll() {
-        await Promise.all([renderSwitches(), renderAccess(), renderReviews(), renderHierarchy(), renderUsage(), renderDocuments()]);
+        await Promise.all([renderSwitches(), renderAccess(), renderReviews(), renderHierarchy(), renderUsage(), renderDocuments(),
+                           renderMoves()]);
         applyCriticalState();
     }
 

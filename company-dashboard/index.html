@@ -196,6 +196,40 @@
                     <div id="companyInvitations"></div>
                     <div id="companyCustomers"></div>
                 </section>
+
+                <!-- 101: نقل العملاء بين الشركات والاطلاع التاريخي — لمدير الشركة، خلف customer_transfers_enabled
+                     وhistorical_access_enabled (مطفآن). لا تظهر هوية الشركة الأخرى، ولا تاريخ إلا بموافقة العميل ثم مدعوم. -->
+                <section class="panel" aria-labelledby="companyMovesHeading" id="companyMovesPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyMovesHeading">نقل العملاء وتاريخهم</h2>
+                            <p class="panel-subtitle">النقل يكتمل بموافقة الشركتين وتأكيد العميل. التذاكر السابقة تبقى في شركتها.</p>
+                        </div>
+                    </div>
+                    <div id="companyTransfersBox" hidden>
+                        <h3 class="panel-title">طلبات النقل</h3>
+                        <div id="companyTransfers"></div>
+                    </div>
+                    <div id="companyHistoryBox" hidden>
+                        <h3 class="panel-title">الاطلاع على تذاكر سابقة لعميل</h3>
+                        <form id="companyHistoryForm" class="company-form" novalidate hidden>
+                            <div class="form-field">
+                                <label for="companyHistoryCustomer">العميل</label>
+                                <select id="companyHistoryCustomer" class="form-control"></select>
+                            </div>
+                            <div class="form-field is-full">
+                                <label for="companyHistoryPurpose">الغرض (يراه العميل ومدعوم)</label>
+                                <textarea id="companyHistoryPurpose" class="form-control" rows="3" maxlength="1000"></textarea>
+                            </div>
+                            <p class="field-error" id="companyHistoryError" role="alert" hidden></p>
+                            <div class="company-form-actions">
+                                <button type="submit" class="btn btn-primary" id="companyHistorySubmit">إرسال الطلب للعميل</button>
+                            </div>
+                        </form>
+                        <div id="companyHistoryRequests"></div>
+                        <div id="companyHistoryView" class="company-history-view" hidden></div>
+                    </div>
+                </section>
             </section>
 
             <!-- ═══ الاشتراكات والخدمات ════════════════════════════════════

@@ -132,3 +132,87 @@ export function leaveCompany(companyId) {
 export function setPrimaryCompany(companyId) {
     return call('set_primary_company', { p_company: companyId }, 'تعذّر تعيين الشركة الأساسية.');
 }
+
+/* ── النقل والنسخ والوصول التاريخي (101) ─────────────────────────────────── */
+
+const H2_OFF = Object.freeze({ transfers: false, carry: false, historical: false });
+
+/** حالة مفاتيح 101 للعرض وحده (كل دالة تتحقق من مفتاحها في القاعدة). قبل 101: كلها مطفأة. */
+export async function fetchH2Features() {
+    try {
+        const { data, error } = await supabase.rpc('h2_features');
+        if (error || !data) return H2_OFF;
+        return { transfers: data.transfers === true, carry: data.carry === true, historical: data.historical === true };
+    } catch {
+        return H2_OFF;
+    }
+}
+
+/**
+ * ما يظهر من أدوات 101 — خالص، مُختبَر في tests/portal-model.test.mjs.
+ * النقل: الشركة الحالية ليست الأساسية ولدى العميل أساسية (بلا أساسية يكفي تعيينها، 096).
+ * النسخ: من شركاته الأخرى إلى الحالية. الوصول التاريخي: قائمة الطلبات متى كان المفتاح مفعّلًا.
+ */
+export function movesView(features, view) {
+    const f = features || H2_OFF;
+    const current = view?.multi ? view.current : null;
+    const canTransfer = f.transfers === true && !!current && !current.isPrimary && view.canSetPrimary !== true;
+    const carrySources = f.carry === true && current ? view.options.filter(o => !o.isCurrent) : [];
+    return {
+        canTransfer,
+        showTransfers: f.transfers === true && !!current,
+        carrySources,
+        showHistory: f.historical === true
+    };
+}
+
+/** وصف ما سيُنسخ من تذكرة (من _carry_manifest) — نص للعميل قبل التأكيد. */
+export function carrySummary(manifest) {
+    const n = (k) => Math.max(0, Number(manifest?.[k]) || 0);
+    const parts = ['وصفك'];
+    if (n('replies_included')) parts.push(`${n('replies_included')} من رسائلك`);
+    if (n('attachments_included')) parts.push(`${n('attachments_included')} من مرفقاتك`);
+    const left = n('replies_excluded_staff') + n('replies_excluded_internal') + n('attachments_excluded');
+    return `يُنسخ: ${parts.join(' و')}.` + (left ? ` لا تُنسخ ردود فريق الشركة وملاحظاته ومرفقاته (${left}).` : '');
+}
+
+const TRANSFER_STATUS = {
+    pending: 'بانتظار موافقة الشركتين', completed: 'اكتمل النقل', rejected: 'رُفض — لم يتغير شيء',
+    cancelled: 'ألغيته', expired: 'انتهت مهلته'
+};
+export const transferStatusLabel = (status) => TRANSFER_STATUS[status] || '—';
+
+const HISTORY_STATUS = {
+    awaiting_customer: 'بانتظار قرارك', awaiting_owner: 'وافقت — بانتظار مراجعة مدعوم', approved: 'مسموح لمدة محدودة',
+    rejected: 'رفضته مدعوم', declined: 'رفضته', expired: 'انتهى'
+};
+export const historyStatusLabel = (status) => HISTORY_STATUS[status] || '—';
+
+async function list(name, args) {
+    const result = await call(name, args, 'تعذّر التحميل.');
+    return result.ok ? { ok: true, data: Array.isArray(result.data) ? result.data : [] } : { ok: false, data: [], error: result.error };
+}
+
+export const fetchMyTransfers = () => list('my_transfers');
+export const fetchCarryCandidates = (sourceCompany) => list('carry_candidates', { p_source_company: sourceCompany });
+export const fetchMyHistoricalRequests = () => list('my_historical_requests');
+
+/** idempotencyKey: نفس المفتاح عند إعادة المحاولة يعيد نفس الطلب ولا يكرره. */
+export function requestTransfer(toCompany, keepSourceSecondary, idempotencyKey) {
+    return call('transfer_request', { p_to_company: toCompany, p_keep_source_secondary: keepSourceSecondary === true,
+                                      p_idempotency_key: idempotencyKey }, 'تعذّر إرسال طلب النقل.');
+}
+
+export function cancelTransfer(transferId) {
+    return call('transfer_cancel', { p_transfer: transferId }, 'تعذّر إلغاء الطلب.');
+}
+
+export function carryTickets(sourceCompany, destCompany, ticketIds, idempotencyKey) {
+    return call('carry_tickets', { p_source_company: sourceCompany, p_dest_company: destCompany,
+                                   p_ticket_ids: ticketIds, p_idempotency_key: idempotencyKey }, 'تعذّر نسخ التذاكر.');
+}
+
+export function respondHistoricalRequest(requestId, approve, ticketIds) {
+    return call('historical_access_consent', { p_request: requestId, p_approve: approve === true,
+                                               p_ticket_ids: approve === true ? ticketIds : null }, 'تعذّر حفظ قرارك.');
+}
