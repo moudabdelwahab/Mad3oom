@@ -356,8 +356,34 @@ begin
   perform public.log_privileged('customer.transfer.exceptional', p_customer, jsonb_build_object('company_id', v_from),
                                 jsonb_build_object('company_id', p_to_company, 'reason', btrim(p_reason), 'transfer_id', x.id));
   r := public._transfer_execute(x.id);
+  if r ->> 'status' is distinct from 'completed' then
+    -- كل شيء أو لا شيء: لا إلغاء لطلبات أخرى ولا سجل امتياز لنقل لم يحدث
+    raise exception 'تعذّر النقل الاستثنائي: تغيّرت عضويات العميل (%)', coalesce(r ->> 'reason', r ->> 'status')
+      using errcode = '55000';
+  end if;
   return r || jsonb_build_object('exceptional', true);
 end $$;
+
+-- بعد نقل مكتمل صار super_user_id يشير إلى شركة الوجهة؛ إطفاء العزل أو 098 يعيد المسار القديم
+-- (supervises / can_access_ticket) فيرى مالك الوجهة تذاكر العميل القديمة. لذلك لا يُطفآن بعد أي نقل مكتمل.
+create or replace function public._guard_isolation_after_transfers()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if old.enabled and not new.enabled
+     and new.key in ('company_isolation_enforced', 'company_permissions_enabled')
+     and exists (select 1 from public.customer_transfers where status = 'completed') then
+    raise exception 'لا يُطفأ % بعد نقل عملاء مكتمل: المسار القديم يكشف تذاكرهم السابقة لمالك الوجهة', new.key
+      using errcode = '55000', detail = '{"code":"transfers_exist"}';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_guard_isolation_after_transfers on public.platform_feature_switches;
+create trigger trg_guard_isolation_after_transfers before update on public.platform_feature_switches
+  for each row execute function public._guard_isolation_after_transfers();
 
 -- قوائم: العميل يرى طلباته؛ المدير يرى ما يخص شركته بلا كشف الطرف الآخر.
 create or replace function public.my_transfers()
@@ -461,8 +487,8 @@ create table if not exists public.ticket_carry_attachments (
   created_at         timestamptz not null default now()
 );
 
--- مرفق قابل للنسخ: رفعه العميل، على رد له غير داخلي (أو على التذكرة نفسها)، في مجلده لهذه التذكرة،
--- وكائن التخزين موجود ومالكه العميل. صف ticket_attachments وحده لا يكفي: مساره نص يكتبه العميل.
+-- مرفق قابل للنسخ: رفعه العميل، على رد له غير داخلي (أو على التذكرة نفسها)، ومساره يعود لهذه التذكرة،
+-- وكائن التخزين موجود ومالكه العميل (الضابط الحاسم: لا ينسخ العميل ملفًا لم يرفعه هو). صف ticket_attachments وحده لا يكفي: مساره نص يكتبه العميل.
 create or replace function public._carry_attachment_ok(p_attachment uuid, p_customer uuid)
 returns boolean
 language sql
@@ -473,7 +499,8 @@ as $$
   select exists (
     select 1 from public.ticket_attachments a
      where a.id = p_attachment and a.uploaded_by = p_customer and a.file_path is not null
-       and a.file_path like p_customer::text || '/' || a.ticket_id::text || '/%'
+       -- نفس تحليل سياسات التخزين (028): <التذكرة>/<ملف> أو <مستخدم>/<التذكرة>/<ملف>
+       and public.storage_ticket_id(a.file_path) = a.ticket_id
        and position('..' in a.file_path) = 0
        and (a.reply_id is null or exists (select 1 from public.ticket_replies r where r.id = a.reply_id
                                             and r.user_id = p_customer and not coalesce(r.is_internal, false)))
@@ -970,7 +997,8 @@ declare f text;
 begin
   foreach f in array array['public._transfers_require_enabled()', 'public._transfer_execute(uuid)', 'public._guard_raw_company_move()',
                            'public._carry_require_enabled()', 'public._carry_manifest(uuid,uuid)', 'public._carry_attachment_ok(uuid,uuid)',
-                           'public._historical_require_enabled()', 'public._h2_append_only()'] loop
+                           'public._historical_require_enabled()', 'public._h2_append_only()',
+                           'public._guard_isolation_after_transfers()'] loop
     execute format('revoke all on function %s from public, anon, authenticated, service_role', f);
   end loop;
   foreach f in array array['public.transfer_request(uuid,boolean,uuid)', 'public.transfer_decide(uuid,boolean,boolean)',

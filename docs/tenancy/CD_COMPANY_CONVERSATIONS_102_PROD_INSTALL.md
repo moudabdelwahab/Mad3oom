@@ -37,6 +37,12 @@ Adding a `company_id` to it would inherit all of those platform-wide paths. Phas
 | MEDIUM: access by conversation id used `_company_staff_role_of`, which ignores owner context (040) | Staff access uses `company_staff_role()` for the caller's **current** company only | full suite |
 | LOW: `customer_id = auth.uid()` was NULL-unsafe, banned customers could still read, and `service_role` kept execute | NULL-safe check; customer reads require an active account; `service_role` revoked | ⑥ |
 
+Second review of the fix diff: no unresolved HIGH. Its LOW was fixed: `_inbox_user_can_view` also requires `_company_is_eligible_agent` (not banned, active account), so a banned assignee's alert goes to the owner (④ test).
+
+Accepted residuals (documented):
+- Notification **metadata** (who has a notification, and when) remains readable by elevated authority (040). Content is never included.
+- In the repository, `account_is_active()` (042) does not check bans; production's definition does, and the test fixture mirrors production.
+
 Still open (LOW, documented): after leaving a company, its conversations no longer appear in the portal list and are reachable only by id. Rate limits are count-then-insert and can be exceeded slightly under concurrency.
 
 ## Code that ships with 102 (not deployed)

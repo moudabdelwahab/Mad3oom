@@ -210,6 +210,17 @@ BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text = (SELECT v FROM t.saved WHERE k = 'ntf_ag')
            AND (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::int = (SELECT v FROM t.saved WHERE k = 'ntf_oa')::int + 1,
            'ROUTE alert goes to whoever can still see it');
+  -- المسند إليه محظور (وإن بقيت صلاحيته): يصل مدير الشركة
+  PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', null)', t.u('AG')));
+  UPDATE public.profiles SET ban_status = 'banned' WHERE id = t.u('AG');
+  UPDATE t.saved SET v = (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::text WHERE k = 'ntf_oa';
+  UPDATE t.saved SET v = (SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text WHERE k = 'ntf_ag';
+  PERFORM t.ok(t.post('A1', 'C1', 'ما زلت أنتظر الرد') = 'ok', 'ROUTE customer posts again');
+  PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('AG'))::text = (SELECT v FROM t.saved WHERE k = 'ntf_ag')
+           AND (SELECT count(*) FROM public.notifications WHERE user_id = t.u('OA'))::int = (SELECT v FROM t.saved WHERE k = 'ntf_oa')::int + 1,
+           'ROUTE banned assignee: owner is alerted');
+  UPDATE public.profiles SET ban_status = 'none' WHERE id = t.u('AG');
+  PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', false)', t.u('AG')));
   PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.view_assigned'', null)', t.u('AG')));
   PERFORM t.call(t.u('OA'), format('public.company_set_user_permission(%L::uuid, ''conversations.internal_notes'', null)', t.u('AG')));
   RAISE NOTICE 'PASS ④ الفريق بصلاحيات 098: المشرف الكل والموظف المسند، الإسناد لأعضاء الفريق، الملاحظات الداخلية وهوية الموظف لا تصل العميل، الصلاحيات تُسحب فورًا، والإغلاق وإعادة الفتح';

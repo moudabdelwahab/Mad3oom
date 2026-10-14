@@ -26,9 +26,13 @@ export function destPathOk(item) {
         && !item.dest_path.includes('..') && item.dest_path !== item.source_path;
 }
 
+const TICKET_PATH_RE = /^[0-9a-f-]{36}\/[^/]{1,200}$/;   // ما يرفعه التطبيق: <التذكرة>/<ملف>
+
 export function sourcePathOk(item) {
-    return typeof item?.source_path === 'string' && PATH_RE.test(item.source_path) && !item.source_path.includes('..')
-        && typeof item?.dest_path === 'string' && item.source_path.split('/')[0] === item.dest_path.split('/')[0];
+    const src = item?.source_path;
+    if (typeof src !== 'string' || src.includes('..') || typeof item?.dest_path !== 'string') return false;
+    if (TICKET_PATH_RE.test(src)) return true;
+    return PATH_RE.test(src) && src.split('/')[0] === item.dest_path.split('/')[0];
 }
 
 /**

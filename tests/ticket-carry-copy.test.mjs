@@ -45,6 +45,9 @@ test('مسار الأصل: بنفس الشكل وفي مجلد العميل نف
     assert.equal(sourcePathOk(item({ source_path: `${OTHER}/${T0}/x.png` })), false, 'ملف عميل آخر');
     assert.equal(sourcePathOk(item({ source_path: `${U}/../x` })), false);
     assert.equal(sourcePathOk(item({ source_path: 'invoices/secret.pdf' })), false);
+    // ما يرفعه التطبيق فعلًا (tickets-service.js): <التذكرة>/<وقت>_<اسم> — القاعدة تتحقق من الملكية والتذكرة
+    assert.equal(sourcePathOk(item({ source_path: `${T0}/1760000000000_ab12cd_receipt.png` })), true);
+    assert.equal(sourcePathOk(item({ source_path: `${T0}/../x` })), false);
 });
 
 test('بلا سر (أو قصير) 503 والطابور لا يُقرأ؛ سر خاطئ 401؛ غير POST 405', async () => {

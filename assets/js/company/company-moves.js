@@ -48,6 +48,18 @@ export function transferRowInfo(t) {
     };
 }
 
+/** نتيجة القرار كما رجّعتها القاعدة — لا «نجاح» لطلب انتهت مهلته أو أُلغي. خالصة. */
+export function transferDecisionMessage(status, approve) {
+    switch (status) {
+        case 'completed': return { ok: true, text: 'اكتمل النقل' };
+        case 'pending': return { ok: true, text: 'سُجّلت موافقتك' };
+        case 'rejected': return { ok: true, text: 'رُفض الطلب' };
+        case 'expired': return { ok: false, text: 'انتهت مهلة الطلب — لم يتغير شيء' };
+        case 'cancelled': return { ok: false, text: 'أُلغي الطلب: تغيّرت عضويات العميل — لم يتغير شيء' };
+        default: return { ok: !!approve, text: approve ? 'سُجّلت موافقتك' : 'رُفض الطلب' };
+    }
+}
+
 export function validatePurpose(raw) {
     const purpose = String(raw || '').trim();
     if (purpose.length < 20) return { ok: false, error: 'اكتب الغرض بوضوح (20 حرفًا على الأقل)' };
@@ -114,7 +126,8 @@ function renderTransfers(rows, reload) {
                 row.querySelectorAll('button').forEach(b => { b.disabled = false; });
                 return;
             }
-            ui?.showToast?.(result.data?.status === 'completed' ? 'اكتمل النقل' : approve ? 'سُجّلت موافقتك' : 'رُفض الطلب', 'success');
+            const outcome = transferDecisionMessage(result.data?.status, approve);
+            ui?.showToast?.(outcome.text, outcome.ok ? 'success' : 'warning');
             await reload();
         }));
     });

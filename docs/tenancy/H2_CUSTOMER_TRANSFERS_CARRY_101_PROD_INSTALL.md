@@ -30,6 +30,18 @@
 | MEDIUM: copy queue could starve, and the worker deleted objects after a lost confirmation | Ordered queue with `attempts`, failed after 5. The worker never deletes; an existing object at the server-generated path proceeds to confirmation. | worker tests |
 | LOW: `service_role` kept execute on internal and authenticated functions | Revoked | — |
 
+**Second review (of the fix diff, 2026-10-14).**
+
+| Finding | Fix | Test |
+|---|---|---|
+| **HIGH:** isolation or 098 could be switched **off** after transfers completed, reviving the legacy `super_user_id` path to old tickets | Trigger `trg_guard_isolation_after_transfers` refuses (55000 `transfers_exist`) to disable `company_isolation_enforced` or `company_permissions_enabled` once any transfer is `completed`. **Consequence: after the first completed transfer, isolation and 098 are one-way.** Plan any rollback of them before enabling transfers. | ③ guard |
+| MEDIUM: real app uploads (`<ticket>/<ts>_<name>`, `tickets-service.js`) were never carried | `_carry_attachment_ok` parses paths with `storage_ticket_id()`, as the storage policies do (028), still requiring the customer-owned object and the same ticket. The worker accepts that shape too. | ④ app-path file carried, forged rows still refused |
+| MEDIUM: `expired`/`cancelled` outcomes were shown as success; the owner's exceptional transfer committed side effects and an audit row even when nothing moved | Company UI shows the real outcome (`transferDecisionMessage`). The exceptional transfer is all-or-nothing and raises unless `completed`. | `company-moves.test.mjs` |
+
+Residual, documented:
+- **MEDIUM (pre-existing, 096).** With only `multi_company_memberships_enabled`, `set_primary_company` also moves `super_user_id`. With isolation off, the new company's owner then sees old tickets. Enable isolation before memberships, or extend the same guard to 096 primary changes.
+- **LOW.** The copy queue's `SKIP LOCKED` lasts only for the RPC call, so overlapping worker runs may take the same item. That is harmless through the 409 → confirm path but uses up attempts. Run the worker as a single scheduled instance.
+
 ## Code that ships with 101 (not deployed)
 
 - `migrations/101_customer_transfers_carry.sql`: tables `customer_transfers`, `ticket_carries`, `ticket_carry_items`, `ticket_carry_attachments`, `historical_access_requests`, `historical_access_audit`, all with RLS, no direct grants, the `gate_account_active` restrictive policy, no deletes and an append-only audit.

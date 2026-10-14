@@ -152,8 +152,12 @@ BEGIN
   x := (t.call(t.u('A1'), format('public.transfer_request(%L::uuid, false, gen_random_uuid())', t.u('CA'))) ->> 'transfer_id')::uuid;
   PERFORM t.ok(x IS NOT NULL, 'EXP slot freed');
   PERFORM t.ok(t.call(t.u('A1'), format('public.transfer_cancel(%L::uuid)', x)) ->> 'status' = 'cancelled', 'EXP cancel');
-  PERFORM t.sw('company_permissions_enabled', false);
-  PERFORM t.sw('company_isolation_enforced', false);
+  -- بعد نقل مكتمل: لا إطفاء للعزل ولا لـ098 (وإلا عاد المسار القديم وكشف التذاكر السابقة لمالك الوجهة)
+  PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_isolation_enforced''') = '55000'
+           AND t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''company_permissions_enabled''') = '55000',
+           'GUARD isolation and 098 stay on after a completed transfer');
+  PERFORM t.ok(t.err_super_ok('update public.platform_feature_switches set enabled = false where key = ''multi_company_memberships_enabled''') = 'ok', 'GUARD other switches unaffected');
+  PERFORM t.sw('multi_company_memberships_enabled', true);
   RAISE NOTICE 'PASS ③ النقل: العميل يطلب (تأكيده)، المديران يقرران، التنفيذ ذري عند اكتمالهما، المصدر يبقى إضافية باختيار العميل وإذن المصدر، منع التكرار وطلب معلّق واحد، الرفض لا يغيّر شيئًا، الاستثنائي للمالك بسبب مسجَّل، والمسار الخام مقيَّد';
 END $$;
 
@@ -171,15 +175,19 @@ BEGIN
   INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path) VALUES
     (t.k('TA1'), null, 'x', 'stolen-internal.png', 10, 'image/png', t.u('A1'), t.path('A1', 'TA1', 'internal.png')),
     (t.k('TA1'), null, 'x', 'stolen-other.png', 10, 'image/png', t.u('A1'), t.path('B1', 'TB1', 'whatever.png'));
+  -- المسار الذي يرفعه التطبيق فعلًا (tickets-service.js): <التذكرة>/<وقت>_<اسم>
+  INSERT INTO public.ticket_attachments (ticket_id, reply_id, file_url, file_name, file_size, mime_type, uploaded_by, file_path)
+  VALUES (t.k('TA1'), null, 'x', 'receipt.png', 10, 'image/png', t.u('A1'), t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png');
+  INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('tickets', t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png', t.u('A1'));
   c := t.call(t.u('A1'), format('public.carry_candidates(%L::uuid)', t.u('CA')));
   PERFORM t.ok(jsonb_array_length(c) = 1 AND c -> 0 ->> 'id' = t.k('TA1')::text, 'CAND own company tickets only');
   PERFORM t.ok((c #>> '{0,manifest,replies_included}')::int = 1 AND (c #>> '{0,manifest,replies_excluded_staff}')::int = 1
-           AND (c #>> '{0,manifest,replies_excluded_internal}')::int = 1 AND (c #>> '{0,manifest,attachments_included}')::int = 1
+           AND (c #>> '{0,manifest,replies_excluded_internal}')::int = 1 AND (c #>> '{0,manifest,attachments_included}')::int = 2
            AND (c #>> '{0,manifest,attachments_excluded}')::int = 4, 'CAND manifest ' || (c -> 0 -> 'manifest')::text);
   q0 := public.ticket_quota_status(t.u('A1'));
   r := t.call(t.u('A1'), format('public.carry_tickets(%L::uuid, %L::uuid, array[%L::uuid], %L::uuid)', t.u('CA'), t.u('CB'), t.k('TA1'), k));
   nt := (r -> 'tickets' ->> 0)::uuid;
-  PERFORM t.ok(nt IS NOT NULL AND (r ->> 'attachments_pending')::int = 1, 'CARRY created');
+  PERFORM t.ok(nt IS NOT NULL AND (r ->> 'attachments_pending')::int = 2, 'CARRY created (customer reply file + real app-path file)');
   PERFORM t.ok((SELECT scope || ':' || company_id || ':' || user_id || ':' || coalesce(assigned_to::text, '-') FROM public.tickets WHERE id = nt)
              = 'company:' || t.u('CB') || ':' || t.u('A1') || ':-', 'CARRY new ticket in destination, unassigned');
   PERFORM t.ok((SELECT description LIKE '%تفاصيل أ1%' AND description LIKE '%رسالتي الثانية للشركة%'
@@ -200,22 +208,21 @@ BEGIN
   PERFORM t.ok((SELECT counter || ':' || units FROM public.usage_ledger WHERE ticket_id = nt) = 'none:0', 'BILL ledger not billed');
   PERFORM t.ok(NOT EXISTS (SELECT 1 FROM jsonb_array_elements(public.usage_reconciliation() -> 'mismatches') e WHERE e ->> 'reason' = 'unexplained'), 'BILL reconciliation explained');
   -- العزل: الوجهة ترى المنسوخة لا الأصل؛ المصدر يرى الأصل لا المنسوخة
-  PERFORM t.sw('company_isolation_enforced', true);
+  PERFORM t.ok(public._feature_on('company_isolation_enforced') AND public._feature_on('company_permissions_enabled'), 'ISO switches held on by the guard');
   PERFORM t.ok(t.sees('OB', 'TA1') = false AND t.rows(t.u('OB'), format('public.tickets where id = %L', nt)) = 1, 'ISO destination');
   -- بلا 098 يرى المصدر تذاكره عبر الرابط القديم وحده، والنقل يحرّكه: يُغلق ولا يتسرب (ترتيب الإطلاق: 098 قبل 101)
-  PERFORM t.ok(NOT t.sees('OA', 'TA1') AND t.rows(t.u('OA'), format('public.tickets where id = %L', nt)) = 0, 'ISO source fail-closed without 098');
-  PERFORM t.sw('company_permissions_enabled', true);
   PERFORM t.ok(t.sees('OA', 'TA1') AND t.rows(t.u('OA'), format('public.tickets where id = %L', nt)) = 0, 'ISO source');
   PERFORM t.ok(t.sees('OB', 'TA1') = false AND t.rows(t.u('OB'), format('public.tickets where id = %L', nt)) = 1, 'ISO destination with 098');
-  PERFORM t.sw('company_permissions_enabled', false);
-  PERFORM t.sw('company_isolation_enforced', false);
   -- نسخ المرفق: عامل الخدمة؛ لا تأكيد بلا ملف جديد
   item := (public.carry_copy_queue() -> 0 ->> 'id')::uuid;
   PERFORM t.ok(item IS NOT NULL AND t.err(t.u('A1'), 'public.carry_copy_queue()') = '42501', 'COPY queue service only');
   PERFORM t.ok(t.err_super_ok(format('select public.carry_copy_complete(%L, true, %L)', item, repeat('a', 64))) = '55000', 'COPY needs new object');
-  INSERT INTO storage.objects (bucket_id, name, owner) SELECT 'tickets', dest_path, t.u('A1') FROM public.ticket_carry_attachments WHERE id = item;
+  INSERT INTO storage.objects (bucket_id, name, owner) SELECT 'tickets', dest_path, t.u('A1') FROM public.ticket_carry_attachments WHERE status = 'pending_copy';
   PERFORM t.ok(public.carry_copy_complete(item, true, repeat('a', 64)) ->> 'status' = 'copied', 'COPY complete');
-  PERFORM t.ok((SELECT uploaded_by = t.u('A1') AND file_path <> t.path('A1', 'TA1', 'invoice.png') FROM public.ticket_attachments WHERE ticket_id = nt), 'COPY new object, customer-owned');
+  PERFORM public.carry_copy_complete(a.id, true, repeat('b', 64)) FROM public.ticket_carry_attachments a WHERE a.status = 'pending_copy';
+  PERFORM t.ok((SELECT count(*) = 2 AND bool_and(uploaded_by = t.u('A1')) AND bool_and(file_path NOT IN (t.path('A1', 'TA1', 'invoice.png'),
+                                                     t.k('TA1')::text || '/1760000000000_ab12cd_receipt.png'))
+                  FROM public.ticket_attachments WHERE ticket_id = nt), 'COPY new objects, customer-owned');
   PERFORM t.ok(public.carry_copy_queue() = '[]'::jsonb, 'COPY queue drained');
   PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.ticket_carry_attachments WHERE source_path LIKE '%internal.png' OR source_path LIKE '%whatever.png'),
                'CARRY forged attachment rows never queued');
@@ -288,7 +295,8 @@ END $$;
 SELECT set_config('t.rbsql', :'rbsql', false) IS NOT NULL;
 DO $$
 BEGIN
-  UPDATE public.platform_feature_switches SET enabled = false;
+  UPDATE public.platform_feature_switches SET enabled = false
+   WHERE key IN ('customer_transfers_enabled', 'ticket_carry_enabled', 'historical_access_enabled');
   BEGIN
     EXECUTE current_setting('t.rbsql');
     RAISE EXCEPTION 'FAIL RB allowed with data';

@@ -30,6 +30,7 @@ alter table public.company_membership_events add constraint company_membership_e
                     'invitation_cancelled', 'context_set'));
 
 drop trigger if exists trg_guard_raw_company_move on public.profiles;
+drop trigger if exists trg_guard_isolation_after_transfers on public.platform_feature_switches;
 
 -- الدوال كما كانت بعد 100 حرفيًا
 
@@ -234,6 +235,7 @@ drop function if exists public.carry_copy_queue(integer);
 drop function if exists public.carry_copy_complete(uuid, boolean, text, text);
 drop function if exists public._carry_manifest(uuid, uuid);
 drop function if exists public._carry_attachment_ok(uuid, uuid);
+drop function if exists public._guard_isolation_after_transfers();
 drop function if exists public._carry_require_enabled();
 drop function if exists public.historical_access_request(uuid, text);
 drop function if exists public.my_historical_requests();

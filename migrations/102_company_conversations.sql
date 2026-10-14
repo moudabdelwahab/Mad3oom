@@ -235,7 +235,9 @@ security definer
 set search_path to 'public'
 as $$
   with r as (select public._company_staff_role_of(p_company, p_user) as role)
+  -- مؤهل للعمل (غير محظور، حساب مفعّل — 086) ثم يملك العرض
   select coalesce(p_user is not null
+     and coalesce(public._company_is_eligible_agent(p_company, p_user), false)
      and case
            when (select role from r) is null then false
            when (select role from r) = 'admin' then true
