@@ -1,6 +1,6 @@
 # Production release plan — migrations 094 → 102 (all switches OFF)
 
-> **Status: NOT EXECUTED.** Only a rolled-back dry run has touched production (see the update at the end). The recovery-point gate was waived by the owner on 2026-10-14.
+> **Status: EXECUTED on 2026-10-14 between 18:05 and 18:12 UTC.** 094 → 102 were applied to production one at a time, each verified; every switch is OFF. See "Applied" at the end. The recovery-point gate was waived by the owner (pre-launch).
 > Target: Supabase project `srnelrdpqkcntbgudyto` ("info@mad3oom.online's Project", ap-south-1, Postgres 17.6.1.044, organization `nlcxrkzlikhzyqxexego`, the only project in the account). Identity verified read-only on 2026-10-14.
 > Release candidate: branch `claude/dazzling-hypatia-lh1o9i` at `70e7f16`, PR #135, on top of `main` `1124d52`.
 
@@ -204,3 +204,40 @@ begin
   execute v_sql;
 end $release102$;
 ```
+
+## Applied (2026-10-14, project `srnelrdpqkcntbgudyto`)
+
+Before each session: `get_project` returned `srnelrdpqkcntbgudyto`, ACTIVE_HEALTHY, and the ledger head was `093_continuity_collab_actions` with no 094+ rows. Each migration was its own `apply_migration` call with the release wrapper above: fetch at the pinned commit, md5 check, execute. Each call returned `{"success":true}`, and its checks passed before the next call.
+
+| # | Migration | Checks after apply |
+|---|---|---|
+| 1 | `094_continuity_reminders` (ledger `20261014180515`) | both tables present; cron `continuity-tick` (`* * * * *`) and `continuity-job-retention` (`29 3 * * *`); `reminders_enabled` / `escalation_enabled` false; 3 jobs planned for active records, 0 deliveries; notifications unchanged at 2009 |
+| 2 | `095_account_boundaries` | `context_destination('company_user_preview')` = `/portal/`; companies policy uses `company_staff_role()`; 0 `supervises` policies; `anon` cannot execute `my_account_kind()`; 39 tickets, 41 profiles |
+| 3 | `096_company_memberships` | `multi_company_memberships_enabled` false; `membership_mirror_drift()` = `[]`; 1 active membership = 1 linked customer; no `authenticated` select |
+| 4 | `097_ticket_scope_isolation` | 39 tickets `mad3oom_support`; 6 `tenant_isolation` policies plus `ticket_files_isolation`; switches false; RLS on every public table |
+| 5 | `098_company_permissions_usage_ledger` | 39 `ticket_created` ledger rows = 39 tickets; `usage_reconciliation()` mismatches `[]`; switches false |
+| 6 | `099_admin_hierarchy` | 6 admin reviews, 0 units, 0 delegations; switches false |
+| 7 | `100_company_documents` | pre-check: 16 permissive `storage.objects` policies, 0 without `bucket_id`. After: bucket `company-documents` private; no policy names it; no purge function; 0 documents; switches false |
+| 8 | `101_customer_transfers_carry` | `trg_guard_isolation_after_transfers` present; mismatches `[]`; 0 transfers; no FK to `companies` / `profiles`; switches false |
+| 9 | `102_company_conversations` | ledger head `102_company_conversations`, 375 rows, 094–102 each exactly once; 6 `conversations.*` permissions; 0 table grants; not in Realtime; 0 of 11 switches on |
+
+### Post-apply smoke tests
+
+- `_feature_on()` returns false for all 11 switch keys. The 094 policy switches are false.
+- `continuity-tick` succeeds every minute; 3 pending jobs, 0 deliveries, no notification sent.
+- **As real users** (inside a rolled-back block):
+  - each account sees exactly its own tickets (2/2, 0/0, 5/5);
+  - `my_account_kind()` is correct;
+  - `h2_features()` reports everything false;
+  - `company_inbox_summary()` and `my_company_conversations()` return null (switch off).
+- The `tenant_isolation` policies are `NOT _isolation_on() OR …`, so they hide nothing while the switch is off.
+- **`get_advisors(security)`:** no ERROR-level finding. Two WARN groups involve 094–102 functions; neither is a blocker:
+  - **SECURITY DEFINER functions executable by `anon` (10):**
+    - nine are boolean RLS helpers used by policies on role `public`, so `anon` must be able to execute them; each has a pinned `search_path` and evaluates the caller's own identity;
+    - the tenth, `guard_profile_points_change`, is a pre-existing trigger function.
+  - **Mutable `search_path` (14):** all SECURITY INVOKER triggers or pure helpers. 25 pre-existing functions carry the same warning.
+- **Logs since 18:04 UTC:**
+  - no ERROR from the migrations;
+  - every gateway request 2xx;
+  - two errors seen are pre-existing and unrelated: `employee_daily_stats.had_open_session` not-null (95 times in the previous 24 h) and `integrations-worker` 503 (244 times in the previous 24 h).
+- **Not changed:** Edge Functions, secrets, auth settings, frontend, PR merge. Each switch stays OFF until its prerequisites in `REVIEW_FOLLOWUPS_099_100.md` and the H2 note are met.

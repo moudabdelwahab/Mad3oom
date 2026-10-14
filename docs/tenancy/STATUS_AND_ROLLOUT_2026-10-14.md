@@ -1,6 +1,8 @@
 # Multi-tenant architecture & security — status and rollout (2026-10-14)
 
-> Branch `claude/dazzling-hypatia-lh1o9i`. **Production was not changed.** Every migration and function here is unapplied and undeployed, and every switch below ships **OFF**. Each production step needs your separate, explicit approval.
+> **Update 2026-10-14 18:12 UTC:** migrations 094 → 102 are **applied to production**, every switch OFF. See `PRODUCTION_RELEASE_PLAN_2026-10-14.md` → "Applied". No functions or secrets were deployed.
+>
+> Branch `claude/dazzling-hypatia-lh1o9i`. **(Below: state before the apply.) Production was not changed.** Every migration and function here is unapplied and undeployed, and every switch below ships **OFF**. Each production step needs your separate, explicit approval.
 > Production was checked read-only on 2026-10-14:
 > - ledger head `093_continuity_collab_actions`;
 > - none of the 095–102 objects exist;
